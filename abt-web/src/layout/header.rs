@@ -54,9 +54,11 @@ pub fn header(claims: &Claims, module_name: &str, page_name: Option<&str>) -> Ma
                             "通知中心"
                         }
                         div class="user-menu-divider" {}
-                        a class="user-menu-item user-menu-logout" href="/logout" {
-                            (icon::log_out_icon("w-4 h-4"))
-                            "退出登录"
+                        form class="user-menu-form" hx-post="/logout" hx-swap="none" {
+                            button class="user-menu-item user-menu-logout" type="submit" {
+                                (icon::log_out_icon("w-4 h-4"))
+                                "退出登录"
+                            }
                         }
                     }
                     (maud::PreEscaped(r#"<script>

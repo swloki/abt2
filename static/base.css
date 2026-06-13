@@ -308,6 +308,8 @@ p { margin: 0; }
 .user-menu-divider { height: 1px; background: var(--border-soft); margin: var(--space-2) 0; }
 .user-menu-logout { color: var(--danger); }
 .user-menu-logout svg { color: var(--danger); }
+.user-menu-form { margin: 0; }
+.user-menu-form .user-menu-item { width: 100%; border: none; background: none; text-align: left; }
 
 /* ─── Page Content ─── */
 .page-content { flex: 1; padding: var(--space-8); min-width: 0; overflow-x: hidden; }

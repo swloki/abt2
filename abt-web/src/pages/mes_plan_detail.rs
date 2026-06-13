@@ -347,37 +347,41 @@ fn plan_detail_page(
             @if plan.status == PlanStatus::Confirmed {
                 div class="modal-overlay" id="release-dialog" {
                     div class="modal" {
-                        h3 class="modal-title" { "确认下达生产计划？" }
-                        p class="modal-desc" {
-                            "下达后将根据计划明细生成对应工单、生产批次和工序记录。请确认以下校验结果："
+                        div class="modal-head" {
+                            h2 { "确认下达生产计划？" }
                         }
+                        div class="modal-body" {
+                            p class="modal-desc" {
+                                "下达后将根据计划明细生成对应工单、生产批次和工序记录。请确认以下校验结果："
+                            }
 
-                        // 预校验结果
-                        div class="release-preview" {
-                            @if items.is_empty() {
-                                p class="modal-desc" { "暂无计划明细" }
-                            } @else {
-                                @for item in items {
-                                    @let pname = product_names.get(&item.product_id).map(|s| s.as_str()).unwrap_or("—");
-                                    @let val = val_map.get(&item.id).copied();
-                                    div class="release-preview-item" {
-                                        div class="ri-header" {
-                                            span class="ri-product" { (pname) " · " (crate::utils::fmt_qty(item.planned_qty)) "件" }
-                                            (completeness_dots(val))
-                                        }
-                                        @if let Some(v) = val {
-                                            @if !v.has_published_bom {
-                                                div class="ri-warn" { "⚠ 未找到已发布的 BOM" }
+                            // 预校验结果
+                            div class="release-preview" {
+                                @if items.is_empty() {
+                                    p class="modal-desc" { "暂无计划明细" }
+                                } @else {
+                                    @for item in items {
+                                        @let pname = product_names.get(&item.product_id).map(|s| s.as_str()).unwrap_or("—");
+                                        @let val = val_map.get(&item.id).copied();
+                                        div class="release-preview-item" {
+                                            div class="ri-header" {
+                                                span class="ri-product" { (pname) " · " (crate::utils::fmt_qty(item.planned_qty)) "件" }
+                                                (completeness_dots(val))
                                             }
-                                            @if !v.has_routing {
-                                                div class="ri-warn" { "⚠ 未配置工艺路线" }
-                                            }
-                                            @for s in &v.material_shortages {
-                                                div class="ri-warn" {
-                                                    (format!("⚠ 物料短缺：需求 {}，库存 {}，缺口 {}",
-                                                        crate::utils::fmt_qty(s.required_qty),
-                                                        crate::utils::fmt_qty(s.available_qty),
-                                                        crate::utils::fmt_qty(s.shortage_qty)))
+                                            @if let Some(v) = val {
+                                                @if !v.has_published_bom {
+                                                    div class="ri-warn" { "⚠ 未找到已发布的 BOM" }
+                                                }
+                                                @if !v.has_routing {
+                                                    div class="ri-warn" { "⚠ 未配置工艺路线" }
+                                                }
+                                                @for s in &v.material_shortages {
+                                                    div class="ri-warn" {
+                                                        (format!("⚠ 物料短缺：需求 {}，库存 {}，缺口 {}",
+                                                            crate::utils::fmt_qty(s.required_qty),
+                                                            crate::utils::fmt_qty(s.available_qty),
+                                                            crate::utils::fmt_qty(s.shortage_qty)))
+                                                    }
                                                 }
                                             }
                                         }
@@ -385,8 +389,7 @@ fn plan_detail_page(
                                 }
                             }
                         }
-
-                        div class="modal-actions" {
+                        div class="modal-foot" {
                             button class="btn btn-default" type="button" {
                                 "取消"
                                 (maud::PreEscaped(r#"<script>me().on('click',function(){me('#release-dialog').classRemove('is-open')})</script>"#))

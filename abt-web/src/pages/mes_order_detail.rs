@@ -400,13 +400,17 @@ fn order_detail_page(
             @if matches!(order.status, WorkOrderStatus::Released) {
                 div class="modal-overlay" id="unrelease-dialog" {
                     div class="modal modal-sm" {
-                        h3 class="modal-title" { "确认反下达？" }
-                        p class="modal-desc" {
-                            "反下达将回退工单到 "
-                            strong { "草稿" }
-                            " 状态，同时取消领料单、释放库存预留、删除生产批次和工序记录。此操作不可撤销。"
+                        div class="modal-head" {
+                            h2 { "确认反下达？" }
                         }
-                        div class="modal-actions" {
+                        div class="modal-body" {
+                            p class="modal-desc" {
+                                "反下达将回退工单到 "
+                                strong { "草稿" }
+                                " 状态，同时取消领料单、释放库存预留、删除生产批次和工序记录。此操作不可撤销。"
+                            }
+                        }
+                        div class="modal-foot" {
                             button class="btn btn-default" type="button" {
                                 "取消"
                                 (maud::PreEscaped(r#"<script>me().on('click',function(){me('#unrelease-dialog').classRemove('is-open')})</script>"#))

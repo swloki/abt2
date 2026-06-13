@@ -91,6 +91,24 @@ impl BomQueryService for BomQueryServiceImpl {
         self.repo.check_name_unique(db, name, caller_id)
             .await
     }
+
+    async fn find_published_bom_by_product_code(
+        &self,
+        _ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        product_code: &str,
+    ) -> Result<Option<i64>> {
+        self.repo.find_published_by_product_code(db, product_code).await
+    }
+
+    async fn get_snapshot_by_id(
+        &self,
+        _ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        snapshot_id: i64,
+    ) -> Result<Option<BomSnapshot>> {
+        self.snapshot_repo.find_by_snapshot_id(db, snapshot_id).await
+    }
 }
 
 // ── BomCommandServiceImpl ────────────────────────────────────────────────────

@@ -31,6 +31,22 @@ pub trait BomQueryService: Send + Sync {
         name: &str,
         caller_id: Option<i64>,
     ) -> Result<bool>;
+
+    /// 查找产品关联的已发布 BOM，返回 bom_id
+    async fn find_published_bom_by_product_code(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        product_code: &str,
+    ) -> Result<Option<i64>>;
+
+    /// 按 snapshot_id 加载快照
+    async fn get_snapshot_by_id(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        snapshot_id: i64,
+    ) -> Result<Option<BomSnapshot>>;
 }
 
 #[async_trait]

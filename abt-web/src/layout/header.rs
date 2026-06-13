@@ -32,7 +32,6 @@ pub fn header(claims: &Claims, module_name: &str, page_name: Option<&str>) -> Ma
                 div class="user-menu" {
                     button class="user-menu-trigger" aria-label="用户菜单" {
                         div class="avatar" { (initials) }
-                        (maud::PreEscaped(r#"<script>me().on('click',function(){me().closest('.user-menu').classToggle('is-open')})</script>"#))
                     }
                     div class="user-menu-dropdown" {
                         div class="user-menu-header" {
@@ -60,13 +59,19 @@ pub fn header(claims: &Claims, module_name: &str, page_name: Option<&str>) -> Ma
                             "退出登录"
                         }
                     }
+                    (maud::PreEscaped(r#"<script>
+                        me('.user-menu-trigger').on('click', function(e) {
+                            e.stopPropagation();
+                            me('.user-menu').classToggle('is-open');
+                        });
+                        document.addEventListener('click', function(e) {
+                            if (!e.target.closest('.user-menu')) {
+                                me('.user-menu').classRemove('is-open');
+                            }
+                        });
+                    </script>"#))
                 }
             }
         }
-        (maud::PreEscaped(r#"<script>
-            document.addEventListener('click',function(e){
-                if(!e.target.closest('.user-menu')){any('.user-menu').forEach(function(m){m.classList.remove('is-open')})}
-            });
-        </script>"#))
     }
 }

@@ -1,7 +1,7 @@
 # MES 流程简化设计 — 需求池到生产批次的一键贯通
 
 > 日期: 2026-06-13
-> 状态: Draft (v5 — 含技术评审 + ERP 业务评审 + 产品经理评审全部改进)
+> 状态: Draft (v6 — 项目级评审修正：优先级重排 + 范围收拢 + 分阶段交付)
 > 范围: MES 模块 + WMS 物料管理相关（领料单、倒冲、预留）
 
 ## 1. 问题诊断
@@ -15,32 +15,37 @@
 
 ### 核心问题（13 个，按严重性排列）
 
-**P0 — 数据正确性（上线即修复）**
+**P0 — 数据正确性（阶段 1 修复，影响当前生产数据）**
 
-| # | 问题 | 根因 |
-|---|------|------|
-| P2 | **工序来源错误** | `WorkOrder.release()` 从 BOM 叶子节点生成 `WorkOrderRouting`，BOM 叶子是物料组件不是工序 |
-| P4 | **BOM 未快照** | `bom_snapshot_id` 始终 None，BOM 变更后领料/倒冲/成本全错位 |
-| P5 | **库存预留对象错误** | release 时预留的是成品，实际应预留原材料/组件 |
-| P7 | **领料单是空壳** | `create_for_work_order()` 只创建单头，无明细行（不知领什么料、领多少） |
-| P8 | **倒冲仓库为 0** | `backflush/implt.rs:130` 硬编码 `warehouse_id: 0`，原材料库存永远不会被正确扣减 |
+| # | 问题 | 根因 | 影响范围 |
+|---|------|------|---------|
+| P2 | **工序来源错误** | `WorkOrder.release()` 从 BOM 叶子节点生成 `WorkOrderRouting`，BOM 叶子是物料组件不是工序 | 所有工单的工序数据均为错误数据 |
+| P4 | **BOM 未快照** | `bom_snapshot_id` 始终 None，BOM 变更后倒冲/成本全错位 | 倒冲无基准，是 P8 的上游依赖 |
+| P8 | **倒冲仓库为 0** | `backflush/implt.rs:130` 硬编码 `warehouse_id: 0`，原材料永远不会被正确扣减 | **当前生产环境中唯一用户可见的数据错误** |
 
-**P1 — 业务完整性（必须同步解决）**
+**P0-Conditional — 仅 picking 模式下触发（随阶段 2 一同解决）**
 
-| # | 问题 | 根因 |
-|---|------|------|
-| P6 | **销售订单追溯断裂** | `release_to_work_orders` 创建工单时 `sales_order_id: None` |
-| P9 | **倒冲量=理论量永远无差异** | `actual_qty = theoretical_qty`，差异检测机制形同虚设 |
-| P10 | **缺物料可用性预检** | 无基本 ATP 检查就下达工单，工单到车间后等料 → 产能浪费 |
-| P11 | **领料/倒冲职责重叠未定义** | 两种物料消耗方式并存，可能导致双重扣减或漏扣 |
-| P12 | **无超额生产处理** | 报工完成量可超过计划量，系统无容差控制 |
+| # | 问题 | 根因 | 为何非即时 P0 |
+|---|------|------|-------------|
+| P5 | **库存预留对象错误** | release 时预留的是成品，实际应预留原材料/组件 | 当前 backflush 模式不做预留，用户无感知；仅 picking 模式需要 |
+| P7 | **领料单是空壳** | `create_for_work_order()` 只创建单头，无明细行 | 当前 backflush 模式不使用领料单；仅 picking 模式需要 |
 
-**P2 — 流程效率**
+**P1 — 业务完整性（阶段 2-3 解决）**
 
-| # | 问题 | 根因 |
-|---|------|------|
-| P1 | **计划层是空壳** | `ProductionPlan` 没有排程能力 |
-| P3 | **手动操作太多** | 计划员至少 4-5 次点击才能让车间开工 |
+| # | 问题 | 根因 | 阶段 |
+|---|------|------|------|
+| P6 | **销售订单追溯断裂** | `release_to_work_orders` 创建工单时 `sales_order_id: None` | 阶段 1（成本极低，顺带修复） |
+| P9 | **倒冲量=理论量永远无差异** | `actual_qty = theoretical_qty`，差异检测机制形同虚设 | V1 保持现状，V1.5 补差异调整 |
+| P10 | **缺物料可用性预检** | 无基本 ATP 检查就下达工单，工单到车间后等料 → 产能浪费 | 阶段 3 |
+| P11 | **领料/倒冲职责重叠未定义** | 两种物料消耗方式并存，可能导致双重扣减或漏扣 | 阶段 2（引入 material_consumption_mode） |
+| P12 | **无超额生产处理** | 报工完成量可超过计划量，系统无容差控制 | 阶段 3 |
+
+**P2 — 流程效率（阶段 3-4 解决）**
+
+| # | 问题 | 根因 | 阶段 |
+|---|------|------|------|
+| P1 | **计划层是空壳** | `ProductionPlan` 没有排程能力 | 阶段 4 |
+| P3 | **手动操作太多** | 计划员至少 4-5 次点击才能让车间开工 | 阶段 3 |
 
 **P3 — 渐进增强（V2 范围）**
 
@@ -48,11 +53,16 @@
 |---|------|------|
 | P13 | **WIP 在制品库存缺失** | 领料到完工之间无 WIP 记录，盘点/成本/追溯都有盲区 |
 
+> **优先级重排说明**：P5（预留对象错误）和 P7（领料单空壳）从 P0 降为 P0-Conditional。
+> 当前系统只有 backflush 模式在用——backflush 模式下 release 不做预留、不使用领料单，因此这两个问题对生产无实际影响。
+> 它们只在引入 picking 模式时才暴露，随阶段 2 一并解决。
+
 ## 2. 目标流程（3 步，2 次操作）
 
 ```
 需求池(选需求) → 生成计划(含排程) → 确认并下达(一键生成 Released 工单 + 批次)
 ```
+> 注：阶段 1 只走 backflush 路径（步骤 6-7 跳过），picking 模式在阶段 2 引入 material_consumption_mode 后才生效。
 
 **"确认并下达"一步完成的原子操作序列**：
 1. 预校验（Routing/BOM/物料可用性/产品有效性）
@@ -176,8 +186,12 @@ create_for_work_order() 改造：
 **修复 1 — 仓库来源（P0）**:
 ```
 当前: warehouse_id: 0
-修正: 从 BOM 快照组件行取 warehouse_id（同 4 级仓库策略）
-      如果组件行无仓库，使用工单工作中心默认仓库
+修正: 按 4 级仓库策略确定（§3.3）：
+  1. BOM 快照组件行的 warehouse_id（如果快照存在且组件行有指定）
+  2. 工单工作中心的默认仓库
+  3. 组件产品的默认仓库
+  4. 系统参数默认生产仓库
+注：如果 BOM 快照为 None（产品无已发布 BOM），跳过优先级 1，从优先级 2 开始回退。
 ```
 
 **修复 2 — 实际用量（V1.5 — 不改变完工操作流程）**:
@@ -363,7 +377,9 @@ async fn unrelease(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64, exp
 5. 删除 WorkOrderRouting（WHERE work_order_id = id）
 6. 清除 work_order.bom_snapshot_id（快照记录保留）
 7. 工单状态 → Draft
-8. 审计日志
+8. 回滚关联 PlanItem 状态: Released → Planned（如果有 plan_item_id 关联）
+9. 如果该 PlanItem 下所有工单均已反下达 → 检查是否需要回滚 Plan 状态
+10. 审计日志
 ```
 
 ### 3.12 事件发布策略
@@ -434,48 +450,63 @@ Rejected        Cancelled         Cancelled
 
 **本次需新增**:
 
-| 改动 | 说明 |
-|------|------|
-| `products.meta` 增加 `material_consumption_mode` | "backflush"(默认) 或 "picking"。存储在 JSONB meta 字段中，无需 ALTER TABLE |
+| 改动 | 说明 | 阶段 |
+|------|------|------|
+| `products.meta` 增加 `material_consumption_mode` | "backflush"(默认) 或 "picking"。存储在 JSONB meta 字段中，无需 ALTER TABLE | 阶段 2 |
+| `products.meta` 增加 `over_completion_tolerance` | 超额容差百分比，默认 5%。JSONB 字段 | 阶段 3 |
 
-**其余无 schema 变更**，现有表结构已满足：
-- `work_orders.routing_id` / `bom_snapshot_id` / `work_center_id` / `sales_order_id` — 均已存在
-- `production_plan_items.routing_id` / `work_center_id` / `status` — 均已存在
-- `bom_snapshots` 表 — 已存在
-- `material_requisition_lines` 表 — 需确认是否存在，如不存在需新增（见下方）
+**无需 schema 变更**（现有表结构已满足全部需求）：
 
-**领料单明细行**:
-> 如果 `material_requisition_lines` 表不存在，需新增 migration。领料单明细行应包含：
-> `id, requisition_id, product_id, required_qty, issued_qty, warehouse_id, remark`
+| 表/字段 | 状态 | 说明 |
+|---------|------|------|
+| `work_orders.routing_id` | ✅ 已存在 | |
+| `work_orders.bom_snapshot_id` | ✅ 已存在 | 修复代码填入真实值 |
+| `work_orders.work_center_id` | ✅ 已存在 | |
+| `work_orders.sales_order_id` | ✅ 已存在 | 修复代码传入 |
+| `production_plan_items.routing_id` / `work_center_id` / `status` | ✅ 已存在 | |
+| `bom_snapshots` 表 | ✅ 已存在 | `abt-core/src/master_data/bom/model.rs` |
+| `material_requisitions` 表 | ✅ 已存在 | `002_create_wms.sql:201` |
+| `material_requisition_items` 表 | ✅ 已存在 | `002_create_wms.sql:223`，含 `product_id, requested_qty, issued_qty, variance_qty, bin_id` |
+| `backflush_records` + `backflush_items` 表 | ✅ 已存在 | |
 
 ### 3.18 前端页面改动
 
 | 页面 | 改动 | 阶段 |
 |------|------|------|
+| 产品主数据 | 显示 Routing 关联状态 + `material_consumption_mode` 切换 | 阶段 2 |
 | 需求池 | 排程参数输入 + "生成计划并下达"按钮 | 阶段 4 |
 | 生产计划详情 | "确认并下达"按钮 + 预校验 warnings 展示 | 阶段 3 |
 | 工单列表 | 无改动（工单直接 Released 状态出现） | — |
-| 产品主数据 | 显示 Routing 关联状态 + `material_consumption_mode` 切换 | 阶段 2 |
 | 完工入库 | 无改动（V1 倒冲仍用理论量） | — |
 | 倒冲差异调整 | V1.5 新增页面，完工后事后调整实际用量 | V1.5 |
 
 ## 4. 接口变更
 
-### 4.1 WorkOrderService.release() — 内部逻辑变更
+### 4.1 WorkOrderService.release() — 内部逻辑变更（阶段 1 + 阶段 2）
 
-签名不变，实现变更：
+**阶段 1**（签名不变，实现变更）：
 - 新增: BOM 快照（§3.2）
 - 新增: 从 Routing 读工序 / 虚拟默认工序（§3.1）
-- 修正: 预留原材料（picking 模式）或不预留（backflush 模式，§3.3/§3.6）
+- 删除: 旧的成品预留代码（backflush 模式不预留）
 - `routing_id` + `bom_snapshot_id` 写入 WorkOrder
 
-### 4.2 WorkOrderService.unrelease() — 新增
+**阶段 2**（扩展实现，签名不变）：
+- 新增: 根据 material_consumption_mode 分流（§3.6）
+  - picking 模式: HARD 预留组件 + 生成领料单明细行
+  - backflush 模式: 不预留、不生成领料单
+
+### 4.2 WorkOrderService.unrelease() — 新增（阶段 2）
 
 ```rust
 async fn unrelease(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64, expected_version: i32) -> Result<()>;
 ```
 
-### 4.3 ProductionPlanService.release_to_work_orders() — 行为变更
+### 4.3 BackflushService.execute() — 仓库修正（阶段 1）
+
+**阶段 1**: 修正仓库来源（4 级策略），保持 actual = theoretical
+**V1.5**（后续）: 增加 actual_quantities 可选参数
+
+### 4.4 ProductionPlanService.release_to_work_orders() — 行为变更（阶段 3）
 
 返回类型增强:
 ```rust
@@ -490,22 +521,19 @@ struct BatchReleaseResult {
 
 行为: 预校验 → 一键到底 → PlanItem 状态更新 → 失败行可重试
 
-### 4.4 MaterialRequisitionService.create_for_work_order() — 行为变更
+### 4.5 MaterialRequisitionService.create_for_work_order() — 行为变更（阶段 2）
 
 - 仅 picking 模式：从 BOM 快照展开全部组件，自动生成明细行
 - backflush 模式或无 BOM：不生成领料单
 
-### 4.5 BackflushService.execute() — 仓库修正（V1），实际用量（V1.5）
-
-V1: 修正仓库来源（4 级策略），保持 actual = theoretical
-V1.5: 增加 actual_quantities 可选参数
-
-### 4.6 MesDemandService.create_plan_from_demands() — 增强
+### 4.6 MesDemandService.create_plan_from_demands() — 增强（阶段 3）
 
 - 自动查找关联 Routing
 - 排程参数自动填充
 
 ## 5. release() 完整操作序列
+
+### 5.1 阶段 1（backflush-only 简化路径）
 
 ```
 WorkOrderService.release(ctx, db, id, expected_version):
@@ -520,6 +548,18 @@ WorkOrderService.release(ctx, db, id, expected_version):
      - 查 Routing → WorkOrderRouting 从 RoutingStep 映射
      - 无 Routing → 虚拟默认工序 { step_no: 1, "生产" }
   5. 创建默认 ProductionBatch（1 个，qty = planned_qty）
+  6. 不预留、不创建领料单（backflush 默认模式）
+  7. 审计日志
+
+  完工时倒冲：从 BOM 快照展开 → 4 级仓库策略确定仓库 → 扣减原材料
+```
+
+### 5.2 阶段 2 完整路径（picking/backflush 分流）
+
+```
+WorkOrderService.release(ctx, db, id, expected_version):
+
+  步骤 1-5 同上
   6. 根据产品 material_consumption_mode 分流：
      - "picking":
        a. 从 BOM 快照展开叶子节点 → HARD 预留每个组件
@@ -533,16 +573,19 @@ WorkOrderService.release(ctx, db, id, expected_version):
 
 ## 6. 向后兼容性
 
-| 变更 | 兼容处理 |
-|------|---------|
-| release() 工序来源改为 Routing | 已有工单不受影响 |
-| release() 新增 BOM 快照 | 旧工单 None 保持不变 |
-| release() 预留改为按产品策略分流 | 默认 backflush（不预留），与旧行为差异在于不再预留成品；旧工单预留已释放 |
-| 领料单增加明细行 | 仅 picking 模式产品生成，backflush 产品无领料单 |
-| 产品 material_consumption_mode | 新字段默认 "backflush"，旧行为不变 |
-| unrelease() | 纯新增方法 |
-| BatchSplitStrategy | 纯新增参数，默认 Single |
-| PlanItem 状态更新 | 现有 Planned 行不受影响 |
+| 变更 | 阶段 | 兼容处理 |
+|------|------|---------|
+| release() 工序来源改为 Routing | 1 | 已有工单不受影响 |
+| release() 新增 BOM 快照 | 1 | 旧工单 None 保持不变 |
+| release() 删除旧的成品预留代码 | 1 | 旧预留已释放或随工单关闭而清理；backflush 模式不再做预留 |
+| 倒冲仓库修正 | 1 | 旧倒冲记录无法追溯修正，仅影响新倒冲 |
+| 销售订单追溯修复 | 1 | 纯增量，旧工单保持 None |
+| release() 预留按产品策略分流 | 2 | 默认 backflush（不预留），与阶段 1 行为一致 |
+| 领料单增加明细行 | 2 | 仅 picking 模式产品生成，backflush 产品无领料单 |
+| 产品 material_consumption_mode | 2 | 新字段默认 "backflush"，旧行为不变 |
+| unrelease() | 2 | 纯新增方法 |
+| BatchSplitStrategy | 3 | 纯新增参数，默认 Single |
+| PlanItem 状态更新 | 3 | 现有 Planned 行不受影响 |
 
 ## 7. 风险与缓解
 
@@ -550,48 +593,103 @@ WorkOrderService.release(ctx, db, id, expected_version):
 |------|------|------|
 | 部分产品无 Routing | 高 | 虚拟默认工序 + 前端 warning |
 | 部分产品无已发布 BOM | 中 | 跳过快照/预留/领料单 |
-| material_requisition_lines 表不存在 | 低 | 需新增 migration |
 | 批量 release 部分失败 | 中 | 单工单粒度隔离 + 可重试 |
 | 物料预检增加 release 耗时 | 低 | 简单库存查询，毫秒级 |
 | 在途工单新旧逻辑冲突 | 中 | 冻结切换策略（§10） |
+| 阶段 1 只修 backflush 路径，旧预留逻辑残留 | 低 | 阶段 1 release() 删除旧的成品预留代码；旧工单预留已释放无需处理 |
+| picking 模式上线后 backflush 路径回归 | 低 | 阶段 2 增加集成测试覆盖两种模式 |
 
 ## 8. 实施顺序
 
-### 阶段 1a：止血（P0 核心，1 周）
+### 阶段 1：止血（P0 核心 — 让数据变正确）
 
-1. 修复工序来源 + 虚拟默认工序 — `work_order/implt.rs` `release()`
-2. 新增 BOM 快照 — `work_order/implt.rs` `release()`
-3. 修正倒冲仓库（4 级策略） — `backflush/implt.rs` `execute()`
-4. 验证: 单个工单 release → 倒冲仓库正确
+**目标**：修复 3 个影响生产数据的根本错误（P2 + P4 + P8），顺带修复 P6。
+**交付物**：单个工单 release → 报工 → 完工入库 → 倒冲，全链路数据正确。
 
-### 阶段 1b：补全（P0 延伸，1 周）
+| # | 改动 | 文件 | 修复问题 |
+|---|------|------|---------|
+| 1 | 修复工序来源 + 虚拟默认工序 | `work_order/implt.rs` `release()` | P2 |
+| 2 | 新增 BOM 快照 | `work_order/implt.rs` `release()` | P4 |
+| 3 | 修正倒冲仓库（4 级策略） | `backflush/implt.rs` `execute()` | P8 |
+| 4 | 修复销售订单追溯 | `production_plan/implt.rs` | P6（顺带修复，成本极低） |
 
-5. 修正库存预留（原材料分流） — `work_order/implt.rs` `release()`
-6. 领料单明细行生成（picking 模式） — `material_requisition/implt.rs`
-7. 修复销售订单追溯 — `production_plan/implt.rs`
-8. 验证: release 完整流程（BOM快照 + 工序 + 预留 + 领料单 + 追溯）
+**端到端验收**（§11 场景 14）：
+```
+创建工单 → release（验证：工序来自 Routing + BOM 快照已创建）
+  → 报工 → 完工入库 → 检查：
+    - 倒冲记录：原材料从正确仓库扣减（非 warehouse_id=0）
+    - 工单追溯：sales_order_id 非空
+    - 工序数据：process_name 来自 LaborProcessDict 而非物料编码
+```
 
-### 阶段 2：安全网 + 业务规则（P1）
+**阶段 1 的 release() 简化路径**：
+```
+release() 在阶段 1 只走 backflush 路径（当前默认行为）：
+  1-5. 不变（状态校验、BOM快照、工序、批次）
+  6. 不预留（backflush 默认，与当前行为一致）
+  7. 不创建领料单（backflush 模式不需要）
+  8. 倒冲时从正确仓库扣减（P8 修复点）
+```
 
-9. 实现 unrelease() — `work_order/service.rs` + `implt.rs`
-10. 物料可用性预检 — `production_plan/implt.rs` `pre_validate()`
-11. 超额生产容差 — `production_batch/implt.rs` `confirm_routing_step()`
-12. 产品 material_consumption_mode — `product/model.rs` + 产品详情页
-13. 验证: 反下达 + 物料预检 + 超额容差 + picking/backflush 分流
+> 阶段 1 完成后即可上线。后续阶段互相独立，可按需排期。
 
-### 阶段 3：一键贯通（P2）
+### 阶段 2：安全网 + picking 模式（P0-Conditional + P1）
 
-14. release_to_work_orders 一键到底 — `production_plan/implt.rs`
-15. 预校验 + 失败隔离 + PlanItem 状态 — `production_plan/implt.rs`
-16. 需求池自动填充 Routing — `demand_handler/implt.rs`
-17. 事件发布 — release/unrelease 事件集成
-18. 验证: 需求池到工单完整贯通 + 反下达
+**目标**：反下达能力（安全网）+ 引入 material_consumption_mode（解锁 P5/P7）。
+**交付物**：unrelease 可用 + picking 模式产品可正确预留/领料。
+**前置**：阶段 1 已上线并稳定。
 
-### 阶段 4：前端 + 文档
+| # | 改动 | 文件 | 修复问题 |
+|---|------|------|---------|
+| 5 | 实现 unrelease() | `work_order/service.rs` + `implt.rs` | 安全网 |
+| 6 | products.meta 加 material_consumption_mode | `product/model.rs` + 产品详情页 | P11 |
+| 7 | 修正库存预留（picking 模式 HARD 预留组件） | `work_order/implt.rs` `release()` | P5 |
+| 8 | 领料单明细行生成（picking 模式） | `material_requisition/implt.rs` | P7 |
 
-19. 前端页面调整（需求池 + 计划详情 + 产品详情）
-20. 排程 V1（交期倒推 + 优先级 + 工作中心分组）
-21. 更新 UML 设计文档 `docs/uml-design/04-mes.html`
+**验收**：
+- unrelease 未开工工单 → 工单回 Draft，预留释放
+- 切换产品为 picking 模式 → release 时 HARD 预留组件 + 领料单有明细行
+- 切换产品为 backflush → 行为与阶段 1 一致（不预留、不生成领料单）
+
+### 阶段 3：一键贯通 + 业务规则（P1 + P2）
+
+**目标**：需求池到工单一键贯通 + 物料预检 + 超额容差。
+**交付物**：计划员 2 次操作即可让车间开工。
+**前置**：阶段 2 已完成。
+
+| # | 改动 | 文件 | 修复问题 |
+|---|------|------|---------|
+| 9 | release_to_work_orders 一键到底 | `production_plan/implt.rs` | P3 |
+| 10 | 预校验 + 失败隔离 + PlanItem 状态 | `production_plan/implt.rs` | P3 |
+| 11 | 需求池自动填充 Routing | `demand_handler/implt.rs` | — |
+| 12 | 物料可用性预检（warnings） | `production_plan/implt.rs` `pre_validate()` | P10 |
+| 13 | 超额生产容差 | `production_batch/implt.rs` `confirm_routing_step()` | P12 |
+| 14 | 事件发布（release/unrelease） | 各 service implt.rs | — |
+
+**验收**：
+- 需求池选 3 条需求 → 一键下达 → 3 个 Released 工单
+- 物料不足 → warning 显示但不下达
+- 部分失败 → 成功工单不受影响，失败行可重试
+- 超额报工超 5% → 拒绝
+
+### 阶段 4：前端 + 排程 + 文档（P2 + 渐进增强）
+
+**目标**：完成前端页面改造和排程 V1。
+**交付物**：需求池页面可排程下达 + UML 文档同步。
+**前置**：阶段 3 已完成。
+
+| # | 改动 | 文件/页面 | 修复问题 |
+|---|------|----------|---------|
+| 15 | 需求池：排程参数 + "生成计划并下达"按钮 | 前端 | P1 |
+| 16 | 计划详情："确认并下达"按钮 + warnings 展示 | 前端 | P3 |
+| 17 | 产品详情：Routing 关联 + material_consumption_mode | 前端 | — |
+| 18 | 排程 V1（交期倒推 + 优先级 + 工作中心分组） | `production_plan/implt.rs` | P1 |
+| 19 | 更新 UML 设计文档 | `docs/uml-design/04-mes.html` | — |
+
+**验收**：完整的计划员操作流程
+```
+需求池选需求 → 设排程参数 → 生成计划并下达 → 工单 Released → 报工 → 完工入库
+```
 
 ## 9. 不在本次范围
 
@@ -605,6 +703,9 @@ WorkOrderService.release(ctx, db, id, expected_version):
 - 反下达的权限控制（V1 仅做操作层面限制）
 - BOM 节点级 `is_backflush` 标记（V2 — 节点级领料/倒冲分流）
 - 倒冲实际用量前端输入（V1.5 — 事后差异调整页面）
+
+> **阶段独立性说明**：每个阶段完成后均可独立上线，不依赖后续阶段。
+> 阶段 1 是最小可交付单元（修复 3 个数据错误），后续阶段按业务优先级排期。
 
 ## 10. 在途工单迁移方案
 
@@ -627,15 +728,23 @@ WorkOrderService.release(ctx, db, id, expected_version):
 - 后续清理成本更高
 ```
 
-**数据修正脚本**（上线后执行）:
-```
--- 修正已有工单的错误成品预留
-DELETE FROM inventory_reservations
-WHERE source_type = 'WorkOrder'
-  AND product_id IN (SELECT product_id FROM work_orders WHERE status IN ('Released'))
-  AND product_id = (SELECT product_id FROM work_orders WHERE id = source_id);
--- 注：仅修正"预留了成品而非原材料"的记录，已关闭工单的预留已释放无需处理
-```
+**数据修正**（上线后执行）:
+
+上线后需清理已有工单的错误库存预留记录（预留了成品而非原材料）。
+具体 SQL 需根据上线时 `inventory_reservations` 表的实际数据情况编写，
+原则如下：
+- 仅清理 source_type = 'WorkOrder' 且预留产品 = 工单成品（而非 BOM 组件）的记录
+- 已关闭/取消工单的预留已释放，无需处理
+- 执行前备份相关记录
+- 在事务中执行，验证无误后提交
+
+**回滚预案**:
+
+如果上线后发现严重问题，直接回滚部署即可：
+- 阶段 1 的改动仅影响 `release()` 和 `backflush.execute()` 的新调用
+- 已执行的 release/倒冲记录数据正确，不受回滚影响
+- 回滚后旧逻辑恢复，新生成的工单回到旧行为（BOM 叶子当工序、倒冲仓库=0）
+- 关键：回滚只影响**新操作**，已入库的正确数据不会丢失
 
 ## 11. 用户验收场景
 
@@ -654,3 +763,6 @@ WHERE source_type = 'WorkOrder'
 | 11 | 车间工人 | 扫流转卡报工 | 工序显示正确，报工后批次状态推进 |
 | 12 | 计划员 | 物料不足时下达 | warning 显示：组件名、需要量、可用量、缺口量 |
 | 13 | 车间工人 | 最后工序报工超量 | 超过容差（默认 5%）时拒绝，提示修改数量 |
+| **14** | **全员** | **端到端完整链路（阶段 1 验收）** | **销售订单确认 → 需求池 → 创建计划 → 下达工单 → 报工 → 完工入库 → 检查：① 工序来自 Routing ② BOM 快照非空 ③ 倒冲从正确仓库扣减 ④ sales_order_id 非空 ⑤ 成品入库到正确仓库** |
+| **15** | **全员** | **picking 模式端到端（阶段 2 验收）** | **产品切 picking → 下达 → HARD 预留组件 → 领料单有明细行 → 手动领料出库 → 完工不倒冲 → 检查库存变动正确** |
+| **16** | **车间工人** | **上线前已 Released 工单继续报工（阶段 1 上线验收）** | **旧工单 WorkOrderRouting 不受影响（已存在），报工→完工正常；倒冲仓库仍为 0（旧工单无 BOM 快照），需记录为已知限制** |

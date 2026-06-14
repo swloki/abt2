@@ -64,6 +64,11 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
         .await
         .map_err(|e| DomainError::Internal(e.into()))?;
 
+        // 为新批次初始化所有工序的 batch_routing_progress 记录
+        BatchRoutingProgressRepo::init_for_batch(&mut *db, batch.id, req.work_order_id)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?;
+
         Ok(batch.id)
     }
 
@@ -123,12 +128,6 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
             };
 
             let id = self.create(ctx, db, req).await?;
-
-            // 为新批次初始化所有工序的 batch_routing_progress 记录
-            BatchRoutingProgressRepo::init_for_batch(&mut *db, id, work_order_id)
-                .await
-                .map_err(|e| DomainError::Internal(e.into()))?;
-
             results.push(id);
         }
 

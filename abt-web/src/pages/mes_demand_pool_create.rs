@@ -287,6 +287,7 @@ fn create_page_content(
 
             form id="demand-create-form"
                  hx-post=(MesDemandPoolCreatePath::PATH)
+                 hx-sync="this:drop"
                  hx-swap="none" {
                 input type="hidden" id="demand-ids-input" name="demand_ids" value=(preselected_str);
                 input type="hidden" id="items-json-input" name="items_json";

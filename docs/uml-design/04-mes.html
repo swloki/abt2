@@ -403,7 +403,7 @@ classDiagram
     +inspection_triggered: bool
     +wage_amount: Decimal
   }
-  note for WorkOrderService "PLANNING LAYER: release -> BOM snapshot + Routing工序 + ProductionBatch(min 1) + picking/backflush分流 unrelease -> Released→Draft 安全网(取消领料单+释放预留+软删除批次(deleted_at)+删工序记录+删batch_routing_progress) 无报工前置校验 close -> all batches completed InvRes.fulfill/cancel(release remaining) 乐观锁 expected_version 校验 冲突返回 ConcurrentConflict"
+  note for WorkOrderService "PLANNING LAYER: release -> BOM snapshot + Routing工序 + picking/backflush分流（批次由项目经理手动创建，下达不自动建批） unrelease -> Released→Draft 安全网(取消领料单+释放预留+软删除批次(deleted_at)+删工序记录+删batch_routing_progress) 无报工前置校验 close -> all batches completed InvRes.fulfill/cancel(release remaining) 乐观锁 expected_version 校验 冲突返回 ConcurrentConflict"
   note for WorkReportService "READ-ONLY QUERY SERVICE: WorkReport creation is handled atomically by ProductionBatchService.confirm_routing_step find/list methods for reporting and auditing calculate_wage: (completed_qty + non_operator_defect_qty) * unit_price DefectReason.affect_wage: MaterialDefect/EquipmentFault/ProcessIssue=true OperatorError=false"
   note for OutsourcingOrder "Entity owned by OM module. MES references via OM.OutsourcingOrderService. send -> WMS.InventoryTransferService(to virtual) receive -> WMS.InventoryTransferService(from virtual) receive -> QMS.InspectionResultService.create(IQC) Event: MES subscribes OutsourcingReceived handler -> update BatchRoutingProgress.completed_qty for outsourced step -> publish BatchStepCompleted event -> advance ProductionBatch.current_step"
   note for ProductionInspectionService "QMS: MES-specific production inspection QMS module provides unified InspectionResultService IPQC: auto-triggered by WorkOrderRouting.is_inspection_point FQC: triggered before ProductionReceipt"
@@ -559,7 +559,7 @@ classDiagram
         <div style="margin-top: 8px; font-size: 11px; color: #aaa; line-height: 1.6;">
           <b style="color:#f971b;">核心规则：</b><br>
           &bull; 执行层实体：跟踪实际生产进度、工序状态机、班组分配<br>
-          &bull; 工单下达后至少创建 1 个批次（1:1 不拆分也合法）<br>
+          &bull; 工单下达后由项目经理手动创建批次（sum &le; planned_qty）<br>
           &bull; sum(batch_qty) &le; work_order.planned_qty<br>
           &bull; current_step 由系统自动维护，禁止前端直接修改<br>
           &bull; 前道工序未完成时拦截下一道报工（防跳序）<br>

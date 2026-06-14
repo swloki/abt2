@@ -591,7 +591,7 @@ fn tab_batches(batches: &[ProductionBatch], total_steps: usize, order: &WorkOrde
                             }
                         }
                         @if batches.is_empty() {
-                            tr { td colspan="8" class="empty-row" { "暂无生产批次（工单未下达或无工艺路线）" } }
+                            tr { td colspan="8" class="empty-row" { @if can_split { "暂无生产批次，请点击「新增批次」创建" } @else { "暂无生产批次（工单未下达或无工艺路线）" } } }
                         }
                     }
                 }

@@ -11,7 +11,7 @@ use crate::master_data::routing::{new_routing_service, service::RoutingService};
 use crate::master_data::product::{new_product_service, service::ProductService};
 use crate::wms::material_requisition::{new_material_requisition_service, service::MaterialRequisitionService};
 use crate::mes::production_batch::model::WorkOrderRouting;
-use crate::mes::production_batch::repo::{ProductionBatchRepo, WorkOrderRoutingRepo, BatchRoutingProgressRepo};
+use crate::mes::production_batch::repo::{ProductionBatchRepo, WorkOrderRoutingRepo};
 use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService, RecordAuditLogReq};
 use crate::shared::document_sequence::{new_document_sequence_service, service::DocumentSequenceService};
 use crate::shared::event_bus::{new_domain_event_bus, service::DomainEventBus};
@@ -187,39 +187,7 @@ impl WorkOrderService for WorkOrderServiceImpl {
                 .map_err(|e| DomainError::Internal(e.into()))?;
         }
 
-        // 6. 创建至少 1 个 ProductionBatch
-        let batch_req = crate::mes::production_batch::model::CreateBatchReq {
-            work_order_id: id,
-            product_id: work_order.product_id,
-            batch_qty: work_order.planned_qty,
-            team_id: None,
-        };
-
-        let batch_no = new_document_sequence_service(self.pool.clone())
-            .next_number(
-                ctx, db,
-                DocumentType::ProductionBatch,
-            )
-            .await
-            .unwrap_or_else(|_| format!("PB-{}", chrono::Local::now().format("%Y%m%d%H%M%S")));
-
-        let card_sn = format!("SN-{}", chrono::Local::now().format("%Y%m%d%H%M%S%3f"));
-
-        let new_batch = ProductionBatchRepo::insert(
-            &mut *db,
-            &batch_req,
-            &batch_no,
-            &card_sn,
-            ctx.operator_id,
-        )
-        .await
-        .map_err(|e| DomainError::Internal(e.into()))?;
-
-        // 为新批次初始化所有工序的 batch_routing_progress 记录
-        BatchRoutingProgressRepo::init_for_batch(&mut *db, new_batch.id, id)
-            .await
-            .map_err(|e| DomainError::Internal(e.into()))?;
-        // 7. 根据产品 material_consumption_mode 分流
+        // 6. 根据产品 material_consumption_mode 分流
         let consumption_mode = product.meta.material_consumption_mode;
 
         match consumption_mode {

@@ -7,8 +7,7 @@ use maud::{html, Markup};
 use abt_core::master_data::product::ProductService;
 use abt_core::mes::enums::{PlanItemStatus, PlanStatus, PlanType, WorkOrderStatus};
 use abt_core::mes::production_plan::{
-    BatchReleaseResult, ProductionPlan, ProductionPlanItem, ProductionPlanService,
-    ReleaseValidation,
+    ProductionPlan, ProductionPlanItem, ProductionPlanService, ReleaseValidation, WorkOrderPlanItem,
 };
 use abt_core::mes::work_order::{WorkOrder, WorkOrderService};
 use abt_core::shared::audit_log::{AuditLog, AuditLogQuery, AuditLogService};
@@ -20,7 +19,10 @@ use crate::components::icon;
 use crate::errors::Result;
 use crate::layout::page::admin_page;
 use crate::routes::mes_order::OrderDetailPath;
-use crate::routes::mes_plan::{PlanConfirmPath, PlanDetailPath, PlanListPath, PlanReleasePath};
+use crate::routes::mes_plan::{
+    PlanConfirmPath, PlanDetailPath, PlanGeneratePath, PlanGenerateReleasePath, PlanListPath,
+    PlanReleaseAllPath, PlanReleasePath,
+};
 use crate::utils::RequestContext;
 use abt_macros::require_permission;
 
@@ -125,7 +127,7 @@ pub async fn get_plan_detail(
 
     let content = plan_detail_page(
         &data.plan, &data.items, &data.op_name, &data.product_names,
-        &data.work_orders, &data.audit_logs, &data.validations, None,
+        &data.work_orders, &data.audit_logs, &data.validations,
     );
     let page_html = admin_page(
         is_htmx, "生产计划详情", &claims, "production",
@@ -151,28 +153,131 @@ pub async fn confirm_plan(
 pub async fn release_plan(
     path: PlanReleasePath,
     ctx: RequestContext,
-) -> Result<Html<String>> {
-    let is_htmx = ctx.is_htmx();
-    let nav_filter = ctx.nav_filter().await;
-    let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
-    let result = state
+) -> Result<impl IntoResponse> {
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    state
         .production_plan_service()
         .release_to_work_orders(&service_ctx, &mut conn, path.plan_id)
         .await?;
 
-    // 重新加载详情数据（plan 状态已变）
-    let data = load_plan_detail_raw(&state, &service_ctx, &mut conn, path.plan_id).await?;
+    let redirect = PlanDetailPath { id: path.plan_id }.to_string();
+    Ok(([("HX-Redirect", redirect)], Html(String::new())))
+}
 
-    let content = plan_detail_page(
-        &data.plan, &data.items, &data.op_name, &data.product_names,
-        &data.work_orders, &data.audit_logs, &data.validations, Some(&result),
-    );
-    let page_html = admin_page(
-        is_htmx, "生产计划详情", &claims, "production",
-        &format!("/admin/mes/plans/{}", path.plan_id),
-        "生产管理", Some(PlanListPath::PATH), content, &nav_filter,
-    );
-    Ok(Html(page_html.into_string()))
+#[derive(Debug, serde::Deserialize)]
+pub struct GenerateForm {
+    pub items_json: String,
+}
+
+/// POST /plans/{id}/generate — 从规划项生成 Draft 工单
+#[require_permission("WORK_ORDER", "create")]
+pub async fn generate_work_orders(
+    path: PlanGeneratePath,
+    ctx: RequestContext,
+    axum::Form(form): axum::Form<GenerateForm>,
+) -> Result<impl IntoResponse> {
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+
+    let items: Vec<WorkOrderPlanItem> = serde_json::from_str(&form.items_json).map_err(|e| {
+        crate::errors::WebError::from(abt_core::shared::types::DomainError::Validation(format!(
+            "规划数据格式错误：{e}"
+        )))
+    })?;
+
+    state
+        .production_plan_service()
+        .generate_work_orders(&service_ctx, &mut conn, path.plan_id, items)
+        .await?;
+
+    let redirect = format!("/admin/mes/plans/{}?tab=planning", path.plan_id);
+    Ok(axum::response::Response::builder()
+        .header("HX-Redirect", &redirect)
+        .body(axum::body::Body::empty())
+        .unwrap())
+}
+
+/// POST /plans/{id}/release-all — 批量下达该计划所有 Draft 工单
+#[require_permission("WORK_ORDER", "update")]
+pub async fn release_all_work_orders(
+    path: PlanReleaseAllPath,
+    ctx: RequestContext,
+) -> Result<impl IntoResponse> {
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let wo_svc = state.work_order_service();
+    let plan_svc = state.production_plan_service();
+
+    let draft_orders: Vec<_> = wo_svc
+        .list_by_plan(&service_ctx, &mut conn, path.plan_id)
+        .await?
+        .into_iter()
+        .filter(|wo| wo.status == WorkOrderStatus::Draft)
+        .collect();
+
+    let mut successful = Vec::new();
+    for wo in &draft_orders {
+        match wo_svc.release(&service_ctx, &mut conn, wo.id, wo.version).await {
+            Ok(()) => successful.push(wo.id),
+            Err(e) => tracing::warn!(work_order_id = wo.id, error = %e, "release-all failed"),
+        }
+    }
+
+    // 首个成功 release → 计划状态 InProgress
+    if !successful.is_empty()
+        && let Ok(plan) = plan_svc.find_by_id(&service_ctx, &mut conn, path.plan_id).await
+        && plan.status == PlanStatus::Confirmed
+    {
+        let _ = plan_svc.mark_in_progress(&mut conn, path.plan_id).await;
+    }
+
+    let redirect = format!("/admin/mes/plans/{}?tab=planning", path.plan_id);
+    Ok(axum::response::Response::builder()
+        .header("HX-Redirect", &redirect)
+        .body(axum::body::Body::empty())
+        .unwrap())
+}
+
+/// POST /plans/{id}/generate-and-release — 快速通道：生成 Draft + 立即全部 release
+#[require_permission("WORK_ORDER", "create")]
+pub async fn generate_and_release(
+    path: PlanGenerateReleasePath,
+    ctx: RequestContext,
+    axum::Form(form): axum::Form<GenerateForm>,
+) -> Result<impl IntoResponse> {
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+
+    let items: Vec<WorkOrderPlanItem> = serde_json::from_str(&form.items_json).map_err(|e| {
+        crate::errors::WebError::from(abt_core::shared::types::DomainError::Validation(format!(
+            "规划数据格式错误：{e}"
+        )))
+    })?;
+
+    let plan_svc = state.production_plan_service();
+    let wo_svc = state.work_order_service();
+
+    let wo_ids = plan_svc
+        .generate_work_orders(&service_ctx, &mut conn, path.plan_id, items)
+        .await?;
+
+    for wo_id in &wo_ids {
+        if let Ok(wo) = wo_svc.find_by_id(&service_ctx, &mut conn, *wo_id).await
+            && let Err(e) = wo_svc.release(&service_ctx, &mut conn, *wo_id, wo.version).await
+        {
+            tracing::warn!(work_order_id = wo_id, error = %e, "generate-and-release: release failed");
+        }
+    }
+
+    // 计划状态 → InProgress
+    if let Ok(plan) = plan_svc.find_by_id(&service_ctx, &mut conn, path.plan_id).await
+        && plan.status == PlanStatus::Confirmed
+    {
+        let _ = plan_svc.mark_in_progress(&mut conn, path.plan_id).await;
+    }
+
+    let redirect = format!("/admin/mes/plans/{}?tab=planning", path.plan_id);
+    Ok(axum::response::Response::builder()
+        .header("HX-Redirect", &redirect)
+        .body(axum::body::Body::empty())
+        .unwrap())
 }
 
 // ── Data Loader ──
@@ -252,7 +357,6 @@ fn plan_detail_page(
     work_orders: &[WorkOrder],
     audit_logs: &[AuditLog],
     validations: &[ReleaseValidation],
-    release_result: Option<&BatchReleaseResult>,
 ) -> Markup {
     let (status_label, status_bg, status_color) = plan_status_label(&plan.status);
     let type_label = plan_type_label(&plan.plan_type);
@@ -265,11 +369,6 @@ fn plan_detail_page(
             a class="back-link" href=(PlanListPath::PATH) {
                 (icon::chevron_left_icon("w-4 h-4"))
                 "返回计划列表"
-            }
-
-            // 下达结果横幅（即时反馈）
-            @if let Some(result) = release_result {
-                (release_result_banner(result))
             }
 
             // Detail Header
@@ -345,8 +444,9 @@ fn plan_detail_page(
 
             // 确认下达 Modal（Confirmed 状态）
             @if plan.status == PlanStatus::Confirmed {
-                div class="modal-overlay" id="release-dialog" {
-                    div class="modal" {
+                div class="modal-overlay" id="release-dialog"
+                    _="on click[me is event.target] remove .is-open" {
+                    div class="modal" onclick="event.stopPropagation()" {
                         div class="modal-head" {
                             h2 { "确认下达生产计划？" }
                         }
@@ -554,66 +654,3 @@ fn tab_log(logs: &[AuditLog]) -> Markup {
     }
 }
 
-// ── 下达结果横幅（即时反馈）──
-
-fn release_result_banner(result: &BatchReleaseResult) -> Markup {
-    let success_count = result.successful_work_orders.len();
-    let fail_count = result.failed_items.len();
-
-    let shortage_warnings: Vec<String> = result
-        .validations
-        .iter()
-        .flat_map(|v| {
-            v.material_shortages.iter().map(|s| {
-                format!(
-                    "物料短缺：需求 {}，库存 {}，缺口 {}",
-                    crate::utils::fmt_qty(s.required_qty),
-                    crate::utils::fmt_qty(s.available_qty),
-                    crate::utils::fmt_qty(s.shortage_qty),
-                )
-            })
-        })
-        .collect();
-
-    let (banner_bg, banner_border, icon_markup) = if fail_count > 0 {
-        ("rgba(245,63,63,0.06)", "#f53f3f", icon::circle_alert_icon("w-5 h-5"))
-    } else if !shortage_warnings.is_empty() {
-        ("rgba(250,140,22,0.08)", "#fa8c16", icon::alert_triangle_icon("w-5 h-5"))
-    } else {
-        ("rgba(82,196,26,0.08)", "var(--success)", icon::check_circle_icon("w-5 h-5"))
-    };
-
-    html! {
-        div class="release-result-banner" style=(format!(
-            "margin-bottom:var(--space-4);padding:var(--space-4) var(--space-5);border-radius:var(--radius-lg);border-left:3px solid {banner_border};background:{banner_bg}"
-        )) {
-            div style="display:flex;align-items:center;gap:var(--space-2);font-weight:600;font-size:var(--text-sm)" {
-                (icon_markup)
-                span { (format!("{success_count} 个工单下达成功")) }
-                @if fail_count > 0 {
-                    span style=(format!("margin-left:var(--space-2);color:{banner_border}")) {
-                        (format!("{fail_count} 个工单下达失败"))
-                    }
-                }
-            }
-            @if fail_count > 0 {
-                div style="margin-top:var(--space-2)" {
-                    @for fail in &result.failed_items {
-                        div style="font-size:var(--text-xs);color:#f53f3f;margin-top:var(--space-1)" {
-                            (format!("第 {} 项失败：{}", fail.index + 1, fail.error))
-                        }
-                    }
-                }
-            }
-            @if !shortage_warnings.is_empty() {
-                div style="margin-top:var(--space-2)" {
-                    @for w in &shortage_warnings {
-                        div style="font-size:var(--text-xs);color:#fa8c16;margin-top:var(--space-1)" {
-                            (icon::alert_triangle_icon("w-3-5 h-3-5")) " " (w)
-                        }
-                    }
-                }
-            }
-        }
-    }
-}

@@ -4325,13 +4325,13 @@ textarea.form-input{min-height:72px;resize:vertical;font-family:var(--font-body)
 .wo-product-meta{display:flex;align-items:center;gap:var(--space-3);font-size:12px;color:var(--fg-2)}
 .wo-meta-label{color:var(--muted)}
 .wo-right-info{display:flex;align-items:center;gap:var(--space-4)}
-.wo-progress{display:flex;align-items:center;gap:var(--space-2);font-size:12px;color:var(--fg-2)}
-.wo-progress-text{font-variant-numeric:tabular-nums}
-.wo-progress-bar{width:60px;height:4px;background:var(--border-soft);border-radius:var(--radius-full);overflow:hidden}
-.wo-progress-fill{height:100%;border-radius:var(--radius-full)}
-.wo-progress-fill.released{background:var(--accent)}
-.wo-progress-fill.in-production{background:var(--success)}
-.wo-progress-fill.closed{background:var(--muted)}
+.wo-step{display:flex;align-items:center;gap:var(--space-2);font-size:12px;color:var(--fg-2);line-height:20px;white-space:nowrap}
+.wo-step-text{font-variant-numeric:tabular-nums}
+.wo-step-bar{width:60px;height:4px;background:var(--border-soft);border-radius:var(--radius-full);overflow:hidden;flex-shrink:0}
+.wo-step-fill{height:100%;border-radius:var(--radius-full)}
+.wo-step-fill.released{background:var(--accent)}
+.wo-step-fill.in-production{background:var(--success)}
+.wo-step-fill.closed{background:var(--muted)}
 .wo-action-btn{display:inline-flex;align-items:center;padding:6px 12px;font-size:13px;font-weight:500;color:var(--accent);text-decoration:none;border-radius:var(--radius-md);transition:all .15s ease;white-space:nowrap}
 .wo-action-btn:hover{background:rgba(22,119,255,.08)}
 .wo-action-btn::after{content:' →';margin-left:var(--space-1)}

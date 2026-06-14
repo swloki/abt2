@@ -752,10 +752,10 @@ fn tab_planning(
                                         div class="wo-right-info" {
                                             (status_pill(wo_label, _wo_bg, _wo_color))
                                             @if let (Some(done), Some(total)) = (wo.completed_steps, wo.total_steps) {
-                                                div class="wo-progress" {
-                                                    span class="wo-progress-text" { (done) "/" (total) "步" }
-                                                    div class="wo-progress-bar" {
-                                                        div class={"wo-progress-fill " (status_cls)}
+                                                div class="wo-step" {
+                                                    span class="wo-step-text" { (done) "/" (total) "步" }
+                                                    div class="wo-step-bar" {
+                                                        div class={"wo-step-fill " (status_cls)}
                                                             style=(format!("width: {}%", if total > 0 { done * 100 / total } else { 0 })) {}
                                                     }
                                                 }

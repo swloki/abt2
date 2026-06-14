@@ -294,6 +294,8 @@ classDiagram
     +confirm(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
     +pre_validate(ctx: &ServiceContext, db: PgExecutor, plan_id) Result~Vec~ReleaseValidation~~
     +release_to_work_orders(ctx: &ServiceContext, db: PgExecutor, plan_id) Result~BatchReleaseResult~
+    +generate_work_orders(ctx: &ServiceContext, db: PgExecutor, plan_id, items: Vec~WorkOrderPlanItem~) Result~Vec~i64~~
+    +mark_in_progress(db: PgExecutor, plan_id) Result~Unit~
     +schedule_v1(ctx: &ServiceContext, db: PgExecutor, plan_id) Result~Unit~
     +list(filter) PaginatedResult~ProductionPlan~
   }
@@ -1071,7 +1073,7 @@ classDiagram
         7. 逐条发布 DemandConfirmed 事件（同事务内）<br>
         8. 返回 CreateDownstreamResult（含 doc_id、处理数、跳过列表）<br>
         <b>后续流程（已有实现）</b>：<br>
-        计划员审核 → ProductionPlanService::release → 释放工单 → WorkOrderService::release<br>
+        计划员审核 → ProductionPlanService::generate_work_orders → 生成草稿工单 → WorkOrderService::release<br>
         → 工单完工 → ProductionReceiptService 入库 → DemandService::fulfill → 需求完成
       </div>
     </div>

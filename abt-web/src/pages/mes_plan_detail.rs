@@ -687,20 +687,15 @@ fn tab_planning(
                             input type="hidden" name="items_json" id="items_json" {};
 
                             div style="margin-top:var(--space-4);display:flex;gap:var(--space-3)" {
-                                button type="button" class="btn btn-primary"
-                                    _="on click call collectPlanItems() then set #items_json.value to it then submit #wo-planning-form" {
+                                button type="submit" class="btn btn-primary"
+                                    onclick="document.getElementById('items_json').value=collectPlanItems()" {
                                     (icon::rocket_icon("w-4 h-4"))
                                     "生成草稿工单"
                                 }
-                                form style="display:inline"
-                                    hx-post=(PlanGenerateReleasePath { plan_id: plan.id }.to_string())
-                                    hx-swap="none"
-                                    _="on submit call collectPlanItems() then put it into #items_json_fast then submit()" {
-                                    input type="hidden" name="items_json" id="items_json_fast" {};
-                                    button type="submit" class="btn btn-default"
-                                        _="on click call collectPlanItems() then set #items_json_fast.value to it" {
-                                        "一键生成并下达"
-                                    }
+                                button type="submit" class="btn btn-default"
+                                    formaction=(PlanGenerateReleasePath { plan_id: plan.id }.to_string())
+                                    onclick="document.getElementById('items_json').value=collectPlanItems()" {
+                                    "一键生成并下达"
                                 }
                             }
                         }
@@ -783,7 +778,7 @@ fn tab_planning(
             }
 
             // 加载规划 JS
-            script src="/static/wo-planning.js" {}
+            script src="/wo-planning.js" {}
         }
     }
 }

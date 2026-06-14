@@ -109,3 +109,15 @@ pub struct MaterialShortage {
     pub available_qty: Decimal,
     pub shortage_qty: Decimal,
 }
+
+/// 工单规划项：使用者从计划明细拆分/调参后的工单生成请求
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct WorkOrderPlanItem {
+    pub plan_item_id: i64,
+    pub product_id: i64,
+    pub planned_qty: Decimal,
+    pub scheduled_start: NaiveDate,
+    pub scheduled_end: NaiveDate,
+    pub routing_id: Option<i64>,
+    pub work_center_id: Option<i64>,
+}

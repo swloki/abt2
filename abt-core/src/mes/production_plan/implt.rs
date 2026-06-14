@@ -321,6 +321,62 @@ impl ProductionPlanService for ProductionPlanServiceImpl {
         })
     }
 
+    async fn generate_work_orders(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        plan_id: i64,
+        items: Vec<WorkOrderPlanItem>,
+    ) -> Result<Vec<i64>> {
+        // 日期校验
+        for item in &items {
+            if item.scheduled_end < item.scheduled_start {
+                return Err(DomainError::Validation(format!(
+                    "排程结束日期不能早于开始日期（plan_item_id={}）",
+                    item.plan_item_id
+                )));
+            }
+        }
+
+        let work_order_svc = new_work_order_service(self.pool.clone());
+        let mut wo_ids = Vec::with_capacity(items.len());
+
+        for item in &items {
+            let wo_id = work_order_svc
+                .create(
+                    ctx,
+                    db,
+                    CreateWorkOrderReq {
+                        plan_item_id: Some(item.plan_item_id),
+                        product_id: item.product_id,
+                        bom_snapshot_id: None,
+                        routing_id: item.routing_id,
+                        planned_qty: item.planned_qty,
+                        scheduled_start: item.scheduled_start,
+                        scheduled_end: item.scheduled_end,
+                        work_center_id: item.work_center_id,
+                        sales_order_id: None,
+                        remark: None,
+                    },
+                )
+                .await?;
+            wo_ids.push(wo_id);
+        }
+
+        Ok(wo_ids)
+    }
+
+    async fn mark_in_progress(
+        &self,
+        db: PgExecutor<'_>,
+        plan_id: i64,
+    ) -> Result<()> {
+        ProductionPlanRepo::update_status(db, plan_id, PlanStatus::InProgress)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?;
+        Ok(())
+    }
+
     async fn list(
         &self,
         _ctx: &ServiceContext, db: PgExecutor<'_>,

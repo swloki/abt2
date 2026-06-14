@@ -26,6 +26,20 @@ pub trait ProductionPlanService: Send + Sync {
         ctx: &ServiceContext, db: PgExecutor<'_>,
         plan_id: i64,
     ) -> Result<BatchReleaseResult>;
+    /// 从规划项生成 Draft 工单（不 release）
+    async fn generate_work_orders(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        plan_id: i64,
+        items: Vec<WorkOrderPlanItem>,
+    ) -> Result<Vec<i64>>;
+    /// 标记计划为进行中（Confirmed → InProgress）
+    async fn mark_in_progress(
+        &self,
+        db: PgExecutor<'_>,
+        plan_id: i64,
+    ) -> Result<()>;
     async fn list(
         &self,
         ctx: &ServiceContext, db: PgExecutor<'_>,

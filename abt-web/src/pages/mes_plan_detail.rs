@@ -18,7 +18,7 @@ use crate::components::detail::{detail_tabs, tab_panel};
 use crate::components::icon;
 use crate::errors::Result;
 use crate::layout::page::admin_page;
-use crate::routes::mes_order::OrderDetailPath;
+use crate::routes::mes_order::{OrderCancelPath, OrderDetailPath, OrderReleasePath};
 use crate::routes::mes_plan::{
     PlanConfirmPath, PlanDetailPath, PlanGeneratePath, PlanGenerateReleasePath, PlanListPath,
     PlanReleaseAllPath, PlanReleasePath,
@@ -381,9 +381,9 @@ fn plan_detail_page(
                     }
                     div class="page-actions" {
                         @if plan.status == PlanStatus::Confirmed {
-                            button class="btn btn-primary" type="button" _="on click add .is-open to #release-dialog" {
+                            a class="btn btn-primary" href=(format!("/admin/mes/plans/{}?tab=planning", plan.id)) {
                                 (icon::rocket_icon("w-4 h-4"))
-                                "确认并下达"
+                                "工单规划"
                             }
                         }
                         @if plan.status == PlanStatus::Draft {
@@ -434,75 +434,15 @@ fn plan_detail_page(
             // Tabs
             (detail_tabs("detail", &[
                 ("detail", &format!("计划明细 {}", items.len())),
+                ("planning", "工单规划"),
                 ("result", "下达结果"),
                 ("log", "操作日志"),
             ]))
 
             (tab_panel("detail", true, tab_detail(items, product_names, &val_map)))
+            (tab_panel("planning", false, tab_planning(plan, items, product_names, &val_map, work_orders)))
             (tab_panel("result", false, tab_result(work_orders, product_names)))
             (tab_panel("log", false, tab_log(audit_logs)))
-
-            // 确认下达 Modal（Confirmed 状态）
-            @if plan.status == PlanStatus::Confirmed {
-                div class="modal-overlay" id="release-dialog"
-                    _="on click[me is event.target] remove .is-open" {
-                    div class="modal" onclick="event.stopPropagation()" {
-                        div class="modal-head" {
-                            h2 { "确认下达生产计划？" }
-                        }
-                        div class="modal-body" {
-                            p class="modal-desc" {
-                                "下达后将根据计划明细生成对应工单、生产批次和工序记录。请确认以下校验结果："
-                            }
-
-                            // 预校验结果
-                            div class="release-preview" {
-                                @if items.is_empty() {
-                                    p class="modal-desc" { "暂无计划明细" }
-                                } @else {
-                                    @for item in items {
-                                        @let pname = product_names.get(&item.product_id).map(|s| s.as_str()).unwrap_or("—");
-                                        @let val = val_map.get(&item.id).copied();
-                                        div class="release-preview-item" {
-                                            div class="ri-header" {
-                                                span class="ri-product" { (pname) " · " (crate::utils::fmt_qty(item.planned_qty)) "件" }
-                                                (completeness_dots(val))
-                                            }
-                                            @if let Some(v) = val {
-                                                @if !v.has_published_bom {
-                                                    div class="ri-warn" { "⚠ 未找到已发布的 BOM" }
-                                                }
-                                                @if !v.has_routing {
-                                                    div class="ri-warn" { "⚠ 未配置工艺路线" }
-                                                }
-                                                @for s in &v.material_shortages {
-                                                    div class="ri-warn" {
-                                                        (format!("⚠ 物料短缺：需求 {}，库存 {}，缺口 {}",
-                                                            crate::utils::fmt_qty(s.required_qty),
-                                                            crate::utils::fmt_qty(s.available_qty),
-                                                            crate::utils::fmt_qty(s.shortage_qty)))
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        div class="modal-foot" {
-                            button class="btn btn-default" type="button" _="on click remove .is-open from #release-dialog" {
-                                "取消"
-                            }
-                            button class="btn btn-primary"
-                                hx-post=(PlanReleasePath { plan_id: plan.id }.to_string())
-                                hx-disabled-elt="this" {
-                                (icon::rocket_icon("w-4 h-4"))
-                                "确认下达"
-                            }
-                        }
-                    }
-                }
-            }
         }
     }
 }
@@ -654,3 +594,196 @@ fn tab_log(logs: &[AuditLog]) -> Markup {
     }
 }
 
+
+// ── Tab: 工单规划（上方待规划明细 + 下方 Draft 工单）──
+
+fn tab_planning(
+    plan: &ProductionPlan,
+    items: &[ProductionPlanItem],
+    product_names: &HashMap<i64, String>,
+    val_map: &HashMap<i64, &ReleaseValidation>,
+    work_orders: &[WorkOrder],
+) -> Markup {
+    // 活跃工单的 plan_item_id 集合（Draft/Released/InProduction）
+    let active_plan_item_ids: std::collections::HashSet<i64> = work_orders
+        .iter()
+        .filter(|wo| matches!(wo.status, WorkOrderStatus::Draft | WorkOrderStatus::Released | WorkOrderStatus::InProduction))
+        .filter_map(|wo| wo.plan_item_id)
+        .collect();
+
+    // 上方：无活跃工单的明细项
+    let pending_items: Vec<&ProductionPlanItem> = items.iter().filter(|item| !active_plan_item_ids.contains(&item.id)).collect();
+
+    // 下方：Draft 工单
+    let draft_orders: Vec<&WorkOrder> = work_orders.iter().filter(|wo| wo.status == WorkOrderStatus::Draft).collect();
+
+    let can_plan = matches!(plan.status, PlanStatus::Confirmed | PlanStatus::InProgress);
+
+    html! {
+        div class="wo-planning" {
+            // ── 上方区块：待规划明细 ──
+            @if can_plan {
+                div class="planning-section" {
+                    h3 class="planning-section-title" style="font-size:var(--text-base);font-weight:600;margin-bottom:var(--space-3)" {
+                        "待规划明细 " span class="muted" { "(" (pending_items.len()) ")" }
+                    }
+
+                    @if pending_items.is_empty() {
+                        div class="empty-row" { "所有明细已生成工单" }
+                    } @else {
+                        form id="wo-planning-form"
+                            hx-post={(PlanGeneratePath { plan_id: plan.id }.to_string())}
+                            hx-swap="none" {
+
+                            div class="data-card" {
+                                div class="data-card-scroll" {
+                                    table class="data-table" {
+                                        thead {
+                                            tr {
+                                                th style="width:32px" { input type="checkbox" class="wo-check-all" checked; }
+                                                th { "产品" }
+                                                th class="num-right" { "数量" }
+                                                th { "排程(起→止)" }
+                                                th { "工艺路线" }
+                                                th { "完整度" }
+                                                th { "操作" }
+                                            }
+                                        }
+                                        tbody id="wo-planning-body" {
+                                            @for item in &pending_items {
+                                                @let pname = product_names.get(&item.product_id).map(|s| s.as_str()).unwrap_or("—");
+                                                @let val = val_map.get(&item.id).copied();
+                                                tr class="wo-plan-row"
+                                                    data-plan-item-id=(item.id)
+                                                    data-product-id=(item.product_id) {
+                                                    td {
+                                                        input type="checkbox" class="wo-check" checked;
+                                                    }
+                                                    td { (pname) }
+                                                    td class="num-right mono wo-qty" { (crate::utils::fmt_qty(item.planned_qty)) }
+                                                    td style="white-space:nowrap" {
+                                                        input type="date" class="form-input wo-start" value=(item.scheduled_start) style="width:130px;display:inline-block";
+                                                        " → "
+                                                        input type="date" class="form-input wo-end" value=(item.scheduled_end) style="width:130px;display:inline-block";
+                                                    }
+                                                    td {
+                                                        @match val {
+                                                            Some(v) if v.has_routing => { "有" }
+                                                            _ => { span class="muted" { "无（虚拟默认）" } }
+                                                        }
+                                                    }
+                                                    td { (completeness_dots(val)) }
+                                                    td {
+                                                        button type="button" class="btn btn-default btn-sm"
+                                                            onclick="splitRow(this)" { "拆分" }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            input type="hidden" name="items_json" id="items_json" {};
+
+                            div style="margin-top:var(--space-4);display:flex;gap:var(--space-3)" {
+                                button type="button" class="btn btn-primary"
+                                    _="on click call collectPlanItems() then set #items_json.value to it then submit #wo-planning-form" {
+                                    (icon::rocket_icon("w-4 h-4"))
+                                    "生成草稿工单"
+                                }
+                                form style="display:inline"
+                                    hx-post=(PlanGenerateReleasePath { plan_id: plan.id }.to_string())
+                                    hx-swap="none"
+                                    _="on submit call collectPlanItems() then put it into #items_json_fast then submit()" {
+                                    input type="hidden" name="items_json" id="items_json_fast" {};
+                                    button type="submit" class="btn btn-default"
+                                        _="on click call collectPlanItems() then set #items_json_fast.value to it" {
+                                        "一键生成并下达"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ── 下方区块：Draft 工单列表 ──
+            @if !draft_orders.is_empty() {
+                div class="planning-section" style=@if can_plan { "margin-top:var(--space-6)" } @else { "" } {
+                    h3 class="planning-section-title" style="font-size:var(--text-base);font-weight:600;margin-bottom:var(--space-3)" {
+                        "草稿工单 " span class="muted" { "(" (draft_orders.len()) ")" }
+                    }
+
+                    div class="data-card" {
+                        div class="data-card-scroll" {
+                            table class="data-table" {
+                                thead {
+                                    tr {
+                                        th { "工单号" }
+                                        th { "产品" }
+                                        th class="num-right" { "数量" }
+                                        th { "排程" }
+                                        th { "状态" }
+                                        th { "操作" }
+                                    }
+                                }
+                                tbody {
+                                    @for wo in &draft_orders {
+                                        @let pname = product_names.get(&wo.product_id).map(|s| s.as_str()).unwrap_or("—");
+                                        tr {
+                                            td class="mono" { (wo.doc_number) }
+                                            td { (pname) }
+                                            td class="num-right mono" { (crate::utils::fmt_qty(wo.planned_qty)) }
+                                            td style="white-space:nowrap" { (wo.scheduled_start.format("%m-%d")) " → " (wo.scheduled_end.format("%m-%d")) }
+                                            td { (status_pill("草稿", "rgba(250,140,22,0.08)", "#fa8c16")) }
+                                            td style="white-space:nowrap" {
+                                                button class="btn btn-primary btn-sm"
+                                                    hx-post=(OrderReleasePath { order_id: wo.id }.to_string())
+                                                    hx-confirm="确认下达此工单？"
+                                                    hx-disabled-elt="this" {
+                                                    "下达"
+                                                }
+                                                button class="btn btn-danger btn-sm"
+                                                    hx-post=(OrderCancelPath { order_id: wo.id }.to_string())
+                                                    hx-confirm="确认取消此草稿工单？" {
+                                                    "取消"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    div style="margin-top:var(--space-4)" {
+                        button class="btn btn-primary"
+                            hx-post=(PlanReleaseAllPath { plan_id: plan.id }.to_string())
+                            hx-confirm="确认全部下达？"
+                            hx-disabled-elt="this" {
+                            (icon::rocket_icon("w-4 h-4"))
+                            "全部下达"
+                        }
+                    }
+                }
+            }
+
+            // ── 空状态 ──
+            @if pending_items.is_empty() && draft_orders.is_empty() && can_plan {
+                div class="empty-row" style="padding:var(--space-8);text-align:center" {
+                    "暂无待规划明细，且无草稿工单"
+                }
+            }
+
+            @if !can_plan {
+                div class="empty-row" style="padding:var(--space-8);text-align:center" {
+                    "计划状态不支持工单规划"
+                }
+            }
+
+            // 加载规划 JS
+            script src="/static/wo-planning.js" {}
+        }
+    }
+}

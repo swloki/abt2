@@ -23,7 +23,7 @@ pub fn detail_tabs(active: &str, tabs: &[(&str, &str)]) -> Markup {
                 }
             }
         }
-        (maud::PreEscaped(r#"<script>function switchDetailTab(t,b){document.querySelectorAll('.tab-panel').forEach(function(p){p.style.display='none'});document.querySelectorAll('.detail-tab').forEach(function(x){x.classList.remove('active')});var e=document.getElementById('tab-'+t);if(e)e.style.display='';if(b)b.classList.add('active')}</script>"#))
+        (maud::PreEscaped(r#"<script>function switchDetailTab(t,b){document.querySelectorAll('.tab-panel').forEach(function(p){p.style.display='none'});document.querySelectorAll('.detail-tab').forEach(function(x){x.classList.remove('active')});var e=document.getElementById('tab-'+t);if(e)e.style.display='';if(b)b.classList.add('active')};(function(){var p=new URLSearchParams(location.search);var t=p.get('tab');if(t){var b=document.querySelector('.detail-tab[onclick*="'+t+'"]');if(b)switchDetailTab(t,b)}})();</script>"#))
     }
 }
 

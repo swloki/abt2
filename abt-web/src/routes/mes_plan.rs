@@ -21,6 +21,10 @@ pub struct PlanCreatePath;
 pub struct PlanItemRowPath;
 
 #[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/mes/plans/product-search")]
+pub struct ProductSearchPath;
+
+#[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/mes/plans/{id}")]
 pub struct PlanDetailPath {
     pub id: i64,
@@ -44,6 +48,7 @@ pub fn router() -> Router<AppState> {
     Router::new()
         .route(PlanListPath::PATH, get(mes_plan_list::get_plan_list))
         .route(PlanItemRowPath::PATH, get(mes_plan_create::get_item_row))
+        .route(ProductSearchPath::PATH, get(mes_plan_create::search_products))
         .route(
             PlanCreatePath::PATH,
             get(mes_plan_create::get_plan_create).post(mes_plan_create::create_plan),

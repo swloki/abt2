@@ -3,12 +3,14 @@ use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
 use serde::Deserialize;
 
+use abt_core::master_data::product::{ProductQuery, ProductService};
 use abt_core::mes::production_plan::ProductionPlanService;
+use abt_core::shared::types::PageParams;
 
 use crate::components::icon;
 use crate::errors::Result;
 use crate::layout::page::admin_page;
-use crate::routes::mes_plan::{PlanCreatePath, PlanListPath, PlanItemRowPath};
+use crate::routes::mes_plan::{PlanCreatePath, PlanListPath, PlanItemRowPath, ProductSearchPath};
 use crate::utils::RequestContext;
 use abt_macros::require_permission;
 
@@ -80,6 +82,52 @@ pub async fn create_plan(
 
 pub async fn get_item_row(_path: PlanItemRowPath) -> Result<Html<String>> {
     Ok(Html(plan_item_row_html(0).into_string()))
+}
+
+// ── Product Search ──
+
+#[derive(Debug, Deserialize)]
+pub struct ProductSearchQuery {
+    pub q: Option<String>,
+}
+
+pub async fn search_products(
+    _path: ProductSearchPath,
+    ctx: RequestContext,
+    axum::extract::Query(query): axum::extract::Query<ProductSearchQuery>,
+) -> Result<Html<String>> {
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let svc = state.product_service();
+    let keyword = query.q.unwrap_or_default().trim().to_string();
+    let filter = ProductQuery {
+        name: if keyword.is_empty() { None } else { Some(keyword) },
+        ..Default::default()
+    };
+    let result = svc.list(
+        &service_ctx,
+        &mut conn,
+        filter,
+        PageParams { page: 1, page_size: 20 },
+    ).await?;
+    let rows = if result.items.is_empty() {
+        html! { tr { td colspan="4" style="text-align:center;color:var(--muted);padding:24px" { "未找到匹配的产品" } } }
+    } else {
+        html! {
+            @for p in &result.items {
+                tr {
+                    td class="mono" { (p.product_code) }
+                    td { (p.pdt_name) }
+                    td style="width:60px" { (p.unit) }
+                    td style="width:60px;text-align:center" {
+                        button type="button" class="btn btn-primary btn-sm"
+                            _=(format!("on click set window._selectedProduct to {{id: {}, name: '{}'}} then remove .is-open from #product-picker then send productSelected to #product-picker", p.product_id, p.pdt_name.replace('\'', "\\'"))) { "选择" }
+                    }
+                }
+            }
+        }
+    };
+
+    Ok(Html(rows.into_string()))
 }
 
 // ── Components ──
@@ -159,8 +207,52 @@ fn plan_create_page() -> Markup {
                     }
                 }
             }
+
+            // ── Product Picker Modal ──
+            div id="product-picker" class="modal-overlay"
+                _="on click[me is event.target] remove .is-open
+                   on productSelected
+                     if window._productPickerTarget
+                       set t to window._productPickerTarget
+                       put window._selectedProduct.name into (t's querySelector('[data-field=\"product_name\"]'))
+                       set (t's querySelector('[data-field=\"product_id\"]'))'s value to window._selectedProduct.id" {
+                div class="modal modal-lg" _="on click halt" {
+                    div class="modal-head" {
+                        h2 { "选择产品" }
+                        button type="button" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
+                            _="on click remove .is-open from #product-picker" { "×" }
+                    }
+                    div class="modal-body" {
+                        input type="text" class="search-input" placeholder="搜索产品名称或编码…"
+                            id="product-search-input"
+                            name="q"
+                            hx-get=(ProductSearchPath::PATH)
+                            hx-trigger="input changed delay:300ms"
+                            hx-target="#product-search-results"
+                            hx-swap="innerHTML"
+                            hx-include="this";
+                        table class="data-table" style="margin-top:12px" {
+                            thead {
+                                tr {
+                                    th style="width:120px" { "编码" }
+                                    th { "名称" }
+                                    th style="width:60px" { "单位" }
+                                    th style="width:60px" { }
+                                }
+                            }
+                            tbody id="product-search-results" {
+                                tr { td colspan="4" style="text-align:center;color:var(--muted);padding:24px" { "请输入关键词搜索" } }
+                            }
+                        }
+                    }
+                }
+            }
         }
         (maud::PreEscaped(r#"<script>
+        window.openProductPicker = function(tr) {
+            window._productPickerTarget = tr;
+            document.getElementById('product-picker').classList.add('is-open');
+        };
         (function(){
             let idx = 0;
             const tbody = document.getElementById('plan-items-tbody');
@@ -169,7 +261,13 @@ fn plan_create_page() -> Markup {
                 const i = idx++;
                 tr.innerHTML = `
                     <td class="line-num">${i+1}</td>
-                    <td><input class="form-input" type="number" data-field="product_id" placeholder="产品ID" style="width:100px" required></td>
+                    <td>
+                      <div class="product-cell" style="cursor:pointer;padding:4px 8px;border:1px dashed var(--border);border-radius:4px"
+                           onclick="window.openProductPicker(this.closest('tr'))">
+                        <span data-field="product_name" style="color:var(--muted)">点击选择产品</span>
+                        <input type="hidden" data-field="product_id">
+                      </div>
+                    </td>
                     <td><input class="form-input num-right" type="number" step="0.01" data-field="planned_qty" placeholder="数量" required></td>
                     <td><input class="form-input" type="date" data-field="scheduled_start" required></td>
                     <td><input class="form-input" type="date" data-field="scheduled_end" required></td>
@@ -186,8 +284,8 @@ fn plan_create_page() -> Markup {
                     r.querySelectorAll('[data-field]').forEach(inp => {
                         const f = inp.getAttribute('data-field');
                         let v = inp.value;
-                        if(f.includes('qty') || f === 'priority' || f === 'product_id') v = Number(v);
-                        obj[f] = v;
+                        if(f === 'planned_qty' || f === 'priority' || f === 'product_id') v = Number(v);
+                        if(f !== 'product_name') obj[f] = v;
                     });
                     if(obj.product_id) items.push(obj);
                 });
@@ -202,7 +300,13 @@ fn plan_item_row_html(index: usize) -> Markup {
     html! {
         tr {
             td class="line-num" { (index + 1) }
-            td { input class="form-input" type="number" name=(format!("items[{index}].product_id")) style="width:100px"; }
+            td {
+                div class="product-cell" style="cursor:pointer;padding:4px 8px;border:1px dashed var(--border);border-radius:4px"
+                    _="on click set window._productPickerTarget to closest tr then add .is-open to #product-picker" {
+                    span data-field="product_name" style="color:var(--muted)" { "点击选择产品" }
+                    input type="hidden" data-field="product_id";
+                }
+            }
             td { input class="form-input num-right" type="number" step="0.01" name=(format!("items[{index}].planned_qty")); }
             td { input class="form-input" type="date" name=(format!("items[{index}].scheduled_start")); }
             td { input class="form-input" type="date" name=(format!("items[{index}].scheduled_end")); }

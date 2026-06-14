@@ -88,7 +88,8 @@ pub async fn get_item_row(_path: PlanItemRowPath) -> Result<Html<String>> {
 
 #[derive(Debug, Deserialize)]
 pub struct ProductSearchQuery {
-    pub q: Option<String>,
+    pub name: Option<String>,
+    pub code: Option<String>,
 }
 
 pub async fn search_products(
@@ -98,9 +99,11 @@ pub async fn search_products(
 ) -> Result<Html<String>> {
     let RequestContext { mut conn, state, service_ctx, .. } = ctx;
     let svc = state.product_service();
-    let keyword = query.q.unwrap_or_default().trim().to_string();
+    let name = query.name.unwrap_or_default().trim().to_string();
+    let code = query.code.unwrap_or_default().trim().to_string();
     let filter = ProductQuery {
-        name: if keyword.is_empty() { None } else { Some(keyword) },
+        name: if name.is_empty() { None } else { Some(name) },
+        code: if code.is_empty() { None } else { Some(code) },
         ..Default::default()
     };
     let result = svc.list(
@@ -110,18 +113,15 @@ pub async fn search_products(
         PageParams { page: 1, page_size: 20 },
     ).await?;
     let rows = if result.items.is_empty() {
-        html! { tr { td colspan="4" style="text-align:center;color:var(--muted);padding:24px" { "未找到匹配的产品" } } }
+        html! { tr { td colspan="3" style="text-align:center;color:var(--muted);padding:24px" { "未找到匹配的产品" } } }
     } else {
         html! {
             @for p in &result.items {
-                tr {
+                tr style="cursor:pointer"
+                    _=(format!("on dblclick set window._selectedProduct to {{id: {}, name: '{}'}} then remove .is-open from #product-picker then send productSelected to #product-picker", p.product_id, p.pdt_name.replace('\'', "\\'"))) {
                     td class="mono" { (p.product_code) }
                     td { (p.pdt_name) }
                     td style="width:60px" { (p.unit) }
-                    td style="width:60px;text-align:center" {
-                        button type="button" class="btn btn-primary btn-sm"
-                            _=(format!("on click set window._selectedProduct to {{id: {}, name: '{}'}} then remove .is-open from #product-picker then send productSelected to #product-picker", p.product_id, p.pdt_name.replace('\'', "\\'"))) { "选择" }
-                    }
                 }
             }
         }
@@ -223,25 +223,34 @@ fn plan_create_page() -> Markup {
                             _="on click remove .is-open from #product-picker" { "×" }
                     }
                     div class="modal-body" {
-                        input type="text" class="search-input" placeholder="搜索产品名称或编码…"
-                            id="product-search-input"
-                            name="q"
-                            hx-get=(ProductSearchPath::PATH)
-                            hx-trigger="load, input changed delay:300ms"
-                            hx-target="#product-search-results"
-                            hx-swap="innerHTML"
-                            hx-include="this";
-                        table class="data-table" style="margin-top:12px" {
+                        div class="flex gap-2 mb-2" {
+                            input type="text" class="search-input" placeholder="产品名称…"
+                                id="product-search-name"
+                                name="name"
+                                hx-get=(ProductSearchPath::PATH)
+                                hx-trigger="load, input changed delay:300ms"
+                                hx-target="#product-search-results"
+                                hx-swap="innerHTML"
+                                hx-include="#product-search-name, #product-search-code";
+                            input type="text" class="search-input" placeholder="产品编码…"
+                                id="product-search-code"
+                                name="code"
+                                hx-get=(ProductSearchPath::PATH)
+                                hx-trigger="input changed delay:300ms"
+                                hx-target="#product-search-results"
+                                hx-swap="innerHTML"
+                                hx-include="#product-search-name, #product-search-code";
+                        }
+                        table class="data-table" {
                             thead {
                                 tr {
                                     th style="width:120px" { "编码" }
                                     th { "名称" }
                                     th style="width:60px" { "单位" }
-                                    th style="width:60px" { }
                                 }
                             }
                             tbody id="product-search-results" {
-                                tr { td colspan="4" style="text-align:center;color:var(--muted);padding:24px" { "正在加载..." } }
+                                tr { td colspan="3" style="text-align:center;color:var(--muted);padding:24px" { "正在加载..." } }
                             }
                         }
                     }

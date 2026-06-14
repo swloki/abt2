@@ -806,6 +806,10 @@ classDiagram
     <div>
       <h4 style="color: #6bc76b; margin: 0 0 6px 0; font-size: 13px;">create_order_from_demands 流程</h4>
       <div style="font-family: monospace; font-size: 11.5px; color: #ccc; line-height: 1.8;">
+        <span style="color:#e06c75;"><b>⚠ 事务要求：</b>调用方必须在事务中调用此方法（tx.begin() → 传 &amp;mut tx）。<br>
+        步骤 1 的乐观锁会把 status 从 Pending→Confirmed，若后续步骤失败需整体回滚，<br>
+        否则需求成为孤儿（status=Confirmed 但无 target_doc），导致后续采购阻断。</span><br>
+        <br>
         1. 乐观锁：UPDATE demands SET status=Confirmed WHERE id=ANY($1) AND status=Pending AND acquire_channel=2 RETURNING *<br>
         2. 计算被跳过的需求（不在 RETURNING 集合中的 demand_ids）<br>
         3. 按 product_id 聚合成功锁定的需求（合并数量）<br>
@@ -813,7 +817,6 @@ classDiagram
         5. 逐条更新 target_doc (doc_type=PurchaseOrder, doc_id=po_id)<br>
         6. 逐条发布 DemandConfirmed 事件（同事务内）<br>
         7. 返回 CreateDownstreamResult（含 doc_id、处理数、跳过列表）
-      </div>
     </div>
 
   </div>

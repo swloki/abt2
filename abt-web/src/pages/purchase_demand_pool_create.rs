@@ -207,7 +207,6 @@ pub async fn create_order_from_demands(
     axum::Form(form): axum::Form<CreateOrderForm>,
 ) -> Result<impl IntoResponse> {
     let RequestContext {
-        mut conn,
         state,
         service_ctx,
         ..
@@ -241,10 +240,18 @@ pub async fn create_order_from_demands(
         remark: form.remark,
     };
 
+    // 整个流程必须在同一事务中：乐观锁(状态1→2) → 创建采购订单 → 更新 target_doc → 发布事件。
+    // 任一步骤失败需整体回滚，避免需求成为孤儿状态（status=2 但无 target_doc）。
+    let mut tx = state.pool.begin().await
+        .map_err(|e| DomainError::Internal(e.into()))?;
+
     let svc = state.purchase_demand_service();
     let result = svc
-        .create_order_from_demands(&service_ctx, &mut conn, create_req)
+        .create_order_from_demands(&service_ctx, &mut tx, create_req)
         .await?;
+
+    tx.commit().await
+        .map_err(|e| DomainError::Internal(e.into()))?;
 
     let redirect = PODetailPath {
         id: result.doc_id,

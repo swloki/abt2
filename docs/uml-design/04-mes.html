@@ -1058,6 +1058,10 @@ classDiagram
     <div>
       <h4 style="color: #e5a655; margin: 0 0 6px 0; font-size: 13px;">create_plan_from_demands 流程</h4>
       <div style="font-family: monospace; font-size: 11.5px; color: #ccc; line-height: 1.8;">
+        <span style="color:#e06c75;"><b>⚠ 事务要求：</b>调用方必须在事务中调用此方法（tx.begin() → 传 &amp;mut tx）。<br>
+        步骤 1 的乐观锁会把 status 从 Pending→Confirmed，若后续步骤失败需整体回滚，<br>
+        否则需求成为孤儿（status=Confirmed 但无 target_doc），导致后续排产阻断。</span><br>
+        <br>
         1. 乐观锁：UPDATE demands SET status=Confirmed WHERE id=ANY($1) AND status=Pending AND acquire_channel=1 RETURNING *<br>
         2. 计算被跳过的需求（不在 RETURNING 集合中的 demand_ids）<br>
         3. 按 product_id 聚合成功锁定的需求<br>
@@ -1066,7 +1070,6 @@ classDiagram
         6. 逐条更新 target_doc (doc_type=ProductionPlan, doc_id=plan_id)<br>
         7. 逐条发布 DemandConfirmed 事件（同事务内）<br>
         8. 返回 CreateDownstreamResult（含 doc_id、处理数、跳过列表）<br>
-        <br>
         <b>后续流程（已有实现）</b>：<br>
         计划员审核 → ProductionPlanService::release → 释放工单 → WorkOrderService::release<br>
         → 工单完工 → ProductionReceiptService 入库 → DemandService::fulfill → 需求完成

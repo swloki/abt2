@@ -632,7 +632,8 @@ p { margin: 0; }
 }
 .modal {
   background: var(--bg); border-radius: var(--radius-xl); width: 680px; max-width: 92vw;
-  max-height: 85vh; overflow-y: auto;
+  max-height: 85vh;
+  display: flex; flex-direction: column; overflow: hidden;
   box-shadow: 0 25px 60px rgba(15,23,42,0.18), 0 8px 20px rgba(15,23,42,0.08), 0 0 0 1px rgba(255,255,255,0.1);
   transform: translateY(12px) scale(0.98);
   transition: transform var(--motion-base) var(--ease-decelerate), opacity var(--motion-base) var(--ease-decelerate);
@@ -644,13 +645,13 @@ p { margin: 0; }
 }
 .modal-head {
   padding: var(--space-5) var(--space-6); border-bottom: 1px solid var(--border-soft);
-  display: flex; justify-content: space-between; align-items: center;
+  display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;
 }
 .modal-head h2 { font-size: var(--text-lg); font-weight: 600; margin: 0; display: flex; align-items: center; gap: var(--space-2); }
-.modal-body { padding: var(--space-6); }
+.modal-body { padding: var(--space-6); overflow-y: auto; flex: 1 1 auto; min-height: 0; }
 .modal-foot {
   padding: var(--space-4) var(--space-6); border-top: 1px solid var(--border-soft);
-  display: flex; justify-content: flex-end; gap: var(--space-3); background: var(--surface-raised);
+  display: flex; justify-content: flex-end; gap: var(--space-3); background: var(--surface-raised); flex-shrink: 0;
 }
 .modal-lg { width: 900px; max-width: 94vw; }
 
@@ -4308,3 +4309,29 @@ textarea.form-input{min-height:72px;resize:vertical;font-family:var(--font-body)
 .release-preview{max-height:300px;overflow-y:auto;margin-bottom:var(--space-5)}
 .release-preview-item{padding:var(--space-3);border:1px solid var(--border-soft);border-radius:var(--radius-md);margin-bottom:var(--space-2)}
 .release-preview-item .ri-warn{font-size:12px;color:#fa8c16;margin-top:4px}
+/* ─── Work Order List (已下达工单紧凑行) ─── */
+.work-order-list{list-style:none;margin:0;padding:0}
+.work-order-item{display:flex;align-items:center;padding:var(--space-4) var(--space-5);border-bottom:1px solid var(--border-soft);transition:background-color .15s ease;position:relative;min-height:72px}
+.work-order-item:last-child{border-bottom:none}
+.work-order-item:hover{background:var(--bg)}
+.wo-status-bar{width:3px;height:100%;position:absolute;left:0;top:0;border-radius:var(--radius-sm) 0 0 var(--radius-sm)}
+.wo-status-bar.released{background:var(--accent)}
+.wo-status-bar.in-production{background:var(--success)}
+.wo-status-bar.closed{background:var(--muted)}
+.wo-row-content{flex:1;display:grid;grid-template-columns:180px 1fr auto;gap:var(--space-5);align-items:center;padding-left:var(--space-2)}
+.wo-order-num{font-family:var(--font-mono);font-size:14px;font-weight:600;color:var(--fg);letter-spacing:-.01em}
+.wo-product-info{display:flex;flex-direction:column;gap:var(--space-1)}
+.wo-product-name{font-size:14px;font-weight:500;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wo-product-meta{display:flex;align-items:center;gap:var(--space-3);font-size:12px;color:var(--fg-2)}
+.wo-meta-label{color:var(--muted)}
+.wo-right-info{display:flex;align-items:center;gap:var(--space-4)}
+.wo-progress{display:flex;align-items:center;gap:var(--space-2);font-size:12px;color:var(--fg-2)}
+.wo-progress-text{font-variant-numeric:tabular-nums}
+.wo-progress-bar{width:60px;height:4px;background:var(--border-soft);border-radius:var(--radius-full);overflow:hidden}
+.wo-progress-fill{height:100%;border-radius:var(--radius-full)}
+.wo-progress-fill.released{background:var(--accent)}
+.wo-progress-fill.in-production{background:var(--success)}
+.wo-progress-fill.closed{background:var(--muted)}
+.wo-action-btn{display:inline-flex;align-items:center;padding:6px 12px;font-size:13px;font-weight:500;color:var(--accent);text-decoration:none;border-radius:var(--radius-md);transition:all .15s ease;white-space:nowrap}
+.wo-action-btn:hover{background:rgba(22,119,255,.08)}
+.wo-action-btn::after{content:' →';margin-left:var(--space-1)}

@@ -725,28 +725,46 @@ fn tab_planning(
                         "已下达工单 " span class="muted" { "(" (released_orders.len()) ")" }
                     }
 
-                    div style="display:flex;flex-direction:column;gap:var(--space-2)" {
-                        @for wo in &released_orders {
-                            @let pname = product_names.get(&wo.product_id).map(|s| s.as_str()).unwrap_or("—");
-                            @let (wo_label, wo_bg, wo_color) = wo_status_label(&wo.status);
-                            div class="release-result-item success" {
-                                div class="ri-header" {
-                                    div class="ri-product" {
-                                        (pname) " · " (crate::utils::fmt_qty(wo.planned_qty)) "件"
-                                    }
-                                    (status_pill(wo_label, wo_bg, wo_color))
-                                }
-                                div class="ri-detail" {
-                                    span { "工单: " (wo.doc_number) }
-                                    @if let (Some(done), Some(total)) = (wo.completed_steps, wo.total_steps) {
-                                        span { "工序: " (done) "/" (total) "步" }
-                                    }
-                                    span { "排程: " (wo.scheduled_start.format("%m-%d")) " 至 " (wo.scheduled_end.format("%m-%d")) }
-                                }
-                                div class="ri-actions" {
-                                    a class="btn btn-default btn-sm"
-                                        href=(OrderDetailPath { id: wo.id }.to_string()) {
-                                        "→ 工单详情"
+                    div class="data-card" {
+                        ul class="work-order-list" {
+                            @for wo in &released_orders {
+                                @let pname = product_names.get(&wo.product_id).map(|s| s.as_str()).unwrap_or("—");
+                                @let (wo_label, _wo_bg, _wo_color) = wo_status_label(&wo.status);
+                                @let status_cls = match wo.status {
+                                    WorkOrderStatus::InProduction => "in-production",
+                                    WorkOrderStatus::Closed => "closed",
+                                    _ => "released",
+                                };
+                                li class="work-order-item" {
+                                    div class={"wo-status-bar " (status_cls)} {}
+                                    div class="wo-row-content" {
+                                        // 工单号
+                                        div class="wo-order-num" { (wo.doc_number) }
+                                        // 产品信息
+                                        div class="wo-product-info" {
+                                            div class="wo-product-name" { (pname) }
+                                            div class="wo-product-meta" {
+                                                span { span class="wo-meta-label" { "数量 " } (crate::utils::fmt_qty(wo.planned_qty)) "件" }
+                                                span { span class="wo-meta-label" { "排程 " } (wo.scheduled_start.format("%m-%d")) " → " (wo.scheduled_end.format("%m-%d")) }
+                                            }
+                                        }
+                                        // 右侧：状态 + 进度 + 操作
+                                        div class="wo-right-info" {
+                                            (status_pill(wo_label, _wo_bg, _wo_color))
+                                            @if let (Some(done), Some(total)) = (wo.completed_steps, wo.total_steps) {
+                                                div class="wo-progress" {
+                                                    span class="wo-progress-text" { (done) "/" (total) "步" }
+                                                    div class="wo-progress-bar" {
+                                                        div class={"wo-progress-fill " (status_cls)}
+                                                            style=(format!("width: {}%", if total > 0 { done * 100 / total } else { 0 })) {}
+                                                    }
+                                                }
+                                            }
+                                            a class="wo-action-btn"
+                                                href=(OrderDetailPath { id: wo.id }.to_string()) {
+                                                "工单详情"
+                                            }
+                                        }
                                     }
                                 }
                             }

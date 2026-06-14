@@ -500,6 +500,16 @@ p { margin: 0; }
 }
 .data-card-head h3 { font-size: var(--text-base); font-weight: 600; color: var(--fg); margin: 0; }
 .data-card-body { padding: var(--space-4); }
+/* data-card 包含表单内容时自动加 padding（列表页 .data-card-scroll / inline padding:0 不受影响） */
+.data-card:has(> .form-section-title),
+.data-card:has(> div > .form-section-title),
+.data-card:has(> form) { padding: var(--space-5); }
+/* create-action-bar 在表单卡片内抵消父级 padding，铺满底部边缘 */
+.data-card > form > .create-action-bar:last-child {
+  margin-left: calc(var(--space-5) * -1);
+  margin-right: calc(var(--space-5) * -1);
+  margin-bottom: calc(var(--space-5) * -1);
+}
 .data-table { width: 100%; min-width: 860px; font-size: var(--text-sm); }
 .data-table th {
   padding: 11px var(--space-4); text-align: left; font-weight: 600; color: var(--muted);

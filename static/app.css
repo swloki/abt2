@@ -1,4 +1,3 @@
-/* Source: E:/work/abt/static/base.css */
 
 :root {
   --bg: #ffffff;
@@ -501,6 +500,16 @@ p { margin: 0; }
 }
 .data-card-head h3 { font-size: var(--text-base); font-weight: 600; color: var(--fg); margin: 0; }
 .data-card-body { padding: var(--space-4); }
+/* data-card 包含表单内容时自动加 padding（列表页 .data-card-scroll / inline padding:0 不受影响） */
+.data-card:has(> .form-section-title),
+.data-card:has(> div > .form-section-title),
+.data-card:has(> form) { padding: var(--space-5); }
+/* create-action-bar 在表单卡片内抵消父级 padding，铺满底部边缘 */
+.data-card > form > .create-action-bar:last-child {
+  margin-left: calc(var(--space-5) * -1);
+  margin-right: calc(var(--space-5) * -1);
+  margin-bottom: calc(var(--space-5) * -1);
+}
 .data-table { width: 100%; min-width: 860px; font-size: var(--text-sm); }
 .data-table th {
   padding: 11px var(--space-4); text-align: left; font-weight: 600; color: var(--muted);
@@ -930,6 +939,18 @@ p { margin: 0; }
 }
 .btn-add-row:hover { border-color: var(--accent); background: var(--accent-bg); }
 .btn-add-row svg { width: 14px; height: 14px; }
+/* ─── Product Picker Cell (inline product selector) ─── */
+.product-picker-cell {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 10px; min-height: 34px;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: #fff; cursor: pointer; transition: all var(--motion-fast);
+}
+.product-picker-cell:hover { border-color: var(--accent); background: var(--accent-bg); }
+.product-picker-cell svg { width: 14px; height: 14px; color: var(--muted); flex-shrink: 0; transition: color var(--motion-fast); }
+.product-picker-cell:hover svg { color: var(--accent); }
+.product-picker-cell span { color: var(--fg); font-weight: 500; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.product-picker-cell .picker-placeholder { color: var(--muted); font-weight: 400; }
 
 /* ─── Totals Bar ─── */
 .totals-bar {
@@ -4305,8 +4326,8 @@ textarea.form-input{min-height:72px;resize:vertical;font-family:var(--font-body)
 --spacing: 0.25rem;
 --text-2xl-fontSize: 1.5rem;
 --text-2xl-lineHeight: 2rem;
---spacing-4: var(--space-4);
 --spacing-2: var(--space-2);
+--spacing-4: var(--space-4);
 --spacing-5: var(--space-5);
 --font-mono: ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;
 --colors-blue-DEFAULT: oklch(70.7% 0.165 254.624);

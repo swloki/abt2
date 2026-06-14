@@ -367,8 +367,14 @@ fn order_detail_page(
                             span class="muted" { " (" (c) ")" }
                         }
                     }
+                    @if let Some(pdoc) = order.source_plan_doc.as_ref() {
+                        span class="sep" { "|" }
+                        span { "生产计划: " }
+                        @if let Some(pid) = order.source_plan_id {
+                            a class="link-cell" href=(format!("/admin/mes/plans/{pid}")) { (pdoc) }
+                        } @else { span { (pdoc) } }
+                    }
                 }
-
                 // 进度条（有工序时）
                 @if total > 0 {
                     div class="wo-progress" {
@@ -433,71 +439,42 @@ fn order_detail_page(
 fn tab_info(order: &WorkOrder, product_name: &str, routing_count: usize) -> Markup {
     let (sl, sb, sc) = wo_status_label(&order.status);
     html! {
-        div class="info-section" {
-            div class="info-section-title" { "基础数据" }
-            div class="info-grid info-grid-4" {
-                div class="info-item" { span class="info-label" { "工单编号" } span class="info-value mono" { (order.doc_number) } }
-                div class="info-item" { span class="info-label" { "产品" } span class="info-value" { (product_name) } }
-                div class="info-item" { span class="info-label" { "计划数量" } span class="info-value mono" { (crate::utils::fmt_qty(order.planned_qty)) } }
-                div class="info-item" { span class="info-label" { "状态" } span class="info-value" { (status_pill(sl, sb, sc)) } }
-                div class="info-item" { span class="info-label" { "版本号" } span class="info-value mono" { "v"(order.version) } }
-                div class="info-item" { span class="info-label" { "计划开始" } span class="info-value mono" { (order.scheduled_start) } }
-                div class="info-item" { span class="info-label" { "计划结束" } span class="info-value mono" { (order.scheduled_end) } }
-                div class="info-item" { span class="info-label" { "创建时间" } span class="info-value mono" { (fmt_dt(order.created_at)) } }
+        div class="bento-grid" {
+            div class="bento-half" {
+                div class="info-section-title" { "基础信息" }
+                div class="bento-sub-grid" {
+                    div class="info-item" { span class="info-label" { "工单编号" } span class="info-value mono" { (order.doc_number) } }
+                    div class="info-item" { span class="info-label" { "产品" } span class="info-value" { (product_name) } }
+                    div class="info-item" { span class="info-label" { "计划数量" } span class="info-value mono" { (crate::utils::fmt_qty(order.planned_qty)) } }
+                    div class="info-item" { span class="info-label" { "状态" } span class="info-value" { (status_pill(sl, sb, sc)) } }
+                    div class="info-item" { span class="info-label" { "版本号" } span class="info-value mono" { "v"(order.version) } }
+                    div class="info-item" { span class="info-label" { "计划开始" } span class="info-value mono" { (order.scheduled_start) } }
+                    div class="info-item" { span class="info-label" { "计划结束" } span class="info-value mono" { (order.scheduled_end) } }
+                    div class="info-item" { span class="info-label" { "创建人" } span class="info-value mono" { "#" (order.operator_id) } }
+                }
             }
-        }
-        div class="info-section" {
-            div class="info-section-title" { "生产配置" }
-            div class="info-grid info-grid-3" {
-                div class="info-item" {
-                    span class="info-label" { "BOM 快照" }
-                    span class="info-value mono" {
-                        @if let Some(bid) = order.bom_snapshot_id { "#" (bid) } @else { "—" }
+            div class="bento-half" {
+                div class="info-section-title" { "生产配置" }
+                div class="bento-sub-grid" {
+                    div class="info-item" {
+                        span class="info-label" { "BOM 快照" }
+                        span class="info-value mono" { @if let Some(bid) = order.bom_snapshot_id { "#" (bid) } @else { "—" } }
                     }
-                }
-                div class="info-item" {
-                    span class="info-label" { "工艺路线" }
-                    span class="info-value mono" {
-                        @if let Some(rid) = order.routing_id { "#" (rid) } @else { "—" }
+                    div class="info-item" {
+                        span class="info-label" { "工艺路线" }
+                        span class="info-value mono" { @if let Some(rid) = order.routing_id { "#" (rid) } @else { "—" } }
                     }
+                    div class="info-item" { span class="info-label" { "工序数" } span class="info-value mono" { (routing_count) } }
+                    div class="info-item" { span class="info-label" { "物料模式" } span class="info-value" { "—" } }
+                    div class="info-item" { span class="info-label" { "超额容差" } span class="info-value" { "—" } }
+                    div class="info-item" { span class="info-label" { "创建时间" } span class="info-value mono" { (fmt_dt(order.created_at)) } }
                 }
-                div class="info-item" { span class="info-label" { "工作中心" } span class="info-value" { "—" } }
-                div class="info-item" { span class="info-label" { "工序数" } span class="info-value mono" { (routing_count) } }
-                div class="info-item" { span class="info-label" { "物料模式" } span class="info-value" { "—" } }
-                div class="info-item" { span class="info-label" { "超额容差" } span class="info-value" { "—" } }
-            }
-        }
-        div class="info-section" {
-            div class="info-section-title" { "来源追溯" }
-            div class="info-grid info-grid-3" {
-                div class="info-item" {
-                    span class="info-label" { "销售订单" }
-                    span class="info-value" {
-                        @if let Some(so) = order.source_so_doc.as_ref() {
-                            (so)
-                            @if let Some(c) = order.source_customer.as_ref() {
-                                span class="muted" { " (" (c) ")" }
-                            }
-                        } @else { "—" }
-                    }
-                }
-                div class="info-item" {
-                    span class="info-label" { "生产计划" }
-                    span class="info-value" {
-                        @if let Some(pdoc) = order.source_plan_doc.as_ref() {
-                            @if let Some(pid) = order.source_plan_id {
-                                a class="link-cell" href=(format!("/admin/mes/plans/{pid}")) { (pdoc) }
-                            } @else { (pdoc) }
-                        } @else { "—" }
-                    }
-                }
-                div class="info-item" { span class="info-label" { "创建人" } span class="info-value mono" { "#" (order.operator_id) } }
             }
         }
         @if !order.remark.is_empty() {
             div class="info-section" {
                 div class="info-section-title" { "备注" }
-                p style="font-size:var(--text-sm);line-height:1.6;color:var(--muted)" { (order.remark.as_str()) }
+                p class="remark-text" { (order.remark.as_str()) }
             }
         }
     }
@@ -505,6 +482,45 @@ fn tab_info(order: &WorkOrder, product_name: &str, routing_count: usize) -> Mark
 
 fn tab_routing(routings: &[WorkOrderRouting]) -> Markup {
     html! {
+        @if !routings.is_empty() {
+            div class="flow-flow-wrap" {
+                div class="flow-flow-wrap-title" { "工序进度可视化" }
+                div class="routing-flow" {
+                    @for (i, r) in routings.iter().enumerate() {
+                        @if i > 0 {
+                            @let prev_done = matches!(routings[i - 1].status, RoutingStatus::Completed);
+                            div class=(if prev_done { "flow-arrow completed" } else { "flow-arrow" }) { "→" }
+                        }
+                        @let node_cls = match r.status {
+                            RoutingStatus::Completed => "flow-node completed",
+                            RoutingStatus::InProgress => "flow-node current",
+                            _ => "flow-node pending",
+                        };
+                        div class=(node_cls) {
+                            div class="flow-icon" {
+                                @if matches!(r.status, RoutingStatus::Completed) { "✓" }
+                                @else if matches!(r.status, RoutingStatus::InProgress) { "⚡" }
+                                @else { (r.step_no) }
+                            }
+                            div {
+                                div class="flow-title" { (r.step_no) ". " (r.process_name.as_str()) }
+                                div class="flow-meta" { "—" }
+                            }
+                            div class="flow-stats" {
+                                div class="flow-stat" {
+                                    span class="stat-label" { "完成" }
+                                    span class="stat-val" { (crate::utils::fmt_qty(r.completed_qty)) }
+                                }
+                                div class="flow-stat" {
+                                    span class="stat-label" { "报废" }
+                                    span class="stat-val text-danger" { (crate::utils::fmt_qty(r.defect_qty)) }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
         div class="data-card" {
             div class="data-card-scroll" {
                 table class="data-table" {

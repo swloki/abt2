@@ -169,13 +169,7 @@ fn user_edit_page(
                     "返回用户详情"
                 }
                 h1 class="page-title" { "编辑用户" }
-                div class="page-actions" {
-                    a class="btn btn-default" href=(&detail_path) { "取消" }
-                    button type="submit" class="btn btn-primary" form="user-edit-form" {
-                        (icon::check_circle_icon("w-4 h-4"))
-                        "保存"
-                    }
-                }
+
             }
 
             form id="user-edit-form"

@@ -205,20 +205,17 @@ impl MaterialRequisitionService for MaterialRequisitionServiceImpl {
             new_inventory_transaction_service(self.pool.clone())
             .record(
                 ctx, db,
-                RecordTransactionReq {
-                    doc_number: None,
-                    transaction_type: crate::wms::enums::TransactionType::MaterialIssue,
-                    product_id: found_item.product_id,
-                    warehouse_id: requisition.warehouse_id,
-                    zone_id: None,
-                    bin_id: item.bin_id,
-                    batch_no: None,
-                    quantity: -item.issued_qty,
-                    unit_cost: None,
-                    source_type: "material_requisition".to_string(),
-                    source_id: req.id,
-                    remark: None,
-                },
+                RecordTransactionReq { doc_number: None, delivery_no: None, transaction_type: crate::wms::enums::TransactionType::MaterialIssue,
+                product_id: found_item.product_id,
+                warehouse_id: requisition.warehouse_id,
+                zone_id: None,
+                bin_id: item.bin_id,
+                batch_no: None,
+                quantity: -item.issued_qty,
+                unit_cost: None,
+                source_type: "material_requisition".to_string(),
+                source_id: req.id,
+                remark: None, },
             )
             .await?;
         }

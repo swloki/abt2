@@ -167,6 +167,7 @@ pub async fn create_stock_out(
 
         let req = RecordTransactionReq {
             doc_number: None,
+            delivery_no: None,
             transaction_type,
             product_id,
             warehouse_id,
@@ -204,13 +205,6 @@ fn stock_out_create_content(
             // ── Page Header ──
             div class="page-header" style="margin-bottom:var(--space-6)" {
                 h1 class="page-title" { "新建出库单" }
-                div class="page-actions" {
-                    button class="btn btn-default" type="button" { "保存草稿" }
-                    button class="btn btn-primary" type="submit" form="stockOutForm" style="background:var(--danger);border-color:var(--danger)" {
-                        (icon::upload_icon("w-4 h-4"))
-                        "确认出库"
-                    }
-                }
             }
 
             // ── Type Switch ──
@@ -400,6 +394,17 @@ fn stock_out_create_content(
 
                 // hidden input for items JSON
                 input type="hidden" name="items_json" id="stockout-items-json" value="[]" {}
+                // ── Action Bar ──
+                div class="create-action-bar" {
+                    a class="btn btn-default" href="/admin/wms/stock-out" { "取消" }
+                    div style="display:flex;gap:var(--space-3)" {
+                        button type="button" class="btn btn-default" { "保存草稿" }
+                        button type="submit" class="btn btn-primary" style="background:var(--danger);border-color:var(--danger)" {
+                            (icon::upload_icon("w-4 h-4"))
+                            "确认出库"
+                        }
+                    }
+                }
             }
         }
 

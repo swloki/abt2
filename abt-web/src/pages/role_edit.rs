@@ -263,13 +263,6 @@ fn role_edit_page(
             // ── Page Header ──
             div.page-header {
                 h1.page-title { "编辑角色" }
-                div.page-actions {
-                    a.btn.btn-default href=(&detail_path) { "取消" }
-                    button.btn.btn-primary type="submit" {
-                        (icon::check_circle_icon("w-4 h-4"))
-                        "保存修改"
-                    }
-                }
             }
 
             // ── Section 1: Role Info ──
@@ -357,6 +350,16 @@ fn role_edit_page(
                 div.perm-groups id="permGroups" data-on-load="updateCount()" {
                     @for (gi, group) in groups.iter().enumerate() {
                         (perm_group(gi, group, direct_perms, inherited_perms))
+                    }
+                }
+            }
+            // ── Action Bar ──
+            div class="create-action-bar" {
+                a class="btn btn-default" href=(&detail_path) { "取消" }
+                div style="display:flex;gap:var(--space-3)" {
+                    button type="submit" class="btn btn-primary" {
+                        (icon::check_circle_icon("w-4 h-4"))
+                        "保存修改"
                     }
                 }
             }

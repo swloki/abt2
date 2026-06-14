@@ -11,6 +11,7 @@ use abt_core::master_data::product::ProductService;
 use abt_core::sales::sales_order::model::*;
 use abt_core::sales::sales_order::SalesOrderService;
 use abt_core::shared::identity::UserService;
+use abt_core::wms::stock_ledger::StockLedgerService;
 
 const DECIMAL_100: Decimal = Decimal::from_parts(100, 0, 0, false, 0);
 
@@ -94,6 +95,17 @@ pub async fn get_order_detail(
         FulfillmentPlanQuery { order_id: Some(path.id), status: None },
     ).await.unwrap_or_default();
 
+    // 查询各产品当前可用库存（ATP），用于实时计算满足率
+    let stock_svc = state.stock_ledger_service();
+    let mut atp_map: HashMap<i64, Decimal> = HashMap::new();
+    for pl in &plan_lines {
+        if !atp_map.contains_key(&pl.product_id) {
+            if let Ok(atp) = stock_svc.query_available(&service_ctx, &mut conn, pl.product_id, None).await {
+                atp_map.insert(pl.product_id, atp);
+            }
+        }
+    }
+
     let customer_name = customer_svc
         .get(&service_ctx, &mut conn, order.customer_id)
         .await
@@ -130,7 +142,7 @@ pub async fn get_order_detail(
     let content = order_detail_page(
         &order, &items, &plan_lines,
         &customer_name, &contact, &sales_rep,
-        &product_names, &product_codes,
+        &product_names, &product_codes, &atp_map,
     );
     let page_html = admin_page(
         is_htmx, "订单详情", &claims, "sales",
@@ -335,11 +347,11 @@ fn fulfillment_progress(items: &[SalesOrderItem], plan_lines: &[FulfillmentPlanL
 }
 
 // ── Fulfillment Workbench ──
-
 fn fulfillment_workbench(
     plan_lines: &[FulfillmentPlanLine],
     product_names: &HashMap<i64, String>,
     product_codes: &HashMap<i64, String>,
+    atp_map: &HashMap<i64, Decimal>,
 ) -> Markup {
     if plan_lines.is_empty() {
         return html! {};
@@ -442,7 +454,7 @@ fn fulfillment_workbench(
                 }
                 tbody {
                     @for pl in plan_lines {
-                        (fulfill_plan_row(pl, product_names, product_codes))
+                        (fulfill_plan_row(pl, product_names, product_codes, atp_map))
                     }
                 }
             }
@@ -454,6 +466,7 @@ fn fulfill_plan_row(
     pl: &FulfillmentPlanLine,
     names: &HashMap<i64, String>,
     codes: &HashMap<i64, String>,
+    atp_map: &HashMap<i64, Decimal>,
 ) -> Markup {
     let p_name = names.get(&pl.product_id).map(|s| s.as_str()).unwrap_or("—");
     let p_code = codes.get(&pl.product_id).map(|s| s.as_str()).unwrap_or("—");
@@ -469,20 +482,21 @@ fn fulfill_plan_row(
         FulfillmentLineStatus::Fulfilled => ("✓ 已完成", "background:#d1fae5;color:#065f46;"),
     };
 
-    // 满足率
+    // 满足率（含当前可用库存 ATP，实时反映入库后的库存变化）
+    let current_atp = atp_map.get(&pl.product_id).copied().unwrap_or(Decimal::ZERO);
+    let effective_qty = (pl.reserved_qty + current_atp).min(pl.required_qty);
+    let effective_shortage = (pl.required_qty - effective_qty).max(Decimal::ZERO);
     let fill_pct_val = if pl.required_qty > Decimal::ZERO {
-        (pl.reserved_qty / pl.required_qty * DECIMAL_100)
+        (effective_qty / pl.required_qty * DECIMAL_100)
             .round_dp_with_strategy(0, rust_decimal::RoundingStrategy::MidpointAwayFromZero)
     } else {
         Decimal::ZERO
     };
     let fill_bar_pct = format!("width:{}%", fill_pct_val);
     let fill_pct_str = format!("{}%", fill_pct_val);
-
-    // 满足率颜色
-    let fill_color = if pl.reserved_qty >= pl.required_qty {
+    let fill_color = if effective_qty >= pl.required_qty {
         "#10b981"
-    } else if pl.reserved_qty > Decimal::ZERO {
+    } else if effective_qty > Decimal::ZERO {
         "#f59e0b"
     } else {
         "#ef4444"
@@ -579,12 +593,12 @@ fn fulfill_plan_row(
                 span class=(format!("acquire-tag {}", ch_class)) { (ch_label) }
             }
             td class="num-right" { (fmt_qty(pl.required_qty)) }
-            td class="num-right" { (fmt_qty(pl.reserved_qty)) }
+            td class="num-right" { (fmt_qty(effective_qty)) }
             td class="num-right" {
-                @if pl.shortage_qty > Decimal::ZERO {
-                    span class="text-danger" { (fmt_qty(pl.shortage_qty)) }
+                @if effective_shortage > Decimal::ZERO {
+                    span class="text-danger" { (fmt_qty(effective_shortage)) }
                 } @else {
-                    span style="color:var(--success);" { (fmt_qty(pl.shortage_qty)) }
+                    span style="color:var(--success);" { "0" }
                 }
             }
             td {
@@ -626,6 +640,7 @@ fn order_detail_page(
     sales_rep: &str,
     product_names: &HashMap<i64, String>,
     product_codes: &HashMap<i64, String>,
+    atp_map: &HashMap<i64, Decimal>,
 ) -> Markup {
     let (status_text, status_class) = status_label(o.status);
     let contact_name = contact.as_ref().map(|c| c.name.as_str()).unwrap_or("—");
@@ -763,7 +778,7 @@ fn order_detail_page(
             }
 
             // ── Fulfillment Workbench ──
-            (fulfillment_workbench(plan_lines, product_names, product_codes))
+            (fulfillment_workbench(plan_lines, product_names, product_codes, &atp_map))
 
             // ── Remarks ──
             @if !o.remark.is_empty() {

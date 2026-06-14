@@ -150,13 +150,6 @@ fn user_create_page(roles: &[Role], departments: &[Department]) -> Markup {
             // ── Page Header ──
             div class="page-header" {
                 h1 class="page-title" { "新建用户" }
-                div class="page-actions" {
-                    a class="btn btn-default" href=(UserListPath::PATH) { "取消" }
-                    button type="submit" class="btn btn-primary" form="user-form" {
-                        (icon::check_circle_icon("w-4 h-4"))
-                        "保存"
-                    }
-                }
             }
 
             form id="user-form"
@@ -179,6 +172,17 @@ fn user_create_page(roles: &[Role], departments: &[Department]) -> Markup {
 
                 // ── Section 4: 数据权限 ──
                 (data_scope_section())
+
+                // ── Action Bar ──
+                div class="create-action-bar" {
+                    a class="btn btn-default" href=(UserListPath::PATH) { "取消" }
+                    div style="display:flex;gap:var(--space-3)" {
+                        button type="submit" class="btn btn-primary" {
+                            (icon::check_circle_icon("w-4 h-4"))
+                            "保存"
+                        }
+                    }
+                }
             }
         }
     }

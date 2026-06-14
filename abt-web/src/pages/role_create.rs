@@ -226,13 +226,6 @@ fn role_create_page(roles: &[Role], groups: &[GroupData], total: usize) -> Marku
             // ── Page Header ──
             div.page-header {
                 h1.page-title { "新建角色" }
-                div.page-actions {
-                    a.btn.btn-default href=(RoleListPath::PATH) { "取消" }
-                    button.btn.btn-primary type="submit" {
-                        (icon::check_circle_icon("w-4 h-4"))
-                        "保存"
-                    }
-                }
             }
 
             // ── Section 1: Role Info ──
@@ -306,6 +299,17 @@ fn role_create_page(roles: &[Role], groups: &[GroupData], total: usize) -> Marku
                 div.perm-groups id="permGroups" {
                     @for (gi, group) in groups.iter().enumerate() {
                         (perm_group(gi, group))
+                    }
+                }
+            }
+
+            // ── Action Bar ──
+            div class="create-action-bar" {
+                a class="btn btn-default" href=(RoleListPath::PATH) { "取消" }
+                div style="display:flex;gap:var(--space-3)" {
+                    button type="submit" class="btn btn-primary" {
+                        (icon::check_circle_icon("w-4 h-4"))
+                        "保存"
                     }
                 }
             }

@@ -200,7 +200,7 @@ async fn resolve_supplier_names_map<S: SupplierService>(
 }
 // ── Form Data ──
 
-#[allow(dead_code)]
+
 #[derive(Debug, Deserialize)]
 pub struct StockInCreateForm {
     pub transaction_type: String,
@@ -224,7 +224,6 @@ struct StockInItemWeb {
     product_id: String,
     batch_no: Option<String>,
     quantity: String,
-    unit_cost: Option<String>,
     bin_id: Option<String>,
 }
 
@@ -260,6 +259,32 @@ pub async fn create_stock_in(
 
     let source_id: i64 = form.source_id.unwrap_or(0);
     let remark = form.remark.filter(|s| !s.is_empty());
+    // 入库单号：有来源单据时引用来源单号；手工录入时自动生成
+    let doc_number = form.source_ref
+        .as_ref()
+        .filter(|s| !s.is_empty())
+        .cloned()
+        .unwrap_or_else(|| format!("RK{}", chrono::Local::now().format("%Y%m%d%H%M%S")));
+
+    // 问题三修复：未选库区/储位时自动解析默认值，确保库存台账更新
+    let warehouse_svc = state.warehouse_service();
+    let zone_id = match form.zone_id {
+        Some(zid) => Some(zid),
+        None => warehouse_svc
+            .get_or_create_default_zone(&service_ctx, &mut conn, warehouse_id)
+            .await
+            .ok()
+            .map(|z| z.id),
+    };
+    let default_bin_id: Option<i64> = if let Some(zid) = zone_id {
+        warehouse_svc
+            .list_bins(&service_ctx, &mut conn, zid, None, 1, 1)
+            .await
+            .ok()
+            .and_then(|r| r.items.first().map(|b| b.id))
+    } else {
+        None
+    };
 
     // Record one transaction per line item
     for item in &web_items {
@@ -267,8 +292,6 @@ pub async fn create_stock_in(
             .map_err(|_| DomainError::validation("无效产品ID"))?;
         let quantity: Decimal = item.quantity.parse()
             .map_err(|_| DomainError::validation("无效数量"))?;
-        let unit_cost: Option<Decimal> = item.unit_cost.as_ref()
-            .and_then(|s| s.parse().ok());
         let bin_id: Option<i64> = item.bin_id.as_ref()
             .and_then(|s| s.parse().ok());
 
@@ -277,15 +300,16 @@ pub async fn create_stock_in(
         }
 
         let req = RecordTransactionReq {
-            doc_number: None,
+            doc_number: Some(doc_number.clone()),
+            delivery_no: form.delivery_no.clone(),
             transaction_type,
             product_id,
             warehouse_id,
-            zone_id: form.zone_id,
-            bin_id: bin_id.or(form.bin_id),
+            zone_id,
+            bin_id: bin_id.or(form.bin_id).or(default_bin_id),
             batch_no: item.batch_no.clone(),
             quantity,
-            unit_cost,
+            unit_cost: None,
             source_type: source_type.to_string(),
             source_id,
             remark: remark.clone(),
@@ -317,13 +341,6 @@ fn stock_in_create_content(
             // ── Page Header ──
             div class="page-header" style="margin-bottom:var(--space-6)" {
                 h1 class="page-title" { "新建入库单" }
-                div class="page-actions" {
-                    button class="btn btn-default" type="button" { "保存草稿" }
-                    button class="btn btn-primary" type="submit" form="stockInForm" {
-                        (icon::check_circle_icon("w-4 h-4"))
-                        "确认入库"
-                    }
-                }
             }
 
             // ── Type Switch ──
@@ -454,8 +471,6 @@ fn stock_in_create_content(
                                 th { "规格型号" }
                                 th { "批次号" }
                                 th style="width:100px" { "入库数量 " span class="required" { "*" } }
-                                th style="width:110px" { "单位成本" }
-                                th style="width:110px" { "小计" }
                                 th { "目标储位" }
                                 th style="width:40px" { }
                             }
@@ -479,7 +494,7 @@ fn stock_in_create_content(
                         (icon::clipboard_list_icon("w-[18px] h-[18px]"))
                         "入库汇总"
                     }
-                    div style="display:grid;grid-template-columns:repeat(4,1fr);gap:var(--space-6)" {
+                    div style="display:grid;grid-template-columns:repeat(3,1fr);gap:var(--space-6)" {
                         div style="text-align:center;padding:var(--space-4);background:var(--surface);border-radius:var(--radius-md)" {
                             div style="font-size:11px;color:var(--muted);margin-bottom:var(--space-1)" { "物料种类" }
                             div id="stockin-summary-kinds" class="font-mono" style="font-size:var(--text-xl);font-weight:600" { "0" }
@@ -487,10 +502,6 @@ fn stock_in_create_content(
                         div style="text-align:center;padding:var(--space-4);background:var(--surface);border-radius:var(--radius-md)" {
                             div style="font-size:11px;color:var(--muted);margin-bottom:var(--space-1)" { "入库总量" }
                             div id="stockin-summary-qty" class="font-mono" style="font-size:var(--text-xl);font-weight:600" { "0" }
-                        }
-                        div style="text-align:center;padding:var(--space-4);background:var(--accent-bg);border-radius:var(--radius-md);border:1px solid rgba(22,119,255,0.15)" {
-                            div style="font-size:11px;color:var(--accent);margin-bottom:var(--space-1)" { "入库总金额" }
-                            div id="stockin-summary-amount" class="font-mono" style="font-size:var(--text-xl);font-weight:600;color:var(--accent)" { "¥0.00" }
                         }
                         div style="text-align:center;padding:var(--space-4);background:var(--surface);border-radius:var(--radius-md)" {
                             div style="font-size:11px;color:var(--muted);margin-bottom:var(--space-1)" { "上架策略" }
@@ -510,6 +521,18 @@ fn stock_in_create_content(
 
                 // hidden input for items JSON
                 input type="hidden" name="items_json" id="stockin-items-json" value="[]" {}
+
+                // ── Action Bar ──
+                div class="create-action-bar" {
+                    a class="btn btn-default" href=(StockInListPath::PATH) { "取消" }
+                    div style="display:flex;gap:var(--space-3)" {
+                        button type="button" class="btn btn-default" { "保存草稿" }
+                        button type="submit" class="btn btn-primary" {
+                            (icon::check_circle_icon("w-4 h-4"))
+                            "确认入库"
+                        }
+                    }
+                }
             }
         }
 
@@ -552,7 +575,7 @@ fn stock_in_create_content(
                             "清除"
                         }
                     }
-                    div id="stockin-product-results" {
+                    div id="stockin-product-results" hx-get=(StockInProductsPath::PATH) hx-trigger="load" {
                         div style="text-align:center;padding:var(--space-12);color:var(--muted)" {
                             (icon::package_icon("w-8 h-8"))
                             p style="margin:var(--space-2) 0 0;font-size:var(--text-sm)" { "输入关键词搜索物料" }
@@ -634,13 +657,6 @@ fn stock_in_create_content(
 
         // Line item calculations
         function wmsStockInCalcRow(row) {
-            var qtyInput = row.querySelector('input[name="quantity"]');
-            var costInput = row.querySelector('input[name="unit_cost"]');
-            var totalCell = row.querySelector('.line-subtotal');
-            var qty = parseFloat(qtyInput.value) || 0;
-            var cost = parseFloat(costInput.value) || 0;
-            var subtotal = qty * cost;
-            totalCell.textContent = subtotal > 0 ? '¥' + subtotal.toFixed(2) : '—';
             wmsStockInCalcSummary();
         }
 
@@ -649,16 +665,12 @@ fn stock_in_create_content(
             var rows = tbody.querySelectorAll('tr');
             var kinds = rows.length;
             var totalQty = 0;
-            var totalAmount = 0;
             rows.forEach(function(row) {
                 var qty = parseFloat(row.querySelector('input[name="quantity"]').value) || 0;
-                var cost = parseFloat(row.querySelector('input[name="unit_cost"]').value) || 0;
                 totalQty += qty;
-                totalAmount += qty * cost;
             });
             document.getElementById('stockin-summary-kinds').textContent = kinds;
             document.getElementById('stockin-summary-qty').textContent = totalQty;
-            document.getElementById('stockin-summary-amount').textContent = '¥' + totalAmount.toFixed(2);
             document.getElementById('stockin-item-count').textContent = '共 ' + kinds + ' 项';
         }
 
@@ -672,7 +684,7 @@ fn stock_in_create_content(
                     product_id: row.querySelector('input[name="product_id"]').value,
                     batch_no: row.querySelector('input[name="batch_no"]').value || null,
                     quantity: row.querySelector('input[name="quantity"]').value || '0',
-                    unit_cost: row.querySelector('input[name="unit_cost"]').value || null,
+
                     bin_id: row.querySelector('input[name="item_bin_id"]')?.value || null
                 });
             });
@@ -812,8 +824,6 @@ fn item_row_fragment(product: &abt_core::master_data::product::model::Product) -
             td style="color:var(--fg-2);font-size:var(--text-sm)" { (product.meta.specification) }
             td { input class="form-input" type="text" name="batch_no" placeholder="批次号" style="width:100%;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
             td { input class="form-input num-input" type="number" min="0.01" step="any" name="quantity" placeholder="0" style="width:90px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
-            td { input class="form-input num-input" type="number" step="any" name="unit_cost" placeholder="0.00" style="width:100px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
-            td class="line-subtotal" style="text-align:right;font-family:var(--font-mono);font-weight:600;white-space:nowrap" { "—" }
             td { input class="form-input" type="text" name="item_bin_id" placeholder="自动" style="width:80px;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface)" {} }
             td { button type="button" class="btn-remove-row" title="删除行"
                 _="on click remove closest <tr/> then call wmsStockInRenumber()" {

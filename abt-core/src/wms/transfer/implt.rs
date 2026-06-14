@@ -117,20 +117,17 @@ impl TransferService for TransferServiceImpl {
         // 扣减源仓库库存
         let tx_svc = new_inventory_transaction_service(self.pool.clone());
         for item in &items {
-            tx_svc.record(ctx, db, RecordTransactionReq {
-                doc_number: Some(transfer.doc_number.clone()),
-                transaction_type: TransactionType::Transfer,
-                product_id: item.product_id,
-                warehouse_id: transfer.from_warehouse_id,
-                zone_id: transfer.from_zone_id,
-                bin_id: transfer.from_bin_id,
-                batch_no: item.batch_no.clone(),
-                quantity: -item.quantity,
-                unit_cost: None,
-                source_type: "inventory_transfer".to_string(),
-                source_id: id,
-                remark: Some("调拨发货-扣减源仓库".to_string()),
-            }).await?;
+            tx_svc.record(ctx, db, RecordTransactionReq { doc_number: Some(transfer.doc_number.clone()), delivery_no: None, transaction_type: TransactionType::Transfer,
+            product_id: item.product_id,
+            warehouse_id: transfer.from_warehouse_id,
+            zone_id: transfer.from_zone_id,
+            bin_id: transfer.from_bin_id,
+            batch_no: item.batch_no.clone(),
+            quantity: -item.quantity,
+            unit_cost: None,
+            source_type: "inventory_transfer".to_string(),
+            source_id: id,
+            remark: Some("调拨发货-扣减源仓库".to_string()), }).await?;
         }
 
         TransferRepo::update_status(&mut *db, id, TransferStatus::InTransit)
@@ -164,20 +161,17 @@ impl TransferService for TransferServiceImpl {
         // 增加目标仓库库存
         let tx_svc = new_inventory_transaction_service(self.pool.clone());
         for item in &items {
-            tx_svc.record(ctx, db, RecordTransactionReq {
-                doc_number: Some(transfer.doc_number.clone()),
-                transaction_type: TransactionType::Transfer,
-                product_id: item.product_id,
-                warehouse_id: transfer.to_warehouse_id,
-                zone_id: transfer.to_zone_id,
-                bin_id: transfer.to_bin_id,
-                batch_no: item.batch_no.clone(),
-                quantity: item.quantity,
-                unit_cost: None,
-                source_type: "inventory_transfer".to_string(),
-                source_id: id,
-                remark: Some("调拨完成-增加目标仓库".to_string()),
-            }).await?;
+            tx_svc.record(ctx, db, RecordTransactionReq { doc_number: Some(transfer.doc_number.clone()), delivery_no: None, transaction_type: TransactionType::Transfer,
+            product_id: item.product_id,
+            warehouse_id: transfer.to_warehouse_id,
+            zone_id: transfer.to_zone_id,
+            bin_id: transfer.to_bin_id,
+            batch_no: item.batch_no.clone(),
+            quantity: item.quantity,
+            unit_cost: None,
+            source_type: "inventory_transfer".to_string(),
+            source_id: id,
+            remark: Some("调拨完成-增加目标仓库".to_string()), }).await?;
         }
 
         TransferRepo::update_status(&mut *db, id, TransferStatus::Completed)

@@ -8,6 +8,7 @@ use super::super::enums::TransactionType;
 pub struct InventoryTransaction {
     pub id: i64,
     pub doc_number: Option<String>,
+    pub delivery_no: Option<String>,
     pub transaction_type: TransactionType,
     pub product_id: i64,
     pub warehouse_id: i64,
@@ -27,6 +28,7 @@ pub struct InventoryTransaction {
 #[derive(Debug, Clone)]
 pub struct RecordTransactionReq {
     pub doc_number: Option<String>,
+    pub delivery_no: Option<String>,
     pub transaction_type: TransactionType,
     pub product_id: i64,
     pub warehouse_id: i64,

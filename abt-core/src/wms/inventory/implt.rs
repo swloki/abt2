@@ -310,27 +310,24 @@ impl InventoryServiceImpl {
         let before_qty = before.as_ref().map(|s| s.quantity).unwrap_or(Decimal::ZERO);
 
         // 2. 插入事务记录
-        let txn_req = RecordTransactionReq {
-            doc_number: None,
-            transaction_type: txn_type,
-            product_id: req.product_id,
-            warehouse_id: req.warehouse_id,
-            zone_id: Some(req.zone_id),
-            bin_id: Some(req.bin_id),
-            batch_no: None,
-            quantity,
-            unit_cost: None,
-            source_type: req
-                .ref_order_type
-                .clone()
-                .unwrap_or_else(|| "manual".to_string()),
-            source_id: req
-                .ref_order_id
-                .as_ref()
-                .and_then(|s| s.parse::<i64>().ok())
-                .unwrap_or(0),
-            remark: req.remark.clone(),
-        };
+        let txn_req = RecordTransactionReq { doc_number: None, delivery_no: None, transaction_type: txn_type,
+        product_id: req.product_id,
+        warehouse_id: req.warehouse_id,
+        zone_id: Some(req.zone_id),
+        bin_id: Some(req.bin_id),
+        batch_no: None,
+        quantity,
+        unit_cost: None,
+        source_type: req
+            .ref_order_type
+            .clone()
+            .unwrap_or_else(|| "manual".to_string()),
+        source_id: req
+            .ref_order_id
+            .as_ref()
+            .and_then(|s| s.parse::<i64>().ok())
+            .unwrap_or(0),
+        remark: req.remark.clone(), };
 
         let txn = InventoryTransactionRepo::insert(exec, &txn_req, operator_id)
             .await

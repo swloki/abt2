@@ -141,6 +141,10 @@ fn stock_in_detail_page(
                         span class="info-value mono" { (txn.doc_number.as_deref().unwrap_or("—")) }
                     }
                     div class="info-item" {
+                        span class="info-label" { "送货单号" }
+                        span class="info-value mono" { (txn.delivery_no.as_deref().unwrap_or("—")) }
+                    }
+                    div class="info-item" {
                         span class="info-label" { "入库类型" }
                         span class="info-value" { (type_label) }
                     }

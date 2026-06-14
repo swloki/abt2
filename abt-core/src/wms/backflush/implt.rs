@@ -124,20 +124,17 @@ impl BackflushService for BackflushServiceImpl {
             new_inventory_transaction_service(self.pool.clone())
             .record(
                 ctx, db,
-                RecordTransactionReq {
-                    doc_number: None,
-                    transaction_type: crate::wms::enums::TransactionType::Backflush,
-                    product_id: component.product_id,
-                    warehouse_id,
-                    zone_id: None,
-                    bin_id: None,
-                    batch_no: None,
-                    quantity: -actual_qty,
-                    unit_cost: None,
-                    source_type: "backflush".to_string(),
-                    source_id: record.id,
-                    remark: None,
-                },
+                RecordTransactionReq { doc_number: None, delivery_no: None, transaction_type: crate::wms::enums::TransactionType::Backflush,
+                product_id: component.product_id,
+                warehouse_id,
+                zone_id: None,
+                bin_id: None,
+                batch_no: None,
+                quantity: -actual_qty,
+                unit_cost: None,
+                source_type: "backflush".to_string(),
+                source_id: record.id,
+                remark: None, },
             )
             .await?;
         }

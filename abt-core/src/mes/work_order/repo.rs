@@ -25,7 +25,8 @@ impl WorkOrderRepo {
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 1, $12, $13)
             RETURNING id, doc_number, plan_item_id, product_id, bom_snapshot_id, routing_id,
                       planned_qty, scheduled_start, scheduled_end, status, work_center_id,
-                      sales_order_id, version, remark, operator_id, created_at, updated_at, deleted_at,
+                      sales_order_id, version, remark, operator_id, created_at, updated_at,
+                      completed_qty, scrap_qty, deleted_at,
                       NULL::int AS completed_steps, NULL::int AS total_steps,
                       NULL::bigint AS source_plan_id, NULL::text AS source_plan_doc,
                       NULL::text AS source_so_doc, NULL::text AS source_customer
@@ -58,9 +59,13 @@ impl WorkOrderRepo {
             r#"
             SELECT wo.id, wo.doc_number, wo.plan_item_id, wo.product_id, wo.bom_snapshot_id, wo.routing_id,
                    wo.planned_qty, wo.scheduled_start, wo.scheduled_end, wo.status, wo.work_center_id,
-                   wo.sales_order_id, wo.version, wo.remark, wo.operator_id, wo.created_at, wo.updated_at, wo.deleted_at,
-                   (SELECT COUNT(*)::int FROM work_order_routings r WHERE r.work_order_id = wo.id) AS total_steps,
-                   (SELECT COUNT(*)::int FROM work_order_routings r WHERE r.work_order_id = wo.id AND r.status = 3) AS completed_steps,
+                   wo.sales_order_id, wo.version, wo.remark, wo.operator_id, wo.created_at, wo.updated_at,
+               wo.completed_qty, wo.scrap_qty, wo.deleted_at,
+               (SELECT COUNT(*)::int FROM work_order_routings r WHERE r.work_order_id = wo.id) AS total_steps,
+               (SELECT COUNT(DISTINCT brp.routing_id)::int
+                FROM batch_routing_progress brp
+                JOIN production_batches pb ON pb.id = brp.batch_id
+                WHERE pb.work_order_id = wo.id AND pb.deleted_at IS NULL AND brp.status = 3) AS completed_steps,
                    pp.id AS source_plan_id, pp.doc_number AS source_plan_doc,
                    so.doc_number AS source_so_doc, c.customer_name AS source_customer
             FROM work_orders wo
@@ -142,9 +147,12 @@ impl WorkOrderRepo {
         let data_sql = format!(
             "SELECT wo.id, wo.doc_number, wo.plan_item_id, wo.product_id, wo.bom_snapshot_id, wo.routing_id, \
              wo.planned_qty, wo.scheduled_start, wo.scheduled_end, wo.status, wo.work_center_id, \
-             wo.sales_order_id, wo.version, wo.remark, wo.operator_id, wo.created_at, wo.updated_at, wo.deleted_at, \
+             wo.sales_order_id, wo.version, wo.remark, wo.operator_id, wo.created_at, wo.updated_at, \
+             wo.completed_qty, wo.scrap_qty, wo.deleted_at, \
              (SELECT COUNT(*)::int FROM work_order_routings r WHERE r.work_order_id = wo.id) AS total_steps, \
-             (SELECT COUNT(*)::int FROM work_order_routings r WHERE r.work_order_id = wo.id AND r.status = 3) AS completed_steps, \
+             (SELECT COUNT(DISTINCT brp.routing_id)::int FROM batch_routing_progress brp \
+              JOIN production_batches pb ON pb.id = brp.batch_id \
+              WHERE pb.work_order_id = wo.id AND pb.deleted_at IS NULL AND brp.status = 3) AS completed_steps, \
              pp.id AS source_plan_id, pp.doc_number AS source_plan_doc, \
              so.doc_number AS source_so_doc, c.customer_name AS source_customer \
              FROM work_orders wo \
@@ -284,9 +292,13 @@ impl WorkOrderRepo {
             r#"
             SELECT wo.id, wo.doc_number, wo.plan_item_id, wo.product_id, wo.bom_snapshot_id, wo.routing_id,
                    wo.planned_qty, wo.scheduled_start, wo.scheduled_end, wo.status, wo.work_center_id,
-                   wo.sales_order_id, wo.version, wo.remark, wo.operator_id, wo.created_at, wo.updated_at, wo.deleted_at,
+                   wo.sales_order_id, wo.version, wo.remark, wo.operator_id, wo.created_at, wo.updated_at,
+                   wo.completed_qty, wo.scrap_qty, wo.deleted_at,
                    (SELECT COUNT(*)::int FROM work_order_routings r WHERE r.work_order_id = wo.id) AS total_steps,
-                   (SELECT COUNT(*)::int FROM work_order_routings r WHERE r.work_order_id = wo.id AND r.status = 3) AS completed_steps,
+                   (SELECT COUNT(DISTINCT brp.routing_id)::int
+                    FROM batch_routing_progress brp
+                    JOIN production_batches pb ON pb.id = brp.batch_id
+                    WHERE pb.work_order_id = wo.id AND pb.deleted_at IS NULL AND brp.status = 3) AS completed_steps,
                    pp.id AS source_plan_id, pp.doc_number AS source_plan_doc,
                    so.doc_number AS source_so_doc, c.customer_name AS source_customer
             FROM work_orders wo
@@ -330,5 +342,29 @@ impl WorkOrderRepo {
         .await?;
 
         Ok(result.rows_affected() > 0)
+    }
+
+    /// 行锁原子累加工单完成量/报废量（报工事务内调用）
+    pub async fn atomic_increment_completed_qty(
+        executor: &mut sqlx::postgres::PgConnection,
+        id: i64,
+        completed_delta: rust_decimal::Decimal,
+        scrap_delta: rust_decimal::Decimal,
+    ) -> Result<()> {
+        sqlx::query(
+            r#"
+            UPDATE work_orders
+            SET completed_qty = completed_qty + $2,
+                scrap_qty = scrap_qty + $3,
+                updated_at = NOW()
+            WHERE id = $1
+            "#,
+        )
+        .bind(id)
+        .bind(completed_delta)
+        .bind(scrap_delta)
+        .execute(&mut *executor)
+        .await?;
+        Ok(())
     }
 }

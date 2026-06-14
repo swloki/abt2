@@ -35,11 +35,26 @@ pub struct WorkOrderRouting {
     pub unit_price: Option<Decimal>,
     pub allowed_loss_rate: Option<Decimal>,
     pub planned_qty: Decimal,
-    pub completed_qty: Decimal,
-    pub defect_qty: Decimal,
-    pub status: RoutingStatus,
     pub is_outsourced: bool,
     pub is_inspection_point: bool,
+}
+
+/// 批次工序执行进度（写真相源）
+///
+/// 每个 (batch_id, routing_id) 组合一条记录。
+/// 报工事务 confirm_routing_step 的累加目标。
+#[derive(Debug, Clone, sqlx::FromRow)]
+pub struct BatchRoutingProgress {
+    pub id: i64,
+    pub batch_id: i64,
+    pub routing_id: i64,
+    pub status: RoutingStatus,
+    pub completed_qty: Decimal,
+    pub defect_qty: Decimal,
+    pub started_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub completed_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    pub updated_at: chrono::DateTime<chrono::Utc>,
 }
 
 #[derive(Debug, Clone)]

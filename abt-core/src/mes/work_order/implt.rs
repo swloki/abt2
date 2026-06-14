@@ -1,5 +1,4 @@
 use async_trait::async_trait;
-use rust_decimal::Decimal;
 use sqlx::postgres::PgPool;
 
 use super::super::enums::{PlanItemStatus, WorkOrderStatus};
@@ -12,7 +11,7 @@ use crate::master_data::routing::{new_routing_service, service::RoutingService};
 use crate::master_data::product::{new_product_service, service::ProductService};
 use crate::wms::material_requisition::{new_material_requisition_service, service::MaterialRequisitionService};
 use crate::mes::production_batch::model::WorkOrderRouting;
-use crate::mes::production_batch::repo::{ProductionBatchRepo, WorkOrderRoutingRepo};
+use crate::mes::production_batch::repo::{ProductionBatchRepo, WorkOrderRoutingRepo, BatchRoutingProgressRepo};
 use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService, RecordAuditLogReq};
 use crate::shared::document_sequence::{new_document_sequence_service, service::DocumentSequenceService};
 use crate::shared::event_bus::{new_domain_event_bus, service::DomainEventBus};
@@ -173,9 +172,6 @@ impl WorkOrderService for WorkOrderServiceImpl {
                 unit_price: None,
                 allowed_loss_rate: None,
                 planned_qty: work_order.planned_qty,
-                completed_qty: Decimal::ZERO,
-                defect_qty: Decimal::ZERO,
-                status: super::super::enums::RoutingStatus::Pending,
                 is_outsourced: false,
                 is_inspection_point: false,
             })
@@ -202,14 +198,14 @@ impl WorkOrderService for WorkOrderServiceImpl {
         let batch_no = new_document_sequence_service(self.pool.clone())
             .next_number(
                 ctx, db,
-                DocumentType::WorkOrder,
+                DocumentType::ProductionBatch,
             )
             .await
-            .unwrap_or_else(|_| format!("{}-01", work_order.doc_number));
+            .unwrap_or_else(|_| format!("PB-{}", chrono::Local::now().format("%Y%m%d%H%M%S")));
 
         let card_sn = format!("SN-{}", chrono::Local::now().format("%Y%m%d%H%M%S%3f"));
 
-        ProductionBatchRepo::insert(
+        let new_batch = ProductionBatchRepo::insert(
             &mut *db,
             &batch_req,
             &batch_no,
@@ -219,6 +215,10 @@ impl WorkOrderService for WorkOrderServiceImpl {
         .await
         .map_err(|e| DomainError::Internal(e.into()))?;
 
+        // 为新批次初始化所有工序的 batch_routing_progress 记录
+        BatchRoutingProgressRepo::init_for_batch(&mut *db, new_batch.id, id)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?;
         // 7. 根据产品 material_consumption_mode 分流
         let consumption_mode = product.meta.material_consumption_mode;
 
@@ -357,7 +357,7 @@ impl WorkOrderService for WorkOrderServiceImpl {
             ));
         }
 
-        // 2. 校验未开工（所有批次 current_step == 0）
+        // 2. 校验未开工 + 无报工记录
         let batches = ProductionBatchRepo::list_by_work_order(&mut *db, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
@@ -366,6 +366,20 @@ impl WorkOrderService for WorkOrderServiceImpl {
         if has_started {
             return Err(DomainError::BusinessRule(
                 "工单已开工，无法反下达".to_string(),
+            ));
+        }
+
+        // 校验无报工记录（双重保险：即使 current_step=0 也可能有孤儿报工）
+        let report_count: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM work_reports WHERE work_order_id = $1",
+        )
+        .bind(id)
+        .fetch_one(&mut *db)
+        .await
+        .map_err(|e| DomainError::Internal(e.into()))?;
+        if report_count > 0 {
+            return Err(DomainError::BusinessRule(
+                "工单已有报工记录，无法反下达".to_string(),
             ));
         }
 
@@ -400,14 +414,21 @@ impl WorkOrderService for WorkOrderServiceImpl {
             // backflush 模式无预留，忽略
         }
 
-        // 5. 删除 ProductionBatch
-        sqlx::query("DELETE FROM production_batches WHERE work_order_id = $1")
-            .bind(id)
-            .execute(&mut *db)
+        // 5. 软删除 ProductionBatch（替代物理 DELETE）
+        ProductionBatchRepo::soft_delete_by_work_order(&mut *db, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
 
-        // 6. 删除 WorkOrderRouting
+        // 6. 删除 batch_routing_progress（执行进度快照，反下达后重建）
+        sqlx::query(
+            "DELETE FROM batch_routing_progress WHERE batch_id IN (SELECT id FROM production_batches WHERE work_order_id = $1)",
+        )
+        .bind(id)
+        .execute(&mut *db)
+        .await
+        .map_err(|e| DomainError::Internal(e.into()))?;
+
+        // 7. 删除 WorkOrderRouting（工序模板快照，反下达后可重建）
         sqlx::query("DELETE FROM work_order_routings WHERE work_order_id = $1")
             .bind(id)
             .execute(&mut *db)

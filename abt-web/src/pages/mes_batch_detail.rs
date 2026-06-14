@@ -4,6 +4,7 @@ use maud::{html, Markup};
 use serde::Deserialize;
 
 use abt_core::mes::production_batch::ProductionBatchService;
+use abt_core::mes::production_batch::repo::BatchRoutingProgressRepo;
 use abt_core::mes::work_order::WorkOrderService;
 use abt_core::mes::work_report::WorkReportService;
 use abt_core::shared::identity::UserService;
@@ -57,8 +58,12 @@ pub async fn get_batch_detail(path: BatchDetailPath, ctx: RequestContext) -> Res
     let routing_map: std::collections::HashMap<i64, &str> = routings.iter()
         .map(|r| (r.id, r.process_name.as_str()))
         .collect();
+    // 查询批次工序执行进度（写真相源），用于工序流转进度展示
+    let progress_list = BatchRoutingProgressRepo::list_by_batch(&mut *conn, batch.id).await?;
+    let progress_map: std::collections::HashMap<i64, &abt_core::mes::production_batch::BatchRoutingProgress> =
+        progress_list.iter().map(|p| (p.routing_id, p)).collect();
 
-    let content = batch_detail_page(&batch, &product_name, &wo, &routings, &reports, &routing_map, &user_map, &creator_name);
+    let content = batch_detail_page(&batch, &product_name, &wo, &routings, &reports, &routing_map, &user_map, &creator_name, &progress_map);
     Ok(Html(admin_page(is_htmx, "批次详情", &claims, "production", &format!("/admin/mes/batches/{}", path.id), "生产管理", Some(BatchListPath::PATH), content, &nav_filter).into_string()))
 }
 
@@ -136,6 +141,7 @@ fn batch_detail_page(
     routing_map: &std::collections::HashMap<i64, &str>,
     user_map: &std::collections::HashMap<i64, String>,
     creator_name: &str,
+    progress_map: &std::collections::HashMap<i64, &abt_core::mes::production_batch::BatchRoutingProgress>,
 ) -> Markup {
     use abt_core::mes::enums::BatchStatus;
     let (sl, sc) = batch_status_label(&batch.status);
@@ -168,7 +174,11 @@ fn batch_detail_page(
     };
 
     html! { div {
-        // ── Header: doc no + status + actions + 5-col info grid ──
+        // 工单上下文条
+        a class="back-link" href=(format!("/admin/mes/orders/{}", wo.id)) {
+            (crate::components::icon::chevron_left_icon("w-4 h-4"))
+            "返回工单 " span class="mono" { (wo.doc_number.as_str()) }
+        }
         div class="batch-detail-header" {
             div class="batch-detail-title-row" {
                 div class="detail-doc-no" {
@@ -215,7 +225,8 @@ fn batch_detail_page(
                 div class="sub-section-title" { "工序流转进度" }
                 div class="progress-track" {
                     @for (i, r) in routings.iter().enumerate() {
-                        @let is_completed = r.status == abt_core::mes::enums::RoutingStatus::Completed;
+                        @let brp = progress_map.get(&r.id);
+                        @let is_completed = brp.map(|b| b.status == abt_core::mes::enums::RoutingStatus::Completed).unwrap_or(false);
                         @let is_active = r.step_no == batch.current_step;
                         @let cls = if is_completed { "progress-step completed" } else if is_active { "progress-step active" } else { "progress-step" };
                         div class=(cls) {

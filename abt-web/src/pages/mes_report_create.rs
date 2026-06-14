@@ -4,6 +4,8 @@ use maud::{html, Markup};
 use serde::Deserialize;
 
 use abt_core::mes::production_batch::ProductionBatchService;
+use abt_core::mes::enums::RoutingStatus;
+use abt_core::mes::production_batch::repo::BatchRoutingProgressRepo;
 use abt_core::mes::work_order::WorkOrderService;
 use abt_core::shared::identity::UserService;
 
@@ -61,14 +63,21 @@ pub async fn get_report_create(
         }
     }
 
-    // If batch_id specified, load batch + routings
-    let (batch, routings, wo) = if let Some(bid) = query.batch_id {
+    // If batch_id specified, load batch + routings + 工序执行进度
+    let (batch, routings, wo, completed_routings) = if let Some(bid) = query.batch_id {
         let b = batch_svc.find_by_id(&service_ctx, &mut conn, bid).await?;
         let rs = batch_svc.list_routings(&service_ctx, &mut conn, b.work_order_id).await?;
         let w = wo_svc.find_by_id(&service_ctx, &mut conn, b.work_order_id).await?;
-        (Some(b), rs, Some(w))
+        // 从 batch_routing_progress 获取已完成工序的 routing_id 集合（执行进度已迁移到新表）
+        let completed: std::collections::HashSet<i64> =
+            BatchRoutingProgressRepo::list_by_batch(&mut *conn, bid).await?
+                .into_iter()
+                .filter(|p| p.status == RoutingStatus::Completed)
+                .map(|p| p.routing_id)
+                .collect();
+        (Some(b), rs, Some(w), completed)
     } else {
-        (None, vec![], None)
+        (None, vec![], None, std::collections::HashSet::new())
     };
 
     // Load workers (users)
@@ -77,8 +86,7 @@ pub async fn get_report_create(
 
     // Generate doc number for display (WR-yyyy-mm-NNNNN)
     let doc_number = format!("WR-{}", chrono::Local::now().format("%Y-%m-%d"));
-
-    let content = report_create_page(&active_wos, &wo_product_names, batch.as_ref(), &routings, wo.as_ref(), &workers, &doc_number);
+    let content = report_create_page(&active_wos, &wo_product_names, batch.as_ref(), &routings, wo.as_ref(), &workers, &doc_number, &completed_routings);
     Ok(Html(admin_page(is_htmx, "新建报工", &claims, "production", ReportCreatePath::PATH, "生产管理", Some(ReportListPath::PATH), content, &nav_filter).into_string()))
 
 }
@@ -116,6 +124,7 @@ fn report_create_page(
     wo: Option<&abt_core::mes::work_order::WorkOrder>,
     workers: &[abt_core::shared::identity::User],
     doc_number: &str,
+    completed_routings: &std::collections::HashSet<i64>,
 ) -> Markup {
     // Find current routing's unit_price
     let current_step = batch.map(|b| b.current_step);
@@ -169,7 +178,7 @@ fn report_create_page(
                         @if !routings.is_empty() {
                             select class="form-select" name="step_no" required {
                                 @for r in routings {
-                                    @if r.status != abt_core::mes::enums::RoutingStatus::Completed {
+                                    @if !completed_routings.contains(&r.id) {
                                         @let is_cur = batch.is_some_and(|b| b.current_step == r.step_no);
                                         @let cur_tag = if is_cur { " [当前工序]" } else { "" };
                                         option value=(r.step_no) selected[is_cur] { (r.step_no) " - " (r.process_name) (cur_tag) }

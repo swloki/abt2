@@ -138,17 +138,33 @@ fn order_data_card(
                             td { (pn) }
                             td class="num-right mono" { (crate::utils::fmt_qty(item.planned_qty)) }
                             td {
-                                @if total == 0 {
+                                @if total == 0 && item.completed_qty == rust_decimal::Decimal::ZERO {
                                     span class="wo-progress" style="color:var(--muted)" { "尚未开始" }
-                                } @else if done >= total {
-                                    span class="wo-progress" style="color:var(--success)" { "✓ 完成" }
                                 } @else {
-                                    @let pct = done * 100 / total;
-                                    div class="wo-progress" {
-                                        div class="wo-progress-track" {
-                                            div class="wo-progress-fill" style=(format!("width:{}%", pct)) {}
+                                    // 工序进度
+                                    @if total > 0 {
+                                        @if done >= total {
+                                            span style="color:var(--success)" { "✓ 工序完成" }
+                                        } @else {
+                                            @let pct = done * 100 / total;
+                                            div class="wo-progress" {
+                                                div class="wo-progress-track" {
+                                                    div class="wo-progress-fill" style=(format!("width:{}%", pct)) {}
+                                                }
+                                                span style="font-size:var(--text-xs)" { (format!("工序 {}/{}", done, total)) }
+                                            }
                                         }
-                                        span { (format!("{}% ({}/{})", pct, done, total)) }
+                                    }
+                                    // 完成数量
+                                    @if item.completed_qty > rust_decimal::Decimal::ZERO {
+                                        div style="margin-top:2px;font-size:var(--text-xs)" {
+                                            span style="color:var(--success)" { (crate::utils::fmt_qty(item.completed_qty)) }
+                                            " / "
+                                            span class="muted" { (crate::utils::fmt_qty(item.planned_qty)) " 件" }
+                                            @if item.scrap_qty > rust_decimal::Decimal::ZERO {
+                                                span style="color:var(--danger);margin-left:4px" { "废 " (crate::utils::fmt_qty(item.scrap_qty)) }
+                                            }
+                                        }
                                     }
                                 }
                             }

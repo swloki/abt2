@@ -2,8 +2,8 @@ use axum::response::{Html, IntoResponse};
 use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
 
-use abt_core::mes::enums::{BatchStatus, RoutingStatus, ShiftType, WorkOrderStatus};
-use abt_core::mes::production_batch::{ProductionBatch, ProductionBatchService, WorkOrderRouting};
+use abt_core::mes::enums::{BatchStatus, ShiftType, WorkOrderStatus};
+use abt_core::mes::production_batch::{ProductionBatch, ProductionBatchService, SplitReq, WorkOrderRouting};
 use abt_core::mes::work_report::{ReportListFilter, ReportListItem, WorkReportService};
 use abt_core::mes::work_order::{WorkOrder, WorkOrderService};
 use abt_core::shared::audit_log::{AuditLog, AuditLogQuery, AuditLogService};
@@ -15,7 +15,7 @@ use crate::errors::Result;
 use crate::layout::page::admin_page;
 use crate::routes::mes_order::{
     OrderCancelPath, OrderClosePath, OrderDetailPath, OrderListPath, OrderReleasePath,
-    OrderUnreleasePath,
+    OrderSplitPath, OrderUnreleasePath,
 };
 use crate::utils::RequestContext;
 use abt_macros::require_permission;
@@ -40,16 +40,6 @@ fn status_pill(label: &str, bg: &str, color: &str) -> Markup {
             (label)
         }
     }
-}
-
-fn routing_status_pill(s: RoutingStatus) -> Markup {
-    let (l, bg, c) = match s {
-        RoutingStatus::Pending => ("待生产", "rgba(0,0,0,0.04)", "var(--muted)"),
-        RoutingStatus::InProgress => ("进行中", "rgba(22,119,255,0.08)", "var(--accent)"),
-        RoutingStatus::Completed => ("已完成", "rgba(82,196,26,0.08)", "var(--success)"),
-        RoutingStatus::Skipped => ("已跳过", "rgba(0,0,0,0.04)", "var(--muted)"),
-    };
-    status_pill(l, bg, c)
 }
 
 fn batch_status_pill(s: BatchStatus) -> Markup {
@@ -277,6 +267,37 @@ pub async fn cancel_order(
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }
 
+#[derive(Debug, serde::Deserialize)]
+pub struct SplitForm {
+    pub split_qty: String,
+}
+
+/// 拆批：从工单创建额外的生产批次
+#[require_permission("WORK_ORDER", "update")]
+pub async fn split_order(
+    path: OrderSplitPath,
+    ctx: RequestContext,
+    axum::Form(form): axum::Form<SplitForm>,
+) -> Result<impl IntoResponse> {
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let batch_svc = state.production_batch_service();
+
+    let split_qty = form.split_qty.parse::<rust_decimal::Decimal>()
+        .map_err(|_| abt_core::shared::types::DomainError::validation("数量格式错误"))?;
+
+    if split_qty <= rust_decimal::Decimal::ZERO {
+        return Err(abt_core::shared::types::DomainError::validation("拆批数量必须大于 0").into());
+    }
+
+    batch_svc.split_work_order(
+        &service_ctx, &mut conn, path.order_id,
+        vec![SplitReq { batch_qty: split_qty, team_id: None }],
+    ).await?;
+
+    let redirect = OrderDetailPath { id: path.order_id }.to_string();
+    Ok(([("HX-Redirect", redirect)], Html(String::new())))
+}
+
 // ── Page ──
 
 #[allow(clippy::too_many_arguments)]
@@ -289,19 +310,6 @@ fn order_detail_page(
     audit_logs: &[AuditLog],
 ) -> Markup {
     let (status_label, status_bg, status_color) = wo_status_label(&order.status);
-    let total = routings.len() as i32;
-    let done = routings
-        .iter()
-        .filter(|r| matches!(r.status, RoutingStatus::Completed))
-        .count() as i32;
-    let pct = if total > 0 { done * 100 / total } else { 0 };
-    let fill_cls = if pct < 34 {
-        "low"
-    } else if pct < 67 {
-        "mid"
-    } else {
-        "high"
-    };
     let routing_tab_label = format!("工序明细 {}", routings.len());
 
     html! {
@@ -358,6 +366,14 @@ fn order_detail_page(
                     span { (product_name) }
                     span class="sep" { "|" }
                     span class="mono" { (crate::utils::fmt_qty(order.planned_qty)) " 件" }
+                    @if order.completed_qty > rust_decimal::Decimal::ZERO {
+                        span class="sep" { "|" }
+                        span class="mono" style="color:var(--success)" { "完成 " (crate::utils::fmt_qty(order.completed_qty)) }
+                    }
+                    @if order.scrap_qty > rust_decimal::Decimal::ZERO {
+                        span class="sep" { "|" }
+                        span class="mono" style="color:var(--danger)" { "报废 " (crate::utils::fmt_qty(order.scrap_qty)) }
+                    }
                     span class="sep" { "|" }
                     span { "—" }
                     @if let Some(so) = order.source_so_doc.as_ref() {
@@ -375,31 +391,21 @@ fn order_detail_page(
                         } @else { span { (pdoc) } }
                     }
                 }
-                // 进度条（有工序时）
-                @if total > 0 {
-                    div class="wo-progress" {
-                        div class="wo-progress-label" {
-                            span class="label-text" { "生产进度" }
-                            span class="label-value" { (format!("{pct}% ({done}/{total} 工序)")) }
-                        }
-                        div class="wo-progress-track" {
-                            div class=(format!("wo-progress-fill {fill_cls}")) style=(format!("width:{pct}%")) {}
-                        }
-                    }
-                }
             }
 
             // Tabs
             (detail_tabs("info", &[
                 ("info", "工单信息"),
                 ("routing", &routing_tab_label),
-                ("docs", "关联单据"),
+                ("batches", &format!("生产批次 {}", batches.len())),
+                ("reports", &format!("报工记录 {}", reports.len())),
                 ("log", "操作日志"),
             ]))
 
             (tab_panel("info", true, tab_info(order, product_name, routings.len())))
             (tab_panel("routing", false, tab_routing(routings)))
-            (tab_panel("docs", false, tab_docs(batches, reports, routings.len())))
+            (tab_panel("batches", false, tab_batches(batches, routings.len(), order)))
+            (tab_panel("reports", false, tab_reports(reports)))
             (tab_panel("log", false, tab_log(audit_logs)))
 
             // 反下达对话框
@@ -413,7 +419,7 @@ fn order_detail_page(
                             p class="modal-desc" {
                                 "反下达将回退工单到 "
                                 strong { "草稿" }
-                                " 状态，同时取消领料单、释放库存预留、删除生产批次和工序记录。此操作不可撤销。"
+                                " 状态，同时取消领料单、释放库存预留、软删除生产批次（若有报工记录则无法反下达）。此操作不可撤销。"
                             }
                         }
                         div class="modal-foot" {
@@ -482,45 +488,7 @@ fn tab_info(order: &WorkOrder, product_name: &str, routing_count: usize) -> Mark
 
 fn tab_routing(routings: &[WorkOrderRouting]) -> Markup {
     html! {
-        @if !routings.is_empty() {
-            div class="flow-flow-wrap" {
-                div class="flow-flow-wrap-title" { "工序进度可视化" }
-                div class="routing-flow" {
-                    @for (i, r) in routings.iter().enumerate() {
-                        @if i > 0 {
-                            @let prev_done = matches!(routings[i - 1].status, RoutingStatus::Completed);
-                            div class=(if prev_done { "flow-arrow completed" } else { "flow-arrow" }) { "→" }
-                        }
-                        @let node_cls = match r.status {
-                            RoutingStatus::Completed => "flow-node completed",
-                            RoutingStatus::InProgress => "flow-node current",
-                            _ => "flow-node pending",
-                        };
-                        div class=(node_cls) {
-                            div class="flow-icon" {
-                                @if matches!(r.status, RoutingStatus::Completed) { "✓" }
-                                @else if matches!(r.status, RoutingStatus::InProgress) { "⚡" }
-                                @else { (r.step_no) }
-                            }
-                            div {
-                                div class="flow-title" { (r.step_no) ". " (r.process_name.as_str()) }
-                                div class="flow-meta" { "—" }
-                            }
-                            div class="flow-stats" {
-                                div class="flow-stat" {
-                                    span class="stat-label" { "完成" }
-                                    span class="stat-val" { (crate::utils::fmt_qty(r.completed_qty)) }
-                                }
-                                div class="flow-stat" {
-                                    span class="stat-label" { "报废" }
-                                    span class="stat-val text-danger" { (crate::utils::fmt_qty(r.defect_qty)) }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        // 工序定义表（执行进度已迁移至 batch_routing_progress，由批次维度页面展示）
         div class="data-card" {
             div class="data-card-scroll" {
                 table class="data-table" {
@@ -530,9 +498,8 @@ fn tab_routing(routings: &[WorkOrderRouting]) -> Markup {
                             th { "工序名称" }
                             th { "工作中心" }
                             th class="num-right" { "计划量" }
-                            th class="num-right" { "完成量" }
-                            th class="num-right" { "报废量" }
-                            th { "状态" }
+                            th class="num-right" { "标准工时" }
+                            th { "委外" }
                             th { "标记" }
                         }
                     }
@@ -541,11 +508,16 @@ fn tab_routing(routings: &[WorkOrderRouting]) -> Markup {
                             tr {
                                 td class="mono" { (r.step_no) }
                                 td { strong { (r.process_name.as_str()) } }
-                                td { "—" }
+                                td class="mono" {
+                                    @if let Some(wc) = r.work_center_id { "#" (wc) } @else { "—" }
+                                }
                                 td class="mono num-right" { (crate::utils::fmt_qty(r.planned_qty)) }
-                                td class="mono num-right" { (crate::utils::fmt_qty(r.completed_qty)) }
-                                td class="mono num-right" { (crate::utils::fmt_qty(r.defect_qty)) }
-                                td { (routing_status_pill(r.status)) }
+                                td class="mono num-right" {
+                                    @if let Some(t) = r.standard_time { (crate::utils::fmt_qty(t)) } @else { "—" }
+                                }
+                                td {
+                                    @if r.is_outsourced { span class="tag-chip" { "委外" } } @else { "—" }
+                                }
                                 td {
                                     @if r.is_inspection_point {
                                         span class="tag-chip" { "报检" }
@@ -554,7 +526,7 @@ fn tab_routing(routings: &[WorkOrderRouting]) -> Markup {
                             }
                         }
                         @if routings.is_empty() {
-                            tr { td colspan="8" class="empty-row" { "暂无工序明细（工单未下达或无工艺路线）" } }
+                            tr { td colspan="7" class="empty-row" { "暂无工序明细（工单未下达或无工艺路线）" } }
                         }
                     }
                 }
@@ -563,100 +535,142 @@ fn tab_routing(routings: &[WorkOrderRouting]) -> Markup {
     }
 }
 
-fn tab_docs(batches: &[ProductionBatch], reports: &[ReportListItem], total_steps: usize) -> Markup {
+fn tab_batches(batches: &[ProductionBatch], total_steps: usize, order: &WorkOrder) -> Markup {
+    // 计算可拆批余量
+    let existing_qty: rust_decimal::Decimal =
+        batches.iter().map(|b| b.batch_qty).sum();
+    let remaining = order.planned_qty - existing_qty;
+    let can_split = matches!(order.status, WorkOrderStatus::Released | WorkOrderStatus::InProduction);
+
     html! {
-        // ── 子 Tab 栏 (Hyperscript 切换) ──
-        div class="detail-tabs" style="margin-bottom:var(--space-5)" {
-            button class="detail-tab active doc-sub-tab" type="button"
-                _="on click remove .active from <.doc-sub-tab/> then add .active to me then hide <.doc-panel/> then show #doc-panel-batches" {
-                "生产批次 " span class="tab-count" { (batches.len()) }
-            }
-            button class="detail-tab doc-sub-tab" type="button"
-                _="on click remove .active from <.doc-sub-tab/> then add .active to me then hide <.doc-panel/> then show #doc-panel-reports" {
-                "报工记录 " span class="tab-count" { (reports.len()) }
+        // 操作栏
+        @if can_split {
+            div class="filter-bar" style="justify-content:flex-end;margin-bottom:var(--space-3)" {
+                button class="btn btn-primary" type="button"
+                    _="on click add .is-open to #split-dialog" {
+                    (icon::plus_icon("w-4 h-4"))
+                    "新增批次"
+                }
             }
         }
 
-        // ── 子面板：生产批次 ──
-        div class="doc-panel" id="doc-panel-batches" {
-            div class="data-card" {
-                div class="data-card-scroll" {
-                    table class="data-table" {
-                        thead {
+        div class="data-card" {
+            div class="data-card-scroll" {
+                table class="data-table" {
+                    thead {
+                        tr {
+                            th { "批次号" }
+                            th { "流转卡号" }
+                            th class="num-right" { "计划量" }
+                            th class="num-right" { "完成量" }
+                            th class="num-right" { "报废量" }
+                            th { "当前工序" }
+                            th { "状态" }
+                            th { "操作" }
+                        }
+                    }
+                    tbody {
+                        @for b in batches {
                             tr {
-                                th { "批次号" }
-                                th { "流转卡号" }
-                                th { "班组" }
-                                th class="num-right" { "计划量" }
-                                th class="num-right" { "完成量" }
-                                th class="num-right" { "报废量" }
-                                th { "当前工序" }
-                                th { "状态" }
-                                th { "操作" }
+                                td class="mono" { (b.batch_no.as_str()) }
+                                td class="mono" { (b.card_sn.as_str()) }
+                                td class="mono num-right" { (crate::utils::fmt_qty(b.batch_qty)) }
+                                td class="mono num-right" style="color:var(--success)" { (crate::utils::fmt_qty(b.completed_qty)) }
+                                td class="mono num-right" style="color:var(--danger)" { (crate::utils::fmt_qty(b.scrap_qty)) }
+                                td {
+                                    @if b.current_step == 0 {
+                                        span style="color:var(--muted)" { "未开始" }
+                                    } @else if total_steps > 0 {
+                                        span { "第 " (b.current_step) "/" (total_steps) " 步" }
+                                    } @else {
+                                        span { "第 " (b.current_step) " 步" }
+                                    }
+                                }
+                                td { (batch_status_pill(b.status)) }
+                                td { a class="link-cell" href=(format!("/admin/mes/batches/{}", b.id)) { "查看" } }
                             }
                         }
-                        tbody {
-                            @for b in batches {
-                                tr {
-                                    td { (b.batch_no.as_str()) }
-                                    td class="mono" { (b.card_sn.as_str()) }
-                                    td { "—" }
-                                    td class="mono num-right" { (crate::utils::fmt_qty(b.batch_qty)) }
-                                    td class="mono num-right" { (crate::utils::fmt_qty(b.completed_qty)) }
-                                    td class="mono num-right" { (crate::utils::fmt_qty(b.scrap_qty)) }
-                                    td {
-                                        @if b.current_step == 0 {
-                                            span style="color:var(--muted)" { "未开始" }
-                                        } @else if total_steps > 0 {
-                                            span { "第 " (b.current_step) "/" (total_steps) " 步" }
-                                        } @else {
-                                            span { "第 " (b.current_step) " 步" }
-                                        }
-                                    }
-                                    td { (batch_status_pill(b.status)) }
-                                    td { a class="link-cell" href=(format!("/admin/mes/batches/{}", b.id)) { "查看" } }
-                                }
-                            }
-                            @if batches.is_empty() {
-                                tr { td colspan="9" class="empty-row" { "暂无生产批次（工单未下达或无工艺路线）" } }
-                            }
+                        @if batches.is_empty() {
+                            tr { td colspan="8" class="empty-row" { "暂无生产批次（工单未下达或无工艺路线）" } }
                         }
                     }
                 }
             }
         }
 
-        // ── 子面板：报工记录 ──
-        div class="doc-panel" id="doc-panel-reports" style="display:none" {
-            div class="data-card" {
-                div class="data-card-scroll" {
-                    table class="data-table" {
-                        thead {
-                            tr {
-                                th { "报工时间" }
-                                th { "工序" }
-                                th { "报工单号" }
-                                th class="num-right" { "完成量" }
-                                th class="num-right" { "报废量" }
-                                th { "报工人" }
-                                th { "班次" }
-                            }
-                        }
-                        tbody {
-                            @for r in reports {
-                                tr {
-                                    td class="mono" { (fmt_dt(r.created_at)) }
-                                    td { (r.process_name.as_str()) }
-                                    td { a class="link-cell mono" href=(format!("/admin/mes/reports/{}", r.id)) { (r.doc_number.as_str()) } }
-                                    td class="mono num-right" { (crate::utils::fmt_qty(r.completed_qty)) }
-                                    td class="mono num-right" { (crate::utils::fmt_qty(r.defect_qty)) }
-                                    td { (r.worker_name.as_deref().unwrap_or("—")) }
-                                    td { (shift_label(r.shift)) }
+        // 拆批对话框
+        @if can_split {
+            div class="modal-overlay" id="split-dialog" {
+                div class="modal modal-sm" {
+                    div class="modal-head" {
+                        h2 { "新增生产批次" }
+                    }
+                    form {
+                        div class="modal-body" {
+                            p class="modal-desc" {
+                                "工单计划量 " strong { (crate::utils::fmt_qty(order.planned_qty)) }
+                                "，已分批 " strong { (crate::utils::fmt_qty(existing_qty)) }
+                                @if remaining > rust_decimal::Decimal::ZERO {
+                                    "，可新增 " strong style="color:var(--success)" { (crate::utils::fmt_qty(remaining)) }
+                                } @else {
+                                    "（已全部分配，可按容差新增）"
                                 }
                             }
-                            @if reports.is_empty() {
-                                tr { td colspan="7" class="empty-row" { "暂无报工记录" } }
+                            div class="form-field" {
+                                label { "新增批次数量" }
+                                input class="form-input" type="number" step="0.01" name="split_qty"
+                                    placeholder="输入数量"
+                                    required;
                             }
+                        }
+                        div class="modal-foot" {
+                            button class="btn btn-default" type="button"
+                                _="on click remove .is-open from #split-dialog" {
+                                "取消"
+                            }
+                            button class="btn btn-primary" type="submit"
+                                hx-post=(OrderSplitPath { order_id: order.id }.to_string())
+                                hx-disabled-elt="this" {
+                                "确认新增"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn tab_reports(reports: &[ReportListItem]) -> Markup {
+    html! {
+        div class="data-card" {
+            div class="data-card-scroll" {
+                table class="data-table" {
+                    thead {
+                        tr {
+                            th { "报工时间" }
+                            th { "工序" }
+                            th { "报工单号" }
+                            th class="num-right" { "完成量" }
+                            th class="num-right" { "报废量" }
+                            th { "报工人" }
+                            th { "班次" }
+                        }
+                    }
+                    tbody {
+                        @for r in reports {
+                            tr {
+                                td class="mono" { (fmt_dt(r.created_at)) }
+                                td { (r.process_name.as_str()) }
+                                td { a class="link-cell mono" href=(format!("/admin/mes/reports/{}", r.id)) { (r.doc_number.as_str()) } }
+                                td class="mono num-right" { (crate::utils::fmt_qty(r.completed_qty)) }
+                                td class="mono num-right" { (crate::utils::fmt_qty(r.defect_qty)) }
+                                td { (r.worker_name.as_deref().unwrap_or("—")) }
+                                td { (shift_label(r.shift)) }
+                            }
+                        }
+                        @if reports.is_empty() {
+                            tr { td colspan="7" class="empty-row" { "暂无报工记录" } }
                         }
                     }
                 }

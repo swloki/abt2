@@ -5,6 +5,7 @@ use maud::{html, Markup, PreEscaped};
 use serde::Deserialize;
 
 use abt_core::mes::production_batch::ProductionBatchService;
+use abt_core::mes::production_batch::repo::BatchRoutingProgressRepo;
 use abt_core::mes::work_order::WorkOrderService;
 use abt_core::mes::work_report::WorkReportService;
 use abt_core::shared::identity::UserService;
@@ -79,6 +80,10 @@ pub async fn search_card(
 
     let product_name = batch_svc.get_product_name(&mut conn, batch.product_id).await?.unwrap_or_default();
     let routings = batch_svc.list_routings(&service_ctx, &mut conn, batch.work_order_id).await?;
+    // 查批次工序执行进度（status/completed_qty/defect_qty 已迁移到 batch_routing_progress）
+    let progress_list = BatchRoutingProgressRepo::list_by_batch(&mut conn, batch.id).await?;
+    let progress_map: std::collections::HashMap<i64, abt_core::mes::production_batch::BatchRoutingProgress> =
+        progress_list.into_iter().map(|p| (p.routing_id, p)).collect();
     let reports = report_svc.list_by_batch(&service_ctx, &mut conn, batch.id).await?;
 
     // 获取工单单号
@@ -94,7 +99,7 @@ pub async fn search_card(
         .map(|u| (u.user_id, u.display_name.clone().unwrap_or_else(|| u.username.clone())))
         .collect();
 
-    let html_content = card_search_result(&batch, &product_name, &wo_doc_number, &routings, &reports, &user_map);
+    let html_content = card_search_result(&batch, &product_name, &wo_doc_number, &routings, &reports, &user_map, &progress_map);
     Ok(Html(html_content.into_string()))
 }
 
@@ -196,6 +201,7 @@ fn card_search_result(
     routings: &[abt_core::mes::production_batch::WorkOrderRouting],
     reports: &[abt_core::mes::work_report::WorkReport],
     user_map: &std::collections::HashMap<i64, String>,
+    progress_map: &std::collections::HashMap<i64, abt_core::mes::production_batch::BatchRoutingProgress>,
 ) -> Markup {
     let (status_label, status_cls) = batch_status_label(&batch.status);
     let total_steps = routings.len() as i32;
@@ -217,6 +223,15 @@ fn card_search_result(
     // 构建routing查找映射
     let routing_map: std::collections::HashMap<i64, &abt_core::mes::production_batch::WorkOrderRouting> =
         routings.iter().map(|r| (r.id, r)).collect();
+
+    // 按工序汇总工时（从报工记录聚合，原代码错误地用 completed_qty 代替工时）
+    let routing_work_hours: std::collections::HashMap<i64, rust_decimal::Decimal> = {
+        let mut m: std::collections::HashMap<i64, rust_decimal::Decimal> = std::collections::HashMap::new();
+        for r in reports {
+            *m.entry(r.routing_id).or_insert(rust_decimal::Decimal::ZERO) += r.work_hours;
+        }
+        m
+    };
 
     html! {
         div class="card-result" {
@@ -276,7 +291,11 @@ fn card_search_result(
                 @if !routings.is_empty() {
                     div class="flow-progress" {
                         @for (i, routing) in routings.iter().enumerate() {
-                            @let is_completed = routing.status == abt_core::mes::enums::RoutingStatus::Completed;
+                            @let progress = progress_map.get(&routing.id);
+                            @let p_completed = progress.map_or(rust_decimal::Decimal::ZERO, |p| p.completed_qty);
+                            @let p_defect = progress.map_or(rust_decimal::Decimal::ZERO, |p| p.defect_qty);
+                            @let p_work_hours = routing_work_hours.get(&routing.id).copied().unwrap_or(rust_decimal::Decimal::ZERO);
+                            @let is_completed = progress.map_or(false, |p| p.status == abt_core::mes::enums::RoutingStatus::Completed);
                             @let is_current = routing.step_no == batch.current_step;
                             @let is_inspection = routing.is_inspection_point;
                             @let step_cls = if is_completed {
@@ -298,13 +317,13 @@ fn card_search_result(
                                 div class="flow-step-name" { (routing.process_name) }
                                 div class="flow-step-info" {
                                     @if is_completed || is_current {
-                                        "完成 " (crate::utils::fmt_qty(routing.completed_qty))
-                                        @if routing.defect_qty > rust_decimal::Decimal::ZERO {
+                                        "完成 " (crate::utils::fmt_qty(p_completed))
+                                        @if p_defect > rust_decimal::Decimal::ZERO {
                                             br;
-                                            "不良 " (crate::utils::fmt_qty(routing.defect_qty))
+                                            "不良 " (crate::utils::fmt_qty(p_defect))
                                         }
                                         br;
-                                        "工时 " (crate::utils::fmt_qty(routing.completed_qty)) "h"
+                                        "工时 " (crate::utils::fmt_qty(p_work_hours)) "h"
                                     } @else {
                                         "待生产"
                                     }

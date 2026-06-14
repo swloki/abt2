@@ -226,6 +226,44 @@ impl ProductionBatchRepo {
 
         Ok((items, total))
     }
+
+    /// 行锁原子累加批次完成量/报废量（报工事务内调用）
+    pub async fn atomic_increment_qty(
+        executor: &mut sqlx::postgres::PgConnection,
+        id: i64,
+        completed_delta: Decimal,
+        scrap_delta: Decimal,
+    ) -> Result<()> {
+        sqlx::query(
+            r#"
+            UPDATE production_batches
+            SET completed_qty = completed_qty + $2,
+                scrap_qty = scrap_qty + $3,
+                updated_at = NOW()
+            WHERE id = $1
+            "#,
+        )
+        .bind(id)
+        .bind(completed_delta)
+        .bind(scrap_delta)
+        .execute(&mut *executor)
+        .await?;
+        Ok(())
+    }
+
+    /// 软删工单下所有批次（替代物理 DELETE，unrelease 用）
+    pub async fn soft_delete_by_work_order(
+        executor: &mut sqlx::postgres::PgConnection,
+        work_order_id: i64,
+    ) -> Result<()> {
+        sqlx::query(
+            r#"UPDATE production_batches SET deleted_at = NOW() WHERE work_order_id = $1 AND deleted_at IS NULL"#,
+        )
+        .bind(work_order_id)
+        .execute(&mut *executor)
+        .await?;
+        Ok(())
+    }
 }
 
 // ===========================================================================
@@ -246,9 +284,8 @@ impl WorkOrderRoutingRepo {
                 INSERT INTO work_order_routings
                     (work_order_id, step_no, process_name, work_center_id,
                      standard_time, standard_cost, unit_price, allowed_loss_rate,
-                     planned_qty, completed_qty, defect_qty,
-                     status, is_outsourced, is_inspection_point)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 0, 0, $10, $11, $12)
+                     planned_qty, is_outsourced, is_inspection_point)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
                 "#,
             )
             .bind(step.work_order_id)
@@ -260,7 +297,6 @@ impl WorkOrderRoutingRepo {
             .bind(step.unit_price)
             .bind(step.allowed_loss_rate)
             .bind(step.planned_qty)
-            .bind(step.status)
             .bind(step.is_outsourced)
             .bind(step.is_inspection_point)
             .execute(&mut *executor)
@@ -279,8 +315,7 @@ impl WorkOrderRoutingRepo {
             r#"
             SELECT id, work_order_id, step_no, process_name, work_center_id,
                    standard_time, standard_cost, unit_price, allowed_loss_rate,
-                   planned_qty, completed_qty, defect_qty,
-                   status, is_outsourced, is_inspection_point
+                   planned_qty, is_outsourced, is_inspection_point
             FROM work_order_routings
             WHERE work_order_id = $1 AND step_no = $2
             "#,
@@ -302,8 +337,7 @@ impl WorkOrderRoutingRepo {
             r#"
             SELECT id, work_order_id, step_no, process_name, work_center_id,
                    standard_time, standard_cost, unit_price, allowed_loss_rate,
-                   planned_qty, completed_qty, defect_qty,
-                   status, is_outsourced, is_inspection_point
+                   planned_qty, is_outsourced, is_inspection_point
             FROM work_order_routings
             WHERE work_order_id = $1
             ORDER BY step_no
@@ -320,8 +354,49 @@ impl WorkOrderRoutingRepo {
             .map(Ok)
             .collect()
     }
+}
 
-    /// SQL 原子增量：累加 completed_qty 和 defect_qty
+// ===========================================================================
+// BatchRoutingProgressRepo — 批次工序执行进度（写真相源）
+// ===========================================================================
+
+pub struct BatchRoutingProgressRepo;
+
+impl BatchRoutingProgressRepo {
+    /// UPSERT (batch_id, routing_id) 记录，返回 id
+    pub async fn upsert_and_get_id(
+        executor: &mut sqlx::postgres::PgConnection,
+        batch_id: i64,
+        routing_id: i64,
+    ) -> Result<i64> {
+        let row: Option<(i64,)> = sqlx::query_scalar(
+            r#"
+            INSERT INTO batch_routing_progress (batch_id, routing_id)
+            VALUES ($1, $2)
+            ON CONFLICT (batch_id, routing_id) DO NOTHING
+            RETURNING id
+            "#,
+        )
+        .bind(batch_id)
+        .bind(routing_id)
+        .fetch_optional(&mut *executor)
+        .await?;
+
+        if let Some((id,)) = row {
+            Ok(id)
+        } else {
+            let id: i64 = sqlx::query_scalar(
+                "SELECT id FROM batch_routing_progress WHERE batch_id = $1 AND routing_id = $2",
+            )
+            .bind(batch_id)
+            .bind(routing_id)
+            .fetch_one(&mut *executor)
+            .await?;
+            Ok(id)
+        }
+    }
+
+    /// 行锁原子累加 completed_qty / defect_qty
     pub async fn atomic_increment_qty(
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
@@ -330,9 +405,10 @@ impl WorkOrderRoutingRepo {
     ) -> Result<()> {
         sqlx::query(
             r#"
-            UPDATE work_order_routings
+            UPDATE batch_routing_progress
             SET completed_qty = completed_qty + $2,
-                defect_qty = defect_qty + $3
+                defect_qty = defect_qty + $3,
+                updated_at = NOW()
             WHERE id = $1
             "#,
         )
@@ -341,28 +417,117 @@ impl WorkOrderRoutingRepo {
         .bind(defect_delta)
         .execute(&mut *executor)
         .await?;
-
         Ok(())
     }
 
-    /// 更新工序状态
+    /// 更新状态（首次报工 → InProgress，末道工序 → Completed）
     pub async fn update_status(
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
         status: RoutingStatus,
     ) -> Result<()> {
-        sqlx::query(
+        let sql = match status {
+            RoutingStatus::InProgress => {
+                "UPDATE batch_routing_progress SET status = $2, started_at = COALESCE(started_at, NOW()), updated_at = NOW() WHERE id = $1"
+            }
+            RoutingStatus::Completed => {
+                "UPDATE batch_routing_progress SET status = $2, completed_at = NOW(), updated_at = NOW() WHERE id = $1"
+            }
+            _ => {
+                "UPDATE batch_routing_progress SET status = $2, updated_at = NOW() WHERE id = $1"
+            }
+        };
+        sqlx::query(sql)
+            .bind(id)
+            .bind(status)
+            .execute(&mut *executor)
+            .await?;
+        Ok(())
+    }
+
+    /// 按 (batch_id, routing_id) 查单条
+    pub async fn get_by_batch_and_routing(
+        executor: &mut sqlx::postgres::PgConnection,
+        batch_id: i64,
+        routing_id: i64,
+    ) -> Result<Option<BatchRoutingProgress>> {
+        let row = sqlx::query(
             r#"
-            UPDATE work_order_routings
-            SET status = $2
-            WHERE id = $1
+            SELECT id, batch_id, routing_id, status, completed_qty, defect_qty,
+                   started_at, completed_at, created_at, updated_at
+            FROM batch_routing_progress
+            WHERE batch_id = $1 AND routing_id = $2
             "#,
         )
-        .bind(id)
-        .bind(status)
+        .bind(batch_id)
+        .bind(routing_id)
+        .fetch_optional(&mut *executor)
+        .await?;
+        row.map(|r| Ok(BatchRoutingProgress::from_row(&r)?)).transpose()
+    }
+
+    /// 按批次查所有工序进度
+    pub async fn list_by_batch(
+        executor: &mut sqlx::postgres::PgConnection,
+        batch_id: i64,
+    ) -> Result<Vec<BatchRoutingProgress>> {
+        let rows = sqlx::query(
+            r#"
+            SELECT id, batch_id, routing_id, status, completed_qty, defect_qty,
+                   started_at, completed_at, created_at, updated_at
+            FROM batch_routing_progress
+            WHERE batch_id = $1
+            ORDER BY (SELECT step_no FROM work_order_routings WHERE id = routing_id)
+            "#,
+        )
+        .bind(batch_id)
+        .fetch_all(&mut *executor)
+        .await?;
+        rows.iter()
+            .filter_map(|r| BatchRoutingProgress::from_row(r).ok())
+            .map(Ok)
+            .collect()
+    }
+
+    /// 按 routing 查所有批次进度（工单工序矩阵用）
+    pub async fn list_by_routing(
+        executor: &mut sqlx::postgres::PgConnection,
+        routing_id: i64,
+    ) -> Result<Vec<BatchRoutingProgress>> {
+        let rows = sqlx::query(
+            r#"
+            SELECT id, batch_id, routing_id, status, completed_qty, defect_qty,
+                   started_at, completed_at, created_at, updated_at
+            FROM batch_routing_progress
+            WHERE routing_id = $1
+            "#,
+        )
+        .bind(routing_id)
+        .fetch_all(&mut *executor)
+        .await?;
+        rows.iter()
+            .filter_map(|r| BatchRoutingProgress::from_row(r).ok())
+            .map(Ok)
+            .collect()
+    }
+
+    /// 为新批次初始化所有工序的 progress 记录
+    pub async fn init_for_batch(
+        executor: &mut sqlx::postgres::PgConnection,
+        batch_id: i64,
+        work_order_id: i64,
+    ) -> Result<()> {
+        sqlx::query(
+            r#"
+            INSERT INTO batch_routing_progress (batch_id, routing_id)
+            SELECT $1, id FROM work_order_routings WHERE work_order_id = $2
+            ON CONFLICT (batch_id, routing_id) DO NOTHING
+            "#,
+        )
+        .bind(batch_id)
+        .bind(work_order_id)
         .execute(&mut *executor)
         .await?;
-
         Ok(())
     }
 }

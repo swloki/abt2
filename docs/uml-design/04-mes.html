@@ -153,6 +153,8 @@ classDiagram
     +bom_snapshot_id: Option~i64~
     +routing_id: Option~i64~
     +planned_qty: Decimal
+    +completed_qty: Decimal
+    +scrap_qty: Decimal
     +scheduled_start: Date
     +scheduled_end: Date
     +status: WorkOrderStatus
@@ -194,11 +196,18 @@ classDiagram
     +unit_price: Option~Decimal~
     +allowed_loss_rate: Option~Decimal~
     +planned_qty: Decimal
-    +completed_qty: Decimal
-    +defect_qty: Decimal
-    +status: RoutingStatus
     +is_outsourced: bool
     +is_inspection_point: bool
+  }
+  class BatchRoutingProgress {
+    +id: i64
+    +batch_id: i64
+    +routing_id: i64
+    +status: RoutingStatus
+    +completed_qty: Decimal
+    +defect_qty: Decimal
+    +started_at: Option~DateTime~
+    +completed_at: Option~DateTime~
   }
   class WorkReport {
     +id: i64
@@ -394,11 +403,11 @@ classDiagram
     +inspection_triggered: bool
     +wage_amount: Decimal
   }
-  note for WorkOrderService "PLANNING LAYER: release -> BOM snapshot + Routing工序 + ProductionBatch(min 1) + picking/backflush分流 unrelease -> Released→Draft 安全网(取消领料单+释放预留+删批次/工序) close -> all batches completed InvRes.fulfill/cancel(release remaining) 乐观锁 expected_version 校验 冲突返回 ConcurrentConflict"
+  note for WorkOrderService "PLANNING LAYER: release -> BOM snapshot + Routing工序 + ProductionBatch(min 1) + picking/backflush分流 unrelease -> Released→Draft 安全网(取消领料单+释放预留+软删除批次(deleted_at)+删工序记录+删batch_routing_progress) 无报工前置校验 close -> all batches completed InvRes.fulfill/cancel(release remaining) 乐观锁 expected_version 校验 冲突返回 ConcurrentConflict"
   note for WorkReportService "READ-ONLY QUERY SERVICE: WorkReport creation is handled atomically by ProductionBatchService.confirm_routing_step find/list methods for reporting and auditing calculate_wage: (completed_qty + non_operator_defect_qty) * unit_price DefectReason.affect_wage: MaterialDefect/EquipmentFault/ProcessIssue=true OperatorError=false"
-  note for OutsourcingOrder "Entity owned by OM module. MES references via OM.OutsourcingOrderService. send -> WMS.InventoryTransferService(to virtual) receive -> WMS.InventoryTransferService(from virtual) receive -> QMS.InspectionResultService.create(IQC) Event: MES subscribes OutsourcingReceived handler -> update WorkOrderRouting.completed_qty for outsourced step -> publish BatchStepCompleted event -> advance ProductionBatch.current_step"
+  note for OutsourcingOrder "Entity owned by OM module. MES references via OM.OutsourcingOrderService. send -> WMS.InventoryTransferService(to virtual) receive -> WMS.InventoryTransferService(from virtual) receive -> QMS.InspectionResultService.create(IQC) Event: MES subscribes OutsourcingReceived handler -> update BatchRoutingProgress.completed_qty for outsourced step -> publish BatchStepCompleted event -> advance ProductionBatch.current_step"
   note for ProductionInspectionService "QMS: MES-specific production inspection QMS module provides unified InspectionResultService IPQC: auto-triggered by WorkOrderRouting.is_inspection_point FQC: triggered before ProductionReceipt"
-  note for ProductionBatchService "EXECUTION LAYER: owns completed_qty/scrap_qty/actual_start/actual_end current_step is the routing state machine split_work_order -> DocSeq(ProductionBatch) generate card_sn validate sum(batch_qty) <= work_order.planned_qty confirm_routing_step ATOMIC ENTRY POINT (single transaction): IDEMPOTENCY: UNIQUE(batch_id + step_no + worker_id + shift + report_date) on work_reports duplicate -> return existing StepConfirmationResult (no error, terminal UX) 1. Guard: current_step == step_no - 1 (anti-skip) 2. Check idempotency key -> if exists return cached result 3. DocSeq(WorkReport) + INSERT work_report (req must contain: completed_qty, defect_qty, defect_reason?, worker_id, shift, report_date) 3. SQL ATOMIC INCREMENT WorkOrderRouting.completed_qty/defect_qty 4. If is_inspection_point -> create ProductionInspection(IPQC) + suspend batch 5. Update batch.current_step 6. If last step -> auto advance to PendingReceipt 7. Return StepConfirmationResult (batch_status + inspection_triggered + wage_amount) advance_to_receipt -> validate last step completed update batch.status to PendingReceipt suspend -> pause execution retain HARD reservation resume -> resume from suspended state scrap -> mark batch as scrapped release HARD reservation publish BackflushShortageEvent if needed cancel(WO) -> sync release current batch HARD reservation publish WorkOrderCancelled event -> MES handler async cleanup remaining batches avoid long transaction blocking plan layer"
+  note for ProductionBatchService "EXECUTION LAYER: owns completed_qty/scrap_qty/actual_start/actual_end current_step is the routing state machine split_work_order -> DocSeq(ProductionBatch) generate card_sn validate sum(batch_qty) <= work_order.planned_qty confirm_routing_step ATOMIC ENTRY POINT (single transaction) 四层同步累加: IDEMPOTENCY: UNIQUE(batch_id + step_no + worker_id + shift + report_date) on work_reports duplicate -> return existing StepConfirmationResult (no error, terminal UX) 0. Guard: current_step == step_no - 1 (anti-skip) + idempotency check 1. DocSeq(WorkReport) + INSERT work_reports (req: completed_qty, defect_qty, defect_reason?, worker_id, shift, report_date) 2. UPSERT batch_routing_progress SET completed_qty = completed_qty + Δ, defect_qty = defect_qty + Δ (批次工序进度) 3. UPDATE production_batches SET completed_qty = completed_qty + Δ, scrap_qty = scrap_qty + Δ (批次完成量) 4. UPDATE work_orders SET completed_qty = completed_qty + Δ (工单完成量) 5. If is_inspection_point -> create ProductionInspection(IPQC) + suspend batch 6. Update batch.current_step 7. If last step -> auto advance to PendingReceipt 8. Return StepConfirmationResult (batch_status + inspection_triggered + wage_amount) advance_to_receipt -> validate last step completed update batch.status to PendingReceipt suspend -> pause execution retain HARD reservation resume -> resume from suspended state scrap -> mark batch as scrapped release HARD reservation publish BackflushShortageEvent if needed cancel(WO) -> sync release current batch HARD reservation publish WorkOrderCancelled event -> MES handler async cleanup remaining batches avoid long transaction blocking plan layer"
     note for ProductionReceiptService "confirm -> PRE-CHECK: QMS.InspectionResultService.is_passed(FQC) fail -> DomainError::BusinessRule(Quality gate not passed) block receipt WMS.InventoryTransactionService.record(ProductionReceipt) CostEntry(finished goods cost) BackflushService.execute() -> on failure: publish BackflushShortageEvent to DeadLetter DO NOT block receipt cost diff -> CostEntry(VARIANCE) InvRes.fulfill/cancel(release Hard) FMS: CostAccountingService.get_work_order_cost"
     note "Convention: Result~T~ = Result&lt;T, DomainError&gt; | Unit = () | ctx = &ServiceContext, db = PgExecutor| 写操作返回 i64 或 Unit | 读操作返回完整实体或 PaginatedResult"
     </div>
@@ -635,7 +644,6 @@ classDiagram
           <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">WorkOrderRouting</span> {<br>
           &nbsp;&nbsp;id: i64 <span style="color:#888;">PK</span><br>
           &nbsp;&nbsp;work_order_id: i64 <span style="color:#888;">FK→work_orders</span><br>
-          &nbsp;&nbsp;batch_id: i64 <span style="color:#888;">FK→production_batches</span><br>
           &nbsp;&nbsp;step_no: i32 <span style="color:#888;">// 工序序号</span><br>
           &nbsp;&nbsp;process_name: String <span style="color:#888;">// 贴片/插件/组装...</span><br>
           &nbsp;&nbsp;work_center_id: i64?<br>
@@ -644,9 +652,7 @@ classDiagram
           &nbsp;&nbsp;unit_price: Decimal? <span style="color:#888;">// 计件单价（工资结算依据）</span><br>
           &nbsp;&nbsp;allowed_loss_rate: Decimal? <span style="color:#888;">// 允许损耗率（如 0.01 = 1%）</span><br>
           &nbsp;&nbsp;planned_qty: Decimal(18,6)<br>
-          &nbsp;&nbsp;completed_qty: Decimal(18,6)<br>
-          &nbsp;&nbsp;defect_qty: Decimal(18,6)<br>
-          &nbsp;&nbsp;status: RoutingStatus<br>
+          &nbsp;&nbsp;<span style="color:#888;">// 执行进度(completed_qty/defect_qty/status)已迁移至 batch_routing_progress 表</span><br>
           &nbsp;&nbsp;is_outsourced: bool <span style="color:#888;">// 是否委外工序</span><br>
           &nbsp;&nbsp;is_inspection_point: bool <span style="color:#888;">// 是否报检点</span><br>
           }<br><br>
@@ -654,6 +660,17 @@ classDiagram
           &nbsp;&nbsp;PENDING, IN_PROGRESS, COMPLETED<br>
           &nbsp;&nbsp;SKIPPED<br>
           &nbsp;&nbsp;}
+          <br>
+          <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">BatchRoutingProgress</span> 批次工序进度(Layer3 执行真相源) {<br>
+          &nbsp;&nbsp;id: i64 <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;batch_id: i64 <span style="color:#888;">FK→production_batches</span><br>
+          &nbsp;&nbsp;routing_id: i64 <span style="color:#888;">FK→work_order_routings</span><br>
+          &nbsp;&nbsp;status: RoutingStatus <span style="color:#888;">// 1=Pending 2=InProgress 3=Completed 4=Skipped</span><br>
+          &nbsp;&nbsp;completed_qty: Decimal(18,6)<br>
+          &nbsp;&nbsp;defect_qty: Decimal(18,6)<br>
+          &nbsp;&nbsp;started_at: DateTime?<br>
+          &nbsp;&nbsp;completed_at: DateTime?<br>
+          }<br>
         </div>
       </div>
       <!-- WorkReport -->
@@ -805,11 +822,12 @@ classDiagram
         <div>
           <h4 style="color: #e5c07b; margin: 0 0 6px 0; font-size: 12px;">实体归属与快照语义</h4>
           <div style="font-family: monospace; font-size: 11px; color: #ccc; line-height: 1.8;">
-            <b style="color:#e5c07b;">WorkOrderRouting</b> = 工单级工艺快照（不可变）<br>
+            <b style="color:#e5c07b;">WorkOrderRouting</b> = 工单级工序快照（Layer 2，定义+参数，不可变）<br>
             &bull; 下达时从主数据复制，后续不同步<br>
-            &bull; completed_qty / defect_qty 由 SQL 原子增量维护<br>
-            &bull; <span style="color:#98c379;">最小实现</span>：当前 Routing 同时承载定义与进度<br>
-            &bull; <span style="color:#888;">后续可拆</span>：RoutingDef(WO 级) + BatchRoutingProgress(批次级)<br><br>
+            &bull; <span style="color:#98c379;">三层工序模型（已实现）</span>：执行进度迁移至 BatchRoutingProgress<br>
+            &bull; Layer 1: master_data.routings（工序模板）<br>
+            &bull; Layer 2: work_order_routings（工单工序快照）<br>
+            &bull; Layer 3: batch_routing_progress（批次执行进度，写真相源）<br><br>
             <b style="color:#e5c07b;">ProductionBatch.current_step</b> = 工序状态机核心<br>
             &bull; <span style="color:#e06c75;">禁止业务代码直接赋值</span><br>
             &bull; 变更必须通过 confirm_routing_step / advance 触发<br>
@@ -823,7 +841,7 @@ classDiagram
           <div style="font-family: monospace; font-size: 11px; color: #ccc; line-height: 1.8;">
             <b style="color:#56b6c2;">MES 不持有 OM/QMS 状态</b>，仅消费事件：<br>
             &bull; OM → MES: OutsourcingReceived 事件<br>
-            &nbsp;&nbsp;handler 推进 Routing.completed_qty + advance batch<br>
+            &nbsp;&nbsp;handler 推进 BatchRoutingProgress.completed_qty + advance batch<br>
             &bull; QMS → MES: FQC 检验结果（同步查询）<br>
             &nbsp;&nbsp;ProductionReceipt.confirm 前硬门校验<br><br>
             <b style="color:#56b6c2;">审批流边界</b>：<br>
@@ -845,8 +863,8 @@ classDiagram
           &nbsp;&nbsp;release / close / complete 传入 expected_version<br>
           &nbsp;&nbsp;冲突返回 DomainError::ConcurrentConflict<br><br>
           <span style="color:#e5c07b;">② SQL 原子增量</span> — WorkReport 报工<br>
-          &nbsp;&nbsp;WorkOrderRouting 更新使用:<br>
-          &nbsp;&nbsp;<span style="color:#98c379;">SET completed_qty = completed_qty + $delta</span><br>
+            &nbsp;&nbsp;batch_routing_progress 更新使用:<br>
+            &nbsp;&nbsp;<span style="color:#98c379;">SET completed_qty = completed_qty + $delta</span><br>
           &nbsp;&nbsp;绝不做 read-modify-write<br><br>
           <span style="color:#e5c07b;">③ 快照语义</span> — 工艺路线<br>
           &nbsp;&nbsp;WorkOrderRouting 即为快照载体<br>

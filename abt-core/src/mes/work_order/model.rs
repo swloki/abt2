@@ -22,6 +22,8 @@ pub struct WorkOrder {
     pub operator_id: i64,
     pub created_at: chrono::DateTime<chrono::Utc>,
     pub updated_at: chrono::DateTime<chrono::Utc>,
+    pub completed_qty: Decimal,
+    pub scrap_qty: Decimal,
     pub deleted_at: Option<chrono::DateTime<chrono::Utc>>,
     // 列表展示用聚合/关联字段：list 查询通过子查询/JOIN 填充；insert/get_by_id 为 None
     pub completed_steps: Option<i32>,

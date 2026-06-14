@@ -8,7 +8,7 @@ use rust_decimal::Decimal;
 use sqlx::postgres::PgPool;
 
 use super::model::*;
-use super::repo::{ProductionBatchRepo, WorkOrderRoutingRepo, WorkReportRepo};
+use super::repo::{ProductionBatchRepo, WorkOrderRoutingRepo, WorkReportRepo, BatchRoutingProgressRepo};
 use super::service::ProductionBatchService;
 use crate::mes::enums::*;
 use crate::mes::work_order::repo::WorkOrderRepo;
@@ -78,10 +78,39 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
             return Err(DomainError::validation("至少需要一个拆分项"));
         }
 
+        // 校验拆分量必须 > 0
+        if splits.iter().any(|s| s.batch_qty <= Decimal::ZERO) {
+            return Err(DomainError::validation("拆分量必须大于 0"));
+        }
+
         let work_order = WorkOrderRepo::get_by_id(&mut *db, work_order_id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
             .ok_or_else(|| DomainError::not_found("WorkOrder"))?;
+
+        // 校验工单状态：仅 Released/InProduction 可拆批
+        if work_order.status != WorkOrderStatus::Released
+            && work_order.status != WorkOrderStatus::InProduction
+        {
+            return Err(DomainError::BusinessRule(
+                "仅已下达/生产中工单可拆批".to_string(),
+            ));
+        }
+
+        // 校验总量：已有批次总量 + 本次拆分总量 ≤ planned_qty × (1 + tolerance)
+        let existing_batches = ProductionBatchRepo::list_by_work_order(&mut *db, work_order_id)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?;
+        let existing_qty: Decimal = existing_batches.iter().map(|b| b.batch_qty).sum();
+        let split_qty: Decimal = splits.iter().map(|s| s.batch_qty).sum();
+        let tolerance = get_over_completion_tolerance(&self.pool, ctx, db, work_order_id).await?;
+        let max_allowed = work_order.planned_qty * (Decimal::ONE + tolerance);
+        if existing_qty + split_qty > max_allowed {
+            return Err(DomainError::BusinessRule(format!(
+                "拆分总量 {} + 已有 {} 超过计划量 {} 的容差上限",
+                split_qty, existing_qty, max_allowed
+            )));
+        }
 
         let mut results = Vec::with_capacity(splits.len());
 
@@ -94,6 +123,12 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
             };
 
             let id = self.create(ctx, db, req).await?;
+
+            // 为新批次初始化所有工序的 batch_routing_progress 记录
+            BatchRoutingProgressRepo::init_for_batch(&mut *db, id, work_order_id)
+                .await
+                .map_err(|e| DomainError::Internal(e.into()))?;
+
             results.push(id);
         }
 
@@ -219,8 +254,25 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
         .map_err(|e| DomainError::Internal(e.into()))?;
 
         let work_report_id = report.id;
+        // --- f1. UPSERT batch_routing_progress (batch_id, routing_id) ---
+        let brp_id = BatchRoutingProgressRepo::upsert_and_get_id(
+            &mut *db, batch_id, routing.id,
+        )
+        .await
+        .map_err(|e| DomainError::Internal(e.into()))?;
 
-        // --- e2. 超额生产容差校验（最后工序） ---
+        // 查现有 brp（用于超额校验和状态判断）
+        let existing_brp = BatchRoutingProgressRepo::get_by_batch_and_routing(
+            &mut *db, batch_id, routing.id,
+        )
+        .await
+        .map_err(|e| DomainError::Internal(e.into()))?;
+        let prev_completed = existing_brp.as_ref().map(|b| b.completed_qty).unwrap_or(Decimal::ZERO);
+        let prev_defect = existing_brp.as_ref().map(|b| b.defect_qty).unwrap_or(Decimal::ZERO);
+        let was_pending = existing_brp.as_ref().map(|b| b.status) == Some(RoutingStatus::Pending)
+            || existing_brp.is_none();
+
+        // --- e2. 超额容差校验（最后工序，基于批次自身累计而非工单级共享） ---
         if was_inserted {
             let all_routings_for_check = WorkOrderRoutingRepo::get_by_work_order_id(
                 &mut *db, batch.work_order_id,
@@ -230,17 +282,8 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
             let is_last_step = step_no == max_step;
 
             if is_last_step {
-                let total_completed: Decimal = all_routings_for_check.iter()
-                    .filter(|r| r.step_no == step_no)
-                    .map(|r| r.completed_qty)
-                    .sum::<Decimal>()
-                    + req.completed_qty;
-                let total_defect: Decimal = all_routings_for_check.iter()
-                    .filter(|r| r.step_no == step_no)
-                    .map(|r| r.defect_qty)
-                    .sum::<Decimal>()
-                    + req.defect_qty;
-                let total_reported = total_completed + total_defect;
+                let total_reported = prev_completed + prev_defect
+                    + req.completed_qty + req.defect_qty;
 
                 let tolerance = get_over_completion_tolerance(&self.pool, ctx, db, batch.work_order_id).await?;
                 let max_allowed = batch.batch_qty * (Decimal::ONE + tolerance);
@@ -258,23 +301,33 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
             }
         }
 
-        // --- f. 原子增量 completed_qty / defect_qty ---
+        // --- f2-f4. 四层同步累加（行锁原子操作，同事务内） ---
         if was_inserted {
-            WorkOrderRoutingRepo::atomic_increment_qty(
-                &mut *db,
-                routing.id,
-                req.completed_qty,
-                req.defect_qty,
+            // f2: batch_routing_progress（写真相源）
+            BatchRoutingProgressRepo::atomic_increment_qty(
+                &mut *db, brp_id, req.completed_qty, req.defect_qty,
             )
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
 
-            // --- g. 更新工序状态为 InProgress ---
-            if routing.status == RoutingStatus::Pending {
-                WorkOrderRoutingRepo::update_status(
-                    &mut *db,
-                    routing.id,
-                    RoutingStatus::InProgress,
+            // f3: production_batches（冗余字段，供批次列表/详情）
+            ProductionBatchRepo::atomic_increment_qty(
+                &mut *db, batch_id, req.completed_qty, req.defect_qty,
+            )
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?;
+
+            // f4: work_orders（冗余字段，供工单列表筛选）
+            WorkOrderRepo::atomic_increment_completed_qty(
+                &mut *db, batch.work_order_id, req.completed_qty, req.defect_qty,
+            )
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?;
+
+            // --- g1. brp 状态: Pending → InProgress ---
+            if was_pending {
+                BatchRoutingProgressRepo::update_status(
+                    &mut *db, brp_id, RoutingStatus::InProgress,
                 )
                 .await
                 .map_err(|e| DomainError::Internal(e.into()))?;
@@ -413,13 +466,30 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
             .map_err(|e| DomainError::Internal(e.into()))?;
 
         let last_routing = routings.iter().max_by_key(|r| r.step_no);
-        if let Some(last) = last_routing
-            && last.status != RoutingStatus::Completed
-        {
-            return Err(DomainError::business_rule(format!(
-                "最后工序 {} 尚未完成，无法推进到待入库",
-                last.step_no
-            )));
+        if let Some(last) = last_routing {
+            // 检查该批次在最后工序的执行进度是否完成
+            let brp = BatchRoutingProgressRepo::get_by_batch_and_routing(
+                &mut *db, batch_id, last.id,
+            )
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?;
+
+            let is_completed = brp.as_ref().map(|b| b.status) == Some(RoutingStatus::Completed);
+            if !is_completed {
+                return Err(DomainError::business_rule(format!(
+                    "最后工序 {} 尚未完成，无法推进到待入库",
+                    last.step_no
+                )));
+            }
+
+            // 标记 brp 为 Completed
+            if let Some(b) = &brp {
+                BatchRoutingProgressRepo::update_status(
+                    &mut *db, b.id, RoutingStatus::Completed,
+                )
+                .await
+                .map_err(|e| DomainError::Internal(e.into()))?;
+            }
         }
 
         ProductionBatchRepo::update_status(&mut *db, batch_id, BatchStatus::PendingReceipt)

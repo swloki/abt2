@@ -227,7 +227,7 @@ fn plan_create_page() -> Markup {
                             id="product-search-input"
                             name="q"
                             hx-get=(ProductSearchPath::PATH)
-                            hx-trigger="input changed delay:300ms"
+                            hx-trigger="load, input changed delay:300ms"
                             hx-target="#product-search-results"
                             hx-swap="innerHTML"
                             hx-include="this";
@@ -241,7 +241,7 @@ fn plan_create_page() -> Markup {
                                 }
                             }
                             tbody id="product-search-results" {
-                                tr { td colspan="4" style="text-align:center;color:var(--muted);padding:24px" { "请输入关键词搜索" } }
+                                tr { td colspan="4" style="text-align:center;color:var(--muted);padding:24px" { "正在加载..." } }
                             }
                         }
                     }

@@ -460,7 +460,6 @@ fn fulfillment_workbench(
                         th { "需求状态" }
                         th { "履约状态" }
                         th { "下游单据" }
-                        th { "操作" }
                     }
                 }
                 tbody {
@@ -553,48 +552,6 @@ fn fulfill_plan_row(
         _ => None,
     };
 
-    // 操作按钮：根据状态显示不同操作
-    let action_btn = match pl.status {
-        FulfillmentLineStatus::Fulfilled => {
-            html! {
-                a href="#" class="btn btn-default btn-sm" { "查看" }
-            }
-        }
-        FulfillmentLineStatus::Producing => {
-            html! {
-                a href="/admin/mes/demand-pool" class="btn btn-default btn-sm" { "推送需求" }
-            }
-        }
-        FulfillmentLineStatus::Purchasing => {
-            html! {
-                a href="/admin/purchase/demand-pool" class="btn btn-default btn-sm" { "推送需求" }
-            }
-        }
-        _ => {
-            // Pending / Allocated — 根据获取渠道推送到对应需求池
-            match pl.acquire_channel {
-                AcquireChannel::Purchased => {
-                    html! {
-                        a href="/admin/purchase/demand-pool" class="btn btn-primary btn-sm" { "推送需求" }
-                    }
-                }
-                AcquireChannel::SelfProduced | AcquireChannel::Legacy => {
-                    html! {
-                        a href="/admin/mes/demand-pool" class="btn btn-primary btn-sm" { "推送需求" }
-                    }
-                }
-                AcquireChannel::Outsourced => {
-                    html! {
-                        a href="/admin/om/outsourcing/create" class="btn btn-primary btn-sm" { "推送需求" }
-                    }
-                }
-                AcquireChannel::NonInventory => {
-                    html! { span class="text-muted" { "—" } }
-                }
-            }
-        }
-    };
-
     html! {
         tr {
             td {
@@ -635,9 +592,6 @@ fn fulfill_plan_row(
                 } @else {
                     span class="text-muted" { "—" }
                 }
-            }
-            td {
-                (action_btn)
             }
         }
     }

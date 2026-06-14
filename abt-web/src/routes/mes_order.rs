@@ -16,6 +16,7 @@ pub struct OrderListPath;
 #[typed_path("/admin/mes/orders/create")]
 pub struct OrderCreatePath;
 
+
 #[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/mes/orders/{id}")]
 pub struct OrderDetailPath {
@@ -54,6 +55,7 @@ pub fn router() -> Router<AppState> {
             OrderCreatePath::PATH,
             get(mes_order_create::get_order_create).post(mes_order_create::create_order),
         )
+
         .route(OrderDetailPath::PATH, get(mes_order_detail::get_order_detail))
         .route(OrderReleasePath::PATH, post(mes_order_detail::release_order))
         .route(OrderClosePath::PATH, post(mes_order_detail::close_order))

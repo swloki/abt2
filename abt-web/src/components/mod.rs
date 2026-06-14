@@ -9,3 +9,4 @@ pub mod detail;
 pub mod drawer;
 pub mod export_button;
 pub mod import_modal;
+pub mod product_picker;

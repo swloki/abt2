@@ -129,6 +129,7 @@ pub fn router(state: AppState) -> Router {
                 .merge(department::router())
                 // ── Excel Import/Export ──
                 .merge(excel::router())
+                .merge(crate::components::product_picker::router())
                 .layer(middleware::from_fn_with_state(
                     state.clone(),
                     auth_middleware,

@@ -5,6 +5,7 @@ use serde::Deserialize;
 
 use abt_core::mes::work_order::WorkOrderService;
 
+use crate::components::product_picker;
 use crate::errors::Result;
 use crate::layout::page::admin_page;
 use crate::routes::mes_order::{OrderCreatePath, OrderListPath};
@@ -64,7 +65,18 @@ fn order_create_page() -> Markup {
             div class="form-section" {
                 div class="form-section-title" { "基本信息" }
                 div class="form-grid" {
-                    div class="form-field" { label class="form-label" { "产品ID" } input class="form-input" type="number" name="product_id" required; }
+                    div class="form-field" {
+                        label class="form-label" { "产品" }
+                        div style="display:flex;gap:var(--space-2)" {
+                            input type="hidden" name="product_id" id="product_id" required;
+                            div class="form-input" id="product-display" style="flex:1;cursor:pointer;color:var(--muted)"
+                                _="on click add .is-open to #product-modal" {
+                                "点击选择产品…"
+                            }
+                            button type="button" class="btn btn-default"
+                                _="on click add .is-open to #product-modal" { "选择" }
+                        }
+                    }
                     div class="form-field" { label class="form-label" { "计划数量" } input class="form-input" type="number" step="0.01" name="planned_qty" required; }
                     div class="form-field" { label class="form-label" { "开始日期" } input class="form-input" type="date" name="scheduled_start" required; }
                     div class="form-field" { label class="form-label" { "结束日期" } input class="form-input" type="date" name="scheduled_end" required; }
@@ -77,5 +89,7 @@ fn order_create_page() -> Markup {
                 button type="submit" class="btn btn-primary" { "提交" }
             }
         }
+        // ── 产品选择弹窗（通用组件） ──
+        (product_picker::product_picker_modal("product-modal", "product_id", "product-display"))
     }}
 }

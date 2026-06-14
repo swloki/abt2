@@ -198,10 +198,16 @@ impl ProductionReceiptService for ProductionReceiptServiceImpl {
             )
             .await?;
 
-        // 4. Backflush — failure does not block receipt but is audited
-        let backflush_result = new_backflush_service(self.pool.clone())
-            .execute(ctx, db, receipt.work_order_id, receipt.received_qty)
-            .await;
+        // 4. Backflush — failure does not block receipt but is audited.
+        //    Uses a separate pool connection so SQL errors don't poison the
+        //    caller's transaction (the backflush is best-effort by design).
+        let backflush_result = {
+            let mut bf_conn = self.pool.acquire().await
+                .map_err(|e| DomainError::Internal(e.into()))?;
+            new_backflush_service(self.pool.clone())
+                .execute(ctx, &mut bf_conn, receipt.work_order_id, receipt.received_qty)
+                .await
+        };
 
         if let Err(e) = backflush_result {
             if let Err(audit_err) = new_audit_log_service(self.pool.clone())

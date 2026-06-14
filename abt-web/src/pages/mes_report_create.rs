@@ -21,8 +21,10 @@ pub struct ReportCreateForm {
     pub shift: abt_core::mes::enums::ShiftType,
     pub completed_qty: rust_decimal::Decimal,
     pub defect_qty: rust_decimal::Decimal,
-    pub defect_reason: Option<abt_core::mes::enums::DefectReason>,
-    pub work_hours: rust_decimal::Decimal,
+    #[serde(default, deserialize_with = "crate::utils::empty_as_none")]
+    pub defect_reason: Option<i16>,
+    #[serde(default, deserialize_with = "crate::utils::empty_as_none")]
+    pub work_hours: Option<rust_decimal::Decimal>,
     pub report_date: chrono::NaiveDate,
     pub remark: Option<String>,
 }
@@ -93,8 +95,8 @@ pub async fn create_report(
         shift: form.shift,
         completed_qty: form.completed_qty,
         defect_qty: form.defect_qty,
-        defect_reason: form.defect_reason,
-        work_hours: form.work_hours,
+        defect_reason: form.defect_reason.and_then(abt_core::mes::enums::DefectReason::from_i16),
+        work_hours: form.work_hours.unwrap_or_default(),
         report_date: form.report_date,
         remark: form.remark,
     };

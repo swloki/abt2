@@ -14,11 +14,14 @@ use abt_macros::require_permission;
 #[derive(Debug, Deserialize)]
 pub struct ReceiptCreateForm {
     pub work_order_id: i64,
+    #[serde(default, deserialize_with = "crate::utils::empty_as_none")]
     pub batch_id: Option<i64>,
     pub product_id: i64,
     pub received_qty: rust_decimal::Decimal,
     pub warehouse_id: i64,
+    #[serde(default, deserialize_with = "crate::utils::empty_as_none")]
     pub zone_id: Option<i64>,
+    #[serde(default, deserialize_with = "crate::utils::empty_as_none")]
     pub bin_id: Option<i64>,
     pub receipt_date: chrono::NaiveDate,
     pub remark: Option<String>,

@@ -168,6 +168,7 @@ pub async fn create_stock_out(
         let req = RecordTransactionReq {
             doc_number: None,
             delivery_no: None,
+            source_doc_number: None,
             transaction_type,
             product_id,
             warehouse_id,

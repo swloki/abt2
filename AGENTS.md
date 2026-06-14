@@ -439,7 +439,11 @@ When available in `docs/solutions/`, consult existing solutions (organized with 
 
 Use `agent-browser` CLI for end-to-end page testing. **Never use `curl`** for page verification.
 
-> **⚠ HTTPS 自签名证书**：服务器使用 HTTPS + 自签名证书，必须在 agent-browser 命令中加 `--ignore-https-errors`（或设环境变量 `AGENT_BROWSER_IGNORE_HTTPS_ERRORS=true`）。该标志在 daemon **首次启动时**（即第一个 `open` 命令）生效；daemon 已在运行时传入会被忽略，需先 `agent-browser close --all` 再重启。
+> **🔌 CDP 连接已有浏览器**：用户已开启一个 Chrome 实例（CDP 端口 9222），所有 agent-browser 命令必须通过 `--cdp 9222` 连接到该实例。**禁止关闭/重启浏览器**（不可使用 `agent-browser close` / `close --all`）。禁止使用无头模式。
+>
+> **🚫 禁止截图**：当前模型不支持图片输入，禁止使用 `agent-browser screenshot` 或 `screenshot --full` 命令。页面验证改用 `snapshot -i`（无障碍树文本）+ `get text @eN`（元素文本内容）。
+>
+> **⚠ HTTPS 自签名证书**：服务器使用 HTTPS + 自签名证书，设环境变量 `AGENT_BROWSER_IGNORE_HTTPS_ERRORS=true` 可忽略证书错误（或通过 `--ignore-https-errors` 参数，但对已有 CDP 实例可能需要在浏览器启动时设置）。
 
 #### Login & Session Setup
 
@@ -447,8 +451,8 @@ Use `agent-browser` CLI for end-to-end page testing. **Never use `curl`** for pa
 # First-time login — save auth profile
 agent-browser auth save abt --url https://localhost:8000/login --username admin --password chenxi0514
 
-# Start browser and login (daemon 首次启动需带 --ignore-https-errors)
-agent-browser --session-name abt --ignore-https-errors open https://localhost:8000/login
+# Login via CDP (连接用户已开的浏览器)
+agent-browser --cdp 9222 open https://localhost:8000/login
 agent-browser snapshot -i
 agent-browser fill @e<username_input> "admin"
 agent-browser fill @e<password_input> "chenxi0514"
@@ -456,15 +460,12 @@ agent-browser click @e<login_button>
 agent-browser wait 2000
 ```
 
-The `--session-name abt` flag auto-saves/restores cookies so subsequent opens reuse the session.
-
 #### Testing a Page
 
 ```bash
 # Navigate to target page
-agent-browser --ignore-https-errors open https://localhost:8000/admin/md/products
+agent-browser --cdp 9222 open https://localhost:8000/admin/md/products
 agent-browser snapshot -i              # Get interactive elements with @eN refs
-agent-browser screenshot --full        # Full page screenshot for visual verification
 
 # Test interaction (click, fill, submit)
 agent-browser click @e3                # Click element by snapshot ref
@@ -479,7 +480,7 @@ agent-browser errors
 
 | Task | Commands |
 |------|----------|
-| List page renders | `open <url> && snapshot -i && screenshot --full` |
+| List page renders | `open <url> && snapshot -i` |
 | Create form submit | `open <create_url> && fill @eN "value" && click @eN && snapshot -i` |
 | Search/filter | `fill @eN "query" && press Enter && snapshot -i` |
 | Delete with confirm | `click @eN && snapshot -i && click @eN` |
@@ -497,23 +498,11 @@ agent-browser errors
 | `type @eN "text"` | Append text without clearing |
 | `press Enter` | Press keyboard key |
 | `select @eN "value"` | Select dropdown option |
-| `screenshot [path]` | Viewport screenshot (auto-displayed) |
-| `screenshot --full [path]` | Full page screenshot |
-| `wait <sel\|ms>` | Wait for element or milliseconds |
-| `console [--clear]` | View/clear console logs |
+| `screenshot` | **已禁用**（模型不支持图片输入） |
 | `errors [--clear]` | View/clear page errors |
 | `get text @eN` | Get element text content |
 | `back` / `reload` | Navigation |
-| `close [--all]` | Close browser |
-
-#### Headed Mode (Visible Browser)
-
-Add `--headed` flag to watch the browser in real time during debugging:
-
-```bash
-agent-browser --headed --ignore-https-errors open https://localhost:8000/admin/md/products
-agent-browser --headed snapshot -i
-```
+| `close [--all]` | **已禁用**（禁止关闭用户的浏览器） |
 
 ## Adding a New Feature
 

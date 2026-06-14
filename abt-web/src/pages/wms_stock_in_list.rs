@@ -350,7 +350,13 @@ fn stock_in_data_card(
                                         (type_label)
                                     }
                                 }
-                                td class="mono" style="color:var(--fg-2);font-size:12px" { (format!("{}-{}", item.source_type, item.source_id)) }
+                                td class="mono" style="color:var(--fg-2);font-size:12px" {
+                                    @if let Some(ref sn) = item.source_doc_number {
+                                        (sn)
+                                    } @else {
+                                        span style="color:var(--muted)" { "—" }
+                                    }
+                                }
                                 td { (wh_name) }
                                 td { "1 种" }
                                 td class="num-right mono" { (format!("{:.2}", item.quantity)) }

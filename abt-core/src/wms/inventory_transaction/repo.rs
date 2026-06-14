@@ -15,16 +15,17 @@ impl InventoryTransactionRepo {
         let row = sqlx::query(
             r#"
             INSERT INTO inventory_transactions
-                (doc_number, delivery_no, transaction_type, product_id, warehouse_id, zone_id, bin_id,
+                (doc_number, delivery_no, source_doc_number, transaction_type, product_id, warehouse_id, zone_id, bin_id,
                  batch_no, quantity, unit_cost, source_type, source_id, remark, operator_id)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
-            RETURNING id, doc_number, delivery_no, transaction_type, product_id, warehouse_id, zone_id,
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+            RETURNING id, doc_number, delivery_no, source_doc_number, transaction_type, product_id, warehouse_id, zone_id,
                       bin_id, batch_no, quantity, unit_cost, source_type, source_id,
                       remark, operator_id, created_at
             "#,
         )
         .bind(&req.doc_number)
         .bind(&req.delivery_no)
+        .bind(&req.source_doc_number)
         .bind(req.transaction_type)
         .bind(req.product_id)
         .bind(req.warehouse_id)
@@ -50,7 +51,7 @@ impl InventoryTransactionRepo {
     ) -> Result<Vec<InventoryTransaction>> {
         let rows = sqlx::query(
             r#"
-            SELECT id, doc_number, delivery_no, transaction_type, product_id, warehouse_id, zone_id,
+            SELECT id, doc_number, delivery_no, source_doc_number, transaction_type, product_id, warehouse_id, zone_id,
                    bin_id, batch_no, quantity, unit_cost, source_type, source_id,
                    remark, operator_id, created_at
             FROM inventory_transactions
@@ -75,7 +76,7 @@ impl InventoryTransactionRepo {
     ) -> Result<Option<InventoryTransaction>> {
         let row = sqlx::query(
             r#"
-            SELECT id, doc_number, delivery_no, transaction_type, product_id, warehouse_id, zone_id,
+            SELECT id, doc_number, delivery_no, source_doc_number, transaction_type, product_id, warehouse_id, zone_id,
                    bin_id, batch_no, quantity, unit_cost, source_type, source_id,
                    remark, operator_id, created_at
             FROM inventory_transactions
@@ -116,7 +117,7 @@ impl InventoryTransactionRepo {
 
         let count_sql = format!("SELECT COUNT(*) as total FROM inventory_transactions WHERE {where_sql}");
         let data_sql = format!(
-            "SELECT id, doc_number, delivery_no, transaction_type, product_id, warehouse_id, zone_id, \
+            "SELECT id, doc_number, delivery_no, source_doc_number, transaction_type, product_id, warehouse_id, zone_id, \
              bin_id, batch_no, quantity, unit_cost, source_type, source_id, \
              remark, operator_id, created_at \
              FROM inventory_transactions WHERE {where_sql} \

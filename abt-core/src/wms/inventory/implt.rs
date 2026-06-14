@@ -310,8 +310,7 @@ impl InventoryServiceImpl {
         let before_qty = before.as_ref().map(|s| s.quantity).unwrap_or(Decimal::ZERO);
 
         // 2. 插入事务记录
-        let txn_req = RecordTransactionReq { doc_number: None, delivery_no: None, transaction_type: txn_type,
-        product_id: req.product_id,
+        let txn_req = RecordTransactionReq { doc_number: None, delivery_no: None, source_doc_number: None, transaction_type: txn_type, product_id: req.product_id,
         warehouse_id: req.warehouse_id,
         zone_id: Some(req.zone_id),
         bin_id: Some(req.bin_id),

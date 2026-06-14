@@ -1,5 +1,4 @@
 use axum::response::{Html, IntoResponse};
-use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
 use serde::Deserialize;
 
@@ -10,7 +9,7 @@ use abt_core::mes::work_report::WorkReportService;
 use abt_core::shared::identity::UserService;
 use crate::errors::Result;
 use crate::layout::page::admin_page;
-use crate::routes::mes_batch::{BatchDetailPath, BatchListPath, BatchConfirmStepPath, BatchAdvancePath, BatchSuspendPath, BatchResumePath, BatchScrapPath};
+use crate::routes::mes_batch::{BatchDetailPath, BatchConfirmStepPath, BatchAdvancePath, BatchSuspendPath, BatchResumePath, BatchScrapPath};
 use crate::utils::RequestContext;
 use abt_macros::require_permission;
 
@@ -64,7 +63,7 @@ pub async fn get_batch_detail(path: BatchDetailPath, ctx: RequestContext) -> Res
         progress_list.iter().map(|p| (p.routing_id, p)).collect();
 
     let content = batch_detail_page(&batch, &product_name, &wo, &routings, &reports, &routing_map, &user_map, &creator_name, &progress_map);
-    Ok(Html(admin_page(is_htmx, "批次详情", &claims, "production", &format!("/admin/mes/batches/{}", path.id), "生产管理", Some(BatchListPath::PATH), content, &nav_filter).into_string()))
+    Ok(Html(admin_page(is_htmx, "批次详情", &claims, "production", &format!("/admin/mes/batches/{}", path.id), "生产管理", Some(&format!("/admin/mes/orders/{}", wo.id)), content, &nav_filter).into_string()))
 }
 
 #[require_permission("WORK_ORDER", "update")]

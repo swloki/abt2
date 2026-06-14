@@ -257,14 +257,15 @@ pub async fn create_stock_in(
         other => other,
     };
 
-    let source_id: i64 = form.source_id.unwrap_or(0);
     let remark = form.remark.filter(|s| !s.is_empty());
-    // 入库单号：有来源单据时引用来源单号；手工录入时自动生成
-    let doc_number = form.source_ref
+    let source_id: i64 = form.source_id.unwrap_or(0);
+    // 入库单号：始终生成系统唯一编号（RK 前缀 + 时间戳）
+    let doc_number = format!("RK{}", chrono::Local::now().format("%Y%m%d%H%M%S"));
+    // 来源单号：记录来源单据的单号（如采购单号 PO-xxx、来料通知单号 AN-xxx）
+    let source_doc_number = form.source_ref
         .as_ref()
         .filter(|s| !s.is_empty())
-        .cloned()
-        .unwrap_or_else(|| format!("RK{}", chrono::Local::now().format("%Y%m%d%H%M%S")));
+        .cloned();
 
     // 问题三修复：未选库区/储位时自动解析默认值，确保库存台账更新
     let warehouse_svc = state.warehouse_service();
@@ -302,6 +303,7 @@ pub async fn create_stock_in(
         let req = RecordTransactionReq {
             doc_number: Some(doc_number.clone()),
             delivery_no: form.delivery_no.clone(),
+            source_doc_number: source_doc_number.clone(),
             transaction_type,
             product_id,
             warehouse_id,
@@ -370,20 +372,21 @@ fn stock_in_create_content(
                         div class="form-group" {
                             label class="form-label" { "来源类型" }
                             select class="form-select" name="source_type" id="source-type-select"
-                                onchange="wmsUpdateSourceType()" {
+                                _="on change[my value is 'manual'] remove @readonly from #source-ref-input then put '可选：输入来源单号' into #source-ref-input's @placeholder then hide #source-ref-pick-btn then hide #source-ref-required then hide #source-supplier-group then set #source-ref-input's value to '' then set #source-id-input's value to '' then set #source-supplier-input's value to ''
+                                   on change[my value is not 'manual'] add @readonly to #source-ref-input then put '点击右侧选择来源单号' into #source-ref-input's @placeholder then show #source-ref-pick-btn then show #source-ref-required then show #source-supplier-group then set #source-ref-input's value to '' then set #source-id-input's value to ''" {
                                 option value="arrival" selected { "来料通知 (AN)" }
                                 option value="purchase" { "采购订单 (PO)" }
                                 option value="manual" { "手工录入" }
                             }
                         }
                         div class="form-group" id="source-ref-group" {
-                            label class="form-label" { "来源单号 " span class="required" { "*" } }
+                            label class="form-label" { "来源单号 " span class="required" id="source-ref-required" { "*" } }
                             div style="display:flex;gap:var(--space-2)" {
                                 input class="form-input" type="text" id="source-ref-input" name="source_ref"
                                     placeholder="点击右侧选择来源单号" readonly style="flex:1;background:var(--surface)" {};
                                 input type="hidden" id="source-id-input" name="source_id" {};
-                                button type="button" class="btn btn-default"
-                                    onclick="wmsOpenSourceModal()" { "选择" }
+                                button type="button" class="btn btn-default" id="source-ref-pick-btn"
+                                    _="on click set #source-pick-type's value to #source-type-select's value then add .is-open to #source-modal then call wmsOpenSourceModal()" { "选择" }
                             }
                         }
                         div class="form-group" {
@@ -704,23 +707,6 @@ fn stock_in_create_content(
                 row.querySelector('.line-num').textContent = i + 1;
             });
             wmsStockInCalcSummary();
-        }
-
-        // Source type cascade: 手工录入隐藏来源单号+供应商
-        function wmsUpdateSourceType() {
-            var type = document.getElementById('source-type-select').value;
-            var refGroup = document.getElementById('source-ref-group');
-            var supplierGroup = document.getElementById('source-supplier-group');
-            if (type === 'manual') {
-                refGroup.style.display = 'none';
-                supplierGroup.style.display = 'none';
-                document.getElementById('source-ref-input').value = '';
-                document.getElementById('source-supplier-input').value = '';
-                document.getElementById('source-id-input').value = '';
-            } else {
-                refGroup.style.display = '';
-                supplierGroup.style.display = '';
-            }
         }
 
         // Open source pick modal — capture current source_type and load list

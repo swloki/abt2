@@ -117,8 +117,7 @@ impl TransferService for TransferServiceImpl {
         // 扣减源仓库库存
         let tx_svc = new_inventory_transaction_service(self.pool.clone());
         for item in &items {
-            tx_svc.record(ctx, db, RecordTransactionReq { doc_number: Some(transfer.doc_number.clone()), delivery_no: None, transaction_type: TransactionType::Transfer,
-            product_id: item.product_id,
+            tx_svc.record(ctx, db, RecordTransactionReq { doc_number: Some(transfer.doc_number.clone()), delivery_no: None, source_doc_number: None, transaction_type: TransactionType::Transfer, product_id: item.product_id,
             warehouse_id: transfer.from_warehouse_id,
             zone_id: transfer.from_zone_id,
             bin_id: transfer.from_bin_id,
@@ -161,8 +160,7 @@ impl TransferService for TransferServiceImpl {
         // 增加目标仓库库存
         let tx_svc = new_inventory_transaction_service(self.pool.clone());
         for item in &items {
-            tx_svc.record(ctx, db, RecordTransactionReq { doc_number: Some(transfer.doc_number.clone()), delivery_no: None, transaction_type: TransactionType::Transfer,
-            product_id: item.product_id,
+            tx_svc.record(ctx, db, RecordTransactionReq { doc_number: Some(transfer.doc_number.clone()), delivery_no: None, source_doc_number: None, transaction_type: TransactionType::Transfer, product_id: item.product_id,
             warehouse_id: transfer.to_warehouse_id,
             zone_id: transfer.to_zone_id,
             bin_id: transfer.to_bin_id,

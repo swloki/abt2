@@ -161,8 +161,7 @@ impl ProductionReceiptService for ProductionReceiptServiceImpl {
         new_inventory_transaction_service(self.pool.clone())
             .record(
                 ctx, db,
-                RecordTransactionReq { doc_number: None, delivery_no: None, transaction_type: TransactionType::ProductionReceipt,
-                product_id: receipt.product_id,
+                RecordTransactionReq { doc_number: None, delivery_no: None, source_doc_number: None, transaction_type: TransactionType::ProductionReceipt, product_id: receipt.product_id,
                 warehouse_id: receipt.warehouse_id,
                 zone_id: receipt.zone_id,
                 bin_id: receipt.bin_id,

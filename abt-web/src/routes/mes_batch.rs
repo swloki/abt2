@@ -3,14 +3,10 @@ use axum::Router;
 use axum_extra::routing::TypedPath;
 use serde::Deserialize;
 
-use crate::pages::{mes_batch_list, mes_batch_detail, mes_card_query, mes_schedule_board};
+use crate::pages::{mes_batch_detail, mes_card_query, mes_schedule_board};
 use crate::state::AppState;
 
 // ── Typed Paths ──
-
-#[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/mes/batches")]
-pub struct BatchListPath;
 
 #[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/mes/batches/{id}")]
@@ -64,7 +60,6 @@ pub struct ScheduleBoardPath;
 
 pub fn router() -> Router<AppState> {
     Router::new()
-        .route(BatchListPath::PATH, get(mes_batch_list::get_batch_list))
         .route(BatchDetailPath::PATH, get(mes_batch_detail::get_batch_detail))
         .route(BatchConfirmStepPath::PATH, post(mes_batch_detail::confirm_step))
         .route(BatchAdvancePath::PATH, post(mes_batch_detail::advance_to_receipt))

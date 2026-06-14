@@ -184,7 +184,13 @@ fn stock_in_detail_page(
                     }
                     div class="info-item" {
                         span class="info-label" { "来源单号" }
-                        span class="info-value mono" { (txn.source_id) }
+                        span class="info-value mono" {
+                            @if let Some(ref sn) = txn.source_doc_number {
+                                (sn)
+                            } @else {
+                                span style="color:var(--muted)" { "—" }
+                            }
+                        }
                     }
                     div class="info-item" {
                         span class="info-label" { "备注" }

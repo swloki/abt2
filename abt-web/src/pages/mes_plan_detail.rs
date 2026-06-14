@@ -675,7 +675,7 @@ fn tab_planning(
                                                     td { (completeness_dots(val)) }
                                                     td {
                                                         button type="button" class="btn btn-default btn-sm"
-                                                            onclick="splitRow(this)" { "拆分" }
+                                                            _="on click call openSplitDialog(me)" { "拆分" }
                                                     }
                                                 }
                                             }
@@ -777,6 +777,23 @@ fn tab_planning(
                 }
             }
 
+
+            // 拆分弹窗（可复用 input_dialog 组件）
+            @if can_plan && !pending_items.is_empty() {
+                (crate::components::input_dialog::input_dialog(
+                    "split-dialog",
+                    "拆分明细项",
+                    html! {
+                        "将当前明细项拆分为两份，各拆分行可独立调整排程和参数。"
+                    },
+                    "split-input",
+                    "第一份数量",
+                    "number",
+                    "输入数量",
+                    "确认拆分",
+                    "call doSplit()",
+                ))
+            }
             // 加载规划 JS
             script src="/wo-planning.js" {}
         }

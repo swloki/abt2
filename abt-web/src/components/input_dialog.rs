@@ -1,0 +1,57 @@
+use maud::{Markup, html};
+
+/// Input dialog: a modal with a single input field and configurable confirm action.
+///
+/// Uses `modal-overlay` + `modal modal-sm` structure, toggled via `.is-open` class.
+/// `confirm_action` is a Hyperscript string on the confirm button — supports both
+/// pure-frontend actions (`call doSplit()`) and HTMX submissions (`trigger submit on #form`).
+///
+/// `dialog_id`     — HTML id of the overlay div.
+/// `title`         — dialog heading.
+/// `desc`          — description markup (shown above input).
+/// `input_id`      — HTML id of the input field.
+/// `input_label`   — label text.
+/// `input_type`    — "number" or "text".
+/// `input_placeholder` — placeholder text.
+/// `confirm_label` — confirm button text.
+/// `confirm_action` — Hyperscript action for confirm button.
+pub fn input_dialog(
+    dialog_id: &str,
+    title: &str,
+    desc: Markup,
+    input_id: &str,
+    input_label: &str,
+    input_type: &str,
+    input_placeholder: &str,
+    confirm_label: &str,
+    confirm_action: &str,
+) -> Markup {
+    html! {
+        div id=(dialog_id) class="modal-overlay"
+            _="on click[me is event.target] remove .is-open" {
+            div class="modal modal-sm" onclick="event.stopPropagation()" {
+                div class="modal-head" {
+                    h2 { (title) }
+                }
+                div class="modal-body" {
+                    p class="modal-desc" { (desc) }
+                    div class="form-field" {
+                        label { (input_label) }
+                        input id=(input_id) class="form-input" type=(input_type)
+                            step="0.01" placeholder=(input_placeholder);
+                    }
+                }
+                div class="modal-foot" {
+                    button type="button" class="btn btn-default"
+                        _=(format!("on click remove .is-open from closest .modal-overlay")) {
+                        "取消"
+                    }
+                    button type="button" class="btn btn-primary"
+                        _=(format!("on click {confirm_action}")) {
+                        (confirm_label)
+                    }
+                }
+            }
+        }
+    }
+}

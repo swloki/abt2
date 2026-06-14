@@ -1,6 +1,6 @@
 /**
  * 工单规划 — 拆分行管理 + 数据收集 + 日期校验
- * 在规划 tab 的 HTML 之后加载（<script src="/static/wo-planning.js"></script>）
+ * 在规划 tab 的 HTML 之后加载（<script src="/wo-planning.js"></script>）
  */
 
 /**
@@ -43,21 +43,29 @@ function collectPlanItems() {
 }
 
 /**
- * 拆分行：将当前行的数量拆成两份，新增一行
+ * 打开拆分弹窗，记录当前操作行
  * @param {HTMLButtonElement} btn - 拆分按钮
  */
-function splitRow(btn) {
-  var row = btn.closest('tr');
+function openSplitDialog(btn) {
+  window._splitRow = btn.closest('tr');
+  document.getElementById('split-dialog').classList.add('is-open');
+}
+
+/**
+ * 拆分行：从 split-dialog modal 获取输入值，拆分 window._splitRow 指向的行
+ * 由 input_dialog 组件的确认按钮触发：on click call doSplit()
+ */
+function doSplit() {
+  var row = window._splitRow;
+  if (!row) return;
+
   var qtyCell = row.querySelector('.wo-qty');
   var originalQty = parseFloat(qtyCell.textContent.trim().replace(/,/g, ''));
 
-  var inputStr = prompt(
-    '输入第一份的数量（总计 ' + originalQty + '）：\n剩余将自动作为第二份。',
-    (originalQty / 2).toFixed(2)
-  );
-  if (inputStr === null) return;
+  var input = document.getElementById('split-input');
+  if (!input) return;
+  var firstQty = parseFloat(input.value);
 
-  var firstQty = parseFloat(inputStr);
   if (isNaN(firstQty) || firstQty <= 0 || firstQty >= originalQty) {
     alert('数量必须大于 0 且小于总量 ' + originalQty);
     return;
@@ -72,6 +80,10 @@ function splitRow(btn) {
   newRow.querySelector('.wo-qty').textContent = secondQty.toFixed(2).replace(/\.?0+$/, '');
   // 插入到当前行后面
   row.parentNode.insertBefore(newRow, row.nextSibling);
+
+  // 关闭弹窗 + 清空输入
+  input.value = '';
+  document.getElementById('split-dialog').classList.remove('is-open');
 }
 
 /**

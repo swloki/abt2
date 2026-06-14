@@ -393,7 +393,7 @@ fn order_detail_page(
 
             (tab_panel("info", true, tab_info(order, product_name, routings.len())))
             (tab_panel("routing", false, tab_routing(routings)))
-            (tab_panel("docs", false, tab_docs(batches, reports)))
+            (tab_panel("docs", false, tab_docs(batches, reports, routings.len())))
             (tab_panel("log", false, tab_log(audit_logs)))
 
             // 反下达对话框
@@ -547,7 +547,7 @@ fn tab_routing(routings: &[WorkOrderRouting]) -> Markup {
     }
 }
 
-fn tab_docs(batches: &[ProductionBatch], reports: &[ReportListItem]) -> Markup {
+fn tab_docs(batches: &[ProductionBatch], reports: &[ReportListItem], total_steps: usize) -> Markup {
     html! {
         // 生产批次
         div class="info-section" {
@@ -577,9 +577,17 @@ fn tab_docs(batches: &[ProductionBatch], reports: &[ReportListItem]) -> Markup {
                                     td class="mono num-right" { (crate::utils::fmt_qty(b.batch_qty)) }
                                     td class="mono num-right" { (crate::utils::fmt_qty(b.completed_qty)) }
                                     td class="mono num-right" { (crate::utils::fmt_qty(b.scrap_qty)) }
-                                    td class="mono" { (b.current_step) }
+                                    td {
+                                        @if b.current_step == 0 {
+                                            span style="color:var(--muted)" { "未开始" }
+                                        } @else if total_steps > 0 {
+                                            span { "第 " (b.current_step) "/" (total_steps) " 步" }
+                                        } @else {
+                                            span { "第 " (b.current_step) " 步" }
+                                        }
+                                    }
                                     td { (batch_status_pill(b.status)) }
-                                    td class="link-cell" { "查看" }
+                                    td { a class="link-cell" href=(format!("/admin/mes/batches/{}", b.id)) { "查看" } }
                                 }
                             }
                             @if batches.is_empty() {
@@ -600,7 +608,7 @@ fn tab_docs(batches: &[ProductionBatch], reports: &[ReportListItem]) -> Markup {
                             tr {
                                 th { "报工时间" }
                                 th { "工序" }
-                                th { "批次" }
+                                th { "报工单号" }
                                 th class="num-right" { "完成量" }
                                 th class="num-right" { "报废量" }
                                 th { "报工人" }
@@ -612,7 +620,7 @@ fn tab_docs(batches: &[ProductionBatch], reports: &[ReportListItem]) -> Markup {
                                 tr {
                                     td class="mono" { (fmt_dt(r.created_at)) }
                                     td { (r.process_name.as_str()) }
-                                    td class="link-cell" { (r.doc_number.as_str()) }
+                                    td { a class="link-cell mono" href=(format!("/admin/mes/reports/{}", r.id)) { (r.doc_number.as_str()) } }
                                     td class="mono num-right" { (crate::utils::fmt_qty(r.completed_qty)) }
                                     td class="mono num-right" { (crate::utils::fmt_qty(r.defect_qty)) }
                                     td { (r.worker_name.as_deref().unwrap_or("—")) }

@@ -93,6 +93,7 @@ fn order_table_fragment(
         TabItem { value: "Draft".into(), label: "待计划", count: None },
         TabItem { value: "Planned".into(), label: "已计划", count: None },
         TabItem { value: "Released".into(), label: "已下达", count: None },
+        TabItem { value: "InProduction".into(), label: "生产中", count: None },
         TabItem { value: "Closed".into(), label: "已关闭", count: None },
     ];
     let sel = params.status.as_deref().unwrap_or("");

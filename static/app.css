@@ -1,4 +1,3 @@
-/* Source: E:/work/abt/static/base.css */
 
 :root {
   --bg: #ffffff;
@@ -1115,6 +1114,7 @@ p { margin: 0; }
 .form-grid .span-2 { grid-column: 1 / -1; }
 .form-section { background:var(--bg); border:1px solid var(--border); border-radius:var(--radius-md); padding:var(--space-6); margin-bottom:var(--space-6); }
 .form-section .form-grid { margin-bottom:0; grid-template-columns:repeat(4,1fr); gap:var(--space-5); }
+.form-section .form-grid .span-2 { grid-column: span 2; }
 .supplier-info-bar {
   display: flex; gap: var(--space-6); margin-top: var(--space-3);
   padding: var(--space-3) var(--space-4); background: var(--surface); border-radius: var(--radius-sm);
@@ -4199,7 +4199,7 @@ textarea.form-input{min-height:72px;resize:vertical;font-family:var(--font-body)
 .source-trace a:hover{text-decoration:underline}
 .source-trace-sub{font-size:11px;color:var(--muted)}
 /* info section + production config (product detail) */
-.info-section{margin-bottom:var(--space-5)}
+.info-section{background:var(--bg);border:1px solid var(--border-soft);border-radius:var(--radius-lg);padding:var(--space-6);margin-bottom:var(--space-5);box-shadow:var(--shadow-card)}
 .info-section-title{font-size:var(--text-sm);font-weight:600;color:var(--fg);margin-bottom:var(--space-3);padding-bottom:var(--space-2);border-bottom:1px solid var(--border-soft)}
 .config-section{background:var(--surface);border:1px solid var(--border-soft);border-radius:var(--radius-lg);padding:var(--space-6);margin-bottom:var(--space-5);box-shadow:var(--shadow-xs)}
 .config-section-title{font-size:var(--text-sm);font-weight:600;color:var(--fg);margin-bottom:var(--space-4);padding-bottom:var(--space-3);border-bottom:1px solid var(--border-soft);display:flex;align-items:center;gap:var(--space-2)}
@@ -4253,6 +4253,33 @@ textarea.form-input{min-height:72px;resize:vertical;font-family:var(--font-body)
 .modal-title{font-size:var(--text-lg);font-weight:600;color:var(--fg);margin-bottom:var(--space-3)}
 .modal-desc{font-size:var(--text-sm);color:var(--muted);line-height:1.6;margin-bottom:var(--space-5)}
 .modal-actions{display:flex;justify-content:flex-end;gap:var(--space-3)}
+/* ─── Bento Grid (工单信息紧凑布局) ─── */
+.bento-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--space-5);background:var(--bg);border:1px solid var(--border-soft);border-radius:var(--radius-lg);padding:var(--space-6);margin-bottom:var(--space-5);box-shadow:var(--shadow-card)}
+.bento-half{grid-column:span 2;display:flex;flex-direction:column;gap:var(--space-4)}
+.bento-sub-grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-4)}
+/* ─── Routing Flow (工序进度可视化) ─── */
+.routing-flow{display:flex;align-items:stretch;gap:0;overflow-x:auto;padding-bottom:var(--space-3)}
+.bento-sub-grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-4)}
+.remark-text{font-size:var(--text-sm);line-height:1.6;color:var(--muted)}
+.flow-node.completed{border-color:var(--success);background:rgba(79,138,79,.04)}
+.flow-node.current{border-color:var(--accent);background:rgba(37,99,235,.06);box-shadow:0 0 0 3px rgba(37,99,235,.1)}
+.flow-node.pending{border-color:var(--border-soft);opacity:.8}
+.flow-icon{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;margin-bottom:var(--space-2)}
+.flow-node.completed .flow-icon{background:var(--success);color:#fff}
+.flow-node.current .flow-icon{background:var(--accent);color:#fff}
+.flow-node.pending .flow-icon{background:var(--border-soft);color:var(--muted)}
+.flow-title{font-size:var(--text-sm);font-weight:600;color:var(--fg)}
+.flow-meta{font-size:12px;color:var(--muted)}
+.flow-stats{display:flex;gap:var(--space-4);margin-top:var(--space-2)}
+.flow-stat{display:flex;flex-direction:column;gap:2px}
+.flow-stat .stat-label{font-size:11px;color:var(--muted);font-weight:500}
+.flow-stat .stat-val{font-size:14px;font-weight:600;font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+.flow-arrow{flex-shrink:0;display:flex;align-items:center;justify-content:center;padding:0 var(--space-3);font-size:24px;font-weight:300;color:var(--border-soft)}
+.flow-arrow.completed{color:var(--success)}
+.flow-flow-wrap{background:var(--bg);border:1px solid var(--border-soft);border-radius:var(--radius-lg);padding:var(--space-6);margin-bottom:var(--space-5);box-shadow:var(--shadow-card)}
+.flow-flow-wrap-title{font-size:var(--text-sm);font-weight:600;color:var(--fg);margin-bottom:var(--space-4);padding-bottom:var(--space-2);border-bottom:1px solid var(--border-soft)}
+@media(max-width:768px){.bento-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:480px){.bento-grid{grid-template-columns:1fr}.bento-half{grid-column:span 1}.routing-flow{flex-direction:column;gap:var(--space-3);overflow-x:visible}.flow-arrow{display:none}}
 
 /* ─── Plan Detail Header Info Grid ─── */
 .detail-info-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--space-5);margin-top:var(--space-4)}
@@ -4327,14 +4354,14 @@ textarea.form-input{min-height:72px;resize:vertical;font-family:var(--font-body)
 --spacing: 0.25rem;
 --text-2xl-fontSize: 1.5rem;
 --text-2xl-lineHeight: 2rem;
---spacing-4: var(--space-4);
 --spacing-2: var(--space-2);
+--spacing-4: var(--space-4);
+--spacing-8: var(--space-8);
 --spacing-5: var(--space-5);
 --font-mono: ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;
 --colors-blue-DEFAULT: oklch(70.7% 0.165 254.624);
 --colors-red-DEFAULT: oklch(70.4% 0.191 22.216);
 --colors-gray-DEFAULT: oklch(70.7% 0.022 261.325);
---spacing-8: var(--space-8);
 --spacing-3: var(--space-3);
 --default-transition-timingFunction: cubic-bezier(0.4, 0, 0.2, 1);
 --default-transition-duration: 150ms;

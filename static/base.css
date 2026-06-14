@@ -1114,6 +1114,7 @@ p { margin: 0; }
 .form-grid .span-2 { grid-column: 1 / -1; }
 .form-section { background:var(--bg); border:1px solid var(--border); border-radius:var(--radius-md); padding:var(--space-6); margin-bottom:var(--space-6); }
 .form-section .form-grid { margin-bottom:0; grid-template-columns:repeat(4,1fr); gap:var(--space-5); }
+.form-section .form-grid .span-2 { grid-column: span 2; }
 .supplier-info-bar {
   display: flex; gap: var(--space-6); margin-top: var(--space-3);
   padding: var(--space-3) var(--space-4); background: var(--surface); border-radius: var(--radius-sm);

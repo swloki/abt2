@@ -929,6 +929,18 @@ p { margin: 0; }
 }
 .btn-add-row:hover { border-color: var(--accent); background: var(--accent-bg); }
 .btn-add-row svg { width: 14px; height: 14px; }
+/* ─── Product Picker Cell (inline product selector) ─── */
+.product-picker-cell {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 10px; min-height: 34px;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: #fff; cursor: pointer; transition: all var(--motion-fast);
+}
+.product-picker-cell:hover { border-color: var(--accent); background: var(--accent-bg); }
+.product-picker-cell svg { width: 14px; height: 14px; color: var(--muted); flex-shrink: 0; transition: color var(--motion-fast); }
+.product-picker-cell:hover svg { color: var(--accent); }
+.product-picker-cell span { color: var(--fg); font-weight: 500; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.product-picker-cell .picker-placeholder { color: var(--muted); font-weight: 400; }
 
 /* ─── Totals Bar ─── */
 .totals-bar {

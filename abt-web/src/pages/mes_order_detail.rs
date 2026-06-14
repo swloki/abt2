@@ -549,9 +549,20 @@ fn tab_routing(routings: &[WorkOrderRouting]) -> Markup {
 
 fn tab_docs(batches: &[ProductionBatch], reports: &[ReportListItem], total_steps: usize) -> Markup {
     html! {
-        // 生产批次
-        div class="info-section" {
-            div class="info-section-title" { "生产批次 " span class="count-badge" { (batches.len()) } }
+        // ── 子 Tab 栏 (Hyperscript 切换) ──
+        div class="detail-tabs" style="margin-bottom:var(--space-5)" {
+            button class="detail-tab active doc-sub-tab" type="button"
+                _="on click remove .active from <.doc-sub-tab/> then add .active to me then hide <.doc-panel/> then show #doc-panel-batches" {
+                "生产批次 " span class="tab-count" { (batches.len()) }
+            }
+            button class="detail-tab doc-sub-tab" type="button"
+                _="on click remove .active from <.doc-sub-tab/> then add .active to me then hide <.doc-panel/> then show #doc-panel-reports" {
+                "报工记录 " span class="tab-count" { (reports.len()) }
+            }
+        }
+
+        // ── 子面板：生产批次 ──
+        div class="doc-panel" id="doc-panel-batches" {
             div class="data-card" {
                 div class="data-card-scroll" {
                     table class="data-table" {
@@ -591,16 +602,16 @@ fn tab_docs(batches: &[ProductionBatch], reports: &[ReportListItem], total_steps
                                 }
                             }
                             @if batches.is_empty() {
-                                tr { td colspan="9" class="empty-row" { "暂无生产批次" } }
+                                tr { td colspan="9" class="empty-row" { "暂无生产批次（工单未下达或无工艺路线）" } }
                             }
                         }
                     }
                 }
             }
         }
-        // 报工记录
-        div class="info-section" {
-            div class="info-section-title" { "报工记录 " span class="count-badge" { (reports.len()) } }
+
+        // ── 子面板：报工记录 ──
+        div class="doc-panel" id="doc-panel-reports" style="display:none" {
             div class="data-card" {
                 div class="data-card-scroll" {
                     table class="data-table" {

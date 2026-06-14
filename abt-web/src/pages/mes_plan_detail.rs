@@ -434,14 +434,12 @@ fn plan_detail_page(
             // Tabs
             (detail_tabs("detail", &[
                 ("detail", &format!("计划明细 {}", items.len())),
-                ("planning", "工单规划"),
-                ("result", "下达结果"),
+                ("planning", "工单管理"),
                 ("log", "操作日志"),
             ]))
 
             (tab_panel("detail", true, tab_detail(items, product_names, &val_map)))
             (tab_panel("planning", false, tab_planning(plan, items, product_names, &val_map, work_orders)))
-            (tab_panel("result", false, tab_result(work_orders, product_names)))
             (tab_panel("log", false, tab_log(audit_logs)))
         }
     }
@@ -517,55 +515,6 @@ fn tab_detail(
     }
 }
 
-// ── Tab: 下达结果（已生成工单列表）──
-
-fn tab_result(
-    work_orders: &[WorkOrder],
-    product_names: &HashMap<i64, String>,
-) -> Markup {
-    let success_count = work_orders.iter().filter(|w| !matches!(w.status, WorkOrderStatus::Cancelled)).count();
-
-    html! {
-        @if work_orders.is_empty() {
-            div class="empty-row" { "暂无已下达工单（计划尚未下达或无成功项）" }
-        } @else {
-            // Summary
-            div class="release-summary" {
-                span { "✅ 成功: " strong { (success_count) } " 个工单" }
-            }
-
-            div style="margin-top:var(--space-5)" {
-                @for wo in work_orders {
-                    @let pname = product_names.get(&wo.product_id).map(|s| s.as_str()).unwrap_or("—");
-                    @let (wo_label, wo_bg, wo_color) = wo_status_label(&wo.status);
-                    @let is_cancelled = matches!(wo.status, WorkOrderStatus::Cancelled);
-                    div class=(if is_cancelled { "release-result-item fail" } else { "release-result-item success" }) {
-                        div class="ri-header" {
-                            div class="ri-product" {
-                                (if is_cancelled { "❌ " } else { "✅ " })
-                                (pname) " · " (crate::utils::fmt_qty(wo.planned_qty)) "件"
-                            }
-                            (status_pill(wo_label, wo_bg, wo_color))
-                        }
-                        div class="ri-detail" {
-                            span { "工单: " (wo.doc_number) }
-                            @if let (Some(done), Some(total)) = (wo.completed_steps, wo.total_steps) {
-                                span { "工序: " (done) "/" (total) "步" }
-                            }
-                            span { "排程: " (wo.scheduled_start.format("%m-%d")) " 至 " (wo.scheduled_end.format("%m-%d")) }
-                        }
-                        div class="ri-actions" {
-                            a class="btn btn-default btn-sm"
-                                href=(OrderDetailPath { id: wo.id }.to_string()) {
-                                "→ 工单详情"
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
 
 // ── Tab: 操作日志（audit timeline）──
 
@@ -616,6 +565,11 @@ fn tab_planning(
 
     // 下方：Draft 工单
     let draft_orders: Vec<&WorkOrder> = work_orders.iter().filter(|wo| wo.status == WorkOrderStatus::Draft).collect();
+
+    // 已下达工单（Released/InProduction/Closed）
+    let released_orders: Vec<&WorkOrder> = work_orders.iter()
+        .filter(|wo| matches!(wo.status, WorkOrderStatus::Released | WorkOrderStatus::InProduction | WorkOrderStatus::Closed))
+        .collect();
 
     let can_plan = matches!(plan.status, PlanStatus::Confirmed | PlanStatus::InProgress);
 
@@ -764,16 +718,47 @@ fn tab_planning(
                 }
             }
 
-            // ── 空状态 ──
-            @if pending_items.is_empty() && draft_orders.is_empty() && can_plan {
-                div class="empty-row" style="padding:var(--space-8);text-align:center" {
-                    "暂无待规划明细，且无草稿工单"
+            // ── 已下达工单区（Released/InProduction/Closed）──
+            @if !released_orders.is_empty() {
+                div class="planning-section" style="margin-top:var(--space-6)" {
+                    h3 class="planning-section-title" style="font-size:var(--text-base);font-weight:600;margin-bottom:var(--space-3)" {
+                        "已下达工单 " span class="muted" { "(" (released_orders.len()) ")" }
+                    }
+
+                    div style="display:flex;flex-direction:column;gap:var(--space-2)" {
+                        @for wo in &released_orders {
+                            @let pname = product_names.get(&wo.product_id).map(|s| s.as_str()).unwrap_or("—");
+                            @let (wo_label, wo_bg, wo_color) = wo_status_label(&wo.status);
+                            div class="release-result-item success" {
+                                div class="ri-header" {
+                                    div class="ri-product" {
+                                        (pname) " · " (crate::utils::fmt_qty(wo.planned_qty)) "件"
+                                    }
+                                    (status_pill(wo_label, wo_bg, wo_color))
+                                }
+                                div class="ri-detail" {
+                                    span { "工单: " (wo.doc_number) }
+                                    @if let (Some(done), Some(total)) = (wo.completed_steps, wo.total_steps) {
+                                        span { "工序: " (done) "/" (total) "步" }
+                                    }
+                                    span { "排程: " (wo.scheduled_start.format("%m-%d")) " 至 " (wo.scheduled_end.format("%m-%d")) }
+                                }
+                                div class="ri-actions" {
+                                    a class="btn btn-default btn-sm"
+                                        href=(OrderDetailPath { id: wo.id }.to_string()) {
+                                        "→ 工单详情"
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
 
-            @if !can_plan {
+            // ── 空状态 ──
+            @if pending_items.is_empty() && draft_orders.is_empty() && released_orders.is_empty() {
                 div class="empty-row" style="padding:var(--space-8);text-align:center" {
-                    "计划状态不支持工单规划"
+                    "暂无工单数据"
                 }
             }
 

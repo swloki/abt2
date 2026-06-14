@@ -4198,7 +4198,7 @@ textarea.form-input{min-height:72px;resize:vertical;font-family:var(--font-body)
 .source-trace a:hover{text-decoration:underline}
 .source-trace-sub{font-size:11px;color:var(--muted)}
 /* info section + production config (product detail) */
-.info-section{margin-bottom:var(--space-5)}
+.info-section{background:var(--bg);border:1px solid var(--border-soft);border-radius:var(--radius-lg);padding:var(--space-6);margin-bottom:var(--space-5);box-shadow:var(--shadow-card)}
 .info-section-title{font-size:var(--text-sm);font-weight:600;color:var(--fg);margin-bottom:var(--space-3);padding-bottom:var(--space-2);border-bottom:1px solid var(--border-soft)}
 .config-section{background:var(--surface);border:1px solid var(--border-soft);border-radius:var(--radius-lg);padding:var(--space-6);margin-bottom:var(--space-5);box-shadow:var(--shadow-xs)}
 .config-section-title{font-size:var(--text-sm);font-weight:600;color:var(--fg);margin-bottom:var(--space-4);padding-bottom:var(--space-3);border-bottom:1px solid var(--border-soft);display:flex;align-items:center;gap:var(--space-2)}
@@ -4253,7 +4253,7 @@ textarea.form-input{min-height:72px;resize:vertical;font-family:var(--font-body)
 .modal-desc{font-size:var(--text-sm);color:var(--muted);line-height:1.6;margin-bottom:var(--space-5)}
 .modal-actions{display:flex;justify-content:flex-end;gap:var(--space-3)}
 /* ─── Bento Grid (工单信息紧凑布局) ─── */
-.bento-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--space-5);background:var(--bg);border:1px solid var(--border-soft);border-radius:var(--radius-lg);padding:var(--space-6);margin-bottom:var(--space-5)}
+.bento-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--space-5);background:var(--bg);border:1px solid var(--border-soft);border-radius:var(--radius-lg);padding:var(--space-6);margin-bottom:var(--space-5);box-shadow:var(--shadow-card)}
 .bento-half{grid-column:span 2;display:flex;flex-direction:column;gap:var(--space-4)}
 .bento-sub-grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-4)}
 /* ─── Routing Flow (工序进度可视化) ─── */
@@ -4275,7 +4275,7 @@ textarea.form-input{min-height:72px;resize:vertical;font-family:var(--font-body)
 .flow-stat .stat-val{font-size:14px;font-weight:600;font-family:var(--font-mono);font-variant-numeric:tabular-nums}
 .flow-arrow{flex-shrink:0;display:flex;align-items:center;justify-content:center;padding:0 var(--space-3);font-size:24px;font-weight:300;color:var(--border-soft)}
 .flow-arrow.completed{color:var(--success)}
-.flow-flow-wrap{background:var(--bg);border:1px solid var(--border-soft);border-radius:var(--radius-lg);padding:var(--space-6);margin-bottom:var(--space-5)}
+.flow-flow-wrap{background:var(--bg);border:1px solid var(--border-soft);border-radius:var(--radius-lg);padding:var(--space-6);margin-bottom:var(--space-5);box-shadow:var(--shadow-card)}
 .flow-flow-wrap-title{font-size:var(--text-sm);font-weight:600;color:var(--fg);margin-bottom:var(--space-4);padding-bottom:var(--space-2);border-bottom:1px solid var(--border-soft)}
 @media(max-width:768px){.bento-grid{grid-template-columns:1fr 1fr}}
 @media(max-width:480px){.bento-grid{grid-template-columns:1fr}.bento-half{grid-column:span 1}.routing-flow{flex-direction:column;gap:var(--space-3);overflow-x:visible}.flow-arrow{display:none}}

@@ -1,4 +1,4 @@
-﻿use async_trait::async_trait;
+use async_trait::async_trait;
 use rust_decimal::Decimal;
 
 use super::model::*;
@@ -191,4 +191,13 @@ pub trait DemandService: Send + Sync {
         ctx: &ServiceContext, db: PgExecutor<'_>,
         order_id: i64,
     ) -> Result<Vec<(i64, i64)>>;
+
+    /// 按来源单据查询所有需求（如某销售订单关联的全部 demand）
+    /// 用于销售订单详情页展示「需求状态」列的真实需求池状态
+    async fn find_by_source(
+        &self,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
+        source_type: i16,
+        source_id: i64,
+    ) -> Result<Vec<Demand>>;
 }

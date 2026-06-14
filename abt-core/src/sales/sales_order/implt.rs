@@ -1163,6 +1163,15 @@ impl DemandService for DemandServiceImpl {
     ) -> Result<()> {
         DemandRepo::update_target_doc(db, id, target_doc_type, target_doc_id).await
     }
+
+    async fn find_by_source(
+        &self,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
+        source_type: i16,
+        source_id: i64,
+    ) -> Result<Vec<Demand>> {
+        DemandRepo::find_by_source(db, source_type, source_id).await
+    }
 }
 
 // ---------------------------------------------------------------------------

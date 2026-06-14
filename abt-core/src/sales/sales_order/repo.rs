@@ -635,6 +635,24 @@ impl DemandRepo {
         Ok(demands)
     }
 
+    /// 按来源单据查询所有需求（如某销售订单的所有 demand）
+    pub async fn find_by_source(
+        executor: PgExecutor<'_>,
+        source_type: i16,
+        source_id: i64,
+    ) -> Result<Vec<Demand>> {
+        let demands = sqlx::query_as::<sqlx::Postgres, Demand>(
+            sqlx::AssertSqlSafe(format!(
+                "SELECT {DEMAND_COLUMNS} FROM demands WHERE source_type = $1 AND source_id = $2 AND deleted_at IS NULL"
+            )),
+        )
+        .bind(source_type)
+        .bind(source_id)
+        .fetch_all(executor)
+        .await?;
+        Ok(demands)
+    }
+
     /// 更新状态
     pub async fn update_status(
         executor: PgExecutor<'_>,

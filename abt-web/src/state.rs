@@ -171,6 +171,10 @@ impl AppState {
         abt_core::sales::sales_order::new_sales_order_service(self.pool.clone())
     }
 
+    pub fn sales_demand_service(&self) -> impl abt_core::sales::sales_order::DemandService {
+        abt_core::sales::sales_order::new_demand_service(self.pool.clone())
+    }
+
     pub fn shipping_service(
         &self,
     ) -> impl abt_core::sales::shipping_request::ShippingRequestService {

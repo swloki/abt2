@@ -9,7 +9,8 @@ use abt_core::master_data::customer::CustomerService;
 use abt_core::master_data::product::model::AcquireChannel;
 use abt_core::master_data::product::ProductService;
 use abt_core::sales::sales_order::model::*;
-use abt_core::sales::sales_order::SalesOrderService;
+use abt_core::sales::sales_order::{DemandService, SalesOrderService};
+use abt_core::shared::enums::document_type::DocumentType;
 use abt_core::shared::identity::UserService;
 use abt_core::wms::stock_ledger::StockLedgerService;
 
@@ -88,7 +89,6 @@ pub async fn get_order_detail(
 
     let order = svc.find_by_id(&service_ctx, &mut conn, path.id).await?;
     let items = svc.list_items(&service_ctx, &mut conn, path.id).await.unwrap_or_default();
-
     // 履行计划
     let plan_lines = svc.list_fulfillment_plan(
         &service_ctx, &mut conn,
@@ -105,6 +105,16 @@ pub async fn get_order_detail(
             }
         }
     }
+
+    // 查询该订单关联的需求池（demand）真实状态，用于「需求状态」列
+    // 无 demand → 已满足（库存已锁定，无需补货）；有 demand → 按 demand.status 显示
+    let demand_svc = state.sales_demand_service();
+    let demand_map: HashMap<i64, DemandStatus> = demand_svc
+        .find_by_source(&service_ctx, &mut conn, DocumentType::SalesOrder as i16, path.id)
+        .await.unwrap_or_default()
+        .into_iter()
+        .map(|d| (d.source_line_id, d.status))
+        .collect();
 
     let customer_name = customer_svc
         .get(&service_ctx, &mut conn, order.customer_id)
@@ -142,7 +152,7 @@ pub async fn get_order_detail(
     let content = order_detail_page(
         &order, &items, &plan_lines,
         &customer_name, &contact, &sales_rep,
-        &product_names, &product_codes, &atp_map,
+        &product_names, &product_codes, &atp_map, &demand_map,
     );
     let page_html = admin_page(
         is_htmx, "订单详情", &claims, "sales",
@@ -352,6 +362,7 @@ fn fulfillment_workbench(
     product_names: &HashMap<i64, String>,
     product_codes: &HashMap<i64, String>,
     atp_map: &HashMap<i64, Decimal>,
+    demand_map: &HashMap<i64, DemandStatus>,
 ) -> Markup {
     if plan_lines.is_empty() {
         return html! {};
@@ -454,7 +465,7 @@ fn fulfillment_workbench(
                 }
                 tbody {
                     @for pl in plan_lines {
-                        (fulfill_plan_row(pl, product_names, product_codes, atp_map))
+                        (fulfill_plan_row(pl, product_names, product_codes, atp_map, demand_map))
                     }
                 }
             }
@@ -467,19 +478,22 @@ fn fulfill_plan_row(
     names: &HashMap<i64, String>,
     codes: &HashMap<i64, String>,
     atp_map: &HashMap<i64, Decimal>,
+    demand_map: &HashMap<i64, DemandStatus>,
 ) -> Markup {
     let p_name = names.get(&pl.product_id).map(|s| s.as_str()).unwrap_or("—");
     let p_code = codes.get(&pl.product_id).map(|s| s.as_str()).unwrap_or("—");
     let (ch_label, ch_class) = acquire_tag(pl.acquire_channel);
     let (st_label, st_class) = fulfill_status_pill(pl.status);
 
-    // 需求状态（映射 fulfill status → demand 语义）
-    let (demand_label, demand_style) = match pl.status {
-        FulfillmentLineStatus::Pending => ("○ 待处理", "background:#e5e7eb;color:#374151;"),
-        FulfillmentLineStatus::Allocated => ("● 已分配", "background:#dbeafe;color:#1e40af;"),
-        FulfillmentLineStatus::Producing => ("◐ 生产中", "background:#fef3c7;color:#92400e;"),
-        FulfillmentLineStatus::Purchasing => ("◐ 采购中", "background:#ede9fe;color:#6b21a8;"),
-        FulfillmentLineStatus::Fulfilled => ("✓ 已完成", "background:#d1fae5;color:#065f46;"),
+    // 需求状态 — 来自 demand 表的真实需求池状态（不再复用 fulfillment status）
+    // 无 demand = 库存已满足（shortage=0，无需补货）；有 demand 则按 demand.status 显示
+    let (demand_label, demand_style) = match demand_map.get(&pl.order_line_id) {
+        None => ("✓ 已满足", "background:#d1fae5;color:#065f46;"),
+        Some(DemandStatus::Pending) => ("⚠ 待补货", "background:#e5e7eb;color:#374151;"),
+        Some(DemandStatus::Confirmed) => ("● 已确认", "background:#dbeafe;color:#1e40af;"),
+        Some(DemandStatus::InProgress) => ("◐ 补货中", "background:#fef3c7;color:#92400e;"),
+        Some(DemandStatus::Fulfilled) => ("✓ 补货完成", "background:#d1fae5;color:#065f46;"),
+        Some(DemandStatus::Rejected) => ("✗ 已驳回", "background:#fee2e2;color:#991b1b;"),
     };
 
     // 满足率（含当前可用库存 ATP，实时反映入库后的库存变化）
@@ -641,6 +655,7 @@ fn order_detail_page(
     product_names: &HashMap<i64, String>,
     product_codes: &HashMap<i64, String>,
     atp_map: &HashMap<i64, Decimal>,
+    demand_map: &HashMap<i64, DemandStatus>,
 ) -> Markup {
     let (status_text, status_class) = status_label(o.status);
     let contact_name = contact.as_ref().map(|c| c.name.as_str()).unwrap_or("—");
@@ -778,7 +793,7 @@ fn order_detail_page(
             }
 
             // ── Fulfillment Workbench ──
-            (fulfillment_workbench(plan_lines, product_names, product_codes, &atp_map))
+            (fulfillment_workbench(plan_lines, product_names, product_codes, atp_map, demand_map))
 
             // ── Remarks ──
             @if !o.remark.is_empty() {

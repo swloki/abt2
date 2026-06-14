@@ -1,5 +1,6 @@
 use rust_decimal::Decimal;
 use sqlx::{FromRow, Row};
+use crate::shared::enums::ReservationStatus;
 use crate::shared::types::Result;
 
 use super::model::{ProductWithoutPriceRow, StockExportRow, StockFilter, StockLedger, UpsertStockReq};
@@ -74,30 +75,38 @@ impl StockLedgerRepo {
 
     }
 
-    /// 计算可用量 = SUM(quantity - reserved_qty)
-    /// 设计要求：不用反范式 available_qty 字段，由 quantity - reserved_qty 实时计算
-    /// 待 InventoryReservation 模块实现后替换为 SUM(quantity) - InvRes.total_reserved()
+    /// 计算可用量 ATP = SUM(stock_ledger.quantity - stock_ledger.reserved_qty)
+    ///                   - SUM(inventory_reservations.reserved_qty WHERE status=Active)
+    ///
+    /// 真相源说明：stock_ledger.reserved_qty 仅由 inventory_lock（WMS 物理锁）维护，
+    /// 不反映 sales order 等业务在 inventory_reservations 表中的订单级预留。
+    /// 因此可用量必须额外扣除 inventory_reservations 中的 Active 预留，否则
+    /// 会出现「库存已被其他订单预留，详情页满足率仍显示 100%」的链路 Bug。
     pub async fn total_available(
         executor: &mut sqlx::postgres::PgConnection,
         product_id: i64,
         warehouse_id: Option<i64>,
     ) -> Result<Decimal> {
-        let row = if let Some(wh) = warehouse_id {
-            sqlx::query(
-                "SELECT COALESCE(SUM(quantity - reserved_qty), 0) as total FROM stock_ledger WHERE product_id = $1 AND warehouse_id = $2",
-            )
-            .bind(product_id)
-            .bind(wh)
-            .fetch_one(executor)
-            .await?
-        } else {
-            sqlx::query(
-                "SELECT COALESCE(SUM(quantity - reserved_qty), 0) as total FROM stock_ledger WHERE product_id = $1",
-            )
-            .bind(product_id)
-            .fetch_one(executor)
-            .await?
-        };
+        let row = sqlx::query(
+            r#"
+            SELECT
+                COALESCE(SUM(sl.quantity - sl.reserved_qty), 0)
+                - COALESCE((
+                    SELECT SUM(ir.reserved_qty)
+                    FROM inventory_reservations ir
+                    WHERE ir.product_id = $1
+                      AND ($2::bigint IS NULL OR ir.warehouse_id = $2)
+                      AND ir.status = $3
+                ), 0) AS total
+            FROM stock_ledger sl
+            WHERE sl.product_id = $1 AND ($2::bigint IS NULL OR sl.warehouse_id = $2)
+            "#,
+        )
+        .bind(product_id)
+        .bind(warehouse_id)
+        .bind(ReservationStatus::Active)
+        .fetch_one(executor)
+        .await?;
 
         Ok(row.get("total"))
     }

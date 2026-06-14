@@ -43,11 +43,19 @@ function collectPlanItems() {
 }
 
 /**
- * 打开拆分弹窗，记录当前操作行
+ * 打开拆分弹窗，记录当前操作行，默认填入总量的一半（向下取整）
  * @param {HTMLButtonElement} btn - 拆分按钮
  */
 function openSplitDialog(btn) {
-  window._splitRow = btn.closest('tr');
+  var row = btn.closest('tr');
+  window._splitRow = row;
+  // 默认填入总量的一半（向下取整，至少 1）
+  var qtyCell = row.querySelector('.wo-qty');
+  var total = parseFloat(qtyCell.textContent.trim().replace(/,/g, ''));
+  var half = Math.floor(total / 2);
+  if (half < 1) half = 1;
+  var input = document.getElementById('split-input');
+  if (input) input.value = half;
   document.getElementById('split-dialog').classList.add('is-open');
 }
 
@@ -66,18 +74,19 @@ function doSplit() {
   if (!input) return;
   var firstQty = parseFloat(input.value);
 
-  if (isNaN(firstQty) || firstQty <= 0 || firstQty >= originalQty) {
+  if (isNaN(firstQty) || firstQty < 1 || firstQty >= originalQty) {
     alert('数量必须大于 0 且小于总量 ' + originalQty);
     return;
   }
+
   var secondQty = originalQty - firstQty;
 
   // 更新当前行数量
-  qtyCell.textContent = firstQty.toFixed(2).replace(/\.?0+$/, '');
+  qtyCell.textContent = firstQty.toFixed(0);
 
   // 克隆行作为第二份
   var newRow = row.cloneNode(true);
-  newRow.querySelector('.wo-qty').textContent = secondQty.toFixed(2).replace(/\.?0+$/, '');
+  newRow.querySelector('.wo-qty').textContent = secondQty.toFixed(0);
   // 插入到当前行后面
   row.parentNode.insertBefore(newRow, row.nextSibling);
 

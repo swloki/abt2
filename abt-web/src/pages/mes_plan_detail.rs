@@ -790,6 +790,7 @@ fn tab_planning(
                     "第一份数量",
                     "number",
                     "输入数量",
+                    "1",
                     "确认拆分",
                     "call doSplit()",
                 ))

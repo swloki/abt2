@@ -13,6 +13,7 @@ use maud::{Markup, html};
 /// `input_label`   — label text.
 /// `input_type`    — "number" or "text".
 /// `input_placeholder` — placeholder text.
+/// `input_step`     — step attribute for the input (e.g. "1" for integers, "0.01" for decimals).
 /// `confirm_label` — confirm button text.
 /// `confirm_action` — Hyperscript action for confirm button.
 pub fn input_dialog(
@@ -23,6 +24,7 @@ pub fn input_dialog(
     input_label: &str,
     input_type: &str,
     input_placeholder: &str,
+    input_step: &str,
     confirm_label: &str,
     confirm_action: &str,
 ) -> Markup {
@@ -38,7 +40,7 @@ pub fn input_dialog(
                     div class="form-field" {
                         label { (input_label) }
                         input id=(input_id) class="form-input" type=(input_type)
-                            step="0.01" placeholder=(input_placeholder);
+                            step=(input_step) min="1" placeholder=(input_placeholder);
                     }
                 }
                 div class="modal-foot" {

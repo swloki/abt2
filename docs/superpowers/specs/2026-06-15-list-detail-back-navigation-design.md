@@ -34,11 +34,10 @@ GET 请求进来：
 │   → 正常传递给 handler
 │
 ├─ 无 query string + 该 path 在 Session 中有保存状态
-│   → 302 重定向到 path + 保存的 query string
+│   → 将保存的 query 注入请求 URI，handler 直接处理带参请求（无重定向，单次请求）
 │
 └─ 无 query string + 无保存状态
     → 正常传递给 handler
-```
 
 ### 3.2 记录触发
 
@@ -46,7 +45,7 @@ GET 请求进来：
 
 ### 3.3 恢复触发
 
-用户从详情页点击返回按钮（`<a href="/admin/md/bom">`，无 query），中间件检测到该 path 有保存状态，302 重定向到 `/admin/md/bom?keyword=电源&page=5`。浏览器/HTMX 自动跟随重定向，加载带筛选状态的列表。**返回按钮 href 不需要改**。
+用户从详情页点击返回按钮（`<a href="/admin/md/bom">`，无 query），中间件检测到该 path 有保存状态，将保存的 query string 透明注入请求 URI（`/admin/md/bom?keyword=电源&page=5`），handler 的 `Query<T>` 提取器直接解析带参请求，渲染筛选结果。**无 HTTP 重定向，单次请求完成；返回按钮 href 不需要改**。
 
 ### 3.4 多级导航
 
@@ -83,13 +82,13 @@ use std::collections::HashMap;
 
 use axum::body::Body;
 use axum::extract::Request;
+use axum::http::Uri;
 use axum::middleware::Next;
-use axum::response::{Redirect, Response};
+use axum::response::Response;
 use tower_sessions::Session;
 
 const LIST_URLS_KEY: &str = "list_urls";
 
-/// 跳过非页面请求（静态资源、API）
 fn should_skip(path: &str) -> bool {
     path.starts_with("/static")
         || path.starts_with("/favicon")
@@ -97,43 +96,44 @@ fn should_skip(path: &str) -> bool {
         || path == "/logout"
 }
 
-pub async fn list_state_middleware(
-    session: Session,
-    request: Request<Body>,
-    next: Next,
-) -> Response {
-    // 只处理 GET 请求
+pub async fn list_state_middleware(session: Session, request: Request<Body>, next: Next) -> Response {
     if request.method() != axum::http::Method::GET {
         return next.run(request).await;
     }
 
     let uri = request.uri().clone();
-    let path = uri.path();
+    let path = uri.path().to_string();
 
-    if should_skip(path) {
+    if should_skip(&path) {
         return next.run(request).await;
     }
 
-    // 情况1：有 query string → 记录
+    // 情况1：有 query string → 记录最新状态
     if let Some(query) = uri.query() {
         let mut urls: HashMap<String, String> = session
             .get(LIST_URLS_KEY).await.ok().flatten().unwrap_or_default();
-        urls.insert(path.to_string(), query.to_string());
-        let _ = session.insert(LIST_URLS_KEY, &urls).await;
+        urls.insert(path, query.to_string());
+        if let Err(e) = session.insert(LIST_URLS_KEY, &urls).await {
+            tracing::warn!("Failed to save list URL state: {e}");
+        }
         return next.run(request).await;
     }
 
-    // 情况2：无 query + 有保存状态 → 重定向
+    // 情况2：无 query + 有保存状态 → 注入参数到请求 URI（不重定向）
     let saved_query = session
         .get::<HashMap<String, String>>(LIST_URLS_KEY).await.ok().flatten()
-        .and_then(|urls| urls.get(path).cloned());
+        .and_then(|urls| urls.get(&path).cloned());
 
     if let Some(query) = saved_query {
-        let redirect_url = format!("{path}?{query}");
-        return Redirect::to(&redirect_url).into_response();
+        let new_uri = format!("{path}?{query}");
+        if let Ok(uri) = new_uri.parse::<Uri>() {
+            let (mut parts, body) = request.into_parts();
+            parts.uri = uri;
+            return next.run(Request::from_parts(parts, body)).await;
+        }
     }
 
-    // 情况3：无 query + 无保存 → 正常
+    // 情况3：无 query + 无保存状态 → 正常
     next.run(request).await
 }
 ```
@@ -187,7 +187,7 @@ pub async fn list_state_middleware(
 | 详情页带 query（如 `?tab=cost`） | 按 path 独立记录，不干扰列表 | ✅ |
 | URL 参数已失效 | 服务器忽略无效参数，返回正常列表 | ✅ |
 | 静态资源 / 登录页 | 跳过，不记录 | ✅ |
-| 重定向循环 | 重定向后 URL 带 query → 记录 → 不再重定向 | ✅ 无循环 |
+| 参数注入后 URL 一致性 | 浏览器地址栏可能仍显示无参 URL，但页面内容正确（单次请求，无重定向往返） | ✅ 可接受 |
 
 ## 七、验证策略
 

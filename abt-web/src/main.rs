@@ -7,6 +7,7 @@ mod pages;
 mod permissions;
 mod routes;
 mod state;
+mod middleware;
 mod toast;
 mod utils;
 

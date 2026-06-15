@@ -58,6 +58,7 @@ pub mod excel;
 use axum::{Router, routing::get, middleware};
 
 use crate::auth::middleware::auth_middleware;
+use crate::middleware::list_state::list_state_middleware;
 use crate::state::AppState;
 
 pub fn router(state: AppState) -> Router {
@@ -130,6 +131,7 @@ pub fn router(state: AppState) -> Router {
                 // ── Excel Import/Export ──
                 .merge(excel::router())
                 .merge(crate::components::product_picker::router())
+                .layer(middleware::from_fn(list_state_middleware))
                 .layer(middleware::from_fn_with_state(
                     state.clone(),
                     auth_middleware,

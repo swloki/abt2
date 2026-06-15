@@ -18,6 +18,8 @@ use abt_core::wms::enums::TransactionType;
 use abt_core::master_data::product::ProductService;
 use abt_core::master_data::product::model::ProductQuery;
 use abt_core::shared::types::{DomainError, PageParams};
+use abt_core::shared::enums::DocumentType;
+use abt_core::shared::document_sequence::DocumentSequenceService;
 
 use crate::components::icon;
 use crate::errors::Result;
@@ -259,8 +261,10 @@ pub async fn create_stock_in(
 
     let remark = form.remark.filter(|s| !s.is_empty());
     let source_id: i64 = form.source_id.unwrap_or(0);
-    // 入库单号：始终生成系统唯一编号（RK 前缀 + 时间戳）
-    let doc_number = format!("RK{}", chrono::Local::now().format("%Y%m%d%H%M%S"));
+    // 入库单号：通过 DocumentSequenceService 生成规范编号（RK-YYYY-MM-SEQ）
+    let doc_number = state.document_sequence_service()
+        .next_number(&service_ctx, &mut conn, DocumentType::StockReceipt)
+        .await?;
     // 来源单号：记录来源单据的单号（如采购单号 PO-xxx、来料通知单号 AN-xxx）
     let source_doc_number = form.source_ref
         .as_ref()
@@ -372,8 +376,8 @@ fn stock_in_create_content(
                         div class="form-group" {
                             label class="form-label" { "来源类型" }
                             select class="form-select" name="source_type" id="source-type-select"
-                                _="on change[my value is 'manual'] remove @readonly from #source-ref-input then put '可选：输入来源单号' into #source-ref-input's @placeholder then hide #source-ref-pick-btn then hide #source-ref-required then hide #source-supplier-group then set #source-ref-input's value to '' then set #source-id-input's value to '' then set #source-supplier-input's value to ''
-                                   on change[my value is not 'manual'] add @readonly to #source-ref-input then put '点击右侧选择来源单号' into #source-ref-input's @placeholder then show #source-ref-pick-btn then show #source-ref-required then show #source-supplier-group then set #source-ref-input's value to '' then set #source-id-input's value to ''" {
+                                _="on change[my value is 'manual'] put '可选：输入来源单号' into #source-ref-input's @placeholder then hide #source-ref-pick-btn then hide #source-ref-required then hide #source-supplier-group then set #source-ref-input's value to '' then set #source-id-input's value to '' then set #source-supplier-input's value to ''
+                                   on change[my value is not 'manual'] put '选择来源单号或直接输入' into #source-ref-input's @placeholder then show #source-ref-pick-btn then show #source-ref-required then show #source-supplier-group then set #source-ref-input's value to '' then set #source-id-input's value to ''" {
                                 option value="arrival" selected { "来料通知 (AN)" }
                                 option value="purchase" { "采购订单 (PO)" }
                                 option value="manual" { "手工录入" }
@@ -383,7 +387,7 @@ fn stock_in_create_content(
                             label class="form-label" { "来源单号 " span class="required" id="source-ref-required" { "*" } }
                             div style="display:flex;gap:var(--space-2)" {
                                 input class="form-input" type="text" id="source-ref-input" name="source_ref"
-                                    placeholder="点击右侧选择来源单号" readonly style="flex:1;background:var(--surface)" {};
+                                    placeholder="选择来源单号或直接输入" style="flex:1" {};
                                 input type="hidden" id="source-id-input" name="source_id" {};
                                 button type="button" class="btn btn-default" id="source-ref-pick-btn"
                                     _="on click set #source-pick-type's value to #source-type-select's value then add .is-open to #source-modal then call wmsOpenSourceModal()" { "选择" }

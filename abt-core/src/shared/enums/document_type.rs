@@ -56,6 +56,10 @@ pub enum DocumentType {
     ProductionBatch = 41,
     // MES — 流转卡
     FlowCard = 42,
+    // WMS — 入库单
+    StockReceipt = 43,
+    // WMS — 出库单
+    StockShipment = 44,
 }
 
 impl DocumentType {
@@ -103,6 +107,8 @@ impl DocumentType {
             40 => Some(Self::BomLaborProcess),
             41 => Some(Self::ProductionBatch),
             42 => Some(Self::FlowCard),
+            43 => Some(Self::StockReceipt),
+            44 => Some(Self::StockShipment),
             _ => None,
         }
     }
@@ -167,6 +173,9 @@ impl DocumentType {
             // MES — 生产批次
             Self::ProductionBatch => "PB",
             Self::FlowCard => "FC",
+            Self::StockReceipt => "RK",
+            // WMS — 出库单
+            Self::StockShipment => "CK",
         }
     }
 }

@@ -421,6 +421,11 @@ impl AppState {
     pub fn audit_log_service(&self) -> impl abt_core::shared::audit_log::AuditLogService {
         abt_core::shared::audit_log::new_audit_log_service(self.pool.clone())
     }
+    pub fn document_sequence_service(
+        &self,
+    ) -> impl abt_core::shared::document_sequence::DocumentSequenceService {
+        abt_core::shared::document_sequence::new_document_sequence_service(self.pool.clone())
+    }
 
     pub fn mes_demand_service(
         &self,

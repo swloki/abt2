@@ -8,6 +8,8 @@ use rust_decimal::Decimal;
 use abt_core::master_data::product::ProductService;
 use abt_core::master_data::product::model::ProductQuery;
 use abt_core::shared::types::{DomainError, PageParams};
+use abt_core::shared::enums::DocumentType;
+use abt_core::shared::document_sequence::DocumentSequenceService;
 use abt_core::wms::warehouse::WarehouseService;
 use abt_core::wms::inventory_transaction::InventoryTransactionService;
 use abt_core::wms::inventory_transaction::model::RecordTransactionReq;
@@ -144,12 +146,10 @@ pub async fn create_stock_out(
 
     let remark = form.remark.filter(|s| !s.is_empty());
 
-    // 出库单号：始终生成系统唯一编号（按类型前缀 + 时间戳）
-    let doc_number = format!(
-        "{}{}",
-        transaction_type.doc_prefix(),
-        chrono::Local::now().format("%Y%m%d%H%M%S")
-    );
+    // 出库单号：通过 DocumentSequenceService 生成规范编号（CK-YYYY-MM-SEQ）
+    let doc_number = state.document_sequence_service()
+        .next_number(&service_ctx, &mut conn, DocumentType::StockShipment)
+        .await?;
 
     // Record one transaction per line item
     for item in &web_items {

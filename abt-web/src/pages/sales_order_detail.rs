@@ -454,7 +454,7 @@ fn fulfillment_workbench(
                         th { "产品" }
                         th { "获取途径" }
                         th class="num-right" { "需求量" }
-                        th class="num-right" { "已预留" }
+                        th class="num-right" { "可满足量" }
                         th class="num-right" { "缺口" }
                         th { "库存满足率" }
                         th { "需求状态" }

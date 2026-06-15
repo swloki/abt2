@@ -300,7 +300,7 @@ fn stock_in_table_fragment(
                 (icon::circle_alert_icon("w-4 h-4"))
                 div style="font-size:var(--text-sm);color:var(--fg-2);line-height:1.6" {
                     strong { "入库流程说明：" }
-                    "入库操作通过 InventoryTransactionService.record() 执行，每次入库自动生成 InventoryTransaction 记录并更新 StockLedger 库存账，单据号格式为 RK{时间戳}。"
+                    "入库操作通过 InventoryTransactionService.record() 执行，每次入库自动生成 InventoryTransaction 记录并更新 StockLedger 库存账，单据号格式为 RK-YYYY-MM-SEQ（如 RK-2026-06-000001）。"
                     "采购入库需关联来料通知单（IQC质检通过后）；生产入库关联工单完工报工。"
                 }
             }

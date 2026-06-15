@@ -1078,6 +1078,21 @@ classDiagram
       </div>
     </div>
 
+    <div>
+      <h4 style="color: #e5a655; margin: 0 0 6px 0; font-size: 13px;">手动创建工单 — 来源单据关联（issue #55）</h4>
+      <div style="font-family: monospace; font-size: 11.5px; color: #ccc; line-height: 1.8;">
+        新建工单页面支持可选的来源单据关联，确保上下游数据链路可追溯：<br>
+        <br>
+        &bull; <b>来源类型选择</b>：无 / 销售订单 / 生产计划（select 切换，Hyperscript 控制显隐）<br>
+        &bull; <b>销售订单</b>：弹窗搜索（/api/mes/source-orders/search）→ 选中后写入 sales_order_id<br>
+        &bull; <b>生产计划</b>：弹窗搜索（/api/mes/source-plans/search）→ 选中后自动匹配同产品 plan_item → 写入 plan_item_id<br>
+        &bull; <b>校验</b>：选生产计划但无匹配产品的 plan_item → 返回 Validation 错误<br>
+        <br>
+        <b>数据模型</b>：work_orders 已有 sales_order_id 和 plan_item_id 字段，无需迁移。<br>
+        <b>列表展示</b>：WorkOrderRepo::get_by_id JOIN plan_item→plan、sales_order→customer 展示来源单据编号和客户。
+      </div>
+    </div>
+
   </div>
 </div>
 

@@ -52,6 +52,14 @@ pub struct OrderSplitPath {
     pub order_id: i64,
 }
 
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/api/mes/source-orders/search")]
+pub struct SourceOrderSearchPath;
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/api/mes/source-plans/search")]
+pub struct SourcePlanSearchPath;
+
 // ── Router ──
 
 pub fn router() -> Router<AppState> {
@@ -68,4 +76,6 @@ pub fn router() -> Router<AppState> {
         .route(OrderCancelPath::PATH, post(mes_order_detail::cancel_order))
         .route(OrderUnreleasePath::PATH, post(mes_order_detail::unrelease_order))
         .route(OrderSplitPath::PATH, post(mes_order_detail::split_order))
+        .route(SourceOrderSearchPath::PATH, get(mes_order_create::search_source_orders))
+        .route(SourcePlanSearchPath::PATH, get(mes_order_create::search_source_plans))
 }

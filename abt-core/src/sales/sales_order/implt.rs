@@ -1026,20 +1026,29 @@ impl DemandService for DemandServiceImpl {
                 continue;
             }
 
-            for req in &bom_reqs {
-                let projected = new_stock_ledger_service(self.pool.clone())
-                    .query_projected_qty(ctx, db, req.product_id, None)
-                    .await?;
+            // 批量查询 projected_qty（消除 N+1）
+            let raw_pids: Vec<i64> = bom_reqs.iter().map(|r| r.product_id).collect();
+            let projected_map = new_stock_ledger_service(self.pool.clone())
+                .query_projected_qty_batch(ctx, db, &raw_pids, None)
+                .await?;
 
-                let net_shortage = (req.required_qty - projected.projected).max(Decimal::ZERO);
-                if net_shortage <= Decimal::ZERO {
+            // 批量查询已有级联需求（消除 N+1）
+            let existing_pids = DemandRepo::find_cascade_existing_batch(
+                db, order_id, line.order_line_id, line.product_id,
+            ).await?;
+
+            for req in &bom_reqs {
+                // 已有同源级联需求 -> 跳过
+                if existing_pids.contains(&req.product_id) {
                     continue;
                 }
 
-                let exists = DemandRepo::find_cascade_existing(
-                    db, order_id, line.order_line_id, req.product_id, line.product_id,
-                ).await?;
-                if exists {
+                let projected = projected_map.get(&req.product_id)
+                    .map(|p| p.projected)
+                    .unwrap_or(Decimal::ZERO);
+
+                let net_shortage = (req.required_qty - projected).max(Decimal::ZERO);
+                if net_shortage <= Decimal::ZERO {
                     continue;
                 }
 
@@ -1056,7 +1065,7 @@ impl DemandService for DemandServiceImpl {
                     cascade_from_product_id: Some(line.product_id),
                     remark: format!(
                         "BOM展开: 成品{} 层{} 总需{} 预计可用{} 净缺{}",
-                        line.product_id, req.bom_level, req.required_qty, projected.projected, net_shortage
+                        line.product_id, req.bom_level, req.required_qty, projected, net_shortage
                     ),
                     operator_id: ctx.operator_id,
                 });

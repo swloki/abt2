@@ -119,6 +119,10 @@ impl StockLedgerRepo {
     /// 3. in_progress_wo = SUM(wo.planned_qty - wo.completed_qty) WHERE wo.status IN (3,6)
     /// 4. reserved = SUM(inventory_reservations.reserved_qty WHERE Active)
     ///
+    /// 注意：warehouse_id 仅过滤 actual 和 reserved；
+    /// on_order_po 和 in_progress_wo 始终是全局值（PO/WO 表无仓库维度字段）。
+    /// 当 warehouse_id=None 时（如 BOM 级联场景），所有维度一致。
+    ///
     /// projected = actual + on_order_po + in_progress_wo - reserved
     pub async fn projected_qty(
         executor: &mut sqlx::postgres::PgConnection,
@@ -172,6 +176,72 @@ impl StockLedgerRepo {
         let projected = actual + on_order_po + in_progress_wo - reserved;
 
         Ok(ProjectedQty { actual, on_order_po, in_progress_wo, reserved, projected })
+    }
+
+    /// 批量查询预计可用量（消除 N+1 查询）
+    pub async fn projected_qty_batch(
+        executor: &mut sqlx::postgres::PgConnection,
+        product_ids: &[i64],
+        warehouse_id: Option<i64>,
+    ) -> Result<std::collections::HashMap<i64, crate::wms::stock_ledger::service::ProjectedQty>> {
+        use crate::wms::stock_ledger::service::ProjectedQty;
+        use rust_decimal::Decimal;
+        use sqlx::Row;
+
+        if product_ids.is_empty() {
+            return Ok(std::collections::HashMap::new());
+        }
+
+        let rows = sqlx::query(
+            r#"
+            WITH pids AS (SELECT unnest($1::bigint[]) AS product_id)
+            SELECT p.product_id,
+                COALESCE((
+                    SELECT SUM(sl.quantity) FROM stock_ledger sl
+                    WHERE sl.product_id = p.product_id AND ($2::bigint IS NULL OR sl.warehouse_id = $2)
+                ), 0) AS actual,
+                COALESCE((
+                    SELECT SUM(poi.quantity - poi.received_qty)
+                    FROM purchase_order_items poi
+                    JOIN purchase_orders po ON po.id = poi.order_id
+                    WHERE poi.product_id = p.product_id
+                      AND po.status IN (2, 3)
+                      AND po.deleted_at IS NULL
+                ), 0) AS on_order_po,
+                COALESCE((
+                    SELECT SUM(wo.planned_qty - wo.completed_qty)
+                    FROM work_orders wo
+                    WHERE wo.product_id = p.product_id
+                      AND wo.status IN (3, 6)
+                      AND wo.deleted_at IS NULL
+                ), 0) AS in_progress_wo,
+                COALESCE((
+                    SELECT SUM(ir.reserved_qty)
+                    FROM inventory_reservations ir
+                    WHERE ir.product_id = p.product_id
+                      AND ($2::bigint IS NULL OR ir.warehouse_id = $2)
+                      AND ir.status = $3
+                ), 0) AS reserved
+            FROM pids p
+            "#,
+        )
+        .bind(product_ids)
+        .bind(warehouse_id)
+        .bind(ReservationStatus::Active)
+        .fetch_all(executor)
+        .await?;
+
+        let mut map = std::collections::HashMap::new();
+        for row in rows {
+            let pid: i64 = row.try_get("product_id")?;
+            let actual: Decimal = row.try_get("actual")?;
+            let on_order_po: Decimal = row.try_get("on_order_po")?;
+            let in_progress_wo: Decimal = row.try_get("in_progress_wo")?;
+            let reserved: Decimal = row.try_get("reserved")?;
+            let projected = actual + on_order_po + in_progress_wo - reserved;
+            map.insert(pid, ProjectedQty { actual, on_order_po, in_progress_wo, reserved, projected });
+        }
+        Ok(map)
     }
 
     pub async fn query(

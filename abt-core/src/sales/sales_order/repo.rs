@@ -738,6 +738,30 @@ impl DemandRepo {
         .await?;
         Ok(count > 0)
     }
+
+    /// 批量查询已存在的 BOM 级联需求（消除 N+1）
+    /// 返回已存在的 (product_id, cascade_from_product_id) 集合
+    pub async fn find_cascade_existing_batch(
+        executor: PgExecutor<'_>,
+        source_id: i64,
+        source_line_id: i64,
+        cascade_from_product_id: i64,
+    ) -> Result<std::collections::HashSet<i64>> {
+        let rows: Vec<(i64,)> = sqlx::query_as(
+            r#"SELECT product_id FROM demands
+               WHERE source_id = $1
+                 AND source_line_id = $2
+                 AND cascade_from_product_id = $3
+                 AND demand_type = 2
+                 AND deleted_at IS NULL"#,
+        )
+        .bind(source_id)
+        .bind(source_line_id)
+        .bind(cascade_from_product_id)
+        .fetch_all(executor)
+        .await?;
+        Ok(rows.into_iter().map(|(pid,)| pid).collect())
+    }
 }
 
 // ---------------------------------------------------------------------------

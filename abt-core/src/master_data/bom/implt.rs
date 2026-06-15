@@ -75,9 +75,13 @@ impl BomQueryServiceImpl {
             let loss_multiplier = Decimal::ONE + node.loss_rate;
             let node_qty = node.quantity * quantity * loss_multiplier;
 
-            let (ac, child_code) = product_map.get(&node.product_id)
-                .map(|(ac, code)| (*ac, code.clone()))
-                .unwrap_or((AcquireChannel::Legacy, String::new()));
+            let (ac, child_code) = match product_map.get(&node.product_id) {
+                Some((ac, code)) => (*ac, code.clone()),
+                None => {
+                    tracing::warn!(product_id = node.product_id, "BOM node references deleted/missing product, skipping");
+                    continue;
+                }
+            };
 
             match ac {
                 AcquireChannel::Purchased | AcquireChannel::Outsourced => {

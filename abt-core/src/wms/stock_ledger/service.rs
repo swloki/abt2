@@ -56,4 +56,13 @@ pub trait StockLedgerService: Send + Sync {
         product_id: i64,
         warehouse_id: Option<i64>,
     ) -> Result<ProjectedQty>;
+
+    /// 批量查询预计可用量（消除 N+1）
+    async fn query_projected_qty_batch(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        product_ids: &[i64],
+        warehouse_id: Option<i64>,
+    ) -> Result<std::collections::HashMap<i64, ProjectedQty>>;
 }

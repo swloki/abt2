@@ -17,8 +17,8 @@
 
 选定理由：
 - **handler 零改动**：列表页/详情页 handler 均无需修改
-- **对用户/开发者无感**：中间件自动拦截记录/恢复，不需要 `rem` 参数或任何标记
-- **逻辑集中**：一个中间件文件，一处实现
+- **显式 restore 标记**：返回链接带 `?restore=true` 触发恢复，无参进入始终是全新列表
+- **逻辑集中**：一个中间件文件 + 返回链接批量加 restore 参数
 - 复用现成 `tower-sessions`，技术模式与 `auth_middleware` 完全一致
 
 ## 三、核心机制
@@ -29,23 +29,23 @@
 
 ```
 GET 请求进来：
-├─ 有 query string
-│   → 按 path 保存完整 query string 到 Session（HashMap<String, String>）
+├─ 带 restore=true
+│   → 按 path 取出 Session 中保存的 query
+│   → 将保存的 query 注入请求 URI（替换 restore），handler 处理带参请求（单次请求，无重定向）
+│
+├─ 有 query（非 restore）
+│   → 按 path 保存完整 query 到 Session（HashMap<String, String>，覆盖式）
 │   → 正常传递给 handler
 │
-├─ 无 query string + 该 path 在 Session 中有保存状态
-│   → 将保存的 query 注入请求 URI，handler 直接处理带参请求（无重定向，单次请求）
-│
-└─ 无 query string + 无保存状态
-    → 正常传递给 handler
+└─ 无 query（从菜单进入）
+    → 正常传递给 handler（全新列表，不恢复）
+```
 
 ### 3.2 记录触发
 
 列表页筛选/翻页时，HTMX 发起 GET 请求（如 `/admin/md/bom?keyword=电源&page=5`），URL 自带 query string，中间件自动记录。**不需要 `hx-push-url`、不需要 `rem` 参数、不需要改表单**。
 
-### 3.3 恢复触发
-
-用户从详情页点击返回按钮（`<a href="/admin/md/bom">`，无 query），中间件检测到该 path 有保存状态，将保存的 query string 透明注入请求 URI（`/admin/md/bom?keyword=电源&page=5`），handler 的 `Query<T>` 提取器直接解析带参请求，渲染筛选结果。**无 HTTP 重定向，单次请求完成；返回按钮 href 不需要改**。
+用户从详情页点击返回按钮（`<a href="/admin/md/bom?restore=true">`），中间件检测到 `restore=true`，按 path 取出 Session 中保存的 query string，透明注入请求 URI（变为 `/admin/md/bom?keyword=电源&page=5`），handler 的 `Query<T>` 提取器直接解析带参请求，渲染筛选结果。**无 HTTP 重定向，单次请求完成**。详情页/创建页的返回链接需批量加 `?restore=true`。
 
 ### 3.4 多级导航
 
@@ -108,32 +108,35 @@ pub async fn list_state_middleware(session: Session, request: Request<Body>, nex
         return next.run(request).await;
     }
 
-    // 情况1：有 query string → 记录最新状态
-    if let Some(query) = uri.query() {
+    let query = uri.query().unwrap_or("");
+
+    // 情况1：带 restore=true → 恢复保存的状态
+    if query.contains("restore=true") {
+        let saved_query = session
+            .get::<HashMap<String, String>>(LIST_URLS_KEY).await.ok().flatten()
+            .and_then(|urls| urls.get(&path).cloned());
+        if let Some(saved) = saved_query {
+            let new_uri = format!("{path}?{saved}");
+            if let Ok(uri) = new_uri.parse::<Uri>() {
+                let (mut parts, body) = request.into_parts();
+                parts.uri = uri;
+                return next.run(Request::from_parts(parts, body)).await;
+            }
+        }
+        return next.run(request).await;
+    }
+
+    // 情况2：有 query（非 restore）→ 记录最新状态
+    if !query.is_empty() {
         let mut urls: HashMap<String, String> = session
             .get(LIST_URLS_KEY).await.ok().flatten().unwrap_or_default();
         urls.insert(path, query.to_string());
         if let Err(e) = session.insert(LIST_URLS_KEY, &urls).await {
             tracing::warn!("Failed to save list URL state: {e}");
         }
-        return next.run(request).await;
     }
 
-    // 情况2：无 query + 有保存状态 → 注入参数到请求 URI（不重定向）
-    let saved_query = session
-        .get::<HashMap<String, String>>(LIST_URLS_KEY).await.ok().flatten()
-        .and_then(|urls| urls.get(&path).cloned());
-
-    if let Some(query) = saved_query {
-        let new_uri = format!("{path}?{query}");
-        if let Ok(uri) = new_uri.parse::<Uri>() {
-            let (mut parts, body) = request.into_parts();
-            parts.uri = uri;
-            return next.run(Request::from_parts(parts, body)).await;
-        }
-    }
-
-    // 情况3：无 query + 无保存状态 → 正常
+    // 情况3：无 query（菜单进入）→ 正常处理
     next.run(request).await
 }
 ```
@@ -162,32 +165,32 @@ pub async fn list_state_middleware(session: Session, request: Request<Body>, nex
 
 | 项目 | 文件数 | 改动 |
 |---|---|---|
-| 新建中间件 `list_state.rs` | 1 | ~50 行 |
+| 新建中间件 `list_state.rs` | 1 | ~80 行 |
 | 中间件模块声明 `middleware/mod.rs` | 1 | 2 行 |
-| 注册中间件 `routes/mod.rs` | 1 | +1 行 |
+| 注册中间件 `routes/mod.rs` | 1 | +2 行 |
+| **详情/创建/编辑页返回链接** | **78** | href 批量加 `?restore=true` |
 | **列表页 handler** | **0** | 零改动 |
 | **详情页 handler** | **0** | 零改动 |
-| **详情页模板/返回按钮** | **0** | 零改动 |
 | **前端 JS / Hyperscript** | **0** | 零改动 |
 | **筛选表单** | **0** | 零改动 |
 
-**总改动：3 个文件，~55 行新增代码。**
+**总改动：82 个文件。返回链接改动为机械文本替换（两种模式）。**
 
 ## 六、边缘情况处理
 
 | 场景 | 行为 | 评估 |
 |---|---|---|
 | 首次直接访问列表（Session 无记录） | 正常加载 | ✅ |
-| 从详情返回列表 | 302 重定向到带参 URL | ✅ 核心场景 |
+| 从详情返回列表 | restore=true → 注入保存的 query | ✅ 核心场景 |
 | 多级导航（列表→详情A→详情B）返回 | 一步回列表（带筛选） | ✅ |
 | 翻页请求 `?page=3` | 有 query → 记录最新状态 | ✅ |
-| 手动输入列表根路径想重置 | 恢复旧筛选 | ⚠️ 与"记忆"行为一致，大多数 ERP 习惯 |
+| 从菜单/侧边栏重新进入列表（无参） | 全新列表，不恢复 | ✅ restore 仅由返回链接触发 |
 | Session 过期 | 无保存状态，正常加载 | ✅ |
 | 同用户多标签页 | Session 存最后操作的状态 | ✅ 合理 |
 | 详情页带 query（如 `?tab=cost`） | 按 path 独立记录，不干扰列表 | ✅ |
 | URL 参数已失效 | 服务器忽略无效参数，返回正常列表 | ✅ |
 | 静态资源 / 登录页 | 跳过，不记录 | ✅ |
-| 参数注入后 URL 一致性 | 浏览器地址栏可能仍显示无参 URL，但页面内容正确（单次请求，无重定向往返） | ✅ 可接受 |
+| restore 后地址栏 URL | 显示 `?restore=true`，handler 收到注入的带参 URI，页面内容为恢复的筛选结果 | ✅ |
 
 ## 七、验证策略
 
@@ -207,4 +210,4 @@ pub async fn list_state_middleware(session: Session, request: Request<Body>, nex
 | C: from 参数 | URL 污染，改动面大 |
 | D: 客户端 sessionStorage | 引入客户端状态管理，偏离 SSR 架构 |
 | E: 服务端 Session + handler 记录 | 需改 47 个列表页 handler + 29 个详情页 handler + 模板 |
-| **F: 中间件拦截（选定）** | handler/模板/前端全零改动，仅 3 个文件 ~55 行 |
+| **F: 中间件拦截 + restore 标记（选定）** | handler/前端零改动，中间件 + 78 个返回链接加 restore |

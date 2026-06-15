@@ -1,22 +1,58 @@
+use axum::extract::Query;
 use axum::response::{Html, IntoResponse};
 use axum_extra::routing::TypedPath;
-use maud::html;
+use maud::{html, Markup};
 use serde::Deserialize;
 
+use abt_core::mes::enums::{BatchStatus, WorkOrderStatus};
+use abt_core::mes::production_batch::ProductionBatchService;
 use abt_core::mes::production_receipt::ProductionReceiptService;
+use abt_core::mes::work_order::model::{WorkOrder, WorkOrderFilter};
+use abt_core::mes::work_order::WorkOrderService;
+use abt_core::wms::warehouse::model::WarehouseFilter;
+use abt_core::wms::warehouse::WarehouseService;
 
+use crate::components::entity_picker::{self, EntityPickerConfig, EntityPickerItem};
 use crate::errors::Result;
 use crate::layout::page::admin_page;
-use crate::routes::mes_receipt::{ReceiptCreatePath, ReceiptListPath};
+use crate::routes::mes_receipt::{
+    ReceiptCreatePath, ReceiptListPath, ReceiptSearchWoPath, ReceiptSearchWhPath,
+    ReceiptWhZonesPath, ReceiptWoSelectedPath, ReceiptZnBinsPath,
+};
 use crate::utils::RequestContext;
 use abt_macros::require_permission;
+
+// ── Query params ──
+
+#[derive(Debug, Deserialize)]
+pub struct SearchParams {
+    pub q: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct WoSelectedQuery {
+    pub work_order_id: i64,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct WhZonesQuery {
+    pub warehouse_id: i64,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ZnBinsQuery {
+    pub zone_id: i64,
+}
+
+// ── Form ──
 
 #[derive(Debug, Deserialize)]
 pub struct ReceiptCreateForm {
     pub work_order_id: i64,
     #[serde(default, deserialize_with = "crate::utils::empty_as_none")]
     pub batch_id: Option<i64>,
-    pub product_id: i64,
+    #[serde(default, deserialize_with = "crate::utils::empty_as_none")]
+    pub product_id: Option<i64>,
     pub received_qty: rust_decimal::Decimal,
     pub warehouse_id: i64,
     #[serde(default, deserialize_with = "crate::utils::empty_as_none")]
@@ -27,48 +63,234 @@ pub struct ReceiptCreateForm {
     pub remark: Option<String>,
 }
 
+// ── GET /receipts/create ──
+
 #[require_permission("WORK_ORDER", "create")]
-pub async fn get_receipt_create(_path: ReceiptCreatePath, ctx: RequestContext) -> Result<Html<String>> {
+pub async fn get_receipt_create(
+    _path: ReceiptCreatePath,
+    ctx: RequestContext,
+) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
     let nav_filter = ctx.nav_filter().await;
     let RequestContext { claims, .. } = ctx;
-    let content = html! { div {
-        div class="page-header" {
-            div class="page-header-left" { a class="back-link" href=(ReceiptListPath::PATH) { "\u{2190} 返回列表" } h1 class="page-title" { "新建入库" } }
-        }
-        form hx-post=(ReceiptCreatePath::PATH) hx-swap="none" {
-            div class="form-section" {
-                div class="form-section-title" { "入库信息" }
-                div class="form-grid" {
-                    div class="form-field" { label class="form-label" { "工单ID" } input class="form-input" type="number" name="work_order_id" required; }
-                    div class="form-field" { label class="form-label" { "批次ID" } input class="form-input" type="number" name="batch_id"; }
-                    div class="form-field" { label class="form-label" { "产品ID" } input class="form-input" type="number" name="product_id" required; }
-                    div class="form-field" { label class="form-label" { "入库数量" } input class="form-input" type="number" step="0.01" name="received_qty" required; }
-                    div class="form-field" { label class="form-label" { "仓库ID" } input class="form-input" type="number" name="warehouse_id" required; }
-                    div class="form-field" { label class="form-label" { "库区ID" } input class="form-input" type="number" name="zone_id"; }
-                    div class="form-field" { label class="form-label" { "储位ID" } input class="form-input" type="number" name="bin_id"; }
-                    div class="form-field" { label class="form-label" { "入库日期" } input class="form-input" type="date" name="receipt_date" required; }
-                }
-            }
-            div class="create-action-bar" {
-                a class="btn btn-default" href=(ReceiptListPath::PATH) { "取消" }
-                button type="submit" class="btn btn-primary" { "提交" }
-            }
-        }
-    }};
-    Ok(Html(admin_page(is_htmx, "新建入库", &claims, "production", ReceiptCreatePath::PATH, "生产管理", Some(ReceiptListPath::PATH), content, &nav_filter).into_string()))
+
+    let content = receipt_create_content();
+    Ok(Html(
+        admin_page(
+            is_htmx,
+            "新建入库",
+            &claims,
+            "production",
+            ReceiptCreatePath::PATH,
+            "生产管理",
+            Some(ReceiptListPath::PATH),
+            content,
+            &nav_filter,
+        )
+        .into_string(),
+    ))
 }
+
+// ── HTMX: 搜索工单 ──
+
+#[require_permission("WORK_ORDER", "read")]
+pub async fn search_wo(
+    _path: ReceiptSearchWoPath,
+    ctx: RequestContext,
+    Query(params): Query<SearchParams>,
+) -> Result<Html<String>> {
+    let RequestContext {
+        mut conn,
+        state,
+        service_ctx,
+        ..
+    } = ctx;
+    let wo_svc = state.work_order_service();
+    let kw = params.q.as_deref().unwrap_or("").trim().to_string();
+
+    let no_filter = WorkOrderFilter {
+        status: None,
+        product_id: None,
+        keyword: None,
+        date_from: None,
+        date_to: None,
+    };
+    let mk_filter = |status: WorkOrderStatus, keyword: String| WorkOrderFilter {
+        status: Some(status),
+        keyword: if keyword.is_empty() { None } else { Some(keyword) },
+        ..no_filter.clone()
+    };
+
+    let released = wo_svc
+        .list(&service_ctx, &mut conn, mk_filter(WorkOrderStatus::Released, kw.clone()), 1, 50)
+        .await
+        .map(|r| r.items)
+        .unwrap_or_default();
+    let in_prod = wo_svc
+        .list(&service_ctx, &mut conn, mk_filter(WorkOrderStatus::InProduction, kw), 1, 50)
+        .await
+        .map(|r| r.items)
+        .unwrap_or_default();
+
+    let work_orders: Vec<WorkOrder> = released.into_iter().chain(in_prod).collect();
+
+    // 批量解析产品名
+    let mut product_names: std::collections::HashMap<i64, String> = std::collections::HashMap::new();
+    let unique_pids: std::collections::HashSet<i64> =
+        work_orders.iter().map(|wo| wo.product_id).collect();
+    for pid in unique_pids {
+        if let Ok(Some(name)) = wo_svc.get_product_name(&mut conn, pid).await {
+            product_names.insert(pid, name);
+        }
+    }
+
+    let items: Vec<EntityPickerItem> = work_orders
+        .iter()
+        .map(|wo| {
+            let pname = product_names.get(&wo.product_id).map(|s| s.as_str()).unwrap_or("—");
+            EntityPickerItem::new(wo.id, format!("{} · {}", wo.doc_number, pname))
+                .sub(format!("计划数量 {} 件", crate::utils::fmt_qty(wo.planned_qty)))
+        })
+        .collect();
+
+    Ok(Html(entity_picker::entity_picker_results(&items).into_string()))
+}
+
+// ── HTMX: 搜索仓库 ──
+
+#[require_permission("WORK_ORDER", "read")]
+pub async fn search_wh(
+    _path: ReceiptSearchWhPath,
+    ctx: RequestContext,
+    Query(params): Query<SearchParams>,
+) -> Result<Html<String>> {
+    let RequestContext {
+        mut conn,
+        state,
+        service_ctx,
+        ..
+    } = ctx;
+    let wh_svc = state.warehouse_service();
+    let kw = params.q.as_deref().unwrap_or("").trim().to_string();
+
+    let filter = WarehouseFilter {
+        keyword: if kw.is_empty() { None } else { Some(kw) },
+        ..Default::default()
+    };
+    let warehouses = wh_svc
+        .list(&service_ctx, &mut conn, filter, 1, 50)
+        .await
+        .map(|r| r.items)
+        .unwrap_or_default();
+
+    let items: Vec<EntityPickerItem> = warehouses
+        .iter()
+        .map(|wh| EntityPickerItem::new(wh.id, wh.name.clone()))
+        .collect();
+
+    Ok(Html(entity_picker::entity_picker_results(&items).into_string()))
+}
+
+// ── HTMX: 工单选中后级联 — 返回产品名 + 批次下拉 ──
+
+#[require_permission("WORK_ORDER", "read")]
+pub async fn wo_selected(
+    _path: ReceiptWoSelectedPath,
+    ctx: RequestContext,
+    Query(params): Query<WoSelectedQuery>,
+) -> Result<Html<String>> {
+    let RequestContext {
+        mut conn,
+        state,
+        service_ctx,
+        ..
+    } = ctx;
+    let wo_svc = state.work_order_service();
+    let batch_svc = state.production_batch_service();
+
+    let wo = wo_svc
+        .find_by_id(&service_ctx, &mut conn, params.work_order_id)
+        .await?;
+    let product_name = wo_svc
+        .get_product_name(&mut conn, wo.product_id)
+        .await
+        .unwrap_or(None)
+        .unwrap_or_else(|| "—".into());
+
+    let batches = batch_svc
+        .list_by_work_order(&service_ctx, &mut conn, params.work_order_id)
+        .await
+        .unwrap_or_default();
+
+    Ok(Html(
+        wo_cascade_fragment(wo.product_id, &product_name, &batches).into_string(),
+    ))
+}
+
+// ── HTMX: 仓库选中后级联 — 返回库区下拉 ──
+
+#[require_permission("WORK_ORDER", "read")]
+pub async fn get_wh_zones(
+    _path: ReceiptWhZonesPath,
+    ctx: RequestContext,
+    Query(params): Query<WhZonesQuery>,
+) -> Result<Html<String>> {
+    let RequestContext {
+        mut conn,
+        state,
+        service_ctx,
+        ..
+    } = ctx;
+    let wh_svc = state.warehouse_service();
+    let zones = wh_svc
+        .list_zones(&service_ctx, &mut conn, params.warehouse_id)
+        .await
+        .unwrap_or_default();
+    Ok(Html(zone_select_fragment(&zones).into_string()))
+}
+
+// ── HTMX: 库区选中后级联 — 返回储位下拉 ──
+
+#[require_permission("WORK_ORDER", "read")]
+pub async fn get_zn_bins(
+    _path: ReceiptZnBinsPath,
+    ctx: RequestContext,
+    Query(params): Query<ZnBinsQuery>,
+) -> Result<Html<String>> {
+    let RequestContext {
+        mut conn,
+        state,
+        service_ctx,
+        ..
+    } = ctx;
+    let wh_svc = state.warehouse_service();
+    let bins = wh_svc
+        .list_bins(&service_ctx, &mut conn, params.zone_id, None, 1, 200)
+        .await
+        .map(|r| r.items)
+        .unwrap_or_default();
+    Ok(Html(bin_select_fragment(&bins).into_string()))
+}
+
+// ── POST /receipts/create ──
 
 #[require_permission("WORK_ORDER", "create")]
 pub async fn create_receipt(
-    _path: ReceiptCreatePath, ctx: RequestContext, axum::Form(form): axum::Form<ReceiptCreateForm>,
+    _path: ReceiptCreatePath,
+    ctx: RequestContext,
+    axum::Form(form): axum::Form<ReceiptCreateForm>,
 ) -> Result<impl IntoResponse> {
-    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let RequestContext {
+        mut conn,
+        state,
+        service_ctx,
+        ..
+    } = ctx;
     let svc = state.production_receipt_service();
     let req = abt_core::mes::production_receipt::CreateReceiptReq {
         work_order_id: form.work_order_id,
         batch_id: form.batch_id,
-        product_id: form.product_id,
+        product_id: form.product_id.unwrap_or(0),
         received_qty: form.received_qty,
         warehouse_id: form.warehouse_id,
         zone_id: form.zone_id,
@@ -77,5 +299,264 @@ pub async fn create_receipt(
         remark: form.remark,
     };
     let _id = svc.create(&service_ctx, &mut conn, req).await?;
-    Ok(axum::response::Response::builder().header("HX-Redirect", ReceiptListPath::PATH).body(axum::body::Body::empty()).unwrap())
+    Ok(axum::response::Response::builder()
+        .header("HX-Redirect", ReceiptListPath::PATH)
+        .body(axum::body::Body::empty())
+        .unwrap())
+}
+
+// ── Page content ──
+
+fn receipt_create_content() -> Markup {
+    let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+
+    let wo_picker = EntityPickerConfig {
+        modal_id: "wo-picker",
+        title: "选择工单",
+        search_label: "工单号 / 产品名",
+        search_placeholder: "输入关键词搜索…",
+        search_path: ReceiptSearchWoPath::PATH,
+        search_param: "q",
+        target_id: "work_order_id",
+        display_id: "wo-display",
+        event_name: "woSelected",
+    };
+    let wh_picker = EntityPickerConfig {
+        modal_id: "wh-picker",
+        title: "选择仓库",
+        search_label: "仓库名称",
+        search_placeholder: "输入仓库名搜索…",
+        search_path: ReceiptSearchWhPath::PATH,
+        search_param: "q",
+        target_id: "warehouse_id",
+        display_id: "wh-display",
+        event_name: "whSelected",
+    };
+
+    html! {
+        div {
+            div class="page-header" {
+                div class="page-header-left" {
+                    a class="back-link" href=(ReceiptListPath::PATH) { "\u{2190} 返回列表" }
+                    h1 class="page-title" { "新建完工入库" }
+                }
+            }
+
+            form hx-post=(ReceiptCreatePath::PATH) hx-swap="none" id="receipt-form" {
+                // ── 入库来源 ──
+                div class="form-section" {
+                    div class="form-section-title" { "入库来源" }
+
+                    (entity_picker::entity_picker_field(
+                        "work_order_id", "work_order_id", "wo-display", "wo-picker",
+                        "工单号", true, "点击选择工单…",
+                    ))
+
+                    // 工单选中后级联加载：产品名 + 批次
+                    div id="wo-cascade"
+                        hx-get=(ReceiptWoSelectedPath::PATH)
+                        hx-trigger="woSelected from:body"
+                        hx-target="this"
+                        hx-swap="outerHTML"
+                        hx-include="#work_order_id" {
+                        div class="form-grid" {
+                            div class="form-field" {
+                                label class="form-label" { "产品" }
+                                div class="form-input" style="color:var(--text-muted);background:var(--surface)" { "选择工单后自动填充" }
+                            }
+                            div class="form-field" {
+                                label class="form-label" { "生产批次" }
+                                select class="form-select" name="batch_id" disabled {
+                                    option value="" { "选择工单后加载" }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // ── 入库明细 ──
+                div class="form-section" {
+                    div class="form-section-title" { "入库明细" }
+                    div class="form-grid" {
+                        div class="form-field" {
+                            label class="form-label" { "入库数量 " span class="required" { "*" } }
+                            input class="form-input" type="number" step="0.01" name="received_qty" required placeholder="0";
+                        }
+                        div class="form-field" {
+                            label class="form-label" { "入库日期 " span class="required" { "*" } }
+                            input class="form-input" type="date" name="receipt_date" value=(today) required;
+                        }
+                    }
+                }
+
+                // ── 目标库位 ──
+                div class="form-section" {
+                    div class="form-section-title" { "目标库位" }
+
+                    (entity_picker::entity_picker_field(
+                        "warehouse_id", "warehouse_id", "wh-display", "wh-picker",
+                        "目标仓库", true, "点击选择仓库…",
+                    ))
+
+                    // 仓库选中后级联加载：库区 + 储位
+                    div id="zone-bin-area"
+                        hx-get=(ReceiptWhZonesPath::PATH)
+                        hx-trigger="whSelected from:body"
+                        hx-target="this"
+                        hx-swap="outerHTML"
+                        hx-include="#warehouse_id" {
+                        div class="form-grid" {
+                            div class="form-field" {
+                                label class="form-label" { "库区" }
+                                select class="form-select" name="zone_id" disabled {
+                                    option value="" { "选择仓库后加载" }
+                                }
+                            }
+                            div class="form-field" {
+                                label class="form-label" { "储位" }
+                                select class="form-select" name="bin_id" disabled {
+                                    option value="" { "选择库区后加载" }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // ── 备注 ──
+                div class="form-section" {
+                    div class="form-section-title" { "备注" }
+                    div class="form-field" {
+                        textarea class="form-input" name="remark" rows="2" placeholder="可选" {}
+                    }
+                }
+
+                div class="create-action-bar" {
+                    a class="btn btn-default" href=(ReceiptListPath::PATH) { "取消" }
+                    button type="submit" class="btn btn-primary" { "提交入库" }
+                }
+            }
+
+            // ── 弹窗 ──
+            (entity_picker::entity_picker_modal(&wo_picker))
+            (entity_picker::entity_picker_modal(&wh_picker))
+        }
+    }
+}
+
+// ── HTMX fragments ──
+
+/// 工单选中后返回的产品 + 批次片段
+fn wo_cascade_fragment(
+    product_id: i64,
+    product_name: &str,
+    batches: &[abt_core::mes::production_batch::model::ProductionBatch],
+) -> Markup {
+    html! {
+        div id="wo-cascade" {
+            div class="form-grid" {
+                // 产品（只读 + 隐藏 ID）
+                div class="form-field" {
+                    label class="form-label" { "产品" }
+                    input class="form-input" type="text" value=(product_name) disabled
+                        style="background:var(--surface)";
+                    input type="hidden" name="product_id" value=(product_id);
+                }
+                // 批次下拉
+                div class="form-field" {
+                    label class="form-label" { "生产批次" }
+                    @if batches.is_empty() {
+                        select class="form-select" name="batch_id" disabled {
+                            option value="" selected { "该工单暂无批次" }
+                        }
+                        input type="hidden" name="batch_id" value="";
+                    } @else {
+                        select class="form-select" name="batch_id" {
+                            option value="" selected { "不关联批次" }
+                            @for b in batches {
+                                @let qty_text = crate::utils::fmt_qty(b.batch_qty);
+                                @if b.status == BatchStatus::PendingReceipt {
+                                    option value=(b.id) {
+                                        (b.batch_no) " · " (qty_text) "件 · 待入库"
+                                    }
+                                } @else {
+                                    option value=(b.id) disabled {
+                                        (b.batch_no) " · " (qty_text) "件 · " (batch_status_text(&b.status))
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// 仓库选中后返回的库区下拉 + 储位占位
+fn zone_select_fragment(zones: &[abt_core::wms::warehouse::model::Zone]) -> Markup {
+    html! {
+        div id="zone-bin-area" {
+            div class="form-grid" {
+                div class="form-field" {
+                    label class="form-label" { "库区" }
+                    @if zones.is_empty() {
+                        select class="form-select" name="zone_id" disabled {
+                            option value="" { "该仓库暂无库区" }
+                        }
+                        input type="hidden" name="zone_id" value="";
+                    } @else {
+                        select class="form-select" name="zone_id"
+                            hx-get=(ReceiptZnBinsPath::PATH)
+                            hx-target="#bin-select-wrap"
+                            hx-trigger="change"
+                            hx-swap="outerHTML"
+                            hx-include="this" {
+                            option value="" selected { "默认库区" }
+                            @for z in zones {
+                                option value=(z.id) { (z.name) }
+                            }
+                        }
+                    }
+                }
+                div class="form-field" id="bin-select-wrap" {
+                    label class="form-label" { "储位" }
+                    select class="form-select" name="bin_id" disabled {
+                        option value="" { "选择库区后加载" }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// 库区选中后返回的储位下拉
+fn bin_select_fragment(bins: &[abt_core::wms::warehouse::model::Bin]) -> Markup {
+    html! {
+        div class="form-field" id="bin-select-wrap" {
+            label class="form-label" { "储位" }
+            @if bins.is_empty() {
+                select class="form-select" name="bin_id" disabled {
+                    option value="" { "该库区暂无储位" }
+                }
+            } @else {
+                select class="form-select" name="bin_id" {
+                    option value="" selected { "自动分配" }
+                    @for b in bins {
+                        option value=(b.id) { (b.code) " " (b.name) }
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn batch_status_text(s: &BatchStatus) -> &'static str {
+    match s {
+        BatchStatus::Pending => "待生产",
+        BatchStatus::InProgress => "生产中",
+        BatchStatus::Suspended => "已暂停",
+        BatchStatus::PendingReceipt => "待入库",
+        BatchStatus::Completed => "已完成",
+        BatchStatus::Cancelled => "已取消",
+    }
 }

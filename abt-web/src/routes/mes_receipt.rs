@@ -29,6 +29,26 @@ pub struct ReceiptConfirmPath {
 }
 
 #[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/mes/receipts/search-wo")]
+pub struct ReceiptSearchWoPath;
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/mes/receipts/search-wh")]
+pub struct ReceiptSearchWhPath;
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/mes/receipts/wo-selected")]
+pub struct ReceiptWoSelectedPath;
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/mes/receipts/wh-zones")]
+pub struct ReceiptWhZonesPath;
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/mes/receipts/zn-bins")]
+pub struct ReceiptZnBinsPath;
+
+#[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/mes/material-usage")]
 pub struct MaterialUsagePath;
 
@@ -47,6 +67,11 @@ pub fn router() -> Router<AppState> {
         )
         .route(ReceiptDetailPath::PATH, get(mes_receipt_detail::get_receipt_detail))
         .route(ReceiptConfirmPath::PATH, post(mes_receipt_detail::confirm_receipt))
+        .route(ReceiptSearchWoPath::PATH, get(mes_receipt_create::search_wo))
+        .route(ReceiptSearchWhPath::PATH, get(mes_receipt_create::search_wh))
+        .route(ReceiptWoSelectedPath::PATH, get(mes_receipt_create::wo_selected))
+        .route(ReceiptWhZonesPath::PATH, get(mes_receipt_create::get_wh_zones))
+        .route(ReceiptZnBinsPath::PATH, get(mes_receipt_create::get_zn_bins))
         .route(MaterialUsagePath::PATH, get(mes_material_usage::get_material_usage))
         .route(MaterialUsageDataPath::PATH, get(mes_material_usage::load_usage_data))
 }

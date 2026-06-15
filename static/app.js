@@ -159,3 +159,31 @@ var _sc = lineItemCalc('#order-item-tbody');
 window.salesOrderCalcRow = _sc.calcRow;
 window.salesOrderRecalcTotals = _sc.recalcTotals;
 window.salesOrderSubmit = _sc.collectItems;
+
+// ── Generic Entity Picker (search-select modal) ──
+// Called from Hyperscript: _="on click call entityPickerSelect(me)"
+// Reads data-id / data-label from clicked option, fills hidden input + display,
+// closes the modal, and fires a custom event for cascade triggers.
+window.entityPickerSelect = function (el) {
+    var modal = el.closest('.modal-overlay');
+    if (!modal) return;
+
+    var targetId = modal.querySelector('input[name="target_id"]').value;
+    var displayId = modal.querySelector('input[name="display_id"]').value;
+    var eventName = modal.querySelector('input[name="event_name"]').value;
+
+    var hidden = document.getElementById(targetId);
+    var display = document.getElementById(displayId);
+    if (hidden) hidden.value = el.dataset.id;
+    if (display) {
+        display.textContent = el.dataset.label;
+        display.style.color = '';
+        display.style.userSelect = '';
+    }
+
+    modal.classList.remove('is-open');
+
+    if (eventName) {
+        document.body.dispatchEvent(new CustomEvent(eventName));
+    }
+};

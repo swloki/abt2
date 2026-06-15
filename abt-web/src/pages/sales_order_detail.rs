@@ -109,9 +109,16 @@ pub async fn get_order_detail(
     // 查询该订单关联的需求池（demand）真实状态，用于「需求状态」列
     // 无 demand → 已满足（库存已锁定，无需补货）；有 demand → 按 demand.status 显示
     let demand_svc = state.sales_demand_service();
-    let demand_map: HashMap<i64, DemandStatus> = demand_svc
+    let demands = demand_svc
         .find_by_source(&service_ctx, &mut conn, DocumentType::SalesOrder as i16, path.id)
-        .await.unwrap_or_default()
+        .await.unwrap_or_default();
+
+    // Smart Button 统计（参考 Odoo oe_button_box）
+    let producing_count = demands.iter().filter(|d| d.acquire_channel == 1).count();
+    let purchasing_count = demands.iter().filter(|d| d.acquire_channel == 2).count();
+    let cascade_count = demands.iter().filter(|d| d.demand_type == 2).count();
+
+    let demand_map: HashMap<i64, DemandStatus> = demands
         .into_iter()
         .map(|d| (d.source_line_id, d.status))
         .collect();
@@ -153,6 +160,7 @@ pub async fn get_order_detail(
         &order, &items, &plan_lines,
         &customer_name, &contact, &sales_rep,
         &product_names, &product_codes, &atp_map, &demand_map,
+        producing_count, purchasing_count, cascade_count, path.id,
     );
     let page_html = admin_page(
         is_htmx, "订单详情", &claims, "sales",
@@ -553,7 +561,7 @@ fn fulfill_plan_row(
     };
 
     html! {
-        tr {
+        tr class=(if effective_shortage > Decimal::ZERO { "text-danger" } else if pl.reserved_qty > Decimal::ZERO { "text-warning" } else { "" }) {
             td {
                 div class="product-cell" {
                     span class="product-name" { (p_name) }
@@ -597,8 +605,6 @@ fn fulfill_plan_row(
     }
 }
 
-// ── Components ──
-
 fn order_detail_page(
     o: &SalesOrder,
     items: &[SalesOrderItem],
@@ -610,11 +616,14 @@ fn order_detail_page(
     product_codes: &HashMap<i64, String>,
     atp_map: &HashMap<i64, Decimal>,
     demand_map: &HashMap<i64, DemandStatus>,
+    producing_count: usize,
+    purchasing_count: usize,
+    cascade_count: usize,
+    order_id: i64,
 ) -> Markup {
     let (status_text, status_class) = status_label(o.status);
     let contact_name = contact.as_ref().map(|c| c.name.as_str()).unwrap_or("—");
     let contact_phone = contact.as_ref().and_then(|c| c.phone.as_deref()).unwrap_or("—");
-
     html! {
         div {
             // ── Back Link ──
@@ -655,6 +664,34 @@ fn order_detail_page(
                 }
             }
 
+
+            // ── Smart Buttons（参考 Odoo oe_button_box）──
+            @if producing_count > 0 || purchasing_count > 0 || cascade_count > 0 {
+                div class="flex gap-3 mb-4" {
+                    @if producing_count > 0 {
+                        a class="info-card flex items-center gap-2 px-4 py-2 hover:shadow-md transition-shadow"
+                          href=(format!("/admin/mes/demand-pool?order_id={}", order_id))
+                        {
+                            span class="text-2xl font-bold text-blue-600" { (producing_count) }
+                            span class="text-sm text-gray-500" { "自制需求" }
+                        }
+                    }
+                    @if purchasing_count > 0 {
+                        a class="info-card flex items-center gap-2 px-4 py-2 hover:shadow-md transition-shadow"
+                          href=(format!("/admin/purchase/demand-pool?order_id={}", order_id))
+                        {
+                            span class="text-2xl font-bold text-orange-600" { (purchasing_count) }
+                            span class="text-sm text-gray-500" { "采购需求" }
+                        }
+                    }
+                    @if cascade_count > 0 {
+                        div class="info-card flex items-center gap-2 px-4 py-2" {
+                            span class="text-2xl font-bold text-purple-600" { (cascade_count) }
+                            span class="text-sm text-gray-500" { "BOM展开需求" }
+                        }
+                    }
+                }
+            }
             // ── Workflow Steps ──
             (workflow_steps(o.status))
 

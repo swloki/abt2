@@ -29,6 +29,7 @@ pub struct DemandSummary {
     pub demand_status: i16,
     pub target_doc_id: Option<i64>,       // 关联下游单据 ID
     pub target_doc_type: Option<i16>,     // 关联下游单据类型 (7=PO,12=PP,10=WO,11=OM)
+    pub cascade_from_product_name: Option<String>, // BOM 级联来源成品名称（Odoo origin 等价）
     pub created_at: DateTime<Utc>,
 }
 #[derive(Debug, Clone, Default)]

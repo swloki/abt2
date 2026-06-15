@@ -20,10 +20,9 @@ fn should_skip(path: &str) -> bool {
 
 /// 列表-详情返回导航状态记忆中间件。
 ///
-/// 对所有 GET 请求：
 /// - 带 `restore=true` → 恢复该 path 在 Session 中保存的 query（透明注入 URI）
 /// - 有 query（非 restore）→ 按 path 保存 query 到 Session（覆盖式），正常处理
-/// - 无 query → 正常处理（全新列表，不恢复）
+/// - 无 query → 删除该 path 的保存状态（用户主动放弃筛选），正常处理
 ///
 /// 详情页/创建页的"返回列表"链接 href 需附加 `?restore=true`，
 /// 中间件据此恢复用户上次的筛选/翻页状态。
@@ -50,7 +49,6 @@ pub async fn list_state_middleware(session: Session, request: Request<Body>, nex
             .ok()
             .flatten()
             .and_then(|urls| urls.get(&path).cloned());
-
         if let Some(saved) = saved_query {
             let new_uri = format!("{path}?{saved}");
             if let Ok(uri) = new_uri.parse::<Uri>() {
@@ -59,11 +57,10 @@ pub async fn list_state_middleware(session: Session, request: Request<Body>, nex
                 return next.run(Request::from_parts(parts, body)).await;
             }
         }
-        // 无保存状态 → 正常处理
         return next.run(request).await;
     }
 
-    // 情况2：有 query（非 restore）→ 记录最新状态
+    // 情况2：有 query（非 restore）→ 记录最新状态，正常处理
     if !query.is_empty() {
         let mut urls: HashMap<String, String> = session
             .get(LIST_URLS_KEY)
@@ -75,8 +72,20 @@ pub async fn list_state_middleware(session: Session, request: Request<Body>, nex
         if let Err(e) = session.insert(LIST_URLS_KEY, &urls).await {
             tracing::warn!("Failed to save list URL state: {e}");
         }
+        return next.run(request).await;
     }
 
-    // 情况3：无 query（菜单进入）或记录后 → 正常处理
+    // 情况3：无 query（菜单/侧边栏进入）→ 删除该 path 的保存状态，正常处理
+    // 用户主动进入全新列表 = 放弃之前的筛选，清除残留避免过期 restore
+    if let Some(mut urls) = session
+        .get::<HashMap<String, String>>(LIST_URLS_KEY)
+        .await
+        .ok()
+        .flatten()
+        && urls.remove(&path).is_some()
+    {
+        let _ = session.insert(LIST_URLS_KEY, &urls).await;
+    }
+
     next.run(request).await
 }

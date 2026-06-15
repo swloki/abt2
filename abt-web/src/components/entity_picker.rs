@@ -20,6 +20,8 @@ pub struct EntityPickerConfig<'a> {
     pub display_id: &'a str,
     /// Custom event name fired on selection (use `""` to skip).
     pub event_name: &'a str,
+    /// Extra `hx-include` selector for cascade context, e.g. `Some("#work_order_id")`.
+    pub extra_include: Option<&'a str>,
 }
 
 /// A single result item in the picker list.
@@ -115,7 +117,7 @@ pub fn entity_picker_modal(cfg: &EntityPickerConfig) -> Markup {
                                 hx-sync="this:replace"
                                 hx-target=(format!("#{}-results", cfg.modal_id))
                                 hx-swap="innerHTML"
-                                hx-include=(format!("#{}", cfg.modal_id)) {}
+                                hx-include=(hx_include_expr(cfg)) {}
                         }
                     }
                     div id=(format!("{}-results", cfg.modal_id))
@@ -123,10 +125,7 @@ pub fn entity_picker_modal(cfg: &EntityPickerConfig) -> Markup {
                         hx-get=(cfg.search_path)
                         hx-trigger="intersect once"
                         hx-swap="innerHTML"
-                        hx-vals=(format!(
-                            "{{\"target_id\":\"{}\",\"display_id\":\"{}\",\"modal_id\":\"{}\",\"event_name\":\"{}\"}}",
-                            cfg.target_id, cfg.display_id, cfg.modal_id, cfg.event_name
-                        )) {
+                        hx-include=(hx_include_expr(cfg)) {
                         div style="display:flex;align-items:center;justify-content:center;padding:var(--space-8);color:var(--text-muted)" {
                             "加载中…"
                         }
@@ -134,6 +133,15 @@ pub fn entity_picker_modal(cfg: &EntityPickerConfig) -> Markup {
                 }
             }
         }
+    }
+}
+
+/// Build the hx-include expression: always include the modal itself
+/// (for hidden context inputs), plus optional extra selectors for cascade.
+fn hx_include_expr(cfg: &EntityPickerConfig) -> String {
+    match cfg.extra_include {
+        Some(sel) => format!("#{} {}", cfg.modal_id, sel),
+        None => format!("#{}", cfg.modal_id),
     }
 }
 

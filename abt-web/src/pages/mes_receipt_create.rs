@@ -311,6 +311,7 @@ fn receipt_create_content() -> Markup {
         target_id: "work_order_id",
         display_id: "wo-display",
         event_name: "woSelected",
+        extra_include: None,
     };
     let wh_picker = EntityPickerConfig {
         modal_id: "wh-picker",
@@ -322,6 +323,7 @@ fn receipt_create_content() -> Markup {
         target_id: "warehouse_id",
         display_id: "wh-display",
         event_name: "whSelected",
+        extra_include: None,
     };
 
     html! {

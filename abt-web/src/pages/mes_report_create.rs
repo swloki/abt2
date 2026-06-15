@@ -1,19 +1,28 @@
+use std::collections::{HashMap, HashSet};
+
+use axum::extract::Query;
 use axum::response::{Html, IntoResponse};
 use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
 use serde::Deserialize;
 
-use abt_core::mes::production_batch::ProductionBatchService;
-use abt_core::mes::enums::RoutingStatus;
+use abt_core::mes::enums::{BatchStatus, RoutingStatus, WorkOrderStatus};
 use abt_core::mes::production_batch::repo::BatchRoutingProgressRepo;
-use abt_core::mes::work_order::WorkOrderService;
+use abt_core::mes::production_batch::{ProductionBatchService, WorkOrderRouting};
+use abt_core::mes::work_order::{WorkOrderFilter, WorkOrderService};
 use abt_core::shared::identity::UserService;
 
+use crate::components::entity_picker::{self, EntityPickerConfig, EntityPickerItem};
 use crate::errors::Result;
 use crate::layout::page::admin_page;
-use crate::routes::mes_report::{ReportCreatePath, ReportListPath};
+use crate::routes::mes_report::{
+    ReportBatchSelectedPath, ReportCreatePath, ReportListPath, ReportSearchBatchPath,
+    ReportSearchWoPath,
+};
 use crate::utils::RequestContext;
 use abt_macros::require_permission;
+
+// ── Query / Form ──
 
 #[derive(Debug, Deserialize)]
 pub struct ReportCreateForm {
@@ -32,68 +41,213 @@ pub struct ReportCreateForm {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct ReportCreateQuery {
-    pub batch_id: Option<i64>,
+pub struct SearchParams {
+    pub q: Option<String>,
+    pub work_order_id: Option<i64>,
 }
+
+#[derive(Debug, Deserialize)]
+pub struct BatchSelectedQuery {
+    pub batch_id: i64,
+}
+
+// ── GET /reports/create ──
 
 #[require_permission("WORK_ORDER", "create")]
 pub async fn get_report_create(
-    _path: ReportCreatePath, ctx: RequestContext,
-    axum::extract::Query(query): axum::extract::Query<ReportCreateQuery>,
+    _path: ReportCreatePath,
+    ctx: RequestContext,
 ) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
     let nav_filter = ctx.nav_filter().await;
-    let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
-    let batch_svc = state.production_batch_service();
-    let wo_svc = state.work_order_service();
+    let RequestContext {
+        mut conn,
+        state,
+        claims,
+        ..
+    } = ctx;
     let user_svc = state.user_service();
 
-    // Load work orders for dropdown
-    let wo_filter = abt_core::mes::work_order::WorkOrderFilter {
-        status: None, product_id: None, keyword: None, date_from: None, date_to: None,
-    };
-    let work_orders = wo_svc.list(&service_ctx, &mut conn, wo_filter, 1, 200).await?;
-    let active_wos: Vec<_> = work_orders.items.into_iter().filter(|wo| wo.status != abt_core::mes::enums::WorkOrderStatus::Cancelled).collect();
+    // 工人列表
+    let workers = user_svc
+        .list_users(&ctx.service_ctx, &mut conn, 1, 100)
+        .await?
+        .items;
 
-    // Load product names for work orders
-    let mut wo_product_names: std::collections::HashMap<i64, String> = std::collections::HashMap::new();
-    for w in &active_wos {
-        if let Ok(Some(name)) = wo_svc.get_product_name(&mut conn, w.product_id).await {
-            wo_product_names.insert(w.id, name);
+    let doc_number = format!("WR-{}", chrono::Local::now().format("%Y-%m-%d"));
+    let content = report_create_page(&workers, &doc_number);
+    Ok(Html(
+        admin_page(
+            is_htmx,
+            "新建报工",
+            &claims,
+            "production",
+            ReportCreatePath::PATH,
+            "生产管理",
+            Some(ReportListPath::PATH),
+            content,
+            &nav_filter,
+        )
+        .into_string(),
+    ))
+}
+
+// ── HTMX: 搜索工单 ──
+
+#[require_permission("WORK_ORDER", "read")]
+pub async fn search_wo(
+    _path: ReportSearchWoPath,
+    ctx: RequestContext,
+    Query(params): Query<SearchParams>,
+) -> Result<Html<String>> {
+    let RequestContext {
+        mut conn,
+        state,
+        service_ctx,
+        ..
+    } = ctx;
+    let wo_svc = state.work_order_service();
+    let kw = params.q.as_deref().unwrap_or("").trim().to_string();
+
+    let no_filter = WorkOrderFilter {
+        status: None,
+        product_id: None,
+        keyword: None,
+        date_from: None,
+        date_to: None,
+    };
+    let mk = |st: WorkOrderStatus, keyword: String| WorkOrderFilter {
+        status: Some(st),
+        keyword: if keyword.is_empty() { None } else { Some(keyword) },
+        ..no_filter.clone()
+    };
+
+    let released = wo_svc
+        .list(&service_ctx, &mut conn, mk(WorkOrderStatus::Released, kw.clone()), 1, 50)
+        .await
+        .map(|r| r.items)
+        .unwrap_or_default();
+    let in_prod = wo_svc
+        .list(&service_ctx, &mut conn, mk(WorkOrderStatus::InProduction, kw), 1, 50)
+        .await
+        .map(|r| r.items)
+        .unwrap_or_default();
+    let wos: Vec<_> = released.into_iter().chain(in_prod).collect();
+
+    let mut pnames: HashMap<i64, String> = HashMap::new();
+    let pids: HashSet<i64> = wos.iter().map(|w| w.product_id).collect();
+    for pid in pids {
+        if let Ok(Some(n)) = wo_svc.get_product_name(&mut conn, pid).await {
+            pnames.insert(pid, n);
         }
     }
 
-    // If batch_id specified, load batch + routings + 工序执行进度
-    let (batch, routings, wo, completed_routings) = if let Some(bid) = query.batch_id {
-        let b = batch_svc.find_by_id(&service_ctx, &mut conn, bid).await?;
-        let rs = batch_svc.list_routings(&service_ctx, &mut conn, b.work_order_id).await?;
-        let w = wo_svc.find_by_id(&service_ctx, &mut conn, b.work_order_id).await?;
-        // 从 batch_routing_progress 获取已完成工序的 routing_id 集合（执行进度已迁移到新表）
-        let completed: std::collections::HashSet<i64> =
-            BatchRoutingProgressRepo::list_by_batch(&mut *conn, bid).await?
-                .into_iter()
-                .filter(|p| p.status == RoutingStatus::Completed)
-                .map(|p| p.routing_id)
-                .collect();
-        (Some(b), rs, Some(w), completed)
-    } else {
-        (None, vec![], None, std::collections::HashSet::new())
+    let items: Vec<EntityPickerItem> = wos
+        .iter()
+        .map(|w| {
+            let p = pnames.get(&w.product_id).map(|s| s.as_str()).unwrap_or("—");
+            EntityPickerItem::new(w.id, format!("{} · {}", w.doc_number, p))
+                .sub(format!("计划 {} 件", crate::utils::fmt_qty(w.planned_qty)))
+        })
+        .collect();
+
+    Ok(Html(entity_picker::entity_picker_results(&items).into_string()))
+}
+
+// ── HTMX: 搜索批次（按工单过滤）──
+
+#[require_permission("WORK_ORDER", "read")]
+pub async fn search_batch(
+    _path: ReportSearchBatchPath,
+    ctx: RequestContext,
+    Query(params): Query<SearchParams>,
+) -> Result<Html<String>> {
+    let RequestContext {
+        mut conn,
+        state,
+        service_ctx,
+        ..
+    } = ctx;
+    let batch_svc = state.production_batch_service();
+    let wo_svc = state.work_order_service();
+
+    let wo_id = match params.work_order_id {
+        Some(id) if id > 0 => id,
+        _ => {
+            let items = vec![];
+            return Ok(Html(entity_picker::entity_picker_results(&items).into_string()));
+        }
     };
 
-    // Load workers (users)
-    let workers_result = user_svc.list_users(&service_ctx, &mut conn, 1, 100).await?;
-    let workers = workers_result.items;
+    let batches = batch_svc
+        .list_by_work_order(&service_ctx, &mut conn, wo_id)
+        .await
+        .unwrap_or_default();
+    let wo = wo_svc.find_by_id(&service_ctx, &mut conn, wo_id).await.ok();
+    let product_name = if let Some(ref w) = wo {
+        wo_svc.get_product_name(&mut conn, w.product_id).await.ok().flatten().unwrap_or_else(|| "—".into())
+    } else { "—".into() };
 
-    // Generate doc number for display (WR-yyyy-mm-NNNNN)
-    let doc_number = format!("WR-{}", chrono::Local::now().format("%Y-%m-%d"));
-    let content = report_create_page(&active_wos, &wo_product_names, batch.as_ref(), &routings, wo.as_ref(), &workers, &doc_number, &completed_routings);
-    Ok(Html(admin_page(is_htmx, "新建报工", &claims, "production", ReportCreatePath::PATH, "生产管理", Some(ReportListPath::PATH), content, &nav_filter).into_string()))
+    let kw = params.q.as_deref().unwrap_or("").trim().to_lowercase();
 
+    let items: Vec<EntityPickerItem> = batches
+        .iter()
+        .filter(|b| {
+            kw.is_empty()
+                || b.batch_no.to_lowercase().contains(&kw)
+                || b.card_sn.to_lowercase().contains(&kw)
+        })
+        .filter(|b| !matches!(b.status, BatchStatus::Cancelled | BatchStatus::Completed))
+        .map(|b| {
+            EntityPickerItem::new(b.id, format!("{} · {}件 · {}", b.batch_no, crate::utils::fmt_qty(b.batch_qty), product_name))
+                .sub(format!("流转卡 {} · 当前第 {} 步", b.card_sn, b.current_step))
+        })
+        .collect();
+
+    Ok(Html(entity_picker::entity_picker_results(&items).into_string()))
 }
+
+// ── HTMX: 批次选中后级联 — 返回工单信息 + 工序下拉 ──
+
+#[require_permission("WORK_ORDER", "read")]
+pub async fn batch_selected(
+    _path: ReportBatchSelectedPath,
+    ctx: RequestContext,
+    Query(params): Query<BatchSelectedQuery>,
+) -> Result<Html<String>> {
+    let RequestContext {
+        mut conn,
+        state,
+        service_ctx,
+        ..
+    } = ctx;
+    let batch_svc = state.production_batch_service();
+
+    let batch = batch_svc
+        .find_by_id(&service_ctx, &mut conn, params.batch_id)
+        .await?;
+    let routings = batch_svc
+        .list_routings(&service_ctx, &mut conn, batch.work_order_id)
+        .await?;
+    let completed: HashSet<i64> = BatchRoutingProgressRepo::list_by_batch(&mut *conn, params.batch_id)
+        .await?
+        .into_iter()
+        .filter(|p| p.status == RoutingStatus::Completed)
+        .map(|p| p.routing_id)
+        .collect();
+
+    Ok(Html(
+        batch_cascade_fragment(batch.work_order_id, &batch, &routings, &completed).into_string(),
+    ))
+}
+
+// ── POST /reports/create ──
 
 #[require_permission("WORK_ORDER", "create")]
 pub async fn create_report(
-    _path: ReportCreatePath, ctx: RequestContext, axum::Form(form): axum::Form<ReportCreateForm>,
+    _path: ReportCreatePath,
+    ctx: RequestContext,
+    axum::Form(form): axum::Form<ReportCreateForm>,
 ) -> Result<impl IntoResponse> {
     let RequestContext { state, service_ctx, .. } = ctx;
     let svc = state.production_batch_service();
@@ -103,101 +257,108 @@ pub async fn create_report(
         shift: form.shift,
         completed_qty: form.completed_qty,
         defect_qty: form.defect_qty,
-        defect_reason: form.defect_reason.and_then(abt_core::mes::enums::DefectReason::from_i16),
+        defect_reason: form
+            .defect_reason
+            .and_then(abt_core::mes::enums::DefectReason::from_i16),
         work_hours: form.work_hours.unwrap_or_default(),
         report_date: form.report_date,
         remark: form.remark,
     };
-    let mut tx = state.pool.begin().await
+    let mut tx = state
+        .pool
+        .begin()
+        .await
         .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
-    svc.confirm_routing_step(&service_ctx, &mut tx, form.batch_id, form.step_no, req).await?;
-    tx.commit().await
+    svc.confirm_routing_step(&service_ctx, &mut tx, form.batch_id, form.step_no, req)
+        .await?;
+    tx.commit()
+        .await
         .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
-    Ok(axum::response::Response::builder().header("HX-Redirect", ReportListPath::PATH).body(axum::body::Body::empty()).unwrap())
+    Ok(axum::response::Response::builder()
+        .header("HX-Redirect", ReportListPath::PATH)
+        .body(axum::body::Body::empty())
+        .unwrap())
 }
 
+// ── Page content ──
+
 fn report_create_page(
-    work_orders: &[abt_core::mes::work_order::WorkOrder],
-    wo_product_names: &std::collections::HashMap<i64, String>,
-    batch: Option<&abt_core::mes::production_batch::ProductionBatch>,
-    routings: &[abt_core::mes::production_batch::WorkOrderRouting],
-    wo: Option<&abt_core::mes::work_order::WorkOrder>,
     workers: &[abt_core::shared::identity::User],
     doc_number: &str,
-    completed_routings: &std::collections::HashSet<i64>,
 ) -> Markup {
-    // Find current routing's unit_price
-    let current_step = batch.map(|b| b.current_step);
-    let current_routing = routings.iter().find(|r| Some(r.step_no) == current_step);
-    let unit_price = current_routing.and_then(|r| r.unit_price).unwrap_or(rust_decimal::Decimal::ZERO);
-    let unit_price_display = if unit_price == rust_decimal::Decimal::ZERO {
-        "—".to_string()
-    } else {
-        format!("¥{}", crate::utils::fmt_qty(unit_price))
+    let wo_picker = EntityPickerConfig {
+        modal_id: "wo-picker",
+        title: "选择工单",
+        search_label: "工单号 / 产品名",
+        search_placeholder: "输入关键词搜索…",
+        search_path: ReportSearchWoPath::PATH,
+        search_param: "q",
+        target_id: "work_order_id",
+        display_id: "wo-display",
+        event_name: "woSelected",
+        extra_include: None,
+    };
+    let batch_picker = EntityPickerConfig {
+        modal_id: "batch-picker",
+        title: "选择批次",
+        search_label: "批次号 / 流转卡号",
+        search_placeholder: "输入关键词搜索…",
+        search_path: ReportSearchBatchPath::PATH,
+        search_param: "q",
+        target_id: "batch_id",
+        display_id: "batch-display",
+        event_name: "batchSelected",
+        extra_include: Some("#work_order_id"),
     };
 
     html! { div {
         div class="page-header" { h1 class="page-title" { "新建报工" } }
-        form hx-post=(ReportCreatePath::PATH) hx-swap="none" {
-            @if let Some(b) = batch {
-                input type="hidden" name="batch_id" value=(b.id);
-            }
+        form hx-post=(ReportCreatePath::PATH) hx-swap="none" id="report-form" {
 
             // === 基本信息 ===
             div class="form-section" {
-                div class="form-section-title" {
-                    (maud::PreEscaped(r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg>"#))
-                    "基本信息"
-                }
+                div class="form-section-title" { "基本信息" }
                 div class="form-grid" {
-                    div class="form-group" {
+                    div class="form-field" {
                         label class="form-label" { "报工单号" }
-                        input class="form-input" type="text" readonly value=(doc_number) style="background:var(--surface);color:var(--muted)";
+                        input class="form-input" type="text" readonly value=(doc_number)
+                            style="background:var(--surface);color:var(--text-muted)";
                     }
-                    div class="form-group" {
-                        label class="form-label" { "工单 " span class="required" { "*" } }
-                        select class="form-select" name="wo_id" required {
-                            option value="" { "请选择工单" }
-                            @for w in work_orders {
-                                @let sel = wo.is_some_and(|cur| cur.id == w.id);
-                                @let label = wo_product_names.get(&w.id).map_or(w.doc_number.clone(), |name| format!("{} ({})", w.doc_number, name));
-                                option value=(w.id) selected[sel] { (label) }
-                            }
-                        }
-                    }
-                    div class="form-group" {
-                        label class="form-label" { "批次 " span class="required" { "*" } }
-                        @if let Some(b) = batch {
-                            input class="form-input" type="text" readonly value=(b.batch_no) style="background:var(--surface);color:var(--muted)";
-                        } @else {
-                            input class="form-input" type="number" name="batch_id" placeholder="输入批次ID" required;
-                        }
-                    }
-                    div class="form-group" {
-                        label class="form-label" { "工序 " span class="required" { "*" } }
-                        @if !routings.is_empty() {
-                            select class="form-select" name="step_no" required {
-                                @for r in routings {
-                                    @if !completed_routings.contains(&r.id) {
-                                        @let is_cur = batch.is_some_and(|b| b.current_step == r.step_no);
-                                        @let cur_tag = if is_cur { " [当前工序]" } else { "" };
-                                        option value=(r.step_no) selected[is_cur] { (r.step_no) " - " (r.process_name) (cur_tag) }
-                                    }
-                                }
-                            }
-                        } @else {
-                            input class="form-input" type="number" name="step_no" required;
-                        }
-                    }
-                    div class="form-group" {
+                    // 工单：搜索选择框
+                    (entity_picker::entity_picker_field(
+                        "work_order_id", "work_order_id", "wo-display", "wo-picker",
+                        "工单", false, "点击选择工单…",
+                    ))
+                    // 批次：搜索选择框
+                    (entity_picker::entity_picker_field(
+                        "batch_id", "batch_id", "batch-display", "batch-picker",
+                        "批次", false, "选择工单后可选…",
+                    ))
+                }
+                // 批次选中后级联：工序下拉
+                div id="batch-cascade"
+                    hx-get=(ReportBatchSelectedPath::PATH)
+                    hx-trigger="batchSelected from:body"
+                    hx-target="this"
+                    hx-swap="outerHTML"
+                    hx-include="#batch_id" {}
+            }
+
+            // === 报工数据 ===
+            div class="form-section" {
+                div class="form-section-title" { "报工数据" }
+                div class="form-grid" {
+                    div class="form-field" {
                         label class="form-label" { "班次 " span class="required" { "*" } }
                         div class="shift-toggle" {
-                            button type="button" class="shift-btn active" _="on click take .active from .shift-btn then put '1' into (closest .shift-toggle)'s first input's value" { "白班" }
-                            button type="button" class="shift-btn" _="on click take .active from .shift-btn then put '2' into (closest .shift-toggle)'s first input's value" { "夜班" }
+                            button type="button" class="shift-btn active"
+                                _="on click take .active from .shift-btn then put '1' into (closest .shift-toggle)'s first input's value" { "白班" }
+                            button type="button" class="shift-btn"
+                                _="on click take .active from .shift-btn then put '2' into (closest .shift-toggle)'s first input's value" { "夜班" }
                             input type="hidden" name="shift" value="1";
                         }
                     }
-                    div class="form-group" {
+                    div class="form-field" {
                         label class="form-label" { "工人 " span class="required" { "*" } }
                         select class="form-select" name="worker_id" required {
                             option value="" { "请选择工人" }
@@ -206,57 +367,38 @@ fn report_create_page(
                             }
                         }
                     }
-                    div class="form-group" {
+                    div class="form-field" {
                         label class="form-label" { "报工日期 " span class="required" { "*" } }
-                        input class="form-input" type="date" name="report_date" value=(chrono::Local::now().format("%Y-%m-%d").to_string()) required;
+                        input class="form-input" type="date" name="report_date"
+                            value=(chrono::Local::now().format("%Y-%m-%d").to_string()) required;
                     }
-                }
-            }
-
-            // === 生产数据 ===
-            div class="form-section" {
-                div class="form-section-title" {
-                    (maud::PreEscaped(r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>"#))
-                    "生产数据"
-                }
-                div class="form-grid" {
-                    div class="form-group" {
+                    div class="form-field" {
                         label class="form-label" { "完成数量 " span class="required" { "*" } }
                         input class="form-input" type="number" placeholder="0" min="0" name="completed_qty" required;
                     }
-                    div class="form-group" {
+                    div class="form-field" {
                         label class="form-label" { "不良数量" }
                         input class="form-input" type="number" placeholder="0" min="0" name="defect_qty" value="0";
                     }
-                    div class="form-group" {
+                    div class="form-field" {
                         label class="form-label" { "不良原因" }
                         select class="form-select" name="defect_reason" {
                             option value="" { "—" }
-                            option value="1" { "物料不良 (MaterialDefect)" }
-                            option value="2" { "设备故障 (EquipmentFault)" }
-                            option value="3" { "操作失误 (OperatorError)" }
-                            option value="4" { "工艺问题 (ProcessIssue)" }
+                            option value="1" { "物料不良" }
+                            option value="2" { "设备故障" }
+                            option value="3" { "操作失误" }
+                            option value="4" { "工艺问题" }
                         }
                     }
-                    div class="form-group" {
+                    div class="form-field" {
                         label class="form-label" { "实际工时 (h)" }
                         input class="form-input" type="number" placeholder="0" step="0.5" min="0" name="work_hours";
-                    }
-                    div class="form-group" {
-                        label class="form-label" { "计件单价" }
-                        input class="form-input" type="text" readonly value=(unit_price_display) style="background:var(--surface);color:var(--muted)";
-                    }
-                    div class="form-group" {
-                        label class="form-label" { "预计工资" }
-                        div class="wage-display" {
-                            div class="wage-amount" id="wageAmount" { "¥0.00" }
-                            div class="wage-label" { "完成数量 × 计件单价" }
-                        }
                     }
                 }
                 div style="margin-top:var(--space-4)" {
                     label class="form-label" { "备注" }
-                    textarea class="form-textarea" name="remark" placeholder="报工备注…" style="margin-top:var(--space-1)" {};
+                    textarea class="form-textarea" name="remark" placeholder="报工备注…"
+                        style="margin-top:var(--space-1)" {};
                 }
             }
 
@@ -265,7 +407,48 @@ fn report_create_page(
                 button type="submit" class="btn btn-primary" { "确认报工" }
             }
         }
-        // 预计工资实时计算
-        (maud::PreEscaped(format!("<script>document.querySelector('input[name=completed_qty]').addEventListener('input',function(e){{var q=parseFloat(e.target.value)||0;var p={unit_price};document.querySelector('#wageAmount').textContent='¥'+(q*p).toFixed(2)}})</script>")))
+
+        // ── 弹窗 ──
+        (entity_picker::entity_picker_modal(&wo_picker))
+        (entity_picker::entity_picker_modal(&batch_picker))
     }}
+}
+
+// ── HTMX fragments ──
+
+fn batch_cascade_fragment(
+    work_order_id: i64,
+    batch: &abt_core::mes::production_batch::ProductionBatch,
+    routings: &[WorkOrderRouting],
+    completed: &HashSet<i64>,
+) -> Markup {
+    html! {
+        div id="batch-cascade" {
+            // 隐藏的 work_order_id（报工提交时携带）
+            input type="hidden" name="work_order_id" value=(work_order_id);
+            div class="form-grid" {
+                div class="form-field" {
+                    label class="form-label" { "工序 " span class="required" { "*" } }
+                    @if routings.is_empty() {
+                        select class="form-select" name="step_no" disabled {
+                            option value="" { "该工单暂无工序路线" }
+                        }
+                    } @else {
+                        select class="form-select" name="step_no" required {
+                            option value="" { "请选择工序" }
+                            @for r in routings {
+                                @if !completed.contains(&r.id) {
+                                    @let is_cur = batch.current_step == r.step_no;
+                                    @let tag = if is_cur { " [当前工序]" } else { "" };
+                                    option value=(r.step_no) selected[is_cur] {
+                                        (r.step_no) " - " (r.process_name) (tag)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 }

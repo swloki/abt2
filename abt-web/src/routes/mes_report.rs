@@ -23,6 +23,18 @@ pub struct ReportDetailPath {
 }
 
 #[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/mes/reports/search-wo")]
+pub struct ReportSearchWoPath;
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/mes/reports/search-batch")]
+pub struct ReportSearchBatchPath;
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/mes/reports/batch-selected")]
+pub struct ReportBatchSelectedPath;
+
+#[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/mes/wages")]
 pub struct WageListPath;
 
@@ -35,6 +47,9 @@ pub fn router() -> Router<AppState> {
             ReportCreatePath::PATH,
             get(mes_report_create::get_report_create).post(mes_report_create::create_report),
         )
+        .route(ReportSearchWoPath::PATH, get(mes_report_create::search_wo))
+        .route(ReportSearchBatchPath::PATH, get(mes_report_create::search_batch))
+        .route(ReportBatchSelectedPath::PATH, get(mes_report_create::batch_selected))
         .route(ReportDetailPath::PATH, get(mes_report_detail::get_report_detail))
         .route(WageListPath::PATH, get(mes_wage_list::get_wage_list))
 }

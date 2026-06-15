@@ -711,6 +711,33 @@ impl DemandRepo {
         .await?;
         Ok(rows)
     }
+
+    /// 检查是否已存在同来源的 BOM 级联需求
+    /// 参考 Odoo `_make_mo_get_domain`：查已有同源需求避免重复创建
+    pub async fn find_cascade_existing(
+        executor: PgExecutor<'_>,
+        source_id: i64,
+        source_line_id: i64,
+        product_id: i64,
+        cascade_from_product_id: i64,
+    ) -> Result<bool> {
+        let count: i64 = sqlx::query_scalar(
+            r#"SELECT COUNT(*) FROM demands
+               WHERE source_id = $1
+                 AND source_line_id = $2
+                 AND product_id = $3
+                 AND cascade_from_product_id = $4
+                 AND demand_type = 2
+                 AND deleted_at IS NULL"#,
+        )
+        .bind(source_id)
+        .bind(source_line_id)
+        .bind(product_id)
+        .bind(cascade_from_product_id)
+        .fetch_one(executor)
+        .await?;
+        Ok(count > 0)
+    }
 }
 
 // ---------------------------------------------------------------------------

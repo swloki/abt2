@@ -5,6 +5,8 @@ use sqlx::postgres::PgPool;
 use crate::master_data::customer::{new_customer_service, service::CustomerService};
 use crate::master_data::product::{new_product_service, service::ProductService};
 use crate::master_data::product::model::AcquireChannel;
+use crate::master_data::bom::{new_bom_query_service, service::BomQueryService};
+use crate::wms::stock_ledger::{new_stock_ledger_service, service::StockLedgerService};
 use crate::sales::quotation::{new_quotation_service, service::QuotationService};
 use crate::sales::sales_order::model::*;
 use crate::sales::sales_order::repo::{DemandRepo, FulfillmentPlanLineRepo, SalesOrderItemRepo, SalesOrderRepo, savepoint, release_savepoint, rollback_savepoint};
@@ -994,6 +996,105 @@ impl DemandService for DemandServiceImpl {
             } else {
                 release_savepoint(db, &format!("sp_demand_evt_{demand_id}")).await.ok();
             }
+        }
+
+        // ════════════════════════════════════════════════════════════════════
+        // BOM 级联展开：自制缺货行的原材料自动生成采购需求
+        //
+        // 参考 Odoo _run_manufacture 递归 + mts_else_mto 库存检查
+        // 参考 ERPNext projected_qty 公式（actual + ordered + planned - reserved）
+        // 参考 Odoo _make_mo_get_domain 去重
+        // ════════════════════════════════════════════════════════════════════
+        let mut cascade_demands: Vec<DemandInput> = Vec::new();
+
+        for line in &fp_lines {
+            if line.acquire_channel != AcquireChannel::SelfProduced
+                && line.acquire_channel != AcquireChannel::Legacy
+            {
+                continue;
+            }
+
+            let product = new_product_service(self.pool.clone())
+                .get(ctx, db, line.product_id).await?;
+            let product_code = product.product_code.clone();
+
+            let bom_reqs = new_bom_query_service(self.pool.clone())
+                .explode_for_procurement(ctx, db, &product_code, line.shortage_qty)
+                .await?;
+
+            if bom_reqs.is_empty() {
+                continue;
+            }
+
+            for req in &bom_reqs {
+                let projected = new_stock_ledger_service(self.pool.clone())
+                    .query_projected_qty(ctx, db, req.product_id, None)
+                    .await?;
+
+                let net_shortage = (req.required_qty - projected.projected).max(Decimal::ZERO);
+                if net_shortage <= Decimal::ZERO {
+                    continue;
+                }
+
+                let exists = DemandRepo::find_cascade_existing(
+                    db, order_id, line.order_line_id, req.product_id, line.product_id,
+                ).await?;
+                if exists {
+                    continue;
+                }
+
+                cascade_demands.push(DemandInput {
+                    demand_type: 2,
+                    source_type: DocumentType::SalesOrder as i16,
+                    source_id: order_id,
+                    source_line_id: line.order_line_id,
+                    product_id: req.product_id,
+                    acquire_channel: AcquireChannel::Purchased.as_i16(),
+                    required_qty: net_shortage,
+                    required_date: line.required_date,
+                    priority: 5,
+                    cascade_from_product_id: Some(line.product_id),
+                    remark: format!(
+                        "BOM展开: 成品{} 层{} 总需{} 预计可用{} 净缺{}",
+                        line.product_id, req.bom_level, req.required_qty, projected.projected, net_shortage
+                    ),
+                    operator_id: ctx.operator_id,
+                });
+            }
+        }
+
+        for input in &cascade_demands {
+            let demand_id = DemandRepo::create(&mut *db, input).await?;
+            demand_ids.push(demand_id);
+
+            savepoint(db, &format!("sp_cascade_evt_{demand_id}")).await.ok();
+            if let Err(e) = new_domain_event_bus(self.pool.clone())
+                .publish(ctx, db, EventPublishRequest {
+                    event_type: DomainEventType::DemandCreated,
+                    aggregate_type: "Demand".to_string(),
+                    aggregate_id: demand_id,
+                    payload: serde_json::json!({
+                        "order_id": order_id,
+                        "product_id": input.product_id,
+                        "acquire_channel": input.acquire_channel,
+                        "cascade_from": input.cascade_from_product_id,
+                    }),
+                    idempotency_key: None,
+                })
+                .await
+            {
+                tracing::warn!("Cascade DemandCreated event failed for demand {demand_id}: {e}");
+                rollback_savepoint(db, &format!("sp_cascade_evt_{demand_id}")).await.ok();
+            } else {
+                release_savepoint(db, &format!("sp_cascade_evt_{demand_id}")).await.ok();
+            }
+        }
+
+        if !cascade_demands.is_empty() {
+            tracing::info!(
+                "Created {} BOM cascade demands for order {order_id}",
+                cascade_demands.len()
+            );
         }
 
         Ok(demand_ids)

@@ -424,6 +424,12 @@ p { margin: 0; }
 }
 .filter-date:hover { border-color: var(--accent); }
 .filter-date:focus { border-color: var(--accent); box-shadow: var(--shadow-focus); }
+.filter-check {
+  display: inline-flex; align-items: center; gap: var(--space-1);
+  font-size: var(--text-sm); color: var(--fg); cursor: pointer;
+  white-space: nowrap;
+}
+.filter-check input[type="checkbox"] { width: 15px; height: 15px; cursor: pointer; accent-color: var(--accent); }
 
 /* ─── Category Tree Select ─── */
 .tree-select { position: relative; display: inline-block; }

@@ -399,6 +399,11 @@ async fn execute_export(
             let bytes = exporter.export().await?;
             Ok((bytes, "仓库库位".to_string()))
         }
+        "boms-list" => {
+            let exporter = abt_core::shared::excel::boms_list_export::BomsListExporter::new(pool.clone());
+            let bytes = exporter.export().await?;
+            Ok((bytes, "BOM清单".to_string()))
+        }
         "boms-no-labor-cost" => {
             let exporter = abt_core::shared::excel::boms_no_labor_cost_export::BomsNoLaborCostExporter::new(pool.clone());
             let bytes = exporter.export().await?;

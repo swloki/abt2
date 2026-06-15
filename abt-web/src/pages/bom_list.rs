@@ -36,6 +36,8 @@ pub struct BomQueryParams {
     pub date_from: Option<String>,
     #[serde(default, deserialize_with = "empty_as_none")]
     pub date_to: Option<String>,
+    #[serde(default)]
+    pub no_labor_cost: bool,
     #[serde(default, deserialize_with = "empty_as_none")]
     pub page: Option<u32>,
 }
@@ -133,6 +135,7 @@ fn build_filter(params: &BomQueryParams) -> BomQuery {
         bom_category_id: params.category_id,
         date_from: params.date_from.clone(),
         date_to: params.date_to.clone(),
+        no_labor_cost: params.no_labor_cost,
     }
 }
 fn build_query_string(params: &BomQueryParams) -> String {
@@ -151,6 +154,9 @@ fn build_query_string(params: &BomQueryParams) -> String {
     }
     if let Some(ref dt) = params.date_to {
         q.push(format!("date_to={dt}"));
+    }
+    if params.no_labor_cost {
+        q.push("no_labor_cost=true".to_string());
     }
     q.join("&")
 }
@@ -179,6 +185,7 @@ fn bom_list_page(
                 h1 class="page-title" { "BOM管理" }
                 div class="page-actions" {
                     (export_button::export_dropdown(&[
+                        ExportItem { label: "导出BOM清单", export_type: "boms-list" },
                         ExportItem { label: "缺少人工成本BOM", export_type: "boms-no-labor-cost" },
                     ]))
                     @if ctx.can_create {
@@ -276,7 +283,7 @@ fn bom_table_fragment(
                 div class="search-wrap" {
                     (icon::search_icon("w-4 h-4"))
                     input class="search-input" type="text" name="keyword"
-                        placeholder="搜索BOM名称…"
+                        placeholder="搜索BOM名称或产品编号…"
                         value=(params.keyword.as_deref().unwrap_or(""));
                 }
                 select class="filter-select" name="category_id" {
@@ -292,6 +299,10 @@ fn bom_table_fragment(
                 input class="filter-date" type="date" name="date_to"
                     value=(params.date_to.as_deref().unwrap_or(""))
                     title="结束日期" {}
+                label class="filter-check" {
+                    input type="checkbox" name="no_labor_cost" value="true" checked[params.no_labor_cost] {}
+                    "无人工成本"
+                }
             }
             // ── Data Table ──
             div class="data-card" id="bom-data-card" {
@@ -299,7 +310,8 @@ fn bom_table_fragment(
                     table class="data-table" {
                         thead {
                             tr {
-                                th style="width:40%" { "BOM名称" }
+                                th style="width:30%" { "BOM名称" }
+                                th style="width:120px" { "产品编号" }
                                 th style="width:100px" { "BOM分类" }
                                 th style="width:60px" { "版本" }
                                 th style="width:80px" { "状态" }
@@ -314,8 +326,7 @@ fn bom_table_fragment(
                             }
                             @if result.items.is_empty() {
                                 tr {
-                                    td colspan="7" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
-                                        "暂无BOM数据"
+                                    td colspan="8" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
                                     }
                                 }
                             }
@@ -341,6 +352,13 @@ fn bom_row(bom: &Bom, cat_map: &HashMap<i64, String>, user_map: &HashMap<i64, St
         tr id=(format!("bom-row-{}", bom.bom_id)) style="cursor:pointer" {
             td onclick=(format!("location.href='{}'", detail_path)) {
                 strong { (bom.bom_name) }
+            }
+            td class="mono" onclick=(format!("location.href='{}'", detail_path)) {
+                @if let Some(ref code) = bom.product_code {
+                    (code)
+                } @else {
+                    span style="color:var(--muted)" { "—" }
+                }
             }
             td onclick=(format!("location.href='{}'", detail_path)) {
                 @if let Some(ref cat_id) = bom.bom_category_id {

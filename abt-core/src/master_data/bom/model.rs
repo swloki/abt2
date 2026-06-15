@@ -73,6 +73,8 @@ pub struct Bom {
     pub version: i32,
     pub published_at: Option<DateTime<Utc>>,
     pub created_by: Option<i64>,
+    /// 根节点（第一个产品）的产品编码，列表页展示用
+    pub product_code: Option<String>,
 }
 
 /// BOM 明细 — 设计定义为节点向量
@@ -199,13 +201,14 @@ pub struct BomLaborCostReport {
 
 // ---- Request / Response structs ----
 
-#[derive(Debug, Clone)]
 pub struct BomQuery {
     pub name: Option<String>,
     pub status: Option<BomStatus>,
     pub bom_category_id: Option<i64>,
     pub date_from: Option<String>,
     pub date_to: Option<String>,
+    /// 仅筛选根节点产品编码在 bom_labor_processes 中无记录的 BOM
+    pub no_labor_cost: bool,
 }
 
 #[derive(Debug, Clone)]

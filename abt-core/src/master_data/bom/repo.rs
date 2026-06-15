@@ -9,6 +9,15 @@ use crate::shared::types::{PageParams, PaginatedResult};
 // Bom 实体不使用 sqlx::FromRow（bom_detail 从 bom_nodes 加载），
 // 通过 BomRow 中间结构做 DB → Domain 映射
 
+/// 根节点 product_code 子查询 — bom_nodes.parent_id=0 的节点，
+/// product_code 为 NULL 时回退到 products 表
+const ROOT_PRODUCT_CODE_SUBQUERY: &str = "\
+(SELECT COALESCE(bn.product_code, p.product_code) \
+ FROM bom_nodes bn \
+ LEFT JOIN products p ON p.product_id = bn.product_id \
+ WHERE bn.bom_id = boms.bom_id AND bn.parent_id = 0 \
+ LIMIT 1) AS product_code";
+
 const BOM_DB_COLUMNS: &str = "bom_id, bom_name, version, status, bom_category_id, create_at AS created_at, update_at AS updated_at, published_at, created_by";
 
 #[derive(Debug, Clone, sqlx::FromRow)]
@@ -22,6 +31,7 @@ struct BomRow {
     updated_at: Option<DateTime<Utc>>,
     published_at: Option<DateTime<Utc>>,
     created_by: Option<i64>,
+    product_code: Option<String>,
 }
 
 impl From<BomRow> for Bom {
@@ -37,6 +47,7 @@ impl From<BomRow> for Bom {
             version: row.version,
             published_at: row.published_at,
             created_by: row.created_by,
+            product_code: row.product_code,
         }
     }
 }
@@ -135,7 +146,7 @@ impl BomRepo {
 
     pub async fn find_by_id(&self, executor: PgExecutor<'_>, id: i64) -> Result<Option<Bom>> {
         let row = sqlx::query_as::<sqlx::Postgres, BomRow>(
-            sqlx::AssertSqlSafe(format!("SELECT {BOM_DB_COLUMNS} FROM boms WHERE bom_id = $1 AND deleted_at IS NULL")),
+            sqlx::AssertSqlSafe(format!("SELECT {BOM_DB_COLUMNS}, {ROOT_PRODUCT_CODE_SUBQUERY} FROM boms WHERE bom_id = $1 AND deleted_at IS NULL")),
         )
         .bind(id)
         .fetch_optional(executor)
@@ -155,7 +166,14 @@ impl BomRepo {
 
         let name_param = if let Some(ref name) = filter.name {
             param_idx += 1;
-            conditions.push(format!("bom_name ILIKE ${param_idx}"));
+            conditions.push(format!(
+                "(bom_name ILIKE ${param_idx} OR EXISTS(\
+                    SELECT 1 FROM bom_nodes bn \
+                    LEFT JOIN products p ON p.product_id = bn.product_id \
+                    WHERE bn.bom_id = boms.bom_id AND bn.parent_id = 0 \
+                    AND COALESCE(bn.product_code, p.product_code) ILIKE ${param_idx}\
+                ))"
+            ));
             Some(format!("%{name}%"))
         } else {
             None
@@ -198,6 +216,15 @@ impl BomRepo {
         } else {
             None
         };
+        if filter.no_labor_cost {
+            conditions.push(
+                "NOT EXISTS(\
+                    SELECT 1 FROM bom_nodes bn \
+                    JOIN bom_labor_processes blp ON blp.product_code = bn.product_code AND blp.deleted_at IS NULL \
+                    WHERE bn.bom_id = boms.bom_id AND bn.parent_id = 0\
+                )".to_string()
+            );
+        }
         let where_clause = conditions.join(" AND ");
         let count_sql = format!("SELECT COUNT(*) FROM boms WHERE {where_clause}");
         let mut count_q = sqlx::query_scalar::<sqlx::Postgres, i64>(sqlx::AssertSqlSafe(count_sql));
@@ -212,7 +239,7 @@ impl BomRepo {
         param_idx += 1;
         let offset_idx = param_idx;
         let data_sql = format!(
-            "SELECT {BOM_DB_COLUMNS} FROM boms WHERE {where_clause} ORDER BY bom_id DESC LIMIT ${limit_idx} OFFSET ${offset_idx}",
+            "SELECT {BOM_DB_COLUMNS}, {ROOT_PRODUCT_CODE_SUBQUERY} FROM boms WHERE {where_clause} ORDER BY bom_id DESC LIMIT ${limit_idx} OFFSET ${offset_idx}",
         );
         let mut data_q = sqlx::query_as::<sqlx::Postgres, BomRow>(sqlx::AssertSqlSafe(data_sql));
         if let Some(ref v) = name_param { data_q = data_q.bind(v); }

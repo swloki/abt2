@@ -38,6 +38,8 @@ pub struct BomQueryParams {
     pub date_to: Option<String>,
     #[serde(default)]
     pub no_labor_cost: bool,
+    #[serde(default)]
+    pub no_material_cost: bool,
     #[serde(default, deserialize_with = "empty_as_none")]
     pub page: Option<u32>,
 }
@@ -136,6 +138,7 @@ fn build_filter(params: &BomQueryParams) -> BomQuery {
         date_from: params.date_from.clone(),
         date_to: params.date_to.clone(),
         no_labor_cost: params.no_labor_cost,
+        no_material_cost: params.no_material_cost,
     }
 }
 fn build_query_string(params: &BomQueryParams) -> String {
@@ -157,6 +160,9 @@ fn build_query_string(params: &BomQueryParams) -> String {
     }
     if params.no_labor_cost {
         q.push("no_labor_cost=true".to_string());
+    }
+    if params.no_material_cost {
+        q.push("no_material_cost=true".to_string());
     }
     q.join("&")
 }
@@ -302,6 +308,14 @@ fn bom_table_fragment(
                 label class="filter-check" {
                     input type="checkbox" name="no_labor_cost" value="true" checked[params.no_labor_cost] {}
                     "无人工成本"
+                }
+                label class="filter-check" {
+                    input type="checkbox" name="no_material_cost" value="true" checked[params.no_material_cost] {}
+                    "物料成本缺失"
+                }
+                a href=(BomListPath::PATH) class="btn btn-default btn-sm" {
+                    (icon::refresh_icon("w-4 h-4"))
+                    "重置"
                 }
             }
             // ── Data Table ──

@@ -49,6 +49,7 @@ pub async fn get_md_dashboard(
                 date_from: None,
                 date_to: None,
                 no_labor_cost: false,
+                no_material_cost: false,
             },
             page.clone(),
         )

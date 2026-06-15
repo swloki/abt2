@@ -209,6 +209,8 @@ pub struct BomQuery {
     pub date_to: Option<String>,
     /// 仅筛选根节点产品编码在 bom_labor_processes 中无记录的 BOM
     pub no_labor_cost: bool,
+    /// 仅筛选没有任何子节点（物料行）的 BOM
+    pub no_material_cost: bool,
 }
 
 #[derive(Debug, Clone)]

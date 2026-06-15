@@ -225,6 +225,19 @@ impl BomRepo {
                 )".to_string()
             );
         }
+        if filter.no_material_cost {
+            conditions.push(
+                "EXISTS(\
+                    SELECT 1 FROM bom_nodes leaf \
+                    WHERE leaf.bom_id = boms.bom_id \
+                      AND NOT EXISTS (SELECT 1 FROM bom_nodes c WHERE c.parent_id = leaf.node_id) \
+                      AND NOT EXISTS (\
+                          SELECT 1 FROM price_log pl \
+                          WHERE pl.product_id = leaf.product_id AND pl.price_type = 1\
+                      )\
+                )".to_string()
+            );
+        }
         let where_clause = conditions.join(" AND ");
         let count_sql = format!("SELECT COUNT(*) FROM boms WHERE {where_clause}");
         let mut count_q = sqlx::query_scalar::<sqlx::Postgres, i64>(sqlx::AssertSqlSafe(count_sql));

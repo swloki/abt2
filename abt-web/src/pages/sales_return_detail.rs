@@ -354,7 +354,7 @@ fn return_detail_page(
     html! {
         div {
             // ── Back Link ──
-            a class="back-link" href=(ReturnListPath::PATH) {
+            a class="back-link" href=(format!("{}?restore=true", ReturnListPath::PATH)) {
                 (icon::chevron_left_icon("w-4 h-4"))
                 "返回退货列表"
             }
@@ -375,7 +375,7 @@ fn return_detail_page(
                     }
                 }
                 div class="page-actions" {
-                    a class="btn btn-default" href=(ReturnListPath::PATH) { "返回列表" }
+                    a class="btn btn-default" href=(format!("{}?restore=true", ReturnListPath::PATH)) { "返回列表" }
                     @if r.status == ReturnStatus::Draft {
                         button
                             class="btn btn-primary"

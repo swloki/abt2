@@ -144,7 +144,7 @@ fn quotation_detail_page(
     html! {
         div {
             // ── Back Link ──
-            a class="back-link" href=(QuotationListPath::PATH) {
+            a class="back-link" href=(format!("{}?restore=true", QuotationListPath::PATH)) {
                 (icon::arrow_left_icon("w-4 h-4"))
                 "返回报价单列表"
             }

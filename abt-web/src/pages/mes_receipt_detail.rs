@@ -35,7 +35,7 @@ pub async fn get_receipt_detail(path: ReceiptDetailPath, ctx: RequestContext) ->
 
     let content = html! { div {
         div class="page-header" {
-            div class="page-header-left" { a class="back-link" href=(ReceiptListPath::PATH) { "\u{2190} 返回列表" } h1 class="page-title" { "入库单 " (receipt.doc_number) } }
+            div class="page-header-left" { a class="back-link" href=(format!("{}?restore=true", ReceiptListPath::PATH)) { "\u{2190} 返回列表" } h1 class="page-title" { "入库单 " (receipt.doc_number) } }
             div class="page-actions" {
                 @if receipt.status == abt_core::mes::enums::ReceiptStatus::Draft {
                     form hx-post=(format!("/admin/mes/receipts/{}/confirm", receipt.id)) hx-swap="none" style="display:inline" {

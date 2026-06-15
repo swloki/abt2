@@ -178,7 +178,7 @@ fn cycle_count_create_page(
 ) -> Markup {
     html! {
         div {
-            a href=(CycleCountListPath::PATH) class="back-link" {
+            a href=(format!("{}?restore=true", CycleCountListPath::PATH)) class="back-link" {
                 (icon::chevron_left_icon("w-4 h-4"))
                 "返回盘点列表"
             }
@@ -275,7 +275,7 @@ fn cycle_count_create_page(
                 input type="hidden" name="items_json" id="cc-items-json" value="[]" {}
 
                 div class="create-action-bar" {
-                    a class="btn btn-default" href=(CycleCountListPath::PATH) { "取消" }
+                    a class="btn btn-default" href=(format!("{}?restore=true", CycleCountListPath::PATH)) { "取消" }
                     button type="submit" class="btn btn-default" name="action" value="draft" {
                         "保存草稿"
                     }

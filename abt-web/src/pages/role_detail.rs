@@ -299,7 +299,7 @@ fn role_detail_page(
     html! {
         div {
             // ── Back Link ──
-            a.back-link href=(list_path) {
+            a.back-link href=(format!("{list_path}?restore=true")) {
                 (icon::chevron_left_icon("w-4 h-4"))
                 "返回角色列表"
             }

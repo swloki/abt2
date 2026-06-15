@@ -30,7 +30,7 @@ pub async fn get_inspection_create(_path: InspectionCreatePath, ctx: RequestCont
     let RequestContext { claims, .. } = ctx;
     let content = html! { div {
         div class="page-header" {
-            div class="page-header-left" { a class="back-link" href=(InspectionListPath::PATH) { "\u{2190} 返回列表" } h1 class="page-title" { "新建检验" } }
+            div class="page-header-left" { a class="back-link" href=(format!("{}?restore=true", InspectionListPath::PATH)) { "\u{2190} 返回列表" } h1 class="page-title" { "新建检验" } }
         }
         form hx-post=(InspectionCreatePath::PATH) hx-swap="none" {
             div class="form-section" {
@@ -48,7 +48,7 @@ pub async fn get_inspection_create(_path: InspectionCreatePath, ctx: RequestCont
                 }
             }
             div class="create-action-bar" {
-                a class="btn btn-default" href=(InspectionListPath::PATH) { "取消" }
+                a class="btn btn-default" href=(format!("{}?restore=true", InspectionListPath::PATH)) { "取消" }
                 button type="submit" class="btn btn-primary" { "提交" }
             }
         }

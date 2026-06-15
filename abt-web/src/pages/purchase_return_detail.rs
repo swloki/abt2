@@ -182,7 +182,7 @@ fn pr_detail_page(
     html! {
         div {
             // ── Back Link ──
-            a class="back-link" href=(PRListPath::PATH) {
+            a class="back-link" href=(format!("{}?restore=true", PRListPath::PATH)) {
                 (icon::chevron_left_icon("w-4 h-4"))
                 "返回采购退货列表"
             }

@@ -173,7 +173,7 @@ fn requisition_create_page(
 ) -> Markup {
     html! {
         div {
-            a href=(RequisitionListPath::PATH) class="back-link" {
+            a href=(format!("{}?restore=true", RequisitionListPath::PATH)) class="back-link" {
                 (icon::chevron_left_icon("w-4 h-4"))
                 "返回领料单列表"
             }
@@ -258,7 +258,7 @@ fn requisition_create_page(
 
                 // Actions
                 div class="action-bar" {
-                    a href=(RequisitionListPath::PATH) class="btn btn-default" { "取消" }
+                    a href=(format!("{}?restore=true", RequisitionListPath::PATH)) class="btn btn-default" { "取消" }
                     button type="submit" class="btn btn-primary" {
                         (icon::check_circle_icon("w-4 h-4"))
                         "提交领料单"

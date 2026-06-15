@@ -247,7 +247,7 @@ fn pr_create_page(
         div id="pr-app" {
             // ── Page Header ──
             div class="page-header" {
-                a class="back-link" href=(PRListPath::PATH) {
+                a class="back-link" href=(format!("{}?restore=true", PRListPath::PATH)) {
                     (icon::arrow_left_icon("w-4 h-4"))
                     "返回采购退货列表"
                 }
@@ -386,7 +386,7 @@ fn pr_create_page(
             div id="pr-order-data" style="display:none" { }
 
             div class="create-action-bar" {
-                a class="btn btn-default" href=(PRListPath::PATH) { "取消" }
+                a class="btn btn-default" href=(format!("{}?restore=true", PRListPath::PATH)) { "取消" }
                 div style="display:flex;gap:var(--space-3)" {
                     button type="button" class="btn btn-default" id="pr-save-draft" {
                         "保存草稿"

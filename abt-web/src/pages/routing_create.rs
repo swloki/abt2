@@ -141,7 +141,7 @@ fn routing_create_page(
             div id="routing-app" {
             // ── Page Header ──
             div class="page-header" {
-                a class="back-link" href=(RoutingListPath::PATH) {
+                a class="back-link" href=(format!("{}?restore=true", RoutingListPath::PATH)) {
                     (icon::arrow_left_icon("w-4 h-4"))
                     "返回工艺路线列表"
                 }
@@ -210,7 +210,7 @@ fn routing_create_page(
 
                 // ── Action Bar ──
                 div class="create-action-bar" {
-                    a class="btn btn-default" href=(RoutingListPath::PATH) { "取消" }
+                    a class="btn btn-default" href=(format!("{}?restore=true", RoutingListPath::PATH)) { "取消" }
                     button type="submit" class="btn btn-primary" { "保存路线" }
                 }
             }

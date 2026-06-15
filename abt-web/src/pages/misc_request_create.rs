@@ -136,7 +136,7 @@ fn misc_create_page() -> Markup {
         div id="misc-app" {
             // ── Page Header ──
             div class="page-header" {
-                a class="back-link" href=(MiscListPath::PATH) {
+                a class="back-link" href=(format!("{}?restore=true", MiscListPath::PATH)) {
                     (icon::arrow_left_icon("w-4 h-4"))
                     "返回零星请购列表"
                 }
@@ -224,7 +224,7 @@ fn misc_create_page() -> Markup {
 
             // ── Action Bar ──
             div class="create-action-bar" {
-                a class="btn btn-default" href=(MiscListPath::PATH) { "取消" }
+                a class="btn btn-default" href=(format!("{}?restore=true", MiscListPath::PATH)) { "取消" }
                 div style="display:flex;gap:var(--space-3)" {
                     button type="button" class="btn btn-default" { "保存草稿" }
                     button type="submit" class="btn btn-primary" { "提交请购" }

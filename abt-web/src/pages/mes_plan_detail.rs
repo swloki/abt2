@@ -366,7 +366,7 @@ fn plan_detail_page(
     html! {
         div {
             // 返回
-            a class="back-link" href=(PlanListPath::PATH) {
+            a class="back-link" href=(format!("{}?restore=true", PlanListPath::PATH)) {
                 (icon::chevron_left_icon("w-4 h-4"))
                 "返回计划列表"
             }

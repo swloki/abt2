@@ -72,7 +72,7 @@ fn exception_detail_page(
     html! { div {
         div class="page-header" {
             div class="page-header-left" {
-                a class="back-link" href=(ExceptionListPath::PATH) { "\u{2190} 返回列表" }
+                a class="back-link" href=(format!("{}?restore=true", ExceptionListPath::PATH)) { "\u{2190} 返回列表" }
                 h1 class="page-title" { "异常 " (exc.doc_number) }
             }
         }

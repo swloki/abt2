@@ -384,7 +384,7 @@ fn customer_detail_page(
     html! {
         div {
         // ── Back Link ──
-        a class="back-link" href=(list_path) {
+        a class="back-link" href=(format!("{list_path}?restore=true")) {
             (icon::arrow_left_icon("w-4 h-4"))
             "返回客户列表"
         }

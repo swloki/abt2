@@ -188,7 +188,7 @@ fn arrival_create_page(
 ) -> Markup {
     html! {
         div {
-            a href=(ArrivalListPath::PATH) class="back-link" {
+            a href=(format!("{}?restore=true", ArrivalListPath::PATH)) class="back-link" {
                 (icon::chevron_left_icon("w-4 h-4"))
                 "返回来料通知列表"
             }
@@ -320,7 +320,7 @@ fn arrival_create_page(
 
                 // ── Action Bar ──
                 div class="action-bar" {
-                    a href=(ArrivalListPath::PATH) class="btn btn-default" { "取消" }
+                    a href=(format!("{}?restore=true", ArrivalListPath::PATH)) class="btn btn-default" { "取消" }
                     button type="submit" class="btn btn-primary" {
                         (icon::check_circle_icon("w-4 h-4"))
                         "提交来料通知"

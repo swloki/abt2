@@ -46,7 +46,7 @@ pub async fn get_inspection_detail(path: InspectionDetailPath, ctx: RequestConte
 
     let content = html! { div {
         div class="page-header" {
-            div class="page-header-left" { a class="back-link" href=(InspectionListPath::PATH) { "\u{2190} 返回列表" } h1 class="page-title" { "检验 " (insp.doc_number) } }
+            div class="page-header-left" { a class="back-link" href=(format!("{}?restore=true", InspectionListPath::PATH)) { "\u{2190} 返回列表" } h1 class="page-title" { "检验 " (insp.doc_number) } }
         }
         div class="info-card" {
             div class="info-grid" {

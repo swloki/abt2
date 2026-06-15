@@ -232,7 +232,7 @@ fn arrival_detail_page(
 
     html! {
         div {
-            a href=(ArrivalListPath::PATH) class="back-link" {
+            a href=(format!("{}?restore=true", ArrivalListPath::PATH)) class="back-link" {
                 (icon::chevron_left_icon("w-4 h-4"))
                 "返回来料通知列表"
             }

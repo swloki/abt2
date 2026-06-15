@@ -283,7 +283,7 @@ fn return_create_page(customers: &[abt_core::master_data::customer::model::Custo
         div id="return-app" class="padded-section" {
             // ── Page Header ──
             div class="page-header" {
-                a class="back-link" href=(ReturnListPath::PATH) {
+                a class="back-link" href=(format!("{}?restore=true", ReturnListPath::PATH)) {
                     (icon::arrow_left_icon("w-4 h-4"))
                     "返回退货列表"
                 }
@@ -440,7 +440,7 @@ fn return_create_page(customers: &[abt_core::master_data::customer::model::Custo
 
             // ── Action Bar ──
             div class="create-action-bar" {
-                a class="btn btn-default" href=(ReturnListPath::PATH) { "取消" }
+                a class="btn btn-default" href=(format!("{}?restore=true", ReturnListPath::PATH)) { "取消" }
                 div class="flex gap-3" {
                     button type="button" class="btn btn-default" onclick="handleSaveDraft()" {
                         (icon::save_icon("w-4 h-4"))

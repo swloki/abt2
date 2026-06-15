@@ -143,7 +143,7 @@ fn lock_detail_page(
 
     html! {
         div {
-            a class="back-link" href=(LockListPath::PATH) {
+            a class="back-link" href=(format!("{}?restore=true", LockListPath::PATH)) {
                 (crate::components::icon::chevron_left_icon("w-4 h-4"))
                 "返回库存锁定列表"
             }

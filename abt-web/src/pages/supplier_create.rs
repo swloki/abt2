@@ -135,7 +135,7 @@ fn supplier_create_page() -> Markup {
         div {
             // ── Page Header ──
             div class="page-header" {
-                a class="back-link" href=(SupplierListPath::PATH) {
+                a class="back-link" href=(format!("{}?restore=true", SupplierListPath::PATH)) {
                     (icon::arrow_left_icon("w-4 h-4"))
                     "返回供应商列表"
                 }
@@ -270,7 +270,7 @@ fn supplier_create_page() -> Markup {
 
                 // ── Action Bar ──
                 div class="create-action-bar" {
-                    a class="btn btn-default" href=(SupplierListPath::PATH) { "取消" }
+                    a class="btn btn-default" href=(format!("{}?restore=true", SupplierListPath::PATH)) { "取消" }
                     button type="submit" class="btn btn-primary" {
                         "保存供应商"
                     }

@@ -103,7 +103,7 @@ fn bom_create_page(categories: &[BomCategory]) -> Markup {
         div {
             // ── Page Header ──
             div class="page-header" {
-                a class="back-link" href=(BomListPath::PATH) {
+                a class="back-link" href=(format!("{}?restore=true", BomListPath::PATH)) {
                     (icon::arrow_left_icon("w-4 h-4"))
                     "返回物料清单列表"
                 }
@@ -134,7 +134,7 @@ fn bom_create_page(categories: &[BomCategory]) -> Markup {
 
                     // ── Action Bar ──
                     div class="create-action-bar" {
-                        a class="btn btn-default" href=(BomListPath::PATH) { "取消" }
+                        a class="btn btn-default" href=(format!("{}?restore=true", BomListPath::PATH)) { "取消" }
                         div style="display:flex;gap:var(--space-3)" {
                             button type="submit" class="btn btn-primary" {
                                 "下一步"

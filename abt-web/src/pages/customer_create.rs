@@ -151,7 +151,7 @@ fn customer_create_page(users: &[(i64, String)]) -> Markup {
         div {
             // ── Page Header ──
             div class="page-header" {
-                a class="back-link" href=(CustomerListPath::PATH) {
+                a class="back-link" href=(format!("{}?restore=true", CustomerListPath::PATH)) {
                     (icon::arrow_left_icon("w-4 h-4"))
                     "返回客户列表"
                 }

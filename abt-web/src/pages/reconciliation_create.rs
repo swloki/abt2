@@ -181,7 +181,7 @@ fn reconciliation_create_page(
         div id="rec-app" class="padded-section" {
             // ── Page Header ──
             div class="page-header" {
-                a class="back-link" href=(ReconciliationListPath::PATH) {
+                a class="back-link" href=(format!("{}?restore=true", ReconciliationListPath::PATH)) {
                     (icon::arrow_left_icon("w-4 h-4"))
                     "返回对账单列表"
                 }
@@ -287,7 +287,7 @@ fn reconciliation_create_page(
 
                 // ── Action Bar ──
                 div class="create-action-bar" {
-                    a class="btn btn-default" href=(ReconciliationListPath::PATH) { "取消" }
+                    a class="btn btn-default" href=(format!("{}?restore=true", ReconciliationListPath::PATH)) { "取消" }
                     div class="action-bar-right" {
                         button type="button" class="btn btn-default" onclick="show_info_toast('草稿功能开发中')" {
                             (icon::save_icon("w-4 h-4"))

@@ -129,7 +129,7 @@ fn bin_detail_page(
     html! {
         div {
             // ── Back Link ──
-            a class="back-link" href=(BinListPath::PATH) {
+            a class="back-link" href=(format!("{}?restore=true", BinListPath::PATH)) {
                 (icon::arrow_left_icon("w-4 h-4"))
                 "返回储位管理列表"
             }

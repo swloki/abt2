@@ -118,7 +118,7 @@ fn stock_out_detail_page(
 
     html! {
         div {
-            a href=(StockOutListPath::PATH) class="back-link" {
+            a href=(format!("{}?restore=true", StockOutListPath::PATH)) class="back-link" {
                 (icon::chevron_left_icon("w-4 h-4"))
                 "返回出库列表"
             }

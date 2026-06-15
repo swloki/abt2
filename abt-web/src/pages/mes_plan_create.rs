@@ -137,7 +137,7 @@ fn plan_create_page() -> Markup {
         div {
             div class="page-header" {
                 div class="page-header-left" {
-                    a class="back-link" href=(PlanListPath::PATH) {
+                    a class="back-link" href=(format!("{}?restore=true", PlanListPath::PATH)) {
                         "← 返回列表"
                     }
                     h1 class="page-title" { "新建生产计划" }
@@ -201,7 +201,7 @@ fn plan_create_page() -> Markup {
 
                 // ── Actions ──
                 div class="create-action-bar" {
-                    a class="btn btn-default" href=(PlanListPath::PATH) { "取消" }
+                    a class="btn btn-default" href=(format!("{}?restore=true", PlanListPath::PATH)) { "取消" }
                     button type="submit" class="btn btn-primary" {
                         "提交"
                     }

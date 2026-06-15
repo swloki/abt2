@@ -54,7 +54,7 @@ pub async fn get_detail(path: SpecDetailPath, ctx: RequestContext) -> Result<Htm
     let content = html! { div {
         div class="page-header" {
             div class="page-header-left" {
-                a class="back-link" href=(SpecListPath::PATH) { "\u{2190} 返回列表" }
+                a class="back-link" href=(format!("{}?restore=true", SpecListPath::PATH)) { "\u{2190} 返回列表" }
                 h1 class="page-title" {
                     "单号 " (spec.doc_number)
                     " "

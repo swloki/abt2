@@ -288,7 +288,7 @@ fn spec_create_page(products: &[abt_core::master_data::product::model::Product])
 
                 // ── Action Bar ──
                 div class="create-action-bar" {
-                    a class="btn btn-default" href=(SpecListPath::PATH) { "取消" }
+                    a class="btn btn-default" href=(format!("{}?restore=true", SpecListPath::PATH)) { "取消" }
                     button type="button" class="btn btn-default" id="save-draft-btn" { "保存草稿" }
                     button type="submit" class="btn btn-primary" {
                         (icon::check_circle_icon("w-4 h-4"))

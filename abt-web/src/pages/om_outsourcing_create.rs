@@ -236,7 +236,7 @@ fn create_page(
             // ── Page Header ──
             div class="page-header" {
                 div class="page-header-left" {
-                    a class="back-link" href=(OmOutsourcingListPath::PATH) {
+                    a class="back-link" href=(format!("{}?restore=true", OmOutsourcingListPath::PATH)) {
                         "\u{2190} 返回列表"
                     }
                     h1 class="page-title" { "新建委外单" }
@@ -381,7 +381,7 @@ fn create_page(
 
                 // ── Action bar ──
                 div class="create-action-bar" {
-                    a class="btn btn-default" href=(OmOutsourcingListPath::PATH) { "取消" }
+                    a class="btn btn-default" href=(format!("{}?restore=true", OmOutsourcingListPath::PATH)) { "取消" }
                     button type="submit" class="btn btn-primary" { "确认提交" }
                 }
             }

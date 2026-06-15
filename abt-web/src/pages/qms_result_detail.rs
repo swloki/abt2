@@ -82,7 +82,7 @@ pub async fn get_detail(path: ResultDetailPath, ctx: RequestContext) -> Result<H
     let content = html! { div {
         div class="page-header" {
             div class="page-header-left" {
-                a class="back-link" href=(ResultListPath::PATH) { "\u{2190} 返回列表" }
+                a class="back-link" href=(format!("{}?restore=true", ResultListPath::PATH)) { "\u{2190} 返回列表" }
                 h1 class="page-title" {
                     "单号 " (&result.doc_number)
                     " "
@@ -172,7 +172,7 @@ pub async fn get_detail(path: ResultDetailPath, ctx: RequestContext) -> Result<H
         // ── 操作按钮 ──
         @if result.status == InspectionStatus::Pending {
             div class="create-action-bar" {
-                a class="btn btn-primary" href=(ResultListPath::PATH) {
+                a class="btn btn-primary" href=(format!("{}?restore=true", ResultListPath::PATH)) {
                     "记录结果"
                 }
             }

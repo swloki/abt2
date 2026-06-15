@@ -179,7 +179,7 @@ pub async fn search_source_plans(
 fn order_create_page() -> Markup {
     html! { div {
         div class="page-header" {
-            div class="page-header-left" { a class="back-link" href=(OrderListPath::PATH) { "\u{2190} 返回列表" } h1 class="page-title" { "新建工单" } }
+            div class="page-header-left" { a class="back-link" href=(format!("{}?restore=true", OrderListPath::PATH)) { "\u{2190} 返回列表" } h1 class="page-title" { "新建工单" } }
         }
         form hx-post=(OrderCreatePath::PATH) hx-swap="none" {
             div class="form-section" {
@@ -243,7 +243,7 @@ fn order_create_page() -> Markup {
                 }
             }
             div class="create-action-bar" {
-                a class="btn btn-default" href=(OrderListPath::PATH) { "取消" }
+                a class="btn btn-default" href=(format!("{}?restore=true", OrderListPath::PATH)) { "取消" }
                 button type="submit" class="btn btn-primary" { "提交" }
             }
         }

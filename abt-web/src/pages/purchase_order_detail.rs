@@ -186,7 +186,7 @@ fn po_detail_page(
     html! {
         div {
             // ── Back Link ──
-            a class="back-link" href=(POListPath::PATH) {
+            a class="back-link" href=(format!("{}?restore=true", POListPath::PATH)) {
                 (icon::chevron_left_icon("w-4 h-4"))
                 "返回采购订单列表"
             }

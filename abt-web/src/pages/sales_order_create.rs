@@ -277,7 +277,7 @@ fn order_create_page(customers: &[abt_core::master_data::customer::model::Custom
         div id="order-app" class="padded-section" {
             // ── Page Header ──
             div class="page-header" {
-                a class="back-link" href=(OrderListPath::PATH) {
+                a class="back-link" href=(format!("{}?restore=true", OrderListPath::PATH)) {
                     (icon::arrow_left_icon("w-4 h-4"))
                     "返回订单列表"
                 }
@@ -416,7 +416,7 @@ fn order_create_page(customers: &[abt_core::master_data::customer::model::Custom
 
             // ── Action Bar ──
             div class="create-action-bar" {
-                a class="btn btn-default" href=(OrderListPath::PATH) { "取消" }
+                a class="btn btn-default" href=(format!("{}?restore=true", OrderListPath::PATH)) { "取消" }
                 div class="flex gap-3" {
                     button type="button" class="btn btn-default" {
                         (icon::save_icon("w-4 h-4"))

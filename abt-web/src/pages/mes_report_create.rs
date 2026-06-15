@@ -444,7 +444,7 @@ fn report_create_page(
             }
 
             div class="form-actions" {
-                a class="btn btn-default" href=(ReportListPath::PATH) { "取消" }
+                a class="btn btn-default" href=(format!("{}?restore=true", ReportListPath::PATH)) { "取消" }
                 button type="submit" class="btn btn-primary" { "确认报工" }
             }
         }

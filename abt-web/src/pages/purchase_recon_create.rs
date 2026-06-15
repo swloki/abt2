@@ -111,7 +111,7 @@ fn precon_create_page(
         div id="precon-app" {
             // ── Page Header ──
             div class="page-header" {
-                a class="back-link" href=(PreconListPath::PATH) {
+                a class="back-link" href=(format!("{}?restore=true", PreconListPath::PATH)) {
                     (icon::arrow_left_icon("w-4 h-4"))
                     "返回对账单列表"
                 }
@@ -213,7 +213,7 @@ fn precon_create_page(
 
             // ── Action Bar ──
             div class="create-action-bar" {
-                a class="btn btn-default" href=(PreconListPath::PATH) { "取消" }
+                a class="btn btn-default" href=(format!("{}?restore=true", PreconListPath::PATH)) { "取消" }
                 div style="display:flex;gap:var(--space-3)" {
                     button type="submit" class="btn btn-default" name="action" value="draft" {
                         "保存草稿"

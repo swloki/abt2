@@ -222,7 +222,7 @@ fn shipping_detail_page(
     html! {
         div {
             // ── Back Link ──
-            a class="back-link" href=(ShippingListPath::PATH) {
+            a class="back-link" href=(format!("{}?restore=true", ShippingListPath::PATH)) {
                 (icon::chevron_left_icon("w-4 h-4"))
                 "返回发货申请列表"
             }
@@ -244,7 +244,7 @@ fn shipping_detail_page(
                     }
                 }
                 div class="page-actions" {
-                    a class="btn btn-default" href=(ShippingListPath::PATH) { "返回列表" }
+                    a class="btn btn-default" href=(format!("{}?restore=true", ShippingListPath::PATH)) { "返回列表" }
                     @if s.status == ShippingStatus::Draft {
                         button class="btn btn-primary"
                             hx-post=(ConfirmShippingPath { id: s.id }.to_string())

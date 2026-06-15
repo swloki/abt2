@@ -223,7 +223,7 @@ fn pay_create_page(
         div {
             // ── Page Header ──
             div class="page-header" {
-                a class="back-link" href=(PayListPath::PATH) {
+                a class="back-link" href=(format!("{}?restore=true", PayListPath::PATH)) {
                     (icon::arrow_left_icon("w-4 h-4"))
                     "返回付款申请列表"
                 }
@@ -324,7 +324,7 @@ fn pay_create_page(
 
             // ── Action Bar ──
             div class="create-action-bar" {
-                a class="btn btn-default" href=(PayListPath::PATH) { "取消" }
+                a class="btn btn-default" href=(format!("{}?restore=true", PayListPath::PATH)) { "取消" }
                 div style="display:flex;gap:var(--space-3)" {
                     button type="button" class="btn btn-default" { "保存草稿" }
                     button type="submit" class="btn btn-primary" { "提交付款申请" }

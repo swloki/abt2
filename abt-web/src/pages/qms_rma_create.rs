@@ -153,7 +153,7 @@ fn rma_create_page(customers: &[Customer], products: &[Product], sales_orders: &
             // ── Page header ──
             div class="page-header" {
                 div class="page-header-left" {
-                    a class="back-link" href=(RmaListPath::PATH) {
+                    a class="back-link" href=(format!("{}?restore=true", RmaListPath::PATH)) {
                         (icon::arrow_left_icon("w-4 h-4"))
                         "返回列表"
                     }
@@ -267,7 +267,7 @@ fn rma_create_page(customers: &[Customer], products: &[Product], sales_orders: &
 
                 // ── Action bar ──
                 div class="create-action-bar" {
-                    a class="btn btn-default" href=(RmaListPath::PATH) { "取消" }
+                    a class="btn btn-default" href=(format!("{}?restore=true", RmaListPath::PATH)) { "取消" }
                     button type="submit" class="btn btn-default" name="action" value="save" {
                         (icon::check_circle_icon("w-4 h-4"))
                         "保存"

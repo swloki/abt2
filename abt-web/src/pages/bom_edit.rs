@@ -511,7 +511,7 @@ fn bom_edit_page(
             div class="bom-toolbar" {
                 // Left side: back, category, view toggle, level filter
                 div class="bom-toolbar-left" {
-                    a class="btn btn-sm btn-default" href=(list_path) {
+                    a class="btn btn-sm btn-default" href=(format!("{list_path}?restore=true")) {
                         (icon::arrow_left_icon("w-4 h-4"))
                         " 返回列表"
                     }

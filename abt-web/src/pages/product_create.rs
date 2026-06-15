@@ -158,7 +158,7 @@ fn product_create_page(source: Option<&Product>, categories: &[CategoryTree]) ->
         div {
             // ── Page Header ──
             div class="page-header" {
-                a class="back-link" href=(ProductListPath::PATH) {
+                a class="back-link" href=(format!("{}?restore=true", ProductListPath::PATH)) {
                     (icon::arrow_left_icon("w-4 h-4"))
                     "返回产品列表"
                 }
@@ -264,7 +264,7 @@ fn product_create_page(source: Option<&Product>, categories: &[CategoryTree]) ->
 
                 // ── Action Bar ──
                 div class="create-action-bar" {
-                    a class="btn btn-default" href=(ProductListPath::PATH) { "取消" }
+                    a class="btn btn-default" href=(format!("{}?restore=true", ProductListPath::PATH)) { "取消" }
                     button type="submit" class="btn btn-primary" {
                         (btn_label)
                     }

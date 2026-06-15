@@ -247,7 +247,7 @@ fn reconciliation_detail_page(
     html! {
         div {
             // ── Back Link ──
-            a class="back-link" href=(ReconciliationListPath::PATH) {
+            a class="back-link" href=(format!("{}?restore=true", ReconciliationListPath::PATH)) {
                 (icon::chevron_left_icon("w-4 h-4"))
                 "返回对账单列表"
             }

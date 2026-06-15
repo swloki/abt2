@@ -618,7 +618,7 @@ fn order_detail_page(
     html! {
         div {
             // ── Back Link ──
-            a class="back-link" href=(OrderListPath::PATH) {
+            a class="back-link" href=(format!("{}?restore=true", OrderListPath::PATH)) {
                 (icon::chevron_left_icon("w-4 h-4"))
                 "返回销售订单列表"
             }

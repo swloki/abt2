@@ -108,7 +108,7 @@ fn journal_create_page() -> Markup {
             // 页面头部
             div class="page-header" {
                 div class="page-header-left" {
-                    a class="back-link" href=(JournalListPath::PATH) {
+                    a class="back-link" href=(format!("{}?restore=true", JournalListPath::PATH)) {
                         "\u{2190} 返回列表"
                     }
                     h1 class="page-title" { "新建出纳日记账" }
@@ -214,7 +214,7 @@ fn journal_create_page() -> Markup {
 
                 // ── 操作栏 ──
                 div class="create-action-bar" {
-                    a class="btn btn-default" href=(JournalListPath::PATH) { "取消" }
+                    a class="btn btn-default" href=(format!("{}?restore=true", JournalListPath::PATH)) { "取消" }
                     div style="display:flex;gap:var(--space-3)" {
                         button type="button" class="btn btn-default" { "保存草稿" }
                         button type="submit" class="btn btn-primary" { "提交" }

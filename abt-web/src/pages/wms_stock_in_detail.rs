@@ -118,7 +118,7 @@ fn stock_in_detail_page(
 
     html! {
         div {
-            a href=(StockInListPath::PATH) class="back-link" {
+            a href=(format!("{}?restore=true", StockInListPath::PATH)) class="back-link" {
                 (icon::chevron_left_icon("w-4 h-4"))
                 "返回入库列表"
             }

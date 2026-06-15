@@ -313,7 +313,7 @@ fn po_create_page(
         div id="po-app" {
             // ── Page Header ──
             div class="page-header" {
-                a class="back-link" href=(POListPath::PATH) {
+                a class="back-link" href=(format!("{}?restore=true", POListPath::PATH)) {
                     (icon::arrow_left_icon("w-4 h-4"))
                     "返回采购订单列表"
                 }
@@ -461,7 +461,7 @@ fn po_create_page(
 
             // ── Action Bar ──
             div class="create-action-bar" {
-                a class="btn btn-default" href=(POListPath::PATH) { "取消" }
+                a class="btn btn-default" href=(format!("{}?restore=true", POListPath::PATH)) { "取消" }
                 div style="display:flex;gap:var(--space-3)" {
                     button type="button" class="btn btn-default" { "保存草稿" }
                     button type="submit" class="btn btn-primary" {

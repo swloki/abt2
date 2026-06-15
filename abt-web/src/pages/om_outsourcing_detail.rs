@@ -322,7 +322,7 @@ fn detail_page(
 
     html! { div {
         // ── Back link ──
-        a class="back-link" href=(OmOutsourcingListPath::PATH) {
+        a class="back-link" href=(format!("{}?restore=true", OmOutsourcingListPath::PATH)) {
             (icon::chevron_left_icon("w-4 h-4"))
             "返回委外单列表"
         }

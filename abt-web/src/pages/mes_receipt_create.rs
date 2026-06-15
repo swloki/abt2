@@ -330,7 +330,7 @@ fn receipt_create_content() -> Markup {
         div {
             div class="page-header" {
                 div class="page-header-left" {
-                    a class="back-link" href=(ReceiptListPath::PATH) { "\u{2190} 返回列表" }
+                    a class="back-link" href=(format!("{}?restore=true", ReceiptListPath::PATH)) { "\u{2190} 返回列表" }
                     h1 class="page-title" { "新建完工入库" }
                 }
             }
@@ -418,7 +418,7 @@ fn receipt_create_content() -> Markup {
                 }
 
                 div class="create-action-bar" {
-                    a class="btn btn-default" href=(ReceiptListPath::PATH) { "取消" }
+                    a class="btn btn-default" href=(format!("{}?restore=true", ReceiptListPath::PATH)) { "取消" }
                     button type="submit" class="btn btn-primary" { "提交入库" }
                 }
             }

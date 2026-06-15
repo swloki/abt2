@@ -21,14 +21,14 @@ fn should_skip(path: &str) -> bool {
 /// 列表-详情返回导航状态记忆中间件。
 ///
 /// 对所有 GET 请求：
-/// - 有 query string → 按 path 保存 query 到 Session，正常处理
-/// - 无 query + 该 path 有保存状态 → 将保存的 query 注入请求 URI，正常处理（无重定向）
-/// - 无 query + 无保存状态 → 正常处理
+/// - 带 `restore=true` → 恢复该 path 在 Session 中保存的 query（透明注入 URI）
+/// - 有 query（非 restore）→ 按 path 保存 query 到 Session（覆盖式），正常处理
+/// - 无 query → 正常处理（全新列表，不恢复）
 ///
-/// 这样用户从详情页返回列表（URL 为列表根路径，无 query）时，
-/// 中间件透明地将上次保存的筛选/翻页参数注入请求，handler 直接渲染带参结果。
+/// 详情页/创建页的"返回列表"链接 href 需附加 `?restore=true`，
+/// 中间件据此恢复用户上次的筛选/翻页状态。
+/// 从侧边栏菜单进入（无参）则始终显示全新列表。
 pub async fn list_state_middleware(session: Session, request: Request<Body>, next: Next) -> Response {
-    // 只处理 GET 请求
     if request.method() != axum::http::Method::GET {
         return next.run(request).await;
     }
@@ -40,8 +40,31 @@ pub async fn list_state_middleware(session: Session, request: Request<Body>, nex
         return next.run(request).await;
     }
 
-    // 情况1：有 query string → 记录最新状态
-    if let Some(query) = uri.query() {
+    let query = uri.query().unwrap_or("");
+
+    // 情况1：带 restore=true → 恢复保存的状态
+    if query.contains("restore=true") {
+        let saved_query = session
+            .get::<HashMap<String, String>>(LIST_URLS_KEY)
+            .await
+            .ok()
+            .flatten()
+            .and_then(|urls| urls.get(&path).cloned());
+
+        if let Some(saved) = saved_query {
+            let new_uri = format!("{path}?{saved}");
+            if let Ok(uri) = new_uri.parse::<Uri>() {
+                let (mut parts, body) = request.into_parts();
+                parts.uri = uri;
+                return next.run(Request::from_parts(parts, body)).await;
+            }
+        }
+        // 无保存状态 → 正常处理
+        return next.run(request).await;
+    }
+
+    // 情况2：有 query（非 restore）→ 记录最新状态
+    if !query.is_empty() {
         let mut urls: HashMap<String, String> = session
             .get(LIST_URLS_KEY)
             .await
@@ -52,27 +75,8 @@ pub async fn list_state_middleware(session: Session, request: Request<Body>, nex
         if let Err(e) = session.insert(LIST_URLS_KEY, &urls).await {
             tracing::warn!("Failed to save list URL state: {e}");
         }
-        return next.run(request).await;
     }
 
-    // 情况2：无 query + 有保存状态 → 注入参数到请求 URI（不重定向）
-    let saved_query = session
-        .get::<HashMap<String, String>>(LIST_URLS_KEY)
-        .await
-        .ok()
-        .flatten()
-        .and_then(|urls| urls.get(&path).cloned());
-
-    if let Some(query) = saved_query {
-        let new_uri = format!("{path}?{query}");
-        if let Ok(uri) = new_uri.parse::<Uri>() {
-            let (mut parts, body) = request.into_parts();
-            parts.uri = uri;
-            return next.run(Request::from_parts(parts, body)).await;
-        }
-        // parse 失败则 fallthrough 正常处理
-    }
-
-    // 情况3：无 query + 无保存状态 → 正常
+    // 情况3：无 query（菜单进入）或记录后 → 正常处理
     next.run(request).await
 }

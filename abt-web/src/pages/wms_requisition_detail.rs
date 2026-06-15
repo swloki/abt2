@@ -195,7 +195,7 @@ fn requisition_detail_page(
 
     html! {
         div {
-            a href=(RequisitionListPath::PATH) class="back-link" {
+            a href=(format!("{}?restore=true", RequisitionListPath::PATH)) class="back-link" {
                 (icon::chevron_left_icon("w-4 h-4"))
                 "返回领料单列表"
             }

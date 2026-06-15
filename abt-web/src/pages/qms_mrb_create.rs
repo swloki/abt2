@@ -134,7 +134,7 @@ fn mrb_create_page(products: &[Product], failed_results: &[InspectionResult]) ->
             // ── Page header ──
             div class="page-header" {
                 div class="page-header-left" {
-                    a class="back-link" href=(MrbListPath::PATH) {
+                    a class="back-link" href=(format!("{}?restore=true", MrbListPath::PATH)) {
                         (icon::arrow_left_icon("w-4 h-4"))
                         "返回列表"
                     }
@@ -227,7 +227,7 @@ fn mrb_create_page(products: &[Product], failed_results: &[InspectionResult]) ->
 
                 // ── Action bar ──
                 div class="create-action-bar" {
-                    a class="btn btn-default" href=(MrbListPath::PATH) { "取消" }
+                    a class="btn btn-default" href=(format!("{}?restore=true", MrbListPath::PATH)) { "取消" }
                     button type="button" class="btn btn-default"
                         onclick="document.getElementById('mrb-form').querySelector('[name=remark]').value+='[草稿]';htmx.trigger('#mrb-form','submit')" {
                         "保存草稿"

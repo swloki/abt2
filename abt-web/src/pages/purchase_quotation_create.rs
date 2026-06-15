@@ -277,7 +277,7 @@ fn pq_create_page(
         div id="pq-app" {
             // ── Page Header ──
             div class="page-header" {
-                a class="back-link" href=(PQListPath::PATH) {
+                a class="back-link" href=(format!("{}?restore=true", PQListPath::PATH)) {
                     (icon::arrow_left_icon("w-4 h-4"))
                     "返回采购报价列表"
                 }
@@ -404,7 +404,7 @@ fn pq_create_page(
 
             // ── Action Bar ──
             div class="create-action-bar" {
-                a class="btn btn-default" href=(PQListPath::PATH) { "取消" }
+                a class="btn btn-default" href=(format!("{}?restore=true", PQListPath::PATH)) { "取消" }
                 div style="display:flex;gap:var(--space-3)" {
                     button type="button" class="btn btn-default"
                         _="on click set #form-action's value to 'draft' then call document.querySelector('#pq-form').requestSubmit()" {

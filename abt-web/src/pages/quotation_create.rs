@@ -285,7 +285,7 @@ fn quotation_create_page(customers: &[abt_core::master_data::customer::model::Cu
         div id="quotation-app" class="padded-section" {
             // ── Page Header ──
             div class="page-header" {
-                a class="back-link" href=(QuotationListPath::PATH) {
+                a class="back-link" href=(format!("{}?restore=true", QuotationListPath::PATH)) {
                     (icon::arrow_left_icon("w-4 h-4"))
                     "返回报价单列表"
                 }
@@ -418,7 +418,7 @@ fn quotation_create_page(customers: &[abt_core::master_data::customer::model::Cu
 
             // ── Action Bar ──
             div class="create-action-bar" {
-                a class="btn btn-default" href=(QuotationListPath::PATH) { "取消" }
+                a class="btn btn-default" href=(format!("{}?restore=true", QuotationListPath::PATH)) { "取消" }
                 div class="flex gap-3" {
                     button type="button" class="btn btn-default" {
                         (icon::save_icon("w-4 h-4"))

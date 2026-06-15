@@ -175,7 +175,7 @@ fn user_create_page(roles: &[Role], departments: &[Department]) -> Markup {
 
                 // ── Action Bar ──
                 div class="create-action-bar" {
-                    a class="btn btn-default" href=(UserListPath::PATH) { "取消" }
+                    a class="btn btn-default" href=(format!("{}?restore=true", UserListPath::PATH)) { "取消" }
                     div style="display:flex;gap:var(--space-3)" {
                         button type="submit" class="btn btn-primary" {
                             (icon::check_circle_icon("w-4 h-4"))

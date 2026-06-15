@@ -133,7 +133,7 @@ fn lock_create_form() -> Markup {
                 }
 
                 div class="create-action-bar" {
-                    a class="btn btn-default" href=(LockListPath::PATH) { "取消" }
+                    a class="btn btn-default" href=(format!("{}?restore=true", LockListPath::PATH)) { "取消" }
                     button type="submit" class="btn btn-primary" {
                         "确认锁定"
                     }

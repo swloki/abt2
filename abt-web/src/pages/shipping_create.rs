@@ -519,7 +519,7 @@ fn shipping_edit_page(
             data-order-id=(order_id_str)
             data-items=(items_json) {
             // ── Page Header ──
-            a class="back-link" href=(ShippingListPath::PATH) {
+            a class="back-link" href=(format!("{}?restore=true", ShippingListPath::PATH)) {
                 (icon::arrow_left_icon("w-4 h-4"))
                 "返回发货申请列表"
             }
@@ -685,7 +685,7 @@ fn shipping_edit_page(
 
             // ── Action Bar ──
             div class="create-action-bar" {
-                a class="btn btn-default" href=(ShippingListPath::PATH) { "取消" }
+                a class="btn btn-default" href=(format!("{}?restore=true", ShippingListPath::PATH)) { "取消" }
                 button type="button" class="btn btn-primary" _="on click call handleSave()" {
                     (icon::save_icon("w-4 h-4"))
                     "保存"
@@ -782,7 +782,7 @@ fn shipping_create_page(
             data-warehouses=(warehouses_json)
             data-order-prefill=(prefill_order_json) {
             // ── Page Header ──
-            a class="back-link" href=(ShippingListPath::PATH) {
+            a class="back-link" href=(format!("{}?restore=true", ShippingListPath::PATH)) {
                 (icon::arrow_left_icon("w-4 h-4"))
                 "返回发货申请列表"
             }
@@ -962,7 +962,7 @@ fn shipping_create_page(
 
             // ── Action Bar ──
             div class="create-action-bar" {
-                a class="btn btn-default" href=(ShippingListPath::PATH) { "取消" }
+                a class="btn btn-default" href=(format!("{}?restore=true", ShippingListPath::PATH)) { "取消" }
                 button type="button" class="btn btn-primary" _="on click call handleSave()" {
                     (icon::save_icon("w-4 h-4"))
                     "保存"

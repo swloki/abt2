@@ -95,7 +95,7 @@ fn expense_create_page() -> Markup {
     html! {
         div class="fms-form-page" {
             // 返回链接
-            a href=(ExpenseListPath::PATH) class="back-link" style="display:inline-flex;align-items:center;gap:6px;font-size:14px;color:var(--muted);margin-bottom:var(--space-6)" {
+            a href=(format!("{}?restore=true", ExpenseListPath::PATH)) class="back-link" style="display:inline-flex;align-items:center;gap:6px;font-size:14px;color:var(--muted);margin-bottom:var(--space-6)" {
                 (PreEscaped(r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>"#))
                 "返回列表"
             }
@@ -170,7 +170,7 @@ fn expense_create_page() -> Markup {
 
                 // ── 操作栏 ──
                 div class="action-bar" {
-                    a class="btn btn-default" href=(ExpenseListPath::PATH) { "取消" }
+                    a class="btn btn-default" href=(format!("{}?restore=true", ExpenseListPath::PATH)) { "取消" }
                     button type="button" class="btn btn-default" onclick="document.getElementById('expense-form').querySelector('input[name=expense_date]').value;document.getElementById('expense-form').requestSubmit()" {
                         (PreEscaped(r#"<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>"#))
                         "保存草稿"

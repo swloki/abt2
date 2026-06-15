@@ -113,7 +113,7 @@ fn bin_create_page(
         div {
             // ── Page Header ──
             div class="page-header" {
-                a class="back-link" href=(BinListPath::PATH) {
+                a class="back-link" href=(format!("{}?restore=true", BinListPath::PATH)) {
                     (icon::arrow_left_icon("w-4 h-4"))
                     "返回储位管理列表"
                 }
@@ -216,7 +216,7 @@ fn bin_create_page(
 
                 // ── Action Bar ──
                 div class="create-action-bar" {
-                    a class="btn btn-default" href=(BinListPath::PATH) { "取消" }
+                    a class="btn btn-default" href=(format!("{}?restore=true", BinListPath::PATH)) { "取消" }
                     button type="submit" class="btn btn-primary" {
                         (icon::check_circle_icon("w-4 h-4"))
                         "保存储位"

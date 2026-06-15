@@ -83,7 +83,7 @@ pub async fn get_detail(path: ExpenseDetailPath, ctx: RequestContext) -> Result<
     let content = html! {
 
         // 返回链接
-        a.back-link href=(ExpenseListPath::PATH) {
+        a.back-link href=(format!("{}?restore=true", ExpenseListPath::PATH)) {
             (PreEscaped(r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>"#))
             " 返回列表"
         }

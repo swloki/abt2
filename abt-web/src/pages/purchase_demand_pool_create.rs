@@ -297,7 +297,7 @@ fn create_page_content(
             // ── Page Header ──
             div class="page-header" {
                 div {
-                    a class="back-link" href=(PurchaseDemandPoolListPath::PATH) {
+                    a class="back-link" href=(format!("{}?restore=true", PurchaseDemandPoolListPath::PATH)) {
                         (icon::arrow_left_icon("w-4 h-4"))
                         "返回需求池"
                     }
@@ -443,7 +443,7 @@ fn create_page_content(
 
                 // ── Action Bar ──
                 div class="create-action-bar" {
-                    a class="btn btn-default" href=(PurchaseDemandPoolListPath::PATH) { "取消" }
+                    a class="btn btn-default" href=(format!("{}?restore=true", PurchaseDemandPoolListPath::PATH)) { "取消" }
                     div style="display:flex;gap:var(--space-3);" {
                         button type="submit" name="action" value="draft" class="btn btn-default" {
                             (icon::save_icon("w-4 h-4"))

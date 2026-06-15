@@ -168,7 +168,7 @@ fn pay_detail_page(
     html! {
         div {
             // ── Back Link ──
-            a class="back-link" href=(PayListPath::PATH) {
+            a class="back-link" href=(format!("{}?restore=true", PayListPath::PATH)) {
                 (icon::chevron_left_icon("w-4 h-4"))
                 "返回付款列表"
             }

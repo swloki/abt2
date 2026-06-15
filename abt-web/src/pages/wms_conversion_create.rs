@@ -188,7 +188,7 @@ fn conversion_create_page(
 ) -> Markup {
     html! {
         div {
-            a href=(ConversionListPath::PATH) class="back-link" {
+            a href=(format!("{}?restore=true", ConversionListPath::PATH)) class="back-link" {
                 (icon::chevron_left_icon("w-4 h-4"))
                 "返回形态转换列表"
             }
@@ -297,7 +297,7 @@ fn conversion_create_page(
 
                 // ── Actions ──
                 div class="create-action-bar" {
-                    a href=(ConversionListPath::PATH) class="btn btn-default" { "取消" }
+                    a href=(format!("{}?restore=true", ConversionListPath::PATH)) class="btn btn-default" { "取消" }
                     button type="submit" class="btn btn-primary" { "提交" }
                 }
             }

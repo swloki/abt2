@@ -158,7 +158,7 @@ fn result_create_page(
     html! {
         div {
             // ── Back link ──
-            a class="back-link" href=(ResultListPath::PATH) {
+            a class="back-link" href=(format!("{}?restore=true", ResultListPath::PATH)) {
                 (icon::arrow_left_icon(""))
                 " 返回检验结果列表"
             }
@@ -333,7 +333,7 @@ fn result_create_page(
 
                 // ── Action bar ──
                 div class="create-action-bar" {
-                    a class="btn btn-default" href=(ResultListPath::PATH) { "取消" }
+                    a class="btn btn-default" href=(format!("{}?restore=true", ResultListPath::PATH)) { "取消" }
                     button type="button" class="btn btn-default" id="btn-save-draft" { "保存草稿" }
                     button type="submit" class="btn btn-primary" { "提交检验结果" }
                 }

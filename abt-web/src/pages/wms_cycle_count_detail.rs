@@ -145,7 +145,7 @@ fn cycle_count_detail_page(
 
     html! {
         div {
-            a class="back-link" href=(CycleCountListPath::PATH) {
+            a class="back-link" href=(format!("{}?restore=true", CycleCountListPath::PATH)) {
                 (crate::components::icon::chevron_left_icon("w-4 h-4"))
                 "返回循环盘点列表"
             }

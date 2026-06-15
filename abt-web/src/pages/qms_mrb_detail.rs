@@ -84,7 +84,7 @@ pub async fn get_detail(path: MrbDetailPath, ctx: RequestContext) -> Result<Html
     let content = html! { div {
         div class="page-header" {
             div class="page-header-left" {
-                a class="back-link" href=(MrbListPath::PATH) { "\u{2190} 返回列表" }
+                a class="back-link" href=(format!("{}?restore=true", MrbListPath::PATH)) { "\u{2190} 返回列表" }
                 h1 class="page-title" {
                     "MRB单号 " (&mrb.doc_number)
                     " "

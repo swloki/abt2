@@ -527,7 +527,7 @@ fn stock_in_create_content(
 
                 // ── Action Bar ──
                 div class="create-action-bar" {
-                    a class="btn btn-default" href=(StockInListPath::PATH) { "取消" }
+                    a class="btn btn-default" href=(format!("{}?restore=true", StockInListPath::PATH)) { "取消" }
                     div style="display:flex;gap:var(--space-3)" {
                         button type="button" class="btn btn-default" { "保存草稿" }
                         button type="submit" class="btn btn-primary" {

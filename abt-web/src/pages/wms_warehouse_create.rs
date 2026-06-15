@@ -131,7 +131,7 @@ pub(crate) fn warehouse_create_page(warehouse: Option<&Warehouse>) -> Markup {
         div {
             // ── Page Header ──
             div class="page-header" {
-                a class="back-link" href=(WarehouseListPath::PATH) {
+                a class="back-link" href=(format!("{}?restore=true", WarehouseListPath::PATH)) {
                     (icon::arrow_left_icon("w-4 h-4"))
                     "返回仓库管理列表"
                 }
@@ -209,7 +209,7 @@ pub(crate) fn warehouse_create_page(warehouse: Option<&Warehouse>) -> Markup {
 
                 // ── Action Bar ──
                 div class="create-action-bar" {
-                    a class="btn btn-default" href=(WarehouseListPath::PATH) { "取消" }
+                    a class="btn btn-default" href=(format!("{}?restore=true", WarehouseListPath::PATH)) { "取消" }
                     button type="submit" class="btn btn-primary" {
                         (icon::check_circle_icon("w-4 h-4"))
                         "保存仓库"

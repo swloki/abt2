@@ -187,7 +187,7 @@ fn supplier_detail_page(
                 }
             }
             div class="page-actions" {
-                a class="btn btn-default" href=(list_path) {
+                a class="btn btn-default" href=(format!("{list_path}?restore=true")) {
                     (icon::arrow_left_icon("w-4 h-4"))
                     " 返回列表"
                 }

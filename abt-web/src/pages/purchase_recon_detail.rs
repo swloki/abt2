@@ -126,7 +126,7 @@ fn precon_detail_page(
     html! {
         div {
             // ── Back Link ──
-            a class="back-link" href=(PreconListPath::PATH) {
+            a class="back-link" href=(format!("{}?restore=true", PreconListPath::PATH)) {
                 (icon::chevron_left_icon("w-4 h-4"))
                 "返回采购对账列表"
             }

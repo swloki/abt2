@@ -63,7 +63,7 @@ pub async fn get_detail(path: RmaDetailPath, ctx: RequestContext) -> Result<Html
     let content = html! { div {
         div class="page-header" {
             div class="page-header-left" {
-                a class="back-link" href=(RmaListPath::PATH) { "\u{2190} 返回列表" }
+                a class="back-link" href=(format!("{}?restore=true", RmaListPath::PATH)) { "\u{2190} 返回列表" }
                 h1 class="page-title" {
                     "RMA单号 " (&rma.doc_number)
                     " "

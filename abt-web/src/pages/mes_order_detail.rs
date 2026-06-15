@@ -315,7 +315,7 @@ fn order_detail_page(
     html! {
         div {
             // 返回
-            a class="back-link" href=(OrderListPath::PATH) {
+            a class="back-link" href=(format!("{}?restore=true", OrderListPath::PATH)) {
                 (icon::chevron_left_icon("w-4 h-4"))
                 "返回工单列表"
             }

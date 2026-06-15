@@ -43,6 +43,7 @@ pub struct ReportCreateForm {
 #[derive(Debug, Deserialize)]
 pub struct SearchParams {
     pub q: Option<String>,
+    #[serde(default, deserialize_with = "crate::utils::empty_as_none")]
     pub work_order_id: Option<i64>,
 }
 
@@ -331,14 +332,18 @@ fn report_create_page(
         event_name: "batchSelected",
         extra_include: Some("#work_order_id"),
     };
+    let today = chrono::Local::now().format("%Y-%m-%d").to_string();
 
     html! { div {
         div class="page-header" { h1 class="page-title" { "新建报工" } }
         form hx-post=(ReportCreatePath::PATH) hx-swap="none" id="report-form" {
 
-            // === 基本信息 ===
+            // ── 基本信息 ──
             div class="form-section" {
-                div class="form-section-title" { "基本信息" }
+                div class="form-section-title" {
+                    (maud::PreEscaped(r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg>"#))
+                    "基本信息"
+                }
                 div class="form-grid" {
                     div class="form-field" {
                         label class="form-label" { "报工单号" }
@@ -356,7 +361,7 @@ fn report_create_page(
                         "批次", false, "选择工单后可选…",
                     ))
                 }
-                // 批次选中后级联：工序下拉
+                // 工序（批次选中后级联加载）+ 班次 + 工人 + 日期
                 div id="batch-cascade"
                     hx-get=(ReportBatchSelectedPath::PATH)
                     hx-trigger="batchSelected from:body"
@@ -365,18 +370,21 @@ fn report_create_page(
                     hx-include="#batch_id" {}
             }
 
-            // === 报工数据 ===
+            // ── 生产数据 ──
             div class="form-section" {
-                div class="form-section-title" { "报工数据" }
+                div class="form-section-title" {
+                    (maud::PreEscaped(r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>"#))
+                    "生产数据"
+                }
                 div class="form-grid" {
                     div class="form-field" {
                         label class="form-label" { "班次 " span class="required" { "*" } }
                         div class="shift-toggle" {
                             button type="button" class="shift-btn active"
-                                _="on click take .active from .shift-btn then put '1' into (closest .shift-toggle)'s first input's value" { "白班" }
+                                _="on click take .active from .shift-btn then put '1' into #shift-input's value" { "白班" }
                             button type="button" class="shift-btn"
-                                _="on click take .active from .shift-btn then put '2' into (closest .shift-toggle)'s first input's value" { "夜班" }
-                            input type="hidden" name="shift" value="1";
+                                _="on click take .active from .shift-btn then put '2' into #shift-input's value" { "夜班" }
+                            input type="hidden" name="shift" id="shift-input" value="1";
                         }
                     }
                     div class="form-field" {
@@ -390,12 +398,12 @@ fn report_create_page(
                     }
                     div class="form-field" {
                         label class="form-label" { "报工日期 " span class="required" { "*" } }
-                        input class="form-input" type="date" name="report_date"
-                            value=(chrono::Local::now().format("%Y-%m-%d").to_string()) required;
+                        input class="form-input" type="date" name="report_date" value=(today) required;
                     }
                     div class="form-field" {
                         label class="form-label" { "完成数量 " span class="required" { "*" } }
-                        input class="form-input" type="number" placeholder="0" min="0" name="completed_qty" required;
+                        input class="form-input" type="number" placeholder="0" min="0" name="completed_qty"
+                            id="completed-qty" required;
                     }
                     div class="form-field" {
                         label class="form-label" { "不良数量" }
@@ -415,6 +423,18 @@ fn report_create_page(
                         label class="form-label" { "实际工时 (h)" }
                         input class="form-input" type="number" placeholder="0" step="0.5" min="0" name="work_hours";
                     }
+                    div class="form-field" {
+                        label class="form-label" { "计件单价" }
+                        input class="form-input" type="text" readonly id="unit-price" value="—"
+                            style="background:var(--surface);color:var(--text-muted)";
+                    }
+                    div class="form-field" {
+                        label class="form-label" { "预计工资" }
+                        div class="wage-display" {
+                            div class="wage-amount" id="wage-amount" { "\u{00a5}0.00" }
+                            div class="wage-label" { "完成数量 \u{00d7} 计件单价" }
+                        }
+                    }
                 }
                 div style="margin-top:var(--space-4)" {
                     label class="form-label" { "备注" }
@@ -432,6 +452,35 @@ fn report_create_page(
         // ── 弹窗 ──
         (entity_picker::entity_picker_modal(&wo_picker))
         (entity_picker::entity_picker_modal(&batch_picker))
+
+        // ── 工资实时计算 ──
+        (maud::PreEscaped(r#"
+        <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            function calcWage() {
+                var qty = parseFloat(document.getElementById('completed-qty')?.value) || 0;
+                var priceEl = document.getElementById('unit-price');
+                var price = parseFloat(priceEl?.dataset.price) || 0;
+                var el = document.getElementById('wage-amount');
+                if (el) el.textContent = '\u00a5' + (qty * price).toFixed(2);
+            }
+            document.getElementById('completed-qty')?.addEventListener('input', calcWage);
+            // 工序变更时更新单价
+            document.addEventListener('change', function(e) {
+                if (e.target.name === 'step_no') {
+                    var opt = e.target.selectedOptions[0];
+                    var price = opt?.dataset.price || '0';
+                    var pEl = document.getElementById('unit-price');
+                    if (pEl) {
+                        pEl.dataset.price = price;
+                        pEl.value = parseFloat(price) > 0 ? '\u00a5' + parseFloat(price).toFixed(2) : '\u2014';
+                    }
+                    calcWage();
+                }
+            });
+        });
+        </script>
+        "#))
     }}
 }
 
@@ -461,7 +510,9 @@ fn batch_cascade_fragment(
                                 @if !completed.contains(&r.id) {
                                     @let is_cur = batch.current_step == r.step_no;
                                     @let tag = if is_cur { " [当前工序]" } else { "" };
-                                    option value=(r.step_no) selected[is_cur] {
+                                    @let price = r.unit_price.unwrap_or(rust_decimal::Decimal::ZERO);
+                                    option value=(r.step_no) selected[is_cur]
+                                        data-price=(price.to_string()) {
                                         (r.step_no) " - " (r.process_name) (tag)
                                     }
                                 }

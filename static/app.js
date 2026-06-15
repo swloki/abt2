@@ -177,8 +177,7 @@ window.entityPickerSelect = function (el) {
     if (hidden) hidden.value = el.dataset.id;
     if (display) {
         display.textContent = el.dataset.label;
-        display.style.color = '';
-        display.style.userSelect = '';
+        display.classList.remove('placeholder');
     }
 
     modal.classList.remove('is-open');

@@ -2653,6 +2653,15 @@ textarea.form-input{min-height:72px;resize:vertical;font-family:var(--font-body)
 .form-textarea { width:100%; padding:8px 12px; border:1px solid var(--border); border-radius:var(--radius-sm); font-size:14px; background:#fff; color:var(--fg); font-family:var(--font-body); min-height:80px; resize:vertical; line-height:1.5; transition:all .15s; }
 .form-textarea:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px rgba(22,119,255,.1); }
 .form-textarea::placeholder { color:var(--muted); opacity:.6; }
+/* Search-select (entity picker field) */
+.search-select { display:flex; gap:var(--space-2); align-items:stretch; }
+.search-select-display { flex:1; min-width:0; padding:8px 12px; border:1px solid var(--border); border-radius:var(--radius-sm); font-size:var(--text-sm); color:var(--fg); background:var(--bg); cursor:pointer; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:flex; align-items:center; transition:border-color var(--motion-fast); }
+.search-select-display:hover { border-color:var(--accent); }
+.search-select-display.placeholder { color:var(--muted); opacity:.6; }
+.search-select-btn { flex-shrink:0; padding:8px 16px; border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--bg); color:var(--fg-2); font-size:var(--text-sm); cursor:pointer; transition:all var(--motion-fast); }
+.search-select-btn:hover { background:var(--surface); border-color:var(--accent); color:var(--accent); }
+/* 2-column grid modifier for form sections */
+.form-section .form-grid.cols-2 { grid-template-columns:repeat(2,1fr); }
 .form-actions { display: flex; align-items: center; justify-content: flex-end; gap: var(--space-3); padding: var(--space-5) 0; }
 .wage-summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-5); margin-bottom: var(--space-6); }
 .formula-hint { display: flex; align-items: flex-start; gap: var(--space-2); padding: var(--space-3) var(--space-4); background: var(--surface); border: 1px solid var(--border-soft); border-radius: var(--radius-sm); font-size: var(--text-sm); color: var(--fg-2); margin-bottom: var(--space-6); }

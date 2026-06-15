@@ -72,14 +72,13 @@ pub fn entity_picker_field(
                 (label)
                 @if required { span class="required" { "*" } }
             }
-            div style="display:flex;gap:var(--space-2)" {
+            div class="search-select" {
                 input type="hidden" name=(name) id=(target_id);
-                div class="form-input" id=(display_id)
-                    style="flex:1;cursor:pointer;color:var(--text-muted);user-select:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0"
+                div class="search-select-display placeholder" id=(display_id)
                     _=(open_hs.as_str()) {
                     (placeholder)
                 }
-                button type="button" class="btn btn-default" style="flex-shrink:0"
+                button type="button" class="search-select-btn"
                     _=(open_hs.as_str()) {
                     "选择"
                 }

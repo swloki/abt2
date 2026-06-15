@@ -344,7 +344,7 @@ fn report_create_page(
                     (maud::PreEscaped(r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg>"#))
                     "基本信息"
                 }
-                div class="form-grid" {
+                div class="form-grid cols-2" {
                     div class="form-field" {
                         label class="form-label" { "报工单号" }
                         input class="form-input" type="text" readonly value=(doc_number)
@@ -496,7 +496,7 @@ fn batch_cascade_fragment(
         div id="batch-cascade" {
             // 隐藏的 work_order_id（报工提交时携带）
             input type="hidden" name="work_order_id" value=(work_order_id);
-            div class="form-grid" {
+            div class="form-grid cols-2" {
                 div class="form-field" {
                     label class="form-label" { "工序 " span class="required" { "*" } }
                     @if routings.is_empty() {

@@ -2,7 +2,7 @@
 
 > 关联 Issue: [#62](https://github.com/swloki/abt2/issues/62)
 > 状态: **已定稿**
-> 方案: 服务端 Session URL 快照
+> 方案: 中间件 URL 状态记忆
 > 日期: 2026-06-15
 
 ## 一、问题陈述
@@ -11,186 +11,200 @@
 
 期望：返回时精准还原用户进入详情前的列表状态（筛选参数 + 翻页）。
 
-## 二、方案选型结论
+## 二、方案选型
 
-评估了四个候选方案（A: history.back / B: history.back+滚动 / C: from参数 / D: 客户端sessionStorage），最终选定 **服务端 Session URL 快照**。
+评估了五个候选方案，最终选定 **中间件 URL 状态记忆**。
 
-**选定理由**：
-- 纯服务端 SSR，零客户端 JS / Hyperscript，完美契合项目架构
-- 服务端 Session 是唯一真相源，不依赖浏览器历史栈 / hx-push-url / 客户端 JS
-- 复用现成 `tower-sessions` 基础设施（`RequestContext.session` 已存在）
-- 多级导航天然支持（仅列表页写 Session，详情页只读）
+选定理由：
+- **handler 零改动**：列表页/详情页 handler 均无需修改
+- **对用户/开发者无感**：中间件自动拦截记录/恢复，不需要 `rem` 参数或任何标记
+- **逻辑集中**：一个中间件文件，一处实现
+- 复用现成 `tower-sessions`，技术模式与 `auth_middleware` 完全一致
 
 ## 三、核心机制
 
-### 3.1 状态存储
+### 3.1 中间件拦截逻辑
 
-在服务端 Session 中维护一个映射表：
+注册一个全局中间件（在 `auth_middleware` 之后），对所有 GET 请求执行：
 
 ```
-Session key: "list_urls"
-value: HashMap<String, String>  // {列表路由路径: 最近完整URL}
-
-示例:
-{
-  "/admin/md/bom":       "/admin/md/bom?keyword=电源&status=1&page=5",
-  "/admin/wms/stock-in": "/admin/wms/stock-in?doc_number=RK&warehouse_id=3&page=2",
-}
+GET 请求进来：
+├─ 有 query string
+│   → 按 path 保存完整 query string 到 Session（HashMap<String, String>）
+│   → 正常传递给 handler
+│
+├─ 无 query string + 该 path 在 Session 中有保存状态
+│   → 302 重定向到 path + 保存的 query string
+│
+└─ 无 query string + 无保存状态
+    → 正常传递给 handler
 ```
 
-### 3.2 状态记录（列表页）
+### 3.2 记录触发
 
-所有列表页 handler 在返回响应前，将当前请求的完整 URI（路径 + 查询参数）存入 Session。每次筛选、翻页（HTMX 请求）都会更新，始终保留最新状态。
+列表页筛选/翻页时，HTMX 发起 GET 请求（如 `/admin/md/bom?keyword=电源&page=5`），URL 自带 query string，中间件自动记录。**不需要 `hx-push-url`、不需要 `rem` 参数、不需要改表单**。
 
-**仅列表页写入**，详情页不触碰 Session 中的 `list_urls`。因此从详情A跳转到详情B后返回，仍一步回到最初带筛选条件的列表页。
+### 3.3 恢复触发
 
-### 3.3 返回还原（详情页）
+用户从详情页点击返回按钮（`<a href="/admin/md/bom">`，无 query），中间件检测到该 path 有保存状态，302 重定向到 `/admin/md/bom?keyword=电源&page=5`。浏览器/HTMX 自动跟随重定向，加载带筛选状态的列表。**返回按钮 href 不需要改**。
 
-所有详情页 handler 从 Session 读取对应列表的最近 URL，注入模板。若 Session 中无记录（首次直接访问详情），降级为列表根路径。
+### 3.4 多级导航
 
-### 3.4 不恢复的内容
+仅带 query 的请求更新 Session（列表页筛选/翻页）。详情页 URL 如 `/admin/md/bom/123` 的 path 不同，不会覆盖列表 key。因此从 `列表 → 详情A → 详情B` 返回时，一步回到带筛选的列表。
 
-- 页面滚动位置（不实现；翻页已通过 URL page 参数保留，用户回到正确页码）
+### 3.5 不恢复的内容
+
+- 页面滚动位置（翻页已通过 URL page 参数保留）
 - 未提交的搜索框文字（HTMX 300ms 自动提交，窗口极短）
 
 ## 四、详细设计
 
-### 4.1 RequestContext 增加 original_uri 字段
+### 4.1 Session 存储
 
-当前 handler 签名没有 URI 参数。在 `RequestContext` 中直接存原始 URI，所有 handler 通过 `ctx.original_uri` 获取，**不改任何 handler 签名**。
+```
+Session key: "list_urls"
+value: HashMap<String, String>  // {请求 path: query string（不含 ?）}
 
-```rust
-// abt-web/src/utils.rs
-
-pub struct RequestContext {
-    pub claims: Claims,
-    pub conn: PgPoolConn,
-    pub state: AppState,
-    pub service_ctx: ServiceContext,
-    pub headers: HeaderMap,
-    pub session: Session,
-    pub original_uri: Uri,    // 新增
+示例:
+{
+  "/admin/md/bom":       "keyword=电源&status=1&page=5",
+  "/admin/wms/stock-in": "doc_number=RK&warehouse_id=3&page=2",
 }
-
-// FromRequestParts 实现中
-let original_uri = parts.uri.clone();  // 已含 query string
 ```
 
-`parts.uri`（来自 `http::Parts`）包含当前请求的完整 URI（路径 + query string）。对于列表页筛选/翻页的 HTMX GET 请求，URI 包含所有 hx-include 的表单参数。
+key 是 `request.uri().path()`（不含 query），value 是 `request.uri().query()`（不含 `?`）。
 
-### 4.2 辅助函数（utils.rs）
+### 4.2 中间件实现
+
+新建 `abt-web/src/middleware/list_state.rs`：
 
 ```rust
+use std::collections::HashMap;
+
+use axum::body::Body;
+use axum::extract::Request;
+use axum::middleware::Next;
+use axum::response::{Redirect, Response};
+use tower_sessions::Session;
+
 const LIST_URLS_KEY: &str = "list_urls";
 
-/// 列表页 handler 调用：记录当前列表 URL 到 Session
-pub async fn record_list_url(session: &Session, list_path: &str, uri: &Uri) {
-    let mut urls: HashMap<String, String> = session
-        .get(LIST_URLS_KEY).await.ok().flatten().unwrap_or_default();
-    urls.insert(list_path.to_string(), uri.to_string());
-    let _ = session.insert(LIST_URLS_KEY, &urls).await;
+/// 跳过非页面请求（静态资源、API）
+fn should_skip(path: &str) -> bool {
+    path.starts_with("/static")
+        || path.starts_with("/favicon")
+        || path == "/login"
+        || path == "/logout"
 }
 
-/// 详情页 handler 调用：读取列表最近 URL
-pub async fn get_list_url(session: &Session, list_path: &str) -> Option<String> {
-    session
-        .get::<HashMap<String, String>>(LIST_URLS_KEY).await.ok()?
-        ?.get(list_path).cloned()
+pub async fn list_state_middleware(
+    session: Session,
+    request: Request<Body>,
+    next: Next,
+) -> Response {
+    // 只处理 GET 请求
+    if request.method() != axum::http::Method::GET {
+        return next.run(request).await;
+    }
+
+    let uri = request.uri().clone();
+    let path = uri.path();
+
+    if should_skip(path) {
+        return next.run(request).await;
+    }
+
+    // 情况1：有 query string → 记录
+    if let Some(query) = uri.query() {
+        let mut urls: HashMap<String, String> = session
+            .get(LIST_URLS_KEY).await.ok().flatten().unwrap_or_default();
+        urls.insert(path.to_string(), query.to_string());
+        let _ = session.insert(LIST_URLS_KEY, &urls).await;
+        return next.run(request).await;
+    }
+
+    // 情况2：无 query + 有保存状态 → 重定向
+    let saved_query = session
+        .get::<HashMap<String, String>>(LIST_URLS_KEY).await.ok().flatten()
+        .and_then(|urls| urls.get(path).cloned());
+
+    if let Some(query) = saved_query {
+        let redirect_url = format!("{path}?{query}");
+        return Redirect::to(&redirect_url).into_response();
+    }
+
+    // 情况3：无 query + 无保存 → 正常
+    next.run(request).await
 }
 ```
 
-### 4.3 列表页 handler 改动（47 处，每处 +1 行）
+### 4.3 中间件注册
 
-在 handler 处理完业务逻辑、返回响应前，加一行记录调用：
+在 `routes/mod.rs` 中，紧跟 `auth_middleware` 之后注册：
 
 ```rust
-// bom_list.rs — get_bom_list
-pub async fn get_bom_list(
-    _path: BomListPath,
-    ctx: RequestContext,
-    Query(mut params): Query<BomQueryParams>,
-) -> crate::errors::Result<Html<String>> {
-    // ... 现有业务逻辑 ...
-
-    // 新增：记录列表 URL（返回前）
-    crate::utils::record_list_url(&ctx.session, BomListPath::PATH, &ctx.original_uri).await;
-
-    // 现有的返回
-    Ok(/* ... */)
-}
+.layer(middleware::from_fn_with_state(
+    state.clone(),
+    auth_middleware,
+))
+.layer(middleware::from_fn(list_state_middleware))  // 新增
 ```
 
-### 4.4 详情页 handler 改动（29 处，每处 +2 行）
+中间件执行顺序：`CompressionLayer → SessionManagerLayer → list_state → auth_middleware → router`。`list_state` 在 `auth_middleware` 之前执行（外层），但它不依赖 auth（只依赖 Session，已由 SessionManagerLayer 注入）。或者放在 auth_middleware 之后（内层），确保只处理已认证请求。
 
-handler 读取 Session 中的列表 URL，传给模板：
+**推荐放在 auth_middleware 之后**（内层），避免对未认证请求（重定向到 /login）做无意义的 URL 记录。
 
-```rust
-// bom_detail.rs — get_bom_detail
-pub async fn get_bom_detail(
-    _path: BomDetailPath,
-    ctx: RequestContext,
-) -> crate::errors::Result<Html<String>> {
-    // 新增：读取返回 URL
-    let back_url = crate::utils::get_list_url(&ctx.session, BomListPath::PATH).await
-        .unwrap_or_else(|| BomListPath::PATH.to_string());
+### 4.4 RequestContext.original_uri 字段（移除）
 
-    // ... 现有业务逻辑 ...
-
-    // 传给模板渲染函数
-    Ok(admin_page(&ctx.claims, ..., bom_detail_content(&bom, ..., &back_url)))
-}
-```
-
-### 4.5 详情页模板改动（29 处）
-
-返回按钮的 href 从硬编码列表路径改为动态变量：
-
-```rust
-// 改动前
-a class="back-link" href=(BomListPath::PATH) { "← 返回列表" }
-
-// 改动后
-a class="back-link" href=(back_url) { "← 返回列表" }
-```
-
-文案保持"返回列表"（语义准确：回到列表页，且保留筛选状态）。
+原方案在 `RequestContext` 加 `original_uri` 字段——**中间件方案不需要**，因为中间件直接从 `request.uri()` 获取。handler 完全不参与。
 
 ## 五、改动范围
 
-| 项目 | 文件数 | 每处改动 |
+| 项目 | 文件数 | 改动 |
 |---|---|---|
-| RequestContext 加 `original_uri` 字段 | 1 (utils.rs) | ~3 行 |
-| 辅助函数 `record_list_url` / `get_list_url` | 1 (utils.rs) | ~20 行 |
-| 列表页 handler 加记录调用 | 47 | +1 行 |
-| 详情页 handler 读取 + 传变量 | 29 | +2 行 |
-| 详情页模板 href 改为变量 | 29 | 改 1 行 |
-| **前端 JS** | **0** | — |
-| **Hyperscript** | **0** | — |
+| 新建中间件 `list_state.rs` | 1 | ~50 行 |
+| 中间件模块声明 `middleware/mod.rs` | 1 | 2 行 |
+| 注册中间件 `routes/mod.rs` | 1 | +1 行 |
+| **列表页 handler** | **0** | 零改动 |
+| **详情页 handler** | **0** | 零改动 |
+| **详情页模板/返回按钮** | **0** | 零改动 |
+| **前端 JS / Hyperscript** | **0** | 零改动 |
+| **筛选表单** | **0** | 零改动 |
+
+**总改动：3 个文件，~55 行新增代码。**
 
 ## 六、边缘情况处理
 
-| 场景 | 行为 |
-|---|---|
-| 首次直接访问详情（Session 无记录） | 降级为列表根路径 |
-| Session 过期（用户长时间不活动） | 降级为列表根路径（需重新登录） |
-| 同用户多标签页访问同列表 | Session 存最后一个标签页的状态（合理行为） |
-| URL 中参数已失效（如删除了筛选的分类） | 服务器忽略无效参数，返回正常列表 |
-| HTMX 局部刷新请求（筛选/翻页） | URI 含完整参数，正常记录 |
+| 场景 | 行为 | 评估 |
+|---|---|---|
+| 首次直接访问列表（Session 无记录） | 正常加载 | ✅ |
+| 从详情返回列表 | 302 重定向到带参 URL | ✅ 核心场景 |
+| 多级导航（列表→详情A→详情B）返回 | 一步回列表（带筛选） | ✅ |
+| 翻页请求 `?page=3` | 有 query → 记录最新状态 | ✅ |
+| 手动输入列表根路径想重置 | 恢复旧筛选 | ⚠️ 与"记忆"行为一致，大多数 ERP 习惯 |
+| Session 过期 | 无保存状态，正常加载 | ✅ |
+| 同用户多标签页 | Session 存最后操作的状态 | ✅ 合理 |
+| 详情页带 query（如 `?tab=cost`） | 按 path 独立记录，不干扰列表 | ✅ |
+| URL 参数已失效 | 服务器忽略无效参数，返回正常列表 | ✅ |
+| 静态资源 / 登录页 | 跳过，不记录 | ✅ |
+| 重定向循环 | 重定向后 URL 带 query → 记录 → 不再重定向 | ✅ 无循环 |
 
 ## 七、验证策略
 
-1. **单元验证**：`record_list_url` / `get_list_url` 的 Session 读写正确性
+1. **`cargo clippy`** 编译验证
 2. **端到端验证**（agent-browser）：
-   - 列表页筛选 + 翻页 → 进入详情 → 点返回 → 验证列表筛选/翻页保留
-   - 多级导航：列表 → 详情A → 详情B → 返回 → 一步回列表（带筛选）
-   - 直接打开详情 URL → 返回 → 降级列表根路径
-3. **`cargo clippy`** 编译验证
+   - 列表页筛选 + 翻页 → 进入详情 → 点返回 → 验证筛选/翻页保留
+   - 多级导航：列表 → 详情A → 详情B → 返回 → 一步回列表
+   - 直接打开列表（首次） → 正常加载，无重定向
+   - 翻页 → 返回 → 恢复正确页码
 
 ## 八、方案弃选记录
 
-评估后弃选的方案及原因：
-
-- **A: history.back**：依赖浏览器历史栈，多级导航逐级回退，开发者遗漏 hx-push-url 即失效
-- **B: history.back + 滚动恢复**：核心缺陷同 A，仅补滚动
-- **C: from 参数**：URL 污染（编码参数泄漏到书签/分享），改动面大（47 处列表链接）
-- **D: 客户端 sessionStorage**：引入客户端状态管理，偏离 SSR 架构；依赖 JS 加载
+| 方案 | 弃选原因 |
+|---|---|
+| A: 纯 history.back | 依赖浏览器历史栈，多级导航逐级回退，遗漏 hx-push-url 即失效 |
+| B: history.back + 滚动恢复 | 核心缺陷同 A |
+| C: from 参数 | URL 污染，改动面大 |
+| D: 客户端 sessionStorage | 引入客户端状态管理，偏离 SSR 架构 |
+| E: 服务端 Session + handler 记录 | 需改 47 个列表页 handler + 29 个详情页 handler + 模板 |
+| **F: 中间件拦截（选定）** | handler/模板/前端全零改动，仅 3 个文件 ~55 行 |

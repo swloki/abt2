@@ -4,8 +4,7 @@ use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
 use serde::Deserialize;
 
-use abt_core::mes::enums::{BatchStatus, WorkOrderStatus};
-use abt_core::mes::production_batch::ProductionBatchService;
+use abt_core::mes::enums::WorkOrderStatus;
 use abt_core::mes::production_receipt::ProductionReceiptService;
 use abt_core::mes::work_order::model::{WorkOrder, WorkOrderFilter};
 use abt_core::mes::work_order::WorkOrderService;
@@ -49,8 +48,6 @@ pub struct ZnBinsQuery {
 #[derive(Debug, Deserialize)]
 pub struct ReceiptCreateForm {
     pub work_order_id: i64,
-    #[serde(default, deserialize_with = "crate::utils::empty_as_none")]
-    pub batch_id: Option<i64>,
     #[serde(default, deserialize_with = "crate::utils::empty_as_none")]
     pub product_id: Option<i64>,
     pub received_qty: rust_decimal::Decimal,
@@ -206,7 +203,6 @@ pub async fn wo_selected(
         ..
     } = ctx;
     let wo_svc = state.work_order_service();
-    let batch_svc = state.production_batch_service();
 
     let wo = wo_svc
         .find_by_id(&service_ctx, &mut conn, params.work_order_id)
@@ -217,13 +213,8 @@ pub async fn wo_selected(
         .unwrap_or(None)
         .unwrap_or_else(|| "—".into());
 
-    let batches = batch_svc
-        .list_by_work_order(&service_ctx, &mut conn, params.work_order_id)
-        .await
-        .unwrap_or_default();
-
     Ok(Html(
-        wo_cascade_fragment(wo.product_id, &product_name, &batches).into_string(),
+        wo_cascade_fragment(wo.product_id, &product_name).into_string(),
     ))
 }
 
@@ -289,7 +280,7 @@ pub async fn create_receipt(
     let svc = state.production_receipt_service();
     let req = abt_core::mes::production_receipt::CreateReceiptReq {
         work_order_id: form.work_order_id,
-        batch_id: form.batch_id,
+        batch_id: None,
         product_id: form.product_id.unwrap_or(0),
         received_qty: form.received_qty,
         warehouse_id: form.warehouse_id,
@@ -352,7 +343,7 @@ fn receipt_create_content() -> Markup {
                         "工单号", true, "点击选择工单…",
                     ))
 
-                    // 工单选中后级联加载：产品名 + 批次
+                    // 工单选中后级联加载：产品名
                     div id="wo-cascade"
                         hx-get=(ReceiptWoSelectedPath::PATH)
                         hx-trigger="woSelected from:body"
@@ -363,12 +354,6 @@ fn receipt_create_content() -> Markup {
                             div class="form-field" {
                                 label class="form-label" { "产品" }
                                 div class="form-input" style="color:var(--text-muted);background:var(--surface)" { "选择工单后自动填充" }
-                            }
-                            div class="form-field" {
-                                label class="form-label" { "生产批次" }
-                                select class="form-select" name="batch_id" disabled {
-                                    option value="" { "选择工单后加载" }
-                                }
                             }
                         }
                     }
@@ -445,12 +430,8 @@ fn receipt_create_content() -> Markup {
 
 // ── HTMX fragments ──
 
-/// 工单选中后返回的产品 + 批次片段
-fn wo_cascade_fragment(
-    product_id: i64,
-    product_name: &str,
-    batches: &[abt_core::mes::production_batch::model::ProductionBatch],
-) -> Markup {
+/// 工单选中后返回的产品信息片段
+fn wo_cascade_fragment(product_id: i64, product_name: &str) -> Markup {
     html! {
         div id="wo-cascade" {
             div class="form-grid" {
@@ -460,32 +441,6 @@ fn wo_cascade_fragment(
                     input class="form-input" type="text" value=(product_name) disabled
                         style="background:var(--surface)";
                     input type="hidden" name="product_id" value=(product_id);
-                }
-                // 批次下拉
-                div class="form-field" {
-                    label class="form-label" { "生产批次" }
-                    @if batches.is_empty() {
-                        select class="form-select" name="batch_id" disabled {
-                            option value="" selected { "该工单暂无批次" }
-                        }
-                        input type="hidden" name="batch_id" value="";
-                    } @else {
-                        select class="form-select" name="batch_id" {
-                            option value="" selected { "不关联批次" }
-                            @for b in batches {
-                                @let qty_text = crate::utils::fmt_qty(b.batch_qty);
-                                @if b.status == BatchStatus::PendingReceipt {
-                                    option value=(b.id) {
-                                        (b.batch_no) " · " (qty_text) "件 · 待入库"
-                                    }
-                                } @else {
-                                    option value=(b.id) disabled {
-                                        (b.batch_no) " · " (qty_text) "件 · " (batch_status_text(&b.status))
-                                    }
-                                }
-                            }
-                        }
-                    }
                 }
             }
         }
@@ -547,16 +502,5 @@ fn bin_select_fragment(bins: &[abt_core::wms::warehouse::model::Bin]) -> Markup 
                 }
             }
         }
-    }
-}
-
-fn batch_status_text(s: &BatchStatus) -> &'static str {
-    match s {
-        BatchStatus::Pending => "待生产",
-        BatchStatus::InProgress => "生产中",
-        BatchStatus::Suspended => "已暂停",
-        BatchStatus::PendingReceipt => "待入库",
-        BatchStatus::Completed => "已完成",
-        BatchStatus::Cancelled => "已取消",
     }
 }

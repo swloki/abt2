@@ -102,6 +102,19 @@ impl PurchaseOrderService for PurchaseOrderServiceImpl {
                 .map_err(|e| DomainError::Internal(e.into()))?;
         }
 
+        // 4.5 校验明细：quantity > 0 且 unit_price > 0（与 confirm() 校验对齐，创建时即拦截）
+        for (i, item) in req.items.iter().enumerate() {
+            if item.quantity <= Decimal::ZERO {
+                return Err(DomainError::validation(
+                    format!("订单明细第 {} 行数量必须大于 0", i + 1)
+                ));
+            }
+            if item.unit_price <= Decimal::ZERO {
+                return Err(DomainError::validation(
+                    format!("订单明细第 {} 行单价必须大于 0", i + 1)
+                ));
+            }
+        }
         // 5. 审计日志
         new_audit_log_service(self.pool.clone())
             .record(ctx, db, RecordAuditLogReq { entity_type: ENTITY_TYPE, entity_id: id, action: AuditAction::Create, changes: None, context: None })
@@ -453,6 +466,19 @@ impl PurchaseOrderService for PurchaseOrderServiceImpl {
             PurchaseOrderItemRepo::insert_items(&mut *db, id, &items).await?;
         }
 
+        // 2.5 校验明细：quantity > 0 且 unit_price > 0
+        for (i, item) in items.iter().enumerate() {
+            if item.quantity <= Decimal::ZERO {
+                return Err(DomainError::validation(
+                    format!("订单明细第 {} 行数量必须大于 0", i + 1)
+                ));
+            }
+            if item.unit_price <= Decimal::ZERO {
+                return Err(DomainError::validation(
+                    format!("订单明细第 {} 行单价必须大于 0", i + 1)
+                ));
+            }
+        }
         // 3. 更新总金额
         let total_amount: Decimal = items.iter().map(|i| i.quantity * i.unit_price).sum();
         PurchaseOrderRepo::update_total_amount(&mut *db, id, total_amount).await?;

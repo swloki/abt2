@@ -822,5 +822,75 @@ classDiagram
   </div>
 </div>
 
+<div class="mermaid-wrap">
+  <h2 style="color:#e0e0e0;margin-bottom:12px">采购模块增强实现记录 (2026-06-15)</h2>
+  <div style="color:#a0a0b0;font-size:14px;line-height:1.8">
+    <h3 style="color:#6bc76b;margin:16px 0 8px">P0: Bug 修复</h3>
+    <ul style="padding-left:20px">
+      <li>BUG-001/002: create()/update() 校验前置（quantity/unit_price 校验在 DB 写入之前）</li>
+      <li>BUG-003: create_from_quotation() 增加 min_order_qty 和 unit_price 校验</li>
+      <li>BUG-004: 状态机 .ok() 吞错误修复（payment/reconciliation/return_order 3 处改用 ?）</li>
+      <li>BUG-005: 退货单增加退货数量上限校验（returned_qty ≤ received_qty - returned_qty）</li>
+      <li>BUG-006: 对账单按期间过滤 + 防重复（list_unreconciled_received_by_supplier）</li>
+    </ul>
+    <h3 style="color:#6bc76b;margin:16px 0 8px">P1a: 税务 + 折扣 + 多币种</h3>
+    <ul style="padding-left:20px">
+      <li>新建 tax_rates 表 + TaxRateService（VAT13/9/6/3/0 初始税率）</li>
+      <li>PO 主表增加: currency_code, currency_rate, amount_untaxed, amount_tax, amount_total, discount_amount</li>
+      <li>PO 明细增加: discount_pct, tax_rate_id, price_subtotal, price_tax, price_total</li>
+      <li>金额计算: price_subtotal = qty × price × (1 - discount/100); 含税/税额自动计算</li>
+      <li>Migration: 046_purchase_tax_discount_currency.sql</li>
+    </ul>
+    <h3 style="color:#6bc76b;margin:16px 0 8px">P1b: 付款条款 + 超收容差</h3>
+    <ul style="padding-left:20px">
+      <li>新建 purchase_payment_schedules 表 + PaymentScheduleService（分期付款计划）</li>
+      <li>新建 purchase_settings 表 + PurchaseSettingsService（超收容差/价格一致性等参数）</li>
+      <li>arrival_handler: 超收容差校验（over_delivery_allowance_pct）</li>
+      <li>confirm(): maintain_same_rate 价格一致性校验</li>
+      <li>payment approve(): 按到期日顺序分配付款金额到各期</li>
+      <li>Migration: 047_purchase_payment_terms_tolerance.sql</li>
+    </ul>
+    <h3 style="color:#6bc76b;margin:16px 0 8px">P1c: PO 确认后修改 + 发票状态追踪</h3>
+    <ul style="padding-left:20px">
+      <li>PO 明细增加: qty_invoiced, invoice_status (NoInvoice/ToInvoice/FullyInvoiced)</li>
+      <li>PO 主表增加: invoice_status, per_billed</li>
+      <li>新增 PoItemChange 类型 + update_items_after_confirm 方法（确认后追加/修改/删除行）</li>
+      <li>对账确认联动: 更新 qty_invoiced → 重算 invoice_status 和 per_billed</li>
+      <li>Migration: 048_purchase_po_edit_invoice_tracking.sql</li>
+    </ul>
+    <h3 style="color:#6bc76b;margin:16px 0 8px">P2: 流程增强</h3>
+    <ul style="padding-left:20px">
+      <li>多阶段审批: purchase_approval_rules + PendingApproval 状态 (value=7)</li>
+      <li>新增 submit()/approve_po()/reject() 方法（自动判断是否需要审批）</li>
+      <li>供应商价格目录: supplier_product_prices + SupplierPriceService（自动取价/上次采购价）</li>
+      <li>合并 PO: merge_orders（同供应商 Draft PO 合并，相同产品+单价合并数量）</li>
+      <li>Migrations: 049_purchase_approval_config.sql + 050_supplier_product_prices.sql</li>
+    </ul>
+    <h3 style="color:#fab387;margin:16px 0 8px">新增模块清单</h3>
+    <ul style="padding-left:20px">
+      <li>purchase/tax/ — TaxRateService（税率管理）</li>
+      <li>purchase/payment_schedule/ — PaymentScheduleService（付款计划）</li>
+      <li>purchase/settings/ — PurchaseSettingsService（采购参数配置）</li>
+      <li>purchase/approval/ — PurchaseApprovalService（审批规则）</li>
+      <li>purchase/supplier_price/ — SupplierPriceService（供应商价格目录）</li>
+    </ul>
+    <h3 style="color:#fab387;margin:16px 0 8px">枚举变更</h3>
+    <ul style="padding-left:20px">
+      <li>TaxType: Purchase=1, Sales=2, Both=3</li>
+      <li>InvoiceStatus: NoInvoice=1, ToInvoice=2, FullyInvoiced=3</li>
+      <li>PurchaseOrderStatus: 新增 PendingApproval=7</li>
+    </ul>
+  </div>
+    <h3 style="color:#6bc76b;margin:16px 0 8px">补齐实施记录 (Phase 2)</h3>
+    <ul style="padding-left:20px">
+      <li><b>业务逻辑集成</b>：confirm() 自动生成付款计划（100%单期）+ 自动创建供应商价格记录；payment approve() 三向匹配校验（数量+金额一致性）</li>
+      <li><b>PO 创建/编辑页</b>：税率下拉 + 折扣%输入 + 底部汇总区（不含税/税额/含税总计）+ tax-rates JSON 路由</li>
+      <li><b>PO 详情页</b>：付款计划展示区 + 审批操作（提交审批/审批通过/退回）+ 发票状态 badge</li>
+      <li><b>采购设置页</b>：超收容差/超欠容差/价格一致性/收货必关联 PO 等参数配置</li>
+      <li><b>前端 JS</b>：calcPurchaseLine() 实时行计算 + updatePurchaseSummary() 汇总更新</li>
+      <li>新增路由：submit / approve / reject / tax-rates / settings</li>
+    </ul>
+</div>
+
 </body>
 </html>

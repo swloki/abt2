@@ -1,7 +1,7 @@
 use chrono::{DateTime, NaiveDate, Utc};
 use rust_decimal::Decimal;
 
-use crate::purchase::enums::PurchaseOrderStatus;
+use crate::purchase::enums::{InvoiceStatus, PurchaseOrderStatus};
 
 // ---------------------------------------------------------------------------
 // Entity structs
@@ -17,9 +17,18 @@ pub struct PurchaseOrder {
     pub expected_delivery_date: Option<NaiveDate>,
     pub status: PurchaseOrderStatus,
     pub total_amount: Decimal,
+    pub currency_code: String,
+    pub currency_rate: Decimal,
+    pub amount_untaxed: Decimal,
+    pub amount_tax: Decimal,
+    pub amount_total: Decimal,
+    pub discount_amount: Decimal,
     pub payment_terms: Option<String>,
     pub delivery_address: Option<String>,
     pub remark: String,
+    pub payment_schedule_generated: bool,
+    pub invoice_status: InvoiceStatus,
+    pub per_billed: Decimal,
     pub operator_id: i64,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -42,6 +51,13 @@ pub struct PurchaseOrderItem {
     pub returned_qty: Decimal,
     pub quotation_item_id: Option<i64>,
     pub expected_delivery_date: Option<NaiveDate>,
+    pub discount_pct: Decimal,
+    pub tax_rate_id: Option<i64>,
+    pub price_subtotal: Decimal,
+    pub price_tax: Decimal,
+    pub price_total: Decimal,
+    pub qty_invoiced: Decimal,
+    pub invoice_status: InvoiceStatus,
 }
 
 // ---------------------------------------------------------------------------
@@ -69,6 +85,9 @@ pub struct CreatePurchaseOrderRequest {
     pub payment_terms: Option<String>,
     pub delivery_address: Option<String>,
     pub remark: String,
+    pub currency_code: String,
+    pub currency_rate: Decimal,
+    pub discount_amount: Decimal,
     pub items: Vec<CreateOrderItemRequest>,
 }
 
@@ -82,6 +101,24 @@ pub struct CreateOrderItemRequest {
     pub unit_price: Decimal,
     pub quotation_item_id: Option<i64>,
     pub expected_delivery_date: Option<NaiveDate>,
+    pub discount_pct: Decimal,
+    pub tax_rate_id: Option<i64>,
+}
+
+/// 计算单行金额：返回 `(毛额 amount, 折后小计 price_subtotal, 税额 price_tax, 价税合计 price_total)`。
+///
+/// `rate` 为税率百分数（如 `13` 表示 13%）；无税时传 `Decimal::ZERO`。
+pub fn line_amounts(
+    quantity: Decimal,
+    unit_price: Decimal,
+    discount_pct: Decimal,
+    rate: Decimal,
+) -> (Decimal, Decimal, Decimal, Decimal) {
+    let amount = quantity * unit_price;
+    let price_subtotal = amount * (Decimal::ONE - discount_pct / Decimal::from(100));
+    let price_tax = price_subtotal * rate / Decimal::from(100);
+    let price_total = price_subtotal + price_tax;
+    (amount, price_subtotal, price_tax, price_total)
 }
 
 /// 更新采购订单请求（仅草稿可编辑）
@@ -91,4 +128,24 @@ pub struct UpdatePurchaseOrderRequest {
     pub payment_terms: Option<String>,
     pub delivery_address: Option<String>,
     pub remark: String,
+    pub currency_code: String,
+    pub currency_rate: Decimal,
+    pub discount_amount: Decimal,
+}
+
+/// 明细变更指令（确认后修改明细用）
+#[derive(Debug, Clone)]
+pub enum PoItemChange {
+    /// 追加新行
+    AddItem(CreateOrderItemRequest),
+    /// 修改已有行（数量、单价、折扣、税率）
+    UpdateItem {
+        item_id: i64,
+        quantity: Option<Decimal>,
+        unit_price: Option<Decimal>,
+        discount_pct: Option<Decimal>,
+        tax_rate_id: Option<Option<i64>>,
+    },
+    /// 删除行（仅允许未收货的行）
+    RemoveItem { item_id: i64 },
 }

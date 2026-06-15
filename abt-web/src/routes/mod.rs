@@ -16,6 +16,9 @@ pub mod purchase_demand_pool;
 pub mod purchase_order;
 pub mod purchase_quotation;
 pub mod purchase_reconciliation;
+pub mod purchase_settings;
+pub mod purchase_approval_rules;
+pub mod supplier_price_catalog;
 pub mod purchase_return;
 pub mod quotation;
 pub mod reconciliation;
@@ -88,6 +91,9 @@ pub fn router(state: AppState) -> Router {
                 .merge(purchase_quotation::router())
                 .merge(purchase_order::router())
                 .merge(purchase_return::router())
+                .merge(purchase_approval_rules::router())
+                .merge(supplier_price_catalog::router())
+                .merge(purchase_settings::router())
                 .merge(purchase_reconciliation::router())
                 .merge(payment_request::router())
                 .merge(misc_request::router())

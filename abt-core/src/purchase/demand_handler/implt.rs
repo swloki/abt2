@@ -96,6 +96,8 @@ impl PurchaseDemandService for PurchaseDemandServiceImpl {
                 unit_price: Decimal::ZERO, // 待采购员补充
                 quotation_item_id: None,
                 expected_delivery_date: req.expected_delivery_date,
+                discount_pct: Decimal::ZERO,
+                tax_rate_id: None,
             });
         }
 
@@ -106,6 +108,9 @@ impl PurchaseDemandService for PurchaseDemandServiceImpl {
             payment_terms: None,
             delivery_address: None,
             remark: req.remark.clone(),
+            currency_code: String::from("CNY"),
+            currency_rate: Decimal::ONE,
+            discount_amount: Decimal::ZERO,
             items,
         };
 

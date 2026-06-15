@@ -135,6 +135,7 @@ fn status_label(s: PurchaseOrderStatus) -> (&'static str, &'static str) {
         PurchaseOrderStatus::Received => ("已收货", "status-success"),
         PurchaseOrderStatus::Closed => ("已关闭", "status-cancelled"),
         PurchaseOrderStatus::Cancelled => ("已取消", "status-cancelled"),
+        PurchaseOrderStatus::PendingApproval => ("待审批", "status-pending"),
     }
 }
 
@@ -196,6 +197,10 @@ fn po_list_page(
                             (icon::plus_icon("w-4 h-4"))
                             "新建采购订单"
                         }
+                    }
+                    button type="button" class="btn btn-default"
+                        _="on click call mergeSelectedPOs()" {
+                        "合并选中"
                     }
                 }
             }
@@ -267,10 +272,10 @@ fn po_table_fragment(
 
             // ── Data Table ──
             div class="data-card" id="po-data-card" {
-                div class="data-card-scroll" {
                     table class="data-table" {
                         thead {
                             tr {
+                                th style="width:36px" { input type="checkbox" class="po-select-all" _="on click toggle @checked on .po-checkbox" {} }
                                 th { "订单编号" }
                                 th { "供应商名称" }
                                 th { "订单日期" }
@@ -287,14 +292,13 @@ fn po_table_fragment(
                             }
                             @if result.items.is_empty() {
                                 tr {
-                                    td colspan="8" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
+                                    td colspan="9" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
                                         "暂无订单数据"
                                     }
                                 }
                             }
-                        }
-                    }
                 }
+                    }
                 (pagination(POListPath::PATH, &query, result.total, result.page, result.total_pages))
             }
         }
@@ -317,6 +321,11 @@ fn po_row(
 
     html! {
         tr style="cursor:pointer" {
+            td style="cursor:default" {
+                @if is_draft {
+                    input type="checkbox" class="po-checkbox" value=(o.id) {}
+                }
+            }
             td class="link-cell mono" onclick=(&onclick) { (o.doc_number) }
             td onclick=(&onclick) { (supplier_name) }
             td class="mono" onclick=(&onclick) { (o.order_date.format("%Y-%m-%d")) }

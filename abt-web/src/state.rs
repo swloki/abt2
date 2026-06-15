@@ -332,6 +332,34 @@ impl AppState {
         abt_core::purchase::misc_request::new_misc_request_service(self.pool.clone())
     }
 
+    pub fn tax_rate_service(&self) -> impl abt_core::purchase::tax::TaxRateService {
+        abt_core::purchase::tax::new_tax_rate_service(self.pool.clone())
+    }
+
+    pub fn payment_schedule_service(
+        &self,
+    ) -> impl abt_core::purchase::payment_schedule::PaymentScheduleService {
+        abt_core::purchase::payment_schedule::new_payment_schedule_service(self.pool.clone())
+    }
+
+    pub fn purchase_settings_service(
+        &self,
+    ) -> impl abt_core::purchase::settings::PurchaseSettingsService {
+        abt_core::purchase::settings::new_purchase_settings_service(self.pool.clone())
+    }
+
+    pub fn purchase_approval_service(
+        &self,
+    ) -> impl abt_core::purchase::approval::PurchaseApprovalService {
+        abt_core::purchase::approval::new_approval_service(self.pool.clone())
+    }
+
+    pub fn supplier_price_service(
+        &self,
+    ) -> impl abt_core::purchase::supplier_price::SupplierPriceService {
+        abt_core::purchase::supplier_price::new_supplier_price_service(self.pool.clone())
+    }
+
     pub fn purchase_demand_service(
         &self,
     ) -> impl abt_core::purchase::demand_handler::PurchaseDemandService {

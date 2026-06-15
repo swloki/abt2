@@ -15,6 +15,8 @@ use crate::shared::types::{DomainError, Result, ServiceContext};
 
 use crate::purchase::enums::PurchaseOrderStatus;
 use crate::purchase::order::repo::{PurchaseOrderItemRepo, PurchaseOrderRepo};
+use crate::purchase::settings::repo::PurchaseSettingsRepo;
+use crate::purchase::settings::model::PurchaseSettings;
 
 /// 来料检验通过 Handler
 ///
@@ -86,6 +88,23 @@ impl EventHandler for ArrivalAcceptedHandler {
 
         // 4. 批量更新 received_qty
         PurchaseOrderItemRepo::batch_update_received_qty(&mut conn, &recompute).await?;
+
+        // 4.5 校验超收容差（设置行读取失败时回退到零容差默认值）
+        let settings = PurchaseSettingsRepo::get(&mut conn).await
+            .unwrap_or_else(|_| PurchaseSettings::default());
+
+        let po_items_check = PurchaseOrderItemRepo::list_by_order_id(&mut conn, po_id).await?;
+        for item in &po_items_check {
+            let max_qty = item.quantity
+                * (Decimal::ONE + settings.over_delivery_allowance_pct / Decimal::from(100));
+            if item.received_qty > max_qty {
+                return Err(DomainError::Validation(format!(
+                    "订单行 {} 收货数量 {} 超过允许上限 {}（含 {}% 容差）",
+                    item.line_no, item.received_qty, max_qty,
+                    settings.over_delivery_allowance_pct
+                )));
+            }
+        }
 
         // 5. 判定目标状态
         let po_items = PurchaseOrderItemRepo::list_by_order_id(&mut conn, po_id).await?;

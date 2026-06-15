@@ -6,6 +6,7 @@ use serde::Deserialize;
 use crate::pages::purchase_order_list;
 use crate::pages::purchase_order_create;
 use crate::pages::purchase_order_detail;
+use crate::pages::purchase_order_edit;
 use crate::state::AppState;
 
 // ── Typed Paths ──
@@ -54,6 +55,12 @@ pub struct PODeletePath {
     pub id: i64,
 }
 
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/purchase/orders/{id}/edit")]
+pub struct POEditPath {
+    pub id: i64,
+}
+
 // ── Router ──
 
 pub fn router() -> Router<AppState> {
@@ -66,4 +73,5 @@ pub fn router() -> Router<AppState> {
         .route(PODetailPath::PATH, get(purchase_order_detail::get_po_detail))
         .route(POConfirmPath::PATH, post(purchase_order_detail::confirm_po))
         .route(POCancelPath::PATH, post(purchase_order_detail::cancel_po))
+        .route(POEditPath::PATH, get(purchase_order_edit::get_po_edit).post(purchase_order_edit::update_po))
 }

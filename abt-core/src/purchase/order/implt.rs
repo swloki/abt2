@@ -4,7 +4,8 @@ use serde_json::json;
 use sqlx::postgres::PgPool;
 
 use super::model::{
-    CreateOrderItemRequest, CreatePurchaseOrderRequest, PurchaseOrder, PurchaseOrderItem, PurchaseOrderQuery,
+    CreateOrderItemRequest, CreatePurchaseOrderRequest, PurchaseOrder, PurchaseOrderItem,
+    PurchaseOrderQuery, UpdatePurchaseOrderRequest,
 };
 use super::repo::{PurchaseOrderItemRepo, PurchaseOrderRepo};
 use super::service::PurchaseOrderService;
@@ -397,6 +398,53 @@ impl PurchaseOrderService for PurchaseOrderServiceImpl {
 
         new_audit_log_service(self.pool.clone())
             .record(ctx, db, RecordAuditLogReq { entity_type: ENTITY_TYPE, entity_id: id, action: AuditAction::Transition, changes: None, context: None })
+            .await?;
+
+        Ok(())
+    }
+
+    async fn update(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        id: i64,
+        req: UpdatePurchaseOrderRequest,
+        items: Vec<CreateOrderItemRequest>,
+    ) -> Result<()> {
+        let existing = PurchaseOrderRepo::get_by_id(&mut *db, id)
+            .await?
+            .ok_or_else(|| DomainError::not_found(ENTITY_DISPLAY))?;
+
+        if existing.status != PurchaseOrderStatus::Draft {
+            return Err(DomainError::business_rule("仅草稿状态的订单可以编辑"));
+        }
+
+        // 1. 更新订单头
+        PurchaseOrderRepo::update_fields(&mut *db, id, &req).await?;
+
+        // 2. 删除旧明细，插入新明细
+        PurchaseOrderItemRepo::delete_by_order_id(&mut *db, id).await?;
+        if !items.is_empty() {
+            PurchaseOrderItemRepo::insert_items(&mut *db, id, &items).await?;
+        }
+
+        // 3. 更新总金额
+        let total_amount: Decimal = items.iter().map(|i| i.quantity * i.unit_price).sum();
+        PurchaseOrderRepo::update_total_amount(&mut *db, id, total_amount).await?;
+
+        // 4. 审计日志
+        new_audit_log_service(self.pool.clone())
+            .record(
+                ctx,
+                db,
+                RecordAuditLogReq {
+                    entity_type: ENTITY_TYPE,
+                    entity_id: id,
+                    action: AuditAction::Update,
+                    changes: None,
+                    context: None,
+                },
+            )
             .await?;
 
         Ok(())

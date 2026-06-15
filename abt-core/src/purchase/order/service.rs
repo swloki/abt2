@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 
-use super::model::{CreatePurchaseOrderRequest, PurchaseOrder, PurchaseOrderItem, PurchaseOrderQuery};
+use super::model::{CreateOrderItemRequest, CreatePurchaseOrderRequest, PurchaseOrder, PurchaseOrderItem, PurchaseOrderQuery, UpdatePurchaseOrderRequest};
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::PgExecutor;
 use crate::shared::types::Result;
@@ -36,4 +36,13 @@ pub trait PurchaseOrderService: Send + Sync {
     async fn list_items(&self, ctx: &ServiceContext, db: PgExecutor<'_>, order_id: i64) -> Result<Vec<PurchaseOrderItem>>;
 
     async fn cancel(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64, idempotency_key: Option<String>) -> Result<()>;
+
+    async fn update(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        id: i64,
+        req: UpdatePurchaseOrderRequest,
+        items: Vec<CreateOrderItemRequest>,
+    ) -> Result<()>;
 }

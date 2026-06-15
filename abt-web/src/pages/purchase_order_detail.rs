@@ -208,6 +208,10 @@ fn po_detail_page(
                         "关联报价"
                     }
                     @if order.status == PurchaseOrderStatus::Draft {
+                        a class="btn btn-default" href=(POEditPath { id: order.id }.to_string()) {
+                            (icon::edit_icon("w-4 h-4"))
+                            "编辑"
+                        }
                         button class="btn btn-primary"
                             hx-post=(POConfirmPath { id: order.id }.to_string())
                             hx-confirm="确认此订单？确认后将通知供应商。" {

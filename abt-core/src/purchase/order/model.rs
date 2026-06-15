@@ -83,3 +83,12 @@ pub struct CreateOrderItemRequest {
     pub quotation_item_id: Option<i64>,
     pub expected_delivery_date: Option<NaiveDate>,
 }
+
+/// 更新采购订单请求（仅草稿可编辑）
+pub struct UpdatePurchaseOrderRequest {
+    pub supplier_id: i64,
+    pub expected_delivery_date: Option<NaiveDate>,
+    pub payment_terms: Option<String>,
+    pub delivery_address: Option<String>,
+    pub remark: String,
+}

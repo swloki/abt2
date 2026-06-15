@@ -17,6 +17,7 @@ pub mod purchase_demand_pool_create;
 pub mod purchase_order_create;
 pub mod purchase_order_detail;
 pub mod purchase_order_list;
+pub mod purchase_order_edit;
 pub mod purchase_quotation_create;
 pub mod purchase_quotation_detail;
 pub mod purchase_quotation_list;

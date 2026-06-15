@@ -148,6 +148,51 @@ impl PurchaseOrderRepo {
 
         Ok(result.rows_affected())
     }
+
+    /// 更新订单头字段（仅草稿状态可调用）
+    pub async fn update_fields(
+        executor: &mut sqlx::postgres::PgConnection,
+        id: i64,
+        req: &super::model::UpdatePurchaseOrderRequest,
+    ) -> Result<()> {
+        sqlx::query(
+            r#"
+            UPDATE purchase_orders
+            SET supplier_id = $2,
+                expected_delivery_date = $3,
+                payment_terms = $4,
+                delivery_address = $5,
+                remark = $6,
+                updated_at = NOW()
+            WHERE id = $1 AND deleted_at IS NULL
+            "#,
+        )
+        .bind(id)
+        .bind(req.supplier_id)
+        .bind(req.expected_delivery_date)
+        .bind(&req.payment_terms)
+        .bind(&req.delivery_address)
+        .bind(&req.remark)
+        .execute(&mut *executor)
+        .await?;
+        Ok(())
+    }
+
+    /// 更新订单总金额
+    pub async fn update_total_amount(
+        executor: &mut sqlx::postgres::PgConnection,
+        id: i64,
+        total_amount: Decimal,
+    ) -> Result<()> {
+        sqlx::query(
+            "UPDATE purchase_orders SET total_amount = $2, updated_at = NOW() WHERE id = $1",
+        )
+        .bind(id)
+        .bind(total_amount)
+        .execute(&mut *executor)
+        .await?;
+        Ok(())
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -234,5 +279,17 @@ impl PurchaseOrderItemRepo {
         .bind(PurchaseOrderStatus::Received)
         .fetch_all(executor)
         .await.map_err(Into::into)
+    }
+
+    /// 删除指定订单的全部明细（编辑草稿时先删后插）
+    pub async fn delete_by_order_id(
+        executor: &mut sqlx::postgres::PgConnection,
+        order_id: i64,
+    ) -> Result<()> {
+        sqlx::query("DELETE FROM purchase_order_items WHERE order_id = $1")
+            .bind(order_id)
+            .execute(&mut *executor)
+            .await?;
+        Ok(())
     }
 }

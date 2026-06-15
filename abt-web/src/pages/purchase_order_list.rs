@@ -329,7 +329,7 @@ fn po_row(
             td onclick="event.stopPropagation()" {
                 @if is_draft {
                     div class="row-actions" {
-                        a class="row-action-btn" href=(detail_path.to_string()) title="编辑" {
+                        a class="row-action-btn" href=(POEditPath { id: o.id }.to_string()) title="编辑" {
                             (icon::edit_icon("w-4 h-4"))
                         }
                         @if can_delete {

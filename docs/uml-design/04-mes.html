@@ -534,7 +534,7 @@ classDiagram
         <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11.5px;">
           <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">ProductionBatch</span> {<br>
           &nbsp;&nbsp;id: i64 <span style="color:#888;">PK</span><br>
-          &nbsp;&nbsp;batch_no: String <span style="color:#888;">// WO-2026-05-xxxxx-01</span><br>
+          &nbsp;&nbsp;batch_no: String <span style="color:#888;">// WO-2026-05-xxxxx-01；= 产成品库存批次号，完工入库时透传 stock_ledger.batch_no</span><br>
           &nbsp;&nbsp;card_sn: String <span style="color:#888;">// 流转卡序列号（二维码唯一标识）</span><br>
           &nbsp;&nbsp;work_order_id: i64 <span style="color:#888;">FK→work_orders</span><br>
           &nbsp;&nbsp;product_id: i64 <span style="color:#888;">// 冗余字段，便于流转卡查询</span><br>
@@ -565,7 +565,8 @@ classDiagram
           &bull; sum(batch_qty) &le; work_order.planned_qty<br>
           &bull; current_step 由系统自动维护，禁止前端直接修改<br>
           &bull; 前道工序未完成时拦截下一道报工（防跳序）<br>
-          &bull; 最后一道工序确认后自动推进至 PendingReceipt
+          &bull; 最后一道工序确认后自动推进至 PendingReceipt<br>
+          &bull; <b style="color:#98c379;">批次语义统一</b>：流转卡 <code>batch_no</code> 即产成品库存批次号。完工入库(ProductionReceipt.confirm)时必须透传至 <code>inventory_transactions.batch_no</code> 与 <code>stock_ledger.batch_no</code>，保证产成品库存可按流转卡/工单双向追溯。反冲(backflush)是标准倒扣、不指定具体批次，原材料批次追溯走领料(material_requisition)链路。
         </div>
       </div>
     </div>

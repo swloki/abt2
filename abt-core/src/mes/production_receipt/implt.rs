@@ -1,11 +1,12 @@
 use async_trait::async_trait;
 use sqlx::postgres::PgPool;
+use rust_decimal::Decimal;
 
 use super::super::enums::*;
 use super::model::*;
 use super::repo::ProductionReceiptRepo;
 use super::service::ProductionReceiptService;
-use crate::mes::production_batch::repo::ProductionBatchRepo;
+use crate::mes::production_batch::repo::{ProductionBatchRepo, WorkOrderRoutingRepo};
 use crate::mes::work_order::repo::WorkOrderRepo;
 use crate::mes::production_plan::repo::ProductionPlanRepo;
 use crate::qms::enums::{InspectionResultType, InspectionSourceType, InspectionStatus};
@@ -23,6 +24,7 @@ use crate::shared::types::pagination::PageParams;
 use crate::wms::backflush::{new_backflush_service, service::BackflushService};
 use crate::wms::enums::TransactionType;
 use crate::wms::inventory_transaction::{new_inventory_transaction_service, model::RecordTransactionReq, service::InventoryTransactionService};
+use crate::wms::stock_ledger::repo::StockLedgerRepo;
 
 pub struct ProductionReceiptServiceImpl {
     #[allow(dead_code)]
@@ -118,44 +120,35 @@ impl ProductionReceiptService for ProductionReceiptServiceImpl {
             });
         }
 
-        // 1. QMS FQC hard gate — 查询检验结果（在状态更新前验证）
-        let fqc_results = new_inspection_result_service(self.pool.clone())
-            .list_by_source(
-                ctx, db,
-                InspectionResultFilter {
-                    source_type: Some(InspectionSourceType::ArrivalNotice),
-                    source_id: Some(id),
-                    ..Default::default()
-                },
-                PageParams {
-                    page: 1,
-                    page_size: 10000,
-                },
-            )
-            .await
-            .unwrap_or_else(|_| crate::shared::types::pagination::PaginatedResult {
-                items: vec![],
-                total: 0,
-                page: 1,
-                page_size: 10000,
-                total_pages: 0,
-            });
-
-        let fqc_passed = fqc_results.items.is_empty()
-            || fqc_results.items.iter().all(|r| {
-                r.status == InspectionStatus::Completed && r.result == InspectionResultType::Pass
-            });
-
-        if !fqc_passed {
-            return Err(DomainError::BusinessRule(
-                "QMS FQC inspection not passed".to_string(),
-            ));
+        // 1. QMS FQC 条件性门控 — 复用 get_fqc_status 统一门控语义（仅当工单工序含报检点时才要求 FQC）
+        match self.get_fqc_status(ctx, db, id).await? {
+            FqcGate::NotRequired | FqcGate::AllPassed => {}
+            FqcGate::PendingInspection => {
+                return Err(DomainError::BusinessRule(
+                    "工单含报检工序，完工入库前必须完成 FQC 质检（无检验记录）".into(),
+                ));
+            }
+            FqcGate::HasFailed => {
+                return Err(DomainError::BusinessRule(
+                    "FQC 质检未全部通过，不允许入库".to_string(),
+                ));
+            }
         }
 
         // 所有验证通过，标记为 Confirmed 防止部分失败后重试导致副作用重复执行
         ProductionReceiptRepo::update_status(&mut *db, id, ReceiptStatus::Confirmed)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
+
+        // 解析产成品库存批次号：流转卡 batch_no 即产成品库存批次号
+        // （批次语义统一：完工入库必须透传，保证库存台账可按流转卡/工单追溯产成品）
+        let fg_batch_no: Option<String> = match receipt.batch_id {
+            Some(bid) => ProductionBatchRepo::get_by_id(&mut *db, bid)
+                .await
+                .map_err(|e| DomainError::Internal(e.into()))?
+                .map(|b| b.batch_no),
+            None => None,
+        };
 
         // 2. WMS inventory transaction — production receipt (入库)
         new_inventory_transaction_service(self.pool.clone())
@@ -165,7 +158,7 @@ impl ProductionReceiptService for ProductionReceiptServiceImpl {
                 warehouse_id: receipt.warehouse_id,
                 zone_id: receipt.zone_id,
                 bin_id: receipt.bin_id,
-                batch_no: None,
+                batch_no: fg_batch_no,
                 quantity: receipt.received_qty,
                 unit_cost: None,
                 source_type: "production_receipt".to_string(),
@@ -174,67 +167,44 @@ impl ProductionReceiptService for ProductionReceiptServiceImpl {
             )
             .await?;
 
-        // 3. Cost entry — finished goods receipt cost
+        // 3. Cost entry — 从 stock_ledger 查最后已知单位成本
+        let unit_cost = self.get_unit_cost(db, receipt.product_id).await.unwrap_or(Decimal::ZERO);
+        let total_cost = receipt.received_qty * unit_cost;
+
         let period = chrono::Local::now().format("%Y-%m").to_string();
-        new_cost_entry_service(self.pool.clone())
-            .create_entries(
-                ctx, db,
-                vec![EntryRequest {
-                    entity_type: CostEntityType::WorkOrder,
-                    entity_id: receipt.work_order_id,
-                    cost_type: CostType::Material,
-                    debit_amount: receipt.received_qty,
-                    credit_amount: receipt.received_qty,
-                    cost_center: None,
-                    profit_center: None,
-                    period,
-                    source_type: DocumentType::ProductionReceipt,
-                    source_id: id,
-                }],
-            )
-            .await?;
-
-        // 4. Backflush — failure does not block receipt but is audited.
-        //    Uses a separate pool connection so SQL errors don't poison the
-        //    caller's transaction (the backflush is best-effort by design).
-        let backflush_result = {
-            let mut bf_conn = self.pool.acquire().await
-                .map_err(|e| DomainError::Internal(e.into()))?;
-            new_backflush_service(self.pool.clone())
-                .execute(ctx, &mut bf_conn, receipt.work_order_id, receipt.received_qty)
-                .await
-        };
-
-        if let Err(e) = backflush_result {
-            if let Err(audit_err) = new_audit_log_service(self.pool.clone())
-                .record(
+        if total_cost > Decimal::ZERO {
+            new_cost_entry_service(self.pool.clone())
+                .create_entries(
                     ctx, db,
-                    RecordAuditLogReq {
-                        entity_type: "production_receipt",
-                        entity_id: id,
-                        action: AuditAction::Update,
-                        changes: Some(serde_json::json!({ "backflush_error": format!("{:?}", e) })),
-                        context: None,
-                    },
+                    vec![EntryRequest {
+                        entity_type: CostEntityType::WorkOrder,
+                        entity_id: receipt.work_order_id,
+                        cost_type: CostType::Material,
+                        debit_amount: total_cost,
+                        credit_amount: total_cost,
+                        cost_center: None,
+                        profit_center: None,
+                        period,
+                        source_type: DocumentType::ProductionReceipt,
+                        source_id: id,
+                    }],
                 )
-                .await
-            {
-                tracing::warn!("audit log for backflush error failed: {audit_err}");
-            }
-        } else {
-            ProductionReceiptRepo::set_backflush_triggered(&mut *db, id, true)
-                .await
-                .map_err(|e| DomainError::Internal(e.into()))?;
+                .await?;
         }
 
-        // 5. Release hard reservation
-        new_inventory_reservation_service(self.pool.clone())
-            .cancel_by_source(
-                ctx, db,
-                DocumentType::WorkOrder,
-                receipt.work_order_id,
-            )
-            .await?;
+        // 4. Backflush — 纳入同一事务（修复：原来用独立连接，倒冲成功但后续失败无法回滚）
+        new_backflush_service(self.pool.clone())
+            .execute(ctx, db, receipt.work_order_id, receipt.received_qty)
+            .await
+            .map_err(|e| {
+                DomainError::BusinessRule(format!("倒冲失败，入库已回滚: {e:?}"))
+            })?;
+
+        ProductionReceiptRepo::set_backflush_triggered(&mut *db, id, true)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?;
+
+        // 5. 预留释放移至所有批次终态后（见下方 !has_active_batch 块）
 
         // 6. Update batch status to Completed
         if let Some(batch_id) = receipt.batch_id {
@@ -275,14 +245,22 @@ impl ProductionReceiptService for ProductionReceiptServiceImpl {
                 Ok(false) => {}
                 Err(e) => return Err(DomainError::Internal(e.into())),
             }
+
+            // 预留释放 + PlanItem 完成（仅当所有批次终态时）
+            new_inventory_reservation_service(self.pool.clone())
+                .cancel_by_source(
+                    ctx, db,
+                    DocumentType::WorkOrder,
+                    receipt.work_order_id,
+                )
+                .await?;
+            ProductionPlanRepo::update_item_status_by_work_order(
+                &mut *db,
+                receipt.work_order_id,
+                PlanItemStatus::Completed,
+            ).await?;
         }
 
-        // 7c. PlanItem: InProduction → Completed
-        ProductionPlanRepo::update_item_status_by_work_order(
-            &mut *db,
-            receipt.work_order_id,
-            PlanItemStatus::Completed,
-        ).await?;
 
         // 7d. Plan: 重新计算状态
         if let Some(plan_id) = ProductionPlanRepo::find_plan_id_by_work_order(
@@ -346,5 +324,50 @@ impl ProductionReceiptService for ProductionReceiptServiceImpl {
             product_name: product.map(|r| r.0),
             warehouse_name: warehouse.map(|r| r.0),
         })
+    }
+
+    async fn get_unit_cost(&self, db: PgExecutor<'_>, product_id: i64) -> Result<Decimal> {
+        StockLedgerRepo::last_known_unit_cost(&mut *db, product_id).await
+    }
+
+    async fn get_fqc_status(&self, ctx: &ServiceContext, db: PgExecutor<'_>, receipt_id: i64) -> Result<FqcGate> {
+        let receipt = ProductionReceiptRepo::get_by_id(&mut *db, receipt_id)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?
+            .ok_or_else(|| DomainError::not_found("ProductionReceipt"))?;
+
+        let wo_routings = WorkOrderRoutingRepo::get_by_work_order_id(
+            &mut *db, receipt.work_order_id,
+        ).await.unwrap_or_default();
+        let has_inspection_points = wo_routings.iter().any(|r| r.is_inspection_point);
+
+        if !has_inspection_points {
+            return Ok(FqcGate::NotRequired);
+        }
+
+        let fqc_results = new_inspection_result_service(self.pool.clone())
+            .list_by_source(
+                ctx, db,
+                InspectionResultFilter {
+                    source_type: Some(InspectionSourceType::ProductionReceipt),
+                    source_id: Some(receipt_id),
+                    ..Default::default()
+                },
+                PageParams { page: 1, page_size: 10000 },
+            )
+            .await
+            .unwrap_or_else(|_| PaginatedResult {
+                items: vec![], total: 0, page: 1, page_size: 10000, total_pages: 0,
+            });
+
+        if fqc_results.items.is_empty() {
+            return Ok(FqcGate::PendingInspection);
+        }
+
+        let all_passed = fqc_results.items.iter().all(|r| {
+            r.status == InspectionStatus::Completed && r.result == InspectionResultType::Pass
+        });
+
+        Ok(if all_passed { FqcGate::AllPassed } else { FqcGate::HasFailed })
     }
 }

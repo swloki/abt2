@@ -493,7 +493,7 @@ fn batch_cascade_fragment(
     completed: &HashSet<i64>,
 ) -> Markup {
     html! {
-        div id="batch-cascade" {
+        div id="batch-cascade" style="margin-top:var(--space-5)" {
             // 隐藏的 work_order_id（报工提交时携带）
             input type="hidden" name="work_order_id" value=(work_order_id);
             div class="form-grid cols-2" {

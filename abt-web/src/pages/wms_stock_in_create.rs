@@ -24,7 +24,7 @@ use abt_core::shared::document_sequence::DocumentSequenceService;
 use crate::components::icon;
 use crate::errors::Result;
 use crate::layout::page::admin_page;
-use crate::routes::wms_stock_in::{StockInCreatePath, StockInListPath, StockInProductsPath, StockInItemRowPath, StockInSourcePickPath};
+use crate::routes::wms_stock_in::{StockInCreatePath, StockInListPath, StockInProductsPath, StockInItemRowPath, StockInSourcePickPath, StockInSourceItemsPath};
 use crate::utils::{RequestContext, empty_as_none};
 use abt_macros::require_permission;
 
@@ -184,6 +184,62 @@ pub async fn get_source_pick(
     };
 
     Ok(Html(source_pick_fragment(&options).into_string()))
+}
+
+// ── Source Items (来源单据明细自动填充) ──
+
+#[derive(Debug, Deserialize)]
+pub struct SourceItemsParams {
+    pub source_type: String,
+    #[serde(default, deserialize_with = "empty_as_none")]
+    pub source_id: Option<i64>,
+}
+
+/// HTMX: 根据来源单据 ID 返回物料明细行（采购订单 / 来料通知）
+#[require_permission("INVENTORY", "create")]
+pub async fn get_source_items(
+    ctx: RequestContext,
+    Query(params): Query<SourceItemsParams>,
+) -> Result<Html<String>> {
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let product_svc = state.product_service();
+
+    let source_id = match params.source_id {
+        Some(id) if id > 0 => id,
+        _ => return Ok(Html(source_items_fragment(&[]).into_string())),
+    };
+
+    // Fetch line items from the source document
+    let items: Vec<(i64, Decimal)> = match params.source_type.as_str() {
+        "purchase" => {
+            let po_svc = state.purchase_order_service();
+            po_svc.list_items(&service_ctx, &mut conn, source_id)
+                .await?
+                .into_iter()
+                .map(|it| (it.product_id, it.quantity))
+                .collect()
+        }
+        "arrival" => {
+            let an_svc = state.arrival_notice_service();
+            an_svc.list_items(&service_ctx, &mut conn, source_id)
+                .await?
+                .into_iter()
+                .map(|it| (it.product_id, it.declared_qty))
+                .collect()
+        }
+        _ => Vec::new(),
+    };
+
+    // Resolve product details for each item
+    let mut rows: Vec<(abt_core::master_data::product::model::Product, Decimal)> = Vec::new();
+    for (product_id, qty) in &items {
+        match product_svc.get(&service_ctx, &mut conn, *product_id).await {
+            Ok(p) => rows.push((p, *qty)),
+            Err(_) => continue,
+        }
+    }
+
+    Ok(Html(source_items_fragment(&rows).into_string()))
 }
 
 async fn resolve_supplier_names_map<S: SupplierService>(
@@ -376,8 +432,8 @@ fn stock_in_create_content(
                         div class="form-group" {
                             label class="form-label" { "来源类型" }
                             select class="form-select" name="source_type" id="source-type-select"
-                                _="on change[my value is 'manual'] put '可选：输入来源单号' into #source-ref-input's @placeholder then hide #source-ref-pick-btn then hide #source-ref-required then hide #source-supplier-group then set #source-ref-input's value to '' then set #source-id-input's value to '' then set #source-supplier-input's value to ''
-                                   on change[my value is not 'manual'] put '选择来源单号或直接输入' into #source-ref-input's @placeholder then show #source-ref-pick-btn then show #source-ref-required then show #source-supplier-group then set #source-ref-input's value to '' then set #source-id-input's value to ''" {
+                                _="on change[my value is 'manual'] put '可选：输入来源单号' into #source-ref-input's @placeholder then hide #source-ref-pick-btn then hide #source-ref-required then hide #source-supplier-group then set #source-ref-input's value to '' then set #source-id-input's value to '' then set #source-supplier-input's value to '' then set #stockin-item-tbody's innerHTML to '' then call wmsStockInCalcSummary()
+                                   on change[my value is not 'manual'] put '选择来源单号或直接输入' into #source-ref-input's @placeholder then show #source-ref-pick-btn then show #source-ref-required then show #source-supplier-group then set #source-ref-input's value to '' then set #source-id-input's value to '' then set #stockin-item-tbody's innerHTML to '' then call wmsStockInCalcSummary()" {
                                 option value="arrival" selected { "来料通知 (AN)" }
                                 option value="purchase" { "采购订单 (PO)" }
                                 option value="manual" { "手工录入" }
@@ -602,11 +658,11 @@ fn stock_in_create_content(
                         _="on click remove .is-open from #source-modal" { "×" }
                 }
                 div class="modal-body" style="padding:0" hx-disinherit="hx-select" {
-                    input type="hidden" id="source-pick-type" value="arrival" {}
+                    input type="hidden" id="source-pick-type" name="source_type" value="arrival" {}
                     div class="product-search-bar" {
                         div class="product-search-field" {
                             label class="product-search-label" { "来源单号" }
-                            input class="product-search-input" type="text" name="keyword" placeholder="输入单号关键词…"
+                            input id="source-search-input" class="product-search-input" type="text" name="keyword" placeholder="输入单号关键词…"
                                 hx-get=(StockInSourcePickPath::PATH)
                                 hx-trigger="keyup changed delay:300ms"
                                 hx-sync="this:replace"
@@ -619,7 +675,7 @@ fn stock_in_create_content(
                             hx-target="#stockin-source-results"
                             hx-swap="innerHTML"
                             hx-include="#source-pick-type"
-                            _="on click set (#source-modal .product-search-input)'s value to '' then trigger keyup on #source-modal .product-search-input" {
+                            _="on click set #source-search-input's value to '' then trigger keyup on #source-search-input" {
                             "清除"
                         }
                     }
@@ -723,12 +779,27 @@ fn stock_in_create_content(
             htmx.ajax('GET', path + '?source_type=' + encodeURIComponent(type), {target: '#stockin-source-results', swap: 'innerHTML'});
         }
 
-        // Pick a source row — backfill ref / supplier / source_id
+        // Pick a source row — backfill ref / supplier / source_id, then auto-load items
         function wmsStockInPickSource(btn) {
             document.getElementById('source-ref-input').value = btn.dataset.doc;
             document.getElementById('source-supplier-input').value = btn.dataset.supplier;
             document.getElementById('source-id-input').value = btn.dataset.sourceId;
             document.querySelector('#source-modal').classList.remove('is-open');
+            wmsStockInLoadSourceItems();
+        }
+
+        // Auto-load line items from the selected source document
+        function wmsStockInLoadSourceItems() {
+            var sourceType = document.getElementById('source-type-select').value;
+            var sourceId = document.getElementById('source-id-input').value;
+            if (sourceType === 'manual' || !sourceId || sourceId === '0') return;
+            // Clear existing manually-added items
+            document.getElementById('stockin-item-tbody').innerHTML = '';
+            htmx.ajax('GET', '/admin/wms/stock-in/create/source-items', {
+                target: '#stockin-item-tbody',
+                swap: 'innerHTML',
+                values: { source_type: sourceType, source_id: sourceId }
+            }).then(function() { setTimeout(wmsStockInRenumber, 50); });
         }
         </script>"#))
     }
@@ -820,6 +891,28 @@ fn item_row_fragment(product: &abt_core::master_data::product::model::Product) -
                 (icon::x_icon("w-3.5 h-3.5"))
             } }
             input type="hidden" name="product_id" value=(product.product_id) {}
+        }
+    }
+}
+
+/// Multiple item rows with pre-filled quantities (from PO / arrival notice)
+fn source_items_fragment(items: &[(abt_core::master_data::product::model::Product, Decimal)]) -> Markup {
+    html! {
+        @for (product, qty) in items {
+            tr oninput="wmsStockInCalcRow(this)" {
+                td class="line-num" { }
+                td class="mono" { (product.product_code) }
+                td { (product.pdt_name) }
+                td style="color:var(--fg-2);font-size:var(--text-sm)" { (product.meta.specification) }
+                td { input class="form-input" type="text" name="batch_no" placeholder="批次号" style="width:100%;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
+                td { input class="form-input num-input" type="number" min="0.01" step="any" name="quantity" value=(qty.to_string()) style="width:90px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
+                td { input class="form-input" type="text" name="item_bin_id" placeholder="自动" style="width:80px;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface)" {} }
+                td { button type="button" class="btn-remove-row" title="删除行"
+                    _="on click remove closest <tr/> then call wmsStockInRenumber()" {
+                    (icon::x_icon("w-3.5 h-3.5"))
+                } }
+                input type="hidden" name="product_id" value=(product.product_id) {}
+            }
         }
     }
 }

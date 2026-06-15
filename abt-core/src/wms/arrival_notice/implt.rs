@@ -1,9 +1,9 @@
-﻿use async_trait::async_trait;
+use async_trait::async_trait;
 use rust_decimal::Decimal;
 use sqlx::postgres::PgPool;
 
 use super::model::{
-    ArrivalNotice, ArrivalNoticeFilter, CreateArrivalNoticeReq, InspectArrivalNoticeReq,
+    ArrivalNotice, ArrivalNoticeFilter, ArrivalNoticeItem, CreateArrivalNoticeReq, InspectArrivalNoticeReq,
     ReceiveArrivalNoticeReq,
 };
 use super::repo::ArrivalNoticeRepo;
@@ -283,6 +283,16 @@ impl ArrivalNoticeService for ArrivalNoticeServiceImpl {
             .map_err(|e| DomainError::Internal(e.into()))?;
 
         Ok(())
+    }
+
+    async fn list_items(
+        &self,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
+        notice_id: i64,
+    ) -> Result<Vec<ArrivalNoticeItem>> {
+        ArrivalNoticeRepo::get_items(&mut *db, notice_id)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))
     }
 }
 

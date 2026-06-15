@@ -1,4 +1,4 @@
-﻿use async_trait::async_trait;
+use async_trait::async_trait;
 
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::PgExecutor;
@@ -6,7 +6,7 @@ use crate::shared::types::Result;
 use crate::shared::types::pagination::PaginatedResult;
 
 use super::model::{
-    ArrivalNotice, ArrivalNoticeFilter, CreateArrivalNoticeReq, InspectArrivalNoticeReq,
+    ArrivalNotice, ArrivalNoticeFilter, ArrivalNoticeItem, CreateArrivalNoticeReq, InspectArrivalNoticeReq,
     ReceiveArrivalNoticeReq,
 };
 
@@ -55,4 +55,11 @@ pub trait ArrivalNoticeService: Send + Sync {
         ctx: &ServiceContext, db: PgExecutor<'_>,
         id: i64,
     ) -> Result<()>;
+
+    /// 查询来料通知明细行
+    async fn list_items(
+        &self,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
+        notice_id: i64,
+    ) -> Result<Vec<ArrivalNoticeItem>>;
 }

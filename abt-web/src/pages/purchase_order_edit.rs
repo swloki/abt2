@@ -333,15 +333,15 @@ fn po_edit_page(
             // ── Form submit: collect items into JSON ──
             script {
                 (maud::PreEscaped("document.currentScript.parentElement.addEventListener('submit', function(ev){
-                    var rows=document.querySelectorAll('#po-item-tbody tr');
                     var items=[];
-                    rows.forEach(function(row){
-                        var fd=new FormData(row.closest('form'));
+                    document.querySelectorAll('#po-item-tbody tr').forEach(function(row){
                         var obj={};
-                        fd.forEach(function(v,k){if(!obj[k])obj[k]=v});
-                        items.push(obj)
+                        row.querySelectorAll('input,select,textarea').forEach(function(el){
+                            if(el.name && !obj[el.name]) obj[el.name]=el.value;
+                        });
+                        items.push(obj);
                     });
-                    document.querySelector('#items-json').value=JSON.stringify(items)
+                    document.querySelector('#items-json').value=JSON.stringify(items);
                 })"))
             }
             }

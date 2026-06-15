@@ -179,11 +179,32 @@ pub async fn search_batch(
         }
     };
 
-    let batches = batch_svc
+    let mut batches = batch_svc
         .list_by_work_order(&service_ctx, &mut conn, wo_id)
         .await
         .unwrap_or_default();
     let wo = wo_svc.find_by_id(&service_ctx, &mut conn, wo_id).await.ok();
+
+    // 工单已下达但无批次 → 自动创建默认批次（按工单计划量）
+    if batches.is_empty()
+        && let Some(ref w) = wo
+        && matches!(w.status, WorkOrderStatus::Released | WorkOrderStatus::InProduction)
+    {
+        let req = abt_core::mes::production_batch::CreateBatchReq {
+            work_order_id: wo_id,
+            product_id: w.product_id,
+            batch_qty: w.planned_qty,
+            team_id: None,
+        };
+        if let Err(_e) = batch_svc.create(&service_ctx, &mut conn, req).await {
+            // 自动创建失败（权限/业务规则），用户可从工单详情页手动创建
+        }
+        batches = batch_svc
+            .list_by_work_order(&service_ctx, &mut conn, wo_id)
+            .await
+            .unwrap_or_default();
+    }
+
     let product_name = if let Some(ref w) = wo {
         wo_svc.get_product_name(&mut conn, w.product_id).await.ok().flatten().unwrap_or_else(|| "—".into())
     } else { "—".into() };

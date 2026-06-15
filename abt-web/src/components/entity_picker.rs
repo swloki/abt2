@@ -140,7 +140,7 @@ pub fn entity_picker_modal(cfg: &EntityPickerConfig) -> Markup {
 /// (for hidden context inputs), plus optional extra selectors for cascade.
 fn hx_include_expr(cfg: &EntityPickerConfig) -> String {
     match cfg.extra_include {
-        Some(sel) => format!("#{} {}", cfg.modal_id, sel),
+        Some(sel) => format!("#{}, {}", cfg.modal_id, sel),
         None => format!("#{}", cfg.modal_id),
     }
 }

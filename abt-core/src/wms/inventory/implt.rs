@@ -1,4 +1,4 @@
-﻿use async_trait::async_trait;
+use async_trait::async_trait;
 use rust_decimal::Decimal;
 
 use super::model::{
@@ -309,30 +309,43 @@ impl InventoryServiceImpl {
 
         let before_qty = before.as_ref().map(|s| s.quantity).unwrap_or(Decimal::ZERO);
 
-        // 2. 插入事务记录
-        let txn_req = RecordTransactionReq { doc_number: None, delivery_no: None, source_doc_number: None, transaction_type: txn_type, product_id: req.product_id,
-        warehouse_id: req.warehouse_id,
-        zone_id: Some(req.zone_id),
-        bin_id: Some(req.bin_id),
-        batch_no: None,
-        quantity,
-        unit_cost: None,
-        source_type: req
-            .ref_order_type
-            .clone()
-            .unwrap_or_else(|| "manual".to_string()),
-        source_id: req
-            .ref_order_id
-            .as_ref()
-            .and_then(|s| s.parse::<i64>().ok())
-            .unwrap_or(0),
-        remark: req.remark.clone(), };
+        // 2. 兜底生成单据号（调用方未显式提供时，按事务类型前缀 + 本地时间戳）
+        let doc_number = format!(
+            "{}{}",
+            txn_type.doc_prefix(),
+            chrono::Local::now().format("%Y%m%d%H%M%S")
+        );
+
+        // 3. 插入事务记录
+        let txn_req = RecordTransactionReq {
+            doc_number: Some(doc_number),
+            delivery_no: None,
+            source_doc_number: None,
+            transaction_type: txn_type,
+            product_id: req.product_id,
+            warehouse_id: req.warehouse_id,
+            zone_id: Some(req.zone_id),
+            bin_id: Some(req.bin_id),
+            batch_no: None,
+            quantity,
+            unit_cost: None,
+            source_type: req
+                .ref_order_type
+                .clone()
+                .unwrap_or_else(|| "manual".to_string()),
+            source_id: req
+                .ref_order_id
+                .as_ref()
+                .and_then(|s| s.parse::<i64>().ok())
+                .unwrap_or(0),
+            remark: req.remark.clone(),
+        };
 
         let txn = InventoryTransactionRepo::insert(exec, &txn_req, operator_id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
 
-        // 3. 更新台账
+        // 4. 更新台账
         let upsert_req = UpsertStockReq {
             product_id: req.product_id,
             warehouse_id: req.warehouse_id,

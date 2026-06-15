@@ -367,7 +367,7 @@ fn stock_out_table_fragment(
                 (icon::circle_alert_icon("w-4 h-4"))
                 div style="font-size:var(--text-sm);color:var(--fg-2);line-height:1.6" {
                     strong { "出库流程说明：" }
-                    "出库操作通过 InventoryService.stock_out() 执行。"
+                    "出库操作通过 InventoryTransactionService.record() 执行，单据号按类型前缀（CK/LL）+ 时间戳生成。"
                     "销售出库消耗 SOFT预留，生产领料消耗 HARD预留。"
                     "出库前系统根据拣货策略（FIFO/FEFO/最短路径/整托优先）自动分配拣货路径，出库后扣减库存并记录事务日志。"
                 }

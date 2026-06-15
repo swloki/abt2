@@ -140,6 +140,24 @@ impl TransactionType {
             _ => None,
         }
     }
+
+    /// 单据号前缀（中文 ERP 习惯），用于在缺少外部单号时兜底生成 doc_number
+    pub fn doc_prefix(&self) -> &'static str {
+        match self {
+            Self::PurchaseReceipt => "RK",
+            Self::ProductionReceipt => "SCRK",
+            Self::SalesShipment => "CK",
+            Self::MaterialIssue => "LL",
+            Self::MaterialReturn => "TL",
+            Self::Backflush => "BC",
+            Self::Transfer => "DB",
+            Self::FormConversion => "ZH",
+            Self::Adjustment => "PD",
+            Self::Lock => "SD",
+            Self::Unlock => "JS",
+            Self::Scrap => "BF",
+        }
+    }
 }
 
 // -- Material Requisition --

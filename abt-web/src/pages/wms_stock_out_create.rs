@@ -144,6 +144,13 @@ pub async fn create_stock_out(
 
     let remark = form.remark.filter(|s| !s.is_empty());
 
+    // 出库单号：始终生成系统唯一编号（按类型前缀 + 时间戳）
+    let doc_number = format!(
+        "{}{}",
+        transaction_type.doc_prefix(),
+        chrono::Local::now().format("%Y%m%d%H%M%S")
+    );
+
     // Record one transaction per line item
     for item in &web_items {
         let product_id: i64 = item.product_id.parse()
@@ -166,7 +173,7 @@ pub async fn create_stock_out(
         }
 
         let req = RecordTransactionReq {
-            doc_number: None,
+            doc_number: Some(doc_number.clone()),
             delivery_no: None,
             source_doc_number: None,
             transaction_type,

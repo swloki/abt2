@@ -480,18 +480,13 @@ fn batch_action_bar() -> Markup {
         // ── Batch Action Bar ──
         div class="batch-bar" id="batchBar" {
             span { "已选择 " span class="batch-count" id="batchCount" { "0" } " 条需求" }
-            button class="btn btn-sm" type="button" id="batchCreateBtn"
-                onclick=(format!("window.location.href='{}'", PurchaseDemandPoolCreatePath::PATH)) {
+            a class="btn btn-sm btn-primary" id="batchCreateBtn"
+                href=(PurchaseDemandPoolCreatePath::PATH)
+                data-base-path=(PurchaseDemandPoolCreatePath::PATH) {
                 "创建采购单"
             }
-            button class="btn btn-sm btn-ghost" type="button" {
+            button class="btn btn-sm btn-ghost" type="button" id="batchClearBtn" {
                 "清除选择"
-                (PreEscaped(r#"<script>document.currentScript.parentElement.addEventListener('click',function(){
-                    document.querySelectorAll('input[type=checkbox].demand-cb').forEach(function(c){
-                        if(!c.disabled){c.checked=false;}
-                    });
-                    document.querySelector('#batchBar').classList.remove('show');
-                })</script>"#))
             }
         }
 
@@ -511,16 +506,44 @@ fn batch_action_bar() -> Markup {
                 var checked=document.querySelectorAll('input[type=checkbox].demand-cb:checked:not([disabled])');
                 var count=checked.length;
                 var bar=document.getElementById('batchBar');
+                var btn=document.getElementById('batchCreateBtn');
                 if(count>0){
                     var ids=[];
-                    checked.forEach(function(c){ids.push(c.value);});
+                    var productIds=new Set();
+                    var productName='';
+                    var productCode='';
+                    checked.forEach(function(c){
+                        ids.push(c.value);
+                        productIds.add(c.getAttribute('data-product-id'));
+                        if(!productName){productName=c.getAttribute('data-product-name')||'';}
+                        if(!productCode){productCode=c.getAttribute('data-product-code')||'';}
+                    });
                     bar.classList.add('show');
                     document.getElementById('batchCount').textContent=count;
-                    document.getElementById('batchCreateBtn').href='/admin/purchase/demand-pool/create?demand_ids='+ids.join(',');
+                    var basePath=btn.getAttribute('data-base-path');
+                    if(productIds.size>1){
+                        btn.onclick=function(e){e.preventDefault();alert('请选择同一物料的需求进行批量创建采购单。');};
+                    }else{
+                        btn.href=basePath+'?demand_ids='+ids.join(',')+
+                            '&product_id='+[...productIds][0]+
+                            '&product_name='+encodeURIComponent(productName)+
+                            '&product_code='+encodeURIComponent(productCode);
+                        btn.onclick=null;
+                    }
                 }else{
                     bar.classList.remove('show');
                 }
             }
+            document.getElementById('batchClearBtn').addEventListener('click',function(){
+                document.querySelectorAll('input[type=checkbox].demand-cb').forEach(function(c){
+                    if(!c.disabled){
+                        c.checked=false;
+                        var tr=c.closest('tr');
+                        if(tr){tr.classList.remove('demand-row-selected');}
+                    }
+                });
+                document.getElementById('batchBar').classList.remove('show');
+            });
         </script>"#))
     }
 }
@@ -685,7 +708,10 @@ fn demand_expand_row(d: &DemandSummary) -> Markup {
     html! {
         tr {
             td {
-                input type="checkbox" class="demand-cb" value=(d.id);
+                input type="checkbox" class="demand-cb" value=(d.id)
+                    data-product-id=(d.product_id)
+                    data-product-name=(d.product_name)
+                    data-product-code=(d.product_code);
             }
             td class="mono" style="font-size:12px;" { (d.id) }
             td {
@@ -771,7 +797,10 @@ fn detail_row(d: &DemandSummary) -> Markup {
         tr {
             td {
                 @if is_pending {
-                    input type="checkbox" class="demand-cb" value=(d.id);
+                    input type="checkbox" class="demand-cb" value=(d.id)
+                        data-product-id=(d.product_id)
+                        data-product-name=(d.product_name)
+                        data-product-code=(d.product_code);
                 } @else {
                     input type="checkbox" class="demand-cb" disabled;
                 }

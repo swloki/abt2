@@ -62,6 +62,10 @@ pub fn entity_picker_field(
     required: bool,
     placeholder: &str,
 ) -> Markup {
+    let open_hs = format!(
+        "on click add .is-open to #{} then send openModal to #{}-results",
+        modal_id, modal_id
+    );
     html! {
         div class="form-field" {
             label class="form-label" {
@@ -71,12 +75,12 @@ pub fn entity_picker_field(
             div style="display:flex;gap:var(--space-2)" {
                 input type="hidden" name=(name) id=(target_id);
                 div class="form-input" id=(display_id)
-                    style="flex:1;cursor:pointer;color:var(--text-muted);user-select:none"
-                    _=(format!("on click add .is-open to #{}", modal_id)) {
+                    style="flex:1;cursor:pointer;color:var(--text-muted);user-select:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0"
+                    _=(open_hs.as_str()) {
                     (placeholder)
                 }
-                button type="button" class="btn btn-default"
-                    _=(format!("on click add .is-open to #{}", modal_id)) {
+                button type="button" class="btn btn-default" style="flex-shrink:0"
+                    _=(open_hs.as_str()) {
                     "选择"
                 }
             }
@@ -123,7 +127,7 @@ pub fn entity_picker_modal(cfg: &EntityPickerConfig) -> Markup {
                     div id=(format!("{}-results", cfg.modal_id))
                         style="max-height:360px;overflow-y:auto"
                         hx-get=(cfg.search_path)
-                        hx-trigger="intersect once"
+                        hx-trigger="openModal"
                         hx-swap="innerHTML"
                         hx-include=(hx_include_expr(cfg)) {
                         div style="display:flex;align-items:center;justify-content:center;padding:var(--space-8);color:var(--text-muted)" {

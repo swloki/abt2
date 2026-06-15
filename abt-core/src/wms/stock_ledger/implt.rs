@@ -1,4 +1,4 @@
-﻿use async_trait::async_trait;
+use async_trait::async_trait;
 use rust_decimal::Decimal;
 use sqlx::postgres::PgPool;
 
@@ -61,6 +61,18 @@ impl StockLedgerService for StockLedgerServiceImpl {
         warehouse_id: Option<i64>,
     ) -> Result<Decimal> {
         StockLedgerRepo::total_available(&mut *db, product_id, warehouse_id)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))
+    }
+
+    async fn query_projected_qty(
+        &self,
+        _ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        product_id: i64,
+        warehouse_id: Option<i64>,
+    ) -> Result<crate::wms::stock_ledger::service::ProjectedQty> {
+        StockLedgerRepo::projected_qty(&mut *db, product_id, warehouse_id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))
     }

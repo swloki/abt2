@@ -4,6 +4,17 @@ use chrono::{DateTime, Utc};
 use super::model::*;
 use crate::shared::types::{PgExecutor,PageParams, PaginatedResult, ServiceContext, Result};
 
+/// BOM 展开采购需求项（对应 Odoo Procurement NamedTuple）
+#[derive(Debug, Clone)]
+pub struct ProcurementRequirement {
+    /// 原材料 product_id
+    pub product_id: i64,
+    /// 净需求量（已含 loss_rate 损耗系数）
+    pub required_qty: rust_decimal::Decimal,
+    /// BOM 层级深度（0=成品直接子件，1=二级子件...）
+    pub bom_level: u8,
+}
+
 #[async_trait]
 pub trait BomQueryService: Send + Sync {
     async fn get(&self, ctx: &ServiceContext, db: PgExecutor<'_>, bom_id: i64) -> Result<Bom>;
@@ -39,6 +50,20 @@ pub trait BomQueryService: Send + Sync {
         db: PgExecutor<'_>,
         product_code: &str,
     ) -> Result<Option<i64>>;
+
+    /// 递归展开 BOM，返回所有需采购的原材料及其净需求量
+    ///
+    /// 参考 Odoo `_run_manufacture` 递归模式：
+    /// 1. 查 product_code 的已发布 BOM
+    /// 2. 按 acquire_channel 分流：Purchased→加入结果，SelfProduced→递归
+    /// 3. 深度限制 10 层 + visited set 防循环
+    async fn explode_for_procurement(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        product_code: &str,
+        quantity: rust_decimal::Decimal,
+    ) -> Result<Vec<ProcurementRequirement>>;
 
     /// 按 snapshot_id 加载快照
     async fn get_snapshot_by_id(

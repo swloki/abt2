@@ -111,6 +111,69 @@ impl StockLedgerRepo {
         Ok(row.get("total"))
     }
 
+    /// 预计可用量（参考 ERPNext bin.projected_qty 公式）
+    ///
+    /// 四维计算（子查询避免笛卡尔积）：
+    /// 1. actual = SUM(stock_ledger.quantity)
+    /// 2. on_order_po = SUM(poi.quantity - poi.received_qty) WHERE po.status IN (2,3)
+    /// 3. in_progress_wo = SUM(wo.planned_qty - wo.completed_qty) WHERE wo.status IN (3,6)
+    /// 4. reserved = SUM(inventory_reservations.reserved_qty WHERE Active)
+    ///
+    /// projected = actual + on_order_po + in_progress_wo - reserved
+    pub async fn projected_qty(
+        executor: &mut sqlx::postgres::PgConnection,
+        product_id: i64,
+        warehouse_id: Option<i64>,
+    ) -> Result<crate::wms::stock_ledger::service::ProjectedQty> {
+        use crate::wms::stock_ledger::service::ProjectedQty;
+        use rust_decimal::Decimal;
+
+        let row = sqlx::query(
+            r#"
+            SELECT
+                COALESCE((
+                    SELECT SUM(sl.quantity) FROM stock_ledger sl
+                    WHERE sl.product_id = $1 AND ($2::bigint IS NULL OR sl.warehouse_id = $2)
+                ), 0) AS actual,
+                COALESCE((
+                    SELECT SUM(poi.quantity - poi.received_qty)
+                    FROM purchase_order_items poi
+                    JOIN purchase_orders po ON po.id = poi.order_id
+                    WHERE poi.product_id = $1
+                      AND po.status IN (2, 3)
+                      AND po.deleted_at IS NULL
+                ), 0) AS on_order_po,
+                COALESCE((
+                    SELECT SUM(wo.planned_qty - wo.completed_qty)
+                    FROM work_orders wo
+                    WHERE wo.product_id = $1
+                      AND wo.status IN (3, 6)
+                      AND wo.deleted_at IS NULL
+                ), 0) AS in_progress_wo,
+                COALESCE((
+                    SELECT SUM(ir.reserved_qty)
+                    FROM inventory_reservations ir
+                    WHERE ir.product_id = $1
+                      AND ($2::bigint IS NULL OR ir.warehouse_id = $2)
+                      AND ir.status = $3
+                ), 0) AS reserved
+            "#,
+        )
+        .bind(product_id)
+        .bind(warehouse_id)
+        .bind(ReservationStatus::Active)
+        .fetch_one(executor)
+        .await?;
+
+        let actual: Decimal = row.get("actual");
+        let on_order_po: Decimal = row.get("on_order_po");
+        let in_progress_wo: Decimal = row.get("in_progress_wo");
+        let reserved: Decimal = row.get("reserved");
+        let projected = actual + on_order_po + in_progress_wo - reserved;
+
+        Ok(ProjectedQty { actual, on_order_po, in_progress_wo, reserved, projected })
+    }
+
     pub async fn query(
         executor: &mut sqlx::postgres::PgConnection,
         filter: &StockFilter,

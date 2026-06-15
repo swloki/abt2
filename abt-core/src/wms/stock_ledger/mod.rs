@@ -4,7 +4,7 @@ pub mod repo;
 pub mod service;
 
 pub use model::{ProductWithoutPriceRow, StockExportRow, StockFilter, StockLedger, UpsertStockReq};
-pub use service::StockLedgerService;
+pub use service::{StockLedgerService, ProjectedQty};
 
 use sqlx::PgPool;
 

@@ -4,6 +4,7 @@ use super::model::*;
 use super::repo::{BomCategoryRepo, BomNodeRepo, BomRepo, BomSnapshotRepo};
 use super::service::{
     BomCategoryService, BomCommandService, BomCostService, BomNodeService, BomQueryService,
+    ProcurementRequirement,
 };
 use crate::master_data::price::model::PriceType;
 use crate::master_data::price::repo::PriceRepo;
@@ -21,12 +22,82 @@ pub struct BomQueryServiceImpl {
     repo: BomRepo,
     node_repo: BomNodeRepo,
     snapshot_repo: BomSnapshotRepo,
+    pool: PgPool,
 }
 
 impl BomQueryServiceImpl {
     pub fn new(pool: PgPool) -> Self {
-        let _ = pool;
-        Self { repo: BomRepo, node_repo: BomNodeRepo, snapshot_repo: BomSnapshotRepo }
+        Self { repo: BomRepo, node_repo: BomNodeRepo, snapshot_repo: BomSnapshotRepo, pool }
+    }
+
+    /// BOM 递归展开辅助方法（参考 Odoo _run_manufacture 递归模式）
+    async fn explode_recursive(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        product_code: &str,
+        quantity: rust_decimal::Decimal,
+        depth: u8,
+        visited: &mut std::collections::HashSet<i64>,
+        result: &mut Vec<ProcurementRequirement>,
+    ) -> Result<()> {
+        use crate::master_data::product::{new_product_service, service::ProductService};
+        use crate::master_data::product::model::AcquireChannel;
+        use rust_decimal::Decimal;
+
+        if depth >= 10 {
+            tracing::warn!(product_code, depth, "BOM explosion depth limit reached");
+            return Ok(());
+        }
+
+        let bom_id = self.repo.find_published_by_product_code(db, product_code).await?;
+        let Some(bom_id) = bom_id else { return Ok(()) };
+
+        let nodes = self.node_repo.find_by_bom_id(db, bom_id).await?;
+
+        let product_ids: Vec<i64> = nodes.iter().map(|n| n.product_id).collect();
+        let products = new_product_service(self.pool.clone())
+            .get_by_ids(ctx, db, product_ids).await?;
+        let product_map: std::collections::HashMap<i64, (AcquireChannel, String)> = products
+            .into_iter()
+            .map(|p| (p.product_id, (p.acquire_channel, p.product_code)))
+            .collect();
+
+        for node in &nodes {
+            if node.parent_id == 0 { continue }
+
+            if visited.contains(&node.product_id) {
+                tracing::warn!(product_id = node.product_id, "Circular BOM reference, skipping");
+                continue;
+            }
+
+            // Odoo 模式：net_qty = bom_line_qty × parent_demand × (1 + loss_rate)
+            let loss_multiplier = Decimal::ONE + node.loss_rate;
+            let node_qty = node.quantity * quantity * loss_multiplier;
+
+            let (ac, child_code) = product_map.get(&node.product_id)
+                .map(|(ac, code)| (*ac, code.clone()))
+                .unwrap_or((AcquireChannel::Legacy, String::new()));
+
+            match ac {
+                AcquireChannel::Purchased | AcquireChannel::Outsourced => {
+                    result.push(ProcurementRequirement {
+                        product_id: node.product_id,
+                        required_qty: node_qty,
+                        bom_level: depth,
+                    });
+                }
+                AcquireChannel::SelfProduced | AcquireChannel::Legacy => {
+                    visited.insert(node.product_id);
+                    Box::pin(self.explode_recursive(
+                        ctx, db, &child_code, node_qty, depth + 1, visited, result,
+                    )).await?;
+                    visited.remove(&node.product_id);
+                }
+                AcquireChannel::NonInventory => { }
+            }
+        }
+        Ok(())
     }
 }
 
@@ -99,6 +170,19 @@ impl BomQueryService for BomQueryServiceImpl {
         product_code: &str,
     ) -> Result<Option<i64>> {
         self.repo.find_published_by_product_code(db, product_code).await
+    }
+
+    async fn explode_for_procurement(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        product_code: &str,
+        quantity: rust_decimal::Decimal,
+    ) -> Result<Vec<ProcurementRequirement>> {
+        let mut result = Vec::new();
+        let mut visited = std::collections::HashSet::new();
+        self.explode_recursive(ctx, db, product_code, quantity, 0, &mut visited, &mut result).await?;
+        Ok(result)
     }
 
     async fn get_snapshot_by_id(

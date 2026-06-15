@@ -4,7 +4,7 @@ pub mod service;
 pub mod implt;
 
 pub use model::*;
-pub use service::{BomCategoryService, BomCommandService, BomCostService, BomNodeService, BomQueryService};
+pub use service::{BomCategoryService, BomCommandService, BomCostService, BomNodeService, BomQueryService, ProcurementRequirement};
 
 use sqlx::PgPool;
 

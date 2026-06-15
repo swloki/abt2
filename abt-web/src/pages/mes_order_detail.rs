@@ -404,7 +404,7 @@ fn order_detail_page(
 
             (tab_panel("info", true, tab_info(order, product_name, routings.len())))
             (tab_panel("routing", false, tab_routing(routings)))
-            (tab_panel("batches", false, tab_batches(batches, routings.len(), order)))
+            (tab_panel("batches", false, tab_batches(batches, routings, order)))
             (tab_panel("reports", false, tab_reports(reports)))
             (tab_panel("log", false, tab_log(audit_logs)))
 
@@ -535,7 +535,7 @@ fn tab_routing(routings: &[WorkOrderRouting]) -> Markup {
     }
 }
 
-fn tab_batches(batches: &[ProductionBatch], total_steps: usize, order: &WorkOrder) -> Markup {
+fn tab_batches(batches: &[ProductionBatch], routings: &[WorkOrderRouting], order: &WorkOrder) -> Markup {
     // 计算可拆批余量
     let existing_qty: rust_decimal::Decimal =
         batches.iter().map(|b| b.batch_qty).sum();
@@ -580,10 +580,13 @@ fn tab_batches(batches: &[ProductionBatch], total_steps: usize, order: &WorkOrde
                                 td {
                                     @if b.current_step == 0 {
                                         span style="color:var(--muted)" { "未开始" }
-                                    } @else if total_steps > 0 {
-                                        span { "第 " (b.current_step) "/" (total_steps) " 步" }
                                     } @else {
-                                        span { "第 " (b.current_step) " 步" }
+                                        @let total = routings.len();
+                                        @let sname = routings.iter()
+                                            .find(|r| r.step_no == b.current_step)
+                                            .map(|r| r.process_name.as_str())
+                                            .unwrap_or("—");
+                                        span { (b.current_step) "/" (total) " " (sname) }
                                     }
                                 }
                                 td { (batch_status_pill(b.status)) }
@@ -621,6 +624,29 @@ fn tab_batches(batches: &[ProductionBatch], total_steps: usize, order: &WorkOrde
                                 input class="form-input" type="number" step="0.01" name="split_qty"
                                     placeholder="输入数量"
                                     required;
+                            }
+                            // 工艺路线预览
+                            @if !routings.is_empty() {
+                                div class="form-field" {
+                                    label { "工艺路线（该批次将依次经过以下工序）" }
+                                    div style="display:flex;flex-wrap:wrap;gap:6px;padding:8px;background:var(--surface);border-radius:var(--radius-sm);border:1px solid var(--border)" {
+                                        @for (i, r) in routings.iter().enumerate() {
+                                            @if i > 0 {
+                                                span style="color:var(--text-muted);display:flex;align-items:center" { "\u{2192}" }
+                                            }
+                                            span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;background:var(--surface-2);border-radius:var(--radius-sm);font-size:var(--text-xs)" {
+                                                span style="font-weight:600;color:var(--primary)" { (r.step_no) }
+                                                (r.process_name.as_str())
+                                                @if r.is_inspection_point {
+                                                    span class="tag-chip" style="font-size:10px;padding:1px 4px" { "检" }
+                                                }
+                                                @if r.is_outsourced {
+                                                    span class="tag-chip" style="font-size:10px;padding:1px 4px" { "外" }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
                         div class="modal-foot" {

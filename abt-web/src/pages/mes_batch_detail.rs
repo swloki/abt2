@@ -230,9 +230,20 @@ fn batch_detail_page(
                         @let cls = if is_completed { "progress-step completed" } else if is_active { "progress-step active" } else { "progress-step" };
                         div class=(cls) {
                             div class="progress-step-dot" {
-                                @if is_completed { "✓" } @else { (r.step_no) }
+                                @if is_completed { "\u{2713}" } @else { (r.step_no) }
                             }
                             div class="progress-step-label" { (r.process_name) }
+                            // 每步完成量/不良量
+                            @if let Some(p) = brp {
+                                @if p.completed_qty > rust_decimal::Decimal::ZERO || p.defect_qty > rust_decimal::Decimal::ZERO {
+                                    div style="font-size:var(--text-xs);color:var(--text-muted);margin-top:2px;white-space:nowrap" {
+                                        span style="color:var(--success)" { (crate::utils::fmt_qty(p.completed_qty)) }
+                                        @if p.defect_qty > rust_decimal::Decimal::ZERO {
+                                            " / " span style="color:var(--danger)" { (crate::utils::fmt_qty(p.defect_qty)) }
+                                        }
+                                    }
+                                }
+                            }
                             @if i < routings.len() - 1 {
                                 div class="progress-step-line" {}
                             }

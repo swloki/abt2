@@ -1,4 +1,4 @@
-﻿use async_trait::async_trait;
+use async_trait::async_trait;
 use rust_decimal::Decimal;
 use sqlx::postgres::PgPool;
 
@@ -31,6 +31,16 @@ impl InventoryTransactionService for InventoryTransactionServiceImpl {
         ctx: &ServiceContext, db: PgExecutor<'_>,
         req: RecordTransactionReq,
     ) -> Result<i64> {
+        // 兜底生成单据号（调用方未显式提供时，按事务类型前缀 + 本地时间戳）
+        let mut req = req;
+        if req.doc_number.is_none() {
+            req.doc_number = Some(format!(
+                "{}{}",
+                req.transaction_type.doc_prefix(),
+                chrono::Local::now().format("%Y%m%d%H%M%S")
+            ));
+        }
+
         let txn = InventoryTransactionRepo::insert(&mut *db, &req, ctx.operator_id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;

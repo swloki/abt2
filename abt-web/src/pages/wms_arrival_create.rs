@@ -10,6 +10,9 @@ use abt_core::master_data::product::ProductService;
 use abt_core::master_data::product::model::ProductQuery;
 use abt_core::master_data::supplier::model::SupplierQuery;
 use abt_core::master_data::supplier::SupplierService;
+use abt_core::purchase::order::PurchaseOrderService;
+use abt_core::purchase::order::model::PurchaseOrderQuery;
+use abt_core::purchase::enums::PurchaseOrderStatus;
 use abt_core::master_data::supplier::SupplierStatus;
 use abt_core::shared::types::{DomainError, PageParams};
 use abt_core::wms::arrival_notice::{ArrivalNoticeService, CreateArrivalNoticeItemReq, CreateArrivalNoticeReq};
@@ -103,6 +106,79 @@ pub async fn get_item_row(
     Ok(Html(item_row_fragment(&product).into_string()))
 }
 
+// ── PO Import Handlers ──
+
+#[derive(Debug, Deserialize)]
+pub struct PoSearchParams {
+    pub keyword: Option<String>,
+}
+
+/// HTMX: search confirmed POs for import
+#[require_permission("INVENTORY", "create")]
+pub async fn get_po_pick(
+    ctx: RequestContext,
+    Query(params): Query<PoSearchParams>,
+) -> Result<Html<String>> {
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let svc = state.purchase_order_service();
+    let supplier_svc = state.supplier_service();
+
+    let query = PurchaseOrderQuery::default();
+    let kw = params.keyword.as_deref().unwrap_or("").trim().to_lowercase();
+
+    let orders = svc
+        .list(&service_ctx, &mut conn, query, PageParams::new(1, 50))
+        .await
+        .map(|r| r.items)
+        .unwrap_or_default();
+
+    // 过滤：只显示 Confirmed 状态 + 关键词匹配 doc_number
+    let filtered: Vec<_> = orders.into_iter()
+        .filter(|o| o.status == PurchaseOrderStatus::Confirmed)
+        .filter(|o| kw.is_empty() || o.doc_number.to_lowercase().contains(&kw))
+        .collect();
+
+    // 批量获取供应商名
+    let supplier_ids: Vec<i64> = filtered.iter().map(|o| o.supplier_id).collect();
+    let suppliers = supplier_svc
+        .list(&service_ctx, &mut conn, SupplierQuery::default(), PageParams::new(1, 200))
+        .await
+        .map(|r| r.items)
+        .unwrap_or_default();
+    let supplier_map: std::collections::HashMap<i64, String> = suppliers
+        .into_iter()
+        .map(|s| (s.id, s.name))
+        .collect();
+
+    Ok(Html(po_list_fragment(&filtered, &supplier_map).into_string()))
+}
+
+/// HTMX: return PO items as arrival item rows
+#[require_permission("INVENTORY", "create")]
+pub async fn get_po_items(
+    path: ArrivalPoItemsPath,
+    ctx: RequestContext,
+) -> Result<Html<String>> {
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let po_svc = state.purchase_order_service();
+    let product_svc = state.product_service();
+
+    let items = po_svc.list_items(&service_ctx, &mut conn, path.po_id).await?;
+    let po = po_svc.get(&service_ctx, &mut conn, path.po_id).await?;
+
+    // 批量获取产品信息
+    let mut product_map = std::collections::HashMap::new();
+    for item in &items {
+        if !product_map.contains_key(&item.product_id) {
+            if let Ok(p) = product_svc.get(&service_ctx, &mut conn, item.product_id).await {
+                product_map.insert(item.product_id, p);
+            }
+        }
+    }
+
+    Ok(Html(po_items_fragment(&items, &product_map, po.supplier_id).into_string()))
+}
+
 // ── Form Data ──
 
 #[derive(Debug, Deserialize)]
@@ -126,6 +202,8 @@ struct ArrivalItemWeb {
     product_id: String,
     declared_qty: String,
     batch_no: Option<String>,
+    #[serde(default)]
+    order_item_id: Option<String>,
 }
 
 #[require_permission("INVENTORY", "create")]
@@ -152,8 +230,11 @@ pub async fn create_arrival(
             .map_err(|_| DomainError::validation("无效产品ID")).unwrap_or(0);
         let declared_qty: Decimal = it.declared_qty.parse()
             .map_err(|_| DomainError::validation("无效数量")).unwrap_or(Decimal::ZERO);
+        let order_item_id = it.order_item_id
+            .filter(|s| !s.is_empty())
+            .and_then(|s| s.parse::<i64>().ok());
         CreateArrivalNoticeItemReq {
-            order_item_id: None,
+            order_item_id,
             product_id,
             declared_qty,
             batch_no: it.batch_no.filter(|s| !s.is_empty()),
@@ -214,7 +295,7 @@ fn arrival_create_page(
                     div class="wms-form-grid" {
                         div class="form-group" {
                             label class="form-label" { "供应商 " span class="required" { "*" } }
-                            select class="form-select" name="supplier_id" required {
+                            select class="form-select" id="supplier-select" name="supplier_id" required {
                                 option value="" { "请选择供应商" }
                                 @for s in suppliers {
                                     option value=(s.id) { (s.name) }
@@ -304,6 +385,11 @@ fn arrival_create_page(
                             (icon::plus_icon("w-4 h-4"))
                             "添加物料"
                         }
+                        button type="button" class="btn-add-row" style="margin-left:var(--space-3)"
+                            _="on click add .is-open to #po-modal" {
+                            (icon::download_icon("w-4 h-4"))
+                            "从采购订单导入"
+                        }
                     }
                 }
 
@@ -316,6 +402,7 @@ fn arrival_create_page(
                     textarea class="form-input" name="remark" rows="3" placeholder="请输入备注信息" style="resize:vertical;width:100%;min-height:80px" {}
                 }
 
+                input type="hidden" name="purchase_order_id" id="arrival-po-id" value="" {}
                 input type="hidden" name="items_json" id="arrival-items-json" value="[]" {}
 
                 // ── Action Bar ──
@@ -378,6 +465,45 @@ fn arrival_create_page(
             }
         }
 
+        // ── PO Import Modal ──
+        div id="po-modal" class="modal-overlay"
+            _="on click[me is event.target] remove .is-open" {
+            div class="modal modal-lg" onclick="event.stopPropagation()" {
+                div class="modal-head" {
+                    h2 { "从采购订单导入" }
+                    button type="button" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
+                        _="on click remove .is-open from #po-modal" { "×" }
+                }
+                div class="modal-body" style="padding:0" hx-disinherit="hx-select" {
+                    div class="product-search-bar" {
+                        div class="product-search-field" {
+                            label class="product-search-label" { "采购订单号" }
+                            input class="product-search-input" type="text" id="po-search-input" name="keyword" placeholder="输入PO编号搜索…"
+                                hx-get=(ArrivalPoPickPath::PATH)
+                                hx-trigger="keyup changed delay:300ms"
+                                hx-sync="this:replace"
+                                hx-target="#po-search-results"
+                                hx-swap="innerHTML"
+                                hx-include="#po-search-input" {}
+                        }
+                        button type="button" class="product-search-clear"
+                            hx-get=(ArrivalPoPickPath::PATH)
+                            hx-target="#po-search-results"
+                            hx-swap="innerHTML"
+                            _="on click set #po-search-input's value to '' then trigger keyup on #po-search-input" {
+                            "清除"
+                        }
+                    }
+                    div id="po-search-results" {
+                        div style="text-align:center;padding:var(--space-12);color:var(--muted)" {
+                            (icon::package_icon("w-8 h-8"))
+                            p style="margin:var(--space-2) 0 0;font-size:var(--text-sm)" { "输入PO编号搜索已确认的采购订单" }
+                        }
+                    }
+                }
+            }
+        }
+
         // ── JS ──
         (maud::PreEscaped(r#"<script>
         function arrivalCalcSummary() {
@@ -391,10 +517,12 @@ fn arrival_create_page(
             var rows = tbody.querySelectorAll('tr');
             var items = [];
             rows.forEach(function(row) {
+                var oiInput = row.querySelector('input[name="order_item_id"]');
                 items.push({
                     product_id: row.querySelector('input[name="product_id"]').value,
                     declared_qty: row.querySelector('input[name="declared_qty"]').value || '0',
-                    batch_no: row.querySelector('input[name="batch_no"]').value || null
+                    batch_no: row.querySelector('input[name="batch_no"]').value || null,
+                    order_item_id: oiInput ? oiInput.value : null
                 });
             });
             document.getElementById('arrival-items-json').value = JSON.stringify(items);
@@ -468,6 +596,73 @@ fn item_row_fragment(product: &abt_core::master_data::product::model::Product) -
                 (icon::x_icon("w-3.5 h-3.5"))
             } }
             input type="hidden" name="product_id" value=(product.product_id) {}
+        }
+    }
+}
+
+/// PO search results fragment for import modal
+fn po_list_fragment(
+    orders: &[abt_core::purchase::order::model::PurchaseOrder],
+    supplier_map: &std::collections::HashMap<i64, String>,
+) -> Markup {
+    html! {
+        @if orders.is_empty() {
+            div style="text-align:center;padding:var(--space-12);color:var(--muted)" {
+                (icon::package_icon("w-8 h-8"))
+                p style="margin:var(--space-2) 0 0;font-size:var(--text-sm)" { "未找到已确认的采购订单" }
+            }
+        } @else {
+            div class="product-select-list" {
+                @for o in orders {
+                    div class="product-select-item" {
+                        div class="product-select-info" {
+                            div class="product-select-name" { (o.doc_number) }
+                            div class="product-select-meta" {
+                                span class="product-select-code" { (supplier_map.get(&o.supplier_id).cloned().unwrap_or_else(|| "-".into())) }
+                                span class="product-select-sep" { "·" }
+                                span { (o.order_date.format("%Y-%m-%d")) }
+                                span class="product-select-sep" { "·" }
+                                span { "¥" (o.total_amount) }
+                            }
+                        }
+                        button type="button" class="btn btn-sm btn-primary"
+                            hx-get=(ArrivalPoItemsPath { po_id: o.id }.to_string())
+                            hx-target="#arrival-item-tbody"
+                            hx-swap="beforeend"
+                            _=(format!("on click set #arrival-po-id's value to '{}' then set #supplier-select's value to '{}' then remove .is-open from #po-modal end on htmx:afterRequest[detail.xhr.status < 400] wait 50ms then call arrivalRenumber()", o.id, o.supplier_id)) {
+                            "导入"
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// PO items rendered as arrival item rows (appended to tbody)
+fn po_items_fragment(
+    items: &[abt_core::purchase::order::model::PurchaseOrderItem],
+    product_map: &std::collections::HashMap<i64, abt_core::master_data::product::model::Product>,
+    _supplier_id: i64,
+) -> Markup {
+    html! {
+        @for item in items {
+            @if let Some(product) = product_map.get(&item.product_id) {
+                tr {
+                    td class="line-num" { }
+                    td class="mono" { (product.product_code) }
+                    td { (product.pdt_name) }
+                    td style="color:var(--fg-2);font-size:var(--text-sm)" { (product.meta.specification) }
+                    td { input class="form-input num-input" type="number" min="0.01" step="any" name="declared_qty" value=(item.quantity) style="width:90px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
+                    td { input class="form-input" type="text" name="batch_no" placeholder="批次号" style="width:120px;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
+                    td { button type="button" class="btn-remove-row" title="删除行"
+                        _="on click remove closest <tr/> then call arrivalRenumber()" {
+                        (icon::x_icon("w-3.5 h-3.5"))
+                    } }
+                    input type="hidden" name="product_id" value=(item.product_id) {}
+                    input type="hidden" name="order_item_id" value=(item.id) {}
+                }
+            }
         }
     }
 }

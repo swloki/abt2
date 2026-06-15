@@ -17,8 +17,9 @@ use crate::shared::cost_entry::{new_cost_entry_service, service::CostEntryServic
 use crate::shared::document_link::model::LinkRequest;
 use crate::shared::document_link::{new_document_link_service, service::DocumentLinkService};
 use crate::shared::document_sequence::{new_document_sequence_service, service::DocumentSequenceService};
-use crate::shared::enums::{CostEntityType, CostType, DocumentType, LinkType};
+use crate::shared::enums::{CostEntityType, CostType, DocumentType, DomainEventType, LinkType};
 use crate::shared::inventory_reservation::{new_inventory_reservation_service, service::InventoryReservationService};
+use crate::shared::event_bus::{new_domain_event_bus, model::EventPublishRequest, DomainEventBus};
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
 use crate::shared::types::Result;
@@ -257,6 +258,24 @@ impl ArrivalNoticeService for ArrivalNoticeServiceImpl {
         ArrivalNoticeRepo::update_status(&mut *db, req.id, final_status)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
+        // 检验通过 → 发布 ArrivalInspected 事件，触发 handler 回写 PO received_qty + 状态
+        if matches!(final_status, ArrivalStatus::Accepted | ArrivalStatus::PartiallyAccepted) {
+            new_domain_event_bus(self.pool.clone())
+                .publish(
+                    ctx, db,
+                    EventPublishRequest {
+                        event_type: DomainEventType::ArrivalInspected,
+                        aggregate_type: "ArrivalNotice".to_string(),
+                        aggregate_id: req.id,
+                        payload: serde_json::json!({
+                            "arrival_notice_id": req.id,
+                            "doc_number": notice.doc_number,
+                        }),
+                        idempotency_key: None,
+                    },
+                )
+                .await?;
+        }
 
         Ok(())
     }

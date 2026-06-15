@@ -292,4 +292,53 @@ impl PurchaseOrderItemRepo {
             .await?;
         Ok(())
     }
+    /// 重算指定 PO 所有明细的 received_qty（基于关联来料通知的 accepted_qty 求和）
+    /// 幂等：每次执行全量重算，不累加
+    pub async fn recompute_received_qty(
+        executor: &mut sqlx::postgres::PgConnection,
+        po_id: i64,
+    ) -> Result<Vec<(i64, Decimal)>> {
+        let rows = sqlx::query(
+            r#"
+            SELECT poi.id AS item_id,
+                   COALESCE(SUM(ani.accepted_qty), 0) AS total_received
+            FROM purchase_order_items poi
+            LEFT JOIN arrival_notice_items ani ON ani.order_item_id = poi.id
+            LEFT JOIN arrival_notices an ON an.id = ani.notice_id
+                AND an.status IN (4, 5)  -- Accepted=4, PartiallyAccepted=5
+                AND an.deleted_at IS NULL
+            WHERE poi.order_id = $1
+            GROUP BY poi.id
+            "#,
+        )
+        .bind(po_id)
+        .fetch_all(&mut *executor)
+        .await?;
+
+        let result: Vec<(i64, Decimal)> = rows
+            .into_iter()
+            .map(|r| {
+                let item_id: i64 = r.get("item_id");
+                let total: rust_decimal::Decimal = r.get("total_received");
+                (item_id, total)
+            })
+            .collect();
+
+        Ok(result)
+    }
+
+    /// 批量更新明细行的 received_qty 字段
+    pub async fn batch_update_received_qty(
+        executor: &mut sqlx::postgres::PgConnection,
+        updates: &[(i64, Decimal)],
+    ) -> Result<()> {
+        for (item_id, qty) in updates {
+            sqlx::query("UPDATE purchase_order_items SET received_qty = $2 WHERE id = $1")
+                .bind(item_id)
+                .bind(qty)
+                .execute(&mut *executor)
+                .await?;
+        }
+        Ok(())
+    }
 }

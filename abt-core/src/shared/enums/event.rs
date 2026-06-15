@@ -93,6 +93,8 @@ pub enum DomainEventType {
     DemandRejected = 66,
     // MES — Work Order lifecycle
     WOUnreleased = 67,
+    // WMS — Arrival notice inspection passed
+    ArrivalInspected = 68,
 }
 
 impl DomainEventType {
@@ -141,6 +143,7 @@ impl DomainEventType {
             65 => Some(Self::DemandConfirmed),
             66 => Some(Self::DemandRejected),
             67 => Some(Self::WOUnreleased),
+            68 => Some(Self::ArrivalInspected),
             _ => None,
         }
     }

@@ -14,7 +14,7 @@ use abt_core::master_data::supplier::SupplierService;
 use abt_core::wms::warehouse::WarehouseService;
 use abt_core::wms::inventory_transaction::InventoryTransactionService;
 use abt_core::wms::inventory_transaction::model::RecordTransactionReq;
-use abt_core::wms::enums::TransactionType;
+use abt_core::wms::enums::{ArrivalStatus, TransactionType};
 use abt_core::master_data::product::ProductService;
 use abt_core::master_data::product::model::ProductQuery;
 use abt_core::shared::types::{DomainError, PageParams};
@@ -158,7 +158,9 @@ pub async fn get_source_pick(
             &supplier_svc, &service_ctx, &mut conn,
             notices.iter().map(|n| n.supplier_id).collect(),
         ).await;
-        notices.into_iter().map(|n| SourceOption {
+        notices.into_iter()
+            .filter(|n| matches!(n.status, ArrivalStatus::Accepted | ArrivalStatus::PartiallyAccepted))
+            .map(|n| SourceOption {
             id: n.id,
             doc_number: n.doc_number,
             supplier_name: names.get(&n.supplier_id).cloned().unwrap_or_else(|| "-".into()),
@@ -175,7 +177,12 @@ pub async fn get_source_pick(
             &supplier_svc, &service_ctx, &mut conn,
             result.iter().map(|o| o.supplier_id).collect(),
         ).await;
-        result.into_iter().map(|o| SourceOption {
+        result.into_iter()
+            .filter(|o| {
+                use abt_core::purchase::enums::PurchaseOrderStatus;
+                matches!(o.status, PurchaseOrderStatus::PartiallyReceived | PurchaseOrderStatus::Received)
+            })
+            .map(|o| SourceOption {
             id: o.id,
             doc_number: o.doc_number,
             supplier_name: names.get(&o.supplier_id).cloned().unwrap_or_else(|| "-".into()),

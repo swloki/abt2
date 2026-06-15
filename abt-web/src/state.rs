@@ -98,6 +98,7 @@ impl AppState {
                 EventHandlerRegistry, EventHandlerRegistryImpl, EventProcessor,
                 DeadLetterServiceImpl,
             };
+            use abt_core::purchase::arrival_handler::ArrivalAcceptedHandler;
             use abt_core::purchase::demand_handler::PurchaseDemandCreatedHandler;
             use abt_core::mes::demand_handler::MesDemandCreatedHandler;
             use abt_core::sales::sales_order::{SalesDemandConfirmedHandler, SalesDemandRejectedHandler};
@@ -125,6 +126,12 @@ impl AppState {
                 Arc::new(SalesDemandRejectedHandler::new(pool.clone())),
             );
 
+            // ArrivalInspected — 来料检验通过，回写 PO received_qty + 状态
+            registry.register(
+                DomainEventType::ArrivalInspected,
+                Arc::new(ArrivalAcceptedHandler::new(pool.clone())),
+            );
+
             let dead_letter = Arc::new(DeadLetterServiceImpl::new());
             let processor = EventProcessor::new(
                 Arc::new(pool.clone()),
@@ -133,8 +140,7 @@ impl AppState {
                 3, // max_retries
             );
             processor.start();
-
-            tracing::info!("EventProcessor started with 4 handlers registered");
+            tracing::info!("EventProcessor started with 5 handlers registered");
         }
 
         Ok(Self {

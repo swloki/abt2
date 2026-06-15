@@ -41,6 +41,25 @@ impl PurchaseOrderServiceImpl {
     pub fn new(pool: PgPool) -> Self {
         Self { pool }
     }
+
+    /// 确保实体有初始状态日志 — 如果缺失则补录 "" → Draft。
+    /// 对已有 Draft 日志的实体，再次 transition 会因无 "Draft → Draft" 规则
+    /// 返回 InvalidStateTransition，这是预期行为，安全忽略。
+    async fn ensure_initial_state(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        id: i64,
+    ) -> Result<()> {
+        match new_state_machine_service(self.pool.clone())
+            .transition(ctx, db, ENTITY_TYPE, id, "Draft", None)
+            .await
+        {
+            Ok(_) => Ok(()),
+            Err(DomainError::InvalidStateTransition { .. }) => Ok(()),
+            Err(e) => Err(e),
+        }
+    }
 }
 
 #[async_trait]
@@ -91,8 +110,7 @@ impl PurchaseOrderService for PurchaseOrderServiceImpl {
         // 6. 初始状态日志
         new_state_machine_service(self.pool.clone())
             .transition(ctx, db, ENTITY_TYPE, id, "Draft", None)
-            .await
-            .ok();
+            .await?;
 
         Ok(id)
     }
@@ -212,6 +230,11 @@ impl PurchaseOrderService for PurchaseOrderServiceImpl {
                 )
             .await?;
 
+        // 11. 初始状态日志
+        new_state_machine_service(self.pool.clone())
+            .transition(ctx, db, ENTITY_TYPE, order_id, "Draft", None)
+            .await?;
+
         Ok(order_id)
     }
 
@@ -287,7 +310,8 @@ impl PurchaseOrderService for PurchaseOrderServiceImpl {
             }
         }
 
-        // 5. 状态转换 Draft -> Confirmed
+        // 5. 确保有初始状态日志，然后转换 Draft -> Confirmed
+        self.ensure_initial_state(ctx, db, id).await?;
         new_state_machine_service(self.pool.clone())
             .transition(ctx, db, ENTITY_TYPE, id, "Confirmed", None)
             .await?;
@@ -367,6 +391,7 @@ impl PurchaseOrderService for PurchaseOrderServiceImpl {
             )));
         }
 
+        self.ensure_initial_state(ctx, db, id).await?;
         new_state_machine_service(self.pool.clone())
             .transition(ctx, db, ENTITY_TYPE, id, "Cancelled", None)
             .await?;

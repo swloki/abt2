@@ -570,7 +570,7 @@ impl FulfillmentPlanLineRepo {
 
 pub struct DemandRepo;
 
-const DEMAND_COLUMNS: &str = "id, demand_type, source_type, source_id, source_line_id, product_id, acquire_channel, required_qty, required_date, status, target_doc_type, target_doc_id, priority, remark, operator_id, created_at, updated_at, deleted_at";
+const DEMAND_COLUMNS: &str = "id, demand_type, source_type, source_id, source_line_id, product_id, acquire_channel, required_qty, required_date, status, target_doc_type, target_doc_id, priority, cascade_from_product_id, remark, operator_id, created_at, updated_at, deleted_at";
 
 impl DemandRepo {
     /// 创建需求
@@ -581,8 +581,9 @@ impl DemandRepo {
         let id = sqlx::query_scalar::<sqlx::Postgres, i64>(
             r#"INSERT INTO demands
                (demand_type, source_type, source_id, source_line_id, product_id,
-                acquire_channel, required_qty, required_date, status, priority, remark, operator_id)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 1, $9, $10, $11)
+                acquire_channel, required_qty, required_date, status, priority,
+                cascade_from_product_id, remark, operator_id)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 1, $9, $10, $11, $12)
                RETURNING id"#,
         )
         .bind(input.demand_type)
@@ -594,6 +595,7 @@ impl DemandRepo {
         .bind(input.required_qty)
         .bind(input.required_date)
         .bind(input.priority)
+        .bind(input.cascade_from_product_id)
         .bind(&input.remark)
         .bind(input.operator_id)
         .fetch_one(executor)

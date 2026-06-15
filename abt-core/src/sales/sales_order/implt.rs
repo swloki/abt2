@@ -965,6 +965,7 @@ impl DemandService for DemandServiceImpl {
                 required_qty: line.shortage_qty,
                 required_date: line.required_date,
                 priority: 5,
+                cascade_from_product_id: None,
                 remark: String::new(),
                 operator_id: ctx.operator_id,
             };

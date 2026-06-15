@@ -498,6 +498,7 @@ pub struct Demand {
     pub target_doc_type: Option<i16>,
     pub target_doc_id: Option<i64>,
     pub priority: i32,
+    pub cascade_from_product_id: Option<i64>,
     pub remark: String,
     pub operator_id: i64,
     pub created_at: DateTime<Utc>,
@@ -516,6 +517,8 @@ pub struct DemandInput {
     pub required_qty: Decimal,
     pub required_date: Option<NaiveDate>,
     pub priority: i32,
+    /// BOM 展开来源产品 ID（Odoo Procurement.values['origin'] 等价）
+    pub cascade_from_product_id: Option<i64>,
     pub remark: String,
     pub operator_id: i64,
 }

@@ -126,7 +126,7 @@ fn precon_detail_page(
     html! {
         div {
             // ── Back Link ──
-            a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", PreconListPath::PATH)) {
+            a class="inline-flex items-center gap-2 text-sm text-text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", PreconListPath::PATH)) {
                 (icon::chevron_left_icon("w-4 h-4"))
                 "返回采购对账列表"
             }
@@ -135,7 +135,7 @@ fn precon_detail_page(
             div class="block bg-bg border border-border-soft rounded-lg p-6" {
                 div {
                     div class="flex items-center justify-between" {
-                        h1 class="text-2xl font-extrabold font-mono" { (recon.doc_number) }
+                        h1 class="text-2xl font-extrabold font-font-mono tabular-nums" { (recon.doc_number) }
                         span class=(format!("status-pill {status_class}")) { (status_text) }
                     }
                 }
@@ -165,19 +165,19 @@ fn precon_detail_page(
                 div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "对账信息" }
                 div class="grid gap-4" {
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-muted font-medium" { "供应商名称" }
+                        span class="text-xs text-text-muted font-medium" { "供应商名称" }
                         span class="text-sm text-fg font-medium" { (supplier_name) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-muted font-medium" { "对账期间" }
-                        span class="text-sm text-fg font-medium mono" { (recon.period) }
+                        span class="text-xs text-text-muted font-medium" { "对账期间" }
+                        span class="text-sm text-fg font-medium font-mono tabular-nums" { (recon.period) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-muted font-medium" { "状态" }
+                        span class="text-xs text-text-muted font-medium" { "状态" }
                         span class=(format!("status-pill {status_class}")) { (status_text) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-muted font-medium" { "操作人" }
+                        span class="text-xs text-text-muted font-medium" { "操作人" }
                         span class="text-sm text-fg font-medium" { (operator_name) }
                     }
                 }
@@ -220,16 +220,16 @@ fn precon_detail_page(
                 div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "金额汇总" }
                 div class="grid gap-4" {
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-muted font-medium" { "总金额" }
-                        span class="text-sm text-fg font-medium mono" { (format!("{:.2}", recon.total_amount)) }
+                        span class="text-xs text-text-muted font-medium" { "总金额" }
+                        span class="text-sm text-fg font-medium font-mono tabular-nums" { (format!("{:.2}", recon.total_amount)) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-muted font-medium" { "确认金额" }
-                        span class="text-sm text-fg font-medium mono" { (format!("{:.2}", recon.confirmed_amount)) }
+                        span class="text-xs text-text-muted font-medium" { "确认金额" }
+                        span class="text-sm text-fg font-medium font-mono tabular-nums" { (format!("{:.2}", recon.confirmed_amount)) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-muted font-medium" { "差异" }
-                        span class="text-sm text-fg font-medium mono" { (format!("{:.2}", recon.difference)) }
+                        span class="text-xs text-text-muted font-medium" { "差异" }
+                        span class="text-sm text-fg font-medium font-mono tabular-nums" { (format!("{:.2}", recon.difference)) }
                     }
                 }
             }
@@ -238,7 +238,7 @@ fn precon_detail_page(
             @if !recon.remark.is_empty() {
                 div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" style="margin-top:var(--space-6)" {
                     div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "备注" }
-                    p class="text-muted" { (recon.remark.as_str()) }
+                    p class="text-text-muted" { (recon.remark.as_str()) }
                 }
             }
         }
@@ -250,8 +250,8 @@ fn item_row(item: &PurchaseReconItem) -> Markup {
 
     html! {
         tr {
-            td class="mono" { (item.order_id) }
-            td class="mono" { (item.order_item_id) }
+            td class="font-mono tabular-nums" { (item.order_id) }
+            td class="font-mono tabular-nums" { (item.order_item_id) }
             td class="text-right text-[13px]" { (format!("{:.2}", item.received_qty)) }
             td class="text-right text-[13px]" { (format!("{:.2}", item.returned_qty)) }
             td class="text-right text-[13px]" { (format!("{:.2}", item.returned_amount)) }

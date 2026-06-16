@@ -139,7 +139,7 @@ fn transfer_detail_page(
 
     html! {
         div {
-            a href="/admin/wms/transfers" class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" {
+            a href="/admin/wms/transfers" class="inline-flex items-center gap-2 text-sm text-text-muted hover:text-accent transition-colors duration-150" {
                 (icon::chevron_left_icon("w-4 h-4"))
                 "返回库存调拨列表"
             }
@@ -147,7 +147,7 @@ fn transfer_detail_page(
             div class="block bg-bg border border-border-soft rounded-lg p-6" {
                 div {
                     div class="flex items-center justify-between" {
-                        h1 class="text-2xl font-extrabold font-mono" { (transfer.doc_number) }
+                        h1 class="text-2xl font-extrabold font-font-mono tabular-nums" { (transfer.doc_number) }
                         span class=(format!("status-pill {status_class}")) { (status_label) }
                     }
                 }
@@ -164,23 +164,23 @@ fn transfer_detail_page(
                 div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "调拨信息" }
                 div class="grid gap-4" {
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-muted font-medium" { "调拨单号" }
-                        span class="text-sm text-fg font-medium mono" { (transfer.doc_number) }
+                        span class="text-xs text-text-muted font-medium" { "调拨单号" }
+                        span class="text-sm text-fg font-medium font-mono tabular-nums" { (transfer.doc_number) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-muted font-medium" { "调出仓库" }
+                        span class="text-xs text-text-muted font-medium" { "调出仓库" }
                         span class="text-sm text-fg font-medium" { (ctx.from_wh_name) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-muted font-medium" { "调入仓库" }
+                        span class="text-xs text-text-muted font-medium" { "调入仓库" }
                         span class="text-sm text-fg font-medium" { (ctx.to_wh_name) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-muted font-medium" { "调拨日期" }
-                        span class="text-sm text-fg font-medium mono" { (transfer.transfer_date.to_string()) }
+                        span class="text-xs text-text-muted font-medium" { "调拨日期" }
+                        span class="text-sm text-fg font-medium font-mono tabular-nums" { (transfer.transfer_date.to_string()) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-muted font-medium" { "操作员" }
+                        span class="text-xs text-text-muted font-medium" { "操作员" }
                         span class="text-sm text-fg font-medium" { (ctx.operator_name) }
                     }
                 }
@@ -206,13 +206,13 @@ fn transfer_detail_page(
                     tbody {
                         @for (i, item) in ctx.items.iter().enumerate() {
                             tr {
-                                td class="mono" { (i + 1) }
-                                td class="mono" { (ctx.product_codes.get(&item.product_id).map(|c| c.as_str()).unwrap_or("—")) }
+                                td class="font-mono tabular-nums" { (i + 1) }
+                                td class="font-mono tabular-nums" { (ctx.product_codes.get(&item.product_id).map(|c| c.as_str()).unwrap_or("—")) }
                                 td { (ctx.product_names.get(&item.product_id).map(|n| n.as_str()).unwrap_or("—")) }
                                 td { (ctx.product_specs.get(&item.product_id).map(|s| s.as_str()).unwrap_or("—")) }
                                 td { (ctx.product_units.get(&item.product_id).map(|u| u.as_str()).unwrap_or("—")) }
                                 td class="text-right text-[13px]" { (format!("{:.2}", item.quantity)) }
-                                td class="mono" {
+                                td class="font-mono tabular-nums" {
                                     @if let Some(ref batch) = item.batch_no {
                                         (batch)
                                     } @else {

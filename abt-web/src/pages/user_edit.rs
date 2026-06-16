@@ -164,7 +164,7 @@ fn user_edit_page(
         div {
             // ── Page Header ──
             div class="flex items-center justify-between mb-6" {
-                a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(detail_path) {
+                a class="inline-flex items-center gap-2 text-sm text-text-muted hover:text-accent transition-colors duration-150" href=(detail_path) {
                     (icon::chevron_left_icon("w-4 h-4"))
                     "返回用户详情"
                 }
@@ -222,7 +222,7 @@ fn basic_info_section(user: &UserWithRoles) -> Markup {
                 div class="form-group" {
                     label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "登录名" }
                     input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" value=(&user.user.username) disabled {}
-                    span class="text-xs text-muted mt-0.5" { "登录名不可修改" }
+                    span class="text-xs text-text-muted mt-0.5" { "登录名不可修改" }
                 }
                 // 显示名称
                 div class="form-group" {
@@ -238,7 +238,7 @@ fn basic_info_section(user: &UserWithRoles) -> Markup {
                         input type="checkbox" name="is_super_admin" value="true" checked[is_super_admin] {}
                         span { "设为超级管理员（绕过所有权限检查）" }
                     }
-                    span class="text-xs text-muted mt-0.5" { "超级管理员拥有所有资源的完全访问权限，请谨慎授予" }
+                    span class="text-xs text-text-muted mt-0.5" { "超级管理员拥有所有资源的完全访问权限，请谨慎授予" }
                 }
                 // 激活状态
                 div class="form-group" {
@@ -260,7 +260,7 @@ fn role_section(roles: &[Role], selected_ids: &[i64]) -> Markup {
                 (icon::lock_icon("w-[18px] h-[18px]"))
                 "角色分配"
             }
-            p class="text-[13px] text-muted mb-4 leading-relaxed" { "用户可拥有多个角色，权限取所有角色的并集。" }
+            p class="text-[13px] text-text-muted mb-4 leading-relaxed" { "用户可拥有多个角色，权限取所有角色的并集。" }
             div class="grid gap-3" {
                 @for role in roles {
                     @let is_sel = selected_ids.contains(&role.role_id);
@@ -302,7 +302,7 @@ fn dept_section(departments: &[Department], selected_ids: &[i64]) -> Markup {
                 (icon::building_icon("w-[18px] h-[18px]"))
                 "部门分配"
             }
-            p class="text-[13px] text-muted mb-4 leading-relaxed" { "用户可归属多个部门（多对多关系）。" }
+            p class="text-[13px] text-text-muted mb-4 leading-relaxed" { "用户可归属多个部门（多对多关系）。" }
             div class="grid gap-3" {
                 @for dept in departments {
                     @let is_sel = selected_ids.contains(&dept.department_id);
@@ -344,7 +344,7 @@ fn data_scope_section(user: &UserWithRoles, user_depts: &[Department]) -> Markup
                 (shield_check_icon("w-[18px] h-[18px]"))
                 "数据权限 (DataScope)"
             }
-            p class="text-[13px] text-muted mb-4 leading-relaxed" { "数据范围由角色配置决定，不支持在用户级别单独修改。以下为当前用户的实际数据范围。" }
+            p class="text-[13px] text-text-muted mb-4 leading-relaxed" { "数据范围由角色配置决定，不支持在用户级别单独修改。以下为当前用户的实际数据范围。" }
             div class="grid gap-3" {
                 // All scope
                 div class={"scope-option" @if is_super_admin { " selected" } @else { "" }} data-value="All" {

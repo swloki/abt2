@@ -198,7 +198,7 @@ fn requisition_detail_page(
 
     html! {
         div {
-            a href=(format!("{}?restore=true", RequisitionListPath::PATH)) class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" {
+            a href=(format!("{}?restore=true", RequisitionListPath::PATH)) class="inline-flex items-center gap-2 text-sm text-text-muted hover:text-accent transition-colors duration-150" {
                 (icon::chevron_left_icon("w-4 h-4"))
                 "返回领料单列表"
             }
@@ -206,7 +206,7 @@ fn requisition_detail_page(
             div class="block bg-bg border border-border-soft rounded-lg p-6" {
                 div {
                     div class="flex items-center justify-between" {
-                        h1 class="text-2xl font-extrabold font-mono" { (requisition.doc_number) }
+                        h1 class="text-2xl font-extrabold font-font-mono tabular-nums" { (requisition.doc_number) }
                         span class=(format!("status-pill {status_class}")) { (status_text) }
                     }
                 }
@@ -222,23 +222,23 @@ fn requisition_detail_page(
                 div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "领料信息" }
                 div class="grid gap-4" {
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-muted font-medium" { "单据编号" }
-                        span class="text-sm text-fg font-medium mono" { (requisition.doc_number) }
+                        span class="text-xs text-text-muted font-medium" { "单据编号" }
+                        span class="text-sm text-fg font-medium font-mono tabular-nums" { (requisition.doc_number) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-muted font-medium" { "关联工单" }
-                        span class="text-sm text-fg font-medium mono" { "WO-" (requisition.work_order_id) }
+                        span class="text-xs text-text-muted font-medium" { "关联工单" }
+                        span class="text-sm text-fg font-medium font-mono tabular-nums" { "WO-" (requisition.work_order_id) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-muted font-medium" { "领料仓库" }
+                        span class="text-xs text-text-muted font-medium" { "领料仓库" }
                         span class="text-sm text-fg font-medium" { (wh_name) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-muted font-medium" { "领料日期" }
-                        span class="text-sm text-fg font-medium mono" { (requisition.requisition_date.format("%Y-%m-%d")) }
+                        span class="text-xs text-text-muted font-medium" { "领料日期" }
+                        span class="text-sm text-fg font-medium font-mono tabular-nums" { (requisition.requisition_date.format("%Y-%m-%d")) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-muted font-medium" { "操作员" }
+                        span class="text-xs text-text-muted font-medium" { "操作员" }
                         span class="text-sm text-fg font-medium" { (operator_name) }
                     }
                 }
@@ -264,19 +264,19 @@ fn requisition_detail_page(
                             @for (i, item) in items.iter().enumerate() {
                                 @let (variance_text, variance_class) = variance_color_class(item.variance_qty);
                                 tr {
-                                    td class="mono" { (i + 1) }
+                                    td class="font-mono tabular-nums" { (i + 1) }
                                     td { (product_names.get(&item.product_id).map(|n| n.as_str()).unwrap_or("—")) }
                                     td class="text-right text-[13px]" { (format!("{:.2}", item.requested_qty)) }
                                     td class="text-right text-[13px]" { (format!("{:.2}", item.issued_qty)) }
                                     td class=(format!("num-right {}", variance_class)) { (variance_text) }
-                                    td class="mono" { (item.operation_id.map(|id| format!("#{}", id)).unwrap_or_else(|| "—".into())) }
-                                    td class="mono" { (item.batch_id.map(|id| format!("#{}", id)).unwrap_or_else(|| "—".into())) }
+                                    td class="font-mono tabular-nums" { (item.operation_id.map(|id| format!("#{}", id)).unwrap_or_else(|| "—".into())) }
+                                    td class="font-mono tabular-nums" { (item.batch_id.map(|id| format!("#{}", id)).unwrap_or_else(|| "—".into())) }
                                     td { (item.bin_id.map(|id| id.to_string()).unwrap_or_else(|| "—".into())) }
                                 }
                             }
                             @if items.is_empty() {
                                 tr {
-                                    td colspan="8" class="text-center text-muted text-sm" { "暂无领料明细" }
+                                    td colspan="8" class="text-center text-text-muted text-sm" { "暂无领料明细" }
                                 }
                             }
                         }

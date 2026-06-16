@@ -331,14 +331,14 @@ fn misc_row(
 
     html! {
         tr style="cursor:pointer" {
-            td class="text-accent font-medium cursor-pointer mono" onclick=(&onclick) { (r.doc_number) }
+            td class="text-accent font-medium cursor-pointer font-mono tabular-nums" onclick=(&onclick) { (r.doc_number) }
             td onclick=(&onclick) { (dept_name) }
-            td class="mono" onclick=(&onclick) { (r.request_date.format("%Y-%m-%d")) }
+            td class="font-mono tabular-nums" onclick=(&onclick) { (r.request_date.format("%Y-%m-%d")) }
             td onclick=(&onclick) { (r.purpose.as_str()) }
             td onclick=(&onclick) {
                 span class=(format!("status-pill {status_class}")) { (status_text) }
             }
-            td class="text-right text-[13px] mono" onclick=(&onclick) { (format!("{:.2}", r.total_amount)) }
+            td class="text-right text-[13px] font-mono tabular-nums" onclick=(&onclick) { (format!("{:.2}", r.total_amount)) }
             td onclick=(&onclick) { (operator_name) }
             td onclick="event.stopPropagation()" {
                 @if is_draft {

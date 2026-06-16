@@ -107,7 +107,7 @@ fn exception_table_fragment(
                         }
                         @for item in &result.items {
                             tr {
-                                td class="mono" {
+                                td class="font-mono tabular-nums" {
                                     a href=(format!("/admin/mes/exceptions/{}", item.id)) class="text-accent font-medium cursor-pointer" { (item.doc_number) }
                                 }
                                 td { (exception_type_label(&item.exception_type)) }
@@ -126,7 +126,7 @@ fn exception_table_fragment(
                                 td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" {
                                     (item.description.as_deref().unwrap_or("—"))
                                 }
-                                td class="text-right text-[13px] mono" {
+                                td class="text-right text-[13px] font-mono tabular-nums" {
                                     (item.impact_qty.map(crate::utils::fmt_qty).unwrap_or_else(|| "—".to_string()))
                                 }
                                 td { (item.found_at.format("%Y-%m-%d %H:%M")) }

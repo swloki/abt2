@@ -92,7 +92,7 @@ fn strategy_list_page(
             }
 
             // ── 上架策略 ──
-            div class="section-block" {
+            div class="mb-8" {
                 div class="flex items-center justify-between" {
                     div class="text-lg font-semibold text-fg flex items-center gap-2" { "上架策略" }
                 }
@@ -128,7 +128,7 @@ fn strategy_list_page(
             }
 
             // ── 拣货策略 ──
-            div class="section-block" {
+            div class="mb-8" {
                 div class="flex items-center justify-between" {
                     div class="text-lg font-semibold text-fg flex items-center gap-2" { "拣货策略" }
                 }

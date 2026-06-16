@@ -352,7 +352,7 @@ fn po_create_page(
         div id="po-app" {
             // ── Page Header ──
             div class="flex items-center justify-between mb-6" {
-                a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", POListPath::PATH)) {
+                a class="inline-flex items-center gap-2 text-sm text-text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", POListPath::PATH)) {
                     (icon::arrow_left_icon("w-4 h-4"))
                     "返回采购订单列表"
                 }
@@ -620,16 +620,16 @@ fn product_list_fragment(products: &[abt_core::master_data::product::model::Prod
                 p style="margin:var(--space-2) 0 0;font-size:var(--text-sm)" { "未找到匹配的产品" }
             }
         } @else {
-            div class="product-select-list" {
+            div class="py-2" {
                 @for p in products {
                     div class="flex items-center justify-between p-3 border-b" {
                         div class="product-select-info" {
                             div class="text-sm font-medium text-fg" { (p.pdt_name) }
-                            div class="text-[12px] text-muted flex items-center gap-[6px] flex-wrap" {
+                            div class="text-[12px] text-text-muted flex items-center gap-[6px] flex-wrap" {
                                 span class="bg-surface rounded-sm" { (p.product_code) }
-                                span class="product-select-sep" { "·" }
+                                span class="text-border" { "·" }
                                 span { (p.meta.specification) }
-                                span class="product-select-sep" { "·" }
+                                span class="text-border" { "·" }
                                 span { (p.unit) }
                             }
                         }
@@ -654,13 +654,13 @@ fn item_row_fragment(
     let input_style = "width:90px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)";
     html! {
         tr data-item-row="" {
-            td class="text-muted text-xs text-center" { }
-            td class="mono" { (product.product_code) }
+            td class="text-text-muted text-xs text-center" { }
+            td class="font-mono tabular-nums" { (product.product_code) }
             td { (product.pdt_name) }
             td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="description" placeholder="—" style="width:190px;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
             td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] num-input" type="number" step="1" min="0.01" name="quantity" data-field="qty" placeholder="0" style=(input_style) {} }
             td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] num-input" type="number" step="any" min="0.01" name="unit_price" data-field="price" placeholder="0.00" style=(input_style) {} }
-            td class="line-subtotal mono" data-field="subtotal" style="text-align:right" { "0.00" }
+            td class="line-subtotal font-mono tabular-nums" data-field="subtotal" style="text-align:right" { "0.00" }
             td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] num-input" type="number" step="0.01" min="0" max="100" name="discount_pct" data-field="discount" value="0" placeholder="0" style=(input_style) {} }
             td {
                 select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="tax_rate_id" data-field="tax_rate_id"
@@ -672,7 +672,7 @@ fn item_row_fragment(
                 }
             }
             td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="date" name="item_delivery_date" style="width:110px;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
-            td { button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center" title="删除行"
+            td { button type="button" class="w-[28px] h-[28px] border-none text-text-muted rounded-sm cursor-pointer grid place-items-center" title="删除行"
                 _="on click remove closest <tr/> then call updatePurchaseSummary()" {
                 (icon::x_icon("w-3.5 h-3.5"))
             } }

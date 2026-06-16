@@ -450,19 +450,19 @@ fn row_tr(price: &PriceView) -> Markup {
         tr {
             td {
                 div style="font-weight:500" { (&price.supplier_name) }
-                div class="text-muted" style="font-size:var(--text-xs)" { (&price.supplier_code) }
+                div class="text-text-muted" style="font-size:var(--text-xs)" { (&price.supplier_code) }
             }
             td {
                 div { (&price.product_name) }
-                div class="text-muted" style="font-size:var(--text-xs)" { (&price.product_code) }
+                div class="text-text-muted" style="font-size:var(--text-xs)" { (&price.product_code) }
             }
             td { (price.supplier_item_code.as_deref().unwrap_or("—")) }
-            td class="mono text-right text-[13px]" { (crate::utils::fmt_qty(price.price)) }
+            td class="font-mono tabular-nums text-right text-[13px]" { (crate::utils::fmt_qty(price.price)) }
             td { (&price.currency_code) }
             td class="text-right text-[13px]" { (crate::utils::fmt_qty(price.discount_pct)) }
             td class="text-right text-[13px]" { (crate::utils::fmt_qty(price.min_order_qty)) }
             td class="text-right text-[13px]" { (price.lead_time_days) }
-            td class="text-muted" style="font-size:var(--text-xs)" { (valid_text) }
+            td class="text-text-muted" style="font-size:var(--text-xs)" { (valid_text) }
             td {
                 @if price.is_active {
                     span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-[#f0fff0] text-[#389e0d]" { "启用" }
@@ -567,7 +567,7 @@ fn price_form(action_url: &str, price: Option<&PriceView>) -> Markup {
         div class="modal bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0-lg" _="on click halt" {
             div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
                 h2 { (title) }
-                button class="bg-transparent border-none cursor-pointer text-xl text-muted p-1 hover:text-fg"
+                button class="bg-transparent border-none cursor-pointer text-xl text-text-muted p-1 hover:text-fg"
                     _="on click remove .is-open from #price-modal" { "×" }
             }
             form hx-post=(action_url) hx-target="this" hx-swap="outerHTML"

@@ -105,7 +105,7 @@ fn global_confirm_dialog() -> Markup {
                 div class="bg-bg rounded-lg w-[480px]" onclick="event.stopPropagation()" {
                     div class="bg-bg rounded-lg w-[480px]-body" {
                         div class="bg-bg rounded-lg w-[480px]-icon-wrap" { (PreEscaped(icon)) }
-                        p class="text-sm text-muted text-center leading-relaxed" id="global-confirm-message" {}
+                        p class="text-sm text-text-muted text-center leading-relaxed" id="global-confirm-message" {}
                     }
                     div class="bg-bg rounded-lg w-[480px]-foot" {
                         button

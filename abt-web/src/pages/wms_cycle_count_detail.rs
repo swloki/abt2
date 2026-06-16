@@ -145,7 +145,7 @@ fn cycle_count_detail_page(
 
     html! {
         div {
-            a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", CycleCountListPath::PATH)) {
+            a class="inline-flex items-center gap-2 text-sm text-text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", CycleCountListPath::PATH)) {
                 (crate::components::icon::chevron_left_icon("w-4 h-4"))
                 "返回循环盘点列表"
             }
@@ -153,7 +153,7 @@ fn cycle_count_detail_page(
             div class="block bg-bg border border-border-soft rounded-lg p-6" {
                 div {
                     div class="flex items-center justify-between" {
-                        span class="text-2xl font-extrabold mono" { (cc.doc_number) }
+                        span class="text-2xl font-extrabold font-mono tabular-nums" { (cc.doc_number) }
                         span class=(format!("status-pill {sc}")) { (sl) }
                     }
                 }
@@ -168,29 +168,29 @@ fn cycle_count_detail_page(
                 div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "盘点信息" }
                 div class="grid gap-4" {
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-muted font-medium" { "盘点单号" }
-                        span class="text-sm text-fg font-medium mono" { (cc.doc_number) }
+                        span class="text-xs text-text-muted font-medium" { "盘点单号" }
+                        span class="text-sm text-fg font-medium font-mono tabular-nums" { (cc.doc_number) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-muted font-medium" { "仓库" }
+                        span class="text-xs text-text-muted font-medium" { "仓库" }
                         span class="text-sm text-fg font-medium" { (wh_name) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-muted font-medium" { "库区" }
+                        span class="text-xs text-text-muted font-medium" { "库区" }
                         span class="text-sm text-fg font-medium" { (zone_name) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-muted font-medium" { "盘点日期" }
-                        span class="text-sm text-fg font-medium mono" { (cc.count_date.format("%Y-%m-%d")) }
+                        span class="text-xs text-text-muted font-medium" { "盘点日期" }
+                        span class="text-sm text-fg font-medium font-mono tabular-nums" { (cc.count_date.format("%Y-%m-%d")) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-muted font-medium" { "盲盘" }
+                        span class="text-xs text-text-muted font-medium" { "盲盘" }
                         span class="text-sm text-fg font-medium" {
                             @if cc.is_blind { "是" } @else { "否" }
                         }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-muted font-medium" { "操作员" }
+                        span class="text-xs text-text-muted font-medium" { "操作员" }
                         span class="text-sm text-fg font-medium" { "操作员#" (cc.operator_id) }
                     }
                 }
@@ -226,11 +226,11 @@ fn cycle_count_detail_page(
                             @for (i, item) in items.iter().enumerate() {
                                 tr {
                                     td { (i + 1) }
-                                    td class="mono" {
+                                    td class="font-mono tabular-nums" {
                                         (bin_codes.get(&item.bin_id).map(|s| s.as_str()).unwrap_or("—"))
                                     }
                                     td { "产品#" (item.product_id) }
-                                    td class="mono" {
+                                    td class="font-mono tabular-nums" {
                                         (item.batch_no.as_deref().unwrap_or("—"))
                                     }
                                     td class="text-right text-[13px]" { (format!("{:.2}", item.system_qty)) }
@@ -292,22 +292,22 @@ fn workflow_steps(status: &CycleCountStatus) -> Markup {
                     div class=(if i <= idx { "wf-line completed" } else { "wf-line" }) {}
                 }
                 @if matches!(status, CycleCountStatus::Cancelled) {
-                    div class="flex items-center gap-2 text-xs text-muted" {
+                    div class="flex items-center gap-2 text-xs text-text-muted" {
                         span class="w-[10px] h-[10px] rounded-full bg-border" {}
                         (label)
                     }
                 } @else if i < idx {
-                    div class="flex items-center gap-2 text-xs text-muted completed" {
+                    div class="flex items-center gap-2 text-xs text-text-muted completed" {
                         span class="w-[10px] h-[10px] rounded-full bg-border" {}
                         (label)
                     }
                 } @else if i == idx {
-                    div class="flex items-center gap-2 text-xs text-muted current" {
+                    div class="flex items-center gap-2 text-xs text-text-muted current" {
                         span class="w-[10px] h-[10px] rounded-full bg-border" {}
                         (label)
                     }
                 } @else {
-                    div class="flex items-center gap-2 text-xs text-muted" {
+                    div class="flex items-center gap-2 text-xs text-text-muted" {
                         span class="w-[10px] h-[10px] rounded-full bg-border" {}
                         (label)
                     }

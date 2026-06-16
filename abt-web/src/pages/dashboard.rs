@@ -31,7 +31,7 @@ fn dashboard_content(claims: &abt_core::shared::identity::model::Claims) -> Mark
         div class="flex items-center justify-between mb-6" {
             h1 class="text-xl font-bold text-fg tracking-tight" { "销售管理概览" }
             div class="flex gap-3" {
-                span class="text-muted text-[13px]" {
+                span class="text-text-muted text-[13px]" {
                     "欢迎回来, " (claims.display_name.as_str())
                 }
             }
@@ -108,10 +108,10 @@ fn dashboard_content(claims: &abt_core::shared::identity::model::Claims) -> Mark
 fn stat_card(label: &str, value: &str, unit: &str, trend: &str, trend_color: &str) -> Markup {
     html! {
         div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-flat" {
-            span class="text-xs text-muted font-medium" { (label) }
+            span class="text-xs text-text-muted font-medium" { (label) }
             div style="display:flex;align-items:baseline;gap:var(--space-2);margin-top:var(--space-2)" {
                 span class="text-[20px] font-bold text-fg text-2xl" { (value) }
-                span class="text-muted text-xs" { (unit) }
+                span class="text-text-muted text-xs" { (unit) }
             }
             div style="margin-top:var(--space-2);font-size:12px" class=(trend_color) { (trend) }
         }
@@ -127,10 +127,10 @@ fn stat_card_with_color(
 ) -> Markup {
     html! {
         div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-flat" {
-            span class="text-xs text-muted font-medium" { (label) }
+            span class="text-xs text-text-muted font-medium" { (label) }
             div style="display:flex;align-items:baseline;gap:var(--space-2);margin-top:var(--space-2)" {
                 span class="text-[20px] font-bold text-fg text-2xl text-danger" { (value) }
-                span class="text-muted text-xs" { (unit) }
+                span class="text-text-muted text-xs" { (unit) }
             }
             div style="margin-top:var(--space-2);font-size:12px" class=(trend_color) { (trend) }
         }
@@ -140,7 +140,7 @@ fn stat_card_with_color(
 fn stat_card_accent(label: &str, value: &str, trend: &str, trend_color: &str) -> Markup {
     html! {
         div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-flat" {
-            span class="text-xs text-muted font-medium" { (label) }
+            span class="text-xs text-text-muted font-medium" { (label) }
             div style="display:flex;align-items:baseline;gap:var(--space-2);margin-top:var(--space-2)" {
                 span class="text-[20px] font-bold text-fg-accent text-2xl" { (value) }
             }
@@ -154,7 +154,7 @@ fn todo_item(status_class: &str, status_text: &str, desc: &str, time: &str) -> M
         div class="activity-row" {
             span class={"status-pill " (status_class)} style="font-size:11px" { (status_text) }
             span style="flex:1" { (desc) }
-            span class="text-muted" style="font-size:12px" { (time) }
+            span class="text-text-muted" style="font-size:12px" { (time) }
         }
     }
 }
@@ -164,7 +164,7 @@ fn todo_item_last(status_class: &str, status_text: &str, desc: &str, time: &str)
         div style="padding:var(--space-4) var(--space-5);display:flex;align-items:center;gap:var(--space-3);cursor:pointer" {
             span class={"status-pill " (status_class)} style="font-size:11px" { (status_text) }
             span style="flex:1" { (desc) }
-            span class="text-muted" style="font-size:12px" { (time) }
+            span class="text-text-muted" style="font-size:12px" { (time) }
         }
     }
 }
@@ -174,7 +174,7 @@ fn quick_link_card(href: &str, icon: &Markup, title: &str, count: &str) -> Marku
         a href=(href) class="flex flex-col gap-1 p-4 bg-bg border border-border-soft rounded cursor-pointer no-underline" {
             span style="color:var(--accent)" { (icon) }
             span class="text-sm font-semibold text-fg" { (title) }
-            span class="text-xs text-muted" { (count) }
+            span class="text-xs text-text-muted" { (count) }
         }
     }
 }
@@ -186,7 +186,7 @@ fn flow_step(icon: &Markup, label: &str, desc: &str, icon_bg: &str, icon_color: 
                 span class=(icon_color) { (icon) }
             }
             a href="#" class="text-sm font-semibold text-fg" { (label) }
-            span class="text-[11px] text-muted" { (desc) }
+            span class="text-[11px] text-text-muted" { (desc) }
         }
     }
 }
@@ -215,7 +215,7 @@ fn activity_item(
                     span style="font-weight:600" { " " (highlight) }
                 }
             }
-            span class="text-muted" style="font-size:12px" { (time) }
+            span class="text-text-muted" style="font-size:12px" { (time) }
         }
     }
 }
@@ -236,7 +236,7 @@ fn activity_item_last(
                     span style="font-weight:600" { " " (highlight) }
                 }
             }
-            span class="text-muted" style="font-size:12px" { (time) }
+            span class="text-text-muted" style="font-size:12px" { (time) }
         }
     }
 }

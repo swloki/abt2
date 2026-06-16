@@ -252,7 +252,7 @@ fn lock_data_card_fragment(
                         }
                         @if result.items.is_empty() {
                             tr {
-                                td colspan="10" class="text-muted" style="text-align:center;padding:var(--space-8)" {
+                                td colspan="10" class="text-text-muted" style="text-align:center;padding:var(--space-8)" {
                                     "暂无锁库数据"
                                 }
                             }
@@ -279,10 +279,10 @@ fn lock_row(
 
     html! {
         tr style="cursor:pointer" {
-            td class="text-accent font-medium cursor-pointer mono" onclick=(format!("location.href='{}'", detail_path)) {
+            td class="text-accent font-medium cursor-pointer font-mono tabular-nums" onclick=(format!("location.href='{}'", detail_path)) {
                 (lock.doc_number)
             }
-            td class="mono" onclick=(format!("location.href='{}'", detail_path)) {
+            td class="font-mono tabular-nums" onclick=(format!("location.href='{}'", detail_path)) {
                 (product_map.get(&lock.product_id).map(|(c,_)| c.as_str()).unwrap_or("—"))
             }
             td onclick=(format!("location.href='{}'", detail_path)) {
@@ -301,7 +301,7 @@ fn lock_row(
                 @if let Some(cid) = lock.customer_id {
                     (customer_map.get(&cid).map(|s| s.as_str()).unwrap_or("—"))
                 } @else {
-                    span class="text-muted" { "—" }
+                    span class="text-text-muted" { "—" }
                 }
             }
             td onclick=(format!("location.href='{}'", detail_path)) {

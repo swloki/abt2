@@ -178,10 +178,10 @@ fn reconciliation_create_page(
     username: &str,
 ) -> Markup {
     html! {
-        div id="rec-app" class="padded-section" {
+        div id="rec-app" class="p-6" {
             // ── Page Header ──
             div class="flex items-center justify-between mb-6" {
-                a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", ReconciliationListPath::PATH)) {
+                a class="inline-flex items-center gap-2 text-sm text-text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", ReconciliationListPath::PATH)) {
                     (icon::arrow_left_icon("w-4 h-4"))
                     "返回对账单列表"
                 }
@@ -255,10 +255,10 @@ fn reconciliation_create_page(
                     }
 
                     // Empty state
-                    div class="text-center p-6 text-muted text-sm" id="emptyState" {
+                    div class="text-center p-6 text-text-muted text-sm" id="emptyState" {
                         (icon::clipboard_list_icon("w-12 h-12"))
-                        p class="text-center p-6 text-muted text-sm-title" { "暂无对账明细" }
-                        p class="text-center p-6 text-muted text-sm-desc" { "请先选择客户，然后从发货单中添加对账明细" }
+                        p class="text-center p-6 text-text-muted text-sm-title" { "暂无对账明细" }
+                        p class="text-center p-6 text-text-muted text-sm-desc" { "请先选择客户，然后从发货单中添加对账明细" }
                         button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover mt-5" onclick="document.getElementById('pickOrderBtn').click()" { "选择发货单" }
                     }
                 }
@@ -328,9 +328,9 @@ fn preview_empty(message: &str) -> Markup {
                     "从发货单添加"
                 }
             }
-            div class="text-center p-6 text-muted text-sm" id="emptyState" {
+            div class="text-center p-6 text-text-muted text-sm" id="emptyState" {
                 (icon::clipboard_list_icon("w-12 h-12"))
-                p class="text-center p-6 text-muted text-sm-title" { (message) }
+                p class="text-center p-6 text-text-muted text-sm-title" { (message) }
             }
         }
     }
@@ -369,7 +369,7 @@ fn preview_table(
                 }
             }
             div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
-                table class="line-items-table" {
+                table class="w-full border-collapse" {
                     thead {
                         tr {
                             th class="col-num" { "行号" }
@@ -393,19 +393,19 @@ fn preview_table(
                             @let shipping_detail = ShippingDetailPath { id: item.shipping_request_id };
 
                             tr {
-                                td class="text-muted text-xs text-center" { (i + 1) }
+                                td class="text-text-muted text-xs text-center" { (i + 1) }
                                 td {
                                     a href=(shipping_detail.to_string()) class="link-accent" { (shipping_num) }
                                 }
-                                td class="mono" { (product_code) }
+                                td class="font-mono tabular-nums" { (product_code) }
                                 td { (product_name) }
                                 td class="text-right text-[13px]" { (item.quantity) }
                                 td class="text-right text-[13px]" { "—" }
                                 td class="text-right text-[13px]" { "—" }
-                                td class="text-right text-[13px] mono" { (format!("{:.2}", item.unit_price)) }
-                                td class="text-right text-[13px] mono" { (format!("{:.2}", item.amount)) }
+                                td class="text-right text-[13px] font-mono tabular-nums" { (format!("{:.2}", item.unit_price)) }
+                                td class="text-right text-[13px] font-mono tabular-nums" { (format!("{:.2}", item.amount)) }
                                 td {
-                                    button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center" title="删除" {
+                                    button type="button" class="w-[28px] h-[28px] border-none text-text-muted rounded-sm cursor-pointer grid place-items-center" title="删除" {
                                         (icon::x_icon("w-3.5 h-3.5"))
                                     }
                                 }
@@ -428,7 +428,7 @@ fn preview_table(
             }
             div class="flex justify-end gap-8 p-5 border-t bg-surface-raised-row" {
                 span class="label" { "调整金额" }
-                span class="value muted-value" { "¥ 0.00" }
+                span class="value text-muted-value" { "¥ 0.00" }
             }
             div class="flex justify-end gap-8 p-5 border-t bg-surface-raised-row total" {
                 span class="label" { "净额（应收）" }

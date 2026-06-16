@@ -275,7 +275,7 @@ fn rma_data_card(
                             @let product_name = product_names.get(&item.product_id).map(|s| s.as_str()).unwrap_or("—");
                             @let detail_path = RmaDetailPath { id: item.id };
                             tr style="cursor:pointer" onclick=(format!("location.href='{}'", detail_path.to_string())) {
-                                td class="text-accent font-medium cursor-pointer mono" style="color:var(--accent)" { (item.doc_number) }
+                                td class="text-accent font-medium cursor-pointer font-mono tabular-nums" style="color:var(--accent)" { (item.doc_number) }
                                 td { (customer_name) }
                                 td { (product_name) }
                                 td {

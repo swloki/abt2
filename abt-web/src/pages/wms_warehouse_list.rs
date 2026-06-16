@@ -288,7 +288,7 @@ fn warehouse_row(w: &Warehouse, manager_map: &std::collections::HashMap<i64, Str
 
     html! {
         tr style="cursor:pointer" {
-            td class="text-accent font-medium cursor-pointer mono" onclick=(format!("location.href='{}'", detail_path)) { (w.code) }
+            td class="text-accent font-medium cursor-pointer font-mono tabular-nums" onclick=(format!("location.href='{}'", detail_path)) { (w.code) }
             td onclick=(format!("location.href='{}'", detail_path)) { strong { (w.name) } }
             td onclick=(format!("location.href='{}'", detail_path)) {
                 span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-surface text-[#666]" { (type_label) }
@@ -316,14 +316,14 @@ fn warehouse_row(w: &Warehouse, manager_map: &std::collections::HashMap<i64, Str
                     span style="color:var(--muted)" { "—" }
                 }
             }
-            td class="mono" onclick=(format!("location.href='{}'", detail_path)) {
+            td class="font-mono tabular-nums" onclick=(format!("location.href='{}'", detail_path)) {
                 @if w.zone_count > 0 {
                     (w.zone_count)
                 } @else {
                     span style="color:var(--muted)" { "0" }
                 }
             }
-            td class="mono" onclick=(format!("location.href='{}'", detail_path)) {
+            td class="font-mono tabular-nums" onclick=(format!("location.href='{}'", detail_path)) {
                 @if w.bin_count > 0 {
                     (w.bin_count)
                 } @else {

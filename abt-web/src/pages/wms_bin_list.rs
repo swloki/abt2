@@ -253,7 +253,7 @@ fn bin_row(item: &BinWithWarehouse, zones: &HashMap<i64, Zone>) -> Markup {
 
     html! {
         tr style="cursor:pointer" {
-            td class="text-accent font-medium cursor-pointer mono" onclick=(format!("location.href='{}'", detail_path)) { (bin.code) }
+            td class="text-accent font-medium cursor-pointer font-mono tabular-nums" onclick=(format!("location.href='{}'", detail_path)) { (bin.code) }
             td onclick=(format!("location.href='{}'", detail_path)) { (bin.name) }
             td onclick=(format!("location.href='{}'", detail_path)) { (item.warehouse_name) }
             td onclick=(format!("location.href='{}'", detail_path)) { (zone_name) }

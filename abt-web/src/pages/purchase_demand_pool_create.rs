@@ -297,13 +297,13 @@ fn create_page_content(
             // ── Page Header ──
             div class="flex items-center justify-between mb-6" {
                 div {
-                    a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", PurchaseDemandPoolListPath::PATH)) {
+                    a class="inline-flex items-center gap-2 text-sm text-text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", PurchaseDemandPoolListPath::PATH)) {
                         (icon::arrow_left_icon("w-4 h-4"))
                         "返回需求池"
                     }
                     h1 class="text-xl font-bold text-fg tracking-tight" { "从需求创建采购订单" }
                     div style="font-size:13px;color:var(--muted);margin-top:4px;" {
-                        span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-surface text-muted" style="font-size:11px;padding:2px 8px;margin-right:6px;" {
+                        span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-surface text-text-muted" style="font-size:11px;padding:2px 8px;margin-right:6px;" {
                             "采购需求池 · 按物料聚合"
                         }
                         "选择待处理的需求，指定供应商后创建采购订单草稿"
@@ -421,7 +421,7 @@ fn create_page_content(
                     div class="flex justify-end gap-8 p-5 border-t bg-surface-raised" {
                         div class="flex gap-3" {
                             span { "已选需求" }
-                            span class="mono" style="font-weight:600;" {
+                            span class="font-mono tabular-nums" style="font-weight:600;" {
                                 span id="selectedCount" {
                                     @if preselected_ids.is_empty() && !demands.is_empty() {
                                         (demands.len())
@@ -434,7 +434,7 @@ fn create_page_content(
                         }
                         div class="flex gap-3" {
                             span { "总数量" }
-                            span class="mono" style="font-weight:600;" {
+                            span class="font-mono tabular-nums" style="font-weight:600;" {
                                 span id="totalQty" { (fmt_qty(total_qty)) }
                             }
                         }
@@ -524,17 +524,17 @@ fn demand_row(d: &DemandSummary, preselected_ids: &[i64]) -> Markup {
                     input type="checkbox" disabled;
                 }
             }
-            td class="mono" style="font-size:12px;" { (d.id) }
+            td class="font-mono tabular-nums" style="font-size:12px;" { (d.id) }
             td {
                 a class="text-accent font-medium cursor-pointer" href=(OrderDetailPath { id: d.order_id }.to_string()) { (d.order_no.as_ref().map(|s| s.as_str()).unwrap_or("—")) }
             }
-            td class="text-right text-[13px] mono demand-qty" { (fmt_qty(d.quantity)) }
-            td class="mono" { (req_date) }
+            td class="text-right text-[13px] font-mono tabular-nums demand-qty" { (fmt_qty(d.quantity)) }
+            td class="font-mono tabular-nums" { (req_date) }
             td {
                 span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium" style=(pri_style) { (pri_text) }
             }
             td {
-                button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center" title="移除" _="on click remove closest <tr/> then call updateDemandSummary()" {
+                button type="button" class="w-[28px] h-[28px] border-none text-text-muted rounded-sm cursor-pointer grid place-items-center" title="移除" _="on click remove closest <tr/> then call updateDemandSummary()" {
                     (icon::x_icon("w-3.5 h-3.5"))
                 }
             }

@@ -284,9 +284,9 @@ fn precon_row(
     let onclick = format!("location.href='{}'", detail_path);
     html! {
         tr style="cursor:pointer" {
-            td class="text-accent font-medium cursor-pointer mono" onclick=(&onclick) { (r.doc_number) }
+            td class="text-accent font-medium cursor-pointer font-mono tabular-nums" onclick=(&onclick) { (r.doc_number) }
             td onclick=(&onclick) { (supplier_name) }
-            td class="mono" onclick=(&onclick) { (&r.period) }
+            td class="font-mono tabular-nums" onclick=(&onclick) { (&r.period) }
             td onclick=(&onclick) {
                 span class=(format!("status-pill {status_class}")) { (status_text) }
             }

@@ -51,41 +51,41 @@ fn mes_dashboard_page(stats: &abt_core::mes::dashboard::model::DashboardStats, d
                 div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
                     div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 blue" { (icon::file_text_icon("w-5 h-5")) }
                     div {
-                        div class="text-2xl font-bold font-mono tabular-nums text-fg" { (stats.plan_count) }
-                        div class="text-sm text-muted mt-1" { "本月生产计划" }
+                        div class="text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg" { (stats.plan_count) }
+                        div class="text-sm text-text-muted mt-1" { "本月生产计划" }
                     }
                 }
                 div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
                     div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 green" { (icon::tool_icon("w-5 h-5")) }
                     div {
-                        div class="text-2xl font-bold font-mono tabular-nums text-fg" { (stats.active_order_count) }
-                        div class="text-sm text-muted mt-1" { "进行中工单" }
+                        div class="text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg" { (stats.active_order_count) }
+                        div class="text-sm text-text-muted mt-1" { "进行中工单" }
                     }
                 }
                 div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
                     div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 orange" { (icon::briefcase_icon("w-5 h-5")) }
                     div {
-                        div class="text-2xl font-bold font-mono tabular-nums text-fg" { (stats.active_batch_count) }
-                        div class="text-sm text-muted mt-1" { "活跃批次" }
+                        div class="text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg" { (stats.active_batch_count) }
+                        div class="text-sm text-text-muted mt-1" { "活跃批次" }
                     }
                 }
                 div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
                     div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 blue" { (icon::download_icon("w-5 h-5")) }
                     div {
-                        div class="text-2xl font-bold font-mono tabular-nums text-fg" { (stats.pending_receipt_count) }
-                        div class="text-sm text-muted mt-1" { "待入库批次" }
+                        div class="text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg" { (stats.pending_receipt_count) }
+                        div class="text-sm text-text-muted mt-1" { "待入库批次" }
                     }
                 }
                 div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
                     div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 green" { (icon::check_circle_icon("w-5 h-5")) }
                     div {
-                        div class="text-2xl font-bold font-mono tabular-nums text-fg" { (crate::utils::fmt_qty(stats.completed_qty)) }
-                        div class="text-sm text-muted mt-1" { "本月完工数量" }
+                        div class="text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg" { (crate::utils::fmt_qty(stats.completed_qty)) }
+                        div class="text-sm text-text-muted mt-1" { "本月完工数量" }
                     }
                 }
             }
             // ── 数据质量 ──
-            div class="section-block" {
+            div class="mb-8" {
                 h2 class="text-lg font-semibold text-fg flex items-center gap-2" { "数据质量" }
                 div class="grid gap-4" {
                     a class="bg-bg border border-border-soft rounded-lg p-5 flex items-center gap-4 cursor-pointer no-underline warn" href="/admin/md/products" {
@@ -103,7 +103,7 @@ fn mes_dashboard_page(stats: &abt_core::mes::dashboard::model::DashboardStats, d
                 }
             }
             // ── Quick Entry Grid (12 cards matching design) ──
-            div class="section-block" {
+            div class="mb-8" {
                 h2 class="text-lg font-semibold text-fg flex items-center gap-2" { "快捷入口" }
                 div style="display:grid;grid-template-columns:repeat(4,1fr);gap:var(--space-4)" {
                     (quick_entry_card("/admin/mes/demand-pool", "生产需求池", "销售订单驱动的生产需求", "purple", 0, "条待处理"))
@@ -122,7 +122,7 @@ fn mes_dashboard_page(stats: &abt_core::mes::dashboard::model::DashboardStats, d
                 }
             }
             // ── Recent Operations Table ──
-            div class="section-block" {
+            div class="mb-8" {
                 h2 class="text-lg font-semibold text-fg flex items-center gap-2" {
                     (icon::clock_icon("w-4 h-4"))
                     " 最近操作"
@@ -141,7 +141,7 @@ fn mes_dashboard_page(stats: &abt_core::mes::dashboard::model::DashboardStats, d
                         tbody {
                             @if recent.is_empty() {
                                 tr {
-                                    td class="text-muted text-[13px]" { "—" }
+                                    td class="text-text-muted text-[13px]" { "—" }
                                     td { "—" }
                                     td { "—" }
                                     td { "—" }
@@ -150,7 +150,7 @@ fn mes_dashboard_page(stats: &abt_core::mes::dashboard::model::DashboardStats, d
                             } @else {
                                 @for op in recent {
                                     tr {
-                                        td class="text-muted text-[13px]" { (op.created_at.format("%Y-%m-%d %H:%M")) }
+                                        td class="text-text-muted text-[13px]" { (op.created_at.format("%Y-%m-%d %H:%M")) }
                                         td { (op.op_type) }
                                         td { (op.doc_number) }
                                         td { (op.product_name.as_deref().unwrap_or("—")) }

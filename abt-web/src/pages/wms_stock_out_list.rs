@@ -222,17 +222,17 @@ fn stock_out_data_card(
                             @let op_name = operator_names.get(&item.operator_id).map(|s| s.as_str()).unwrap_or("—");
                             tr {
                                 td { input type="checkbox"; }
-                                td class="text-accent font-medium cursor-pointer mono" style="color:var(--accent)" { (item.doc_number.as_deref().unwrap_or("—")) }
+                                td class="text-accent font-medium cursor-pointer font-mono tabular-nums" style="color:var(--accent)" { (item.doc_number.as_deref().unwrap_or("—")) }
                                 td {
                                     span style=(format!("display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{};color:{}", type_bg, type_color)) {
                                         (type_label)
                                     }
                                 }
-                                td class="mono" style="color:var(--fg-2);font-size:12px" { (format!("{}-{}", item.source_type, item.source_id)) }
+                                td class="font-mono tabular-nums" style="color:var(--fg-2);font-size:12px" { (format!("{}-{}", item.source_type, item.source_id)) }
                                 td { (wh_name) }
                                 td { "1 种" }
-                                td class="text-right text-[13px] mono" { (format!("{:.2}", item.quantity)) }
-                                td class="text-right text-[13px] mono" { (item.unit_cost.map(|c| format!("¥{:.2}", c)).unwrap_or_else(|| "—".into())) }
+                                td class="text-right text-[13px] font-mono tabular-nums" { (format!("{:.2}", item.quantity)) }
+                                td class="text-right text-[13px] font-mono tabular-nums" { (item.unit_cost.map(|c| format!("¥{:.2}", c)).unwrap_or_else(|| "—".into())) }
                                 td style="font-size:12px;color:var(--fg-2)" { "FIFO" }
                                 td {
                                     span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-[#f0fff0] text-[#389e0d]" { "已出库" }
@@ -287,8 +287,8 @@ fn stock_out_table_fragment(
                         (icon::upload_icon("w-5 h-5"))
                     }
                     div {
-                        div class="text-2xl font-bold font-mono tabular-nums text-fg" { (total_count) }
-                        div class="text-sm text-muted mt-1" { "本月出库单" }
+                        div class="text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg" { (total_count) }
+                        div class="text-sm text-text-muted mt-1" { "本月出库单" }
                     }
                 }
                 div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
@@ -296,8 +296,8 @@ fn stock_out_table_fragment(
                         (icon::currency_icon("w-5 h-5"))
                     }
                     div {
-                        div class="text-2xl font-bold font-mono tabular-nums text-fg" { "—" }
-                        div class="text-sm text-muted mt-1" { "出库总金额" }
+                        div class="text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg" { "—" }
+                        div class="text-sm text-text-muted mt-1" { "出库总金额" }
                     }
                 }
                 div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
@@ -305,8 +305,8 @@ fn stock_out_table_fragment(
                         (icon::clock_icon("w-5 h-5"))
                     }
                     div {
-                        div class="text-2xl font-bold font-mono tabular-nums text-fg" { "—" }
-                        div class="text-sm text-muted mt-1" { "待拣货" }
+                        div class="text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg" { "—" }
+                        div class="text-sm text-text-muted mt-1" { "待拣货" }
                     }
                 }
                 div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
@@ -314,8 +314,8 @@ fn stock_out_table_fragment(
                         (icon::check_circle_icon("w-5 h-5"))
                     }
                     div {
-                        div class="text-2xl font-bold font-mono tabular-nums text-fg" { (total_count) }
-                        div class="text-sm text-muted mt-1" { "已完成" }
+                        div class="text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg" { (total_count) }
+                        div class="text-sm text-text-muted mt-1" { "已完成" }
                     }
                 }
             }

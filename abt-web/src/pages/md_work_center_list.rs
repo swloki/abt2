@@ -164,11 +164,11 @@ fn work_center_list_page(
                     tbody {
                         @for wc in &result.items {
                             tr {
-                                td class="mono" { (wc.code) }
+                                td class="font-mono tabular-nums" { (wc.code) }
                                 td { strong { (wc.name) } }
                                 td { (work_center_type_label(wc.work_center_type)) }
-                                td class="mono text-right text-[13px]" { (crate::utils::fmt_qty(wc.default_capacity)) }
-                                td class="mono text-right text-[13px]" { (crate::utils::fmt_amount(wc.costs_hour)) }
+                                td class="font-mono tabular-nums text-right text-[13px]" { (crate::utils::fmt_qty(wc.default_capacity)) }
+                                td class="font-mono tabular-nums text-right text-[13px]" { (crate::utils::fmt_amount(wc.costs_hour)) }
                                 td {
                                     @if wc.is_active {
                                         span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-[#f0fff0] text-[#389e0d]" { "启用" }
@@ -188,7 +188,7 @@ fn work_center_list_page(
                             }
                         }
                         @if result.items.is_empty() {
-                            tr { td colspan="7" class="text-center text-muted text-sm" { "暂无工作中心数据" } }
+                            tr { td colspan="7" class="text-center text-text-muted text-sm" { "暂无工作中心数据" } }
                         }
                     }
                 }

@@ -78,7 +78,7 @@ fn work_calendar_list_page(calendars: &[WorkCalendar]) -> Markup {
                             tr {
                                 td { strong { (cal.name) } }
                                 td { (cal.description.as_deref().unwrap_or("—")) }
-                                td class="mono" { (cal.created_at.format("%Y-%m-%d %H:%M")) }
+                                td class="font-mono tabular-nums" { (cal.created_at.format("%Y-%m-%d %H:%M")) }
                                 td {
                                     a href=(WorkCalendarDetailPath { id: cal.id }.to_string()) {
                                         (icon::eye_icon("w-4 h-4"))
@@ -87,7 +87,7 @@ fn work_calendar_list_page(calendars: &[WorkCalendar]) -> Markup {
                             }
                         }
                         @if calendars.is_empty() {
-                            tr { td colspan="4" class="text-center text-muted text-sm" { "暂无工作日历数据" } }
+                            tr { td colspan="4" class="text-center text-text-muted text-sm" { "暂无工作日历数据" } }
                         }
                     }
                 }

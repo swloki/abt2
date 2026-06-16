@@ -300,7 +300,7 @@ fn tree_panel(departments: &[Department], selected_id: Option<i64>, can_create: 
                     "组织架构"
                 }
                 @if can_create {
-                    button class="w-[26px] h-[26px] border border-border rounded-sm bg-white grid place-items-center cursor-pointer text-muted" title="新建部门"
+                    button class="w-[26px] h-[26px] border border-border rounded-sm bg-white grid place-items-center cursor-pointer text-text-muted" title="新建部门"
                         hx-get=(DepartmentCreateDrawerPath::PATH)
                         hx-target="#drawerPanel"
                         hx-swap="innerHTML"
@@ -334,14 +334,14 @@ document.querySelector('.tree-search').addEventListener('input', function() {
                     (tree_item(dept, selected_id == Some(dept.department_id)))
                 }
                 @if departments.is_empty() {
-                    div class="text-center p-6 text-muted text-sm-text" {
+                    div class="text-center p-6 text-text-muted text-sm-text" {
                         "暂无部门数据"
                     }
                 }
             }
 
             // ── Footer ──
-            div class="border-t text-[11px] text-muted bg-surface" id="treeFoot" {
+            div class="border-t text-[11px] text-text-muted bg-surface" id="treeFoot" {
                 "共 " (count) " 个部门"
             }
         }
@@ -472,7 +472,7 @@ fn detail_content_fragment(dept: &Department, members: &[UserWithRoles], can_cre
         // ── Body ──
         div class="flex-1 overflow-y-auto p-5" {
             // Info section
-            div class="d-section" {
+            div class="mb-5 last:mb-0" {
                 div class="flex items-center justify-between" {
                     span class="text-[13px] font-semibold text-fg flex items-center gap-[6px]" {
                         (icon::circle_alert_icon("w-[14px] h-[14px]"))
@@ -481,20 +481,20 @@ fn detail_content_fragment(dept: &Department, members: &[UserWithRoles], can_cre
                 }
                 div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
                     div class="flex items-center text-[13px] border-b" {
-                        span class="text-xs text-muted font-medium" { "部门 ID" }
-                        span class="text-fg font-medium mono" { "#" (format!("{:03}", dept.department_id)) }
+                        span class="text-xs text-text-muted font-medium" { "部门 ID" }
+                        span class="text-fg font-medium font-mono tabular-nums" { "#" (format!("{:03}", dept.department_id)) }
                     }
                     div class="flex items-center text-[13px] border-b" {
-                        span class="text-xs text-muted font-medium" { "部门代码" }
-                        span class="text-fg font-medium mono" { (dept.department_code) }
+                        span class="text-xs text-text-muted font-medium" { "部门代码" }
+                        span class="text-fg font-medium font-mono tabular-nums" { (dept.department_code) }
                     }
                     div class="flex items-center text-[13px] border-b" {
-                        span class="text-xs text-muted font-medium" { "创建时间" }
+                        span class="text-xs text-text-muted font-medium" { "创建时间" }
                         span class="text-fg font-medium" { (dept.created_at.format("%Y-%m-%d %H:%M")) }
                     }
                     @if let Some(updated) = &dept.updated_at {
                         div class="flex items-center text-[13px] border-b" {
-                            span class="text-xs text-muted font-medium" { "最后更新" }
+                            span class="text-xs text-text-muted font-medium" { "最后更新" }
                             span class="text-fg font-medium" { (updated.format("%Y-%m-%d %H:%M")) }
                         }
                     }
@@ -502,16 +502,16 @@ fn detail_content_fragment(dept: &Department, members: &[UserWithRoles], can_cre
             }
 
             // Members section
-            div class="d-section" {
+            div class="mb-5 last:mb-0" {
                 div class="flex items-center justify-between" {
                     span class="text-[13px] font-semibold text-fg flex items-center gap-[6px]" {
                         (icon::users_icon("w-[14px] h-[14px]"))
                         "部门成员"
                     }
-                    span class="text-[11px] text-muted bg-surface rounded-full border border-border-soft" { (member_count) " 人" }
+                    span class="text-[11px] text-text-muted bg-surface rounded-full border border-border-soft" { (member_count) " 人" }
                 }
                 @if members.is_empty() {
-                    div class="text-center p-6 text-muted text-sm-text" {
+                    div class="text-center p-6 text-text-muted text-sm-text" {
                         "暂无成员"
                     }
                 } @else {
@@ -522,7 +522,7 @@ fn detail_content_fragment(dept: &Department, members: &[UserWithRoles], can_cre
                             }
                         }
                         @if member_count > 4 {
-                            div class="text-[12px] text-muted text-center" {
+                            div class="text-[12px] text-text-muted text-center" {
                                 "还有 " (member_count - 4) " 人…"
                             }
                         }
@@ -546,7 +546,7 @@ fn member_card(m: &UserWithRoles) -> Markup {
             span class={"m-ava " (ava_color)} { (initials) }
             div class="m-text" {
                 div class="text-[12px] font-semibold text-fg whitespace-nowrap overflow-hidden" { (display_name) }
-                span class="inline-block text-[10px] font-medium bg-surface text-muted" { (role_display) }
+                span class="inline-block text-[10px] font-medium bg-surface text-text-muted" { (role_display) }
             }
         }
     }
@@ -607,7 +607,7 @@ fn dept_drawer_fragment(is_edit: bool, dept: Option<&Department>) -> Markup {
                 }
             }
             div class="flex-1 overflow-y-auto p-6" {
-                div class="drawer-section" {
+                div class="mb-6 last:mb-0" {
                     div class="drawer-label" { "基本信息" }
                     div class="form-row" {
                         label { "部门名称 " span class="req" { "*" } }
@@ -622,7 +622,7 @@ fn dept_drawer_fragment(is_edit: bool, dept: Option<&Department>) -> Markup {
                                 value=(code_val)
                                 readonly {}
                         } @else {
-                            input class="form-input w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]-mono" type="text" name="department_code"
+                            input class="form-input w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]-font-mono tabular-nums" type="text" name="department_code"
                                 required placeholder="如：SA"
                                 value=(code_val) {}
                         }
@@ -637,7 +637,7 @@ fn dept_drawer_fragment(is_edit: bool, dept: Option<&Department>) -> Markup {
                 }
 
                 // ── Settings section ──
-                div class="drawer-section" {
+                div class="mb-6 last:mb-0" {
                     div class="drawer-label" { "设置" }
                     @if is_edit {
                         div class="form-row" {
@@ -664,8 +664,8 @@ fn dept_drawer_fragment(is_edit: bool, dept: Option<&Department>) -> Markup {
                 }
 
                 // ── Tip (shown in both create and edit mode) ──
-                div class="drawer-section" {
-                    div class="drawer-tip" {
+                div class="mb-6 last:mb-0" {
+                    div class="bg-accent-bg border border-[rgba(22,119,255,.1)] rounded-md p-3 px-4 text-xs text-fg-2 leading-1.6 flex gap-2" {
                         (icon::circle_alert_icon("w-[15px] h-[15px]"))
                         div { "部门代码用于系统内部标识，创建后不可修改。建议使用大写英文字母缩写，如 "
                             strong { "SA" } "（销售部）、" strong { "PU" } "（采购部）。"

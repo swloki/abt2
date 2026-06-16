@@ -153,7 +153,7 @@ fn rma_create_page(customers: &[Customer], products: &[Product], sales_orders: &
             // ── Page header ──
             div class="flex items-center justify-between mb-6" {
                 div class="flex items-center justify-between mb-6-left" {
-                    a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", RmaListPath::PATH)) {
+                    a class="inline-flex items-center gap-2 text-sm text-text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", RmaListPath::PATH)) {
                         (icon::arrow_left_icon("w-4 h-4"))
                         "返回列表"
                     }
@@ -226,7 +226,7 @@ fn rma_create_page(customers: &[Customer], products: &[Product], sales_orders: &
                             select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="linked_inspection_result_id" {
                                 option value="" selected { "请选择检验结果（可选）" }
                             }
-                            span class="text-xs text-muted mt-0.5" { "可选，关联相关来料/过程检验记录" }
+                            span class="text-xs text-text-muted mt-0.5" { "可选，关联相关来料/过程检验记录" }
                         }
                     }
                 }

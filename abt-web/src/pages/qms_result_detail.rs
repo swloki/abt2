@@ -83,7 +83,7 @@ pub async fn get_detail(path: ResultDetailPath, ctx: RequestContext) -> Result<H
     let content = html! { div {
         div class="flex items-center justify-between mb-6" {
             div class="flex items-center justify-between mb-6-left" {
-                a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", ResultListPath::PATH)) { "\u{2190} 返回列表" }
+                a class="inline-flex items-center gap-2 text-sm text-text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", ResultListPath::PATH)) { "\u{2190} 返回列表" }
                 h1 class="text-xl font-bold text-fg tracking-tight" {
                     "单号 " (&result.doc_number)
                     " "
@@ -102,7 +102,7 @@ pub async fn get_detail(path: ResultDetailPath, ctx: RequestContext) -> Result<H
                     span class=(format!("status-pill {type_class}")) { (type_text) }
                 }
                 div class="flex flex-col gap-1" { label { "来源类型" } span { (source_type_label(&result.source_type)) } }
-                div class="flex flex-col gap-1" { label { "批次号" } span class="mono" { (&result.batch_no) } }
+                div class="flex flex-col gap-1" { label { "批次号" } span class="font-mono tabular-nums" { (&result.batch_no) } }
                 div class="flex flex-col gap-1" {
                     label { "检验日期" }
                     span { (result.inspection_date.map(|d| d.to_string()).unwrap_or_else(|| "—".into())) }
@@ -114,9 +114,9 @@ pub async fn get_detail(path: ResultDetailPath, ctx: RequestContext) -> Result<H
         div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
             h3 { "抽样结果" }
             div class="grid gap-4" {
-                div class="flex flex-col gap-1" { label { "抽样数量" } span class="mono text-right text-[13px]" { (fmt_qty(result.sample_qty)) } }
-                div class="flex flex-col gap-1" { label { "合格数量" } span class="mono text-right text-[13px]" { (fmt_qty(result.qualified_qty)) } }
-                div class="flex flex-col gap-1" { label { "不合格数量" } span class="mono text-right text-[13px]" { (fmt_qty(result.unqualified_qty)) } }
+                div class="flex flex-col gap-1" { label { "抽样数量" } span class="font-mono tabular-nums text-right text-[13px]" { (fmt_qty(result.sample_qty)) } }
+                div class="flex flex-col gap-1" { label { "合格数量" } span class="font-mono tabular-nums text-right text-[13px]" { (fmt_qty(result.qualified_qty)) } }
+                div class="flex flex-col gap-1" { label { "不合格数量" } span class="font-mono tabular-nums text-right text-[13px]" { (fmt_qty(result.unqualified_qty)) } }
                 div class="flex flex-col gap-1" {
                     label { "检验结果" }
                     span class=(format!("status-pill {result_class}")) { (result_text) }
@@ -143,9 +143,9 @@ pub async fn get_detail(path: ResultDetailPath, ctx: RequestContext) -> Result<H
                     tbody {
                         @for (i, cr) in result.check_results.iter().enumerate() {
                             tr {
-                                td class="mono" { (i + 1) }
+                                td class="font-mono tabular-nums" { (i + 1) }
                                 td { (&cr.item) }
-                                td class="mono" { (&cr.measured) }
+                                td class="font-mono tabular-nums" { (&cr.measured) }
                                 td {
                                     @if cr.pass {
                                         span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-[#f0fff0] text-[#389e0d]" { "合格" }

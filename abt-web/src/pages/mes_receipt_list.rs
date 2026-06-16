@@ -103,11 +103,11 @@ fn receipt_data_card(
                         @let wh_name = item.warehouse_name.as_deref().unwrap_or("—");
                         @let prod_name = item.product_name.as_deref().unwrap_or("—");
                         tr style="cursor:pointer" onclick=(format!("location.href='{}'", dp)) {
-                            td class="text-accent font-medium cursor-pointer mono" style="color:var(--accent)" { (item.doc_number) }
-                            td class="mono" { (wo_doc) }
+                            td class="text-accent font-medium cursor-pointer font-mono tabular-nums" style="color:var(--accent)" { (item.doc_number) }
+                            td class="font-mono tabular-nums" { (wo_doc) }
                             td { @if let Some(bid) = item.batch_id { (bid) } @else { "—" } }
                             td { (prod_name) }
-                            td class="text-right text-[13px] mono" { (crate::utils::fmt_qty(item.received_qty)) }
+                            td class="text-right text-[13px] font-mono tabular-nums" { (crate::utils::fmt_qty(item.received_qty)) }
                             td { (wh_name) }
                             td { span style=(format!("display:inline-flex;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{};color:{}", sb, sc)) { (sl) } }
                             td { a href=(dp) style="color:var(--accent);font-size:var(--text-xs)" { "查看" } }

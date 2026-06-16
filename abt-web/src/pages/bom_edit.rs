@@ -518,7 +518,7 @@ fn bom_edit_page(
 
                     // Category selector
                     @if !categories.is_empty() {
-                        div class="bom-category-select" {
+                        div class="relative" {
                             select name="bom_category_id"
                                 hx-post=(BomUpdateCategoryPath { id: bom.bom_id }.to_string())
                                 hx-trigger="change"
@@ -809,10 +809,10 @@ fn bom_node_row(
             }
             td style="text-align:center" { (index + 1) }
             td style="text-align:center" { (level) }
-            td class="mono" { (code) }
+            td class="font-mono tabular-nums" { (code) }
             td class="bom-col-name" { (name) }
             td { (work_center) }
-            td class="mono" style="text-align:right" { (node.quantity) }
+            td class="font-mono tabular-nums" style="text-align:right" { (node.quantity) }
             td { (unit) }
             td style="text-align:right" { (loss_rate) }
             td { (position) }
@@ -887,16 +887,16 @@ fn product_list_fragment(products: &[abt_core::master_data::product::model::Prod
                 p style="margin:var(--space-2) 0 0;font-size:var(--text-sm)" { "未找到匹配的产品" }
             }
         } @else {
-            div class="product-select-list" {
+            div class="py-2" {
                 @for p in products {
                     div class="flex items-center justify-between p-3 border-b" {
                         div class="product-select-info" {
                             div class="text-sm font-medium text-fg" { (p.pdt_name) }
-                            div class="text-[12px] text-muted flex items-center gap-[6px] flex-wrap" {
+                            div class="text-[12px] text-text-muted flex items-center gap-[6px] flex-wrap" {
                                 span class="bg-surface rounded-sm" { (p.product_code) }
-                                span class="product-select-sep" { "·" }
+                                span class="text-border" { "·" }
                                 span { (p.meta.specification) }
-                                span class="product-select-sep" { "·" }
+                                span class="text-border" { "·" }
                                 span { (p.unit) }
                             }
                         }

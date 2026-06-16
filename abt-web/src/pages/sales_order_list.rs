@@ -284,7 +284,7 @@ fn order_table_fragment(
                             }
                             @if result.items.is_empty() {
                                 tr {
-                                    td colspan="9" class="text-center p-8 text-muted" {
+                                    td colspan="9" class="text-center p-8 text-text-muted" {
                                         "暂无订单数据"
                                     }
                                 }
@@ -316,16 +316,16 @@ fn order_row(
 
     html! {
         tr {
-            td class="text-accent font-medium cursor-pointer mono" onclick=(&onclick) { (o.doc_number) }
+            td class="text-accent font-medium cursor-pointer font-mono tabular-nums" onclick=(&onclick) { (o.doc_number) }
             td onclick=(&onclick) { "—" }
             td onclick=(&onclick) { (customer_name) }
             td onclick=(&onclick) {
                 span class=(format!("status-pill {status_class}")) { (status_text) }
             }
             td class="text-right text-[13px]" onclick=(&onclick) {
-                span class="mono" { (crate::utils::fmt_amount(o.total_amount)) }
+                span class="font-mono tabular-nums" { (crate::utils::fmt_amount(o.total_amount)) }
             }
-            td class="mono" onclick=(&onclick) { (o.order_date.format("%Y-%m-%d")) }
+            td class="font-mono tabular-nums" onclick=(&onclick) { (o.order_date.format("%Y-%m-%d")) }
             td onclick=(&onclick) { (sales_rep) }
             td onclick=(&onclick) { (created) }
             td onclick="event.stopPropagation()" {

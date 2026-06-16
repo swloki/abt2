@@ -157,8 +157,8 @@ fn wage_list_page(
                     (maud::PreEscaped(r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>"#))
                 }
                 div {
-                    div class="text-2xl font-bold font-mono tabular-nums text-fg" { "¥" (crate::utils::fmt_qty(ctx.total_wage)) }
-                    div class="text-sm text-muted mt-1" { "本月工资总额" }
+                    div class="text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg" { "¥" (crate::utils::fmt_qty(ctx.total_wage)) }
+                    div class="text-sm text-text-muted mt-1" { "本月工资总额" }
                 }
             }
             div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
@@ -166,8 +166,8 @@ fn wage_list_page(
                     (maud::PreEscaped(r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>"#))
                 }
                 div {
-                    div class="text-2xl font-bold font-mono tabular-nums text-fg" { (ctx.worker_count) }
-                    div class="text-sm text-muted mt-1" { "计件工人数" }
+                    div class="text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg" { (ctx.worker_count) }
+                    div class="text-sm text-text-muted mt-1" { "计件工人数" }
                 }
             }
             div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
@@ -175,8 +175,8 @@ fn wage_list_page(
                     (maud::PreEscaped(r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>"#))
                 }
                 div {
-                    div class="text-2xl font-bold font-mono tabular-nums text-fg" { (total_completed_fmt) }
-                    div class="text-sm text-muted mt-1" { "总完成数量" }
+                    div class="text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg" { (total_completed_fmt) }
+                    div class="text-sm text-text-muted mt-1" { "总完成数量" }
                     div style="font-size:var(--text-xs);color:var(--muted);margin-top:2px" { "不良品 " (total_defect_fmt) " (" (defect_rate) ")" }
                 }
             }
@@ -185,8 +185,8 @@ fn wage_list_page(
                     (maud::PreEscaped(r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>"#))
                 }
                 div {
-                    div class="text-2xl font-bold font-mono tabular-nums text-fg" { "—" }
-                    div class="text-sm text-muted mt-1" { "扣减金额(操作失误)" }
+                    div class="text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg" { "—" }
+                    div class="text-sm text-text-muted mt-1" { "扣减金额(操作失误)" }
                     div style="font-size:var(--text-xs);color:var(--muted);margin-top:2px" { "操作失误不良: " (crate::utils::fmt_qty(ctx.total_operator_defect)) "件" }
                 }
             }
@@ -242,13 +242,13 @@ fn wage_list_page(
                         div class="flex items-center gap-3" {
                             div class="worker-inline-grid place-items-center rounded-full text-white font-semibold shrink-0 select-none" style="background:var(--accent)" { (initial) }
                             div class="flex flex-col" {
-                                span class="worker-name" { (worker_name) }
+                                span class="font-medium" { (worker_name) }
                             }
                         }
-                        span class="wage-mono" { (crate::utils::fmt_qty(wc)) }
-                        span class="wage-mono text-danger" { (crate::utils::fmt_qty(wd)) }
-                        span class="wage-mono" { (crate::utils::fmt_qty(we)) }
-                        span class="wage-mono text-success" style="font-weight:700" { "¥" (crate::utils::fmt_qty(summary.total_amount)) }
+                        span class="wage-font-mono tabular-nums" { (crate::utils::fmt_qty(wc)) }
+                        span class="wage-font-mono tabular-nums text-danger" { (crate::utils::fmt_qty(wd)) }
+                        span class="wage-font-mono tabular-nums" { (crate::utils::fmt_qty(we)) }
+                        span class="wage-font-mono tabular-nums text-success" style="font-weight:700" { "¥" (crate::utils::fmt_qty(summary.total_amount)) }
                         span {
                             (maud::PreEscaped(r#"<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 9l-7 7-7-7"/></svg>"#))
                         }
@@ -279,13 +279,13 @@ fn wage_list_page(
                                     };
                                     @let effective = detail.completed_qty + non_op_defect;
                                     tr {
-                                        td class="mono" { (wo_doc) }
+                                        td class="font-mono tabular-nums" { (wo_doc) }
                                         td { (detail.process_name) }
-                                        td class="mono" { (crate::utils::fmt_qty(detail.completed_qty)) }
-                                        td class="mono text-danger" { (defect_label) }
-                                        td class="mono" { (crate::utils::fmt_qty(effective)) }
-                                        td class="mono" { "¥" (detail.unit_price) }
-                                        td class="mono text-success" { "¥" (crate::utils::fmt_qty(detail.wage_amount)) }
+                                        td class="font-mono tabular-nums" { (crate::utils::fmt_qty(detail.completed_qty)) }
+                                        td class="font-mono tabular-nums text-danger" { (defect_label) }
+                                        td class="font-mono tabular-nums" { (crate::utils::fmt_qty(effective)) }
+                                        td class="font-mono tabular-nums" { "¥" (detail.unit_price) }
+                                        td class="font-mono tabular-nums text-success" { "¥" (crate::utils::fmt_qty(detail.wage_amount)) }
                                     }
                                 }
                             }

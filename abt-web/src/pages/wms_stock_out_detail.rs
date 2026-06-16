@@ -118,7 +118,7 @@ fn stock_out_detail_page(
 
     html! {
         div {
-            a href=(format!("{}?restore=true", StockOutListPath::PATH)) class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" {
+            a href=(format!("{}?restore=true", StockOutListPath::PATH)) class="inline-flex items-center gap-2 text-sm text-text-muted hover:text-accent transition-colors duration-150" {
                 (icon::chevron_left_icon("w-4 h-4"))
                 "返回出库列表"
             }
@@ -126,7 +126,7 @@ fn stock_out_detail_page(
             div class="block bg-bg border border-border-soft rounded-lg p-6" {
                 div {
                     div class="flex items-center justify-between" {
-                        h1 class="text-2xl font-extrabold font-mono" { (txn.doc_number.as_deref().unwrap_or("—")) }
+                        h1 class="text-2xl font-extrabold font-font-mono tabular-nums" { (txn.doc_number.as_deref().unwrap_or("—")) }
                         span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-[#f0fff0] text-[#389e0d]" { "已出库" }
                     }
                 }
@@ -137,62 +137,62 @@ fn stock_out_detail_page(
                 div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "基本信息" }
                 div class="grid gap-4" {
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-muted font-medium" { "单据编号" }
-                        span class="text-sm text-fg font-medium mono" { (txn.doc_number.as_deref().unwrap_or("—")) }
+                        span class="text-xs text-text-muted font-medium" { "单据编号" }
+                        span class="text-sm text-fg font-medium font-mono tabular-nums" { (txn.doc_number.as_deref().unwrap_or("—")) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-muted font-medium" { "出库类型" }
+                        span class="text-xs text-text-muted font-medium" { "出库类型" }
                         span class="text-sm text-fg font-medium" { (type_label) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-muted font-medium" { "产品" }
+                        span class="text-xs text-text-muted font-medium" { "产品" }
                         span class="text-sm text-fg font-medium" { (product_name) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-muted font-medium" { "来源仓库" }
+                        span class="text-xs text-text-muted font-medium" { "来源仓库" }
                         span class="text-sm text-fg font-medium" { (wh_name) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-muted font-medium" { "库区" }
+                        span class="text-xs text-text-muted font-medium" { "库区" }
                         span class="text-sm text-fg font-medium" { (zone_name) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-muted font-medium" { "储位" }
+                        span class="text-xs text-text-muted font-medium" { "储位" }
                         span class="text-sm text-fg font-medium" { (bin_name) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-muted font-medium" { "批次号" }
-                        span class="text-sm text-fg font-medium mono" { (txn.batch_no.as_deref().unwrap_or("—")) }
+                        span class="text-xs text-text-muted font-medium" { "批次号" }
+                        span class="text-sm text-fg font-medium font-mono tabular-nums" { (txn.batch_no.as_deref().unwrap_or("—")) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-muted font-medium" { "数量" }
-                        span class="text-sm text-fg font-medium mono" { (format!("{:.2}", txn.quantity)) }
+                        span class="text-xs text-text-muted font-medium" { "数量" }
+                        span class="text-sm text-fg font-medium font-mono tabular-nums" { (format!("{:.2}", txn.quantity)) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-muted font-medium" { "单位成本" }
-                        span class="text-sm text-fg font-medium mono" {
+                        span class="text-xs text-text-muted font-medium" { "单位成本" }
+                        span class="text-sm text-fg font-medium font-mono tabular-nums" {
                             (txn.unit_cost.map(|c| format!("¥{:.2}", c)).unwrap_or_else(|| "—".into()))
                         }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-muted font-medium" { "来源类型" }
+                        span class="text-xs text-text-muted font-medium" { "来源类型" }
                         span class="text-sm text-fg font-medium" { (txn.source_type) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-muted font-medium" { "来源单号" }
-                        span class="text-sm text-fg font-medium mono" { (txn.source_id) }
+                        span class="text-xs text-text-muted font-medium" { "来源单号" }
+                        span class="text-sm text-fg font-medium font-mono tabular-nums" { (txn.source_id) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-muted font-medium" { "备注" }
+                        span class="text-xs text-text-muted font-medium" { "备注" }
                         span class="text-sm text-fg font-medium" { (if txn.remark.as_deref().unwrap_or("").is_empty() { "—" } else { txn.remark.as_deref().unwrap_or("—") }) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-muted font-medium" { "操作员" }
+                        span class="text-xs text-text-muted font-medium" { "操作员" }
                         span class="text-sm text-fg font-medium" { (operator_name) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-muted font-medium" { "创建时间" }
-                        span class="text-sm text-fg font-medium mono" { (txn.created_at.format("%Y-%m-%d %H:%M:%S")) }
+                        span class="text-xs text-text-muted font-medium" { "创建时间" }
+                        span class="text-sm text-fg font-medium font-mono tabular-nums" { (txn.created_at.format("%Y-%m-%d %H:%M:%S")) }
                     }
                 }
             }

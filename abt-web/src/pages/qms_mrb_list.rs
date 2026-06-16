@@ -308,8 +308,8 @@ fn mrb_data_card(
                             @let result_doc = result_doc_numbers.get(&item.inspection_result_id).map(|s| s.as_str()).unwrap_or("—");
                             @let detail_path = MrbDetailPath { id: item.id };
                             tr style="cursor:pointer" onclick=(format!("location.href='{}'", detail_path.to_string())) {
-                                td class="text-accent font-medium cursor-pointer mono" style="color:var(--accent)" { (item.doc_number) }
-                                td class="mono" style="font-size:12px" { (result_doc) }
+                                td class="text-accent font-medium cursor-pointer font-mono tabular-nums" style="color:var(--accent)" { (item.doc_number) }
+                                td class="font-mono tabular-nums" style="font-size:12px" { (result_doc) }
                                 td { (product_name) }
                                 td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" { (item.defect_description) }
                                 td {
@@ -322,7 +322,7 @@ fn mrb_data_card(
                                         (rp_label)
                                     }
                                 }
-                                td class="mono" { (format!("¥{:.2}", item.cost_impact)) }
+                                td class="font-mono tabular-nums" { (format!("¥{:.2}", item.cost_impact)) }
                                 td {
                                     span style=(format!("display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{};color:{}", st_bg, st_color)) {
                                         (st_label)

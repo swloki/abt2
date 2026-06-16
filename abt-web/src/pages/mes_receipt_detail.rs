@@ -55,7 +55,7 @@ pub async fn get_receipt_detail(path: ReceiptDetailPath, ctx: RequestContext) ->
     let content = html! { div {
         div class="flex items-center justify-between mb-6" {
             div class="flex items-center justify-between mb-6-left" {
-                a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", ReceiptListPath::PATH)) { "← 返回列表" }
+                a class="inline-flex items-center gap-2 text-sm text-text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", ReceiptListPath::PATH)) { "← 返回列表" }
                 h1 class="text-xl font-bold text-fg tracking-tight" { "入库单 " (receipt.doc_number) }
             }
             div class="flex gap-3" {
@@ -93,11 +93,11 @@ pub async fn get_receipt_detail(path: ReceiptDetailPath, ctx: RequestContext) ->
         div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
             div class="text-sm font-semibold text-fg mb-3 pb-2 border-b border-border-soft" { "基本信息" }
             div class="grid gap-4" {
-                div class="flex flex-col gap-1" { label { "单号" } span class="mono" { (receipt.doc_number) } }
+                div class="flex flex-col gap-1" { label { "单号" } span class="font-mono tabular-nums" { (receipt.doc_number) } }
                 div class="flex flex-col gap-1" { label { "工单" } span { (wo) } }
                 div class="flex flex-col gap-1" { label { "批次" } span { (batch) } }
                 div class="flex flex-col gap-1" { label { "产品" } span { (product) } }
-                div class="flex flex-col gap-1" { label { "入库数量" } span class="mono" { (crate::utils::fmt_qty(receipt.received_qty)) } }
+                div class="flex flex-col gap-1" { label { "入库数量" } span class="font-mono tabular-nums" { (crate::utils::fmt_qty(receipt.received_qty)) } }
                 div class="flex flex-col gap-1" { label { "仓库" } span { (warehouse) } }
                 div class="flex flex-col gap-1" { label { "入库日期" } span { (receipt.receipt_date) } }
                 div class="flex flex-col gap-1" { label { "倒冲触发" } span { (if receipt.backflush_triggered { "是" } else { "否" }) } }
@@ -113,7 +113,7 @@ pub async fn get_receipt_detail(path: ReceiptDetailPath, ctx: RequestContext) ->
             div class="text-sm font-semibold text-fg mb-3 pb-2 border-b border-border-soft" { "FQC 质检状态" }
             div { (fqc_badge(&fqc_status)) }
             @if matches!(fqc_status, FqcGate::PendingInspection) {
-                p class="muted" { "⚠ 尚无 FQC 检验记录，需完成 FQC 后才能确认入库" }
+                p class="text-muted" { "⚠ 尚无 FQC 检验记录，需完成 FQC 后才能确认入库" }
             }
         }
 
@@ -123,19 +123,19 @@ pub async fn get_receipt_detail(path: ReceiptDetailPath, ctx: RequestContext) ->
             div class="grid gap-4" {
                 div class="flex flex-col gap-1" {
                     label { "入库数量" }
-                    span class="mono" { (crate::utils::fmt_qty(receipt.received_qty)) }
+                    span class="font-mono tabular-nums" { (crate::utils::fmt_qty(receipt.received_qty)) }
                 }
                 div class="flex flex-col gap-1" {
                     label { "单位成本" }
                     @if unit_cost > rust_decimal::Decimal::ZERO {
-                        span class="mono" { (crate::utils::fmt_amount(unit_cost)) }
+                        span class="font-mono tabular-nums" { (crate::utils::fmt_amount(unit_cost)) }
                     } @else {
-                        span class="muted" { "—（无历史成本）" }
+                        span class="text-muted" { "—（无历史成本）" }
                     }
                 }
                 div class="flex flex-col gap-1" {
                     label { "总成本" }
-                    span class="mono" { strong { (crate::utils::fmt_amount(total_cost)) } }
+                    span class="font-mono tabular-nums" { strong { (crate::utils::fmt_amount(total_cost)) } }
                 }
             }
         }

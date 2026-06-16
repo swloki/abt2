@@ -205,7 +205,7 @@ fn stock_out_create_content(
     html! {
         div {
             // ── Back Link ──
-            a href="/admin/wms/stock-out" class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" style="display:inline-flex;align-items:center;gap:var(--space-2);color:var(--fg-2);font-size:var(--text-sm);margin-bottom:var(--space-4);text-decoration:none" {
+            a href="/admin/wms/stock-out" class="inline-flex items-center gap-2 text-sm text-text-muted hover:text-accent transition-colors duration-150" style="display:inline-flex;align-items:center;gap:var(--space-2);color:var(--fg-2);font-size:var(--text-sm);margin-bottom:var(--space-4);text-decoration:none" {
                 (icon::chevron_left_icon("w-4 h-4"))
                 "返回出库列表"
             }
@@ -316,7 +316,7 @@ fn stock_out_create_content(
                         "出库物料明细"
                         span id="stockout-item-count" style="margin-left:auto;font-size:var(--text-xs);font-weight:400;color:var(--muted)" { "共 0 项" }
                     }
-                    table class="detail-table" {
+                    table class="w-full border-collapse" {
                         thead {
                             tr {
                                 th style="width:40px" { "序号" }
@@ -565,16 +565,16 @@ fn product_list_fragment(products: &[abt_core::master_data::product::model::Prod
                 p style="margin:var(--space-2) 0 0;font-size:var(--text-sm)" { "未找到匹配的产品" }
             }
         } @else {
-            div class="product-select-list" {
+            div class="py-2" {
                 @for p in products {
                     div class="flex items-center justify-between p-3 border-b" {
                         div class="product-select-info" {
                             div class="text-sm font-medium text-fg" { (p.pdt_name) }
-                            div class="text-[12px] text-muted flex items-center gap-[6px] flex-wrap" {
+                            div class="text-[12px] text-text-muted flex items-center gap-[6px] flex-wrap" {
                                 span class="bg-surface rounded-sm" { (p.product_code) }
-                                span class="product-select-sep" { "·" }
+                                span class="text-border" { "·" }
                                 span { (p.meta.specification) }
-                                span class="product-select-sep" { "·" }
+                                span class="text-border" { "·" }
                                 span { (p.unit) }
                             }
                         }
@@ -596,15 +596,15 @@ fn product_list_fragment(products: &[abt_core::master_data::product::model::Prod
 fn item_row_fragment(product: &abt_core::master_data::product::model::Product) -> Markup {
     html! {
         tr oninput="wmsStockOutCalcRow(this)" {
-            td class="text-muted text-xs text-center" { }
-            td class="mono" { (product.product_code) }
+            td class="text-text-muted text-xs text-center" { }
+            td class="font-mono tabular-nums" { (product.product_code) }
             td { (product.pdt_name) }
             td style="color:var(--fg-2);font-size:var(--text-sm)" { (product.meta.specification) }
             td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] num-input" type="number" min="0.01" step="any" name="quantity" placeholder="0" style="width:90px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
             td style="text-align:center;font-size:var(--text-sm);color:var(--fg-2)" { (product.unit) }
             td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] num-input" type="number" step="any" name="unit_cost" placeholder="0.00" style="width:100px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
             td class="line-subtotal" style="text-align:right;font-family:var(--font-mono);font-weight:600;white-space:nowrap" { "—" }
-            td { button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center" title="删除行"
+            td { button type="button" class="w-[28px] h-[28px] border-none text-text-muted rounded-sm cursor-pointer grid place-items-center" title="删除行"
                 _="on click remove closest <tr/> then call wmsStockOutRenumber()" {
                 (icon::x_icon("w-3.5 h-3.5"))
             } }

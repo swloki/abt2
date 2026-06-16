@@ -347,14 +347,14 @@ fn pq_row(
         let status_allows_delete = q.status != PurchaseQuotationStatus::Active;
         html! {
         tr style="cursor:pointer" {
-            td class="text-accent font-medium cursor-pointer mono" onclick=(&onclick) { (q.doc_number) }
+            td class="text-accent font-medium cursor-pointer font-mono tabular-nums" onclick=(&onclick) { (q.doc_number) }
             td onclick=(&onclick) { (supplier_name) }
             td onclick=(&onclick) { (contact) }
             td onclick=(&onclick) {
                 span class=(format!("status-pill {status_class}")) { (status_text) }
             }
-            td class="mono" onclick=(&onclick) { (q.quotation_date.format("%Y-%m-%d")) }
-            td class="mono" onclick=(&onclick) { (q.valid_until.format("%Y-%m-%d")) }
+            td class="font-mono tabular-nums" onclick=(&onclick) { (q.quotation_date.format("%Y-%m-%d")) }
+            td class="font-mono tabular-nums" onclick=(&onclick) { (q.valid_until.format("%Y-%m-%d")) }
             td onclick=(&onclick) { (currency) }
             td onclick="event.stopPropagation()" {
                 @if is_draft || (can_delete && status_allows_delete) {

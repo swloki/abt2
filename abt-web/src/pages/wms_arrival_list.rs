@@ -305,11 +305,11 @@ fn arrival_row(
 
     html! {
         tr style="cursor:pointer" {
-            td class="text-accent font-medium cursor-pointer mono" onclick=(&onclick) { (n.doc_number) }
-            td class="mono" onclick=(&onclick) { "—" }
+            td class="text-accent font-medium cursor-pointer font-mono tabular-nums" onclick=(&onclick) { (n.doc_number) }
+            td class="font-mono tabular-nums" onclick=(&onclick) { "—" }
             td onclick=(&onclick) { (supplier_name) }
             td onclick=(&onclick) { (warehouse_name) }
-            td class="mono" onclick=(&onclick) { (n.arrival_date.format("%Y-%m-%d")) }
+            td class="font-mono tabular-nums" onclick=(&onclick) { (n.arrival_date.format("%Y-%m-%d")) }
             td onclick=(&onclick) {
                 span class=(format!("status-pill {status_class}")) { (status_text) }
             }

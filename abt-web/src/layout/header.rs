@@ -11,10 +11,10 @@ pub fn header(claims: &Claims, module_name: &str, page_name: Option<&str>) -> Ma
                 button class="hidden w-[38px] h-[38px] border-none rounded-sm place-items-center cursor-pointer shrink-0" _="on click add .open to .mobile-sidebar-overlay" aria-label="菜单" {
                     (icon::menu_icon(""))
                 }
-                div class="flex items-center gap-2 text-sm text-muted" {
+                div class="flex items-center gap-2 text-sm text-text-muted" {
                     @if let Some(page) = page_name {
                         span style="font-weight:600;color:var(--fg)" { (module_name) }
-                        span class="flex items-center gap-2 text-sm text-muted-sep" { "/" }
+                        span class="flex items-center gap-2 text-sm text-text-muted-sep" { "/" }
                         span { (page) }
                     } @else {
                         span style="font-weight:600;color:var(--fg)" { (module_name) }

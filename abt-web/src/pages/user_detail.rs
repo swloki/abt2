@@ -627,7 +627,7 @@ fn role_assign_modal(
                 onsubmit="this.closest('.modal-overlay').classList.remove('is-open');this.reset()" {
                 div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
                     h2 { "管理角色" }
-                    button type="button" class="bg-transparent border-none cursor-pointer text-xl text-muted p-1 hover:text-fg"
+                    button type="button" class="bg-transparent border-none cursor-pointer text-xl text-text-muted p-1 hover:text-fg"
                         _="on click remove .is-open from closest .modal-overlay then reset #role-assign-form" { "×" }
                 }
                 div class="overflow-y-auto flex-1 min-h-0 p-6" {
@@ -642,7 +642,7 @@ fn role_assign_modal(
                                     span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-[#e6f4ff] text-accent rounded-full text-[11px] font-medium" { "系统" }
                                 }
                                 @if let Some(desc) = &role.description {
-                                    span class="ml-auto text-xs text-muted" { (desc) }
+                                    span class="ml-auto text-xs text-text-muted" { (desc) }
                                 }
                             }
                         }
@@ -673,7 +673,7 @@ fn dept_assign_modal(
                 onsubmit="this.closest('.modal-overlay').classList.remove('is-open');this.reset()" {
                 div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
                     h2 { "管理部门" }
-                    button type="button" class="bg-transparent border-none cursor-pointer text-xl text-muted p-1 hover:text-fg"
+                    button type="button" class="bg-transparent border-none cursor-pointer text-xl text-text-muted p-1 hover:text-fg"
                         _="on click remove .is-open from closest .modal-overlay then reset #dept-assign-form" { "×" }
                 }
                 div class="overflow-y-auto flex-1 min-h-0 p-6" {
@@ -684,7 +684,7 @@ fn dept_assign_modal(
                                 input type="checkbox" class="dept-checkbox" value=(dept.department_id)
                                     checked[current_ids.contains(&dept.department_id)];
                                 span { (dept.department_name) }
-                                span class="text-xs text-muted" { (dept.department_code) }
+                                span class="text-xs text-text-muted" { (dept.department_code) }
                                 @if !dept.is_active {
                                     span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-[#fff2f0] text-[#cf1322]" { "停用" }
                                 }
@@ -713,7 +713,7 @@ fn reset_password_modal(action: &str) -> Markup {
                 onsubmit="this.closest('.modal-overlay').classList.remove('is-open');this.reset()" {
                 div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
                     h2 { "重置密码" }
-                    button type="button" class="bg-transparent border-none cursor-pointer text-xl text-muted p-1 hover:text-fg"
+                    button type="button" class="bg-transparent border-none cursor-pointer text-xl text-text-muted p-1 hover:text-fg"
                         _="on click remove .is-open from closest .modal-overlay then reset #reset-pw-form" { "×" }
                 }
                 div class="overflow-y-auto flex-1 min-h-0 p-6" {

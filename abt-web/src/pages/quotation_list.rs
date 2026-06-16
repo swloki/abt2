@@ -256,7 +256,7 @@ fn quotation_table_fragment(
                             }
                             @if result.items.is_empty() {
                                 tr {
-                                    td colspan="7" class="text-center p-8 text-muted" {
+                                    td colspan="7" class="text-center p-8 text-text-muted" {
                                         "暂无报价单数据"
                                     }
                                 }
@@ -280,13 +280,13 @@ fn quotation_row(q: &Quotation, names: &HashMap<i64, String>, can_delete: bool) 
 
     html! {
         tr {
-            td class="text-accent font-medium cursor-pointer mono" onclick=(format!("location.href='{}'", detail_path)) { (q.doc_number) }
+            td class="text-accent font-medium cursor-pointer font-mono tabular-nums" onclick=(format!("location.href='{}'", detail_path)) { (q.doc_number) }
             td onclick=(format!("location.href='{}'", detail_path)) { (customer_name) }
             td onclick=(format!("location.href='{}'", detail_path)) {
                 span class=(format!("status-pill {status_class}")) { (status_text) }
             }
             td class="text-right text-[13px]" onclick=(format!("location.href='{}'", detail_path)) {
-                span class="mono" { (crate::utils::fmt_amount(q.total_amount)) }
+                span class="font-mono tabular-nums" { (crate::utils::fmt_amount(q.total_amount)) }
             }
             td onclick=(format!("location.href='{}'", detail_path)) { (q.quotation_date.format("%Y-%m-%d")) }
             td onclick=(format!("location.href='{}'", detail_path)) { (q.valid_until.format("%Y-%m-%d")) }

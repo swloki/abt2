@@ -367,7 +367,7 @@ fn bom_row(bom: &Bom, cat_map: &HashMap<i64, String>, user_map: &HashMap<i64, St
             td onclick=(format!("location.href='{}'", detail_path)) {
                 strong { (bom.bom_name) }
             }
-            td class="mono" onclick=(format!("location.href='{}'", detail_path)) {
+            td class="font-mono tabular-nums" onclick=(format!("location.href='{}'", detail_path)) {
                 @if let Some(ref code) = bom.product_code {
                     (code)
                 } @else {
@@ -385,7 +385,7 @@ fn bom_row(bom: &Bom, cat_map: &HashMap<i64, String>, user_map: &HashMap<i64, St
                     span style="color:var(--muted)" { "—" }
                 }
             }
-            td class="mono" style="width:60px" onclick=(format!("location.href='{}'", detail_path)) {
+            td class="font-mono tabular-nums" style="width:60px" onclick=(format!("location.href='{}'", detail_path)) {
                 "v"(bom.version)
             }
             td onclick=(format!("location.href='{}'", detail_path)) {
@@ -402,7 +402,7 @@ fn bom_row(bom: &Bom, cat_map: &HashMap<i64, String>, user_map: &HashMap<i64, St
                     span style="color:var(--muted)" { "—" }
                 }
             }
-            td class="mono" onclick=(format!("location.href='{}'", detail_path)) {
+            td class="font-mono tabular-nums" onclick=(format!("location.href='{}'", detail_path)) {
                 @if let Some(ua) = bom.update_at {
                     (ua.format("%Y-%m-%d").to_string())
                 } @else {

@@ -250,10 +250,10 @@ fn transaction_row(txn: &abt_core::wms::inventory::model::TransactionDetailView)
                     (label)
                 }
             }
-            td class="mono" { (txn.product_code) }
+            td class="font-mono tabular-nums" { (txn.product_code) }
             td { (txn.product_name) }
             td { (txn.warehouse_name) }
-            td class="mono" { (txn.bin_code) }
+            td class="font-mono tabular-nums" { (txn.bin_code) }
             td class="text-right text-[13px]" {
                 @if is_positive {
                     span class="qty-positive" style="color:var(--success);font-weight:600" {
@@ -266,7 +266,7 @@ fn transaction_row(txn: &abt_core::wms::inventory::model::TransactionDetailView)
                 }
             }
             td { (source_label) }
-            td class="mono" {
+            td class="font-mono tabular-nums" {
                 @if txn.source_id > 0 {
                     "#" (txn.source_id)
                 } @else {
@@ -274,7 +274,7 @@ fn transaction_row(txn: &abt_core::wms::inventory::model::TransactionDetailView)
                 }
             }
             td { (txn.operator_name) }
-            td class="mono" { (txn.created_at.format("%Y-%m-%d %H:%M")) }
+            td class="font-mono tabular-nums" { (txn.created_at.format("%Y-%m-%d %H:%M")) }
         }
     }
 }

@@ -143,7 +143,7 @@ pub fn product_picker_results(
                 p style="margin:var(--space-2) 0 0;font-size:var(--text-sm)" { "未找到匹配的产品" }
             }
         } @else {
-            div class="product-select-list" {
+            div class="py-2" {
                 @for p in products {
                     div class="flex items-center justify-between p-3 border-b"
                         data-pid=(p.product_id)
@@ -151,11 +151,11 @@ pub fn product_picker_results(
                         _=(click_hs) {
                         div class="product-select-info" {
                             div class="text-sm font-medium text-fg" { (p.pdt_name.as_str()) }
-                            div class="text-[12px] text-muted flex items-center gap-[6px] flex-wrap" {
+                            div class="text-[12px] text-text-muted flex items-center gap-[6px] flex-wrap" {
                                 span class="bg-surface rounded-sm" { (p.product_code.as_str()) }
-                                span class="product-select-sep" { "·" }
+                                span class="text-border" { "·" }
                                 span { (p.meta.specification.as_str()) }
-                                span class="product-select-sep" { "·" }
+                                span class="text-border" { "·" }
                                 span { (p.unit.as_str()) }
                             }
                         }

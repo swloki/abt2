@@ -184,7 +184,7 @@ pub async fn search_source_plans(
 fn order_create_page(work_centers: &[abt_core::master_data::work_center::WorkCenter]) -> Markup {
     html! { div {
         div class="flex items-center justify-between mb-6" {
-            div class="flex items-center justify-between mb-6-left" { a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", OrderListPath::PATH)) { "\u{2190} 返回列表" } h1 class="text-xl font-bold text-fg tracking-tight" { "新建工单" } }
+            div class="flex items-center justify-between mb-6-left" { a class="inline-flex items-center gap-2 text-sm text-text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", OrderListPath::PATH)) { "\u{2190} 返回列表" } h1 class="text-xl font-bold text-fg tracking-tight" { "新建工单" } }
         }
         form hx-post=(OrderCreatePath::PATH) hx-swap="none" {
             div class="form-section" {
@@ -351,7 +351,7 @@ fn source_order_results(orders: &[abt_core::sales::sales_order::model::SalesOrde
                 p style="margin:0;font-size:var(--text-sm)" { "未找到匹配的销售订单" }
             }
         } @else {
-            div class="product-select-list" {
+            div class="py-2" {
                 @for o in orders {
                     div class="flex items-center justify-between p-3 border-b"
                         data-oid=(o.id)
@@ -359,9 +359,9 @@ fn source_order_results(orders: &[abt_core::sales::sales_order::model::SalesOrde
                         _=(click_hs) {
                         div class="product-select-info" {
                             div class="text-sm font-medium text-fg" { (o.doc_number) }
-                            div class="text-[12px] text-muted flex items-center gap-[6px] flex-wrap" {
+                            div class="text-[12px] text-text-muted flex items-center gap-[6px] flex-wrap" {
                                 span { (o.order_date.format("%Y-%m-%d")) }
-                                span class="product-select-sep" { "\u{00b7}" }
+                                span class="text-border" { "\u{00b7}" }
                                 span { (format!("{:?}", o.status)) }
                             }
                         }
@@ -380,7 +380,7 @@ fn source_plan_results(plans: &[abt_core::mes::production_plan::model::Productio
                 p style="margin:0;font-size:var(--text-sm)" { "未找到匹配的生产计划" }
             }
         } @else {
-            div class="product-select-list" {
+            div class="py-2" {
                 @for p in plans {
                     div class="flex items-center justify-between p-3 border-b"
                         data-pid=(p.id)
@@ -388,9 +388,9 @@ fn source_plan_results(plans: &[abt_core::mes::production_plan::model::Productio
                         _=(click_hs) {
                         div class="product-select-info" {
                             div class="text-sm font-medium text-fg" { (p.doc_number) }
-                            div class="text-[12px] text-muted flex items-center gap-[6px] flex-wrap" {
+                            div class="text-[12px] text-text-muted flex items-center gap-[6px] flex-wrap" {
                                 span { (p.plan_date.format("%Y-%m-%d")) }
-                                span class="product-select-sep" { "\u{00b7}" }
+                                span class="text-border" { "\u{00b7}" }
                                 span { (format!("{:?}", p.status)) }
                             }
                         }

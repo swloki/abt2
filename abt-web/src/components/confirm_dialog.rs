@@ -27,7 +27,7 @@ pub fn confirm_dialog(
                         (icon::circle_alert_icon("w-7 h-7"))
                     }
                     div class="text-lg font-semibold text-fg text-center mb-2" { (title) }
-                    p class="text-sm text-muted text-center leading-relaxed" { (maud::PreEscaped(desc)) }
+                    p class="text-sm text-text-muted text-center leading-relaxed" { (maud::PreEscaped(desc)) }
                 }
                 div class="bg-bg rounded-lg w-[480px]-foot" {
                     button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface"

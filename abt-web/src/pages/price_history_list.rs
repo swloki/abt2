@@ -182,29 +182,29 @@ fn price_history_page(rows: &[PriceHistoryRow], total: u64, page: u32, total_pag
                 div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
                     div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 blue" { (icon::currency_icon("w-5 h-5")) }
                     div {
-                        div class="text-2xl font-bold font-mono tabular-nums text-fg" { (total) }
-                        div class="text-sm text-muted mt-1" { "总变更次数" }
+                        div class="text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg" { (total) }
+                        div class="text-sm text-text-muted mt-1" { "总变更次数" }
                     }
                 }
                 div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
                     div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 green" { (icon::trending_up_icon("w-5 h-5")) }
                     div {
-                        div class="text-2xl font-bold font-mono tabular-nums text-fg" { "—" }
-                        div class="text-sm text-muted mt-1" { "平均涨幅" }
+                        div class="text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg" { "—" }
+                        div class="text-sm text-text-muted mt-1" { "平均涨幅" }
                     }
                 }
                 div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
                     div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 orange" { (icon::clock_icon("w-5 h-5")) }
                     div {
-                        div class="text-2xl font-bold font-mono tabular-nums text-fg" { "—" }
-                        div class="text-sm text-muted mt-1" { "本月变更" }
+                        div class="text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg" { "—" }
+                        div class="text-sm text-text-muted mt-1" { "本月变更" }
                     }
                 }
                 div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
                     div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 red" { (icon::lock_icon("w-5 h-5")) }
                     div {
-                        div class="text-2xl font-bold font-mono tabular-nums text-fg" { "—" }
-                        div class="text-sm text-muted mt-1" { "涉及产品数" }
+                        div class="text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg" { "—" }
+                        div class="text-sm text-text-muted mt-1" { "涉及产品数" }
                     }
                 }
             }
@@ -246,7 +246,7 @@ fn price_history_page(rows: &[PriceHistoryRow], total: u64, page: u32, total_pag
                 div class="fixed z-[1001] w-[520px] bg-white flex flex-col" onclick="event.stopPropagation()" {
                     div class="flex items-center justify-between border-b shrink-0" {
                         h2 { "变更详情" }
-                        button class="w-[32px] h-[32px] border-none cursor-pointer flex items-center justify-center text-muted" _="on click remove .open from #detail-drawer" {
+                        button class="w-[32px] h-[32px] border-none cursor-pointer flex items-center justify-center text-text-muted" _="on click remove .open from #detail-drawer" {
                             (icon::x_icon("w-4.5 h-4.5"))
                         }
                     }
@@ -315,7 +315,7 @@ fn price_history_row(index: usize, row: &PriceHistoryRow) -> Markup {
             hx-swap="innerHTML"
             _="on 'htmx:afterRequest' add .open to #detail-drawer" {
             td style="color:var(--muted)" { (index + 1) }
-            td class="mono" { (row.product_code) }
+            td class="font-mono tabular-nums" { (row.product_code) }
             td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title=(row.product_name) {
                 a href="#" class="text-accent cursor-pointer font-medium no-underline" onclick="event.preventDefault()" { (row.product_name) }
             }
@@ -402,7 +402,7 @@ fn detail_content(row: &PriceHistoryRow) -> Markup {
     let tag_class = if is_up { "change-tag up" } else { "change-tag down" };
     html! {
         // ── 产品信息 ──
-        div class="detail-section" {
+        div class="mb-5" {
             div class="text-[13px] font-semibold text-fg flex items-center gap-[6px]" {
                 (icon::box_icon("w-4 h-4"))
                 "产品信息"
@@ -427,20 +427,20 @@ fn detail_content(row: &PriceHistoryRow) -> Markup {
             }
         }
         // ── 价格变动 ──
-        div class="detail-section" {
+        div class="mb-5" {
             div class="text-[13px] font-semibold text-fg flex items-center gap-[6px]" {
                 (icon::currency_icon("w-4 h-4"))
                 "价格变动"
             }
             div class="bg-[#f8faff] flex items-center gap-[16px]" {
-                div class="detail-price-old" {
+                div class="text-center" {
                     div class="label" { "原价格" }
                     div class="val" { (old_str) }
                 }
                 div class="text-accent text-[20px]" {
                     (icon::arrow_right_icon("w-6 h-6"))
                 }
-                div class="detail-price-new" {
+                div class="text-center" {
                     div class="label" { "新价格" }
                     div class="val" { (new_str) }
                 }
@@ -450,7 +450,7 @@ fn detail_content(row: &PriceHistoryRow) -> Markup {
             }
         }
         // ── 调价说明 ──
-        div class="detail-section" {
+        div class="mb-5" {
             div class="text-[13px] font-semibold text-fg flex items-center gap-[6px]" {
                 (icon::comment_icon("w-4 h-4"))
                 "调价说明"
@@ -460,7 +460,7 @@ fn detail_content(row: &PriceHistoryRow) -> Markup {
             }
         }
         // ── 变更时间 ──
-        div class="detail-section" {
+        div class="mb-5" {
             div class="text-[13px] font-semibold text-fg flex items-center gap-[6px]" {
                 (icon::clock_icon("w-4 h-4"))
                 "变更时间"

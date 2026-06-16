@@ -308,12 +308,12 @@ fn expense_data_card(
                             @let applicant_name = applicant_names.get(&item.applicant_id).map(|s| s.as_str()).unwrap_or("—");
                             @let dept_name = item.department_id.and_then(|did| dept_names.get(&did).map(|s| s.as_str())).unwrap_or("—");
                             tr style="cursor:pointer" onclick=(format!("location.href='{}'", detail_path.to_string())) {
-                                td class="mono" style="color:var(--accent)" { (item.doc_number) }
+                                td class="font-mono tabular-nums" style="color:var(--accent)" { (item.doc_number) }
                                 td { (applicant_name) }
                                 td style="color:var(--muted)" { (dept_name) }
                                 td style="font-size:12px;color:var(--muted)" { (item.expense_date.format("%Y-%m-%d")) }
                                 td style="color:var(--muted)" { "—" }
-                                td class="mono text-right text-[13px]" style="font-weight:600" { "¥" (format!("{:.2}", item.total_amount)) }
+                                td class="font-mono tabular-nums text-right text-[13px]" style="font-weight:600" { "¥" (format!("{:.2}", item.total_amount)) }
                                 td {
                                     span style=(format!("display:inline-flex;align-items:center;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{};color:{}", status_bg, status_color)) {
                                         (status_text)

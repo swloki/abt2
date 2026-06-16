@@ -101,7 +101,7 @@ fn routing_detail_page(
                         h1 class="text-xl font-bold" {
                             (routing.name)
                         }
-                        div class="flex gap-4 text-muted text-xs" {
+                        div class="flex gap-4 text-text-muted text-xs" {
                             span { "工序: " (step_count) }
                             span { "必经: " (required_count) }
                             span { "关联BOM: " (boms.total) }
@@ -139,7 +139,7 @@ fn routing_detail_page(
             div class="bg-white border border-border-soft rounded p-5" {
                 div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 border-b border-border-soft" { "基本信息" }
                 div class="grid gap-5" style="grid-template-columns:repeat(3,1fr)" {
-                    (detail_row("编码", html! { span class="mono" { (routing.id) } }))
+                    (detail_row("编码", html! { span class="font-mono tabular-nums" { (routing.id) } }))
                     (detail_row("名称", html! { (routing.name) }))
                     (detail_row("描述", html! { (routing.description.as_deref().unwrap_or("—")) }))
                     (detail_row("创建人", html! {
@@ -171,7 +171,7 @@ fn routing_detail_page(
                     }
                 }
                 @if steps.is_empty() {
-                    div class="text-center p-6 text-muted text-sm" { "暂无工序步骤" }
+                    div class="text-center p-6 text-text-muted text-sm" { "暂无工序步骤" }
                 } @else {
                     table class="data-table" {
                         thead {
@@ -186,14 +186,14 @@ fn routing_detail_page(
                         tbody {
                             @for step in steps {
                                 tr {
-                                    td class="mono" { (step.step_order) }
-                                    td class="mono" { (step.process_code) }
+                                    td class="font-mono tabular-nums" { (step.step_order) }
+                                    td class="font-mono tabular-nums" { (step.process_code) }
                                     td { (step.process_name.as_deref().unwrap_or(&step.process_code)) }
                                     td {
                                         @if step.is_required {
                                             span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-[#fff8eb] text-[#d46b08]" { "必经" }
                                         } @else {
-                                            span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-surface text-muted" { "选检" }
+                                            span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-surface text-text-muted" { "选检" }
                                         }
                                     }
                                     td { (step.remark.as_deref().unwrap_or("—")) }
@@ -218,7 +218,7 @@ fn bom_table_fragment(routing_id: i64, boms: &abt_core::shared::types::Paginated
     let base_path = RoutingDetailPath { id: routing_id }.to_string();
     html! {
         @if boms.items.is_empty() {
-            div class="text-center p-6 text-muted text-sm" { "暂无关联BOM" }
+            div class="text-center p-6 text-text-muted text-sm" { "暂无关联BOM" }
         } @else {
             table class="data-table" {
                 thead {
@@ -231,8 +231,8 @@ fn bom_table_fragment(routing_id: i64, boms: &abt_core::shared::types::Paginated
                 tbody {
                     @for bom in &boms.items {
                         tr {
-                            td class="mono" { (bom.id) }
-                            td class="mono" { (bom.product_code) }
+                            td class="font-mono tabular-nums" { (bom.id) }
+                            td class="font-mono tabular-nums" { (bom.product_code) }
                             td {
                                 @if let Some(dt) = bom.created_at {
                                     (dt.format("%Y-%m-%d %H:%M"))

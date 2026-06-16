@@ -282,7 +282,7 @@ fn shipping_table_fragment(
                             }
                             @if result.items.is_empty() {
                                 tr {
-                                    td colspan="9" class="text-center p-8 text-muted" {
+                                    td colspan="9" class="text-center p-8 text-text-muted" {
                                         "暂无发货数据"
                                     }
                                 }
@@ -315,7 +315,7 @@ fn shipping_row(
 
     html! {
         tr {
-            td class="text-accent font-medium cursor-pointer mono" onclick=(&onclick) { (s.doc_number) }
+            td class="text-accent font-medium cursor-pointer font-mono tabular-nums" onclick=(&onclick) { (s.doc_number) }
             td onclick=(&onclick) {
                 @if let Some(odp) = order_detail_path {
                     a href=(odp.to_string()) class="text-accent" onclick="event.stopPropagation()" { (order_num) }
@@ -329,7 +329,7 @@ fn shipping_row(
             }
             td onclick=(&onclick) { (ship_date) }
             td onclick=(&onclick) { (s.carrier.as_str()) }
-            td class="mono" onclick=(&onclick) { (s.tracking_number.as_str()) }
+            td class="font-mono tabular-nums" onclick=(&onclick) { (s.tracking_number.as_str()) }
             td onclick=(&onclick) { (created) }
             td onclick="event.stopPropagation()" {
                 div class="row-actions" {

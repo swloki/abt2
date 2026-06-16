@@ -84,7 +84,7 @@ pub async fn get_detail(path: MrbDetailPath, ctx: RequestContext) -> Result<Html
     let content = html! { div {
         div class="flex items-center justify-between mb-6" {
             div class="flex items-center justify-between mb-6-left" {
-                a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", MrbListPath::PATH)) { "\u{2190} 返回列表" }
+                a class="inline-flex items-center gap-2 text-sm text-text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", MrbListPath::PATH)) { "\u{2190} 返回列表" }
                 h1 class="text-xl font-bold text-fg tracking-tight" {
                     "MRB单号 " (&mrb.doc_number)
                     " "
@@ -99,7 +99,7 @@ pub async fn get_detail(path: MrbDetailPath, ctx: RequestContext) -> Result<Html
             div class="grid gap-4" {
                 div class="flex flex-col gap-1" {
                     label { "关联检验结果单号" }
-                    span class="mono" { (inspection_doc) }
+                    span class="font-mono tabular-nums" { (inspection_doc) }
                 }
                 div class="flex flex-col gap-1" { label { "产品" } span { (product_name) } }
                 div class="flex flex-col gap-1" {
@@ -110,7 +110,7 @@ pub async fn get_detail(path: MrbDetailPath, ctx: RequestContext) -> Result<Html
                     label { "责任方" }
                     span class=(format!("status-pill {party_class}")) { (party_text) }
                 }
-                div class="flex flex-col gap-1" { label { "成本影响" } span class="mono text-right text-[13px]" { (fmt_cost(mrb.cost_impact)) } }
+                div class="flex flex-col gap-1" { label { "成本影响" } span class="font-mono tabular-nums text-right text-[13px]" { (fmt_cost(mrb.cost_impact)) } }
             }
         }
 

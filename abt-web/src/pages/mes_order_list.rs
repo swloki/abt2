@@ -134,9 +134,9 @@ fn order_data_card(
                         @let total = item.total_steps.unwrap_or(0);
                         @let done = item.completed_steps.unwrap_or(0);
                         tr style="cursor:pointer" onclick=(format!("location.href='{}'", dp)) {
-                            td class="text-accent font-medium cursor-pointer mono" style="color:var(--accent)" { (item.doc_number) }
+                            td class="text-accent font-medium cursor-pointer font-mono tabular-nums" style="color:var(--accent)" { (item.doc_number) }
                             td { (pn) }
-                            td class="text-right text-[13px] mono" { (crate::utils::fmt_qty(item.planned_qty)) }
+                            td class="text-right text-[13px] font-mono tabular-nums" { (crate::utils::fmt_qty(item.planned_qty)) }
                             td {
                                 @if total == 0 && item.completed_qty == rust_decimal::Decimal::ZERO {
                                     span class="w-[80px] h-[6px] bg-border-soft overflow-hidden" style="color:var(--muted)" { "尚未开始" }
@@ -160,7 +160,7 @@ fn order_data_card(
                                         div style="margin-top:2px;font-size:var(--text-xs)" {
                                             span style="color:var(--success)" { (crate::utils::fmt_qty(item.completed_qty)) }
                                             " / "
-                                            span class="muted" { (crate::utils::fmt_qty(item.planned_qty)) " 件" }
+                                            span class="text-muted" { (crate::utils::fmt_qty(item.planned_qty)) " 件" }
                                             @if item.scrap_qty > rust_decimal::Decimal::ZERO {
                                                 span style="color:var(--danger);margin-left:4px" { "废 " (crate::utils::fmt_qty(item.scrap_qty)) }
                                             }
@@ -179,17 +179,17 @@ fn order_data_card(
                                 @if item.source_plan_doc.is_none() && item.source_so_doc.is_none() {
                                     "—"
                                 } @else {
-                                    div class="text-[11px] text-muted" {
+                                    div class="text-[11px] text-text-muted" {
                                         @if let (Some(pid), Some(pdoc)) = (item.source_plan_id, item.source_plan_doc.as_deref()) {
-                                            a class="text-[11px] text-muted-sub" href=(format!("/admin/mes/plans/{}", pid)) onclick="event.stopPropagation()" { (pdoc) }
-                                            span class="text-[11px] text-muted-sub" { " → " }
+                                            a class="text-[11px] text-text-muted-sub" href=(format!("/admin/mes/plans/{}", pid)) onclick="event.stopPropagation()" { (pdoc) }
+                                            span class="text-[11px] text-text-muted-sub" { " → " }
                                         }
                                         @if let Some(soid) = item.sales_order_id {
                                             @if let Some(sodoc) = item.source_so_doc.as_deref() {
-                                                a class="text-[11px] text-muted-sub" href=(format!("/admin/orders/{}", soid)) onclick="event.stopPropagation()" { (sodoc) }
+                                                a class="text-[11px] text-text-muted-sub" href=(format!("/admin/orders/{}", soid)) onclick="event.stopPropagation()" { (sodoc) }
                                             }
                                             @if let Some(cust) = item.source_customer.as_deref() {
-                                                span class="text-[11px] text-muted-sub" { " (" (cust) ")" }
+                                                span class="text-[11px] text-text-muted-sub" { " (" (cust) ")" }
                                             }
                                         }
                                     }

@@ -116,8 +116,8 @@ fn stat_card(title: &str, value: &str, accent: &str, sub: Markup, icon_bg: &str,
                 (svg_icon(icon_path, "24px"))
             }
             div class="mes-stat-body" {
-                div class="mes-text-sm text-muted mt-1" { (title) }
-                div class="mes-text-2xl font-bold font-mono tabular-nums text-fg" { (PreEscaped(value)) }
+                div class="mes-text-sm text-text-muted mt-1" { (title) }
+                div class="mes-text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg" { (PreEscaped(value)) }
                 div class="mes-stat-sub" { (sub) }
             }
         }
@@ -237,7 +237,7 @@ fn fms_dashboard_page(
             }
 
             // ── 快捷入口 ──
-            div class="section-block" {
+            div class="mb-8" {
                 div class="text-lg font-semibold text-fg flex items-center gap-2" {
                     (svg_icon("M13 10V3L4 14h7v7l9-11h-7z", "18px"))
                     "快捷操作"

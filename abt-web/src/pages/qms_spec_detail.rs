@@ -54,7 +54,7 @@ pub async fn get_detail(path: SpecDetailPath, ctx: RequestContext) -> Result<Htm
     let content = html! { div {
         div class="flex items-center justify-between mb-6" {
             div class="flex items-center justify-between mb-6-left" {
-                a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", SpecListPath::PATH)) { "\u{2190} 返回列表" }
+                a class="inline-flex items-center gap-2 text-sm text-text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", SpecListPath::PATH)) { "\u{2190} 返回列表" }
                 h1 class="text-xl font-bold text-fg tracking-tight" {
                     "单号 " (spec.doc_number)
                     " "
@@ -69,7 +69,7 @@ pub async fn get_detail(path: SpecDetailPath, ctx: RequestContext) -> Result<Htm
             div class="grid gap-4" {
                 div class="flex flex-col gap-1" { label { "产品" } span { (product_name) } }
                 div class="flex flex-col gap-1" { label { "检验类型" } span { (inspection_type_label(&spec.inspection_type)) } }
-                div class="flex flex-col gap-1" { label { "版本" } span class="mono" { "V" (spec.version) } }
+                div class="flex flex-col gap-1" { label { "版本" } span class="font-mono tabular-nums" { "V" (spec.version) } }
                 div class="flex flex-col gap-1" { label { "状态" } span { (status_text) } }
                 div class="flex flex-col gap-1" { label { "创建时间" } span { (spec.created_at.format("%Y-%m-%d %H:%M")) } }
             }
@@ -80,7 +80,7 @@ pub async fn get_detail(path: SpecDetailPath, ctx: RequestContext) -> Result<Htm
             h3 { "抽样方案" }
             div class="grid gap-4" {
                 div class="flex flex-col gap-1" { label { "检验水平" } span { (&spec.sample_plan.level) } }
-                div class="flex flex-col gap-1" { label { "AQL" } span class="mono" { (spec.sample_plan.aql.to_string()) } }
+                div class="flex flex-col gap-1" { label { "AQL" } span class="font-mono tabular-nums" { (spec.sample_plan.aql.to_string()) } }
                 div class="flex flex-col gap-1" { label { "抽样模式" } span { (&spec.sample_plan.mode) } }
             }
         }
@@ -104,7 +104,7 @@ pub async fn get_detail(path: SpecDetailPath, ctx: RequestContext) -> Result<Htm
                     tbody {
                         @for (i, item) in spec.check_items.iter().enumerate() {
                             tr {
-                                td class="mono" { (i + 1) }
+                                td class="font-mono tabular-nums" { (i + 1) }
                                 td { (&item.item) }
                                 td { (&item.standard) }
                                 td { (&item.tolerance) }

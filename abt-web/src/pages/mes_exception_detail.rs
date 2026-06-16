@@ -72,7 +72,7 @@ fn exception_detail_page(
     html! { div {
         div class="flex items-center justify-between mb-6" {
             div class="flex items-center justify-between mb-6-left" {
-                a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", ExceptionListPath::PATH)) { "\u{2190} 返回列表" }
+                a class="inline-flex items-center gap-2 text-sm text-text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", ExceptionListPath::PATH)) { "\u{2190} 返回列表" }
                 h1 class="text-xl font-bold text-fg tracking-tight" { "异常 " (exc.doc_number) }
             }
         }
@@ -87,18 +87,18 @@ fn exception_detail_page(
             div class="grid gap-4" {
                 div class="flex flex-col gap-1" { label { "异常类型" } span { (type_label) } }
                 div class="flex flex-col gap-1" { label { "原因分类" } span { (reason_label) } }
-                div class="flex flex-col gap-1" { label { "关联工单" } span class="mono" {
+                div class="flex flex-col gap-1" { label { "关联工单" } span class="font-mono tabular-nums" {
                     @if let Some(ref wo) = lookups.wo_doc_number {
                         a href=(format!("/admin/mes/orders/{}", exc.work_order_id.unwrap_or(0))) class="text-accent font-medium cursor-pointer" { (wo) }
                     } @else { "—" }
                 }}
-                div class="flex flex-col gap-1" { label { "关联批次" } span class="mono" {
+                div class="flex flex-col gap-1" { label { "关联批次" } span class="font-mono tabular-nums" {
                     @if let Some(ref bn) = lookups.batch_no {
                         a href=(format!("/admin/mes/batches/{}", exc.batch_id.unwrap_or(0))) class="text-accent font-medium cursor-pointer" { (bn) }
                     } @else { "—" }
                 }}
                 div class="flex flex-col gap-1" { label { "产品" } span { (lookups.product_name.as_deref().unwrap_or("—")) } }
-                div class="flex flex-col gap-1" { label { "影响数量" } span class="mono" { (impact_display) } }
+                div class="flex flex-col gap-1" { label { "影响数量" } span class="font-mono tabular-nums" { (impact_display) } }
                 div class="flex flex-col gap-1" { label { "发现时间" } span { (exc.found_at.format("%Y-%m-%d %H:%M")) } }
                 div class="flex flex-col gap-1" { label { "发现人" } span { (lookups.finder_name.as_deref().unwrap_or("—")) } }
                 div class="flex flex-col gap-1" { label { "负责人" } span { (lookups.owner_name.as_deref().unwrap_or("—")) } }

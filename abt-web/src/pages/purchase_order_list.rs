@@ -335,10 +335,10 @@ fn po_row(
                     input type="checkbox" class="po-checkbox" value=(o.id) {}
                 }
             }
-            td class="text-accent font-medium cursor-pointer mono" onclick=(&onclick) { (o.doc_number) }
+            td class="text-accent font-medium cursor-pointer font-mono tabular-nums" onclick=(&onclick) { (o.doc_number) }
             td onclick=(&onclick) { (supplier_name) }
-            td class="mono" onclick=(&onclick) { (o.order_date.format("%Y-%m-%d")) }
-            td class="mono" onclick=(&onclick) { (o.expected_delivery_date.map(|d| d.format("%Y-%m-%d").to_string()).unwrap_or_else(|| "—".into())) }
+            td class="font-mono tabular-nums" onclick=(&onclick) { (o.order_date.format("%Y-%m-%d")) }
+            td class="font-mono tabular-nums" onclick=(&onclick) { (o.expected_delivery_date.map(|d| d.format("%Y-%m-%d").to_string()).unwrap_or_else(|| "—".into())) }
             td onclick=(&onclick) {
                 span class=(format!("status-pill {status_class}")) { (status_text) }
             }
@@ -346,7 +346,7 @@ fn po_row(
                 @let (inv_text, inv_class) = invoice_status_label(o.invoice_status);
                 span class=(format!("status-pill {inv_class}")) { (inv_text) }
             }
-            td class="text-right text-[13px] mono" onclick=(&onclick) { (format!("{:.2}", o.total_amount)) }
+            td class="text-right text-[13px] font-mono tabular-nums" onclick=(&onclick) { (format!("{:.2}", o.total_amount)) }
             td onclick=(&onclick) { (buyer_name) }
             td onclick="event.stopPropagation()" {
                 @if is_draft {

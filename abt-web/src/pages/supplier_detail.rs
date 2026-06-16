@@ -179,7 +179,7 @@ fn supplier_detail_page(
                         " "
                         span class=(format!("status-pill {status_class}")) { (status_label) }
                     }
-                    div class="flex gap-4 text-muted text-xs" {
+                    div class="flex gap-4 text-text-muted text-xs" {
                         span { (supplier.code) }
                         span { (category_label) }
                         span { (supplier.created_at.format("%Y-%m-%d")) }
@@ -203,35 +203,35 @@ fn supplier_detail_page(
         div class="bg-white border border-border-soft rounded p-5" style="margin-bottom:var(--space-5)" {
             div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 border-b border-border-soft" { "基本信息" }
             div class="flex py-2 text-sm" {
-                span class="w-[90px] shrink-0 text-muted" { "供应商编码" }
-                span class="detail-value mono" { (supplier.code) }
+                span class="w-[90px] shrink-0 text-text-muted" { "供应商编码" }
+                span class="detail-value font-mono tabular-nums" { (supplier.code) }
             }
             div class="flex py-2 text-sm" {
-                span class="w-[90px] shrink-0 text-muted" { "供应商名称" }
+                span class="w-[90px] shrink-0 text-text-muted" { "供应商名称" }
                 span class="detail-value" { (supplier.name) }
             }
             div class="flex py-2 text-sm" {
-                span class="w-[90px] shrink-0 text-muted" { "简称" }
+                span class="w-[90px] shrink-0 text-text-muted" { "简称" }
                 span class="detail-value" { (supplier.short_name.as_deref().unwrap_or("—")) }
             }
             div class="flex py-2 text-sm" {
-                span class="w-[90px] shrink-0 text-muted" { "类别" }
+                span class="w-[90px] shrink-0 text-text-muted" { "类别" }
                 span class="detail-value" { (category_label) }
             }
             div class="flex py-2 text-sm" {
-                span class="w-[90px] shrink-0 text-muted" { "状态" }
+                span class="w-[90px] shrink-0 text-text-muted" { "状态" }
                 span class="detail-value" {
                     span class=(format!("status-pill {status_class}")) { (status_label) }
                 }
             }
             div class="flex py-2 text-sm" {
-                span class="w-[90px] shrink-0 text-muted" { "税号" }
-                span class="detail-value mono" style="font-size:12px" {
+                span class="w-[90px] shrink-0 text-text-muted" { "税号" }
+                span class="detail-value font-mono tabular-nums" style="font-size:12px" {
                     (supplier.tax_number.as_deref().unwrap_or("—"))
                 }
             }
             div class="flex py-2 text-sm" {
-                span class="w-[90px] shrink-0 text-muted" { "交货天数" }
+                span class="w-[90px] shrink-0 text-text-muted" { "交货天数" }
                 span class="detail-value" {
                     @if supplier.lead_time_days > 0 {
                         (supplier.lead_time_days) " 天"
@@ -241,19 +241,19 @@ fn supplier_detail_page(
                 }
             }
             div class="flex py-2 text-sm" {
-                span class="w-[90px] shrink-0 text-muted" { "付款条件" }
+                span class="w-[90px] shrink-0 text-text-muted" { "付款条件" }
                 span class="detail-value" { (supplier.payment_terms.as_deref().unwrap_or("—")) }
             }
             div class="flex py-2 text-sm" {
-                span class="w-[90px] shrink-0 text-muted" { "结算货币" }
+                span class="w-[90px] shrink-0 text-text-muted" { "结算货币" }
                 span class="detail-value" { (&supplier.currency) }
             }
             div class="flex py-2 text-sm" {
-                span class="w-[90px] shrink-0 text-muted" { "创建时间" }
+                span class="w-[90px] shrink-0 text-text-muted" { "创建时间" }
                 span class="detail-value" { (supplier.created_at.format("%Y-%m-%d")) }
             }
             div class="flex py-2 text-sm" {
-                span class="w-[90px] shrink-0 text-muted" { "备注" }
+                span class="w-[90px] shrink-0 text-text-muted" { "备注" }
                 span class="detail-value" {
                     @if supplier.remark.is_empty() { "—" } @else { (&supplier.remark) }
                 }
@@ -270,7 +270,7 @@ fn supplier_detail_page(
         // ── Purchase History Section (placeholder) ──
         div class="bg-white border border-border-soft rounded p-5" style="margin-top:var(--space-5)" {
             div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 border-b border-border-soft" { "采购历史" }
-            div class="text-center p-6 text-muted text-sm" { "暂无采购记录" }
+            div class="text-center p-6 text-text-muted text-sm" { "暂无采购记录" }
         }
 
         // ── Modals ──
@@ -358,7 +358,7 @@ fn contacts_card(contacts: &[SupplierContact], detail_path: &SupplierDetailPath,
                 }
             }
             @if contacts.is_empty() {
-                div class="text-center p-6 text-muted text-sm" { "暂无联系人" }
+                div class="text-center p-6 text-text-muted text-sm" { "暂无联系人" }
             } @else {
                 table class="data-table compact" {
                     thead {
@@ -399,7 +399,7 @@ fn bank_accounts_card(bank_accounts: &[SupplierBankAccount], detail_path: &Suppl
                 }
             }
             @if bank_accounts.is_empty() {
-                div class="text-center p-6 text-muted text-sm" { "暂无银行账户" }
+                div class="text-center p-6 text-text-muted text-sm" { "暂无银行账户" }
             } @else {
                 table class="data-table compact" {
                     thead {
@@ -465,7 +465,7 @@ fn bank_account_row(account: &SupplierBankAccount, detail_path: &SupplierDetailP
         tr {
             td { (account.bank_name) }
             td { (account.account_name) }
-            td class="mono" { (account.account_number) }
+            td class="font-mono tabular-nums" { (account.account_number) }
             td {
                 @if account.is_default {
                     span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-[#e6f4ff] text-accent rounded-full text-[11px] font-medium" { "默认" }

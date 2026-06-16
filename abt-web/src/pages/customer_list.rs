@@ -120,8 +120,8 @@ fn customer_list_page(
                         (icon::users_icon("w-6 h-6"))
                     }
                     div {
-                        div class="text-2xl font-bold font-mono tabular-nums text-fg" { (total_count) }
-                        div class="text-sm text-muted mt-1" { "客户总数" }
+                        div class="text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg" { (total_count) }
+                        div class="text-sm text-text-muted mt-1" { "客户总数" }
                     }
                 }
                 div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
@@ -129,8 +129,8 @@ fn customer_list_page(
                         (icon::check_circle_icon("w-6 h-6"))
                     }
                     div {
-                        div class="text-2xl font-bold font-mono tabular-nums text-fg" { "—" }
-                        div class="text-sm text-muted mt-1" { "活跃客户" }
+                        div class="text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg" { "—" }
+                        div class="text-sm text-text-muted mt-1" { "活跃客户" }
                     }
                 }
                 div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
@@ -138,8 +138,8 @@ fn customer_list_page(
                         (icon::trending_up_icon("w-6 h-6"))
                     }
                     div {
-                        div class="text-2xl font-bold font-mono tabular-nums text-fg" { "—" }
-                        div class="text-sm text-muted mt-1" { "本月交易额" }
+                        div class="text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg" { "—" }
+                        div class="text-sm text-text-muted mt-1" { "本月交易额" }
                     }
                 }
                 div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
@@ -147,8 +147,8 @@ fn customer_list_page(
                         (icon::circle_alert_icon("w-6 h-6"))
                     }
                     div {
-                        div class="text-2xl font-bold font-mono tabular-nums text-fg" { "—" }
-                        div class="text-sm text-muted mt-1" { "信用预警" }
+                        div class="text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg" { "—" }
+                        div class="text-sm text-text-muted mt-1" { "信用预警" }
                     }
                 }
             }
@@ -226,7 +226,7 @@ fn customer_table_fragment(
                             }
                             @if result.items.is_empty() {
                                 tr {
-                                    td colspan="7" class="text-center p-8 text-muted" {
+                                    td colspan="7" class="text-center p-8 text-text-muted" {
                                         "暂无客户数据"
                                     }
                                 }
@@ -273,19 +273,19 @@ fn customer_row(c: &Customer, can_delete: bool) -> Markup {
 
     html! {
         tr {
-            td class="text-accent font-medium cursor-pointer mono" onclick=(format!("location.href='{}'", detail_path)) { (c.code) }
+            td class="text-accent font-medium cursor-pointer font-mono tabular-nums" onclick=(format!("location.href='{}'", detail_path)) { (c.code) }
             td onclick=(format!("location.href='{}'", detail_path)) { strong { (c.name) } }
             td onclick=(format!("location.href='{}'", detail_path)) { span class=(format!("tag-chip {}", category_label.1)) { (category_label.0) } }
             td onclick=(format!("location.href='{}'", detail_path)) {
                 @if let Some(limit) = c.credit_limit {
                     div class="flex items-center gap-[6px]" {
-                        span class="mono text-xs" { "¥ " (format_amount(limit)) }
+                        span class="font-mono tabular-nums text-xs" { "¥ " (format_amount(limit)) }
                         div class="w-[60px] h-[4px] bg-border-soft overflow-hidden" {
                             div class="w-[60px] h-[4px] bg-border-soft overflow-hidden-fill" style="width:0%;background:var(--accent)" {}
                         }
                     }
                 } @else {
-                    span class="text-muted" { "—" }
+                    span class="text-text-muted" { "—" }
                 }
             }
             td onclick=(format!("location.href='{}'", detail_path)) { span class=(format!("status-pill {status_class}")) { (status_label) } }

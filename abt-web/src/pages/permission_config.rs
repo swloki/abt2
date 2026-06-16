@@ -429,20 +429,20 @@ fn perm_page_content(
                 }
                 div class="flex items-center border-t" id="stats-bar" {
                     div class="flex items-center gap-[6px] border-r" {
-                        span class="text-sm text-muted mt-1" { "资源" }
-                        span class="text-2xl font-bold font-mono tabular-nums text-fg" { (total_resources) }
+                        span class="text-sm text-text-muted mt-1" { "资源" }
+                        span class="text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg" { (total_resources) }
                     }
                     div class="flex items-center gap-[6px] border-r" {
-                        span class="text-sm text-muted mt-1" { "角色" }
-                        span class="text-2xl font-bold font-mono tabular-nums text-fg" { (total_roles) }
+                        span class="text-sm text-text-muted mt-1" { "角色" }
+                        span class="text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg" { (total_roles) }
                     }
                     div class="flex items-center gap-[6px] border-r" {
-                        span class="text-sm text-muted mt-1" { "已配置" }
-                        span class="text-2xl font-bold font-mono tabular-nums text-fg" { (configured) }
+                        span class="text-sm text-text-muted mt-1" { "已配置" }
+                        span class="text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg" { (configured) }
                     }
                     div class="flex items-center gap-[6px] border-r" {
-                        span class="text-sm text-muted mt-1" { "配置率" }
-                        span class="text-2xl font-bold font-mono tabular-nums text-fg accent" { (format!("{:.0}%", coverage_pct)) }
+                        span class="text-sm text-text-muted mt-1" { "配置率" }
+                        span class="text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg accent" { (format!("{:.0}%", coverage_pct)) }
                         div class="w-[60px] h-[6px] bg-[#e2e8f0] overflow-hidden" {
                             div class="w-[60px] h-[6px] bg-[#e2e8f0] overflow-hidden-bar" style=(format!("width:{}%", coverage_pct.min(100.0))) {}
                         }

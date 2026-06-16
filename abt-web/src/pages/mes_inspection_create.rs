@@ -30,7 +30,7 @@ pub async fn get_inspection_create(_path: InspectionCreatePath, ctx: RequestCont
     let RequestContext { claims, .. } = ctx;
     let content = html! { div {
         div class="flex items-center justify-between mb-6" {
-            div class="flex items-center justify-between mb-6-left" { a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", InspectionListPath::PATH)) { "\u{2190} 返回列表" } h1 class="text-xl font-bold text-fg tracking-tight" { "新建检验" } }
+            div class="flex items-center justify-between mb-6-left" { a class="inline-flex items-center gap-2 text-sm text-text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", InspectionListPath::PATH)) { "\u{2190} 返回列表" } h1 class="text-xl font-bold text-fg tracking-tight" { "新建检验" } }
         }
         form hx-post=(InspectionCreatePath::PATH) hx-swap="none" {
             div class="form-section" {

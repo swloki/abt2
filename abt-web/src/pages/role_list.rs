@@ -271,8 +271,8 @@ fn role_list_page(
                         (icon::lock_icon("w-6 h-6"))
                     }
                     div {
-                        div class="text-2xl font-bold font-mono tabular-nums text-fg" { (total) }
-                        div class="text-sm text-muted mt-1" { "角色总数" }
+                        div class="text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg" { (total) }
+                        div class="text-sm text-text-muted mt-1" { "角色总数" }
                     }
                 }
                 div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
@@ -280,8 +280,8 @@ fn role_list_page(
                         (icon::check_circle_icon("w-6 h-6"))
                     }
                     div {
-                        div class="text-2xl font-bold font-mono tabular-nums text-fg" { (system_count) }
-                        div class="text-sm text-muted mt-1" { "内置角色" }
+                        div class="text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg" { (system_count) }
+                        div class="text-sm text-text-muted mt-1" { "内置角色" }
                     }
                 }
                 div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
@@ -289,8 +289,8 @@ fn role_list_page(
                         (icon::plus_icon("w-6 h-6"))
                     }
                     div {
-                        div class="text-2xl font-bold font-mono tabular-nums text-fg" { (custom_count) }
-                        div class="text-sm text-muted mt-1" { "自定义角色" }
+                        div class="text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg" { (custom_count) }
+                        div class="text-sm text-text-muted mt-1" { "自定义角色" }
                     }
                 }
             }
@@ -359,7 +359,7 @@ fn role_table_fragment(
                             }
                             @if roles.is_empty() {
                                 tr {
-                                    td colspan="7" class="text-center p-6 text-muted text-sm" {
+                                    td colspan="7" class="text-center p-6 text-text-muted text-sm" {
                                         "暂无角色数据"
                                     }
                                 }
@@ -408,13 +408,13 @@ fn role_row(
             td {
                 div style=(format!("padding-left:{}px", depth * 24)) {
                     @if depth > 0 {
-                        span class="text-muted mr-1" { "└ " }
+                        span class="text-text-muted mr-1" { "└ " }
                     }
                     a href=(detail_path) class="text-fg no-underline" { strong { (role.role_name) } }
                 }
             }
             // Role Code
-            td class="mono text-xs" {
+            td class="font-mono tabular-nums text-xs" {
                 (role.role_code)
             }
             // Type
@@ -428,7 +428,7 @@ fn role_row(
             // Permission Count
             td {
                 @if perm_count == total_perms {
-                    span class="text-[13px] text-muted" { "全部权限" }
+                    span class="text-[13px] text-text-muted" { "全部权限" }
                 } @else {
                     div class="text-accent font-semibold" {
                         span { (perm_count) }
@@ -459,7 +459,7 @@ fn role_row(
                 }
             }
             // Description
-            td class="text-[12px] text-muted overflow-hidden whitespace-nowrap" {
+            td class="text-[12px] text-text-muted overflow-hidden whitespace-nowrap" {
                 @if let Some(desc) = &role.description {
                     (desc)
                 } @else {

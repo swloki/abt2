@@ -415,7 +415,7 @@ fn data_card(
                             @let detail_path = OmOutsourcingDetailPath { id: item.id };
                             @let tracking_info = latest_tracking.get(&item.id);
                             tr style="cursor:pointer" onclick=(format!("location.href='{}'", detail_path.to_string())) {
-                                td class="text-accent font-medium cursor-pointer mono" style="color:var(--accent)" { (item.doc_number) }
+                                td class="text-accent font-medium cursor-pointer font-mono tabular-nums" style="color:var(--accent)" { (item.doc_number) }
                                 td { (supplier_name) }
                                 td { (product_name) }
                                 td {

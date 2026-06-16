@@ -214,11 +214,11 @@ fn backflush_row(r: &BackflushRecord) -> Markup {
 
     html! {
         tr style="cursor:pointer" {
-            td class="text-accent font-medium cursor-pointer mono" onclick=(format!("location.href='{}'", detail_path)) { (r.doc_number) }
-            td class="mono" onclick=(format!("location.href='{}'", detail_path)) { "—" }
+            td class="text-accent font-medium cursor-pointer font-mono tabular-nums" onclick=(format!("location.href='{}'", detail_path)) { (r.doc_number) }
+            td class="font-mono tabular-nums" onclick=(format!("location.href='{}'", detail_path)) { "—" }
             td onclick=(format!("location.href='{}'", detail_path)) { "—" }
             td class="text-right text-[13px]" onclick=(format!("location.href='{}'", detail_path)) { (format!("{:.2}", r.completed_qty)) }
-            td class="mono" onclick=(format!("location.href='{}'", detail_path)) { (r.backflush_date.to_string()) }
+            td class="font-mono tabular-nums" onclick=(format!("location.href='{}'", detail_path)) { (r.backflush_date.to_string()) }
             td onclick=(format!("location.href='{}'", detail_path)) {
                 span class=(format!("status-pill {status_class}")) { (status_label) }
             }

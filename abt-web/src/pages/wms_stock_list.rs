@@ -310,8 +310,8 @@ fn stock_list_page(
                         (icon::box_icon("w-5 h-5"))
                     }
                     div {
-                        div class="text-2xl font-bold font-mono tabular-nums text-fg" { (result.items.iter().map(|s| s.product_id).collect::<HashSet<_>>().len()) }
-                        div class="text-sm text-muted mt-1" { "总品种" }
+                        div class="text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg" { (result.items.iter().map(|s| s.product_id).collect::<HashSet<_>>().len()) }
+                        div class="text-sm text-text-muted mt-1" { "总品种" }
                     }
                 }
                 div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
@@ -319,8 +319,8 @@ fn stock_list_page(
                         (icon::package_icon("w-5 h-5"))
                     }
                     div {
-                        div class="text-2xl font-bold font-mono tabular-nums text-fg" { (format_decimal(&result.items.iter().map(|s| s.quantity).sum::<Decimal>())) }
-                        div class="text-sm text-muted mt-1" { "总库存量" }
+                        div class="text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg" { (format_decimal(&result.items.iter().map(|s| s.quantity).sum::<Decimal>())) }
+                        div class="text-sm text-text-muted mt-1" { "总库存量" }
                     }
                 }
                 div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
@@ -328,8 +328,8 @@ fn stock_list_page(
                         (icon::circle_alert_icon("w-5 h-5"))
                     }
                     div {
-                        div class="text-2xl font-bold font-mono tabular-nums text-fg" style="color:var(--danger)" { (result.items.iter().filter(|s| s.available_qty <= Decimal::ZERO).count()) }
-                        div class="text-sm text-muted mt-1" { "低库存项" }
+                        div class="text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg" style="color:var(--danger)" { (result.items.iter().filter(|s| s.available_qty <= Decimal::ZERO).count()) }
+                        div class="text-sm text-text-muted mt-1" { "低库存项" }
                     }
                 }
                 div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
@@ -337,8 +337,8 @@ fn stock_list_page(
                         (icon::lock_icon("w-5 h-5"))
                     }
                     div {
-                        div class="text-2xl font-bold font-mono tabular-nums text-fg" { (format_decimal(&result.items.iter().map(|s| s.reserved_qty).sum::<Decimal>())) }
-                        div class="text-sm text-muted mt-1" { "已预留量" }
+                        div class="text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg" { (format_decimal(&result.items.iter().map(|s| s.reserved_qty).sum::<Decimal>())) }
+                        div class="text-sm text-text-muted mt-1" { "已预留量" }
                     }
                 }
             }
@@ -451,7 +451,7 @@ fn stock_data_card(
                             @let low_class = if is_low { "text-low-stock" } else { "" };
                             @let danger_style = if is_low { "color:var(--danger)" } else { "" };
                             tr class=(low_class) {
-                                td class="text-accent font-medium cursor-pointer mono" style=(danger_style) { (p_code) }
+                                td class="text-accent font-medium cursor-pointer font-mono tabular-nums" style=(danger_style) { (p_code) }
                                 td style=(danger_style) { (p_name) }
                                 td class="text-right text-[13px]" { (format_decimal(&item.quantity)) }
                                 @let avail_style = if is_low { "color:var(--danger);font-weight:600" } else { "" };
@@ -534,22 +534,22 @@ fn stock_detail_content(
     let is_low = item.available_qty <= Decimal::ZERO;
 
     html! {
-        div class="drawer-section" {
+        div class="mb-6 last:mb-0" {
             div class="drawer-label" { "基本信息" }
             div class="grid gap-5 gap-4" {
-                div class="detail-flex flex-col gap-1" { label { "产品编码" } span class="mono" { (p_code) } }
+                div class="detail-flex flex-col gap-1" { label { "产品编码" } span class="font-mono tabular-nums" { (p_code) } }
                 div class="detail-flex flex-col gap-1" { label { "产品名称" } span { (p_name) } }
                 div class="detail-flex flex-col gap-1" { label { "仓库" } span { (warehouse) } }
                 div class="detail-flex flex-col gap-1" { label { "库区" } span { (zone) } }
-                div class="detail-flex flex-col gap-1" { label { "储位" } span class="mono" { (bin) } }
-                div class="detail-flex flex-col gap-1" { label { "批次号" } span class="mono" { (item.batch_no.as_deref().unwrap_or("—")) } }
+                div class="detail-flex flex-col gap-1" { label { "储位" } span class="font-mono tabular-nums" { (bin) } }
+                div class="detail-flex flex-col gap-1" { label { "批次号" } span class="font-mono tabular-nums" { (item.batch_no.as_deref().unwrap_or("—")) } }
             }
         }
-        div class="drawer-section" {
+        div class="mb-6 last:mb-0" {
             div class="drawer-label" { "库存数量" }
             div class="grid gap-5 gap-4" {
-                div class="detail-flex flex-col gap-1" { label { "现有量" } span class="mono" { (format_decimal(&item.quantity)) } }
-                div class="detail-flex flex-col gap-1" { label { "已预留" } span class="mono" { (format_decimal(&item.reserved_qty)) } }
+                div class="detail-flex flex-col gap-1" { label { "现有量" } span class="font-mono tabular-nums" { (format_decimal(&item.quantity)) } }
+                div class="detail-flex flex-col gap-1" { label { "已预留" } span class="font-mono tabular-nums" { (format_decimal(&item.reserved_qty)) } }
                 div class="detail-flex flex-col gap-1" {
                     label { "可用量" }
                     span class={"mono" (if is_low { " danger" } else { "" })} { (format_decimal(&item.available_qty)) }
@@ -569,13 +569,13 @@ fn stock_detail_content(
                 }
             }
         }
-        div class="drawer-section" {
+        div class="mb-6 last:mb-0" {
             div class="drawer-label" { "财务与日期" }
             div class="grid gap-5 gap-4" {
-                div class="detail-flex flex-col gap-1" { label { "单位成本" } span class="mono" { (item.unit_cost.map(|c| format!("¥{}", format_decimal(&c))).unwrap_or_else(|| "—".into())) } }
-                div class="detail-flex flex-col gap-1" { label { "库存金额" } span class="mono" { (stock_value.map(|v| format!("¥{}", format_decimal(&v))).unwrap_or_else(|| "—".into())) } }
-                div class="detail-flex flex-col gap-1" { label { "入库日期" } span class="mono" { (item.received_date.map(|d| d.format("%Y-%m-%d").to_string()).unwrap_or_else(|| "—".into())) } }
-                div class="detail-flex flex-col gap-1" { label { "有效期" } span class="mono" { (item.expiry_date.map(|d| d.format("%Y-%m-%d").to_string()).unwrap_or_else(|| "—".into())) } }
+                div class="detail-flex flex-col gap-1" { label { "单位成本" } span class="font-mono tabular-nums" { (item.unit_cost.map(|c| format!("¥{}", format_decimal(&c))).unwrap_or_else(|| "—".into())) } }
+                div class="detail-flex flex-col gap-1" { label { "库存金额" } span class="font-mono tabular-nums" { (stock_value.map(|v| format!("¥{}", format_decimal(&v))).unwrap_or_else(|| "—".into())) } }
+                div class="detail-flex flex-col gap-1" { label { "入库日期" } span class="font-mono tabular-nums" { (item.received_date.map(|d| d.format("%Y-%m-%d").to_string()).unwrap_or_else(|| "—".into())) } }
+                div class="detail-flex flex-col gap-1" { label { "有效期" } span class="font-mono tabular-nums" { (item.expiry_date.map(|d| d.format("%Y-%m-%d").to_string()).unwrap_or_else(|| "—".into())) } }
             }
         }
     }

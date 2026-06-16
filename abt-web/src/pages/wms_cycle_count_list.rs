@@ -213,7 +213,7 @@ fn cycle_count_row(item: &CycleCount) -> Markup {
 
     html! {
         tr style="cursor:pointer" {
-            td class="text-accent font-medium cursor-pointer mono" onclick=(format!("location.href='{}'", detail_path)) {
+            td class="text-accent font-medium cursor-pointer font-mono tabular-nums" onclick=(format!("location.href='{}'", detail_path)) {
                 (item.doc_number)
             }
             td onclick=(format!("location.href='{}'", detail_path)) {
@@ -226,7 +226,7 @@ fn cycle_count_row(item: &CycleCount) -> Markup {
                     span style="color:var(--muted)" { "—" }
                 }
             }
-            td class="mono" onclick=(format!("location.href='{}'", detail_path)) {
+            td class="font-mono tabular-nums" onclick=(format!("location.href='{}'", detail_path)) {
                 (item.count_date.format("%Y-%m-%d"))
             }
             td onclick=(format!("location.href='{}'", detail_path)) {

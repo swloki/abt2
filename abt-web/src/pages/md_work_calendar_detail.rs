@@ -63,7 +63,7 @@ fn work_calendar_detail_page(
     html! {
         div class="flex items-center justify-between mb-6" {
             div class="flex items-center justify-between mb-6-left" {
-                a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(WorkCalendarListPath::PATH) { "← 返回列表" }
+                a class="inline-flex items-center gap-2 text-sm text-text-muted hover:text-accent transition-colors duration-150" href=(WorkCalendarListPath::PATH) { "← 返回列表" }
                 h1 class="text-xl font-bold text-fg tracking-tight" { "工作日历 " (cal.name) }
             }
         }
@@ -79,7 +79,7 @@ fn work_calendar_detail_page(
                 }
                 div class="flex flex-col gap-1" {
                     label { "创建时间" }
-                    span class="mono" { (cal.created_at.format("%Y-%m-%d %H:%M")) }
+                    span class="font-mono tabular-nums" { (cal.created_at.format("%Y-%m-%d %H:%M")) }
                 }
             }
         }
@@ -100,12 +100,12 @@ fn work_calendar_detail_page(
                         @for line in lines {
                             tr {
                                 td { (weekday_label(line.weekday)) }
-                                td class="mono" { (line.from_time.format("%H:%M")) }
-                                td class="mono" { (line.to_time.format("%H:%M")) }
+                                td class="font-mono tabular-nums" { (line.from_time.format("%H:%M")) }
+                                td class="font-mono tabular-nums" { (line.to_time.format("%H:%M")) }
                             }
                         }
                         @if lines.is_empty() {
-                            tr { td colspan="3" class="text-center text-muted text-sm" { "暂无工作时间设置" } }
+                            tr { td colspan="3" class="text-center text-text-muted text-sm" { "暂无工作时间设置" } }
                         }
                     }
                 }
@@ -128,7 +128,7 @@ fn work_calendar_detail_page(
                     tbody {
                         @for ex in exceptions {
                             tr {
-                                td class="mono" { (ex.exception_date.format("%Y-%m-%d")) }
+                                td class="font-mono tabular-nums" { (ex.exception_date.format("%Y-%m-%d")) }
                                 td {
                                     @if ex.is_workday {
                                         span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-[#f0fff0] text-[#389e0d]" { "特殊工作日" }
@@ -136,7 +136,7 @@ fn work_calendar_detail_page(
                                         span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-[#fff2f0] text-[#cf1322]" { "休息日" }
                                     }
                                 }
-                                td class="mono" {
+                                td class="font-mono tabular-nums" {
                                     @if let (Some(f), Some(t)) = (ex.from_time, ex.to_time) {
                                         (f.format("%H:%M")) " - " (t.format("%H:%M"))
                                     } @else {
@@ -147,7 +147,7 @@ fn work_calendar_detail_page(
                             }
                         }
                         @if exceptions.is_empty() {
-                            tr { td colspan="4" class="text-center text-muted text-sm" { "暂无例外日设置" } }
+                            tr { td colspan="4" class="text-center text-text-muted text-sm" { "暂无例外日设置" } }
                         }
                     }
                 }

@@ -619,18 +619,18 @@ fn material_row(m: &MaterialAggSummary) -> Markup {
                 }
                 div {
                     div class="font-semibold text-fg text-sm" { (m.product_name) }
-                    div class="text-[12px] text-muted" { (m.product_code) }
+                    div class="text-[12px] text-text-muted" { (m.product_code) }
                 }
             }
 
             div class="material-stat" {
-                div class="material-text-2xl font-bold font-mono tabular-nums text-fg" { (fmt_qty(m.total_demand_qty)) }
-                div class="material-text-sm text-muted mt-1" { "总需求量" }
+                div class="material-text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg" { (fmt_qty(m.total_demand_qty)) }
+                div class="material-text-sm text-text-muted mt-1" { "总需求量" }
             }
 
             div class="material-stat" {
-                div class="material-text-2xl font-bold font-mono tabular-nums text-fg" { (m.demand_count) }
-                div class="material-text-sm text-muted mt-1" { "涉及订单" }
+                div class="material-text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg" { (m.demand_count) }
+                div class="material-text-sm text-text-muted mt-1" { "涉及订单" }
             }
 
             div class="material-stat material-stat-date" {
@@ -713,12 +713,12 @@ fn demand_expand_row(d: &DemandSummary) -> Markup {
                     data-product-name=(d.product_name)
                     data-product-code=(d.product_code);
             }
-            td class="mono" style="font-size:12px;" { (d.id) }
+            td class="font-mono tabular-nums" style="font-size:12px;" { (d.id) }
             td {
                 a class="text-accent font-medium cursor-pointer" href=(OrderDetailPath { id: d.order_id }.to_string()) { (d.order_no.as_deref().unwrap_or("—")) }
             }
-            td class="text-right text-[13px] mono" { (fmt_qty(d.quantity)) }
-            td class="mono" { (req_date) }
+            td class="text-right text-[13px] font-mono tabular-nums" { (fmt_qty(d.quantity)) }
+            td class="font-mono tabular-nums" { (req_date) }
             td {
                 span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium" style=(pri_style) { (pri_text) }
             }
@@ -805,21 +805,21 @@ fn detail_row(d: &DemandSummary) -> Markup {
                     input type="checkbox" class="demand-cb" disabled;
                 }
             }
-            td class="mono" style="font-size:12px;" { (d.id) }
-            td class="mono" { (d.product_code) }
+            td class="font-mono tabular-nums" style="font-size:12px;" { (d.id) }
+            td class="font-mono tabular-nums" { (d.product_code) }
             td { (d.product_name) }
             td {
                 a class="text-accent font-medium cursor-pointer" href=(OrderDetailPath { id: d.order_id }.to_string()) { (d.order_no.as_deref().unwrap_or("—")) }
             }
-            td class="text-right text-[13px] mono" { (fmt_qty(d.quantity)) }
-            td class="mono" { (req_date) }
+            td class="text-right text-[13px] font-mono tabular-nums" { (fmt_qty(d.quantity)) }
+            td class="font-mono tabular-nums" { (req_date) }
             td {
                 span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium" style=(pri_style) { (pri_text) }
             }
             td {
                 span class=(format!("status-pill {status_class}")) style="font-size:11px;padding:2px 8px;" { (status_text) }
             }
-            td class="mono" {
+            td class="font-mono tabular-nums" {
                 @if let (Some(doc_type), Some(doc_id)) = (d.target_doc_type, d.target_doc_id) {
                     @if doc_type == 7 {
                         a class="text-accent font-medium cursor-pointer" href=(PODetailPath { id: doc_id }.to_string()) {
@@ -833,7 +833,7 @@ fn detail_row(d: &DemandSummary) -> Markup {
                         "—"
                     }
                 } @else {
-                    span class="text-muted" { "—" }
+                    span class="text-text-muted" { "—" }
                 }
             }
             td {
@@ -843,7 +843,7 @@ fn detail_row(d: &DemandSummary) -> Markup {
                         button type="submit" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm" { "创建" }
                     }
                 } @else {
-                    span class="text-muted text-sm" { "—" }
+                    span class="text-text-muted text-sm" { "—" }
                 }
             }
         }

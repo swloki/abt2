@@ -344,8 +344,8 @@ fn row_tr(rule: &PurchaseApprovalRule) -> Markup {
             td {
                 span style="font-weight:500" { (&rule.name) }
             }
-            td class="mono text-right text-[13px]" { (crate::utils::fmt_qty(rule.min_amount)) }
-            td class="mono text-right text-[13px]" {
+            td class="font-mono tabular-nums text-right text-[13px]" { (crate::utils::fmt_qty(rule.min_amount)) }
+            td class="font-mono tabular-nums text-right text-[13px]" {
                 (rule.max_amount.map(crate::utils::fmt_qty).unwrap_or_else(|| "不限".into()))
             }
             td { (&rule.approver_role) }
@@ -418,7 +418,7 @@ fn rule_form(action_url: &str, rule: Option<&PurchaseApprovalRule>) -> Markup {
         div class="bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0" _="on click halt" {
             div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
                 h2 { (title) }
-                button class="bg-transparent border-none cursor-pointer text-xl text-muted p-1 hover:text-fg"
+                button class="bg-transparent border-none cursor-pointer text-xl text-text-muted p-1 hover:text-fg"
                     _="on click remove .is-open from #rule-modal" { "×" }
             }
             form hx-post=(action_url) hx-target="this" hx-swap="outerHTML"

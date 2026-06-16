@@ -289,7 +289,7 @@ fn workflow_steps(current: PurchaseOrderStatus) -> Markup {
             }
             @if is_cancelled {
                 div class="w-[48px] h-[2px] bg-border" {}
-                div class="flex items-center gap-2 text-xs text-muted" style="color:var(--danger)" {
+                div class="flex items-center gap-2 text-xs text-text-muted" style="color:var(--danger)" {
                     span class="w-[10px] h-[10px] rounded-full bg-border" {}
                     "已取消"
                 }
@@ -327,7 +327,7 @@ fn po_detail_page(
     html! {
         div {
             // ── Back Link ──
-            a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", POListPath::PATH)) {
+            a class="inline-flex items-center gap-2 text-sm text-text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", POListPath::PATH)) {
                 (icon::chevron_left_icon("w-4 h-4"))
                 "返回采购订单列表"
             }
@@ -335,7 +335,7 @@ fn po_detail_page(
             div class="block bg-bg border border-border-soft rounded-lg p-6" {
                 div {
                     div class="flex items-center justify-between" {
-                        h1 class="text-2xl font-extrabold font-mono" { (order.doc_number) }
+                        h1 class="text-2xl font-extrabold font-font-mono tabular-nums" { (order.doc_number) }
                         span class=(format!("status-pill {status_class}")) { (status_text) }
                         @let (inv_text, inv_class) = invoice_status_label(order.invoice_status);
                         span class=(format!("status-pill {inv_class}")) { (inv_text) }
@@ -392,35 +392,35 @@ fn po_detail_page(
                 div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "订单信息" }
                 div class="grid gap-4" {
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-muted font-medium" { "供应商" }
+                        span class="text-xs text-text-muted font-medium" { "供应商" }
                         span class="text-sm text-fg font-medium" { (ctx.supplier_name) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-muted font-medium" { "订单日期" }
-                        span class="text-sm text-fg font-medium mono" { (order.order_date.format("%Y-%m-%d")) }
+                        span class="text-xs text-text-muted font-medium" { "订单日期" }
+                        span class="text-sm text-fg font-medium font-mono tabular-nums" { (order.order_date.format("%Y-%m-%d")) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-muted font-medium" { "预计到货" }
-                        span class="text-sm text-fg font-medium mono" { (expected_delivery) }
+                        span class="text-xs text-text-muted font-medium" { "预计到货" }
+                        span class="text-sm text-fg font-medium font-mono tabular-nums" { (expected_delivery) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-muted font-medium" { "付款条款" }
+                        span class="text-xs text-text-muted font-medium" { "付款条款" }
                         span class="text-sm text-fg font-medium" { (payment_terms) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-muted font-medium" { "交货地址" }
+                        span class="text-xs text-text-muted font-medium" { "交货地址" }
                         span class="text-sm text-fg font-medium" { (delivery_address) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-muted font-medium" { "币种" }
+                        span class="text-xs text-text-muted font-medium" { "币种" }
                         span class="text-sm text-fg font-medium" { "CNY" }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-muted font-medium" { "采购员" }
+                        span class="text-xs text-text-muted font-medium" { "采购员" }
                         span class="text-sm text-fg font-medium" { (ctx.operator_name) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-muted font-medium" { "关联报价" }
+                        span class="text-xs text-text-muted font-medium" { "关联报价" }
                         span class="text-sm text-fg font-medium" { "—" }
                     }
                 }
@@ -462,11 +462,11 @@ fn po_detail_page(
                 // ── Amount Summary ──
                 div class="flex justify-end gap-8 p-5 border-t bg-surface-raised" {
                     div class="flex gap-3" {
-                        span class="text-[11px] text-muted font-medium uppercase" { "订单总额" }
+                        span class="text-[11px] text-text-muted font-medium uppercase" { "订单总额" }
                         span class="text-[20px] font-bold text-fg accent" { (format!("¥ {:.2}", order.total_amount)) }
                     }
                     div class="flex gap-3" {
-                        span class="text-[11px] text-muted font-medium uppercase" { "已收货金额" }
+                        span class="text-[11px] text-text-muted font-medium uppercase" { "已收货金额" }
                         span class="text-[20px] font-bold text-fg" { (format!("¥ {:.2}", received_total)) }
                     }
                 }
@@ -475,7 +475,7 @@ fn po_detail_page(
             @if !order.remark.is_empty() {
                 div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" style="margin-top:var(--space-6)" {
                     div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "备注" }
-                    p class="text-muted" { (order.remark.as_str()) }
+                    p class="text-text-muted" { (order.remark.as_str()) }
                 }
             }
 
@@ -527,8 +527,8 @@ fn item_row(
         .unwrap_or_else(|| "—".into());
     html! {
         tr {
-            td class="mono" { (item.line_no) }
-            td class="mono" { (product_code) }
+            td class="font-mono tabular-nums" { (item.line_no) }
+            td class="font-mono tabular-nums" { (product_code) }
             td { (product_name) }
             td { (spec) }
             td { (unit) }

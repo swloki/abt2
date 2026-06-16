@@ -216,7 +216,7 @@ fn bom_detail_page(
                             " "
                             span class=(format!("status-pill {status_class}")) { (status_label) }
                         }
-                        div class="flex gap-4 text-muted text-xs" {
+                        div class="flex gap-4 text-text-muted text-xs" {
                             span { "节点: " (node_count) }
                             @if let Some(cat_id) = bom.bom_category_id {
                                 span { "分类ID: " (cat_id) }
@@ -293,7 +293,7 @@ fn bom_detail_page(
                     }
                 }
                 @if bom.bom_detail.nodes.is_empty() {
-                    div class="text-center p-6 text-muted text-sm" { "暂无BOM节点" }
+                    div class="text-center p-6 text-text-muted text-sm" { "暂无BOM节点" }
                 } @else {
                     table class="w-full text-[13px]" style="table-layout:fixed" {
                         thead {
@@ -425,10 +425,10 @@ fn bom_node_row(
         tr class=(row_class) {
             td style="text-align:center" { (index + 1) }
             td style="text-align:center" { (level) }
-            td class="mono" { (code) }
+            td class="font-mono tabular-nums" { (code) }
             td class="bom-col-name" { (name) }
             td { (work_center) }
-            td class="mono" style="text-align:right" { (node.quantity) }
+            td class="font-mono tabular-nums" style="text-align:right" { (node.quantity) }
             td { (unit) }
             td style="text-align:right" { (loss_rate) }
             td style="color:var(--muted)" { (remark) }
@@ -495,7 +495,7 @@ fn cost_drawer_content(report: &BomCostReport, temp_prices: &HashMap<i64, String
                         }
                         (icon::chevron_down_icon("w-4 h-4"))
                     }
-                    div class="cost-warning-list" {
+                    div class="grid grid-rows-[0fr] transition-[grid-template-rows] duration-300" {
                         ul {
                             @for w in &report.warnings {
                                 li { "- " (w) }
@@ -545,7 +545,7 @@ fn cost_drawer_content(report: &BomCostReport, temp_prices: &HashMap<i64, String
                 }
             }
             // Material cost table
-            div class="cost-section" {
+            div class="mb-6" {
                 div class="text-[13px] font-semibold text-[#374151]" { "【材料成本】" }
                 table class="w-full overflow-hidden" {
                     thead {
@@ -565,14 +565,14 @@ fn cost_drawer_content(report: &BomCostReport, temp_prices: &HashMap<i64, String
                             @let has_temp = is_missing && temp_prices.contains_key(&item.product_id);
                             @let tr_class = if is_missing && !has_temp { "row-danger" } else { "" };
                             tr class=(tr_class) {
-                                td class="cell-name font-mono" title=(item.product_name) {
+                                td class="cell-name font-font-mono tabular-nums" title=(item.product_name) {
                                     (item.product_name)
                                 }
-                                td class="font-mono cell-code" { (item.product_code) }
-                                td class="text-right font-mono" { (item.quantity) }
+                                td class="font-font-mono tabular-nums cell-code" { (item.product_code) }
+                                td class="text-right font-font-mono tabular-nums" { (item.quantity) }
                                 td class="text-right" {
                                     @if let Some(price) = item.unit_price {
-                                        span class="font-mono" { (format_currency(price)) }
+                                        span class="font-font-mono tabular-nums" { (format_currency(price)) }
                                     } @else if has_temp {
                                         span class="inline-flex items-center gap-[6px]" {
                                             span { (format_currency(effective_price.unwrap_or(Decimal::ZERO))) }
@@ -610,9 +610,9 @@ fn cost_drawer_content(report: &BomCostReport, temp_prices: &HashMap<i64, String
                                     @if let Some(price) = effective_price {
                                         @let amt = price * item.quantity;
                                         @if has_temp {
-                                            span class="font-mono amount-warn" { (format_currency(amt)) }
+                                            span class="font-font-mono tabular-nums amount-warn" { (format_currency(amt)) }
                                         } @else {
-                                            span class="font-mono amount-primary" { (format_currency(amt)) }
+                                            span class="font-font-mono tabular-nums amount-primary" { (format_currency(amt)) }
                                         }
                                     } @else {
                                         span class="missing-price" { "-" }
@@ -628,7 +628,7 @@ fn cost_drawer_content(report: &BomCostReport, temp_prices: &HashMap<i64, String
                 }
             }
             // Labor cost table
-            div class="cost-section" {
+            div class="mb-6" {
                 div class="text-[13px] font-semibold text-[#374151]" { "【人工成本】" }
                 table class="w-full overflow-hidden" {
                     thead {
@@ -643,7 +643,7 @@ fn cost_drawer_content(report: &BomCostReport, temp_prices: &HashMap<i64, String
                     tbody {
                         @if report.labor_costs.is_empty() {
                             tr {
-                                td colspan="5" class="text-center text-muted text-sm" { "暂无人工成本数据" }
+                                td colspan="5" class="text-center text-text-muted text-sm" { "暂无人工成本数据" }
                             }
                         } @else {
                             @for item in &report.labor_costs {
@@ -654,15 +654,15 @@ fn cost_drawer_content(report: &BomCostReport, temp_prices: &HashMap<i64, String
                                         @if is_zero {
                                             span class="price-zero" { "¥0.000000" }
                                         } @else {
-                                            span class="font-mono" { (format_currency(item.unit_price)) }
+                                            span class="font-font-mono tabular-nums" { (format_currency(item.unit_price)) }
                                         }
                                     }
-                                    td class="text-right font-mono" { (item.quantity) }
+                                    td class="text-right font-font-mono tabular-nums" { (item.quantity) }
                                     td class="text-right cell-amount" {
                                         @if is_zero {
                                             span class="amount-danger" { (format_amount(item.unit_price, item.quantity)) }
                                         } @else {
-                                            span class="font-mono amount-primary" { (format_amount(item.unit_price, item.quantity)) }
+                                            span class="font-font-mono tabular-nums amount-primary" { (format_amount(item.unit_price, item.quantity)) }
                                         }
                                     }
                                     td class="cell-remark" {
@@ -752,15 +752,15 @@ fn labor_cost_drawer_content(bom_name: &str, report: &BomLaborCostReport) -> Mar
                                     @if is_zero {
                                         span style="color:#ef4444;font-weight:500" { "¥0.000000" }
                                     } @else {
-                                        span class="font-mono" { (format_currency(item.unit_price)) }
+                                        span class="font-font-mono tabular-nums" { (format_currency(item.unit_price)) }
                                     }
                                 }
-                                td class="text-right font-mono" { (item.quantity) }
+                                td class="text-right font-font-mono tabular-nums" { (item.quantity) }
                                 td class="text-right" style="font-weight:500" {
                                     @if is_zero {
                                         span style="color:#ef4444" { (format_amount(item.unit_price, item.quantity)) }
                                     } @else {
-                                        span class="font-mono" style="color:#2563eb" {
+                                        span class="font-font-mono tabular-nums" style="color:#2563eb" {
                                             (format_amount(item.unit_price, item.quantity))
                                         }
                                     }

@@ -266,7 +266,7 @@ fn spec_data_card(
                             @let check_count = item.check_items.len();
                             @let sample_plan = format!("Level {}, AQL {}", item.sample_plan.level, item.sample_plan.aql);
                             tr style="cursor:pointer" onclick=(format!("location.href='{}'", detail_path.to_string())) {
-                                td class="mono" style="color:var(--accent)" { (item.doc_number) }
+                                td class="font-mono tabular-nums" style="color:var(--accent)" { (item.doc_number) }
                                 td { (product_name) }
                                 td {
                                     span style=(format!("display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{};color:{}", type_bg, type_color)) {

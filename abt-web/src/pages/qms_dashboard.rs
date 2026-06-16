@@ -119,8 +119,8 @@ fn qms_dashboard_page(
                         (icon::clipboard_list_icon("w-5 h-5"))
                     }
                     div {
-                        div class="text-2xl font-bold font-mono tabular-nums text-fg" { (pending) }
-                        div class="text-sm text-muted mt-1" { "待检验" }
+                        div class="text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg" { (pending) }
+                        div class="text-sm text-text-muted mt-1" { "待检验" }
                     }
                 }
                 div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
@@ -128,8 +128,8 @@ fn qms_dashboard_page(
                         (icon::check_circle_icon("w-5 h-5"))
                     }
                     div {
-                        div class="text-2xl font-bold font-mono tabular-nums text-fg" { (pass_rate_str) }
-                        div class="text-sm text-muted mt-1" { "合格率" }
+                        div class="text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg" { (pass_rate_str) }
+                        div class="text-sm text-text-muted mt-1" { "合格率" }
                     }
                 }
                 div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
@@ -137,8 +137,8 @@ fn qms_dashboard_page(
                         (icon::alert_triangle_icon("w-5 h-5"))
                     }
                     div {
-                        div class="text-2xl font-bold font-mono tabular-nums text-fg" { (fail_count) }
-                        div class="text-sm text-muted mt-1" { "不良品数" }
+                        div class="text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg" { (fail_count) }
+                        div class="text-sm text-text-muted mt-1" { "不良品数" }
                     }
                 }
                 div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
@@ -146,8 +146,8 @@ fn qms_dashboard_page(
                         (icon::file_text_icon("w-5 h-5"))
                     }
                     div {
-                        div class="text-2xl font-bold font-mono tabular-nums text-fg" { (mrb_pending) }
-                        div class="text-sm text-muted mt-1" { "待审MRB" }
+                        div class="text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg" { (mrb_pending) }
+                        div class="text-sm text-text-muted mt-1" { "待审MRB" }
                     }
                 }
                 div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
@@ -155,14 +155,14 @@ fn qms_dashboard_page(
                         (icon::return_arrow_icon("w-5 h-5"))
                     }
                     div {
-                        div class="text-2xl font-bold font-mono tabular-nums text-fg" { (rma_active) }
-                        div class="text-sm text-muted mt-1" { "活跃RMA" }
+                        div class="text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg" { (rma_active) }
+                        div class="text-sm text-text-muted mt-1" { "活跃RMA" }
                     }
                 }
             }
 
             // ── Quick Entry Grid ──
-            div class="section-block" {
+            div class="mb-8" {
                 h2 class="text-lg font-semibold text-fg flex items-center gap-2" {
                     (icon::bolt_icon("w-4 h-4"))
                     " 快捷操作"
@@ -183,7 +183,7 @@ fn qms_dashboard_page(
                         " 最近检验结果"
                         a href=(ResultListPath::PATH) class="text-[12px] text-accent font-semibold no-underline" { "查看全部 →" }
                     }
-                    div class="qms-card-body" {
+                    div class="py-2 px-5 pb-4" {
                         div class="flex flex-col" {
                             @if recent_results.is_empty() {
                                 div style="text-align:center;padding:var(--space-8);color:var(--muted);font-size:13px" { "暂无检验记录" }
@@ -209,7 +209,7 @@ fn qms_dashboard_page(
                         " MRB评审列表"
                         a href=(MrbListPath::PATH) class="text-[12px] text-accent font-semibold no-underline" { "查看全部 →" }
                     }
-                    div class="qms-card-body" {
+                    div class="py-2 px-5 pb-4" {
                         div class="flex flex-col" {
                             @if recent_mrbs.is_empty() {
                                 div style="text-align:center;padding:var(--space-8);color:var(--muted);font-size:13px" { "暂无MRB记录" }
@@ -224,7 +224,7 @@ fn qms_dashboard_page(
             }
 
             // ── 6-Month Quality Trend ──
-            div class="section-block" {
+            div class="mb-8" {
                 h2 class="text-lg font-semibold text-fg flex items-center gap-2" {
                     (icon::trending_up_icon("w-4 h-4"))
                     " 近6月质量趋势"
@@ -331,7 +331,7 @@ fn mrb_flow_row(doc: &str, desc: &str, status: &str) -> Markup {
                 div class="flex items-center gap-3 p-3 rounded-sm-sub" { (desc) }
             }
             div class="flex items-center gap-3 p-3 rounded-sm-right" {
-                span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap status-under-review" { (status) }
+                span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-[rgba(217,119,6,0.08)] text-[#b45309] border-[rgba(217,119,6,0.12)]" { (status) }
             }
         }
     }
@@ -355,11 +355,11 @@ fn chart_bar(month: &str, pass_rate: f64, is_current: bool) -> Markup {
     let month_weight = if is_current { "font-weight:700" } else { "font-weight:500" };
     let value_color = if is_current { "var(--accent)" } else { "var(--success)" };
     html! {
-        div class="chart-bar-col" {
+        div class="text-center" {
             div class="flex flex-col items-center gap-[4px] h-[140px] justify-end" {
                 div class="relative overflow-hidden" style=(format!("width:100%;max-width:48px;height:{}px;background:{};border-top:2.5px solid {}", pass_height, accent_bg, accent)) {}
             }
-            div class="text-[12px] text-muted" style=(month_weight) { (month) }
+            div class="text-[12px] text-text-muted" style=(month_weight) { (month) }
             div class="text-[11px] font-bold" style=(format!("color:{}", value_color)) {
                 (format!("{:.1}%", pass_rate))
             }

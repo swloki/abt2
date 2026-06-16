@@ -164,8 +164,8 @@ fn stats_row(stats: &ScheduleStats) -> Markup {
 fn stat_card(value: &str, label: &str, cls: &str) -> Markup {
     html! {
         div class=(format!("board-stat-card {cls}")) {
-            span class="board-text-2xl font-bold font-mono tabular-nums text-fg" { (value) }
-            span class="board-text-sm text-muted mt-1" { (label) }
+            span class="board-text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg" { (value) }
+            span class="board-text-sm text-text-muted mt-1" { (label) }
         }
     }
 }
@@ -402,15 +402,15 @@ fn load_view(
                     "无排程"
                 }
                 span class="flex gap-[16px] justify-end-item" {
-                    span class="flex gap-[16px] justify-end-swatch load-level-low" {}
+                    span class="flex gap-[16px] justify-end-swatch bg-[rgba(82,196,26,.12)] text-[#389e0d]" {}
                     "<70%"
                 }
                 span class="flex gap-[16px] justify-end-item" {
-                    span class="flex gap-[16px] justify-end-swatch load-level-mid" {}
+                    span class="flex gap-[16px] justify-end-swatch bg-[rgba(250,140,22,.15)] text-[#d46b08]" {}
                     "70-90%"
                 }
                 span class="flex gap-[16px] justify-end-item" {
-                    span class="flex gap-[16px] justify-end-swatch load-level-high" {}
+                    span class="flex gap-[16px] justify-end-swatch bg-[rgba(245,34,45,.12)] text-[#cf1322]" {}
                     ">90%"
                 }
             }
@@ -550,7 +550,7 @@ fn kanban_card(card: &ScheduleCard) -> Markup {
     html! {
         a class="kanban-card" href=(format!("/admin/mes/batches/{}", card.id)) {
             div class="kanban-card-top" {
-                span class="kanban-card-no mono" { (card.batch_no) }
+                span class="kanban-card-no font-mono tabular-nums" { (card.batch_no) }
                 span class=(format!("kanban-card-pill {status_cls}")) { (status_label) }
             }
             div class="kanban-card-product" {

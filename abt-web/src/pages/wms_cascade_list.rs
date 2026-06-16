@@ -169,7 +169,7 @@ fn bom_child_row(child: &ChildNodeInventory) -> Markup {
 
     html! {
         tr {
-            td class="mono" { (child.product_code) }
+            td class="font-mono tabular-nums" { (child.product_code) }
             td { (child.product_name) }
             td {
                 @if let Some(ref u) = child.unit {

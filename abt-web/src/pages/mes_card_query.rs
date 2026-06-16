@@ -121,7 +121,7 @@ fn card_query_page(recent_batches: &[abt_core::mes::production_batch::BatchListI
             // 搜索区
             div class="bg-bg border border-border-soft rounded-lg p-10 text-center relative overflow-hidden" {
                 div class="text-2xl font-bold text-fg" { "流转卡查询" }
-                div class="text-sm text-muted" { "输入流转卡号、批次号或扫描二维码，实时查看工序流转进度" }
+                div class="text-sm text-text-muted" { "输入流转卡号、批次号或扫描二维码，实时查看工序流转进度" }
                 div class="card-w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent-wrap" {
                     form hx-get=(CardQuerySearchPath::PATH) hx-target="#card-result" hx-swap="innerHTML" hx-trigger="submit" style="display:flex;gap:var(--space-3);flex:1" {
                         input class="card-w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="q" placeholder="输入流转卡号 / 批次号，如 FC-SN-060301" autofocus;
@@ -244,7 +244,7 @@ fn card_search_result(
                 div class="bg-bg border border-border-soft rounded-lg overflow-hidden-meta" {
                     span {
                         (PreEscaped(r#"<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/></svg>"#))
-                        "批次 " span class="mono" { (batch.batch_no) }
+                        "批次 " span class="font-mono tabular-nums" { (batch.batch_no) }
                     }
                     span {
                         (PreEscaped(r#"<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>"#))
@@ -258,15 +258,15 @@ fn card_search_result(
                 // 基本信息网格
                 div class="card-grid gap-4" {
                     div class="card-flex flex-col gap-1" {
-                        span class="card-text-xs text-muted font-medium" { "产品" }
+                        span class="card-text-xs text-text-muted font-medium" { "产品" }
                         span class="card-text-sm text-fg font-medium" { (product_name) }
                     }
                     div class="card-flex flex-col gap-1" {
-                        span class="card-text-xs text-muted font-medium" { "批次数量" }
+                        span class="card-text-xs text-text-muted font-medium" { "批次数量" }
                         span class="card-text-sm text-fg font-medium" style="font-family:var(--font-mono)" { (crate::utils::fmt_qty(batch.batch_qty)) }
                     }
                     div class="card-flex flex-col gap-1" {
-                        span class="card-text-xs text-muted font-medium" { "完成/报废" }
+                        span class="card-text-xs text-text-muted font-medium" { "完成/报废" }
                         span class="card-text-sm text-fg font-medium" {
                             span style="color:var(--success);font-family:var(--font-mono)" { (crate::utils::fmt_qty(batch.completed_qty)) }
                             " / "
@@ -274,15 +274,15 @@ fn card_search_result(
                         }
                     }
                     div class="card-flex flex-col gap-1" {
-                        span class="card-text-xs text-muted font-medium" { "实际开始" }
+                        span class="card-text-xs text-text-muted font-medium" { "实际开始" }
                         span class="card-text-sm text-fg font-medium" { (actual_start_str) }
                     }
                     div class="card-flex flex-col gap-1" {
-                        span class="card-text-xs text-muted font-medium" { "当前工序" }
+                        span class="card-text-xs text-text-muted font-medium" { "当前工序" }
                         span class="card-text-sm text-fg font-medium" style="color:var(--warn)" { (current_step_display) }
                     }
                     div class="card-flex flex-col gap-1" {
-                        span class="card-text-xs text-muted font-medium" { "状态" }
+                        span class="card-text-xs text-text-muted font-medium" { "状态" }
                         span class=(format!("card-info-value status-pill {status_cls}")) { (status_label) }
                     }
                 }
@@ -378,7 +378,7 @@ fn card_search_result(
                                             };
                                             tr {
                                                 td {
-                                                    a href=(format!("/admin/mes/reports/{}", report.id)) style="color:var(--accent)" class="mono" { (report.doc_number) }
+                                                    a href=(format!("/admin/mes/reports/{}", report.id)) style="color:var(--accent)" class="font-mono tabular-nums" { (report.doc_number) }
                                                 }
                                                 td { (process_name) }
                                                 td {
@@ -386,8 +386,8 @@ fn card_search_result(
                                                     @else { "夜班" }
                                                 }
                                                 td { (worker_name) }
-                                                td class="text-right text-[13px] mono" style="color:var(--success)" { (crate::utils::fmt_qty(report.completed_qty)) }
-                                                td class="text-right text-[13px] mono" {
+                                                td class="text-right text-[13px] font-mono tabular-nums" style="color:var(--success)" { (crate::utils::fmt_qty(report.completed_qty)) }
+                                                td class="text-right text-[13px] font-mono tabular-nums" {
                                                     @if report.defect_qty > rust_decimal::Decimal::ZERO {
                                                         span style="color:var(--danger)" { (crate::utils::fmt_qty(report.defect_qty)) }
                                                     } @else {
@@ -395,8 +395,8 @@ fn card_search_result(
                                                     }
                                                 }
                                                 td { (defect_reason_str) }
-                                                td class="text-right text-[13px] mono" { (crate::utils::fmt_qty(report.work_hours)) "h" }
-                                                td class="text-right text-[13px] mono" style="color:var(--success)" { "¥" (crate::utils::fmt_qty(wage)) }
+                                                td class="text-right text-[13px] font-mono tabular-nums" { (crate::utils::fmt_qty(report.work_hours)) "h" }
+                                                td class="text-right text-[13px] font-mono tabular-nums" style="color:var(--success)" { "¥" (crate::utils::fmt_qty(wage)) }
                                             }
                                         }
                                     }

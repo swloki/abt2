@@ -261,7 +261,7 @@ fn plan_data_card(
                             @let sales_orders = stats.map(|s| s.sales_orders.as_str()).unwrap_or("—");
                             @let sales_orders_display = if sales_orders.is_empty() { "—" } else { sales_orders };
                             tr style="cursor:pointer" onclick=(format!("location.href='{}'", detail_path.to_string())) {
-                                td class="text-accent font-medium cursor-pointer mono" style="color:var(--accent)" { (item.doc_number) }
+                                td class="text-accent font-medium cursor-pointer font-mono tabular-nums" style="color:var(--accent)" { (item.doc_number) }
                                 td { (item.plan_date) }
                                 td {
                                     span style=(format!("display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{};color:{}", type_bg, type_color)) {

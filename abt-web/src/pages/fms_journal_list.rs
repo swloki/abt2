@@ -312,7 +312,7 @@ fn journal_data_card(result: &PaginatedResult<CashJournal>, params: &JournalQuer
                             @let (status_text, status_bg, status_color) = status_label(&item.status);
                             @let detail_path = JournalDetailPath { id: item.id };
                             tr style="cursor:pointer" onclick=(format!("location.href='{}'", detail_path.to_string())) {
-                                td class="mono" style="color:var(--accent)" { (item.doc_number) }
+                                td class="font-mono tabular-nums" style="color:var(--accent)" { (item.doc_number) }
                                 td {
                                     span style=(format!("display:inline-flex;align-items:center;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{};color:{}", type_bg, type_color)) {
                                         (type_label)
@@ -323,13 +323,13 @@ fn journal_data_card(result: &PaginatedResult<CashJournal>, params: &JournalQuer
                                         (dir_label)
                                     }
                                 }
-                                td class="mono text-right text-[13px]" style=(format!("font-weight:600;color:{}", amount_color(&item.direction))) {
+                                td class="font-mono tabular-nums text-right text-[13px]" style=(format!("font-weight:600;color:{}", amount_color(&item.direction))) {
                                     (fmt_amount(item.amount, &item.direction))
                                 }
                                 td { (counterparty_name(item, counterparty_names)) }
-                                td class="mono" style="color:var(--muted)" { (&item.bank_account) }
+                                td class="font-mono tabular-nums" style="color:var(--muted)" { (&item.bank_account) }
                                 td style="font-size:12px;color:var(--muted)" { (item.transaction_date.format("%Y-%m-%d")) }
-                                td class="mono" { (&item.period) }
+                                td class="font-mono tabular-nums" { (&item.period) }
                                 td {
                                     span style=(format!("display:inline-flex;align-items:center;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{};color:{}", status_bg, status_color)) {
                                         (status_text)

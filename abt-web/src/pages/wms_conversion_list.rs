@@ -186,9 +186,9 @@ fn conversion_row(c: &FormConversion) -> Markup {
 
     html! {
         tr style="cursor:pointer" {
-            td class="text-accent font-medium cursor-pointer mono" onclick=(format!("location.href='{}'", detail_path)) { (c.doc_number) }
+            td class="text-accent font-medium cursor-pointer font-mono tabular-nums" onclick=(format!("location.href='{}'", detail_path)) { (c.doc_number) }
             td onclick=(format!("location.href='{}'", detail_path)) { "—" }
-            td class="mono" onclick=(format!("location.href='{}'", detail_path)) { (c.conversion_date.to_string()) }
+            td class="font-mono tabular-nums" onclick=(format!("location.href='{}'", detail_path)) { (c.conversion_date.to_string()) }
             td onclick=(format!("location.href='{}'", detail_path)) {
                 span class=(format!("status-pill {status_class}")) { (status_label) }
             }

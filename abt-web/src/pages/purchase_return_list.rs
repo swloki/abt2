@@ -289,15 +289,15 @@ fn pr_row(
 
     html! {
         tr style="cursor:pointer" {
-            td class="text-accent font-medium cursor-pointer mono" onclick=(&onclick) { (r.doc_number) }
+            td class="text-accent font-medium cursor-pointer font-mono tabular-nums" onclick=(&onclick) { (r.doc_number) }
             td onclick=(&onclick) { (supplier_name) }
-            td class="mono" onclick=(&onclick) { (r.order_id) }
+            td class="font-mono tabular-nums" onclick=(&onclick) { (r.order_id) }
             td onclick=(&onclick) {
                 span class=(format!("status-pill {status_class}")) { (status_text) }
             }
             td onclick=(&onclick) { (r.return_reason) }
             td class="text-right text-[13px]" onclick=(&onclick) { (r.total_amount) }
-            td class="mono" onclick=(&onclick) { (r.return_date.format("%Y-%m-%d")) }
+            td class="font-mono tabular-nums" onclick=(&onclick) { (r.return_date.format("%Y-%m-%d")) }
             td onclick=(&onclick) { (created) }
             td onclick="event.stopPropagation()" {
                 @if is_draft {

@@ -229,7 +229,7 @@ fn supplier_row(s: &Supplier, can_delete: bool, can_edit: bool) -> Markup {
 
     html! {
         tr style="cursor:pointer" {
-            td class="text-accent font-medium cursor-pointer mono" onclick=(format!("location.href='{}'", detail_path)) { (s.code) }
+            td class="text-accent font-medium cursor-pointer font-mono tabular-nums" onclick=(format!("location.href='{}'", detail_path)) { (s.code) }
             td onclick=(format!("location.href='{}'", detail_path)) { strong { (s.name) } }
             td onclick=(format!("location.href='{}'", detail_path)) {
                 span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-surface text-[#666]" { (category_label) }
@@ -240,7 +240,7 @@ fn supplier_row(s: &Supplier, can_delete: bool, can_edit: bool) -> Markup {
             td onclick=(format!("location.href='{}'", detail_path)) {
                 span style="color:var(--muted)" { "—" }
             }
-            td class="mono" onclick=(format!("location.href='{}'", detail_path)) {
+            td class="font-mono tabular-nums" onclick=(format!("location.href='{}'", detail_path)) {
                 @if s.lead_time_days > 0 {
                     (s.lead_time_days) " 天"
                 } @else {

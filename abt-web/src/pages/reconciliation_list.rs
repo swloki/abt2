@@ -270,7 +270,7 @@ fn reconciliation_table_fragment(
                             }
                             @if result.items.is_empty() {
                                 tr {
-                                    td colspan="8" class="text-center p-8 text-muted" {
+                                    td colspan="8" class="text-center p-8 text-text-muted" {
                                         "暂无对账数据"
                                     }
                                 }
@@ -317,17 +317,17 @@ fn reconciliation_row(
 
     html! {
         tr {
-            td class="text-accent font-medium cursor-pointer mono" onclick=(&onclick) { (r.doc_number) }
+            td class="text-accent font-medium cursor-pointer font-mono tabular-nums" onclick=(&onclick) { (r.doc_number) }
             td onclick=(&onclick) { (customer_name) }
             td onclick=(&onclick) { (r.period.as_str()) }
             td class="text-right text-[13px]" onclick=(&onclick) {
-                span class="mono" { (crate::utils::fmt_amount(r.total_amount)) }
+                span class="font-mono tabular-nums" { (crate::utils::fmt_amount(r.total_amount)) }
             }
             td class="text-right text-[13px]" onclick=(&onclick) {
-                span class="mono" { (crate::utils::fmt_amount(r.confirmed_amount)) }
+                span class="font-mono tabular-nums" { (crate::utils::fmt_amount(r.confirmed_amount)) }
             }
             td class="text-right text-[13px]" onclick=(&onclick) {
-                span class="mono font-semibold" { (crate::utils::fmt_amount(r.difference)) }
+                span class="font-mono tabular-nums font-semibold" { (crate::utils::fmt_amount(r.difference)) }
             }
             td onclick=(&onclick) {
                 span class=(format!("status-pill {status_class}")) { (status_text) }

@@ -363,7 +363,7 @@ fn result_data_card(
                                 .map(|d| d.format("%Y-%m-%d").to_string())
                                 .unwrap_or_else(|| "—".into());
                             tr style="cursor:pointer" onclick=(format!("location.href='{}'", detail_path.to_string())) {
-                                td class="mono" style="color:var(--accent)" { (item.doc_number) }
+                                td class="font-mono tabular-nums" style="color:var(--accent)" { (item.doc_number) }
                                 td {
                                     span style=(format!("display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{};color:{}", type_bg, type_color)) {
                                         (type_label)
@@ -371,8 +371,8 @@ fn result_data_card(
                                 }
                                 td { (src_label) }
                                 td { (product_name) }
-                                td class="mono" { (item.batch_no) }
-                                td class="mono text-right text-[13px]" { (qty_display) }
+                                td class="font-mono tabular-nums" { (item.batch_no) }
+                                td class="font-mono tabular-nums text-right text-[13px]" { (qty_display) }
                                 td {
                                     span style=(format!("display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{};color:{}", r_bg, r_color)) {
                                         (r_label)

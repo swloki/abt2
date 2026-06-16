@@ -46,17 +46,17 @@ pub async fn get_inspection_detail(path: InspectionDetailPath, ctx: RequestConte
 
     let content = html! { div {
         div class="flex items-center justify-between mb-6" {
-            div class="flex items-center justify-between mb-6-left" { a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", InspectionListPath::PATH)) { "\u{2190} 返回列表" } h1 class="text-xl font-bold text-fg tracking-tight" { "检验 " (insp.doc_number) } }
+            div class="flex items-center justify-between mb-6-left" { a class="inline-flex items-center gap-2 text-sm text-text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", InspectionListPath::PATH)) { "\u{2190} 返回列表" } h1 class="text-xl font-bold text-fg tracking-tight" { "检验 " (insp.doc_number) } }
         }
         div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
             div class="grid gap-4" {
-                div class="flex flex-col gap-1" { label { "单号" } span class="mono" { (insp.doc_number) } }
+                div class="flex flex-col gap-1" { label { "单号" } span class="font-mono tabular-nums" { (insp.doc_number) } }
                 div class="flex flex-col gap-1" { label { "工单" } span { (wo) } }
                 div class="flex flex-col gap-1" { label { "产品" } span { (product) } }
                 div class="flex flex-col gap-1" { label { "检验类型" } span { (type_label) } }
-                div class="flex flex-col gap-1" { label { "样本数量" } span class="mono" { (crate::utils::fmt_qty(insp.sample_qty)) } }
-                div class="flex flex-col gap-1" { label { "合格数量" } span class="mono" { (crate::utils::fmt_qty(insp.qualified_qty)) } }
-                div class="flex flex-col gap-1" { label { "不合格数量" } span class="mono" { (crate::utils::fmt_qty(insp.unqualified_qty)) } }
+                div class="flex flex-col gap-1" { label { "样本数量" } span class="font-mono tabular-nums" { (crate::utils::fmt_qty(insp.sample_qty)) } }
+                div class="flex flex-col gap-1" { label { "合格数量" } span class="font-mono tabular-nums" { (crate::utils::fmt_qty(insp.qualified_qty)) } }
+                div class="flex flex-col gap-1" { label { "不合格数量" } span class="font-mono tabular-nums" { (crate::utils::fmt_qty(insp.unqualified_qty)) } }
                 div class="flex flex-col gap-1" { label { "结果" } span style=(format!("display:inline-flex;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{};color:{}", rb, rc)) { (rl) } }
                 div class="flex flex-col gap-1" { label { "检验员" } span { (inspector) } }
                 div class="flex flex-col gap-1" { label { "检验日期" } span { (insp.inspection_date) } }

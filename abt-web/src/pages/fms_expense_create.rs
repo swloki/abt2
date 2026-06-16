@@ -95,7 +95,7 @@ fn expense_create_page() -> Markup {
     html! {
         div class="fms-form-page" {
             // 返回链接
-            a href=(format!("{}?restore=true", ExpenseListPath::PATH)) class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" style="display:inline-flex;align-items:center;gap:6px;font-size:14px;color:var(--muted);margin-bottom:var(--space-6)" {
+            a href=(format!("{}?restore=true", ExpenseListPath::PATH)) class="inline-flex items-center gap-2 text-sm text-text-muted hover:text-accent transition-colors duration-150" style="display:inline-flex;align-items:center;gap:6px;font-size:14px;color:var(--muted);margin-bottom:var(--space-6)" {
                 (PreEscaped(r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>"#))
                 "返回列表"
             }
@@ -143,7 +143,7 @@ fn expense_create_page() -> Markup {
                         span style="font-size:14px;font-weight:400;color:var(--muted)" { "合计：" strong id="totalDisplay" style="color:var(--accent);font-family:var(--font-mono)" { "¥0.00" } }
                     }
                     div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
-                        table class="line-table" style="min-width:800px" {
+                        table class="w-full border-separate border-spacing-0" style="min-width:800px" {
                             thead {
                                 tr {
                                     th style="width:140px" { "费用类型 " span style="color:var(--danger)" { "*" } }
@@ -196,7 +196,7 @@ fn expense_create_page() -> Markup {
                 + '<td><input type="text" data-field="receipt_no" placeholder="发票号"></td>'
                 + '<td><select data-field="cost_center"><option value="">选择</option><option value="1">CC-001 生产部</option><option value="2">CC-002 销售部</option><option value="3">CC-003 管理部</option></select></td>'
                 + '<td><select data-field="profit_center"><option value="">选择</option><option value="1">PC-001 华南</option><option value="2">PC-002 华东</option><option value="3">PC-003 华北</option></select></td>'
-                + '<td><button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center" title="删除行" onclick="this.closest(\'tr\').remove();calcTotal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M18 6L6 18M6 6l12 12"/></svg></button></td>';
+                + '<td><button type="button" class="w-[28px] h-[28px] border-none text-text-muted rounded-sm cursor-pointer grid place-items-center" title="删除行" onclick="this.closest(\'tr\').remove();calcTotal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M18 6L6 18M6 6l12 12"/></svg></button></td>';
             tbody.appendChild(row);
         }
 

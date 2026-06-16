@@ -134,12 +134,12 @@ fn inspection_data_card(
                         @let (rl, rb, rc) = insp_result_label(&item.result);
                         @let dp = format!("/admin/mes/inspections/{}", item.id);
                         tr style="cursor:pointer" onclick=(format!("location.href='{}'", dp)) {
-                            td class="text-accent font-medium cursor-pointer mono" style="color:var(--accent)" { (item.doc_number) }
-                            td class="mono" { (item.work_order_doc.as_deref().unwrap_or("\u{2014}")) }
+                            td class="text-accent font-medium cursor-pointer font-mono tabular-nums" style="color:var(--accent)" { (item.doc_number) }
+                            td class="font-mono tabular-nums" { (item.work_order_doc.as_deref().unwrap_or("\u{2014}")) }
                             td { (tl) }
                             td { (item.product_name.as_deref().unwrap_or("\u{2014}")) }
-                            td class="text-right text-[13px] mono" { (crate::utils::fmt_qty(item.sample_qty)) }
-                            td class="text-right text-[13px] mono" { (crate::utils::fmt_qty(item.qualified_qty)) }
+                            td class="text-right text-[13px] font-mono tabular-nums" { (crate::utils::fmt_qty(item.sample_qty)) }
+                            td class="text-right text-[13px] font-mono tabular-nums" { (crate::utils::fmt_qty(item.qualified_qty)) }
                             td { span style=(format!("display:inline-flex;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{};color:{}", rb, rc)) { (rl) } }
                             td { a href=(dp) style="color:var(--accent);font-size:var(--text-xs)" { "查看" } }
                         }

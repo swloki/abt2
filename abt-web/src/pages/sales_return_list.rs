@@ -316,7 +316,7 @@ fn return_table_fragment(
                             }
                             @if result.items.is_empty() {
                                 tr {
-                                    td colspan="9" class="text-center p-8 text-muted" {
+                                    td colspan="9" class="text-center p-8 text-text-muted" {
                                         "暂无退货数据"
                                     }
                                 }
@@ -351,7 +351,7 @@ fn return_row(
 
     html! {
         tr {
-            td class="text-accent font-medium cursor-pointer mono" onclick=(&onclick) { (r.doc_number) }
+            td class="text-accent font-medium cursor-pointer font-mono tabular-nums" onclick=(&onclick) { (r.doc_number) }
             td onclick=(&onclick) {
                 a href=(shipping_detail.to_string()) class="text-accent" onclick="event.stopPropagation()" { (shipping_num) }
             }
@@ -363,7 +363,7 @@ fn return_row(
                 span class=(format!("status-pill {status_class}")) { (status_text) }
             }
             td class="text-right text-[13px]" onclick=(&onclick) {
-                span class="mono" { (crate::utils::fmt_amount(r.total_amount)) }
+                span class="font-mono tabular-nums" { (crate::utils::fmt_amount(r.total_amount)) }
             }
             td onclick=(&onclick) { (r.return_reason.as_str()) }
             td onclick=(&onclick) { (created) }

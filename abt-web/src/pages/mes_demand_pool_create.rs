@@ -271,13 +271,13 @@ fn create_page_content(
             // ── Page Header ──
             div class="flex items-center justify-between mb-6" {
                 div {
-                    a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", MesDemandPoolListPath::PATH)) {
+                    a class="inline-flex items-center gap-2 text-sm text-text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", MesDemandPoolListPath::PATH)) {
                         (icon::arrow_left_icon("w-4 h-4"))
                         "返回需求池"
                     }
                     h1 class="text-xl font-bold text-fg tracking-tight" { "从需求创建生产计划" }
                     div style="font-size:13px;color:var(--muted);margin-top:4px;" {
-                        span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-surface text-muted" style="font-size:11px;padding:2px 8px;margin-right:6px;background:#fef3c7;color:#d97706;" {
+                        span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-surface text-text-muted" style="font-size:11px;padding:2px 8px;margin-right:6px;background:#fef3c7;color:#d97706;" {
                             "生产需求池 · 按物料聚合"
                         }
                         "将生产需求池中的自制需求聚合为生产计划草稿"
@@ -307,7 +307,7 @@ fn create_page_content(
                         }
                         div class="form-field" {
                             label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "物料编码" }
-                            input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] mono" type="text" readonly
+                            input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] font-mono tabular-nums" type="text" readonly
                                 value=(product_code)
                                 style="background:var(--surface);" {}
                         }
@@ -332,7 +332,7 @@ fn create_page_content(
                         (icon::clock_icon("w-[18px] h-[18px]"))
                         "默认排程参数"
                     }
-                    div class="text-xs text-muted p-2 bg-surface-raised rounded-sm" {
+                    div class="text-xs text-text-muted p-2 bg-surface-raised rounded-sm" {
                         "以下参数将应用于所有未单独配置的需求行。可在需求明细中逐行修改排程日期。"
                     }
                     div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" style="grid-template-columns:repeat(4,1fr)" {
@@ -432,20 +432,20 @@ fn create_page_content(
                     div class="flex justify-end gap-8 p-5 border-t bg-surface-raised" {
                         div class="flex gap-3" {
                             span { "已选需求" }
-                            span class="mono font-semibold" {
+                            span class="font-mono tabular-nums font-semibold" {
                                 span id="selectedCount" { (selected_count) }
                                 " 条"
                             }
                         }
                         div class="flex gap-3" {
                             span { "总数量" }
-                            span class="mono font-semibold" {
+                            span class="font-mono tabular-nums font-semibold" {
                                 span id="totalQty" { (fmt_qty(total_qty)) }
                             }
                         }
                         div class="flex gap-3" {
                             span { "聚合方式" }
-                            span class="mono font-semibold" { "按物料" }
+                            span class="font-mono tabular-nums font-semibold" { "按物料" }
                         }
                     }
                 }
@@ -579,12 +579,12 @@ fn demand_row(d: &DemandSummary, preselected_ids: &[i64]) -> Markup {
                     input type="checkbox" disabled;
                 }
             }
-            td class="mono" style="font-size:12px;" { (d.id) }
+            td class="font-mono tabular-nums" style="font-size:12px;" { (d.id) }
             td {
                 a class="text-accent font-medium cursor-pointer" href=(OrderDetailPath { id: d.order_id }.to_string()) { (d.order_no.as_deref().unwrap_or("—")) }
             }
-            td class="text-right text-[13px] mono demand-qty" { (fmt_qty(d.quantity)) }
-            td class="mono" { (req_date) }
+            td class="text-right text-[13px] font-mono tabular-nums demand-qty" { (fmt_qty(d.quantity)) }
+            td class="font-mono tabular-nums" { (req_date) }
             td {
                 input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="date"
                     value=(row_start)
@@ -596,7 +596,7 @@ fn demand_row(d: &DemandSummary, preselected_ids: &[i64]) -> Markup {
                     style="width:130px;font-size:12px;padding:4px 6px;" {}
             }
             td {
-                button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center" title="移除" _="on click remove closest <tr/> then call updateDemandSummary()" {
+                button type="button" class="w-[28px] h-[28px] border-none text-text-muted rounded-sm cursor-pointer grid place-items-center" title="移除" _="on click remove closest <tr/> then call updateDemandSummary()" {
                     (icon::x_icon("w-3.5 h-3.5"))
                 }
             }

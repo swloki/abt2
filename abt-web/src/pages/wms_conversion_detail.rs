@@ -150,7 +150,7 @@ fn conversion_detail_page(
 
     html! {
         div {
-            a href="/admin/wms/conversions" class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" {
+            a href="/admin/wms/conversions" class="inline-flex items-center gap-2 text-sm text-text-muted hover:text-accent transition-colors duration-150" {
                 (icon::chevron_left_icon("w-4 h-4"))
                 "返回形态转换列表"
             }
@@ -158,7 +158,7 @@ fn conversion_detail_page(
             div class="block bg-bg border border-border-soft rounded-lg p-6" {
                 div {
                     div class="flex items-center justify-between" {
-                        h1 class="text-2xl font-extrabold font-mono" { (conversion.doc_number) }
+                        h1 class="text-2xl font-extrabold font-font-mono tabular-nums" { (conversion.doc_number) }
                         span class=(format!("status-pill {status_class}")) { (status_label) }
                     }
                 }
@@ -175,19 +175,19 @@ fn conversion_detail_page(
                 div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "转换信息" }
                 div class="grid gap-4" {
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-muted font-medium" { "转换单号" }
-                        span class="text-sm text-fg font-medium mono" { (conversion.doc_number) }
+                        span class="text-xs text-text-muted font-medium" { "转换单号" }
+                        span class="text-sm text-fg font-medium font-mono tabular-nums" { (conversion.doc_number) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-muted font-medium" { "转换仓库" }
+                        span class="text-xs text-text-muted font-medium" { "转换仓库" }
                         span class="text-sm text-fg font-medium" { (wh_name) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-muted font-medium" { "转换日期" }
-                        span class="text-sm text-fg font-medium mono" { (conversion.conversion_date.to_string()) }
+                        span class="text-xs text-text-muted font-medium" { "转换日期" }
+                        span class="text-sm text-fg font-medium font-mono tabular-nums" { (conversion.conversion_date.to_string()) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-muted font-medium" { "操作员" }
+                        span class="text-xs text-text-muted font-medium" { "操作员" }
                         span class="text-sm text-fg font-medium" { (operator_name) }
                     }
                 }
@@ -197,7 +197,7 @@ fn conversion_detail_page(
             div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
                 div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" {
                     "消耗物料 "
-                    span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap status-cancelled" { "消耗" }
+                    span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-[rgba(220,38,38,0.08)] text-danger" { "消耗" }
                 }
                 table class="data-table" {
                     thead {
@@ -215,14 +215,14 @@ fn conversion_detail_page(
                     tbody {
                         @for (i, item) in consume_items.iter().enumerate() {
                             tr {
-                                td class="mono" { (i + 1) }
-                                td class="mono" { (product_info.code(&item.product_id)) }
+                                td class="font-mono tabular-nums" { (i + 1) }
+                                td class="font-mono tabular-nums" { (product_info.code(&item.product_id)) }
                                 td { (product_info.name(&item.product_id)) }
                                 td { (product_info.spec(&item.product_id)) }
                                 td { (product_info.unit(&item.product_id)) }
                                 td class="text-right text-[13px]" { (format!("{:.2}", item.quantity)) }
                                 td class="text-right text-[13px]" { (format!("{:.2}", item.unit_cost)) }
-                                td class="mono" {
+                                td class="font-mono tabular-nums" {
                                     @if let Some(ref batch) = item.batch_no {
                                         (batch)
                                     } @else {
@@ -264,14 +264,14 @@ fn conversion_detail_page(
                     tbody {
                         @for (i, item) in produce_items.iter().enumerate() {
                             tr {
-                                td class="mono" { (i + 1) }
-                                td class="mono" { (product_info.code(&item.product_id)) }
+                                td class="font-mono tabular-nums" { (i + 1) }
+                                td class="font-mono tabular-nums" { (product_info.code(&item.product_id)) }
                                 td { (product_info.name(&item.product_id)) }
                                 td { (product_info.spec(&item.product_id)) }
                                 td { (product_info.unit(&item.product_id)) }
                                 td class="text-right text-[13px]" { (format!("{:.2}", item.quantity)) }
                                 td class="text-right text-[13px]" { (format!("{:.2}", item.unit_cost)) }
-                                td class="mono" {
+                                td class="font-mono tabular-nums" {
                                     @if let Some(ref batch) = item.batch_no {
                                         (batch)
                                     } @else {

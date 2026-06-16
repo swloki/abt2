@@ -520,7 +520,7 @@ pub fn sidebar(claims: &Claims, active_module: &str, current_path: &str, filter:
     html! {
         nav id="sidebar" class="bg-[#0b1829] text-white/85 flex flex-row sticky top-0 h-screen overflow-hidden z-20" {
             // ── Icon Rail ──
-            div class="sidebar-rail w-[56px] min-w-[56px] bg-[#070f1e] flex flex-col items-center p-3 [border-right:1px_solid_rgba(255,255,255,0.04)] shrink-0" {
+            div class="sidebar-rail w-[56px] min-w-[56px] bg-[#070f1e] flex flex-col items-center py-3 [border-right:1px_solid_rgba(255,255,255,0.04)] shrink-0" {
                 div class="w-[36px] h-[36px] rounded-md bg-accent grid place-items-center mb-5 shadow-[var(--shadow-accent)]" title="ABT ERP" {
                     span class="[&_svg]:w-4.5 [&_svg]:h-4.5 [&_svg]:text-white" { (icon::box_icon("")) }
                 }

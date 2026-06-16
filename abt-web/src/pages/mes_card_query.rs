@@ -183,7 +183,7 @@ fn card_query_page(recent_batches: &[abt_core::mes::production_batch::BatchListI
                                     (batch.current_step_name.as_deref().unwrap_or(""))
                                 }
                                 div class="bg-surface border border-border-soft rounded p-4 cursor-pointer-progress" {
-                                    div class="bg-surface border border-border-soft rounded p-4 cursor-pointer-progress-bar" style=(format!("width:{}%;background:{}", progress_pct, progress_color)) {}
+                                    div class="bg-surface border border-border-soft rounded p-4 cursor-pointer-h-1.5 bg-[rgba(0,0,0,0.06)] rounded-full overflow-hidden" style=(format!("width:{}%;background:{}", progress_pct, progress_color)) {}
                                 }
                             }
                         }

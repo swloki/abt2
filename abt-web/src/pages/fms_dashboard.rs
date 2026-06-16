@@ -431,8 +431,8 @@ fn distribution_bar(label: &str, value: &str, color: &str, width: &str) -> Marku
                 span style="font-size:var(--text-sm);font-weight:600;color:var(--fg)" { (label) }
                 span style=(format!("font-size:var(--text-sm);font-weight:700;color:{color};font-family:var(--font-mono)")) { (value) }
             }
-            div class="progress-bar" {
-                div class="progress-bar-fill" style=(format!("width:{width};background:{color}")) {}
+            div class="h-1.5 bg-[rgba(0,0,0,0.06)] rounded-full overflow-hidden" {
+                div class="h-1.5 bg-[rgba(0,0,0,0.06)] rounded-full overflow-hidden-fill" style=(format!("width:{width};background:{color}")) {}
             }
         }
     }

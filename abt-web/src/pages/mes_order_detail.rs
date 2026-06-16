@@ -521,7 +521,7 @@ fn tab_info(order: &WorkOrder, product_name: &str, routing_count: usize, complet
                     }
                 }
                 div class="h-[8px] bg-[#f5f5f5] overflow-hidden" {
-                    div class="progress-bar-fill"
+                    div class="h-1.5 bg-[rgba(0,0,0,0.06)] rounded-full overflow-hidden-fill"
                         style=(format!("width: {}%", completion_pct.round_dp(1)))
                     {}
                 }

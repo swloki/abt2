@@ -51,7 +51,7 @@ fn exception_list_page(
                 div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-label" { "报废批次" }
             }
             div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
-                div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-value stat-pending" { (stats.inspection_failed) }
+                div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-value text-muted" { (stats.inspection_failed) }
                 div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-label" { "报检不合格" }
             }
         }
@@ -103,7 +103,7 @@ fn exception_table_fragment(
                     }}
                     tbody {
                         @if result.items.is_empty() {
-                            tr { td colspan="7" class="text-center-empty" { "暂无异常记录" } }
+                            tr { td colspan="7" class="text-center py-8 text-sm text-muted" { "暂无异常记录" } }
                         }
                         @for item in &result.items {
                             tr {

@@ -489,7 +489,7 @@ fn kanban_view(cards: &[ScheduleCard]) -> Markup {
     let completed: Vec<_> = cards.iter().filter(|c| c.status == BatchStatus::Completed).collect();
 
     html! {
-        div class="kanban-board" {
+        div class="grid grid-cols-4 gap-4" {
             (kanban_column("待排产", &pending, "kanban-col-pending"))
             (kanban_column("进行中", &in_progress, "kanban-col-progress"))
             (kanban_column("待入库", &pending_receipt, "kanban-col-receipt"))
@@ -505,16 +505,16 @@ fn kanban_column(
 ) -> Markup {
     html! {
         div class=(format!("kanban-column {col_class}")) {
-            div class="kanban-col-header" {
-                span class="kanban-col-title" { (title) }
-                span class="kanban-col-count" { (cards.len()) }
+            div class="flex items-center justify-between px-4 py-3 border-b border-border-soft" {
+                span class="text-sm font-semibold text-fg" { (title) }
+                span class="text-xs text-muted bg-[rgba(0,0,0,0.04)] px-2 py-0.5 rounded-full" { (cards.len()) }
             }
-            div class="kanban-col-body" {
+            div class="flex-1 p-3 flex flex-col gap-3 overflow-y-auto" {
                 @for card in cards {
                     (kanban_card(card))
                 }
                 @if cards.is_empty() {
-                    div class="kanban-empty" { "暂无数据" }
+                    div class="text-sm text-muted text-center py-8" { "暂无数据" }
                 }
             }
         }
@@ -548,27 +548,27 @@ fn kanban_card(card: &ScheduleCard) -> Markup {
     };
 
     html! {
-        a class="kanban-card" href=(format!("/admin/mes/batches/{}", card.id)) {
-            div class="kanban-card-top" {
-                span class="kanban-card-no font-mono tabular-nums" { (card.batch_no) }
+        a class="block bg-white rounded-md border border-border-soft p-4 shadow-xs hover:shadow-md hover:-translate-y-px transition-all duration-200 cursor-pointer" href=(format!("/admin/mes/batches/{}", card.id)) {
+            div class="block bg-white rounded-md border border-border-soft p-4 shadow-xs hover:shadow-md hover:-translate-y-px transition-all duration-200 cursor-pointer-top" {
+                span class="block bg-white rounded-md border border-border-soft p-4 shadow-xs hover:shadow-md hover:-translate-y-px transition-all duration-200 cursor-pointer-no font-mono tabular-nums" { (card.batch_no) }
                 span class=(format!("kanban-card-pill {status_cls}")) { (status_label) }
             }
-            div class="kanban-card-product" {
+            div class="block bg-white rounded-md border border-border-soft p-4 shadow-xs hover:shadow-md hover:-translate-y-px transition-all duration-200 cursor-pointer-product" {
                 (card.product_name.as_deref().unwrap_or("—"))
             }
-            div class="kanban-card-meta" {
+            div class="block bg-white rounded-md border border-border-soft p-4 shadow-xs hover:shadow-md hover:-translate-y-px transition-all duration-200 cursor-pointer-meta" {
                 span { (crate::utils::fmt_qty(card.completed_qty)) " / " (crate::utils::fmt_qty(card.batch_qty)) }
             }
             @if card.current_step > 0 {
-                div class="kanban-card-progress" {
-                    div class="progress-bar" {
-                        div class="progress-fill" style=(format!("width:{}%", progress_pct)) {}
+                div class="block bg-white rounded-md border border-border-soft p-4 shadow-xs hover:shadow-md hover:-translate-y-px transition-all duration-200 cursor-pointer-progress" {
+                    div class="h-1.5 bg-[rgba(0,0,0,0.06)] rounded-full overflow-hidden" {
+                        div class="h-full bg-accent rounded-full transition-all duration-300" style=(format!("width:{}%", progress_pct)) {}
                     }
-                    span class="progress-text" { (step_display) }
+                    span class="text-[10px] text-muted mt-1" { (step_display) }
                 }
             }
             @if !card.wo_doc_number.as_ref().is_none_or(|s| s.is_empty()) {
-                div class="kanban-card-tag" {
+                div class="block bg-white rounded-md border border-border-soft p-4 shadow-xs hover:shadow-md hover:-translate-y-px transition-all duration-200 cursor-pointer-tag" {
                     "工单 " (card.wo_doc_number.as_deref().unwrap_or(""))
                 }
             }

@@ -173,7 +173,7 @@ fn login_form_area(error: Option<&str>, username: &str) -> Markup {
                     }
                     div class="relative" {
                         input type="text" name="username" id="username" required
-                               class="field-input"
+                               class="w-full py-[11px] px-[14px] pl-[42px] border border-border rounded-md bg-white text-sm text-fg outline-none transition-all duration-150 hover:border-[#c4cdd5] focus:border-accent focus:shadow-[0_0_0_3px_rgba(22,119,255,0.15)]"
                                placeholder="请输入用户名或手机号" autocomplete="username"
                                value=(username);
                         (user_icon("field-icon"))
@@ -187,7 +187,7 @@ fn login_form_area(error: Option<&str>, username: &str) -> Markup {
                     }
                     div class="relative" {
                         input type="password" name="password" id="password" required
-                               class="field-input" style="padding-right: 44px"
+                               class="w-full py-[11px] px-[14px] pl-[42px] border border-border rounded-md bg-white text-sm text-fg outline-none transition-all duration-150 hover:border-[#c4cdd5] focus:border-accent focus:shadow-[0_0_0_3px_rgba(22,119,255,0.15)]" style="padding-right: 44px"
                                placeholder="请输入密码" autocomplete="current-password";
                         (lock_icon("field-icon"))
                         button type="button" class="absolute w-[32px] h-[32px] border-none grid place-items-center cursor-pointer text-text-muted rounded-sm" aria-label="显示密码" _="on click toggle .pw-visible on closest <div/> then if (closest <div/>) matches .pw-visible set #password's type to 'text' else set #password's type to 'password'" {

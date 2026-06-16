@@ -120,15 +120,15 @@ fn exception_detail_page(
         @if !events.is_empty() {
             div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
                 div style="font-weight:600;margin-bottom:var(--space-4)" { "处理时间线" }
-                div class="timeline" {
+                div class="flex flex-col gap-0" {
                     @for event in events {
-                        div class="timeline-item" {
-                            div class="timeline-dot" {}
-                            div class="timeline-content" {
-                                div class="timeline-time" { (event.created_at.format("%Y-%m-%d %H:%M")) }
-                                div class="timeline-action" { (event_type_label(&event.event_type)) }
+                        div class="flex flex-col gap-0-item" {
+                            div class="flex flex-col gap-0-dot" {}
+                            div class="flex flex-col gap-0-content" {
+                                div class="flex flex-col gap-0-time" { (event.created_at.format("%Y-%m-%d %H:%M")) }
+                                div class="flex flex-col gap-0-action" { (event_type_label(&event.event_type)) }
                                 @if let Some(ref desc) = event.description {
-                                    div class="timeline-desc" { (desc) }
+                                    div class="flex flex-col gap-0-desc" { (desc) }
                                 }
                             }
                         }

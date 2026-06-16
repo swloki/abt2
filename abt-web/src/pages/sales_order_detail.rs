@@ -313,29 +313,29 @@ fn fulfillment_progress(items: &[SalesOrderItem], plan_lines: &[FulfillmentPlanL
                 }
                 div class="flex gap-[24px]" {
                     div class="text-center" {
-                        div class="progress-text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg green" { (fmt_qty(total_shipped)) }
-                        div class="progress-text-sm text-text-muted mt-1" { "已发货" }
+                        div class="text-[10px] text-muted mt-1-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg green" { (fmt_qty(total_shipped)) }
+                        div class="text-[10px] text-muted mt-1-sm text-text-muted mt-1" { "已发货" }
                     }
                     div class="text-center" {
-                        div class="progress-text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg blue" { (fmt_qty(total_allocated)) }
-                        div class="progress-text-sm text-text-muted mt-1" { "已分配" }
+                        div class="text-[10px] text-muted mt-1-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg blue" { (fmt_qty(total_allocated)) }
+                        div class="text-[10px] text-muted mt-1-sm text-text-muted mt-1" { "已分配" }
                     }
                     div class="text-center" {
-                        div class="progress-text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg orange" { (fmt_qty(total_producing + total_purchasing)) }
-                        div class="progress-text-sm text-text-muted mt-1" { "补货中" }
+                        div class="text-[10px] text-muted mt-1-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg orange" { (fmt_qty(total_producing + total_purchasing)) }
+                        div class="text-[10px] text-muted mt-1-sm text-text-muted mt-1" { "补货中" }
                     }
                     div class="text-center" {
-                        div class="progress-text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg" { (fmt_qty(total_open)) }
-                        div class="progress-text-sm text-text-muted mt-1" { "未交量" }
+                        div class="text-[10px] text-muted mt-1-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg" { (fmt_qty(total_open)) }
+                        div class="text-[10px] text-muted mt-1-sm text-text-muted mt-1" { "未交量" }
                     }
                 }
             }
             div class="h-[8px] bg-border-soft overflow-hidden flex" {
-                div class="progress-bar-shipped" style=(format!("width:{}", pct_shipped)) {}
+                div class="h-1.5 bg-[rgba(0,0,0,0.06)] rounded-full overflow-hidden-shipped" style=(format!("width:{}", pct_shipped)) {}
                 div class="bg-accent transition-all duration-600" style=(format!("width:{}", pct_allocated)) {}
                 div class="bg-warn transition-all duration-600" style=(format!("width:{}", pct_producing)) {}
                 div class="bg-[#8b5cf6] transition-all duration-600" style=(format!("width:{}", pct_purchasing)) {}
-                div class="progress-bar-pending" style=(format!("width:{}", pct_pending)) {}
+                div class="h-1.5 bg-[rgba(0,0,0,0.06)] rounded-full overflow-hidden-pending" style=(format!("width:{}", pct_pending)) {}
             }
             div class="flex gap-5 flex-wrap" {
                 span class="flex gap-5 flex-wrap-item" {

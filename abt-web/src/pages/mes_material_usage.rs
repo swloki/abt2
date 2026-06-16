@@ -69,7 +69,7 @@ pub async fn load_usage_data(
         Some(id) => id,
         None => {
             return Ok(Html(html! {
-                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)] text-center-empty" { "请选择工单" }
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)] text-center py-8 text-sm text-muted" { "请选择工单" }
             }.into_string()));
         }
     };
@@ -145,7 +145,7 @@ fn material_usage_page(
 
         // Content area
         div id="usage-content" {
-            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)] text-center-empty" { "请选择工单查看物料消耗数据" }
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)] text-center py-8 text-sm text-muted" { "请选择工单查看物料消耗数据" }
         }
     }}
 }
@@ -189,7 +189,7 @@ fn usage_data_fragment(wo_info: &abt_core::mes::dashboard::model::WoBasicInfo, c
         }
 
         // ── Summary stats ──
-        div class="usage-summary" {
+        div class="grid grid-cols-4 gap-4 mb-6" {
             // BOM standard
             div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
                 div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 blue" { (icon::box_icon("")) }
@@ -290,7 +290,7 @@ fn usage_data_fragment(wo_info: &abt_core::mes::dashboard::model::WoBasicInfo, c
                 }
             }
         } @else {
-            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)] text-center-empty" { "该工单未关联 BOM，无法显示物料对比" }
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)] text-center py-8 text-sm text-muted" { "该工单未关联 BOM，无法显示物料对比" }
         }
 
         // ── Backflush detail records ──

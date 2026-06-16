@@ -114,41 +114,41 @@ fn customer_list_page(
             }
 
             // ── Stat Cards ──
-            div class="grid gap-5" {
-                div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
-                    div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 blue" {
+            div class="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-5 mb-8" {
+                div class="flex items-center gap-4 p-5 px-6 bg-bg border border-border-soft rounded-lg shadow-[var(--shadow-card)]" {
+                    div class="w-12 h-12 rounded-lg grid place-items-center shrink-0 bg-[#dbeafe] text-accent" {
                         (icon::users_icon("w-6 h-6"))
                     }
                     div {
-                        div class="text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg" { (total_count) }
-                        div class="text-sm text-text-muted mt-1" { "客户总数" }
+                        div class="text-2xl font-bold font-mono tabular-nums text-fg" { (total_count) }
+                        div class="text-xs text-muted mt-0.5 font-medium" { "客户总数" }
                     }
                 }
-                div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
-                    div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 green" {
+                div class="flex items-center gap-4 p-5 px-6 bg-bg border border-border-soft rounded-lg shadow-[var(--shadow-card)]" {
+                    div class="w-12 h-12 rounded-lg grid place-items-center shrink-0 bg-[#dcfce7] text-success" {
                         (icon::check_circle_icon("w-6 h-6"))
                     }
                     div {
-                        div class="text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg" { "—" }
-                        div class="text-sm text-text-muted mt-1" { "活跃客户" }
+                        div class="text-2xl font-bold font-mono tabular-nums text-fg" { "—" }
+                        div class="text-xs text-muted mt-0.5 font-medium" { "活跃客户" }
                     }
                 }
-                div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
-                    div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 orange" {
+                div class="flex items-center gap-4 p-5 px-6 bg-bg border border-border-soft rounded-lg shadow-[var(--shadow-card)]" {
+                    div class="w-12 h-12 rounded-lg grid place-items-center shrink-0 bg-[#fef3c7] text-warn" {
                         (icon::trending_up_icon("w-6 h-6"))
                     }
                     div {
-                        div class="text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg" { "—" }
-                        div class="text-sm text-text-muted mt-1" { "本月交易额" }
+                        div class="text-2xl font-bold font-mono tabular-nums text-fg" { "—" }
+                        div class="text-xs text-muted mt-0.5 font-medium" { "本月交易额" }
                     }
                 }
-                div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
-                    div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 red" {
+                div class="flex items-center gap-4 p-5 px-6 bg-bg border border-border-soft rounded-lg shadow-[var(--shadow-card)]" {
+                    div class="w-12 h-12 rounded-lg grid place-items-center shrink-0 bg-[#fee2e2] text-danger" {
                         (icon::circle_alert_icon("w-6 h-6"))
                     }
                     div {
-                        div class="text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg" { "—" }
-                        div class="text-sm text-text-muted mt-1" { "信用预警" }
+                        div class="text-2xl font-bold font-mono tabular-nums text-fg" { "—" }
+                        div class="text-xs text-muted mt-0.5 font-medium" { "信用预警" }
                     }
                 }
             }
@@ -190,8 +190,8 @@ fn customer_table_fragment(
                 hx-select-oob="#status-tabs"
                 hx-include="#customer-filter-form"
                 hx-push-url="true" {
-                div class="relative flex-1 max-w-xs" {
-                    (icon::search_icon("w-4 h-4"))
+                div class="relative flex-1 max-w-xs [&_svg]:absolute [&_svg]:left-3 [&_svg]:top-1/2 [&_svg]:-translate-y-1/2 [&_svg]:w-4 [&_svg]:h-4 [&_svg]:text-muted" {
+                    (icon::search_icon(""))
                     input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword"
                         placeholder="搜索客户名称、联系人、电话…"
                         value=(params.keyword.as_deref().unwrap_or(""));
@@ -206,31 +206,22 @@ fn customer_table_fragment(
             }
 
             // ── Data Table ──
-            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" id="customer-data-card" {
-                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)] overflow-x-auto" {
-                    table class="data-table w-full border-collapse [&_th]:py-2.5 [&_th]:px-4 [&_th]:text-left [&_th]:font-semibold [&_th]:text-muted [&_th]:text-xs [&_th]:uppercase [&_th]:tracking-wide [&_th]:bg-surface-raised [&_th]:[border-bottom:1px_solid_var(--border-soft)] [&_th]:whitespace-nowrap [&_td]:py-3 [&_td]:px-4 [&_td]:[border-bottom:1px_solid_var(--border-soft)] [&_td]:whitespace-nowrap [&_td]:align-middle [&_tbody_tr]:transition-colors [&_tbody_tr]:cursor-pointer [&_tbody_tr:hover]:bg-accent-bg [&_tbody_tr:last-child_td]:[border-bottom:none]" {
-                        thead {
-                            tr {
-                                th { "客户编码" }
-                                th { "客户名称" }
-                                th { "分类" }
-                                th { "信用额度" }
-                                th { "状态" }
-                                th { "创建时间" }
-                                th { "操作" }
-                            }
+            div class="bg-bg border border-border-soft rounded-md mb-5 shadow-[var(--shadow-card)] overflow-x-auto" id="customer-data-card" {
+                table class="data-table w-full border-collapse [&_th]:py-2.5 [&_th]:px-4 [&_th]:text-left [&_th]:font-semibold [&_th]:text-muted [&_th]:text-xs [&_th]:uppercase [&_th]:tracking-wide [&_th]:bg-surface-raised [&_th]:[border-bottom:1px_solid_var(--border-soft)] [&_th]:whitespace-nowrap [&_td]:py-3 [&_td]:px-4 [&_td]:[border-bottom:1px_solid_var(--border-soft)] [&_td]:whitespace-nowrap [&_td]:align-middle [&_tbody_tr]:transition-colors [&_tbody_tr]:cursor-pointer [&_tbody_tr:hover]:bg-accent-bg [&_tbody_tr:last-child_td]:[border-bottom:none]" {
+                    thead {
+                        tr {
+                            th { "客户编码" }
+                            th { "客户名称" }
+                            th { "分类" }
+                            th { "信用额度" }
+                            th { "状态" }
+                            th { "创建时间" }
+                            th { "操作" }
                         }
-                        tbody {
-                            @for c in &result.items {
-                                (customer_row(c, can_delete))
-                            }
-                            @if result.items.is_empty() {
-                                tr {
-                                    td colspan="7" class="text-center p-8 text-text-muted" {
-                                        "暂无客户数据"
-                                    }
-                                }
-                            }
+                    }
+                    tbody {
+                        @for row in &result.items {
+                            (customer_row(row, can_delete))
                         }
                     }
                 }

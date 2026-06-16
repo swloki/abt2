@@ -25,7 +25,7 @@ pub fn status_tabs_with_param(
     param_name: &str,
 ) -> Markup {
     html! {
-        div id="status-tabs" class="flex gap-1 border-b" {
+        div id="status-tabs" class="flex gap-1 mb-6 [border-bottom:1px_solid_var(--border-soft)]" {
             @for tab in tabs {
                 (status_tab(hx_get, hx_target, hx_include, tab, active_value, param_name))
             }
@@ -35,7 +35,11 @@ pub fn status_tabs_with_param(
 
 fn status_tab(hx_get: &str, hx_target: &str, hx_include: &str, tab: &TabItem, active_value: &str, param_name: &str) -> Markup {
     let is_active = tab.value == active_value;
-    let class = if is_active { "status-tab active" } else { "status-tab" };
+    let class = if is_active {
+        "status-tab active px-4 py-3 text-sm text-accent font-semibold cursor-pointer whitespace-nowrap relative [border-bottom:2px_solid_var(--accent)] -mb-px"
+    } else {
+        "status-tab px-4 py-3 text-sm text-muted cursor-pointer whitespace-nowrap relative [border-bottom:2px_solid_transparent] -mb-px hover:text-fg transition-colors"
+    };
     let vals = if tab.value.is_empty() {
         format!("{{\"{param_name}\": \"\"}}")
     } else {
@@ -54,7 +58,7 @@ fn status_tab(hx_get: &str, hx_target: &str, hx_include: &str, tab: &TabItem, ac
             hx-include=(hx_include) {
             (tab.label)
             @if let Some(c) = tab.count {
-                span class="count" { (c) }
+                span class="text-[11px] bg-surface px-1.5 py-0.5 rounded-full text-muted font-medium ml-1" { (c) }
             }
         }
     }

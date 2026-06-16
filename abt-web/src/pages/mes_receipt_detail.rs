@@ -62,17 +62,17 @@ pub async fn get_receipt_detail(path: ReceiptDetailPath, ctx: RequestContext) ->
                 @if receipt.status == abt_core::mes::enums::ReceiptStatus::Draft {
                     @if matches!(fqc_status, FqcGate::AllPassed | FqcGate::NotRequired) {
                         form class="inline-form" hx-post=(ReceiptConfirmPath { receipt_id: receipt.id }.to_string()) hx-swap="none" {
-                            button class="btn btn-primary" type="submit"
+                            button class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" type="submit"
                                 hx-confirm="确认入库？将触发倒冲和成本结转。" {
                                 "确认入库"
                             }
                         }
                     } @else if matches!(fqc_status, FqcGate::PendingInspection) {
-                        button class="btn btn-primary" disabled title="需完成 FQC 质检后才能确认入库" {
+                        button class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" disabled title="需完成 FQC 质检后才能确认入库" {
                             "确认入库（待 FQC）"
                         }
                     } @else {
-                        button class="btn btn-primary" disabled title="FQC 有不合格项，无法入库" {
+                        button class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" disabled title="FQC 有不合格项，无法入库" {
                             "确认入库（FQC 不合格）"
                         }
                     }
@@ -91,7 +91,7 @@ pub async fn get_receipt_detail(path: ReceiptDetailPath, ctx: RequestContext) ->
 
         // 基本信息
         div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
-            div class="info-section-title" { "基本信息" }
+            div class="text-sm font-semibold text-fg mb-3 pb-2 border-b border-border-soft" { "基本信息" }
             div class="grid gap-4" {
                 div class="flex flex-col gap-1" { label { "单号" } span class="mono" { (receipt.doc_number) } }
                 div class="flex flex-col gap-1" { label { "工单" } span { (wo) } }
@@ -110,7 +110,7 @@ pub async fn get_receipt_detail(path: ReceiptDetailPath, ctx: RequestContext) ->
 
         // FQC 质检卡片
         div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
-            div class="info-section-title" { "FQC 质检状态" }
+            div class="text-sm font-semibold text-fg mb-3 pb-2 border-b border-border-soft" { "FQC 质检状态" }
             div { (fqc_badge(&fqc_status)) }
             @if matches!(fqc_status, FqcGate::PendingInspection) {
                 p class="muted" { "⚠ 尚无 FQC 检验记录，需完成 FQC 后才能确认入库" }
@@ -119,7 +119,7 @@ pub async fn get_receipt_detail(path: ReceiptDetailPath, ctx: RequestContext) ->
 
         // 成本明细
         div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
-            div class="info-section-title" { "成本明细" }
+            div class="text-sm font-semibold text-fg mb-3 pb-2 border-b border-border-soft" { "成本明细" }
             div class="grid gap-4" {
                 div class="flex flex-col gap-1" {
                     label { "入库数量" }

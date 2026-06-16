@@ -59,7 +59,7 @@ fn work_center_detail_page(wc: &WorkCenter) -> Markup {
                 h1 class="text-xl font-bold text-fg tracking-tight" { "工作中心 " (wc.code) " - " (wc.name) }
             }
             div class="flex gap-3" {
-                a class="btn btn-default" href=(WorkCenterEditPath { id: wc.id }.to_string()) {
+                a class="btn bg-white text-fg border border-border hover:bg-surface" href=(WorkCenterEditPath { id: wc.id }.to_string()) {
                     (icon::edit_icon("w-4 h-4"))
                     "编辑"
                 }
@@ -67,7 +67,7 @@ fn work_center_detail_page(wc: &WorkCenter) -> Markup {
         }
 
         div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
-            div class="info-section-title" { "基本信息" }
+            div class="text-sm font-semibold text-fg mb-3 pb-2 border-b border-border-soft" { "基本信息" }
             div class="grid gap-4" {
                 div class="flex flex-col gap-1" { label { "编码" } span class="mono" { (wc.code) } }
                 div class="flex flex-col gap-1" { label { "名称" } span { (wc.name) } }
@@ -91,7 +91,7 @@ fn work_center_detail_page(wc: &WorkCenter) -> Markup {
         }
 
         div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
-            div class="info-section-title" { "产能与成本" }
+            div class="text-sm font-semibold text-fg mb-3 pb-2 border-b border-border-soft" { "产能与成本" }
             div class="grid gap-4" {
                 div class="flex flex-col gap-1" {
                     label { "产能/小时" }

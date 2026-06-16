@@ -339,11 +339,11 @@ fn order_detail_page(
                     }
                     div class="flex gap-3" {
                         @if matches!(order.status, WorkOrderStatus::Released | WorkOrderStatus::InProduction) {
-                            button class="btn btn-default" type="button" _="on click add .is-open to #unrelease-dialog" {
+                            button class="btn bg-white text-fg border border-border hover:bg-surface" type="button" _="on click add .is-open to #unrelease-dialog" {
                                 "反下达"
                             }
                             @if completion_pct >= rust_decimal::Decimal::new(95, 2) {
-                                button class="btn btn-default"
+                                button class="btn bg-white text-fg border border-border hover:bg-surface"
                                     hx-post=(OrderClosePath { order_id: order.id }.to_string())
                                     hx-confirm="确认关闭此工单？所有批次必须已完工或已取消。"
                                     hx-disabled-elt="this" {
@@ -351,7 +351,7 @@ fn order_detail_page(
                                     "关闭工单"
                                 }
                             } @else {
-                                button class="btn btn-default" disabled
+                                button class="btn bg-white text-fg border border-border hover:bg-surface" disabled
                                     title=(format!("完工率 {}%，需 ≥ 95% 才能关闭", completion_pct.round_dp(1))) {
                                     (icon::check_circle_icon("w-4 h-4"))
                                     "关闭工单（完工不足）"
@@ -359,7 +359,7 @@ fn order_detail_page(
                             }
                         }
                         @if matches!(order.status, WorkOrderStatus::Draft | WorkOrderStatus::Planned) {
-                            button class="btn btn-primary"
+                            button class="btn bg-accent text-accent-on border-none hover:bg-accent-hover"
                                 hx-post=(OrderReleasePath { order_id: order.id }.to_string())
                                 hx-confirm="确认下达此工单？下达后将开始生产。"
                                 hx-disabled-elt="this" {
@@ -369,13 +369,13 @@ fn order_detail_page(
                         }
                         @if matches!(order.status, WorkOrderStatus::Draft | WorkOrderStatus::Planned | WorkOrderStatus::Released | WorkOrderStatus::InProduction) {
                             @if has_receipts {
-                                button class="btn btn-danger" disabled
+                                button class="btn bg-danger text-white border-none hover:opacity-90" disabled
                                     title="存在已完工入库记录，无法取消" {
                                     (icon::x_icon("w-4 h-4"))
                                     "取消（有入库记录）"
                                 }
                             } @else {
-                                button class="btn btn-danger"
+                                button class="btn bg-danger text-white border-none hover:opacity-90"
                                     hx-post=(OrderCancelPath { order_id: order.id }.to_string())
                                     hx-confirm="确认取消此工单？取消后不可恢复。"
                                     hx-disabled-elt="this" {
@@ -449,10 +449,10 @@ fn order_detail_page(
                             }
                         }
                         div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" {
-                            button class="btn btn-default" type="button" _="on click remove .is-open from #unrelease-dialog" {
+                            button class="btn bg-white text-fg border border-border hover:bg-surface" type="button" _="on click remove .is-open from #unrelease-dialog" {
                                 "取消"
                             }
-                            button class="btn btn-danger"
+                            button class="btn bg-danger text-white border-none hover:opacity-90"
                                 hx-post=(OrderUnreleasePath { order_id: order.id }.to_string())
                                 hx-confirm="确认执行反下达？"
                                 hx-disabled-elt="this" {
@@ -472,7 +472,7 @@ fn tab_info(order: &WorkOrder, product_name: &str, routing_count: usize, complet
     html! {
         div class="bento-grid" {
             div class="bento-half" {
-                div class="info-section-title" { "基础信息" }
+                div class="text-sm font-semibold text-fg mb-3 pb-2 border-b border-border-soft" { "基础信息" }
                 div class="bento-sub-grid" {
                     div class="flex flex-col gap-1" { span class="text-xs text-muted font-medium" { "工单编号" } span class="text-sm text-fg font-medium mono" { (order.doc_number) } }
                     div class="flex flex-col gap-1" { span class="text-xs text-muted font-medium" { "产品" } span class="text-sm text-fg font-medium" { (product_name) } }
@@ -485,7 +485,7 @@ fn tab_info(order: &WorkOrder, product_name: &str, routing_count: usize, complet
                 }
             }
             div class="bento-half" {
-                div class="info-section-title" { "生产配置" }
+                div class="text-sm font-semibold text-fg mb-3 pb-2 border-b border-border-soft" { "生产配置" }
                 div class="bento-sub-grid" {
                     div class="flex flex-col gap-1" {
                         span class="text-xs text-muted font-medium" { "BOM 快照" }
@@ -504,7 +504,7 @@ fn tab_info(order: &WorkOrder, product_name: &str, routing_count: usize, complet
         }
         // 生产进度
         div class="info-section" {
-            div class="info-section-title" { "生产进度" }
+            div class="text-sm font-semibold text-fg mb-3 pb-2 border-b border-border-soft" { "生产进度" }
             div class="progress-section" {
                 div class="progress-stats" {
                     span class="flex flex-col gap-1" {
@@ -529,7 +529,7 @@ fn tab_info(order: &WorkOrder, product_name: &str, routing_count: usize, complet
         }
         @if !order.remark.is_empty() {
             div class="info-section" {
-                div class="info-section-title" { "备注" }
+                div class="text-sm font-semibold text-fg mb-3 pb-2 border-b border-border-soft" { "备注" }
                 p class="remark-text" { (order.remark.as_str()) }
             }
         }
@@ -604,7 +604,7 @@ fn tab_batches(batches: &[ProductionBatch], routings: &[WorkOrderRouting], order
         // 操作栏
         @if can_split {
             div class="flex items-center gap-3 mb-5 flex-wrap" style="justify-content:flex-end;margin-bottom:var(--space-3)" {
-                button class="btn btn-primary" type="button"
+                button class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" type="button"
                     _="on click add .is-open to #split-dialog" {
                     (icon::plus_icon("w-4 h-4"))
                     "新增批次"
@@ -708,11 +708,11 @@ fn tab_batches(batches: &[ProductionBatch], routings: &[WorkOrderRouting], order
                             }
                         }
                         div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" {
-                            button class="btn btn-default" type="button"
+                            button class="btn bg-white text-fg border border-border hover:bg-surface" type="button"
                                 _="on click remove .is-open from #split-dialog" {
                                 "取消"
                             }
-                            button class="btn btn-primary" type="submit"
+                            button class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" type="submit"
                                 hx-post=(OrderSplitPath { order_id: order.id }.to_string())
                                 hx-disabled-elt="this" {
                                 "确认新增"

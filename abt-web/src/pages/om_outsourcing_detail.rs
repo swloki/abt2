@@ -348,19 +348,19 @@ fn detail_page(
                         }
                     }
                     div class="detail-actions" {
-                        button class="btn btn-default" _="on click add .is-open to #record-node-modal" {
+                        button class="btn bg-white text-fg border border-border hover:bg-surface" _="on click add .is-open to #record-node-modal" {
                             (maud::PreEscaped(r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>"#))
                             "记录节点"
                         }
-                        button class="btn btn-default" _="on click add .is-open to #receive-modal" {
+                        button class="btn bg-white text-fg border border-border hover:bg-surface" _="on click add .is-open to #receive-modal" {
                             (maud::PreEscaped(r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>"#))
                             "收货登记"
                         }
-                        button class="btn btn-default" _="on click add .is-open to #convert-modal" {
+                        button class="btn bg-white text-fg border border-border hover:bg-surface" _="on click add .is-open to #convert-modal" {
                             (maud::PreEscaped(r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px"><path d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4"/></svg>"#))
                             "转自制"
                         }
-                        button class="btn btn-default" _="on click add .is-open to #cancel-modal" style="color:var(--danger);border-color:rgba(220,38,38,0.3)" {
+                        button class="btn bg-white text-fg border border-border hover:bg-surface" _="on click add .is-open to #cancel-modal" style="color:var(--danger);border-color:rgba(220,38,38,0.3)" {
                             (maud::PreEscaped(r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/></svg>"#))
                             "取消"
                         }
@@ -610,10 +610,10 @@ fn detail_page(
                         }
                     }
                     div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" {
-                        button type="button" class="btn btn-default" _="on click remove .is-open from #record-node-modal" {
+                        button type="button" class="btn bg-white text-fg border border-border hover:bg-surface" _="on click remove .is-open from #record-node-modal" {
                             "取消"
                         }
-                        button type="submit" class="btn btn-primary" { "确认记录" }
+                        button type="submit" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" { "确认记录" }
                     }
                 }
             }
@@ -672,10 +672,10 @@ fn detail_page(
                         }
                     }
                     div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" {
-                        button type="button" class="btn btn-default" _="on click remove .is-open from #receive-modal" {
+                        button type="button" class="btn bg-white text-fg border border-border hover:bg-surface" _="on click remove .is-open from #receive-modal" {
                             "取消"
                         }
-                        button type="submit" class="btn btn-primary" { "确认收货" }
+                        button type="submit" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" { "确认收货" }
                     }
                 }
             }
@@ -709,10 +709,10 @@ fn detail_page(
                         }
                     }
                     div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" {
-                        button type="button" class="btn btn-default" _="on click remove .is-open from #convert-modal" {
+                        button type="button" class="btn bg-white text-fg border border-border hover:bg-surface" _="on click remove .is-open from #convert-modal" {
                             "取消"
                         }
-                        button type="submit" class="btn btn-primary" style="background:linear-gradient(135deg,var(--warn),#f59e0b)" { "确认转自制" }
+                        button type="submit" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" style="background:linear-gradient(135deg,var(--warn),#f59e0b)" { "确认转自制" }
                     }
                 }
             }
@@ -746,10 +746,10 @@ fn detail_page(
                         }
                     }
                     div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" {
-                        button type="button" class="btn btn-default" _="on click remove .is-open from #cancel-modal" {
+                        button type="button" class="btn bg-white text-fg border border-border hover:bg-surface" _="on click remove .is-open from #cancel-modal" {
                             "返回"
                         }
-                        button type="submit" class="btn btn-danger" { "确认取消" }
+                        button type="submit" class="btn bg-danger text-white border-none hover:opacity-90" { "确认取消" }
                     }
                 }
             }

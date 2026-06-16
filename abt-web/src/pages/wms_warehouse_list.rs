@@ -149,14 +149,14 @@ fn warehouse_list_page(
             div class="flex items-center justify-between mb-6" {
                 h1 class="text-xl font-bold text-fg tracking-tight" { "仓库管理" }
                 div class="flex gap-3" {
-                    button type="button" class="btn btn-default"
+                    button type="button" class="btn bg-white text-fg border border-border hover:bg-surface"
                         _=(import_modal::import_modal_onclick(&ImportModalConfig { import_type: "warehouse-location", title: "", template_columns: "" })) {
                         (icon::upload_icon("w-4 h-4"))
                         "导入"
                     }
                     (export_button::export_button("导出库位", "warehouse-location"))
                     @if can_create {
-                        a class="btn btn-primary" href=(WarehouseCreatePath::PATH) {
+                        a class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" href=(WarehouseCreatePath::PATH) {
                             (icon::plus_icon("w-4 h-4"))
                             "新建仓库"
                         }

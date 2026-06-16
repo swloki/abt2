@@ -192,7 +192,7 @@ fn shipping_list_page(
                 h1 class="text-xl font-bold text-fg tracking-tight" { "发货申请" }
                 div class="flex gap-3" {
                     @if can_create {
-                        a class="btn btn-primary" href=(ShippingCreatePath::PATH) {
+                        a class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" href=(ShippingCreatePath::PATH) {
                             (icon::plus_icon("w-4 h-4"))
                             "新建发货申请"
                         }

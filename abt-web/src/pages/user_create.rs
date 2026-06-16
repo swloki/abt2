@@ -175,9 +175,9 @@ fn user_create_page(roles: &[Role], departments: &[Department]) -> Markup {
 
                 // ── Action Bar ──
                 div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
-                    a class="btn btn-default" href=(format!("{}?restore=true", UserListPath::PATH)) { "取消" }
+                    a class="btn bg-white text-fg border border-border hover:bg-surface" href=(format!("{}?restore=true", UserListPath::PATH)) { "取消" }
                     div style="display:flex;gap:var(--space-3)" {
-                        button type="submit" class="btn btn-primary" {
+                        button type="submit" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" {
                             (icon::check_circle_icon("w-4 h-4"))
                             "保存"
                         }

@@ -297,8 +297,8 @@ fn conversion_create_page(
 
                 // ── Actions ──
                 div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
-                    a href=(format!("{}?restore=true", ConversionListPath::PATH)) class="btn btn-default" { "取消" }
-                    button type="submit" class="btn btn-primary" { "提交" }
+                    a href=(format!("{}?restore=true", ConversionListPath::PATH)) class="btn bg-white text-fg border border-border hover:bg-surface" { "取消" }
+                    button type="submit" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" { "提交" }
                 }
             }
         }
@@ -446,7 +446,7 @@ fn product_list_fragment(products: &[abt_core::master_data::product::model::Prod
                                 span { (p.unit) }
                             }
                         }
-                        button type="button" class="btn btn-sm btn-primary"
+                        button type="button" class="btn btn-sm bg-accent text-accent-on border-none hover:bg-accent-hover"
                             hx-get=(format!("{}?product_id={}", ConversionItemRowPath::PATH, p.product_id))
                             hx-target="#conversion-item-target"
                             hx-swap="beforeend"

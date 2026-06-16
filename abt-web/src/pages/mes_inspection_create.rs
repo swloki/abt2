@@ -48,8 +48,8 @@ pub async fn get_inspection_create(_path: InspectionCreatePath, ctx: RequestCont
                 }
             }
             div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
-                a class="btn btn-default" href=(format!("{}?restore=true", InspectionListPath::PATH)) { "取消" }
-                button type="submit" class="btn btn-primary" { "提交" }
+                a class="btn bg-white text-fg border border-border hover:bg-surface" href=(format!("{}?restore=true", InspectionListPath::PATH)) { "取消" }
+                button type="submit" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" { "提交" }
             }
         }
     }};

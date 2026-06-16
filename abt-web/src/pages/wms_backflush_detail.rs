@@ -126,12 +126,12 @@ fn backflush_detail_page(
                     }
                 }
                 div class="flex gap-3" {
-                    button class="btn btn-default" {
+                    button class="btn bg-white text-fg border border-border hover:bg-surface" {
                         (icon::printer_icon("w-4 h-4"))
                         "打印"
                     }
                     @if show_adjust {
-                        button class="btn btn-primary" {
+                        button class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" {
                             "确认调整"
                         }
                     }

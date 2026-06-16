@@ -101,7 +101,7 @@ fn work_center_list_page(
                 h1 class="text-xl font-bold text-fg tracking-tight" { "工作中心管理" }
             }
             div class="flex gap-3" {
-                a class="btn btn-primary" href=(WorkCenterCreatePath::PATH) {
+                a class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" href=(WorkCenterCreatePath::PATH) {
                     (icon::plus_icon("w-4 h-4"))
                     "新建工作中心"
                 }

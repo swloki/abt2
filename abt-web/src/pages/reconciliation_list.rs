@@ -174,7 +174,7 @@ fn reconciliation_list_page(
                 h1 class="text-xl font-bold text-fg tracking-tight" { "月对账单" }
                 div class="flex gap-3" {
                     @if can_create {
-                        a class="btn btn-primary" href=(ReconciliationCreatePath::PATH) {
+                        a class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" href=(ReconciliationCreatePath::PATH) {
                             (icon::plus_icon("w-4 h-4"))
                             "新建对账单"
                         }

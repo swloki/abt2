@@ -77,7 +77,7 @@ fn order_list_page(
     html! { div {
         div class="flex items-center justify-between mb-6" { h1 class="text-xl font-bold text-fg tracking-tight" { "工单管理" } div class="flex gap-3" {
             @if can_create {
-                a class="btn btn-primary" href=(OrderCreatePath::PATH) { (icon::plus_icon("w-4 h-4")) "新建工单" }
+                a class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" href=(OrderCreatePath::PATH) { (icon::plus_icon("w-4 h-4")) "新建工单" }
             }
         }}
         (order_table_fragment(result, product_names, params))

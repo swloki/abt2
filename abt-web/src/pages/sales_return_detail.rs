@@ -375,24 +375,24 @@ fn return_detail_page(
                     }
                 }
                 div class="flex gap-3" {
-                    a class="btn btn-default" href=(format!("{}?restore=true", ReturnListPath::PATH)) { "返回列表" }
+                    a class="btn bg-white text-fg border border-border hover:bg-surface" href=(format!("{}?restore=true", ReturnListPath::PATH)) { "返回列表" }
                     @if r.status == ReturnStatus::Draft {
                         button
-                            class="btn btn-primary"
+                            class="btn bg-accent text-accent-on border-none hover:bg-accent-hover"
                             hx-post=(ConfirmReturnPath { id: r.id }.to_string())
                             hx-confirm="确认审核此退货单？"
                         { "确认退货" }
                     }
                     @if r.status == ReturnStatus::Confirmed {
                         button
-                            class="btn btn-primary"
+                            class="btn bg-accent text-accent-on border-none hover:bg-accent-hover"
                             hx-post=(ReceiveReturnPath { id: r.id }.to_string())
                             hx-confirm="确认已收到退货？"
                         { "确认收货" }
                     }
                     @if r.status == ReturnStatus::Received {
                         button
-                            class="btn btn-primary"
+                            class="btn bg-accent text-accent-on border-none hover:bg-accent-hover"
                             hx-post=(InspectReturnPath { id: r.id }.to_string())
                             hx-confirm="确认开始质检？"
                         { "开始质检" }
@@ -404,7 +404,7 @@ fn return_detail_page(
                             hx-confirm="确认完成退货？"
                         { "完成退货" }
                         button
-                            class="btn btn-danger"
+                            class="btn bg-danger text-white border-none hover:opacity-90"
                             hx-post=(RejectReturnPath { id: r.id }.to_string())
                             hx-confirm="确认驳回此退货？"
                         { "驳回" }

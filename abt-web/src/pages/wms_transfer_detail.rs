@@ -239,7 +239,7 @@ fn transfer_action_buttons(status: TransferStatus, detail_path: &str) -> Markup 
     match status {
         TransferStatus::Draft => {
             html! {
-                button class="btn btn-default"
+                button class="btn bg-white text-fg border border-border hover:bg-surface"
                     hx-post=(detail_path)
                     hx-vals=r#"{"action":"cancel"}"#
                     hx-confirm="确定要取消此调拨单吗？"
@@ -247,7 +247,7 @@ fn transfer_action_buttons(status: TransferStatus, detail_path: &str) -> Markup 
                     (icon::x_icon("w-4 h-4"))
                     "取消"
                 }
-                button class="btn btn-primary"
+                button class="btn bg-accent text-accent-on border-none hover:bg-accent-hover"
                     hx-post=(detail_path)
                     hx-vals=r#"{"action":"dispatch"}"#
                     hx-confirm="确定要发货吗？"
@@ -259,7 +259,7 @@ fn transfer_action_buttons(status: TransferStatus, detail_path: &str) -> Markup 
         }
         TransferStatus::InTransit => {
             html! {
-                button class="btn btn-primary"
+                button class="btn bg-accent text-accent-on border-none hover:bg-accent-hover"
                     hx-post=(detail_path)
                     hx-vals=r#"{"action":"complete"}"#
                     hx-confirm="确定要完成调拨吗？"

@@ -392,7 +392,7 @@ fn customer_detail_page(
         // ── Detail Top ──
         div class="detail-top" {
             div class="customer-identity" {
-                div class="customer-avatar" { (avatar_chars(&customer.name)) }
+                div class="customer-inline-grid place-items-center rounded-full text-white font-semibold shrink-0 select-none" { (avatar_chars(&customer.name)) }
                 div {
                     h1 class="customer-name" {
                         (customer.name)
@@ -406,7 +406,7 @@ fn customer_detail_page(
                 }
             }
             div class="flex gap-3" {
-                a class="btn btn-primary" href=(format!("/admin/quotations/new")) { "新建报价单" }
+                a class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" href=(format!("/admin/quotations/new")) { "新建报价单" }
             }
         }
 
@@ -461,7 +461,7 @@ fn customer_detail_page(
             div class="detail-card" {
                 div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 border-b border-border-soft" {
                     span { "联系人" }
-                    button class="btn btn-sm btn-primary"
+                    button class="btn btn-sm bg-accent text-accent-on border-none hover:bg-accent-hover"
                         _="on click add .is-open to #contact-create-modal" {
                         (icon::plus_icon("w-3.5 h-3.5"))
                         "添加"
@@ -499,7 +499,7 @@ fn customer_detail_page(
         div class="detail-card mt-5" {
             div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 border-b border-border-soft" {
                 span { "地址信息" }
-                button class="btn btn-sm btn-primary"
+                button class="btn btn-sm bg-accent text-accent-on border-none hover:bg-accent-hover"
                     _="on click add .is-open to #address-create-modal" {
                     (icon::plus_icon("w-3.5 h-3.5"))
                     "添加"

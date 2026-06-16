@@ -244,7 +244,7 @@ fn product_detail_page(
             // ── Detail Top ──
             div class="detail-top" {
                 div class="customer-identity" {
-                    div class="customer-avatar" {
+                    div class="customer-inline-grid place-items-center rounded-full text-white font-semibold shrink-0 select-none" {
                         (icon::box_icon("w-5 h-5"))
                     }
                     div {
@@ -263,11 +263,11 @@ fn product_detail_page(
                     }
                 }
                 div class="flex gap-3" {
-                    a class="btn btn-default" href=(format!("{list_path}?restore=true")) {
+                    a class="btn bg-white text-fg border border-border hover:bg-surface" href=(format!("{list_path}?restore=true")) {
                         (icon::arrow_left_icon("w-4 h-4"))
                         " 返回列表"
                     }
-                    a class="btn btn-primary" href=(edit_path) {
+                    a class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" href=(edit_path) {
                         (icon::edit_icon("w-4 h-4"))
                         " 编辑"
                     }
@@ -386,7 +386,7 @@ fn tab_production_config(
     html! {
         // ── Section: BOM 与工艺路线 ──
         div class="info-section" {
-            div class="info-section-title" { "BOM 与工艺路线" }
+            div class="text-sm font-semibold text-fg mb-3 pb-2 border-b border-border-soft" { "BOM 与工艺路线" }
             div class="config-grid" {
                 div class="config-item" {
                     span class="config-label" { "当前 BOM" }
@@ -419,7 +419,7 @@ fn tab_production_config(
 
         // ── Section: 物料消耗配置 ──
         div class="info-section" {
-            div class="info-section-title" { "物料消耗配置" }
+            div class="text-sm font-semibold text-fg mb-3 pb-2 border-b border-border-soft" { "物料消耗配置" }
             div class="config-grid" {
                 div class="config-item" {
                     span class="config-label" { "物料消耗模式" }
@@ -456,7 +456,7 @@ fn tab_production_config(
 
         // ── Section: 生产参数 ──
         div class="info-section" {
-            div class="info-section-title" { "生产参数" }
+            div class="text-sm font-semibold text-fg mb-3 pb-2 border-b border-border-soft" { "生产参数" }
             div class="config-grid" {
                 div class="config-item" {
                     span class="config-label" { "默认仓库" }
@@ -544,7 +544,7 @@ fn tab_bom(bom: Option<&Bom>, bom_nodes: &[BomNode], node_names: &HashMap<i64, S
             @if bom_nodes.is_empty() {
                 div class="empty-state" {
                     p { "该产品暂无已发布 BOM 组件" }
-                    a class="btn btn-default" href="/admin/md/boms" { "前往维护 BOM" }
+                    a class="btn bg-white text-fg border border-border hover:bg-surface" href="/admin/md/boms" { "前往维护 BOM" }
                 }
             } @else {
                 table class="data-table" {
@@ -779,8 +779,8 @@ fn product_edit_page(product: &Product) -> Markup {
 
                 // ── Action Bar ──
                 div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
-                    a class="btn btn-default" href=(detail_path) { "取消" }
-                    button type="submit" class="btn btn-primary" {
+                    a class="btn bg-white text-fg border border-border hover:bg-surface" href=(detail_path) { "取消" }
+                    button type="submit" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" {
                         "保存修改"
                     }
                 }

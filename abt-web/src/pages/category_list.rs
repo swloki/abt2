@@ -618,7 +618,7 @@ fn category_page(tree: &[CategoryTree], initial_panel: Option<&Markup>, first_id
             div class="flex items-center justify-between mb-6" {
                 h1 class="text-xl font-bold text-fg tracking-tight" { "产品分类" }
                 div class="flex gap-3" {
-                    button class="btn btn-default" {
+                    button class="btn bg-white text-fg border border-border hover:bg-surface" {
                         (icon::upload_icon("w-4 h-4"))
                         "导出"
                     }
@@ -642,7 +642,7 @@ fn category_page(tree: &[CategoryTree], initial_panel: Option<&Markup>, first_id
                     }
                     @if can_create {
                         div class="tree-footer" {
-                            button class="btn btn-primary" style="width: 100%; justify-content: center;"
+                            button class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" style="width: 100%; justify-content: center;"
                                 _="on click add .is-open to #create-modal" {
                                 (icon::plus_icon("w-4 h-4"))
                                 "新建分类"
@@ -826,14 +826,14 @@ fn detail_panel(
                     }
                     div class="cat-info-actions" {
                         @if can_update {
-                            button class="btn btn-default btn-sm"
+                            button class="btn bg-white text-fg border border-border hover:bg-surface btn-sm"
                                 _="on click add .is-open to #edit-category-modal" {
                                 (icon::edit_icon("w-4 h-4"))
                                 "编辑"
                             }
                         }
                         @if can_delete {
-                            button class="btn btn-default btn-sm" style="color: var(--danger); border-color: var(--border);"
+                            button class="btn bg-white text-fg border border-border hover:bg-surface btn-sm" style="color: var(--danger); border-color: var(--border);"
                                 hx-post=(delete_url)
                                 hx-confirm="确定要删除此分类吗？此操作不可撤销。"
                                 hx-swap="none" {

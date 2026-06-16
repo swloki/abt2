@@ -298,7 +298,7 @@ fn list_page(
                 h1 class="text-xl font-bold text-fg tracking-tight" { "委外单管理" }
                 div class="flex gap-3" {
                     @if can_create {
-                        a class="btn btn-primary" href=(OmOutsourcingCreatePath::PATH) {
+                        a class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" href=(OmOutsourcingCreatePath::PATH) {
                             (icon::plus_icon("w-4 h-4"))
                             "新建委外单"
                         }
@@ -370,7 +370,7 @@ fn table_fragment(
                 input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="date" name="date_to"
                     style="max-width:160px"
                     value=(params.date_to.as_deref().unwrap_or(""));
-                a href=(OmOutsourcingListPath::PATH) class="btn btn-default" style="height:36px;text-decoration:none" { "重置" }
+                a href=(OmOutsourcingListPath::PATH) class="btn bg-white text-fg border border-border hover:bg-surface" style="height:36px;text-decoration:none" { "重置" }
             }
 
             // ── Data Table ──

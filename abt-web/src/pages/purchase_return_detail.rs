@@ -197,13 +197,13 @@ fn pr_detail_page(
                 }
                 div class="flex gap-3" {
                     @if pr.status == PurchaseReturnStatus::Draft {
-                        button class="btn btn-primary"
+                        button class="btn bg-accent text-accent-on border-none hover:bg-accent-hover"
                             hx-post=(PRConfirmPath { id: pr.id }.to_string())
                             hx-confirm="确认此退货单？确认后将执行退货。" {
                             (icon::check_circle_icon("w-4 h-4"))
                             "确认退货"
                         }
-                        button class="btn btn-danger"
+                        button class="btn bg-danger text-white border-none hover:opacity-90"
                             hx-post=(PRCancelPath { id: pr.id }.to_string())
                             hx-confirm="确认取消此退货单？取消后不可恢复。" {
                             "取消"

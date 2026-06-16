@@ -125,7 +125,7 @@ fn card_query_page(recent_batches: &[abt_core::mes::production_batch::BatchListI
                 div class="card-w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent-wrap" {
                     form hx-get=(CardQuerySearchPath::PATH) hx-target="#card-result" hx-swap="innerHTML" hx-trigger="submit" style="display:flex;gap:var(--space-3);flex:1" {
                         input class="card-w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="q" placeholder="输入流转卡号 / 批次号，如 FC-SN-060301" autofocus;
-                        button class="btn btn-primary" type="submit" style="display:inline-flex;align-items:center;gap:var(--space-2);white-space:nowrap" {
+                        button class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" type="submit" style="display:inline-flex;align-items:center;gap:var(--space-2);white-space:nowrap" {
                             (PreEscaped(r#"<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>"#))
                             "查询"
                         }

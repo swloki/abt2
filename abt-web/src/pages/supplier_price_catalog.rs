@@ -271,7 +271,7 @@ fn list_page(result: &PaginatedResult<PriceView>, query: &ListQuery) -> Markup {
                     h1 class="text-xl font-bold text-fg tracking-tight" { "供应商价格目录" }
                 }
                 div class="flex gap-3" {
-                    button type="button" class="btn btn-primary"
+                    button type="button" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover"
                         hx-get=(PriceCreatePath::PATH)
                         hx-target="#price-modal"
                         hx-swap="innerHTML"
@@ -472,14 +472,14 @@ fn row_tr(price: &PriceView) -> Markup {
             }
             td {
                 div class="row-actions" {
-                    button type="button" class="btn btn-sm btn-default"
+                    button type="button" class="btn btn-sm bg-white text-fg border border-border hover:bg-surface"
                         hx-get=(PriceEditPath { id: price.id }.to_string())
                         hx-target="#price-modal"
                         hx-swap="innerHTML"
                         _="on 'htmx:afterRequest' add .is-open to #price-modal" {
                         "编辑"
                     }
-                    button class="btn btn-sm btn-danger"
+                    button class="btn btn-sm bg-danger text-white border-none hover:opacity-90"
                         hx-post=(PriceDeletePath { id: price.id }.to_string())
                         hx-confirm="确认删除此价格记录？"
                         hx-target="#price-data-card"
@@ -567,7 +567,7 @@ fn price_form(action_url: &str, price: Option<&PriceView>) -> Markup {
         div class="modal modal-lg" _="on click halt" {
             div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
                 h2 { (title) }
-                button class="modal-close-btn"
+                button class="bg-transparent border-none cursor-pointer text-xl text-muted p-1 hover:text-fg"
                     _="on click remove .is-open from #price-modal" { "×" }
             }
             form hx-post=(action_url) hx-target="this" hx-swap="outerHTML"
@@ -679,9 +679,9 @@ fn price_form(action_url: &str, price: Option<&PriceView>) -> Markup {
                 }
 
                 div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" {
-                    button type="button" class="btn btn-default"
+                    button type="button" class="btn bg-white text-fg border border-border hover:bg-surface"
                         _="on click remove .is-open from #price-modal" { "取消" }
-                    button type="submit" class="btn btn-primary" { "保存" }
+                    button type="submit" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" { "保存" }
                 }
             }
         }

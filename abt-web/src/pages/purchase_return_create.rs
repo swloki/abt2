@@ -386,12 +386,12 @@ fn pr_create_page(
             div id="pr-order-data" style="display:none" { }
 
             div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
-                a class="btn btn-default" href=(format!("{}?restore=true", PRListPath::PATH)) { "取消" }
+                a class="btn bg-white text-fg border border-border hover:bg-surface" href=(format!("{}?restore=true", PRListPath::PATH)) { "取消" }
                 div style="display:flex;gap:var(--space-3)" {
-                    button type="button" class="btn btn-default" id="pr-save-draft" {
+                    button type="button" class="btn bg-white text-fg border border-border hover:bg-surface" id="pr-save-draft" {
                         "保存草稿"
                     }
-                    button type="submit" class="btn btn-primary" {
+                    button type="submit" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" {
                         "提交退货"
                     }
                 }

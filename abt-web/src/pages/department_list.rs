@@ -431,7 +431,7 @@ fn detail_content_fragment(dept: &Department, members: &[UserWithRoles], can_cre
             }
             div class="d-hero-actions" {
                 @if can_create {
-                    button class="btn btn-default btn-sm"
+                    button class="btn bg-white text-fg border border-border hover:bg-surface btn-sm"
                         hx-get=(edit_path)
                         hx-target="#drawerPanel"
                         hx-swap="innerHTML"
@@ -441,7 +441,7 @@ fn detail_content_fragment(dept: &Department, members: &[UserWithRoles], can_cre
                     }
                 }
                 @if can_delete && !dept.is_default {
-                    button class="btn btn-default btn-sm text-danger"
+                    button class="btn bg-white text-fg border border-border hover:bg-surface btn-sm text-danger"
                         hx-confirm=(format!("确认删除部门「{}」？该操作不可恢复。", dept.department_name))
                         hx-post=(delete_path)
                         hx-target="body"
@@ -674,8 +674,8 @@ fn dept_drawer_fragment(is_edit: bool, dept: Option<&Department>) -> Markup {
                 }
             }
             div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3" {
-                button class="btn btn-default" type="button" _="on click remove .open from #deptDrawer" { "取消" }
-                button class="btn btn-primary" type="submit" {
+                button class="btn bg-white text-fg border border-border hover:bg-surface" type="button" _="on click remove .open from #deptDrawer" { "取消" }
+                button class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" type="submit" {
                     (icon::check_circle_icon("w-[14px] h-[14px]"))
                     "保存"
                 }

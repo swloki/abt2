@@ -251,29 +251,29 @@ fn pq_detail_page(
                     }
                 }
                 div class="flex gap-3" {
-                    button class="btn btn-default" { "打印" }
+                    button class="btn bg-white text-fg border border-border hover:bg-surface" { "打印" }
                     @if pq.status == PurchaseQuotationStatus::Active {
-                        button class="btn btn-primary"
+                        button class="btn bg-accent text-accent-on border-none hover:bg-accent-hover"
                             hx-post=(PQConvertPath { id: pq.id }.to_string())
                             hx-confirm="确认将此报价单转为采购订单？" {
                             "转采购订单"
                         }
                     }
                     @if pq.status == PurchaseQuotationStatus::Draft {
-                        button class="btn btn-primary"
+                        button class="btn bg-accent text-accent-on border-none hover:bg-accent-hover"
                             hx-post=(PQActivatePath { id: pq.id }.to_string())
                             hx-confirm="确认激活此报价？激活后将生效。" {
                             (icon::check_circle_icon("w-4 h-4"))
                             "激活报价"
                         }
-                        button class="btn btn-danger"
+                        button class="btn bg-danger text-white border-none hover:opacity-90"
                             hx-post=(PQCancelPath { id: pq.id }.to_string())
                             hx-confirm="确认取消此报价？取消后不可恢复。" {
                             "取消"
                         }
                     }
                     @if pq.status != PurchaseQuotationStatus::Active && ctx.can_delete {
-                        button class="btn btn-danger-ghost"
+                        button class="btn bg-danger text-white border-none hover:opacity-90-ghost"
                             hx-post=(PQDeletePath { id: pq.id }.to_string())
                             hx-confirm="确认删除此报价？删除后不可恢复。" {
                             (icon::trash_icon("w-4 h-4"))

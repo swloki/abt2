@@ -195,7 +195,7 @@ fn bom_list_page(
                         ExportItem { label: "缺少人工成本BOM", export_type: "boms-no-labor-cost" },
                     ]))
                     @if ctx.can_create {
-                        a href=(BomCreatePath::PATH) class="btn btn-primary" {
+                        a href=(BomCreatePath::PATH) class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" {
                             (icon::plus_icon("w-4 h-4"))
                             "新建BOM"
                         }
@@ -221,7 +221,7 @@ fn bom_list_page(
                             }
                         }
                         div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3" {
-                            button type="button" class="btn btn-default"
+                            button type="button" class="btn bg-white text-fg border border-border hover:bg-surface"
                                 _="on click remove .open from #cost-drawer" { "关闭" }
                         }
                     }
@@ -242,7 +242,7 @@ fn bom_list_page(
                             }
                         }
                         div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3" {
-                            button type="button" class="btn btn-default"
+                            button type="button" class="btn bg-white text-fg border border-border hover:bg-surface"
                                 _="on click remove .open from #labor-drawer" { "关闭" }
                         }
                     }
@@ -313,7 +313,7 @@ fn bom_table_fragment(
                     input type="checkbox" name="no_material_cost" value="true" checked[params.no_material_cost] {}
                     "物料成本缺失"
                 }
-                a href=(BomListPath::PATH) class="btn btn-default btn-sm" {
+                a href=(BomListPath::PATH) class="btn bg-white text-fg border border-border hover:bg-surface btn-sm" {
                     (icon::refresh_icon("w-4 h-4"))
                     "重置"
                 }

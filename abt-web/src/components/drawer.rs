@@ -24,9 +24,9 @@ pub fn drawer(drawer_id: &str, title: &str, submit_label: &str, form_id: &str, b
                     (body)
                 }
                 div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3" {
-                    button type="button" class="btn btn-default"
+                    button type="button" class="btn bg-white text-fg border border-border hover:bg-surface"
                         _="on click remove .open from closest .drawer-overlay" { "取消" }
-                    button type="submit" class="btn btn-primary" form=(form_id) { (submit_label) }
+                    button type="submit" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" form=(form_id) { (submit_label) }
                 }
             }
         }

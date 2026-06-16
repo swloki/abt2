@@ -440,13 +440,13 @@ fn return_create_page(customers: &[abt_core::master_data::customer::model::Custo
 
             // ── Action Bar ──
             div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
-                a class="btn btn-default" href=(format!("{}?restore=true", ReturnListPath::PATH)) { "取消" }
+                a class="btn bg-white text-fg border border-border hover:bg-surface" href=(format!("{}?restore=true", ReturnListPath::PATH)) { "取消" }
                 div class="flex gap-3" {
-                    button type="button" class="btn btn-default" onclick="handleSaveDraft()" {
+                    button type="button" class="btn bg-white text-fg border border-border hover:bg-surface" onclick="handleSaveDraft()" {
                         (icon::save_icon("w-4 h-4"))
                         "保存草稿"
                     }
-                    button type="button" class="btn btn-primary" _="on click call handleSubmit() then if it trigger submit on #return-form" {
+                    button type="button" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" _="on click call handleSubmit() then if it trigger submit on #return-form" {
                         (icon::send_icon("w-4 h-4"))
                         "提交退货"
                     }
@@ -692,7 +692,7 @@ fn order_search_results(
                             span { "¥" (total) }
                         }
                     }
-                    button type="button" class="btn btn-sm btn-primary"
+                    button type="button" class="btn btn-sm bg-accent text-accent-on border-none hover:bg-accent-hover"
                         data-order=(items_json)
                         onclick="selectOrder(JSON.parse(this.dataset.order))" {
                         "选择"

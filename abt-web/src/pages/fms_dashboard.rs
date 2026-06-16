@@ -193,7 +193,7 @@ fn fms_dashboard_page(
             div class="flex items-center justify-between mb-6" {
                 h1 class="text-xl font-bold text-fg tracking-tight" { "财务管理总览" }
                 div class="flex gap-3" {
-                    a class="btn btn-primary" href=(JournalCreatePath::PATH) {
+                    a class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" href=(JournalCreatePath::PATH) {
                         (svg_icon("M12 4v16m8-8H4", "16px"))
                         "新建日记账"
                     }
@@ -327,7 +327,7 @@ fn fms_dashboard_page(
                         } @else {
                             @for e in expenses {
                                 div class="flow-row" {
-                                    div class="mini-avatar" style="background:linear-gradient(135deg,#dbeafe,#bfdbfe);color:var(--accent)" {
+                                    div class="mini-inline-grid place-items-center rounded-full text-white font-semibold shrink-0 select-none" style="background:linear-gradient(135deg,#dbeafe,#bfdbfe);color:var(--accent)" {
                                         (e.doc_number.chars().next().unwrap_or('—'))
                                     }
                                     div style="flex:1;min-width:0;margin-left:var(--space-3)" {

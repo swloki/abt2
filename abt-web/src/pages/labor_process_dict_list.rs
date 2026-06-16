@@ -174,7 +174,7 @@ fn process_dict_list_page(
                 div class="flex gap-3" {
                     (export_button::export_button("导出工序字典", "labor-process-dict"))
                     @if can_create {
-                        a class="btn btn-primary" href=(ProcessDictCreatePath::PATH) {
+                        a class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" href=(ProcessDictCreatePath::PATH) {
                             (icon::plus_icon("w-4 h-4"))
                             "新建工序"
                         }
@@ -201,7 +201,7 @@ fn process_dict_table_fragment(
         div class="customer-list-panel" {
             // ── Filter Bar ──
             div class="flex items-center gap-3 mb-5 flex-wrap" {
-                div class="stat-chip" { "全部 " span class="chip-count" { (total_count) } }
+                div class="inline-flex items-center gap-1 px-3 py-1 bg-surface rounded-full text-xs text-muted font-medium" { "全部 " span class="chip-count" { (total_count) } }
                 div class="relative flex-1 max-w-xs" {
                     (icon::search_icon("w-4 h-4"))
                     input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword"
@@ -342,8 +342,8 @@ fn process_dict_form_page(_existing: Option<&LaborProcessDict>) -> Markup {
 
                 // ── Action Bar ──
                 div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
-                    a class="btn btn-default" href=(ProcessDictListPath::PATH) { "取消" }
-                    button type="submit" class="btn btn-primary" { "保存工序" }
+                    a class="btn bg-white text-fg border border-border hover:bg-surface" href=(ProcessDictListPath::PATH) { "取消" }
+                    button type="submit" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" { "保存工序" }
                 }
             }
         }

@@ -298,7 +298,7 @@ fn conversion_action_buttons(status: ConversionStatus, detail_path: &str) -> Mar
     match status {
         ConversionStatus::Draft => {
             html! {
-                button class="btn btn-default"
+                button class="btn bg-white text-fg border border-border hover:bg-surface"
                     hx-post=(detail_path)
                     hx-vals=r#"{"action":"cancel"}"#
                     hx-confirm="确定要取消此转换单吗？"
@@ -306,7 +306,7 @@ fn conversion_action_buttons(status: ConversionStatus, detail_path: &str) -> Mar
                     (icon::x_icon("w-4 h-4"))
                     "取消"
                 }
-                button class="btn btn-primary"
+                button class="btn bg-accent text-accent-on border-none hover:bg-accent-hover"
                     hx-post=(detail_path)
                     hx-vals=r#"{"action":"complete"}"#
                     hx-confirm="确定要完成形态转换吗？"

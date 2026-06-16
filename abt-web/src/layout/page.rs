@@ -110,12 +110,12 @@ fn global_confirm_dialog() -> Markup {
                     div class="dialog-foot" {
                         button
                             type="button"
-                            class="btn btn-default"
+                            class="btn bg-white text-fg border border-border hover:bg-surface"
                             _="on click remove .open from closest .dialog-overlay"
                         { "取消" }
                         button
                             type="button"
-                            class="btn btn-danger"
+                            class="btn bg-danger text-white border-none hover:opacity-90"
                             _="on click call window._confirmIssueRequest() then remove .open from closest .dialog-overlay"
                         { "确认" }
                     }

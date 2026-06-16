@@ -201,8 +201,8 @@ fn plan_create_page() -> Markup {
 
                 // ── Actions ──
                 div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
-                    a class="btn btn-default" href=(format!("{}?restore=true", PlanListPath::PATH)) { "取消" }
-                    button type="submit" class="btn btn-primary" {
+                    a class="btn bg-white text-fg border border-border hover:bg-surface" href=(format!("{}?restore=true", PlanListPath::PATH)) { "取消" }
+                    button type="submit" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" {
                         "提交"
                     }
                 }

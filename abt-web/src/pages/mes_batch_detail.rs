@@ -187,16 +187,16 @@ fn batch_detail_page(
                 }
                 div style="display:flex;gap:var(--space-3)" {
                     @if batch.status == BatchStatus::InProgress {
-                        a class="btn btn-default" href=(format!("/admin/mes/batches/{}/suspend", batch.id)) { "暂停" }
-                        a class="btn btn-primary" href=(format!("/admin/mes/reports/create?batch_id={}", batch.id)) { "工序报工" }
+                        a class="btn bg-white text-fg border border-border hover:bg-surface" href=(format!("/admin/mes/batches/{}/suspend", batch.id)) { "暂停" }
+                        a class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" href=(format!("/admin/mes/reports/create?batch_id={}", batch.id)) { "工序报工" }
                     }
                     @if batch.status == BatchStatus::Suspended {
                         form hx-post=(format!("/admin/mes/batches/{}/resume", batch.id)) hx-swap="none" style="display:inline" {
-                            button class="btn btn-primary" type="submit" { "恢复" }
+                            button class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" type="submit" { "恢复" }
                         }
                     }
                     @if batch.status == BatchStatus::PendingReceipt {
-                        a class="btn btn-primary" href=(format!("/admin/mes/receipts/create?batch_id={}", batch.id)) { "入库" }
+                        a class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" href=(format!("/admin/mes/receipts/create?batch_id={}", batch.id)) { "入库" }
                     }
                 }
             }

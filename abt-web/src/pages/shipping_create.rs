@@ -685,8 +685,8 @@ fn shipping_edit_page(
 
             // ── Action Bar ──
             div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
-                a class="btn btn-default" href=(format!("{}?restore=true", ShippingListPath::PATH)) { "取消" }
-                button type="button" class="btn btn-primary" _="on click call handleSave()" {
+                a class="btn bg-white text-fg border border-border hover:bg-surface" href=(format!("{}?restore=true", ShippingListPath::PATH)) { "取消" }
+                button type="button" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" _="on click call handleSave()" {
                     (icon::save_icon("w-4 h-4"))
                     "保存"
                 }
@@ -698,7 +698,7 @@ fn shipping_edit_page(
                 div class="modal modal-lg" onclick="event.stopPropagation()" {
                     div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
                         h2 { "选择来源订单" }
-                        button class="modal-close-btn"
+                        button class="bg-transparent border-none cursor-pointer text-xl text-muted p-1 hover:text-fg"
                             _="on click remove .is-open from #order-modal" {
                             "×"
                         }
@@ -962,8 +962,8 @@ fn shipping_create_page(
 
             // ── Action Bar ──
             div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
-                a class="btn btn-default" href=(format!("{}?restore=true", ShippingListPath::PATH)) { "取消" }
-                button type="button" class="btn btn-primary" _="on click call handleSave()" {
+                a class="btn bg-white text-fg border border-border hover:bg-surface" href=(format!("{}?restore=true", ShippingListPath::PATH)) { "取消" }
+                button type="button" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" _="on click call handleSave()" {
                     (icon::save_icon("w-4 h-4"))
                     "保存"
                 }
@@ -975,7 +975,7 @@ fn shipping_create_page(
                 div class="modal modal-lg" onclick="event.stopPropagation()" {
                     div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
                         h2 { "选择来源订单" }
-                        button class="modal-close-btn"
+                        button class="bg-transparent border-none cursor-pointer text-xl text-muted p-1 hover:text-fg"
                             _="on click remove .is-open from #order-modal" {
                             "×"
                         }
@@ -1112,7 +1112,7 @@ fn order_search_results(
                             span { "¥" (total) }
                         }
                     }
-                    button type="button" class="btn btn-sm btn-primary"
+                    button type="button" class="btn btn-sm bg-accent text-accent-on border-none hover:bg-accent-hover"
                         data-order=(items_json)
                         onclick="selectOrder(JSON.parse(this.dataset.order))" {
                         "选择"

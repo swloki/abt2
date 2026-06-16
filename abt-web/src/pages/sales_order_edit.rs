@@ -223,7 +223,7 @@ fn order_edit_page(
             div class="form-section-card flush mb-4" {
                 div class="flush-header" {
                     span class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "产品明细" }
-                    button type="button" class="btn btn-sm btn-primary"
+                    button type="button" class="btn btn-sm bg-accent text-accent-on border-none hover:bg-accent-hover"
                         _="on click add .is-open to #product-modal" {
                         (icon::plus_icon("w-3.5 h-3.5"))
                         "添加产品"
@@ -301,9 +301,9 @@ fn order_edit_page(
 
             // ── Action Bar ──
             div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
-                a class="btn btn-default" href=(detail_path.to_string()) { "取消" }
+                a class="btn bg-white text-fg border border-border hover:bg-surface" href=(detail_path.to_string()) { "取消" }
                 div class="flex gap-3" {
-                    button type="submit" class="btn btn-primary" {
+                    button type="submit" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" {
                         "保存修改"
                     }
                 }

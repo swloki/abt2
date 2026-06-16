@@ -392,8 +392,8 @@ fn customer_edit_page(
 
                 // ── Action Bar ──
                 div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
-                    button type="button" class="btn btn-default" onclick=(format!("location.href='{}'", detail_path)) { "取消" }
-                    button type="submit" class="btn btn-primary" {
+                    button type="button" class="btn bg-white text-fg border border-border hover:bg-surface" onclick=(format!("location.href='{}'", detail_path)) { "取消" }
+                    button type="submit" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" {
                         "保存修改"
                     }
                 }

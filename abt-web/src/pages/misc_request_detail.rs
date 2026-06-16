@@ -173,13 +173,13 @@ fn misc_detail_page(
                 }
                 div class="flex gap-3" {
                     @if req.status == MiscRequestStatus::Draft {
-                        button class="btn btn-primary"
+                        button class="btn bg-accent text-accent-on border-none hover:bg-accent-hover"
                             hx-post=(MiscApprovePath { id: req.id }.to_string())
                             hx-confirm="确认审批此零星请购？" {
                             (icon::check_circle_icon("w-4 h-4"))
                             "审批"
                         }
-                        button class="btn btn-danger"
+                        button class="btn bg-danger text-white border-none hover:opacity-90"
                             hx-post=(MiscCancelPath { id: req.id }.to_string())
                             hx-confirm="确认取消此零星请购？取消后不可恢复。" {
                             "取消"

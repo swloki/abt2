@@ -418,13 +418,13 @@ fn quotation_create_page(customers: &[abt_core::master_data::customer::model::Cu
 
             // ── Action Bar ──
             div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
-                a class="btn btn-default" href=(format!("{}?restore=true", QuotationListPath::PATH)) { "取消" }
+                a class="btn bg-white text-fg border border-border hover:bg-surface" href=(format!("{}?restore=true", QuotationListPath::PATH)) { "取消" }
                 div class="flex gap-3" {
-                    button type="button" class="btn btn-default" {
+                    button type="button" class="btn bg-white text-fg border border-border hover:bg-surface" {
                         (icon::save_icon("w-4 h-4"))
                         "保存草稿"
                     }
-                    button type="button" class="btn btn-primary" _="on click call quotationSubmit() then trigger submit on #quotation-form" {
+                    button type="button" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" _="on click call quotationSubmit() then trigger submit on #quotation-form" {
                         (icon::send_icon("w-4 h-4"))
                         "提交报价"
                     }
@@ -438,7 +438,7 @@ fn quotation_create_page(customers: &[abt_core::master_data::customer::model::Cu
                 div class="modal modal-lg" onclick="event.stopPropagation()" {
                     div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
                         h2 { "选择产品" }
-                        button class="modal-close-btn"
+                        button class="bg-transparent border-none cursor-pointer text-xl text-muted p-1 hover:text-fg"
                             _="on click remove .is-open from #product-modal" {
                             "×"
                         }
@@ -511,7 +511,7 @@ fn product_list_fragment(products: &[abt_core::master_data::product::model::Prod
                                 span { (p.unit) }
                             }
                         }
-                        button type="button" class="btn btn-sm btn-primary"
+                        button type="button" class="btn btn-sm bg-accent text-accent-on border-none hover:bg-accent-hover"
                             hx-get=(format!("{}?product_id={}", QuotationItemRowPath::PATH, p.product_id))
                             hx-target="#quotation-item-tbody"
                             hx-swap="beforeend"

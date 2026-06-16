@@ -266,7 +266,7 @@ fn reconciliation_detail_page(
                 }
                 div class="flex gap-3" {
                     @if rec.status == ReconciliationStatus::Draft {
-                        button class="btn btn-primary"
+                        button class="btn bg-accent text-accent-on border-none hover:bg-accent-hover"
                             hx-post=(SendReconciliationPath { id: rec.id }.to_string())
                             hx-confirm="确认发送此对账单？" { "发送对账" }
                     }
@@ -274,7 +274,7 @@ fn reconciliation_detail_page(
                         button class="btn btn-success"
                             hx-post=(ConfirmReconciliationPath { id: rec.id }.to_string())
                             hx-confirm="确认此对账单？" { "确认" }
-                        button class="btn btn-danger"
+                        button class="btn bg-danger text-white border-none hover:opacity-90"
                             hx-post=(DisputeReconciliationPath { id: rec.id }.to_string())
                             hx-confirm="确认提出异议？" { "异议" }
                     }

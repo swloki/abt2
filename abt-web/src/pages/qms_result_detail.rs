@@ -173,14 +173,14 @@ pub async fn get_detail(path: ResultDetailPath, ctx: RequestContext) -> Result<H
         // ── 操作按钮 ──
         @if result.status == InspectionStatus::Pending {
             div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
-                a class="btn btn-primary" href=(format!("{}?restore=true", ResultListPath::PATH)) {
+                a class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" href=(format!("{}?restore=true", ResultListPath::PATH)) {
                     "记录结果"
                 }
             }
         }
         @if result.status == InspectionStatus::Completed && result.result == InspectionResultType::Fail {
             div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
-                a class="btn btn-danger-ghost" href=(MrbCreatePath::PATH) {
+                a class="btn bg-danger text-white border-none hover:opacity-90-ghost" href=(MrbCreatePath::PATH) {
                     "创建MRB"
                 }
             }

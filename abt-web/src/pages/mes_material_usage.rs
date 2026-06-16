@@ -115,7 +115,7 @@ fn material_usage_page(
         div class="flex items-center justify-between mb-6" {
             h1 class="text-xl font-bold text-fg tracking-tight" { "物料消耗追踪" }
             div class="flex gap-3" {
-                button class="btn btn-default" {
+                button class="btn bg-white text-fg border border-border hover:bg-surface" {
                     (icon::download_icon(""))
                     " 导出"
                 }

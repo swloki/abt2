@@ -105,7 +105,7 @@ fn qms_dashboard_page(
             div class="flex items-center justify-between mb-6" {
                 h1 class="text-xl font-bold text-fg tracking-tight" { "质量管理总览" }
                 div class="flex gap-3" {
-                    a class="btn btn-primary" href=(ResultCreatePath::PATH) {
+                    a class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" href=(ResultCreatePath::PATH) {
                         (icon::plus_icon("w-4 h-4"))
                         " 新建检验结果"
                     }

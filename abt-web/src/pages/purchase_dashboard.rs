@@ -300,7 +300,7 @@ fn purchase_dashboard_content(stats: &DashboardStats) -> Markup {
         div class="flex items-center justify-between mb-6" {
             h1 class="text-xl font-bold text-fg tracking-tight" { "采购管理总览" }
             div class="flex gap-3" {
-                button class="btn btn-default" {
+                button class="btn bg-white text-fg border border-border hover:bg-surface" {
                     (icon::download_icon("w-4 h-4"))
                     " 导出报表"
                 }

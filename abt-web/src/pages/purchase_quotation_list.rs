@@ -222,7 +222,7 @@ fn pq_list_page(
                 h1 class="text-xl font-bold text-fg tracking-tight" { "采购报价" }
                 div class="flex gap-3" {
                     @if can_create {
-                        a class="btn btn-primary" href=(PQCreatePath::PATH) {
+                        a class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" href=(PQCreatePath::PATH) {
                             (icon::plus_icon("w-4 h-4"))
                             "新建采购报价"
                         }

@@ -170,7 +170,7 @@ fn supplier_detail_page(
         // ── Detail Top ──
         div class="detail-top" {
             div class="customer-identity" {
-                div class="customer-avatar" {
+                div class="customer-inline-grid place-items-center rounded-full text-white font-semibold shrink-0 select-none" {
                     (icon::building_icon("w-5 h-5"))
                 }
                 div {
@@ -187,11 +187,11 @@ fn supplier_detail_page(
                 }
             }
             div class="flex gap-3" {
-                a class="btn btn-default" href=(format!("{list_path}?restore=true")) {
+                a class="btn bg-white text-fg border border-border hover:bg-surface" href=(format!("{list_path}?restore=true")) {
                     (icon::arrow_left_icon("w-4 h-4"))
                     " 返回列表"
                 }
-                a class="btn btn-primary" href=(edit_path) {
+                a class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" href=(edit_path) {
                     (icon::edit_icon("w-4 h-4"))
                     " 编辑"
                 }
@@ -351,7 +351,7 @@ fn contacts_card(contacts: &[SupplierContact], detail_path: &SupplierDetailPath,
             hx-trigger="contactChanged from:body" {
             div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 border-b border-border-soft" {
                 span { "联系人" }
-                button class="btn btn-sm btn-primary"
+                button class="btn btn-sm bg-accent text-accent-on border-none hover:bg-accent-hover"
                     _="on click add .is-open to #contact-create-modal" {
                     (icon::plus_icon("w-3.5 h-3.5"))
                     "添加联系人"
@@ -392,7 +392,7 @@ fn bank_accounts_card(bank_accounts: &[SupplierBankAccount], detail_path: &Suppl
             hx-trigger="bankAccountChanged from:body" {
             div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 border-b border-border-soft" {
                 span { "银行账户" }
-                button class="btn btn-sm btn-primary"
+                button class="btn btn-sm bg-accent text-accent-on border-none hover:bg-accent-hover"
                     _="on click add .is-open to #bank-account-create-modal" {
                     (icon::plus_icon("w-3.5 h-3.5"))
                     "添加账户"

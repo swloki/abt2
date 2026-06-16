@@ -377,7 +377,7 @@ fn create_page_content(
                             }
                         }
                         div style="display:flex;gap:var(--space-2);align-items:center;" {
-                            button type="button" class="btn btn-sm btn-default" id="selectAllBtn" {
+                            button type="button" class="btn btn-sm bg-white text-fg border border-border hover:bg-surface" id="selectAllBtn" {
                                 "全选"
                                 (PreEscaped(r#"<script>document.currentScript.parentElement.addEventListener('click',function(){
                                     var cbs = Array.from(document.querySelectorAll('#demand-tbody input[type=checkbox]'));
@@ -443,13 +443,13 @@ fn create_page_content(
 
                 // ── Action Bar ──
                 div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
-                    a class="btn btn-default" href=(format!("{}?restore=true", PurchaseDemandPoolListPath::PATH)) { "取消" }
+                    a class="btn bg-white text-fg border border-border hover:bg-surface" href=(format!("{}?restore=true", PurchaseDemandPoolListPath::PATH)) { "取消" }
                     div style="display:flex;gap:var(--space-3);" {
-                        button type="submit" name="action" value="draft" class="btn btn-default" {
+                        button type="submit" name="action" value="draft" class="btn bg-white text-fg border border-border hover:bg-surface" {
                             (icon::save_icon("w-4 h-4"))
                             "保存草稿"
                         }
-                        button type="submit" class="btn btn-primary" {
+                        button type="submit" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" {
                             (icon::send_icon("w-4 h-4"))
                             "创建采购订单草稿"
                         }

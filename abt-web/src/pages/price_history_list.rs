@@ -234,7 +234,7 @@ fn price_history_page(rows: &[PriceHistoryRow], total: u64, page: u32, total_pag
                         style="width:150px;padding-left:12px"
                         value=(params.date_to.as_deref().unwrap_or(""))
                         title="结束日期";
-                    a href=(PriceHistoryListPath::PATH) class="btn btn-default" style="height:36px;text-decoration:none" { "重置" }
+                    a href=(PriceHistoryListPath::PATH) class="btn bg-white text-fg border border-border hover:bg-surface" style="height:36px;text-decoration:none" { "重置" }
                 }
                 // ── Data Table ──
                 (data_card(rows, total, page, total_pages))
@@ -334,7 +334,7 @@ fn price_history_row(index: usize, row: &PriceHistoryRow) -> Markup {
                 }
             }
             td {
-                button class="btn btn-default" style="padding:4px 10px;font-size:12px"
+                button class="btn bg-white text-fg border border-border hover:bg-surface" style="padding:4px 10px;font-size:12px"
                     _="on click halt the event on 'htmx:afterRequest' add .open to #detail-drawer"
                     hx-get=(detail_path.to_string())
                     hx-target="#detail-body"

@@ -444,8 +444,8 @@ fn report_create_page(
             }
 
             div class="flex items-center justify-end gap-3 py-5" {
-                a class="btn btn-default" href=(format!("{}?restore=true", ReportListPath::PATH)) { "取消" }
-                button type="submit" class="btn btn-primary" { "确认报工" }
+                a class="btn bg-white text-fg border border-border hover:bg-surface" href=(format!("{}?restore=true", ReportListPath::PATH)) { "取消" }
+                button type="submit" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" { "确认报工" }
             }
         }
 

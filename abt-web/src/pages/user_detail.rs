@@ -627,7 +627,7 @@ fn role_assign_modal(
                 onsubmit="this.closest('.modal-overlay').classList.remove('is-open');this.reset()" {
                 div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
                     h2 { "管理角色" }
-                    button type="button" class="modal-close-btn"
+                    button type="button" class="bg-transparent border-none cursor-pointer text-xl text-muted p-1 hover:text-fg"
                         _="on click remove .is-open from closest .modal-overlay then reset #role-assign-form" { "×" }
                 }
                 div class="overflow-y-auto flex-1 min-h-0 p-6" {
@@ -649,9 +649,9 @@ fn role_assign_modal(
                     }
                 }
                 div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" {
-                    button type="button" class="btn btn-default"
+                    button type="button" class="btn bg-white text-fg border border-border hover:bg-surface"
                         _="on click remove .is-open from closest .modal-overlay then reset #role-assign-form" { "取消" }
-                    button type="submit" class="btn btn-primary"
+                    button type="submit" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover"
                         onclick="document.querySelector('#role-ids-input').value=Array.from(document.querySelectorAll('.role-checkbox:checked')).map(function(c){return c.value}).join(',')" {
                         "保存"
                     }
@@ -673,7 +673,7 @@ fn dept_assign_modal(
                 onsubmit="this.closest('.modal-overlay').classList.remove('is-open');this.reset()" {
                 div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
                     h2 { "管理部门" }
-                    button type="button" class="modal-close-btn"
+                    button type="button" class="bg-transparent border-none cursor-pointer text-xl text-muted p-1 hover:text-fg"
                         _="on click remove .is-open from closest .modal-overlay then reset #dept-assign-form" { "×" }
                 }
                 div class="overflow-y-auto flex-1 min-h-0 p-6" {
@@ -693,9 +693,9 @@ fn dept_assign_modal(
                     }
                 }
                 div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" {
-                    button type="button" class="btn btn-default"
+                    button type="button" class="btn bg-white text-fg border border-border hover:bg-surface"
                         _="on click remove .is-open from closest .modal-overlay then reset #dept-assign-form" { "取消" }
-                    button type="submit" class="btn btn-primary"
+                    button type="submit" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover"
                         onclick="document.querySelector('#dept-ids-input').value=Array.from(document.querySelectorAll('.dept-checkbox:checked')).map(function(c){return c.value}).join(',')" {
                         "保存"
                     }
@@ -713,7 +713,7 @@ fn reset_password_modal(action: &str) -> Markup {
                 onsubmit="this.closest('.modal-overlay').classList.remove('is-open');this.reset()" {
                 div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
                     h2 { "重置密码" }
-                    button type="button" class="modal-close-btn"
+                    button type="button" class="bg-transparent border-none cursor-pointer text-xl text-muted p-1 hover:text-fg"
                         _="on click remove .is-open from closest .modal-overlay then reset #reset-pw-form" { "×" }
                 }
                 div class="overflow-y-auto flex-1 min-h-0 p-6" {
@@ -730,9 +730,9 @@ fn reset_password_modal(action: &str) -> Markup {
                     }
                 }
                 div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" {
-                    button type="button" class="btn btn-default"
+                    button type="button" class="btn bg-white text-fg border border-border hover:bg-surface"
                         _="on click remove .is-open from closest .modal-overlay then reset #reset-pw-form" { "取消" }
-                    button type="submit" class="btn btn-primary" {
+                    button type="submit" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" {
                         (icon::check_circle_icon("w-4 h-4"))
                         "确认重置"
                     }

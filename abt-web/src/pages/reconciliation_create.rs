@@ -248,7 +248,7 @@ fn reconciliation_create_page(
                             (icon::package_icon("w-[18px] h-[18px]"))
                             "对账明细"
                         }
-                        button type="button" class="btn btn-default" id="pickOrderBtn" disabled {
+                        button type="button" class="btn bg-white text-fg border border-border hover:bg-surface" id="pickOrderBtn" disabled {
                             (icon::plus_icon("w-3.5 h-3.5"))
                             "从发货单添加"
                         }
@@ -259,7 +259,7 @@ fn reconciliation_create_page(
                         (icon::clipboard_list_icon("w-12 h-12"))
                         p class="empty-state-title" { "暂无对账明细" }
                         p class="empty-state-desc" { "请先选择客户，然后从发货单中添加对账明细" }
-                        button type="button" class="btn btn-primary mt-5" onclick="document.getElementById('pickOrderBtn').click()" { "选择发货单" }
+                        button type="button" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover mt-5" onclick="document.getElementById('pickOrderBtn').click()" { "选择发货单" }
                     }
                 }
 
@@ -287,13 +287,13 @@ fn reconciliation_create_page(
 
                 // ── Action Bar ──
                 div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
-                    a class="btn btn-default" href=(format!("{}?restore=true", ReconciliationListPath::PATH)) { "取消" }
+                    a class="btn bg-white text-fg border border-border hover:bg-surface" href=(format!("{}?restore=true", ReconciliationListPath::PATH)) { "取消" }
                     div class="action-bar-right" {
-                        button type="button" class="btn btn-default" onclick="show_info_toast('草稿功能开发中')" {
+                        button type="button" class="btn bg-white text-fg border border-border hover:bg-surface" onclick="show_info_toast('草稿功能开发中')" {
                             (icon::save_icon("w-4 h-4"))
                             "保存草稿"
                         }
-                        button type="button" class="btn btn-primary" _="on click trigger submit on #rec-create-form" {
+                        button type="button" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" _="on click trigger submit on #rec-create-form" {
                             (icon::send_icon("w-4 h-4"))
                             "提交确认"
                         }
@@ -323,7 +323,7 @@ fn preview_empty(message: &str) -> Markup {
                     (icon::package_icon("w-[18px] h-[18px]"))
                     "对账明细"
                 }
-                button type="button" class="btn btn-default" id="pickOrderBtn" disabled {
+                button type="button" class="btn bg-white text-fg border border-border hover:bg-surface" id="pickOrderBtn" disabled {
                     (icon::plus_icon("w-3.5 h-3.5"))
                     "从发货单添加"
                 }
@@ -362,7 +362,7 @@ fn preview_table(
                     span class="line-items-count" {
                         (item_count) " 行"
                     }
-                    button type="button" class="btn btn-default" id="pickOrderBtn" {
+                    button type="button" class="btn bg-white text-fg border border-border hover:bg-surface" id="pickOrderBtn" {
                         (icon::plus_icon("w-3.5 h-3.5"))
                         "从发货单添加"
                     }

@@ -291,8 +291,8 @@ fn transfer_create_page(
 
                 // ── Actions ──
                 div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
-                    a href="/admin/wms/transfers" class="btn btn-default" { "取消" }
-                    button type="submit" class="btn btn-primary" {
+                    a href="/admin/wms/transfers" class="btn bg-white text-fg border border-border hover:bg-surface" { "取消" }
+                    button type="submit" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" {
                         (icon::check_circle_icon("w-4 h-4"))
                         "提交调拨"
                     }
@@ -398,7 +398,7 @@ fn product_list_fragment(products: &[abt_core::master_data::product::model::Prod
                                 span { (p.unit) }
                             }
                         }
-                        button type="button" class="btn btn-sm btn-primary"
+                        button type="button" class="btn btn-sm bg-accent text-accent-on border-none hover:bg-accent-hover"
                             hx-get=(format!("{}?product_id={}", TransferItemRowPath::PATH, p.product_id))
                             hx-target="#transfer-item-tbody"
                             hx-swap="beforeend"

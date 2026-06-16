@@ -291,7 +291,7 @@ fn requisition_action_buttons(status: RequisitionStatus, detail_path: &str) -> M
     match status {
         RequisitionStatus::Draft => {
             html! {
-                button class="btn btn-default"
+                button class="btn bg-white text-fg border border-border hover:bg-surface"
                     hx-post=(detail_path)
                     hx-vals=r#"{"action":"cancel"}"#
                     hx-confirm="确定要取消此领料单吗？"
@@ -299,7 +299,7 @@ fn requisition_action_buttons(status: RequisitionStatus, detail_path: &str) -> M
                     (icon::x_icon("w-4 h-4"))
                     "取消"
                 }
-                button class="btn btn-primary"
+                button class="btn bg-accent text-accent-on border-none hover:bg-accent-hover"
                     hx-post=(detail_path)
                     hx-vals=r#"{"action":"confirm"}"#
                     hx-confirm="确定要确认此领料单吗？"
@@ -311,7 +311,7 @@ fn requisition_action_buttons(status: RequisitionStatus, detail_path: &str) -> M
         }
         RequisitionStatus::Confirmed => {
             html! {
-                button class="btn btn-default"
+                button class="btn bg-white text-fg border border-border hover:bg-surface"
                     hx-post=(detail_path)
                     hx-vals=r#"{"action":"cancel"}"#
                     hx-confirm="确定要取消此领料单吗？"
@@ -319,7 +319,7 @@ fn requisition_action_buttons(status: RequisitionStatus, detail_path: &str) -> M
                     (icon::x_icon("w-4 h-4"))
                     "取消"
                 }
-                button class="btn btn-primary"
+                button class="btn bg-accent text-accent-on border-none hover:bg-accent-hover"
                     hx-post=(detail_path)
                     hx-vals=r#"{"action":"issue"}"#
                     hx-confirm="确定要确认发料吗？实发数量将按需求数量自动填写。"
@@ -331,7 +331,7 @@ fn requisition_action_buttons(status: RequisitionStatus, detail_path: &str) -> M
         }
         RequisitionStatus::Issued | RequisitionStatus::PartiallyIssued => {
             html! {
-                button class="btn btn-default" type="button"
+                button class="btn bg-white text-fg border border-border hover:bg-surface" type="button"
                     _="on click add .is-open to #return-modal" {
                     (icon::return_arrow_icon("w-4 h-4"))
                     "退料"

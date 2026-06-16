@@ -174,7 +174,7 @@ fn rma_list_page(
                 h1 class="text-xl font-bold text-fg tracking-tight" { "RMA 客诉追溯" }
                 div class="flex gap-3" {
                     @if can_create {
-                        a class="btn btn-primary" href=(RmaCreatePath::PATH) {
+                        a class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" href=(RmaCreatePath::PATH) {
                             (icon::plus_icon("w-4 h-4"))
                             "新建RMA"
                         }

@@ -201,12 +201,12 @@ fn po_list_page(
                 h1 class="text-xl font-bold text-fg tracking-tight" { "采购订单" }
                 div class="flex gap-3" {
                     @if can_create {
-                        a class="btn btn-primary" href=(POCreatePath::PATH) {
+                        a class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" href=(POCreatePath::PATH) {
                             (icon::plus_icon("w-4 h-4"))
                             "新建采购订单"
                         }
                     }
-                    button type="button" class="btn btn-default"
+                    button type="button" class="btn bg-white text-fg border border-border hover:bg-surface"
                         _="on click call mergeSelectedPOs()" {
                         "合并选中"
                     }

@@ -267,12 +267,12 @@ fn rma_create_page(customers: &[Customer], products: &[Product], sales_orders: &
 
                 // ── Action bar ──
                 div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
-                    a class="btn btn-default" href=(format!("{}?restore=true", RmaListPath::PATH)) { "取消" }
-                    button type="submit" class="btn btn-default" name="action" value="save" {
+                    a class="btn bg-white text-fg border border-border hover:bg-surface" href=(format!("{}?restore=true", RmaListPath::PATH)) { "取消" }
+                    button type="submit" class="btn bg-white text-fg border border-border hover:bg-surface" name="action" value="save" {
                         (icon::check_circle_icon("w-4 h-4"))
                         "保存"
                     }
-                    button type="submit" class="btn btn-primary" name="action" value="submit" {
+                    button type="submit" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" name="action" value="submit" {
                         "提交"
                     }
                 }

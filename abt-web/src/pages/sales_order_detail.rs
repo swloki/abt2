@@ -641,23 +641,23 @@ fn order_detail_page(
                     }
                 }
                 div class="flex gap-3" {
-                    button class="btn btn-default" {
+                    button class="btn bg-white text-fg border border-border hover:bg-surface" {
                         (icon::printer_icon("w-4 h-4"))
                         "打印"
                     }
                     @if matches!(o.status, SalesOrderStatus::Confirmed | SalesOrderStatus::PartiallyShipped) {
-                        a class="btn btn-primary" href="#" {
+                        a class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" href="#" {
                             (icon::truck_icon("w-4 h-4"))
                             "创建发货申请"
                         }
                     }
                     @if o.status == SalesOrderStatus::Draft {
-                        button class="btn btn-primary"
+                        button class="btn bg-accent text-accent-on border-none hover:bg-accent-hover"
                             hx-post=(ConfirmOrderPath { id: o.id }.to_string())
                             hx-confirm="确认审核此订单？" { "确认订单" }
                     }
                     @if matches!(o.status, SalesOrderStatus::Draft | SalesOrderStatus::Confirmed) {
-                        button class="btn btn-danger"
+                        button class="btn bg-danger text-white border-none hover:opacity-90"
                             hx-post=(CancelOrderPath { id: o.id }.to_string())
                             hx-confirm="确认取消此订单？取消后不可恢复。" { "取消订单" }
                     }

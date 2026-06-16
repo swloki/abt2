@@ -70,7 +70,7 @@ fn work_calendar_detail_page(
 
         // 基本信息
         div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
-            div class="info-section-title" { "基本信息" }
+            div class="text-sm font-semibold text-fg mb-3 pb-2 border-b border-border-soft" { "基本信息" }
             div class="grid gap-4" {
                 div class="flex flex-col gap-1" { label { "名称" } span { (cal.name) } }
                 div class="flex flex-col gap-1" {
@@ -86,7 +86,7 @@ fn work_calendar_detail_page(
 
         // 工作时间明细
         div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
-            div class="info-section-title" { "工作时间明细" }
+            div class="text-sm font-semibold text-fg mb-3 pb-2 border-b border-border-soft" { "工作时间明细" }
             div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                 table class="data-table" {
                     thead {
@@ -114,7 +114,7 @@ fn work_calendar_detail_page(
 
         // 例外日
         div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
-            div class="info-section-title" { "例外日（节假日/特殊工作日）" }
+            div class="text-sm font-semibold text-fg mb-3 pb-2 border-b border-border-soft" { "例外日（节假日/特殊工作日）" }
             div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                 table class="data-table" {
                     thead {

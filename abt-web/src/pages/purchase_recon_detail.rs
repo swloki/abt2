@@ -141,7 +141,7 @@ fn precon_detail_page(
                 }
                 div class="flex gap-3" {
                     @if recon.status == PurchaseReconStatus::Draft {
-                        button class="btn btn-primary"
+                        button class="btn bg-accent text-accent-on border-none hover:bg-accent-hover"
                             hx-post=(PreconConfirmPath { id: recon.id }.to_string())
                             hx-confirm="确认对此对账单进行对账？确认后将不可修改。" {
                             (icon::check_circle_icon("w-4 h-4"))
@@ -149,7 +149,7 @@ fn precon_detail_page(
                         }
                     }
                     @if recon.status == PurchaseReconStatus::Draft && can_delete {
-                        button class="btn btn-danger-ghost"
+                        button class="btn bg-danger text-white border-none hover:opacity-90-ghost"
                             hx-post=(format!("/purchase/reconciliation/{}", recon.id))
                             hx-confirm="确认删除此对账单？删除后不可恢复。" {
                             (icon::trash_icon("w-4 h-4"))

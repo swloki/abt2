@@ -166,7 +166,7 @@ fn precon_create_page(
             div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" style="padding:0;overflow:hidden;margin-bottom:var(--space-4)" {
                 div style="padding:var(--space-5) var(--space-5) var(--space-3);display:flex;justify-content:space-between;align-items:center" {
                     span class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" style="margin:0;padding:0;border:none" { "对账明细" }
-                    button type="button" class="btn btn-sm btn-primary"
+                    button type="button" class="btn btn-sm bg-accent text-accent-on border-none hover:bg-accent-hover"
                         id="btn-add-orders"
                         _="on click add .is-open to #order-modal" {
                         (icon::plus_icon("w-3.5 h-3.5"))
@@ -179,7 +179,7 @@ fn precon_create_page(
                     div style="color:var(--muted);margin-bottom:var(--space-4)" {
                         "暂无对账明细"
                     }
-                    button type="button" class="btn btn-sm btn-primary"
+                    button type="button" class="btn btn-sm bg-accent text-accent-on border-none hover:bg-accent-hover"
                         _="on click add .is-open to #order-modal" {
                         (icon::plus_icon("w-3.5 h-3.5"))
                         "选择订单"
@@ -213,12 +213,12 @@ fn precon_create_page(
 
             // ── Action Bar ──
             div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
-                a class="btn btn-default" href=(format!("{}?restore=true", PreconListPath::PATH)) { "取消" }
+                a class="btn bg-white text-fg border border-border hover:bg-surface" href=(format!("{}?restore=true", PreconListPath::PATH)) { "取消" }
                 div style="display:flex;gap:var(--space-3)" {
-                    button type="submit" class="btn btn-default" name="action" value="draft" {
+                    button type="submit" class="btn bg-white text-fg border border-border hover:bg-surface" name="action" value="draft" {
                         "保存草稿"
                     }
-                    button type="submit" class="btn btn-primary" {
+                    button type="submit" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" {
                         "提交对账单"
                     }
                 }
@@ -255,9 +255,9 @@ fn precon_create_page(
                             " 个订单"
                         }
                         div style="display:flex;gap:var(--space-2)" {
-                            button type="button" class="btn btn-default"
+                            button type="button" class="btn bg-white text-fg border border-border hover:bg-surface"
                                 _="on click remove .is-open from #order-modal" { "取消" }
-                            button type="button" class="btn btn-primary" id="btn-confirm-orders"
+                            button type="button" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" id="btn-confirm-orders"
                                 _="on click remove .is-open from #order-modal" {
                                 "确认添加"
                             }

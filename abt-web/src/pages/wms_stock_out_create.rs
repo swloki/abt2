@@ -404,10 +404,10 @@ fn stock_out_create_content(
                 input type="hidden" name="items_json" id="stockout-items-json" value="[]" {}
                 // ── Action Bar ──
                 div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
-                    a class="btn btn-default" href="/admin/wms/stock-out" { "取消" }
+                    a class="btn bg-white text-fg border border-border hover:bg-surface" href="/admin/wms/stock-out" { "取消" }
                     div style="display:flex;gap:var(--space-3)" {
-                        button type="button" class="btn btn-default" { "保存草稿" }
-                        button type="submit" class="btn btn-primary" style="background:var(--danger);border-color:var(--danger)" {
+                        button type="button" class="btn bg-white text-fg border border-border hover:bg-surface" { "保存草稿" }
+                        button type="submit" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" style="background:var(--danger);border-color:var(--danger)" {
                             (icon::upload_icon("w-4 h-4"))
                             "确认出库"
                         }
@@ -578,7 +578,7 @@ fn product_list_fragment(products: &[abt_core::master_data::product::model::Prod
                                 span { (p.unit) }
                             }
                         }
-                        button type="button" class="btn btn-sm btn-primary"
+                        button type="button" class="btn btn-sm bg-accent text-accent-on border-none hover:bg-accent-hover"
                             hx-get=(format!("{}?product_id={}", StockOutItemRowPath::PATH, p.product_id))
                             hx-target="#stockout-item-tbody"
                             hx-swap="beforeend"

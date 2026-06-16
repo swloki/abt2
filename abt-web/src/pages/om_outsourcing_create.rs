@@ -381,8 +381,8 @@ fn create_page(
 
                 // ── Action bar ──
                 div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
-                    a class="btn btn-default" href=(format!("{}?restore=true", OmOutsourcingListPath::PATH)) { "取消" }
-                    button type="submit" class="btn btn-primary" { "确认提交" }
+                    a class="btn bg-white text-fg border border-border hover:bg-surface" href=(format!("{}?restore=true", OmOutsourcingListPath::PATH)) { "取消" }
+                    button type="submit" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" { "确认提交" }
                 }
             }
         }
@@ -425,10 +425,10 @@ fn create_page(
                     }
                 }
                 div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" {
-                    button type="button" class="btn btn-default"
+                    button type="button" class="btn bg-white text-fg border border-border hover:bg-surface"
                         _="on click remove .is-open from #material-modal"
                     { "取消" }
-                    button type="button" class="btn btn-primary"
+                    button type="button" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover"
                         onclick="omConfirmMaterial()"
                     { "确认" }
                 }

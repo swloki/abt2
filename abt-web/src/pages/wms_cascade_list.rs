@@ -57,7 +57,7 @@ fn cascade_page(result: Option<&CascadeInventoryResult>) -> Markup {
                         hx-target=".cascade-results"
                         hx-swap="innerHTML";
                 }
-                button class="btn btn-primary"
+                button class="btn bg-accent text-accent-on border-none hover:bg-accent-hover"
                     hx-get=(CascadeListPath::PATH)
                     hx-target=".cascade-results"
                     hx-swap="innerHTML"

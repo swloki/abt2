@@ -244,14 +244,14 @@ fn shipping_detail_page(
                     }
                 }
                 div class="flex gap-3" {
-                    a class="btn btn-default" href=(format!("{}?restore=true", ShippingListPath::PATH)) { "返回列表" }
+                    a class="btn bg-white text-fg border border-border hover:bg-surface" href=(format!("{}?restore=true", ShippingListPath::PATH)) { "返回列表" }
                     @if s.status == ShippingStatus::Draft {
-                        button class="btn btn-primary"
+                        button class="btn bg-accent text-accent-on border-none hover:bg-accent-hover"
                             hx-post=(ConfirmShippingPath { id: s.id }.to_string())
                             hx-confirm="确认审核此发货单？" { "确认发货" }
                     }
                     @if s.status == ShippingStatus::Confirmed {
-                        button class="btn btn-primary"
+                        button class="btn bg-accent text-accent-on border-none hover:bg-accent-hover"
                             hx-post=(PickShippingPath { id: s.id }.to_string())
                             hx-confirm="确认开始拣货？" { "开始拣货" }
                     }
@@ -261,7 +261,7 @@ fn shipping_detail_page(
                             hx-confirm="确认已发出？" { "确认发出" }
                     }
                     @if matches!(s.status, ShippingStatus::Draft | ShippingStatus::Confirmed) {
-                        button class="btn btn-danger"
+                        button class="btn bg-danger text-white border-none hover:opacity-90"
                             hx-post=(CancelShippingPath { id: s.id }.to_string())
                             hx-confirm="确认取消此发货单？" { "取消" }
                     }

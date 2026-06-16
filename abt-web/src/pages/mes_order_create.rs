@@ -198,7 +198,7 @@ fn order_create_page(work_centers: &[abt_core::master_data::work_center::WorkCen
                                 _="on click add .is-open to #product-modal" {
                                 "点击选择产品…"
                             }
-                            button type="button" class="btn btn-default"
+                            button type="button" class="btn bg-white text-fg border border-border hover:bg-surface"
                                 _="on click add .is-open to #product-modal" { "选择" }
                         }
                     }
@@ -232,9 +232,9 @@ fn order_create_page(work_centers: &[abt_core::master_data::work_center::WorkCen
                                 _="on click add .is-open to #so-modal" {
                                 "点击选择销售订单…"
                             }
-                            button type="button" class="btn btn-default"
+                            button type="button" class="btn bg-white text-fg border border-border hover:bg-surface"
                                 _="on click add .is-open to #so-modal" { "选择" }
-                            button type="button" class="btn btn-default"
+                            button type="button" class="btn bg-white text-fg border border-border hover:bg-surface"
                                 _="on click set #source_sales_order_id's value to '' then put '点击选择销售订单…' into #so-display then set #so-display's style.color to 'var(--muted)'" { "清除" }
                         }
                     }
@@ -246,9 +246,9 @@ fn order_create_page(work_centers: &[abt_core::master_data::work_center::WorkCen
                                 _="on click add .is-open to #pp-modal" {
                                 "点击选择生产计划…"
                             }
-                            button type="button" class="btn btn-default"
+                            button type="button" class="btn bg-white text-fg border border-border hover:bg-surface"
                                 _="on click add .is-open to #pp-modal" { "选择" }
-                            button type="button" class="btn btn-default"
+                            button type="button" class="btn bg-white text-fg border border-border hover:bg-surface"
                                 _="on click set #source_plan_id's value to '' then put '点击选择生产计划…' into #pp-display then set #pp-display's style.color to 'var(--muted)'" { "清除" }
                         }
                     }
@@ -256,8 +256,8 @@ fn order_create_page(work_centers: &[abt_core::master_data::work_center::WorkCen
                 }
             }
             div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
-                a class="btn btn-default" href=(format!("{}?restore=true", OrderListPath::PATH)) { "取消" }
-                button type="submit" class="btn btn-primary" { "提交" }
+                a class="btn bg-white text-fg border border-border hover:bg-surface" href=(format!("{}?restore=true", OrderListPath::PATH)) { "取消" }
+                button type="submit" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" { "提交" }
             }
         }
         // ── 弹窗组件 ──

@@ -294,7 +294,7 @@ fn product_list_page(
             div class="flex items-center justify-between mb-6" {
                 h1 class="text-xl font-bold text-fg tracking-tight" { "产品管理" span style="font-size:var(--text-sm);font-weight:400;color:var(--muted);margin-left:var(--space-2)" { "(" (result.total) ")" } }
                 div class="flex gap-3" {
-                    button type="button" class="btn btn-default"
+                    button type="button" class="btn bg-white text-fg border border-border hover:bg-surface"
                         _=(import_modal::import_modal_onclick(&ImportModalConfig { import_type: "product-inventory", title: "", template_columns: "" })) {
                         (icon::upload_icon("w-4 h-4"))
                         "导入"
@@ -304,7 +304,7 @@ fn product_list_page(
                         ExportItem { label: "不含价格产品", export_type: "product-without-price" },
                     ]))
                     @if can_create {
-                        a href=(ProductCreatePath::PATH) class="btn btn-primary" {
+                        a href=(ProductCreatePath::PATH) class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" {
                             (icon::plus_icon("w-4 h-4"))
                             "新建产品"
                         }
@@ -338,9 +338,9 @@ fn product_list_page(
                     }
                 },
                 html! {
-                    button type="button" class="btn btn-default"
+                    button type="button" class="btn bg-white text-fg border border-border hover:bg-surface"
                         _="on click remove .open from #bom-drawer" { "关闭" }
-                    a href="/admin/md/boms/new" class="btn btn-primary" style="text-decoration:none" {
+                    a href="/admin/md/boms/new" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" style="text-decoration:none" {
                         (icon::plus_icon("w-4 h-4"))
                         "新建 BOM"
                     }
@@ -485,7 +485,7 @@ fn product_row(p: &Product, watched_ids: &[i64], can_delete: bool, can_edit: boo
                         (icon::dots_vertical_icon("w-4 h-4"))
                     }
                     // Backdrop to close menu on outside click
-                    div class="dropdown-backdrop"
+                    div class="fixed inset-0 z-[999] cursor-default"
                         _="on click remove .is-open from next <.row-actions-menu/>" {}
                     // Dropdown menu
                     div class="row-actions-menu" onclick="event.stopPropagation()" {
@@ -722,7 +722,7 @@ fn usage_error_dialog(name: &str, total: u64) -> Markup {
                     }
                 }
                 div class="dialog-foot" {
-                    button type="button" class="btn btn-primary"
+                    button type="button" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover"
                         _="on click remove .open from closest .dialog-overlay" { "知道了" }
                 }
             }
@@ -750,7 +750,7 @@ fn price_history_table(_product_id: i64, entries: &[PriceLogEntry]) -> Markup {
                     }
                 }
                 div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" {
-                    button type="button" class="btn btn-default"
+                    button type="button" class="btn bg-white text-fg border border-border hover:bg-surface"
                         _="on click remove .is-open from closest .modal-overlay" { "关闭" }
                 }
             }

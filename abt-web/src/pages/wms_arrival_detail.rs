@@ -375,7 +375,7 @@ fn arrival_action_buttons(status: ArrivalStatus, detail_path: &str) -> Markup {
     match status {
         ArrivalStatus::Draft => {
             html! {
-                button class="btn btn-default"
+                button class="btn bg-white text-fg border border-border hover:bg-surface"
                     hx-post=(detail_path)
                     hx-vals=r#"{"action":"cancel"}"#
                     hx-confirm="确定要取消此来料通知吗？"
@@ -383,7 +383,7 @@ fn arrival_action_buttons(status: ArrivalStatus, detail_path: &str) -> Markup {
                     (icon::x_icon("w-4 h-4"))
                     "取消"
                 }
-                button class="btn btn-primary"
+                button class="btn bg-accent text-accent-on border-none hover:bg-accent-hover"
                     hx-post=(detail_path)
                     hx-vals=r#"{"action":"receive"}"#
                     hx-confirm="确定要确认收货吗？实收数量将自动按申报数量填写。"
@@ -395,7 +395,7 @@ fn arrival_action_buttons(status: ArrivalStatus, detail_path: &str) -> Markup {
         }
         ArrivalStatus::Received => {
             html! {
-                button class="btn btn-default"
+                button class="btn bg-white text-fg border border-border hover:bg-surface"
                     hx-post=(detail_path)
                     hx-vals=r#"{"action":"cancel"}"#
                     hx-confirm="确定要取消此来料通知吗？"
@@ -403,7 +403,7 @@ fn arrival_action_buttons(status: ArrivalStatus, detail_path: &str) -> Markup {
                     (icon::x_icon("w-4 h-4"))
                     "取消"
                 }
-                button class="btn btn-primary"
+                button class="btn bg-accent text-accent-on border-none hover:bg-accent-hover"
                     hx-post=(detail_path)
                     hx-vals=r#"{"action":"inspect"}"#
                     hx-confirm="确定要开始检验并确认接收吗？合格数量将按实收数量自动填写。"

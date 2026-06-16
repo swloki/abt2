@@ -465,9 +465,9 @@ fn node_edit_form_fragment(bom_id: i64, node_id: i64, bom_version: i32, node: &B
                         }
                     }
                     div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" style="padding:var(--space-4) 0 0;border-top:1px solid var(--border-soft)" {
-                        button type="button" class="btn btn-default"
+                        button type="button" class="btn bg-white text-fg border border-border hover:bg-surface"
                             _="on click remove .is-open from #bom-edit-modal then empty #bom-edit-modal" { "取消" }
-                        button type="submit" class="btn btn-primary" { "保存" }
+                        button type="submit" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" { "保存" }
                     }
                 }
             }
@@ -511,7 +511,7 @@ fn bom_edit_page(
             div class="bom-toolbar" {
                 // Left side: back, category, view toggle, level filter
                 div class="bom-toolbar-left" {
-                    a class="btn btn-sm btn-default" href=(format!("{list_path}?restore=true")) {
+                    a class="btn btn-sm bg-white text-fg border border-border hover:bg-surface" href=(format!("{list_path}?restore=true")) {
                         (icon::arrow_left_icon("w-4 h-4"))
                         " 返回列表"
                     }
@@ -568,7 +568,7 @@ fn bom_edit_page(
                     }
 
                     @if node_count == 0 {
-                        button type="button" class="btn btn-sm btn-primary" id="bom-add-root-btn"
+                        button type="button" class="btn btn-sm bg-accent text-accent-on border-none hover:bg-accent-hover" id="bom-add-root-btn"
                             _="on click put '0' into <input[name='parent_id']/>'s value then add .is-open to #bom-add-modal then call bomLoadProducts()" {
                             (icon::plus_icon("w-4 h-4"))
                             " 添加根节点"
@@ -749,7 +749,7 @@ fn bom_edit_page(
                                     placeholder="输入新的 BOM 名称" {}
                             }
                             div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" style="padding:var(--space-4) 0 0;border-top:1px solid var(--border-soft)" {
-                                button type="button" class="btn btn-default" _="on click remove .is-open from #bom-save-as-modal" { "取消" }
+                                button type="button" class="btn bg-white text-fg border border-border hover:bg-surface" _="on click remove .is-open from #bom-save-as-modal" { "取消" }
                                 button type="submit" class="btn btn-success" { "确认另存为" }
                             }
                         }
@@ -906,7 +906,7 @@ fn product_list_fragment(products: &[abt_core::master_data::product::model::Prod
                             input type="hidden" name="product_id" value=(p.product_id) {}
                             input type="hidden" name="quantity" value="1" {}
                             input type="hidden" name="unit" value=(p.unit) {}
-                            button type="submit" class="btn btn-sm btn-primary" { "选择" }
+                            button type="submit" class="btn btn-sm bg-accent text-accent-on border-none hover:bg-accent-hover" { "选择" }
                         }
                     }
                 }

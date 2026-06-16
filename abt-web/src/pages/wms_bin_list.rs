@@ -131,7 +131,7 @@ fn bin_list_page(
                 h1 class="text-xl font-bold text-fg tracking-tight" { "储位管理" }
                 div class="flex gap-3" {
                     @if can_create {
-                        a class="btn btn-primary" href=(BinCreatePath::PATH) {
+                        a class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" href=(BinCreatePath::PATH) {
                             (icon::plus_icon("w-4 h-4"))
                             "新建储位"
                         }

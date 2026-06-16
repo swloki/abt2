@@ -94,7 +94,7 @@ fn routing_detail_page(
             // ── Detail Top ──
             div class="detail-top" {
                 div class="customer-identity" {
-                    div class="customer-avatar" style="background:var(--color-primary-light,#e0e7ff)" {
+                    div class="customer-inline-grid place-items-center rounded-full text-white font-semibold shrink-0 select-none" style="background:var(--color-primary-light,#e0e7ff)" {
                         (icon::clipboard_list_icon("w-5 h-5"))
                     }
                     div {
@@ -112,19 +112,19 @@ fn routing_detail_page(
                     }
                 }
                 div class="flex gap-3" {
-                    a class="btn btn-default" href=(format!("{list_path}?restore=true")) {
+                    a class="btn bg-white text-fg border border-border hover:bg-surface" href=(format!("{list_path}?restore=true")) {
                         (icon::arrow_left_icon("w-4 h-4"))
                         " 返回列表"
                     }
-                    a class="btn btn-default" href="#" {
+                    a class="btn bg-white text-fg border border-border hover:bg-surface" href="#" {
                         (icon::edit_icon("w-4 h-4"))
                         " 编辑"
                     }
-                    a class="btn btn-default" href="#" {
+                    a class="btn bg-white text-fg border border-border hover:bg-surface" href="#" {
                         (icon::copy_icon("w-4 h-4"))
                         " 复制"
                     }
-                    button class="btn btn-danger-ghost"
+                    button class="btn bg-danger text-white border-none hover:opacity-90-ghost"
                         hx-confirm=(format!("确定要删除工艺路线 {} 吗？此操作不可撤销。", routing.name))
                         hx-post=(delete_path.to_string())
                         hx-target="body"

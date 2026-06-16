@@ -151,7 +151,7 @@ fn writeoff_list_page(
             div class="flex items-center justify-between mb-6" {
                 h1 class="text-xl font-bold text-fg tracking-tight" { "核销管理" }
                 div class="flex gap-3" {
-                    button class="btn btn-default" type="button" {
+                    button class="btn bg-white text-fg border border-border hover:bg-surface" type="button" {
                         (icon::download_icon("w-4 h-4"))
                         "导出"
                     }

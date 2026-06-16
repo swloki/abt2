@@ -22,9 +22,9 @@ pub fn modal(modal_id: &str, title: &str, submit_label: &str, form_id: &str, hx_
                     (body)
                 }
                 div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" {
-                    button type="button" class="btn btn-default"
+                    button type="button" class="btn bg-white text-fg border border-border hover:bg-surface"
                         _=(format!("on click remove .is-open from closest .modal-overlay then reset #{}", form_id)) { "取消" }
-                    button type="submit" class="btn btn-primary" { (submit_label) }
+                    button type="submit" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" { (submit_label) }
                 }
             }
         }

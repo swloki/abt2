@@ -342,43 +342,43 @@ fn po_detail_page(
                     }
                 }
                 div class="flex gap-3" {
-                    button class="btn btn-default" {
+                    button class="btn bg-white text-fg border border-border hover:bg-surface" {
                         (icon::printer_icon("w-4 h-4"))
                         "打印"
                     }
-                    button class="btn btn-default" {
+                    button class="btn bg-white text-fg border border-border hover:bg-surface" {
                         (icon::link_icon("w-4 h-4"))
                         "关联报价"
                     }
                     @if order.status == PurchaseOrderStatus::Draft {
-                        a class="btn btn-default" href=(POEditPath { id: order.id }.to_string()) {
+                        a class="btn bg-white text-fg border border-border hover:bg-surface" href=(POEditPath { id: order.id }.to_string()) {
                             (icon::edit_icon("w-4 h-4"))
                             "编辑"
                         }
-                        button class="btn btn-primary"
+                        button class="btn bg-accent text-accent-on border-none hover:bg-accent-hover"
                             hx-post=(format!("/admin/purchase/orders/{}/submit", order.id))
                             hx-confirm="提交审批？" {
                             "提交审批"
                         }
-                        button class="btn btn-default"
+                        button class="btn bg-white text-fg border border-border hover:bg-surface"
                             hx-post=(POConfirmPath { id: order.id }.to_string())
                             hx-confirm="确认此订单？确认后将通知供应商。" {
                             (icon::check_circle_icon("w-4 h-4"))
                             "直接确认"
                         }
-                        button class="btn btn-danger"
+                        button class="btn bg-danger text-white border-none hover:opacity-90"
                             hx-post=(POCancelPath { id: order.id }.to_string())
                             hx-confirm="确认取消此订单？取消后不可恢复。" {
                             "取消订单"
                         }
                     }
                     @if order.status == PurchaseOrderStatus::PendingApproval {
-                        button class="btn btn-primary"
+                        button class="btn bg-accent text-accent-on border-none hover:bg-accent-hover"
                             hx-post=(format!("/admin/purchase/orders/{}/approve", order.id))
                             hx-confirm="审批通过？" {
                             "审批通过"
                         }
-                        button class="btn btn-danger"
+                        button class="btn bg-danger text-white border-none hover:opacity-90"
                             hx-post=(format!("/admin/purchase/orders/{}/reject", order.id)) {
                             "退回修改"
                         }

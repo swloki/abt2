@@ -107,7 +107,7 @@ fn cycle_count_list_page(
                 h1 class="text-xl font-bold text-fg tracking-tight" { "循环盘点" }
                 div class="flex gap-3" {
                     @if can_create {
-                        a class="btn btn-primary" href=(CycleCountCreatePath::PATH) {
+                        a class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" href=(CycleCountCreatePath::PATH) {
                             (icon::plus_icon("w-4 h-4"))
                             "新建盘点"
                         }

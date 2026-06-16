@@ -502,7 +502,7 @@ pub fn sidebar_body_fragment(claims: &Claims, active_module: &str, filter: &NavF
             }
         }
         div class="sidebar-user" {
-            div class="sidebar-user-avatar" { (avatar_initials(&claims.display_name)) }
+            div class="sidebar-user-inline-grid place-items-center rounded-full text-white font-semibold shrink-0 select-none" { (avatar_initials(&claims.display_name)) }
             div class="sidebar-user-info" {
                 div class="sidebar-user-name" { (claims.display_name.as_str()) }
                 div class="sidebar-user-role" { (claims.system_role.as_str()) }
@@ -557,7 +557,7 @@ pub fn sidebar(claims: &Claims, active_module: &str, current_path: &str, filter:
                     (sidebar_body_fragment_inner(active_mod, current_path, filter))
                 }
                 div class="sidebar-user" {
-                    div class="sidebar-user-avatar" { (avatar_initials(&claims.display_name)) }
+                    div class="sidebar-user-inline-grid place-items-center rounded-full text-white font-semibold shrink-0 select-none" { (avatar_initials(&claims.display_name)) }
                     div class="sidebar-user-info" {
                         div class="sidebar-user-name" { (claims.display_name.as_str()) }
                         div class="sidebar-user-role" { (claims.system_role.as_str()) }

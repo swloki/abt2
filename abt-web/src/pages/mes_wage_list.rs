@@ -132,7 +132,7 @@ fn wage_list_page(
         div class="flex items-center justify-between mb-6" {
             h1 class="text-xl font-bold text-fg tracking-tight" { "计件工资汇总" }
             div class="flex gap-3" {
-                button class="btn btn-default" {
+                button class="btn bg-white text-fg border border-border hover:bg-surface" {
                     (maud::PreEscaped(r#"<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>"#))
                     " 导出"
                 }
@@ -240,7 +240,7 @@ fn wage_list_page(
                     // Worker summary row
                     div class="worker-row" style="cursor:pointer" _=(format!("on click if #{0}'s *display is 'none' then show #{0} else hide #{0}", toggle_id)) {
                         div class="worker-name-cell" {
-                            div class="worker-avatar" style="background:var(--accent)" { (initial) }
+                            div class="worker-inline-grid place-items-center rounded-full text-white font-semibold shrink-0 select-none" style="background:var(--accent)" { (initial) }
                             div class="worker-info" {
                                 span class="worker-name" { (worker_name) }
                             }

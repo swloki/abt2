@@ -205,7 +205,7 @@ fn misc_list_page(
                 h1 class="text-xl font-bold text-fg tracking-tight" { "零星请购" }
                 div class="flex gap-3" {
                     @if can_create {
-                        a class="btn btn-primary" href=(MiscCreatePath::PATH) {
+                        a class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" href=(MiscCreatePath::PATH) {
                             (icon::plus_icon("w-4 h-4"))
                             "新建零星请购"
                         }

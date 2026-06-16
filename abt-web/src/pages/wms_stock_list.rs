@@ -356,7 +356,7 @@ fn stock_list_page(
                     div id="stock-drawer-content" {}
                 },
                 html! {
-                    button type="button" class="btn btn-default"
+                    button type="button" class="btn bg-white text-fg border border-border hover:bg-surface"
                         _="on click remove .open from closest .drawer-overlay" { "关闭" }
                 },
             ))

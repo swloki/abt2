@@ -318,7 +318,7 @@ fn demand_pool_page(
                     }
                 }
                 div class="flex gap-3" {
-                    button class="btn btn-default"
+                    button class="btn bg-white text-fg border border-border hover:bg-surface"
                         hx-get=(MesDemandPoolListPath::PATH)
                         hx-target="#demand-pool-data-card"
                         hx-select="#demand-pool-data-card"
@@ -565,7 +565,7 @@ fn material_row(item: &MaterialAggSummary) -> Markup {
 
             // Actions (visible on hover)
             div class="material-actions" {
-                a class="btn btn-primary btn-sm"
+                a class="btn bg-accent text-accent-on border-none hover:bg-accent-hover btn-sm"
                     href=(format!("{}?product_id={}", MesDemandPoolCreatePath::PATH, pid))
                     onclick="event.stopPropagation()" {
                     "创建生产计划"
@@ -731,7 +731,7 @@ fn detail_row(item: &DemandSummary) -> Markup {
                 @if is_pending {
                     form method="get" action=(MesDemandPoolCreatePath::PATH) {
                         input type="hidden" name="product_id" value=(item.product_id) {}
-                        button type="submit" class="btn btn-primary btn-sm" { "创建" }
+                        button type="submit" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover btn-sm" { "创建" }
                     }
                 } @else {
                     @if let (Some(doc_type), Some(doc_id)) = (item.target_doc_type, item.target_doc_id) {

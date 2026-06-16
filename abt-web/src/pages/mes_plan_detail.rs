@@ -397,13 +397,13 @@ fn plan_detail_page(
                     }
                     div class="flex gap-3" {
                         @if plan.status == PlanStatus::Confirmed {
-                            a class="btn btn-primary" href=(format!("/admin/mes/plans/{}?tab=planning", plan.id)) {
+                            a class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" href=(format!("/admin/mes/plans/{}?tab=planning", plan.id)) {
                                 (icon::rocket_icon("w-4 h-4"))
                                 "工单规划"
                             }
                         }
                         @if plan.status == PlanStatus::Confirmed || plan.status == PlanStatus::InProgress {
-                            button class="btn btn-primary"
+                            button class="btn bg-accent text-accent-on border-none hover:bg-accent-hover"
                                 hx-post=(PlanSchedulePath { plan_id: plan.id }.to_string())
                                 hx-confirm="执行工序级排程？将根据工作日历和工作中心产能自动分配时段。" {
                                 (icon::calendar_icon("w-4 h-4"))
@@ -411,7 +411,7 @@ fn plan_detail_page(
                             }
                         }
                         @if plan.status == PlanStatus::Draft {
-                            button class="btn btn-primary"
+                            button class="btn bg-accent text-accent-on border-none hover:bg-accent-hover"
                                 hx-post=(PlanConfirmPath { plan_id: plan.id }.to_string())
                                 hx-confirm="确认此生产计划？确认后进入已确认状态。" {
                                 (icon::check_circle_icon("w-4 h-4"))
@@ -652,7 +652,7 @@ fn tab_planning(
                                                     }
                                                     td { (completeness_dots(val)) }
                                                     td {
-                                                        button type="button" class="btn btn-default btn-sm"
+                                                        button type="button" class="btn bg-white text-fg border border-border hover:bg-surface btn-sm"
                                                             _="on click call openSplitDialog(me)" { "拆分" }
                                                     }
                                                 }
@@ -665,12 +665,12 @@ fn tab_planning(
                             input type="hidden" name="items_json" id="items_json" {};
 
                             div style="margin-top:var(--space-4);display:flex;gap:var(--space-3)" {
-                                button type="submit" class="btn btn-primary"
+                                button type="submit" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover"
                                     onclick="document.getElementById('items_json').value=collectPlanItems()" {
                                     (icon::rocket_icon("w-4 h-4"))
                                     "生成草稿工单"
                                 }
-                                button type="submit" class="btn btn-default"
+                                button type="submit" class="btn bg-white text-fg border border-border hover:bg-surface"
                                     formaction=(PlanGenerateReleasePath { plan_id: plan.id }.to_string())
                                     onclick="document.getElementById('items_json').value=collectPlanItems()" {
                                     "一键生成并下达"
@@ -711,13 +711,13 @@ fn tab_planning(
                                             td style="white-space:nowrap" { (wo.scheduled_start.format("%m-%d")) " → " (wo.scheduled_end.format("%m-%d")) }
                                             td { (status_pill("草稿", "rgba(250,140,22,0.08)", "#fa8c16")) }
                                             td style="white-space:nowrap" {
-                                                button class="btn btn-primary btn-sm"
+                                                button class="btn bg-accent text-accent-on border-none hover:bg-accent-hover btn-sm"
                                                     hx-post=(OrderReleasePath { order_id: wo.id }.to_string())
                                                     hx-confirm="确认下达此工单？"
                                                     hx-disabled-elt="this" {
                                                     "下达"
                                                 }
-                                                button class="btn btn-danger btn-sm"
+                                                button class="btn bg-danger text-white border-none hover:opacity-90 btn-sm"
                                                     hx-post=(OrderCancelPath { order_id: wo.id }.to_string())
                                                     hx-confirm="确认取消此草稿工单？" {
                                                     "取消"
@@ -731,7 +731,7 @@ fn tab_planning(
                     }
 
                     div style="margin-top:var(--space-4)" {
-                        button class="btn btn-primary"
+                        button class="btn bg-accent text-accent-on border-none hover:bg-accent-hover"
                             hx-post=(PlanReleaseAllPath { plan_id: plan.id }.to_string())
                             hx-confirm="确认全部下达？"
                             hx-disabled-elt="this" {

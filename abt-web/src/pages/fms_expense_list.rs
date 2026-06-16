@@ -193,9 +193,9 @@ fn expense_list_page(
             div class="flex items-center justify-between mb-6" {
                 h1 class="text-xl font-bold text-fg tracking-tight" { "费用报销" }
                 div class="flex gap-3" {
-                    button class="btn btn-default" type="button" { (icon::download_icon("w-4 h-4")) "导出" }
+                    button class="btn bg-white text-fg border border-border hover:bg-surface" type="button" { (icon::download_icon("w-4 h-4")) "导出" }
                     @if can_create {
-                        a class="btn btn-primary" href=(ExpenseCreatePath::PATH) {
+                        a class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" href=(ExpenseCreatePath::PATH) {
                             (icon::plus_icon("w-4 h-4"))
                             "新建报销"
                         }

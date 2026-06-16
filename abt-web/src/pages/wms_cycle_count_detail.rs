@@ -321,7 +321,7 @@ fn action_buttons(cc: &abt_core::wms::cycle_count::model::CycleCount, detail_pat
     match &cc.status {
         CycleCountStatus::Draft => {
             html! {
-                button class="btn btn-default"
+                button class="btn bg-white text-fg border border-border hover:bg-surface"
                     hx-post=(detail_path)
                     hx-vals=r#"{"action":"start"}"#
                     hx-confirm="确定要开始盘点吗？"
@@ -332,7 +332,7 @@ fn action_buttons(cc: &abt_core::wms::cycle_count::model::CycleCount, detail_pat
         }
         CycleCountStatus::Counting => {
             html! {
-                button class="btn btn-primary"
+                button class="btn bg-accent text-accent-on border-none hover:bg-accent-hover"
                     hx-post=(detail_path)
                     hx-vals=r#"{"action":"complete"}"#
                     hx-confirm="确定要完成盘点吗？"
@@ -343,7 +343,7 @@ fn action_buttons(cc: &abt_core::wms::cycle_count::model::CycleCount, detail_pat
         }
         CycleCountStatus::Completed => {
             html! {
-                button class="btn btn-default"
+                button class="btn bg-white text-fg border border-border hover:bg-surface"
                     hx-post=(detail_path)
                     hx-vals=r#"{"action":"cancel"}"#
                     hx-confirm="确定要取消此盘点单吗？"
@@ -351,7 +351,7 @@ fn action_buttons(cc: &abt_core::wms::cycle_count::model::CycleCount, detail_pat
                     (crate::components::icon::x_icon("w-4 h-4"))
                     "取消"
                 }
-                button class="btn btn-primary"
+                button class="btn bg-accent text-accent-on border-none hover:bg-accent-hover"
                     hx-post=(detail_path)
                     hx-vals=r#"{"action":"adjust"}"#
                     hx-confirm="确定要确认调整库存吗？此操作不可撤销。"

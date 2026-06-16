@@ -518,7 +518,7 @@ fn role_item(
             hx-target=".perm-page"
             hx-swap="outerHTML" {
 
-            div class="role-avatar" style=(format!("background:{}", gradient)) {
+            div class="role-inline-grid place-items-center rounded-full text-white font-semibold shrink-0 select-none" style=(format!("background:{}", gradient)) {
                 (first_char.to_uppercase())
             }
             div class="role-item-info" {
@@ -572,7 +572,7 @@ fn permission_panel(
             div class="perm-role-head" {
                 div class="perm-role-head-inner" {
                     div class="perm-role-head-left" {
-                        div class="perm-role-avatar-lg" style=(format!("background:{}", gradient)) {
+                        div class="perm-role-inline-grid place-items-center rounded-full text-white font-semibold shrink-0 select-none-lg" style=(format!("background:{}", gradient)) {
                             (first_char.to_uppercase())
                         }
                         div {

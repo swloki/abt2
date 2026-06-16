@@ -16,7 +16,7 @@ pub fn import_modal(config: &ImportModalConfig) -> Markup {
             div class="modal modal-import" {
                 div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
                     h2 { (config.title) }
-                    button type="button" class="modal-close-btn"
+                    button type="button" class="bg-transparent border-none cursor-pointer text-xl text-muted p-1 hover:text-fg"
                         _="on click remove .is-open from closest .modal-overlay" { "×" }
                 }
                 div class="overflow-y-auto flex-1 min-h-0 p-6" {
@@ -43,7 +43,7 @@ fn render_import_form(config: &ImportModalConfig) -> Markup {
     html! {
         div class="import-file-zone" {
             p class="import-cols" { "列格式：" (config.template_columns) }
-            a href=(template_path) class="btn btn-default" download {
+            a href=(template_path) class="btn bg-white text-fg border border-border hover:bg-surface" download {
                 (crate::components::icon::download_icon("w-4 h-4"))
                 " 下载模板"
             }
@@ -55,7 +55,7 @@ fn render_import_form(config: &ImportModalConfig) -> Markup {
                 hx-indicator=(format!("#{} .htmx-indicator", content_id)) {
                 input type="file" name="file" accept=".xlsx" required;
                 div class="import-actions" {
-                    button type="submit" class="btn btn-primary" {
+                    button type="submit" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" {
                         "开始导入"
                     }
                     div class="htmx-indicator" {
@@ -128,7 +128,7 @@ pub fn render_import_result(result: &abt_core::shared::excel::ImportResult) -> M
                 }
             }
             div class="import-footer-actions" {
-                button type="button" class="btn btn-default"
+                button type="button" class="btn bg-white text-fg border border-border hover:bg-surface"
                     _="on click remove .is-open from closest .modal-overlay" { "关闭" }
             }
         }

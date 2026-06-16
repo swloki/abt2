@@ -335,18 +335,18 @@ fn warehouse_detail_page(
                 div style="margin-top:var(--space-2);font-size:13px;color:var(--muted)" { (warehouse.name) }
             }
             div class="flex gap-3" {
-                a class="btn btn-default" href=(format!("{}?restore=true", WarehouseListPath::PATH)) {
+                a class="btn bg-white text-fg border border-border hover:bg-surface" href=(format!("{}?restore=true", WarehouseListPath::PATH)) {
                     (icon::arrow_left_icon("w-4 h-4"))
                     " 返回列表"
                 }
                 @if can_edit {
-                    a class="btn btn-primary" href=(edit_path) {
+                    a class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" href=(edit_path) {
                         (icon::edit_icon("w-4 h-4"))
                         " 编辑"
                     }
                 }
                 @if can_delete {
-                    button type="button" class="btn btn-danger" style="margin-left:var(--space-2)"
+                    button type="button" class="btn bg-danger text-white border-none hover:opacity-90" style="margin-left:var(--space-2)"
                         hx-post=(delete_path)
                         hx-confirm=(format!("删除后无法恢复，确定要删除仓库 <strong>{}</strong> 吗？", warehouse.name))
                         hx-target="body"
@@ -412,7 +412,7 @@ fn warehouse_detail_page(
                         "共 " (zones.len()) " 个库区"
                     }
                 }
-                button type="button" class="btn btn-primary" style="font-size:12px;padding:4px 12px" _="on click add .is-open to #zone-create-modal" {
+                button type="button" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" style="font-size:12px;padding:4px 12px" _="on click add .is-open to #zone-create-modal" {
                     (icon::plus_icon("w-3.5 h-3.5"))
                     "新建库区"
                 }
@@ -546,10 +546,10 @@ fn zone_edit_form_fragment(zone: &Zone) -> Markup {
                 }
             }
             div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" {
-                button type="button" class="btn btn-default" _="on click remove .is-open from #zone-edit-modal" {
+                button type="button" class="btn bg-white text-fg border border-border hover:bg-surface" _="on click remove .is-open from #zone-edit-modal" {
                     "取消"
                 }
-                button type="submit" class="btn btn-primary" { "保存" }
+                button type="submit" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" { "保存" }
             }
         }
     }

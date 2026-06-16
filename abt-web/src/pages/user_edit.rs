@@ -195,8 +195,8 @@ fn user_edit_page(
 
             // ── Action Bar ──
             div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
-                a class="btn btn-default" href=(&detail_path) { "取消" }
-                button type="submit" class="btn btn-primary" form="user-edit-form" {
+                a class="btn bg-white text-fg border border-border hover:bg-surface" href=(&detail_path) { "取消" }
+                button type="submit" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" form="user-edit-form" {
                     (icon::check_circle_icon("w-4 h-4"))
                     "保存"
                 }

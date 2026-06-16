@@ -157,7 +157,7 @@ fn lock_detail_page(
                 }
                 @if is_active {
                     div class="flex gap-3" {
-                        button class="btn btn-default"
+                        button class="btn bg-white text-fg border border-border hover:bg-surface"
                             hx-post=(detail_path)
                             hx-vals=r#"{"action":"release"}"#
                             hx-confirm="确定要释放此锁定吗？释放后库存将恢复可用。"
@@ -165,7 +165,7 @@ fn lock_detail_page(
                             (crate::components::icon::lock_icon("w-4 h-4"))
                             "释放锁定"
                         }
-                        button class="btn btn-danger"
+                        button class="btn bg-danger text-white border-none hover:opacity-90"
                             hx-post=(detail_path)
                             hx-vals=r#"{"action":"cancel"}"#
                             hx-confirm="确定要作废此锁库单吗？此操作不可撤销。"

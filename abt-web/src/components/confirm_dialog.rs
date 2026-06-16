@@ -30,9 +30,9 @@ pub fn confirm_dialog(
                     p class="text-sm text-muted text-center leading-relaxed" { (maud::PreEscaped(desc)) }
                 }
                 div class="dialog-foot" {
-                    button type="button" class="btn btn-default"
+                    button type="button" class="btn bg-white text-fg border border-border hover:bg-surface"
                         _="on click remove .open from closest .dialog-overlay" { "取消" }
-                    button type="button" class="btn btn-danger"
+                    button type="button" class="btn bg-danger text-white border-none hover:opacity-90"
                         _=(format!("on click remove .open from closest .dialog-overlay then trigger submit on #{}", form_id))
                         { (confirm_label) }
                 }

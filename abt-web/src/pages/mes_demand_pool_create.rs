@@ -387,7 +387,7 @@ fn create_page_content(
                                 }
                             }
                         }
-                        button type="button" class="btn btn-sm btn-default" id="applyDefaultBtn" { "应用默认排程" }
+                        button type="button" class="btn btn-sm bg-white text-fg border border-border hover:bg-surface" id="applyDefaultBtn" { "应用默认排程" }
                         (PreEscaped(r#"<script>document.getElementById('applyDefaultBtn').addEventListener('click',function(){
                             var start=document.getElementById('defaultStart').value;
                             var end=document.getElementById('defaultEnd').value;
@@ -452,17 +452,17 @@ fn create_page_content(
 
                 // ── Action Bar ──
                 div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
-                    a class="btn btn-default" href=(format!("{}?restore=true", MesDemandPoolListPath::PATH)) { "取消" }
+                    a class="btn bg-white text-fg border border-border hover:bg-surface" href=(format!("{}?restore=true", MesDemandPoolListPath::PATH)) { "取消" }
                     div style="display:flex;gap:var(--space-3);" {
-                        button type="submit" name="action" value="draft" class="btn btn-default" {
+                        button type="submit" name="action" value="draft" class="btn bg-white text-fg border border-border hover:bg-surface" {
                             (icon::save_icon("w-4 h-4"))
                             "保存草稿"
                         }
-                        button type="submit" name="action" value="draft" class="btn btn-primary" {
+                        button type="submit" name="action" value="draft" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" {
                             (icon::send_icon("w-4 h-4"))
                             "创建草稿"
                         }
-                        button type="submit" name="action" value="release" class="btn btn-primary"
+                        button type="submit" name="action" value="release" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover"
                             style="background:linear-gradient(135deg,var(--accent),#6366f1)"
                             hx-confirm="创建后将自动确认并下达，生成工单（含工序、批次）。继续？"
                             hx-disabled-elt="this" {

@@ -352,7 +352,7 @@ fn page_header() -> Markup {
                 }
             }
             div class="flex gap-3" {
-                button class="btn btn-default"
+                button class="btn bg-white text-fg border border-border hover:bg-surface"
                     hx-get=(PurchaseDemandPoolListPath::PATH)
                     hx-target="#demand-pool-data-card"
                     hx-select="#demand-pool-data-card"
@@ -480,7 +480,7 @@ fn batch_action_bar() -> Markup {
         // ── Batch Action Bar ──
         div class="batch-bar" id="batchBar" {
             span { "已选择 " span class="batch-count" id="batchCount" { "0" } " 条需求" }
-            a class="btn btn-sm btn-primary" id="batchCreateBtn"
+            a class="btn btn-sm bg-accent text-accent-on border-none hover:bg-accent-hover" id="batchCreateBtn"
                 href=(PurchaseDemandPoolCreatePath::PATH)
                 data-base-path=(PurchaseDemandPoolCreatePath::PATH) {
                 "创建采购单"
@@ -644,7 +644,7 @@ fn material_row(m: &MaterialAggSummary) -> Markup {
                 form method="get" action=(PurchaseDemandPoolCreatePath::PATH)
                     style="display:inline" {
                     input type="hidden" name="product_id" value=(pid) {}
-                    button type="submit" class="btn btn-primary btn-sm" { "创建采购单" }
+                    button type="submit" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover btn-sm" { "创建采购单" }
                 }
             }
         }
@@ -840,7 +840,7 @@ fn detail_row(d: &DemandSummary) -> Markup {
                 @if is_pending {
                     form method="get" action=(PurchaseDemandPoolCreatePath::PATH) style="display:inline" {
                         input type="hidden" name="product_id" value=(d.product_id) {}
-                        button type="submit" class="btn btn-primary btn-sm" { "创建" }
+                        button type="submit" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover btn-sm" { "创建" }
                     }
                 } @else {
                     span class="text-muted text-sm" { "—" }

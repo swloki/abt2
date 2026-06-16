@@ -157,7 +157,7 @@ fn quotation_detail_page(
                 }
                 div class="flex gap-3" {
                     @if is_draft {
-                        button class="btn btn-primary"
+                        button class="btn bg-accent text-accent-on border-none hover:bg-accent-hover"
                             hx-post=(SubmitQuotationPath { id: q.id }.to_string())
                             hx-confirm="确认提交报价单？" { "提交报价" }
                     }
@@ -165,16 +165,16 @@ fn quotation_detail_page(
                         button class="btn btn-success"
                             hx-post=(AcceptQuotationPath { id: q.id }.to_string())
                             hx-confirm="确认接受该报价？" { "接受" }
-                        button class="btn btn-danger"
+                        button class="btn bg-danger text-white border-none hover:opacity-90"
                             hx-post=(RejectQuotationPath { id: q.id }.to_string())
                             hx-confirm="确认拒绝该报价？" { "拒绝" }
                     }
                     @if is_accepted {
-                        button class="btn btn-default" onclick="window.print()" {
+                        button class="btn bg-white text-fg border border-border hover:bg-surface" onclick="window.print()" {
                             (icon::printer_icon("w-4 h-4"))
                             "打印"
                         }
-                        a class="btn btn-primary" href=(format!("/admin/orders/create?from_quotation={}", q.id)) {
+                        a class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" href=(format!("/admin/orders/create?from_quotation={}", q.id)) {
                             (icon::arrow_right_icon("w-4 h-4"))
                             "转销售订单"
                         }

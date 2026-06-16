@@ -80,7 +80,7 @@ fn inspection_list_page(
     html! { div {
         div class="flex items-center justify-between mb-6" { h1 class="text-xl font-bold text-fg tracking-tight" { "生产报检" } div class="flex gap-3" {
             @if can_create {
-                a class="btn btn-primary" href=(InspectionCreatePath::PATH) { (icon::plus_icon("w-4 h-4")) "新建检验" }
+                a class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" href=(InspectionCreatePath::PATH) { (icon::plus_icon("w-4 h-4")) "新建检验" }
             }
         }}
         (inspection_table_fragment(result, params))

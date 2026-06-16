@@ -68,7 +68,7 @@ fn report_list_page(
     html! { div {
         div class="flex items-center justify-between mb-6" { h1 class="text-xl font-bold text-fg tracking-tight" { "报工记录" } div class="flex gap-3" {
             @if can_create {
-                a class="btn btn-primary" href=(ReportCreatePath::PATH) { (icon::plus_icon("w-4 h-4")) "新建报工" }
+                a class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" href=(ReportCreatePath::PATH) { (icon::plus_icon("w-4 h-4")) "新建报工" }
             }
         }}
         (report_table_fragment(result, params))

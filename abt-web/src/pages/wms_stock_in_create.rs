@@ -452,7 +452,7 @@ fn stock_in_create_content(
                                 input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" id="source-ref-input" name="source_ref"
                                     placeholder="选择来源单号或直接输入" style="flex:1" {};
                                 input type="hidden" id="source-id-input" name="source_id" {};
-                                button type="button" class="btn btn-default" id="source-ref-pick-btn"
+                                button type="button" class="btn bg-white text-fg border border-border hover:bg-surface" id="source-ref-pick-btn"
                                     _="on click set #source-pick-type's value to #source-type-select's value then add .is-open to #source-modal then call wmsOpenSourceModal()" { "选择" }
                             }
                         }
@@ -594,10 +594,10 @@ fn stock_in_create_content(
 
                 // ── Action Bar ──
                 div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
-                    a class="btn btn-default" href=(format!("{}?restore=true", StockInListPath::PATH)) { "取消" }
+                    a class="btn bg-white text-fg border border-border hover:bg-surface" href=(format!("{}?restore=true", StockInListPath::PATH)) { "取消" }
                     div style="display:flex;gap:var(--space-3)" {
-                        button type="button" class="btn btn-default" { "保存草稿" }
-                        button type="submit" class="btn btn-primary" {
+                        button type="button" class="btn bg-white text-fg border border-border hover:bg-surface" { "保存草稿" }
+                        button type="submit" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" {
                             (icon::check_circle_icon("w-4 h-4"))
                             "确认入库"
                         }
@@ -834,7 +834,7 @@ fn product_list_fragment(products: &[abt_core::master_data::product::model::Prod
                                 span { (p.unit) }
                             }
                         }
-                        button type="button" class="btn btn-sm btn-primary"
+                        button type="button" class="btn btn-sm bg-accent text-accent-on border-none hover:bg-accent-hover"
                             hx-get=(format!("{}?product_id={}", StockInItemRowPath::PATH, p.product_id))
                             hx-target="#stockin-item-tbody"
                             hx-swap="beforeend"
@@ -868,7 +868,7 @@ fn source_pick_fragment(options: &[SourceOption]) -> Markup {
                                 span { (o.extra) }
                             }
                         }
-                        button type="button" class="btn btn-sm btn-primary"
+                        button type="button" class="btn btn-sm bg-accent text-accent-on border-none hover:bg-accent-hover"
                             data-doc=(o.doc_number)
                             data-supplier=(o.supplier_name)
                             data-source-id=(o.id)

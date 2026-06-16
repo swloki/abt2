@@ -275,11 +275,11 @@ fn cycle_count_create_page(
                 input type="hidden" name="items_json" id="cc-items-json" value="[]" {}
 
                 div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
-                    a class="btn btn-default" href=(format!("{}?restore=true", CycleCountListPath::PATH)) { "取消" }
-                    button type="submit" class="btn btn-default" name="action" value="draft" {
+                    a class="btn bg-white text-fg border border-border hover:bg-surface" href=(format!("{}?restore=true", CycleCountListPath::PATH)) { "取消" }
+                    button type="submit" class="btn bg-white text-fg border border-border hover:bg-surface" name="action" value="draft" {
                         "保存草稿"
                     }
-                    button type="submit" class="btn btn-primary" name="action" value="start" {
+                    button type="submit" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" name="action" value="start" {
                         (icon::check_circle_icon("w-4 h-4"))
                         "开始盘点"
                     }
@@ -394,7 +394,7 @@ fn product_list_fragment(products: &[abt_core::master_data::product::model::Prod
                                 span { (p.unit) }
                             }
                         }
-                        button type="button" class="btn btn-sm btn-primary"
+                        button type="button" class="btn btn-sm bg-accent text-accent-on border-none hover:bg-accent-hover"
                             hx-get=(format!("{}?product_id={}", CycleCountItemRowPath::PATH, p.product_id))
                             hx-target="#cc-item-tbody"
                             hx-swap="beforeend"

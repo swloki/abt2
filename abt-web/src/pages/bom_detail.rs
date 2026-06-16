@@ -205,7 +205,7 @@ fn bom_detail_page(
             // ── Detail Top ──
             div class="detail-top" {
                 div class="customer-identity" {
-                    div class="customer-avatar" style="background:var(--color-primary-light,#e0e7ff)" {
+                    div class="customer-inline-grid place-items-center rounded-full text-white font-semibold shrink-0 select-none" style="background:var(--color-primary-light,#e0e7ff)" {
                         (icon::clipboard_list_icon("w-5 h-5"))
                     }
                     div {
@@ -226,12 +226,12 @@ fn bom_detail_page(
                     }
                 }
                 div class="flex gap-3" {
-                    a class="btn btn-default" href=(format!("{list_path}?restore=true")) {
+                    a class="btn bg-white text-fg border border-border hover:bg-surface" href=(format!("{list_path}?restore=true")) {
                         (icon::arrow_left_icon("w-4 h-4"))
                         " 返回列表"
                     }
                     @if can_view_cost {
-                        button class="btn btn-default"
+                        button class="btn bg-white text-fg border border-border hover:bg-surface"
                             hx-get=(cost_drawer_path.to_string())
                             hx-target="#cost-drawer-body"
                             hx-swap="innerHTML"
@@ -240,7 +240,7 @@ fn bom_detail_page(
                             " 查看成本"
                         }
                     } @else if can_view_labor_cost {
-                        button class="btn btn-default"
+                        button class="btn bg-white text-fg border border-border hover:bg-surface"
                             hx-get=(labor_drawer_path.to_string())
                             hx-target="#labor-drawer-body"
                             hx-swap="innerHTML"
@@ -250,13 +250,13 @@ fn bom_detail_page(
                         }
                     }
                     @if can_edit {
-                        a class="btn btn-primary" href=(BomEditPath { id: bom.bom_id }) {
+                        a class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" href=(BomEditPath { id: bom.bom_id }) {
                             (icon::edit_icon("w-4 h-4"))
                             " 编辑"
                         }
                     }
                     @if can_edit && is_draft {
-                        button class="btn btn-primary"
+                        button class="btn bg-accent text-accent-on border-none hover:bg-accent-hover"
                             hx-confirm="确定要发布此 BOM 吗？发布后将无法修改。"
                             hx-post=(publish_path.to_string())
                             hx-swap="none" {
@@ -265,7 +265,7 @@ fn bom_detail_page(
                         }
                     }
                     @if can_delete {
-                        button class="btn btn-danger-ghost"
+                        button class="btn bg-danger text-white border-none hover:opacity-90-ghost"
                             hx-confirm=(format!("确定要删除 BOM {} 吗？此操作不可撤销。", bom.bom_name))
                             hx-post=(delete_path.to_string())
                             hx-target="body"
@@ -274,7 +274,7 @@ fn bom_detail_page(
                             " 删除"
                         }
                     }
-                    button type="button" class="btn btn-default"
+                    button type="button" class="btn bg-white text-fg border border-border hover:bg-surface"
                         hx-post=(format!("{}/bom?bom_id={}", crate::routes::excel::EXPORT_START_PATH, bom.bom_id))
                         hx-confirm="确定要导出 BOM 吗？"
                         hx-swap="none" {
@@ -338,7 +338,7 @@ fn bom_detail_page(
                             }
                         }
                         div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3" {
-                            button type="button" class="btn btn-default"
+                            button type="button" class="btn bg-white text-fg border border-border hover:bg-surface"
                                 _="on click remove .open from #cost-drawer" { "关闭" }
                         }
                     }
@@ -359,7 +359,7 @@ fn bom_detail_page(
                             }
                         }
                         div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3" {
-                            button type="button" class="btn btn-default"
+                            button type="button" class="btn bg-white text-fg border border-border hover:bg-surface"
                                 _="on click remove .open from #labor-drawer" { "关闭" }
                         }
                     }

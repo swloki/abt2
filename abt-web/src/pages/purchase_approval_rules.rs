@@ -183,7 +183,7 @@ fn list_page(rules: &[PurchaseApprovalRule]) -> Markup {
                     h1 class="text-xl font-bold text-fg tracking-tight" { "审批规则管理" }
                 }
                 div class="flex gap-3" {
-                    button type="button" class="btn btn-primary"
+                    button type="button" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover"
                         hx-get=(RuleCreatePath::PATH)
                         hx-target="#rule-modal"
                         hx-swap="innerHTML"
@@ -359,14 +359,14 @@ fn row_tr(rule: &PurchaseApprovalRule) -> Markup {
             }
             td {
                 div class="row-actions" {
-                    button type="button" class="btn btn-sm btn-default"
+                    button type="button" class="btn btn-sm bg-white text-fg border border-border hover:bg-surface"
                         hx-get=(RuleEditPath { id: rule.id }.to_string())
                         hx-target="#rule-modal"
                         hx-swap="innerHTML"
                         _="on 'htmx:afterRequest' add .is-open to #rule-modal" {
                         "编辑"
                     }
-                    button class="btn btn-sm btn-danger"
+                    button class="btn btn-sm bg-danger text-white border-none hover:opacity-90"
                         hx-post=(RuleDeletePath { id: rule.id }.to_string())
                         hx-confirm="确认删除此审批规则？"
                         hx-target="#rules-data-card"
@@ -418,7 +418,7 @@ fn rule_form(action_url: &str, rule: Option<&PurchaseApprovalRule>) -> Markup {
         div class="modal" _="on click halt" {
             div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
                 h2 { (title) }
-                button class="modal-close-btn"
+                button class="bg-transparent border-none cursor-pointer text-xl text-muted p-1 hover:text-fg"
                     _="on click remove .is-open from #rule-modal" { "×" }
             }
             form hx-post=(action_url) hx-target="this" hx-swap="outerHTML"
@@ -480,9 +480,9 @@ fn rule_form(action_url: &str, rule: Option<&PurchaseApprovalRule>) -> Markup {
                 }
 
                 div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" {
-                    button type="button" class="btn btn-default"
+                    button type="button" class="btn bg-white text-fg border border-border hover:bg-surface"
                         _="on click remove .is-open from #rule-modal" { "取消" }
-                    button type="submit" class="btn btn-primary" { "保存" }
+                    button type="submit" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" { "保存" }
                 }
             }
         }

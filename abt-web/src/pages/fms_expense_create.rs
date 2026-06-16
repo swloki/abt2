@@ -170,12 +170,12 @@ fn expense_create_page() -> Markup {
 
                 // ── 操作栏 ──
                 div class="action-bar" {
-                    a class="btn btn-default" href=(format!("{}?restore=true", ExpenseListPath::PATH)) { "取消" }
-                    button type="button" class="btn btn-default" onclick="document.getElementById('expense-form').querySelector('input[name=expense_date]').value;document.getElementById('expense-form').requestSubmit()" {
+                    a class="btn bg-white text-fg border border-border hover:bg-surface" href=(format!("{}?restore=true", ExpenseListPath::PATH)) { "取消" }
+                    button type="button" class="btn bg-white text-fg border border-border hover:bg-surface" onclick="document.getElementById('expense-form').querySelector('input[name=expense_date]').value;document.getElementById('expense-form').requestSubmit()" {
                         (PreEscaped(r#"<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>"#))
                         "保存草稿"
                     }
-                    button type="submit" class="btn btn-primary" {
+                    button type="submit" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" {
                         (PreEscaped(r#"<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12l5 5L20 7"/></svg>"#))
                         "提交审批"
                     }

@@ -6,62 +6,73 @@ use crate::components::icon;
 pub fn header(claims: &Claims, module_name: &str, page_name: Option<&str>) -> Markup {
     let initials = crate::layout::sidebar::avatar_initials(&claims.display_name);
     html! {
-        header class="h-[var(--header-h)] bg-bg border-b border-border-soft flex items-center justify-between px-8 sticky top-0 z-10 shadow-xs" {
-            div class="h-[var(--header-h)] bg-bg border-b border-border-soft flex items-center justify-between px-8 sticky top-0 z-10 shadow-xs-left" {
-                button class="hidden w-[38px] h-[38px] border-none rounded-sm place-items-center cursor-pointer shrink-0" _="on click add .open to .mobile-sidebar-overlay" aria-label="菜单" {
+        header class="h-[var(--header-h)] bg-white/82 backdrop-blur-md [border-bottom:1px_solid_var(--border-soft)] flex items-center justify-between px-8 sticky top-0 z-10" {
+            // ── Left: mobile menu + breadcrumb ──
+            div class="flex items-center gap-4" {
+                button class="hidden md:grid w-[38px] h-[38px] border-none rounded-sm place-items-center cursor-pointer shrink-0 hover:bg-surface transition-colors"
+                        _="on click add .mobile-open to #sidebar then add .is-open to .mobile-sidebar-overlay"
+                        aria-label="菜单" {
                     (icon::menu_icon(""))
                 }
-                div class="flex items-center gap-2 text-sm text-text-muted" {
+                div class="flex items-center gap-2 text-sm text-muted" {
                     @if let Some(page) = page_name {
-                        span style="font-weight:600;color:var(--fg)" { (module_name) }
-                        span class="flex items-center gap-2 text-sm text-text-muted-sep" { "/" }
+                        span class="font-semibold text-fg" { (module_name) }
+                        span class="text-border text-xs" { "/" }
                         span { (page) }
                     } @else {
-                        span style="font-weight:600;color:var(--fg)" { (module_name) }
+                        span class="font-semibold text-fg" { (module_name) }
                     }
                 }
             }
-            div class="h-[var(--header-h)] bg-bg border-b border-border-soft flex items-center justify-between px-8 sticky top-0 z-10 shadow-xs-right" {
-                button class="w-9 h-9 rounded-sm border border-border-soft bg-bg grid place-items-center relative cursor-pointer transition-colors duration-150 hover:bg-surface hover:border-border" title="通知" {
+            // ── Right: icon buttons + user menu ──
+            div class="flex items-center gap-4" {
+                button class="w-9 h-9 rounded-md border border-border-soft bg-white/60 grid place-items-center relative cursor-pointer transition-all duration-150 hover:bg-bg hover:border-border hover:shadow-sm"
+                        title="通知" {
                     (icon::bell_icon(""))
                     div class="absolute top-[7px] right-[7px] w-[7px] h-[7px] rounded-full bg-danger border-2 border-bg" {}
                 }
-                button class="w-9 h-9 rounded-sm border border-border-soft bg-bg grid place-items-center relative cursor-pointer transition-colors duration-150 hover:bg-surface hover:border-border" title="帮助" {
+                button class="w-9 h-9 rounded-md border border-border-soft bg-white/60 grid place-items-center relative cursor-pointer transition-all duration-150 hover:bg-bg hover:border-border hover:shadow-sm"
+                        title="帮助" {
                     (icon::question_icon(""))
                 }
-                div class="relative" _="on click from elsewhere remove .is-open" {
-                    button class="relative-trigger" aria-label="用户菜单" _="on click toggle .is-open on .user-menu" {
-                        div class="inline-grid place-items-center rounded-full text-white font-semibold shrink-0 select-none" { (initials) }
+                // ── User Menu ──
+                div class="user-menu relative" _="on click toggle .is-open on .user-menu then on click from elsewhere remove .is-open from .user-menu" {
+                    button class="flex items-center gap-2 py-px px-1.5 py-px rounded-full border border-transparent bg-transparent cursor-pointer transition-all duration-150 hover:bg-bg hover:border-border-soft"
+                            aria-label="用户菜单" {
+                        div class="w-8 h-8 rounded-full bg-accent grid place-items-center text-xs font-bold text-white shrink-0" { (initials) }
+                        div class="flex flex-col items-start leading-tight max-md:hidden" {
+                            span class="text-sm font-semibold text-fg" { (claims.display_name.as_str()) }
+                            span class="text-[11px] text-muted" { (claims.system_role.as_str()) }
+                        }
                     }
-                    div class="relative-dropdown" {
-                        div class="relative-header" {
-                            div class="inline-grid place-items-center rounded-full text-white font-semibold shrink-0 select-none" { (initials) }
-                            div class="relative-info" {
-                                div class="relative-name" { (claims.display_name.as_str()) }
-                                div class="relative-email" { (claims.username.as_str()) }
+                    div class="user-menu-dropdown absolute top-[calc(100%+10px)] right-0 min-w-[252px] bg-surface border border-border rounded-md shadow-lg p-2 opacity-0 invisible -translate-y-2 transition-all duration-150 is-open:opacity-100 is-open:visible is-open:translate-y-0 z-[60]" {
+                        div class="flex items-center gap-3 py-2 px-2 pb-3 [border-bottom:1px_solid_var(--border-soft)] mb-2" {
+                            div class="w-[42px] h-[42px] rounded-full bg-accent grid place-items-center text-sm font-bold text-white shrink-0" { (initials) }
+                            div class="flex flex-col min-w-0" {
+                                span class="font-semibold text-fg text-sm whitespace-nowrap" { (claims.display_name.as_str()) }
+                                span class="text-xs text-muted whitespace-nowrap overflow-hidden text-ellipsis" { (claims.username.as_str()) }
                             }
                         }
-                        a class="relative-item" href="/admin/users" {
-                            (icon::user_icon("w-4 h-4"))
+                        a class="flex items-center gap-3 w-full py-2 px-3 border-none bg-transparent rounded-sm text-sm text-fg-2 cursor-pointer text-left transition-colors hover:bg-bg hover:text-fg [&_svg]:w-[17px] [&_svg]:h-[17px] [&_svg]:text-muted [&_svg]:shrink-0 hover:[&_svg]:text-accent" href="/admin/users" {
+                            (icon::user_icon(""))
                             "个人中心"
                         }
-                        a class="relative-item" href="/admin/users" {
-                            (icon::tool_icon("w-4 h-4"))
+                        a class="flex items-center gap-3 w-full py-2 px-3 border-none bg-transparent rounded-sm text-sm text-fg-2 cursor-pointer text-left transition-colors hover:bg-bg hover:text-fg [&_svg]:w-[17px] [&_svg]:h-[17px] [&_svg]:text-muted [&_svg]:shrink-0 hover:[&_svg]:text-accent" href="/admin/users" {
+                            (icon::tool_icon(""))
                             "账号设置"
                         }
-                        a class="relative-item" href="/admin/notifications" {
-                            (icon::bell_icon("w-4 h-4"))
+                        a class="flex items-center gap-3 w-full py-2 px-3 border-none bg-transparent rounded-sm text-sm text-fg-2 cursor-pointer text-left transition-colors hover:bg-bg hover:text-fg [&_svg]:w-[17px] [&_svg]:h-[17px] [&_svg]:text-muted [&_svg]:shrink-0 hover:[&_svg]:text-accent" href="/admin/notifications" {
+                            (icon::bell_icon(""))
                             "通知中心"
                         }
-                        div class="relative-divider" {}
-                        form class="relative-form" hx-post="/logout" hx-swap="none" {
-                            button class="flex items-center gap-2 px-3 py-2 text-sm text-fg-2 hover:text-fg hover:bg-surface rounded-sm cursor-pointer transition-colors relative-logout" type="submit" {
-                                (icon::log_out_icon("w-4 h-4"))
+                        div class="h-px bg-border-soft mx-2 my-1" {}
+                        form class="m-0" hx-post="/logout" hx-swap="none" {
+                            button class="flex items-center gap-3 w-full py-2 px-3 border-none bg-transparent rounded-sm text-sm text-danger cursor-pointer text-left transition-colors hover:bg-danger/9 [&_svg]:w-[17px] [&_svg]:h-[17px] [&_svg]:text-danger [&_svg]:shrink-0" type="submit" {
+                                (icon::log_out_icon(""))
                                 "退出登录"
                             }
                         }
                     }
-
                 }
             }
         }

@@ -7,7 +7,7 @@ use super::model::{CreatePurchaseReturnRequest, PurchaseReturn, PurchaseReturnIt
 use super::repo::{PurchaseReturnItemRepo, PurchaseReturnRepo};
 use super::service::PurchaseReturnService;
 use crate::purchase::enums::{PurchaseOrderStatus, PurchaseReturnStatus};
-use crate::purchase::order::repo::PurchaseOrderRepo;
+use crate::purchase::order::repo::{PurchaseOrderItemRepo, PurchaseOrderRepo};
 use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService, RecordAuditLogReq};
 use crate::shared::document_link::{new_document_link_service, model::LinkRequest, service::DocumentLinkService};
 use crate::shared::document_sequence::{new_document_sequence_service, service::DocumentSequenceService};
@@ -68,6 +68,26 @@ impl PurchaseReturnService for PurchaseReturnServiceImpl {
                 "订单状态为 {:?}，不允许创建退货单",
                 order.status
             )));
+        }
+
+        // 1.5 校验退货数量不超过可退数量
+        let po_items = PurchaseOrderItemRepo::list_by_order_id(&mut *db, req.order_id)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?;
+
+        for item in &req.items {
+            let po_item = po_items.iter().find(|p| p.id == item.order_item_id)
+                .ok_or_else(|| DomainError::validation(format!(
+                    "退货明细关联的订单行 {} 不存在", item.order_item_id
+                )))?;
+
+            let max_returnable = po_item.received_qty - po_item.returned_qty;
+            if item.returned_qty > max_returnable {
+                return Err(DomainError::validation(format!(
+                    "退货数量 {} 超过可退数量 {}（已收 {} - 已退 {}）",
+                    item.returned_qty, max_returnable, po_item.received_qty, po_item.returned_qty
+                )));
+            }
         }
 
         // 2. 计算退货总金额
@@ -132,8 +152,7 @@ impl PurchaseReturnService for PurchaseReturnServiceImpl {
         // 8. 初始状态日志
         new_state_machine_service(self.pool.clone())
             .transition(ctx, db, ENTITY_TYPE, id, "Draft", None)
-            .await
-            .ok();
+            .await?;
 
         Ok(id)
     }

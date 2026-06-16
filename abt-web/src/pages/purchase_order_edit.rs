@@ -7,6 +7,7 @@ use abt_core::purchase::order::model::{
     CreateOrderItemRequest, PurchaseOrder, PurchaseOrderItem, UpdatePurchaseOrderRequest,
 };
 use abt_core::purchase::order::PurchaseOrderService;
+use abt_core::purchase::TaxRateService;
 use abt_core::purchase::enums::PurchaseOrderStatus;
 use abt_core::shared::types::pagination::PageParams;
 use abt_core::shared::types::DomainError;
@@ -44,6 +45,8 @@ struct ItemWeb {
     quantity: String,
     unit_price: String,
     item_delivery_date: Option<String>,
+    discount_pct: Option<String>,
+    tax_rate_id: Option<String>,
 }
 
 // ── Handlers ──
@@ -103,7 +106,12 @@ pub async fn get_po_edit(path: POEditPath, ctx: RequestContext) -> Result<Html<S
         HashMap::new()
     };
 
-    let content = po_edit_page(&order, &items, &suppliers.items, &product_map);
+    let tax_rates = state.tax_rate_service()
+        .list_active(&service_ctx, &mut conn)
+        .await
+        .unwrap_or_default();
+
+    let content = po_edit_page(&order, &items, &suppliers.items, &product_map, &tax_rates);
     let page_html = admin_page(
         is_htmx,
         "编辑采购订单",
@@ -133,6 +141,7 @@ pub async fn update_po(
         ..
     } = ctx;
     let svc = state.purchase_order_service();
+    let existing_order = svc.get(&service_ctx, &mut conn, path.id).await?;
 
     if form.supplier_id == 0 {
         return Err(DomainError::validation("请选择供应商").into());
@@ -182,16 +191,24 @@ pub async fn update_po(
                 unit_price,
                 quotation_item_id: None,
                 expected_delivery_date: item_expected_delivery_date,
+                discount_pct: item.discount_pct.as_deref()
+                    .and_then(|s| s.parse().ok())
+                    .unwrap_or(Decimal::ZERO),
+                tax_rate_id: item.tax_rate_id.as_deref()
+                    .and_then(|s| s.parse().ok())
+                    .filter(|&v: &i64| v > 0),
             })
         })
         .collect::<Result<Vec<_>, DomainError>>()?;
-
     let req = UpdatePurchaseOrderRequest {
         supplier_id: form.supplier_id,
         expected_delivery_date,
         payment_terms: form.payment_terms,
         delivery_address: form.delivery_address,
         remark: form.remark.unwrap_or_default(),
+        currency_code: existing_order.currency_code.clone(),
+        currency_rate: existing_order.currency_rate,
+        discount_amount: existing_order.discount_amount,
     };
 
     svc.update(&service_ctx, &mut conn, path.id, req, items)
@@ -208,6 +225,7 @@ fn po_edit_page(
     items: &[PurchaseOrderItem],
     suppliers: &[abt_core::master_data::supplier::model::Supplier],
     product_map: &HashMap<i64, (String, String)>,
+    tax_rates: &[abt_core::purchase::tax::model::TaxRate],
 ) -> Markup {
     let edit_path = format!("/admin/purchase/orders/{}/edit", order.id);
     let expected_delivery = order
@@ -314,13 +332,15 @@ fn po_edit_page(
                                 th style="width:100px;text-align:right" { "数量" }
                                 th style="width:120px;text-align:right" { "单价" }
                                 th style="width:110px;text-align:right" { "小计" }
+                                th style="width:80px;text-align:right" { "折扣%" }
+                                th style="width:120px" { "税率" }
                                 th style="width:120px" { "预期交货日期" }
                                 th style="width:36px" { }
                             }
                         }
                         tbody id="po-item-tbody" {
                             @for item in items {
-                                (existing_item_row(item, product_map))
+                                (existing_item_row(item, product_map, tax_rates))
                             }
                         }
                     }
@@ -330,6 +350,13 @@ fn po_edit_page(
                         _="on click add .is-open to #product-modal" {
                         (icon::plus_icon("w-3.5 h-3.5"))
                         "添加产品行"
+                    }
+                }
+                div style="display:flex;justify-content:flex-end;padding:var(--space-4);border-top:1px solid var(--border)" {
+                    div style="display:flex;gap:var(--space-6);font-size:var(--text-sm)" {
+                        div { "不含税: " span id="sum-untaxed" style="font-weight:600" { "0.00" } }
+                        div { "税额: " span id="sum-tax" style="font-weight:600" { "0.00" } }
+                        div { "含税总计: " span id="sum-total" style="font-weight:600;color:var(--primary)" { "0.00" } }
                     }
                 }
             }
@@ -421,6 +448,7 @@ fn po_edit_page(
 fn existing_item_row(
     item: &PurchaseOrderItem,
     product_map: &HashMap<i64, (String, String)>,
+    tax_rates: &[abt_core::purchase::tax::model::TaxRate],
 ) -> Markup {
     let (code, name) = product_map
         .get(&item.product_id)
@@ -431,30 +459,38 @@ fn existing_item_row(
         .expected_delivery_date
         .map(|d| d.format("%Y-%m-%d").to_string())
         .unwrap_or_default();
+    let input_style = "width:90px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)";
 
     html! {
-        tr oninput="
-               var row=this;
-               var q=parseFloat(row.querySelector('[name=quantity]').value)||0;
-               var p=parseFloat(row.querySelector('[name=unit_price]').value)||0;
-               row.querySelector('.line-subtotal').textContent=(q*p).toFixed(2);
-        " {
+        tr data-item-row="" {
             td class="line-num" { }
             td class="mono" { (code) }
             td { (name) }
             td { input class="form-input" type="text" name="description" placeholder="—" value=(&item.description)
                 style="width:190px;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
-            td { input class="form-input num-input" type="number" step="1" min="0.01" name="quantity" placeholder="0"
-                value=(item.quantity.to_string())
-                style="width:90px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
-            td { input class="form-input num-input" type="number" step="any" min="0.01" name="unit_price" placeholder="0.00"
-                value=(item.unit_price.to_string())
-                style="width:110px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
-            td class="line-subtotal mono" style="text-align:right" { (subtotal.to_string()) }
+            td { input class="form-input num-input" type="number" step="1" min="0.01" name="quantity" data-field="qty" placeholder="0"
+                value=(item.quantity.to_string()) style=(input_style) {} }
+            td { input class="form-input num-input" type="number" step="any" min="0.01" name="unit_price" data-field="price" placeholder="0.00"
+                value=(item.unit_price.to_string()) style=(input_style) {} }
+            td class="line-subtotal mono" data-field="subtotal" style="text-align:right" { (subtotal.to_string()) }
+            td { input class="form-input num-input" type="number" step="0.01" min="0" max="100" name="discount_pct" data-field="discount" value=(item.discount_pct.to_string()) placeholder="0" style=(input_style) {} }
+            td {
+                select class="form-select" name="tax_rate_id" data-field="tax_rate_id"
+                    style="width:110px;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {
+                    option value="" { "—" }
+                    @for tr in tax_rates {
+                        @if item.tax_rate_id == Some(tr.id) {
+                            option value=(tr.id) data-rate=(tr.rate.to_string()) selected { (tr.name) }
+                        } @else {
+                            option value=(tr.id) data-rate=(tr.rate.to_string()) { (tr.name) }
+                        }
+                    }
+                }
+            }
             td { input class="form-input" type="date" name="item_delivery_date" value=(&delivery)
                 style="width:110px;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
             td { button type="button" class="btn-remove-row" title="删除行"
-                _="on click remove closest <tr/>" {
+                _="on click remove closest <tr/> then call updatePurchaseSummary()" {
                 (icon::x_icon("w-3.5 h-3.5"))
             } }
             input type="hidden" name="product_id" value=(item.product_id) {}

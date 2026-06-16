@@ -7,9 +7,10 @@ use maud::{html, Markup};
 
 use abt_core::master_data::product::ProductService;
 use abt_core::master_data::supplier::SupplierService;
-use abt_core::purchase::enums::PurchaseOrderStatus;
+use abt_core::purchase::enums::{InvoiceStatus, PurchaseOrderStatus};
 use abt_core::purchase::order::model::*;
 use abt_core::purchase::order::PurchaseOrderService;
+use abt_core::purchase::payment_schedule::PaymentScheduleService;
 use abt_core::shared::identity::UserService;
 
 use crate::components::icon;
@@ -29,6 +30,15 @@ fn status_label(s: PurchaseOrderStatus) -> (&'static str, &'static str) {
         PurchaseOrderStatus::Received => ("已收货", "status-shipped"),
         PurchaseOrderStatus::Closed => ("已关闭", "status-completed"),
         PurchaseOrderStatus::Cancelled => ("已取消", "status-cancelled"),
+        PurchaseOrderStatus::PendingApproval => ("待审批", "status-pending"),
+    }
+}
+
+fn invoice_status_label(s: InvoiceStatus) -> (&'static str, &'static str) {
+    match s {
+        InvoiceStatus::NoInvoice => ("未开票", "status-draft"),
+        InvoiceStatus::ToInvoice => ("待开票", "status-pending"),
+        InvoiceStatus::FullyInvoiced => ("已开票", "status-completed"),
     }
 }
 
@@ -45,6 +55,11 @@ pub async fn get_po_detail(
     let svc = state.purchase_order_service();
     let supplier_svc = state.supplier_service();
     let product_svc = state.product_service();
+
+    let schedules = state.payment_schedule_service()
+        .list_by_order(&service_ctx, &mut conn, path.id)
+        .await
+        .unwrap_or_default();
     let user_svc = state.user_service();
 
     let order = svc.get(&service_ctx, &mut conn, path.id).await?;
@@ -75,7 +90,7 @@ pub async fn get_po_detail(
             (names, codes, units, specs)
         }
     };
-    let content = po_detail_page(&order, &items, &OrderDetailContext { supplier_name: &supplier_name, operator_name: &operator_name, product_names: &product_names, product_codes: &product_codes, product_units: &product_units, product_specs: &product_specs });
+    let content = po_detail_page(&order, &items, &schedules, &OrderDetailContext { supplier_name: &supplier_name, operator_name: &operator_name, product_names: &product_names, product_codes: &product_codes, product_units: &product_units, product_specs: &product_specs });
     let page_html = admin_page(
         is_htmx, "订单详情", &claims, "purchase",
         &format!("{}/{}", POListPath::PATH, path.id),
@@ -110,6 +125,131 @@ pub async fn cancel_po(
     svc.cancel(&service_ctx, &mut conn, path.id, None).await?;
 
     let redirect = PODetailPath { id: path.id }.to_string();
+    Ok(([("HX-Redirect", redirect)], Html(String::new())))
+}
+
+#[require_permission("PURCHASE_ORDER", "update")]
+pub async fn submit_po(
+    axum::extract::Path(id): axum::extract::Path<i64>,
+    ctx: RequestContext,
+) -> Result<impl IntoResponse> {
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let svc = state.purchase_order_service();
+    svc.submit(&service_ctx, &mut conn, id, None).await?;
+    let redirect = PODetailPath { id }.to_string();
+    Ok(([("HX-Redirect", redirect)], Html(String::new())))
+}
+
+#[require_permission("PURCHASE_ORDER", "update")]
+pub async fn approve_po_order(
+    axum::extract::Path(id): axum::extract::Path<i64>,
+    ctx: RequestContext,
+) -> Result<impl IntoResponse> {
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let svc = state.purchase_order_service();
+    svc.approve_po(&service_ctx, &mut conn, id, None).await?;
+    let redirect = PODetailPath { id }.to_string();
+    Ok(([("HX-Redirect", redirect)], Html(String::new())))
+}
+
+#[require_permission("PURCHASE_ORDER", "update")]
+pub async fn reject_po(
+    axum::extract::Path(id): axum::extract::Path<i64>,
+    ctx: RequestContext,
+) -> Result<impl IntoResponse> {
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let svc = state.purchase_order_service();
+    svc.reject(&service_ctx, &mut conn, id, "退回修改".to_string(), None).await?;
+    let redirect = PODetailPath { id }.to_string();
+    Ok(([("HX-Redirect", redirect)], Html(String::new())))
+}
+
+#[derive(Debug, serde::Deserialize)]
+pub struct ItemChangesForm {
+    pub changes_json: String,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct ChangeItem {
+    #[serde(rename = "type")]
+    change_type: String,
+    item_id: Option<i64>,
+    product_id: Option<i64>,
+    quantity: Option<String>,
+    unit_price: Option<String>,
+    description: Option<String>,
+    discount_pct: Option<String>,
+    tax_rate_id: Option<String>,
+}
+
+#[require_permission("PURCHASE_ORDER", "update")]
+pub async fn update_po_items(
+    axum::extract::Path(id): axum::extract::Path<i64>,
+    ctx: RequestContext,
+    axum::Form(form): axum::Form<ItemChangesForm>,
+) -> Result<impl IntoResponse> {
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let svc = state.purchase_order_service();
+
+    let raw_changes: Vec<ChangeItem> = serde_json::from_str(&form.changes_json)
+        .map_err(|e| abt_core::shared::types::DomainError::validation(format!("无效变更数据: {e}")))?;
+
+    let changes: Vec<PoItemChange> = raw_changes.into_iter().filter_map(|c| {
+        match c.change_type.as_str() {
+            "add" => {
+                let quantity: rust_decimal::Decimal = c.quantity?.parse().ok()?;
+                let unit_price: rust_decimal::Decimal = c.unit_price?.parse().ok()?;
+                Some(PoItemChange::AddItem(CreateOrderItemRequest {
+                    product_id: c.product_id?,
+                    line_no: 0,
+                    description: c.description.unwrap_or_default(),
+                    quantity,
+                    unit_price,
+                    quotation_item_id: None,
+                    expected_delivery_date: None,
+                    discount_pct: c.discount_pct.as_deref().and_then(|s| s.parse().ok()).unwrap_or(rust_decimal::Decimal::ZERO),
+                    tax_rate_id: c.tax_rate_id.as_deref().and_then(|s| s.parse().ok()).filter(|&v: &i64| v > 0),
+                }))
+            }
+            "update" => {
+                Some(PoItemChange::UpdateItem {
+                    item_id: c.item_id?,
+                    quantity: c.quantity.as_deref().and_then(|s| s.parse().ok()),
+                    unit_price: c.unit_price.as_deref().and_then(|s| s.parse().ok()),
+                    discount_pct: c.discount_pct.as_deref().and_then(|s| s.parse().ok()),
+                    tax_rate_id: c.tax_rate_id.as_deref().map(|s| s.parse().ok()).map(|opt| opt.filter(|&v: &i64| v > 0)),
+                })
+            }
+            "remove" => Some(PoItemChange::RemoveItem { item_id: c.item_id? }),
+            _ => None,
+        }
+    }).collect();
+
+    svc.update_items_after_confirm(&service_ctx, &mut conn, id, changes, None).await?;
+
+    let redirect = PODetailPath { id }.to_string();
+    Ok(([("HX-Redirect", redirect)], Html(String::new())))
+}
+
+#[derive(Debug, serde::Deserialize)]
+pub struct MergeForm {
+    pub order_ids: String, // comma-separated, e.g. "1,2,3"
+}
+
+#[require_permission("PURCHASE_ORDER", "update")]
+pub async fn merge_po(
+    ctx: RequestContext,
+    axum::Form(form): axum::Form<MergeForm>,
+) -> Result<impl IntoResponse> {
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let svc = state.purchase_order_service();
+
+    let order_ids: Vec<i64> = form.order_ids.split(',')
+        .filter_map(|s| s.trim().parse().ok())
+        .collect();
+
+    let target_id = svc.merge_orders(&service_ctx, &mut conn, order_ids, None).await?;
+    let redirect = PODetailPath { id: target_id }.to_string();
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }
 
@@ -172,6 +312,7 @@ struct OrderDetailContext<'a> {
 fn po_detail_page(
     order: &PurchaseOrder,
     items: &[PurchaseOrderItem],
+    schedules: &[abt_core::purchase::payment_schedule::model::PaymentSchedule],
     ctx: &OrderDetailContext,
 ) -> Markup {
     let (status_text, status_class) = status_label(order.status);
@@ -213,15 +354,31 @@ fn po_detail_page(
                             "编辑"
                         }
                         button class="btn btn-primary"
+                            hx-post=(format!("/admin/purchase/orders/{}/submit", order.id))
+                            hx-confirm="提交审批？" {
+                            "提交审批"
+                        }
+                        button class="btn btn-default"
                             hx-post=(POConfirmPath { id: order.id }.to_string())
                             hx-confirm="确认此订单？确认后将通知供应商。" {
                             (icon::check_circle_icon("w-4 h-4"))
-                            "确认订单"
+                            "直接确认"
                         }
                         button class="btn btn-danger"
                             hx-post=(POCancelPath { id: order.id }.to_string())
                             hx-confirm="确认取消此订单？取消后不可恢复。" {
                             "取消订单"
+                        }
+                    }
+                    @if order.status == PurchaseOrderStatus::PendingApproval {
+                        button class="btn btn-primary"
+                            hx-post=(format!("/admin/purchase/orders/{}/approve", order.id))
+                            hx-confirm="审批通过？" {
+                            "审批通过"
+                        }
+                        button class="btn btn-danger"
+                            hx-post=(format!("/admin/purchase/orders/{}/reject", order.id)) {
+                            "退回修改"
                         }
                     }
                 }
@@ -317,6 +474,35 @@ fn po_detail_page(
                 div class="info-card" style="margin-top:var(--space-6)" {
                     div class="info-card-title" { "备注" }
                     p class="text-muted" { (order.remark.as_str()) }
+                }
+            }
+
+            // ── Payment Schedule ──
+            @if !schedules.is_empty() {
+                div class="info-card" style="margin-top:var(--space-6)" {
+                    div class="info-card-title" { "付款计划" }
+                    table class="data-table" {
+                        thead {
+                            tr {
+                                th { "期次" }
+                                th { "到期日" }
+                                th style="text-align:right" { "百分比" }
+                                th style="text-align:right" { "应付金额" }
+                                th style="text-align:right" { "已付金额" }
+                            }
+                        }
+                        tbody {
+                            @for (i, sched) in schedules.iter().enumerate() {
+                                tr {
+                                    td { (i + 1) }
+                                    td { (sched.due_date.format("%Y-%m-%d").to_string()) }
+                                    td style="text-align:right" { (format!("{}%", sched.payment_pct)) }
+                                    td style="text-align:right" { (sched.payment_amount) }
+                                    td style="text-align:right" { (sched.paid_amount) }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }

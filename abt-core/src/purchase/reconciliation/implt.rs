@@ -2,12 +2,13 @@ use async_trait::async_trait;
 use rust_decimal::Decimal;
 use serde_json::json;
 use sqlx::postgres::PgPool;
+use chrono::NaiveDate;
 
 use super::model::{PurchaseReconciliation, PurchaseReconciliationQuery};
 use super::repo::{NewReconItem, PurchaseReconItemRepo, PurchaseReconciliationRepo};
 use super::service::PurchaseReconciliationService;
-use crate::purchase::enums::{PurchaseReconStatus, PurchaseReturnStatus};
-use crate::purchase::order::repo::PurchaseOrderItemRepo;
+use crate::purchase::enums::{InvoiceStatus, PurchaseReconStatus, PurchaseReturnStatus};
+use crate::purchase::order::repo::{PurchaseOrderItemRepo, PurchaseOrderRepo};
 use crate::purchase::return_order::repo::PurchaseReturnRepo;
 use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService, RecordAuditLogReq};
 use crate::shared::document_sequence::{new_document_sequence_service, service::DocumentSequenceService};
@@ -58,11 +59,37 @@ impl PurchaseReconciliationService for PurchaseReconciliationServiceImpl {
             .next_number(ctx, db, DocumentType::PurchaseReconciliation)
             .await?;
 
-        // 2. 查询该供应商当期所有已收货订单明细
-        //    通过 PurchaseOrderItemRepo 获取已确认/已收货状态的订单明细
-        let order_items = PurchaseOrderItemRepo::list_received_by_supplier(
+        // 2. 解析期间字符串（格式 YYYY-MM），查询该供应商当期未对账的已收货订单明细
+        let (year, month) = period.split_once('-')
+            .and_then(|(y, m)| {
+                let y: i32 = y.parse().ok()?;
+                let m: u32 = m.parse().ok()?;
+                Some((y, m))
+            })
+            .ok_or_else(|| DomainError::validation(
+                format!("期间格式错误，应为 YYYY-MM，实际: {}", period)
+            ))?;
+
+        if !(1..=12).contains(&month) {
+            return Err(DomainError::validation(format!("月份无效: {}", month)));
+        }
+
+        let period_start = NaiveDate::from_ymd_opt(year, month, 1)
+            .ok_or_else(|| DomainError::validation(format!("无效的期间: {}", period)))?;
+        let period_end = if month == 12 {
+            NaiveDate::from_ymd_opt(year + 1, 1, 1)
+        } else {
+            NaiveDate::from_ymd_opt(year, month + 1, 1)
+        }
+        .unwrap()
+        .pred_opt()
+        .unwrap();
+
+        let order_items = PurchaseOrderItemRepo::list_unreconciled_received_by_supplier(
             &mut *db,
             supplier_id,
+            period_start,
+            period_end,
         )
         .await
         .map_err(|e| DomainError::Internal(e.into()))?;
@@ -124,8 +151,7 @@ impl PurchaseReconciliationService for PurchaseReconciliationServiceImpl {
 
         new_state_machine_service(self.pool.clone())
             .transition(ctx, db, ENTITY_TYPE, id, "Draft", None)
-            .await
-            .ok();
+            .await?;
 
         Ok(id)
     }
@@ -219,6 +245,40 @@ impl PurchaseReconciliationService for PurchaseReconciliationServiceImpl {
         let mut order_ids: Vec<i64> = recon_items.iter().map(|i| i.order_id).collect();
         order_ids.sort();
         order_ids.dedup();
+
+        // 4.6 更新 PO 明细的 qty_invoiced 并重算开票状态
+        for item in &recon_items {
+            PurchaseOrderItemRepo::add_qty_invoiced(&mut *db, item.order_item_id, item.received_qty)
+                .await
+                .map_err(|e| DomainError::Internal(e.into()))?;
+        }
+        for &po_id in &order_ids {
+            let po_items = PurchaseOrderItemRepo::list_by_order_id(&mut *db, po_id)
+                .await
+                .map_err(|e| DomainError::Internal(e.into()))?;
+            let all_invoiced = po_items.iter().all(|i| {
+                i.qty_invoiced >= i.received_qty && i.qty_invoiced > Decimal::ZERO
+            });
+            let any_invoiced = po_items.iter().any(|i| i.qty_invoiced > Decimal::ZERO);
+            let po_status = if all_invoiced {
+                InvoiceStatus::FullyInvoiced
+            } else if any_invoiced {
+                InvoiceStatus::ToInvoice
+            } else {
+                InvoiceStatus::NoInvoice
+            };
+            let total: Decimal = po_items.iter().map(|i| i.price_total).sum();
+            let invoiced: Decimal =
+                po_items.iter().map(|i| i.qty_invoiced * i.unit_price).sum();
+            let per_billed = if total > Decimal::ZERO {
+                invoiced / total * Decimal::from(100)
+            } else {
+                Decimal::ZERO
+            };
+            PurchaseOrderRepo::update_invoice_status(&mut *db, po_id, po_status, per_billed)
+                .await
+                .map_err(|e| DomainError::Internal(e.into()))?;
+        }
 
         let returns = PurchaseReturnRepo::list_shipped_by_supplier_for_orders(
             &mut *db,

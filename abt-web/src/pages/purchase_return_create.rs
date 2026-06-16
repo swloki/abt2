@@ -446,5 +446,6 @@ fn order_status_text(s: PurchaseOrderStatus) -> &'static str {
         PurchaseOrderStatus::Received => "已收货",
         PurchaseOrderStatus::Closed => "已关闭",
         PurchaseOrderStatus::Cancelled => "已取消",
+        PurchaseOrderStatus::PendingApproval => "待审批",
     }
 }

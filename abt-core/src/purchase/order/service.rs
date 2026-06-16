@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 
-use super::model::{CreateOrderItemRequest, CreatePurchaseOrderRequest, PurchaseOrder, PurchaseOrderItem, PurchaseOrderQuery, UpdatePurchaseOrderRequest};
+use super::model::{CreateOrderItemRequest, CreatePurchaseOrderRequest, PoItemChange, PurchaseOrder, PurchaseOrderItem, PurchaseOrderQuery, UpdatePurchaseOrderRequest};
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::PgExecutor;
 use crate::shared::types::Result;
@@ -45,4 +45,52 @@ pub trait PurchaseOrderService: Send + Sync {
         req: UpdatePurchaseOrderRequest,
         items: Vec<CreateOrderItemRequest>,
     ) -> Result<()>;
+
+    /// 确认后修改明细（追加/修改行，不允许删除已收货行）
+    /// 仅 Confirmed / PartiallyReceived 状态可调用
+    async fn update_items_after_confirm(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        order_id: i64,
+        item_changes: Vec<PoItemChange>,
+        idempotency_key: Option<String>,
+    ) -> Result<()>;
+
+    /// 提交 PO（自动判断是否需要审批）
+    async fn submit(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        id: i64,
+        idempotency_key: Option<String>,
+    ) -> Result<()>;
+
+    /// 审批通过（PendingApproval → Confirmed）
+    async fn approve_po(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        id: i64,
+        idempotency_key: Option<String>,
+    ) -> Result<()>;
+
+    /// 退回修改（PendingApproval → Draft）
+    async fn reject(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        id: i64,
+        reason: String,
+        idempotency_key: Option<String>,
+    ) -> Result<()>;
+
+    /// 合并多个 Draft PO（必须是同一供应商）
+    async fn merge_orders(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        order_ids: Vec<i64>,
+        idempotency_key: Option<String>,
+    ) -> Result<i64>;
 }

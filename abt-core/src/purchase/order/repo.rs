@@ -1,14 +1,36 @@
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, NaiveDate, Utc};
 use rust_decimal::Decimal;
 use sqlx::Row;
+use std::collections::HashMap;
+
 use crate::shared::types::Result;
 
 use super::model::{
     CreateOrderItemRequest, CreatePurchaseOrderRequest, PurchaseOrder, PurchaseOrderItem,
-    PurchaseOrderQuery,
+    PurchaseOrderQuery, line_amounts,
 };
 use crate::purchase::enums::PurchaseOrderStatus;
+use crate::purchase::tax::repo::TaxRateRepo;
 use crate::shared::types::pagination::{DataScope, PageParams};
+
+/// 批量加载明细涉及的税率映射（`tax_rate_id -> rate`），供金额计算复用，避免逐行查询。
+pub async fn load_tax_rate_map(
+    executor: &mut sqlx::postgres::PgConnection,
+    items: &[CreateOrderItemRequest],
+) -> Result<HashMap<i64, Decimal>> {
+    let tax_rate_ids: Vec<i64> = items
+        .iter()
+        .filter_map(|i| i.tax_rate_id)
+        .collect::<std::collections::HashSet<_>>()
+        .into_iter()
+        .collect();
+    let tax_rates = if tax_rate_ids.is_empty() {
+        Vec::new()
+    } else {
+        TaxRateRepo::get_by_ids(executor, &tax_rate_ids).await?
+    };
+    Ok(tax_rates.into_iter().map(|t| (t.id, t.rate)).collect())
+}
 
 pub struct PurchaseOrderRepo;
 
@@ -19,14 +41,20 @@ impl PurchaseOrderRepo {
         req: &CreatePurchaseOrderRequest,
         doc_number: &str,
         total_amount: Decimal,
+        amount_untaxed: Decimal,
+        amount_tax: Decimal,
+        amount_total: Decimal,
         operator_id: i64,
     ) -> Result<i64> {
         let row = sqlx::query(
             r#"
             INSERT INTO purchase_orders
                 (doc_number, supplier_id, order_date, expected_delivery_date, status,
-                 total_amount, payment_terms, delivery_address, remark, operator_id)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+                 total_amount, payment_terms, delivery_address, remark, operator_id,
+                 currency_code, currency_rate, amount_untaxed, amount_tax,
+                 amount_total, discount_amount)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+                    $11, $12, $13, $14, $15, $16)
             RETURNING id
             "#,
         )
@@ -40,6 +68,12 @@ impl PurchaseOrderRepo {
         .bind(&req.delivery_address)
         .bind(&req.remark)
         .bind(operator_id)
+        .bind(&req.currency_code)
+        .bind(req.currency_rate)
+        .bind(amount_untaxed)
+        .bind(amount_tax)
+        .bind(amount_total)
+        .bind(req.discount_amount)
         .fetch_one(executor)
         .await?;
 
@@ -54,7 +88,11 @@ impl PurchaseOrderRepo {
         sqlx::query_as::<_, PurchaseOrder>(
             r#"
             SELECT id, doc_number, supplier_id, order_date, expected_delivery_date,
-                   status, total_amount, payment_terms, delivery_address, remark,
+                   status, total_amount, currency_code, currency_rate,
+                   amount_untaxed, amount_tax, amount_total, discount_amount,
+                   payment_terms, delivery_address, remark,
+                   payment_schedule_generated,
+                   invoice_status, per_billed,
                    operator_id, created_at, updated_at, deleted_at
             FROM purchase_orders
             WHERE id = $1 AND deleted_at IS NULL
@@ -105,7 +143,11 @@ impl PurchaseOrderRepo {
         let offset = page.offset() as i64;
         let data_sql = format!(
             "SELECT id, doc_number, supplier_id, order_date, expected_delivery_date,
-                    status, total_amount, payment_terms, delivery_address, remark,
+                    status, total_amount, currency_code, currency_rate,
+                    amount_untaxed, amount_tax, amount_total, discount_amount,
+                    payment_terms, delivery_address, remark,
+                    payment_schedule_generated,
+                    invoice_status, per_billed,
                     operator_id, created_at, updated_at, deleted_at
              FROM purchase_orders {where_clause}
              ORDER BY created_at DESC
@@ -163,6 +205,9 @@ impl PurchaseOrderRepo {
                 payment_terms = $4,
                 delivery_address = $5,
                 remark = $6,
+                currency_code = $7,
+                currency_rate = $8,
+                discount_amount = $9,
                 updated_at = NOW()
             WHERE id = $1 AND deleted_at IS NULL
             "#,
@@ -173,6 +218,9 @@ impl PurchaseOrderRepo {
         .bind(&req.payment_terms)
         .bind(&req.delivery_address)
         .bind(&req.remark)
+        .bind(&req.currency_code)
+        .bind(req.currency_rate)
+        .bind(req.discount_amount)
         .execute(&mut *executor)
         .await?;
         Ok(())
@@ -183,12 +231,36 @@ impl PurchaseOrderRepo {
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
         total_amount: Decimal,
+        amount_untaxed: Decimal,
+        amount_tax: Decimal,
+        amount_total: Decimal,
     ) -> Result<()> {
         sqlx::query(
-            "UPDATE purchase_orders SET total_amount = $2, updated_at = NOW() WHERE id = $1",
+            "UPDATE purchase_orders SET total_amount = $2, amount_untaxed = $3, amount_tax = $4, amount_total = $5, updated_at = NOW() WHERE id = $1",
         )
         .bind(id)
         .bind(total_amount)
+        .bind(amount_untaxed)
+        .bind(amount_tax)
+        .bind(amount_total)
+        .execute(&mut *executor)
+        .await?;
+        Ok(())
+    }
+
+    /// 更新头级开票状态和百分比
+    pub async fn update_invoice_status(
+        executor: &mut sqlx::postgres::PgConnection,
+        po_id: i64,
+        status: crate::purchase::enums::InvoiceStatus,
+        per_billed: Decimal,
+    ) -> Result<()> {
+        sqlx::query(
+            "UPDATE purchase_orders SET invoice_status = $2, per_billed = $3, updated_at = NOW() WHERE id = $1",
+        )
+        .bind(po_id)
+        .bind(status)
+        .bind(per_billed)
         .execute(&mut *executor)
         .await?;
         Ok(())
@@ -208,14 +280,22 @@ impl PurchaseOrderItemRepo {
         order_id: i64,
         items: &[CreateOrderItemRequest],
     ) -> Result<()> {
+        let tax_map = load_tax_rate_map(&mut *executor, items).await?;
+
         for item in items {
-            let amount = item.quantity * item.unit_price;
+            let rate = item
+                .tax_rate_id
+                .and_then(|tid| tax_map.get(&tid).copied())
+                .unwrap_or(Decimal::ZERO);
+            let (amount, price_subtotal, price_tax, price_total) =
+                line_amounts(item.quantity, item.unit_price, item.discount_pct, rate);
             sqlx::query(
                 r#"
                 INSERT INTO purchase_order_items
                     (order_id, line_no, product_id, description, quantity, unit_price,
-                     amount, quotation_item_id, expected_delivery_date)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                     amount, quotation_item_id, expected_delivery_date,
+                     discount_pct, tax_rate_id, price_subtotal, price_tax, price_total)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
                 "#,
             )
             .bind(order_id)
@@ -227,6 +307,11 @@ impl PurchaseOrderItemRepo {
             .bind(amount)
             .bind(item.quotation_item_id)
             .bind(item.expected_delivery_date)
+            .bind(item.discount_pct)
+            .bind(item.tax_rate_id)
+            .bind(price_subtotal)
+            .bind(price_tax)
+            .bind(price_total)
             .execute(&mut *executor)
             .await?;
         }
@@ -242,7 +327,8 @@ impl PurchaseOrderItemRepo {
             r#"
             SELECT id, order_id, line_no, product_id, description, quantity, unit_price,
                    amount, received_qty, inspected_qty, returned_qty,
-                   quotation_item_id, expected_delivery_date
+                   discount_pct, tax_rate_id, price_subtotal, price_tax, price_total,
+                   qty_invoiced, invoice_status
             FROM purchase_order_items
             WHERE order_id = $1
             ORDER BY line_no
@@ -253,23 +339,36 @@ impl PurchaseOrderItemRepo {
         .await.map_err(Into::into)
     }
 
-    /// 按供应商查询所有已收货（Confirmed/PartiallyReceived/Received）订单明细
-    pub async fn list_received_by_supplier(
+    /// 按供应商查询指定期间内已收货且未关联到已确认对账单的订单明细
+    pub async fn list_unreconciled_received_by_supplier(
         executor: &mut sqlx::postgres::PgConnection,
         supplier_id: i64,
+        period_start: NaiveDate,
+        period_end: NaiveDate,
     ) -> Result<Vec<PurchaseOrderItem>> {
         sqlx::query_as::<_, PurchaseOrderItem>(
             r#"
             SELECT poi.id, poi.order_id, poi.line_no, poi.product_id, poi.description,
                    poi.quantity, poi.unit_price, poi.amount, poi.received_qty,
                    poi.inspected_qty, poi.returned_qty, poi.quotation_item_id,
-                   poi.expected_delivery_date
+                   poi.expected_delivery_date,
+                   poi.discount_pct, poi.tax_rate_id,
+                   poi.price_subtotal, poi.price_tax, poi.price_total,
+                   poi.qty_invoiced, poi.invoice_status
             FROM purchase_order_items poi
             JOIN purchase_orders po ON po.id = poi.order_id
             WHERE po.supplier_id = $1
-              AND (po.status = $2 OR po.status = $3 OR po.status = $4)
+              AND po.status IN ($2, $3, $4)
               AND po.deleted_at IS NULL
               AND poi.received_qty > 0
+              AND po.order_date BETWEEN $5 AND $6
+              AND NOT EXISTS (
+                  SELECT 1 FROM purchase_recon_items pri
+                  JOIN purchase_reconciliations pr ON pr.id = pri.reconciliation_id
+                  WHERE pri.order_item_id = poi.id
+                    AND pr.status >= 2
+                    AND pr.deleted_at IS NULL
+              )
             ORDER BY po.order_date, poi.line_no
             "#,
         )
@@ -277,6 +376,8 @@ impl PurchaseOrderItemRepo {
         .bind(PurchaseOrderStatus::Confirmed)
         .bind(PurchaseOrderStatus::PartiallyReceived)
         .bind(PurchaseOrderStatus::Received)
+        .bind(period_start)
+        .bind(period_end)
         .fetch_all(executor)
         .await.map_err(Into::into)
     }
@@ -339,6 +440,160 @@ impl PurchaseOrderItemRepo {
                 .execute(&mut *executor)
                 .await?;
         }
+        Ok(())
+    }
+
+    /// 插入单行（追加模式）
+    pub async fn insert_single(
+        executor: &mut sqlx::postgres::PgConnection,
+        order_id: i64,
+        line_no: i32,
+        item: &CreateOrderItemRequest,
+    ) -> Result<()> {
+        let (amount, price_subtotal, _, _) =
+            line_amounts(item.quantity, item.unit_price, item.discount_pct, Decimal::ZERO);
+        sqlx::query(
+            r#"
+            INSERT INTO purchase_order_items
+                (order_id, line_no, product_id, description, quantity, unit_price,
+                 amount, quotation_item_id, expected_delivery_date,
+                 discount_pct, tax_rate_id, price_subtotal, price_tax, price_total)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 0, $12)
+            "#,
+        )
+        .bind(order_id)
+        .bind(line_no)
+        .bind(item.product_id)
+        .bind(&item.description)
+        .bind(item.quantity)
+        .bind(item.unit_price)
+        .bind(amount)
+        .bind(item.quotation_item_id)
+        .bind(item.expected_delivery_date)
+        .bind(item.discount_pct)
+        .bind(item.tax_rate_id)
+        .bind(price_subtotal)
+        .execute(&mut *executor)
+        .await?;
+        Ok(())
+    }
+
+    /// 确认后更新行字段（动态构建 SET）
+    pub async fn update_fields_after_confirm(
+        executor: &mut sqlx::postgres::PgConnection,
+        item_id: i64,
+        quantity: Option<Decimal>,
+        unit_price: Option<Decimal>,
+        discount_pct: Option<Decimal>,
+        tax_rate_id: Option<Option<i64>>,
+    ) -> Result<()> {
+
+        // 动态构建 SET 子句（tax_rate_id 为三态：None=不改 / Some(None)=置空 / Some(Some)=设值）
+        let mut sql_parts = Vec::new();
+        let mut bind_idx = 2;
+        if quantity.is_some() {
+            sql_parts.push(format!("quantity = ${bind_idx}"));
+            bind_idx += 1;
+        }
+        if unit_price.is_some() {
+            sql_parts.push(format!("unit_price = ${bind_idx}"));
+            bind_idx += 1;
+        }
+        if discount_pct.is_some() {
+            sql_parts.push(format!("discount_pct = ${bind_idx}"));
+            bind_idx += 1;
+        }
+        if tax_rate_id.is_some() {
+            sql_parts.push(format!("tax_rate_id = ${bind_idx}"));
+            bind_idx += 1;
+        }
+
+        if sql_parts.is_empty() {
+            return Ok(());
+        }
+
+        let set_clause = sql_parts.join(", ");
+        let sql = format!(
+            "UPDATE purchase_order_items SET {set_clause}, updated_at = NOW() WHERE id = $1"
+        );
+        let mut query = sqlx::query(sqlx::AssertSqlSafe(sql)).bind(item_id);
+        if let Some(qty) = quantity { query = query.bind(qty); }
+        if let Some(price) = unit_price { query = query.bind(price); }
+        if let Some(disc) = discount_pct { query = query.bind(disc); }
+        if let Some(tid) = tax_rate_id { query = query.bind(tid); }
+        query.execute(&mut *executor).await?;
+
+        // Recalculate derived amounts if unit_price or discount changed
+        if unit_price.is_some() || discount_pct.is_some() || quantity.is_some() {
+            Self::recalc_item_amounts(executor, item_id).await?;
+        }
+        Ok(())
+    }
+
+    /// 重算单行金额
+    async fn recalc_item_amounts(
+        executor: &mut sqlx::postgres::PgConnection,
+        item_id: i64,
+    ) -> Result<()> {
+        sqlx::query(
+            r#"
+            UPDATE purchase_order_items SET
+                amount = quantity * unit_price,
+                price_subtotal = quantity * unit_price * (1 - discount_pct / 100),
+                price_tax = quantity * unit_price * (1 - discount_pct / 100)
+                    * COALESCE((SELECT rate FROM tax_rates WHERE id = purchase_order_items.tax_rate_id AND deleted_at IS NULL), 0) / 100,
+                price_total = quantity * unit_price * (1 - discount_pct / 100)
+                    * (1 + COALESCE((SELECT rate FROM tax_rates WHERE id = purchase_order_items.tax_rate_id AND deleted_at IS NULL), 0) / 100)
+            WHERE id = $1
+            "#,
+        )
+        .bind(item_id)
+        .execute(&mut *executor)
+        .await?;
+        Ok(())
+    }
+
+    /// 按主键删除行
+    pub async fn delete_by_id(
+        executor: &mut sqlx::postgres::PgConnection,
+        item_id: i64,
+    ) -> Result<()> {
+        sqlx::query("DELETE FROM purchase_order_items WHERE id = $1")
+            .bind(item_id)
+            .execute(&mut *executor)
+            .await?;
+        Ok(())
+    }
+
+    /// 累加已开票数量
+    pub async fn add_qty_invoiced(
+        executor: &mut sqlx::postgres::PgConnection,
+        item_id: i64,
+        qty: Decimal,
+    ) -> Result<()> {
+        sqlx::query(
+            "UPDATE purchase_order_items SET qty_invoiced = qty_invoiced + $2 WHERE id = $1",
+        )
+        .bind(item_id)
+        .bind(qty)
+        .execute(&mut *executor)
+        .await?;
+        Ok(())
+    }
+
+    /// 更新行开票状态
+    pub async fn update_item_invoice_status(
+        executor: &mut sqlx::postgres::PgConnection,
+        item_id: i64,
+        status: crate::purchase::enums::InvoiceStatus,
+    ) -> Result<()> {
+        sqlx::query(
+            "UPDATE purchase_order_items SET invoice_status = $2 WHERE id = $1",
+        )
+        .bind(item_id)
+        .bind(status)
+        .execute(&mut *executor)
+        .await?;
         Ok(())
     }
 }

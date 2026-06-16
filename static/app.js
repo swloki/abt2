@@ -186,3 +186,84 @@ window.entityPickerSelect = function (el) {
         document.body.dispatchEvent(new CustomEvent(eventName));
     }
 };
+
+// ===== Purchase Order Line Calculation =====
+
+window.formatMoney = function(v) {
+    return Number(v || 0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+};
+
+window.calcPurchaseLine = function(row) {
+    const qtyEl = row.querySelector('[data-field="qty"]');
+    const priceEl = row.querySelector('[data-field="price"]');
+    const discountEl = row.querySelector('[data-field="discount"]');
+    const taxSelect = row.querySelector('[data-field="tax_rate_id"]');
+
+    const qty = parseFloat(qtyEl?.value) || 0;
+    const price = parseFloat(priceEl?.value) || 0;
+    const discount = parseFloat(discountEl?.value) || 0;
+
+    let taxRate = 0;
+    if (taxSelect) {
+        const opt = taxSelect.selectedOptions[0];
+        taxRate = parseFloat(opt?.dataset?.rate) || 0;
+    }
+
+    const subtotal = qty * price * (1 - discount / 100);
+    const tax = subtotal * taxRate / 100;
+    const total = subtotal + tax;
+
+    const subtotalEl = row.querySelector('[data-field="subtotal"]');
+    if (subtotalEl) subtotalEl.textContent = window.formatMoney(subtotal);
+
+    return { subtotal, tax, total };
+};
+
+window.updatePurchaseSummary = function() {
+    let untaxed = 0, tax = 0, total = 0;
+    document.querySelectorAll('tr[data-item-row]').forEach(function(row) {
+        const r = window.calcPurchaseLine(row);
+        untaxed += r.subtotal;
+        tax += r.tax;
+        total += r.total;
+    });
+    const elU = document.getElementById('sum-untaxed');
+    const elT = document.getElementById('sum-tax');
+    const elTotal = document.getElementById('sum-total');
+    if (elU) elU.textContent = window.formatMoney(untaxed);
+    if (elT) elT.textContent = window.formatMoney(tax);
+    if (elTotal) elTotal.textContent = window.formatMoney(total);
+};
+
+// Bind to PO item row input changes
+document.addEventListener('input', function(e) {
+    const row = e.target.closest('tr[data-item-row]');
+    if (row && e.target.matches('[data-field="qty"], [data-field="price"], [data-field="discount"], [data-field="tax_rate_id"]')) {
+        window.updatePurchaseSummary();
+    }
+});
+
+// ===== Merge Purchase Orders =====
+
+window.mergeSelectedPOs = function() {
+    var ids = [];
+    document.querySelectorAll('.po-checkbox:checked').forEach(function(cb) {
+        ids.push(cb.value);
+    });
+    if (ids.length < 2) {
+        alert('请至少选择两个订单进行合并');
+        return;
+    }
+    if (!confirm('确认合并选中的 ' + ids.length + ' 个订单？')) return;
+
+    var form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '/admin/purchase/orders/merge';
+    var input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = 'order_ids';
+    input.value = ids.join(',');
+    form.appendChild(input);
+    document.body.appendChild(form);
+    form.submit();
+};

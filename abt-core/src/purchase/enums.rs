@@ -103,6 +103,7 @@ pub enum PurchaseOrderStatus {
     Received = 4,
     Closed = 5,
     Cancelled = 6,
+    PendingApproval = 7,
 }
 
 impl PurchaseOrderStatus {
@@ -114,6 +115,7 @@ impl PurchaseOrderStatus {
             4 => Some(Self::Received),
             5 => Some(Self::Closed),
             6 => Some(Self::Cancelled),
+            7 => Some(Self::PendingApproval),
             _ => None,
         }
     }
@@ -128,6 +130,7 @@ impl PurchaseOrderStatus {
             Self::Received => "Received",
             Self::Closed => "Closed",
             Self::Cancelled => "Cancelled",
+            Self::PendingApproval => "PendingApproval",
         }
     }
 }
@@ -315,3 +318,71 @@ impl MiscRequestStatus {
 
 impl_sqlx_traits!(MiscRequestStatus);
 impl_serde_traits!(MiscRequestStatus);
+
+// ---------- TaxType ----------
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[repr(i16)]
+pub enum TaxType {
+    Purchase = 1,
+    Sales = 2,
+    Both = 3,
+}
+
+impl TaxType {
+    pub fn from_i16(v: i16) -> Option<Self> {
+        match v {
+            1 => Some(Self::Purchase),
+            2 => Some(Self::Sales),
+            3 => Some(Self::Both),
+            _ => None,
+        }
+    }
+    pub fn as_i16(self) -> i16 {
+        self as i16
+    }
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Purchase => "Purchase",
+            Self::Sales => "Sales",
+            Self::Both => "Both",
+        }
+    }
+}
+
+impl_sqlx_traits!(TaxType);
+impl_serde_traits!(TaxType);
+
+// ---------- InvoiceStatus ----------
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[repr(i16)]
+pub enum InvoiceStatus {
+    NoInvoice = 1,
+    ToInvoice = 2,
+    FullyInvoiced = 3,
+}
+
+impl InvoiceStatus {
+    pub fn from_i16(v: i16) -> Option<Self> {
+        match v {
+            1 => Some(Self::NoInvoice),
+            2 => Some(Self::ToInvoice),
+            3 => Some(Self::FullyInvoiced),
+            _ => None,
+        }
+    }
+    pub fn as_i16(self) -> i16 {
+        self as i16
+    }
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::NoInvoice => "NoInvoice",
+            Self::ToInvoice => "ToInvoice",
+            Self::FullyInvoiced => "FullyInvoiced",
+        }
+    }
+}
+
+impl_sqlx_traits!(InvoiceStatus);
+impl_serde_traits!(InvoiceStatus);

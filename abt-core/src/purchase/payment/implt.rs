@@ -7,7 +7,10 @@ use super::model::{CreatePaymentRequestRequest, PaymentRequest, PaymentRequestQu
 use super::repo::PaymentRequestRepo;
 use super::service::PaymentRequestService;
 use crate::purchase::enums::PaymentStatus;
-use crate::purchase::reconciliation::repo::PurchaseReconciliationRepo;
+use crate::purchase::reconciliation::repo::{PurchaseReconItemRepo, PurchaseReconciliationRepo};
+use crate::purchase::payment_schedule::{new_payment_schedule_service, service::PaymentScheduleService};
+use crate::purchase::order::repo::PurchaseOrderItemRepo;
+use crate::purchase::order::model::PurchaseOrderItem;
 use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService, RecordAuditLogReq};
 use crate::shared::document_sequence::{new_document_sequence_service, service::DocumentSequenceService};
 use crate::shared::enums::audit::AuditAction;
@@ -122,8 +125,7 @@ impl PaymentRequestService for PaymentRequestServiceImpl {
 
         new_state_machine_service(self.pool.clone())
             .transition(ctx, db, ENTITY_TYPE, id, "Draft", None)
-            .await
-            .ok();
+            .await?;
 
         Ok(id)
     }
@@ -161,6 +163,52 @@ impl PaymentRequestService for PaymentRequestServiceImpl {
             .map_err(|e| DomainError::Internal(e.into()))?
             .ok_or_else(|| DomainError::not_found(ENTITY_DISPLAY))?;
 
+        // 1.5 三向匹配校验：对账数量 ≤ 收货数量 + 金额一致性
+        if let Some(recon_id) = payment.reconciliation_id {
+            let recon_items = PurchaseReconItemRepo::list_by_reconciliation_id(
+                &mut *db, recon_id,
+            )
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?;
+
+            // 按 order_id 去重预加载 PO 明细，避免逐行 list_by_order_id 产生 N+1
+            use std::collections::{HashMap, HashSet};
+            let order_ids: HashSet<i64> = recon_items.iter().map(|i| i.order_id).collect();
+            let mut po_item_map: HashMap<i64, PurchaseOrderItem> = HashMap::new();
+            for order_id in order_ids {
+                let po_items = PurchaseOrderItemRepo::list_by_order_id(&mut *db, order_id)
+                    .await
+                    .map_err(|e| DomainError::Internal(e.into()))?;
+                for p in po_items {
+                    po_item_map.insert(p.id, p);
+                }
+            }
+
+            for item in &recon_items {
+                let po_item = po_item_map.get(&item.order_item_id)
+                    .ok_or_else(|| DomainError::validation(format!(
+                        "订单行 {} 不存在", item.order_item_id
+                    )))?;
+
+                if item.received_qty > po_item.received_qty {
+                    return Err(DomainError::validation(format!(
+                        "对账数量 {} 超过收货数量 {}",
+                        item.received_qty, po_item.received_qty
+                    )));
+                }
+
+                let net_qty = item.received_qty - item.returned_qty;
+                let expected_amount = net_qty * item.unit_price;
+                let tolerance = expected_amount * Decimal::new(5, 1000);
+                if (item.amount - expected_amount).abs() > tolerance {
+                    return Err(DomainError::validation(format!(
+                        "对账金额 {} 与净数量×单价 {} 不匹配（容差 0.5%）",
+                        item.amount, expected_amount
+                    )));
+                }
+            }
+        }
+
         // 2. 状态转换 Draft -> Approved
         new_state_machine_service(self.pool.clone())
             .transition(ctx, db, ENTITY_TYPE, id, "Approved", None)
@@ -193,6 +241,24 @@ impl PaymentRequestService for PaymentRequestServiceImpl {
             )
             .await?;
 
+
+        // 4.5 付款计划分配（best-effort，不影响审批流程）
+        if let Some(recon_id) = payment.reconciliation_id
+            && let Ok(recon_items) =
+                PurchaseReconItemRepo::list_by_reconciliation_id(&mut *db, recon_id).await
+        {
+            use std::collections::HashSet;
+            let order_ids: HashSet<i64> =
+                recon_items.iter().map(|i| i.order_id).collect();
+            for order_id in order_ids {
+                if let Err(e) = new_payment_schedule_service(self.pool.clone())
+                    .allocate_payment(ctx, db, order_id, payment.amount)
+                    .await
+                {
+                    tracing::warn!(?e, order_id, "Payment schedule allocation failed");
+                }
+            }
+        }
         // 5. 审计日志
         new_audit_log_service(self.pool.clone())
             .record(ctx, db, RecordAuditLogReq { entity_type: ENTITY_TYPE, entity_id: id, action: AuditAction::Transition, changes: None, context: None })

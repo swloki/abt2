@@ -12,6 +12,7 @@ use abt_core::purchase::enums::PurchaseQuotationStatus;
 use abt_core::purchase::order::PurchaseOrderService;
 use abt_core::purchase::order::model::*;
 use abt_core::purchase::quotation::PurchaseQuotationService;
+use abt_core::purchase::TaxRateService;
 use abt_core::purchase::quotation::model::PurchaseQuotationQuery;
 use abt_core::shared::identity::UserService;
 use abt_core::shared::types::PageParams;
@@ -61,6 +62,8 @@ struct ItemWeb {
     quantity: String,
     unit_price: String,
     item_delivery_date: Option<String>,
+    discount_pct: Option<String>,
+    tax_rate_id: Option<String>,
 }
 
 // ── Handlers ──
@@ -114,7 +117,12 @@ pub async fn get_po_create(
         )
         .await?;
 
-    let content = po_create_page(&suppliers.items, &users.items, &quotations.items);
+    let tax_rates = state.tax_rate_service()
+        .list_active(&service_ctx, &mut conn)
+        .await
+        .unwrap_or_default();
+
+    let content = po_create_page(&suppliers.items, &users.items, &quotations.items, &tax_rates);
     let page_html = admin_page(
         is_htmx,
         "新建采购订单",
@@ -197,6 +205,20 @@ pub async fn get_po_products(
     Ok(Html(product_list_fragment(&result.items).into_string()))
 }
 
+/// HTMX/JS: return active tax rates as JSON
+#[require_permission("PURCHASE_ORDER", "read")]
+pub async fn get_tax_rates(ctx: RequestContext) -> Result<axum::Json<serde_json::Value>> {
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let rates = state.tax_rate_service()
+        .list_active(&service_ctx, &mut conn)
+ .await
+ .unwrap_or_default();
+    let json: Vec<serde_json::Value> = rates.iter().map(|r| serde_json::json!({
+ "id": r.id, "code": r.code, "name": r.name, "rate": r.rate.to_string()
+    })).collect();
+    Ok(axum::Json(serde_json::Value::Array(json)))
+}
+
 #[derive(Debug, Deserialize)]
 pub struct ItemRowParams {
     product_id: i64,
@@ -218,7 +240,11 @@ pub async fn get_po_item_row(
     let product = svc
         .get(&service_ctx, &mut conn, params.product_id)
         .await?;
-    Ok(Html(item_row_fragment(&product).into_string()))
+    let tax_rates = state.tax_rate_service()
+        .list_active(&service_ctx, &mut conn)
+        .await
+        .unwrap_or_default();
+    Ok(Html(item_row_fragment(&product, &tax_rates).into_string()))
 }
 
 /// POST: create purchase order from form submission (HTMX)
@@ -279,6 +305,12 @@ pub async fn create_po(
                 unit_price,
                 quotation_item_id: None,
                 expected_delivery_date: item_expected_delivery_date,
+                discount_pct: item.discount_pct.as_deref()
+                    .and_then(|s| s.parse().ok())
+                    .unwrap_or(rust_decimal::Decimal::ZERO),
+                tax_rate_id: item.tax_rate_id.as_deref()
+                    .and_then(|s| s.parse().ok())
+                    .filter(|&v: &i64| v > 0),
             })
         })
         .collect::<Result<Vec<_>, DomainError>>()?;
@@ -290,6 +322,9 @@ pub async fn create_po(
         payment_terms: form.payment_terms,
         delivery_address: form.delivery_address,
         remark: form.remark.unwrap_or_default(),
+        currency_code: form.currency.unwrap_or_else(|| String::from("CNY")),
+        currency_rate: rust_decimal::Decimal::ONE,
+        discount_amount: rust_decimal::Decimal::ZERO,
         items,
     };
 
@@ -305,6 +340,7 @@ fn po_create_page(
     suppliers: &[abt_core::master_data::supplier::model::Supplier],
     users: &[abt_core::shared::identity::model::User],
     quotations: &[abt_core::purchase::quotation::model::PurchaseQuotation],
+    tax_rates: &[abt_core::purchase::tax::model::TaxRate],
 ) -> Markup {
     let today = chrono::Local::now().format("%Y-%m-%d").to_string();
     let default_delivery = chrono::Local::now()
@@ -446,6 +482,8 @@ fn po_create_page(
                                 th style="width:100px;text-align:right" { "数量" }
                                 th style="width:120px;text-align:right" { "单价" }
                                 th style="width:110px;text-align:right" { "小计" }
+                                th style="width:80px;text-align:right" { "折扣%" }
+                                th style="width:120px" { "税率" }
                                 th style="width:120px" { "预期交货日期" }
                                 th style="width:36px" { }
                             }
@@ -458,6 +496,13 @@ fn po_create_page(
                         _="on click add .is-open to #product-modal" {
                         (icon::plus_icon("w-3.5 h-3.5"))
                         "添加产品行"
+                    }
+                }
+                div style="display:flex;justify-content:flex-end;padding:var(--space-4);border-top:1px solid var(--border)" {
+                    div style="display:flex;gap:var(--space-6);font-size:var(--text-sm)" {
+                        div { "不含税: " span id="sum-untaxed" style="font-weight:600" { "0.00" } }
+                        div { "税额: " span id="sum-tax" style="font-weight:600" { "0.00" } }
+                        div { "含税总计: " span id="sum-total" style="font-weight:600;color:var(--primary)" { "0.00" } }
                     }
                 }
             }
@@ -602,32 +647,33 @@ fn product_list_fragment(products: &[abt_core::master_data::product::model::Prod
     }
 }
 
-fn item_row_fragment(product: &abt_core::master_data::product::model::Product) -> Markup {
+fn item_row_fragment(
+    product: &abt_core::master_data::product::model::Product,
+    tax_rates: &[abt_core::purchase::tax::model::TaxRate],
+) -> Markup {
+    let input_style = "width:90px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)";
     html! {
-        tr oninput="
-               var row=this;
-               var q=parseFloat(row.querySelector('[name=quantity]').value)||0;
-               var p=parseFloat(row.querySelector('[name=unit_price]').value)||0;
-               row.querySelector('.line-subtotal').textContent=(q*p).toFixed(2);
-               var grand=0;
-               document.querySelectorAll('#po-item-tbody tr').forEach(function(r){
-                 var rq=parseFloat(r.querySelector('[name=quantity]').value)||0;
-                 var rp=parseFloat(r.querySelector('[name=unit_price]').value)||0;
-                 grand+=rq*rp;
-               });
-               document.querySelector('#grandTotal').textContent=grand.toFixed(2);
-               document.querySelector('#totalItems').innerText=document.querySelectorAll('#po-item-tbody tr').length;
-        " {
+        tr data-item-row="" {
             td class="line-num" { }
             td class="mono" { (product.product_code) }
             td { (product.pdt_name) }
             td { input class="form-input" type="text" name="description" placeholder="—" style="width:190px;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
-            td { input class="form-input num-input" type="number" step="1" min="0.01" name="quantity" placeholder="0" style="width:90px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
-            td { input class="form-input num-input" type="number" step="any" min="0.01" name="unit_price" placeholder="0.00" style="width:110px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
-            td class="line-subtotal mono" style="text-align:right" { "0.00" }
+            td { input class="form-input num-input" type="number" step="1" min="0.01" name="quantity" data-field="qty" placeholder="0" style=(input_style) {} }
+            td { input class="form-input num-input" type="number" step="any" min="0.01" name="unit_price" data-field="price" placeholder="0.00" style=(input_style) {} }
+            td class="line-subtotal mono" data-field="subtotal" style="text-align:right" { "0.00" }
+            td { input class="form-input num-input" type="number" step="0.01" min="0" max="100" name="discount_pct" data-field="discount" value="0" placeholder="0" style=(input_style) {} }
+            td {
+                select class="form-select" name="tax_rate_id" data-field="tax_rate_id"
+                    style="width:110px;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {
+                    option value="" { "—" }
+                    @for tr in tax_rates {
+                        option value=(tr.id) data-rate=(tr.rate.to_string()) { (tr.name) }
+                    }
+                }
+            }
             td { input class="form-input" type="date" name="item_delivery_date" style="width:110px;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
             td { button type="button" class="btn-remove-row" title="删除行"
-                _="on click remove closest <tr/>" {
+                _="on click remove closest <tr/> then call updatePurchaseSummary()" {
                 (icon::x_icon("w-3.5 h-3.5"))
             } }
             input type="hidden" name="product_id" value=(product.product_id) {}

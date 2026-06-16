@@ -148,9 +148,20 @@ pub async fn get_order_detail(
         .await
         .map(|p| p.items)
         .unwrap_or_default();
+    // 完工率
+    let completion_pct = if order.planned_qty > rust_decimal::Decimal::ZERO {
+        ((order.completed_qty / order.planned_qty) * rust_decimal::Decimal::ONE_HUNDRED)
+            .min(rust_decimal::Decimal::ONE_HUNDRED)
+    } else {
+        rust_decimal::Decimal::ZERO
+    };
+
+    // 是否有入库记录
+    let has_receipts = order.completed_qty > rust_decimal::Decimal::ZERO;
 
     let content = order_detail_page(
         &order, &product_name, &routings, &batches, &reports, &audit_logs,
+        completion_pct, has_receipts,
     );
     let page_html = admin_page(
         is_htmx,
@@ -288,7 +299,6 @@ pub async fn split_order(
     if split_qty <= rust_decimal::Decimal::ZERO {
         return Err(abt_core::shared::types::DomainError::validation("拆批数量必须大于 0").into());
     }
-
     batch_svc.split_work_order(
         &service_ctx, &mut conn, path.order_id,
         vec![SplitReq { batch_qty: split_qty, team_id: None }],
@@ -298,8 +308,6 @@ pub async fn split_order(
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }
 
-// ── Page ──
-
 #[allow(clippy::too_many_arguments)]
 fn order_detail_page(
     order: &WorkOrder,
@@ -308,6 +316,8 @@ fn order_detail_page(
     batches: &[ProductionBatch],
     reports: &[ReportListItem],
     audit_logs: &[AuditLog],
+    completion_pct: rust_decimal::Decimal,
+    has_receipts: bool,
 ) -> Markup {
     let (status_label, status_bg, status_color) = wo_status_label(&order.status);
     let routing_tab_label = format!("工序明细 {}", routings.len());
@@ -328,16 +338,24 @@ fn order_detail_page(
                         (status_pill(status_label, status_bg, status_color))
                     }
                     div class="page-actions" {
-                        @if matches!(order.status, WorkOrderStatus::Released) {
+                        @if matches!(order.status, WorkOrderStatus::Released | WorkOrderStatus::InProduction) {
                             button class="btn btn-default" type="button" _="on click add .is-open to #unrelease-dialog" {
                                 "反下达"
                             }
-                            button class="btn btn-default"
-                                hx-post=(OrderClosePath { order_id: order.id }.to_string())
-                                hx-confirm="确认关闭此工单？"
-                                hx-disabled-elt="this" {
-                                (icon::check_circle_icon("w-4 h-4"))
-                                "关闭工单"
+                            @if completion_pct >= rust_decimal::Decimal::new(95, 2) {
+                                button class="btn btn-default"
+                                    hx-post=(OrderClosePath { order_id: order.id }.to_string())
+                                    hx-confirm="确认关闭此工单？所有批次必须已完工或已取消。"
+                                    hx-disabled-elt="this" {
+                                    (icon::check_circle_icon("w-4 h-4"))
+                                    "关闭工单"
+                                }
+                            } @else {
+                                button class="btn btn-default" disabled
+                                    title=(format!("完工率 {}%，需 ≥ 95% 才能关闭", completion_pct.round_dp(1))) {
+                                    (icon::check_circle_icon("w-4 h-4"))
+                                    "关闭工单（完工不足）"
+                                }
                             }
                         }
                         @if matches!(order.status, WorkOrderStatus::Draft | WorkOrderStatus::Planned) {
@@ -350,12 +368,20 @@ fn order_detail_page(
                             }
                         }
                         @if matches!(order.status, WorkOrderStatus::Draft | WorkOrderStatus::Planned | WorkOrderStatus::Released | WorkOrderStatus::InProduction) {
-                            button class="btn btn-danger"
-                                hx-post=(OrderCancelPath { order_id: order.id }.to_string())
-                                hx-confirm="确认取消此工单？取消后不可恢复。"
-                                hx-disabled-elt="this" {
-                                (icon::x_icon("w-4 h-4"))
-                                "取消工单"
+                            @if has_receipts {
+                                button class="btn btn-danger" disabled
+                                    title="存在已完工入库记录，无法取消" {
+                                    (icon::x_icon("w-4 h-4"))
+                                    "取消（有入库记录）"
+                                }
+                            } @else {
+                                button class="btn btn-danger"
+                                    hx-post=(OrderCancelPath { order_id: order.id }.to_string())
+                                    hx-confirm="确认取消此工单？取消后不可恢复。"
+                                    hx-disabled-elt="this" {
+                                    (icon::x_icon("w-4 h-4"))
+                                    "取消工单"
+                                }
                             }
                         }
                     }
@@ -402,7 +428,7 @@ fn order_detail_page(
                 ("log", "操作日志"),
             ]))
 
-            (tab_panel("info", true, tab_info(order, product_name, routings.len())))
+            (tab_panel("info", true, tab_info(order, product_name, routings.len(), completion_pct)))
             (tab_panel("routing", false, tab_routing(routings)))
             (tab_panel("batches", false, tab_batches(batches, routings, order)))
             (tab_panel("reports", false, tab_reports(reports)))
@@ -441,8 +467,7 @@ fn order_detail_page(
 }
 
 // ── Tab Panels ──
-
-fn tab_info(order: &WorkOrder, product_name: &str, routing_count: usize) -> Markup {
+fn tab_info(order: &WorkOrder, product_name: &str, routing_count: usize, completion_pct: rust_decimal::Decimal) -> Markup {
     let (sl, sb, sc) = wo_status_label(&order.status);
     html! {
         div class="bento-grid" {
@@ -477,6 +502,31 @@ fn tab_info(order: &WorkOrder, product_name: &str, routing_count: usize) -> Mark
                 }
             }
         }
+        // 生产进度
+        div class="info-section" {
+            div class="info-section-title" { "生产进度" }
+            div class="progress-section" {
+                div class="progress-stats" {
+                    span class="info-item" {
+                        span class="info-label" { "计划" }
+                        span class="info-value mono" { (crate::utils::fmt_qty(order.planned_qty)) }
+                    }
+                    span class="info-item" {
+                        span class="info-label" { "已完工" }
+                        span class="info-value mono" { (crate::utils::fmt_qty(order.completed_qty)) }
+                    }
+                    span class="info-item" {
+                        span class="info-label" { "完工率" }
+                        span class="info-value mono" { (completion_pct.round_dp(1)) "%" }
+                    }
+                }
+                div class="progress-bar-wrap" {
+                    div class="progress-bar-fill"
+                        style=(format!("width: {}%", completion_pct.round_dp(1)))
+                    {}
+                }
+            }
+        }
         @if !order.remark.is_empty() {
             div class="info-section" {
                 div class="info-section-title" { "备注" }
@@ -499,6 +549,8 @@ fn tab_routing(routings: &[WorkOrderRouting]) -> Markup {
                             th { "工作中心" }
                             th class="num-right" { "计划量" }
                             th class="num-right" { "标准工时" }
+                            th class="num-right" { "标准成本" }
+                            th class="num-right" { "计件单价" }
                             th { "委外" }
                             th { "标记" }
                         }
@@ -515,6 +567,12 @@ fn tab_routing(routings: &[WorkOrderRouting]) -> Markup {
                                 td class="mono num-right" {
                                     @if let Some(t) = r.standard_time { (crate::utils::fmt_qty(t)) } @else { "—" }
                                 }
+                                td class="mono num-right" {
+                                    @if let Some(c) = r.standard_cost { "¥" (crate::utils::fmt_qty(c)) } @else { "—" }
+                                }
+                                td class="mono num-right" {
+                                    @if let Some(p) = r.unit_price { "¥" (crate::utils::fmt_qty(p)) } @else { "—" }
+                                }
                                 td {
                                     @if r.is_outsourced { span class="tag-chip" { "委外" } } @else { "—" }
                                 }
@@ -526,7 +584,7 @@ fn tab_routing(routings: &[WorkOrderRouting]) -> Markup {
                             }
                         }
                         @if routings.is_empty() {
-                            tr { td colspan="7" class="empty-row" { "暂无工序明细（工单未下达或无工艺路线）" } }
+                            tr { td colspan="9" class="empty-row" { "暂无工序明细（工单未下达或无工艺路线）" } }
                         }
                     }
                 }

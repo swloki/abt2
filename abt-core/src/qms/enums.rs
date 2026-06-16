@@ -85,6 +85,7 @@ define_qms_enum!(InspectionSourceType {
     WorkOrderRouting = 2,
     ShippingRequest = 3,
     OutsourcingOrder = 4,
+    ProductionReceipt = 5,
 });
 
 // -- Inspection Result Type --
@@ -163,6 +164,7 @@ impl InspectionSourceType {
             DocumentType::WorkReport => Some(Self::WorkOrderRouting),
             DocumentType::ShippingRequest => Some(Self::ShippingRequest),
             DocumentType::OutsourcingOrder => Some(Self::OutsourcingOrder),
+            DocumentType::ProductionReceipt => Some(Self::ProductionReceipt),
             _ => None,
         }
     }
@@ -174,6 +176,7 @@ impl InspectionSourceType {
             Self::WorkOrderRouting => DocumentType::WorkReport,
             Self::ShippingRequest => DocumentType::ShippingRequest,
             Self::OutsourcingOrder => DocumentType::OutsourcingOrder,
+            Self::ProductionReceipt => DocumentType::ProductionReceipt,
         }
     }
 }

@@ -1,4 +1,5 @@
 use chrono::{DateTime, Utc};
+use rust_decimal::Decimal;
 
 /// 工艺路线实体
 #[derive(Debug, Clone, sqlx::FromRow)]
@@ -24,6 +25,21 @@ pub struct RoutingStep {
     pub created_at: Option<DateTime<Utc>>,
     #[sqlx(default)]
     pub process_name: Option<String>,
+    // migration 045 新增工序属性
+    #[sqlx(default)]
+    pub work_center_id: Option<i64>,
+    #[sqlx(default)]
+    pub standard_time: Option<Decimal>,
+    #[sqlx(default)]
+    pub standard_cost: Option<Decimal>,
+    #[sqlx(default)]
+    pub unit_price: Option<Decimal>,
+    #[sqlx(default)]
+    pub allowed_loss_rate: Option<Decimal>,
+    #[sqlx(default)]
+    pub is_outsourced: bool,
+    #[sqlx(default)]
+    pub is_inspection_point: bool,
 }
 
 /// BOM-工艺路线关联
@@ -54,12 +70,20 @@ pub struct UpdateRoutingReq {
 }
 
 /// 工序步骤输入
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct RoutingStepInput {
     pub process_code: String,
     pub step_order: i32,
     pub is_required: bool,
     pub remark: Option<String>,
+    // migration 045 新增工序属性
+    pub work_center_id: Option<i64>,
+    pub standard_time: Option<Decimal>,
+    pub standard_cost: Option<Decimal>,
+    pub unit_price: Option<Decimal>,
+    pub allowed_loss_rate: Option<Decimal>,
+    pub is_outsourced: bool,
+    pub is_inspection_point: bool,
 }
 
 /// 工艺路线查询

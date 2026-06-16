@@ -28,6 +28,27 @@ pub struct MaterialReqItem {
     pub issued_qty: Decimal,
     pub variance_qty: Decimal,
     pub bin_id: Option<i64>,
+    // migration 045 新增
+    #[sqlx(default)]
+    pub operation_id: Option<i64>,
+    #[sqlx(default)]
+    pub batch_id: Option<i64>,
+}
+
+/// 退料请求
+#[derive(Debug, Clone)]
+pub struct ReturnMaterialReq {
+    pub requisition_id: i64,
+    pub items: Vec<ReturnItemReq>,
+    pub reason: String,
+}
+
+/// 退料行项目请求
+#[derive(Debug, Clone)]
+pub struct ReturnItemReq {
+    pub item_id: i64,
+    pub return_qty: Decimal,
+    pub bin_id: Option<i64>,
 }
 
 /// 发料请求（整单）

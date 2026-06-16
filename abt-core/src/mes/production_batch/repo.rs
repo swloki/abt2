@@ -349,6 +349,34 @@ impl WorkOrderRoutingRepo {
 
         rows.iter()
             .filter_map(|r| WorkOrderRouting::from_row(r).ok())
+            .map(Ok)
+            .collect()
+    }
+
+    /// 批量按工单 ID 查找工序（N+1 修复：calculate_wage 用）
+    pub async fn get_by_work_order_ids(
+        executor: &mut sqlx::postgres::PgConnection,
+        work_order_ids: &[i64],
+    ) -> Result<Vec<WorkOrderRouting>> {
+        if work_order_ids.is_empty() {
+            return Ok(Vec::new());
+        }
+        let rows = sqlx::query(
+            r#"
+            SELECT id, work_order_id, step_no, process_name, work_center_id,
+                   standard_time, standard_cost, unit_price, allowed_loss_rate,
+                   planned_qty, is_outsourced, is_inspection_point
+            FROM work_order_routings
+            WHERE work_order_id = ANY($1)
+            ORDER BY step_no
+            "#,
+        )
+        .bind(work_order_ids)
+        .fetch_all(&mut *executor)
+        .await?;
+
+        rows.iter()
+            .filter_map(|r| WorkOrderRouting::from_row(r).ok())
             .collect::<Vec<_>>()
             .into_iter()
             .map(Ok)

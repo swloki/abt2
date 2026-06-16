@@ -3,6 +3,7 @@ use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
 use rust_decimal::Decimal;
 
+use abt_core::master_data::work_center::{model::work_center_type_label, WorkCenterService};
 use abt_core::mes::dashboard::MesDashboardService;
 use abt_core::mes::enums::BatchStatus;
 
@@ -21,14 +22,17 @@ pub async fn get_schedule_board(_path: ScheduleBoardPath, ctx: RequestContext) -
     let svc = state.mes_dashboard_service();
     let stats = svc.get_schedule_stats(&service_ctx, &mut conn).await?;
     let cards = svc.get_schedule_cards(&service_ctx, &mut conn).await?;
+    let work_centers = state.work_center_service()
+        .list_active(&service_ctx, &mut conn)
+        .await.unwrap_or_default();
 
-    let content = schedule_board_page(&stats, &cards);
+    let content = schedule_board_page(&stats, &cards, &work_centers);
     Ok(Html(admin_page(is_htmx, "排程看板", &claims, "production", ScheduleBoardPath::PATH, "生产管理", None, content, &nav_filter).into_string()))
 }
-
 fn schedule_board_page(
     stats: &abt_core::mes::dashboard::model::ScheduleStats,
     cards: &[abt_core::mes::dashboard::model::ScheduleCard],
+    work_centers: &[abt_core::master_data::work_center::model::WorkCenter],
 ) -> Markup {
     // Group cards by status
     let pending: Vec<_> = cards.iter().filter(|c| c.status == BatchStatus::Pending).collect();
@@ -65,19 +69,61 @@ fn schedule_board_page(
             }
         }
 
-        // Kanban board - 4 columns
-        div class="kanban-board" {
-            // Column: Pending
-            (kanban_column("待排产", &pending, "kanban-col-pending"))
+        // 视图切换
+        div class="view-toggle" {
+            button class="tab-btn active"
+                _="on click remove .active from .tab-btn then add .active to me then remove .hidden from #kanban-view then add .hidden to #wc-view" {
+                "状态看板"
+            }
+            button class="tab-btn"
+                _="on click remove .active from .tab-btn then add .active to me then remove .hidden from #wc-view then add .hidden to #kanban-view" {
+                "工作中心排程"
+            }
+        }
 
-            // Column: In Progress
-            (kanban_column("进行中", &in_progress, "kanban-col-progress"))
+        // Kanban 视图
+        div id="kanban-view" {
+            div class="kanban-board" {
+                (kanban_column("待排产", &pending, "kanban-col-pending"))
+                (kanban_column("进行中", &in_progress, "kanban-col-progress"))
+                (kanban_column("待入库", &pending_receipt, "kanban-col-receipt"))
+                (kanban_column("已完成", &completed, "kanban-col-done"))
+            }
+        }
 
-            // Column: Pending Receipt
-            (kanban_column("待入库", &pending_receipt, "kanban-col-receipt"))
-
-            // Column: Completed
-            (kanban_column("已完成", &completed, "kanban-col-done"))
+        // 工作中心视图
+        div id="wc-view" class="hidden" {
+            div class="data-card" {
+                div class="data-card-scroll" {
+                    table class="data-table" {
+                        thead {
+                            tr {
+                                th { "编码" }
+                                th { "名称" }
+                                th { "类型" }
+                                th class="num-right" { "产能/小时" }
+                                th class="num-right" { "成本费率/h" }
+                                th { "状态" }
+                            }
+                        }
+                        tbody {
+                            @for wc in work_centers {
+                                tr {
+                                    td class="mono" { (wc.code) }
+                                    td { strong { (wc.name) } }
+                                    td { (work_center_type_label(wc.work_center_type)) }
+                                    td class="mono num-right" { (crate::utils::fmt_qty(wc.default_capacity)) }
+                                    td class="mono num-right" { (crate::utils::fmt_amount(wc.costs_hour)) }
+                                    td { span class="status-pill status-active" { "启用" } }
+                                }
+                            }
+                            @if work_centers.is_empty() {
+                                tr { td colspan="6" class="empty-row" { "暂无活跃工作中心" } }
+                            }
+                        }
+                    }
+                }
+            }
         }
     }}
 }

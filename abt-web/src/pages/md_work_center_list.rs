@@ -1,0 +1,216 @@
+use axum::extract::Query;
+use axum::response::Html;
+use axum_extra::routing::TypedPath;
+use maud::{html, Markup};
+use serde::Deserialize;
+
+use abt_core::master_data::work_center::{model::*, WorkCenterService};
+use abt_core::shared::types::PageParams;
+
+use crate::components::icon;
+use crate::components::pagination::pagination;
+use crate::layout::page::admin_page;
+use crate::routes::md_work_center::*;
+use crate::utils::RequestContext;
+use abt_macros::require_permission;
+
+// ── Query Params ──
+
+#[derive(Debug, Deserialize, Clone, Default)]
+pub struct WorkCenterQueryParams {
+    #[serde(default)]
+    pub keyword: Option<String>,
+    #[serde(default)]
+    pub is_active: Option<String>,
+    #[serde(default)]
+    pub page: Option<u32>,
+}
+
+// ── Handlers ──
+
+#[require_permission("BOM", "read")]
+pub async fn get_work_center_list(
+    _path: WorkCenterListPath,
+    ctx: RequestContext,
+    Query(params): Query<WorkCenterQueryParams>,
+) -> crate::errors::Result<Html<String>> {
+    let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
+    let RequestContext {
+        mut conn,
+        state,
+        service_ctx,
+        claims,
+        ..
+    } = ctx;
+
+    let page = params.page.unwrap_or(1);
+    let keyword = params
+        .keyword
+        .as_deref()
+        .filter(|s| !s.is_empty())
+        .map(|s| s.to_string());
+    let is_active = match params.is_active.as_deref() {
+        Some("true") => Some(true),
+        Some("false") => Some(false),
+        _ => None,
+    };
+
+    let filter = WorkCenterFilter {
+        keyword,
+        work_center_type: None,
+        is_active,
+    };
+    let result = state
+        .work_center_service()
+        .list(&service_ctx, &mut conn, filter, PageParams::new(page, 20))
+        .await?;
+
+    let content = work_center_list_page(&result, &params);
+    Ok(Html(
+        admin_page(
+            is_htmx,
+            "工作中心管理",
+            &claims,
+            "md",
+            WorkCenterListPath::PATH,
+            "工程",
+            Some(WorkCenterListPath::PATH),
+            content,
+            &nav_filter,
+        )
+        .into_string(),
+    ))
+}
+
+// ── Components ──
+
+fn work_center_list_page(
+    result: &abt_core::shared::types::PaginatedResult<WorkCenter>,
+    params: &WorkCenterQueryParams,
+) -> Markup {
+    let total = result.total;
+    let page = params.page.unwrap_or(1);
+    let page_size = 20u32;
+    let total_pages = (total as u32).div_ceil(page_size);
+    let query_string = build_query_string(params);
+
+    html! {
+        div class="page-header" {
+            div class="page-header-left" {
+                h1 class="page-title" { "工作中心管理" }
+            }
+            div class="page-actions" {
+                a class="btn btn-primary" href=(WorkCenterCreatePath::PATH) {
+                    (icon::plus_icon("w-4 h-4"))
+                    "新建工作中心"
+                }
+            }
+        }
+
+        // 筛选栏
+        div class="filter-bar" {
+            form class="filter-form" id="wc-filter-form"
+                hx-get=(WorkCenterListPath::PATH)
+                hx-trigger="change, keyup changed delay:300ms from:.search-input"
+                hx-target="#data-card"
+                hx-select="#data-card"
+                hx-swap="outerHTML"
+                hx-push-url="true"
+                hx-include="#wc-filter-form" {
+
+                select class="filter-select" name="is_active" {
+                    @if params.is_active.is_none() {
+                        option value="" selected { "全部" }
+                    } @else {
+                        option value="" { "全部" }
+                    }
+                    @if params.is_active.as_deref() == Some("true") {
+                        option value="true" selected { "启用" }
+                    } @else {
+                        option value="true" { "启用" }
+                    }
+                    @if params.is_active.as_deref() == Some("false") {
+                        option value="false" selected { "停用" }
+                    } @else {
+                        option value="false" { "停用" }
+                    }
+                }
+
+                div class="search-wrap" {
+                    (icon::search_icon("w-4 h-4"))
+                    input class="search-input" type="text" name="keyword"
+                          placeholder="搜索编码 / 名称"
+                          value=(params.keyword.as_deref().unwrap_or(""));
+                }
+            }
+        }
+
+        // 数据表
+        div class="data-card" id="data-card" {
+            div class="data-card-scroll" {
+                table class="data-table" {
+                    thead {
+                        tr {
+                            th { "编码" }
+                            th { "名称" }
+                            th { "类型" }
+                            th class="num-right" { "产能/小时" }
+                            th class="num-right" { "成本费率/h" }
+                            th { "状态" }
+                            th { "操作" }
+                        }
+                    }
+                    tbody {
+                        @for wc in &result.items {
+                            tr {
+                                td class="mono" { (wc.code) }
+                                td { strong { (wc.name) } }
+                                td { (work_center_type_label(wc.work_center_type)) }
+                                td class="mono num-right" { (crate::utils::fmt_qty(wc.default_capacity)) }
+                                td class="mono num-right" { (crate::utils::fmt_amount(wc.costs_hour)) }
+                                td {
+                                    @if wc.is_active {
+                                        span class="status-pill status-active" { "启用" }
+                                    } @else {
+                                        span class="status-pill status-inactive" { "停用" }
+                                    }
+                                }
+                                td {
+                                    a href=(WorkCenterDetailPath { id: wc.id }.to_string()) {
+                                        (icon::eye_icon("w-4 h-4"))
+                                    }
+                                    a href=(WorkCenterEditPath { id: wc.id }.to_string())
+                                       class="ml-2" {
+                                        (icon::edit_icon("w-4 h-4"))
+                                    }
+                                }
+                            }
+                        }
+                        @if result.items.is_empty() {
+                            tr { td colspan="7" class="empty-row" { "暂无工作中心数据" } }
+                        }
+                    }
+                }
+            }
+            (pagination(WorkCenterListPath::PATH, &query_string, total, page, total_pages))
+        }
+    }
+}
+
+// ── Helpers ──
+
+fn build_query_string(params: &WorkCenterQueryParams) -> String {
+    let mut parts = Vec::new();
+    if let Some(ref k) = params.keyword
+        && !k.is_empty()
+    {
+        parts.push(format!("keyword={}", k));
+    }
+    if let Some(ref a) = params.is_active
+        && !a.is_empty()
+    {
+        parts.push(format!("is_active={}", a));
+    }
+    parts.join("&")
+}

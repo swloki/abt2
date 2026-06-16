@@ -109,6 +109,7 @@ pub async fn post_routing_create(
             step_order: (i + 1) as i32,
             is_required: s.is_required,
             remark: s.remark.filter(|r| !r.trim().is_empty()),
+            ..Default::default()
         })
         .collect();
 

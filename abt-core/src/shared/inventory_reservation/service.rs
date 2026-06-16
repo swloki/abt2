@@ -56,4 +56,14 @@ pub trait InventoryReservationService: Send + Sync {
         source_type: DocumentType,
         source_id: i64,
     ) -> Result<std::collections::HashMap<i64, Decimal>>;
+    /// 消耗预留 — 扣减指定来源+产品的预留量（对标 Odoo move._action_done 消费 reservation）
+    async fn consume(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        source_type: DocumentType,
+        source_id: i64,
+        product_id: i64,
+        qty: Decimal,
+    ) -> Result<()>;
 }

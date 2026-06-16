@@ -1,0 +1,124 @@
+use axum::response::{Html, IntoResponse};
+use axum_extra::routing::TypedPath;
+use maud::{html, Markup};
+use serde::Deserialize;
+
+use abt_core::master_data::work_calendar::{model::*, WorkCalendarService};
+use abt_core::shared::types::DomainError;
+
+use crate::components::icon;
+use crate::errors::Result;
+use crate::layout::page::admin_page;
+use crate::routes::md_work_calendar::*;
+use crate::utils::RequestContext;
+use abt_macros::require_permission;
+
+// ── Form ──
+
+#[derive(Debug, Deserialize)]
+pub struct WorkCalendarForm {
+    pub name: String,
+    pub description: Option<String>,
+}
+
+// ── Create Handler ──
+
+#[require_permission("BOM", "create")]
+pub async fn get_work_calendar_create(
+    _path: WorkCalendarCreatePath,
+    ctx: RequestContext,
+) -> Result<Html<String>> {
+    let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
+    let RequestContext { claims, .. } = ctx;
+
+    let content = work_calendar_form_page();
+    Ok(Html(
+        admin_page(
+            is_htmx,
+            "新建工作日历",
+            &claims,
+            "md",
+            WorkCalendarCreatePath::PATH,
+            "工程",
+            Some("新建工作日历"),
+            content,
+            &nav_filter,
+        )
+        .into_string(),
+    ))
+}
+
+#[require_permission("BOM", "create")]
+pub async fn post_work_calendar_create(
+    _path: WorkCalendarCreatePath,
+    ctx: RequestContext,
+    axum::Form(form): axum::Form<WorkCalendarForm>,
+) -> Result<impl IntoResponse> {
+    let RequestContext {
+        mut conn,
+        state,
+        service_ctx,
+        ..
+    } = ctx;
+
+    let name = form.name.trim().to_string();
+    if name.is_empty() {
+        return Err(DomainError::validation("日历名称不能为空").into());
+    }
+
+    let req = CreateCalendarReq {
+        name,
+        description: form
+            .description
+            .as_deref()
+            .filter(|s| !s.trim().is_empty())
+            .map(|s| s.to_string()),
+    };
+    let id = state
+        .work_calendar_service()
+        .create_calendar(&service_ctx, &mut conn, req)
+        .await?;
+
+    let redirect = WorkCalendarDetailPath { id }.to_string();
+    Ok(([("HX-Redirect", redirect)], Html(String::new())))
+}
+
+// ── Components ──
+
+fn work_calendar_form_page() -> Markup {
+    html! {
+        div class="page-header" {
+            div class="page-header-left" {
+                a class="back-link" href=(WorkCalendarListPath::PATH) { "← 返回列表" }
+                h1 class="page-title" { "新建工作日历" }
+            }
+        }
+
+        form class="data-card form-card"
+            hx-post=(WorkCalendarCreatePath::PATH) {
+
+            div class="form-section" {
+                div class="form-section-title" { "基本信息" }
+                div class="form-grid" {
+                    div class="form-field" {
+                        label { "名称 *" }
+                        input class="form-input" type="text" name="name" required;
+                    }
+                    div class="form-field span-2" {
+                        label { "描述" }
+                        input class="form-input" type="text" name="description";
+                    }
+                }
+            }
+
+            div class="create-action-bar" {
+                a class="btn btn-default" href=(WorkCalendarListPath::PATH) { "取消" }
+                button class="btn btn-primary" type="submit" {
+                    (icon::check_circle_icon("w-4 h-4"))
+                    "创建"
+                }
+            }
+        }
+    }
+}

@@ -159,4 +159,18 @@ impl InventoryReservationService for InventoryReservationServiceImpl {
             .map_err(|e| DomainError::Internal(e.into()))?;
         Ok(())
     }
+    async fn consume(
+        &self,
+        _ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        source_type: DocumentType,
+        source_id: i64,
+        product_id: i64,
+        qty: Decimal,
+    ) -> Result<()> {
+        InventoryReservationRepo::consume(&mut *db, source_type, source_id, product_id, qty)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?;
+        Ok(())
+    }
 }

@@ -78,6 +78,7 @@ fn source_type_label(s: &InspectionSourceType) -> &'static str {
         InspectionSourceType::WorkOrderRouting => "工单工序",
         InspectionSourceType::ShippingRequest => "发货单",
         InspectionSourceType::OutsourcingOrder => "委外单",
+        InspectionSourceType::ProductionReceipt => "完工入库",
     }
 }
 

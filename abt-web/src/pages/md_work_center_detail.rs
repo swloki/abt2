@@ -1,0 +1,119 @@
+use axum::response::Html;
+use axum_extra::routing::TypedPath;
+use maud::{html, Markup};
+
+use abt_core::master_data::work_center::{
+    model::{work_center_type_label, WorkCenter},
+    WorkCenterService,
+};
+
+use crate::components::icon;
+use crate::errors::Result;
+use crate::layout::page::admin_page;
+use crate::routes::md_work_center::*;
+use crate::utils::RequestContext;
+use abt_macros::require_permission;
+
+#[require_permission("BOM", "read")]
+pub async fn get_work_center_detail(
+    path: WorkCenterDetailPath,
+    ctx: RequestContext,
+) -> Result<Html<String>> {
+    let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
+    let RequestContext {
+        mut conn,
+        state,
+        service_ctx,
+        claims,
+        ..
+    } = ctx;
+
+    let wc = state
+        .work_center_service()
+        .get(&service_ctx, &mut conn, path.id)
+        .await?;
+
+    let content = work_center_detail_page(&wc);
+    Ok(Html(
+        admin_page(
+            is_htmx,
+            &format!("工作中心 {}", wc.code),
+            &claims,
+            "md",
+            &format!("/admin/md/work-centers/{}", path.id),
+            "工程",
+            Some(&wc.name),
+            content,
+            &nav_filter,
+        )
+        .into_string(),
+    ))
+}
+
+fn work_center_detail_page(wc: &WorkCenter) -> Markup {
+    html! {
+        div class="page-header" {
+            div class="page-header-left" {
+                a class="back-link" href=(WorkCenterListPath::PATH) { "← 返回列表" }
+                h1 class="page-title" { "工作中心 " (wc.code) " - " (wc.name) }
+            }
+            div class="page-actions" {
+                a class="btn btn-default" href=(WorkCenterEditPath { id: wc.id }.to_string()) {
+                    (icon::edit_icon("w-4 h-4"))
+                    "编辑"
+                }
+            }
+        }
+
+        div class="info-card" {
+            div class="info-section-title" { "基本信息" }
+            div class="info-grid" {
+                div class="info-item" { label { "编码" } span class="mono" { (wc.code) } }
+                div class="info-item" { label { "名称" } span { (wc.name) } }
+                div class="info-item" {
+                    label { "类型" }
+                    span { (work_center_type_label(wc.work_center_type)) }
+                }
+                div class="info-item" {
+                    label { "状态" }
+                    @if wc.is_active {
+                        span class="status-pill status-active" { "启用" }
+                    } @else {
+                        span class="status-pill status-inactive" { "停用" }
+                    }
+                }
+                div class="info-item" {
+                    label { "位置" }
+                    span { (wc.location.as_deref().unwrap_or("—")) }
+                }
+            }
+        }
+
+        div class="info-card" {
+            div class="info-section-title" { "产能与成本" }
+            div class="info-grid" {
+                div class="info-item" {
+                    label { "产能/小时" }
+                    span class="mono" { (crate::utils::fmt_qty(wc.default_capacity)) }
+                }
+                div class="info-item" {
+                    label { "成本费率/h" }
+                    span class="mono" { (crate::utils::fmt_amount(wc.costs_hour)) }
+                }
+                div class="info-item" {
+                    label { "效率系数" }
+                    span class="mono" { (crate::utils::fmt_qty(wc.time_efficiency)) }
+                }
+                div class="info-item" {
+                    label { "准备时间 (分钟)" }
+                    span class="mono" { (crate::utils::fmt_qty(wc.setup_time)) }
+                }
+                div class="info-item" {
+                    label { "清理时间 (分钟)" }
+                    span class="mono" { (crate::utils::fmt_qty(wc.cleanup_time)) }
+                }
+            }
+        }
+    }
+}

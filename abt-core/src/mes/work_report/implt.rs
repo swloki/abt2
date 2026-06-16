@@ -86,17 +86,21 @@ impl WorkReportService for WorkReportServiceImpl {
         let mut total_amount = Decimal::ZERO;
         let mut details = Vec::new();
 
-        for report in &reports {
-            // 查找工序获取 unit_price 和 process_name
-            let routings = WorkOrderRoutingRepo::get_by_work_order_id(
-                &mut *db,
-                report.work_order_id,
-            )
+        // 批量预加载所有相关工单的工序（N+1 修复）
+        let wo_ids: Vec<i64> = {
+            let mut ids: Vec<i64> = reports.iter().map(|r| r.work_order_id).collect();
+            ids.sort();
+            ids.dedup();
+            ids
+        };
+        let all_routings = WorkOrderRoutingRepo::get_by_work_order_ids(&mut *db, &wo_ids)
             .await
-            .ok()
-            .unwrap_or_default();
+            .map_err(|e| DomainError::Internal(e.into()))?;
+        let routing_map: std::collections::HashMap<i64, _> =
+            all_routings.iter().map(|r| (r.id, r)).collect();
 
-            let routing_info = routings.into_iter().find(|r| r.id == report.routing_id);
+        for report in &reports {
+            let routing_info = routing_map.get(&report.routing_id);
 
             let (process_name, unit_price) = routing_info
                 .as_ref()

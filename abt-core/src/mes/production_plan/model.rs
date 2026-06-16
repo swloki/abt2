@@ -121,3 +121,11 @@ pub struct WorkOrderPlanItem {
     pub routing_id: Option<i64>,
     pub work_center_id: Option<i64>,
 }
+
+/// 排程结果
+#[derive(Debug, Clone, Default, serde::Serialize)]
+pub struct ScheduleResult {
+    pub scheduled_items: usize,
+    pub bookings_created: usize,
+    pub warnings: Vec<String>,
+}

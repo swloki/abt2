@@ -1,11 +1,11 @@
-﻿use async_trait::async_trait;
+use async_trait::async_trait;
 
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::PgExecutor;
 use crate::shared::types::Result;
 use crate::shared::types::pagination::PaginatedResult;
 
-use super::model::{MaterialRequisition, RequisitionFilter, IssueMaterialReq, CreateManualReq};
+use super::model::{MaterialRequisition, RequisitionFilter, IssueMaterialReq, CreateManualReq, ReturnMaterialReq};
 
 #[async_trait]
 pub trait MaterialRequisitionService: Send + Sync {
@@ -52,5 +52,12 @@ pub trait MaterialRequisitionService: Send + Sync {
         &self,
         ctx: &ServiceContext, db: PgExecutor<'_>,
         id: i64,
+    ) -> Result<()>;
+    /// 退料：Issued/PartiallyIssued → 退料入库（对标 Odoo stock.move.reverse）
+    async fn return_materials(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        req: ReturnMaterialReq,
     ) -> Result<()>;
 }

@@ -268,6 +268,18 @@ impl AppState {
         abt_core::master_data::routing::new_routing_service(self.pool.clone())
     }
 
+    pub fn work_center_service(
+        &self,
+    ) -> impl abt_core::master_data::work_center::WorkCenterService {
+        abt_core::master_data::work_center::new_work_center_service(self.pool.clone())
+    }
+
+    pub fn work_calendar_service(
+        &self,
+    ) -> impl abt_core::master_data::work_calendar::WorkCalendarService {
+        abt_core::master_data::work_calendar::new_work_calendar_service(self.pool.clone())
+    }
+
     pub fn sales_return_service(&self) -> impl abt_core::sales::sales_return::SalesReturnService {
         abt_core::sales::sales_return::new_sales_return_service(self.pool.clone())
     }

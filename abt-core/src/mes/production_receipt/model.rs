@@ -76,3 +76,12 @@ pub struct ReceiptListItem {
     pub status: i16,
     pub created_at: chrono::DateTime<chrono::Utc>,
 }
+
+/// FQC 门控状态（供 UI 查询，不触发 confirm）
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FqcGate {
+    NotRequired,
+    PendingInspection,
+    AllPassed,
+    HasFailed,
+}

@@ -44,18 +44,22 @@ impl MaterialRequisitionRepo {
         requisition_id: i64,
         product_id: i64,
         requested_qty: Decimal,
+        operation_id: Option<i64>,
+        batch_id: Option<i64>,
     ) -> Result<MaterialReqItem> {
         let row = sqlx::query(
             r#"
             INSERT INTO material_requisition_items
-                (requisition_id, product_id, requested_qty, issued_qty, variance_qty)
-            VALUES ($1, $2, $3, 0, 0)
-            RETURNING id, requisition_id, product_id, requested_qty, issued_qty, variance_qty, bin_id
+                (requisition_id, product_id, requested_qty, issued_qty, variance_qty, operation_id, batch_id)
+            VALUES ($1, $2, $3, 0, 0, $4, $5)
+            RETURNING id, requisition_id, product_id, requested_qty, issued_qty, variance_qty, bin_id, operation_id, batch_id
             "#,
         )
         .bind(requisition_id)
         .bind(product_id)
         .bind(requested_qty)
+        .bind(operation_id)
+        .bind(batch_id)
         .fetch_one(&mut *executor)
         .await?;
 
@@ -88,7 +92,7 @@ impl MaterialRequisitionRepo {
     ) -> Result<Vec<MaterialReqItem>> {
         let rows = sqlx::query(
             r#"
-            SELECT id, requisition_id, product_id, requested_qty, issued_qty, variance_qty, bin_id
+            SELECT id, requisition_id, product_id, requested_qty, issued_qty, variance_qty, bin_id, operation_id, batch_id
             FROM material_requisition_items
             WHERE requisition_id = $1
             ORDER BY id

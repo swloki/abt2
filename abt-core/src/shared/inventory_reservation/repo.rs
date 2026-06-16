@@ -248,4 +248,29 @@ impl InventoryReservationRepo {
 
         Ok(result.rows_affected())
     }
+    /// 消耗预留 — 扣减指定来源+产品的预留量，归零时标记 Fulfilled
+    pub async fn consume(
+        executor: &mut sqlx::postgres::PgConnection,
+        source_type: DocumentType,
+        source_id: i64,
+        product_id: i64,
+        qty: Decimal,
+    ) -> Result<()> {
+        sqlx::query(
+            r#"UPDATE inventory_reservations
+               SET reserved_qty = reserved_qty - $4,
+                   status = CASE WHEN reserved_qty - $4 <= 0 THEN $5 ELSE status END
+               WHERE source_type = $1 AND source_id = $2 AND product_id = $3
+                 AND status = $6 AND reserved_qty >= $4"#,
+        )
+        .bind(source_type)
+        .bind(source_id)
+        .bind(product_id)
+        .bind(qty)
+        .bind(ReservationStatus::Fulfilled)
+        .bind(ReservationStatus::Active)
+        .execute(&mut *executor)
+        .await?;
+        Ok(())
+    }
 }

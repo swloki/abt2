@@ -374,6 +374,7 @@ fn requisition_status_label(s: &abt_core::wms::enums::RequisitionStatus) -> Mark
         RequisitionStatus::Confirmed => ("已确认", "pill-progress"),
         RequisitionStatus::Issued => ("已发料", "pill-done"),
         RequisitionStatus::Cancelled => ("已取消", "pill-suspended"),
+        RequisitionStatus::PartiallyIssued => ("部分发料", "pill-progress"),
     };
     html! { span class=(format!("kanban-card-pill {cls}")) { (label) } }
 }

@@ -1,0 +1,97 @@
+use axum::response::Html;
+use axum_extra::routing::TypedPath;
+use maud::{html, Markup};
+
+use abt_core::master_data::work_calendar::{model::*, WorkCalendarService};
+
+use crate::components::icon;
+use crate::errors::Result;
+use crate::layout::page::admin_page;
+use crate::routes::md_work_calendar::*;
+use crate::utils::RequestContext;
+use abt_macros::require_permission;
+
+#[require_permission("BOM", "read")]
+pub async fn get_work_calendar_list(
+    _path: WorkCalendarListPath,
+    ctx: RequestContext,
+) -> Result<Html<String>> {
+    let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
+    let RequestContext {
+        mut conn,
+        state,
+        service_ctx,
+        claims,
+        ..
+    } = ctx;
+
+    let calendars = state
+        .work_calendar_service()
+        .list_calendars(&mut conn)
+        .await?;
+
+    let content = work_calendar_list_page(&calendars);
+    Ok(Html(
+        admin_page(
+            is_htmx,
+            "工作日历管理",
+            &claims,
+            "md",
+            WorkCalendarListPath::PATH,
+            "工程",
+            Some(WorkCalendarListPath::PATH),
+            content,
+            &nav_filter,
+        )
+        .into_string(),
+    ))
+}
+
+fn work_calendar_list_page(calendars: &[WorkCalendar]) -> Markup {
+    html! {
+        div class="page-header" {
+            div class="page-header-left" {
+                h1 class="page-title" { "工作日历管理" }
+            }
+            div class="page-actions" {
+                a class="btn btn-primary" href=(WorkCalendarCreatePath::PATH) {
+                    (icon::plus_icon("w-4 h-4"))
+                    "新建日历"
+                }
+            }
+        }
+
+        div class="data-card" {
+            div class="data-card-scroll" {
+                table class="data-table" {
+                    thead {
+                        tr {
+                            th { "名称" }
+                            th { "描述" }
+                            th { "创建时间" }
+                            th { "操作" }
+                        }
+                    }
+                    tbody {
+                        @for cal in calendars {
+                            tr {
+                                td { strong { (cal.name) } }
+                                td { (cal.description.as_deref().unwrap_or("—")) }
+                                td class="mono" { (cal.created_at.format("%Y-%m-%d %H:%M")) }
+                                td {
+                                    a href=(WorkCalendarDetailPath { id: cal.id }.to_string()) {
+                                        (icon::eye_icon("w-4 h-4"))
+                                    }
+                                }
+                            }
+                        }
+                        @if calendars.is_empty() {
+                            tr { td colspan="4" class="empty-row" { "暂无工作日历数据" } }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

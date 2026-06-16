@@ -244,6 +244,46 @@ impl StockLedgerRepo {
         Ok(map)
     }
 
+    /// 产品最后已知单位成本（stock_ledger 最新一条有效 unit_cost，无则 0）
+    pub async fn last_known_unit_cost(
+        executor: &mut sqlx::postgres::PgConnection,
+        product_id: i64,
+    ) -> Result<Decimal> {
+        let cost: Decimal = sqlx::query_scalar(
+            r#"SELECT COALESCE(
+                (SELECT unit_cost FROM stock_ledger
+                 WHERE product_id = $1 AND unit_cost IS NOT NULL AND unit_cost > 0
+                 ORDER BY created_at DESC LIMIT 1),
+                0::numeric
+            )"#,
+        )
+        .bind(product_id)
+        .fetch_one(executor)
+        .await?;
+        Ok(cost)
+    }
+
+    /// 批量查询产品最后已知单位成本（消除 N+1）
+    /// 返回 HashMap<product_id, unit_cost>，仅含存在有效成本的 product
+    pub async fn last_known_unit_cost_batch(
+        executor: &mut sqlx::postgres::PgConnection,
+        product_ids: &[i64],
+    ) -> Result<std::collections::HashMap<i64, Decimal>> {
+        if product_ids.is_empty() {
+            return Ok(std::collections::HashMap::new());
+        }
+        let rows: Vec<(i64, Decimal)> = sqlx::query_as(
+            r#"SELECT DISTINCT ON (product_id) product_id, unit_cost
+               FROM stock_ledger
+               WHERE product_id = ANY($1) AND unit_cost IS NOT NULL AND unit_cost > 0
+               ORDER BY product_id, created_at DESC"#,
+        )
+        .bind(product_ids)
+        .fetch_all(executor)
+        .await?;
+        Ok(rows.into_iter().collect())
+    }
+
     pub async fn query(
         executor: &mut sqlx::postgres::PgConnection,
         filter: &StockFilter,

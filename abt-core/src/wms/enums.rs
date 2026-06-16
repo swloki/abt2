@@ -166,6 +166,7 @@ define_wms_enum!(RequisitionStatus {
     Confirmed = 2,
     Issued = 3,
     Cancelled = 4,
+    PartiallyIssued = 5,
 });
 
 // -- Backflush --

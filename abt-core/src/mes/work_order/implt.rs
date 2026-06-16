@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 use sqlx::postgres::PgPool;
+use rust_decimal::Decimal;
 
 use super::super::enums::{PlanItemStatus, WorkOrderStatus};
 use super::model::*;
@@ -13,6 +14,7 @@ use crate::wms::material_requisition::{new_material_requisition_service, service
 use crate::mes::production_batch::model::WorkOrderRouting;
 use crate::mes::production_batch::repo::{ProductionBatchRepo, WorkOrderRoutingRepo};
 use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService, RecordAuditLogReq};
+use crate::shared::document_link::repo::DocumentLinkRepo;
 use crate::shared::document_sequence::{new_document_sequence_service, service::DocumentSequenceService};
 use crate::shared::event_bus::{new_domain_event_bus, service::DomainEventBus};
 use crate::shared::types::PgExecutor;
@@ -151,21 +153,33 @@ impl WorkOrderService for WorkOrderServiceImpl {
             .await?;
 
         // 先确定每道工序的 (step_no, process_name)：有工艺则映射各工序，否则用单道虚拟默认工序
-        let steps: Vec<(i32, String)> = match routing_detail.as_ref() {
-            Some(detail) => detail.steps.iter().map(|step| (
-                step.step_order,
-                step.process_name.clone().unwrap_or_else(|| step.process_code.clone()),
-            )).collect(),
-            None => vec![(1, "生产".to_string())],
-        };
-
-        let routing_steps: Vec<WorkOrderRouting> = steps
-            .into_iter()
-            .map(|(step_no, process_name)| WorkOrderRouting {
+        let routing_steps: Vec<WorkOrderRouting> = match routing_detail.as_ref() {
+            Some(detail) if !detail.steps.is_empty() => detail
+                .steps
+                .iter()
+                .map(|step| WorkOrderRouting {
+                    id: 0,
+                    work_order_id: id,
+                    step_no: step.step_order,
+                    process_name: step
+                        .process_name
+                        .clone()
+                        .unwrap_or_else(|| step.process_code.clone()),
+                    work_center_id: step.work_center_id,
+                    standard_time: step.standard_time,
+                    standard_cost: step.standard_cost,
+                    unit_price: step.unit_price,
+                    allowed_loss_rate: step.allowed_loss_rate,
+                    planned_qty: work_order.planned_qty,
+                    is_outsourced: step.is_outsourced,
+                    is_inspection_point: step.is_inspection_point,
+                })
+                .collect(),
+            _ => vec![WorkOrderRouting {
                 id: 0,
                 work_order_id: id,
-                step_no,
-                process_name,
+                step_no: 1,
+                process_name: "生产".to_string(),
                 work_center_id: None,
                 standard_time: None,
                 standard_cost: None,
@@ -174,8 +188,8 @@ impl WorkOrderService for WorkOrderServiceImpl {
                 planned_qty: work_order.planned_qty,
                 is_outsourced: false,
                 is_inspection_point: false,
-            })
-            .collect();
+            }],
+        };
 
         WorkOrderRoutingRepo::insert_for_work_order(&mut *db, &routing_steps)
             .await
@@ -352,19 +366,13 @@ impl WorkOrderService for WorkOrderServiceImpl {
         }
 
         // 3. 取消关联的领料单（通过 document_links 双向查找）
-        let requisition_ids: Vec<i64> = sqlx::query_scalar(
-            r#"SELECT source_id FROM document_links
-               WHERE target_type = $2 AND target_id = $1 AND source_type = $3
-               UNION
-               SELECT target_id FROM document_links
-               WHERE source_type = $2 AND source_id = $1 AND target_type = $3"#,
+        let requisition_ids = DocumentLinkRepo::find_linked_ids_by_type(
+            &mut *db,
+            DocumentType::WorkOrder,
+            id,
+            DocumentType::MaterialRequisition,
         )
-        .bind(id)
-        .bind(DocumentType::WorkOrder)
-        .bind(DocumentType::MaterialRequisition)
-        .fetch_all(&mut *db)
-        .await
-        .map_err(|e| DomainError::Internal(e.into()))?;
+        .await?;
 
         for req_id in requisition_ids {
             // 领料单取消失败（已取消/已完成）不阻断反下达主流程
@@ -493,6 +501,12 @@ impl WorkOrderService for WorkOrderServiceImpl {
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
 
+
+        if batches.is_empty() {
+            return Err(DomainError::BusinessRule(
+                "工单无生产批次，不能直接关闭。请先拆批并完成生产。".into(),
+            ));
+        }
         let has_incomplete = batches.iter().any(|b| {
             b.status != super::super::enums::BatchStatus::Completed
                 && b.status != super::super::enums::BatchStatus::Cancelled
@@ -503,6 +517,22 @@ impl WorkOrderService for WorkOrderServiceImpl {
                 "All production batches must be completed before closing the work order"
                     .to_string(),
             ));
+        }
+
+        // 完工率校验（对标 Odoo button_mark_done: 校验完工量达标）
+        let total_completed: Decimal = batches
+            .iter()
+            .filter(|b| b.status == super::super::enums::BatchStatus::Completed)
+            .map(|b| b.completed_qty)
+            .sum();
+        if work_order.planned_qty > Decimal::ZERO {
+            let completion_rate = total_completed / work_order.planned_qty;
+            if completion_rate < Decimal::new(95, 2) {
+                return Err(DomainError::BusinessRule(format!(
+                    "完工率 {}% 低于 95%，无法关闭工单",
+                    (completion_rate * Decimal::from(100)).round()
+                )));
+            }
         }
 
         let updated =
@@ -556,6 +586,22 @@ impl WorkOrderService for WorkOrderServiceImpl {
             });
         }
 
+        // 校验：已确认的完工入库记录阻止取消
+        let receipt_count: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM production_receipts WHERE work_order_id = $1 AND deleted_at IS NULL AND status = 2",
+        )
+        .bind(id)
+        .fetch_one(&mut *db)
+        .await
+        .map_err(|e| DomainError::Internal(e.into()))?;
+
+        if receipt_count > 0 {
+            return Err(DomainError::BusinessRule(format!(
+                "工单已有 {} 张已确认的完工入库单，不能取消",
+                receipt_count
+            )));
+        }
+
         let updated =
             WorkOrderRepo::update_status_with_version(
                 &mut *db,
@@ -574,6 +620,24 @@ impl WorkOrderService for WorkOrderServiceImpl {
             .cancel_by_source(ctx, db, DocumentType::WorkOrder, id).await?;
         WorkOrderRepo::soft_delete(&mut *db, id).await.map_err(|e| DomainError::Internal(e.into()))?;
         WorkOrderRepo::soft_delete_batches(&mut *db, id).await.map_err(|e| DomainError::Internal(e.into()))?;
+
+        // 取消关联领料单（通过 document_links 双向查找，复用 unrelease 相同模式）
+        let requisition_ids = DocumentLinkRepo::find_linked_ids_by_type(
+            &mut *db,
+            DocumentType::WorkOrder,
+            id,
+            DocumentType::MaterialRequisition,
+        )
+        .await?;
+
+        for req_id in requisition_ids {
+            if let Err(e) = new_material_requisition_service(self.pool.clone())
+                .cancel(ctx, db, req_id)
+                .await
+            {
+                tracing::warn!(req_id, error = %e, "领料单取消失败");
+            }
+        }
         // 审计日志
         new_audit_log_service(self.pool.clone())
             .record(

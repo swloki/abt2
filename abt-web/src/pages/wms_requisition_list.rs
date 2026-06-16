@@ -70,6 +70,7 @@ fn status_label(s: RequisitionStatus) -> (&'static str, &'static str) {
         RequisitionStatus::Confirmed => ("已确认", "status-confirmed"),
         RequisitionStatus::Issued => ("已发料", "status-completed"),
         RequisitionStatus::Cancelled => ("已取消", "status-cancelled"),
+        RequisitionStatus::PartiallyIssued => ("部分发料", "status-progress"),
     }
 }
 

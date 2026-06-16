@@ -331,6 +331,68 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
                 .await
                 .map_err(|e| DomainError::Internal(e.into()))?;
             }
+
+            // --- g2. 首次报工设 actual_start（对标 Odoo button_start 记录 date_start） ---
+            if was_pending {
+                sqlx::query(
+                    "UPDATE batch_routing_progress SET started_at = NOW() WHERE id = $1 AND started_at IS NULL",
+                )
+                .bind(brp_id)
+                .execute(&mut *db)
+                .await
+                .map_err(|e| DomainError::Internal(e.into()))?;
+                sqlx::query(
+                    "UPDATE production_batches SET actual_start = NOW() WHERE id = $1 AND actual_start IS NULL",
+                )
+                .bind(batch_id)
+                .execute(&mut *db)
+                .await
+                .map_err(|e| DomainError::Internal(e.into()))?;
+                sqlx::query(
+                    "UPDATE work_orders SET status = 3, actual_start = NOW() WHERE id = $1 AND actual_start IS NULL",
+                )
+                .bind(batch.work_order_id)
+                .execute(&mut *db)
+                .await
+                .map_err(|e| DomainError::Internal(e.into()))?;
+            }
+
+            // --- g3. 工序完成判定（对标 Odoo button_finish 设 done + date_finished） ---
+            let new_completed = prev_completed + req.completed_qty;
+            if new_completed >= batch.batch_qty {
+                BatchRoutingProgressRepo::update_status(
+                    &mut *db, brp_id, RoutingStatus::Completed,
+                )
+                .await
+                .map_err(|e| DomainError::Internal(e.into()))?;
+                sqlx::query(
+                    "UPDATE batch_routing_progress SET completed_at = NOW() WHERE id = $1",
+                )
+                .bind(brp_id)
+                .execute(&mut *db)
+                .await
+                .map_err(|e| DomainError::Internal(e.into()))?;
+
+                // 最后工序完成 → 设 batch.actual_end
+                let max_step: i32 = WorkOrderRoutingRepo::get_by_work_order_id(
+                    &mut *db, batch.work_order_id,
+                )
+                .await
+                .map_err(|e| DomainError::Internal(e.into()))?
+                .iter()
+                .map(|r| r.step_no)
+                .max()
+                .unwrap_or(0);
+                if routing.step_no == max_step {
+                    sqlx::query(
+                        "UPDATE production_batches SET actual_end = NOW() WHERE id = $1",
+                    )
+                    .bind(batch_id)
+                    .execute(&mut *db)
+                    .await
+                    .map_err(|e| DomainError::Internal(e.into()))?;
+                }
+            }
         }
 
         // --- h. 检查是否需要报检 ---
@@ -503,7 +565,7 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
         &self,
         _ctx: &ServiceContext, db: PgExecutor<'_>,
         batch_id: i64,
-        _reason: String,
+        reason: String,
     ) -> Result<()> {
         let batch = ProductionBatchRepo::get_by_id(&mut *db, batch_id)
             .await
@@ -520,6 +582,8 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
         ProductionBatchRepo::update_status(&mut *db, batch_id, BatchStatus::Suspended)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
+
+        tracing::info!(batch_id, reason = %reason, "batch suspended");
 
         Ok(())
     }
@@ -554,7 +618,7 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
         &self,
         ctx: &ServiceContext, db: PgExecutor<'_>,
         batch_id: i64,
-        _reason: String,
+        reason: String,
     ) -> Result<()> {
         let batch = ProductionBatchRepo::get_by_id(&mut *db, batch_id)
             .await
@@ -575,6 +639,8 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
         // 释放 HARD 预留
         new_inventory_reservation_service(self.pool.clone())
             .cancel_by_source(ctx, db, DocumentType::WorkOrder, batch_id).await?;
+
+        tracing::info!(batch_id, reason = %reason, "batch scrapped");
 
         Ok(())
     }

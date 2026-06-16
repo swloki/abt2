@@ -33,6 +33,7 @@ fn status_label(s: RequisitionStatus) -> (&'static str, &'static str) {
         RequisitionStatus::Confirmed => ("已确认", "status-confirmed"),
         RequisitionStatus::Issued => ("已发料", "status-completed"),
         RequisitionStatus::Cancelled => ("已取消", "status-cancelled"),
+        RequisitionStatus::PartiallyIssued => ("部分发料", "status-progress"),
     }
 }
 
@@ -45,12 +46,14 @@ fn workflow_steps(status: RequisitionStatus) -> Markup {
         RequisitionStatus::Confirmed => vec![true, true, false],
         RequisitionStatus::Issued => vec![true, true, true],
         RequisitionStatus::Cancelled => vec![true, false, false],
+        RequisitionStatus::PartiallyIssued => vec![true, true, false],
     };
     let current_idx = match status {
         RequisitionStatus::Draft => Some(0),
         RequisitionStatus::Confirmed => Some(1),
         RequisitionStatus::Issued => Some(2),
         RequisitionStatus::Cancelled => None,
+        RequisitionStatus::PartiallyIssued => Some(1),
     };
 
     html! {
@@ -252,6 +255,8 @@ fn requisition_detail_page(
                                 th class="num-right" { "需求数量" }
                                 th class="num-right" { "实领数量" }
                                 th class="num-right" { "差异量" }
+                                th { "工序" }
+                                th { "批次" }
                                 th { "储位" }
                             }
                         }
@@ -264,14 +269,14 @@ fn requisition_detail_page(
                                     td class="num-right" { (format!("{:.2}", item.requested_qty)) }
                                     td class="num-right" { (format!("{:.2}", item.issued_qty)) }
                                     td class=(format!("num-right {}", variance_class)) { (variance_text) }
+                                    td class="mono" { (item.operation_id.map(|id| format!("#{}", id)).unwrap_or_else(|| "—".into())) }
+                                    td class="mono" { (item.batch_id.map(|id| format!("#{}", id)).unwrap_or_else(|| "—".into())) }
                                     td { (item.bin_id.map(|id| id.to_string()).unwrap_or_else(|| "—".into())) }
                                 }
                             }
                             @if items.is_empty() {
                                 tr {
-                                    td colspan="6" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
-                                        "暂无领料明细"
-                                    }
+                                    td colspan="8" class="empty-row" { "暂无领料明细" }
                                 }
                             }
                         }
@@ -321,6 +326,15 @@ fn requisition_action_buttons(status: RequisitionStatus, detail_path: &str) -> M
                     hx-redirect=(detail_path) {
                     (icon::bolt_icon("w-4 h-4"))
                     "确认发料"
+                }
+            }
+        }
+        RequisitionStatus::Issued | RequisitionStatus::PartiallyIssued => {
+            html! {
+                button class="btn btn-default" type="button"
+                    _="on click add .is-open to #return-modal" {
+                    (icon::return_arrow_icon("w-4 h-4"))
+                    "退料"
                 }
             }
         }

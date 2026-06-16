@@ -31,4 +31,6 @@ pub trait ProductionReceiptService: Send + Sync {
         page: u32,
         page_size: u32,
     ) -> Result<PaginatedResult<ReceiptListItem>>;
+    async fn get_unit_cost(&self, db: PgExecutor<'_>, product_id: i64) -> Result<rust_decimal::Decimal>;
+    async fn get_fqc_status(&self, ctx: &ServiceContext, db: PgExecutor<'_>, receipt_id: i64) -> Result<super::model::FqcGate>;
 }

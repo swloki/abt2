@@ -53,6 +53,41 @@ pub async fn get_report_detail(path: ReportDetailPath, ctx: RequestContext) -> R
                 div class="detail-info-item" { span class="detail-info-label" { "备注" } span class="detail-info-value" { (if report.remark.is_empty() { "—".to_string() } else { report.remark.clone() }) } }
             }
         }
+
+        // 工资计算明细
+        div class="info-card" {
+            div class="info-section-title" { "工资计算" }
+            div class="info-grid" {
+                div class="info-item" {
+                    label { "完成数量" }
+                    span class="mono" { (crate::utils::fmt_qty(report.completed_qty)) }
+                }
+                div class="info-item" {
+                    label { "不良数量" }
+                    span class="mono" { (crate::utils::fmt_qty(report.defect_qty)) }
+                }
+                div class="info-item" {
+                    label { "合格数量" }
+                    span class="mono" { (crate::utils::fmt_qty(report.completed_qty - report.defect_qty)) }
+                }
+            }
+            div class="calc-detail" {
+                div class="calc-row" {
+                    span class="calc-label" { "工序" }
+                    span class="calc-value" { (process) }
+                }
+                div class="calc-row" {
+                    span class="calc-label" { "实际工时" }
+                    span class="calc-value mono" { (crate::utils::fmt_qty(report.work_hours)) " h" }
+                }
+                div class="calc-formula" {
+                    "合格量 = 完成量(" (crate::utils::fmt_qty(report.completed_qty)) ")"
+                    " - 不良量(" (crate::utils::fmt_qty(report.defect_qty)) ")"
+                    " = "
+                    strong { (crate::utils::fmt_qty(report.completed_qty - report.defect_qty)) " 件" }
+                }
+            }
+        }
     }};
     Ok(Html(admin_page(is_htmx, "报工详情", &claims, "production", &format!("/admin/mes/reports/{}", path.id), "生产管理", Some(ReportListPath::PATH), content, &nav_filter).into_string()))
 }

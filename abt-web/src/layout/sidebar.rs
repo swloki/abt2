@@ -329,6 +329,18 @@ fn modules() -> Vec<NavModule> {
                     icon: NavIcon::Wrench,
                     permission: Some(("BOM", "read")),
                 },
+                NavItem {
+                    name: "工作中心",
+                    path: "/admin/md/work-centers",
+                    icon: NavIcon::Hammer,
+                    permission: Some(("BOM", "read")),
+                },
+                NavItem {
+                    name: "工作日历",
+                    path: "/admin/md/work-calendars",
+                    icon: NavIcon::Calendar,
+                    permission: Some(("BOM", "read")),
+                },
             ],
         },
         NavModule {

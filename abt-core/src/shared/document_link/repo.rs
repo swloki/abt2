@@ -119,4 +119,27 @@ impl DocumentLinkRepo {
 
         Ok((items, total as u64))
     }
+
+    /// 双向按类型查找关联单据 ID：返回与 (anchor_type, anchor_id) 关联的 other_type 单据 ID
+    /// 同时覆盖 source→target 与 target→source 两个方向（如：查某工单关联的所有领料单）
+    pub async fn find_linked_ids_by_type(
+        executor: &mut sqlx::postgres::PgConnection,
+        anchor_type: DocumentType,
+        anchor_id: i64,
+        other_type: DocumentType,
+    ) -> Result<Vec<i64>> {
+        let ids: Vec<i64> = sqlx::query_scalar(
+            r#"SELECT source_id FROM document_links
+               WHERE target_type = $1 AND target_id = $2 AND source_type = $3
+               UNION
+               SELECT target_id FROM document_links
+               WHERE source_type = $1 AND source_id = $2 AND target_type = $3"#,
+        )
+        .bind(anchor_type)
+        .bind(anchor_id)
+        .bind(other_type)
+        .fetch_all(&mut *executor)
+        .await?;
+        Ok(ids)
+    }
 }

@@ -141,6 +141,14 @@ p { margin: 0; }
     },
   ],
 
+  // Custom variant: act: prefix matches .active class (not :active pseudo)
+  variants: [
+    (matcher) => {
+      if (matcher.startsWith('act:')) {
+        return { matcher: matcher.slice(4), selector: (s) => `${s}.active` };
+      }
+    },
+  ],
   theme: {
     colors: {
       bg: "var(--bg)",

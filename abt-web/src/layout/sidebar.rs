@@ -449,15 +449,15 @@ fn render_module_icon(module_id: &str) -> Markup {
 
 fn item_class(active: bool) -> &'static str {
     if active {
-        "sidebar-item active [&_svg]:w-4.5 [&_svg]:h-4.5 [&_svg]:shrink-0 [&_svg]:opacity-100 [&_svg]:text-accent"
+        "flex items-center gap-3 py-[9px] px-5 text-sm text-white transition-all duration-150 rounded-sm mx-3 cursor-pointer relative whitespace-nowrap font-semibold bg-[rgba(37,99,235,0.15)] before:content-[''] before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2 before:w-[3px] before:h-5 before:bg-accent before:rounded-r-sm [&_svg]:w-4.5 [&_svg]:h-4.5 [&_svg]:shrink-0 [&_svg]:opacity-100 [&_svg]:text-accent"
     } else {
-        "sidebar-item [&_svg]:w-4.5 [&_svg]:h-4.5 [&_svg]:shrink-0 [&_svg]:opacity-55"
+        "flex items-center gap-3 py-[9px] px-5 text-sm text-white/60 transition-all duration-150 rounded-sm mx-3 cursor-pointer relative whitespace-nowrap hover:bg-white/[0.06] hover:text-white/95 hover:[&_svg]:opacity-80 [&_svg]:w-4.5 [&_svg]:h-4.5 [&_svg]:shrink-0 [&_svg]:opacity-55 [&_svg]:transition-opacity"
     }
 }
 
 fn mobile_class(active: bool) -> &'static str {
     if active {
-        "mobile-nav-item active [&_svg]:w-5 [&_svg]:h-5"
+        "mobile-nav-item active [&_svg]:w-5 [&_svg]:h-5 text-accent font-semibold"
     } else {
         "mobile-nav-item [&_svg]:w-5 [&_svg]:h-5"
     }
@@ -466,7 +466,7 @@ fn mobile_class(active: bool) -> &'static str {
 pub fn avatar_initials(name: &str) -> String {
     let trimmed = name.trim();
     if trimmed.is_empty() {
-        return "?".into();
+        return String::new();
     }
     let chars: Vec<char> = trimmed.chars().collect();
     if chars.len() <= 2 {
@@ -489,23 +489,23 @@ pub fn sidebar_body_fragment(claims: &Claims, active_module: &str, filter: &NavF
     let visible_items = filter.visible_items(active_mod);
 
     html! {
-        div class="p-4 text-sm font-bold border-b flex items-center gap-2 shrink-0" {
-            span class="w-[18px] h-[18px] grid place-items-center" { (render_module_icon(active_mod.id)) }
+        div class="p-4 text-sm font-bold border-b border-white/[0.06] flex items-center gap-2 shrink-0 text-white/90" {
+            span class="w-[18px] h-[18px] grid place-items-center [&_svg]:w-4 [&_svg]:h-4 [&_svg]:text-accent" { (render_module_icon(active_mod.id)) }
             span class="whitespace-nowrap overflow-hidden" { (active_mod.name) }
         }
         div class="flex-1 overflow-y-auto p-2" {
             @for item in &visible_items {
                 a href=(item.path) class=(item_class(false)) {
                     (render_item_icon(item.icon))
-                    span class="flex items-center gap-3 text-sm rounded-sm cursor-pointer relative whitespace-nowrap-text" { (item.name) }
+                    span class="flex items-center gap-3 text-sm rounded-sm cursor-pointer relative whitespace-nowrap" { (item.name) }
                 }
             }
         }
-        div class="p-4 border-t flex items-center gap-3" {
-            div class="p-4 border-t flex items-center gap-3-inline-grid place-items-center rounded-full text-white font-semibold shrink-0 select-none" { (avatar_initials(&claims.display_name)) }
-            div class="p-4 border-t flex items-center gap-3-info" {
-                div class="p-4 border-t flex items-center gap-3-name" { (claims.display_name.as_str()) }
-                div class="p-4 border-t flex items-center gap-3-role" { (claims.system_role.as_str()) }
+        div class="p-4 border-t border-white/[0.06] flex items-center gap-3 mt-auto" {
+            div class="w-[34px] h-[34px] rounded-full bg-accent grid place-items-center text-[13px] font-bold text-white shrink-0" { (avatar_initials(&claims.display_name)) }
+            div class="flex-1 min-w-0" {
+                div class="text-sm font-semibold text-white truncate" { (claims.display_name.as_str()) }
+                div class="text-[11px] text-white/40" { (claims.system_role.as_str()) }
             }
         }
     }
@@ -518,49 +518,53 @@ pub fn sidebar(claims: &Claims, active_module: &str, current_path: &str, filter:
     let active_mod = mods.iter().find(|m| m.id == active_module);
 
     html! {
-        nav id="sidebar" {
+        nav id="sidebar" class="bg-[linear-gradient(180deg,#0a1628_0%,#0f1d32_100%)] text-white/85 flex flex-row sticky top-0 h-screen overflow-hidden z-20" {
             // ── Icon Rail ──
-            div class="w-[56px] bg-[#070f1e] flex flex-col items-center p-3 border-r shrink-0" {
-                div class="w-[36px] h-[36px] rounded grid place-items-center" title="ABT ERP" {
-                    (icon::box_icon(""))
+            div class="sidebar-rail w-[56px] min-w-[56px] bg-[#070f1e] flex flex-col items-center p-3 border-r border-white/[0.04] shrink-0" {
+                div class="w-[36px] h-[36px] rounded-md bg-accent grid place-items-center mb-5 shadow-[var(--shadow-accent)]" title="ABT ERP" {
+                    span class="[&_svg]:w-4.5 [&_svg]:h-4.5 [&_svg]:text-white" { (icon::box_icon("")) }
                 }
-                div class="flex-1 flex flex-col items-center gap-[2px] w-full overflow-y-auto" {
+                div class="rail-modules flex-1 flex flex-col items-center gap-[2px] w-full overflow-y-auto" {
                     @for m in &mods {
                         @if filter.has_visible_items(m) {
                             @let is_initial_active = active_mod.is_some_and(|am| m.id == am.id);
                             @let hx_url = format!("/sidebar/body/{}", m.id);
-                            button class=(if is_initial_active { "rail-item active" } else { "rail-item" })
+                            button class=(if is_initial_active {
+                                "rail-item active w-[44px] flex flex-col items-center gap-[3px] py-2 px-0 pb-[6px] border-none bg-transparent rounded-sm text-white cursor-pointer transition-all duration-150 relative act:bg-[rgba(37,99,235,0.15)] act:before:content-[''] act:before:absolute act:before:left-[-4px] act:before:top-1/2 act:before:-translate-y-1/2 act:before:w-[3px] act:before:h-5 act:before:bg-accent act:before:rounded-r-sm"
+                            } else {
+                                "rail-item w-[44px] flex flex-col items-center gap-[3px] py-2 px-0 pb-[6px] border-none bg-transparent rounded-sm text-white/40 cursor-pointer transition-all duration-150 relative hover:text-white/85 hover:bg-white/[0.06]"
+                            })
                                hx-get=(hx_url)
                                hx-target=".sidebar-body"
                                hx-swap="innerHTML"
                                _="on click take .active from .rail-item"
                                title=(m.name) {
-                                span class="w-[20px] h-[20px] grid place-items-center" { (render_module_icon(m.id)) }
-                                span class="text-[10px] whitespace-nowrap" { (m.name.replace("管理", "")) }
+                                span class="w-[20px] h-[20px] grid place-items-center [&_svg]:w-4.5 [&_svg]:h-4.5" { (render_module_icon(m.id)) }
+                                span class="text-[10px] leading-none whitespace-nowrap" { (m.name.replace("管理", "")) }
                             }
                         }
                     }
                 }
-                div class="flex flex-col items-center w-full border-t" {
-                    button class="w-[44px] flex flex-col items-center gap-[3px] border-none rounded-sm cursor-pointer relative no-underline rail-collapse"
+                div class="rail-bottom flex flex-col items-center w-full pt-3 border-t border-white/[0.06] mt-2" {
+                    button class="w-[44px] flex flex-col items-center gap-[3px] border-none bg-transparent rounded-sm cursor-pointer relative text-white/25 hover:text-white/60 transition-colors rail-collapse"
                             _="on click toggle .sidebar-collapsed on .app-shell then if .app-shell matches .sidebar-collapsed call localStorage.setItem('sidebar-collapsed','true') else call localStorage.removeItem('sidebar-collapsed')"
                             title="收起侧栏" {
                         (icon::sidebar_toggle_icon(""))
-                        span class="text-[10px] whitespace-nowrap" { "收起" }
+                        span class="text-[10px] leading-none whitespace-nowrap" { "收起" }
                     }
                 }
             }
 
             // ── Sidebar Body ──
-            div class="flex-1 flex flex-col overflow-y-auto" {
+            div class="sidebar-body flex-1 min-w-0 flex flex-col overflow-y-auto" {
                 @if let Some(active_mod) = active_mod {
                     (sidebar_body_fragment_inner(active_mod, current_path, filter))
                 }
-                div class="p-4 border-t flex items-center gap-3" {
-                    div class="p-4 border-t flex items-center gap-3-inline-grid place-items-center rounded-full text-white font-semibold shrink-0 select-none" { (avatar_initials(&claims.display_name)) }
-                    div class="p-4 border-t flex items-center gap-3-info" {
-                        div class="p-4 border-t flex items-center gap-3-name" { (claims.display_name.as_str()) }
-                        div class="p-4 border-t flex items-center gap-3-role" { (claims.system_role.as_str()) }
+                div class="mt-auto p-4 border-t border-white/[0.06] flex items-center gap-3" {
+                    div class="w-[34px] h-[34px] rounded-full bg-accent grid place-items-center text-[13px] font-bold text-white shrink-0" { (avatar_initials(&claims.display_name)) }
+                    div class="flex-1 min-w-0" {
+                        div class="text-sm font-semibold text-white truncate" { (claims.display_name.as_str()) }
+                        div class="text-[11px] text-white/40" { (claims.system_role.as_str()) }
                     }
                 }
             }

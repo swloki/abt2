@@ -457,9 +457,9 @@ fn item_class(active: bool) -> &'static str {
 
 fn mobile_class(active: bool) -> &'static str {
     if active {
-        "mobile-nav-item active"
+        "mobile-nav-item active [&_svg]:w-5 [&_svg]:h-5"
     } else {
-        "mobile-nav-item"
+        "mobile-nav-item [&_svg]:w-5 [&_svg]:h-5"
     }
 }
 

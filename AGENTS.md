@@ -80,7 +80,7 @@ ABT is a BOM (Bill of Materials) and inventory management system built in Rust. 
 | `abt-web/src/routes/` | 51 route modules exposing `router()` functions |
 | `abt-web/src/components/` | Shared UI components (modal, drawer, pagination, tabs, icons, etc.) |
 | `abt-web/src/layout/` | Page shell, admin layout, sidebar, header |
-| `static/` | 静态资源目录（项目根级）：编译后 CSS (`base.css` 手写 + `app.css` 由 UnoCSS 生成), JS 文件 (`app.js`, `hyperscript.min.js`, `bom-edit.js`, `htmx.min.js`) |
+| `static/` | 静态资源目录（项目根级）：`app.css`（UnoCSS 生成的纯原子 utility）, JS 文件 (`app.js`, `hyperscript.min.js`, `bom-edit.js`, `htmx.min.js`) |
 | `abt-macros/src/` | Proc-macro crate: `#[require_permission("RESOURCE", "action")]` |
 | `docs/uml-design/` | System design documents (HTML UML), authoritative source of truth |
 | `docs/plans/` | Test plans and implementation plans (MES, WMS testing) |
@@ -99,9 +99,9 @@ cargo test -p abt-core -- test_name  # Single test
 # Web frontend
 cargo run -p abt-web           # Start server (default port 8000) — DO NOT use if server is already running
 
-# CSS build (static/ 目录位于项目根级)
-cd abt-web && npm run build:css   # Build UnoCSS → static/app.css
-cd abt-web && npm run watch       # Watch mode for CSS changes
+# CSS build (项目根级运行，static/ 在根目录)
+npm run build:css   # Build UnoCSS → static/app.css
+npm run watch       # Watch mode for CSS changes
 ```
 
 **Important**: Do not use `cargo run` to start the server if it's already running. Verify correctness with `cargo clippy`.
@@ -349,13 +349,54 @@ Only for interactions that cannot be expressed inline:
 - `htmx:afterSettle` fires on **target element** (the swap target)
 - `hx-select` is inherited by child elements — add `hx-disinherit="hx-select"` on parent to prevent
 
-### CSS Management
+### CSS Management（100% 原子化 UnoCSS）
 样式文件位于项目根级 `static/` 目录：
-- **`static/base.css`** — 手写 CSS，包含 CSS 变量、重置、布局、组件样式、复杂选择器等。**可直接编辑**
-- **`static/app.css`** — UnoCSS (`uno.config.ts`) 生成的输出文件。**禁止手动修改**，仅通过 `npm run build:css` 生成
-- **`uno.config.ts`**（项目根级）— UnoCSS shortcuts 配置，新增工具类组合优先在此添加
-**禁止**在 `static/` 下新建独立 CSS 文件。禁止在 Maud 模板中使用 `style` 属性内联样式（`<col>` 元素例外）。
-Key shortcuts defined in `uno.config.ts`: `data-card`, `data-table`, `form-section`, `form-grid`, `form-field`, `form-input`, `form-select`, `filter-bar`, `filter-select`, `search-wrap`, `search-input`, `page-header`, `page-title`, `modal-overlay`, `modal`/`modal-lg`, `btn-primary`, `btn-danger`, `status-pill`, `info-card`, `info-grid`, `info-item`, `workflow-steps`, `stat-card`, `pagination`, `kanban-*`, etc. Refer to `abt-web/CLAUDE.md` for the full 80-entry class name reference table.
+- **`static/base.css`** — **已删除**。不再存在手写 CSS 文件。所有样式通过 UnoCSS 原子类内联在 Maud 模板的 `class=""` 中
+- **`static/app.css`** — UnoCSS CLI 生成的纯原子 utility 输出。**禁止手动修改**，仅通过 `npm run build:css` 生成
+- **`uno.config.ts`**（项目根级）— UnoCSS 配置：`preflights`（:root 变量 + reset + 少量不可原子化的组件状态 CSS）+ `theme`（颜色/字号/间距/圆角/阴影/动画映射）+ `variants`（`act:`/`show:`/`is-open:` 等自定义状态前缀）+ `shortcuts: {}`（空，不使用语义化 shortcut）
+
+**核心规则：**
+1. **所有样式写在 Maud 的 `class=""` 中** — 使用 UnoCSS 原子类组合，如 `class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-md shadow-[var(--shadow-card)]"`
+2. **禁止新建 CSS 文件** — 不在 `static/` 下新建独立 CSS，不在 Maud 模板中用 `style=""` 内联（`<col>` 元素例外）
+3. **修改 CSS 变量** — 在 `uno.config.ts` 的 `preflights` 的 `:root { ... }` 块中修改
+4. **新增动画** — 在 `uno.config.ts` 的 `theme.animation.keyframes` 中定义，Maud 中用 `animate-xxx` 引用
+5. **`shortcuts: {}` 保持空** — 不新增语义化 class 抽象，所有样式直接内联
+
+**UnoCSS 高级语法速查（项目实际使用）：**
+
+| 语法 | 用途 | 示例 |
+|---|---|---|
+| `bg-[#0b1829]` | 任意颜色值 | 深色侧边栏背景 |
+| `bg-[linear-gradient(...)]` | 任意渐变 | `bg-[linear-gradient(180deg,#0a1628,#0f1d32)]` |
+| `shadow-[var(--shadow-card)]` | CSS 变量阴影 | data-card 阴影 |
+| `[border-right:1px_solid_rgba(255,255,255,0.04)]` | 任意 CSS shorthand | 侧边栏边框（解决 border-r currentColor 继承问题） |
+| `before:content-['']` / `after:content-['✓']` | 伪元素内容 | 状态指示条、勾选符号 |
+| `before:absolute before:w-[3px] before:bg-accent` | 伪元素样式 | active 指示条 |
+| `[&_svg]:w-4.5 [&_svg]:h-4.5` | 子元素 svg 尺寸控制 | 按钮/图标容器内的 SVG |
+| `[&_svg]:opacity-55 hover:[&_svg]:opacity-80` | 子元素 hover 联动 | 导航项图标透明度 |
+| `act:bg-accent act:text-white` | `.active` class 状态 | 自定义 variant：当元素同时有 `.active` class 时生效 |
+| `show:grid-rows-[1fr]` | `.show` class 状态 | 折叠面板展开 |
+| `is-open:block` | `.is-open` class 状态 | 下拉菜单展开 |
+| `expanded:block` | `.expanded` class 状态 | 分类树展开 |
+| `hover:bg-accent-bg` | hover 状态 | 行 hover 高亮 |
+| `focus:border-accent focus:shadow-[var(--shadow-focus)]` | focus 状态 | 输入框聚焦 |
+| `md:grid-cols-1` / `max-[900px]:flex-col` | 响应式断点 | 移动端布局 |
+
+**自定义 variants（`uno.config.ts` 中定义）：**
+
+| 前缀 | 匹配的 class | 用途 |
+|---|---|---|
+| `act:` | `.active` | 导航项/Tab 激活状态 |
+| `show:` | `.show` | 折叠面板/Toast 展开状态 |
+| `is-open:` | `.is-open` | 下拉菜单/抽屉打开状态 |
+| `is-visible:` | `.is-visible` | 隐藏内容显示状态 |
+| `expanded:` | `.expanded` | 分类树/折叠组展开状态 |
+
+**`preflights` 中保留的不可原子化 CSS（~15 条规则）：**
+- `app-shell` grid 布局 + JS 驱动的 sidebar-collapsed 状态切换（`grid-template-columns` 动态变化 + 子元素显隐）
+- `field-input:focus ~ .field-icon` 兄弟元素焦点联动（UnoCSS 不支持 `focus:[&~.xxx]:` 语法）
+- `perm-cell input:checked::after` 自定义 checkbox 勾选符号（CSS border 绘制的对勾形状）
+- `@media (max-width: 768px)` 移动端 sidebar 定位 + 多元素联动
 
 
 ### Enums
@@ -383,7 +424,7 @@ All shared enums are `#[repr(i16)]` stored as PostgreSQL `smallint`. They implem
 | `abt-web/src/state.rs` | `AppState` — holds PgPool, 45+ service factory methods |
 | `abt-web/src/utils.rs` | `RequestContext` axum extractor, serde helpers |
 | `abt-web/src/routes/mod.rs` | Master router — merges all 51 domain routers |
-| `uno.config.ts` | UnoCSS configuration with ~80 shortcuts and design tokens (项目根级) |
+| `uno.config.ts` | UnoCSS configuration: preflights (:root variables + reset + component state CSS) + theme (colors/spacing/radius/shadow/animation) + custom variants (act:/show:/is-open:) + shortcuts: {} (项目根级) |
 | `abt-macros/src/lib.rs` | `#[require_permission]` proc macro |
 | `docs/uml-design/` | Authoritative design documents — code must stay in sync |
 

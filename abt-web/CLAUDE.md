@@ -14,10 +14,13 @@ Rust 全栈前端，Axum + Maud + HTMX + Hyperscript + UnoCSS，直接调用 `ab
 - **使用 `hx-target="this"`** 让组件自包含，禁止硬编码 `#id` 作为 target。当 `this` 不满足需求时才用 `closest <selector>` 等相对定位
 - **禁止为局部刷新单独创建 Handler** — 列表页统一用单端点模式（一个 list handler 服务完整页面和 HTMX 局部刷新），禁止创建独立的 table handler
 
-**样式**
-- **禁止在 Maud 模板中使用 `style` 属性内联样式** — 所有样式必须提取到 `uno.config.ts` 中作为 CSS 类。唯一例外是 `<col>` 等必须用 style 的极少数场景
+**样式（100% 原子化 UnoCSS）**
+- **禁止在 Maud 模板中使用 `style` 属性内联样式** — 所有样式用 UnoCSS 原子类写在 `class=""` 中（`<col>` 元素例外）
 - **禁止手动修改 `static/app.css`**（UnoCSS 生成文件），仅通过 `npm run build:css` 生成
-- **禁止在 `static/` 下新建独立 CSS 文件**
+- **禁止新建 CSS 文件** — `static/base.css` 已删除，不再有手写 CSS 文件
+- **禁止在 `uno.config.ts` 中添加 shortcuts** — `shortcuts: {}` 保持空，所有样式直接内联到 Maud 的 `class=""` 中
+- **修改 CSS 变量 / 新增动画** — 在 `uno.config.ts` 的 `preflights`（`:root` 块）或 `theme.animation.keyframes` 中操作
+- 详见 `AGENTS.md` 的 "CSS Management" 部分获取完整的原子化语法速查表和自定义 variants 说明
 
 **JS 与交互**
 - **禁止 `fetch()` 提交表单**，用 HTMX `hx-post` 原生处理
@@ -45,45 +48,28 @@ src/
 │   ├── sidebar.rs       # 侧边栏
 │   └── header.rs        # 顶部栏
 ├── components/          # 共享 UI 组件
-└── pages/               # 页面模块（高内聚：TypedPath + Maud + Handler 同文件）
-```
-
-### CSS 管理
+### CSS 管理（100% 原子化）
 
 样式文件位于项目根级 `static/` 目录（非 `abt-web/static/`）：
 
-- **`static/base.css`** — 手写 CSS（CSS 变量、重置、布局、复杂选择器）。**可直接编辑**
-- **`static/app.css`** — UnoCSS 生成文件。**禁止手动修改**
-- **`uno.config.ts`**（项目根级）— UnoCSS shortcuts 配置，新增工具类组合优先在此添加
-- 新增组件样式优先用 UnoCSS shortcuts；复杂选择器、伪元素、媒体查询等放入 `base.css`
-- HTML 模板只引用 `/app.css`，不引用其他 CSS 文件
+- **`static/base.css`** — **已删除**，不再有手写 CSS 文件
+- **`static/app.css`** — UnoCSS CLI 生成的纯原子 utility 输出。**禁止手动修改**，仅通过 `npm run build:css` 生成
+- **`uno.config.ts`**（项目根级）— UnoCSS 配置文件，包含 `preflights`（:root 变量 + reset + 少量不可原子化的组件状态 CSS）+ `theme`（颜色/字号/间距/圆角/阴影/动画）+ `variants`（自定义状态前缀）+ `shortcuts: {}`（空）
 
-### 组件样式类名速查 (uno.config.ts)
+**核心原则：所有样式直接内联在 Maud 的 `class=""` 中，使用 UnoCSS 原子类组合。**
 
-| 类名 | 用途 |
-|------|------|
-| `data-card` | 数据卡片容器（白色圆角，带阴影） |
-| `data-table` / `data-card-scroll` | 数据表格 / 表格溢出滚动容器 |
-| `form-section` / `form-section-title` | 表单分区 / 分区内标题 |
-| `form-grid` | 表单双列网格 |
-| `form-field` / `.span-2` / `.field-full` | 表单字段组 / 跨两列字段 |
-| `form-input` / `form-select` | 输入框 / 下拉选择工具类 |
-| `filter-bar` / `filter-select` | 筛选栏 / 筛选下拉框 |
-| `search-wrap` + `search-input` | 搜索输入框（左侧放大镜图标） |
-| `supplier-info-bar` | 供应商信息条 |
-| `status-tabs` / `status-pill` | 状态 Tab 栏 / 状态标签 |
-| `page-header` / `page-title` / `back-link` | 页面头部 / 标题 / 返回链接 |
-| `create-action-bar` | 创建页底部操作栏（sticky） |
-| `add-row-bar` / `btn-add-row` / `btn-remove-row` | 添加行按钮栏 / 添加行按钮 / 删除行按钮 |
-| `modal-overlay` / `modal` / `modal-lg` | 模态框遮罩 / 模态框 / 大模态框 |
-| `modal-head` / `modal-body` / `modal-foot` | 模态框区域（头部/内容/底部） |
-| `product-search-*` / `product-select-*` | 产品搜索组件 / 产品选择列表 |
-| `line-num` / `line-subtotal` / `num-right` / `mono` | 行号 / 行小计 / 数字右对齐 / 等宽字体 |
-| `info-card` / `info-grid` / `info-item` | 详情卡片 / 网格 / 信息项 |
-| `amount-summary` / `amount-row` | 金额汇总区 / 汇总行 |
-| `workflow-steps` / `wf-step` | 工作流步骤条 / 单步 |
-| `stat-card` / `pagination` | 统计卡片 / 分页组件 |
+常用原子类模式（取代旧的语义化 class 名）：
 
+| 场景 | 原子 class 示例 |
+|---|---|
+| 数据卡片 | `bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]` |
+| 表单输入 | `w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]` |
+| 页面标题 | `text-xl font-bold text-fg tracking-tight` |
+| 状态标签 | `inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs before:content-[''] before:w-1.5 before:h-1.5 before:rounded-full before:bg-success` |
+| 侧边栏导航项 | `flex items-center gap-3 px-5 py-[9px] text-sm text-white/60 rounded-sm cursor-pointer hover:bg-white/[0.06] [&_svg]:w-4.5 [&_svg]:h-4.5 [&_svg]:opacity-55` |
+| 深色容器边框 | `[border-right:1px_solid_rgba(255,255,255,0.04)]`（用 arbitrary shorthand 解决 currentColor 继承） |
+
+详见 `AGENTS.md` 的 "CSS Management" 部分获取完整的 UnoCSS 高级语法速查表。
 ### SSR + HTMX
 
 - **Axum Handler** 直接调用 `abt-core` Service trait，无 gRPC 中间层

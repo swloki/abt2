@@ -95,7 +95,7 @@ pub async fn post_refresh_token(
 
 fn login_page(error: Option<&str>, username: &str) -> Markup {
     html! {
-        div class="login-shell" {
+        div class="grid grid-cols-2 min-h-screen max-[920px]:grid-cols-1" {
             div class="flex flex-col justify-center items-center relative overflow-hidden" {
                 div class="relative z-1 max-w-[420px]" {
                     div class="flex items-center gap-[14px] mb-12" {
@@ -120,7 +120,7 @@ fn login_page(error: Option<&str>, username: &str) -> Markup {
                 }
             }
 
-            div class="login-panel" {
+            div class="flex flex-col justify-center items-center px-12 py-16 bg-white relative max-[920px]:p-12 max-[920px]:px-7 max-[480px]:p-9 max-[480px]:px-5" {
                 div class="w-full max-w-[380px]" {
                     div class="text-[13px] font-medium text-accent mb-2 tracking-wide" { "欢迎回来" }
                     h2 class="text-[28px] font-extrabold text-fg tracking-tight mb-1.5" { "登录您的账户" }

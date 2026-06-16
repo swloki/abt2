@@ -293,7 +293,7 @@ p { margin: 0; }
   },
   cli: {
     entry: {
-      patterns: ["abt-web/**/*.rs", "static/base.css"],
+      patterns: ["abt-web/**/*.rs"],
       outFile: "static/app.css",
     },
   },

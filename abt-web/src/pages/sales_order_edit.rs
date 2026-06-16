@@ -187,8 +187,8 @@ fn order_edit_page(
 
             // ── Order Info ──
             div class="data-card mb-4" {
-                div class="form-section-title" { "订单信息" }
-                div class="form-grid" {
+                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "订单信息" }
+                div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                     div class="form-field" {
                         label { "订单日期" }
                         input type="date" value=(order.order_date.format("%Y-%m-%d")) disabled {}
@@ -222,7 +222,7 @@ fn order_edit_page(
             // ── Line Items ──
             div class="form-section-card flush mb-4" {
                 div class="flush-header" {
-                    span class="form-section-title" { "产品明细" }
+                    span class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "产品明细" }
                     button type="button" class="btn btn-sm btn-primary"
                         _="on click add .is-open to #product-modal" {
                         (icon::plus_icon("w-3.5 h-3.5"))
@@ -295,8 +295,8 @@ fn order_edit_page(
 
             // ── Remark ──
             div class="data-card mb-4" {
-                div class="form-section-title" { "备注" }
-                textarea class="form-textarea" name="remark" placeholder="输入订单相关备注信息…" { (rm) }
+                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "备注" }
+                textarea class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] min-h-[72px] resize-y leading-1.5" name="remark" placeholder="输入订单相关备注信息…" { (rm) }
             }
 
             // ── Action Bar ──

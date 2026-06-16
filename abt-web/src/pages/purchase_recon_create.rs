@@ -125,8 +125,8 @@ fn precon_create_page(
 
             // ── 对账基本信息 ──
             div class="data-card" style="margin-bottom:var(--space-4)" {
-                div class="form-section-title" { "对账基本信息" }
-                div class="form-grid" {
+                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "对账基本信息" }
+                div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                     div class="form-field" {
                         label { "供应商" span style="color:var(--danger)" { "*" } }
                         select name="supplier_id" id="precon-supplier" required {
@@ -165,7 +165,7 @@ fn precon_create_page(
             // ── 对账明细 ──
             div class="data-card" style="padding:0;overflow:hidden;margin-bottom:var(--space-4)" {
                 div style="padding:var(--space-5) var(--space-5) var(--space-3);display:flex;justify-content:space-between;align-items:center" {
-                    span class="form-section-title" style="margin:0;padding:0;border:none" { "对账明细" }
+                    span class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" style="margin:0;padding:0;border:none" { "对账明细" }
                     button type="button" class="btn btn-sm btn-primary"
                         id="btn-add-orders"
                         _="on click add .is-open to #order-modal" {

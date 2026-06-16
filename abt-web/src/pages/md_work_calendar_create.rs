@@ -99,15 +99,15 @@ fn work_calendar_form_page() -> Markup {
             hx-post=(WorkCalendarCreatePath::PATH) {
 
             div class="form-section" {
-                div class="form-section-title" { "基本信息" }
-                div class="form-grid" {
+                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "基本信息" }
+                div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                     div class="form-field" {
                         label { "名称 *" }
-                        input class="form-input" type="text" name="name" required;
+                        input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="name" required;
                     }
                     div class="form-field span-2" {
                         label { "描述" }
-                        input class="form-input" type="text" name="description";
+                        input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="description";
                     }
                 }
             }

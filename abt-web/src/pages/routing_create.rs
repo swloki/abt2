@@ -157,8 +157,8 @@ fn routing_create_page(
 
                 // ── Section: 基本信息 ──
                 div class="data-card" style="margin-bottom:var(--space-4)" {
-                    div class="form-section-title" { "基本信息" }
-                    div class="form-grid" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "基本信息" }
+                    div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                         div class="form-field" {
                             label { "路线名称 " span style="color:var(--danger)" { "*" } }
                             input type="text" name="name" required placeholder="请输入路线名称" {}
@@ -179,7 +179,7 @@ fn routing_create_page(
                 // ── Section: 工序步骤 ──
                 div class="data-card" style="padding:0;overflow:hidden;margin-bottom:var(--space-4)" {
                     div style="padding:var(--space-5) var(--space-5) var(--space-3);display:flex;justify-content:space-between;align-items:center" {
-                        span class="form-section-title" style="margin:0;padding:0;border:none" { "工序步骤" }
+                        span class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" style="margin:0;padding:0;border:none" { "工序步骤" }
                         button type="button" class="btn btn-sm btn-primary" onclick="addStep()" {
                             (icon::plus_icon("w-3.5 h-3.5"))
                             "添加工序"

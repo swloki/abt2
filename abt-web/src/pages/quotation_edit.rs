@@ -194,19 +194,19 @@ fn quotation_edit_page(
 
             // ── Quote Info ──
             div class="form-section-card" {
-                div class="form-section-title" { "报价信息" }
-                div class="form-grid" {
+                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "报价信息" }
+                div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                     div class="form-field" {
                         label { "报价日期" }
-                        input class="form-input" type="date" value=(quotation.quotation_date.format("%Y-%m-%d")) readonly {}
+                        input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="date" value=(quotation.quotation_date.format("%Y-%m-%d")) readonly {}
                     }
                     div class="form-field" {
                         label { "有效期至" span class="text-danger" { "*" } }
-                        input class="form-input" type="date" name="valid_until" id="f-valid-until" value=(quotation.valid_until.format("%Y-%m-%d")) {}
+                        input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="date" name="valid_until" id="f-valid-until" value=(quotation.valid_until.format("%Y-%m-%d")) {}
                     }
                     div class="form-field" {
                         label { "付款条款" }
-                        select class="form-select" name="payment_terms" {
+                        select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="payment_terms" {
                             option value="30天净额" selected[*pt == "30天净额"] { "30天净额" }
                             option value="60天净额" selected[*pt == "60天净额"] { "60天净额" }
                             option value="预付30%" selected[*pt == "预付30%"] { "预付30%" }
@@ -216,7 +216,7 @@ fn quotation_edit_page(
                     }
                     div class="form-field" {
                         label { "交货条款" }
-                        select class="form-select" name="delivery_terms" {
+                        select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="delivery_terms" {
                             option value="FOB 深圳" selected[*dt == "FOB 深圳"] { "FOB 深圳" }
                             option value="FOB 广州" selected[*dt == "FOB 广州"] { "FOB 广州" }
                             option value="CIF 目的港" selected[*dt == "CIF 目的港"] { "CIF 目的港" }
@@ -229,7 +229,7 @@ fn quotation_edit_page(
             // ── Line Items ──
             div class="form-section-card flush mb-4" {
                 div class="flush-header" {
-                    span class="form-section-title" { "产品明细" }
+                    span class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "产品明细" }
                     button type="button" class="btn btn-sm btn-primary"
                         _="on click add .is-open to #product-modal" {
                         (icon::plus_icon("w-3.5 h-3.5"))
@@ -300,8 +300,8 @@ fn quotation_edit_page(
 
             // ── Remark ──
             div class="form-section-card" {
-                div class="form-section-title" { "备注" }
-                textarea class="form-textarea" name="remark" placeholder="输入报价相关备注信息…" { (rm) }
+                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "备注" }
+                textarea class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] min-h-[72px] resize-y leading-1.5" name="remark" placeholder="输入报价相关备注信息…" { (rm) }
             }
 
             // ── Action Bar ──

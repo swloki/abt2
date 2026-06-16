@@ -58,13 +58,13 @@ fn exception_list_page(
 
         // Filter bar
         div class="filter-bar" {
-            input class="form-input" type="text" name="keyword" placeholder="搜索编号或描述..."
+            input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="keyword" placeholder="搜索编号或描述..."
                 hx-get=(ExceptionListPath::PATH)
                 hx-target="#exception-table"
                 hx-trigger="keyup changed delay:300ms"
                 hx-sync="this:replace"
                 hx-swap="innerHTML" {}
-            select class="form-select" name="exception_type"
+            select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="exception_type"
                 hx-get=(ExceptionListPath::PATH)
                 hx-target="#exception-table"
                 hx-trigger="change"

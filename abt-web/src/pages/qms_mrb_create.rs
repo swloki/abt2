@@ -146,14 +146,14 @@ fn mrb_create_page(products: &[Product], failed_results: &[InspectionResult]) ->
 
                 // ── Section 1: 关联信息 ──
                 div class="form-section" {
-                    div class="form-section-title" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                         (icon::link_icon("w-4 h-4"))
                         "关联信息"
                     }
-                    div class="form-grid" {
+                    div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                         div class="form-field" style="grid-column:span 2" {
-                            label class="form-label required" { "关联检验结果" }
-                            select class="form-select" name="inspection_result_id" required {
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap required" { "关联检验结果" }
+                            select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="inspection_result_id" required {
                                 option value="" disabled selected { "请选择检验结果" }
                                 @for r in failed_results {
                                     option value=(r.id) { (r.doc_number) " — " (r.batch_no) }
@@ -161,8 +161,8 @@ fn mrb_create_page(products: &[Product], failed_results: &[InspectionResult]) ->
                             }
                         }
                         div class="form-field" style="grid-column:span 2" {
-                            label class="form-label required" { "产品" }
-                            select class="form-select" name="product_id" required {
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap required" { "产品" }
+                            select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="product_id" required {
                                 option value="" disabled selected { "请选择产品" }
                                 @for p in products {
                                     option value=(p.product_id) { (p.product_code) " — " (p.pdt_name) }
@@ -174,18 +174,18 @@ fn mrb_create_page(products: &[Product], failed_results: &[InspectionResult]) ->
 
                 // ── Section 2: 缺陷信息 ──
                 div class="form-section" {
-                    div class="form-section-title" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                         (icon::alert_triangle_icon("w-4 h-4"))
                         "缺陷信息"
                     }
-                    div class="form-grid" {
+                    div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                         div class="form-field" style="grid-column:1/-1" {
-                            label class="form-label required" { "缺陷描述" }
-                            textarea class="form-textarea" name="defect_description" rows="3" required placeholder="请描述缺陷详情…" {}
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap required" { "缺陷描述" }
+                            textarea class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] min-h-[72px] resize-y leading-1.5" name="defect_description" rows="3" required placeholder="请描述缺陷详情…" {}
                         }
                         div class="form-field" {
-                            label class="form-label required" { "处置方式" }
-                            select class="form-select" name="disposition" required {
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap required" { "处置方式" }
+                            select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="disposition" required {
                                 option value="" disabled selected { "请选择处置方式" }
                                 option value="1" { "报废" }
                                 option value="2" { "退货" }
@@ -194,8 +194,8 @@ fn mrb_create_page(products: &[Product], failed_results: &[InspectionResult]) ->
                             }
                         }
                         div class="form-field" {
-                            label class="form-label required" { "责任方" }
-                            select class="form-select" name="responsible_party" required {
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap required" { "责任方" }
+                            select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="responsible_party" required {
                                 option value="" disabled selected { "请选择责任方" }
                                 option value="1" { "内部" }
                                 option value="2" { "供应商" }
@@ -203,10 +203,10 @@ fn mrb_create_page(products: &[Product], failed_results: &[InspectionResult]) ->
                             }
                         }
                         div class="form-field" {
-                            label class="form-label" { "成本影响" }
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "成本影响" }
                             div style="position:relative" {
                                 span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:var(--text-sm);pointer-events:none" { "¥" }
-                                input class="form-input" type="number" name="cost_impact" step="any"
+                                input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" name="cost_impact" step="any"
                                     style="padding-left:28px"
                                     placeholder="0.00";
                             }
@@ -216,12 +216,12 @@ fn mrb_create_page(products: &[Product], failed_results: &[InspectionResult]) ->
 
                 // ── Section 3: 备注 ──
                 div class="form-section" {
-                    div class="form-section-title" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                         (icon::file_text_icon("w-4 h-4"))
                         "备注"
                     }
                     div class="form-field" {
-                        textarea class="form-textarea" name="remark" rows="3" placeholder="填写备注信息…" {}
+                        textarea class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] min-h-[72px] resize-y leading-1.5" name="remark" rows="3" placeholder="填写备注信息…" {}
                     }
                 }
 

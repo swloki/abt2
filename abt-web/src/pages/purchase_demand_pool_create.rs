@@ -319,23 +319,23 @@ fn create_page_content(
 
                 // ── Section 1: Basic Info ──
                 div class="data-card" style="margin-bottom:var(--space-4);" {
-                    div class="form-section-title" { "基本信息" }
-                    div class="form-grid" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "基本信息" }
+                    div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                         div class="form-field" {
                             label { "物料名称" }
-                            input class="form-input" type="text" readonly
+                            input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" readonly
                                 value=(product_name)
                                 style="background:var(--bg-muted);" {}
                         }
                         div class="form-field" {
                             label { "物料编码" }
-                            input class="form-input" type="text" readonly
+                            input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" readonly
                                 value=(product_code)
                                 style="background:var(--bg-muted);" {}
                         }
                         div class="form-field" {
                             label { "供应商" span style="color:var(--danger)" { "*" } }
-                            select class="form-select" name="supplier_id" required
+                            select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="supplier_id" required
                                 hx-get=(PurchaseDemandSupplierDetailPath::PATH)
                                 hx-trigger="change"
                                 hx-target="#supplier-detail"
@@ -349,13 +349,13 @@ fn create_page_content(
                         }
                         div class="form-field" {
                             label { "预期交货日期" }
-                            input class="form-input" type="date"
+                            input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="date"
                                 name="expected_delivery_date"
                                 value=(default_delivery) {}
                         }
                         div class="form-field span-2" {
                             label { "备注" }
-                            textarea class="form-input" name="remark"
+                            textarea class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="remark"
                                 placeholder="输入订单相关备注信息…"
                                 style="width:100%;min-height:80px;resize:vertical;font-family:inherit;" {}
                         }
@@ -368,7 +368,7 @@ fn create_page_content(
                 // ── Section 2: Demand Details ──
                 div class="data-card" style="margin-bottom:var(--space-4);padding:0;overflow:hidden;" {
                     div style="padding:var(--space-5) var(--space-5) var(--space-3);display:flex;justify-content:space-between;align-items:center;" {
-                        span class="form-section-title" style="margin:0;padding:0;border:none;" {
+                        span class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" style="margin:0;padding:0;border:none;" {
                             "需求明细"
                             @if let Some(pid) = product_id {
                                 span style="font-weight:400;color:var(--muted);margin-left:var(--space-2);" {

@@ -338,7 +338,7 @@ fn receipt_create_content() -> Markup {
             form hx-post=(ReceiptCreatePath::PATH) hx-swap="none" id="receipt-form" {
                 // ── 入库来源 ──
                 div class="form-section" {
-                    div class="form-section-title" { "入库来源" }
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "入库来源" }
 
                     (entity_picker::entity_picker_field(
                         "work_order_id", "work_order_id", "wo-display", "wo-picker",
@@ -352,10 +352,10 @@ fn receipt_create_content() -> Markup {
                         hx-target="this"
                         hx-swap="outerHTML"
                         hx-include="#work_order_id" {
-                        div class="form-grid" {
+                        div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                             div class="form-field" {
-                                label class="form-label" { "产品" }
-                                div class="form-input" style="color:var(--text-muted);background:var(--surface)" { "选择工单后自动填充" }
+                                label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "产品" }
+                                div class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" style="color:var(--text-muted);background:var(--surface)" { "选择工单后自动填充" }
                             }
                         }
                     }
@@ -363,22 +363,22 @@ fn receipt_create_content() -> Markup {
 
                 // ── 入库明细 ──
                 div class="form-section" {
-                    div class="form-section-title" { "入库明细" }
-                    div class="form-grid" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "入库明细" }
+                    div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                         div class="form-field" {
-                            label class="form-label" { "入库数量 " span class="required" { "*" } }
-                            input class="form-input" type="number" step="0.01" name="received_qty" required placeholder="0";
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "入库数量 " span class="required" { "*" } }
+                            input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" step="0.01" name="received_qty" required placeholder="0";
                         }
                         div class="form-field" {
-                            label class="form-label" { "入库日期 " span class="required" { "*" } }
-                            input class="form-input" type="date" name="receipt_date" value=(today) required;
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "入库日期 " span class="required" { "*" } }
+                            input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="date" name="receipt_date" value=(today) required;
                         }
                     }
                 }
 
                 // ── 目标库位 ──
                 div class="form-section" {
-                    div class="form-section-title" { "目标库位" }
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "目标库位" }
 
                     (entity_picker::entity_picker_field(
                         "warehouse_id", "warehouse_id", "wh-display", "wh-picker",
@@ -392,16 +392,16 @@ fn receipt_create_content() -> Markup {
                         hx-target="this"
                         hx-swap="outerHTML"
                         hx-include="#warehouse_id" {
-                        div class="form-grid" {
+                        div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                             div class="form-field" {
-                                label class="form-label" { "库区" }
-                                select class="form-select" name="zone_id" disabled {
+                                label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "库区" }
+                                select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="zone_id" disabled {
                                     option value="" { "选择仓库后加载" }
                                 }
                             }
                             div class="form-field" {
-                                label class="form-label" { "储位" }
-                                select class="form-select" name="bin_id" disabled {
+                                label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "储位" }
+                                select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="bin_id" disabled {
                                     option value="" { "选择库区后加载" }
                                 }
                             }
@@ -411,9 +411,9 @@ fn receipt_create_content() -> Markup {
 
                 // ── 备注 ──
                 div class="form-section" {
-                    div class="form-section-title" { "备注" }
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "备注" }
                     div class="form-field" {
-                        textarea class="form-input" name="remark" rows="2" placeholder="可选" {}
+                        textarea class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="remark" rows="2" placeholder="可选" {}
                     }
                 }
 
@@ -436,11 +436,11 @@ fn receipt_create_content() -> Markup {
 fn wo_cascade_fragment(product_id: i64, product_name: &str) -> Markup {
     html! {
         div id="wo-cascade" {
-            div class="form-grid" {
+            div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                 // 产品（只读 + 隐藏 ID）
                 div class="form-field" {
-                    label class="form-label" { "产品" }
-                    input class="form-input" type="text" value=(product_name) disabled
+                    label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "产品" }
+                    input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" value=(product_name) disabled
                         style="background:var(--surface)";
                     input type="hidden" name="product_id" value=(product_id);
                 }
@@ -453,16 +453,16 @@ fn wo_cascade_fragment(product_id: i64, product_name: &str) -> Markup {
 fn zone_select_fragment(zones: &[abt_core::wms::warehouse::model::Zone]) -> Markup {
     html! {
         div id="zone-bin-area" {
-            div class="form-grid" {
+            div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                 div class="form-field" {
-                    label class="form-label" { "库区" }
+                    label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "库区" }
                     @if zones.is_empty() {
-                        select class="form-select" name="zone_id" disabled {
+                        select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="zone_id" disabled {
                             option value="" { "该仓库暂无库区" }
                         }
                         input type="hidden" name="zone_id" value="";
                     } @else {
-                        select class="form-select" name="zone_id"
+                        select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="zone_id"
                             hx-get=(ReceiptZnBinsPath::PATH)
                             hx-target="#bin-select-wrap"
                             hx-trigger="change"
@@ -476,8 +476,8 @@ fn zone_select_fragment(zones: &[abt_core::wms::warehouse::model::Zone]) -> Mark
                     }
                 }
                 div class="form-field" id="bin-select-wrap" {
-                    label class="form-label" { "储位" }
-                    select class="form-select" name="bin_id" disabled {
+                    label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "储位" }
+                    select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="bin_id" disabled {
                         option value="" { "选择库区后加载" }
                     }
                 }
@@ -490,13 +490,13 @@ fn zone_select_fragment(zones: &[abt_core::wms::warehouse::model::Zone]) -> Mark
 fn bin_select_fragment(bins: &[abt_core::wms::warehouse::model::Bin]) -> Markup {
     html! {
         div class="form-field" id="bin-select-wrap" {
-            label class="form-label" { "储位" }
+            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "储位" }
             @if bins.is_empty() {
-                select class="form-select" name="bin_id" disabled {
+                select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="bin_id" disabled {
                     option value="" { "该库区暂无储位" }
                 }
             } @else {
-                select class="form-select" name="bin_id" {
+                select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="bin_id" {
                     option value="" selected { "自动分配" }
                     @for b in bins {
                         option value=(b.id) { (b.code) " " (b.name) }

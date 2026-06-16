@@ -148,8 +148,8 @@ fn supplier_create_page() -> Markup {
 
                 // ── Section: 基本信息 ──
                 div class="data-card" style="margin-bottom:var(--space-4)" {
-                    div class="form-section-title" { "基本信息" }
-                    div class="form-grid" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "基本信息" }
+                    div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                         div class="form-field" {
                             label { "供应商名称 " span style="color:var(--danger)" { "*" } }
                             input type="text" name="name" required placeholder="请输入供应商名称" {}
@@ -210,8 +210,8 @@ fn supplier_create_page() -> Markup {
 
                 // ── Section: 联系人信息 ──
                 div class="data-card" style="margin-bottom:var(--space-4)" {
-                    div class="form-section-title" { "联系人信息" }
-                    div class="form-grid" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "联系人信息" }
+                    div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                         div class="form-field" {
                             label { "联系人 " span style="color:var(--danger)" { "*" } }
                             input type="text" name="contact_name" placeholder="请输入联系人姓名" {}
@@ -233,8 +233,8 @@ fn supplier_create_page() -> Markup {
 
                 // ── Section: 银行账户信息 ──
                 div class="data-card" style="margin-bottom:var(--space-4)" {
-                    div class="form-section-title" { "银行账户信息" }
-                    div class="form-grid" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "银行账户信息" }
+                    div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                         div class="form-field" {
                             label { "开户银行 " span style="color:var(--danger)" { "*" } }
                             input type="text" name="bank_name" placeholder="请输入开户银行" {}
@@ -258,8 +258,8 @@ fn supplier_create_page() -> Markup {
 
                 // ── Section: 其他 ──
                 div class="data-card" style="margin-bottom:var(--space-4)" {
-                    div class="form-section-title" { "其他" }
-                    div class="form-grid" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "其他" }
+                    div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                         div class="form-field field-full" {
                             label { "备注" }
                             textarea name="remark" placeholder="请输入备注信息…"

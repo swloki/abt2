@@ -34,17 +34,17 @@ pub async fn get_inspection_create(_path: InspectionCreatePath, ctx: RequestCont
         }
         form hx-post=(InspectionCreatePath::PATH) hx-swap="none" {
             div class="form-section" {
-                div class="form-section-title" { "检验信息" }
-                div class="form-grid" {
-                    div class="form-field" { label class="form-label" { "工单ID" } input class="form-input" type="number" name="work_order_id" required; }
-                    div class="form-field" { label class="form-label" { "产品ID" } input class="form-input" type="number" name="product_id" required; }
-                    div class="form-field" { label class="form-label" { "工序ID" } input class="form-input" type="number" name="routing_id"; }
-                    div class="form-field" { label class="form-label" { "检验类型" } select class="form-select" name="inspection_type" {
+                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "检验信息" }
+                div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
+                    div class="form-field" { label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "工单ID" } input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" name="work_order_id" required; }
+                    div class="form-field" { label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "产品ID" } input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" name="product_id" required; }
+                    div class="form-field" { label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "工序ID" } input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" name="routing_id"; }
+                    div class="form-field" { label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "检验类型" } select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="inspection_type" {
                         option value="1" { "首检" } option value="2" { "巡检" } option value="3" { "完工检" }
                     }}
-                    div class="form-field" { label class="form-label" { "样本数量" } input class="form-input" type="number" step="0.01" name="sample_qty" required; }
-                    div class="form-field" { label class="form-label" { "检验日期" } input class="form-input" type="date" name="inspection_date" required; }
-                    div class="form-field span-2" { label class="form-label" { "处置意见" } input class="form-input" type="text" name="disposition"; }
+                    div class="form-field" { label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "样本数量" } input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" step="0.01" name="sample_qty" required; }
+                    div class="form-field" { label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "检验日期" } input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="date" name="inspection_date" required; }
+                    div class="form-field span-2" { label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "处置意见" } input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="disposition"; }
                 }
             }
             div class="create-action-bar" {

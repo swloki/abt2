@@ -109,7 +109,7 @@ fn expense_create_page() -> Markup {
                 // ── 报销信息 ──
                 div class="info-card" {
                     div class="info-card-title" { "报销信息" }
-                    div class="form-grid" {
+                    div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                         div class="form-field" {
                             label { "申请人 " span style="color:var(--danger)" { "*" } }
                             input type="text" value="Admin" readonly style="background:var(--surface-raised)";
@@ -127,11 +127,11 @@ fn expense_create_page() -> Markup {
                         }
                         div class="form-field" {
                             label { "报销日期 " span style="color:var(--danger)" { "*" } }
-                            input class="form-input" type="date" name="expense_date" required;
+                            input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="date" name="expense_date" required;
                         }
                         div class="form-field" {
                             label { "备注" }
-                            input class="form-input" type="text" name="remark" placeholder="报销事由简述";
+                            input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="remark" placeholder="报销事由简述";
                         }
                     }
                 }

@@ -294,24 +294,24 @@ fn order_create_page(customers: &[abt_core::master_data::customer::model::Custom
 
             // ── Order Info ──
             div class="form-section-card" {
-                div class="form-section-title" {
+                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                     (icon::clipboard_document_icon("w-[18px] h-[18px]"))
                     "订单信息"
                 }
-                div class="form-grid" {
+                div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                     div class="form-field" {
-                        label class="form-label" { "订单日期" span class="required" { "*" } }
-                        input class="form-input" type="date" value=(today) readonly {}
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "订单日期" span class="required" { "*" } }
+                        input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="date" value=(today) readonly {}
                     }
                     div class="form-field" {
-                        label class="form-label" { "业务员" }
-                        select class="form-select" name="sales_rep" {
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "业务员" }
+                        select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="sales_rep" {
                             option value="" { "当前用户" }
                         }
                     }
                     div class="form-field" {
-                        label class="form-label" { "付款条款" span class="required" { "*" } }
-                        select class="form-select" name="payment_terms" {
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "付款条款" span class="required" { "*" } }
+                        select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="payment_terms" {
                             option value="30天净额" selected[sel_payment == Some("30天净额")] { "30天净额" }
                             option value="60天净额" selected[sel_payment == Some("60天净额")] { "60天净额" }
                             option value="预付30%" selected[sel_payment == Some("预付30%")] { "预付30%" }
@@ -320,8 +320,8 @@ fn order_create_page(customers: &[abt_core::master_data::customer::model::Custom
                         }
                     }
                     div class="form-field" {
-                        label class="form-label" { "交货条款" }
-                        select class="form-select" name="delivery_terms" {
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "交货条款" }
+                        select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="delivery_terms" {
                             option value="FOB 深圳" selected[sel_delivery == Some("FOB 深圳")] { "FOB 深圳" }
                             option value="FOB 广州" selected[sel_delivery == Some("FOB 广州")] { "FOB 广州" }
                             option value="CIF 目的港" selected[sel_delivery == Some("CIF 目的港")] { "CIF 目的港" }
@@ -329,15 +329,15 @@ fn order_create_page(customers: &[abt_core::master_data::customer::model::Custom
                         }
                     }
                     div class="form-field span-2" {
-                        label class="form-label" { "交货地址" }
-                        input class="form-input" type="text" name="delivery_address" placeholder="默认取客户地址，可修改" {}
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "交货地址" }
+                        input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="delivery_address" placeholder="默认取客户地址，可修改" {}
                     }
                 }
             }
 
             // ── Line Items ──
             div class="form-section-card" {
-                div class="form-section-title" {
+                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                     (icon::package_icon("w-[18px] h-[18px]"))
                     "产品明细"
                 }
@@ -392,18 +392,18 @@ fn order_create_page(customers: &[abt_core::master_data::customer::model::Custom
 
             // ── Remark ──
             div class="form-section-card" {
-                div class="form-section-title" {
+                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                     (icon::file_text_icon("w-[18px] h-[18px]"))
                     "备注"
                 }
-                textarea class="form-textarea" name="remark" placeholder="输入订单相关备注信息…" {
+                textarea class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] min-h-[72px] resize-y leading-1.5" name="remark" placeholder="输入订单相关备注信息…" {
                     @if let Some(r) = sel_remark { (r) }
                 }
             }
 
             // ── Attachment ──
             div class="form-section-card" {
-                div class="form-section-title" {
+                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                     (icon::upload_icon("w-[18px] h-[18px]"))
                     "附件"
                 }

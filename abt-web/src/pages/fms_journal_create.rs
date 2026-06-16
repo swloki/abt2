@@ -118,15 +118,15 @@ fn journal_create_page() -> Markup {
             form hx-post=(JournalCreatePath::PATH) hx-swap="none" {
                 // ── 基本信息 ──
                 div class="form-section" {
-                    div class="form-section-title" { "基本信息" }
-                    div class="form-grid" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "基本信息" }
+                    div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                         // 日记账类型
                         div class="form-field" {
-                            label class="form-label" {
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
                                 "日记账类型 "
                                 span style="color:var(--danger)" { "*" }
                             }
-                            select class="form-select" name="journal_type" required {
+                            select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="journal_type" required {
                                 option value="" disabled selected { "请选择类型" }
                                 option value="1" { "销售回款" }
                                 option value="2" { "采购付款" }
@@ -137,38 +137,38 @@ fn journal_create_page() -> Markup {
                         }
                         // 收付方向
                         div class="form-field" {
-                            label class="form-label" {
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
                                 "收付方向 "
                                 span style="color:var(--danger)" { "*" }
                             }
-                            select class="form-select" name="direction" required {
+                            select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="direction" required {
                                 option value="1" { "流入 (Inflow)" }
                                 option value="2" { "流出 (Outflow)" }
                             }
                         }
                         // 金额
                         div class="form-field" {
-                            label class="form-label" {
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
                                 "金额 "
                                 span style="color:var(--danger)" { "*" }
                             }
-                            input class="form-input" type="number" name="amount" step="any" min="0" required placeholder="0.00" style="font-family:var(--font-mono);text-align:right";
+                            input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" name="amount" step="any" min="0" required placeholder="0.00" style="font-family:var(--font-mono);text-align:right";
                         }
                         // 银行账户
                         div class="form-field" {
-                            label class="form-label" {
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
                                 "银行账户 "
                                 span style="color:var(--danger)" { "*" }
                             }
-                            input class="form-input" type="text" name="bank_account" required placeholder="银行账号";
+                            input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="bank_account" required placeholder="银行账号";
                         }
                         // 往来方类型
                         div class="form-field" {
-                            label class="form-label" {
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
                                 "往来方类型 "
                                 span style="color:var(--danger)" { "*" }
                             }
-                            select class="form-select" name="counterparty_type" required {
+                            select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="counterparty_type" required {
                                 option value="1" { "客户" }
                                 option value="2" { "供应商" }
                                 option value="3" { "员工" }
@@ -177,37 +177,37 @@ fn journal_create_page() -> Markup {
                         }
                         // 往来方
                         div class="form-field" {
-                            label class="form-label" {
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
                                 "往来方 "
                                 span style="color:var(--danger)" { "*" }
                             }
-                            input class="form-input" type="text" name="counterparty_name" placeholder="搜索选择往来方…";
+                            input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="counterparty_name" placeholder="搜索选择往来方…";
                         }
                         // 来源单据
                         div class="form-field" {
-                            label class="form-label" { "来源单据" }
-                            input class="form-input" type="text" name="source_no" placeholder="关联来源单号（可选）";
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "来源单据" }
+                            input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="source_no" placeholder="关联来源单号（可选）";
                         }
                         // 交易日期
                         div class="form-field" {
-                            label class="form-label" {
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
                                 "交易日期 "
                                 span style="color:var(--danger)" { "*" }
                             }
-                            input class="form-input" type="date" name="transaction_date" required;
+                            input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="date" name="transaction_date" required;
                         }
                         // 期间
                         div class="form-field" {
-                            label class="form-label" {
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
                                 "期间 "
                                 span style="color:var(--danger)" { "*" }
                             }
-                            input class="form-input" type="month" name="period" required;
+                            input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="month" name="period" required;
                         }
                         // 备注（占满整行）
                         div class="form-field field-full" {
-                            label class="form-label" { "备注" }
-                            textarea class="form-input" name="remark" placeholder="填写备注信息…" rows="3" {}
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "备注" }
+                            textarea class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="remark" placeholder="填写备注信息…" rows="3" {}
                         }
                     }
                 }

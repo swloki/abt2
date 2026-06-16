@@ -288,14 +288,14 @@ fn arrival_create_page(
                 onsubmit="return arrivalCollectItems()" {
                 // ── 供应商信息 ──
                 div class="wms-form-section" {
-                    div class="form-section-title" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                         (icon::building_icon("w-4 h-4"))
                         "供应商信息"
                     }
-                    div class="wms-form-grid" {
+                    div class="wms-grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                         div class="form-group" {
-                            label class="form-label" { "供应商 " span class="required" { "*" } }
-                            select class="form-select" id="supplier-select" name="supplier_id" required {
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "供应商 " span class="required" { "*" } }
+                            select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" id="supplier-select" name="supplier_id" required {
                                 option value="" { "请选择供应商" }
                                 @for s in suppliers {
                                     option value=(s.id) { (s.name) }
@@ -303,16 +303,16 @@ fn arrival_create_page(
                             }
                         }
                         div class="form-group" {
-                            label class="form-label" { "联系人" }
-                            input class="form-input" type="text" readonly tabindex="-1" placeholder="自动填充";
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "联系人" }
+                            input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" readonly tabindex="-1" placeholder="自动填充";
                         }
                         div class="form-group" {
-                            label class="form-label" { "联系电话" }
-                            input class="form-input" type="text" readonly tabindex="-1" placeholder="自动填充";
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "联系电话" }
+                            input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" readonly tabindex="-1" placeholder="自动填充";
                         }
                         div class="form-group" {
-                            label class="form-label" { "来源采购单" }
-                            select class="form-select" name="purchase_order_id" {
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "来源采购单" }
+                            select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="purchase_order_id" {
                                 option value="" { "请选择采购单（可选）" }
                             }
                         }
@@ -321,14 +321,14 @@ fn arrival_create_page(
 
                 // ── 到货信息 ──
                 div class="wms-form-section" {
-                    div class="form-section-title" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                         (icon::truck_icon("w-4 h-4"))
                         "到货信息"
                     }
-                    div class="wms-form-grid" {
+                    div class="wms-grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                         div class="form-group" {
-                            label class="form-label" { "到货仓库 " span class="required" { "*" } }
-                            select class="form-select" name="warehouse_id" required {
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "到货仓库 " span class="required" { "*" } }
+                            select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="warehouse_id" required {
                                 option value="" { "请选择仓库" }
                                 @for w in warehouses {
                                     option value=(w.id) { (w.name) }
@@ -336,18 +336,18 @@ fn arrival_create_page(
                             }
                         }
                         div class="form-group" {
-                            label class="form-label" { "到货库区" }
-                            select class="form-select" name="zone_id" {
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "到货库区" }
+                            select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="zone_id" {
                                 option value="" { "请选择库区" }
                             }
                         }
                         div class="form-group" {
-                            label class="form-label" { "到货日期 " span class="required" { "*" } }
-                            input class="form-input" type="date" name="arrival_date" required value=(Local::now().format("%Y-%m-%d"));
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "到货日期 " span class="required" { "*" } }
+                            input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="date" name="arrival_date" required value=(Local::now().format("%Y-%m-%d"));
                         }
                         div class="form-group" {
-                            label class="form-label" { "送货单号" }
-                            input class="form-input" type="text" name="delivery_note" placeholder="请输入送货单号";
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "送货单号" }
+                            input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="delivery_note" placeholder="请输入送货单号";
                         }
                     }
                 }
@@ -355,7 +355,7 @@ fn arrival_create_page(
                 // ── 物料明细 ──
                 div class="wms-form-section" style="padding:0;overflow:hidden" {
                     div style="padding:var(--space-6) var(--space-6) var(--space-4)" {
-                        div class="form-section-title" {
+                        div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                             (icon::box_icon("w-4 h-4"))
                             "物料明细"
                             span id="arrival-item-count" style="margin-left:auto;font-size:var(--text-xs);font-weight:400;color:var(--muted)" { "共 0 项" }
@@ -395,11 +395,11 @@ fn arrival_create_page(
 
                 // ── 备注 ──
                 div class="wms-form-section" {
-                    div class="form-section-title" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                         (icon::edit_icon("w-4 h-4"))
                         "备注"
                     }
-                    textarea class="form-input" name="remark" rows="3" placeholder="请输入备注信息" style="resize:vertical;width:100%;min-height:80px" {}
+                    textarea class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="remark" rows="3" placeholder="请输入备注信息" style="resize:vertical;width:100%;min-height:80px" {}
                 }
 
                 input type="hidden" name="purchase_order_id" id="arrival-po-id" value="" {}
@@ -589,8 +589,8 @@ fn item_row_fragment(product: &abt_core::master_data::product::model::Product) -
             td class="mono" { (product.product_code) }
             td { (product.pdt_name) }
             td style="color:var(--fg-2);font-size:var(--text-sm)" { (product.meta.specification) }
-            td { input class="form-input num-input" type="number" min="0.01" step="any" name="declared_qty" placeholder="0" style="width:90px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
-            td { input class="form-input" type="text" name="batch_no" placeholder="批次号" style="width:120px;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
+            td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] num-input" type="number" min="0.01" step="any" name="declared_qty" placeholder="0" style="width:90px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
+            td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="batch_no" placeholder="批次号" style="width:120px;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
             td { button type="button" class="btn-remove-row" title="删除行"
                 _="on click remove closest <tr/> then call arrivalRenumber()" {
                 (icon::x_icon("w-3.5 h-3.5"))
@@ -653,8 +653,8 @@ fn po_items_fragment(
                     td class="mono" { (product.product_code) }
                     td { (product.pdt_name) }
                     td style="color:var(--fg-2);font-size:var(--text-sm)" { (product.meta.specification) }
-                    td { input class="form-input num-input" type="number" min="0.01" step="any" name="declared_qty" value=(item.quantity) style="width:90px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
-                    td { input class="form-input" type="text" name="batch_no" placeholder="批次号" style="width:120px;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
+                    td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] num-input" type="number" min="0.01" step="any" name="declared_qty" value=(item.quantity) style="width:90px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
+                    td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="batch_no" placeholder="批次号" style="width:120px;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
                     td { button type="button" class="btn-remove-row" title="删除行"
                         _="on click remove closest <tr/> then call arrivalRenumber()" {
                         (icon::x_icon("w-3.5 h-3.5"))

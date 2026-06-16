@@ -576,32 +576,32 @@ fn price_form(action_url: &str, price: Option<&PriceView>) -> Markup {
                 div class="modal-body" {
                     // Section: Basic info
                     div class="form-section" {
-                        div class="form-section-title" { "基本信息" }
+                        div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "基本信息" }
                         @if is_edit {
                             div class="supplier-info-bar" {
                                 span { "供应商: " (supplier_display) }
                                 span { " | 产品: " (product_display) }
                             }
                         }
-                        div class="form-grid" {
+                        div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                             div class="form-field" {
-                                label class="form-label" { "供应商ID" span class="required" { "*" } }
-                                input class="form-input" type="number" name="supplier_id"
+                                label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "供应商ID" span class="required" { "*" } }
+                                input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" name="supplier_id"
                                     required value=(sid);
                             }
                             div class="form-field" {
-                                label class="form-label" { "产品ID" span class="required" { "*" } }
-                                input class="form-input" type="number" name="product_id"
+                                label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "产品ID" span class="required" { "*" } }
+                                input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" name="product_id"
                                     required value=(pid);
                             }
                             div class="form-field" {
-                                label class="form-label" { "单价" span class="required" { "*" } }
-                                input class="form-input" type="number" step="0.000001"
+                                label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "单价" span class="required" { "*" } }
+                                input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" step="0.000001"
                                     name="price" required value=(pv);
                             }
                             div class="form-field" {
-                                label class="form-label" { "币种" }
-                                select name="currency_code" class="form-select" {
+                                label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "币种" }
+                                select name="currency_code" class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" {
                                     @for c in &["CNY", "USD", "EUR"] {
                                         option value=(*c) selected[cc == *c] {
                                             (match *c { "CNY" => "CNY 人民币", "USD" => "USD 美元", _ => "EUR 欧元" })
@@ -610,23 +610,23 @@ fn price_form(action_url: &str, price: Option<&PriceView>) -> Markup {
                                 }
                             }
                             div class="form-field" {
-                                label class="form-label" { "起订量" }
-                                input class="form-input" type="number" step="0.000001"
+                                label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "起订量" }
+                                input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" step="0.000001"
                                     name="min_order_qty" value=(moq);
                             }
                             div class="form-field" {
-                                label class="form-label" { "折扣(%)" }
-                                input class="form-input" type="number" step="0.01" min="0" max="100"
+                                label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "折扣(%)" }
+                                input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" step="0.01" min="0" max="100"
                                     name="discount_pct" value=(disc);
                             }
                             div class="form-field" {
-                                label class="form-label" { "交货天数" }
-                                input class="form-input" type="number" step="1" min="0"
+                                label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "交货天数" }
+                                input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" step="1" min="0"
                                     name="lead_time_days" value=(ldt);
                             }
                             div class="form-field" {
-                                label class="form-label" { "排序" }
-                                input class="form-input" type="number" step="1"
+                                label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "排序" }
+                                input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" step="1"
                                     name="sequence" value=(seq);
                             }
                         }
@@ -634,16 +634,16 @@ fn price_form(action_url: &str, price: Option<&PriceView>) -> Markup {
 
                     // Section: Supplier item info
                     div class="form-section" {
-                        div class="form-section-title" { "供应商物料信息" }
-                        div class="form-grid" {
+                        div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "供应商物料信息" }
+                        div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                             div class="form-field" {
-                                label class="form-label" { "供应商料号" }
-                                input class="form-input" type="text"
+                                label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "供应商料号" }
+                                input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text"
                                     name="supplier_item_code" value=(sic);
                             }
                             div class="form-field" {
-                                label class="form-label" { "供应商品名" }
-                                input class="form-input" type="text"
+                                label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "供应商品名" }
+                                input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text"
                                     name="supplier_item_name" value=(sin);
                             }
                         }
@@ -651,15 +651,15 @@ fn price_form(action_url: &str, price: Option<&PriceView>) -> Markup {
 
                     // Section: Tax & validity
                     div class="form-section" {
-                        div class="form-section-title" { "税率与有效期" }
-                        div class="form-grid" {
+                        div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "税率与有效期" }
+                        div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                             div class="form-field" {
-                                label class="form-label" { "税率ID" }
-                                input class="form-input" type="number" step="1"
+                                label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "税率ID" }
+                                input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" step="1"
                                     name="tax_rate_id" value=(tax_id);
                             }
                             div class="form-field" {
-                                label class="form-label" { "启用状态" }
+                                label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "启用状态" }
                                 label style="display:flex;align-items:center;gap:var(--space-2);cursor:pointer" {
                                     input type="checkbox" name="is_active"
                                         checked[active_checked] {};
@@ -667,12 +667,12 @@ fn price_form(action_url: &str, price: Option<&PriceView>) -> Markup {
                                 }
                             }
                             div class="form-field" {
-                                label class="form-label" { "生效日期" }
-                                input class="form-input" type="date" name="valid_from" value=(vf);
+                                label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "生效日期" }
+                                input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="date" name="valid_from" value=(vf);
                             }
                             div class="form-field" {
-                                label class="form-label" { "失效日期" }
-                                input class="form-input" type="date" name="valid_until" value=(vu);
+                                label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "失效日期" }
+                                input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="date" name="valid_until" value=(vu);
                             }
                         }
                     }

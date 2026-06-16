@@ -21,14 +21,14 @@ pub fn customer_info_panel(
 
     html! {
         div class="form-section-card" {
-            div class="form-section-title" {
+            div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                 (crate::components::icon::users_icon("w-[18px] h-[18px]"))
                 "客户信息"
             }
-            div class="form-grid" {
+            div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                 div class="form-field span-2" {
-                    label class="form-label" { "客户名称" span class="required" { "*" } }
-                    select class="form-select" name="customer_id" id="f-customer-id"
+                    label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "客户名称" span class="required" { "*" } }
+                    select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="customer_id" id="f-customer-id"
                         hx-get=(contacts_endpoint)
                         hx-trigger="change"
                         hx-target="closest .form-section-card"
@@ -41,8 +41,8 @@ pub fn customer_info_panel(
                     }
                 }
                 div class="form-field" {
-                    label class="form-label" { "联系人" }
-                    select class="form-select" name="contact_id" id="f-contact-id" {
+                    label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "联系人" }
+                    select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="contact_id" id="f-contact-id" {
                         option value="0" { "请选择联系人" }
                         @for ct in contacts {
                             option value=(ct.id) { (ct.name) }
@@ -50,8 +50,8 @@ pub fn customer_info_panel(
                     }
                 }
                 div class="form-field" {
-                    label class="form-label" { "联系电话" }
-                    input class="form-input" type="text" id="f-contact-phone"
+                    label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "联系电话" }
+                    input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" id="f-contact-phone"
                         value=(phone_value)
                         placeholder="自动填充" readonly {}
                 }

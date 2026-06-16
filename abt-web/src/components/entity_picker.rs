@@ -68,7 +68,7 @@ pub fn entity_picker_field(
     );
     html! {
         div class="form-field" {
-            label class="form-label" {
+            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
                 (label)
                 @if required { span class="required" { "*" } }
             }

@@ -233,44 +233,44 @@ fn stock_out_create_content(
                 onsubmit="return wmsStockOutCollectItems()" {
                 // ── Source Section ──
                 div class="wms-form-section" {
-                    div class="form-section-title" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                         (icon::link_icon("w-4 h-4"))
                         "来源关联"
                     }
-                    div class="wms-form-grid" {
+                    div class="wms-grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                         div class="form-group" {
-                            label class="form-label" { "来源类型" }
-                            select class="form-select" name="source_type" {
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "来源类型" }
+                            select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="source_type" {
                                 option value="shipping" { "发货申请 (SH)" }
                                 option value="requisition" { "领料单 (MR)" }
                                 option value="manual" { "手工录入" }
                             }
                         }
                         div class="form-group" {
-                            label class="form-label" { "来源单号 " span style="color:var(--danger)" { "*" } }
-                            input class="form-input" type="text" name="source_ref" placeholder="选择来源单号" readonly;
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "来源单号 " span style="color:var(--danger)" { "*" } }
+                            input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="source_ref" placeholder="选择来源单号" readonly;
                         }
                         div class="form-group" {
-                            label class="form-label" { "客户/工单" }
-                            input class="form-input" type="text" placeholder="选择来源后自动填充" readonly style="background:var(--surface)";
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "客户/工单" }
+                            input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" placeholder="选择来源后自动填充" readonly style="background:var(--surface)";
                         }
                         div class="form-group" {
-                            label class="form-label" { "预留类型" }
-                            input id="reservation-type-input" class="form-input" type="text" value="SOFT 预留（发货消耗）" readonly style="background:var(--surface);color:var(--danger)";
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "预留类型" }
+                            input id="reservation-type-input" class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" value="SOFT 预留（发货消耗）" readonly style="background:var(--surface);color:var(--danger)";
                         }
                     }
                 }
 
                 // ── Warehouse Section ──
                 div class="wms-form-section" {
-                    div class="form-section-title" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                         (icon::building_icon("w-4 h-4"))
                         "出库信息"
                     }
-                    div class="wms-form-grid" {
+                    div class="wms-grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                         div class="form-group" {
-                            label class="form-label" { "来源仓库 " span style="color:var(--danger)" { "*" } }
-                            select class="form-select" name="warehouse_id" {
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "来源仓库 " span style="color:var(--danger)" { "*" } }
+                            select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="warehouse_id" {
                                 option value="" { "请选择仓库" }
                                 @for wh in warehouses {
                                     option value=(wh.id) { (wh.name) }
@@ -278,14 +278,14 @@ fn stock_out_create_content(
                             }
                         }
                         div class="form-group" {
-                            label class="form-label" { "来源库区" }
-                            select class="form-select" name="zone_id" {
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "来源库区" }
+                            select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="zone_id" {
                                 option value="" { "按拣货策略分配" }
                             }
                         }
                         div class="form-group" {
-                            label class="form-label" { "拣货策略" }
-                            select class="form-select" name="pick_strategy" {
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "拣货策略" }
+                            select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="pick_strategy" {
                                 option value="fifo" selected { "FIFO 先进先出" }
                                 option value="fefo" { "FEFO 先到期先出" }
                                 option value="shortest" { "最短路径" }
@@ -293,8 +293,8 @@ fn stock_out_create_content(
                             }
                         }
                         div class="form-group" {
-                            label class="form-label" { "操作员" }
-                            input class="form-input" type="text" value=(operator_name) readonly style="background:var(--surface)";
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "操作员" }
+                            input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" value=(operator_name) readonly style="background:var(--surface)";
                         }
                     }
                 }
@@ -311,7 +311,7 @@ fn stock_out_create_content(
 
                 // ── Line Items ──
                 div class="wms-form-section" {
-                    div class="form-section-title" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                         (icon::box_icon("w-4 h-4"))
                         "出库物料明细"
                         span id="stockout-item-count" style="margin-left:auto;font-size:var(--text-xs);font-weight:400;color:var(--muted)" { "共 0 项" }
@@ -367,7 +367,7 @@ fn stock_out_create_content(
 
                 // ── Summary ──
                 div class="wms-form-section" {
-                    div class="form-section-title" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                         (icon::clipboard_list_icon("w-4 h-4"))
                         "出库汇总"
                     }
@@ -393,11 +393,11 @@ fn stock_out_create_content(
 
                 // ── Remark ──
                 div class="wms-form-section" {
-                    div class="form-section-title" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                         (icon::edit_icon("w-4 h-4"))
                         "备注"
                     }
-                    textarea class="form-input" name="remark" placeholder="输入备注信息…" rows="3" style="width:100%;min-height:80px;padding:var(--space-2) var(--space-3);resize:vertical" { }
+                    textarea class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="remark" placeholder="输入备注信息…" rows="3" style="width:100%;min-height:80px;padding:var(--space-2) var(--space-3);resize:vertical" { }
                 }
 
                 // hidden input for items JSON
@@ -600,9 +600,9 @@ fn item_row_fragment(product: &abt_core::master_data::product::model::Product) -
             td class="mono" { (product.product_code) }
             td { (product.pdt_name) }
             td style="color:var(--fg-2);font-size:var(--text-sm)" { (product.meta.specification) }
-            td { input class="form-input num-input" type="number" min="0.01" step="any" name="quantity" placeholder="0" style="width:90px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
+            td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] num-input" type="number" min="0.01" step="any" name="quantity" placeholder="0" style="width:90px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
             td style="text-align:center;font-size:var(--text-sm);color:var(--fg-2)" { (product.unit) }
-            td { input class="form-input num-input" type="number" step="any" name="unit_cost" placeholder="0.00" style="width:100px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
+            td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] num-input" type="number" step="any" name="unit_cost" placeholder="0.00" style="width:100px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
             td class="line-subtotal" style="text-align:right;font-family:var(--font-mono);font-weight:600;white-space:nowrap" { "—" }
             td { button type="button" class="btn-remove-row" title="删除行"
                 _="on click remove closest <tr/> then call wmsStockOutRenumber()" {

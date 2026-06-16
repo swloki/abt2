@@ -307,14 +307,14 @@ fn return_create_page(customers: &[abt_core::master_data::customer::model::Custo
 
                 // ── 关联单据 ──
                 div class="form-section-card" {
-                    div class="form-section-title" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                         (icon::clipboard_document_icon("w-[18px] h-[18px]"))
                         "关联单据"
                     }
-                    div class="form-grid" {
+                    div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                         div class="form-field" {
-                            label class="form-label" { "客户 " span class="required" { "*" } }
-                            select class="form-select" id="customer-select" {
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "客户 " span class="required" { "*" } }
+                            select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" id="customer-select" {
                                 option value="" { "请选择客户" }
                                 @for c in customers {
                                     option value=(c.id) { (c.name) }
@@ -322,8 +322,8 @@ fn return_create_page(customers: &[abt_core::master_data::customer::model::Custo
                             }
                         }
                         div class="form-field" {
-                            label class="form-label" { "来源订单 " span class="required" { "*" } }
-                            select class="form-select" id="order-select" disabled {
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "来源订单 " span class="required" { "*" } }
+                            select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" id="order-select" disabled {
                                 option value="" { "请先选择客户" }
                             }
                         }
@@ -339,14 +339,14 @@ fn return_create_page(customers: &[abt_core::master_data::customer::model::Custo
 
                 // ── 退货信息 ──
                 div class="form-section-card" {
-                    div class="form-section-title" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                         (icon::clipboard_document_icon("w-[18px] h-[18px]"))
                         "退货信息"
                     }
-                    div class="form-grid" {
+                    div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                         div class="form-field" {
-                            label class="form-label" { "退货原因 " span class="required" { "*" } }
-                            select class="form-select" id="reason-select" {
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "退货原因 " span class="required" { "*" } }
+                            select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" id="reason-select" {
                                 option value="" { "请选择退货原因" }
                                 option value="quality" { "质量缺陷" }
                                 option value="wrong_spec" { "规格不符" }
@@ -357,8 +357,8 @@ fn return_create_page(customers: &[abt_core::master_data::customer::model::Custo
                             }
                         }
                         div class="form-field" {
-                            label class="form-label" { "处理方式" }
-                            select class="form-select" id="disposition-select" {
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "处理方式" }
+                            select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" id="disposition-select" {
                                 option value="restock" { "退回入库" }
                                 option value="replace" { "换货处理" }
                                 option value="scrap" { "报废处理" }
@@ -370,7 +370,7 @@ fn return_create_page(customers: &[abt_core::master_data::customer::model::Custo
                 // ── 退货产品明细 ──
                 div class="form-section-card flush hidden-initial" id="items-section" {
                     div class="flush-header" {
-                        div class="form-section-title" {
+                        div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                             (icon::package_icon("w-[18px] h-[18px]"))
                             "退货产品明细"
                         }
@@ -415,16 +415,16 @@ fn return_create_page(customers: &[abt_core::master_data::customer::model::Custo
 
                 // ── 备注 ──
                 div class="form-section-card" {
-                    div class="form-section-title" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                         (icon::file_text_icon("w-[18px] h-[18px]"))
                         "备注"
                     }
-                    textarea class="form-textarea" name="remark" placeholder="输入退货相关备注，如质量问题详细描述、客户诉求、处理要求等…" {}
+                    textarea class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] min-h-[72px] resize-y leading-1.5" name="remark" placeholder="输入退货相关备注，如质量问题详细描述、客户诉求、处理要求等…" {}
                 }
 
                 // ── 附件 ──
                 div class="form-section-card" {
-                    div class="form-section-title" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                         (icon::upload_icon("w-[18px] h-[18px]"))
                         "附件"
                     }
@@ -528,12 +528,12 @@ function createItemRow(num, item) {{
     const tr = document.createElement('tr');
     tr.innerHTML = `
         <td class="line-num">${{num}}</td>
-        <td><input class="form-input input-readonly-bg" type="text" value="${{item.product_code||''}}" readonly tabindex="-1"></td>
-        <td><input class="form-input input-readonly-bg" type="text" value="${{item.product_name||''}}" readonly tabindex="-1"></td>
-        <td><input class="form-input input-readonly-bg-center" type="text" value="${{item.unit||''}}" readonly tabindex="-1"></td>
-        <td><input class="form-input num-input input-readonly-bg" type="text" value="${{parseFloat(item.unit_price||0).toLocaleString('zh-CN',{{minimumFractionDigits:2}})}}" readonly tabindex="-1"></td>
-        <td><input class="form-input num-input input-readonly-bg" type="text" value="${{item.order_qty||''}}" readonly tabindex="-1"></td>
-        <td><input class="form-input num-input" type="number" data-field="qty" data-order-item-id="${{item.order_item_id}}" data-price="${{item.unit_price||0}}" value="" placeholder="0" min="1" oninput="calcRow(this)"></td>
+        <td><input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] input-readonly-bg" type="text" value="${{item.product_code||''}}" readonly tabindex="-1"></td>
+        <td><input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] input-readonly-bg" type="text" value="${{item.product_name||''}}" readonly tabindex="-1"></td>
+        <td><input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] input-readonly-bg-center" type="text" value="${{item.unit||''}}" readonly tabindex="-1"></td>
+        <td><input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] num-input input-readonly-bg" type="text" value="${{parseFloat(item.unit_price||0).toLocaleString('zh-CN',{{minimumFractionDigits:2}})}}" readonly tabindex="-1"></td>
+        <td><input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] num-input input-readonly-bg" type="text" value="${{item.order_qty||''}}" readonly tabindex="-1"></td>
+        <td><input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] num-input" type="number" data-field="qty" data-order-item-id="${{item.order_item_id}}" data-price="${{item.unit_price||0}}" value="" placeholder="0" min="1" oninput="calcRow(this)"></td>
         <td class="line-total" data-field="subtotal">—</td>
         <td><button type="button" class="btn-remove-row" onclick="removeRow(this)" title="删除行">{chevron}</button></td>
     `;

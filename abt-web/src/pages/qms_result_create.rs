@@ -177,14 +177,14 @@ fn result_create_page(
 
                 // ── Section 1: 检验信息 ──
                 div class="form-section" {
-                    div class="form-section-title" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                         (icon::file_text_icon(""))
                         " 检验信息"
                     }
-                    div class="form-grid" {
+                    div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                         div class="form-field" {
-                            label class="form-label" { "检验规格 " span style="color:var(--danger)" { "*" } }
-                            select class="form-select" name="spec_id" required {
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "检验规格 " span style="color:var(--danger)" { "*" } }
+                            select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="spec_id" required {
                                 option value="" disabled selected { "请选择检验规格" }
                                 @for spec in specs {
                                     option value=(spec.id) {
@@ -201,8 +201,8 @@ fn result_create_page(
                             }
                         }
                         div class="form-field" {
-                            label class="form-label" { "来源类型 " span style="color:var(--danger)" { "*" } }
-                            select class="form-select" name="source_type" required {
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "来源类型 " span style="color:var(--danger)" { "*" } }
+                            select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="source_type" required {
                                 option value="" disabled selected { "请选择来源类型" }
                                 option value="1" { "来料通知" }
                                 option value="2" { "工单工序" }
@@ -211,30 +211,30 @@ fn result_create_page(
                             }
                         }
                         div class="form-field" {
-                            label class="form-label" { "来源单号 " span style="color:var(--danger)" { "*" } }
-                            input class="form-input" type="text" name="source_id" required placeholder="请输入来源单号";
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "来源单号 " span style="color:var(--danger)" { "*" } }
+                            input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="source_id" required placeholder="请输入来源单号";
                         }
                         div class="form-field" {
-                            label class="form-label" { "批次号 " span style="color:var(--danger)" { "*" } }
-                            input class="form-input" type="text" name="batch_no" required placeholder="请输入批次号";
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "批次号 " span style="color:var(--danger)" { "*" } }
+                            input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="batch_no" required placeholder="请输入批次号";
                         }
                         div class="form-field" {
-                            label class="form-label" { "抽样数量 " span style="color:var(--danger)" { "*" } }
-                            input class="form-input" type="number" name="sample_qty" step="any" required placeholder="请输入抽样数量";
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "抽样数量 " span style="color:var(--danger)" { "*" } }
+                            input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" name="sample_qty" step="any" required placeholder="请输入抽样数量";
                         }
                     }
                 }
 
                 // ── Section 2: 检验结果 ──
                 div class="form-section" {
-                    div class="form-section-title" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                         (icon::check_circle_icon(""))
                         " 检验结果"
                     }
-                    div class="form-grid" {
+                    div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                         div class="form-field" {
-                            label class="form-label" { "检验结论 " span style="color:var(--danger)" { "*" } }
-                            select class="form-select" name="result" required {
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "检验结论 " span style="color:var(--danger)" { "*" } }
+                            select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="result" required {
                                 option value="" disabled selected { "请选择检验结论" }
                                 option value="1" { "合格" }
                                 option value="2" { "不合格" }
@@ -242,16 +242,16 @@ fn result_create_page(
                             }
                         }
                         div class="form-field" {
-                            label class="form-label" { "合格数量" }
-                            input class="form-input" type="number" name="qualified_qty" step="any" min="0" placeholder="0";
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "合格数量" }
+                            input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" name="qualified_qty" step="any" min="0" placeholder="0";
                         }
                         div class="form-field" {
-                            label class="form-label" { "不合格数量" }
-                            input class="form-input" type="number" name="unqualified_qty" step="any" min="0" placeholder="0";
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "不合格数量" }
+                            input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" name="unqualified_qty" step="any" min="0" placeholder="0";
                         }
                         div class="form-field" {
-                            label class="form-label" { "检验员" }
-                            select class="form-select" name="inspector_id" {
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "检验员" }
+                            select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="inspector_id" {
                                 option value="" disabled selected { "请选择检验员" }
                                 @for user in users {
                                     @if user.is_active {
@@ -263,8 +263,8 @@ fn result_create_page(
                             }
                         }
                         div class="form-field" {
-                            label class="form-label" { "检验日期" }
-                            input class="form-input" type="date" name="inspection_date";
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "检验日期" }
+                            input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="date" name="inspection_date";
                         }
                     }
                 }
@@ -272,7 +272,7 @@ fn result_create_page(
                 // ── Section 3: 检验项目明细 ──
                 div class="form-section" style="padding:0;overflow:hidden" {
                     div style="padding:var(--space-6) var(--space-6) var(--space-4)" {
-                        div class="form-section-title" style="border-bottom:none;padding-bottom:0;margin-bottom:0" {
+                        div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" style="border-bottom:none;padding-bottom:0;margin-bottom:0" {
                             (icon::clipboard_list_icon(""))
                             " 检验项目明细"
                         }
@@ -295,29 +295,29 @@ fn result_create_page(
                                     tr {
                                         td class="line-num" { (i) }
                                         td {
-                                            input class="form-input" type="text"
+                                            input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text"
                                                 name={"item_" (i)}
                                                 placeholder="检验项目";
                                         }
                                         td {
-                                            input class="form-input" type="text"
+                                            input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text"
                                                 name={"standard_" (i)}
                                                 placeholder="检验标准";
                                         }
                                         td {
-                                            input class="form-input" type="text"
+                                            input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text"
                                                 name={"measured_" (i)}
                                                 placeholder="实测值";
                                         }
                                         td style="text-align:center" {
-                                            select class="form-select" name={"pass_" (i)} {
+                                            select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name={"pass_" (i)} {
                                                 option value="" { "—" }
                                                 option value="1" { "✓ 合格" }
                                                 option value="0" { "✗ 不合格" }
                                             }
                                         }
                                         td {
-                                            input class="form-input" type="text"
+                                            input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text"
                                                 name={"remark_" (i)}
                                                 placeholder="备注";
                                         }

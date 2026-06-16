@@ -147,29 +147,29 @@ fn plan_create_page() -> Markup {
             form id="plan-create-form" hx-post=(PlanCreatePath::PATH) hx-swap="none" {
                 // ── Basic Info ──
                 div class="form-section" {
-                    div class="form-section-title" { "基本信息" }
-                    div class="form-grid" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "基本信息" }
+                    div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                         div class="form-field" {
-                            label class="form-label" { "排产类型" }
-                            select class="form-select" name="plan_type" required {
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "排产类型" }
+                            select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="plan_type" required {
                                 option value="Mto" { "按单生产 (MTO)" }
                                 option value="Mts" { "按库存备货 (MTS)" }
                             }
                         }
                         div class="form-field" {
-                            label class="form-label" { "计划日期" }
-                            input class="form-input" type="date" name="plan_date" required;
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "计划日期" }
+                            input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="date" name="plan_date" required;
                         }
                         div class="form-field span-2" {
-                            label class="form-label" { "备注" }
-                            textarea class="form-input" name="remark" rows="2" {}
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "备注" }
+                            textarea class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="remark" rows="2" {}
                         }
                     }
                 }
 
                 // ── Plan Items ──
                 div class="form-section" {
-                    div class="form-section-title" { "计划明细" }
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "计划明细" }
                     div class="data-card" {
                         div class="data-card-scroll" {
                             table class="data-table" {
@@ -279,10 +279,10 @@ fn plan_create_page() -> Markup {
                         <input type="hidden" data-field="product_id">
                       </div>
                     </td>
-                    <td><input class="form-input num-right" type="number" step="0.01" data-field="planned_qty" placeholder="数量" required></td>
-                    <td><input class="form-input" type="date" data-field="scheduled_start" required></td>
-                    <td><input class="form-input" type="date" data-field="scheduled_end" required></td>
-                    <td><input class="form-input" type="number" data-field="priority" value="1" style="width:60px"></td>
+                    <td><input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] num-right" type="number" step="0.01" data-field="planned_qty" placeholder="数量" required></td>
+                    <td><input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="date" data-field="scheduled_start" required></td>
+                    <td><input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="date" data-field="scheduled_end" required></td>
+                    <td><input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" data-field="priority" value="1" style="width:60px"></td>
                     <td><button type="button" class="btn-remove-row" onclick="this.closest('tr').remove()">✕</button></td>
                 `;
                 tbody.appendChild(tr);
@@ -318,10 +318,10 @@ fn plan_item_row_html(index: usize) -> Markup {
                     input type="hidden" data-field="product_id";
                 }
             }
-            td { input class="form-input num-right" type="number" step="0.01" name=(format!("items[{index}].planned_qty")); }
-            td { input class="form-input" type="date" name=(format!("items[{index}].scheduled_start")); }
-            td { input class="form-input" type="date" name=(format!("items[{index}].scheduled_end")); }
-            td { input class="form-input" type="number" name=(format!("items[{index}].priority")) value="1" style="width:60px"; }
+            td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] num-right" type="number" step="0.01" name=(format!("items[{index}].planned_qty")); }
+            td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="date" name=(format!("items[{index}].scheduled_start")); }
+            td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="date" name=(format!("items[{index}].scheduled_end")); }
+            td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" name=(format!("items[{index}].priority")) value="1" style="width:60px"; }
             td { button type="button" class="btn-remove-row" { "✕" } }
         }
     }

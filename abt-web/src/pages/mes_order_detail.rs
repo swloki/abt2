@@ -679,7 +679,7 @@ fn tab_batches(batches: &[ProductionBatch], routings: &[WorkOrderRouting], order
                             }
                             div class="form-field" {
                                 label { "新增批次数量" }
-                                input class="form-input" type="number" step="0.01" name="split_qty"
+                                input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" step="0.01" name="split_qty"
                                     placeholder="输入数量"
                                     required;
                             }

@@ -316,8 +316,8 @@ fn process_dict_form_page(_existing: Option<&LaborProcessDict>) -> Markup {
                   hx-swap="none" {
                 // ── Section: 基本信息 ──
                 div class="data-card" style="margin-bottom:var(--space-4)" {
-                    div class="form-section-title" { "基本信息" }
-                    div class="form-grid" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "基本信息" }
+                    div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                         div class="form-field" {
                             label { "工序名称 " span style="color:var(--danger)" { "*" } }
                             input type="text" name="name" required placeholder="请输入工序名称，如：车削、铣削" {}

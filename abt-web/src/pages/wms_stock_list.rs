@@ -236,7 +236,7 @@ fn zone_select_fragment(
     selected: Option<i64>,
 ) -> Markup {
     html! {
-        select class="form-select" name="zone_id" id="zone-select" style="width:140px" {
+        select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="zone_id" id="zone-select" style="width:140px" {
             option value="" { "全部库区" }
             @for z in zones {
                 option value=(z.id) selected[selected == Some(z.id)] { (z.code) }
@@ -393,7 +393,7 @@ fn stock_filter_bar(
                     placeholder="产品名称"
                     value=(params.product_name.as_deref().unwrap_or(""));
             }
-            select class="form-select" name="warehouse_id" style="width:160px"
+            select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="warehouse_id" style="width:160px"
                 hx-get=(StockZonesPath::PATH)
                 hx-trigger="change"
                 hx-target="#zone-select"

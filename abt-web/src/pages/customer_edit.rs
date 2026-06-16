@@ -228,8 +228,8 @@ fn customer_edit_page(
 
                 // ── Section 1: 基本信息 ──
                 div class="data-card" {
-                    div class="form-section-title" { "基本信息" }
-                    div class="form-grid" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "基本信息" }
+                    div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                         div class="form-field" {
                             label { "客户名称 " span style="color:var(--danger)" { "*" } }
                             input type="text" name="customer_name" required placeholder="请输入客户全称" value=(c.name);
@@ -282,12 +282,12 @@ fn customer_edit_page(
 
                 // ── Section 2: 联系信息 ──
                 div class="data-card" {
-                    div class="form-section-title" { "联系信息" }
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "联系信息" }
                     // 隐藏字段：主联系人 ID
                     @if let Some(contact) = pc {
                         input type="hidden" name="primary_contact_id" value=(contact.id);
                     }
-                    div class="form-grid" {
+                    div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                         div class="form-field" {
                             label { "联系人 " span style="color:var(--danger)" { "*" } }
                             input type="text" name="contact_name" required placeholder="请输入联系人姓名"
@@ -327,8 +327,8 @@ fn customer_edit_page(
 
                 // ── Section 3: 财务信息 ──
                 div class="data-card" {
-                    div class="form-section-title" { "财务信息" }
-                    div class="form-grid" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "财务信息" }
+                    div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                         div class="form-field" {
                             label { "信用额度 (元)" }
                             input type="number" name="credit_limit" placeholder="请输入信用额度" step="0.01"
@@ -362,8 +362,8 @@ fn customer_edit_page(
 
                 // ── Section 4: 其他信息 ──
                 div class="data-card" {
-                    div class="form-section-title" { "其他信息" }
-                    div class="form-grid" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "其他信息" }
+                    div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                         div class="form-field" {
                             label { "负责业务员" }
                             select name="owner_id" {

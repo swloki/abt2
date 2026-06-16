@@ -171,8 +171,8 @@ fn product_create_page(source: Option<&Product>, categories: &[CategoryTree]) ->
 
                 // ── Section: 基本信息 ──
                 div class="form-section" {
-                    div class="form-section-title" { "基本信息" }
-                    div class="form-grid" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "基本信息" }
+                    div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                         div class="form-field" {
                             label { "产品名称 " span style="color:var(--danger)" { "*" } }
                             input type="text" name="name" required placeholder="请输入产品名称" value=(name_val) {}
@@ -227,12 +227,12 @@ fn product_create_page(source: Option<&Product>, categories: &[CategoryTree]) ->
 
                 // ── Section: 分类与归属 ──
                 div class="form-section" {
-                    div class="form-section-title" { "分类与归属" }
-                    div class="form-grid" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "分类与归属" }
+                    div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                         div class="form-field" {
                             label { "所属分类 " span style="color:var(--danger)" { "*" } }
                             input type="hidden" name="category_id" id="selected-category-id" {}
-                            button type="button" class="form-input category-select-trigger" id="category-select-btn" _="on click add .is-open to #category-modal" {
+                            button type="button" class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] category-select-trigger" id="category-select-btn" _="on click add .is-open to #category-modal" {
                                 span id="category-select-label" { "请选择分类" }
                                 (icon::chevron_right_icon("w-4 h-4"))
                             }
@@ -252,8 +252,8 @@ fn product_create_page(source: Option<&Product>, categories: &[CategoryTree]) ->
 
                 // ── Section: 其他信息 ──
                 div class="form-section" {
-                    div class="form-section-title" { "其他信息" }
-                    div class="form-grid" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "其他信息" }
+                    div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                         div class="form-field field-full" {
                             label { "备注" }
                             textarea name="remark" placeholder="请输入备注信息…"

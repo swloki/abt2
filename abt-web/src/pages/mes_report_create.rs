@@ -340,14 +340,14 @@ fn report_create_page(
 
             // ── 基本信息 ──
             div class="form-section" {
-                div class="form-section-title" {
+                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                     (maud::PreEscaped(r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg>"#))
                     "基本信息"
                 }
-                div class="form-grid cols-2" {
+                div class="grid grid-cols-2 gap-4 gap-x-6 mb-6 cols-2" {
                     div class="form-field" {
-                        label class="form-label" { "报工单号" }
-                        input class="form-input" type="text" readonly value=(doc_number)
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "报工单号" }
+                        input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" readonly value=(doc_number)
                             style="background:var(--surface);color:var(--text-muted)";
                     }
                     // 工单：搜索选择框
@@ -372,13 +372,13 @@ fn report_create_page(
 
             // ── 生产数据 ──
             div class="form-section" {
-                div class="form-section-title" {
+                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                     (maud::PreEscaped(r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>"#))
                     "生产数据"
                 }
-                div class="form-grid" {
+                div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                     div class="form-field" {
-                        label class="form-label" { "班次 " span class="required" { "*" } }
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "班次 " span class="required" { "*" } }
                         div class="shift-toggle" {
                             button type="button" class="shift-btn active"
                                 _="on click take .active from .shift-btn then put '1' into #shift-input's value" { "白班" }
@@ -388,8 +388,8 @@ fn report_create_page(
                         }
                     }
                     div class="form-field" {
-                        label class="form-label" { "工人 " span class="required" { "*" } }
-                        select class="form-select" name="worker_id" required {
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "工人 " span class="required" { "*" } }
+                        select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="worker_id" required {
                             option value="" { "请选择工人" }
                             @for w in workers {
                                 option value=(w.user_id) { (w.display_name.as_deref().unwrap_or(&w.username)) }
@@ -397,21 +397,21 @@ fn report_create_page(
                         }
                     }
                     div class="form-field" {
-                        label class="form-label" { "报工日期 " span class="required" { "*" } }
-                        input class="form-input" type="date" name="report_date" value=(today) required;
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "报工日期 " span class="required" { "*" } }
+                        input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="date" name="report_date" value=(today) required;
                     }
                     div class="form-field" {
-                        label class="form-label" { "完成数量 " span class="required" { "*" } }
-                        input class="form-input" type="number" placeholder="0" min="0" name="completed_qty"
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "完成数量 " span class="required" { "*" } }
+                        input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" placeholder="0" min="0" name="completed_qty"
                             id="completed-qty" required;
                     }
                     div class="form-field" {
-                        label class="form-label" { "不良数量" }
-                        input class="form-input" type="number" placeholder="0" min="0" name="defect_qty" value="0";
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "不良数量" }
+                        input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" placeholder="0" min="0" name="defect_qty" value="0";
                     }
                     div class="form-field" {
-                        label class="form-label" { "不良原因" }
-                        select class="form-select" name="defect_reason" {
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "不良原因" }
+                        select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="defect_reason" {
                             option value="" { "—" }
                             option value="1" { "物料不良" }
                             option value="2" { "设备故障" }
@@ -420,16 +420,16 @@ fn report_create_page(
                         }
                     }
                     div class="form-field" {
-                        label class="form-label" { "实际工时 (h)" }
-                        input class="form-input" type="number" placeholder="0" step="0.5" min="0" name="work_hours";
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "实际工时 (h)" }
+                        input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" placeholder="0" step="0.5" min="0" name="work_hours";
                     }
                     div class="form-field" {
-                        label class="form-label" { "计件单价" }
-                        input class="form-input" type="text" readonly id="unit-price" value="—"
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "计件单价" }
+                        input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" readonly id="unit-price" value="—"
                             style="background:var(--surface);color:var(--text-muted)";
                     }
                     div class="form-field" {
-                        label class="form-label" { "预计工资" }
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "预计工资" }
                         div class="wage-display" {
                             div class="wage-amount" id="wage-amount" { "\u{00a5}0.00" }
                             div class="wage-label" { "完成数量 \u{00d7} 计件单价" }
@@ -437,13 +437,13 @@ fn report_create_page(
                     }
                 }
                 div style="margin-top:var(--space-4)" {
-                    label class="form-label" { "备注" }
-                    textarea class="form-textarea" name="remark" placeholder="报工备注…"
+                    label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "备注" }
+                    textarea class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] min-h-[72px] resize-y leading-1.5" name="remark" placeholder="报工备注…"
                         style="margin-top:var(--space-1)" {};
                 }
             }
 
-            div class="form-actions" {
+            div class="flex items-center justify-end gap-3 py-5" {
                 a class="btn btn-default" href=(format!("{}?restore=true", ReportListPath::PATH)) { "取消" }
                 button type="submit" class="btn btn-primary" { "确认报工" }
             }
@@ -496,15 +496,15 @@ fn batch_cascade_fragment(
         div id="batch-cascade" style="margin-top:var(--space-5)" {
             // 隐藏的 work_order_id（报工提交时携带）
             input type="hidden" name="work_order_id" value=(work_order_id);
-            div class="form-grid cols-2" {
+            div class="grid grid-cols-2 gap-4 gap-x-6 mb-6 cols-2" {
                 div class="form-field" {
-                    label class="form-label" { "工序 " span class="required" { "*" } }
+                    label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "工序 " span class="required" { "*" } }
                     @if routings.is_empty() {
-                        select class="form-select" name="step_no" disabled {
+                        select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="step_no" disabled {
                             option value="" { "该工单暂无工序路线" }
                         }
                     } @else {
-                        select class="form-select" name="step_no" required {
+                        select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="step_no" required {
                             option value="" { "请选择工序" }
                             @for r in routings {
                                 @if !completed.contains(&r.id) {

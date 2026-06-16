@@ -250,15 +250,15 @@ fn create_page(
             {
                 // ── Section 1: 基本信息 ──
                 div class="form-section" {
-                    div class="form-section-title" { "基本信息" }
-                    div class="form-grid" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "基本信息" }
+                    div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                         div class="form-field" {
-                            label class="form-label" { "委外单号" }
-                            input class="form-input" type="text" value="自动生成" readonly;
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "委外单号" }
+                            input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" value="自动生成" readonly;
                         }
                         div class="form-field" {
-                            label class="form-label" { "供应商" }
-                            select class="form-select" name="supplier_id" required {
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "供应商" }
+                            select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="supplier_id" required {
                                 option value="" { "请选择供应商" }
                                 @for s in suppliers {
                                     option value=(s.id) { (s.name) }
@@ -266,8 +266,8 @@ fn create_page(
                             }
                         }
                         div class="form-field" {
-                            label class="form-label" { "产品" }
-                            select class="form-select" name="product_id" required {
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "产品" }
+                            select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="product_id" required {
                                 option value="" { "请选择产品" }
                                 @for p in products {
                                     option value=(p.product_id) {
@@ -280,8 +280,8 @@ fn create_page(
                             }
                         }
                         div class="form-field" {
-                            label class="form-label" { "委外类型" }
-                            select class="form-select" name="outsourcing_type" required {
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "委外类型" }
+                            select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="outsourcing_type" required {
                                 option value="" { "请选择委外类型" }
                                 option value="1" { "整体委外" }
                                 option value="2" { "工序委外" }
@@ -294,11 +294,11 @@ fn create_page(
 
                 // ── Section 2: 关联信息与数量 ──
                 div class="form-section" {
-                    div class="form-section-title" { "关联信息与数量" }
-                    div class="form-grid" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "关联信息与数量" }
+                    div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                         div class="form-field" {
-                            label class="form-label" { "关联工单" }
-                            select class="form-select" name="work_order_id" {
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "关联工单" }
+                            select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="work_order_id" {
                                 option value="" { "请选择工单" }
                                 @for wo in work_orders {
                                     option value=(wo.id) {
@@ -308,24 +308,24 @@ fn create_page(
                             }
                         }
                         div class="form-field" {
-                            label class="form-label" { "关联工序" }
-                            input class="form-input" type="number" name="routing_id" placeholder="请输入工序ID";
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "关联工序" }
+                            input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" name="routing_id" placeholder="请输入工序ID";
                         }
                         div class="form-field" {
-                            label class="form-label" { "计划数量" }
-                            input class="form-input" type="number" step="0.01" min="0" name="planned_qty" required;
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "计划数量" }
+                            input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" step="0.01" min="0" name="planned_qty" required;
                         }
                         div class="form-field" {
-                            label class="form-label" { "单价" }
-                            input class="form-input" type="number" step="any" min="0" name="unit_price" required;
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "单价" }
+                            input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" step="any" min="0" name="unit_price" required;
                         }
                         div class="form-field" {
-                            label class="form-label" { "预计交期" }
-                            input class="form-input" type="date" name="scheduled_date";
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "预计交期" }
+                            input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="date" name="scheduled_date";
                         }
                         div class="form-field" {
-                            label class="form-label" { "虚拟仓库" }
-                            select class="form-select" name="virtual_warehouse_id" required {
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "虚拟仓库" }
+                            select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="virtual_warehouse_id" required {
                                 option value="" { "请选择仓库" }
                                 @for w in warehouses {
                                     @if w.is_virtual {
@@ -339,7 +339,7 @@ fn create_page(
 
                 // ── Section 3: 发料明细 ──
                 div class="form-section" {
-                    div class="form-section-title" { "发料明细" }
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "发料明细" }
                     div class="data-card" {
                         div class="data-card-scroll" {
                             table class="data-table" {
@@ -373,9 +373,9 @@ fn create_page(
 
                 // ── Section 4: 备注 ──
                 div class="form-section" {
-                    div class="form-section-title" { "备注" }
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "备注" }
                     div class="form-field span-2" {
-                        textarea class="form-input" name="remark" rows="3" placeholder="请输入备注信息" {};
+                        textarea class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="remark" rows="3" placeholder="请输入备注信息" {};
                     }
                 }
 
@@ -399,10 +399,10 @@ fn create_page(
                     }
                 }
                 div class="modal-body" {
-                    div class="form-grid" {
+                    div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                         div class="form-field span-2" {
-                            label class="form-label" { "物料" }
-                            select class="form-select" id="modal-product-id" {
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "物料" }
+                            select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" id="modal-product-id" {
                                 option value="" { "请选择物料" }
                                 @for p in products {
                                     option value=(p.product_id) {
@@ -415,12 +415,12 @@ fn create_page(
                             }
                         }
                         div class="form-field" {
-                            label class="form-label" { "应发数量" }
-                            input class="form-input" type="number" step="0.01" min="0" id="modal-planned-qty" required;
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "应发数量" }
+                            input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" step="0.01" min="0" id="modal-planned-qty" required;
                         }
                         div class="form-field" {
-                            label class="form-label" { "单位成本" }
-                            input class="form-input" type="number" step="any" min="0" id="modal-unit-cost";
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "单位成本" }
+                            input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" step="any" min="0" id="modal-unit-cost";
                         }
                     }
                 }
@@ -457,8 +457,8 @@ function omConfirmMaterial() {
     var tr = document.createElement('tr');
     tr.setAttribute('oninput','omUpdateMaterialJson()');
     tr.innerHTML = '<td>' + pname + '<input type="hidden" name="m_product_id" value="' + pid + '"></td>' +
-        '<td><input class="form-input" type="number" step="any" min="0" name="m_planned_qty" value="' + qty + '" style="width:100px;text-align:right"></td>' +
-        '<td><input class="form-input" type="number" step="any" min="0" name="m_unit_cost" value="' + cost + '" style="width:100px;text-align:right"></td>' +
+        '<td><input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" step="any" min="0" name="m_planned_qty" value="' + qty + '" style="width:100px;text-align:right"></td>' +
+        '<td><input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" step="any" min="0" name="m_unit_cost" value="' + cost + '" style="width:100px;text-align:right"></td>' +
         '<td class="line-subtotal mono" style="text-align:right">' + (qty * cost).toFixed(2) + '</td>' +
         '<td><button type="button" class="btn-remove-row" title="删除" onclick="this.closest(\'tr\').remove();omUpdateMaterialJson()">' + '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></td>';
     tbody.appendChild(tr);

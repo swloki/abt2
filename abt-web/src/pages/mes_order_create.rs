@@ -188,13 +188,13 @@ fn order_create_page(work_centers: &[abt_core::master_data::work_center::WorkCen
         }
         form hx-post=(OrderCreatePath::PATH) hx-swap="none" {
             div class="form-section" {
-                div class="form-section-title" { "基本信息" }
-                div class="form-grid" {
+                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "基本信息" }
+                div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                     div class="form-field" {
-                        label class="form-label" { "产品" }
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "产品" }
                         div style="display:flex;gap:var(--space-2)" {
                             input type="hidden" name="product_id" id="product_id" required;
-                            div class="form-input" id="product-display" style="flex:1;cursor:pointer;color:var(--muted)"
+                            div class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" id="product-display" style="flex:1;cursor:pointer;color:var(--muted)"
                                 _="on click add .is-open to #product-modal" {
                                 "点击选择产品…"
                             }
@@ -202,12 +202,12 @@ fn order_create_page(work_centers: &[abt_core::master_data::work_center::WorkCen
                                 _="on click add .is-open to #product-modal" { "选择" }
                         }
                     }
-                    div class="form-field" { label class="form-label" { "计划数量" } input class="form-input" type="number" step="0.01" name="planned_qty" required; }
-                    div class="form-field" { label class="form-label" { "开始日期" } input class="form-input" type="date" name="scheduled_start" required; }
-                    div class="form-field" { label class="form-label" { "结束日期" } input class="form-input" type="date" name="scheduled_end" required; }
+                    div class="form-field" { label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "计划数量" } input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" step="0.01" name="planned_qty" required; }
+                    div class="form-field" { label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "开始日期" } input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="date" name="scheduled_start" required; }
+                    div class="form-field" { label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "结束日期" } input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="date" name="scheduled_end" required; }
                     div class="form-field" {
-                        label class="form-label" { "工作中心" }
-                        select class="form-select" name="work_center_id" {
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "工作中心" }
+                        select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="work_center_id" {
                             option value="" { "— 不指定 —" }
                             @for wc in work_centers {
                                 option value=(wc.id) { (format!("{} - {}", wc.code, wc.name)) }
@@ -216,8 +216,8 @@ fn order_create_page(work_centers: &[abt_core::master_data::work_center::WorkCen
                     }
                     // ── 来源单据关联 ──
                     div class="form-field span-2" {
-                        label class="form-label" { "来源单据（可选）" }
-                        select class="form-select" name="source_type"
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "来源单据（可选）" }
+                        select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="source_type"
                             _="on change hide #source-order-field then hide #source-plan-field then if my value is 'sales_order' show #source-order-field else if my value is 'production_plan' show #source-plan-field" {
                             option value="" { "无" }
                             option value="sales_order" { "销售订单" }
@@ -225,10 +225,10 @@ fn order_create_page(work_centers: &[abt_core::master_data::work_center::WorkCen
                         }
                     }
                     div class="form-field span-2" id="source-order-field" style="display:none" {
-                        label class="form-label" { "关联销售订单" }
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "关联销售订单" }
                         div style="display:flex;gap:var(--space-2)" {
                             input type="hidden" name="source_sales_order_id" id="source_sales_order_id";
-                            div class="form-input" id="so-display" style="flex:1;cursor:pointer;color:var(--muted)"
+                            div class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" id="so-display" style="flex:1;cursor:pointer;color:var(--muted)"
                                 _="on click add .is-open to #so-modal" {
                                 "点击选择销售订单…"
                             }
@@ -239,10 +239,10 @@ fn order_create_page(work_centers: &[abt_core::master_data::work_center::WorkCen
                         }
                     }
                     div class="form-field span-2" id="source-plan-field" style="display:none" {
-                        label class="form-label" { "关联生产计划（自动匹配同产品的计划项）" }
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "关联生产计划（自动匹配同产品的计划项）" }
                         div style="display:flex;gap:var(--space-2)" {
                             input type="hidden" name="source_plan_id" id="source_plan_id";
-                            div class="form-input" id="pp-display" style="flex:1;cursor:pointer;color:var(--muted)"
+                            div class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" id="pp-display" style="flex:1;cursor:pointer;color:var(--muted)"
                                 _="on click add .is-open to #pp-modal" {
                                 "点击选择生产计划…"
                             }
@@ -252,7 +252,7 @@ fn order_create_page(work_centers: &[abt_core::master_data::work_center::WorkCen
                                 _="on click set #source_plan_id's value to '' then put '点击选择生产计划…' into #pp-display then set #pp-display's style.color to 'var(--muted)'" { "清除" }
                         }
                     }
-                    div class="form-field span-2" { label class="form-label" { "备注" } textarea class="form-input" name="remark" rows="2" {}; }
+                    div class="form-field span-2" { label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "备注" } textarea class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="remark" rows="2" {}; }
                 }
             }
             div class="create-action-bar" {

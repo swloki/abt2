@@ -126,11 +126,11 @@ fn bin_create_page(
 
                 // ── Section: 储位信息 ──
                 div class="data-card" style="margin-bottom:var(--space-4)" {
-                    div class="form-section-title" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                         (icon::grid_icon("w-4 h-4"))
                         " 储位信息"
                     }
-                    div class="form-grid" {
+                    div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                         div class="form-field" {
                             label { "所属仓库 " span style="color:var(--danger)" { "*" } }
                             select name="warehouse_id" required id="warehouse-select"

@@ -191,27 +191,27 @@ fn user_create_page(roles: &[Role], departments: &[Department]) -> Markup {
 fn basic_info_section() -> Markup {
     html! {
         div class="form-section-card" {
-            div class="form-section-title" {
+            div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                 (icon::user_icon("w-[18px] h-[18px]"))
                 "基本信息"
             }
-            div class="form-grid" {
+            div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                 // 登录名
                 div class="form-group" {
-                    label class="form-label" { "登录名 " span class="required" { "*" } }
-                    input class="form-input" type="text" name="username" required placeholder="登录账号，如 zhangm" autocomplete="off" {}
-                    span class="form-hint" { "唯一标识，创建后不可修改" }
+                    label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "登录名 " span class="required" { "*" } }
+                    input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="username" required placeholder="登录账号，如 zhangm" autocomplete="off" {}
+                    span class="text-xs text-muted mt-0.5" { "唯一标识，创建后不可修改" }
                 }
                 // 显示名称
                 div class="form-group" {
-                    label class="form-label" { "显示名称 " span class="required" { "*" } }
-                    input class="form-input" type="text" name="display_name" placeholder="中文名称，如 张明" {}
+                    label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "显示名称 " span class="required" { "*" } }
+                    input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="display_name" placeholder="中文名称，如 张明" {}
                 }
                 // 密码
                 div class="form-group" {
-                    label class="form-label" { "密码 " span class="required" { "*" } }
+                    label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "密码 " span class="required" { "*" } }
                     div class="password-wrap" {
-                        input class="form-input" type="password" id="password" name="password" required placeholder="8-32位，含字母和数字" {}
+                        input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="password" id="password" name="password" required placeholder="8-32位，含字母和数字" {}
                         button class="password-toggle" type="button" _="on click if previous <input/>'s type is 'password' set previous <input/>'s type to 'text' else set previous <input/>'s type to 'password'" {
                             (icon::eye_icon("w-4 h-4"))
                         }
@@ -219,22 +219,22 @@ fn basic_info_section() -> Markup {
                 }
                 // 确认密码
                 div class="form-group" {
-                    label class="form-label" { "确认密码 " span class="required" { "*" } }
-                    input class="form-input" type="password" id="confirmPwd" name="confirm_password" required placeholder="再次输入密码" {}
+                    label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "确认密码 " span class="required" { "*" } }
+                    input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="password" id="confirmPwd" name="confirm_password" required placeholder="再次输入密码" {}
                 }
                 // 超级管理员
                 div class="form-group" {
-                    label class="form-label" { "超级管理员" }
-                    label class="checkbox-row" {
+                    label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "超级管理员" }
+                    label class="flex items-center gap-2 text-[13px] text-fg cursor-pointer mt-1.5" {
                         input type="checkbox" name="is_super_admin" value="true" {}
                         span { "设为超级管理员（绕过所有权限检查）" }
                     }
-                    span class="form-hint" { "超级管理员拥有所有资源的完全访问权限，请谨慎授予" }
+                    span class="text-xs text-muted mt-0.5" { "超级管理员拥有所有资源的完全访问权限，请谨慎授予" }
                 }
                 // 激活状态
                 div class="form-group" {
-                    label class="form-label" { "激活状态" }
-                    label class="checkbox-row" {
+                    label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "激活状态" }
+                    label class="flex items-center gap-2 text-[13px] text-fg cursor-pointer mt-1.5" {
                         input type="checkbox" name="is_active" value="true" checked {}
                         span { "立即激活用户" }
                     }
@@ -247,11 +247,11 @@ fn basic_info_section() -> Markup {
 fn role_section(roles: &[Role]) -> Markup {
     html! {
         div class="form-section-card" {
-            div class="form-section-title" {
+            div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                 (icon::lock_icon("w-[18px] h-[18px]"))
                 "角色分配"
             }
-            p class="section-desc" { "用户可拥有多个角色，权限取所有角色的并集。" }
+            p class="text-[13px] text-muted mb-4 leading-relaxed" { "用户可拥有多个角色，权限取所有角色的并集。" }
             div class="pick-grid" {
                 @for role in roles {
                     label class="pick-item" {
@@ -284,11 +284,11 @@ fn role_section(roles: &[Role]) -> Markup {
 fn dept_section(departments: &[Department]) -> Markup {
     html! {
         div class="form-section-card" {
-            div class="form-section-title" {
+            div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                 (icon::building_icon("w-[18px] h-[18px]"))
                 "部门分配"
             }
-            p class="section-desc" { "用户可归属多个部门（多对多关系）。" }
+            p class="text-[13px] text-muted mb-4 leading-relaxed" { "用户可归属多个部门（多对多关系）。" }
             div class="pick-grid" {
                 @for dept in departments {
                     label class="pick-item" {
@@ -318,11 +318,11 @@ fn dept_section(departments: &[Department]) -> Markup {
 fn data_scope_section() -> Markup {
     html! {
         div class="form-section-card" {
-            div class="form-section-title" {
+            div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                 (shield_check_icon("w-[18px] h-[18px]"))
                 "数据权限 (DataScope)"
             }
-            p class="section-desc" { "控制用户在系统中可查看的数据范围。超级管理员默认为 All。" }
+            p class="text-[13px] text-muted mb-4 leading-relaxed" { "控制用户在系统中可查看的数据范围。超级管理员默认为 All。" }
             div class="scope-options" {
                 // All
                 div class="scope-option" data-value="All" _="on click take .selected from .scope-option then put my @data-value into #dataScopeInput's value" {

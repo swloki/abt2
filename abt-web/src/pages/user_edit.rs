@@ -213,37 +213,37 @@ fn basic_info_section(user: &UserWithRoles) -> Markup {
 
     html! {
         div class="form-section-card" {
-            div class="form-section-title" {
+            div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                 (icon::user_icon("w-[18px] h-[18px]"))
                 "基本信息"
             }
-            div class="form-grid" {
+            div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                 // 用户名 (disabled)
                 div class="form-group" {
-                    label class="form-label" { "登录名" }
-                    input class="form-input" type="text" value=(&user.user.username) disabled {}
-                    span class="form-hint" { "登录名不可修改" }
+                    label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "登录名" }
+                    input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" value=(&user.user.username) disabled {}
+                    span class="text-xs text-muted mt-0.5" { "登录名不可修改" }
                 }
                 // 显示名称
                 div class="form-group" {
-                    label class="form-label" { "显示名称 " span class="required" { "*" } }
-                    input class="form-input" type="text" name="display_name"
+                    label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "显示名称 " span class="required" { "*" } }
+                    input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="display_name"
                           value=(display_name_val)
                           placeholder="中文名称，如 张明" {}
                 }
                 // 超级管理员
                 div class="form-group" {
-                    label class="form-label" { "超级管理员" }
-                    label class="checkbox-row" {
+                    label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "超级管理员" }
+                    label class="flex items-center gap-2 text-[13px] text-fg cursor-pointer mt-1.5" {
                         input type="checkbox" name="is_super_admin" value="true" checked[is_super_admin] {}
                         span { "设为超级管理员（绕过所有权限检查）" }
                     }
-                    span class="form-hint" { "超级管理员拥有所有资源的完全访问权限，请谨慎授予" }
+                    span class="text-xs text-muted mt-0.5" { "超级管理员拥有所有资源的完全访问权限，请谨慎授予" }
                 }
                 // 激活状态
                 div class="form-group" {
-                    label class="form-label" { "激活状态" }
-                    label class="checkbox-row" {
+                    label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "激活状态" }
+                    label class="flex items-center gap-2 text-[13px] text-fg cursor-pointer mt-1.5" {
                         input type="checkbox" name="is_active" value="true" checked[is_active] {}
                         span { "用户已激活，可正常登录系统" }
                     }
@@ -256,11 +256,11 @@ fn basic_info_section(user: &UserWithRoles) -> Markup {
 fn role_section(roles: &[Role], selected_ids: &[i64]) -> Markup {
     html! {
         div class="form-section-card" {
-            div class="form-section-title" {
+            div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                 (icon::lock_icon("w-[18px] h-[18px]"))
                 "角色分配"
             }
-            p class="section-desc" { "用户可拥有多个角色，权限取所有角色的并集。" }
+            p class="text-[13px] text-muted mb-4 leading-relaxed" { "用户可拥有多个角色，权限取所有角色的并集。" }
             div class="pick-grid" {
                 @for role in roles {
                     @let is_sel = selected_ids.contains(&role.role_id);
@@ -298,11 +298,11 @@ fn role_section(roles: &[Role], selected_ids: &[i64]) -> Markup {
 fn dept_section(departments: &[Department], selected_ids: &[i64]) -> Markup {
     html! {
         div class="form-section-card" {
-            div class="form-section-title" {
+            div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                 (icon::building_icon("w-[18px] h-[18px]"))
                 "部门分配"
             }
-            p class="section-desc" { "用户可归属多个部门（多对多关系）。" }
+            p class="text-[13px] text-muted mb-4 leading-relaxed" { "用户可归属多个部门（多对多关系）。" }
             div class="pick-grid" {
                 @for dept in departments {
                     @let is_sel = selected_ids.contains(&dept.department_id);
@@ -340,11 +340,11 @@ fn data_scope_section(user: &UserWithRoles, user_depts: &[Department]) -> Markup
 
     html! {
         div class="form-section-card" {
-            div class="form-section-title" {
+            div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                 (shield_check_icon("w-[18px] h-[18px]"))
                 "数据权限 (DataScope)"
             }
-            p class="section-desc" { "数据范围由角色配置决定，不支持在用户级别单独修改。以下为当前用户的实际数据范围。" }
+            p class="text-[13px] text-muted mb-4 leading-relaxed" { "数据范围由角色配置决定，不支持在用户级别单独修改。以下为当前用户的实际数据范围。" }
             div class="scope-options" {
                 // All scope
                 div class={"scope-option" @if is_super_admin { " selected" } @else { "" }} data-value="All" {

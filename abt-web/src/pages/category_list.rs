@@ -977,7 +977,7 @@ fn create_category_modal(tree: &[CategoryTree], can_create: bool) -> Markup {
         "create-category-form",
         CategoryCreatePath::PATH,
         html! {
-            div class="form-grid" {
+            div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                 div class="form-field" {
                     label { "分类名称 " span style="color:var(--danger)" { "*" } }
                     input type="text" name="category_name"

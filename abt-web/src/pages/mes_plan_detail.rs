@@ -640,9 +640,9 @@ fn tab_planning(
                                                     td { (pname) }
                                                     td class="num-right mono wo-qty" { (crate::utils::fmt_qty(item.planned_qty)) }
                                                     td style="white-space:nowrap" {
-                                                        input type="date" class="form-input wo-start" value=(item.scheduled_start) style="width:130px;display:inline-block";
+                                                        input type="date" class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] wo-start" value=(item.scheduled_start) style="width:130px;display:inline-block";
                                                         " → "
-                                                        input type="date" class="form-input wo-end" value=(item.scheduled_end) style="width:130px;display:inline-block";
+                                                        input type="date" class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] wo-end" value=(item.scheduled_end) style="width:130px;display:inline-block";
                                                     }
                                                     td {
                                                         @match val {

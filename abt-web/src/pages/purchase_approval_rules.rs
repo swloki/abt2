@@ -238,7 +238,7 @@ fn ladder_vis(rules: &[PurchaseApprovalRule]) -> Markup {
 
     html! {
         div class="data-card" {
-            div class="form-section-title" { "金额阶梯" }
+            div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "金额阶梯" }
             div style="padding:var(--space-4) var(--space-4) var(--space-2)" {
                 div style="position:relative;height:40px;margin-bottom:4px" {
                     @for (i, rule) in rules.iter().enumerate() {
@@ -426,44 +426,44 @@ fn rule_form(action_url: &str, rule: Option<&PurchaseApprovalRule>) -> Markup {
 
                 div class="modal-body" {
                     div class="form-section" {
-                        div class="form-section-title" { "规则信息" }
-                        div class="form-grid" {
+                        div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "规则信息" }
+                        div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                             div class="form-field" {
-                                label class="form-label" { "规则名称" span class="required" { "*" } }
-                                input class="form-input" type="text" name="name"
+                                label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "规则名称" span class="required" { "*" } }
+                                input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="name"
                                     required value=(name)
                                     placeholder="如：小额审批、大额审批";
                             }
                             div class="form-field" {
-                                label class="form-label" { "审批角色" span class="required" { "*" } }
-                                input class="form-input" type="text" name="approver_role"
+                                label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "审批角色" span class="required" { "*" } }
+                                input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="approver_role"
                                     required value=(role)
                                     placeholder="如 manager"
                                     list="common-roles";
                                 // Datalist for common roles
                             }
                             div class="form-field" {
-                                label class="form-label" { "最低金额" span class="required" { "*" } }
-                                input class="form-input" type="number" step="0.01" min="0"
+                                label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "最低金额" span class="required" { "*" } }
+                                input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" step="0.01" min="0"
                                     name="min_amount" required value=(min_amt);
                             }
                             div class="form-field" {
-                                label class="form-label" { "最高金额（空=不限）" }
-                                input class="form-input" type="number" step="0.01" min="0"
+                                label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "最高金额（空=不限）" }
+                                input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" step="0.01" min="0"
                                     name="max_amount" value=(max_amt);
                             }
                             div class="form-field" {
-                                label class="form-label" { "审批人ID（可选）" }
-                                input class="form-input" type="number" step="1"
+                                label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "审批人ID（可选）" }
+                                input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" step="1"
                                     name="approver_id" value=(approver);
                             }
                             div class="form-field" {
-                                label class="form-label" { "排序" }
-                                input class="form-input" type="number" step="1"
+                                label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "排序" }
+                                input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" step="1"
                                     name="sort_order" value=(sort);
                             }
                             div class="form-field" {
-                                label class="form-label" { "启用状态" }
+                                label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "启用状态" }
                                 label style="display:flex;align-items:center;gap:var(--space-2);cursor:pointer" {
                                     input type="checkbox" name="is_active" checked[active] {};
                                     " 启用"

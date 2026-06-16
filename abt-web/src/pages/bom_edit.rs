@@ -438,7 +438,7 @@ fn node_edit_form_fragment(bom_id: i64, node_id: i64, bom_version: i32, node: &B
             div class="modal-body" {
                 form hx-post=(action) hx-swap="none" {
                     input type="hidden" name="expected_version" value=(bom_version) {}
-                    div class="form-grid" {
+                    div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                         div class="form-field" {
                             label { "数量 " span style="color:var(--danger)" { "*" } }
                             input type="number" name="quantity" step="0.01" min="0.01" required value=(node.quantity) {}

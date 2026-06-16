@@ -281,7 +281,7 @@ fn supplier_detail_page(
             "create-contact-form",
             &contact_create_path.to_string(),
             html! {
-                div class="form-grid" {
+                div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                     div class="form-field" {
                         label { "姓名 *" }
                         input type="text" name="contact_name" required placeholder="请输入联系人姓名";
@@ -315,7 +315,7 @@ fn supplier_detail_page(
             "create-bank-account-form",
             &bank_account_create_path.to_string(),
             html! {
-                div class="form-grid" {
+                div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                     div class="form-field" {
                         label { "开户银行 *" }
                         input type="text" name="bank_name" required placeholder="请输入开户银行";

@@ -589,10 +589,10 @@ fn detail_page(
                                 }
                             }
                         }
-                        div class="form-grid" {
+                        div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                             div class="form-field" {
                                 label { "节点类型" }
-                                select name="node_type" class="form-select" style="width:100%" {
+                                select name="node_type" class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" style="width:100%" {
                                     @for nt in all_node_types.iter() {
                                         @let label = node_type_label(nt);
                                         option value=(nt.as_i16()) { (label) }
@@ -601,11 +601,11 @@ fn detail_page(
                             }
                             div class="form-field" {
                                 label { "实际时间" }
-                                input type="datetime-local" name="actual_time" class="form-input" style="width:100%" {}
+                                input type="datetime-local" name="actual_time" class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" style="width:100%" {}
                             }
                             div class="form-field field-full" {
                                 label { "备注" }
-                                textarea name="remark" class="form-input" rows="2" placeholder="节点备注…" style="width:100%;resize:vertical" {}
+                                textarea name="remark" class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" rows="2" placeholder="节点备注…" style="width:100%;resize:vertical" {}
                             }
                         }
                     }
@@ -645,29 +645,29 @@ fn detail_page(
                                 span { "计划 " span class="mono" style="font-weight:700" { (order.planned_qty.to_string()) } " · 已收 " span class="mono text-success" style="font-weight:700" { (order.completed_qty.to_string()) } }
                             }
                         }
-                        div class="form-grid" {
+                        div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                             div class="form-field" {
                                 label { "本次收货数量 " span style="color:var(--danger)" { "*" } }
-                                input type="number" name="received_qty" class="form-input" placeholder="请输入数量" min="1" style="width:100%" required {}
+                                input type="number" name="received_qty" class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" placeholder="请输入数量" min="1" style="width:100%" required {}
                             }
                             div class="form-field" {
                                 label { "入库仓库" }
-                                select name="warehouse_id" class="form-select" style="width:100%" {
+                                select name="warehouse_id" class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" style="width:100%" {
                                     option value="" { "成品仓（默认）" }
                                     option value="1" { "待检仓" }
                                 }
                             }
                             div class="form-field" {
                                 label { "IQC 合格数量" }
-                                input type="number" name="qualified_qty" class="form-input" placeholder="自动填充" style="width:100%" {}
+                                input type="number" name="qualified_qty" class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" placeholder="自动填充" style="width:100%" {}
                             }
                             div class="form-field" {
                                 label { "IQC 不合格数量" }
-                                input type="number" name="unqualified_qty" class="form-input" placeholder="0" style="width:100%" {}
+                                input type="number" name="unqualified_qty" class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" placeholder="0" style="width:100%" {}
                             }
                             div class="form-field field-full" {
                                 label { "备注" }
-                                textarea name="remark" class="form-input" rows="2" placeholder="收货备注…" style="width:100%;resize:vertical" {}
+                                textarea name="remark" class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" rows="2" placeholder="收货备注…" style="width:100%;resize:vertical" {}
                             }
                         }
                     }
@@ -704,7 +704,7 @@ fn detail_page(
                         div style="text-align:left" {
                             div class="form-field" {
                                 label { "备注（可选）" }
-                                textarea name="remark" class="form-input" rows="2" placeholder="转自制原因…" style="width:100%;resize:vertical" {}
+                                textarea name="remark" class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" rows="2" placeholder="转自制原因…" style="width:100%;resize:vertical" {}
                             }
                         }
                     }
@@ -741,7 +741,7 @@ fn detail_page(
                         div style="text-align:left" {
                             div class="form-field" {
                                 label { "取消原因 " span style="color:var(--danger)" { "*" } }
-                                textarea name="remark" class="form-input" rows="2" placeholder="请填写取消原因…" style="width:100%;resize:vertical" required {}
+                                textarea name="remark" class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" rows="2" placeholder="请填写取消原因…" style="width:100%;resize:vertical" required {}
                             }
                         }
                     }

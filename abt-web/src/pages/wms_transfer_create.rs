@@ -194,14 +194,14 @@ fn transfer_create_page(
                 onsubmit="return transferCollectItems()" {
                 // ── From / To Warehouse ──
                 div class="wms-form-section" {
-                    h3 class="form-section-title" {
+                    h3 class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                         (icon::building_icon("w-[18px] h-[18px]"))
                         "调拨信息"
                     }
-                    div class="wms-form-grid" {
+                    div class="wms-grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                         div class="form-field" {
-                            label class="form-label" { "调出仓库 " span class="required" { "*" } }
-                            select class="form-select" name="from_warehouse_id" required {
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "调出仓库 " span class="required" { "*" } }
+                            select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="from_warehouse_id" required {
                                 option value="" { "请选择仓库" }
                                 @for wh in warehouses {
                                     option value=(wh.id) { (wh.name) }
@@ -209,20 +209,20 @@ fn transfer_create_page(
                             }
                         }
                         div class="form-field" {
-                            label class="form-label" { "调出库区" }
-                            select class="form-select" name="from_zone_id" {
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "调出库区" }
+                            select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="from_zone_id" {
                                 option value="" { "按策略分配" }
                             }
                         }
                         div class="form-field" {
-                            label class="form-label" { "调出储位" }
-                            select class="form-select" name="from_bin_id" {
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "调出储位" }
+                            select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="from_bin_id" {
                                 option value="" { "按策略分配" }
                             }
                         }
                         div class="form-field" {
-                            label class="form-label" { "调入仓库 " span class="required" { "*" } }
-                            select class="form-select" name="to_warehouse_id" required {
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "调入仓库 " span class="required" { "*" } }
+                            select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="to_warehouse_id" required {
                                 option value="" { "请选择仓库" }
                                 @for wh in warehouses {
                                     option value=(wh.id) { (wh.name) }
@@ -230,27 +230,27 @@ fn transfer_create_page(
                             }
                         }
                         div class="form-field" {
-                            label class="form-label" { "调入库区" }
-                            select class="form-select" name="to_zone_id" {
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "调入库区" }
+                            select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="to_zone_id" {
                                 option value="" { "按策略分配" }
                             }
                         }
                         div class="form-field" {
-                            label class="form-label" { "调入储位" }
-                            select class="form-select" name="to_bin_id" {
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "调入储位" }
+                            select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="to_bin_id" {
                                 option value="" { "按策略分配" }
                             }
                         }
                         div class="form-field" {
-                            label class="form-label" { "调拨日期 " span class="required" { "*" } }
-                            input class="form-input" type="date" name="transfer_date" value="2026-06-06" required {}
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "调拨日期 " span class="required" { "*" } }
+                            input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="date" name="transfer_date" value="2026-06-06" required {}
                         }
                     }
                 }
 
                 // ── Line Items ──
                 div class="wms-form-section" {
-                    h3 class="form-section-title" {
+                    h3 class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                         (icon::box_icon("w-[18px] h-[18px]"))
                         "调拨明细"
                         span id="transfer-item-count" style="margin-left:auto;font-size:var(--text-xs);font-weight:400;color:var(--muted)" { "共 0 项" }
@@ -280,11 +280,11 @@ fn transfer_create_page(
 
                 // ── Remark ──
                 div class="wms-form-section" {
-                    h3 class="form-section-title" {
+                    h3 class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                         (icon::edit_icon("w-[18px] h-[18px]"))
                         "备注"
                     }
-                    textarea class="form-input" name="remark" placeholder="输入备注信息…" rows="3" style="width:100%;min-height:80px;padding:var(--space-2) var(--space-3);resize:vertical" { }
+                    textarea class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="remark" placeholder="输入备注信息…" rows="3" style="width:100%;min-height:80px;padding:var(--space-2) var(--space-3);resize:vertical" { }
                 }
 
                 input type="hidden" name="items_json" id="transfer-items-json" value="[]" {}
@@ -420,8 +420,8 @@ fn item_row_fragment(product: &abt_core::master_data::product::model::Product) -
             td class="mono" { (product.product_code) }
             td { (product.pdt_name) }
             td style="color:var(--fg-2);font-size:var(--text-sm)" { (product.meta.specification) }
-            td { input class="form-input num-input" type="number" min="0.01" step="any" name="quantity" placeholder="0" style="width:90px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
-            td { input class="form-input" type="text" name="batch_no" placeholder="批次号" style="width:100%;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
+            td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] num-input" type="number" min="0.01" step="any" name="quantity" placeholder="0" style="width:90px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
+            td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="batch_no" placeholder="批次号" style="width:100%;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
             td { button type="button" class="btn-remove-row" title="删除行"
                 _="on click remove closest <tr/> then call transferRenumber()" {
                 (icon::x_icon("w-3.5 h-3.5"))

@@ -536,14 +536,14 @@ fn shipping_edit_page(
 
                 // ── 客户信息 ──
                 div class="form-section-card" {
-                    div class="form-section-title" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                         (icon::clipboard_document_icon("w-[18px] h-[18px]"))
                         "客户信息"
                     }
-                    div class="form-grid" {
+                    div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                         div class="form-field" {
-                            label class="form-label" { "客户名称 " span class="required" { "*" } }
-                            select class="form-select" name="customer_id" id="shipping-customer-select"
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "客户名称 " span class="required" { "*" } }
+                            select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="customer_id" id="shipping-customer-select"
                                 onchange="onCustomerChange()" {
                                 option value="" { "请选择客户" }
                                 @for c in customers {
@@ -552,15 +552,15 @@ fn shipping_edit_page(
                             }
                         }
                         div class="form-field" {
-                            label class="form-label" { "联系人" }
-                            input class="form-input" type="text" id="shipping-contact" readonly tabindex="-1" placeholder="自动填充";
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "联系人" }
+                            input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" id="shipping-contact" readonly tabindex="-1" placeholder="自动填充";
                         }
                         div class="form-field" {
-                            label class="form-label" { "联系电话" }
-                            input class="form-input" type="text" id="shipping-phone" readonly tabindex="-1" placeholder="自动填充";
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "联系电话" }
+                            input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" id="shipping-phone" readonly tabindex="-1" placeholder="自动填充";
                         }
                         div class="form-field" {
-                            label class="form-label" { "来源订单" }
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "来源订单" }
                             div class="order-picker-wrap" id="orderPickerWrap" {
                                 input class="order-picker-input" id="orderPickerInput" type="text" readonly placeholder="点击选择来源订单" onclick="openOrderModal()" {}
                                 span class="order-picker-suffix" {
@@ -570,26 +570,26 @@ fn shipping_edit_page(
                             }
                         }
                         div class="form-field span-2" {
-                            label class="form-label" { "收货地址" }
-                            input class="form-input" type="text" name="shipping_address" id="shipping-address" value=(shipping_address) placeholder="请输入收货地址";
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "收货地址" }
+                            input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="shipping_address" id="shipping-address" value=(shipping_address) placeholder="请输入收货地址";
                         }
                     }
                 }
 
                 // ── 发货信息 ──
                 div class="form-section-card" {
-                    div class="form-section-title" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                         (icon::truck_icon("w-[18px] h-[18px]"))
                         "发货信息"
                     }
-                    div class="form-grid" {
+                    div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                         div class="form-field" {
-                            label class="form-label" { "预计发货日期" }
-                            input class="form-input" type="date" name="expected_ship_date" id="ship-date" value=(expected_ship_date);
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "预计发货日期" }
+                            input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="date" name="expected_ship_date" id="ship-date" value=(expected_ship_date);
                         }
                         div class="form-field" {
-                            label class="form-label" { "承运商" }
-                            select class="form-select" name="carrier" id="carrier-select" {
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "承运商" }
+                            select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="carrier" id="carrier-select" {
                                 option value="" { "请选择承运商" }
                                 option value="顺丰速运" selected[carrier == "顺丰速运"] { "顺丰速运" }
                                 option value="德邦物流" selected[carrier == "德邦物流"] { "德邦物流" }
@@ -599,16 +599,16 @@ fn shipping_edit_page(
                             }
                         }
                         div class="form-field" {
-                            label class="form-label" { "默认发货仓库" }
-                            select class="form-select" id="warehouse-default" {
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "默认发货仓库" }
+                            select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" id="warehouse-default" {
                                 @for w in warehouses {
                                     option value=(w.id) { (w.name) }
                                 }
                             }
                         }
                         div class="form-field" {
-                            label class="form-label" { "优先级" }
-                            select class="form-select" id="priority-select" {
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "优先级" }
+                            select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" id="priority-select" {
                                 option value="normal" { "普通" }
                                 option value="urgent" { "紧急" }
                                 option value="critical" { "特急" }
@@ -619,16 +619,16 @@ fn shipping_edit_page(
 
                 // ── 备注 ──
                 div class="form-section-card" {
-                    div class="form-section-title" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                         (icon::file_text_icon("w-[18px] h-[18px]"))
                         "备注"
                     }
-                    textarea class="form-textarea" name="remark" placeholder="输入发货相关备注…" { (remark) }
+                    textarea class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] min-h-[72px] resize-y leading-1.5" name="remark" placeholder="输入发货相关备注…" { (remark) }
                 }
 
                 // ── 附件 ──
                 div class="form-section-card" {
-                    div class="form-section-title" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                         (icon::upload_icon("w-[18px] h-[18px]"))
                         "附件"
                     }
@@ -641,7 +641,7 @@ fn shipping_edit_page(
 
                 // ── 发货产品明细 ──
                 div class="form-section-card" {
-                    div class="form-section-title" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                         (icon::package_icon("w-[18px] h-[18px]"))
                         "发货产品明细"
                     }
@@ -798,14 +798,14 @@ fn shipping_create_page(
 
                 // ── 客户信息 ──
                 div class="form-section-card" {
-                    div class="form-section-title" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                         (icon::clipboard_document_icon("w-[18px] h-[18px]"))
                         "客户信息"
                     }
-                    div class="form-grid" {
+                    div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                         div class="form-field" {
-                            label class="form-label" { "客户名称 " span class="required" { "*" } }
-                            select class="form-select" name="customer_id" id="shipping-customer-select"
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "客户名称 " span class="required" { "*" } }
+                            select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="customer_id" id="shipping-customer-select"
                                 onchange="onCustomerChange()" {
                                 option value="" { "请选择客户" }
                                 @for c in customers {
@@ -814,15 +814,15 @@ fn shipping_create_page(
                             }
                         }
                         div class="form-field" {
-                            label class="form-label" { "联系人" }
-                            input class="form-input" type="text" id="shipping-contact" readonly tabindex="-1" placeholder="自动填充";
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "联系人" }
+                            input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" id="shipping-contact" readonly tabindex="-1" placeholder="自动填充";
                         }
                         div class="form-field" {
-                            label class="form-label" { "联系电话" }
-                            input class="form-input" type="text" id="shipping-phone" readonly tabindex="-1" placeholder="自动填充";
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "联系电话" }
+                            input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" id="shipping-phone" readonly tabindex="-1" placeholder="自动填充";
                         }
                         div class="form-field" {
-                            label class="form-label" { "来源订单 " span class="required" { "*" } }
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "来源订单 " span class="required" { "*" } }
                             div class="order-picker-wrap" id="orderPickerWrap" {
                                 input class="order-picker-input" id="orderPickerInput" type="text" readonly placeholder="请先选择客户" onclick="openOrderModal()" disabled;
                                 span class="order-picker-suffix" {
@@ -832,8 +832,8 @@ fn shipping_create_page(
                             }
                         }
                         div class="form-field span-2" {
-                            label class="form-label" { "收货地址 " span class="required" { "*" } }
-                            input class="form-input" type="text" name="shipping_address" id="shipping-address" placeholder="请输入收货地址";
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "收货地址 " span class="required" { "*" } }
+                            input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="shipping_address" id="shipping-address" placeholder="请输入收货地址";
                         }
                     }
                     // Customer info bar
@@ -853,18 +853,18 @@ fn shipping_create_page(
 
                 // ── 发货信息 ──
                 div class="form-section-card" {
-                    div class="form-section-title" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                         (icon::truck_icon("w-[18px] h-[18px]"))
                         "发货信息"
                     }
-                    div class="form-grid" {
+                    div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                         div class="form-field" {
-                            label class="form-label" { "预计发货日期 " span class="required" { "*" } }
-                            input class="form-input" type="date" name="expected_ship_date" id="ship-date";
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "预计发货日期 " span class="required" { "*" } }
+                            input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="date" name="expected_ship_date" id="ship-date";
                         }
                         div class="form-field" {
-                            label class="form-label" { "承运商" }
-                            select class="form-select" name="carrier" id="carrier-select" {
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "承运商" }
+                            select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="carrier" id="carrier-select" {
                                 option value="" { "请选择承运商" }
                                 option value="顺丰速运" { "顺丰速运" }
                                 option value="德邦物流" { "德邦物流" }
@@ -874,16 +874,16 @@ fn shipping_create_page(
                             }
                         }
                         div class="form-field" {
-                            label class="form-label" { "默认发货仓库" }
-                            select class="form-select" id="warehouse-default" {
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "默认发货仓库" }
+                            select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" id="warehouse-default" {
                                 @for w in warehouses {
                                     option value=(w.id) { (w.name) }
                                 }
                             }
                         }
                         div class="form-field" {
-                            label class="form-label" { "优先级" }
-                            select class="form-select" id="priority-select" {
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "优先级" }
+                            select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" id="priority-select" {
                                 option value="normal" { "普通" }
                                 option value="urgent" { "紧急" }
                                 option value="critical" { "特急" }
@@ -894,16 +894,16 @@ fn shipping_create_page(
 
                 // ── 备注 ──
                 div class="form-section-card" {
-                    div class="form-section-title" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                         (icon::file_text_icon("w-[18px] h-[18px]"))
                         "备注"
                     }
-                    textarea class="form-textarea" name="remark" placeholder="输入发货相关备注，如包装要求、送货时间偏好、特殊说明等…" {}
+                    textarea class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] min-h-[72px] resize-y leading-1.5" name="remark" placeholder="输入发货相关备注，如包装要求、送货时间偏好、特殊说明等…" {}
                 }
 
                 // ── 附件 ──
                 div class="form-section-card" {
-                    div class="form-section-title" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                         (icon::upload_icon("w-[18px] h-[18px]"))
                         "附件"
                     }
@@ -916,7 +916,7 @@ fn shipping_create_page(
 
                 // ── 发货产品明细 ──
                 div class="form-section-card" {
-                    div class="form-section-title" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                         (icon::package_icon("w-[18px] h-[18px]"))
                         "发货产品明细"
                     }
@@ -1047,14 +1047,14 @@ fn customer_info_card(
 
     html! {
         div class="form-section-card mb-4" {
-            div class="form-section-title" {
+            div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                 (icon::clipboard_document_icon("w-[18px] h-[18px]"))
                 "客户信息"
             }
-            div class="form-grid" {
+            div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                 div class="form-field" {
-                    label class="form-label" { "客户名称 " span class="required" { "*" } }
-                    select class="form-select" name="customer_id"
+                    label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "客户名称 " span class="required" { "*" } }
+                    select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="customer_id"
                         hx-get=(ShippingCustomerContactsPath::PATH)
                         hx-trigger="change"
                         hx-target="closest .form-section-card"
@@ -1067,18 +1067,18 @@ fn customer_info_card(
                     }
                 }
                 div class="form-field" {
-                    label class="form-label" { "联系人" }
-                    input class="form-input" type="text" value=(contact_name) placeholder="自动填充" readonly {}
+                    label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "联系人" }
+                    input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" value=(contact_name) placeholder="自动填充" readonly {}
                 }
                 div class="form-field" {
-                    label class="form-label" { "联系电话" }
-                    input class="form-input" type="text" value=(contact_phone) placeholder="自动填充" readonly {}
+                    label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "联系电话" }
+                    input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" value=(contact_phone) placeholder="自动填充" readonly {}
                 }
             }
-            div class="form-grid mt-3" {
+            div class="grid grid-cols-2 gap-4 gap-x-6 mb-6 mt-3" {
                 div class="form-field span-2" {
-                    label class="form-label" { "收货地址" }
-                    input class="form-input" type="text" name="shipping_address" value=(shipping_address) placeholder="选择客户后自动填充" {}
+                    label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "收货地址" }
+                    input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="shipping_address" value=(shipping_address) placeholder="选择客户后自动填充" {}
                 }
             }
         }

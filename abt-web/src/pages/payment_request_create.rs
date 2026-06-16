@@ -239,8 +239,8 @@ fn pay_create_page(
 
             // ── 付款信息 ──
             div class="data-card" style="margin-bottom:var(--space-4)" {
-                div class="form-section-title" { "付款信息" }
-                div class="form-grid" {
+                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "付款信息" }
+                div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                     div class="form-field" {
                         label { "关联对账单" }
                         select name="reconciliation_id" {
@@ -288,7 +288,7 @@ fn pay_create_page(
             // ── 三单匹配校验 ──
             div class="data-card" style="margin-bottom:var(--space-4)" {
                 div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-4)" {
-                    div class="form-section-title" style="margin:0;padding:0;border:none" { "三单匹配校验" }
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" style="margin:0;padding:0;border:none" { "三单匹配校验" }
                     span style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:var(--radius-sm);font-size:var(--text-xs);font-weight:600;background:#fef9c3;color:#a16207;border:1px solid #fde68a" {
                         (icon::clock_icon("w-3.5 h-3.5"))
                         "待验证"
@@ -351,8 +351,8 @@ fn supplier_section(
 
     html! {
         div class="data-card" style="margin-bottom:var(--space-4)" {
-            div class="form-section-title" { "供应商信息" }
-            div class="form-grid" {
+            div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "供应商信息" }
+            div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                 div class="form-field" {
                     label { "供应商" span style="color:var(--danger)" { "*" } }
                     select name="supplier_id" required

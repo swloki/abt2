@@ -164,11 +164,11 @@ fn work_center_form_page(wc: Option<&WorkCenter>) -> Markup {
             }} {
 
             div class="form-section" {
-                div class="form-section-title" { "基本信息" }
-                div class="form-grid" {
+                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "基本信息" }
+                div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                     div class="form-field" {
                         label { "编码 *" }
-                        input class="form-input" type="text" name="code" required
+                        input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="code" required
                               value=(wc.map(|w| w.code.as_str()).unwrap_or(""))
                               disabled[is_edit];
                         @if is_edit {
@@ -178,12 +178,12 @@ fn work_center_form_page(wc: Option<&WorkCenter>) -> Markup {
                     }
                     div class="form-field" {
                         label { "名称 *" }
-                        input class="form-input" type="text" name="name" required
+                        input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="name" required
                               value=(wc.map(|w| w.name.as_str()).unwrap_or(""));
                     }
                     div class="form-field" {
                         label { "类型" }
-                        select class="form-select" name="work_center_type" {
+                        select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="work_center_type" {
                             @for (val, label) in [("1", "机器"), ("2", "人工"), ("3", "委外")] {
                                 option value=(val)
                                        selected=(wc.map(|w| w.work_center_type.to_string()).as_deref() == Some(val)) {
@@ -194,38 +194,38 @@ fn work_center_form_page(wc: Option<&WorkCenter>) -> Markup {
                     }
                     div class="form-field" {
                         label { "位置" }
-                        input class="form-input" type="text" name="location"
+                        input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="location"
                               value=(wc.and_then(|w| w.location.as_deref()).unwrap_or(""));
                     }
                 }
             }
 
             div class="form-section" {
-                div class="form-section-title" { "产能与成本" }
-                div class="form-grid" {
+                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "产能与成本" }
+                div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                     div class="form-field" {
                         label { "产能/小时" }
-                        input class="form-input" type="number" step="0.01" name="default_capacity"
+                        input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" step="0.01" name="default_capacity"
                               value=(wc.map(|w| crate::utils::fmt_qty(w.default_capacity)).unwrap_or_else(|| "0".into()));
                     }
                     div class="form-field" {
                         label { "成本费率/小时 (¥)" }
-                        input class="form-input" type="number" step="0.01" name="costs_hour"
+                        input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" step="0.01" name="costs_hour"
                               value=(wc.map(|w| crate::utils::fmt_qty(w.costs_hour)).unwrap_or_else(|| "0".into()));
                     }
                     div class="form-field" {
                         label { "效率系数" }
-                        input class="form-input" type="number" step="0.01" name="time_efficiency"
+                        input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" step="0.01" name="time_efficiency"
                               value=(wc.map(|w| crate::utils::fmt_qty(w.time_efficiency)).unwrap_or_else(|| "1".into()));
                     }
                     div class="form-field" {
                         label { "准备时间 (分钟)" }
-                        input class="form-input" type="number" step="0.01" name="setup_time"
+                        input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" step="0.01" name="setup_time"
                               value=(wc.map(|w| crate::utils::fmt_qty(w.setup_time)).unwrap_or_else(|| "0".into()));
                     }
                     div class="form-field" {
                         label { "清理时间 (分钟)" }
-                        input class="form-input" type="number" step="0.01" name="cleanup_time"
+                        input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" step="0.01" name="cleanup_time"
                               value=(wc.map(|w| crate::utils::fmt_qty(w.cleanup_time)).unwrap_or_else(|| "0".into()));
                     }
                 }

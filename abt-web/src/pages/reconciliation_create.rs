@@ -194,14 +194,14 @@ fn reconciliation_create_page(
 
                 // ── 对账基本信息 ──
                 div class="form-section-card" {
-                    div class="form-section-title" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                         (icon::clipboard_document_icon("w-[18px] h-[18px]"))
                         "对账基本信息"
                     }
-                    div class="form-grid" {
+                    div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                         div class="form-field" {
-                            label class="form-label" { "客户 " span class="required" { "*" } }
-                            select class="form-select" name="customer_id" id="rec-customer-select"
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "客户 " span class="required" { "*" } }
+                            select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="customer_id" id="rec-customer-select"
                                 onchange="triggerPreview()" {
                                 option value="" { "请选择客户" }
                                 @for c in customers {
@@ -210,28 +210,28 @@ fn reconciliation_create_page(
                             }
                         }
                         div class="form-field" {
-                            label class="form-label" { "对账期间 " span class="required" { "*" } }
-                            input class="form-input" type="month" name="period" id="rec-period-select"
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "对账期间 " span class="required" { "*" } }
+                            input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="month" name="period" id="rec-period-select"
                                 onchange="triggerPreview()" placeholder="选择月份";
                         }
                         div class="form-field" {
-                            label class="form-label" { "对账日期" }
-                            input class="form-input" type="date" id="rec-date";
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "对账日期" }
+                            input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="date" id="rec-date";
                         }
                         div class="form-field" {
-                            label class="form-label" { "销售员" }
-                            input class="form-input" type="text" readonly value=(username);
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "销售员" }
+                            input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" readonly value=(username);
                         }
                         div class="form-field span-2" {
-                            label class="form-label" { "联系人 / 电话" }
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "联系人 / 电话" }
                             div class="contact-inline-fields" {
-                                input class="form-input" type="text" id="rec-contact-name" readonly placeholder="选择客户后自动填充";
-                                input class="form-input" type="text" id="rec-contact-phone" readonly placeholder="—";
+                                input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" id="rec-contact-name" readonly placeholder="选择客户后自动填充";
+                                input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" id="rec-contact-phone" readonly placeholder="—";
                             }
                         }
                         div class="form-field span-2" {
-                            label class="form-label" { "备注" }
-                            input class="form-input" type="text" placeholder="对账备注信息…";
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "备注" }
+                            input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" placeholder="对账备注信息…";
                         }
                     }
                 }
@@ -265,16 +265,16 @@ fn reconciliation_create_page(
 
                 // ── Remark ──
                 div class="form-section-card" {
-                    div class="form-section-title" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                         (icon::file_text_icon("w-[18px] h-[18px]"))
                         "备注"
                     }
-                    textarea class="form-textarea" name="remark" placeholder="输入对账相关备注信息…" {}
+                    textarea class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] min-h-[72px] resize-y leading-1.5" name="remark" placeholder="输入对账相关备注信息…" {}
                 }
 
                 // ── Attachment ──
                 div class="form-section-card" {
-                    div class="form-section-title" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                         (icon::upload_icon("w-[18px] h-[18px]"))
                         "附件"
                     }

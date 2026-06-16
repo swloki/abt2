@@ -446,7 +446,7 @@ fn warehouse_detail_page(
             "create-zone-form",
             &WarehouseZoneCreatePath { id: warehouse.id }.to_string(),
             html! {
-                div class="form-grid" {
+                div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                     div class="form-field" {
                         label { "库区编码 " span style="color:var(--danger)" { "*" } }
                         input type="text" name="code" required placeholder="如 A-07";
@@ -512,7 +512,7 @@ fn zone_edit_form_fragment(zone: &Zone) -> Markup {
                 }
             }
             div class="modal-body" {
-                div class="form-grid" {
+                div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                     div class="form-field" {
                         label { "库区编码" }
                         input type="text" name="code" value=(zone.code) readonly

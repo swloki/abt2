@@ -39,7 +39,7 @@ pub fn input_dialog(
                     p class="modal-desc" { (desc) }
                     div class="form-field" {
                         label { (input_label) }
-                        input id=(input_id) class="form-input" type=(input_type)
+                        input id=(input_id) class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type=(input_type)
                             step=(input_step) min="1" placeholder=(input_placeholder);
                     }
                 }

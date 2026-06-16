@@ -101,24 +101,24 @@ fn lock_create_form() -> Markup {
                 hx-redirect=(LockListPath::PATH) {
 
                 div class="wms-form-section" {
-                    div class="wms-form-grid" {
+                    div class="wms-grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                         div class="form-field" {
-                            label class="form-label" { "产品ID" }
-                            input class="form-input" type="number" name="product_id" required placeholder="输入产品ID";
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "产品ID" }
+                            input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" name="product_id" required placeholder="输入产品ID";
                         }
                         div class="form-field" {
-                            label class="form-label" { "仓库" }
-                            select class="form-select" name="warehouse_id" required {
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "仓库" }
+                            select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="warehouse_id" required {
                                 option value="" { "请选择仓库" }
                             }
                         }
                         div class="form-field" {
-                            label class="form-label" { "锁定数量" }
-                            input class="form-input" type="number" name="locked_qty" step="0.01" required placeholder="输入数量";
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "锁定数量" }
+                            input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" name="locked_qty" step="0.01" required placeholder="输入数量";
                         }
                         div class="form-field" {
-                            label class="form-label" { "锁定原因" }
-                            select class="form-select" name="lock_reason" required {
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "锁定原因" }
+                            select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="lock_reason" required {
                                 option value="客户预留" { "客户预留" }
                                 option value="质量问题" { "质量问题" }
                                 option value="安全库存" { "安全库存" }
@@ -126,8 +126,8 @@ fn lock_create_form() -> Markup {
                             }
                         }
                         div class="form-field" {
-                            label class="form-label" { "关联客户ID（可选）" }
-                            input class="form-input" type="number" name="customer_id" placeholder="可选";
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "关联客户ID（可选）" }
+                            input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" name="customer_id" placeholder="可选";
                         }
                     }
                 }

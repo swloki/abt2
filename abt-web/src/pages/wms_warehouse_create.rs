@@ -144,11 +144,11 @@ pub(crate) fn warehouse_create_page(warehouse: Option<&Warehouse>) -> Markup {
 
                 // ── Section: 基本信息 ──
                 div class="data-card" style="margin-bottom:var(--space-4)" {
-                    div class="form-section-title" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                         (icon::building_icon("w-4 h-4"))
                         " 基本信息"
                     }
-                    div class="form-grid" {
+                    div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                         div class="form-field" {
                             label { "仓库编码 " span style="color:var(--danger)" { "*" } }
                             input type="text" name="code" required placeholder="如 WH-007"

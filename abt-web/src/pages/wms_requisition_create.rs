@@ -194,14 +194,14 @@ fn requisition_create_page(
                 onsubmit="return reqCollectItems()" {
                 // Basic info
                 div class="wms-form-section" {
-                    div class="form-section-title" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                         (icon::clipboard_document_icon("w-4 h-4"))
                         "领料信息"
                     }
-                    div class="wms-form-grid" {
+                    div class="wms-grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                         div class="form-group" {
-                            label class="form-label" { "领料仓库 " span class="required" { "*" } }
-                            select class="form-select" name="warehouse_id" required {
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "领料仓库 " span class="required" { "*" } }
+                            select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="warehouse_id" required {
                                 option value="" { "请选择仓库" }
                                 @for w in warehouses {
                                     option value=(w.id) { (w.name) }
@@ -209,23 +209,23 @@ fn requisition_create_page(
                             }
                         }
                         div class="form-group" {
-                            label class="form-label" { "领料日期 " span class="required" { "*" } }
-                            input class="form-input" type="date" name="requisition_date" required value=(Local::now().format("%Y-%m-%d")) {}
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "领料日期 " span class="required" { "*" } }
+                            input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="date" name="requisition_date" required value=(Local::now().format("%Y-%m-%d")) {}
                         }
                         div class="form-group" {
-                            label class="form-label" { "关联工单（可选）" }
-                            input class="form-input" type="number" name="work_order_id" placeholder="留空为手动创建";
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "关联工单（可选）" }
+                            input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" name="work_order_id" placeholder="留空为手动创建";
                         }
                         div class="form-group" {
-                            label class="form-label" { "操作员" }
-                            input class="form-input" type="text" readonly style="background:var(--surface)" value="admin";
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "操作员" }
+                            input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" readonly style="background:var(--surface)" value="admin";
                         }
                     }
                 }
 
                 // Line items
                 div class="wms-form-section" {
-                    div class="form-section-title" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                         (icon::box_icon("w-4 h-4"))
                         "领料明细"
                         span id="req-item-count" style="margin-left:auto;font-size:var(--text-xs);font-weight:400;color:var(--muted)" { "共 0 项" }
@@ -398,7 +398,7 @@ fn item_row_fragment(product: &abt_core::master_data::product::model::Product) -
             td class="mono" { (product.product_code) }
             td { (product.pdt_name) }
             td style="color:var(--fg-2);font-size:var(--text-sm)" { (product.meta.specification) }
-            td { input class="form-input num-input" type="number" min="0.01" step="any" name="requested_qty" placeholder="0" style="width:100px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
+            td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] num-input" type="number" min="0.01" step="any" name="requested_qty" placeholder="0" style="width:100px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
             td { button type="button" class="btn-remove-row" title="删除行"
                 _="on click remove closest <tr/> then call reqRenumber()" {
                 (icon::x_icon("w-3.5 h-3.5"))

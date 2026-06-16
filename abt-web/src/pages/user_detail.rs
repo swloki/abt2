@@ -719,13 +719,13 @@ fn reset_password_modal(action: &str) -> Markup {
                 div class="modal-body" {
                     p style="margin-bottom:16px;color:#6b7280;font-size:14px" { "为该用户设置新密码，重置后立即生效。" }
                     div class="form-group" {
-                        label class="form-label" { "新密码 " span class="required" { "*" } }
-                        input class="form-input" type="password" name="new_password" required
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "新密码 " span class="required" { "*" } }
+                        input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="password" name="new_password" required
                             minlength="8" placeholder="至少 8 位，含字母和数字" {}
                     }
                     div class="form-group" {
-                        label class="form-label" { "确认密码 " span class="required" { "*" } }
-                        input class="form-input" type="password" name="confirm_password" required
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "确认密码 " span class="required" { "*" } }
+                        input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="password" name="confirm_password" required
                             minlength="8" placeholder="再次输入新密码" {}
                     }
                 }

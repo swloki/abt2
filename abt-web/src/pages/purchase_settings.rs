@@ -111,24 +111,24 @@ fn settings_page(
             form hx-post=(PurchaseSettingsPath::PATH) hx-swap="none" {
                 // ── Tolerance ──
                 div class="data-card" {
-                    div class="form-section-title" { "收货容差" }
-                    div class="form-grid" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "收货容差" }
+                    div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                         div class="form-field" {
-                            label class="form-label" { "超收容差百分比 (%)" }
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "超收容差百分比 (%)" }
                             input type="number" step="0.01" min="0" max="100"
                                 name="over_delivery_allowance_pct"
                                 value=(s.over_delivery_allowance_pct)
-                                class="form-input";
+                                class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]";
                             span class="text-muted" {
                                 "收货数量超过订单数量的最大允许百分比，0 表示不允许超收"
                             }
                         }
                         div class="form-field" {
-                            label class="form-label" { "超欠容差百分比 (%)" }
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "超欠容差百分比 (%)" }
                             input type="number" step="0.01" min="0" max="100"
                                 name="over_shortage_allowance_pct"
                                 value=(s.over_shortage_allowance_pct)
-                                class="form-input";
+                                class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]";
                             span class="text-muted" {
                                 "收货数量少于订单数量的最大允许百分比"
                             }
@@ -138,9 +138,9 @@ fn settings_page(
 
                 // ── Business Rules ──
                 div class="data-card" {
-                    div class="form-section-title" { "业务规则" }
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "业务规则" }
                     div class="form-field" {
-                        label class="checkbox-row" {
+                        label class="flex items-center gap-2 text-[13px] text-fg cursor-pointer mt-1.5" {
                             input type="checkbox" name="maintain_same_rate" value="true"
                                 checked[s.maintain_same_rate] {};
                             span { "启用价格一致性校验" }
@@ -150,14 +150,14 @@ fn settings_page(
                         }
                     }
                     div class="form-field" {
-                        label class="checkbox-row" {
+                        label class="flex items-center gap-2 text-[13px] text-fg cursor-pointer mt-1.5" {
                             input type="checkbox" name="po_required_for_receipt" value="true"
                                 checked[s.po_required_for_receipt] {};
                             span { "收货必须关联采购订单" }
                         }
                     }
                     div class="form-field" {
-                        label class="checkbox-row" {
+                        label class="flex items-center gap-2 text-[13px] text-fg cursor-pointer mt-1.5" {
                             input type="checkbox" name="receipt_required_for_invoice" value="true"
                                 checked[s.receipt_required_for_invoice] {};
                             span { "开票前必须完成收货" }
@@ -167,19 +167,19 @@ fn settings_page(
 
                 // ── Defaults ──
                 div class="data-card" {
-                    div class="form-section-title" { "默认值" }
-                    div class="form-grid" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "默认值" }
+                    div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                         div class="form-field" {
-                            label class="form-label" { "默认币种" }
-                            select name="default_currency_code" class="form-select" {
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "默认币种" }
+                            select name="default_currency_code" class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" {
                                 option value="CNY" selected[s.default_currency_code == "CNY"] { "CNY 人民币" }
                                 option value="USD" selected[s.default_currency_code == "USD"] { "USD 美元" }
                                 option value="EUR" selected[s.default_currency_code == "EUR"] { "EUR 欧元" }
                             }
                         }
                         div class="form-field" {
-                            label class="form-label" { "默认税率" }
-                            select name="default_tax_rate_id" class="form-select" {
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "默认税率" }
+                            select name="default_tax_rate_id" class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" {
                                 option value="" selected[s.default_tax_rate_id.is_none()] { "— 不设置 —" }
                                 @for tr in tax_rates {
                                     option value=(tr.id)

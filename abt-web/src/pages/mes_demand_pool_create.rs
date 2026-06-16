@@ -294,33 +294,33 @@ fn create_page_content(
 
                 // ── Section 1: Plan Info ──
                 div class="form-section" {
-                    div class="form-section-title" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                         (icon::sliders_icon("w-[18px] h-[18px]"))
                         "计划信息"
                     }
-                    div class="form-grid" {
+                    div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                         div class="form-field" {
-                            label class="form-label" { "物料名称 " span style="color:var(--danger)" { "*" } }
-                            input class="form-input" type="text" readonly
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "物料名称 " span style="color:var(--danger)" { "*" } }
+                            input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" readonly
                                 value=(product_name)
                                 style="background:var(--surface);" {}
                         }
                         div class="form-field" {
-                            label class="form-label" { "物料编码" }
-                            input class="form-input mono" type="text" readonly
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "物料编码" }
+                            input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] mono" type="text" readonly
                                 value=(product_code)
                                 style="background:var(--surface);" {}
                         }
                         div class="form-field" {
-                            label class="form-label" { "计划类型 " span style="color:var(--danger)" { "*" } }
-                            select class="form-select" name="plan_type" required {
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "计划类型 " span style="color:var(--danger)" { "*" } }
+                            select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="plan_type" required {
                                 option value="1" selected { "按单生产 (MTO)" }
                                 option value="2" { "按库存备货 (MTS)" }
                             }
                         }
                         div class="form-field" {
-                            label class="form-label" { "计划日期 " span style="color:var(--danger)" { "*" } }
-                            input class="form-input" type="date" name="plan_date"
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "计划日期 " span style="color:var(--danger)" { "*" } }
+                            input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="date" name="plan_date"
                                 value=(today) required {}
                         }
                     }
@@ -328,47 +328,47 @@ fn create_page_content(
 
                 // ── Section 2: Default Scheduling Parameters ──
                 div class="form-section" {
-                    div class="form-section-title" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                         (icon::clock_icon("w-[18px] h-[18px]"))
                         "默认排程参数"
                     }
                     div class="scheduling-hint" {
                         "以下参数将应用于所有未单独配置的需求行。可在需求明细中逐行修改排程日期。"
                     }
-                    div class="form-grid" style="grid-template-columns:repeat(4,1fr)" {
+                    div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" style="grid-template-columns:repeat(4,1fr)" {
                         div class="form-field" {
-                            label class="form-label" { "默认排程开始" }
-                            input class="form-input" type="date"
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "默认排程开始" }
+                            input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="date"
                                 id="defaultStart"
                                 name="default_scheduled_start"
                                 value=(default_start) {}
                         }
                         div class="form-field" {
-                            label class="form-label" { "默认排程结束" }
-                            input class="form-input" type="date"
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "默认排程结束" }
+                            input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="date"
                                 id="defaultEnd"
                                 name="default_scheduled_end"
                                 value=(default_end) {}
                         }
                         div class="form-field" {
-                            label class="form-label" { "工作中心" }
-                            select class="form-select" disabled title="待 work_centers 主数据建成" {
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "工作中心" }
+                            select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" disabled title="待 work_centers 主数据建成" {
                                 option value="" selected { "自动推断" }
                             }
                         }
                         div class="form-field" {
-                            label class="form-label" { "优先级" }
-                            select class="form-select" id="defaultPriority" name="default_priority" {
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "优先级" }
+                            select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" id="defaultPriority" name="default_priority" {
                                 option value="2" selected { "普通 (2)" }
                                 option value="1" { "高 (1)" }
                                 option value="3" { "低 (3)" }
                             }
                         }
                     }
-                    div class="form-grid" style="margin-top:var(--space-4)" {
+                    div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" style="margin-top:var(--space-4)" {
                         div class="form-field" {
-                            label class="form-label" { "备注" }
-                            textarea class="form-input" name="remark"
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "备注" }
+                            textarea class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="remark"
                                 placeholder="可选填写生产备注…"
                                 rows="1" {}
                         }
@@ -378,7 +378,7 @@ fn create_page_content(
                 // ── Section 3: Demand Details ──
                 div class="form-section" {
                     div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--space-3);" {
-                        div class="form-section-title" style="margin:0;padding:0;border:none;" {
+                        div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" style="margin:0;padding:0;border:none;" {
                             (icon::clipboard_list_icon("w-[18px] h-[18px]"))
                             "需求明细"
                             @if let Some(pid) = product_id {
@@ -586,12 +586,12 @@ fn demand_row(d: &DemandSummary, preselected_ids: &[i64]) -> Markup {
             td class="num-right mono demand-qty" { (fmt_qty(d.quantity)) }
             td class="mono" { (req_date) }
             td {
-                input class="form-input" type="date"
+                input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="date"
                     value=(row_start)
                     style="width:130px;font-size:12px;padding:4px 6px;" {}
             }
             td {
-                input class="form-input" type="date"
+                input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="date"
                     value=(row_end)
                     style="width:130px;font-size:12px;padding:4px 6px;" {}
             }

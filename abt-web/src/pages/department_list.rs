@@ -611,25 +611,25 @@ fn dept_drawer_fragment(is_edit: bool, dept: Option<&Department>) -> Markup {
                     div class="drawer-label" { "基本信息" }
                     div class="form-row" {
                         label { "部门名称 " span class="req" { "*" } }
-                        input class="form-input" type="text" name="department_name"
+                        input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="department_name"
                             required placeholder="如：销售部" value=(name_val) {}
                     }
                     div class="form-row" {
                         label { "部门代码 " span class="req" { "*" } }
                         @if is_edit {
-                            input class="form-input form-input-readonly" type="text" name="department_code"
+                            input class="form-input w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]-readonly" type="text" name="department_code"
                                 required placeholder="如：SA"
                                 value=(code_val)
                                 readonly {}
                         } @else {
-                            input class="form-input form-input-mono" type="text" name="department_code"
+                            input class="form-input w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]-mono" type="text" name="department_code"
                                 required placeholder="如：SA"
                                 value=(code_val) {}
                         }
                     }
                     div class="form-row" {
                         label { "部门描述" }
-                        textarea class="form-input" name="description"
+                        textarea class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="description"
                             placeholder="描述该部门的职责和业务范围…" {
                             (desc_val)
                         }
@@ -641,7 +641,7 @@ fn dept_drawer_fragment(is_edit: bool, dept: Option<&Department>) -> Markup {
                     div class="drawer-label" { "设置" }
                     @if is_edit {
                         div class="form-row" {
-                            label class="form-check" {
+                            label class="flex items-center gap-2 text-[13px] cursor-pointer py-1.5" {
                                 input type="checkbox" name="is_active" value="true"
                                     checked[is_active_val] {}
                                 "启用部门"
@@ -653,10 +653,10 @@ fn dept_drawer_fragment(is_edit: bool, dept: Option<&Department>) -> Markup {
                     @if let Some(d) = dept {
                         @if d.is_default {
                             div class="form-row" {
-                                label class="form-check" {
+                                label class="flex items-center gap-2 text-[13px] cursor-pointer py-1.5" {
                                     input type="checkbox" checked disabled {}
                                     "默认部门"
-                                    span class="form-check-hint" { "（系统默认部门不可取消）" }
+                                    span class="flex items-center gap-2 text-[13px] cursor-pointer py-1.5-hint" { "（系统默认部门不可取消）" }
                                 }
                             }
                         }

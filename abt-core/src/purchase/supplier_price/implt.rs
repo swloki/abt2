@@ -2,10 +2,10 @@ use async_trait::async_trait;
 use rust_decimal::Decimal;
 use sqlx::postgres::PgPool;
 
-use super::model::SupplierProductPrice;
+use super::model::{PriceListQuery, PriceUpsertRequest, PriceView, SupplierProductPrice};
 use super::repo::SupplierProductPriceRepo;
 use super::service::SupplierPriceService;
-use crate::shared::types::PgExecutor;
+use crate::shared::types::{DomainError, PageParams, PaginatedResult, PgExecutor};
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::Result;
 
@@ -60,16 +60,47 @@ impl SupplierPriceService for SupplierPriceServiceImpl {
         SupplierProductPriceRepo::list_by_product(&mut *db, product_id).await
     }
 
+    async fn list_prices(
+        &self,
+        _ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        filter: PriceListQuery,
+        page: PageParams,
+    ) -> Result<PaginatedResult<PriceView>> {
+        let page_no = page.page;
+        let page_size = page.page_size;
+        let (items, total) = SupplierProductPriceRepo::list_prices(&mut *db, &filter, page).await?;
+        Ok(PaginatedResult::new(items, total, page_no, page_size))
+    }
+
+    async fn get_price(
+        &self,
+        _ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        id: i64,
+    ) -> Result<PriceView> {
+        SupplierProductPriceRepo::get_by_id(&mut *db, id)
+            .await?
+            .ok_or_else(|| DomainError::not_found("供应商价格记录"))
+    }
+
     async fn create_price(
         &self,
         _ctx: &ServiceContext,
         db: PgExecutor<'_>,
-        supplier_id: i64,
-        product_id: i64,
-        price: Decimal,
-        currency_code: String,
+        req: PriceUpsertRequest,
+    ) -> Result<i64> {
+        SupplierProductPriceRepo::insert_full(&mut *db, &req).await
+    }
+
+    async fn update_price(
+        &self,
+        _ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        id: i64,
+        req: PriceUpsertRequest,
     ) -> Result<()> {
-        SupplierProductPriceRepo::insert(&mut *db, supplier_id, product_id, price, &currency_code).await
+        SupplierProductPriceRepo::update_by_id(&mut *db, id, &req).await
     }
 
     async fn delete_price(

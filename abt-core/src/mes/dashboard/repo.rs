@@ -236,7 +236,7 @@ impl DashboardRepo {
                    b.plan_item_id,
                    p.pdt_name AS product_name,
                    pb.batch_no,
-                   wor.process_name, wor.step_order,
+                   wor.process_name, wor.step_no AS step_order,
                    pb.status AS batch_status
                FROM work_center_bookings b
                JOIN work_orders wo ON wo.id = b.work_order_id
@@ -247,7 +247,7 @@ impl DashboardRepo {
                     AND wor.work_center_id = b.work_center_id
                WHERE b.work_center_id = ANY($1)
                  AND b.date_from < $3 AND b.date_to > $2
-               ORDER BY b.id, wor.step_order"#,
+               ORDER BY b.id, wor.step_no"#,
         )
         .bind(work_center_ids)
         .bind(from)
@@ -303,7 +303,7 @@ impl DashboardRepo {
                ),
                avail AS (
                    SELECT wd.id, wd.code, wd.name, wd.d,
-                          COALESCE(SUM(EXTRACT(EPOCH FROM (cl.to_time - cl.from_time)) / 60), 0) AS avail_mins
+                         COALESCE(SUM((EXTRACT(EPOCH FROM (cl.to_time - cl.from_time)) / 60)::numeric), 0) AS avail_mins
                    FROM wc_days wd
                    LEFT JOIN work_calendar_lines cl
                          ON cl.calendar_id = wd.calendar_id AND cl.weekday = wd.dow

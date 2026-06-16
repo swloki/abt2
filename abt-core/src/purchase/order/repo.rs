@@ -326,7 +326,8 @@ impl PurchaseOrderItemRepo {
         sqlx::query_as::<_, PurchaseOrderItem>(
             r#"
             SELECT id, order_id, line_no, product_id, description, quantity, unit_price,
-                   amount, received_qty, inspected_qty, returned_qty,
+                   amount, received_qty, inspected_qty, returned_qty, quotation_item_id,
+                   expected_delivery_date,
                    discount_pct, tax_rate_id, price_subtotal, price_tax, price_total,
                    qty_invoiced, invoice_status
             FROM purchase_order_items

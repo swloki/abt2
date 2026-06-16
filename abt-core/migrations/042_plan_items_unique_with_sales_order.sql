@@ -9,5 +9,5 @@
 ALTER TABLE production_plan_items
     DROP CONSTRAINT IF EXISTS production_plan_items_plan_id_product_id_key;
 
-CREATE UNIQUE INDEX production_plan_items_plan_product_so_idx
+CREATE UNIQUE INDEX IF NOT EXISTS production_plan_items_plan_product_so_idx
     ON production_plan_items (plan_id, product_id, COALESCE(sales_order_id, 0));

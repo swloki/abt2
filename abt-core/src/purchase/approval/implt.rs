@@ -2,10 +2,10 @@ use async_trait::async_trait;
 use rust_decimal::Decimal;
 use sqlx::postgres::PgPool;
 
-use super::model::PurchaseApprovalRule;
+use super::model::{PurchaseApprovalRule, RuleUpsertRequest};
 use super::repo::PurchaseApprovalRuleRepo;
 use super::service::PurchaseApprovalService;
-use crate::shared::types::PgExecutor;
+use crate::shared::types::{DomainError, PgExecutor};
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::Result;
 
@@ -36,24 +36,37 @@ impl PurchaseApprovalService for PurchaseApprovalServiceImpl {
         _ctx: &ServiceContext,
         db: PgExecutor<'_>,
     ) -> Result<Vec<PurchaseApprovalRule>> {
-        PurchaseApprovalRuleRepo::list_active(&mut *db).await
+        PurchaseApprovalRuleRepo::list_all(&mut *db).await
+    }
+
+    async fn get_rule(
+        &self,
+        _ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        id: i64,
+    ) -> Result<PurchaseApprovalRule> {
+        PurchaseApprovalRuleRepo::find_by_id(&mut *db, id)
+            .await?
+            .ok_or_else(|| DomainError::not_found("审批规则"))
     }
 
     async fn create_rule(
         &self,
         _ctx: &ServiceContext,
         db: PgExecutor<'_>,
-        name: String,
-        min_amount: Decimal,
-        max_amount: Option<Decimal>,
-        approver_role: String,
-        approver_id: Option<i64>,
-        sort_order: i32,
+        req: RuleUpsertRequest,
+    ) -> Result<i64> {
+        PurchaseApprovalRuleRepo::insert(&mut *db, &req).await
+    }
+
+    async fn update_rule(
+        &self,
+        _ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        id: i64,
+        req: RuleUpsertRequest,
     ) -> Result<()> {
-        PurchaseApprovalRuleRepo::insert(
-            &mut *db, &name, min_amount, max_amount, &approver_role, approver_id, sort_order,
-        )
-        .await
+        PurchaseApprovalRuleRepo::update_by_id(&mut *db, id, &req).await
     }
 
     async fn delete_rule(

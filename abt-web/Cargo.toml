@@ -7,6 +7,10 @@ edition = "2024"
 name = "abt-web"
 path = "src/main.rs"
 
+[lib]
+name = "abt_web"
+path = "src/lib.rs"
+
 [dependencies]
 # Internal
 abt-core = { path = "../abt-core" }
@@ -16,11 +20,9 @@ abt-macros = { path = "../abt-macros" }
 # Web framework
 axum = { version = "0.8", features = ["multipart"] }
 axum-extra = { version = "0.12", features = ["typed-routing"] }
-axum-server = { version = "0.7", features = ["tls-rustls"] }
-rustls = { version = "0.23", default-features = false, features = ["ring", "logging", "std", "tls12"] }
+axum-server = "0.7"
 maud = { version = "0.27", features = ["axum"] }
-tower-http = { version = "0.6", features = ["fs", "trace", "compression-gzip", "compression-br"] }
-rcgen = "0.13"
+tower-http = { version = "0.6", features = ["fs", "trace"] }
 tower = "0.5"
 
 # Async
@@ -48,3 +50,8 @@ dashmap = "6"
 rust_xlsxwriter = { workspace = true }
 anyhow = { workspace = true }
 headers = "0.4"
+
+[dev-dependencies]
+tower = { version = "0.5", features = ["util"] }
+tower-sessions = { version = "0.14", features = ["memory-store"] }
+http-body-util = "0.1"

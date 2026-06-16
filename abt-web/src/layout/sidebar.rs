@@ -199,9 +199,27 @@ fn modules() -> Vec<NavModule> {
                     permission: Some(("PURCHASE_ORDER", "read")),
                 },
                 NavItem {
+                    name: "供应商价格目录",
+                    path: "/admin/purchase/supplier-prices",
+                    icon: NavIcon::Tag,
+                    permission: Some(("PURCHASE_ORDER", "read")),
+                },
+                NavItem {
                     name: "供应商管理",
                     path: "/admin/md/suppliers",
                     icon: NavIcon::Building,
+                    permission: Some(("SUPPLIER", "read")),
+                },
+                NavItem {
+                    name: "采购审批规则",
+                    path: "/admin/purchase/approval-rules",
+                    icon: NavIcon::Lock,
+                    permission: Some(("PURCHASE_ORDER", "read")),
+                },
+                NavItem {
+                    name: "采购参数设置",
+                    path: "/admin/purchase/settings",
+                    icon: NavIcon::Wrench,
                     permission: Some(("SUPPLIER", "read")),
                 },
             ],

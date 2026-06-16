@@ -4377,21 +4377,101 @@ textarea.form-input{min-height:72px;resize:vertical;font-family:var(--font-body)
 .tab-btn{padding:8px 16px;border:none;background:none;cursor:pointer;color:#999;border-bottom:2px solid transparent;transition:all .2s;font-size:14px}
 .tab-btn.active{color:#165dff;border-bottom-color:#165dff;font-weight:500}
 .tab-btn:hover{color:#333}
-/* ── Gantt ── */
-.gantt-table-wrap{overflow-x:auto;border:1px solid #e5e7eb;border-radius:6px}
-.gantt-table{width:100%;border-collapse:collapse;min-width:800px}
-.gantt-table th,.gantt-table td{border:1px solid #e5e7eb;padding:0;vertical-align:top}
-.gantt-row-header{width:140px;min-width:140px;padding:8px 12px!important;background:#fafafa;font-weight:500}
-.gantt-col-header{text-align:center;padding:8px!important;background:#fafafa;font-size:13px}
-.gantt-day-name{color:#999;font-size:11px}
-.gantt-cell{min-width:120px;height:80px;padding:4px!important}
-.gantt-empty-cell{display:flex;align-items:center;justify-content:center;height:100%;color:#ddd}
-.gantt-block{display:block;padding:4px 8px;margin-bottom:4px;border-radius:4px;text-decoration:none;color:#333;font-size:12px;transition:transform .15s}
-.gantt-block:hover{transform:translateY(-1px);box-shadow:0 2px 4px rgba(0,0,0,.1)}
-.gantt-block.status-released{background:rgba(0,122,255,.08);border-left:3px solid #007aff}
-.gantt-block.status-in-production{background:rgba(82,196,26,.08);border-left:3px solid #52c41a}
-.gantt-block.status-other{background:rgba(255,159,67,.08);border-left:3px solid #ff9f43}
-.gantt-block-title{font-weight:500}
-.gantt-block-batch{font-size:11px}
-.gantt-controls{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
-.gantt-range-label{font-size:14px;font-weight:500}
+/* ── Old Gantt CSS removed (replaced by Schedule Board Redesign below) ── */
+
+/* ============================================================ */
+/* Schedule Board Redesign (Odoo-style Gantt + Load + Kanban)   */
+/* ============================================================ */
+
+/* ── Stats Row ── */
+.board-stats{display:flex;gap:12px;margin-bottom:20px}
+.board-stat-card{flex:1;display:flex;flex-direction:column;align-items:center;padding:16px 12px;background:#fff;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.06);border:1px solid #f0f0f0;position:relative;overflow:hidden}
+.board-stat-card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px}
+.board-stat-card.bs-primary::before{background:#4f7df9}
+.board-stat-card.bs-pending::before{background:#fa8c16}
+.board-stat-card.bs-progress::before{background:#52c41a}
+.board-stat-card.bs-receipt::before{background:#722ed1}
+.board-stat-card.bs-done::before{background:#8c8c8c}
+.board-stat-value{font-size:28px;font-weight:700;line-height:1.2}
+.board-stat-label{font-size:13px;color:#8c8c8c;margin-top:4px}
+.board-stat-card.bs-primary .board-stat-value{color:#4f7df9}
+.board-stat-card.bs-pending .board-stat-value{color:#fa8c16}
+.board-stat-card.bs-progress .board-stat-value{color:#52c41a}
+.board-stat-card.bs-receipt .board-stat-value{color:#722ed1}
+.board-stat-card.bs-done .board-stat-value{color:#8c8c8c}
+
+/* ── Toolbar ── */
+.schedule-toolbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;gap:12px;flex-wrap:wrap}
+.schedule-tabs{display:inline-flex;background:#f5f5f5;border-radius:10px;padding:3px;gap:2px}
+.schedule-tabs .tab-btn{padding:7px 18px;border:none;background:none;cursor:pointer;color:#8c8c8c;border-radius:8px;transition:all .2s;font-size:14px;font-weight:500;border-bottom:none}
+.schedule-tabs .tab-btn.active{background:#fff;color:#262626;box-shadow:0 1px 3px rgba(0,0,0,.08);font-weight:600}
+.schedule-tabs .tab-btn:hover{color:#595959}
+.schedule-date-nav{display:flex;align-items:center;gap:8px}
+.date-nav-btn{width:32px;height:32px;display:flex;align-items:center;justify-content:center;border:1px solid #e8e8e8;background:#fff;border-radius:8px;cursor:pointer;font-size:16px;color:#595959;transition:all .2s}
+.date-nav-btn:hover{background:#f5f5f5;border-color:#d9d9d9}
+.date-range-label{font-size:14px;font-weight:500;color:#595959;min-width:100px;text-align:center}
+
+/* ── Gantt Chart ── */
+.gantt-wrap{overflow-x:auto;border-radius:10px;border:1px solid #e8e8e8;background:#fff}
+.gantt-table{width:100%;border-collapse:collapse;table-layout:fixed;min-width:800px}
+.gantt-table thead th{position:sticky;top:0;z-index:2;background:#fafafa}
+.gantt-corner{width:150px;min-width:150px;border-bottom:2px solid #e8e8e8}
+.gantt-date-header{padding:8px 4px;text-align:center;border-bottom:2px solid #e8e8e8;border-left:1px solid #f0f0f0;min-width:60px}
+.gantt-date-header.gantt-date-today{background:rgba(79,125,249,.06)}
+.gantt-date-header.gantt-date-weekend{background:#fafafa}
+.gantt-date-day{display:block;font-size:13px;font-weight:600;color:#262626}
+.gantt-date-weekday{display:block;font-size:11px;color:#8c8c8c;margin-top:2px}
+.gantt-date-today .gantt-date-day{color:#4f7df9}
+.gantt-wc-cell{padding:8px 10px;border-bottom:1px solid #f0f0f0;background:#fafafa;text-align:center;position:sticky;left:0;z-index:1}
+.gantt-wc-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:middle}
+.gantt-wc-name{font-size:13px;font-weight:500;color:#262626}
+.gantt-wc-type{display:block;font-size:11px;color:#bfbfbf;margin-top:2px}
+.gantt-cell{padding:4px;border-bottom:1px solid #f0f0f0;border-left:1px solid #f0f0f0;vertical-align:top;height:48px}
+.gantt-cell.gantt-cell-today{background:rgba(79,125,249,.03)}
+.gantt-cell.gantt-cell-weekend{background:rgba(0,0,0,.015)}
+.gantt-cell-empty{display:block}
+
+/* Gantt blocks (override old .gantt-block) */
+.gantt-block{display:block;padding:4px 8px;margin-bottom:3px;border-radius:6px;text-decoration:none;font-size:11px;line-height:1.4;transition:transform .15s,box-shadow .15s;border-left:3px solid;cursor:pointer;color:#fff}
+.gantt-block:hover{transform:translateY(-1px);box-shadow:0 2px 6px rgba(0,0,0,.15);text-decoration:none;color:#fff}
+.gantt-block-title{font-weight:600;font-size:11px;color:#fff}
+.gantt-block-process{font-size:10px;opacity:.85;color:#fff}
+.gantt-block-arrow{float:right;font-weight:700}
+
+/* Color palette (Odoo-inspired) */
+.gantt-color-0{background:#4f7df9}
+.gantt-color-1{background:#34a853}
+.gantt-color-2{background:#a853d4}
+.gantt-color-3{background:#f59e0b}
+.gantt-color-4{background:#06b6d4}
+.gantt-color-5{background:#ec4899}
+.gantt-color-6{background:#6366f1}
+.gantt-color-7{background:#eab308}
+
+/* ── Load Analysis ── */
+.load-wrap{overflow-x:auto;border-radius:10px;border:1px solid #e8e8e8;background:#fff}
+.load-table{width:100%;border-collapse:collapse;table-layout:fixed;min-width:800px}
+.load-table thead th{position:sticky;top:0;z-index:2;background:#fafafa}
+.load-corner{width:150px;min-width:150px;border-bottom:2px solid #e8e8e8}
+.load-date-header{padding:8px 4px;text-align:center;border-bottom:2px solid #e8e8e8;border-left:1px solid #f0f0f0;min-width:60px}
+.load-date-header.gantt-date-today{background:rgba(79,125,249,.06)}
+.load-date-header.gantt-date-weekend{background:#fafafa}
+.load-wc-cell{padding:8px 10px;border-bottom:1px solid #f0f0f0;background:#fafafa;vertical-align:middle;position:sticky;left:0;z-index:1}
+.load-cell{padding:3px;border-bottom:1px solid #f0f0f0;border-left:1px solid #f0f0f0;text-align:center;height:48px}
+.load-cell-block{display:flex;align-items:center;justify-content:center;height:100%;border-radius:8px;font-size:12px;font-weight:600;transition:transform .15s;cursor:default}
+.load-cell-block:hover{transform:scale(1.05)}
+.load-cell-pct{font-size:12px;font-weight:700}
+.load-level-empty{background:#f5f5f5;color:#bfbfbf}
+.load-level-low{background:rgba(82,196,26,.12);color:#389e0d}
+.load-level-mid{background:rgba(250,140,22,.15);color:#d46b08}
+.load-level-high{background:rgba(245,34,45,.12);color:#cf1322}
+
+/* ── Load Legend ── */
+.load-legend{display:flex;gap:16px;justify-content:flex-end;margin-top:12px;padding:8px 0}
+.load-legend-item{display:flex;align-items:center;gap:6px;font-size:12px;color:#8c8c8c}
+.load-legend-swatch{width:14px;height:14px;border-radius:4px}
+
+/* ── Empty State ── */
+.schedule-empty{text-align:center;padding:60px 20px;color:#8c8c8c}
+.schedule-empty-icon{font-size:40px;margin-bottom:12px}
+.schedule-empty p{font-size:14px;margin:0}

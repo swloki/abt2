@@ -555,4 +555,23 @@ impl AppState {
             .filter(|r| r.value().user_id == user_id)
             .map(|r| r.value().clone())
     }
-}
+
+    /// Construct AppState from an existing PgPool + permission cache.
+    ///
+    /// Intended for integration tests that need a real DB pool but don't want
+    /// to go through `Config::from_env()`.
+    pub fn from_pool(pool: PgPool, permission_cache: Arc<RolePermissionCache>) -> Self {
+    Self {
+        pool,
+        jwt_secret: String::from("test-secret"),
+        jwt_expiration_hours: 72,
+        session_store: FileSessionStorage::new_in_folder(
+            std::path::PathBuf::from("test-sessions"),
+        ),
+        permission_cache,
+        import_progress: Arc::new(DashMap::new()),
+        export_files: Arc::new(DashMap::new()),
+        next_task_id: Arc::new(AtomicI64::new(1)),
+        import_semaphore: Arc::new(Semaphore::new(5)),
+    }
+}}

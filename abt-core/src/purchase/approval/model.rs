@@ -16,3 +16,15 @@ pub struct PurchaseApprovalRule {
     pub updated_at: DateTime<Utc>,
     pub deleted_at: Option<DateTime<Utc>>,
 }
+
+/// 创建/更新审批规则请求
+#[derive(Debug, Clone)]
+pub struct RuleUpsertRequest {
+    pub name: String,
+    pub min_amount: Decimal,
+    pub max_amount: Option<Decimal>,
+    pub approver_role: String,
+    pub approver_id: Option<i64>,
+    pub sort_order: i32,
+    pub is_active: bool,
+}

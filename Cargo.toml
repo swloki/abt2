@@ -22,11 +22,8 @@ tonic-types = "0.14"
 
 
 [profile.dev]
-debug = 1
-split-debuginfo = "packed"
+debug = 0
 
-[profile.dev.package."*"]
-opt-level = 1
 
 [profile.release]
 lto = true

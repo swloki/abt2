@@ -25,16 +25,8 @@
 .sidebar-collapsed .sidebar-body { display: none; }
 .sidebar-collapsed .sidebar-rail { border-right: none; }
 
-/* ── Sidebar Nav ── */
-
-/* ── Sidebar User ── */
-
-/* ─── User Menu Dropdown ─── */
-
-/* ─── Role List ─── */
 @media (max-width: 768px) { .role-stats { grid-template-columns: 1fr; } }
 
-/* ─── Responsive Layout ─── */
 @media (max-width: 768px) {
   .mobile-menu-btn { display: grid; }
   .mobile-nav { display: block; }
@@ -49,7 +41,6 @@
   .page-content { padding: var(--space-4); }
     }
 
-/* ─── Data Card / Table ─── */
 /* data-card 包含表单内容时自动加 padding（列表页 .data-card-scroll / inline padding:0 不受影响） */
 .data-card:has(> .form-section-title),
 .data-card:has(> div > .form-section-title),
@@ -59,38 +50,14 @@
 .row-actions:has(.row-actions-menu.is-open) .row-actions-menu a,
 
 /* ─── Category Select (Product Create modal) ─── */
-.category-select-item { }
 .category-select-item.expanded > .category-select-info > .category-tree-toggle {
   transform: rotate(90deg);
 }
 
-/* ─── Price Drawer internal ─── */
-/* ─── BOM Drawer internal ─── */
-/* ─── Detail Drawer (price history) ─── */
-
-/* ─── Product Select List (Modal) ─── */
-
 /* ─── Confirm Dialog ─── */
- to { opacity: 1; transform: translateY(0) scale(1); } }
-
-/* ─── Form ─── */
-
-/* ─── System Management ─── */
-
-/* ─── Credit Ring ─── */
-
-/* ─── History Table ─── */
-
-/* ─── Utility ─── */
 
 /* ─── BOM Row Level Styles (matching legacy getNodeRowStyle) ─── */
-.bom-row-level-default { }
 
-/* ─── BOM Edit Toolbar ─── */
-
-/* ─── Cost Drawer ─── */
-/* ─── Temp Price Override ─── */
-/* ─── Component Responsive ─── */
 @media (max-width: 1024px) {
   .detail-grid { grid-template-columns: 1fr 1fr; }
   .detail-top { flex-direction: column; gap: var(--space-4); }
@@ -100,7 +67,6 @@
     .modal { width: 95vw; }
   .detail-top { flex-direction: column; }
 }
-/* ─── Permission Config (Role Create/Edit) ─── */
 
 @media (max-width: 768px) {
   .perm-row { grid-template-columns: 1fr 60px 60px 60px 60px; font-size: 12px; padding: var(--space-2); }
@@ -108,9 +74,6 @@
   .perm-group-actions { flex-direction: column; gap: var(--space-1); }
 }
 
-/* ── Left: Role List ── */
-
-/* ── Mobile ── */
 @media(max-width:768px){
   .perm-layout{flex-direction:column;padding:8px}
   .role-panel{width:100%;min-width:100%;max-height:40vh}
@@ -123,8 +86,6 @@
   .stat-item:last-child{padding-left:0}
 }
 
-/* ── Left: Tree panel ── */
-
 /* ── Drawer ── */
 textarea.drawer-tip{background:var(--accent-bg);border:1px solid rgba(22,119,255,.1);border-radius:var(--radius-md);padding:var(--space-3) var(--space-4);font-size:12px;color:var(--fg-2);line-height:1.6;display:flex;gap:var(--space-2)}
 
@@ -135,45 +96,18 @@ textarea.drawer-tip{background:var(--accent-bg);border:1px solid rgba(22,119,255
   .member-grid{grid-template-columns:1fr}
 }
 
-/* ─── User List Page ─── */
 @media (max-width: 900px) { .user-stats { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 520px) { .user-stats { grid-template-columns: 1fr; } }
 /* ─── User Create Page ─── */
 .password-wrap
-/* ── Role/Dept Picker Grid ── */
-
-/* ── Line Item Table Inputs (shared by quotation/order/return create/edit) ── */
-
-/* ── Urgency hint (demand pool) ── */
 
 /* ── Demand expand (demand pool) ── */
 .demand-expand-inner
-
-/* ── Tag chip variants (demand pool priority) ── */
-
-/* ── Demand row processed (demand pool) ── */
-
-/* ── Form Section card (User Create/Edit) ── */
-/* Upload area for attachments */
-/* Product search scroll */
-/* Loading placeholder */
 
 @media(max-width:768px){
   .pick-grid{grid-template-columns:repeat(2,1fr)}
   .scope-options{grid-template-columns:1fr}
 }
-
-/* ─── User Detail: Profile Hero ─── */
-
-/* ─── User Detail: Grid & Cards ─── */
-
-/* ─── User Detail: Info Rows ─── */
-
-/* ─── User Detail: Role List ─── */
-
-/* ─── User Detail: Dept List ─── */
-
-/* ─── User Detail: Permission Preview ─── */
 
 @media(max-width:768px){
   .detail-grid{grid-template-columns:1fr}
@@ -181,19 +115,8 @@ textarea.drawer-tip{background:var(--accent-bg);border:1px solid rgba(22,119,255
   .profile-stats{flex-direction:column}
 }
 
-/* ─── Additional Utility Classes ─── */
-
 /* Form section card — matches prototype 03-stockin-create.html */
 .wms-form-section .wms-form-section /* 4-column form grid for WMS pages */
-/* Detail table — compact editable table for line items */
-/* Type switch — card-style selector */
-/* Source info panel */
-/* Add/remove row buttons */
-/* Stat card for dashboard */
-/* Quick link — small card */
-/* Section title */
-/* Form select styling */
-/* Responsive overrides for WMS */
 @media (max-width: 1024px) {
   .wms-form-grid { grid-template-columns: repeat(2, 1fr); }
 }
@@ -201,22 +124,13 @@ textarea.drawer-tip{background:var(--accent-bg);border:1px solid rgba(22,119,255
   .wms-form-grid { grid-template-columns: 1fr; }
   .type-switch { flex-direction: column; }
 }
-/* Strategy management */
-/* Quick Entry Card */
-/* Backflush detail */
 @media (max-width: 768px) {
   .summary-bar { grid-template-columns: 1fr; }
 }
 
-/* ─── Login: Brand Panel ─── */
-
 /* ─── Field input icon positioning ─── */
 .field-input:focus ~ .field-icon,
 .field-input:focus + .field-icon { color: var(--accent); }
-
-/* ─── Loading spinner ─── */
-
-/* Toast Notification — HTMX Component */
 
 /* auto-dismiss progress bar */
 
@@ -235,8 +149,6 @@ textarea.drawer-tip{background:var(--accent-bg);border:1px solid rgba(22,119,255
   to   { width: 0%; }
 }
 
-/* icon: solid color circle + white SVG */
-
 /* type variants — solid icon bg + tinted card */
 .toast-error { background: #fef2f2; border-color: rgba(220,38,38,0.12); }
 .toast-error::after { background: var(--danger); }
@@ -254,7 +166,6 @@ textarea.drawer-tip{background:var(--accent-bg);border:1px solid rgba(22,119,255
 .toast-info::after { background: var(--info); }
 .toast-info .toast-icon { background: var(--info); }
 
-/* ─── Login Responsive ─── */
 @media (max-width: 920px) {
   .login-shell { grid-template-columns: 1fr; }
   .brand-panel { display: none; }
@@ -264,182 +175,45 @@ textarea.drawer-tip{background:var(--accent-bg);border:1px solid rgba(22,119,255
   .login-panel { padding: 36px 20px; }
 }
 
-/* ─── Missing Global Classes (prototype alignment) ─── */
-
-/* MES / additional status pills */
-
-/* ─── MES: Batch Detail Header ─── */
 @media (max-width: 768px) { .detail-info-grid-5 { grid-template-columns: repeat(2, 1fr); } }
-/* Search-select (entity picker field) */
-/* 2-column grid modifier for form sections */
-
-/* ─── Buttons (Base) ─── */
-
-/* ── Card Query ── */
-
-/* ─── Section Card (replaces data-card for table sections) ─── */
 
 @media(max-width:768px){.card-info-grid{grid-template-columns:repeat(2,1fr)}.flow-step-node{width:40px;height:40px;font-size:12px}.flow-step-bar{top:20px;left:calc(50% + 20px);right:calc(-50% + 20px)}.card-search-box{padding:var(--space-6) var(--space-4)}}
 @media(max-width:480px){.card-info-grid{grid-template-columns:1fr}.card-search-input-wrap{flex-direction:column}}
 /* ─── Outsourcing Detail: Hero Card ─── */
 @keyframes shimmer-bar { 0%, 100% { background-position: 0% 0; } 50% { background-position: 100% 0; } }
-/* ─── Outsourcing Detail: Info Split ─── */
 /* ─── Outsourcing Detail: Tracking Timeline ─── */
 @keyframes pulse-active { 0%, 100% { box-shadow: 0 0 0 5px rgba(37,99,235,0.08), 0 3px 14px rgba(37,99,235,0.3); } 50% { box-shadow: 0 0 0 8px rgba(37,99,235,0.06), 0 4px 18px rgba(37,99,235,0.35); } }
-/* ─── Outsourcing Detail: Sub Section Card ─── */
-/* Flow Row */
-/* Status pills — inherit from global .status-pill definition */
-/* Chart */
-/* ─── Responsive ─── */
 @media(max-width:1200px){.info-key-grid{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:768px){.detail-hero-body{padding:20px}.detail-info-split{grid-template-columns:1fr}.info-progress{padding-left:0;padding-top:20px;border-left:none;border-top:1px solid var(--border-soft)}.tracking-section{padding:20px}.sub-section-title{padding:16px 20px}.amount-bar{padding:16px 20px;flex-direction:column;gap:12px;align-items:flex-end}.track-content{flex-direction:column;gap:10px}.track-status{align-self:flex-start}.info-detail-row{flex-direction:column;gap:6px}}
 @media(max-width:480px){.info-key-grid{grid-template-columns:1fr}.detail-actions{flex-wrap:wrap;width:100%}.detail-actions .btn{flex:1;justify-content:center}}
 
-/* Page content gradient + decorative orbs */
-
-/* Stat Cards Premium — glassmorphism + accent bars */
-
-/* Stat icon — 52x52 + gloss overlay */
-
-/* Quick Entry Premium — glassmorphism + hover lift */
-
-/* Section Cards Premium — glassmorphism */
-
-/* Flow Row Premium — subtle hover */
-
-/* Flow Dot — inflow/outflow with opacity */
-
-/* Mini Avatar — with gloss overlay */
-
-/* Balance Highlight — gradient text */
-
-/* Progress Bar Premium — with gloss */
-
-/* Chart Bar — subtle hover */
-
-/* Section Block Title — with icon accent */
-
-/* Status Pill — progress variant */
-
 /* Page Title Premium — gradient text */
 .fms-dashboard
-/* Button Premium — gradient */
-
-/* Quick Card Badge */
-
-/* ─── FMS Form Page (Expense Create / Journal Create) ─── */
-
-/* Page background gradient + decorative orbs */
-
-/* Title gradient text */
-
-/* Info card — glassmorphism + left accent bar */
 
 /* Form input focus glow */
 .fms-form-page .form-grid input,
 .fms-form-page .form-grid input:focus,
 
-/* Line table — gradient headers + hover rows */
-
-/* Add row button — dashed border + hover gradient */
-
-/* Remove row button */
-
-/* Action bar — glassmorphism */
-
 /* Back link hover */
 .fms-form-page .fms-form-page
-
-/* wo-type pill with dot indicator */
-
-/* Status pill with dot indicator — inherits from global .status-pill */
-
-/* Amount styling */
-
-/* Link cell */
-
-/* Numeric right-aligned */
-
-/* Time cell */
 
 /* ─── FMS List Page (shared gradient background) ─── */
 .fms-list-page .fms-list-page .fms-list-page .fms-list-page .fms-list-page
 
-/* Analysis Tabs — frosted glass */
-
-/* Info card — frosted glass + title decoration */
-
 /* Table header gradient */
 .fms-list-page .info-card
-/* Margin colors — gradient text */
-
-/* Cost breakdown bar */
-
-/* Cost legend */
 
 /* Stat card icon — ensure fixed size in cost analysis */
 
- to { opacity: 1; transform: translateY(0) scale(1);
-  border-radius: 50%;
   flex-shrink: 0;
   box-shadow: 0 0 0 2px currentColor;
   opacity: 0.25;
 }
-/* ── Customer Detail ── */
 
-/* ── Line Items Card (reconciliation/shipping create) ── */
-
-/* ── Order Picker (shipping/reconciliation) ── */
-/* ── Inline style replacement classes ── */
-
-/* ── Import Modal ── */
-
-/* ── Import Modal Utilities ── */
-
-/* ─── Fulfillment Progress Bar ─── */
-
-/* ─── Fulfillment Table ─── */
-
-/* ─── Qty Bar (Fulfillment) ─── */
-
-/* ─── Stock Bar ─── */
-
-/* ── MES UI Alignment: Detail Tabs / Data Quality / WO Progress / Config ── */
-/* detail_tabs component (S3) — tab-panel display controlled by inline style, NOT css */
-/* D1 data quality cards */
-/* work order progress bar (order list) */
-/* source trace (order list) */
-/* info section + production config (product detail) */
-
-/* dq-card card-level variants (DashboardD1 simplified layout — no icon box) */
-
-/* ─── MES Order Detail (4-tab layout) ─── */
-/* wo-progress (detail header) */
-/* audit timeline */
-/* modal variants */
-/* ─── Routing Flow (工序进度可视化) ─── */
 @media(max-width:768px){.bento-grid{grid-template-columns:1fr 1fr}}
 @media(max-width:480px){.bento-grid{grid-template-columns:1fr}.bento-half{grid-column:span 1}.routing-flow{flex-direction:column;gap:var(--space-3);overflow-x:visible}.flow-arrow{display:none}}
 
-/* ─── Plan Detail Header Info Grid ─── */
 @media(max-width:768px){.detail-info-grid{grid-template-columns:repeat(2,1fr)}}
-/* ─── Release Preview (Modal) ─── */
-/* ─── Work Order List (已下达工单紧凑行) ─── */
-/* ── Progress Bar ── */
-/* ── FQC Badge ── */
-/* ── Calc Detail ── */
-
-/* ============================================================ */
-/* Schedule Board Redesign (Odoo-style Gantt + Load + Kanban)   */
-/* ============================================================ */
 
 /* ── Gantt Chart ── */
 .gantt-date-today .gantt-date-day{color:#4f7df9}
-
-/* Gantt blocks (override old .gantt-block) */
-
-/* Color palette (Odoo-inspired) */
-
-/* ── Load Analysis ── */
-
-/* ── Empty State ── */

@@ -9,7 +9,7 @@ use serde::Deserialize;
 use abt_core::master_data::supplier::model::{SupplierQuery, SupplierStatus};
 use abt_core::master_data::supplier::SupplierService;
 use abt_core::shared::identity::UserService;
-use abt_core::purchase::enums::PurchaseOrderStatus;
+use abt_core::purchase::enums::{InvoiceStatus, PurchaseOrderStatus};
 use abt_core::purchase::order::model::*;
 use abt_core::purchase::order::PurchaseOrderService;
 use abt_core::shared::types::PageParams;
@@ -136,6 +136,14 @@ fn status_label(s: PurchaseOrderStatus) -> (&'static str, &'static str) {
         PurchaseOrderStatus::Closed => ("已关闭", "status-cancelled"),
         PurchaseOrderStatus::Cancelled => ("已取消", "status-cancelled"),
         PurchaseOrderStatus::PendingApproval => ("待审批", "status-pending"),
+    }
+}
+
+fn invoice_status_label(s: InvoiceStatus) -> (&'static str, &'static str) {
+    match s {
+        InvoiceStatus::NoInvoice => ("未开票", "status-muted"),
+        InvoiceStatus::ToInvoice => ("部分开票", "status-warning"),
+        InvoiceStatus::FullyInvoiced => ("已开票", "status-success"),
     }
 }
 
@@ -281,6 +289,7 @@ fn po_table_fragment(
                                 th { "订单日期" }
                                 th { "预计到货" }
                                 th { "状态" }
+                                th { "开票" }
                                 th class="num-right" { "总金额" }
                                 th { "业务员" }
                                 th { "操作" }
@@ -292,7 +301,7 @@ fn po_table_fragment(
                             }
                             @if result.items.is_empty() {
                                 tr {
-                                    td colspan="9" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
+                                    td colspan="10" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
                                         "暂无订单数据"
                                     }
                                 }
@@ -332,6 +341,10 @@ fn po_row(
             td class="mono" onclick=(&onclick) { (o.expected_delivery_date.map(|d| d.format("%Y-%m-%d").to_string()).unwrap_or_else(|| "—".into())) }
             td onclick=(&onclick) {
                 span class=(format!("status-pill {status_class}")) { (status_text) }
+            }
+            td onclick=(&onclick) {
+                @let (inv_text, inv_class) = invoice_status_label(o.invoice_status);
+                span class=(format!("status-pill {inv_class}")) { (inv_text) }
             }
             td class="num-right mono" onclick=(&onclick) { (format!("{:.2}", o.total_amount)) }
             td onclick=(&onclick) { (buyer_name) }

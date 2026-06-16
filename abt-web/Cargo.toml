@@ -55,3 +55,4 @@ headers = "0.4"
 tower = { version = "0.5", features = ["util"] }
 tower-sessions = { version = "0.14", features = ["memory-store"] }
 http-body-util = "0.1"
+sqlx = { version = "0.9", features = ["postgres", "runtime-tokio"] }

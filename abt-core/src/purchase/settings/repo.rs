@@ -45,13 +45,13 @@ impl PurchaseSettingsRepo {
         sqlx::query(
             r#"
             UPDATE purchase_settings SET
-                over_delivery_allowance_pct = COALESCE($2, over_delivery_allowance_pct),
-                over_shortage_allowance_pct = COALESCE($3, over_shortage_allowance_pct),
-                maintain_same_rate = COALESCE($4, maintain_same_rate),
-                po_required_for_receipt = COALESCE($5, po_required_for_receipt),
-                receipt_required_for_invoice = COALESCE($6, receipt_required_for_invoice),
-                default_currency_code = COALESCE($7, default_currency_code),
-                default_tax_rate_id = COALESCE($8, default_tax_rate_id),
+                over_delivery_allowance_pct = COALESCE($1, over_delivery_allowance_pct),
+                over_shortage_allowance_pct = COALESCE($2, over_shortage_allowance_pct),
+                maintain_same_rate = COALESCE($3, maintain_same_rate),
+                po_required_for_receipt = COALESCE($4, po_required_for_receipt),
+                receipt_required_for_invoice = COALESCE($5, receipt_required_for_invoice),
+                default_currency_code = COALESCE($6, default_currency_code),
+                default_tax_rate_id = COALESCE($7, default_tax_rate_id),
                 updated_at = NOW()
             WHERE id = 1
             "#,

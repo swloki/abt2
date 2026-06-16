@@ -337,6 +337,8 @@ fn po_detail_page(
                     div class="detail-title-row" {
                         h1 class="detail-no font-mono" { (order.doc_number) }
                         span class=(format!("status-pill {status_class}")) { (status_text) }
+                        @let (inv_text, inv_class) = invoice_status_label(order.invoice_status);
+                        span class=(format!("status-pill {inv_class}")) { (inv_text) }
                     }
                 }
                 div class="page-actions" {

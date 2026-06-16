@@ -7,7 +7,7 @@ use chrono::NaiveDate;
 use super::model::{PurchaseReconciliation, PurchaseReconciliationQuery};
 use super::repo::{NewReconItem, PurchaseReconItemRepo, PurchaseReconciliationRepo};
 use super::service::PurchaseReconciliationService;
-use crate::purchase::enums::{InvoiceStatus, PurchaseReconStatus, PurchaseReturnStatus};
+use crate::purchase::enums::{InvoiceStatus, PurchaseOrderStatus, PurchaseReconStatus, PurchaseReturnStatus};
 use crate::purchase::order::repo::{PurchaseOrderItemRepo, PurchaseOrderRepo};
 use crate::purchase::return_order::repo::PurchaseReturnRepo;
 use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService, RecordAuditLogReq};
@@ -278,6 +278,23 @@ impl PurchaseReconciliationService for PurchaseReconciliationServiceImpl {
             PurchaseOrderRepo::update_invoice_status(&mut *db, po_id, po_status, per_billed)
                 .await
                 .map_err(|e| DomainError::Internal(e.into()))?;
+
+            // 5.0 自动闭环：全部收货 + 全部开票 = 自动关闭 PO
+            if po_status == InvoiceStatus::FullyInvoiced {
+                if let Some(po) = PurchaseOrderRepo::get_by_id(&mut *db, po_id).await? {
+                    if po.status == PurchaseOrderStatus::Received {
+                        new_state_machine_service(self.pool.clone())
+                            .transition(ctx, db, "PurchaseOrder", po_id, "Closed", Some("对账完成自动关闭"))
+                            .await?;
+
+                        let _ = PurchaseOrderRepo::update_status(
+                            &mut *db, po_id,
+                            PurchaseOrderStatus::Closed,
+                            &po.updated_at,
+                        ).await;
+                    }
+                }
+            }
         }
 
         let returns = PurchaseReturnRepo::list_shipped_by_supplier_for_orders(

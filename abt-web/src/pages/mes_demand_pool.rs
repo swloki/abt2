@@ -626,7 +626,7 @@ fn demand_expand_row(d: &DemandSummary) -> Markup {
             }
             td class="mono" style="font-size:12px;" { (d.id) }
             td {
-                a class="link-cell" href=(format!("/admin/orders/{}", d.order_id)) style="font-size:12px;" { (d.order_no) }
+                a class="link-cell" href=(format!("/admin/orders/{}", d.order_id)) style="font-size:12px;" { (d.order_no.as_deref().unwrap_or("—")) }
             }
             td class="num-right mono" { (fmt_qty(d.quantity)) }
             td class="mono" { (format_date(d.required_date)) }
@@ -708,7 +708,7 @@ fn detail_row(item: &DemandSummary) -> Markup {
             td class="mono" { (item.product_code) }
             td { (item.product_name) }
             td {
-                a class="link-cell" href=(format!("/admin/orders/{}", item.order_id)) { (item.order_no) }
+                a class="link-cell" href=(format!("/admin/orders/{}", item.order_id)) { (item.order_no.as_deref().unwrap_or("—")) }
             }
             td class="num-right mono" { (fmt_qty(item.quantity)) }
             td { (format_date(item.required_date)) }

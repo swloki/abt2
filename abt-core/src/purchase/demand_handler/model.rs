@@ -19,7 +19,7 @@ pub struct DemandPoolQuery {
 pub struct DemandSummary {
     pub id: i64,
     pub order_id: i64,
-    pub order_no: String,
+    pub order_no: Option<String>,
     pub product_id: i64,
     pub product_name: String,
     pub product_code: String,

@@ -526,7 +526,7 @@ fn demand_row(d: &DemandSummary, preselected_ids: &[i64]) -> Markup {
             }
             td class="mono" style="font-size:12px;" { (d.id) }
             td {
-                a class="link-cell" href=(OrderDetailPath { id: d.order_id }.to_string()) { (d.order_no) }
+                a class="link-cell" href=(OrderDetailPath { id: d.order_id }.to_string()) { (d.order_no.as_ref().map(|s| s.as_str()).unwrap_or("—")) }
             }
             td class="num-right mono demand-qty" { (fmt_qty(d.quantity)) }
             td class="mono" { (req_date) }

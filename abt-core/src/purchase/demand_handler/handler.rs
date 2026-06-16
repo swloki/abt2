@@ -68,7 +68,7 @@ impl EventHandler for PurchaseDemandCreatedHandler {
                 title: "新的外购需求待处理".into(),
                 content: Some(format!(
                     "产品: {} ({}) × {}, 来源订单: {}",
-                    detail.product_name, detail.product_code, detail.quantity, detail.order_no
+                    detail.product_name, detail.product_code, detail.quantity, detail.order_no.as_deref().unwrap_or("—")
                 )),
                 related_type: Some("demand".into()),
                 related_id: Some(demand_id),

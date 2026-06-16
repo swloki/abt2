@@ -348,13 +348,6 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
                 .execute(&mut *db)
                 .await
                 .map_err(|e| DomainError::Internal(e.into()))?;
-                sqlx::query(
-                    "UPDATE work_orders SET status = 3, actual_start = NOW() WHERE id = $1 AND actual_start IS NULL",
-                )
-                .bind(batch.work_order_id)
-                .execute(&mut *db)
-                .await
-                .map_err(|e| DomainError::Internal(e.into()))?;
             }
 
             // --- g3. 工序完成判定（对标 Odoo button_finish 设 done + date_finished） ---

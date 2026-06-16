@@ -565,7 +565,7 @@ fn material_row(item: &MaterialAggSummary) -> Markup {
 
             // Actions (visible on hover)
             div class="flex gap-2 opacity-0" {
-                a class="btn bg-accent text-accent-on border-none hover:bg-accent-hover inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm"
+                a class="btn bg-accent text-accent-on border-none hover:bg-accent-hover inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm [&_svg]:w-4 [&_svg]:h-4"
                     href=(format!("{}?product_id={}", MesDemandPoolCreatePath::PATH, pid))
                     onclick="event.stopPropagation()" {
                     "创建生产计划"
@@ -731,7 +731,7 @@ fn detail_row(item: &DemandSummary) -> Markup {
                 @if is_pending {
                     form method="get" action=(MesDemandPoolCreatePath::PATH) {
                         input type="hidden" name="product_id" value=(item.product_id) {}
-                        button type="submit" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm" { "创建" }
+                        button type="submit" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm [&_svg]:w-4 [&_svg]:h-4" { "创建" }
                     }
                 } @else {
                     @if let (Some(doc_type), Some(doc_id)) = (item.target_doc_type, item.target_doc_id) {
@@ -757,11 +757,11 @@ fn batch_action_bar() -> Markup {
     html! {
         div class="hidden fixed bg-[var(--fg)] text-[#fff] rounded-lg p-3 z-[100] items-center gap-5 text-sm opacity-0" id="batchBar" {
             span { "已选择 " span class="batch-count" id="batchCount" { "0" } " 条需求" }
-            button class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm" type="button" id="batchCreateBtn"
+            button class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm [&_svg]:w-4 [&_svg]:h-4" type="button" id="batchCreateBtn"
                 onclick=(format!("window.location.href='{}'", MesDemandPoolCreatePath::PATH)) {
                 "创建生产计划"
             }
-            button class="btn btn-sm inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-ghost" type="button" onclick="document.querySelectorAll('input[type=checkbox].demand-cb').forEach(function(c){if(!c.disabled){c.checked=false}});document.getElementById('batchBar').classList.remove('show')" { "清除选择" }
+            button class="btn btn-sm inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-ghost [&_svg]:w-4 [&_svg]:h-4" type="button" onclick="document.querySelectorAll('input[type=checkbox].demand-cb').forEach(function(c){if(!c.disabled){c.checked=false}});document.getElementById('batchBar').classList.remove('show')" { "清除选择" }
         }
 
         (PreEscaped(r#"<script>

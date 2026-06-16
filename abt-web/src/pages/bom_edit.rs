@@ -511,7 +511,7 @@ fn bom_edit_page(
             div class="flex flex-wrap items-center justify-between gap-3" {
                 // Left side: back, category, view toggle, level filter
                 div class="flex flex-wrap items-center justify-between gap-3-left" {
-                    a class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm bg-white text-fg border border-border hover:bg-surface" href=(format!("{list_path}?restore=true")) {
+                    a class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm bg-white text-fg border border-border hover:bg-surface [&_svg]:w-4 [&_svg]:h-4" href=(format!("{list_path}?restore=true")) {
                         (icon::arrow_left_icon("w-4 h-4"))
                         " 返回列表"
                     }
@@ -552,13 +552,13 @@ fn bom_edit_page(
                 // Right side: publish/unpublish, add/save-as, labor cost
                 div class="flex flex-wrap items-center justify-between gap-3-right" {
                     @if !is_draft && is_owner {
-                        button class="btn btn-sm inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-warning-ghost" id="bom-publish-btn"
+                        button class="btn btn-sm inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-warning-ghost [&_svg]:w-4 [&_svg]:h-4" id="bom-publish-btn"
                             _="on click add .open to #bom-publish-dialog" {
                             (icon::return_arrow_icon("w-4 h-4"))
                             " 取消发布"
                         }
                     } @else if is_draft {
-                        button class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm bg-[#10b981] text-[#fff]" id="bom-publish-btn"
+                        button class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm bg-[#10b981] text-[#fff] [&_svg]:w-4 [&_svg]:h-4" id="bom-publish-btn"
                             _="on click add .open to #bom-publish-dialog"
                             disabled[node_count == 0]
                             title="请先添加物料" {
@@ -568,13 +568,13 @@ fn bom_edit_page(
                     }
 
                     @if node_count == 0 {
-                        button type="button" class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm bg-accent text-accent-on border-none hover:bg-accent-hover" id="bom-add-root-btn"
+                        button type="button" class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm bg-accent text-accent-on border-none hover:bg-accent-hover [&_svg]:w-4 [&_svg]:h-4" id="bom-add-root-btn"
                             _="on click put '0' into <input[name='parent_id']/>'s value then add .is-open to #bom-add-modal then call bomLoadProducts()" {
                             (icon::plus_icon("w-4 h-4"))
                             " 添加根节点"
                         }
                     } @else {
-                        button type="button" class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm bg-[#10b981] text-[#fff]" id="bom-save-as-btn"
+                        button type="button" class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm bg-[#10b981] text-[#fff] [&_svg]:w-4 [&_svg]:h-4" id="bom-save-as-btn"
                             data-name=(bom.bom_name)
                             _="on click put (my @data-name + '_副本') into <input[name='new_name']/>'s value then add .is-open to #bom-save-as-modal" {
                             (icon::copy_icon("w-4 h-4"))
@@ -582,7 +582,7 @@ fn bom_edit_page(
                         }
                     }
 
-                    a class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm bg-[#f97316] text-[#fff]" href=(format!("/admin/labor/bom-cost/{}", bom.bom_id)) {
+                    a class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm bg-[#f97316] text-[#fff] [&_svg]:w-4 [&_svg]:h-4" href=(format!("/admin/labor/bom-cost/{}", bom.bom_id)) {
                         (icon::currency_icon("w-4 h-4"))
                         " 人工成本"
                     }
@@ -906,7 +906,7 @@ fn product_list_fragment(products: &[abt_core::master_data::product::model::Prod
                             input type="hidden" name="product_id" value=(p.product_id) {}
                             input type="hidden" name="quantity" value="1" {}
                             input type="hidden" name="unit" value=(p.unit) {}
-                            button type="submit" class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm bg-accent text-accent-on border-none hover:bg-accent-hover" { "选择" }
+                            button type="submit" class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm bg-accent text-accent-on border-none hover:bg-accent-hover [&_svg]:w-4 [&_svg]:h-4" { "选择" }
                         }
                     }
                 }

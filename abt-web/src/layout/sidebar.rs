@@ -449,9 +449,9 @@ fn render_module_icon(module_id: &str) -> Markup {
 
 fn item_class(active: bool) -> &'static str {
     if active {
-        "sidebar-item active"
+        "sidebar-item active [&_svg]:w-4.5 [&_svg]:h-4.5 [&_svg]:shrink-0 [&_svg]:opacity-100 [&_svg]:text-accent"
     } else {
-        "sidebar-item"
+        "sidebar-item [&_svg]:w-4.5 [&_svg]:h-4.5 [&_svg]:shrink-0 [&_svg]:opacity-55"
     }
 }
 

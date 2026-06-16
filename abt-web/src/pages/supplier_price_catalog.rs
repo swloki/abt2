@@ -472,14 +472,14 @@ fn row_tr(price: &PriceView) -> Markup {
             }
             td {
                 div class="row-actions" {
-                    button type="button" class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm bg-white text-fg border border-border hover:bg-surface"
+                    button type="button" class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm bg-white text-fg border border-border hover:bg-surface [&_svg]:w-4 [&_svg]:h-4"
                         hx-get=(PriceEditPath { id: price.id }.to_string())
                         hx-target="#price-modal"
                         hx-swap="innerHTML"
                         _="on 'htmx:afterRequest' add .is-open to #price-modal" {
                         "编辑"
                     }
-                    button class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm bg-danger text-white border-none hover:opacity-90"
+                    button class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm bg-danger text-white border-none hover:opacity-90 [&_svg]:w-4 [&_svg]:h-4"
                         hx-post=(PriceDeletePath { id: price.id }.to_string())
                         hx-confirm="确认删除此价格记录？"
                         hx-target="#price-data-card"

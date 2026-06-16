@@ -387,7 +387,7 @@ fn create_page_content(
                                 }
                             }
                         }
-                        button type="button" class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm bg-white text-fg border border-border hover:bg-surface" id="applyDefaultBtn" { "应用默认排程" }
+                        button type="button" class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm bg-white text-fg border border-border hover:bg-surface [&_svg]:w-4 [&_svg]:h-4" id="applyDefaultBtn" { "应用默认排程" }
                         (PreEscaped(r#"<script>document.getElementById('applyDefaultBtn').addEventListener('click',function(){
                             var start=document.getElementById('defaultStart').value;
                             var end=document.getElementById('defaultEnd').value;

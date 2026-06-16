@@ -480,12 +480,12 @@ fn batch_action_bar() -> Markup {
         // ── Batch Action Bar ──
         div class="hidden fixed bg-[var(--fg)] text-[#fff] rounded-lg p-3 z-[100] items-center gap-5 text-sm opacity-0" id="batchBar" {
             span { "已选择 " span class="batch-count" id="batchCount" { "0" } " 条需求" }
-            a class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm bg-accent text-accent-on border-none hover:bg-accent-hover" id="batchCreateBtn"
+            a class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm bg-accent text-accent-on border-none hover:bg-accent-hover [&_svg]:w-4 [&_svg]:h-4" id="batchCreateBtn"
                 href=(PurchaseDemandPoolCreatePath::PATH)
                 data-base-path=(PurchaseDemandPoolCreatePath::PATH) {
                 "创建采购单"
             }
-            button class="btn btn-sm inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-ghost" type="button" id="batchClearBtn" {
+            button class="btn btn-sm inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-ghost [&_svg]:w-4 [&_svg]:h-4" type="button" id="batchClearBtn" {
                 "清除选择"
             }
         }
@@ -644,7 +644,7 @@ fn material_row(m: &MaterialAggSummary) -> Markup {
                 form method="get" action=(PurchaseDemandPoolCreatePath::PATH)
                     style="display:inline" {
                     input type="hidden" name="product_id" value=(pid) {}
-                    button type="submit" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm" { "创建采购单" }
+                    button type="submit" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm [&_svg]:w-4 [&_svg]:h-4" { "创建采购单" }
                 }
             }
         }
@@ -840,7 +840,7 @@ fn detail_row(d: &DemandSummary) -> Markup {
                 @if is_pending {
                     form method="get" action=(PurchaseDemandPoolCreatePath::PATH) style="display:inline" {
                         input type="hidden" name="product_id" value=(d.product_id) {}
-                        button type="submit" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm" { "创建" }
+                        button type="submit" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm [&_svg]:w-4 [&_svg]:h-4" { "创建" }
                     }
                 } @else {
                     span class="text-text-muted text-sm" { "—" }

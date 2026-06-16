@@ -331,7 +331,7 @@ fn tracking_list_page(
             div class="flex items-center justify-between mb-6" {
                 h1 class="text-xl font-bold text-fg tracking-tight" { "委外追踪" }
                 div class="flex gap-3" {
-                    button class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-secondary"
+                    button class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-secondary [&_svg]:w-4 [&_svg]:h-4"
                         onclick="location.reload()"
                         style="display:inline-flex;align-items:center;gap:6px" {
                         (icon::refresh_icon("w-4 h-4"))

@@ -313,7 +313,7 @@ fn bom_table_fragment(
                     input type="checkbox" name="no_material_cost" value="true" checked[params.no_material_cost] {}
                     "物料成本缺失"
                 }
-                a href=(BomListPath::PATH) class="btn bg-white text-fg border border-border hover:bg-surface inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm" {
+                a href=(BomListPath::PATH) class="btn bg-white text-fg border border-border hover:bg-surface inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm [&_svg]:w-4 [&_svg]:h-4" {
                     (icon::refresh_icon("w-4 h-4"))
                     "重置"
                 }

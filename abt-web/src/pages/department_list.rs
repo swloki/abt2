@@ -431,7 +431,7 @@ fn detail_content_fragment(dept: &Department, members: &[UserWithRoles], can_cre
             }
             div class="p-5 border-b flex justify-between items-center-actions" {
                 @if can_create {
-                    button class="btn bg-white text-fg border border-border hover:bg-surface inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm"
+                    button class="btn bg-white text-fg border border-border hover:bg-surface inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm [&_svg]:w-4 [&_svg]:h-4"
                         hx-get=(edit_path)
                         hx-target="#drawerPanel"
                         hx-swap="innerHTML"
@@ -441,7 +441,7 @@ fn detail_content_fragment(dept: &Department, members: &[UserWithRoles], can_cre
                     }
                 }
                 @if can_delete && !dept.is_default {
-                    button class="btn bg-white text-fg border border-border hover:bg-surface inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm text-danger"
+                    button class="btn bg-white text-fg border border-border hover:bg-surface inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm text-danger [&_svg]:w-4 [&_svg]:h-4"
                         hx-confirm=(format!("确认删除部门「{}」？该操作不可恢复。", dept.department_name))
                         hx-post=(delete_path)
                         hx-target="body"

@@ -336,7 +336,7 @@ fn detail_page(
                 div class="flex items-center justify-between" {
                     div {
                         div class="text-[24px] font-bold text-fg flex items-center gap-[14px]" {
-                            div class="doc-icon" {
+                            div class="doc-icon [&_svg]:w-[22px] [&_svg]:h-[22px] [&_svg]:text-accent" {
                                 (maud::PreEscaped(r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4"/></svg>"#))
                             }
                             (order.doc_number)
@@ -444,7 +444,7 @@ fn detail_page(
         div class="bg-bg border border-border-soft rounded-xl relative overflow-hidden" {
             div class="flex items-center justify-between" {
                 div class="text-[18px] font-bold text-fg flex items-center gap-[14px]" {
-                    div class="tracking-icon-wrap" {
+                    div class="tracking-icon-wrap [&_svg]:w-5 [&_svg]:h-5 [&_svg]:text-success" {
                         (maud::PreEscaped(r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>"#))
                     }
                     "追踪节点"
@@ -506,7 +506,7 @@ fn detail_page(
         @if !tracking.is_empty() {
             div class="bg-bg border border-border-soft rounded-xl overflow-hidden" {
                 div class="sub-text-lg font-semibold text-fg" {
-                    div class="section-icon-wrap" {
+                    div class="section-icon-wrap [&_svg]:w-4.5 [&_svg]:h-4.5 [&_svg]:text-accent" {
                         (maud::PreEscaped(r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 7h12M8 12h12M8 17h12M4 7h.01M4 12h.01M4 17h.01"/></svg>"#))
                     }
                     "收发记录"
@@ -560,7 +560,7 @@ fn detail_page(
                         (maud::PreEscaped(r#"<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>"#))
                         "记录追踪节点"
                     }
-                    button class="btn btn-text inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm" type="button" _="on click remove .is-open from #record-node-modal" {
+                    button class="btn btn-text inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm [&_svg]:w-4 [&_svg]:h-4" type="button" _="on click remove .is-open from #record-node-modal" {
                         "✕"
                     }
                 }
@@ -627,7 +627,7 @@ fn detail_page(
                         (maud::PreEscaped(r#"<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>"#))
                         "收货登记"
                     }
-                    button class="btn btn-text inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm" type="button" _="on click remove .is-open from #receive-modal" {
+                    button class="btn btn-text inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm [&_svg]:w-4 [&_svg]:h-4" type="button" _="on click remove .is-open from #receive-modal" {
                         "✕"
                     }
                 }
@@ -689,7 +689,7 @@ fn detail_page(
                         (maud::PreEscaped(r#"<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--warn)" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><path d="M12 9v4M12 17h.01"/></svg>"#))
                         "转自制确认"
                     }
-                    button class="btn btn-text inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm" type="button" _="on click remove .is-open from #convert-modal" {
+                    button class="btn btn-text inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm [&_svg]:w-4 [&_svg]:h-4" type="button" _="on click remove .is-open from #convert-modal" {
                         "✕"
                     }
                 }
@@ -726,7 +726,7 @@ fn detail_page(
                         (maud::PreEscaped(r#"<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/></svg>"#))
                         "取消委外单"
                     }
-                    button class="btn btn-text inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm" type="button" _="on click remove .is-open from #cancel-modal" {
+                    button class="btn btn-text inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm [&_svg]:w-4 [&_svg]:h-4" type="button" _="on click remove .is-open from #cancel-modal" {
                         "✕"
                     }
                 }

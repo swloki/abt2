@@ -826,14 +826,14 @@ fn detail_panel(
                     }
                     div class="cat-info-actions" {
                         @if can_update {
-                            button class="btn bg-white text-fg border border-border hover:bg-surface inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm"
+                            button class="btn bg-white text-fg border border-border hover:bg-surface inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm [&_svg]:w-4 [&_svg]:h-4"
                                 _="on click add .is-open to #edit-category-modal" {
                                 (icon::edit_icon("w-4 h-4"))
                                 "编辑"
                             }
                         }
                         @if can_delete {
-                            button class="btn bg-white text-fg border border-border hover:bg-surface inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm" style="color: var(--danger); border-color: var(--border);"
+                            button class="btn bg-white text-fg border border-border hover:bg-surface inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm [&_svg]:w-4 [&_svg]:h-4" style="color: var(--danger); border-color: var(--border);"
                                 hx-post=(delete_url)
                                 hx-confirm="确定要删除此分类吗？此操作不可撤销。"
                                 hx-swap="none" {

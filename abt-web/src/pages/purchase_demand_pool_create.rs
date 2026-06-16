@@ -377,7 +377,7 @@ fn create_page_content(
                             }
                         }
                         div style="display:flex;gap:var(--space-2);align-items:center;" {
-                            button type="button" class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm bg-white text-fg border border-border hover:bg-surface" id="selectAllBtn" {
+                            button type="button" class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm bg-white text-fg border border-border hover:bg-surface [&_svg]:w-4 [&_svg]:h-4" id="selectAllBtn" {
                                 "全选"
                                 (PreEscaped(r#"<script>document.currentScript.parentElement.addEventListener('click',function(){
                                     var cbs = Array.from(document.querySelectorAll('#demand-tbody input[type=checkbox]'));

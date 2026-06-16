@@ -359,14 +359,14 @@ fn row_tr(rule: &PurchaseApprovalRule) -> Markup {
             }
             td {
                 div class="row-actions" {
-                    button type="button" class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm bg-white text-fg border border-border hover:bg-surface"
+                    button type="button" class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm bg-white text-fg border border-border hover:bg-surface [&_svg]:w-4 [&_svg]:h-4"
                         hx-get=(RuleEditPath { id: rule.id }.to_string())
                         hx-target="#rule-modal"
                         hx-swap="innerHTML"
                         _="on 'htmx:afterRequest' add .is-open to #rule-modal" {
                         "编辑"
                     }
-                    button class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm bg-danger text-white border-none hover:opacity-90"
+                    button class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm bg-danger text-white border-none hover:opacity-90 [&_svg]:w-4 [&_svg]:h-4"
                         hx-post=(RuleDeletePath { id: rule.id }.to_string())
                         hx-confirm="确认删除此审批规则？"
                         hx-target="#rules-data-card"

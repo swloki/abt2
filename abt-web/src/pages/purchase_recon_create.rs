@@ -189,7 +189,7 @@ fn precon_create_page(
                 // Line items table (hidden when empty)
                 div id="precon-items-table-wrap" style="display:none" {
                     div style="overflow-x:auto" {
-                        table class="data-table" style="min-width:1100px" {
+                        table class="data-table w-full border-collapse [&_th]:py-2.5 [&_th]:px-4 [&_th]:text-left [&_th]:font-semibold [&_th]:text-muted [&_th]:text-xs [&_th]:uppercase [&_th]:tracking-wide [&_th]:bg-surface-raised [&_th]:[border-bottom:1px_solid_var(--border-soft)] [&_th]:whitespace-nowrap [&_td]:py-3 [&_td]:px-4 [&_td]:[border-bottom:1px_solid_var(--border-soft)] [&_td]:whitespace-nowrap [&_td]:align-middle [&_tbody_tr]:transition-colors [&_tbody_tr]:cursor-pointer [&_tbody_tr:hover]:bg-accent-bg [&_tbody_tr:last-child_td]:[border-bottom:none]" style="min-width:1100px" {
                             thead {
                                 tr {
                                     th style="width:36px;text-align:center" { "#" }

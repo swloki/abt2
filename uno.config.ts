@@ -43,6 +43,14 @@ export default defineConfig({
   --text-xl: 21px;
   --text-2xl: 28px;
   --text-3xl: 36px;
+  /* presetWind4 internal fontSize variables (override defaults) */
+  --text-xs-fontSize: 12px; --text-xs-lineHeight: 1.4;
+  --text-sm-fontSize: 14px; --text-sm-lineHeight: 1.55;
+  --text-base-fontSize: 15px; --text-base-lineHeight: 1.55;
+  --text-lg-fontSize: 17px; --text-lg-lineHeight: 1.5;
+  --text-xl-fontSize: 21px; --text-xl-lineHeight: 1.35;
+  --text-2xl-fontSize: 28px; --text-2xl-lineHeight: 1.25;
+  --text-3xl-fontSize: 36px; --text-3xl-lineHeight: 1.2;
 
   --space-1: 4px;
   --space-2: 8px;
@@ -162,13 +170,13 @@ p { margin: 0; }
       info: "var(--info)",
     },
     fontSize: {
-      xs: "var(--text-xs)",
-      sm: "var(--text-sm)",
-      base: "var(--text-base)",
-      lg: "var(--text-lg)",
-      xl: "var(--text-xl)",
-      "2xl": "var(--text-2xl)",
-      "3xl": "var(--text-3xl)",
+      xs: ["var(--text-xs)", "1.4"],
+      sm: ["var(--text-sm)", "1.55"],
+      base: ["var(--text-base)", "1.55"],
+      lg: ["var(--text-lg)", "1.5"],
+      xl: ["var(--text-xl)", "1.35"],
+      "2xl": ["var(--text-2xl)", "1.25"],
+      "3xl": ["var(--text-3xl)", "1.2"],
     },
     spacing: {
       1: "var(--space-1)",

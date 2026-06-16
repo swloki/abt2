@@ -645,7 +645,7 @@ fn shipping_edit_page(
                         (icon::package_icon("w-[18px] h-[18px]"))
                         "发货产品明细"
                     }
-                    div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
+                    div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)] overflow-x-auto" {
                         table class="w-full border-collapse" id="lineItemsTable" {
                             thead {
                                 tr {
@@ -920,7 +920,7 @@ fn shipping_create_page(
                         (icon::package_icon("w-[18px] h-[18px]"))
                         "发货产品明细"
                     }
-                    div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
+                    div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)] overflow-x-auto" {
                         table class="w-full border-collapse" id="lineItemsTable" {
                             thead {
                                 tr {

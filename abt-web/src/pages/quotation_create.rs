@@ -352,7 +352,7 @@ fn quotation_create_page(customers: &[abt_core::master_data::customer::model::Cu
                     (icon::package_icon("w-[18px] h-[18px]"))
                     "产品明细"
                 }
-                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)] overflow-x-auto" {
                     table class="w-full border-collapse" {
                         thead {
                             tr {

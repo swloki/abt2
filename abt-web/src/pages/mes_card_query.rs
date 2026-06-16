@@ -344,7 +344,7 @@ fn card_search_result(
                             "报工明细"
                         }
                         div class="bg-bg border border-border-soft rounded-lg overflow-hidden-body" style="padding:0" {
-                            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
+                            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)] overflow-x-auto" {
                                 table class="card-sub-table" {
                                     thead { tr {
                                         th { "报工单号" }

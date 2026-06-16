@@ -368,7 +368,7 @@ fn preview_table(
                     }
                 }
             }
-            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)] overflow-x-auto" {
                 table class="w-full border-collapse" {
                     thead {
                         tr {

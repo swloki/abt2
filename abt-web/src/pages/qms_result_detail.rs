@@ -114,9 +114,9 @@ pub async fn get_detail(path: ResultDetailPath, ctx: RequestContext) -> Result<H
         div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
             h3 { "抽样结果" }
             div class="grid gap-4" {
-                div class="flex flex-col gap-1" { label { "抽样数量" } span class="mono num-right" { (fmt_qty(result.sample_qty)) } }
-                div class="flex flex-col gap-1" { label { "合格数量" } span class="mono num-right" { (fmt_qty(result.qualified_qty)) } }
-                div class="flex flex-col gap-1" { label { "不合格数量" } span class="mono num-right" { (fmt_qty(result.unqualified_qty)) } }
+                div class="flex flex-col gap-1" { label { "抽样数量" } span class="mono text-right text-[13px]" { (fmt_qty(result.sample_qty)) } }
+                div class="flex flex-col gap-1" { label { "合格数量" } span class="mono text-right text-[13px]" { (fmt_qty(result.qualified_qty)) } }
+                div class="flex flex-col gap-1" { label { "不合格数量" } span class="mono text-right text-[13px]" { (fmt_qty(result.unqualified_qty)) } }
                 div class="flex flex-col gap-1" {
                     label { "检验结果" }
                     span class=(format!("status-pill {result_class}")) { (result_text) }
@@ -148,9 +148,9 @@ pub async fn get_detail(path: ResultDetailPath, ctx: RequestContext) -> Result<H
                                 td class="mono" { (&cr.measured) }
                                 td {
                                     @if cr.pass {
-                                        span class="status-pill status-active" { "合格" }
+                                        span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-[#f0fff0] text-[#389e0d]" { "合格" }
                                     } @else {
-                                        span class="status-pill status-danger" { "不合格" }
+                                        span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-[#fff2f0] text-[#cf1322]" { "不合格" }
                                     }
                                 }
                                 td { (cr.remark.as_deref().unwrap_or("—")) }
@@ -173,14 +173,14 @@ pub async fn get_detail(path: ResultDetailPath, ctx: RequestContext) -> Result<H
         // ── 操作按钮 ──
         @if result.status == InspectionStatus::Pending {
             div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
-                a class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" href=(format!("{}?restore=true", ResultListPath::PATH)) {
+                a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" href=(format!("{}?restore=true", ResultListPath::PATH)) {
                     "记录结果"
                 }
             }
         }
         @if result.status == InspectionStatus::Completed && result.result == InspectionResultType::Fail {
             div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
-                a class="btn bg-danger text-white border-none hover:opacity-90-ghost" href=(MrbCreatePath::PATH) {
+                a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-danger text-white border-none hover:opacity-90-ghost" href=(MrbCreatePath::PATH) {
                     "创建MRB"
                 }
             }

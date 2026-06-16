@@ -173,7 +173,7 @@ fn arrival_list_page(
                 h1 class="text-xl font-bold text-fg tracking-tight" { "来料通知" }
                 div class="flex gap-3" {
                     @if can_create {
-                        a class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" href=(ArrivalCreatePath::PATH) {
+                        a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" href=(ArrivalCreatePath::PATH) {
                             (icon::plus_icon("w-4 h-4"))
                             "新建来料通知"
                         }
@@ -305,7 +305,7 @@ fn arrival_row(
 
     html! {
         tr style="cursor:pointer" {
-            td class="link-cell mono" onclick=(&onclick) { (n.doc_number) }
+            td class="text-accent font-medium cursor-pointer mono" onclick=(&onclick) { (n.doc_number) }
             td class="mono" onclick=(&onclick) { "—" }
             td onclick=(&onclick) { (supplier_name) }
             td onclick=(&onclick) { (warehouse_name) }
@@ -316,22 +316,22 @@ fn arrival_row(
             td onclick="event.stopPropagation()" {
                 @if is_draft {
                     div class="row-actions" {
-                        a class="row-action-btn" href=(ArrivalCreatePath::PATH) title="编辑" {
+                        a class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" href=(ArrivalCreatePath::PATH) title="编辑" {
                             (icon::edit_icon("w-4 h-4"))
                         }
                         @if can_delete {
-                            button type="button" class="row-action-btn text-danger" title="删除" {
+                            button type="button" class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer text-danger" title="删除" {
                                 (icon::trash_icon("w-4 h-4"))
                             }
                         }
                     }
                 } @else {
                     div class="row-actions" {
-                        a class="row-action-btn" href=(detail_path.to_string()) title="查看" {
+                        a class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" href=(detail_path.to_string()) title="查看" {
                             (icon::eye_icon("w-4 h-4"))
                         }
                         @if can_delete {
-                            button type="button" class="row-action-btn text-danger" title="删除" {
+                            button type="button" class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer text-danger" title="删除" {
                                 (icon::trash_icon("w-4 h-4"))
                             }
                         }

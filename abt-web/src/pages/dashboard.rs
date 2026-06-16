@@ -50,7 +50,7 @@ fn dashboard_content(claims: &abt_core::shared::identity::model::Claims) -> Mark
             // 待办事项
             div {
                 div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-4)" {
-                    h2 class="section-title" { "待办事项" }
+                    h2 class="text-lg font-semibold text-fg" { "待办事项" }
                 }
                 div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" {
                     (todo_item("status-progress", "拣货中", "发货申请 SR-2026-0018 待确认发货", "今天"))
@@ -62,7 +62,7 @@ fn dashboard_content(claims: &abt_core::shared::identity::model::Claims) -> Mark
             // 快捷入口
             div {
                 div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-4)" {
-                    h2 class="section-title" { "快捷入口" }
+                    h2 class="text-lg font-semibold text-fg" { "快捷入口" }
                 }
                 div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3)" {
                     (quick_link_card("/admin/quotations", &icon::file_text_icon("w-[28px] h-[28px]"), "报价单", "24 份"))
@@ -75,7 +75,7 @@ fn dashboard_content(claims: &abt_core::shared::identity::model::Claims) -> Mark
 
         // ── 销售流程 ──
         div style="margin-bottom:var(--space-8)" {
-            h2 class="section-title" style="margin-bottom:var(--space-4)" { "销售流程" }
+            h2 class="text-lg font-semibold text-fg" style="margin-bottom:var(--space-4)" { "销售流程" }
             div style="display:flex;align-items:center;gap:0;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-md);padding:var(--space-6) var(--space-8);overflow-x:auto" {
                 (flow_step(&icon::file_text_icon("w-5 h-5"), "报价单", "客户报价", "bg-[color-mix(in_srgb,var(--info)_10%,transparent)]", "text-info"))
                 (arrow_right_svg())
@@ -91,7 +91,7 @@ fn dashboard_content(claims: &abt_core::shared::identity::model::Claims) -> Mark
 
         // ── 最近活动 ──
         div {
-            h2 class="section-title" style="margin-bottom:var(--space-4)" { "最近活动" }
+            h2 class="text-lg font-semibold text-fg" style="margin-bottom:var(--space-4)" { "最近活动" }
             div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" {
                 (activity_item("status-progress", "订单", "SO-2026-0038 状态变更为 ", "生产中", "10 分钟前"))
                 (activity_item("status-picking", "发货", "发货申请 SR-2026-0018 开始拣货", "", "2 小时前"))
@@ -110,7 +110,7 @@ fn stat_card(label: &str, value: &str, unit: &str, trend: &str, trend_color: &st
         div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-flat" {
             span class="text-xs text-muted font-medium" { (label) }
             div style="display:flex;align-items:baseline;gap:var(--space-2);margin-top:var(--space-2)" {
-                span class="amount-value text-2xl" { (value) }
+                span class="text-[20px] font-bold text-fg text-2xl" { (value) }
                 span class="text-muted text-xs" { (unit) }
             }
             div style="margin-top:var(--space-2);font-size:12px" class=(trend_color) { (trend) }
@@ -129,7 +129,7 @@ fn stat_card_with_color(
         div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-flat" {
             span class="text-xs text-muted font-medium" { (label) }
             div style="display:flex;align-items:baseline;gap:var(--space-2);margin-top:var(--space-2)" {
-                span class="amount-value text-2xl text-danger" { (value) }
+                span class="text-[20px] font-bold text-fg text-2xl text-danger" { (value) }
                 span class="text-muted text-xs" { (unit) }
             }
             div style="margin-top:var(--space-2);font-size:12px" class=(trend_color) { (trend) }
@@ -142,7 +142,7 @@ fn stat_card_accent(label: &str, value: &str, trend: &str, trend_color: &str) ->
         div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-flat" {
             span class="text-xs text-muted font-medium" { (label) }
             div style="display:flex;align-items:baseline;gap:var(--space-2);margin-top:var(--space-2)" {
-                span class="amount-value-accent text-2xl" { (value) }
+                span class="text-[20px] font-bold text-fg-accent text-2xl" { (value) }
             }
             div style="margin-top:var(--space-2);font-size:12px" class=(trend_color) { (trend) }
         }
@@ -171,7 +171,7 @@ fn todo_item_last(status_class: &str, status_text: &str, desc: &str, time: &str)
 
 fn quick_link_card(href: &str, icon: &Markup, title: &str, count: &str) -> Markup {
     html! {
-        a href=(href) class="quick-link" {
+        a href=(href) class="flex flex-col gap-1 p-4 bg-bg border border-border-soft rounded cursor-pointer no-underline" {
             span style="color:var(--accent)" { (icon) }
             span class="text-sm font-semibold text-fg" { (title) }
             span class="text-xs text-muted" { (count) }
@@ -181,7 +181,7 @@ fn quick_link_card(href: &str, icon: &Markup, title: &str, count: &str) -> Marku
 
 fn flow_step(icon: &Markup, label: &str, desc: &str, icon_bg: &str, icon_color: &str) -> Markup {
     html! {
-        div class="flow-step" {
+        div class="flex-1 flex flex-col items-center relative z-[1]" {
             div class=(format!("flow-step-icon {}", icon_bg)) {
                 span class=(icon_color) { (icon) }
             }

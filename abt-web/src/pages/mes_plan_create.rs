@@ -177,7 +177,7 @@ fn plan_create_page() -> Markup {
                                     tr {
                                         th style="width:40px" { "序号" }
                                         th { "产品" }
-                                        th class="num-right" { "计划数量" }
+                                        th class="text-right text-[13px]" { "计划数量" }
                                         th { "开始日期" }
                                         th { "结束日期" }
                                         th { "优先级" }
@@ -190,8 +190,8 @@ fn plan_create_page() -> Markup {
                             }
                         }
                     }
-                    div class="add-row-bar" {
-                        button type="button" class="btn-add-row" id="add-plan-item-btn" {
+                    div class="p-3 flex items-center gap-2" {
+                        button type="button" class="inline-flex items-center gap-2 rounded-sm text-accent text-sm cursor-pointer" id="add-plan-item-btn" {
                             (icon::plus_icon("w-3.5 h-3.5"))
                             "添加计划行"
                         }
@@ -201,15 +201,15 @@ fn plan_create_page() -> Markup {
 
                 // ── Actions ──
                 div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
-                    a class="btn bg-white text-fg border border-border hover:bg-surface" href=(format!("{}?restore=true", PlanListPath::PATH)) { "取消" }
-                    button type="submit" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" {
+                    a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface" href=(format!("{}?restore=true", PlanListPath::PATH)) { "取消" }
+                    button type="submit" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" {
                         "提交"
                     }
                 }
             }
 
             // ── Product Picker Modal ──
-            div id="product-picker" class="modal-overlay"
+            div id="product-picker" class="fixed z-[1000] grid place-items-center opacity-0"
                 _="on click[me is event.target] remove .is-open
                    on productSelected
                      if window._productPickerTarget
@@ -217,7 +217,7 @@ fn plan_create_page() -> Markup {
                        remove .picker-placeholder from (t's querySelector('[data-field=\"product_name\"]'))
                        put window._selectedProduct.name into (t's querySelector('[data-field=\"product_name\"]'))
                        set (t's querySelector('[data-field=\"product_id\"]'))'s value to window._selectedProduct.id" {
-                div class="modal modal-lg" _="on click halt" {
+                div class="modal bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0-lg" _="on click halt" {
                     div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
                         h2 { "选择产品" }
                         button type="button" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
@@ -270,20 +270,20 @@ fn plan_create_page() -> Markup {
                 const tr = document.createElement('tr');
                 const i = idx++;
                 tr.innerHTML = `
-                    <td class="line-num">${i+1}</td>
+                    <td class="text-muted text-xs text-center">${i+1}</td>
                     <td>
-                      <div class="product-picker-cell"
+                      <div class="flex items-center gap-[6px] border border-border rounded-sm bg-white cursor-pointer"
                            onclick="window.openProductPicker(this.closest('tr'))">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" clip-rule="evenodd"/></svg>
                         <span data-field="product_name" class="picker-placeholder">点击选择产品</span>
                         <input type="hidden" data-field="product_id">
                       </div>
                     </td>
-                    <td><input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] num-right" type="number" step="0.01" data-field="planned_qty" placeholder="数量" required></td>
+                    <td><input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] text-right text-[13px]" type="number" step="0.01" data-field="planned_qty" placeholder="数量" required></td>
                     <td><input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="date" data-field="scheduled_start" required></td>
                     <td><input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="date" data-field="scheduled_end" required></td>
                     <td><input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" data-field="priority" value="1" style="width:60px"></td>
-                    <td><button type="button" class="btn-remove-row" onclick="this.closest('tr').remove()">✕</button></td>
+                    <td><button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center" onclick="this.closest('tr').remove()">✕</button></td>
                 `;
                 tbody.appendChild(tr);
             });
@@ -310,7 +310,7 @@ fn plan_create_page() -> Markup {
 fn plan_item_row_html(index: usize) -> Markup {
     html! {
         tr {
-            td class="line-num" { (index + 1) }
+            td class="text-muted text-xs text-center" { (index + 1) }
             td {
                 div class="product-cell" style="cursor:pointer;padding:4px 8px;border:1px dashed var(--border);border-radius:4px"
                     _="on click set window._productPickerTarget to closest tr then add .is-open to #product-picker" {
@@ -318,11 +318,11 @@ fn plan_item_row_html(index: usize) -> Markup {
                     input type="hidden" data-field="product_id";
                 }
             }
-            td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] num-right" type="number" step="0.01" name=(format!("items[{index}].planned_qty")); }
+            td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] text-right text-[13px]" type="number" step="0.01" name=(format!("items[{index}].planned_qty")); }
             td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="date" name=(format!("items[{index}].scheduled_start")); }
             td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="date" name=(format!("items[{index}].scheduled_end")); }
             td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" name=(format!("items[{index}].priority")) value="1" style="width:60px"; }
-            td { button type="button" class="btn-remove-row" { "✕" } }
+            td { button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center" { "✕" } }
         }
     }
 }

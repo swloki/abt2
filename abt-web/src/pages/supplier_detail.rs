@@ -168,18 +168,18 @@ fn supplier_detail_page(
     html! {
         div _={"on contactChanged from the body remove .is-open from #contact-create-modal\non bankAccountChanged from the body remove .is-open from #bank-account-create-modal"} {
         // ── Detail Top ──
-        div class="detail-top" {
-            div class="customer-identity" {
+        div class="flex justify-between items-start" {
+            div class="flex items-center gap-5" {
                 div class="customer-inline-grid place-items-center rounded-full text-white font-semibold shrink-0 select-none" {
                     (icon::building_icon("w-5 h-5"))
                 }
                 div {
-                    h1 class="customer-name" {
+                    h1 class="text-xl font-bold" {
                         (supplier.name)
                         " "
                         span class=(format!("status-pill {status_class}")) { (status_label) }
                     }
-                    div class="customer-meta" {
+                    div class="flex gap-4 text-muted text-xs" {
                         span { (supplier.code) }
                         span { (category_label) }
                         span { (supplier.created_at.format("%Y-%m-%d")) }
@@ -187,11 +187,11 @@ fn supplier_detail_page(
                 }
             }
             div class="flex gap-3" {
-                a class="btn bg-white text-fg border border-border hover:bg-surface" href=(format!("{list_path}?restore=true")) {
+                a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface" href=(format!("{list_path}?restore=true")) {
                     (icon::arrow_left_icon("w-4 h-4"))
                     " 返回列表"
                 }
-                a class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" href=(edit_path) {
+                a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" href=(edit_path) {
                     (icon::edit_icon("w-4 h-4"))
                     " 编辑"
                 }
@@ -200,7 +200,7 @@ fn supplier_detail_page(
         }
 
         // ── Basic Info Card ──
-        div class="detail-card" style="margin-bottom:var(--space-5)" {
+        div class="bg-white border border-border-soft rounded p-5" style="margin-bottom:var(--space-5)" {
             div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 border-b border-border-soft" { "基本信息" }
             div class="flex py-2 text-sm" {
                 span class="w-[90px] shrink-0 text-muted" { "供应商编码" }
@@ -268,9 +268,9 @@ fn supplier_detail_page(
         }
 
         // ── Purchase History Section (placeholder) ──
-        div class="detail-card" style="margin-top:var(--space-5)" {
+        div class="bg-white border border-border-soft rounded p-5" style="margin-top:var(--space-5)" {
             div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 border-b border-border-soft" { "采购历史" }
-            div class="empty-state" { "暂无采购记录" }
+            div class="text-center p-6 text-muted text-sm" { "暂无采购记录" }
         }
 
         // ── Modals ──
@@ -343,7 +343,7 @@ fn supplier_detail_page(
 
 fn contacts_card(contacts: &[SupplierContact], detail_path: &SupplierDetailPath, can_delete: bool) -> Markup {
     html! {
-        div class="detail-card" id="contacts-card"
+        div class="bg-white border border-border-soft rounded p-5" id="contacts-card"
             hx-get=(detail_path.to_string())
             hx-select="#contacts-card"
             hx-target="this"
@@ -351,14 +351,14 @@ fn contacts_card(contacts: &[SupplierContact], detail_path: &SupplierDetailPath,
             hx-trigger="contactChanged from:body" {
             div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 border-b border-border-soft" {
                 span { "联系人" }
-                button class="btn btn-sm bg-accent text-accent-on border-none hover:bg-accent-hover"
+                button class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm bg-accent text-accent-on border-none hover:bg-accent-hover"
                     _="on click add .is-open to #contact-create-modal" {
                     (icon::plus_icon("w-3.5 h-3.5"))
                     "添加联系人"
                 }
             }
             @if contacts.is_empty() {
-                div class="empty-state" { "暂无联系人" }
+                div class="text-center p-6 text-muted text-sm" { "暂无联系人" }
             } @else {
                 table class="data-table compact" {
                     thead {
@@ -384,7 +384,7 @@ fn contacts_card(contacts: &[SupplierContact], detail_path: &SupplierDetailPath,
 
 fn bank_accounts_card(bank_accounts: &[SupplierBankAccount], detail_path: &SupplierDetailPath, can_delete: bool) -> Markup {
     html! {
-        div class="detail-card" id="bank-accounts-card"
+        div class="bg-white border border-border-soft rounded p-5" id="bank-accounts-card"
             hx-get=(detail_path.to_string())
             hx-select="#bank-accounts-card"
             hx-target="this"
@@ -392,14 +392,14 @@ fn bank_accounts_card(bank_accounts: &[SupplierBankAccount], detail_path: &Suppl
             hx-trigger="bankAccountChanged from:body" {
             div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 border-b border-border-soft" {
                 span { "银行账户" }
-                button class="btn btn-sm bg-accent text-accent-on border-none hover:bg-accent-hover"
+                button class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm bg-accent text-accent-on border-none hover:bg-accent-hover"
                     _="on click add .is-open to #bank-account-create-modal" {
                     (icon::plus_icon("w-3.5 h-3.5"))
                     "添加账户"
                 }
             }
             @if bank_accounts.is_empty() {
-                div class="empty-state" { "暂无银行账户" }
+                div class="text-center p-6 text-muted text-sm" { "暂无银行账户" }
             } @else {
                 table class="data-table compact" {
                     thead {
@@ -437,12 +437,12 @@ fn contact_row(contact: &SupplierContact, detail_path: &SupplierDetailPath, can_
             td { (contact.email.as_deref().unwrap_or("—")) }
             td {
                 @if contact.is_primary {
-                    span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium tag-key" { "主要" }
+                    span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-[#e6f4ff] text-accent rounded-full text-[11px] font-medium" { "主要" }
                 }
             }
             td {
                 @if can_delete {
-                    button type="button" class="row-action-btn text-danger" title="删除"
+                    button type="button" class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer text-danger" title="删除"
                         hx-post=(delete_path)
                         hx-confirm=(confirm_msg)
                         hx-swap="none" {
@@ -468,12 +468,12 @@ fn bank_account_row(account: &SupplierBankAccount, detail_path: &SupplierDetailP
             td class="mono" { (account.account_number) }
             td {
                 @if account.is_default {
-                    span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium tag-key" { "默认" }
+                    span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-[#e6f4ff] text-accent rounded-full text-[11px] font-medium" { "默认" }
                 }
             }
             td {
                 @if can_delete {
-                    button type="button" class="row-action-btn text-danger" title="删除"
+                    button type="button" class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer text-danger" title="删除"
                         hx-post=(delete_path)
                         hx-confirm=(confirm_msg)
                         hx-swap="none" {

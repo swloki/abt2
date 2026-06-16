@@ -352,7 +352,7 @@ fn page_header() -> Markup {
                 }
             }
             div class="flex gap-3" {
-                button class="btn bg-white text-fg border border-border hover:bg-surface"
+                button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface"
                     hx-get=(PurchaseDemandPoolListPath::PATH)
                     hx-target="#demand-pool-data-card"
                     hx-select="#demand-pool-data-card"
@@ -373,8 +373,8 @@ fn view_toggle_and_filter(active: &str, params: &DemandPoolQueryParams) -> Marku
     let date_filter_val = params.date_filter.as_deref().unwrap_or("");
 
     html! {
-        div class="view-toggle-bar" {
-            div class="view-toggle" {
+        div class="flex items-center justify-between flex-wrap gap-3" {
+            div class="flex border-b" {
                 a class=(material_cls)
                     hx-get=(PurchaseDemandPoolListPath::PATH)
                     hx-vals="{\"view\":\"material\"}"
@@ -432,41 +432,41 @@ fn view_toggle_and_filter(active: &str, params: &DemandPoolQueryParams) -> Marku
 
 fn stat_mini_cards(stats: &Stats) -> Markup {
     html! {
-        div class="stat-mini-grid" {
-            div class="stat-mini" {
-                div class="stat-mini-icon" style="background:#ede9fe;color:#7c3aed;" {
+        div class="grid gap-4" {
+            div class="flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4" {
+                div class="flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4-icon" style="background:#ede9fe;color:#7c3aed;" {
                     (icon::clipboard_list_icon(""))
                 }
                 div {
-                    div class="stat-mini-value" { (stats.pending_count) }
-                    div class="stat-mini-label" { "待处理需求" }
+                    div class="flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4-value" { (stats.pending_count) }
+                    div class="flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4-label" { "待处理需求" }
                 }
             }
-            div class="stat-mini" {
-                div class="stat-mini-icon" style="background:#dbeafe;color:var(--accent);" {
+            div class="flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4" {
+                div class="flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4-icon" style="background:#dbeafe;color:var(--accent);" {
                     (icon::cube_icon(""))
                 }
                 div {
-                    div class="stat-mini-value" { (stats.material_count) }
-                    div class="stat-mini-label" { "涉及物料" }
+                    div class="flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4-value" { (stats.material_count) }
+                    div class="flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4-label" { "涉及物料" }
                 }
             }
-            div class="stat-mini" {
-                div class="stat-mini-icon" style="background:#dcfce7;color:var(--success);" {
+            div class="flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4" {
+                div class="flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4-icon" style="background:#dcfce7;color:var(--success);" {
                     (icon::check_circle_icon(""))
                 }
                 div {
-                    div class="stat-mini-value" { "—" }
-                    div class="stat-mini-label" { "处理中" }
+                    div class="flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4-value" { "—" }
+                    div class="flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4-label" { "处理中" }
                 }
             }
-            div class="stat-mini" {
-                div class="stat-mini-icon" style="background:#fef3c7;color:var(--warn);" {
+            div class="flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4" {
+                div class="flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4-icon" style="background:#fef3c7;color:var(--warn);" {
                     (icon::clock_icon(""))
                 }
                 div {
-                    div class="stat-mini-value" { "—" }
-                    div class="stat-mini-label" { "近3日到期" }
+                    div class="flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4-value" { "—" }
+                    div class="flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4-label" { "近3日到期" }
                 }
             }
         }
@@ -478,14 +478,14 @@ fn stat_mini_cards(stats: &Stats) -> Markup {
 fn batch_action_bar() -> Markup {
     html! {
         // ── Batch Action Bar ──
-        div class="batch-bar" id="batchBar" {
+        div class="hidden fixed bg-[var(--fg)] text-[#fff] rounded-lg p-3 z-[100] items-center gap-5 text-sm opacity-0" id="batchBar" {
             span { "已选择 " span class="batch-count" id="batchCount" { "0" } " 条需求" }
-            a class="btn btn-sm bg-accent text-accent-on border-none hover:bg-accent-hover" id="batchCreateBtn"
+            a class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm bg-accent text-accent-on border-none hover:bg-accent-hover" id="batchCreateBtn"
                 href=(PurchaseDemandPoolCreatePath::PATH)
                 data-base-path=(PurchaseDemandPoolCreatePath::PATH) {
                 "创建采购单"
             }
-            button class="btn btn-sm btn-ghost" type="button" id="batchClearBtn" {
+            button class="btn btn-sm inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-ghost" type="button" id="batchClearBtn" {
                 "清除选择"
             }
         }
@@ -605,21 +605,21 @@ fn material_row(m: &MaterialAggSummary) -> Markup {
     let (icon_bg, icon_color, icon_svg) = material_icon(pid);
 
     html! {
-        div class="material-row" {
+        div class="grid items-center gap-6 p-4 border-b" {
 
-            div class="material-info"
+            div class="flex items-center gap-4 cursor-pointer"
                 hx-get=(format!("/admin/purchase/demand-pool/demand-rows?product_id={pid}"))
                 hx-target=(format!("#expand-tbody-{pid}"))
                 hx-swap="innerHTML"
                 hx-trigger="click once"
                 _=(format!("on click toggle .open on #expand-mat-{}", pid)) {
-                div class="material-icon" style=(format!("background:{icon_bg};color:{icon_color}")) {
+                div class="w-[40px] h-[40px] rounded grid place-items-center shrink-0" style=(format!("background:{icon_bg};color:{icon_color}")) {
                     (icon_svg)
                     (icon::box_icon("w-5 h-5"))
                 }
                 div {
-                    div class="material-name" { (m.product_name) }
-                    div class="material-code" { (m.product_code) }
+                    div class="font-semibold text-fg text-sm" { (m.product_name) }
+                    div class="text-[12px] text-muted" { (m.product_code) }
                 }
             }
 
@@ -634,24 +634,24 @@ fn material_row(m: &MaterialAggSummary) -> Markup {
             }
 
             div class="material-stat material-stat-date" {
-                div class="date-range-text" { (date_range) }
+                div class="text-[13px] font-semibold text-fg" { (date_range) }
                 @if let Some((hint_text, cls)) = &hint {
                     div class=(format!("urgency-hint {cls}")) { (hint_text) }
                 }
             }
 
-            div class="material-actions" {
+            div class="flex gap-2 opacity-0" {
                 form method="get" action=(PurchaseDemandPoolCreatePath::PATH)
                     style="display:inline" {
                     input type="hidden" name="product_id" value=(pid) {}
-                    button type="submit" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover btn-sm" { "创建采购单" }
+                    button type="submit" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm" { "创建采购单" }
                 }
             }
         }
 
         // ── Expandable demand detail ──
-        div class="demand-expand" id=(format!("expand-mat-{pid}")) {
-            div class="demand-expand-inner" {
+        div class="hidden bg-surface-raised border-b" id=(format!("expand-mat-{pid}")) {
+            div class="hidden bg-surface-raised border-b-inner" {
                 table class="data-table" style="font-size:13px;" {
                     thead {
                         tr {
@@ -661,7 +661,7 @@ fn material_row(m: &MaterialAggSummary) -> Markup {
                             }
                             th { "需求ID" }
                             th { "来源订单" }
-                            th class="num-right" { "需求数量" }
+                            th class="text-right text-[13px]" { "需求数量" }
                             th { "需求日期" }
                             th { "优先级" }
                             th { "状态" }
@@ -715,9 +715,9 @@ fn demand_expand_row(d: &DemandSummary) -> Markup {
             }
             td class="mono" style="font-size:12px;" { (d.id) }
             td {
-                a class="link-cell" href=(OrderDetailPath { id: d.order_id }.to_string()) { (d.order_no.as_deref().unwrap_or("—")) }
+                a class="text-accent font-medium cursor-pointer" href=(OrderDetailPath { id: d.order_id }.to_string()) { (d.order_no.as_deref().unwrap_or("—")) }
             }
-            td class="num-right mono" { (fmt_qty(d.quantity)) }
+            td class="text-right text-[13px] mono" { (fmt_qty(d.quantity)) }
             td class="mono" { (req_date) }
             td {
                 span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium" style=(pri_style) { (pri_text) }
@@ -751,7 +751,7 @@ fn detail_table_fragment(
                             th { "产品编码" }
                             th { "产品名称" }
                             th { "来源订单" }
-                            th class="num-right" { "需求数量" }
+                            th class="text-right text-[13px]" { "需求数量" }
                             th { "需求日期" }
                             th { "优先级" }
                             th { "状态" }
@@ -809,9 +809,9 @@ fn detail_row(d: &DemandSummary) -> Markup {
             td class="mono" { (d.product_code) }
             td { (d.product_name) }
             td {
-                a class="link-cell" href=(OrderDetailPath { id: d.order_id }.to_string()) { (d.order_no.as_deref().unwrap_or("—")) }
+                a class="text-accent font-medium cursor-pointer" href=(OrderDetailPath { id: d.order_id }.to_string()) { (d.order_no.as_deref().unwrap_or("—")) }
             }
-            td class="num-right mono" { (fmt_qty(d.quantity)) }
+            td class="text-right text-[13px] mono" { (fmt_qty(d.quantity)) }
             td class="mono" { (req_date) }
             td {
                 span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium" style=(pri_style) { (pri_text) }
@@ -822,11 +822,11 @@ fn detail_row(d: &DemandSummary) -> Markup {
             td class="mono" {
                 @if let (Some(doc_type), Some(doc_id)) = (d.target_doc_type, d.target_doc_id) {
                     @if doc_type == 7 {
-                        a class="link-cell" href=(PODetailPath { id: doc_id }.to_string()) {
+                        a class="text-accent font-medium cursor-pointer" href=(PODetailPath { id: doc_id }.to_string()) {
                             "PO-" (doc_id)
                         }
                     } @else if doc_type == 12 {
-                        a class="link-cell" href=(PlanDetailPath { id: doc_id }.to_string()) {
+                        a class="text-accent font-medium cursor-pointer" href=(PlanDetailPath { id: doc_id }.to_string()) {
                             "PP-" (doc_id)
                         }
                     } @else {
@@ -840,7 +840,7 @@ fn detail_row(d: &DemandSummary) -> Markup {
                 @if is_pending {
                     form method="get" action=(PurchaseDemandPoolCreatePath::PATH) style="display:inline" {
                         input type="hidden" name="product_id" value=(d.product_id) {}
-                        button type="submit" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover btn-sm" { "创建" }
+                        button type="submit" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm" { "创建" }
                     }
                 } @else {
                     span class="text-muted text-sm" { "—" }

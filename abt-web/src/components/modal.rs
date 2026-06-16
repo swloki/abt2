@@ -9,9 +9,9 @@ use maud::{Markup, html};
 /// `body` — form content slot.
 pub fn modal(modal_id: &str, title: &str, submit_label: &str, form_id: &str, hx_post: &str, body: Markup) -> Markup {
     html! {
-        div id=(modal_id) class="modal-overlay"
+        div id=(modal_id) class="fixed z-[1000] grid place-items-center opacity-0"
             _="on click[me is event.target] remove .is-open" {
-            form id=(form_id) class="modal" hx-post=(hx_post) hx-swap="none"
+            form id=(form_id) class="bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0" hx-post=(hx_post) hx-swap="none"
                 _="on 'htmx:afterRequest'[detail.xhr.status < 400] remove .is-open from closest .modal-overlay then reset me" {
                 div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
                     h2 { (title) }
@@ -22,9 +22,9 @@ pub fn modal(modal_id: &str, title: &str, submit_label: &str, form_id: &str, hx_
                     (body)
                 }
                 div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" {
-                    button type="button" class="btn bg-white text-fg border border-border hover:bg-surface"
+                    button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface"
                         _=(format!("on click remove .is-open from closest .modal-overlay then reset #{}", form_id)) { "取消" }
-                    button type="submit" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" { (submit_label) }
+                    button type="submit" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" { (submit_label) }
                 }
             }
         }

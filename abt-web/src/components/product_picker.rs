@@ -68,21 +68,21 @@ pub async fn search_products(
 
 pub fn product_picker_modal(modal_id: &str, target_id: &str, display_id: &str) -> Markup {
     html! {
-        div class="modal-overlay" id=(modal_id)
+        div class="fixed z-[1000] grid place-items-center opacity-0" id=(modal_id)
             _=(format!("on click remove .is-open from #{}", modal_id)) {
-            div class="modal modal-lg" _="on click halt" {
+            div class="modal bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0-lg" _="on click halt" {
                 div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
                     h2 { "选择产品" }
                     button style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
                         _=(format!("on click remove .is-open from #{}", modal_id)) { "×" }
                 }
                 div class="overflow-y-auto flex-1 min-h-0 p-6" style="padding:0" {
-                    div class="product-search-bar" {
+                    div class="flex gap-4 p-4 border-b" {
                         input type="hidden" name="target_id" value=(target_id);
                         input type="hidden" name="display_id" value=(display_id);
                         input type="hidden" name="modal_id" value=(modal_id);
-                        div class="product-search-field" {
-                            label class="product-search-label" { "产品名称" }
+                        div class="flex-1 flex flex-col gap-[4px]" {
+                            label class="text-[12px] font-medium text-fg-2" { "产品名称" }
                             input class="product-w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="name" placeholder="输入产品名称…"
                                 hx-get=(ProductSearchPath::PATH)
                                 hx-trigger="keyup changed delay:300ms"
@@ -91,8 +91,8 @@ pub fn product_picker_modal(modal_id: &str, target_id: &str, display_id: &str) -
                                 hx-swap="innerHTML"
                                 hx-include=".product-search-bar" {}
                         }
-                        div class="product-search-field" {
-                            label class="product-search-label" { "产品编码" }
+                        div class="flex-1 flex flex-col gap-[4px]" {
+                            label class="text-[12px] font-medium text-fg-2" { "产品编码" }
                             input class="product-w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="code" placeholder="输入产品编码…"
                                 hx-get=(ProductSearchPath::PATH)
                                 hx-trigger="keyup changed delay:300ms"
@@ -100,7 +100,7 @@ pub fn product_picker_modal(modal_id: &str, target_id: &str, display_id: &str) -
                                 hx-target="#product-search-results"
                                 hx-swap="innerHTML"
                                 hx-include=".product-search-bar" {}
-                            button type="button" class="product-search-clear"
+                            button type="button" class="border border-border rounded-sm bg-bg text-fg-2 text-sm cursor-pointer whitespace-nowrap"
                                 hx-get=(ProductSearchPath::PATH)
                                 hx-target="#product-search-results"
                                 hx-swap="innerHTML"
@@ -145,14 +145,14 @@ pub fn product_picker_results(
         } @else {
             div class="product-select-list" {
                 @for p in products {
-                    div class="product-select-item"
+                    div class="flex items-center justify-between p-3 border-b"
                         data-pid=(p.product_id)
                         data-pname=(p.pdt_name.as_str())
                         _=(click_hs) {
                         div class="product-select-info" {
-                            div class="product-select-name" { (p.pdt_name.as_str()) }
-                            div class="product-select-meta" {
-                                span class="product-select-code" { (p.product_code.as_str()) }
+                            div class="text-sm font-medium text-fg" { (p.pdt_name.as_str()) }
+                            div class="text-[12px] text-muted flex items-center gap-[6px] flex-wrap" {
+                                span class="bg-surface rounded-sm" { (p.product_code.as_str()) }
                                 span class="product-select-sep" { "·" }
                                 span { (p.meta.specification.as_str()) }
                                 span class="product-select-sep" { "·" }

@@ -89,12 +89,12 @@ fn exception_detail_page(
                 div class="flex flex-col gap-1" { label { "原因分类" } span { (reason_label) } }
                 div class="flex flex-col gap-1" { label { "关联工单" } span class="mono" {
                     @if let Some(ref wo) = lookups.wo_doc_number {
-                        a href=(format!("/admin/mes/orders/{}", exc.work_order_id.unwrap_or(0))) class="link-cell" { (wo) }
+                        a href=(format!("/admin/mes/orders/{}", exc.work_order_id.unwrap_or(0))) class="text-accent font-medium cursor-pointer" { (wo) }
                     } @else { "—" }
                 }}
                 div class="flex flex-col gap-1" { label { "关联批次" } span class="mono" {
                     @if let Some(ref bn) = lookups.batch_no {
-                        a href=(format!("/admin/mes/batches/{}", exc.batch_id.unwrap_or(0))) class="link-cell" { (bn) }
+                        a href=(format!("/admin/mes/batches/{}", exc.batch_id.unwrap_or(0))) class="text-accent font-medium cursor-pointer" { (bn) }
                     } @else { "—" }
                 }}
                 div class="flex flex-col gap-1" { label { "产品" } span { (lookups.product_name.as_deref().unwrap_or("—")) } }

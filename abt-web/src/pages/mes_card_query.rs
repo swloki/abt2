@@ -119,19 +119,19 @@ fn card_query_page(recent_batches: &[abt_core::mes::production_batch::BatchListI
     html! {
         div {
             // 搜索区
-            div class="card-search-box" {
-                div class="card-search-title" { "流转卡查询" }
-                div class="card-search-desc" { "输入流转卡号、批次号或扫描二维码，实时查看工序流转进度" }
+            div class="bg-bg border border-border-soft rounded-lg p-10 text-center relative overflow-hidden" {
+                div class="text-2xl font-bold text-fg" { "流转卡查询" }
+                div class="text-sm text-muted" { "输入流转卡号、批次号或扫描二维码，实时查看工序流转进度" }
                 div class="card-w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent-wrap" {
                     form hx-get=(CardQuerySearchPath::PATH) hx-target="#card-result" hx-swap="innerHTML" hx-trigger="submit" style="display:flex;gap:var(--space-3);flex:1" {
                         input class="card-w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="q" placeholder="输入流转卡号 / 批次号，如 FC-SN-060301" autofocus;
-                        button class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" type="submit" style="display:inline-flex;align-items:center;gap:var(--space-2);white-space:nowrap" {
+                        button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" type="submit" style="display:inline-flex;align-items:center;gap:var(--space-2);white-space:nowrap" {
                             (PreEscaped(r#"<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>"#))
                             "查询"
                         }
                     }
                 }
-                button class="card-scan-btn" {
+                button class="card-scan-inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative" {
                     (PreEscaped(r#"<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 7V5a2 2 0 012-2h2M17 3h2a2 2 0 012 2v2M21 17v2a2 2 0 01-2 2h-2M7 21H5a2 2 0 01-2-2v-2"/><rect x="7" y="7" width="10" height="10" rx="1"/></svg>"#))
                     "扫描二维码"
                 }
@@ -142,12 +142,12 @@ fn card_query_page(recent_batches: &[abt_core::mes::production_batch::BatchListI
 
             // 最近查询的流转卡
             @if !recent_batches.is_empty() {
-                div class="recent-section" {
-                    div class="recent-title" {
+                div class="bg-bg border border-border-soft rounded-lg p-6" {
+                    div class="text-sm font-semibold text-fg flex items-center gap-2" {
                         (PreEscaped(r#"<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>"#))
                         "最近查询的流转卡"
                     }
-                    div class="recent-grid" {
+                    div class="grid gap-4" {
                         @for batch in recent_batches {
                             @let (status_label, status_cls) = batch_status_label(&batch.status);
                             @let progress_pct = if batch.total_steps.unwrap_or(0) > 0 {
@@ -165,25 +165,25 @@ fn card_query_page(recent_batches: &[abt_core::mes::production_batch::BatchListI
                                 _ => "—".to_string(),
                             };
 
-                            div class="recent-card"
+                            div class="bg-surface border border-border-soft rounded p-4 cursor-pointer"
                                 hx-get=(format!("{}?q={}", CardQuerySearchPath::PATH, batch.card_sn))
                                 hx-target="#card-result"
                                 hx-swap="innerHTML"
                                 style="cursor:pointer"
                             {
-                                div class="recent-card-top" {
-                                    span class="recent-card-no" { (batch.card_sn) }
+                                div class="bg-surface border border-border-soft rounded p-4 cursor-pointer-top" {
+                                    span class="bg-surface border border-border-soft rounded p-4 cursor-pointer-no" { (batch.card_sn) }
                                     span class=(format!("status-pill {status_cls}")) { (status_label) }
                                 }
-                                div class="recent-card-product" {
+                                div class="bg-surface border border-border-soft rounded p-4 cursor-pointer-product" {
                                     (batch.product_name.as_deref().unwrap_or("—"))
                                     " · "
                                     (step_info)
                                     " "
                                     (batch.current_step_name.as_deref().unwrap_or(""))
                                 }
-                                div class="recent-card-progress" {
-                                    div class="recent-card-progress-bar" style=(format!("width:{}%;background:{}", progress_pct, progress_color)) {}
+                                div class="bg-surface border border-border-soft rounded p-4 cursor-pointer-progress" {
+                                    div class="bg-surface border border-border-soft rounded p-4 cursor-pointer-progress-bar" style=(format!("width:{}%;background:{}", progress_pct, progress_color)) {}
                                 }
                             }
                         }
@@ -234,14 +234,14 @@ fn card_search_result(
     };
 
     html! {
-        div class="card-result" {
+        div class="bg-bg border border-border-soft rounded-lg overflow-hidden" {
             // 结果头部
-            div class="card-result-header" {
-                div class="card-result-no" {
+            div class="bg-bg border border-border-soft rounded-lg overflow-hidden-header" {
+                div class="bg-bg border border-border-soft rounded-lg overflow-hidden-no" {
                     (batch.card_sn)
                     span class=(format!("status-pill {status_cls}")) { (status_label) }
                 }
-                div class="card-result-meta" {
+                div class="bg-bg border border-border-soft rounded-lg overflow-hidden-meta" {
                     span {
                         (PreEscaped(r#"<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/></svg>"#))
                         "批次 " span class="mono" { (batch.batch_no) }
@@ -254,7 +254,7 @@ fn card_search_result(
                 }
             }
 
-            div class="card-result-body" {
+            div class="bg-bg border border-border-soft rounded-lg overflow-hidden-body" {
                 // 基本信息网格
                 div class="card-grid gap-4" {
                     div class="card-flex flex-col gap-1" {
@@ -289,7 +289,7 @@ fn card_search_result(
 
                 // 工序流转进度
                 @if !routings.is_empty() {
-                    div class="flow-progress" {
+                    div class="flex items-start relative p-4" {
                         @for (i, routing) in routings.iter().enumerate() {
                             @let progress = progress_map.get(&routing.id);
                             @let p_completed = progress.map_or(rust_decimal::Decimal::ZERO, |p| p.completed_qty);
@@ -310,12 +310,12 @@ fn card_search_result(
 
                             div class=(step_cls) {
                                 @if is_completed {
-                                    div class="flow-step-node" { "✓" }
+                                    div class="flex-1 flex flex-col items-center relative z-[1]-node" { "✓" }
                                 } @else {
-                                    div class="flow-step-node" { (routing.step_no) }
+                                    div class="flex-1 flex flex-col items-center relative z-[1]-node" { (routing.step_no) }
                                 }
-                                div class="flow-step-name" { (routing.process_name) }
-                                div class="flow-step-info" {
+                                div class="flex-1 flex flex-col items-center relative z-[1]-name" { (routing.process_name) }
+                                div class="flex-1 flex flex-col items-center relative z-[1]-info" {
                                     @if is_completed || is_current {
                                         "完成 " (crate::utils::fmt_qty(p_completed))
                                         @if p_defect > rust_decimal::Decimal::ZERO {
@@ -329,7 +329,7 @@ fn card_search_result(
                                     }
                                 }
                                 @if i < routings.len() - 1 {
-                                    div class="flow-step-bar" {}
+                                    div class="flex-1 flex flex-col items-center relative z-[1]-bar" {}
                                 }
                             }
                         }
@@ -338,12 +338,12 @@ fn card_search_result(
 
                 // 报工明细
                 @if !reports.is_empty() {
-                    div class="section-card" style="margin-bottom:0" {
-                        div class="section-card-head" {
+                    div class="bg-bg border border-border-soft rounded-lg overflow-hidden" style="margin-bottom:0" {
+                        div class="p-4 border-b text-sm font-semibold text-fg flex items-center gap-2 bg-surface-raised" {
                             (PreEscaped(r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>"#))
                             "报工明细"
                         }
-                        div class="section-card-body" style="padding:0" {
+                        div class="bg-bg border border-border-soft rounded-lg overflow-hidden-body" style="padding:0" {
                             div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                                 table class="card-sub-table" {
                                     thead { tr {
@@ -351,11 +351,11 @@ fn card_search_result(
                                         th { "工序" }
                                         th { "班次" }
                                         th { "工人" }
-                                        th class="num-right" { "完成" }
-                                        th class="num-right" { "不良" }
+                                        th class="text-right text-[13px]" { "完成" }
+                                        th class="text-right text-[13px]" { "不良" }
                                         th { "不良原因" }
-                                        th class="num-right" { "工时" }
-                                        th class="num-right" { "计件工资" }
+                                        th class="text-right text-[13px]" { "工时" }
+                                        th class="text-right text-[13px]" { "计件工资" }
                                     }}
                                     tbody {
                                         @for report in reports {
@@ -386,8 +386,8 @@ fn card_search_result(
                                                     @else { "夜班" }
                                                 }
                                                 td { (worker_name) }
-                                                td class="num-right mono" style="color:var(--success)" { (crate::utils::fmt_qty(report.completed_qty)) }
-                                                td class="num-right mono" {
+                                                td class="text-right text-[13px] mono" style="color:var(--success)" { (crate::utils::fmt_qty(report.completed_qty)) }
+                                                td class="text-right text-[13px] mono" {
                                                     @if report.defect_qty > rust_decimal::Decimal::ZERO {
                                                         span style="color:var(--danger)" { (crate::utils::fmt_qty(report.defect_qty)) }
                                                     } @else {
@@ -395,8 +395,8 @@ fn card_search_result(
                                                     }
                                                 }
                                                 td { (defect_reason_str) }
-                                                td class="num-right mono" { (crate::utils::fmt_qty(report.work_hours)) "h" }
-                                                td class="num-right mono" style="color:var(--success)" { "¥" (crate::utils::fmt_qty(wage)) }
+                                                td class="text-right text-[13px] mono" { (crate::utils::fmt_qty(report.work_hours)) "h" }
+                                                td class="text-right text-[13px] mono" style="color:var(--success)" { "¥" (crate::utils::fmt_qty(wage)) }
                                             }
                                         }
                                     }

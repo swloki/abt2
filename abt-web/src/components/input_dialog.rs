@@ -29,14 +29,14 @@ pub fn input_dialog(
     confirm_action: &str,
 ) -> Markup {
     html! {
-        div id=(dialog_id) class="modal-overlay"
+        div id=(dialog_id) class="fixed z-[1000] grid place-items-center opacity-0"
             _="on click[me is event.target] remove .is-open" {
-            div class="modal modal-sm" onclick="event.stopPropagation()" {
+            div class="modal bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0-sm" onclick="event.stopPropagation()" {
                 div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
                     h2 { (title) }
                 }
                 div class="overflow-y-auto flex-1 min-h-0 p-6" {
-                    p class="modal-desc" { (desc) }
+                    p class="bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0-desc" { (desc) }
                     div class="form-field" {
                         label { (input_label) }
                         input id=(input_id) class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type=(input_type)
@@ -44,11 +44,11 @@ pub fn input_dialog(
                     }
                 }
                 div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" {
-                    button type="button" class="btn bg-white text-fg border border-border hover:bg-surface"
+                    button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface"
                         _=(format!("on click remove .is-open from closest .modal-overlay")) {
                         "取消"
                     }
-                    button type="button" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover"
+                    button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover"
                         _=(format!("on click {confirm_action}")) {
                         (confirm_label)
                     }

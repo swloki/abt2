@@ -221,9 +221,9 @@ fn journal_list_page(result: &PaginatedResult<CashJournal>, params: &JournalQuer
             div class="flex items-center justify-between mb-6" {
                 h1 class="text-xl font-bold text-fg tracking-tight" { "出纳日记账" }
                 div class="flex gap-3" {
-                    button class="btn bg-white text-fg border border-border hover:bg-surface" type="button" { (icon::download_icon("w-4 h-4")) "导出" }
+                    button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface" type="button" { (icon::download_icon("w-4 h-4")) "导出" }
                     @if can_create {
-                        a class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" href=(JournalCreatePath::PATH) {
+                        a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" href=(JournalCreatePath::PATH) {
                             (icon::plus_icon("w-4 h-4"))
                             "新建日记账"
                         }
@@ -323,7 +323,7 @@ fn journal_data_card(result: &PaginatedResult<CashJournal>, params: &JournalQuer
                                         (dir_label)
                                     }
                                 }
-                                td class="mono num-right" style=(format!("font-weight:600;color:{}", amount_color(&item.direction))) {
+                                td class="mono text-right text-[13px]" style=(format!("font-weight:600;color:{}", amount_color(&item.direction))) {
                                     (fmt_amount(item.amount, &item.direction))
                                 }
                                 td { (counterparty_name(item, counterparty_names)) }

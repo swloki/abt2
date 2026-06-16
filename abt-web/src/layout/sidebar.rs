@@ -489,23 +489,23 @@ pub fn sidebar_body_fragment(claims: &Claims, active_module: &str, filter: &NavF
     let visible_items = filter.visible_items(active_mod);
 
     html! {
-        div class="sidebar-module-header" {
-            span class="module-header-icon" { (render_module_icon(active_mod.id)) }
-            span class="module-header-name" { (active_mod.name) }
+        div class="p-4 text-sm font-bold border-b flex items-center gap-2 shrink-0" {
+            span class="w-[18px] h-[18px] grid place-items-center" { (render_module_icon(active_mod.id)) }
+            span class="whitespace-nowrap overflow-hidden" { (active_mod.name) }
         }
-        div class="sidebar-nav" {
+        div class="flex-1 overflow-y-auto p-2" {
             @for item in &visible_items {
                 a href=(item.path) class=(item_class(false)) {
                     (render_item_icon(item.icon))
-                    span class="sidebar-item-text" { (item.name) }
+                    span class="flex items-center gap-3 text-sm rounded-sm cursor-pointer relative whitespace-nowrap-text" { (item.name) }
                 }
             }
         }
-        div class="sidebar-user" {
-            div class="sidebar-user-inline-grid place-items-center rounded-full text-white font-semibold shrink-0 select-none" { (avatar_initials(&claims.display_name)) }
-            div class="sidebar-user-info" {
-                div class="sidebar-user-name" { (claims.display_name.as_str()) }
-                div class="sidebar-user-role" { (claims.system_role.as_str()) }
+        div class="p-4 border-t flex items-center gap-3" {
+            div class="p-4 border-t flex items-center gap-3-inline-grid place-items-center rounded-full text-white font-semibold shrink-0 select-none" { (avatar_initials(&claims.display_name)) }
+            div class="p-4 border-t flex items-center gap-3-info" {
+                div class="p-4 border-t flex items-center gap-3-name" { (claims.display_name.as_str()) }
+                div class="p-4 border-t flex items-center gap-3-role" { (claims.system_role.as_str()) }
             }
         }
     }
@@ -520,11 +520,11 @@ pub fn sidebar(claims: &Claims, active_module: &str, current_path: &str, filter:
     html! {
         nav id="sidebar" {
             // ── Icon Rail ──
-            div class="sidebar-rail" {
-                div class="rail-brand" title="ABT ERP" {
+            div class="w-[56px] bg-[#070f1e] flex flex-col items-center p-3 border-r shrink-0" {
+                div class="w-[36px] h-[36px] rounded grid place-items-center" title="ABT ERP" {
                     (icon::box_icon(""))
                 }
-                div class="rail-modules" {
+                div class="flex-1 flex flex-col items-center gap-[2px] w-full overflow-y-auto" {
                     @for m in &mods {
                         @if filter.has_visible_items(m) {
                             @let is_initial_active = active_mod.is_some_and(|am| m.id == am.id);
@@ -535,32 +535,32 @@ pub fn sidebar(claims: &Claims, active_module: &str, current_path: &str, filter:
                                hx-swap="innerHTML"
                                _="on click take .active from .rail-item"
                                title=(m.name) {
-                                span class="rail-icon" { (render_module_icon(m.id)) }
-                                span class="rail-label" { (m.name.replace("管理", "")) }
+                                span class="w-[20px] h-[20px] grid place-items-center" { (render_module_icon(m.id)) }
+                                span class="text-[10px] whitespace-nowrap" { (m.name.replace("管理", "")) }
                             }
                         }
                     }
                 }
-                div class="rail-bottom" {
-                    button class="rail-item rail-collapse"
+                div class="flex flex-col items-center w-full border-t" {
+                    button class="w-[44px] flex flex-col items-center gap-[3px] border-none rounded-sm cursor-pointer relative no-underline rail-collapse"
                             _="on click toggle .sidebar-collapsed on .app-shell then if .app-shell matches .sidebar-collapsed call localStorage.setItem('sidebar-collapsed','true') else call localStorage.removeItem('sidebar-collapsed')"
                             title="收起侧栏" {
                         (icon::sidebar_toggle_icon(""))
-                        span class="rail-label" { "收起" }
+                        span class="text-[10px] whitespace-nowrap" { "收起" }
                     }
                 }
             }
 
             // ── Sidebar Body ──
-            div class="sidebar-body" {
+            div class="flex-1 flex flex-col overflow-y-auto" {
                 @if let Some(active_mod) = active_mod {
                     (sidebar_body_fragment_inner(active_mod, current_path, filter))
                 }
-                div class="sidebar-user" {
-                    div class="sidebar-user-inline-grid place-items-center rounded-full text-white font-semibold shrink-0 select-none" { (avatar_initials(&claims.display_name)) }
-                    div class="sidebar-user-info" {
-                        div class="sidebar-user-name" { (claims.display_name.as_str()) }
-                        div class="sidebar-user-role" { (claims.system_role.as_str()) }
+                div class="p-4 border-t flex items-center gap-3" {
+                    div class="p-4 border-t flex items-center gap-3-inline-grid place-items-center rounded-full text-white font-semibold shrink-0 select-none" { (avatar_initials(&claims.display_name)) }
+                    div class="p-4 border-t flex items-center gap-3-info" {
+                        div class="p-4 border-t flex items-center gap-3-name" { (claims.display_name.as_str()) }
+                        div class="p-4 border-t flex items-center gap-3-role" { (claims.system_role.as_str()) }
                     }
                 }
             }
@@ -610,15 +610,15 @@ fn sidebar_body_fragment_inner(active_mod: &NavModule, current_path: &str, filte
     let visible_items = filter.visible_items(active_mod);
     let active_path = find_active_path(&visible_items, current_path);
     html! {
-        div class="sidebar-module-header" {
-            span class="module-header-icon" { (render_module_icon(active_mod.id)) }
-            span class="module-header-name" { (active_mod.name) }
+        div class="p-4 text-sm font-bold border-b flex items-center gap-2 shrink-0" {
+            span class="w-[18px] h-[18px] grid place-items-center" { (render_module_icon(active_mod.id)) }
+            span class="whitespace-nowrap overflow-hidden" { (active_mod.name) }
         }
-        div class="sidebar-nav" {
+        div class="flex-1 overflow-y-auto p-2" {
             @for item in &visible_items {
                 a href=(item.path) class=(item_class(active_path == Some(item.path))) {
                     (render_item_icon(item.icon))
-                    span class="sidebar-item-text" { (item.name) }
+                    span class="flex items-center gap-3 text-sm rounded-sm cursor-pointer relative whitespace-nowrap-text" { (item.name) }
                 }
             }
         }
@@ -636,9 +636,9 @@ pub fn mobile_nav(active_module: &str, current_path: &str, filter: &NavFilter) -
     let active_path = find_active_path(&visible_items, current_path);
 
     html! {
-        nav class="mobile-nav" {
-            div class="mobile-nav-scroll" {
-                div class="mobile-nav-inner" {
+        nav class="hidden fixed h-[60px] bg-bg border-t z-[30]" {
+            div class="hidden fixed h-[60px] bg-bg border-t z-[30]-scroll" {
+                div class="hidden fixed h-[60px] bg-bg border-t z-[30]-inner" {
                     @for item in &visible_items {
                         a href=(item.path) class=(mobile_class(active_path == Some(item.path))) {
                             (render_item_icon(item.icon))

@@ -134,7 +134,7 @@ fn wms_dashboard_content(stats: &DashboardStats) -> Markup {
         div class="flex items-center justify-between mb-6" {
             h1 class="text-xl font-bold text-fg tracking-tight" { "库存管理总览" }
             div class="flex gap-3" {
-                button class="btn bg-white text-fg border border-border hover:bg-surface" {
+                button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface" {
                     (icon::download_icon("w-4 h-4"))
                     " 导出报表"
                 }
@@ -144,8 +144,8 @@ fn wms_dashboard_content(stats: &DashboardStats) -> Markup {
         // ── Stat Cards (5 columns) ──
         div style="display:grid;grid-template-columns:repeat(5,1fr);gap:var(--space-5);margin-bottom:var(--space-8)" {
             // 仓库总数
-            div class="stat-card" {
-                div class="stat-icon blue" {
+            div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
+                div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 blue" {
                     (icon::building_icon("w-[22px] h-[22px]"))
                 }
                 div {
@@ -154,8 +154,8 @@ fn wms_dashboard_content(stats: &DashboardStats) -> Markup {
                 }
             }
             // 库存品类
-            div class="stat-card" {
-                div class="stat-icon green" {
+            div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
+                div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 green" {
                     (icon::box_icon("w-[22px] h-[22px]"))
                 }
                 div {
@@ -164,8 +164,8 @@ fn wms_dashboard_content(stats: &DashboardStats) -> Markup {
                 }
             }
             // 本月入库
-            div class="stat-card" {
-                div class="stat-icon" style="background:linear-gradient(135deg,#e6f7ff,#bae7ff);color:var(--accent)" {
+            div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
+                div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0" style="background:linear-gradient(135deg,#e6f7ff,#bae7ff);color:var(--accent)" {
                     (icon::download_icon("w-[22px] h-[22px]"))
                 }
                 div {
@@ -174,8 +174,8 @@ fn wms_dashboard_content(stats: &DashboardStats) -> Markup {
                 }
             }
             // 本月出库
-            div class="stat-card" {
-                div class="stat-icon" style="background:linear-gradient(135deg,#fff1f0,#ffccc7);color:var(--danger)" {
+            div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
+                div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0" style="background:linear-gradient(135deg,#fff1f0,#ffccc7);color:var(--danger)" {
                     (icon::upload_icon("w-[22px] h-[22px]"))
                 }
                 div {
@@ -184,8 +184,8 @@ fn wms_dashboard_content(stats: &DashboardStats) -> Markup {
                 }
             }
             // 低库存预警
-            div class="stat-card" {
-                div class="stat-icon red" {
+            div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
+                div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 red" {
                     (icon::circle_alert_icon("w-[22px] h-[22px]"))
                 }
                 div {
@@ -198,7 +198,7 @@ fn wms_dashboard_content(stats: &DashboardStats) -> Markup {
         // ── Quick Entry Grid (4 columns, 14 cards) ──
         div style="margin-bottom:var(--space-8)" {
             div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-4)" {
-                h2 class="section-title" { "快捷入口" }
+                h2 class="text-lg font-semibold text-fg" { "快捷入口" }
             }
             div style="display:grid;grid-template-columns:repeat(4,1fr);gap:var(--space-4)" {
                 (quick_entry_card("/admin/wms/warehouses", "#e6f4ff", "#d6e8ff", "var(--accent)", &icon::building_icon("w-[22px] h-[22px]"), "仓库管理", "仓库主数据与分区配置"))
@@ -235,35 +235,35 @@ fn wms_dashboard_content(stats: &DashboardStats) -> Markup {
                     tbody {
                         tr {
                             td style="color:var(--muted);font-size:12px" { "—" }
-                            td { span class="status-pill status-confirmed" { "来料接收" } }
+                            td { span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-[#e8f4ff] text-[var(--accent-active)]" { "来料接收" } }
                             td { a href="/admin/wms/arrivals" style="color:var(--accent)" { "—" } }
                             td { "—" }
                             td { "—" }
                         }
                         tr {
                             td style="color:var(--muted);font-size:12px" { "—" }
-                            td { span class="status-pill status-progress" { "领料出库" } }
+                            td { span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-[#fff8eb] text-[#d46b08]" { "领料出库" } }
                             td { a href="/admin/wms/requisitions" style="color:var(--accent)" { "—" } }
                             td { "—" }
                             td { "—" }
                         }
                         tr {
                             td style="color:var(--muted);font-size:12px" { "—" }
-                            td { span class="status-pill status-completed" { "库存调拨" } }
+                            td { span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-[#f0fff0] text-[#389e0d]" { "库存调拨" } }
                             td { a href="/admin/wms/transfers" style="color:var(--accent)" { "—" } }
                             td { "—" }
                             td { "—" }
                         }
                         tr {
                             td style="color:var(--muted);font-size:12px" { "—" }
-                            td { span class="status-pill status-draft" { "循环盘点" } }
+                            td { span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-surface text-muted" { "循环盘点" } }
                             td { a href="/admin/wms/cycle-counts" style="color:var(--accent)" { "—" } }
                             td { "—" }
                             td { "—" }
                         }
                         tr {
                             td style="color:var(--muted);font-size:12px" { "—" }
-                            td { span class="status-pill status-inspecting" { "库存锁定" } }
+                            td { span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-[#fff8eb] text-[#d46b08]" { "库存锁定" } }
                             td { a href="/admin/wms/locks" style="color:var(--accent)" { "—" } }
                             td { "—" }
                             td { "—" }

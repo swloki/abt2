@@ -158,7 +158,7 @@ fn plan_list_page(
                 h1 class="text-xl font-bold text-fg tracking-tight" { "生产计划" }
                 div class="flex gap-3" {
                     @if can_create {
-                        a class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" href=(PlanCreatePath::PATH) {
+                        a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" href=(PlanCreatePath::PATH) {
                             (icon::plus_icon("w-4 h-4"))
                             "新建计划"
                         }
@@ -261,7 +261,7 @@ fn plan_data_card(
                             @let sales_orders = stats.map(|s| s.sales_orders.as_str()).unwrap_or("—");
                             @let sales_orders_display = if sales_orders.is_empty() { "—" } else { sales_orders };
                             tr style="cursor:pointer" onclick=(format!("location.href='{}'", detail_path.to_string())) {
-                                td class="link-cell mono" style="color:var(--accent)" { (item.doc_number) }
+                                td class="text-accent font-medium cursor-pointer mono" style="color:var(--accent)" { (item.doc_number) }
                                 td { (item.plan_date) }
                                 td {
                                     span style=(format!("display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{};color:{}", type_bg, type_color)) {

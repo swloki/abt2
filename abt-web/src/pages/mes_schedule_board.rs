@@ -151,7 +151,7 @@ fn schedule_board_content(
 
 fn stats_row(stats: &ScheduleStats) -> Markup {
     html! {
-        div class="board-stats" {
+        div class="flex gap-[12px]" {
             (stat_card(&stats.active_orders.to_string(), "活跃工单", "bs-primary"))
             (stat_card(&stats.pending_batches.to_string(), "待排产", "bs-pending"))
             (stat_card(&stats.in_progress_batches.to_string(), "进行中", "bs-progress"))
@@ -212,24 +212,24 @@ fn toolbar(from: NaiveDate, to: NaiveDate, active_view: &str) -> Markup {
     };
 
     html! {
-        div class="schedule-toolbar" {
-            div class="schedule-tabs" {
+        div class="flex justify-between items-center gap-[12px] flex-wrap" {
+            div class="inline-flex bg-[#f5f5f5] gap-[2px]" {
                 (tab_btn("甘特图", "gantt"))
                 (tab_btn("负荷分析", "load"))
                 (tab_btn("状态看板", "kanban"))
             }
-            div class="schedule-date-nav" {
+            div class="flex items-center gap-[8px]" {
                 button
-                    class="date-nav-btn"
+                    class="date-nav-inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative"
                     hx-get=(prev_url)
                     hx-target="#schedule-content"
                     hx-swap="outerHTML"
                     { "‹" }
-                span class="date-range-label" {
+                span class="text-[14px] font-medium text-[#595959] text-center" {
                     (from.format("%m/%d").to_string()) " - " (to.format("%m/%d").to_string())
                 }
                 button
-                    class="date-nav-btn"
+                    class="date-nav-inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative"
                     hx-get=(next_url)
                     hx-target="#schedule-content"
                     hx-swap="outerHTML"
@@ -249,7 +249,7 @@ fn gantt_view(data: &GanttData, today: NaiveDate) -> Markup {
     }
 
     html! {
-        div class="gantt-wrap" {
+        div class="overflow-x-auto bg-white" {
             table class="gantt-table" {
                 // ── Header row: dates ──
                 thead {
@@ -264,10 +264,10 @@ fn gantt_view(data: &GanttData, today: NaiveDate) -> Markup {
                 tbody {
                     @for (wi, wc) in data.work_centers.iter().enumerate() {
                         tr {
-                            td class="gantt-wc-cell" {
+                            td class="border-b bg-[#fafafa] text-center sticky z-[1]" {
                                 span class=(format!("gantt-wc-dot gantt-color-{}", wi % 8)) {}
-                                span class="gantt-wc-name" { (wc.name) }
-                                span class="gantt-wc-type" { (work_center_type_label(wc.work_center_type)) }
+                                span class="text-[13px] font-medium text-[#262626]" { (wc.name) }
+                                span class="block text-[11px] text-[#bfbfbf]" { (work_center_type_label(wc.work_center_type)) }
                             }
                             @for date in &data.date_range {
                                 (gantt_cell(data, wc.id, *date, today))
@@ -290,8 +290,8 @@ fn gantt_date_header(date: NaiveDate, today: NaiveDate) -> Markup {
     );
     html! {
         th class=(cls) {
-            span class="gantt-date-day" { (date.format("%m/%d").to_string()) }
-            span class="gantt-date-weekday" { (weekday_cn(date.weekday())) }
+            span class="block text-[13px] font-semibold text-[#262626]" { (date.format("%m/%d").to_string()) }
+            span class="block text-[11px] text-[#8c8c8c]" { (weekday_cn(date.weekday())) }
         }
     }
 }
@@ -320,7 +320,7 @@ fn gantt_cell(data: &GanttData, wc_id: i64, date: NaiveDate, today: NaiveDate) -
                 (gantt_block(b))
             }
             @if bookings.is_empty() {
-                span class="gantt-cell-empty" {}
+                span class="border-b border-l h-[48px]-empty" {}
             }
         }
     }
@@ -348,10 +348,10 @@ fn gantt_block(b: &GanttBooking) -> Markup {
             style=(format!("border-left-color: {border_color}"))
             title=(format!("{title} · {process} · {product} · {hours}h"))
         {
-            div class="gantt-block-title" { (title) }
-            div class="gantt-block-process" { (process) }
+            div class="block no-underline text-[11px] cursor-pointer text-[#fff]-title" { (title) }
+            div class="block no-underline text-[11px] cursor-pointer text-[#fff]-process" { (process) }
             @if spans_days {
-                span class="gantt-block-arrow" { "→" }
+                span class="block no-underline text-[11px] cursor-pointer text-[#fff]-arrow" { "→" }
             }
         }
     }
@@ -372,7 +372,7 @@ fn load_view(
     }
 
     html! {
-        div class="load-wrap" {
+        div class="overflow-x-auto bg-white" {
             table class="load-table" {
                 thead {
                     tr {
@@ -385,9 +385,9 @@ fn load_view(
                 tbody {
                     @for wc in work_centers {
                         tr {
-                            td class="load-wc-cell" {
-                                span class="gantt-wc-name" { (wc.name) }
-                                span class="gantt-wc-type" { (work_center_type_label(wc.work_center_type)) }
+                            td class="border-b bg-[#fafafa] sticky z-[1]" {
+                                span class="text-[13px] font-medium text-[#262626]" { (wc.name) }
+                                span class="block text-[11px] text-[#bfbfbf]" { (work_center_type_label(wc.work_center_type)) }
                             }
                             @for date in date_range {
                                 (load_cell(loads, wc.id, *date))
@@ -396,21 +396,21 @@ fn load_view(
                     }
                 }
             }
-            div class="load-legend" {
-                span class="load-legend-item" {
-                    span class="load-legend-swatch load-level-empty" {}
+            div class="flex gap-[16px] justify-end" {
+                span class="flex gap-[16px] justify-end-item" {
+                    span class="flex gap-[16px] justify-end-swatch bg-[#f5f5f5] text-[#bfbfbf]" {}
                     "无排程"
                 }
-                span class="load-legend-item" {
-                    span class="load-legend-swatch load-level-low" {}
+                span class="flex gap-[16px] justify-end-item" {
+                    span class="flex gap-[16px] justify-end-swatch load-level-low" {}
                     "<70%"
                 }
-                span class="load-legend-item" {
-                    span class="load-legend-swatch load-level-mid" {}
+                span class="flex gap-[16px] justify-end-item" {
+                    span class="flex gap-[16px] justify-end-swatch load-level-mid" {}
                     "70-90%"
                 }
-                span class="load-legend-item" {
-                    span class="load-legend-swatch load-level-high" {}
+                span class="flex gap-[16px] justify-end-item" {
+                    span class="flex gap-[16px] justify-end-swatch load-level-high" {}
                     ">90%"
                 }
             }
@@ -428,8 +428,8 @@ fn load_date_header(date: NaiveDate, today: NaiveDate) -> Markup {
     );
     html! {
         th class=(cls) {
-            span class="gantt-date-day" { (date.format("%m/%d").to_string()) }
-            span class="gantt-date-weekday" { (weekday_cn(date.weekday())) }
+            span class="block text-[13px] font-semibold text-[#262626]" { (date.format("%m/%d").to_string()) }
+            span class="block text-[11px] text-[#8c8c8c]" { (weekday_cn(date.weekday())) }
         }
     }
 }
@@ -461,12 +461,12 @@ fn load_cell(loads: &[WcDailyLoad], wc_id: i64, date: NaiveDate) -> Markup {
     };
 
     html! {
-        td class="load-cell" {
+        td class="border-b border-l text-center h-[48px]" {
             div
                 class=(format!("load-cell-block {level_cls}"))
                 title=(format!("已排 {booked} / 可用 {avail}"))
             {
-                span class="load-cell-pct" { (pct) "%" }
+                span class="border-b border-l text-center h-[48px]-pct" { (pct) "%" }
             }
         }
     }
@@ -582,8 +582,8 @@ fn kanban_card(card: &ScheduleCard) -> Markup {
 
 fn empty_state(msg: &str) -> Markup {
     html! {
-        div class="schedule-empty" {
-            div class="schedule-empty-icon" { "📭" }
+        div class="text-center text-[#8c8c8c]" {
+            div class="text-center text-[#8c8c8c]-icon" { "📭" }
             p { (msg) }
         }
     }

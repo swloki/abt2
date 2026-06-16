@@ -72,13 +72,13 @@ pub fn entity_picker_field(
                 (label)
                 @if required { span class="required" { "*" } }
             }
-            div class="search-select" {
+            div class="flex gap-2 items-stretch" {
                 input type="hidden" name=(name) id=(target_id);
-                div class="search-select-display placeholder" id=(display_id)
+                div class="flex gap-2 items-stretch-display placeholder" id=(display_id)
                     _=(open_hs.as_str()) {
                     (placeholder)
                 }
-                button type="button" class="search-select-btn"
+                button type="button" class="flex gap-2 items-stretch-inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative"
                     _=(open_hs.as_str()) {
                     "选择"
                 }
@@ -94,8 +94,8 @@ pub fn entity_picker_modal(cfg: &EntityPickerConfig) -> Markup {
     let open_hs = format!("on click[me is event.target] remove .is-open from #{}", cfg.modal_id);
 
     html! {
-        div class="modal-overlay" id=(cfg.modal_id) _=(open_hs) {
-            div class="modal modal-lg" _="on click halt" {
+        div class="fixed z-[1000] grid place-items-center opacity-0" id=(cfg.modal_id) _=(open_hs) {
+            div class="modal bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0-lg" _="on click halt" {
                 div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
                     h2 { (cfg.title) }
                     button style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text-muted);padding:4px"
@@ -108,9 +108,9 @@ pub fn entity_picker_modal(cfg: &EntityPickerConfig) -> Markup {
                     input type="hidden" name="modal_id" value=(cfg.modal_id);
                     input type="hidden" name="event_name" value=(cfg.event_name);
 
-                    div class="product-search-bar" {
-                        div class="product-search-field" {
-                            label class="product-search-label" { (cfg.search_label) }
+                    div class="flex gap-4 p-4 border-b" {
+                        div class="flex-1 flex flex-col gap-[4px]" {
+                            label class="text-[12px] font-medium text-fg-2" { (cfg.search_label) }
                             input class="product-w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text"
                                 name=(cfg.search_param)
                                 placeholder=(cfg.search_placeholder)
@@ -168,26 +168,26 @@ pub fn entity_picker_results(items: &[EntityPickerItem]) -> Markup {
             div class="product-select-list" {
                 @for item in items {
                     @if item.disabled {
-                        div class="product-select-item"
+                        div class="flex items-center justify-between p-3 border-b"
                             style="opacity:0.45;cursor:not-allowed"
                             data-id=(item.id)
                             data-label=(item.label.as_str()) {
                             div class="product-select-info" {
-                                div class="product-select-name" { (item.label.as_str()) }
+                                div class="text-sm font-medium text-fg" { (item.label.as_str()) }
                                 @if let Some(ref sub) = item.sub_label {
-                                    div class="product-select-meta" { (sub.as_str()) }
+                                    div class="text-[12px] text-muted flex items-center gap-[6px] flex-wrap" { (sub.as_str()) }
                                 }
                             }
                         }
                     } @else {
-                        div class="product-select-item"
+                        div class="flex items-center justify-between p-3 border-b"
                             data-id=(item.id)
                             data-label=(item.label.as_str())
                             _=(selection_hs()) {
                             div class="product-select-info" {
-                                div class="product-select-name" { (item.label.as_str()) }
+                                div class="text-sm font-medium text-fg" { (item.label.as_str()) }
                                 @if let Some(ref sub) = item.sub_label {
-                                    div class="product-select-meta" { (sub.as_str()) }
+                                    div class="text-[12px] text-muted flex items-center gap-[6px] flex-wrap" { (sub.as_str()) }
                                 }
                             }
                         }

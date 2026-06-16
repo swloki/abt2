@@ -293,7 +293,7 @@ fn workflow_steps(current: ReturnStatus) -> Markup {
     let terminal = is_cancelled || is_rejected;
 
     html! {
-        div class="workflow-steps" {
+        div class="flex items-center" {
             @for (i, (label, _)) in steps.iter().enumerate() {
                 @if i > 0 {
                     div class=({
@@ -314,19 +314,19 @@ fn workflow_steps(current: ReturnStatus) -> Markup {
                     "wf-step"
                 };
                 div class=(step_class) {
-                    div class="wf-dot" {}
+                    div class="w-[10px] h-[10px] rounded-full bg-border" {}
                     (label)
                 }
             }
             @if is_cancelled {
-                div class="wf-step cancelled danger" {
-                    div class="wf-dot" {}
+                div class="flex items-center gap-2 text-xs text-muted cancelled danger" {
+                    div class="w-[10px] h-[10px] rounded-full bg-border" {}
                     "已取消"
                 }
             }
             @if is_rejected {
-                div class="wf-step cancelled danger" {
-                    div class="wf-dot" {}
+                div class="flex items-center gap-2 text-xs text-muted cancelled danger" {
+                    div class="w-[10px] h-[10px] rounded-full bg-border" {}
                     "已驳回"
                 }
             }
@@ -359,13 +359,13 @@ fn return_detail_page(
                 "返回退货列表"
             }
             // ── Detail Header ──
-            div class="detail-header" {
+            div class="block bg-bg border border-border-soft rounded-lg p-6" {
                 div {
-                    div class="detail-title-row" {
-                        h1 class="detail-no font-mono" { (r.doc_number) }
+                    div class="flex items-center justify-between" {
+                        h1 class="text-2xl font-extrabold font-mono" { (r.doc_number) }
                         span class=(format!("status-pill {status_class}")) { (status_text) }
                     }
-                    div class="detail-source" {
+                    div class="text-[13px] text-muted" {
                         "来源发货："
                         a href=(shipping_detail.to_string()) { (shipping_number) }
                         "　来源订单："
@@ -375,36 +375,36 @@ fn return_detail_page(
                     }
                 }
                 div class="flex gap-3" {
-                    a class="btn bg-white text-fg border border-border hover:bg-surface" href=(format!("{}?restore=true", ReturnListPath::PATH)) { "返回列表" }
+                    a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface" href=(format!("{}?restore=true", ReturnListPath::PATH)) { "返回列表" }
                     @if r.status == ReturnStatus::Draft {
                         button
-                            class="btn bg-accent text-accent-on border-none hover:bg-accent-hover"
+                            class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover"
                             hx-post=(ConfirmReturnPath { id: r.id }.to_string())
                             hx-confirm="确认审核此退货单？"
                         { "确认退货" }
                     }
                     @if r.status == ReturnStatus::Confirmed {
                         button
-                            class="btn bg-accent text-accent-on border-none hover:bg-accent-hover"
+                            class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover"
                             hx-post=(ReceiveReturnPath { id: r.id }.to_string())
                             hx-confirm="确认已收到退货？"
                         { "确认收货" }
                     }
                     @if r.status == ReturnStatus::Received {
                         button
-                            class="btn bg-accent text-accent-on border-none hover:bg-accent-hover"
+                            class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover"
                             hx-post=(InspectReturnPath { id: r.id }.to_string())
                             hx-confirm="确认开始质检？"
                         { "开始质检" }
                     }
                     @if r.status == ReturnStatus::Inspecting {
                         button
-                            class="btn btn-success"
+                            class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-[#10b981] text-[#fff]"
                             hx-post=(CompleteReturnPath { id: r.id }.to_string())
                             hx-confirm="确认完成退货？"
                         { "完成退货" }
                         button
-                            class="btn bg-danger text-white border-none hover:opacity-90"
+                            class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-danger text-white border-none hover:opacity-90"
                             hx-post=(RejectReturnPath { id: r.id }.to_string())
                             hx-confirm="确认驳回此退货？"
                         { "驳回" }
@@ -445,9 +445,9 @@ fn return_detail_page(
                                 th { "产品编码" }
                                 th { "产品名称" }
                                 th { "单位" }
-                                th class="num-right" { "单价" }
-                                th class="num-right" { "退货数量" }
-                                th class="num-right" { "退货金额" }
+                                th class="text-right text-[13px]" { "单价" }
+                                th class="text-right text-[13px]" { "退货数量" }
+                                th class="text-right text-[13px]" { "退货金额" }
                                 th { "处理方式" }
                             }
                         }
@@ -457,15 +457,15 @@ fn return_detail_page(
                             }
                             @if items.is_empty() {
                                 tr {
-                                    td  colspan="8" class="td-empty"
+                                    td  colspan="8" class="text-center p-8 text-muted"
                                     { "暂无明细" }
                                 }
                             }
                         }
                     }
                 }
-                div class="amount-summary" {
-                    div class="amount-row" {
+                div class="flex justify-end gap-8 p-5 border-t bg-surface-raised" {
+                    div class="flex gap-3" {
                         span { "退货总额" }
                         span class="mono text-2xl font-bold font-mono tabular-nums text-fg-lg" {
                             "¥ "
@@ -497,9 +497,9 @@ fn item_row(index: usize, item: &SalesReturnItem, details: &HashMap<i64, Product
             td class="mono" { (product_code) }
             td { (product_name) }
             td { (unit) }
-            td class="num-right mono" { (format!("{:.2}", item.unit_price)) }
-            td class="num-right" { (fmt_qty(item.returned_qty)) }
-            td class="num-right mono" { (format!("{:.2}", item.amount)) }
+            td class="text-right text-[13px] mono" { (format!("{:.2}", item.unit_price)) }
+            td class="text-right text-[13px]" { (fmt_qty(item.returned_qty)) }
+            td class="text-right text-[13px] mono" { (format!("{:.2}", item.amount)) }
             td { (disposition_label(item.disposition)) }
         }
     }

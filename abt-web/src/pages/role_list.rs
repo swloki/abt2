@@ -256,7 +256,7 @@ fn role_list_page(
                 h1 class="text-xl font-bold text-fg tracking-tight" { "角色管理" }
                 div class="flex gap-3" {
                     @if can_create {
-                        a class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" href=(RoleCreatePath::PATH) {
+                        a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" href=(RoleCreatePath::PATH) {
                             (icon::plus_icon("w-4 h-4"))
                             "新建角色"
                         }
@@ -265,9 +265,9 @@ fn role_list_page(
             }
 
             // ── Stats ──
-            div class="role-stats" {
-                div class="stat-card" {
-                    div class="stat-icon purple" {
+            div class="grid gap-5" {
+                div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
+                    div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 purple" {
                         (icon::lock_icon("w-6 h-6"))
                     }
                     div {
@@ -275,8 +275,8 @@ fn role_list_page(
                         div class="text-sm text-muted mt-1" { "角色总数" }
                     }
                 }
-                div class="stat-card" {
-                    div class="stat-icon orange" {
+                div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
+                    div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 orange" {
                         (icon::check_circle_icon("w-6 h-6"))
                     }
                     div {
@@ -284,8 +284,8 @@ fn role_list_page(
                         div class="text-sm text-muted mt-1" { "内置角色" }
                     }
                 }
-                div class="stat-card" {
-                    div class="stat-icon blue" {
+                div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
+                    div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 blue" {
                         (icon::plus_icon("w-6 h-6"))
                     }
                     div {
@@ -311,7 +311,7 @@ fn role_table_fragment(
     can_delete: bool,
 ) -> Markup {
     html! {
-        div class="role-list-panel" {
+        div class="flex-1 overflow-y-auto-panel" {
             // ── Filter Bar ──
             div class="flex items-center gap-3 mb-5 flex-wrap" {
                 div class="relative flex-1 max-w-xs" {
@@ -359,7 +359,7 @@ fn role_table_fragment(
                             }
                             @if roles.is_empty() {
                                 tr {
-                                    td colspan="7" class="empty-state" {
+                                    td colspan="7" class="text-center p-6 text-muted text-sm" {
                                         "暂无角色数据"
                                     }
                                 }
@@ -410,7 +410,7 @@ fn role_row(
                     @if depth > 0 {
                         span class="text-muted mr-1" { "└ " }
                     }
-                    a href=(detail_path) class="role-name-link" { strong { (role.role_name) } }
+                    a href=(detail_path) class="text-fg no-underline" { strong { (role.role_name) } }
                 }
             }
             // Role Code
@@ -420,27 +420,27 @@ fn role_row(
             // Type
             td {
                 @if role.is_system_role {
-                    span class="tag-sys" { "内置" }
+                    span class="text-[11px] rounded-full bg-[#fff7e6] text-[#fa8c16] font-medium" { "内置" }
                 } @else {
-                    span class="tag-custom" { "自定义" }
+                    span class="text-[11px] rounded-full bg-[#f0f5ff] text-accent font-medium" { "自定义" }
                 }
             }
             // Permission Count
             td {
                 @if perm_count == total_perms {
-                    span class="perm-all" { "全部权限" }
+                    span class="text-[13px] text-muted" { "全部权限" }
                 } @else {
-                    div class="perm-count" {
+                    div class="text-accent font-semibold" {
                         span { (perm_count) }
-                        div class="perm-count-bar" {
-                            div class="perm-count-fill" style=(format!("width:{}%", perm_pct)) {}
+                        div class="text-accent font-semibold-bar" {
+                            div class="text-accent font-semibold-fill" style=(format!("width:{}%", perm_pct)) {}
                         }
                     }
                 }
             }
             // Users
             td {
-                div class="user-avatars" {
+                div class="flex items-center" {
                     @if let Some(users) = users {
                         @for u in users.iter().take(3) {
                             span class="av" style=(format!("background:linear-gradient(135deg,{},{})", u.gradient.0, u.gradient.1)) {
@@ -459,7 +459,7 @@ fn role_row(
                 }
             }
             // Description
-            td class="role-desc" {
+            td class="text-[12px] text-muted overflow-hidden whitespace-nowrap" {
                 @if let Some(desc) = &role.description {
                     (desc)
                 } @else {
@@ -470,12 +470,12 @@ fn role_row(
             td {
                 div class="row-actions" {
                     @if can_create {
-                        a class="row-action-btn" title="编辑" href=(edit_path) {
+                        a class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" title="编辑" href=(edit_path) {
                             (icon::edit_icon("w-3.5 h-3.5"))
                         }
                     }
                     @if can_delete && !role.is_system_role {
-                        button type="button" class="row-action-btn text-danger" title="删除"
+                        button type="button" class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer text-danger" title="删除"
                             hx-post=(delete_path)
                             hx-confirm=(format!("删除后无法恢复，确定要删除角色「{}」吗？", role.role_name)) {
                             (icon::trash_icon("w-3.5 h-3.5"))

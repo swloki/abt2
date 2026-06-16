@@ -149,14 +149,14 @@ fn warehouse_list_page(
             div class="flex items-center justify-between mb-6" {
                 h1 class="text-xl font-bold text-fg tracking-tight" { "仓库管理" }
                 div class="flex gap-3" {
-                    button type="button" class="btn bg-white text-fg border border-border hover:bg-surface"
+                    button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface"
                         _=(import_modal::import_modal_onclick(&ImportModalConfig { import_type: "warehouse-location", title: "", template_columns: "" })) {
                         (icon::upload_icon("w-4 h-4"))
                         "导入"
                     }
                     (export_button::export_button("导出库位", "warehouse-location"))
                     @if can_create {
-                        a class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" href=(WarehouseCreatePath::PATH) {
+                        a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" href=(WarehouseCreatePath::PATH) {
                             (icon::plus_icon("w-4 h-4"))
                             "新建仓库"
                         }
@@ -288,10 +288,10 @@ fn warehouse_row(w: &Warehouse, manager_map: &std::collections::HashMap<i64, Str
 
     html! {
         tr style="cursor:pointer" {
-            td class="link-cell mono" onclick=(format!("location.href='{}'", detail_path)) { (w.code) }
+            td class="text-accent font-medium cursor-pointer mono" onclick=(format!("location.href='{}'", detail_path)) { (w.code) }
             td onclick=(format!("location.href='{}'", detail_path)) { strong { (w.name) } }
             td onclick=(format!("location.href='{}'", detail_path)) {
-                span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium tag-normal" { (type_label) }
+                span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-surface text-[#666]" { (type_label) }
             }
             td onclick=(format!("location.href='{}'", detail_path)) {
                 span class=(format!("status-pill {status_class}")) { (status_label) }
@@ -332,11 +332,11 @@ fn warehouse_row(w: &Warehouse, manager_map: &std::collections::HashMap<i64, Str
             }
             td onclick="event.stopPropagation()" {
                 div class="row-actions" {
-                    a class="row-action-btn" title="编辑" href=(edit_path) {
+                    a class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" title="编辑" href=(edit_path) {
                         (icon::edit_icon("w-4 h-4"))
                     }
                     @if can_delete {
-                        button type="button" class="row-action-btn text-danger" title="删除"
+                        button type="button" class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer text-danger" title="删除"
                             hx-post=(delete_path)
                             hx-confirm=(format!("删除后无法恢复，确定要删除仓库 <strong>{}</strong> 吗？", w.name))
                             hx-target="closest tr"

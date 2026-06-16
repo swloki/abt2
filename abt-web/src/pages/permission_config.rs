@@ -413,60 +413,60 @@ fn perm_page_content(
     };
 
     html! {
-        div class="perm-page" {
+        div class="flex flex-col overflow-hidden bg-[#f8fafc]" {
             // ── Stats Header ──
-            div class="stats-panel" {
-                div class="stats-main" {
-                    div class="stats-main-left" {
-                        div class="stats-icon" {
+            div class="bg-white border-b" {
+                div class="flex items-center justify-between" {
+                    div class="flex items-center justify-between-left" {
+                        div class="w-[40px] h-[40px] bg-accent flex items-center justify-center shrink-0" {
                             (icon::lock_icon("w-5 h-5"))
                         }
                         div {
-                            div class="stats-title" { "权限配置" }
-                            div class="stats-desc" { "管理角色与资源的访问权限" }
+                            div class="text-[18px] font-bold text-[#0f172a]" { "权限配置" }
+                            div class="text-[13px] text-[#64748b]" { "管理角色与资源的访问权限" }
                         }
                     }
                 }
-                div class="stats-bar" id="stats-bar" {
-                    div class="stat-item" {
+                div class="flex items-center border-t" id="stats-bar" {
+                    div class="flex items-center gap-[6px] border-r" {
                         span class="text-sm text-muted mt-1" { "资源" }
                         span class="text-2xl font-bold font-mono tabular-nums text-fg" { (total_resources) }
                     }
-                    div class="stat-item" {
+                    div class="flex items-center gap-[6px] border-r" {
                         span class="text-sm text-muted mt-1" { "角色" }
                         span class="text-2xl font-bold font-mono tabular-nums text-fg" { (total_roles) }
                     }
-                    div class="stat-item" {
+                    div class="flex items-center gap-[6px] border-r" {
                         span class="text-sm text-muted mt-1" { "已配置" }
                         span class="text-2xl font-bold font-mono tabular-nums text-fg" { (configured) }
                     }
-                    div class="stat-item" {
+                    div class="flex items-center gap-[6px] border-r" {
                         span class="text-sm text-muted mt-1" { "配置率" }
                         span class="text-2xl font-bold font-mono tabular-nums text-fg accent" { (format!("{:.0}%", coverage_pct)) }
-                        div class="stat-progress" {
-                            div class="stat-progress-bar" style=(format!("width:{}%", coverage_pct.min(100.0))) {}
+                        div class="w-[60px] h-[6px] bg-[#e2e8f0] overflow-hidden" {
+                            div class="w-[60px] h-[6px] bg-[#e2e8f0] overflow-hidden-bar" style=(format!("width:{}%", coverage_pct.min(100.0))) {}
                         }
                     }
                 }
             }
 
             // ── Main Split ──
-            div class="perm-layout" {
+            div class="flex gap-[12px] flex-1 overflow-hidden" {
                 // ── Left: Role List ──
-                div class="role-panel" {
-                    div class="role-panel-head" {
-                        div class="role-panel-title" {
+                div class="w-[224px] bg-white flex flex-col overflow-hidden" {
+                    div class="w-[224px] bg-white flex flex-col overflow-hidden-head" {
+                        div class="w-[224px] bg-white flex flex-col overflow-hidden-title" {
                             (icon::users_icon("w-3.5 h-3.5"))
                             "角色列表"
                             span class="count" { (roles.len()) }
                         }
                     }
-                    div class="role-list" {
+                    div class="flex-1 overflow-y-auto" {
                         @for role in roles {
                             (role_item(role, perm_data_by_role, selected_id))
                         }
                         @if roles.is_empty() {
-                            div class="perm-empty" style="padding:20px" {
+                            div class="flex flex-col items-center justify-center h-full text-[#94a3b8] gap-[10px]" style="padding:20px" {
                                 p { "暂无可配置角色" }
                             }
                         }
@@ -521,9 +521,9 @@ fn role_item(
             div class="role-inline-grid place-items-center rounded-full text-white font-semibold shrink-0 select-none" style=(format!("background:{}", gradient)) {
                 (first_char.to_uppercase())
             }
-            div class="role-item-info" {
-                span class="role-item-name" { (role.role_name) }
-                span class="role-item-meta" { "已授权 " (count) " 项" }
+            div class="flex items-center gap-3 p-3 border border-border-soft rounded-info" {
+                span class="flex items-center gap-3 p-3 border border-border-soft rounded-name" { (role.role_name) }
+                span class="flex items-center gap-3 p-3 border border-border-soft rounded-meta" { "已授权 " (count) " 项" }
             }
         }
     }
@@ -531,9 +531,9 @@ fn role_item(
 
 fn empty_right_panel() -> Markup {
     html! {
-        div class="perm-panel" {
-            div class="perm-empty" {
-                div class="perm-empty-icon" {
+        div class="flex-1 bg-white flex flex-col overflow-hidden" {
+            div class="flex flex-col items-center justify-center h-full text-[#94a3b8] gap-[10px]" {
+                div class="flex flex-col items-center justify-center h-full text-[#94a3b8] gap-[10px]-icon" {
                     (icon::users_icon("w-7 h-7"))
                 }
                 h4 { "选择一个角色" }
@@ -560,7 +560,7 @@ fn permission_panel(
     let hx_vals = "js:{scroll_top: Math.round(document.querySelector('.perm-body')?.scrollTop || 0)}".to_string();
 
     html! {
-        div class="perm-panel"
+        div class="flex-1 bg-white flex flex-col overflow-hidden"
             hx-trigger="permUpdated from:body"
             hx-get=(refresh_url)
             hx-select=".perm-panel"
@@ -569,15 +569,15 @@ fn permission_panel(
             hx-vals=(hx_vals) {
 
             // ── Role header ──
-            div class="perm-role-head" {
-                div class="perm-role-head-inner" {
-                    div class="perm-role-head-left" {
+            div class="border-b bg-[#eff6ff]" {
+                div class="border-b bg-[#eff6ff]-inner" {
+                    div class="border-b bg-[#eff6ff]-left" {
                         div class="perm-role-inline-grid place-items-center rounded-full text-white font-semibold shrink-0 select-none-lg" style=(format!("background:{}", gradient)) {
                             (first_char.to_uppercase())
                         }
                         div {
-                            div class="perm-role-name-lg" { (role.role_name) }
-                            div class="perm-role-sub" {
+                            div class="text-[14px] font-bold text-[#1e293b]" { (role.role_name) }
+                            div class="text-[11px] text-[#94a3b8]" {
                                 @if inherited_count > 0 {
                                     "已授权 "
                                     span class="hl" { (effective_count) }
@@ -592,17 +592,17 @@ fn permission_panel(
                             }
                         }
                     }
-                    div class="perm-legend" {
-                        span class="perm-legend-item" {
-                            span class="perm-legend-dot on" {}
+                    div class="flex items-center gap-[14px] text-[12px] text-[#64748b]" {
+                        span class="flex items-center gap-[14px] text-[12px] text-[#64748b]-item" {
+                            span class="flex items-center gap-[14px] text-[12px] text-[#64748b]-dot on" {}
                             "已授权"
                         }
-                        span class="perm-legend-item" {
-                            span class="perm-legend-dot inherited" {}
+                        span class="flex items-center gap-[14px] text-[12px] text-[#64748b]-item" {
+                            span class="flex items-center gap-[14px] text-[12px] text-[#64748b]-dot inherited" {}
                             "继承"
                         }
-                        span class="perm-legend-item" {
-                            span class="perm-legend-dot off" {}
+                        span class="flex items-center gap-[14px] text-[12px] text-[#64748b]-item" {
+                            span class="flex items-center gap-[14px] text-[12px] text-[#64748b]-dot off" {}
                             "未授权"
                         }
                     }
@@ -611,7 +611,7 @@ fn permission_panel(
 
             // ── System role read-only hint ──
             @if is_read_only {
-                div class="perm-readonly-hint" {
+                div class="flex items-center gap-[8px] bg-[#fffbeb] text-[13px] text-[#92400e]" {
                     (icon::info_icon("w-4 h-4"))
                     span { "内置角色的权限由系统预设，不可修改。如需自定义权限，请新建角色。" }
                 }
@@ -619,7 +619,7 @@ fn permission_panel(
 
             // ── Inherited permission hint ──
             @if inherited_count > 0 && !is_read_only {
-                div class="perm-inherit-hint" {
+                div class="flex items-center gap-[8px] bg-[#f0f9ff] text-[13px] text-[#0369a1]" {
                     (icon::info_icon("w-4 h-4"))
                     span {
                         "以下灰色标记的权限继承自上级角色「"
@@ -632,8 +632,8 @@ fn permission_panel(
             }
 
             // ── Permission body ──
-            div class="perm-body" {
-                div class="perm-groups" {
+            div class="flex-1 overflow-y-auto" {
+                div class="flex flex-col gap-[12px]" {
                     @for (gi, group) in groups.iter().enumerate() {
                         (perm_group(gi, group, pd, is_read_only, role_id))
                     }
@@ -657,29 +657,29 @@ fn perm_group(
     let resource_count = group.resources.len();
 
     html! {
-        div class="perm-group" {
-            div class="perm-group-head" {
-                div class="perm-group-head-left" {
+        div class="border border-border-soft rounded overflow-hidden" {
+            div class="border border-border-soft rounded overflow-hidden-head" {
+                div class="border border-border-soft rounded overflow-hidden-head-left" {
                     svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" {
                         path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9z" {}
                         polyline points="13 2 13 9 20 9" {}
                     }
-                    span class="perm-group-name" { (group.name) }
-                    span class="perm-group-badge" { (resource_count) }
+                    span class="border border-border-soft rounded overflow-hidden-name" { (group.name) }
+                    span class="border border-border-soft rounded overflow-hidden-badge" { (resource_count) }
                 }
                 @if !is_read_only {
                     @let add_vals = format!("{{\"role_id\":\"{}\",\"mode\":\"add\",\"group_idx\":\"{}\"}}", role_id, gi);
                     @let rm_vals = format!("{{\"role_id\":\"{}\",\"mode\":\"remove\",\"group_idx\":\"{}\"}}", role_id, gi);
-                    div class="perm-group-ops" {
-                        button type="button" class="perm-group-select-all"
+                    div class="border border-border-soft rounded overflow-hidden-ops" {
+                        button type="button" class="border border-border-soft rounded overflow-hidden-select-all"
                             hx-post=(PERM_BATCH_PATH) hx-vals=(add_vals) hx-swap="none" { "全选" }
                         span class="sep" { "|" }
-                        button type="button" class="danger perm-group-clear-all"
+                        button type="button" class="danger border border-border-soft rounded overflow-hidden-clear-all"
                             hx-post=(PERM_BATCH_PATH) hx-vals=(rm_vals) hx-swap="none" { "清空" }
                     }
                 }
             }
-            div class="perm-res-list" {
+            div class="flex flex-col" {
                 @for res in &group.resources {
                     (perm_resource_row(res, pd, is_read_only, role_id))
                 }
@@ -710,9 +710,9 @@ fn perm_resource_row(
     };
 
     html! {
-        div class="perm-res-row" {
-            span class="perm-res-name" title=(res.resource_name) { (res.resource_name) }
-            div class="perm-res-btns" {
+        div class="flex items-center gap-[12px] border-b" {
+            span class="text-[13px] font-medium text-[#475569] w-[96px] shrink-0 whitespace-nowrap overflow-hidden" title=(res.resource_name) { (res.resource_name) }
+            div class="flex items-center gap-[6px] flex-1 flex-wrap" {
                 @for (ai, action) in ACTIONS.iter().enumerate() {
                     @if let Some(_def) = res.defs.iter().find(|d| d.action == *action) {
                         @let key = format!("{}:{}", res.resource_code, action);

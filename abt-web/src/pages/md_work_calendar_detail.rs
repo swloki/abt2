@@ -105,7 +105,7 @@ fn work_calendar_detail_page(
                             }
                         }
                         @if lines.is_empty() {
-                            tr { td colspan="3" class="empty-row" { "暂无工作时间设置" } }
+                            tr { td colspan="3" class="text-center text-muted text-sm" { "暂无工作时间设置" } }
                         }
                     }
                 }
@@ -131,9 +131,9 @@ fn work_calendar_detail_page(
                                 td class="mono" { (ex.exception_date.format("%Y-%m-%d")) }
                                 td {
                                     @if ex.is_workday {
-                                        span class="status-pill status-active" { "特殊工作日" }
+                                        span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-[#f0fff0] text-[#389e0d]" { "特殊工作日" }
                                     } @else {
-                                        span class="status-pill status-inactive" { "休息日" }
+                                        span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-[#fff2f0] text-[#cf1322]" { "休息日" }
                                     }
                                 }
                                 td class="mono" {
@@ -147,7 +147,7 @@ fn work_calendar_detail_page(
                             }
                         }
                         @if exceptions.is_empty() {
-                            tr { td colspan="4" class="empty-row" { "暂无例外日设置" } }
+                            tr { td colspan="4" class="text-center text-muted text-sm" { "暂无例外日设置" } }
                         }
                     }
                 }

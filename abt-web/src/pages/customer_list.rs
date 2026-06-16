@@ -100,12 +100,12 @@ fn customer_list_page(
             div class="flex items-center justify-between mb-6" {
                 h1 class="text-xl font-bold text-fg tracking-tight" { "客户管理" }
                 div class="flex gap-3" {
-                    button class="btn bg-white text-fg border border-border hover:bg-surface" {
+                    button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface" {
                         (icon::download_icon("w-4 h-4"))
                         "导出"
                     }
                     @if can_create {
-                        a class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" href="/admin/customers/new" {
+                        a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" href="/admin/customers/new" {
                             (icon::plus_icon("w-4 h-4"))
                             "新建客户"
                         }
@@ -114,9 +114,9 @@ fn customer_list_page(
             }
 
             // ── Stat Cards ──
-            div class="customer-stats" {
-                div class="stat-card" {
-                    div class="stat-icon blue" {
+            div class="grid gap-5" {
+                div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
+                    div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 blue" {
                         (icon::users_icon("w-6 h-6"))
                     }
                     div {
@@ -124,8 +124,8 @@ fn customer_list_page(
                         div class="text-sm text-muted mt-1" { "客户总数" }
                     }
                 }
-                div class="stat-card" {
-                    div class="stat-icon green" {
+                div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
+                    div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 green" {
                         (icon::check_circle_icon("w-6 h-6"))
                     }
                     div {
@@ -133,8 +133,8 @@ fn customer_list_page(
                         div class="text-sm text-muted mt-1" { "活跃客户" }
                     }
                 }
-                div class="stat-card" {
-                    div class="stat-icon orange" {
+                div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
+                    div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 orange" {
                         (icon::trending_up_icon("w-6 h-6"))
                     }
                     div {
@@ -142,8 +142,8 @@ fn customer_list_page(
                         div class="text-sm text-muted mt-1" { "本月交易额" }
                     }
                 }
-                div class="stat-card" {
-                    div class="stat-icon red" {
+                div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
+                    div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 red" {
                         (icon::circle_alert_icon("w-6 h-6"))
                     }
                     div {
@@ -226,7 +226,7 @@ fn customer_table_fragment(
                             }
                             @if result.items.is_empty() {
                                 tr {
-                                    td colspan="7" class="td-empty" {
+                                    td colspan="7" class="text-center p-8 text-muted" {
                                         "暂无客户数据"
                                     }
                                 }
@@ -273,15 +273,15 @@ fn customer_row(c: &Customer, can_delete: bool) -> Markup {
 
     html! {
         tr {
-            td class="link-cell mono" onclick=(format!("location.href='{}'", detail_path)) { (c.code) }
+            td class="text-accent font-medium cursor-pointer mono" onclick=(format!("location.href='{}'", detail_path)) { (c.code) }
             td onclick=(format!("location.href='{}'", detail_path)) { strong { (c.name) } }
             td onclick=(format!("location.href='{}'", detail_path)) { span class=(format!("tag-chip {}", category_label.1)) { (category_label.0) } }
             td onclick=(format!("location.href='{}'", detail_path)) {
                 @if let Some(limit) = c.credit_limit {
-                    div class="credit-cell" {
+                    div class="flex items-center gap-[6px]" {
                         span class="mono text-xs" { "¥ " (format_amount(limit)) }
-                        div class="credit-bar" {
-                            div class="credit-bar-fill" style="width:0%;background:var(--accent)" {}
+                        div class="w-[60px] h-[4px] bg-border-soft overflow-hidden" {
+                            div class="w-[60px] h-[4px] bg-border-soft overflow-hidden-fill" style="width:0%;background:var(--accent)" {}
                         }
                     }
                 } @else {
@@ -292,11 +292,11 @@ fn customer_row(c: &Customer, can_delete: bool) -> Markup {
             td onclick=(format!("location.href='{}'", detail_path)) { (c.created_at.format("%Y-%m-%d")) }
             td onclick="event.stopPropagation()" {
                 div class="row-actions" {
-                    a class="row-action-btn" title="编辑" href=(edit_path) {
+                    a class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" title="编辑" href=(edit_path) {
                         (icon::edit_icon("w-4 h-4"))
                     }
                     @if can_delete {
-                        button type="button" class="row-action-btn text-danger" title="删除"
+                        button type="button" class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer text-danger" title="删除"
                             hx-post=(delete_path)
                             hx-confirm=(format!("删除后无法恢复，确定要删除客户 <strong>{}</strong> 吗？", c.name))
                             hx-target="closest tr"

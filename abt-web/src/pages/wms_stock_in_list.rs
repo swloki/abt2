@@ -169,12 +169,12 @@ fn stock_in_list_page(
             div class="flex items-center justify-between mb-6" {
                 h1 class="text-xl font-bold text-fg tracking-tight" { "入库管理" }
                 div class="flex gap-3" {
-                    button class="btn bg-white text-fg border border-border hover:bg-surface" {
+                    button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface" {
                         (icon::download_icon("w-4 h-4"))
                         "导出"
                     }
                     @if can_create {
-                        a class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" href=(StockInCreatePath::PATH) {
+                        a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" href=(StockInCreatePath::PATH) {
                             (icon::plus_icon("w-4 h-4"))
                             "新建入库单"
                         }
@@ -210,8 +210,8 @@ fn stock_in_table_fragment(
         div class="stockin-list-panel" {
             // ── Stat Cards ──
             div style="display:grid;grid-template-columns:repeat(4,1fr);gap:var(--space-5);margin-bottom:var(--space-6)" {
-                div class="stat-card" {
-                    div class="stat-icon blue" {
+                div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
+                    div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 blue" {
                         (icon::download_icon("w-5 h-5"))
                     }
                     div {
@@ -219,8 +219,8 @@ fn stock_in_table_fragment(
                         div class="text-sm text-muted mt-1" { "本月入库单" }
                     }
                 }
-                div class="stat-card" {
-                    div class="stat-icon green" {
+                div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
+                    div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 green" {
                         (icon::currency_icon("w-5 h-5"))
                     }
                     div {
@@ -228,8 +228,8 @@ fn stock_in_table_fragment(
                         div class="text-sm text-muted mt-1" { "入库总金额" }
                     }
                 }
-                div class="stat-card" {
-                    div class="stat-icon orange" {
+                div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
+                    div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 orange" {
                         (icon::clock_icon("w-5 h-5"))
                     }
                     div {
@@ -237,8 +237,8 @@ fn stock_in_table_fragment(
                         div class="text-sm text-muted mt-1" { "待审核" }
                     }
                 }
-                div class="stat-card" {
-                    div class="stat-icon" style="background:linear-gradient(135deg,#f0e6ff,#e0d0ff);color:#7c3aed" {
+                div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
+                    div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0" style="background:linear-gradient(135deg,#f0e6ff,#e0d0ff);color:#7c3aed" {
                         (icon::check_circle_icon("w-5 h-5"))
                     }
                     div {
@@ -329,8 +329,8 @@ fn stock_in_data_card(
                             th { "来源单号" }
                             th { "目标仓库" }
                             th { "物料数量" }
-                            th class="num-right" { "入库总量" }
-                            th class="num-right" { "总金额" }
+                            th class="text-right text-[13px]" { "入库总量" }
+                            th class="text-right text-[13px]" { "总金额" }
                             th { "状态" }
                             th { "操作员" }
                             th { "入库时间" }
@@ -344,7 +344,7 @@ fn stock_in_data_card(
                             @let op_name = operator_names.get(&item.operator_id).map(|s| s.as_str()).unwrap_or("—");
                             tr {
                                 td { input type="checkbox"; }
-                                td class="link-cell mono" style="color:var(--accent)" { (item.doc_number.as_deref().unwrap_or("—")) }
+                                td class="text-accent font-medium cursor-pointer mono" style="color:var(--accent)" { (item.doc_number.as_deref().unwrap_or("—")) }
                                 td {
                                     span style=(format!("display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{};color:{}", type_bg, type_color)) {
                                         (type_label)
@@ -359,10 +359,10 @@ fn stock_in_data_card(
                                 }
                                 td { (wh_name) }
                                 td { "1 种" }
-                                td class="num-right mono" { (format!("{:.2}", item.quantity)) }
-                                td class="num-right mono" { (item.unit_cost.map(|c| format!("¥{:.2}", c)).unwrap_or_else(|| "—".into())) }
+                                td class="text-right text-[13px] mono" { (format!("{:.2}", item.quantity)) }
+                                td class="text-right text-[13px] mono" { (item.unit_cost.map(|c| format!("¥{:.2}", c)).unwrap_or_else(|| "—".into())) }
                                 td {
-                                    span class="status-pill status-completed" { "已入库" }
+                                    span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-[#f0fff0] text-[#389e0d]" { "已入库" }
                                 }
                                 td { (op_name) }
                                 td style="font-size:12px;color:var(--muted)" { (item.created_at.format("%Y-%m-%d %H:%M")) }

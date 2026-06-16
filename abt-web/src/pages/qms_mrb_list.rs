@@ -199,7 +199,7 @@ fn mrb_list_page(
                 h1 class="text-xl font-bold text-fg tracking-tight" { "MRB 不良评审" }
                 div class="flex gap-3" {
                     @if can_create {
-                        a class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" href=(MrbCreatePath::PATH) {
+                        a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" href=(MrbCreatePath::PATH) {
                             (icon::plus_icon("w-4 h-4"))
                             "新建MRB"
                         }
@@ -308,7 +308,7 @@ fn mrb_data_card(
                             @let result_doc = result_doc_numbers.get(&item.inspection_result_id).map(|s| s.as_str()).unwrap_or("—");
                             @let detail_path = MrbDetailPath { id: item.id };
                             tr style="cursor:pointer" onclick=(format!("location.href='{}'", detail_path.to_string())) {
-                                td class="link-cell mono" style="color:var(--accent)" { (item.doc_number) }
+                                td class="text-accent font-medium cursor-pointer mono" style="color:var(--accent)" { (item.doc_number) }
                                 td class="mono" style="font-size:12px" { (result_doc) }
                                 td { (product_name) }
                                 td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" { (item.defect_description) }

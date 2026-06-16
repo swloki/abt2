@@ -111,7 +111,7 @@ fn md_dashboard_content(
 
         // ── Quick Entry Grid ──
         div {
-            h2 class="section-title" style="margin-bottom:var(--space-4)" { "快捷入口" }
+            h2 class="text-lg font-semibold text-fg" style="margin-bottom:var(--space-4)" { "快捷入口" }
             div style="display:grid;grid-template-columns:repeat(4,1fr);gap:var(--space-4)" {
                 (quick_entry_card(ProductListPath::PATH, &icon::package_icon("w-[28px] h-[28px]"), "产品管理"))
                 (quick_entry_card(CategoryListPath::PATH, &icon::grid_icon("w-[28px] h-[28px]"), "产品分类"))
@@ -127,7 +127,7 @@ fn stat_card(label: &str, value: &str) -> Markup {
         div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-flat" {
             span class="text-xs text-muted font-medium" { (label) }
             div style="display:flex;align-items:baseline;gap:var(--space-2);margin-top:var(--space-2)" {
-                span class="amount-value text-2xl" { (value) }
+                span class="text-[20px] font-bold text-fg text-2xl" { (value) }
             }
         }
     }
@@ -135,7 +135,7 @@ fn stat_card(label: &str, value: &str) -> Markup {
 
 fn quick_entry_card(href: &str, icon: &Markup, title: &str) -> Markup {
     html! {
-        a href=(href) class="quick-link" {
+        a href=(href) class="flex flex-col gap-1 p-4 bg-bg border border-border-soft rounded cursor-pointer no-underline" {
             span style="color:var(--accent)" { (icon) }
             span class="text-sm font-semibold text-fg" { (title) }
         }

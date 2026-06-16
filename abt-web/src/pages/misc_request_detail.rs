@@ -113,7 +113,7 @@ fn workflow_steps(current: MiscRequestStatus) -> Markup {
     let is_cancelled = current == MiscRequestStatus::Cancelled;
 
     html! {
-        div class="workflow-steps" {
+        div class="flex items-center" {
             @for (i, (label, _)) in steps.iter().enumerate() {
                 @if i > 0 {
                     @let line_class = if i <= current_idx && !is_cancelled { "wf-line completed" } else { "wf-line" };
@@ -129,14 +129,14 @@ fn workflow_steps(current: MiscRequestStatus) -> Markup {
                     "wf-step"
                 };
                 div class=(step_class) {
-                    span class="wf-dot" {}
+                    span class="w-[10px] h-[10px] rounded-full bg-border" {}
                     (label)
                 }
             }
             @if is_cancelled {
-                div class="wf-line" {}
-                div class="wf-step" style="color:var(--danger)" {
-                    span class="wf-dot" {}
+                div class="w-[48px] h-[2px] bg-border" {}
+                div class="flex items-center gap-2 text-xs text-muted" style="color:var(--danger)" {
+                    span class="w-[10px] h-[10px] rounded-full bg-border" {}
                     "已取消"
                 }
             }
@@ -164,22 +164,22 @@ fn misc_detail_page(
             }
 
             // ── Detail Header ──
-            div class="detail-header" {
+            div class="block bg-bg border border-border-soft rounded-lg p-6" {
                 div {
-                    div class="detail-title-row" {
-                        h1 class="detail-no font-mono" { (req.doc_number) }
+                    div class="flex items-center justify-between" {
+                        h1 class="text-2xl font-extrabold font-mono" { (req.doc_number) }
                         span class=(format!("status-pill {status_class}")) { (status_text) }
                     }
                 }
                 div class="flex gap-3" {
                     @if req.status == MiscRequestStatus::Draft {
-                        button class="btn bg-accent text-accent-on border-none hover:bg-accent-hover"
+                        button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover"
                             hx-post=(MiscApprovePath { id: req.id }.to_string())
                             hx-confirm="确认审批此零星请购？" {
                             (icon::check_circle_icon("w-4 h-4"))
                             "审批"
                         }
-                        button class="btn bg-danger text-white border-none hover:opacity-90"
+                        button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-danger text-white border-none hover:opacity-90"
                             hx-post=(MiscCancelPath { id: req.id }.to_string())
                             hx-confirm="确认取消此零星请购？取消后不可恢复。" {
                             "取消"
@@ -223,10 +223,10 @@ fn misc_detail_page(
                                 th { "行号" }
                                 th { "物品名称" }
                                 th { "规格" }
-                                th class="num-right" { "数量" }
+                                th class="text-right text-[13px]" { "数量" }
                                 th { "单位" }
-                                th class="num-right" { "预估单价" }
-                                th class="num-right" { "预估小计" }
+                                th class="text-right text-[13px]" { "预估单价" }
+                                th class="text-right text-[13px]" { "预估小计" }
                                 th { "备注" }
                             }
                         }
@@ -285,10 +285,10 @@ fn item_row(item: &MiscRequestItem) -> Markup {
             td class="mono" { (item.line_no) }
             td { (item.item_name) }
             td { (spec) }
-            td class="num-right mono" { (format!("{:.2}", item.quantity)) }
+            td class="text-right text-[13px] mono" { (format!("{:.2}", item.quantity)) }
             td { (item.unit) }
-            td class="num-right" { (price) }
-            td class="num-right" { (subtotal) }
+            td class="text-right text-[13px]" { (price) }
+            td class="text-right text-[13px]" { (subtotal) }
             td { (remark) }
         }
     }

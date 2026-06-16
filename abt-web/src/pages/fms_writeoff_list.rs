@@ -147,11 +147,11 @@ fn writeoff_list_page(
     operator_names: &HashMap<i64, String>,
 ) -> Markup {
     html! {
-        div class="fms-list-page" {
+        div class="p-6 relative" {
             div class="flex items-center justify-between mb-6" {
                 h1 class="text-xl font-bold text-fg tracking-tight" { "核销管理" }
                 div class="flex gap-3" {
-                    button class="btn bg-white text-fg border border-border hover:bg-surface" type="button" {
+                    button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface" type="button" {
                         (icon::download_icon("w-4 h-4"))
                         "导出"
                     }
@@ -246,15 +246,15 @@ fn writeoff_data_card(
                                 td {
                                     span class=(format!("wo-type {css_class}")) { (type_label) }
                                 }
-                                td class="link-cell" { "CJ-" (item.cash_journal_id) }
-                                td class="link-cell" { (source_prefix) "-" (item.source_id) }
-                                td class="num-right" { "—" }
-                                td class="num-right amount-accent" { "¥" (format!("{:.2}", item.amount)) }
-                                td class="num-right" style="color:var(--warn)" { "—" }
+                                td class="text-accent font-medium cursor-pointer" { "CJ-" (item.cash_journal_id) }
+                                td class="text-accent font-medium cursor-pointer" { (source_prefix) "-" (item.source_id) }
+                                td class="text-right text-[13px]" { "—" }
+                                td class="text-right text-[13px] font-bold text-accent" { "¥" (format!("{:.2}", item.amount)) }
+                                td class="text-right text-[13px]" style="color:var(--warn)" { "—" }
                                 td {
-                                    span class="status-pill full" { "已核销完毕" }
+                                    span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap full" { "已核销完毕" }
                                 }
-                                td class="time-cell" { (item.write_off_date.format("%Y-%m-%d")) }
+                                td class="text-muted text-[13px]" { (item.write_off_date.format("%Y-%m-%d")) }
                                 td { (operator_name) }
                             }
                         }

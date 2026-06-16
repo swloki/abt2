@@ -232,7 +232,7 @@ fn product_create_page(source: Option<&Product>, categories: &[CategoryTree]) ->
                         div class="form-field" {
                             label { "所属分类 " span style="color:var(--danger)" { "*" } }
                             input type="hidden" name="category_id" id="selected-category-id" {}
-                            button type="button" class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] category-select-trigger" id="category-select-btn" _="on click add .is-open to #category-modal" {
+                            button type="button" class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] cursor-pointer flex items-center justify-between text-left" id="category-select-btn" _="on click add .is-open to #category-modal" {
                                 span id="category-select-label" { "请选择分类" }
                                 (icon::chevron_right_icon("w-4 h-4"))
                             }
@@ -264,30 +264,30 @@ fn product_create_page(source: Option<&Product>, categories: &[CategoryTree]) ->
 
                 // ── Action Bar ──
                 div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
-                    a class="btn bg-white text-fg border border-border hover:bg-surface" href=(format!("{}?restore=true", ProductListPath::PATH)) { "取消" }
-                    button type="submit" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" {
+                    a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface" href=(format!("{}?restore=true", ProductListPath::PATH)) { "取消" }
+                    button type="submit" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" {
                         (btn_label)
                     }
                 }
             }
 
             // ── Category Select Modal ──
-            div id="category-modal" class="modal-overlay" _="on click[me is event.target] remove .is-open" {
-                div class="modal" onclick="event.stopPropagation()" {
+            div id="category-modal" class="fixed z-[1000] grid place-items-center opacity-0" _="on click[me is event.target] remove .is-open" {
+                div class="bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0" onclick="event.stopPropagation()" {
                     div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
                         h2 { "选择分类" }
-                        button type="button" class="btn-icon" _="on click remove .is-open from #category-modal" {
+                        button type="button" class="border-none cursor-pointer text-muted flex items-center justify-center" _="on click remove .is-open from #category-modal" {
                             (icon::x_icon("w-4 h-4"))
                         }
                     }
                     div class="overflow-y-auto flex-1 min-h-0 p-6" {
-                        div class="category-search-bar" {
+                        div class="flex items-center gap-2 p-3 border-b" {
                             (icon::search_icon("w-4 h-4"))
                             input type="text" id="category-search-input" class="category-w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" placeholder="搜索分类…" {}
                         }
-                        div id="category-list-container" class="category-select-list" {
+                        div id="category-list-container" class="overflow-y-auto p-2" {
                             @if categories.is_empty() {
-                                div class="category-empty" { "暂无分类数据" }
+                                div class="p-8 text-center text-muted text-sm" { "暂无分类数据" }
                             } @else {
                                 @for node in categories {
                                     (category_tree_node(node, 0))
@@ -357,13 +357,13 @@ fn category_tree_node(node: &CategoryTree, depth: usize) -> Markup {
 
     html! {
         div.category-select-item data-name=(name_lower) {
-            div class="category-select-info" style=(pad) {
+            div class="flex items-center gap-2 border-b" style=(pad) {
                 @if has_children {
-                    span class="category-tree-toggle" _="on click halt the event then toggle .expanded on closest .category-select-item" {
+                    span class="inline-flex items-center justify-center w-[20px] h-[20px] shrink-0 cursor-pointer text-muted rounded-sm" _="on click halt the event then toggle .expanded on closest .category-select-item" {
                         (icon::chevron_right_icon("w-3.5 h-3.5"))
                     }
                 }
-                span class="category-select-name" data-id=(id) data-name=(name) { (name) }
+                span class="flex-1 text-sm font-medium text-fg cursor-pointer rounded-sm" data-id=(id) data-name=(name) { (name) }
             }
             @if has_children {
                 div class="category-select-children" {

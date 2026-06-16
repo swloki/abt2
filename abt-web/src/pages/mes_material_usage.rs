@@ -115,7 +115,7 @@ fn material_usage_page(
         div class="flex items-center justify-between mb-6" {
             h1 class="text-xl font-bold text-fg tracking-tight" { "物料消耗追踪" }
             div class="flex gap-3" {
-                button class="btn bg-white text-fg border border-border hover:bg-surface" {
+                button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface" {
                     (icon::download_icon(""))
                     " 导出"
                 }
@@ -173,10 +173,10 @@ fn usage_data_fragment(wo_info: &abt_core::mes::dashboard::model::WoBasicInfo, c
 
     html! {
         // ── WO header ──
-        div class="wo-header" {
-            div class="wo-header-left" {
-                span class="wo-header-no" { (wo_info.doc_number) }
-                span class="wo-header-product" { (wo_info.product_name.as_deref().unwrap_or("—")) }
+        div class="bg-bg border border-border-soft rounded-lg p-5 flex items-center justify-between flex-wrap gap-3" {
+            div class="bg-bg border border-border-soft rounded-lg p-5 flex items-center justify-between flex-wrap gap-3-left" {
+                span class="bg-bg border border-border-soft rounded-lg p-5 flex items-center justify-between flex-wrap gap-3-no" { (wo_info.doc_number) }
+                span class="bg-bg border border-border-soft rounded-lg p-5 flex items-center justify-between flex-wrap gap-3-product" { (wo_info.product_name.as_deref().unwrap_or("—")) }
                 (status_pill)
             }
             div class="flex gap-4 text-sm text-muted" {
@@ -191,43 +191,43 @@ fn usage_data_fragment(wo_info: &abt_core::mes::dashboard::model::WoBasicInfo, c
         // ── Summary stats ──
         div class="usage-summary" {
             // BOM standard
-            div class="stat-card" {
-                div class="stat-icon blue" { (icon::box_icon("")) }
+            div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
+                div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 blue" { (icon::box_icon("")) }
                 div {
-                    div class="stat-card-value" { (crate::utils::fmt_qty(ctx.standard_qty)) }
-                    div class="stat-card-label" { "BOM 标准用量" }
+                    div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-value" { (crate::utils::fmt_qty(ctx.standard_qty)) }
+                    div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-label" { "BOM 标准用量" }
                     div class="text-xs text-muted mt-1" {
                         "按完成 " (crate::utils::fmt_qty(wo_info.completed_qty)) " 件计算"
                     }
                 }
             }
             // Actual picked
-            div class="stat-card" {
-                div class="stat-icon green" { (icon::clipboard_list_icon("")) }
+            div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
+                div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 green" { (icon::clipboard_list_icon("")) }
                 div {
-                    div class="stat-card-value" { (crate::utils::fmt_qty(ctx.picked_total)) }
-                    div class="stat-card-label" { "实际消耗(领料)" }
+                    div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-value" { (crate::utils::fmt_qty(ctx.picked_total)) }
+                    div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-label" { "实际消耗(领料)" }
                     div class="text-xs text-muted mt-1" { "含损耗余量" }
                 }
             }
             // Backflush
-            div class="stat-card" {
-                div class="stat-icon orange" { (icon::refresh_icon("")) }
+            div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
+                div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 orange" { (icon::refresh_icon("")) }
                 div {
-                    div class="stat-card-value" { (crate::utils::fmt_qty(ctx.backflush_qty)) }
-                    div class="stat-card-label" { "倒冲消耗" }
+                    div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-value" { (crate::utils::fmt_qty(ctx.backflush_qty)) }
+                    div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-label" { "倒冲消耗" }
                 }
             }
             // Variance
-            div class="stat-card" {
-                div class="stat-icon red" { (icon::circle_alert_icon("")) }
+            div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
+                div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 red" { (icon::circle_alert_icon("")) }
                 div {
                     @let variance_cls = if ctx.variance > Decimal::ZERO { "text-danger" } else if ctx.variance < Decimal::ZERO { "text-success" } else { "" };
                     div class=(format!("stat-card-value {variance_cls}")) {
                         @if ctx.variance > Decimal::ZERO { "+" }
                         (crate::utils::fmt_qty(ctx.variance))
                     }
-                    div class="stat-card-label" { "用量差异" }
+                    div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-label" { "用量差异" }
                     @if ctx.standard_qty > Decimal::ZERO {
                         @let rate = ((ctx.variance / ctx.standard_qty) * Decimal::ONE_HUNDRED).abs();
                         div class="text-xs text-muted mt-1" {
@@ -240,8 +240,8 @@ fn usage_data_fragment(wo_info: &abt_core::mes::dashboard::model::WoBasicInfo, c
 
         // ── BOM comparison table ──
         @if !ctx.bom_items.is_empty() {
-            div class="section-card" {
-                div class="section-card-head" {
+            div class="bg-bg border border-border-soft rounded-lg overflow-hidden" {
+                div class="p-4 border-b text-sm font-semibold text-fg flex items-center gap-2 bg-surface-raised" {
                     (icon::box_icon(""))
                     "BOM 标准用量 vs 实际消耗"
                 }
@@ -251,12 +251,12 @@ fn usage_data_fragment(wo_info: &abt_core::mes::dashboard::model::WoBasicInfo, c
                             th { "物料编码" }
                             th { "物料名称" }
                             th { "单位" }
-                            th class="num-right" { "单件用量" }
-                            th class="num-right" { "标准总量" }
-                            th class="num-right" { "领料数量" }
-                            th class="num-right" { "倒冲消耗" }
-                            th class="num-right" { "损耗率" }
-                            th class="num-right" { "差异" }
+                            th class="text-right text-[13px]" { "单件用量" }
+                            th class="text-right text-[13px]" { "标准总量" }
+                            th class="text-right text-[13px]" { "领料数量" }
+                            th class="text-right text-[13px]" { "倒冲消耗" }
+                            th class="text-right text-[13px]" { "损耗率" }
+                            th class="text-right text-[13px]" { "差异" }
                         }}
                         tbody {
                             @for item in ctx.bom_items {
@@ -272,12 +272,12 @@ fn usage_data_fragment(wo_info: &abt_core::mes::dashboard::model::WoBasicInfo, c
                                     td class="mono" { (item.component_code.as_deref().unwrap_or("—")) }
                                     td { (item.component_name.as_deref().unwrap_or("—")) }
                                     td { (item.unit.as_deref().unwrap_or("—")) }
-                                    td class="num-right mono" { (crate::utils::fmt_qty(item.per_unit_qty)) }
-                                    td class="num-right mono" { (crate::utils::fmt_qty(item.standard_total)) }
-                                    td class="num-right mono" { (crate::utils::fmt_qty(item.picked_qty)) }
-                                    td class="num-right mono" { (crate::utils::fmt_qty(item.backflush_total)) }
-                                    td class="num-right mono" { (loss_rate) }
-                                    td class="num-right" {
+                                    td class="text-right text-[13px] mono" { (crate::utils::fmt_qty(item.per_unit_qty)) }
+                                    td class="text-right text-[13px] mono" { (crate::utils::fmt_qty(item.standard_total)) }
+                                    td class="text-right text-[13px] mono" { (crate::utils::fmt_qty(item.picked_qty)) }
+                                    td class="text-right text-[13px] mono" { (crate::utils::fmt_qty(item.backflush_total)) }
+                                    td class="text-right text-[13px] mono" { (loss_rate) }
+                                    td class="text-right text-[13px]" {
                                         span class=(format!("diff-indicator {diff_cls}")) {
                                             @if diff > Decimal::ZERO { "+" }
                                             (crate::utils::fmt_qty(diff))
@@ -295,8 +295,8 @@ fn usage_data_fragment(wo_info: &abt_core::mes::dashboard::model::WoBasicInfo, c
 
         // ── Backflush detail records ──
         @if !ctx.bf_records.is_empty() {
-            div class="section-card" {
-                div class="section-card-head" {
+            div class="bg-bg border border-border-soft rounded-lg overflow-hidden" {
+                div class="p-4 border-b text-sm font-semibold text-fg flex items-center gap-2 bg-surface-raised" {
                     (icon::refresh_icon(""))
                     "倒冲明细记录"
                 }
@@ -312,9 +312,9 @@ fn usage_data_fragment(wo_info: &abt_core::mes::dashboard::model::WoBasicInfo, c
                             @for rec in ctx.bf_records {
                                 tr {
                                     td class="mono" {
-                                        a href=(format!("/admin/wms/backflush/{}", rec.id)) class="link-cell" { (rec.doc_number) }
+                                        a href=(format!("/admin/wms/backflush/{}", rec.id)) class="text-accent font-medium cursor-pointer" { (rec.doc_number) }
                                     }
-                                    td class="num-right mono" { (crate::utils::fmt_qty(rec.completed_qty)) }
+                                    td class="text-right text-[13px] mono" { (crate::utils::fmt_qty(rec.completed_qty)) }
                                     td { (rec.backflush_date) }
                                     td { (backflush_status_label(&rec.status)) }
                                 }
@@ -327,8 +327,8 @@ fn usage_data_fragment(wo_info: &abt_core::mes::dashboard::model::WoBasicInfo, c
 
         // ── Requisition records ──
         @if !ctx.requisitions.is_empty() {
-            div class="section-card" {
-                div class="section-card-head" {
+            div class="bg-bg border border-border-soft rounded-lg overflow-hidden" {
+                div class="p-4 border-b text-sm font-semibold text-fg flex items-center gap-2 bg-surface-raised" {
                     (icon::clipboard_list_icon(""))
                     "领料记录"
                 }
@@ -343,7 +343,7 @@ fn usage_data_fragment(wo_info: &abt_core::mes::dashboard::model::WoBasicInfo, c
                             @for req in ctx.requisitions {
                                 tr {
                                     td class="mono" {
-                                        a href=(format!("/admin/wms/requisition/{}", req.id)) class="link-cell" { (req.doc_number) }
+                                        a href=(format!("/admin/wms/requisition/{}", req.id)) class="text-accent font-medium cursor-pointer" { (req.doc_number) }
                                     }
                                     td { (req.requisition_date) }
                                     td { (requisition_status_label(&req.status)) }

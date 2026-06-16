@@ -305,9 +305,9 @@ fn role_create_page(roles: &[Role], groups: &[GroupData], total: usize) -> Marku
 
             // ── Action Bar ──
             div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
-                a class="btn bg-white text-fg border border-border hover:bg-surface" href=(format!("{}?restore=true", RoleListPath::PATH)) { "取消" }
+                a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface" href=(format!("{}?restore=true", RoleListPath::PATH)) { "取消" }
                 div style="display:flex;gap:var(--space-3)" {
-                    button type="submit" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" {
+                    button type="submit" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" {
                         (icon::check_circle_icon("w-4 h-4"))
                         "保存"
                     }

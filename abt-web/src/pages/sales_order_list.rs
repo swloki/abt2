@@ -182,12 +182,12 @@ fn order_list_page(
             div class="flex items-center justify-between mb-6" {
                 h1 class="text-xl font-bold text-fg tracking-tight" { "销售订单" }
                 div class="flex gap-3" {
-                    button class="btn bg-white text-fg border border-border hover:bg-surface" {
+                    button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface" {
                         (icon::download_icon("w-4 h-4"))
                         "导出"
                     }
                     @if can_create {
-                        a class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" href=(OrderCreatePath::PATH) {
+                        a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" href=(OrderCreatePath::PATH) {
                             (icon::plus_icon("w-4 h-4"))
                             "新建订单"
                         }
@@ -271,7 +271,7 @@ fn order_table_fragment(
                                 th { "来源报价" }
                                 th { "客户名称" }
                                 th { "状态" }
-                                th class="num-right" { "总金额" }
+                                th class="text-right text-[13px]" { "总金额" }
                                 th { "交货日期" }
                                 th { "业务员" }
                                 th { "创建时间" }
@@ -284,7 +284,7 @@ fn order_table_fragment(
                             }
                             @if result.items.is_empty() {
                                 tr {
-                                    td colspan="9" class="td-empty" {
+                                    td colspan="9" class="text-center p-8 text-muted" {
                                         "暂无订单数据"
                                     }
                                 }
@@ -316,13 +316,13 @@ fn order_row(
 
     html! {
         tr {
-            td class="link-cell mono" onclick=(&onclick) { (o.doc_number) }
+            td class="text-accent font-medium cursor-pointer mono" onclick=(&onclick) { (o.doc_number) }
             td onclick=(&onclick) { "—" }
             td onclick=(&onclick) { (customer_name) }
             td onclick=(&onclick) {
                 span class=(format!("status-pill {status_class}")) { (status_text) }
             }
-            td class="num-right" onclick=(&onclick) {
+            td class="text-right text-[13px]" onclick=(&onclick) {
                 span class="mono" { (crate::utils::fmt_amount(o.total_amount)) }
             }
             td class="mono" onclick=(&onclick) { (o.order_date.format("%Y-%m-%d")) }
@@ -331,11 +331,11 @@ fn order_row(
             td onclick="event.stopPropagation()" {
                 @if is_draft {
                     div class="row-actions" {
-                        a class="row-action-btn" href=(edit_form_path.to_string()) title="编辑" {
+                        a class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" href=(edit_form_path.to_string()) title="编辑" {
                             (icon::edit_icon("w-4 h-4"))
                         }
                         @if can_delete {
-                            button type="button" class="row-action-btn text-danger" title="删除"
+                            button type="button" class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer text-danger" title="删除"
                                 hx-confirm="确认删除该订单吗？"
                                 hx-post=(delete_path)
                                 hx-target="closest tr"

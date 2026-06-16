@@ -112,7 +112,7 @@ fn svg_icon(path_d: &str, size: &str) -> Markup {
 fn stat_card(title: &str, value: &str, accent: &str, sub: Markup, icon_bg: &str, icon_color: &str, icon_path: &str) -> Markup {
     html! {
         div class=(format!("mes-stat-card {accent}")) {
-            div class="mes-stat-icon" style=(format!("background:{icon_bg};color:{icon_color}")) {
+            div class="mes-w-[44px] h-[44px] rounded grid place-items-center shrink-0" style=(format!("background:{icon_bg};color:{icon_color}")) {
                 (svg_icon(icon_path, "24px"))
             }
             div class="mes-stat-body" {
@@ -189,11 +189,11 @@ fn fms_dashboard_page(
     ];
 
     html! {
-        div class="fms-dashboard" {
+        div class="relative overflow-hidden" {
             div class="flex items-center justify-between mb-6" {
                 h1 class="text-xl font-bold text-fg tracking-tight" { "财务管理总览" }
                 div class="flex gap-3" {
-                    a class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" href=(JournalCreatePath::PATH) {
+                    a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" href=(JournalCreatePath::PATH) {
                         (svg_icon("M12 4v16m8-8H4", "16px"))
                         "新建日记账"
                     }
@@ -201,7 +201,7 @@ fn fms_dashboard_page(
             }
 
             // ── 核心统计卡片 ──
-            div class="stat-grid stat-grid-5" style="margin-bottom:var(--space-8)" {
+            div class="stat-grid grid gap-5" style="margin-bottom:var(--space-8)" {
                 (stat_card("本月流入",
                     &format!("¥{}<span style=\"font-size:14px;-webkit-text-fill-color:var(--muted)\">万</span>", fmt_wan(balance.total_inflow)),
                     "accent-green",
@@ -238,42 +238,42 @@ fn fms_dashboard_page(
 
             // ── 快捷入口 ──
             div class="section-block" {
-                div class="section-block-title" {
+                div class="text-lg font-semibold text-fg flex items-center gap-2" {
                     (svg_icon("M13 10V3L4 14h7v7l9-11h-7z", "18px"))
                     "快捷操作"
                 }
-                div class="quick-entry-grid" {
-                    a href=(JournalCreatePath::PATH) class="quick-card" {
-                        div class="quick-card-icon" style="background:linear-gradient(135deg,#dbeafe,#bfdbfe);color:#2563eb" {
+                div class="grid gap-4" {
+                    a href=(JournalCreatePath::PATH) class="block p-5 rounded-lg bg-bg border border-border-soft no-underline relative overflow-hidden" {
+                        div class="block p-5 rounded-lg bg-bg border border-border-soft no-underline relative overflow-hidden-icon" style="background:linear-gradient(135deg,#dbeafe,#bfdbfe);color:#2563eb" {
                             (svg_icon("M12 4v16m8-8H4", "20px"))
                         }
-                        div class="quick-card-title" { "新建日记账" }
-                        div class="quick-card-desc" { "录入现金收支" }
-                        div class="quick-card-badge blue" { "CashJournal" }
+                        div class="block p-5 rounded-lg bg-bg border border-border-soft no-underline relative overflow-hidden-title" { "新建日记账" }
+                        div class="block p-5 rounded-lg bg-bg border border-border-soft no-underline relative overflow-hidden-desc" { "录入现金收支" }
+                        div class="block p-5 rounded-lg bg-bg border border-border-soft no-underline relative overflow-hidden-badge blue" { "CashJournal" }
                     }
-                    a href=(ExpenseCreatePath::PATH) class="quick-card" {
-                        div class="quick-card-icon" style="background:linear-gradient(135deg,#ede9fe,#ddd6fe);color:#7c3aed" {
+                    a href=(ExpenseCreatePath::PATH) class="block p-5 rounded-lg bg-bg border border-border-soft no-underline relative overflow-hidden" {
+                        div class="block p-5 rounded-lg bg-bg border border-border-soft no-underline relative overflow-hidden-icon" style="background:linear-gradient(135deg,#ede9fe,#ddd6fe);color:#7c3aed" {
                             (svg_icon("M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8zM14 2v6h6", "20px"))
                         }
-                        div class="quick-card-title" { "费用报销" }
-                        div class="quick-card-desc" { "提交报销申请" }
-                        div class="quick-card-badge purple" { "Expense" }
+                        div class="block p-5 rounded-lg bg-bg border border-border-soft no-underline relative overflow-hidden-title" { "费用报销" }
+                        div class="block p-5 rounded-lg bg-bg border border-border-soft no-underline relative overflow-hidden-desc" { "提交报销申请" }
+                        div class="block p-5 rounded-lg bg-bg border border-border-soft no-underline relative overflow-hidden-badge purple" { "Expense" }
                     }
-                    a href=(WriteoffListPath::PATH) class="quick-card" {
-                        div class="quick-card-icon" style="background:linear-gradient(135deg,#dcfce7,#bbf7d0);color:#16a34a" {
+                    a href=(WriteoffListPath::PATH) class="block p-5 rounded-lg bg-bg border border-border-soft no-underline relative overflow-hidden" {
+                        div class="block p-5 rounded-lg bg-bg border border-border-soft no-underline relative overflow-hidden-icon" style="background:linear-gradient(135deg,#dcfce7,#bbf7d0);color:#16a34a" {
                             (svg_icon("M9 11l3 3L22 4M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11", "20px"))
                         }
-                        div class="quick-card-title" { "核销管理" }
-                        div class="quick-card-desc" { "按单核销收款/付款" }
-                        div class="quick-card-badge green" { "WriteOff" }
+                        div class="block p-5 rounded-lg bg-bg border border-border-soft no-underline relative overflow-hidden-title" { "核销管理" }
+                        div class="block p-5 rounded-lg bg-bg border border-border-soft no-underline relative overflow-hidden-desc" { "按单核销收款/付款" }
+                        div class="block p-5 rounded-lg bg-bg border border-border-soft no-underline relative overflow-hidden-badge green" { "WriteOff" }
                     }
-                    a href=(CostAnalysisPath::PATH) class="quick-card" {
-                        div class="quick-card-icon" style="background:linear-gradient(135deg,#fef3c7,#fde68a);color:#d97706" {
+                    a href=(CostAnalysisPath::PATH) class="block p-5 rounded-lg bg-bg border border-border-soft no-underline relative overflow-hidden" {
+                        div class="block p-5 rounded-lg bg-bg border border-border-soft no-underline relative overflow-hidden-icon" style="background:linear-gradient(135deg,#fef3c7,#fde68a);color:#d97706" {
                             (svg_icon("M18 20V10M12 20V4M6 20v-6", "20px"))
                         }
-                        div class="quick-card-title" { "成本核算" }
-                        div class="quick-card-desc" { (PreEscaped("利润分析 &amp; P&amp;L")) }
-                        div class="quick-card-badge orange" { "CostEntry" }
+                        div class="block p-5 rounded-lg bg-bg border border-border-soft no-underline relative overflow-hidden-title" { "成本核算" }
+                        div class="block p-5 rounded-lg bg-bg border border-border-soft no-underline relative overflow-hidden-desc" { (PreEscaped("利润分析 &amp; P&amp;L")) }
+                        div class="block p-5 rounded-lg bg-bg border border-border-soft no-underline relative overflow-hidden-badge orange" { "CostEntry" }
                     }
                 }
             }
@@ -281,8 +281,8 @@ fn fms_dashboard_page(
             // ── 两列：最近流水 + 费用报销 ──
             div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-6);margin-bottom:var(--space-8)" {
                 // 最近日记账
-                div class="section-card" {
-                    div class="section-card-head" {
+                div class="bg-bg border border-border-soft rounded-lg overflow-hidden" {
+                    div class="p-4 border-b text-sm font-semibold text-fg flex items-center gap-2 bg-surface-raised" {
                         (PreEscaped(r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;color:var(--accent)"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>"#))
                         "最近日记账"
                         a href=(JournalListPath::PATH) style="margin-left:auto;font-size:12px;color:var(--accent);font-weight:600;letter-spacing:0" { "查看全部 →" }
@@ -296,7 +296,7 @@ fn fms_dashboard_page(
                                     CashDirection::Inflow => "inflow",
                                     CashDirection::Outflow => "outflow",
                                 };
-                                div class="flow-row" {
+                                div class="flex items-center gap-3 p-3 rounded-sm" {
                                     div class=(format!("flow-dot {dot_class}")) style="flex-shrink:0" {}
                                     div style="flex:1;min-width:0;margin-left:var(--space-3)" {
                                         div style="font-size:var(--text-sm);font-weight:600;color:var(--fg)" class="truncate" { (j.doc_number) }
@@ -315,8 +315,8 @@ fn fms_dashboard_page(
                 }
 
                 // 待审批报销
-                div class="section-card" {
-                    div class="section-card-head" {
+                div class="bg-bg border border-border-soft rounded-lg overflow-hidden" {
+                    div class="p-4 border-b text-sm font-semibold text-fg flex items-center gap-2 bg-surface-raised" {
                         (PreEscaped(r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;color:#7c3aed"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>"#))
                         "待审批报销"
                         a href=(ExpenseListPath::PATH) style="margin-left:auto;font-size:12px;color:var(--accent);font-weight:600;letter-spacing:0" { "查看全部 →" }
@@ -326,7 +326,7 @@ fn fms_dashboard_page(
                             div style="text-align:center;padding:var(--space-6);color:var(--muted)" { "暂无待审批报销" }
                         } @else {
                             @for e in expenses {
-                                div class="flow-row" {
+                                div class="flex items-center gap-3 p-3 rounded-sm" {
                                     div class="mini-inline-grid place-items-center rounded-full text-white font-semibold shrink-0 select-none" style="background:linear-gradient(135deg,#dbeafe,#bfdbfe);color:var(--accent)" {
                                         (e.doc_number.chars().next().unwrap_or('—'))
                                     }
@@ -338,7 +338,7 @@ fn fms_dashboard_page(
                                         div style="font-size:var(--text-sm);font-weight:700;color:var(--fg);font-family:var(--font-mono)" {
                                             (format!("¥{:.2}", e.total_amount))
                                         }
-                                        span class="status-pill status-progress" style="font-size:11px" { "待审批" }
+                                        span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-[#fff8eb] text-[#d46b08]" style="font-size:11px" { "待审批" }
                                     }
                                 }
                             }
@@ -350,8 +350,8 @@ fn fms_dashboard_page(
             // ── 日记账类型分布 + 月度趋势 ──
             div style="display:grid;grid-template-columns:1fr 1.5fr;gap:var(--space-6);margin-bottom:var(--space-8)" {
                 // 类型分布（真实数据）
-                div class="section-card" {
-                    div class="section-card-head" {
+                div class="bg-bg border border-border-soft rounded-lg overflow-hidden" {
+                    div class="p-4 border-b text-sm font-semibold text-fg flex items-center gap-2 bg-surface-raised" {
                         (svg_icon("M21 21H3V3M18 9l-5 5-2-2-4 4", "18px"))
                         "本月日记账分布"
                     }
@@ -367,8 +367,8 @@ fn fms_dashboard_page(
                 }
 
                 // 月度趋势（真实数据）
-                div class="section-card" {
-                    div class="section-card-head" {
+                div class="bg-bg border border-border-soft rounded-lg overflow-hidden" {
+                    div class="p-4 border-b text-sm font-semibold text-fg flex items-center gap-2 bg-surface-raised" {
                         (svg_icon("M18 20V10M12 20V4M6 20v-6", "18px"))
                         "近6月现金流趋势（万元）"
                     }
@@ -457,8 +457,8 @@ fn trend_bar(month: &str, inflow_h: &str, outflow_h: &str, net: &str, color: &st
     html! {
         div style="text-align:center" {
             div style="display:flex;flex-direction:column;align-items:center;gap:4px;height:140px;justify-content:flex-end" {
-                div class="chart-bar-wrap" style=(bar_style) {}
-                div class="chart-bar-wrap" style=(format!("width:100%;max-width:48px;height:{outflow_h};background:linear-gradient(180deg,rgba(220,38,38,0.15),rgba(220,38,38,0.03));border-top:2.5px solid var(--danger)")) {}
+                div class="relative overflow-hidden" style=(bar_style) {}
+                div class="relative overflow-hidden" style=(format!("width:100%;max-width:48px;height:{outflow_h};background:linear-gradient(180deg,rgba(220,38,38,0.15),rgba(220,38,38,0.03));border-top:2.5px solid var(--danger)")) {}
             }
             div style=(month_style) { (month) }
             div style=(net_style) { (net) }

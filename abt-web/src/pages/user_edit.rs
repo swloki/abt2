@@ -195,8 +195,8 @@ fn user_edit_page(
 
             // ── Action Bar ──
             div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
-                a class="btn bg-white text-fg border border-border hover:bg-surface" href=(&detail_path) { "取消" }
-                button type="submit" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" form="user-edit-form" {
+                a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface" href=(&detail_path) { "取消" }
+                button type="submit" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" form="user-edit-form" {
                     (icon::check_circle_icon("w-4 h-4"))
                     "保存"
                 }
@@ -212,7 +212,7 @@ fn basic_info_section(user: &UserWithRoles) -> Markup {
     let is_active = user.user.is_active;
 
     html! {
-        div class="form-section-card" {
+        div class="form-bg-bg border border-border-soft rounded-lg overflow-hidden" {
             div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                 (icon::user_icon("w-[18px] h-[18px]"))
                 "基本信息"
@@ -255,13 +255,13 @@ fn basic_info_section(user: &UserWithRoles) -> Markup {
 
 fn role_section(roles: &[Role], selected_ids: &[i64]) -> Markup {
     html! {
-        div class="form-section-card" {
+        div class="form-bg-bg border border-border-soft rounded-lg overflow-hidden" {
             div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                 (icon::lock_icon("w-[18px] h-[18px]"))
                 "角色分配"
             }
             p class="text-[13px] text-muted mb-4 leading-relaxed" { "用户可拥有多个角色，权限取所有角色的并集。" }
-            div class="pick-grid" {
+            div class="grid gap-3" {
                 @for role in roles {
                     @let is_sel = selected_ids.contains(&role.role_id);
                     label class=(if is_sel { "pick-item selected" } else { "pick-item" }) {
@@ -273,7 +273,7 @@ fn role_section(roles: &[Role], selected_ids: &[i64]) -> Markup {
                         span.pick-code style=(format!("background:{}", role_color(&role.role_code))) { (short_code(&role.role_code)) }
                         span { (role.role_name) }
                         @if role.is_system_role {
-                            span class="sys-badge" { "内置" }
+                            span class="text-[10px] bg-[#fff7e6] text-[#fa8c16]" { "内置" }
                         }
                     }
                 }
@@ -297,13 +297,13 @@ fn role_section(roles: &[Role], selected_ids: &[i64]) -> Markup {
 
 fn dept_section(departments: &[Department], selected_ids: &[i64]) -> Markup {
     html! {
-        div class="form-section-card" {
+        div class="form-bg-bg border border-border-soft rounded-lg overflow-hidden" {
             div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                 (icon::building_icon("w-[18px] h-[18px]"))
                 "部门分配"
             }
             p class="text-[13px] text-muted mb-4 leading-relaxed" { "用户可归属多个部门（多对多关系）。" }
-            div class="pick-grid" {
+            div class="grid gap-3" {
                 @for dept in departments {
                     @let is_sel = selected_ids.contains(&dept.department_id);
                     label class=(if is_sel { "pick-item selected" } else { "pick-item" }) {
@@ -339,50 +339,50 @@ fn data_scope_section(user: &UserWithRoles, user_depts: &[Department]) -> Markup
     let has_departments = !user_depts.is_empty();
 
     html! {
-        div class="form-section-card" {
+        div class="form-bg-bg border border-border-soft rounded-lg overflow-hidden" {
             div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                 (shield_check_icon("w-[18px] h-[18px]"))
                 "数据权限 (DataScope)"
             }
             p class="text-[13px] text-muted mb-4 leading-relaxed" { "数据范围由角色配置决定，不支持在用户级别单独修改。以下为当前用户的实际数据范围。" }
-            div class="scope-options" {
+            div class="grid gap-3" {
                 // All scope
                 div class={"scope-option" @if is_super_admin { " selected" } @else { "" }} data-value="All" {
-                    div class="scope-option-icon si-all" {
+                    div class="p-4 border border-border rounded-sm cursor-pointer text-center-icon si-all" {
                         svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" {
                             path d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064" {}
                             circle cx="12" cy="12" r="10" {}
                         }
                     }
-                    div class="scope-option-title" { "All — 全部数据" }
-                    div class="scope-option-desc" { "可查看系统中所有数据，通常授予管理层" }
+                    div class="p-4 border border-border rounded-sm cursor-pointer text-center-title" { "All — 全部数据" }
+                    div class="p-4 border border-border rounded-sm cursor-pointer text-center-desc" { "可查看系统中所有数据，通常授予管理层" }
                 }
                 // Department scope
                 div class={"scope-option" @if !is_super_admin && has_departments { " selected" } @else { "" }} data-value="Department" {
-                    div class="scope-option-icon si-dept" {
+                    div class="p-4 border border-border rounded-sm cursor-pointer text-center-icon si-dept" {
                         svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" {
                             path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5" {}
                         }
                     }
-                    div class="scope-option-title" { "Department — 本部门" }
-                    div class="scope-option-desc" { "仅可查看所属部门的数据" }
+                    div class="p-4 border border-border rounded-sm cursor-pointer text-center-title" { "Department — 本部门" }
+                    div class="p-4 border border-border rounded-sm cursor-pointer text-center-desc" { "仅可查看所属部门的数据" }
                     @if !is_super_admin && has_departments {
                         div class="scope-dept-tags" {
                             @for dept in user_depts {
-                                span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium tag-normal" { (&dept.department_name) }
+                                span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-surface text-[#666]" { (&dept.department_name) }
                             }
                         }
                     }
                 }
                 // Self scope
                 div class={"scope-option" @if !is_super_admin && !has_departments { " selected" } @else { "" }} data-value="Self" {
-                    div class="scope-option-icon si-self" {
+                    div class="p-4 border border-border rounded-sm cursor-pointer text-center-icon si-self" {
                         svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" {
                             path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" {}
                         }
                     }
-                    div class="scope-option-title" { "Self — 仅本人" }
-                    div class="scope-option-desc" { "仅可查看自己创建的数据" }
+                    div class="p-4 border border-border rounded-sm cursor-pointer text-center-title" { "Self — 仅本人" }
+                    div class="p-4 border border-border rounded-sm cursor-pointer text-center-desc" { "仅可查看自己创建的数据" }
                 }
             }
         }

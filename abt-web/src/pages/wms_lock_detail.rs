@@ -148,16 +148,16 @@ fn lock_detail_page(
                 "返回库存锁定列表"
             }
 
-            div class="detail-header" {
+            div class="block bg-bg border border-border-soft rounded-lg p-6" {
                 div {
-                    div class="detail-title-row" {
-                        span class="detail-no mono" { (lock.doc_number) }
+                    div class="flex items-center justify-between" {
+                        span class="text-2xl font-extrabold mono" { (lock.doc_number) }
                         span class=(format!("status-pill {sc}")) { (sl) }
                     }
                 }
                 @if is_active {
                     div class="flex gap-3" {
-                        button class="btn bg-white text-fg border border-border hover:bg-surface"
+                        button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface"
                             hx-post=(detail_path)
                             hx-vals=r#"{"action":"release"}"#
                             hx-confirm="确定要释放此锁定吗？释放后库存将恢复可用。"
@@ -165,7 +165,7 @@ fn lock_detail_page(
                             (crate::components::icon::lock_icon("w-4 h-4"))
                             "释放锁定"
                         }
-                        button class="btn bg-danger text-white border-none hover:opacity-90"
+                        button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-danger text-white border-none hover:opacity-90"
                             hx-post=(detail_path)
                             hx-vals=r#"{"action":"cancel"}"#
                             hx-confirm="确定要作废此锁库单吗？此操作不可撤销。"

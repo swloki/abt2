@@ -11,7 +11,7 @@ pub fn export_button(label: &str, export_type: &str) -> Markup {
     let path = format!("{}/{}", crate::routes::excel::EXPORT_START_PATH, export_type);
     let confirm_msg = format!("确定要导出「{}」吗？", label);
     html! {
-        button type="button" class="btn bg-white text-fg border border-border hover:bg-surface"
+        button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface"
             hx-post=(path)
             hx-confirm=(confirm_msg)
             hx-swap="none" {
@@ -24,13 +24,13 @@ pub fn export_button(label: &str, export_type: &str) -> Markup {
 /// 导出下拉菜单（多种导出类型）
 pub fn export_dropdown(items: &[ExportItem]) -> Markup {
     html! {
-        div class="export-dropdown" {
-            button type="button" class="btn bg-white text-fg border border-border hover:bg-surface"
+        div class="relative inline-block" {
+            button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface"
                 _="on click toggle .is-open on next <div/>" {
                 (crate::components::icon::download_icon("w-4 h-4"))
                 " 导出"
             }
-            div class="export-dropdown-menu" {
+            div class="relative inline-block-menu" {
                 @for item in items {
                     (export_menu_item(item))
                 }

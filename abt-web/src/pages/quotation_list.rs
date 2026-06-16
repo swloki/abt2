@@ -164,7 +164,7 @@ fn quotation_list_page(
                 h1 class="text-xl font-bold text-fg tracking-tight" { "报价单" }
                 div class="flex gap-3" {
                     @if can_create {
-                        a class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" href=(QuotationCreatePath::PATH) {
+                        a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" href=(QuotationCreatePath::PATH) {
                             (icon::plus_icon("w-4 h-4"))
                             "新建报价单"
                         }
@@ -244,7 +244,7 @@ fn quotation_table_fragment(
                                 th { "报价单号" }
                                 th { "客户名称" }
                                 th { "状态" }
-                                th class="num-right" { "总金额" }
+                                th class="text-right text-[13px]" { "总金额" }
                                 th { "报价日期" }
                                 th { "有效期至" }
                                 th { "操作" }
@@ -256,7 +256,7 @@ fn quotation_table_fragment(
                             }
                             @if result.items.is_empty() {
                                 tr {
-                                    td colspan="7" class="td-empty" {
+                                    td colspan="7" class="text-center p-8 text-muted" {
                                         "暂无报价单数据"
                                     }
                                 }
@@ -280,12 +280,12 @@ fn quotation_row(q: &Quotation, names: &HashMap<i64, String>, can_delete: bool) 
 
     html! {
         tr {
-            td class="link-cell mono" onclick=(format!("location.href='{}'", detail_path)) { (q.doc_number) }
+            td class="text-accent font-medium cursor-pointer mono" onclick=(format!("location.href='{}'", detail_path)) { (q.doc_number) }
             td onclick=(format!("location.href='{}'", detail_path)) { (customer_name) }
             td onclick=(format!("location.href='{}'", detail_path)) {
                 span class=(format!("status-pill {status_class}")) { (status_text) }
             }
-            td class="num-right" onclick=(format!("location.href='{}'", detail_path)) {
+            td class="text-right text-[13px]" onclick=(format!("location.href='{}'", detail_path)) {
                 span class="mono" { (crate::utils::fmt_amount(q.total_amount)) }
             }
             td onclick=(format!("location.href='{}'", detail_path)) { (q.quotation_date.format("%Y-%m-%d")) }
@@ -293,11 +293,11 @@ fn quotation_row(q: &Quotation, names: &HashMap<i64, String>, can_delete: bool) 
             td onclick="event.stopPropagation()" {
                 @if is_draft {
                     div class="row-actions" {
-                        a class="row-action-btn" title="编辑" href=(edit_form_path) {
+                        a class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" title="编辑" href=(edit_form_path) {
                             (icon::edit_icon("w-4 h-4"))
                         }
                         @if can_delete {
-                            button type="button" class="row-action-btn text-danger" title="删除"
+                            button type="button" class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer text-danger" title="删除"
                                 hx-confirm="确认删除该报价单吗？"
                                 hx-post=(delete_path)
                                 hx-target="closest tr"

@@ -300,7 +300,7 @@ fn purchase_dashboard_content(stats: &DashboardStats) -> Markup {
         div class="flex items-center justify-between mb-6" {
             h1 class="text-xl font-bold text-fg tracking-tight" { "采购管理总览" }
             div class="flex gap-3" {
-                button class="btn bg-white text-fg border border-border hover:bg-surface" {
+                button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface" {
                     (icon::download_icon("w-4 h-4"))
                     " 导出报表"
                 }
@@ -310,8 +310,8 @@ fn purchase_dashboard_content(stats: &DashboardStats) -> Markup {
         // ── Stat Cards (5 columns, icon + value layout) ──
         div style="display:grid;grid-template-columns:repeat(5,1fr);gap:var(--space-4);margin-bottom:var(--space-8)" {
             // 活跃供应商
-            div class="stat-card" {
-                div class="stat-icon blue" {
+            div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
+                div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 blue" {
                     (icon::building_icon("w-[22px] h-[22px]"))
                 }
                 div {
@@ -320,8 +320,8 @@ fn purchase_dashboard_content(stats: &DashboardStats) -> Markup {
                 }
             }
             // 待比价报价
-            div class="stat-card" {
-                div class="stat-icon orange" {
+            div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
+                div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 orange" {
                     (icon::clipboard_list_icon("w-[22px] h-[22px]"))
                 }
                 div {
@@ -330,8 +330,8 @@ fn purchase_dashboard_content(stats: &DashboardStats) -> Markup {
                 }
             }
             // 进行中订单
-            div class="stat-card" {
-                div class="stat-icon blue" {
+            div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
+                div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 blue" {
                     (icon::clipboard_document_icon("w-[22px] h-[22px]"))
                 }
                 div {
@@ -340,8 +340,8 @@ fn purchase_dashboard_content(stats: &DashboardStats) -> Markup {
                 }
             }
             // 待付款金额
-            div class="stat-card" {
-                div class="stat-icon red" {
+            div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
+                div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 red" {
                     (icon::payment_icon("w-[22px] h-[22px]"))
                 }
                 div {
@@ -356,8 +356,8 @@ fn purchase_dashboard_content(stats: &DashboardStats) -> Markup {
                 }
             }
             // 退货处理中
-            div class="stat-card" {
-                div class="stat-icon green" {
+            div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
+                div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 green" {
                     (icon::return_arrow_icon("w-[22px] h-[22px]"))
                 }
                 div {
@@ -372,7 +372,7 @@ fn purchase_dashboard_content(stats: &DashboardStats) -> Markup {
             // 待办事项
             div {
                 div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-4)" {
-                    h2 class="section-title" { "待办事项" }
+                    h2 class="text-lg font-semibold text-fg" { "待办事项" }
                 }
                 div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" {
                     @if stats.pending_quotations > 0 {
@@ -401,7 +401,7 @@ fn purchase_dashboard_content(stats: &DashboardStats) -> Markup {
             // 快捷入口
             div {
                 div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-4)" {
-                    h2 class="section-title" { "快捷入口" }
+                    h2 class="text-lg font-semibold text-fg" { "快捷入口" }
                 }
                 div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3)" {
                     (quick_link_card("/admin/purchase/demand-pool", "采购需求池", "外购需求聚合"))
@@ -569,7 +569,7 @@ fn todo_item_last(status_class: &str, status_text: &str, desc: &str, time: &str)
 
 fn quick_link_card(href: &str, title: &str, count: &str) -> Markup {
     html! {
-        a href=(href) class="quick-link" {
+        a href=(href) class="flex flex-col gap-1 p-4 bg-bg border border-border-soft rounded cursor-pointer no-underline" {
             span class="text-sm font-semibold text-fg" { (title) }
             span class="text-xs text-muted" { (count) }
         }

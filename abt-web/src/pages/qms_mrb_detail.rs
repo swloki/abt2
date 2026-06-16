@@ -110,7 +110,7 @@ pub async fn get_detail(path: MrbDetailPath, ctx: RequestContext) -> Result<Html
                     label { "责任方" }
                     span class=(format!("status-pill {party_class}")) { (party_text) }
                 }
-                div class="flex flex-col gap-1" { label { "成本影响" } span class="mono num-right" { (fmt_cost(mrb.cost_impact)) } }
+                div class="flex flex-col gap-1" { label { "成本影响" } span class="mono text-right text-[13px]" { (fmt_cost(mrb.cost_impact)) } }
             }
         }
 

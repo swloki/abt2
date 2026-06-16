@@ -77,7 +77,7 @@ fn order_list_page(
     html! { div {
         div class="flex items-center justify-between mb-6" { h1 class="text-xl font-bold text-fg tracking-tight" { "工单管理" } div class="flex gap-3" {
             @if can_create {
-                a class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" href=(OrderCreatePath::PATH) { (icon::plus_icon("w-4 h-4")) "新建工单" }
+                a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" href=(OrderCreatePath::PATH) { (icon::plus_icon("w-4 h-4")) "新建工单" }
             }
         }}
         (order_table_fragment(result, product_names, params))
@@ -123,7 +123,7 @@ fn order_data_card(
         div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" id="order-data-card" {
             div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                 table class="data-table" { thead { tr {
-                    th { "工单编号" } th { "产品" } th class="num-right" { "计划数量" }
+                    th { "工单编号" } th { "产品" } th class="text-right text-[13px]" { "计划数量" }
                     th { "生产进度" } th { "排程" } th { "车间" } th { "来源追溯" }
                     th { "状态" } th { "操作" }
                 }} tbody {
@@ -134,12 +134,12 @@ fn order_data_card(
                         @let total = item.total_steps.unwrap_or(0);
                         @let done = item.completed_steps.unwrap_or(0);
                         tr style="cursor:pointer" onclick=(format!("location.href='{}'", dp)) {
-                            td class="link-cell mono" style="color:var(--accent)" { (item.doc_number) }
+                            td class="text-accent font-medium cursor-pointer mono" style="color:var(--accent)" { (item.doc_number) }
                             td { (pn) }
-                            td class="num-right mono" { (crate::utils::fmt_qty(item.planned_qty)) }
+                            td class="text-right text-[13px] mono" { (crate::utils::fmt_qty(item.planned_qty)) }
                             td {
                                 @if total == 0 && item.completed_qty == rust_decimal::Decimal::ZERO {
-                                    span class="wo-progress" style="color:var(--muted)" { "尚未开始" }
+                                    span class="w-[80px] h-[6px] bg-border-soft overflow-hidden" style="color:var(--muted)" { "尚未开始" }
                                 } @else {
                                     // 工序进度
                                     @if total > 0 {
@@ -147,9 +147,9 @@ fn order_data_card(
                                             span style="color:var(--success)" { "✓ 工序完成" }
                                         } @else {
                                             @let pct = done * 100 / total;
-                                            div class="wo-progress" {
-                                                div class="wo-progress-track" {
-                                                    div class="wo-progress-fill" style=(format!("width:{}%", pct)) {}
+                                            div class="w-[80px] h-[6px] bg-border-soft overflow-hidden" {
+                                                div class="wo-flex items-center gap-[2px]" {
+                                                    div class="w-[80px] h-[6px] bg-border-soft overflow-hidden-fill" style=(format!("width:{}%", pct)) {}
                                                 }
                                                 span style="font-size:var(--text-xs)" { (format!("工序 {}/{}", done, total)) }
                                             }
@@ -169,7 +169,7 @@ fn order_data_card(
                                 }
                             }
                             td {
-                                div class="cell-stack" {
+                                div class="flex flex-col gap-[2px]" {
                                     span { (item.scheduled_start.format("%m-%d")) }
                                     span class="sub" { "至 " (item.scheduled_end.format("%m-%d")) }
                                 }
@@ -179,17 +179,17 @@ fn order_data_card(
                                 @if item.source_plan_doc.is_none() && item.source_so_doc.is_none() {
                                     "—"
                                 } @else {
-                                    div class="source-trace" {
+                                    div class="text-[11px] text-muted" {
                                         @if let (Some(pid), Some(pdoc)) = (item.source_plan_id, item.source_plan_doc.as_deref()) {
-                                            a class="source-trace-sub" href=(format!("/admin/mes/plans/{}", pid)) onclick="event.stopPropagation()" { (pdoc) }
-                                            span class="source-trace-sub" { " → " }
+                                            a class="text-[11px] text-muted-sub" href=(format!("/admin/mes/plans/{}", pid)) onclick="event.stopPropagation()" { (pdoc) }
+                                            span class="text-[11px] text-muted-sub" { " → " }
                                         }
                                         @if let Some(soid) = item.sales_order_id {
                                             @if let Some(sodoc) = item.source_so_doc.as_deref() {
-                                                a class="source-trace-sub" href=(format!("/admin/orders/{}", soid)) onclick="event.stopPropagation()" { (sodoc) }
+                                                a class="text-[11px] text-muted-sub" href=(format!("/admin/orders/{}", soid)) onclick="event.stopPropagation()" { (sodoc) }
                                             }
                                             @if let Some(cust) = item.source_customer.as_deref() {
-                                                span class="source-trace-sub" { " (" (cust) ")" }
+                                                span class="text-[11px] text-muted-sub" { " (" (cust) ")" }
                                             }
                                         }
                                     }

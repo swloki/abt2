@@ -429,7 +429,7 @@ pub async fn get_node_edit_form(
 fn node_edit_form_fragment(bom_id: i64, node_id: i64, bom_version: i32, node: &BomNode) -> Markup {
     let action = BomNodePath { id: bom_id, node_id }.to_string();
     html! {
-        div class="modal" onclick="event.stopPropagation()" {
+        div class="bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0" onclick="event.stopPropagation()" {
             div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
                 h2 { "编辑节点" }
                 button style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
@@ -465,9 +465,9 @@ fn node_edit_form_fragment(bom_id: i64, node_id: i64, bom_version: i32, node: &B
                         }
                     }
                     div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" style="padding:var(--space-4) 0 0;border-top:1px solid var(--border-soft)" {
-                        button type="button" class="btn bg-white text-fg border border-border hover:bg-surface"
+                        button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface"
                             _="on click remove .is-open from #bom-edit-modal then empty #bom-edit-modal" { "取消" }
-                        button type="submit" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" { "保存" }
+                        button type="submit" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" { "保存" }
                     }
                 }
             }
@@ -508,10 +508,10 @@ fn bom_edit_page(
     html! {
         div id="bom-edit-app" hx-get=(BomEditPath { id: bom.bom_id }.to_string()) hx-trigger="nodeUpdated from:body" hx-select="#bom-edit-app" hx-swap="outerHTML" hx-disinherit="hx-select" {
             // ── Toolbar ──
-            div class="bom-toolbar" {
+            div class="flex flex-wrap items-center justify-between gap-3" {
                 // Left side: back, category, view toggle, level filter
-                div class="bom-toolbar-left" {
-                    a class="btn btn-sm bg-white text-fg border border-border hover:bg-surface" href=(format!("{list_path}?restore=true")) {
+                div class="flex flex-wrap items-center justify-between gap-3-left" {
+                    a class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm bg-white text-fg border border-border hover:bg-surface" href=(format!("{list_path}?restore=true")) {
                         (icon::arrow_left_icon("w-4 h-4"))
                         " 返回列表"
                     }
@@ -536,29 +536,29 @@ fn bom_edit_page(
                     }
 
                     // Level filter
-                    select id="bom-level-filter" class="bom-level-filter" {
+                    select id="bom-level-filter" class="h-[32px] text-sm font-medium bg-white border border-border text-fg-2 rounded-sm cursor-pointer" {
                         option value="0" { "全部层级" }
                         @for lv in 1..=max_level {
                             option value=(lv) { "层级 " (lv) }
                         }
                     }
 
-                    button type="button" class="bom-level-filter" id="bom-collapse-all-btn"
+                    button type="button" class="h-[32px] text-sm font-medium bg-white border border-border text-fg-2 rounded-sm cursor-pointer" id="bom-collapse-all-btn"
                         onclick="bomToggleAllCollapse()" {
                         "全部折叠"
                     }
                 }
 
                 // Right side: publish/unpublish, add/save-as, labor cost
-                div class="bom-toolbar-right" {
+                div class="flex flex-wrap items-center justify-between gap-3-right" {
                     @if !is_draft && is_owner {
-                        button class="btn btn-sm btn-warning-ghost" id="bom-publish-btn"
+                        button class="btn btn-sm inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-warning-ghost" id="bom-publish-btn"
                             _="on click add .open to #bom-publish-dialog" {
                             (icon::return_arrow_icon("w-4 h-4"))
                             " 取消发布"
                         }
                     } @else if is_draft {
-                        button class="btn btn-sm btn-success" id="bom-publish-btn"
+                        button class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm bg-[#10b981] text-[#fff]" id="bom-publish-btn"
                             _="on click add .open to #bom-publish-dialog"
                             disabled[node_count == 0]
                             title="请先添加物料" {
@@ -568,13 +568,13 @@ fn bom_edit_page(
                     }
 
                     @if node_count == 0 {
-                        button type="button" class="btn btn-sm bg-accent text-accent-on border-none hover:bg-accent-hover" id="bom-add-root-btn"
+                        button type="button" class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm bg-accent text-accent-on border-none hover:bg-accent-hover" id="bom-add-root-btn"
                             _="on click put '0' into <input[name='parent_id']/>'s value then add .is-open to #bom-add-modal then call bomLoadProducts()" {
                             (icon::plus_icon("w-4 h-4"))
                             " 添加根节点"
                         }
                     } @else {
-                        button type="button" class="btn btn-sm btn-success" id="bom-save-as-btn"
+                        button type="button" class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm bg-[#10b981] text-[#fff]" id="bom-save-as-btn"
                             data-name=(bom.bom_name)
                             _="on click put (my @data-name + '_副本') into <input[name='new_name']/>'s value then add .is-open to #bom-save-as-modal" {
                             (icon::copy_icon("w-4 h-4"))
@@ -582,7 +582,7 @@ fn bom_edit_page(
                         }
                     }
 
-                    a class="btn btn-sm btn-labor-cost" href=(format!("/admin/labor/bom-cost/{}", bom.bom_id)) {
+                    a class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm bg-[#f97316] text-[#fff]" href=(format!("/admin/labor/bom-cost/{}", bom.bom_id)) {
                         (icon::currency_icon("w-4 h-4"))
                         " 人工成本"
                     }
@@ -603,7 +603,7 @@ fn bom_edit_page(
                     }
                 } @else {
                     div style="overflow-x:auto" {
-                        table class="bom-table" style="table-layout:fixed;min-width:900px" {
+                        table class="w-full text-[13px]" style="table-layout:fixed;min-width:900px" {
                             thead {
                                 tr {
                                     th style="width:32px" { }
@@ -636,9 +636,9 @@ fn bom_edit_page(
             }
 
             // ── Add Node Modal ──
-            div id="bom-add-modal" class="modal-overlay"
+            div id="bom-add-modal" class="fixed z-[1000] grid place-items-center opacity-0"
                 _="on click[me is event.target] remove .is-open" {
-                div class="modal modal-lg" onclick="event.stopPropagation()" {
+                div class="modal bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0-lg" onclick="event.stopPropagation()" {
                     div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
                         h2 { "添加物料" }
                         button style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
@@ -646,10 +646,10 @@ fn bom_edit_page(
                     }
                     div class="overflow-y-auto flex-1 min-h-0 p-6" style="padding:0" hx-disinherit="hx-select" {
                         input type="hidden" name="parent_id" value="0" {}
-                        div class="product-search-bar" {
+                        div class="flex gap-4 p-4 border-b" {
                             input type="hidden" name="bom_id" value=(bom.bom_id) {}
-                            div class="product-search-field" {
-                                label class="product-search-label" { "产品名称" }
+                            div class="flex-1 flex flex-col gap-[4px]" {
+                                label class="text-[12px] font-medium text-fg-2" { "产品名称" }
                                 input class="product-w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="name" placeholder="输入产品名称…"
                                     hx-get=(BomProductsPath::PATH)
                                     hx-trigger="keyup changed delay:300ms"
@@ -658,8 +658,8 @@ fn bom_edit_page(
                                     hx-swap="innerHTML"
                                     hx-include=".product-search-bar" {}
                             }
-                            div class="product-search-field" {
-                                label class="product-search-label" { "产品编码" }
+                            div class="flex-1 flex flex-col gap-[4px]" {
+                                label class="text-[12px] font-medium text-fg-2" { "产品编码" }
                                 input class="product-w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="code" placeholder="输入产品编码…"
                                     hx-get=(BomProductsPath::PATH)
                                     hx-trigger="keyup changed delay:300ms"
@@ -668,7 +668,7 @@ fn bom_edit_page(
                                     hx-swap="innerHTML"
                                     hx-include=".product-search-bar" {}
                             }
-                            button type="button" class="product-search-clear"
+                            button type="button" class="border border-border rounded-sm bg-bg text-fg-2 text-sm cursor-pointer whitespace-nowrap"
                                 hx-get=(BomProductsPath::PATH)
                                 hx-target="#bom-edit-product-results"
                                 hx-swap="innerHTML"
@@ -686,7 +686,7 @@ fn bom_edit_page(
             }
 
             // ── Edit Node Modal (content loaded via HTMX) ──
-            div id="bom-edit-modal" class="modal-overlay" _="on htmx:afterSettle if detail.xhr.responseText !== '' add .is-open on click[me is event.target] remove .is-open" { }
+            div id="bom-edit-modal" class="fixed z-[1000] grid place-items-center opacity-0" _="on htmx:afterSettle if detail.xhr.responseText !== '' add .is-open on click[me is event.target] remove .is-open" { }
 
             // ── Delete Confirm ──
             (crate::components::confirm_dialog::confirm_dialog(
@@ -732,9 +732,9 @@ fn bom_edit_page(
 
 
             // ── Save As Modal ──
-            div id="bom-save-as-modal" class="modal-overlay"
+            div id="bom-save-as-modal" class="fixed z-[1000] grid place-items-center opacity-0"
                 _="on click[me is event.target] remove .is-open" {
-                div class="modal" onclick="event.stopPropagation()" {
+                div class="bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0" onclick="event.stopPropagation()" {
                     div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
                         h2 { "另存为" }
                         button style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
@@ -749,8 +749,8 @@ fn bom_edit_page(
                                     placeholder="输入新的 BOM 名称" {}
                             }
                             div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" style="padding:var(--space-4) 0 0;border-top:1px solid var(--border-soft)" {
-                                button type="button" class="btn bg-white text-fg border border-border hover:bg-surface" _="on click remove .is-open from #bom-save-as-modal" { "取消" }
-                                button type="submit" class="btn btn-success" { "确认另存为" }
+                                button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface" _="on click remove .is-open from #bom-save-as-modal" { "取消" }
+                                button type="submit" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-[#10b981] text-[#fff]" { "确认另存为" }
                             }
                         }
                     }
@@ -801,7 +801,7 @@ fn bom_node_row(
             data-node-id=(node.id) data-parent-id=(node.parent_id) data-level=(level) data-ancestors=(ancestors_str) {
             td style="text-align:center" {
                 @if has_children {
-                    button type="button" class="bom-collapse-btn"
+                    button type="button" class="inline-flex items-center justify-center w-[20px] h-[20px] border-none rounded-sm cursor-pointer shrink-0"
                         onclick=(format!("bomToggleCollapse({})", node.id)) {
                         (icon::chevron_down_icon("bom-collapse-icon"))
                     }
@@ -819,16 +819,16 @@ fn bom_node_row(
             td style="color:var(--muted)" { (remark) }
             td {
                 div style="display:flex;gap:var(--space-1)" {
-                    button type="button" class="row-action-btn" title="添加子节点"
+                    button type="button" class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" title="添加子节点"
                         _=(format!("on click put '{}' into <input[name='parent_id']/>'s value then add .is-open to #bom-add-modal then call bomLoadProducts()", node.id)) {
                         (icon::plus_icon("w-3.5 h-3.5"))
                     }
-                    button type="button" class="row-action-btn" title="编辑"
+                    button type="button" class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" title="编辑"
                         hx-get=(format!("/admin/md/boms/{}/nodes/{}", bom_id, node.id))
                         hx-target="#bom-edit-modal" hx-swap="innerHTML" {
                         (icon::edit_icon("w-3.5 h-3.5"))
                     }
-                    button type="button" class="row-action-btn text-danger" title="删除"
+                    button type="button" class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer text-danger" title="删除"
                         _=(format!("on click set #bom-node-delete-form's @hx-delete to '/admin/md/boms/{}/nodes/{}' then call htmx.process(document.querySelector('#bom-node-delete-form')) then add .open to #bom-delete-dialog", bom_id, node.id)) {
                         (icon::trash_icon("w-3.5 h-3.5"))
                     }
@@ -889,11 +889,11 @@ fn product_list_fragment(products: &[abt_core::master_data::product::model::Prod
         } @else {
             div class="product-select-list" {
                 @for p in products {
-                    div class="product-select-item" {
+                    div class="flex items-center justify-between p-3 border-b" {
                         div class="product-select-info" {
-                            div class="product-select-name" { (p.pdt_name) }
-                            div class="product-select-meta" {
-                                span class="product-select-code" { (p.product_code) }
+                            div class="text-sm font-medium text-fg" { (p.pdt_name) }
+                            div class="text-[12px] text-muted flex items-center gap-[6px] flex-wrap" {
+                                span class="bg-surface rounded-sm" { (p.product_code) }
                                 span class="product-select-sep" { "·" }
                                 span { (p.meta.specification) }
                                 span class="product-select-sep" { "·" }
@@ -906,7 +906,7 @@ fn product_list_fragment(products: &[abt_core::master_data::product::model::Prod
                             input type="hidden" name="product_id" value=(p.product_id) {}
                             input type="hidden" name="quantity" value="1" {}
                             input type="hidden" name="unit" value=(p.unit) {}
-                            button type="submit" class="btn btn-sm bg-accent text-accent-on border-none hover:bg-accent-hover" { "选择" }
+                            button type="submit" class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm bg-accent text-accent-on border-none hover:bg-accent-hover" { "选择" }
                         }
                     }
                 }

@@ -331,7 +331,7 @@ fn tracking_list_page(
             div class="flex items-center justify-between mb-6" {
                 h1 class="text-xl font-bold text-fg tracking-tight" { "委外追踪" }
                 div class="flex gap-3" {
-                    button class="btn btn-secondary"
+                    button class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-secondary"
                         onclick="location.reload()"
                         style="display:inline-flex;align-items:center;gap:6px" {
                         (icon::refresh_icon("w-4 h-4"))
@@ -487,7 +487,7 @@ fn tracking_data_card(
                             @let detail_path = OmOutsourcingDetailPath { id: tracking.outsourcing_id };
 
                             tr style="cursor:pointer" onclick=(format!("location.href='{}'", detail_path.to_string())) {
-                                td class="link-cell mono" style="color:var(--accent)" { (doc_number) }
+                                td class="text-accent font-medium cursor-pointer mono" style="color:var(--accent)" { (doc_number) }
                                 td { (supplier_name) }
                                 td { (product_name) }
                                 td class="mono" style="text-align:right" { (qty_str) }

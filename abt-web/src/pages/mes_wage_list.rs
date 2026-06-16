@@ -132,7 +132,7 @@ fn wage_list_page(
         div class="flex items-center justify-between mb-6" {
             h1 class="text-xl font-bold text-fg tracking-tight" { "计件工资汇总" }
             div class="flex gap-3" {
-                button class="btn bg-white text-fg border border-border hover:bg-surface" {
+                button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface" {
                     (maud::PreEscaped(r#"<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>"#))
                     " 导出"
                 }
@@ -151,9 +151,9 @@ fn wage_list_page(
         }
 
         // 汇总统计卡片
-        div class="wage-summary" {
-            div class="stat-card" {
-                div class="stat-icon" style="background:linear-gradient(135deg,#e6f4ff,#d6e8ff);color:var(--accent)" {
+        div class="grid gap-5" {
+            div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
+                div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0" style="background:linear-gradient(135deg,#e6f4ff,#d6e8ff);color:var(--accent)" {
                     (maud::PreEscaped(r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>"#))
                 }
                 div {
@@ -161,8 +161,8 @@ fn wage_list_page(
                     div class="text-sm text-muted mt-1" { "本月工资总额" }
                 }
             }
-            div class="stat-card" {
-                div class="stat-icon" style="background:linear-gradient(135deg,#f0fff0,#e0ffe0);color:var(--success)" {
+            div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
+                div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0" style="background:linear-gradient(135deg,#f0fff0,#e0ffe0);color:var(--success)" {
                     (maud::PreEscaped(r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>"#))
                 }
                 div {
@@ -170,8 +170,8 @@ fn wage_list_page(
                     div class="text-sm text-muted mt-1" { "计件工人数" }
                 }
             }
-            div class="stat-card" {
-                div class="stat-icon" style="background:linear-gradient(135deg,#fff8eb,#fff0d6);color:var(--warn)" {
+            div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
+                div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0" style="background:linear-gradient(135deg,#fff8eb,#fff0d6);color:var(--warn)" {
                     (maud::PreEscaped(r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>"#))
                 }
                 div {
@@ -180,8 +180,8 @@ fn wage_list_page(
                     div style="font-size:var(--text-xs);color:var(--muted);margin-top:2px" { "不良品 " (total_defect_fmt) " (" (defect_rate) ")" }
                 }
             }
-            div class="stat-card" {
-                div class="stat-icon" style="background:linear-gradient(135deg,#fff2f0,#ffe8e6);color:var(--danger)" {
+            div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
+                div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0" style="background:linear-gradient(135deg,#fff2f0,#ffe8e6);color:var(--danger)" {
                     (maud::PreEscaped(r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>"#))
                 }
                 div {
@@ -193,7 +193,7 @@ fn wage_list_page(
         }
 
         // 工资公式提示
-        div class="formula-hint" {
+        div class="flex items-start gap-2 p-3 bg-surface border border-border-soft rounded-sm text-sm text-fg-2" {
             (maud::PreEscaped(r#"<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>"#))
             " 计算公式："
             code { "(完成数 + 非操作失误不良数) × 计件单价" }
@@ -201,16 +201,16 @@ fn wage_list_page(
         }
 
         // 工人工资明细卡片
-        div class="wage-detail-card" {
-            div class="wage-detail-header" {
-                div class="wage-detail-title" {
+        div class="wage-bg-white border border-border-soft rounded p-5" {
+            div class="p-4 border-b" {
+                div class="flex items-center gap-2 font-semibold text-base" {
                     (maud::PreEscaped(r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>"#))
                     " 工人工资明细"
                 }
             }
-            div class="wage-detail-body" {
+            div class="wage-flex-1 overflow-y-auto" {
                 // Header row
-                div class="worker-row worker-row-header" {
+                div class="worker-row grid items-center gap-3 p-3 border-b-header" {
                     span { "工人" }
                     span { "完成数" }
                     span { "不良品数" }
@@ -238,10 +238,10 @@ fn wage_list_page(
                     @let toggle_id = format!("w{}", idx);
 
                     // Worker summary row
-                    div class="worker-row" style="cursor:pointer" _=(format!("on click if #{0}'s *display is 'none' then show #{0} else hide #{0}", toggle_id)) {
-                        div class="worker-name-cell" {
+                    div class="grid items-center gap-3 p-3 border-b" style="cursor:pointer" _=(format!("on click if #{0}'s *display is 'none' then show #{0} else hide #{0}", toggle_id)) {
+                        div class="flex items-center gap-3" {
                             div class="worker-inline-grid place-items-center rounded-full text-white font-semibold shrink-0 select-none" style="background:var(--accent)" { (initial) }
-                            div class="worker-info" {
+                            div class="flex flex-col" {
                                 span class="worker-name" { (worker_name) }
                             }
                         }
@@ -255,8 +255,8 @@ fn wage_list_page(
                     }
 
                     // Expandable detail table
-                    div class="wage-expand" id=(toggle_id) style="display:none" {
-                        table class="wage-expand-table" {
+                    div class="border-b bg-surface" id=(toggle_id) style="display:none" {
+                        table class="border-b bg-surface-table" {
                             thead { tr {
                                 th { "工单" } th { "工序" } th { "完成" }
                                 th { "不良(原因)" } th { "有效数" } th { "单价" }

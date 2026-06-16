@@ -201,12 +201,12 @@ fn po_list_page(
                 h1 class="text-xl font-bold text-fg tracking-tight" { "采购订单" }
                 div class="flex gap-3" {
                     @if can_create {
-                        a class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" href=(POCreatePath::PATH) {
+                        a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" href=(POCreatePath::PATH) {
                             (icon::plus_icon("w-4 h-4"))
                             "新建采购订单"
                         }
                     }
-                    button type="button" class="btn bg-white text-fg border border-border hover:bg-surface"
+                    button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface"
                         _="on click call mergeSelectedPOs()" {
                         "合并选中"
                     }
@@ -290,7 +290,7 @@ fn po_table_fragment(
                                 th { "预计到货" }
                                 th { "状态" }
                                 th { "开票" }
-                                th class="num-right" { "总金额" }
+                                th class="text-right text-[13px]" { "总金额" }
                                 th { "业务员" }
                                 th { "操作" }
                             }
@@ -335,7 +335,7 @@ fn po_row(
                     input type="checkbox" class="po-checkbox" value=(o.id) {}
                 }
             }
-            td class="link-cell mono" onclick=(&onclick) { (o.doc_number) }
+            td class="text-accent font-medium cursor-pointer mono" onclick=(&onclick) { (o.doc_number) }
             td onclick=(&onclick) { (supplier_name) }
             td class="mono" onclick=(&onclick) { (o.order_date.format("%Y-%m-%d")) }
             td class="mono" onclick=(&onclick) { (o.expected_delivery_date.map(|d| d.format("%Y-%m-%d").to_string()).unwrap_or_else(|| "—".into())) }
@@ -346,16 +346,16 @@ fn po_row(
                 @let (inv_text, inv_class) = invoice_status_label(o.invoice_status);
                 span class=(format!("status-pill {inv_class}")) { (inv_text) }
             }
-            td class="num-right mono" onclick=(&onclick) { (format!("{:.2}", o.total_amount)) }
+            td class="text-right text-[13px] mono" onclick=(&onclick) { (format!("{:.2}", o.total_amount)) }
             td onclick=(&onclick) { (buyer_name) }
             td onclick="event.stopPropagation()" {
                 @if is_draft {
                     div class="row-actions" {
-                        a class="row-action-btn" href=(POEditPath { id: o.id }.to_string()) title="编辑" {
+                        a class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" href=(POEditPath { id: o.id }.to_string()) title="编辑" {
                             (icon::edit_icon("w-4 h-4"))
                         }
                         @if can_delete {
-                            button type="button" class="row-action-btn text-danger" title="删除"
+                            button type="button" class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer text-danger" title="删除"
                                 hx-confirm="确认删除该采购订单吗？"
                                 hx-post=(delete_path)
                                 hx-target="closest tr"

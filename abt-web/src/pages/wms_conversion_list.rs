@@ -123,7 +123,7 @@ fn conversion_list_page(
                 h1 class="text-xl font-bold text-fg tracking-tight" { "形态转换" }
                 div class="flex gap-3" {
                     @if can_create {
-                        a class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" href=(ConversionCreatePath::PATH) {
+                        a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" href=(ConversionCreatePath::PATH) {
                             (icon::plus_icon("w-4 h-4"))
                             "新建转换"
                         }
@@ -186,7 +186,7 @@ fn conversion_row(c: &FormConversion) -> Markup {
 
     html! {
         tr style="cursor:pointer" {
-            td class="link-cell mono" onclick=(format!("location.href='{}'", detail_path)) { (c.doc_number) }
+            td class="text-accent font-medium cursor-pointer mono" onclick=(format!("location.href='{}'", detail_path)) { (c.doc_number) }
             td onclick=(format!("location.href='{}'", detail_path)) { "—" }
             td class="mono" onclick=(format!("location.href='{}'", detail_path)) { (c.conversion_date.to_string()) }
             td onclick=(format!("location.href='{}'", detail_path)) {
@@ -197,7 +197,7 @@ fn conversion_row(c: &FormConversion) -> Markup {
             td onclick=(format!("location.href='{}'", detail_path)) { "—" }
             td onclick="event.stopPropagation()" {
                 div class="row-actions" {
-                    a class="row-action-btn" title="查看" href=(detail_path.to_string()) {
+                    a class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" title="查看" href=(detail_path.to_string()) {
                         (icon::eye_icon("w-4 h-4"))
                     }
                 }

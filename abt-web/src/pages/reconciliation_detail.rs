@@ -202,7 +202,7 @@ fn workflow_steps(current: ReconciliationStatus) -> Markup {
     let is_disputed = current == ReconciliationStatus::Disputed;
 
     html! {
-        div class="workflow-steps" {
+        div class="flex items-center" {
             @for (i, (label, _)) in steps.iter().enumerate() {
                 @if i > 0 {
                     div class=(if i <= current_idx && !is_disputed { "wf-line current" } else { "wf-line" }) {}
@@ -217,13 +217,13 @@ fn workflow_steps(current: ReconciliationStatus) -> Markup {
                     "wf-step"
                 };
                 div class=(step_class) {
-                    div class="wf-dot" {}
+                    div class="w-[10px] h-[10px] rounded-full bg-border" {}
                     (label)
                 }
             }
             @if is_disputed {
-                div class="wf-step disputed" {
-                    div class="wf-dot" {}
+                div class="flex items-center gap-2 text-xs text-muted disputed" {
+                    div class="w-[10px] h-[10px] rounded-full bg-border" {}
                     "有异议"
                 }
             }
@@ -253,33 +253,33 @@ fn reconciliation_detail_page(
             }
 
             // ── Detail Header ──
-            div class="detail-header" {
+            div class="block bg-bg border border-border-soft rounded-lg p-6" {
                 div {
-                    div class="detail-title-row" {
-                        h1 class="detail-no font-mono" { (rec.doc_number) }
+                    div class="flex items-center justify-between" {
+                        h1 class="text-2xl font-extrabold font-mono" { (rec.doc_number) }
                         span class=(format!("status-pill {status_class}")) { (status_text) }
                     }
-                    div class="detail-source" {
+                    div class="text-[13px] text-muted" {
                         "对账期间：" (rec.period.as_str())
                         "　客户：" (customer_name)
                     }
                 }
                 div class="flex gap-3" {
                     @if rec.status == ReconciliationStatus::Draft {
-                        button class="btn bg-accent text-accent-on border-none hover:bg-accent-hover"
+                        button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover"
                             hx-post=(SendReconciliationPath { id: rec.id }.to_string())
                             hx-confirm="确认发送此对账单？" { "发送对账" }
                     }
                     @if rec.status == ReconciliationStatus::Sent {
-                        button class="btn btn-success"
+                        button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-[#10b981] text-[#fff]"
                             hx-post=(ConfirmReconciliationPath { id: rec.id }.to_string())
                             hx-confirm="确认此对账单？" { "确认" }
-                        button class="btn bg-danger text-white border-none hover:opacity-90"
+                        button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-danger text-white border-none hover:opacity-90"
                             hx-post=(DisputeReconciliationPath { id: rec.id }.to_string())
                             hx-confirm="确认提出异议？" { "异议" }
                     }
                     @if rec.status == ReconciliationStatus::Confirmed {
-                        button class="btn btn-success"
+                        button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-[#10b981] text-[#fff]"
                             hx-post=(SettleReconciliationPath { id: rec.id }.to_string())
                             hx-confirm="确认结算？" { "结算" }
                     }
@@ -291,21 +291,21 @@ fn reconciliation_detail_page(
 
             // ── Summary Cards ──
             div class="grid grid-cols-3 gap-4 mb-6" {
-                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)] stat-mini" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)] flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4" {
                     div class="text-xs text-muted font-medium" { "总金额" }
-                    div class="mono stat-mini-value" {
+                    div class="mono flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4-value" {
                         (crate::utils::fmt_amount(rec.total_amount))
                     }
                 }
-                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)] stat-mini" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)] flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4" {
                     div class="text-xs text-muted font-medium" { "确认金额" }
-                    div class="mono stat-mini-value text-success" {
+                    div class="mono flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4-value text-success" {
                         (crate::utils::fmt_amount(rec.confirmed_amount))
                     }
                 }
-                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)] stat-mini" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)] flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4" {
                     div class="text-xs text-muted font-medium" { "差额" }
-                    div class="mono stat-mini-value text-danger" {
+                    div class="mono flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4-value text-danger" {
                         (crate::utils::fmt_amount(rec.difference))
                     }
                 }
@@ -345,9 +345,9 @@ fn reconciliation_detail_page(
                             th { "产品编码" }
                             th { "产品名称" }
                             th { "单位" }
-                            th class="num-right" { "数量" }
-                            th class="num-right" { "单价" }
-                            th class="num-right" { "金额" }
+                            th class="text-right text-[13px]" { "数量" }
+                            th class="text-right text-[13px]" { "单价" }
+                            th class="text-right text-[13px]" { "金额" }
                             th { "确认" }
                         }
                     }
@@ -357,7 +357,7 @@ fn reconciliation_detail_page(
                         }
                         @if items.is_empty() {
                             tr {
-                                td colspan="10" class="td-empty" {
+                                td colspan="10" class="text-center p-8 text-muted" {
                                     "暂无明细"
                                 }
                             }
@@ -367,22 +367,22 @@ fn reconciliation_detail_page(
             }
 
             // ── Amount Summary ──
-            div class="amount-summary" {
-                div class="amount-row" {
-                    span class="amount-label" { "确认金额" }
-                    span class="amount-value text-success" {
+            div class="flex justify-end gap-8 p-5 border-t bg-surface-raised" {
+                div class="flex gap-3" {
+                    span class="text-[11px] text-muted font-medium uppercase" { "确认金额" }
+                    span class="text-[20px] font-bold text-fg text-success" {
                         (crate::utils::fmt_amount(rec.confirmed_amount))
                     }
                 }
-                div class="amount-row" {
-                    span class="amount-label" { "差异金额" }
-                    span class="amount-value" {
+                div class="flex gap-3" {
+                    span class="text-[11px] text-muted font-medium uppercase" { "差异金额" }
+                    span class="text-[20px] font-bold text-fg" {
                         (crate::utils::fmt_amount(rec.difference))
                     }
                 }
-                div class="amount-row" {
-                    span class="amount-label" { "对账净额" }
-                    span class="amount-value accent" {
+                div class="flex gap-3" {
+                    span class="text-[11px] text-muted font-medium uppercase" { "对账净额" }
+                    span class="text-[20px] font-bold text-fg accent" {
                         (crate::utils::fmt_amount(rec.total_amount))
                     }
                 }
@@ -426,9 +426,9 @@ fn item_row(
             td class="mono" { (product_code) }
             td { (product_name) }
             td { (unit) }
-            td class="num-right" { (fmt_qty(item.quantity)) }
-            td class="num-right mono" { (format!("{:.2}", item.unit_price)) }
-            td class="num-right mono" { (format!("{:.2}", item.amount)) }
+            td class="text-right text-[13px]" { (fmt_qty(item.quantity)) }
+            td class="text-right text-[13px] mono" { (format!("{:.2}", item.unit_price)) }
+            td class="text-right text-[13px] mono" { (format!("{:.2}", item.amount)) }
             td {
                 @if item.confirmed {
                     span class="text-success" { "已确认" }

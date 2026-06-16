@@ -166,7 +166,7 @@ fn precon_create_page(
             div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" style="padding:0;overflow:hidden;margin-bottom:var(--space-4)" {
                 div style="padding:var(--space-5) var(--space-5) var(--space-3);display:flex;justify-content:space-between;align-items:center" {
                     span class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" style="margin:0;padding:0;border:none" { "对账明细" }
-                    button type="button" class="btn btn-sm bg-accent text-accent-on border-none hover:bg-accent-hover"
+                    button type="button" class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm bg-accent text-accent-on border-none hover:bg-accent-hover"
                         id="btn-add-orders"
                         _="on click add .is-open to #order-modal" {
                         (icon::plus_icon("w-3.5 h-3.5"))
@@ -179,7 +179,7 @@ fn precon_create_page(
                     div style="color:var(--muted);margin-bottom:var(--space-4)" {
                         "暂无对账明细"
                     }
-                    button type="button" class="btn btn-sm bg-accent text-accent-on border-none hover:bg-accent-hover"
+                    button type="button" class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm bg-accent text-accent-on border-none hover:bg-accent-hover"
                         _="on click add .is-open to #order-modal" {
                         (icon::plus_icon("w-3.5 h-3.5"))
                         "选择订单"
@@ -196,11 +196,11 @@ fn precon_create_page(
                                     th { "关联订单" }
                                     th { "物料编码" }
                                     th { "物料名称" }
-                                    th class="num-right" { "收货数量" }
-                                    th class="num-right" { "退货数量" }
-                                    th class="num-right" { "退货冲减金额" }
-                                    th class="num-right" { "单价" }
-                                    th class="num-right" { "应付金额" }
+                                    th class="text-right text-[13px]" { "收货数量" }
+                                    th class="text-right text-[13px]" { "退货数量" }
+                                    th class="text-right text-[13px]" { "退货冲减金额" }
+                                    th class="text-right text-[13px]" { "单价" }
+                                    th class="text-right text-[13px]" { "应付金额" }
                                     th style="width:36px" { }
                                 }
                             }
@@ -213,12 +213,12 @@ fn precon_create_page(
 
             // ── Action Bar ──
             div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
-                a class="btn bg-white text-fg border border-border hover:bg-surface" href=(format!("{}?restore=true", PreconListPath::PATH)) { "取消" }
+                a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface" href=(format!("{}?restore=true", PreconListPath::PATH)) { "取消" }
                 div style="display:flex;gap:var(--space-3)" {
-                    button type="submit" class="btn bg-white text-fg border border-border hover:bg-surface" name="action" value="draft" {
+                    button type="submit" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface" name="action" value="draft" {
                         "保存草稿"
                     }
-                    button type="submit" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" {
+                    button type="submit" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" {
                         "提交对账单"
                     }
                 }
@@ -226,9 +226,9 @@ fn precon_create_page(
             }
 
             // ── Order Picker Modal ──
-            div class="modal-overlay" id="order-modal"
+            div class="fixed z-[1000] grid place-items-center opacity-0" id="order-modal"
                 _="on click[me is event.target] remove .is-open" {
-                div class="modal modal-lg" onclick="event.stopPropagation()" {
+                div class="modal bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0-lg" onclick="event.stopPropagation()" {
                     div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
                         h2 { "选择待对账订单" }
                         button style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
@@ -255,9 +255,9 @@ fn precon_create_page(
                             " 个订单"
                         }
                         div style="display:flex;gap:var(--space-2)" {
-                            button type="button" class="btn bg-white text-fg border border-border hover:bg-surface"
+                            button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface"
                                 _="on click remove .is-open from #order-modal" { "取消" }
-                            button type="button" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" id="btn-confirm-orders"
+                            button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" id="btn-confirm-orders"
                                 _="on click remove .is-open from #order-modal" {
                                 "确认添加"
                             }

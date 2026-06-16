@@ -96,7 +96,7 @@ pub async fn post_refresh_token(
 fn login_page(error: Option<&str>, username: &str) -> Markup {
     html! {
         div class="login-shell" {
-            div class="brand-panel" {
+            div class="flex flex-col justify-center items-center relative overflow-hidden" {
                 div class="relative z-1 max-w-[420px]" {
                     div class="flex items-center gap-[14px] mb-12" {
                         div class="w-11 h-11 rounded-md bg-gradient-to-br from-accent to-accent-hover grid place-items-center shadow-[0_4px_16px_rgba(22,119,255,0.35)]" {
@@ -105,7 +105,7 @@ fn login_page(error: Option<&str>, username: &str) -> Markup {
                         div class="text-[22px] font-extrabold text-white tracking-tight" { "ABT ERP" }
                     }
 
-                    h1 class="brand-headline" {
+                    h1 class="text-3xl font-extrabold text-[#fff]" {
                         "智能化"
                         br;
                         span { "企业管理平台" }
@@ -128,11 +128,11 @@ fn login_page(error: Option<&str>, username: &str) -> Markup {
 
                     (login_form_area(error, username))
 
-                    div class="login-divider" {
+                    div class="flex items-center gap-[16px]" {
                         span class="text-xs text-muted whitespace-nowrap" { "其他登录方式" }
                     }
 
-                    button class="btn-sso" {
+                    button class="w-full bg-bg text-fg-2 border border-border rounded text-sm font-medium cursor-pointer flex items-center justify-center gap-[10px]" {
                         (monitor_icon("w-5 h-5"))
                         "企业 SSO 单点登录"
                     }
@@ -190,7 +190,7 @@ fn login_form_area(error: Option<&str>, username: &str) -> Markup {
                                class="field-input" style="padding-right: 44px"
                                placeholder="请输入密码" autocomplete="current-password";
                         (lock_icon("field-icon"))
-                        button type="button" class="pw-toggle" aria-label="显示密码" _="on click toggle .pw-visible on closest <div/> then if (closest <div/>) matches .pw-visible set #password's type to 'text' else set #password's type to 'password'" {
+                        button type="button" class="absolute w-[32px] h-[32px] border-none grid place-items-center cursor-pointer text-muted rounded-sm" aria-label="显示密码" _="on click toggle .pw-visible on closest <div/> then if (closest <div/>) matches .pw-visible set #password's type to 'text' else set #password's type to 'password'" {
                             (eye_icon("w-[18px] h-[18px]"))
                         }
                     }
@@ -198,12 +198,12 @@ fn login_form_area(error: Option<&str>, username: &str) -> Markup {
 
                 div class="flex items-center justify-between mb-7" {
                     label class="flex items-center gap-2 cursor-pointer" {
-                        input type="checkbox" checked class="custom-checkbox";
+                        input type="checkbox" checked class="w-[16px] h-[16px] bg-bg cursor-pointer relative";
                         span class="text-[13px] text-fg-2 select-none" { "记住我" }
                     }
                 }
 
-                button type="submit" class="btn-login" {
+                button type="submit" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-login" {
                     span { "登 录" }
                     span class="inline-block w-[18px] h-[18px]" {
                         (arrow_right_icon("w-[18px] h-[18px]"))

@@ -55,7 +55,7 @@ fn work_calendar_list_page(calendars: &[WorkCalendar]) -> Markup {
                 h1 class="text-xl font-bold text-fg tracking-tight" { "工作日历管理" }
             }
             div class="flex gap-3" {
-                a class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" href=(WorkCalendarCreatePath::PATH) {
+                a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" href=(WorkCalendarCreatePath::PATH) {
                     (icon::plus_icon("w-4 h-4"))
                     "新建日历"
                 }
@@ -87,7 +87,7 @@ fn work_calendar_list_page(calendars: &[WorkCalendar]) -> Markup {
                             }
                         }
                         @if calendars.is_empty() {
-                            tr { td colspan="4" class="empty-row" { "暂无工作日历数据" } }
+                            tr { td colspan="4" class="text-center text-muted text-sm" { "暂无工作日历数据" } }
                         }
                     }
                 }

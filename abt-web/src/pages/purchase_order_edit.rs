@@ -315,7 +315,7 @@ fn po_edit_page(
             div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" style="padding:0;overflow:hidden;margin-bottom:var(--space-4)" {
                 div style="padding:var(--space-5) var(--space-5) var(--space-3);display:flex;justify-content:space-between;align-items:center" {
                     span class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" style="margin:0;padding:0;border:none" { "采购产品明细" }
-                    button type="button" class="btn btn-sm bg-accent text-accent-on border-none hover:bg-accent-hover"
+                    button type="button" class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm bg-accent text-accent-on border-none hover:bg-accent-hover"
                         _="on click add .is-open to #product-modal" {
                         (icon::plus_icon("w-3.5 h-3.5"))
                         "添加产品"
@@ -345,8 +345,8 @@ fn po_edit_page(
                         }
                     }
                 }
-                div class="add-row-bar" {
-                    button type="button" class="btn-add-row"
+                div class="p-3 flex items-center gap-2" {
+                    button type="button" class="inline-flex items-center gap-2 rounded-sm text-accent text-sm cursor-pointer"
                         _="on click add .is-open to #product-modal" {
                         (icon::plus_icon("w-3.5 h-3.5"))
                         "添加产品行"
@@ -363,8 +363,8 @@ fn po_edit_page(
 
             // ── Action Bar ──
             div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
-                a class="btn bg-white text-fg border border-border hover:bg-surface" href=(PODetailPath { id: order.id }.to_string()) { "取消" }
-                button type="submit" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" { "保存修改" }
+                a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface" href=(PODetailPath { id: order.id }.to_string()) { "取消" }
+                button type="submit" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" { "保存修改" }
             }
             // ── Form submit: collect items into JSON ──
             script {
@@ -391,18 +391,18 @@ fn po_edit_page(
             }
 
             // ── Product Selection Modal ──
-            div class="modal-overlay" id="product-modal"
+            div class="fixed z-[1000] grid place-items-center opacity-0" id="product-modal"
                 _="on click remove .is-open from #product-modal" {
-                div class="modal modal-lg" onclick="event.stopPropagation()" {
+                div class="modal bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0-lg" onclick="event.stopPropagation()" {
                     div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
                         h2 { "选择产品" }
                         button style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
                             _="on click remove .is-open from #product-modal" { "×" }
                     }
                     div class="overflow-y-auto flex-1 min-h-0 p-6" style="padding:0" {
-                        div class="product-search-bar" {
-                            div class="product-search-field" {
-                                label class="product-search-label" { "产品名称" }
+                        div class="flex gap-4 p-4 border-b" {
+                            div class="flex-1 flex flex-col gap-[4px]" {
+                                label class="text-[12px] font-medium text-fg-2" { "产品名称" }
                                 input class="product-w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="name" placeholder="输入产品名称…"
                                     hx-get=(POProductsPath::PATH)
                                     hx-trigger="keyup changed delay:300ms"
@@ -411,8 +411,8 @@ fn po_edit_page(
                                     hx-swap="innerHTML"
                                     hx-include=".product-search-bar" {}
                             }
-                            div class="product-search-field" {
-                                label class="product-search-label" { "产品编码" }
+                            div class="flex-1 flex flex-col gap-[4px]" {
+                                label class="text-[12px] font-medium text-fg-2" { "产品编码" }
                                 input class="product-w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="code" placeholder="输入产品编码…"
                                     hx-get=(POProductsPath::PATH)
                                     hx-trigger="keyup changed delay:300ms"
@@ -421,7 +421,7 @@ fn po_edit_page(
                                     hx-swap="innerHTML"
                                     hx-include=".product-search-bar" {}
                             }
-                            button type="button" class="product-search-clear"
+                            button type="button" class="border border-border rounded-sm bg-bg text-fg-2 text-sm cursor-pointer whitespace-nowrap"
                                 hx-get=(POProductsPath::PATH)
                                 hx-target="#product-search-results"
                                 hx-swap="innerHTML"
@@ -463,7 +463,7 @@ fn existing_item_row(
 
     html! {
         tr data-item-row="" {
-            td class="line-num" { }
+            td class="text-muted text-xs text-center" { }
             td class="mono" { (code) }
             td { (name) }
             td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="description" placeholder="—" value=(&item.description)
@@ -489,7 +489,7 @@ fn existing_item_row(
             }
             td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="date" name="item_delivery_date" value=(&delivery)
                 style="width:110px;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
-            td { button type="button" class="btn-remove-row" title="删除行"
+            td { button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center" title="删除行"
                 _="on click remove closest <tr/> then call updatePurchaseSummary()" {
                 (icon::x_icon("w-3.5 h-3.5"))
             } }

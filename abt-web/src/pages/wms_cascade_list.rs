@@ -57,7 +57,7 @@ fn cascade_page(result: Option<&CascadeInventoryResult>) -> Markup {
                         hx-target=".cascade-results"
                         hx-swap="innerHTML";
                 }
-                button class="btn bg-accent text-accent-on border-none hover:bg-accent-hover"
+                button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover"
                     hx-get=(CascadeListPath::PATH)
                     hx-target=".cascade-results"
                     hx-swap="innerHTML"
@@ -138,9 +138,9 @@ fn bom_group(group: &BomCascadeGroup) -> Markup {
                                 th { "子件编码" }
                                 th { "子件名称" }
                                 th { "单位" }
-                                th class="num-right" { "BOM用量" }
-                                th class="num-right" { "当前库存总量" }
-                                th class="num-right" { "损耗率" }
+                                th class="text-right text-[13px]" { "BOM用量" }
+                                th class="text-right text-[13px]" { "当前库存总量" }
+                                th class="text-right text-[13px]" { "损耗率" }
                                 th { "是否缺料" }
                             }
                         }
@@ -178,9 +178,9 @@ fn bom_child_row(child: &ChildNodeInventory) -> Markup {
                     span style="color:var(--muted)" { "—" }
                 }
             }
-            td class="num-right" { (child.quantity) }
-            td class="num-right" { (child.total_stock) }
-            td class="num-right" {
+            td class="text-right text-[13px]" { (child.quantity) }
+            td class="text-right text-[13px]" { (child.total_stock) }
+            td class="text-right text-[13px]" {
                 (format!("{:.1}%", loss_pct))
             }
             td {

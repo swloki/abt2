@@ -195,7 +195,7 @@ fn bom_list_page(
                         ExportItem { label: "缺少人工成本BOM", export_type: "boms-no-labor-cost" },
                     ]))
                     @if ctx.can_create {
-                        a href=(BomCreatePath::PATH) class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" {
+                        a href=(BomCreatePath::PATH) class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" {
                             (icon::plus_icon("w-4 h-4"))
                             "新建BOM"
                         }
@@ -207,9 +207,9 @@ fn bom_list_page(
 
             @if ctx.can_view_cost {
                 // ── Cost Drawer ──
-                div id="cost-drawer" class="drawer-overlay"
+                div id="cost-drawer" class="fixed z-[1000] flex justify-end opacity-0"
                     _="on click remove .open from #cost-drawer" {
-                    div class="drawer-panel" style="max-width:1000px;width:100%" onclick="event.stopPropagation()" {
+                    div class="bg-white h-full w-[420px] flex flex-col" style="max-width:1000px;width:100%" onclick="event.stopPropagation()" {
                         div class="flex items-center justify-between px-6 py-4 border-b border-border-soft" {
                             h2 { (icon::currency_icon("w-5 h-5")) " BOM成本报告" }
                             button style="background:none;border:none;cursor:pointer;font-size:22px;color:var(--muted);padding:4px;line-height:1"
@@ -221,16 +221,16 @@ fn bom_list_page(
                             }
                         }
                         div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3" {
-                            button type="button" class="btn bg-white text-fg border border-border hover:bg-surface"
+                            button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface"
                                 _="on click remove .open from #cost-drawer" { "关闭" }
                         }
                     }
                 }
             } @else if ctx.can_view_labor_cost {
                 // ── Labor Cost Drawer ──
-                div id="labor-drawer" class="drawer-overlay"
+                div id="labor-drawer" class="fixed z-[1000] flex justify-end opacity-0"
                     _="on click remove .open from #labor-drawer" {
-                    div class="drawer-panel" style="max-width:800px;width:100%" onclick="event.stopPropagation()" {
+                    div class="bg-white h-full w-[420px] flex flex-col" style="max-width:800px;width:100%" onclick="event.stopPropagation()" {
                         div class="flex items-center justify-between px-6 py-4 border-b border-border-soft" {
                             h2 { (icon::bolt_icon("w-5 h-5")) " BOM 人工成本" }
                             button style="background:none;border:none;cursor:pointer;font-size:22px;color:var(--muted);padding:4px;line-height:1"
@@ -242,7 +242,7 @@ fn bom_list_page(
                             }
                         }
                         div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3" {
-                            button type="button" class="btn bg-white text-fg border border-border hover:bg-surface"
+                            button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface"
                                 _="on click remove .open from #labor-drawer" { "关闭" }
                         }
                     }
@@ -313,7 +313,7 @@ fn bom_table_fragment(
                     input type="checkbox" name="no_material_cost" value="true" checked[params.no_material_cost] {}
                     "物料成本缺失"
                 }
-                a href=(BomListPath::PATH) class="btn bg-white text-fg border border-border hover:bg-surface btn-sm" {
+                a href=(BomListPath::PATH) class="btn bg-white text-fg border border-border hover:bg-surface inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm" {
                     (icon::refresh_icon("w-4 h-4"))
                     "重置"
                 }
@@ -411,18 +411,18 @@ fn bom_row(bom: &Bom, cat_map: &HashMap<i64, String>, user_map: &HashMap<i64, St
             }
             td onclick="event.stopPropagation()" {
                 div class="row-actions" {
-                    a class="row-action-btn" title="查看"
+                    a class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" title="查看"
                         href=(detail_path) {
                         (icon::eye_icon("w-4 h-4"))
                     }
-                    button type="button" class="row-action-btn" title="导出BOM"
+                    button type="button" class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" title="导出BOM"
                         hx-post=(format!("{}/bom?bom_id={}", crate::routes::excel::EXPORT_START_PATH, bom.bom_id))
                         hx-confirm=(format!("确定要导出「{}」吗？", bom.bom_name))
                         hx-swap="none" {
                         (icon::download_icon("w-4 h-4"))
                     }
                     @if can_view_cost {
-                        button type="button" class="row-action-btn" title="查看成本"
+                        button type="button" class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" title="查看成本"
                             hx-get=(BomCostDrawerPath { id: bom.bom_id }.to_string())
                             hx-target="#cost-drawer-body"
                             hx-swap="innerHTML"
@@ -430,7 +430,7 @@ fn bom_row(bom: &Bom, cat_map: &HashMap<i64, String>, user_map: &HashMap<i64, St
                             (icon::currency_icon("w-4 h-4"))
                         }
                     } @else if can_view_labor_cost {
-                        button type="button" class="row-action-btn" title="查看人工成本"
+                        button type="button" class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" title="查看人工成本"
                             hx-get=(BomLaborCostDrawerPath { id: bom.bom_id }.to_string())
                             hx-target="#labor-drawer-body"
                             hx-swap="innerHTML"
@@ -439,7 +439,7 @@ fn bom_row(bom: &Bom, cat_map: &HashMap<i64, String>, user_map: &HashMap<i64, St
                         }
                     }
                     @if can_delete {
-                        button type="button" class="row-action-btn text-danger" title="删除"
+                        button type="button" class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer text-danger" title="删除"
                             hx-confirm=(format!("确认删除BOM {}？", bom.bom_name))
                             hx-post=(delete_path)
                             hx-target=(format!("#bom-row-{}", bom.bom_id))

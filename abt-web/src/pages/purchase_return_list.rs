@@ -166,7 +166,7 @@ fn pr_list_page(
                 h1 class="text-xl font-bold text-fg tracking-tight" { "采购退货" }
                 div class="flex gap-3" {
                     @if can_create {
-                        a class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" href=(PRCreatePath::PATH) {
+                        a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" href=(PRCreatePath::PATH) {
                             (icon::plus_icon("w-4 h-4"))
                             "新建采购退货"
                         }
@@ -248,7 +248,7 @@ fn pr_table_fragment(
                                 th { "关联订单" }
                                 th { "状态" }
                                 th { "退货原因" }
-                                th class="num-right" { "退货金额" }
+                                th class="text-right text-[13px]" { "退货金额" }
                                 th { "退货日期" }
                                 th { "创建时间" }
                                 th { "操作" }
@@ -289,24 +289,24 @@ fn pr_row(
 
     html! {
         tr style="cursor:pointer" {
-            td class="link-cell mono" onclick=(&onclick) { (r.doc_number) }
+            td class="text-accent font-medium cursor-pointer mono" onclick=(&onclick) { (r.doc_number) }
             td onclick=(&onclick) { (supplier_name) }
             td class="mono" onclick=(&onclick) { (r.order_id) }
             td onclick=(&onclick) {
                 span class=(format!("status-pill {status_class}")) { (status_text) }
             }
             td onclick=(&onclick) { (r.return_reason) }
-            td class="num-right" onclick=(&onclick) { (r.total_amount) }
+            td class="text-right text-[13px]" onclick=(&onclick) { (r.total_amount) }
             td class="mono" onclick=(&onclick) { (r.return_date.format("%Y-%m-%d")) }
             td onclick=(&onclick) { (created) }
             td onclick="event.stopPropagation()" {
                 @if is_draft {
                     div class="row-actions" {
-                        a class="row-action-btn" href=(detail_path.to_string()) title="编辑" {
+                        a class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" href=(detail_path.to_string()) title="编辑" {
                             (icon::edit_icon("w-4 h-4"))
                         }
                         @if can_delete {
-                            button type="button" class="row-action-btn text-danger" title="删除"
+                            button type="button" class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer text-danger" title="删除"
                                 hx-confirm="确认删除该退货单吗？"
                                 hx-post=(delete_path)
                                 hx-target="closest tr"

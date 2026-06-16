@@ -418,8 +418,8 @@ fn receipt_create_content() -> Markup {
                 }
 
                 div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
-                    a class="btn bg-white text-fg border border-border hover:bg-surface" href=(format!("{}?restore=true", ReceiptListPath::PATH)) { "取消" }
-                    button type="submit" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" { "提交入库" }
+                    a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface" href=(format!("{}?restore=true", ReceiptListPath::PATH)) { "取消" }
+                    button type="submit" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" { "提交入库" }
                 }
             }
 

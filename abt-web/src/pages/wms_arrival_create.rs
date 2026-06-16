@@ -287,7 +287,7 @@ fn arrival_create_page(
             form hx-post=(ArrivalCreatePath::PATH) hx-swap="none" id="arrivalForm"
                 onsubmit="return arrivalCollectItems()" {
                 // ── 供应商信息 ──
-                div class="wms-form-section" {
+                div class="bg-bg border border-border rounded p-6" {
                     div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                         (icon::building_icon("w-4 h-4"))
                         "供应商信息"
@@ -320,7 +320,7 @@ fn arrival_create_page(
                 }
 
                 // ── 到货信息 ──
-                div class="wms-form-section" {
+                div class="bg-bg border border-border rounded p-6" {
                     div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                         (icon::truck_icon("w-4 h-4"))
                         "到货信息"
@@ -353,7 +353,7 @@ fn arrival_create_page(
                 }
 
                 // ── 物料明细 ──
-                div class="wms-form-section" style="padding:0;overflow:hidden" {
+                div class="bg-bg border border-border rounded p-6" style="padding:0;overflow:hidden" {
                     div style="padding:var(--space-6) var(--space-6) var(--space-4)" {
                         div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                             (icon::box_icon("w-4 h-4"))
@@ -379,13 +379,13 @@ fn arrival_create_page(
                             }
                         }
                     }
-                    div class="add-row-bar" {
-                        button type="button" class="btn-add-row"
+                    div class="p-3 flex items-center gap-2" {
+                        button type="button" class="inline-flex items-center gap-2 rounded-sm text-accent text-sm cursor-pointer"
                             _="on click add .is-open to #product-modal" {
                             (icon::plus_icon("w-4 h-4"))
                             "添加物料"
                         }
-                        button type="button" class="btn-add-row" style="margin-left:var(--space-3)"
+                        button type="button" class="inline-flex items-center gap-2 rounded-sm text-accent text-sm cursor-pointer" style="margin-left:var(--space-3)"
                             _="on click add .is-open to #po-modal" {
                             (icon::download_icon("w-4 h-4"))
                             "从采购订单导入"
@@ -394,7 +394,7 @@ fn arrival_create_page(
                 }
 
                 // ── 备注 ──
-                div class="wms-form-section" {
+                div class="bg-bg border border-border rounded p-6" {
                     div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                         (icon::edit_icon("w-4 h-4"))
                         "备注"
@@ -407,8 +407,8 @@ fn arrival_create_page(
 
                 // ── Action Bar ──
                 div class="action-bar" {
-                    a href=(format!("{}?restore=true", ArrivalListPath::PATH)) class="btn bg-white text-fg border border-border hover:bg-surface" { "取消" }
-                    button type="submit" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" {
+                    a href=(format!("{}?restore=true", ArrivalListPath::PATH)) class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface" { "取消" }
+                    button type="submit" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" {
                         (icon::check_circle_icon("w-4 h-4"))
                         "提交来料通知"
                     }
@@ -417,18 +417,18 @@ fn arrival_create_page(
         }
 
         // ── Product Search Modal ──
-        div id="product-modal" class="modal-overlay"
+        div id="product-modal" class="fixed z-[1000] grid place-items-center opacity-0"
             _="on click[me is event.target] remove .is-open" {
-            div class="modal modal-lg" onclick="event.stopPropagation()" {
+            div class="modal bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0-lg" onclick="event.stopPropagation()" {
                 div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
                     h2 { "选择物料" }
                     button type="button" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
                         _="on click remove .is-open from #product-modal" { "×" }
                 }
                 div class="overflow-y-auto flex-1 min-h-0 p-6" style="padding:0" hx-disinherit="hx-select" {
-                    div class="product-search-bar" {
-                        div class="product-search-field" {
-                            label class="product-search-label" { "产品名称" }
+                    div class="flex gap-4 p-4 border-b" {
+                        div class="flex-1 flex flex-col gap-[4px]" {
+                            label class="text-[12px] font-medium text-fg-2" { "产品名称" }
                             input class="product-w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="name" placeholder="输入产品名称…"
                                 hx-get=(ArrivalProductsPath::PATH)
                                 hx-trigger="keyup changed delay:300ms"
@@ -437,8 +437,8 @@ fn arrival_create_page(
                                 hx-swap="innerHTML"
                                 hx-include=".product-search-bar" {}
                         }
-                        div class="product-search-field" {
-                            label class="product-search-label" { "产品编码" }
+                        div class="flex-1 flex flex-col gap-[4px]" {
+                            label class="text-[12px] font-medium text-fg-2" { "产品编码" }
                             input class="product-w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="code" placeholder="输入产品编码…"
                                 hx-get=(ArrivalProductsPath::PATH)
                                 hx-trigger="keyup changed delay:300ms"
@@ -447,7 +447,7 @@ fn arrival_create_page(
                                 hx-swap="innerHTML"
                                 hx-include=".product-search-bar" {}
                         }
-                        button type="button" class="product-search-clear"
+                        button type="button" class="border border-border rounded-sm bg-bg text-fg-2 text-sm cursor-pointer whitespace-nowrap"
                             hx-get=(ArrivalProductsPath::PATH)
                             hx-target="#arrival-product-results"
                             hx-swap="innerHTML"
@@ -466,18 +466,18 @@ fn arrival_create_page(
         }
 
         // ── PO Import Modal ──
-        div id="po-modal" class="modal-overlay"
+        div id="po-modal" class="fixed z-[1000] grid place-items-center opacity-0"
             _="on click[me is event.target] remove .is-open" {
-            div class="modal modal-lg" onclick="event.stopPropagation()" {
+            div class="modal bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0-lg" onclick="event.stopPropagation()" {
                 div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
                     h2 { "从采购订单导入" }
                     button type="button" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
                         _="on click remove .is-open from #po-modal" { "×" }
                 }
                 div class="overflow-y-auto flex-1 min-h-0 p-6" style="padding:0" hx-disinherit="hx-select" {
-                    div class="product-search-bar" {
-                        div class="product-search-field" {
-                            label class="product-search-label" { "采购订单号" }
+                    div class="flex gap-4 p-4 border-b" {
+                        div class="flex-1 flex flex-col gap-[4px]" {
+                            label class="text-[12px] font-medium text-fg-2" { "采购订单号" }
                             input class="product-w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" id="po-search-input" name="keyword" placeholder="输入PO编号搜索…"
                                 hx-get=(ArrivalPoPickPath::PATH)
                                 hx-trigger="keyup changed delay:300ms"
@@ -486,7 +486,7 @@ fn arrival_create_page(
                                 hx-swap="innerHTML"
                                 hx-include="#po-search-input" {}
                         }
-                        button type="button" class="product-search-clear"
+                        button type="button" class="border border-border rounded-sm bg-bg text-fg-2 text-sm cursor-pointer whitespace-nowrap"
                             hx-get=(ArrivalPoPickPath::PATH)
                             hx-target="#po-search-results"
                             hx-swap="innerHTML"
@@ -556,18 +556,18 @@ fn product_list_fragment(products: &[abt_core::master_data::product::model::Prod
         } @else {
             div class="product-select-list" {
                 @for p in products {
-                    div class="product-select-item" {
+                    div class="flex items-center justify-between p-3 border-b" {
                         div class="product-select-info" {
-                            div class="product-select-name" { (p.pdt_name) }
-                            div class="product-select-meta" {
-                                span class="product-select-code" { (p.product_code) }
+                            div class="text-sm font-medium text-fg" { (p.pdt_name) }
+                            div class="text-[12px] text-muted flex items-center gap-[6px] flex-wrap" {
+                                span class="bg-surface rounded-sm" { (p.product_code) }
                                 span class="product-select-sep" { "·" }
                                 span { (p.meta.specification) }
                                 span class="product-select-sep" { "·" }
                                 span { (p.unit) }
                             }
                         }
-                        button type="button" class="btn btn-sm bg-accent text-accent-on border-none hover:bg-accent-hover"
+                        button type="button" class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm bg-accent text-accent-on border-none hover:bg-accent-hover"
                             hx-get=(format!("{}?product_id={}", ArrivalItemRowPath::PATH, p.product_id))
                             hx-target="#arrival-item-tbody"
                             hx-swap="beforeend"
@@ -585,13 +585,13 @@ fn product_list_fragment(products: &[abt_core::master_data::product::model::Prod
 fn item_row_fragment(product: &abt_core::master_data::product::model::Product) -> Markup {
     html! {
         tr {
-            td class="line-num" { }
+            td class="text-muted text-xs text-center" { }
             td class="mono" { (product.product_code) }
             td { (product.pdt_name) }
             td style="color:var(--fg-2);font-size:var(--text-sm)" { (product.meta.specification) }
             td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] num-input" type="number" min="0.01" step="any" name="declared_qty" placeholder="0" style="width:90px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
             td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="batch_no" placeholder="批次号" style="width:120px;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
-            td { button type="button" class="btn-remove-row" title="删除行"
+            td { button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center" title="删除行"
                 _="on click remove closest <tr/> then call arrivalRenumber()" {
                 (icon::x_icon("w-3.5 h-3.5"))
             } }
@@ -614,18 +614,18 @@ fn po_list_fragment(
         } @else {
             div class="product-select-list" {
                 @for o in orders {
-                    div class="product-select-item" {
+                    div class="flex items-center justify-between p-3 border-b" {
                         div class="product-select-info" {
-                            div class="product-select-name" { (o.doc_number) }
-                            div class="product-select-meta" {
-                                span class="product-select-code" { (supplier_map.get(&o.supplier_id).cloned().unwrap_or_else(|| "-".into())) }
+                            div class="text-sm font-medium text-fg" { (o.doc_number) }
+                            div class="text-[12px] text-muted flex items-center gap-[6px] flex-wrap" {
+                                span class="bg-surface rounded-sm" { (supplier_map.get(&o.supplier_id).cloned().unwrap_or_else(|| "-".into())) }
                                 span class="product-select-sep" { "·" }
                                 span { (o.order_date.format("%Y-%m-%d")) }
                                 span class="product-select-sep" { "·" }
                                 span { "¥" (o.total_amount) }
                             }
                         }
-                        button type="button" class="btn btn-sm bg-accent text-accent-on border-none hover:bg-accent-hover"
+                        button type="button" class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm bg-accent text-accent-on border-none hover:bg-accent-hover"
                             hx-get=(ArrivalPoItemsPath { po_id: o.id }.to_string())
                             hx-target="#arrival-item-tbody"
                             hx-swap="beforeend"
@@ -649,13 +649,13 @@ fn po_items_fragment(
         @for item in items {
             @if let Some(product) = product_map.get(&item.product_id) {
                 tr {
-                    td class="line-num" { }
+                    td class="text-muted text-xs text-center" { }
                     td class="mono" { (product.product_code) }
                     td { (product.pdt_name) }
                     td style="color:var(--fg-2);font-size:var(--text-sm)" { (product.meta.specification) }
                     td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] num-input" type="number" min="0.01" step="any" name="declared_qty" value=(item.quantity) style="width:90px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
                     td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="batch_no" placeholder="批次号" style="width:120px;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
-                    td { button type="button" class="btn-remove-row" title="删除行"
+                    td { button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center" title="删除行"
                         _="on click remove closest <tr/> then call arrivalRenumber()" {
                         (icon::x_icon("w-3.5 h-3.5"))
                     } }

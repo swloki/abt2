@@ -48,7 +48,7 @@ fn workflow_steps(current: PaymentStatus) -> Markup {
     let is_cancelled = current == PaymentStatus::Cancelled;
 
     html! {
-        div class="workflow-steps" {
+        div class="flex items-center" {
             @for (i, (label, _)) in steps.iter().enumerate() {
                 @if i > 0 {
                     @let line_class = if i <= current_idx && !is_cancelled { "wf-line completed" } else { "wf-line" };
@@ -64,14 +64,14 @@ fn workflow_steps(current: PaymentStatus) -> Markup {
                     "wf-step"
                 };
                 div class=(step_class) {
-                    span class="wf-dot" {}
+                    span class="w-[10px] h-[10px] rounded-full bg-border" {}
                     (label)
                 }
             }
             @if is_cancelled {
-                div class="wf-line" {}
-                div class="wf-step" style="color:var(--danger)" {
-                    span class="wf-dot" {}
+                div class="w-[48px] h-[2px] bg-border" {}
+                div class="flex items-center gap-2 text-xs text-muted" style="color:var(--danger)" {
+                    span class="w-[10px] h-[10px] rounded-full bg-border" {}
                     "已取消"
                 }
             }
@@ -174,22 +174,22 @@ fn pay_detail_page(
             }
 
             // ── Detail Header ──
-            div class="detail-header" {
+            div class="block bg-bg border border-border-soft rounded-lg p-6" {
                 div {
-                    div class="detail-title-row" {
-                        h1 class="detail-no font-mono" { (pay.doc_number) }
+                    div class="flex items-center justify-between" {
+                        h1 class="text-2xl font-extrabold font-mono" { (pay.doc_number) }
                         span class=(format!("status-pill {status_class}")) { (status_text) }
                     }
                 }
                 div class="flex gap-3" {
                     @if pay.status == PaymentStatus::Draft {
-                        button class="btn bg-accent text-accent-on border-none hover:bg-accent-hover"
+                        button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover"
                             hx-post=(PayApprovePath { id: pay.id }.to_string())
                             hx-confirm="确认审批此付款申请？" {
                             (icon::check_circle_icon("w-4 h-4"))
                             "审批"
                         }
-                        button class="btn bg-danger text-white border-none hover:opacity-90"
+                        button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-danger text-white border-none hover:opacity-90"
                             hx-post=(PayCancelPath { id: pay.id }.to_string())
                             hx-confirm="确认取消此付款申请？取消后不可恢复。" {
                             "取消"

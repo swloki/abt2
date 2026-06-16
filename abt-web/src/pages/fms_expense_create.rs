@@ -101,8 +101,8 @@ fn expense_create_page() -> Markup {
             }
 
             // 标题
-            div class="detail-header" style="margin-bottom:var(--space-6)" {
-                h1 class="detail-no" { "新建费用报销" }
+            div class="block bg-bg border border-border-soft rounded-lg p-6" style="margin-bottom:var(--space-6)" {
+                h1 class="text-2xl font-extrabold" { "新建费用报销" }
             }
 
             form id="expense-form" hx-post=(ExpenseCreatePath::PATH) hx-swap="none" {
@@ -159,7 +159,7 @@ fn expense_create_page() -> Markup {
                         }
                     }
                     div style="padding:var(--space-4) 0" {
-                        button type="button" class="add-row-btn" onclick="addExpenseLine()" {
+                        button type="button" class="flex items-center justify-center gap-2 w-full text-[#2563eb] text-sm font-medium cursor-pointer" onclick="addExpenseLine()" {
                             (PreEscaped(r#"<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4v16m8-8H4"/></svg>"#))
                             "添加费用项"
                         }
@@ -170,12 +170,12 @@ fn expense_create_page() -> Markup {
 
                 // ── 操作栏 ──
                 div class="action-bar" {
-                    a class="btn bg-white text-fg border border-border hover:bg-surface" href=(format!("{}?restore=true", ExpenseListPath::PATH)) { "取消" }
-                    button type="button" class="btn bg-white text-fg border border-border hover:bg-surface" onclick="document.getElementById('expense-form').querySelector('input[name=expense_date]').value;document.getElementById('expense-form').requestSubmit()" {
+                    a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface" href=(format!("{}?restore=true", ExpenseListPath::PATH)) { "取消" }
+                    button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface" onclick="document.getElementById('expense-form').querySelector('input[name=expense_date]').value;document.getElementById('expense-form').requestSubmit()" {
                         (PreEscaped(r#"<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>"#))
                         "保存草稿"
                     }
-                    button type="submit" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" {
+                    button type="submit" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" {
                         (PreEscaped(r#"<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12l5 5L20 7"/></svg>"#))
                         "提交审批"
                     }
@@ -196,7 +196,7 @@ fn expense_create_page() -> Markup {
                 + '<td><input type="text" data-field="receipt_no" placeholder="发票号"></td>'
                 + '<td><select data-field="cost_center"><option value="">选择</option><option value="1">CC-001 生产部</option><option value="2">CC-002 销售部</option><option value="3">CC-003 管理部</option></select></td>'
                 + '<td><select data-field="profit_center"><option value="">选择</option><option value="1">PC-001 华南</option><option value="2">PC-002 华东</option><option value="3">PC-003 华北</option></select></td>'
-                + '<td><button type="button" class="remove-row-btn" title="删除行" onclick="this.closest(\'tr\').remove();calcTotal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M18 6L6 18M6 6l12 12"/></svg></button></td>';
+                + '<td><button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center" title="删除行" onclick="this.closest(\'tr\').remove();calcTotal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M18 6L6 18M6 6l12 12"/></svg></button></td>';
             tbody.appendChild(row);
         }
 

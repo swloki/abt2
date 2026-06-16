@@ -20,9 +20,9 @@ pub fn pagination(
                 }
                 @for p in page_range(current_page, total_pages) {
                     @if p == 0 {
-                        button class="page-btn" disabled { "…" }
+                        button class="w-[34px] h-[34px] grid place-items-center border border-border-soft rounded-sm bg-bg text-fg text-sm cursor-pointer no-underline" disabled { "…" }
                     } @else if p == current_page {
-                        button class="page-btn active" disabled { (p) }
+                        button class="w-[34px] h-[34px] grid place-items-center border border-border-soft rounded-sm bg-bg text-fg text-sm cursor-pointer no-underline active" disabled { (p) }
                     } @else {
                         (page_link(base_path, query, p, &p.to_string()))
                     }
@@ -58,9 +58,9 @@ pub fn htmx_pagination(
                 }
                 @for p in page_range(current_page, total_pages) {
                     @if p == 0 {
-                        button class="page-btn" disabled { "…" }
+                        button class="w-[34px] h-[34px] grid place-items-center border border-border-soft rounded-sm bg-bg text-fg text-sm cursor-pointer no-underline" disabled { "…" }
                     } @else if p == current_page {
-                        button class="page-btn active" disabled { (p) }
+                        button class="w-[34px] h-[34px] grid place-items-center border border-border-soft rounded-sm bg-bg text-fg text-sm cursor-pointer no-underline active" disabled { (p) }
                     } @else {
                         (htmx_page_link(base_path, p, &p.to_string(), Some((hx_target, hx_swap))))
                     }
@@ -94,9 +94,9 @@ pub fn htmx_pagination_inherited(
                 }
                 @for p in page_range(current_page, total_pages) {
                     @if p == 0 {
-                        button class="page-btn" disabled { "…" }
+                        button class="w-[34px] h-[34px] grid place-items-center border border-border-soft rounded-sm bg-bg text-fg text-sm cursor-pointer no-underline" disabled { "…" }
                     } @else if p == current_page {
-                        button class="page-btn active" disabled { (p) }
+                        button class="w-[34px] h-[34px] grid place-items-center border border-border-soft rounded-sm bg-bg text-fg text-sm cursor-pointer no-underline active" disabled { (p) }
                     } @else {
                         (htmx_page_link(base_path, p, &p.to_string(), None))
                     }
@@ -114,10 +114,10 @@ fn htmx_page_link(base_path: &str, page: u32, label: &str, target_swap: Option<(
     let url = format!("{base_path}{sep}page={page}");
     match target_swap {
         Some((t, s)) => html! {
-            a class="page-btn" href=(url) hx-get=(url) hx-target=(t) hx-swap=(s) { (label) }
+            a class="w-[34px] h-[34px] grid place-items-center border border-border-soft rounded-sm bg-bg text-fg text-sm cursor-pointer no-underline" href=(url) hx-get=(url) hx-target=(t) hx-swap=(s) { (label) }
         },
         None => html! {
-            a class="page-btn" href=(url) hx-get=(url) { (label) }
+            a class="w-[34px] h-[34px] grid place-items-center border border-border-soft rounded-sm bg-bg text-fg text-sm cursor-pointer no-underline" href=(url) hx-get=(url) { (label) }
         },
     }
 }
@@ -130,7 +130,7 @@ fn page_link(base_path: &str, query: &str, page: u32, label: &str) -> Markup {
     };
 
     html! {
-        a class="page-btn" href=(format!("{base_path}?{qs}")) { (label) }
+        a class="w-[34px] h-[34px] grid place-items-center border border-border-soft rounded-sm bg-bg text-fg text-sm cursor-pointer no-underline" href=(format!("{base_path}?{qs}")) { (label) }
     }
 }
 

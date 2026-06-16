@@ -133,7 +133,7 @@ fn backflush_table_fragment(
                                 th { "单据编号" }
                                 th { "关联工单" }
                                 th { "完工产品" }
-                                th class="num-right" { "完工数量" }
+                                th class="text-right text-[13px]" { "完工数量" }
                                 th { "倒冲日期" }
                                 th { "状态" }
                                 th { "差异预警" }
@@ -176,7 +176,7 @@ fn backflush_data_card(
                             th { "单据编号" }
                             th { "关联工单" }
                             th { "完工产品" }
-                            th class="num-right" { "完工数量" }
+                            th class="text-right text-[13px]" { "完工数量" }
                             th { "倒冲日期" }
                             th { "状态" }
                             th { "差异预警" }
@@ -214,10 +214,10 @@ fn backflush_row(r: &BackflushRecord) -> Markup {
 
     html! {
         tr style="cursor:pointer" {
-            td class="link-cell mono" onclick=(format!("location.href='{}'", detail_path)) { (r.doc_number) }
+            td class="text-accent font-medium cursor-pointer mono" onclick=(format!("location.href='{}'", detail_path)) { (r.doc_number) }
             td class="mono" onclick=(format!("location.href='{}'", detail_path)) { "—" }
             td onclick=(format!("location.href='{}'", detail_path)) { "—" }
-            td class="num-right" onclick=(format!("location.href='{}'", detail_path)) { (format!("{:.2}", r.completed_qty)) }
+            td class="text-right text-[13px]" onclick=(format!("location.href='{}'", detail_path)) { (format!("{:.2}", r.completed_qty)) }
             td class="mono" onclick=(format!("location.href='{}'", detail_path)) { (r.backflush_date.to_string()) }
             td onclick=(format!("location.href='{}'", detail_path)) {
                 span class=(format!("status-pill {status_class}")) { (status_label) }
@@ -226,7 +226,7 @@ fn backflush_row(r: &BackflushRecord) -> Markup {
             td onclick=(format!("location.href='{}'", detail_path)) { "—" }
             td onclick="event.stopPropagation()" {
                 div class="row-actions" {
-                    a class="row-action-btn" title="查看详情" href=(detail_path.to_string()) {
+                    a class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" title="查看详情" href=(detail_path.to_string()) {
                         (icon::eye_icon("w-4 h-4"))
                     }
                 }

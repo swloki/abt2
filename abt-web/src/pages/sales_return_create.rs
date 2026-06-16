@@ -289,7 +289,7 @@ fn return_create_page(customers: &[abt_core::master_data::customer::model::Custo
                 }
                 h1 class="text-xl font-bold text-fg tracking-tight" { "新建退货单" }
                 div class="flex gap-3" {
-                    span class="loading-placeholder" {
+                    span class="flex items-center justify-center p-8 text-muted" {
                         (icon::clock_icon("w-3.5 h-3.5"))
                         "自动保存草稿"
                     }
@@ -306,7 +306,7 @@ fn return_create_page(customers: &[abt_core::master_data::customer::model::Custo
                 input type="hidden" name="return_reason" id="f-reason";
 
                 // ── 关联单据 ──
-                div class="form-section-card" {
+                div class="form-bg-bg border border-border-soft rounded-lg overflow-hidden" {
                     div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                         (icon::clipboard_document_icon("w-[18px] h-[18px]"))
                         "关联单据"
@@ -328,7 +328,7 @@ fn return_create_page(customers: &[abt_core::master_data::customer::model::Custo
                             }
                         }
                         div class="form-field span-2" {
-                            div class="linked-info-bar hidden-initial" id="linked-info" {
+                            div class="flex items-center gap-6 p-3 rounded-sm text-xs text-fg-2 hidden-initial" id="linked-info" {
                                 span { span class="label" { "客户：" } span id="li-customer" { "—" } }
                                 span { span class="label" { "订单金额：" } span id="li-amount" { "—" } }
                                 span { span class="label" { "订单日期：" } span id="li-date" { "—" } }
@@ -338,7 +338,7 @@ fn return_create_page(customers: &[abt_core::master_data::customer::model::Custo
                 }
 
                 // ── 退货信息 ──
-                div class="form-section-card" {
+                div class="form-bg-bg border border-border-soft rounded-lg overflow-hidden" {
                     div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                         (icon::clipboard_document_icon("w-[18px] h-[18px]"))
                         "退货信息"
@@ -368,7 +368,7 @@ fn return_create_page(customers: &[abt_core::master_data::customer::model::Custo
                 }
 
                 // ── 退货产品明细 ──
-                div class="form-section-card flush hidden-initial" id="items-section" {
+                div class="form-bg-bg border border-border-soft rounded-lg overflow-hidden flush hidden-initial" id="items-section" {
                     div class="flush-header" {
                         div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                             (icon::package_icon("w-[18px] h-[18px]"))
@@ -395,26 +395,26 @@ fn return_create_page(customers: &[abt_core::master_data::customer::model::Custo
                             }
                         }
                     }
-                    div class="add-row-bar" {
-                        button type="button" class="btn-add-row" onclick="addReturnRow()" {
+                    div class="p-3 flex items-center gap-2" {
+                        button type="button" class="inline-flex items-center gap-2 rounded-sm text-accent text-sm cursor-pointer" onclick="addReturnRow()" {
                             (icon::plus_icon("w-3.5 h-3.5"))
                             "添加产品行"
                         }
                     }
-                    div class="totals-bar" {
-                        div class="totals-item" {
-                            span class="totals-label" { "退货总数量" }
-                            span class="totals-value" id="total-qty" { "0" }
+                    div class="flex justify-end p-4 bg-surface border-t gap-8" {
+                        div class="flex gap-3" {
+                            span class="text-sm text-muted" { "退货总数量" }
+                            span class="text-lg font-bold text-fg" id="total-qty" { "0" }
                         }
-                        div class="totals-item" {
-                            span class="totals-label" { "退货总额" }
-                            span class="totals-value grand" id="grand-total" { "¥ 0.00" }
+                        div class="flex gap-3" {
+                            span class="text-sm text-muted" { "退货总额" }
+                            span class="text-lg font-bold text-fg grand" id="grand-total" { "¥ 0.00" }
                         }
                     }
                 }
 
                 // ── 备注 ──
-                div class="form-section-card" {
+                div class="form-bg-bg border border-border-soft rounded-lg overflow-hidden" {
                     div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                         (icon::file_text_icon("w-[18px] h-[18px]"))
                         "备注"
@@ -423,12 +423,12 @@ fn return_create_page(customers: &[abt_core::master_data::customer::model::Custo
                 }
 
                 // ── 附件 ──
-                div class="form-section-card" {
+                div class="form-bg-bg border border-border-soft rounded-lg overflow-hidden" {
                     div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                         (icon::upload_icon("w-[18px] h-[18px]"))
                         "附件"
                     }
-                    div class="upload-area" id="upload-area" {
+                    div class="rounded p-8 text-center cursor-pointer" id="upload-area" {
                         (icon::upload_icon("w-8 h-8"))
                         p class="upload-title" { "点击或拖拽文件到此处上传" }
                         p class="upload-hint" { "支持 PDF、Word、Excel、图片，单个文件不超过 10MB" }
@@ -440,13 +440,13 @@ fn return_create_page(customers: &[abt_core::master_data::customer::model::Custo
 
             // ── Action Bar ──
             div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
-                a class="btn bg-white text-fg border border-border hover:bg-surface" href=(format!("{}?restore=true", ReturnListPath::PATH)) { "取消" }
+                a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface" href=(format!("{}?restore=true", ReturnListPath::PATH)) { "取消" }
                 div class="flex gap-3" {
-                    button type="button" class="btn bg-white text-fg border border-border hover:bg-surface" onclick="handleSaveDraft()" {
+                    button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface" onclick="handleSaveDraft()" {
                         (icon::save_icon("w-4 h-4"))
                         "保存草稿"
                     }
-                    button type="button" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" _="on click call handleSubmit() then if it trigger submit on #return-form" {
+                    button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" _="on click call handleSubmit() then if it trigger submit on #return-form" {
                         (icon::send_icon("w-4 h-4"))
                         "提交退货"
                     }
@@ -527,15 +527,15 @@ function populateItems(items) {{
 function createItemRow(num, item) {{
     const tr = document.createElement('tr');
     tr.innerHTML = `
-        <td class="line-num">${{num}}</td>
+        <td class="text-muted text-xs text-center">${{num}}</td>
         <td><input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] input-readonly-bg" type="text" value="${{item.product_code||''}}" readonly tabindex="-1"></td>
         <td><input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] input-readonly-bg" type="text" value="${{item.product_name||''}}" readonly tabindex="-1"></td>
-        <td><input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] input-readonly-bg-center" type="text" value="${{item.unit||''}}" readonly tabindex="-1"></td>
+        <td><input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] bg-surface text-center" type="text" value="${{item.unit||''}}" readonly tabindex="-1"></td>
         <td><input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] num-input input-readonly-bg" type="text" value="${{parseFloat(item.unit_price||0).toLocaleString('zh-CN',{{minimumFractionDigits:2}})}}" readonly tabindex="-1"></td>
         <td><input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] num-input input-readonly-bg" type="text" value="${{item.order_qty||''}}" readonly tabindex="-1"></td>
         <td><input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] num-input" type="number" data-field="qty" data-order-item-id="${{item.order_item_id}}" data-price="${{item.unit_price||0}}" value="" placeholder="0" min="1" oninput="calcRow(this)"></td>
-        <td class="line-total" data-field="subtotal">—</td>
-        <td><button type="button" class="btn-remove-row" onclick="removeRow(this)" title="删除行">{chevron}</button></td>
+        <td class="text-right font-semibold text-fg whitespace-nowrap" data-field="subtotal">—</td>
+        <td><button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center" onclick="removeRow(this)" title="删除行">{chevron}</button></td>
     `;
     return tr;
 }}
@@ -639,7 +639,7 @@ window.handleSaveDraft = handleSaveDraft;
         Array.from(input.files).forEach(f => {{
             const d = document.createElement('div');
             d.className = 'file-item';
-            d.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg><span class="file-item-name">'+f.name+'</span><span class="file-item-size">'+(f.size/1024).toFixed(0)+' KB</span>';
+            d.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg><span class="flex-1 overflow-hidden whitespace-nowrap">'+f.name+'</span><span class="text-muted text-xs shrink-0">'+(f.size/1024).toFixed(0)+' KB</span>';
             list.appendChild(d);
         }});
     }}
@@ -681,10 +681,10 @@ fn order_search_results(
                     }).collect::<Vec<_>>()).unwrap_or_default()
                 }).to_string();
 
-                div class="product-select-item" {
+                div class="flex items-center justify-between p-3 border-b" {
                     div class="product-select-info" {
-                        div class="product-select-name" { (order.doc_number) }
-                        div class="product-select-meta" {
+                        div class="text-sm font-medium text-fg" { (order.doc_number) }
+                        div class="text-[12px] text-muted flex items-center gap-[6px] flex-wrap" {
                             span { (order_date) }
                             span class="product-select-sep" { "·" }
                             span { (status_text) }
@@ -692,7 +692,7 @@ fn order_search_results(
                             span { "¥" (total) }
                         }
                     }
-                    button type="button" class="btn btn-sm bg-accent text-accent-on border-none hover:bg-accent-hover"
+                    button type="button" class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm bg-accent text-accent-on border-none hover:bg-accent-hover"
                         data-order=(items_json)
                         onclick="selectOrder(JSON.parse(this.dataset.order))" {
                         "选择"
@@ -705,7 +705,7 @@ fn order_search_results(
 
 fn order_search_empty() -> Markup {
     html! {
-        div class="loading-placeholder" {
+        div class="flex items-center justify-center p-8 text-muted" {
             (icon::package_icon("w-8 h-8"))
             p class="mt-2 text-sm" { "请先选择客户，或未找到匹配的订单" }
         }

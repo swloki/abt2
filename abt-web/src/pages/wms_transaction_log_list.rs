@@ -209,7 +209,7 @@ fn transaction_data_card(
                             th { "产品名称" }
                             th { "仓库" }
                             th { "储位" }
-                            th class="num-right" { "数量" }
+                            th class="text-right text-[13px]" { "数量" }
                             th { "来源类型" }
                             th { "来源单号" }
                             th { "操作员" }
@@ -254,7 +254,7 @@ fn transaction_row(txn: &abt_core::wms::inventory::model::TransactionDetailView)
             td { (txn.product_name) }
             td { (txn.warehouse_name) }
             td class="mono" { (txn.bin_code) }
-            td class="num-right" {
+            td class="text-right text-[13px]" {
                 @if is_positive {
                     span class="qty-positive" style="color:var(--success);font-weight:600" {
                         "+" (qty_fmt)

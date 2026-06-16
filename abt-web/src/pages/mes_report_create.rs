@@ -379,10 +379,10 @@ fn report_create_page(
                 div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                     div class="form-field" {
                         label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "班次 " span class="required" { "*" } }
-                        div class="shift-toggle" {
-                            button type="button" class="shift-btn active"
+                        div class="flex border border-border rounded-sm overflow-hidden" {
+                            button type="button" class="text-sm border-none bg-bg text-fg-2 cursor-pointer active"
                                 _="on click take .active from .shift-btn then put '1' into #shift-input's value" { "白班" }
-                            button type="button" class="shift-btn"
+                            button type="button" class="text-sm border-none bg-bg text-fg-2 cursor-pointer"
                                 _="on click take .active from .shift-btn then put '2' into #shift-input's value" { "夜班" }
                             input type="hidden" name="shift" id="shift-input" value="1";
                         }
@@ -430,9 +430,9 @@ fn report_create_page(
                     }
                     div class="form-field" {
                         label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "预计工资" }
-                        div class="wage-display" {
-                            div class="wage-amount" id="wage-amount" { "\u{00a5}0.00" }
-                            div class="wage-label" { "完成数量 \u{00d7} 计件单价" }
+                        div class="flex flex-col gap-[4px] p-4 bg-surface rounded-sm border border-border-soft text-center" {
+                            div class="font-bold text-success" id="wage-amount" { "\u{00a5}0.00" }
+                            div class="text-[12px] text-muted" { "完成数量 \u{00d7} 计件单价" }
                         }
                     }
                 }
@@ -444,8 +444,8 @@ fn report_create_page(
             }
 
             div class="flex items-center justify-end gap-3 py-5" {
-                a class="btn bg-white text-fg border border-border hover:bg-surface" href=(format!("{}?restore=true", ReportListPath::PATH)) { "取消" }
-                button type="submit" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" { "确认报工" }
+                a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface" href=(format!("{}?restore=true", ReportListPath::PATH)) { "取消" }
+                button type="submit" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" { "确认报工" }
             }
         }
 

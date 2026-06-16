@@ -90,7 +90,7 @@ fn workflow_steps(current: PurchaseReconStatus) -> Markup {
     let current_idx = steps.iter().position(|(_, s)| *s == current).unwrap_or(0);
 
     html! {
-        div class="workflow-steps" {
+        div class="flex items-center" {
             @for (i, (label, _)) in steps.iter().enumerate() {
                 @if i > 0 {
                     @let line_class = if i <= current_idx { "wf-line completed" } else { "wf-line" };
@@ -104,7 +104,7 @@ fn workflow_steps(current: PurchaseReconStatus) -> Markup {
                     "wf-step"
                 };
                 div class=(step_class) {
-                    span class="wf-dot" {}
+                    span class="w-[10px] h-[10px] rounded-full bg-border" {}
                     (label)
                 }
             }
@@ -132,16 +132,16 @@ fn precon_detail_page(
             }
 
             // ── Detail Header ──
-            div class="detail-header" {
+            div class="block bg-bg border border-border-soft rounded-lg p-6" {
                 div {
-                    div class="detail-title-row" {
-                        h1 class="detail-no font-mono" { (recon.doc_number) }
+                    div class="flex items-center justify-between" {
+                        h1 class="text-2xl font-extrabold font-mono" { (recon.doc_number) }
                         span class=(format!("status-pill {status_class}")) { (status_text) }
                     }
                 }
                 div class="flex gap-3" {
                     @if recon.status == PurchaseReconStatus::Draft {
-                        button class="btn bg-accent text-accent-on border-none hover:bg-accent-hover"
+                        button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover"
                             hx-post=(PreconConfirmPath { id: recon.id }.to_string())
                             hx-confirm="确认对此对账单进行对账？确认后将不可修改。" {
                             (icon::check_circle_icon("w-4 h-4"))
@@ -149,7 +149,7 @@ fn precon_detail_page(
                         }
                     }
                     @if recon.status == PurchaseReconStatus::Draft && can_delete {
-                        button class="btn bg-danger text-white border-none hover:opacity-90-ghost"
+                        button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-danger text-white border-none hover:opacity-90-ghost"
                             hx-post=(format!("/purchase/reconciliation/{}", recon.id))
                             hx-confirm="确认删除此对账单？删除后不可恢复。" {
                             (icon::trash_icon("w-4 h-4"))
@@ -191,11 +191,11 @@ fn precon_detail_page(
                             tr {
                                 th { "订单ID" }
                                 th { "订单明细ID" }
-                                th class="num-right" { "收货数量" }
-                                th class="num-right" { "退货数量" }
-                                th class="num-right" { "退货冲减" }
-                                th class="num-right" { "单价" }
-                                th class="num-right" { "金额" }
+                                th class="text-right text-[13px]" { "收货数量" }
+                                th class="text-right text-[13px]" { "退货数量" }
+                                th class="text-right text-[13px]" { "退货冲减" }
+                                th class="text-right text-[13px]" { "单价" }
+                                th class="text-right text-[13px]" { "金额" }
                                 th { "已确认" }
                             }
                         }
@@ -252,11 +252,11 @@ fn item_row(item: &PurchaseReconItem) -> Markup {
         tr {
             td class="mono" { (item.order_id) }
             td class="mono" { (item.order_item_id) }
-            td class="num-right" { (format!("{:.2}", item.received_qty)) }
-            td class="num-right" { (format!("{:.2}", item.returned_qty)) }
-            td class="num-right" { (format!("{:.2}", item.returned_amount)) }
-            td class="num-right" { (format!("{:.2}", item.unit_price)) }
-            td class="num-right" { (format!("{:.2}", item.amount)) }
+            td class="text-right text-[13px]" { (format!("{:.2}", item.received_qty)) }
+            td class="text-right text-[13px]" { (format!("{:.2}", item.returned_qty)) }
+            td class="text-right text-[13px]" { (format!("{:.2}", item.returned_amount)) }
+            td class="text-right text-[13px]" { (format!("{:.2}", item.unit_price)) }
+            td class="text-right text-[13px]" { (format!("{:.2}", item.amount)) }
             td style="text-align:center" { (confirmed) }
         }
     }

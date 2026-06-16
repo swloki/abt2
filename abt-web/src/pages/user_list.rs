@@ -238,7 +238,7 @@ fn user_list_page(
                 h1 class="text-xl font-bold text-fg tracking-tight" { "用户管理" }
                 div class="flex gap-3" {
                     @if can_create {
-                        a class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" href=(UserCreatePath::PATH) {
+                        a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" href=(UserCreatePath::PATH) {
                             (icon::plus_icon("w-4 h-4"))
                             "新建用户"
                         }
@@ -299,9 +299,9 @@ fn user_table_fragment(
     html! {
         div class="user-list-panel" {
             // ── Stats ──
-            div class="user-stats" {
-                div class="stat-card" {
-                    div class="stat-icon blue" {
+            div class="grid gap-5" {
+                div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
+                    div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 blue" {
                         (icon::users_icon("w-6 h-6"))
                     }
                     div {
@@ -309,8 +309,8 @@ fn user_table_fragment(
                         div class="text-sm text-muted mt-1" { "用户总数" }
                     }
                 }
-                div class="stat-card" {
-                    div class="stat-icon green" {
+                div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
+                    div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 green" {
                         (icon::check_circle_icon("w-6 h-6"))
                     }
                     div {
@@ -318,8 +318,8 @@ fn user_table_fragment(
                         div class="text-sm text-muted mt-1" { "已激活" }
                     }
                 }
-                div class="stat-card" {
-                    div class="stat-icon orange" {
+                div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
+                    div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 orange" {
                         (icon::clock_icon("w-6 h-6"))
                     }
                     div {
@@ -327,8 +327,8 @@ fn user_table_fragment(
                         div class="text-sm text-muted mt-1" { "已停用" }
                     }
                 }
-                div class="stat-card" {
-                    div class="stat-icon stat-icon-purple" {
+                div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
+                    div class="stat-icon w-[44px] h-[44px] rounded grid place-items-center shrink-0-purple" {
                         svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-6 h-6" {
                             path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" {}
                         }
@@ -341,7 +341,7 @@ fn user_table_fragment(
             }
 
             // ── Status Tabs ──
-            div class="status-tabs" {
+            div class="flex gap-1 border-b" {
                 button class=(tab_all)
                     hx-get=(status_query(""))
                     hx-target="closest .user-list-panel"
@@ -437,7 +437,7 @@ fn user_table_fragment(
                             }
                             @if page_users.is_empty() {
                                 tr {
-                                    td colspan="8" class="empty-state" {
+                                    td colspan="8" class="text-center p-6 text-muted text-sm" {
                                         "暂无用户数据"
                                     }
                                 }
@@ -489,18 +489,18 @@ fn user_row(
         tr onclick=(format!("location.href='{}'", detail_path)) {
             // User info
             td {
-                div class="user-cell" {
+                div class="flex items-center gap-3" {
                     div class={"avatar-sm " (avatar_cls)} {
                         (avatar_initials)
                     }
-                    div class="user-cell-info" {
-                        span class="user-cell-name" {
+                    div class="flex items-center gap-3-info" {
+                        span class="flex items-center gap-3-name" {
                             (display_name)
                             @if u.user.is_super_admin {
-                                span class="tag-super" { "超管" }
+                                span class="bg-[#f3e8ff] text-[#7c3aed]" { "超管" }
                             }
                         }
-                        span class="user-cell-id" {
+                        span class="flex items-center gap-3-id" {
                             "ID: " (u.user.user_id)
                         }
                     }
@@ -514,9 +514,9 @@ fn user_row(
 
             // Roles
             td {
-                div class="role-tags" {
+                div class="flex flex-wrap gap-[4px]" {
                     @for role in &u.roles {
-                        span class="role-tag" { (role.role_name) }
+                        span class="text-[10px] font-medium" { (role.role_name) }
                     }
                     @if u.roles.is_empty() {
                         span class="muted-text" { "—" }
@@ -530,19 +530,19 @@ fn user_row(
                     span class="muted-text" { "—" }
                 } @else {
                     @for dept in depts {
-                        span class="dept-tag" { (dept.department_name) }
+                        span class="text-[10px] bg-[#f0fff0] text-[#389e0d] font-medium" { (dept.department_name) }
                     }
                 }
             }
 
             // Data scope
             td {
-                span class="data-scope-label" { (scope) }
+                span class="text-[12px] text-muted" { (scope) }
             }
 
             // Status
             td {
-                span class="status-text" {
+                span class="flex items-center text-[13px]" {
                     span class=(dot_class) {}
                     (status_label)
                 }
@@ -556,12 +556,12 @@ fn user_row(
             // Actions
             td onclick="event.stopPropagation()" {
                 div class="row-actions" {
-                    a class="row-action-btn" title="编辑"
+                    a class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" title="编辑"
                         href=(edit_path.to_string()) {
                         (icon::edit_icon("w-3.5 h-3.5"))
                     }
                     @if can_delete && !u.user.is_super_admin {
-                        button type="button" class="row-action-btn" title=(toggle_title)
+                        button type="button" class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" title=(toggle_title)
                             hx-post=(toggle_path.to_string())
                             hx-confirm=(format!(
                                 "确定要{}用户 <strong>{}</strong> 吗？",

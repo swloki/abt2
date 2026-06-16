@@ -20,7 +20,7 @@ pub fn customer_info_panel(
     let phone_value = contacts.first().and_then(|c| c.phone.as_deref()).unwrap_or("");
 
     html! {
-        div class="form-section-card" {
+        div class="form-bg-bg border border-border-soft rounded-lg overflow-hidden" {
             div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                 (crate::components::icon::users_icon("w-[18px] h-[18px]"))
                 "客户信息"

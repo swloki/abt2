@@ -80,7 +80,7 @@ fn inspection_list_page(
     html! { div {
         div class="flex items-center justify-between mb-6" { h1 class="text-xl font-bold text-fg tracking-tight" { "生产报检" } div class="flex gap-3" {
             @if can_create {
-                a class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" href=(InspectionCreatePath::PATH) { (icon::plus_icon("w-4 h-4")) "新建检验" }
+                a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" href=(InspectionCreatePath::PATH) { (icon::plus_icon("w-4 h-4")) "新建检验" }
             }
         }}
         (inspection_table_fragment(result, params))
@@ -127,19 +127,19 @@ fn inspection_data_card(
             div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                 table class="data-table" { thead { tr {
                     th { "单号" } th { "工单" } th { "类型" } th { "产品" }
-                    th class="num-right" { "样本" } th class="num-right" { "合格" } th { "结果" } th { "操作" }
+                    th class="text-right text-[13px]" { "样本" } th class="text-right text-[13px]" { "合格" } th { "结果" } th { "操作" }
                 }} tbody {
                     @for item in &result.items {
                         @let tl = insp_type_label(&item.inspection_type);
                         @let (rl, rb, rc) = insp_result_label(&item.result);
                         @let dp = format!("/admin/mes/inspections/{}", item.id);
                         tr style="cursor:pointer" onclick=(format!("location.href='{}'", dp)) {
-                            td class="link-cell mono" style="color:var(--accent)" { (item.doc_number) }
+                            td class="text-accent font-medium cursor-pointer mono" style="color:var(--accent)" { (item.doc_number) }
                             td class="mono" { (item.work_order_doc.as_deref().unwrap_or("\u{2014}")) }
                             td { (tl) }
                             td { (item.product_name.as_deref().unwrap_or("\u{2014}")) }
-                            td class="num-right mono" { (crate::utils::fmt_qty(item.sample_qty)) }
-                            td class="num-right mono" { (crate::utils::fmt_qty(item.qualified_qty)) }
+                            td class="text-right text-[13px] mono" { (crate::utils::fmt_qty(item.sample_qty)) }
+                            td class="text-right text-[13px] mono" { (crate::utils::fmt_qty(item.qualified_qty)) }
                             td { span style=(format!("display:inline-flex;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{};color:{}", rb, rc)) { (rl) } }
                             td { a href=(dp) style="color:var(--accent);font-size:var(--text-xs)" { "查看" } }
                         }

@@ -294,7 +294,7 @@ fn product_list_page(
             div class="flex items-center justify-between mb-6" {
                 h1 class="text-xl font-bold text-fg tracking-tight" { "产品管理" span style="font-size:var(--text-sm);font-weight:400;color:var(--muted);margin-left:var(--space-2)" { "(" (result.total) ")" } }
                 div class="flex gap-3" {
-                    button type="button" class="btn bg-white text-fg border border-border hover:bg-surface"
+                    button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface"
                         _=(import_modal::import_modal_onclick(&ImportModalConfig { import_type: "product-inventory", title: "", template_columns: "" })) {
                         (icon::upload_icon("w-4 h-4"))
                         "导入"
@@ -304,7 +304,7 @@ fn product_list_page(
                         ExportItem { label: "不含价格产品", export_type: "product-without-price" },
                     ]))
                     @if can_create {
-                        a href=(ProductCreatePath::PATH) class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" {
+                        a href=(ProductCreatePath::PATH) class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" {
                             (icon::plus_icon("w-4 h-4"))
                             "新建产品"
                         }
@@ -338,9 +338,9 @@ fn product_list_page(
                     }
                 },
                 html! {
-                    button type="button" class="btn bg-white text-fg border border-border hover:bg-surface"
+                    button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface"
                         _="on click remove .open from #bom-drawer" { "关闭" }
-                    a href="/admin/md/boms/new" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" style="text-decoration:none" {
+                    a href="/admin/md/boms/new" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" style="text-decoration:none" {
                         (icon::plus_icon("w-4 h-4"))
                         "新建 BOM"
                     }
@@ -453,7 +453,7 @@ fn product_row(p: &Product, watched_ids: &[i64], can_delete: bool, can_edit: boo
 
     html! {
         tr id=(format!("product-row-{}", p.product_id)) style="cursor:pointer" {
-            td class="link-cell mono" onclick=(format!("location.href='{}'", detail_path)) { (p.product_code) }
+            td class="text-accent font-medium cursor-pointer mono" onclick=(format!("location.href='{}'", detail_path)) { (p.product_code) }
             td onclick=(format!("location.href='{}'", detail_path)) { strong { (p.pdt_name) } }
             td onclick=(format!("location.href='{}'", detail_path)) {
                 @if spec.is_empty() {
@@ -466,12 +466,12 @@ fn product_row(p: &Product, watched_ids: &[i64], can_delete: bool, can_edit: boo
             td onclick="event.stopPropagation()" {
                 div class="row-actions" onclick="event.stopPropagation()" {
                     // View detail
-                    a class="row-action-btn" title="查看"
+                    a class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" title="查看"
                         href=(detail_path) {
                         (icon::eye_icon("w-4 h-4"))
                     }
                     // BOM usage
-                    button type="button" class="row-action-btn" title="BOM引用"
+                    button type="button" class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" title="BOM引用"
                         hx-get=(usage_path)
                         hx-target="#bom-drawer-body"
                         hx-swap="innerHTML"
@@ -479,7 +479,7 @@ fn product_row(p: &Product, watched_ids: &[i64], can_delete: bool, can_edit: boo
                         (icon::link_icon("w-4 h-4"))
                     }
                     // More menu trigger
-                    button type="button" class="row-action-btn" title="更多"
+                    button type="button" class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" title="更多"
                         id=(format!("more-btn-{}", p.product_id))
                         _="on click toggle .is-open on next <.row-actions-menu/> then if next <.row-actions-menu/> matches .is-open call positionDropdown(me, next <.row-actions-menu/>)" {
                         (icon::dots_vertical_icon("w-4 h-4"))
@@ -488,7 +488,7 @@ fn product_row(p: &Product, watched_ids: &[i64], can_delete: bool, can_edit: boo
                     div class="fixed inset-0 z-[999] cursor-default"
                         _="on click remove .is-open from next <.row-actions-menu/>" {}
                     // Dropdown menu
-                    div class="row-actions-menu" onclick="event.stopPropagation()" {
+                    div class="fixed hidden z-[50] bg-bg border border-border rounded" onclick="event.stopPropagation()" {
                         @if can_edit {
                             a href=(edit_path) {
                                 (icon::edit_icon("w-4 h-4"))
@@ -551,13 +551,13 @@ fn bom_drawer_content(product: &Product, entries: &[UsageEntry], total: u64) -> 
 
     html! {
         // Product info card
-        div class="price-product-card" {
-            div class="price-product-icon" style="background:linear-gradient(135deg,#f5f0ff,#ede5ff)" {
+        div class="flex items-start gap-[14px] bg-surface rounded-lg" {
+            div class="w-[40px] h-[40px] rounded flex items-center justify-center shrink-0" style="background:linear-gradient(135deg,#f5f0ff,#ede5ff)" {
                 (icon::bolt_icon("w-5 h-5"))
             }
             div style="flex:1;min-width:0" {
-                div class="price-product-name" { (product.pdt_name) }
-                div class="price-product-meta" {
+                div class="text-[15px] font-semibold text-fg" { (product.pdt_name) }
+                div class="text-[12px] text-muted" {
                     (product.product_code) "  \u{00b7}  "
                     @if spec.is_empty() {
                         (product.unit)
@@ -569,29 +569,29 @@ fn bom_drawer_content(product: &Product, entries: &[UsageEntry], total: u64) -> 
         }
 
         // Summary stats
-        div class="bom-summary" {
-            div class="bom-summary-item" {
-                div class="bom-summary-value accent" { (total) }
-                div class="bom-summary-label" { "引用 BOM 数" }
+        div class="grid gap-[12px]" {
+            div class="grid gap-[12px]-item" {
+                div class="grid gap-[12px]-value accent" { (total) }
+                div class="grid gap-[12px]-label" { "引用 BOM 数" }
             }
-            div class="bom-summary-item" {
-                div class="bom-summary-value green" { (active_count) }
-                div class="bom-summary-label" { "生效中" }
+            div class="grid gap-[12px]-item" {
+                div class="grid gap-[12px]-value green" { (active_count) }
+                div class="grid gap-[12px]-label" { "生效中" }
             }
-            div class="bom-summary-item" {
-                div class="bom-summary-value" { (draft_count) }
-                div class="bom-summary-label" { "草稿" }
+            div class="grid gap-[12px]-item" {
+                div class="grid gap-[12px]-value" { (draft_count) }
+                div class="grid gap-[12px]-label" { "草稿" }
             }
         }
 
         // BOM list
         div class="price-section" {
-            div class="price-section-title" {
+            div class="text-[13px] font-semibold text-fg flex items-center gap-[6px]" {
                 (icon::clipboard_list_icon("w-3.5 h-3.5"))
                 "BOM 清单"
             }
             @if entries.is_empty() {
-                div class="bom-empty" {
+                div class="text-center text-muted" {
                     (icon::clipboard_list_icon("w-12 h-12"))
                     p { "暂无 BOM 引用" }
                     p class="sub" { "该产品尚未被任何 BOM 引用" }
@@ -619,13 +619,13 @@ fn bom_ref_card(entry: &UsageEntry) -> Markup {
     let has_detail = entry.bom_version.is_some() || entry.parent_product_name.is_some();
 
     html! {
-        div class="bom-ref-card" {
-            div class="bom-ref-main" _="on click toggle .is-expanded on closest .bom-ref-card" {
-                div class="bom-ref-icon parent" {
+        div class="border border-border rounded overflow-hidden" {
+            div class="flex items-center gap-[14px] cursor-pointer" _="on click toggle .is-expanded on closest .bom-ref-card" {
+                div class="w-[38px] h-[38px] rounded-sm shrink-0 flex items-center justify-center parent" {
                     (icon::bolt_icon("w-4.5 h-4.5"))
                 }
                 div class="bom-ref-info" {
-                    div class="bom-ref-name" {
+                    div class="text-[14px] font-semibold text-fg flex items-center gap-[8px]" {
                         a href=(bom_detail_path) onclick="event.stopPropagation()" style="color:var(--accent);text-decoration:none;font-weight:600" {
                             (entry.source_name)
                         }
@@ -633,7 +633,7 @@ fn bom_ref_card(entry: &UsageEntry) -> Markup {
                             "BOM-" (entry.source_id)
                         }
                     }
-                    div class="bom-ref-meta" {
+                    div class="flex items-center gap-[12px] text-[12px] text-muted" {
                         span { "版本 " (version) }
                         @if !parent_name.is_empty() && parent_name != "—" {
                             span { "父件: " (parent_name) }
@@ -641,14 +641,14 @@ fn bom_ref_card(entry: &UsageEntry) -> Markup {
                         span class=(format!("status-pill {status_class}")) { (status_label) }
                     }
                 }
-                div class="bom-ref-right" {
+                div class="flex items-center gap-[10px] shrink-0" {
                     div class="bom-ref-qty" {
-                        div class="bom-ref-qty-value" {
+                        div class="text-[16px] font-bold text-fg" {
                             (qty) " "
                             span style="font-size:12px;font-weight:400;color:var(--muted)" { (unit) }
                         }
                     }
-                    button class="bom-ref-expand" {
+                    button class="border-none cursor-pointer text-muted flex items-center justify-center" {
                         svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" {
                             path d="M19 9l-7 7-7-7" {}
                         }
@@ -658,18 +658,18 @@ fn bom_ref_card(entry: &UsageEntry) -> Markup {
 
             }
             @if has_detail {
-                div class="bom-ref-detail" {
-                    div class="bom-ref-detail-grid" {
-                        div class="bom-ref-detail-item" {
+                div class="border-t bg-surface hidden" {
+                    div class="border-t bg-surface hidden-grid" {
+                        div class="border-t bg-surface hidden-item" {
                             span class="label" { "BOM 编码:" }
                             span class="value" style="font-family:var(--font-mono)" { "BOM-" (entry.source_id) }
                         }
-                        div class="bom-ref-detail-item" {
+                        div class="border-t bg-surface hidden-item" {
                             span class="label" { "版本:" }
                             span class="value" { (version) }
                         }
                         @if let Some(pn) = &entry.parent_product_name {
-                            div class="bom-ref-detail-item" {
+                            div class="border-t bg-surface hidden-item" {
                                 span class="label" { "父件产品:" }
                                 span class="value" {
                                     a href=(format!("/admin/md/products/{}", entry.parent_product_code.as_deref().unwrap_or(""))) style="color:var(--accent);text-decoration:none" {
@@ -679,12 +679,12 @@ fn bom_ref_card(entry: &UsageEntry) -> Markup {
                             }
                         }
                         @if let Some(pc) = &entry.parent_product_code {
-                            div class="bom-ref-detail-item" {
+                            div class="border-t bg-surface hidden-item" {
                                 span class="label" { "父件编码:" }
                                 span class="value" style="font-family:var(--font-mono)" { (pc) }
                             }
                         }
-                        div class="bom-ref-detail-item" {
+                        div class="border-t bg-surface hidden-item" {
                             span class="label" { "用量:" }
                             span class="value" style="font-family:var(--font-mono)" {
                                 (qty) " " (unit)
@@ -692,7 +692,7 @@ fn bom_ref_card(entry: &UsageEntry) -> Markup {
                         }
                         @if let Some(remark) = &entry.node_remark {
                             @if !remark.is_empty() {
-                                div class="bom-ref-detail-item" style="grid-column:1/-1" {
+                                div class="border-t bg-surface hidden-item" style="grid-column:1/-1" {
                                     span class="label" { "备注:" }
                                     span class="value" { (remark) }
                                 }
@@ -707,11 +707,11 @@ fn bom_ref_card(entry: &UsageEntry) -> Markup {
 
 fn usage_error_dialog(name: &str, total: u64) -> Markup {
     html! {
-        div class="dialog-overlay open"
+        div class="hidden fixed z-[1100] place-items-center open"
             _="on click remove .open" {
-            div class="dialog" onclick="event.stopPropagation()" {
-                div class="dialog-body" {
-                    div class="dialog-icon-wrap" {
+            div class="bg-bg rounded-lg w-[480px]" onclick="event.stopPropagation()" {
+                div class="bg-bg rounded-lg w-[480px]-body" {
+                    div class="bg-bg rounded-lg w-[480px]-icon-wrap" {
                         (icon::circle_alert_icon("w-7 h-7"))
                     }
                     div class="text-lg font-semibold text-fg text-center mb-2" { "无法删除" }
@@ -721,8 +721,8 @@ fn usage_error_dialog(name: &str, total: u64) -> Markup {
                         )))
                     }
                 }
-                div class="dialog-foot" {
-                    button type="button" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover"
+                div class="bg-bg rounded-lg w-[480px]-foot" {
+                    button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover"
                         _="on click remove .open from closest .dialog-overlay" { "知道了" }
                 }
             }
@@ -732,9 +732,9 @@ fn usage_error_dialog(name: &str, total: u64) -> Markup {
 
 fn price_history_table(_product_id: i64, entries: &[PriceLogEntry]) -> Markup {
     html! {
-        div class="modal-overlay is-open"
+        div class="fixed z-[1000] grid place-items-center opacity-0 is-open"
             _="on click remove .is-open" {
-            div class="modal" onclick="event.stopPropagation()" {
+            div class="bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0" onclick="event.stopPropagation()" {
                 div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
                     h2 { "价格变更记录" }
                     button style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
@@ -742,7 +742,7 @@ fn price_history_table(_product_id: i64, entries: &[PriceLogEntry]) -> Markup {
                 }
                 div class="overflow-y-auto flex-1 min-h-0 p-6" {
                     @if entries.is_empty() {
-                        div class="empty-state" { "暂无价格变更记录" }
+                        div class="text-center p-6 text-muted text-sm" { "暂无价格变更记录" }
                     } @else {
                         @for entry in entries {
                             (price_history_diff_item(entry))
@@ -750,7 +750,7 @@ fn price_history_table(_product_id: i64, entries: &[PriceLogEntry]) -> Markup {
                     }
                 }
                 div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" {
-                    button type="button" class="btn bg-white text-fg border border-border hover:bg-surface"
+                    button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface"
                         _="on click remove .is-open from closest .modal-overlay" { "关闭" }
                 }
             }
@@ -774,13 +774,13 @@ fn price_drawer_content(product: &Product, current_price: &Decimal, history: &[P
         form id="price-drawer-form" hx-post=(price_path) hx-target="#price-drawer-body" hx-swap="innerHTML" {
             input type="hidden" name="price_type" value="1";
             // Product info card
-            div class="price-product-card" {
-                div class="price-product-icon" {
+            div class="flex items-start gap-[14px] bg-surface rounded-lg" {
+                div class="w-[40px] h-[40px] rounded flex items-center justify-center shrink-0" {
                     (icon::box_icon("w-5 h-5"))
                 }
                 div style="flex:1;min-width:0" {
-                    div class="price-product-name" { (product.pdt_name) }
-                    div class="price-product-meta" {
+                    div class="text-[15px] font-semibold text-fg" { (product.pdt_name) }
+                    div class="text-[12px] text-muted" {
                         (product.product_code) "  \u{00b7}  "
                         @if spec.is_empty() {
                             (product.unit)
@@ -792,12 +792,12 @@ fn price_drawer_content(product: &Product, current_price: &Decimal, history: &[P
             }
             // Price section
             div class="price-section" {
-                div class="price-section-title" {
+                div class="text-[13px] font-semibold text-fg flex items-center gap-[6px]" {
                     (icon::currency_icon("w-3.5 h-3.5"))
                     "产品单价"
                 }
-                div class="price-row" {
-                    div class="price-row-label" { "单价" }
+                div class="flex items-center border border-border rounded overflow-hidden bg-bg" {
+                    div class="flex items-center border border-border rounded overflow-hidden bg-bg-label" { "单价" }
                     div class="prefix" { "¥" }
                     input type="text" name="new_price"
                         value=(format!("{:.4}", current_price))
@@ -806,7 +806,7 @@ fn price_drawer_content(product: &Product, current_price: &Decimal, history: &[P
             }
             // Remark section
             div class="price-section" {
-                div class="price-section-title" {
+                div class="text-[13px] font-semibold text-fg flex items-center gap-[6px]" {
                     (icon::comment_icon("w-3.5 h-3.5"))
                     "调价说明"
                 }
@@ -816,7 +816,7 @@ fn price_drawer_content(product: &Product, current_price: &Decimal, history: &[P
             }
             // Price history
             div class="price-section" {
-                div class="price-section-title" {
+                div class="text-[13px] font-semibold text-fg flex items-center gap-[6px]" {
                     (icon::clock_icon("w-3.5 h-3.5"))
                     "变更历史"
                 }
@@ -827,7 +827,7 @@ fn price_drawer_content(product: &Product, current_price: &Decimal, history: &[P
                         (price_history_diff_item(entry))
                     }
                     @if has_more {
-                        a class="price-history-more" href="/admin/md/price-history" {
+                        a class="text-center text-[12px] text-accent cursor-pointer" href="/admin/md/price-history" {
                             (icon::chevron_down_icon("w-3 h-3"))
                             "查看全部 " (total_count) " 条变更记录"
                         }
@@ -856,7 +856,7 @@ fn price_history_diff_item(entry: &PriceLogEntry) -> Markup {
     let badge_class = if is_up { "change-badge up" } else { "change-badge down" };
 
     html! {
-        div class="price-history-item" {
+        div class="border border-border-soft rounded-lg" {
             div class="price-diff" {
                 span class="old-price" { "¥ " (old_str) }
                 svg class="arrow-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" { path d="M17 8l4 4m0 0l-4 4m4-4H3" {} }

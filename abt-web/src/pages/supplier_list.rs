@@ -107,7 +107,7 @@ fn supplier_list_page(
                 h1 class="text-xl font-bold text-fg tracking-tight" { "供应商管理" }
                 div class="flex gap-3" {
                     @if can_create {
-                        a class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" href=(SupplierCreatePath::PATH) {
+                        a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" href=(SupplierCreatePath::PATH) {
                             (icon::plus_icon("w-4 h-4"))
                             "新建供应商"
                         }
@@ -229,10 +229,10 @@ fn supplier_row(s: &Supplier, can_delete: bool, can_edit: bool) -> Markup {
 
     html! {
         tr style="cursor:pointer" {
-            td class="link-cell mono" onclick=(format!("location.href='{}'", detail_path)) { (s.code) }
+            td class="text-accent font-medium cursor-pointer mono" onclick=(format!("location.href='{}'", detail_path)) { (s.code) }
             td onclick=(format!("location.href='{}'", detail_path)) { strong { (s.name) } }
             td onclick=(format!("location.href='{}'", detail_path)) {
-                span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium tag-normal" { (category_label) }
+                span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-surface text-[#666]" { (category_label) }
             }
             td onclick=(format!("location.href='{}'", detail_path)) {
                 span style="color:var(--muted)" { "—" }
@@ -253,13 +253,13 @@ fn supplier_row(s: &Supplier, can_delete: bool, can_edit: bool) -> Markup {
             td onclick="event.stopPropagation()" {
                 div class="row-actions" {
                     @if can_edit {
-                        a class="row-action-btn" title="编辑"
+                        a class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" title="编辑"
                             href=(SupplierDetailPath { id: s.id }.to_string()) {
                             (icon::edit_icon("w-4 h-4"))
                         }
                     }
                     @if can_delete {
-                        button type="button" class="row-action-btn text-danger" title="删除"
+                        button type="button" class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer text-danger" title="删除"
                             hx-post=(delete_path)
                             hx-confirm=(format!("删除后无法恢复，确定要删除供应商 <strong>{}</strong> 吗？", s.name))
                             hx-target="closest tr"

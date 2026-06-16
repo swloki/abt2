@@ -93,8 +93,8 @@ fn strategy_list_page(
 
             // ── 上架策略 ──
             div class="section-block" {
-                div class="section-block-header" {
-                    div class="section-block-title" { "上架策略" }
+                div class="flex items-center justify-between" {
+                    div class="text-lg font-semibold text-fg flex items-center gap-2" { "上架策略" }
                 }
                 div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" {
                     div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
@@ -129,8 +129,8 @@ fn strategy_list_page(
 
             // ── 拣货策略 ──
             div class="section-block" {
-                div class="section-block-header" {
-                    div class="section-block-title" { "拣货策略" }
+                div class="flex items-center justify-between" {
+                    div class="text-lg font-semibold text-fg flex items-center gap-2" { "拣货策略" }
                 }
                 div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" {
                     div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
@@ -176,7 +176,7 @@ fn putaway_row(s: &PutawayStrategy) -> Markup {
         tr {
             td { strong { (s.name) } }
             td {
-                span class="type-tag type-tag-putaway" {
+                span class="type-tag inline-flex items-center rounded-full text-[12px] font-medium-putaway" {
                     (tag)
                 }
             }
@@ -200,14 +200,14 @@ fn putaway_row(s: &PutawayStrategy) -> Markup {
                 }
             }
             td {
-                label class="toggle-wrap" {
+                label class="flex items-center gap-2 text-sm text-fg-2 cursor-pointer whitespace-nowrap" {
                     span class=(toggle_class) {}
                     (status_text)
                 }
             }
             td {
                 div class="row-actions" {
-                    button class="row-action-btn" title="编辑" {
+                    button class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" title="编辑" {
                         (crate::components::icon::edit_icon("w-4 h-4"))
                     }
                 }
@@ -226,7 +226,7 @@ fn pick_row(s: &PickStrategy) -> Markup {
         tr {
             td { strong { (s.name) } }
             td {
-                span class="type-tag type-tag-pick" {
+                span class="type-tag inline-flex items-center rounded-full text-[12px] font-medium-pick" {
                     (tag)
                 }
             }
@@ -246,14 +246,14 @@ fn pick_row(s: &PickStrategy) -> Markup {
                 }
             }
             td {
-                label class="toggle-wrap" {
+                label class="flex items-center gap-2 text-sm text-fg-2 cursor-pointer whitespace-nowrap" {
                     span class=(toggle_class) {}
                     (status_text)
                 }
             }
             td {
                 div class="row-actions" {
-                    button class="row-action-btn" title="编辑" {
+                    button class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" title="编辑" {
                         (crate::components::icon::edit_icon("w-4 h-4"))
                     }
                 }

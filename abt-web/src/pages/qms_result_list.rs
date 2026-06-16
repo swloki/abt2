@@ -240,7 +240,7 @@ fn result_list_page(
                 h1 class="text-xl font-bold text-fg tracking-tight" { "检验结果" }
                 div class="flex gap-3" {
                     @if can_create {
-                        a class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" href=(ResultCreatePath::PATH) {
+                        a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" href=(ResultCreatePath::PATH) {
                             (icon::plus_icon("w-4 h-4"))
                             "记录检验"
                         }
@@ -372,7 +372,7 @@ fn result_data_card(
                                 td { (src_label) }
                                 td { (product_name) }
                                 td class="mono" { (item.batch_no) }
-                                td class="mono num-right" { (qty_display) }
+                                td class="mono text-right text-[13px]" { (qty_display) }
                                 td {
                                     span style=(format!("display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{};color:{}", r_bg, r_color)) {
                                         (r_label)

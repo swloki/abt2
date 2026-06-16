@@ -323,30 +323,30 @@ fn warehouse_detail_page(
     html! {
         div {
         // ── Detail Header ──
-        div class="detail-header" style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:var(--space-5)" {
+        div class="block bg-bg border border-border-soft rounded-lg p-6" style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:var(--space-5)" {
             div {
                 div style="display:flex;align-items:center;gap:var(--space-3)" {
-                    h1 class="detail-no" style="font-size:var(--text-xl);font-weight:700;margin:0;font-family:var(--font-mono)" { (warehouse.code) }
+                    h1 class="text-2xl font-extrabold" style="font-size:var(--text-xl);font-weight:700;margin:0;font-family:var(--font-mono)" { (warehouse.code) }
                     span class=(format!("status-pill {status_class}")) { (status_label) }
                     @if warehouse.is_virtual {
-                        span class="status-pill" style="background:rgba(114,46,209,0.08);color:#722ed1;font-size:11px;padding:2px 8px" { "虚拟仓" }
+                        span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap" style="background:rgba(114,46,209,0.08);color:#722ed1;font-size:11px;padding:2px 8px" { "虚拟仓" }
                     }
                 }
                 div style="margin-top:var(--space-2);font-size:13px;color:var(--muted)" { (warehouse.name) }
             }
             div class="flex gap-3" {
-                a class="btn bg-white text-fg border border-border hover:bg-surface" href=(format!("{}?restore=true", WarehouseListPath::PATH)) {
+                a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface" href=(format!("{}?restore=true", WarehouseListPath::PATH)) {
                     (icon::arrow_left_icon("w-4 h-4"))
                     " 返回列表"
                 }
                 @if can_edit {
-                    a class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" href=(edit_path) {
+                    a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" href=(edit_path) {
                         (icon::edit_icon("w-4 h-4"))
                         " 编辑"
                     }
                 }
                 @if can_delete {
-                    button type="button" class="btn bg-danger text-white border-none hover:opacity-90" style="margin-left:var(--space-2)"
+                    button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-danger text-white border-none hover:opacity-90" style="margin-left:var(--space-2)"
                         hx-post=(delete_path)
                         hx-confirm=(format!("删除后无法恢复，确定要删除仓库 <strong>{}</strong> 吗？", warehouse.name))
                         hx-target="body"
@@ -404,7 +404,7 @@ fn warehouse_detail_page(
         }
 
         // ── Zones Table ──
-        div class="sub-section" style="background:var(--bg);border:1px solid var(--border-soft);border-radius:var(--radius-md);padding:var(--space-6);margin-bottom:var(--space-6)" {
+        div class="bg-bg border border-border-soft rounded-xl overflow-hidden" style="background:var(--bg);border:1px solid var(--border-soft);border-radius:var(--radius-md);padding:var(--space-6);margin-bottom:var(--space-6)" {
             div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-4);padding-bottom:var(--space-3);border-bottom:1px solid var(--border-soft)" {
                 div style="font-size:var(--text-base);font-weight:600;color:var(--fg)" {
                     "库区列表 "
@@ -412,7 +412,7 @@ fn warehouse_detail_page(
                         "共 " (zones.len()) " 个库区"
                     }
                 }
-                button type="button" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" style="font-size:12px;padding:4px 12px" _="on click add .is-open to #zone-create-modal" {
+                button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" style="font-size:12px;padding:4px 12px" _="on click add .is-open to #zone-create-modal" {
                     (icon::plus_icon("w-3.5 h-3.5"))
                     "新建库区"
                 }
@@ -423,8 +423,8 @@ fn warehouse_detail_page(
         }
 
         // ── Zone Bins Table (placeholder, populated on zone click) ──
-        div id="bins-section" class="sub-section" style="background:var(--bg);border:1px solid var(--border-soft);border-radius:var(--radius-md);padding:var(--space-6);margin-bottom:var(--space-6)" {
-            div class="sub-section-title" style="font-size:var(--text-base);font-weight:600;color:var(--fg);margin-bottom:var(--space-4);padding-bottom:var(--space-3);border-bottom:1px solid var(--border-soft)" {
+        div id="bins-section" class="bg-bg border border-border-soft rounded-xl overflow-hidden" style="background:var(--bg);border:1px solid var(--border-soft);border-radius:var(--radius-md);padding:var(--space-6);margin-bottom:var(--space-6)" {
+            div class="sub-text-lg font-semibold text-fg" style="font-size:var(--text-base);font-weight:600;color:var(--fg);margin-bottom:var(--space-4);padding-bottom:var(--space-3);border-bottom:1px solid var(--border-soft)" {
                 "储位明细 "
                 span style="font-weight:400;font-size:12px;color:var(--muted);margin-left:var(--space-2)" {
                     "请点击库区查看储位"
@@ -481,7 +481,7 @@ fn warehouse_detail_page(
         ))
 
         // ── Zone Edit Modal ──
-        div id="zone-edit-modal" class="modal-overlay" { }
+        div id="zone-edit-modal" class="fixed z-[1000] grid place-items-center opacity-0" { }
         (maud::PreEscaped(r#"<script>
 var zem = document.querySelector('#zone-edit-modal');
 zem.addEventListener('htmx:afterSettle', function(ev){ if(ev.detail.xhr.responseText.length > 0) zem.classList.add('is-open'); });
@@ -504,7 +504,7 @@ fn zone_edit_form_fragment(zone: &Zone) -> Markup {
     };
 
     html! {
-        form class="modal" hx-put=(put_path) hx-swap="none" {
+        form class="bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0" hx-put=(put_path) hx-swap="none" {
             div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
                 h2 { "编辑库区" }
                 button type="button" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px" _="on click remove .is-open from #zone-edit-modal" {
@@ -546,10 +546,10 @@ fn zone_edit_form_fragment(zone: &Zone) -> Markup {
                 }
             }
             div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" {
-                button type="button" class="btn bg-white text-fg border border-border hover:bg-surface" _="on click remove .is-open from #zone-edit-modal" {
+                button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface" _="on click remove .is-open from #zone-edit-modal" {
                     "取消"
                 }
-                button type="submit" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" { "保存" }
+                button type="submit" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" { "保存" }
             }
         }
     }
@@ -599,28 +599,28 @@ fn zone_row(z: &Zone, _warehouse_id: i64) -> Markup {
             td class="mono" { (z.code) }
             td { (z.name) }
             td {
-                span class="status-pill" style="background:rgba(22,119,255,0.06);color:#1677ff" { (type_label) }
+                span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap" style="background:rgba(22,119,255,0.06);color:#1677ff" { (type_label) }
             }
-            td class="num-right" style="color:var(--muted)" { "—" }
+            td class="text-right text-[13px]" style="color:var(--muted)" { "—" }
             td class="mono" { (z.sort_order) }
             td style="color:var(--muted)" {
                 @if let Some(ref r) = z.remark { (r) } @else { "—" }
             }
             td {
                 div class="row-actions" {
-                    button type="button" class="row-action-btn" title="查看储位"
+                    button type="button" class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" title="查看储位"
                         hx-get=(bins_path)
                         hx-target="#bins-table-container"
                         hx-swap="innerHTML" {
                         (icon::eye_icon("w-4 h-4"))
                     }
-                    button type="button" class="row-action-btn" title="编辑"
+                    button type="button" class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" title="编辑"
                         hx-get=(WarehouseZonePath { zone_id: z.id })
                         hx-target="#zone-edit-modal"
                         hx-swap="innerHTML" {
                         (icon::edit_icon("w-4 h-4"))
                     }
-                    button type="button" class="row-action-btn" title="删除" style="color:var(--danger)"
+                    button type="button" class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" title="删除" style="color:var(--danger)"
                         hx-delete=(delete_path)
                         hx-confirm="确定要删除该库区吗？删除后不可恢复。"
                         hx-target="closest tr"
@@ -682,7 +682,7 @@ fn bin_row(b: &Bin) -> Markup {
             td class="mono" { (b.code) }
             td { (b.name) }
             td class="mono" { (row_col) }
-            td class="num-right" {
+            td class="text-right text-[13px]" {
                 @if let Some(cap) = b.capacity_limit {
                     (format!("{:.2}", cap))
                 } @else {
@@ -710,8 +710,8 @@ fn stats_section(stats: Option<&WarehouseInventoryStats>) -> Markup {
     };
 
     html! {
-        div class="sub-section" style="background:var(--bg);border:1px solid var(--border-soft);border-radius:var(--radius-md);padding:var(--space-6);margin-bottom:var(--space-6)" {
-            div class="sub-section-title" style="font-size:var(--text-base);font-weight:600;color:var(--fg);margin-bottom:var(--space-4);padding-bottom:var(--space-3);border-bottom:1px solid var(--border-soft)" {
+        div class="bg-bg border border-border-soft rounded-xl overflow-hidden" style="background:var(--bg);border:1px solid var(--border-soft);border-radius:var(--radius-md);padding:var(--space-6);margin-bottom:var(--space-6)" {
+            div class="sub-text-lg font-semibold text-fg" style="font-size:var(--text-base);font-weight:600;color:var(--fg);margin-bottom:var(--space-4);padding-bottom:var(--space-3);border-bottom:1px solid var(--border-soft)" {
                 "库存统计"
             }
             div style="display:grid;grid-template-columns:repeat(4,1fr);gap:var(--space-5)" {

@@ -105,14 +105,14 @@ fn routing_list_page(
             div class="flex items-center justify-between mb-6" {
                 h1 class="text-xl font-bold text-fg tracking-tight" { "工艺路线管理" }
                 div class="flex gap-3" {
-                    button type="button" class="btn bg-white text-fg border border-border hover:bg-surface"
+                    button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface"
                         _=(import_modal::import_modal_onclick(&ImportModalConfig { import_type: "labor-process", title: "", template_columns: "" })) {
                         (icon::upload_icon("w-4 h-4"))
                         "导入"
                     }
                     (export_button::export_button("导出工艺路线", "labor-process"))
                     @if can_create {
-                        a class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" href=(RoutingCreatePath::PATH) {
+                        a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" href=(RoutingCreatePath::PATH) {
                             (icon::plus_icon("w-4 h-4"))
                             "新建工艺路线"
                         }
@@ -146,7 +146,7 @@ fn routing_table_fragment(
         div class="customer-list-panel" {
             // ── Filter Bar ──
             div class="flex items-center gap-3 mb-5 flex-wrap" {
-                div class="inline-flex items-center gap-1 px-3 py-1 bg-surface rounded-full text-xs text-muted font-medium" { "全部 " span class="chip-count" { (total_count) } }
+                div class="inline-flex items-center gap-1 px-3 py-1 bg-surface rounded-full text-xs text-muted font-medium" { "全部 " span class="font-bold text-fg" { (total_count) } }
                 div class="relative flex-1 max-w-xs" {
                     (icon::search_icon("w-4 h-4"))
                     input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword"
@@ -217,12 +217,12 @@ fn routing_row(r: &Routing, can_delete: bool) -> Markup {
             }
             td onclick="event.stopPropagation()" {
                 div class="row-actions" {
-                    a class="row-action-btn" title="查看"
+                    a class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" title="查看"
                         href=(detail_path) {
                         (icon::eye_icon("w-4 h-4"))
                     }
                     @if can_delete {
-                        button type="button" class="row-action-btn text-danger" title="删除"
+                        button type="button" class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer text-danger" title="删除"
                             hx-confirm=(format!("确认删除工艺路线 {}？", r.name))
                             hx-post=(delete_path)
                             hx-target="closest tr"

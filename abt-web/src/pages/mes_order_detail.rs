@@ -331,19 +331,19 @@ fn order_detail_page(
             }
 
             // Detail Header
-            div class="detail-header" {
-                div class="detail-title-row" {
-                    div class="detail-doc-no mono" {
+            div class="block bg-bg border border-border-soft rounded-lg p-6" {
+                div class="flex items-center justify-between" {
+                    div class="text-[24px] font-bold text-fg flex items-center gap-[14px] mono" {
                         span { (order.doc_number) }
                         (status_pill(status_label, status_bg, status_color))
                     }
                     div class="flex gap-3" {
                         @if matches!(order.status, WorkOrderStatus::Released | WorkOrderStatus::InProduction) {
-                            button class="btn bg-white text-fg border border-border hover:bg-surface" type="button" _="on click add .is-open to #unrelease-dialog" {
+                            button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface" type="button" _="on click add .is-open to #unrelease-dialog" {
                                 "反下达"
                             }
                             @if completion_pct >= rust_decimal::Decimal::new(95, 2) {
-                                button class="btn bg-white text-fg border border-border hover:bg-surface"
+                                button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface"
                                     hx-post=(OrderClosePath { order_id: order.id }.to_string())
                                     hx-confirm="确认关闭此工单？所有批次必须已完工或已取消。"
                                     hx-disabled-elt="this" {
@@ -351,7 +351,7 @@ fn order_detail_page(
                                     "关闭工单"
                                 }
                             } @else {
-                                button class="btn bg-white text-fg border border-border hover:bg-surface" disabled
+                                button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface" disabled
                                     title=(format!("完工率 {}%，需 ≥ 95% 才能关闭", completion_pct.round_dp(1))) {
                                     (icon::check_circle_icon("w-4 h-4"))
                                     "关闭工单（完工不足）"
@@ -359,7 +359,7 @@ fn order_detail_page(
                             }
                         }
                         @if matches!(order.status, WorkOrderStatus::Draft | WorkOrderStatus::Planned) {
-                            button class="btn bg-accent text-accent-on border-none hover:bg-accent-hover"
+                            button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover"
                                 hx-post=(OrderReleasePath { order_id: order.id }.to_string())
                                 hx-confirm="确认下达此工单？下达后将开始生产。"
                                 hx-disabled-elt="this" {
@@ -369,13 +369,13 @@ fn order_detail_page(
                         }
                         @if matches!(order.status, WorkOrderStatus::Draft | WorkOrderStatus::Planned | WorkOrderStatus::Released | WorkOrderStatus::InProduction) {
                             @if has_receipts {
-                                button class="btn bg-danger text-white border-none hover:opacity-90" disabled
+                                button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-danger text-white border-none hover:opacity-90" disabled
                                     title="存在已完工入库记录，无法取消" {
                                     (icon::x_icon("w-4 h-4"))
                                     "取消（有入库记录）"
                                 }
                             } @else {
-                                button class="btn bg-danger text-white border-none hover:opacity-90"
+                                button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-danger text-white border-none hover:opacity-90"
                                     hx-post=(OrderCancelPath { order_id: order.id }.to_string())
                                     hx-confirm="确认取消此工单？取消后不可恢复。"
                                     hx-disabled-elt="this" {
@@ -388,7 +388,7 @@ fn order_detail_page(
                 }
 
                 // 副标题行
-                div class="detail-sub-row" {
+                div class="flex items-center flex-wrap gap-2 text-muted text-sm" {
                     span { (product_name) }
                     span class="sep" { "|" }
                     span class="mono" { (crate::utils::fmt_qty(order.planned_qty)) " 件" }
@@ -413,7 +413,7 @@ fn order_detail_page(
                         span class="sep" { "|" }
                         span { "生产计划: " }
                         @if let Some(pid) = order.source_plan_id {
-                            a class="link-cell" href=(format!("/admin/mes/plans/{pid}")) { (pdoc) }
+                            a class="text-accent font-medium cursor-pointer" href=(format!("/admin/mes/plans/{pid}")) { (pdoc) }
                         } @else { span { (pdoc) } }
                     }
                 }
@@ -436,23 +436,23 @@ fn order_detail_page(
 
             // 反下达对话框
             @if matches!(order.status, WorkOrderStatus::Released) {
-                div class="modal-overlay" id="unrelease-dialog" {
-                    div class="modal modal-sm" {
+                div class="fixed z-[1000] grid place-items-center opacity-0" id="unrelease-dialog" {
+                    div class="modal bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0-sm" {
                         div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
                             h2 { "确认反下达？" }
                         }
                         div class="overflow-y-auto flex-1 min-h-0 p-6" {
-                            p class="modal-desc" {
+                            p class="bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0-desc" {
                                 "反下达将回退工单到 "
                                 strong { "草稿" }
                                 " 状态，同时取消领料单、释放库存预留、软删除生产批次（若有报工记录则无法反下达）。此操作不可撤销。"
                             }
                         }
                         div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" {
-                            button class="btn bg-white text-fg border border-border hover:bg-surface" type="button" _="on click remove .is-open from #unrelease-dialog" {
+                            button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface" type="button" _="on click remove .is-open from #unrelease-dialog" {
                                 "取消"
                             }
-                            button class="btn bg-danger text-white border-none hover:opacity-90"
+                            button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-danger text-white border-none hover:opacity-90"
                                 hx-post=(OrderUnreleasePath { order_id: order.id }.to_string())
                                 hx-confirm="确认执行反下达？"
                                 hx-disabled-elt="this" {
@@ -470,10 +470,10 @@ fn order_detail_page(
 fn tab_info(order: &WorkOrder, product_name: &str, routing_count: usize, completion_pct: rust_decimal::Decimal) -> Markup {
     let (sl, sb, sc) = wo_status_label(&order.status);
     html! {
-        div class="bento-grid" {
-            div class="bento-half" {
+        div class="grid gap-5 bg-bg border border-border-soft rounded-lg p-6" {
+            div class="flex flex-col gap-4" {
                 div class="text-sm font-semibold text-fg mb-3 pb-2 border-b border-border-soft" { "基础信息" }
-                div class="bento-sub-grid" {
+                div class="grid gap-4" {
                     div class="flex flex-col gap-1" { span class="text-xs text-muted font-medium" { "工单编号" } span class="text-sm text-fg font-medium mono" { (order.doc_number) } }
                     div class="flex flex-col gap-1" { span class="text-xs text-muted font-medium" { "产品" } span class="text-sm text-fg font-medium" { (product_name) } }
                     div class="flex flex-col gap-1" { span class="text-xs text-muted font-medium" { "计划数量" } span class="text-sm text-fg font-medium mono" { (crate::utils::fmt_qty(order.planned_qty)) } }
@@ -484,9 +484,9 @@ fn tab_info(order: &WorkOrder, product_name: &str, routing_count: usize, complet
                     div class="flex flex-col gap-1" { span class="text-xs text-muted font-medium" { "创建人" } span class="text-sm text-fg font-medium mono" { "#" (order.operator_id) } }
                 }
             }
-            div class="bento-half" {
+            div class="flex flex-col gap-4" {
                 div class="text-sm font-semibold text-fg mb-3 pb-2 border-b border-border-soft" { "生产配置" }
-                div class="bento-sub-grid" {
+                div class="grid gap-4" {
                     div class="flex flex-col gap-1" {
                         span class="text-xs text-muted font-medium" { "BOM 快照" }
                         span class="text-sm text-fg font-medium mono" { @if let Some(bid) = order.bom_snapshot_id { "#" (bid) } @else { "—" } }
@@ -503,10 +503,10 @@ fn tab_info(order: &WorkOrder, product_name: &str, routing_count: usize, complet
             }
         }
         // 生产进度
-        div class="info-section" {
+        div class="bg-bg border border-border-soft rounded-lg p-6" {
             div class="text-sm font-semibold text-fg mb-3 pb-2 border-b border-border-soft" { "生产进度" }
             div class="progress-section" {
-                div class="progress-stats" {
+                div class="flex gap-[24px]" {
                     span class="flex flex-col gap-1" {
                         span class="text-xs text-muted font-medium" { "计划" }
                         span class="text-sm text-fg font-medium mono" { (crate::utils::fmt_qty(order.planned_qty)) }
@@ -520,7 +520,7 @@ fn tab_info(order: &WorkOrder, product_name: &str, routing_count: usize, complet
                         span class="text-sm text-fg font-medium mono" { (completion_pct.round_dp(1)) "%" }
                     }
                 }
-                div class="progress-bar-wrap" {
+                div class="h-[8px] bg-[#f5f5f5] overflow-hidden" {
                     div class="progress-bar-fill"
                         style=(format!("width: {}%", completion_pct.round_dp(1)))
                     {}
@@ -528,9 +528,9 @@ fn tab_info(order: &WorkOrder, product_name: &str, routing_count: usize, complet
             }
         }
         @if !order.remark.is_empty() {
-            div class="info-section" {
+            div class="bg-bg border border-border-soft rounded-lg p-6" {
                 div class="text-sm font-semibold text-fg mb-3 pb-2 border-b border-border-soft" { "备注" }
-                p class="remark-text" { (order.remark.as_str()) }
+                p class="text-sm text-muted" { (order.remark.as_str()) }
             }
         }
     }
@@ -547,10 +547,10 @@ fn tab_routing(routings: &[WorkOrderRouting]) -> Markup {
                             th { "序号" }
                             th { "工序名称" }
                             th { "工作中心" }
-                            th class="num-right" { "计划量" }
-                            th class="num-right" { "标准工时" }
-                            th class="num-right" { "标准成本" }
-                            th class="num-right" { "计件单价" }
+                            th class="text-right text-[13px]" { "计划量" }
+                            th class="text-right text-[13px]" { "标准工时" }
+                            th class="text-right text-[13px]" { "标准成本" }
+                            th class="text-right text-[13px]" { "计件单价" }
                             th { "委外" }
                             th { "标记" }
                         }
@@ -563,14 +563,14 @@ fn tab_routing(routings: &[WorkOrderRouting]) -> Markup {
                                 td class="mono" {
                                     @if let Some(wc) = r.work_center_id { "#" (wc) } @else { "—" }
                                 }
-                                td class="mono num-right" { (crate::utils::fmt_qty(r.planned_qty)) }
-                                td class="mono num-right" {
+                                td class="mono text-right text-[13px]" { (crate::utils::fmt_qty(r.planned_qty)) }
+                                td class="mono text-right text-[13px]" {
                                     @if let Some(t) = r.standard_time { (crate::utils::fmt_qty(t)) } @else { "—" }
                                 }
-                                td class="mono num-right" {
+                                td class="mono text-right text-[13px]" {
                                     @if let Some(c) = r.standard_cost { "¥" (crate::utils::fmt_qty(c)) } @else { "—" }
                                 }
-                                td class="mono num-right" {
+                                td class="mono text-right text-[13px]" {
                                     @if let Some(p) = r.unit_price { "¥" (crate::utils::fmt_qty(p)) } @else { "—" }
                                 }
                                 td {
@@ -584,7 +584,7 @@ fn tab_routing(routings: &[WorkOrderRouting]) -> Markup {
                             }
                         }
                         @if routings.is_empty() {
-                            tr { td colspan="9" class="empty-row" { "暂无工序明细（工单未下达或无工艺路线）" } }
+                            tr { td colspan="9" class="text-center text-muted text-sm" { "暂无工序明细（工单未下达或无工艺路线）" } }
                         }
                     }
                 }
@@ -604,7 +604,7 @@ fn tab_batches(batches: &[ProductionBatch], routings: &[WorkOrderRouting], order
         // 操作栏
         @if can_split {
             div class="flex items-center gap-3 mb-5 flex-wrap" style="justify-content:flex-end;margin-bottom:var(--space-3)" {
-                button class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" type="button"
+                button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" type="button"
                     _="on click add .is-open to #split-dialog" {
                     (icon::plus_icon("w-4 h-4"))
                     "新增批次"
@@ -619,9 +619,9 @@ fn tab_batches(batches: &[ProductionBatch], routings: &[WorkOrderRouting], order
                         tr {
                             th { "批次号" }
                             th { "流转卡号" }
-                            th class="num-right" { "计划量" }
-                            th class="num-right" { "完成量" }
-                            th class="num-right" { "报废量" }
+                            th class="text-right text-[13px]" { "计划量" }
+                            th class="text-right text-[13px]" { "完成量" }
+                            th class="text-right text-[13px]" { "报废量" }
                             th { "当前工序" }
                             th { "状态" }
                             th { "操作" }
@@ -632,9 +632,9 @@ fn tab_batches(batches: &[ProductionBatch], routings: &[WorkOrderRouting], order
                             tr {
                                 td class="mono" { (b.batch_no.as_str()) }
                                 td class="mono" { (b.card_sn.as_str()) }
-                                td class="mono num-right" { (crate::utils::fmt_qty(b.batch_qty)) }
-                                td class="mono num-right" style="color:var(--success)" { (crate::utils::fmt_qty(b.completed_qty)) }
-                                td class="mono num-right" style="color:var(--danger)" { (crate::utils::fmt_qty(b.scrap_qty)) }
+                                td class="mono text-right text-[13px]" { (crate::utils::fmt_qty(b.batch_qty)) }
+                                td class="mono text-right text-[13px]" style="color:var(--success)" { (crate::utils::fmt_qty(b.completed_qty)) }
+                                td class="mono text-right text-[13px]" style="color:var(--danger)" { (crate::utils::fmt_qty(b.scrap_qty)) }
                                 td {
                                     @if b.current_step == 0 {
                                         span style="color:var(--muted)" { "未开始" }
@@ -648,11 +648,11 @@ fn tab_batches(batches: &[ProductionBatch], routings: &[WorkOrderRouting], order
                                     }
                                 }
                                 td { (batch_status_pill(b.status)) }
-                                td { a class="link-cell" href=(format!("/admin/mes/batches/{}", b.id)) { "查看" } }
+                                td { a class="text-accent font-medium cursor-pointer" href=(format!("/admin/mes/batches/{}", b.id)) { "查看" } }
                             }
                         }
                         @if batches.is_empty() {
-                            tr { td colspan="8" class="empty-row" { @if can_split { "暂无生产批次，请点击「新增批次」创建" } @else { "暂无生产批次（工单未下达或无工艺路线）" } } }
+                            tr { td colspan="8" class="text-center text-muted text-sm" { @if can_split { "暂无生产批次，请点击「新增批次」创建" } @else { "暂无生产批次（工单未下达或无工艺路线）" } } }
                         }
                     }
                 }
@@ -661,14 +661,14 @@ fn tab_batches(batches: &[ProductionBatch], routings: &[WorkOrderRouting], order
 
         // 拆批对话框
         @if can_split {
-            div class="modal-overlay" id="split-dialog" {
-                div class="modal modal-sm" {
+            div class="fixed z-[1000] grid place-items-center opacity-0" id="split-dialog" {
+                div class="modal bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0-sm" {
                     div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
                         h2 { "新增生产批次" }
                     }
                     form {
                         div class="overflow-y-auto flex-1 min-h-0 p-6" {
-                            p class="modal-desc" {
+                            p class="bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0-desc" {
                                 "工单计划量 " strong { (crate::utils::fmt_qty(order.planned_qty)) }
                                 "，已分批 " strong { (crate::utils::fmt_qty(existing_qty)) }
                                 @if remaining > rust_decimal::Decimal::ZERO {
@@ -708,11 +708,11 @@ fn tab_batches(batches: &[ProductionBatch], routings: &[WorkOrderRouting], order
                             }
                         }
                         div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" {
-                            button class="btn bg-white text-fg border border-border hover:bg-surface" type="button"
+                            button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface" type="button"
                                 _="on click remove .is-open from #split-dialog" {
                                 "取消"
                             }
-                            button class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" type="submit"
+                            button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" type="submit"
                                 hx-post=(OrderSplitPath { order_id: order.id }.to_string())
                                 hx-disabled-elt="this" {
                                 "确认新增"
@@ -735,8 +735,8 @@ fn tab_reports(reports: &[ReportListItem]) -> Markup {
                             th { "报工时间" }
                             th { "工序" }
                             th { "报工单号" }
-                            th class="num-right" { "完成量" }
-                            th class="num-right" { "报废量" }
+                            th class="text-right text-[13px]" { "完成量" }
+                            th class="text-right text-[13px]" { "报废量" }
                             th { "报工人" }
                             th { "班次" }
                         }
@@ -746,15 +746,15 @@ fn tab_reports(reports: &[ReportListItem]) -> Markup {
                             tr {
                                 td class="mono" { (fmt_dt(r.created_at)) }
                                 td { (r.process_name.as_str()) }
-                                td { a class="link-cell mono" href=(format!("/admin/mes/reports/{}", r.id)) { (r.doc_number.as_str()) } }
-                                td class="mono num-right" { (crate::utils::fmt_qty(r.completed_qty)) }
-                                td class="mono num-right" { (crate::utils::fmt_qty(r.defect_qty)) }
+                                td { a class="text-accent font-medium cursor-pointer mono" href=(format!("/admin/mes/reports/{}", r.id)) { (r.doc_number.as_str()) } }
+                                td class="mono text-right text-[13px]" { (crate::utils::fmt_qty(r.completed_qty)) }
+                                td class="mono text-right text-[13px]" { (crate::utils::fmt_qty(r.defect_qty)) }
                                 td { (r.worker_name.as_deref().unwrap_or("—")) }
                                 td { (shift_label(r.shift)) }
                             }
                         }
                         @if reports.is_empty() {
-                            tr { td colspan="7" class="empty-row" { "暂无报工记录" } }
+                            tr { td colspan="7" class="text-center text-muted text-sm" { "暂无报工记录" } }
                         }
                     }
                 }
@@ -765,26 +765,26 @@ fn tab_reports(reports: &[ReportListItem]) -> Markup {
 
 fn tab_log(logs: &[AuditLog]) -> Markup {
     html! {
-        div class="info-section" {
+        div class="bg-bg border border-border-soft rounded-lg p-6" {
             div class="audit-timeline" {
                 @for log in logs {
                     div class="audit-item" {
-                        div class="audit-dot" {}
+                        div class="absolute w-[14px] h-[14px] rounded-full bg-accent" {}
                         div class="audit-content" {
-                            div class="audit-title" { (audit_action_label(log.action)) }
-                            div class="audit-meta" {
+                            div class="font-semibold text-sm text-fg" { (audit_action_label(log.action)) }
+                            div class="flex gap-2 text-[12px] text-muted items-center" {
                                 span { (fmt_dt(log.created_at)) }
                                 span class="sep" { "·" }
                                 span { "操作人 #" (log.operator_id) }
                             }
                             @if let Some(changes) = log.changes.as_ref() {
-                                div class="audit-desc" { (changes) }
+                                div class="text-[12px] text-muted" { (changes) }
                             }
                         }
                     }
                 }
                 @if logs.is_empty() {
-                    div class="empty-row" { "暂无操作日志" }
+                    div class="text-center text-muted text-sm" { "暂无操作日志" }
                 }
             }
         }

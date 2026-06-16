@@ -193,7 +193,7 @@ fn reconciliation_create_page(
                   hx-swap="none" {
 
                 // ── 对账基本信息 ──
-                div class="form-section-card" {
+                div class="form-bg-bg border border-border-soft rounded-lg overflow-hidden" {
                     div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                         (icon::clipboard_document_icon("w-[18px] h-[18px]"))
                         "对账基本信息"
@@ -237,34 +237,34 @@ fn reconciliation_create_page(
                 }
 
                 // ── 对账明细 ──
-                div class="line-items-card" id="rec-preview-area"
+                div class="bg-bg border border-border rounded overflow-hidden" id="rec-preview-area"
                     hx-get=(ReconciliationPreviewPath::PATH)
                     hx-trigger="previewChanged from:#rec-app"
                     hx-include="#rec-customer-select,#rec-period-select"
                     hx-target="this"
                     hx-swap="outerHTML" {
-                    div class="line-items-header" {
+                    div class="flex items-center justify-between p-5 border-b" {
                         h3 {
                             (icon::package_icon("w-[18px] h-[18px]"))
                             "对账明细"
                         }
-                        button type="button" class="btn bg-white text-fg border border-border hover:bg-surface" id="pickOrderBtn" disabled {
+                        button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface" id="pickOrderBtn" disabled {
                             (icon::plus_icon("w-3.5 h-3.5"))
                             "从发货单添加"
                         }
                     }
 
                     // Empty state
-                    div class="empty-state" id="emptyState" {
+                    div class="text-center p-6 text-muted text-sm" id="emptyState" {
                         (icon::clipboard_list_icon("w-12 h-12"))
-                        p class="empty-state-title" { "暂无对账明细" }
-                        p class="empty-state-desc" { "请先选择客户，然后从发货单中添加对账明细" }
-                        button type="button" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover mt-5" onclick="document.getElementById('pickOrderBtn').click()" { "选择发货单" }
+                        p class="text-center p-6 text-muted text-sm-title" { "暂无对账明细" }
+                        p class="text-center p-6 text-muted text-sm-desc" { "请先选择客户，然后从发货单中添加对账明细" }
+                        button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover mt-5" onclick="document.getElementById('pickOrderBtn').click()" { "选择发货单" }
                     }
                 }
 
                 // ── Remark ──
-                div class="form-section-card" {
+                div class="form-bg-bg border border-border-soft rounded-lg overflow-hidden" {
                     div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                         (icon::file_text_icon("w-[18px] h-[18px]"))
                         "备注"
@@ -273,12 +273,12 @@ fn reconciliation_create_page(
                 }
 
                 // ── Attachment ──
-                div class="form-section-card" {
+                div class="form-bg-bg border border-border-soft rounded-lg overflow-hidden" {
                     div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                         (icon::upload_icon("w-[18px] h-[18px]"))
                         "附件"
                     }
-                    div class="upload-area" {
+                    div class="rounded p-8 text-center cursor-pointer" {
                         (icon::upload_icon("w-8 h-8"))
                         p class="upload-title" { "点击或拖拽文件到此处上传" }
                         p class="upload-hint" { "支持 PDF、Word、Excel、图片，单个文件不超过 10MB" }
@@ -287,13 +287,13 @@ fn reconciliation_create_page(
 
                 // ── Action Bar ──
                 div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
-                    a class="btn bg-white text-fg border border-border hover:bg-surface" href=(format!("{}?restore=true", ReconciliationListPath::PATH)) { "取消" }
+                    a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface" href=(format!("{}?restore=true", ReconciliationListPath::PATH)) { "取消" }
                     div class="action-bar-right" {
-                        button type="button" class="btn bg-white text-fg border border-border hover:bg-surface" onclick="show_info_toast('草稿功能开发中')" {
+                        button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface" onclick="show_info_toast('草稿功能开发中')" {
                             (icon::save_icon("w-4 h-4"))
                             "保存草稿"
                         }
-                        button type="button" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" _="on click trigger submit on #rec-create-form" {
+                        button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" _="on click trigger submit on #rec-create-form" {
                             (icon::send_icon("w-4 h-4"))
                             "提交确认"
                         }
@@ -312,25 +312,25 @@ function triggerPreview() {
 }
 fn preview_empty(message: &str) -> Markup {
     html! {
-        div class="line-items-card" id="rec-preview-area"
+        div class="bg-bg border border-border rounded overflow-hidden" id="rec-preview-area"
             hx-get=(ReconciliationPreviewPath::PATH)
             hx-trigger="previewChanged from:#rec-app"
             hx-include="#rec-customer-select,#rec-period-select"
             hx-target="this"
             hx-swap="outerHTML" {
-            div class="line-items-header" {
+            div class="flex items-center justify-between p-5 border-b" {
                 h3 {
                     (icon::package_icon("w-[18px] h-[18px]"))
                     "对账明细"
                 }
-                button type="button" class="btn bg-white text-fg border border-border hover:bg-surface" id="pickOrderBtn" disabled {
+                button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface" id="pickOrderBtn" disabled {
                     (icon::plus_icon("w-3.5 h-3.5"))
                     "从发货单添加"
                 }
             }
-            div class="empty-state" id="emptyState" {
+            div class="text-center p-6 text-muted text-sm" id="emptyState" {
                 (icon::clipboard_list_icon("w-12 h-12"))
-                p class="empty-state-title" { (message) }
+                p class="text-center p-6 text-muted text-sm-title" { (message) }
             }
         }
     }
@@ -347,22 +347,22 @@ fn preview_table(
     let item_count = items.len();
 
     html! {
-        div class="line-items-card" id="rec-preview-area"
+        div class="bg-bg border border-border rounded overflow-hidden" id="rec-preview-area"
             hx-get=(ReconciliationPreviewPath::PATH)
             hx-trigger="previewChanged from:#rec-app"
             hx-include="#rec-customer-select,#rec-period-select"
             hx-target="this"
             hx-swap="outerHTML" {
-            div class="line-items-header" {
+            div class="flex items-center justify-between p-5 border-b" {
                 h3 {
                     (icon::package_icon("w-[18px] h-[18px]"))
                     "对账明细"
                 }
-                div class="line-items-header-actions" {
+                div class="flex items-center justify-between p-5 border-b-actions" {
                     span class="line-items-count" {
                         (item_count) " 行"
                     }
-                    button type="button" class="btn bg-white text-fg border border-border hover:bg-surface" id="pickOrderBtn" {
+                    button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface" id="pickOrderBtn" {
                         (icon::plus_icon("w-3.5 h-3.5"))
                         "从发货单添加"
                     }
@@ -393,19 +393,19 @@ fn preview_table(
                             @let shipping_detail = ShippingDetailPath { id: item.shipping_request_id };
 
                             tr {
-                                td class="line-num" { (i + 1) }
+                                td class="text-muted text-xs text-center" { (i + 1) }
                                 td {
                                     a href=(shipping_detail.to_string()) class="link-accent" { (shipping_num) }
                                 }
                                 td class="mono" { (product_code) }
                                 td { (product_name) }
-                                td class="num-right" { (item.quantity) }
-                                td class="num-right" { "—" }
-                                td class="num-right" { "—" }
-                                td class="num-right mono" { (format!("{:.2}", item.unit_price)) }
-                                td class="num-right mono" { (format!("{:.2}", item.amount)) }
+                                td class="text-right text-[13px]" { (item.quantity) }
+                                td class="text-right text-[13px]" { "—" }
+                                td class="text-right text-[13px]" { "—" }
+                                td class="text-right text-[13px] mono" { (format!("{:.2}", item.unit_price)) }
+                                td class="text-right text-[13px] mono" { (format!("{:.2}", item.amount)) }
                                 td {
-                                    button type="button" class="btn-remove-row" title="删除" {
+                                    button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center" title="删除" {
                                         (icon::x_icon("w-3.5 h-3.5"))
                                     }
                                 }
@@ -417,20 +417,20 @@ fn preview_table(
         }
 
         // ── 金额汇总 ──
-        div class="amount-summary-card" {
-            div class="amount-summary-row" {
+        div class="flex justify-end gap-8 p-5 border-t bg-surface-raised-card" {
+            div class="flex justify-end gap-8 p-5 border-t bg-surface-raised-row" {
                 span class="label" { "发货总额" }
                 span class="value" { (crate::utils::fmt_amount(total_amount)) }
             }
-            div class="amount-summary-row" {
+            div class="flex justify-end gap-8 p-5 border-t bg-surface-raised-row" {
                 span class="label" { "退货总额" }
                 span class="value negative" { "— ¥ 0.00" }
             }
-            div class="amount-summary-row" {
+            div class="flex justify-end gap-8 p-5 border-t bg-surface-raised-row" {
                 span class="label" { "调整金额" }
                 span class="value muted-value" { "¥ 0.00" }
             }
-            div class="amount-summary-row total" {
+            div class="flex justify-end gap-8 p-5 border-t bg-surface-raised-row total" {
                 span class="label" { "净额（应收）" }
                 span class="value" { (crate::utils::fmt_amount(total_amount)) }
             }

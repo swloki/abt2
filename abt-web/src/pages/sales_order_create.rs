@@ -293,7 +293,7 @@ fn order_create_page(customers: &[abt_core::master_data::customer::model::Custom
             (customer_info_panel(customers, sel_contacts, sel_customer_id, OrderCustomerContactsPath::PATH))
 
             // ── Order Info ──
-            div class="form-section-card" {
+            div class="form-bg-bg border border-border-soft rounded-lg overflow-hidden" {
                 div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                     (icon::clipboard_document_icon("w-[18px] h-[18px]"))
                     "订单信息"
@@ -336,7 +336,7 @@ fn order_create_page(customers: &[abt_core::master_data::customer::model::Custom
             }
 
             // ── Line Items ──
-            div class="form-section-card" {
+            div class="form-bg-bg border border-border-soft rounded-lg overflow-hidden" {
                 div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                     (icon::package_icon("w-[18px] h-[18px]"))
                     "产品明细"
@@ -367,31 +367,31 @@ fn order_create_page(customers: &[abt_core::master_data::customer::model::Custom
                         }
                     }
                 }
-                div class="add-row-bar" {
-                    button type="button" class="btn-add-row"
+                div class="p-3 flex items-center gap-2" {
+                    button type="button" class="inline-flex items-center gap-2 rounded-sm text-accent text-sm cursor-pointer"
                         _="on click add .is-open to #product-modal" {
                         (icon::plus_icon("w-3.5 h-3.5"))
                         "添加产品行"
                     }
                 }
-                div class="totals-bar" {
-                    div class="totals-item" {
-                        span class="totals-label" { "合计金额" }
-                        span class="totals-value" id="subtotal-value" { "¥ 0.00" }
+                div class="flex justify-end p-4 bg-surface border-t gap-8" {
+                    div class="flex gap-3" {
+                        span class="text-sm text-muted" { "合计金额" }
+                        span class="text-lg font-bold text-fg" id="subtotal-value" { "¥ 0.00" }
                     }
-                    div class="totals-item" {
-                        span class="totals-label" { "折扣总额" }
-                        span class="totals-value" id="discount-value" { "- ¥ 0.00" }
+                    div class="flex gap-3" {
+                        span class="text-sm text-muted" { "折扣总额" }
+                        span class="text-lg font-bold text-fg" id="discount-value" { "- ¥ 0.00" }
                     }
-                    div class="totals-item" {
-                        span class="totals-label" { "订单总额" }
-                        span class="totals-value grand" id="grand-value" { "¥ 0.00" }
+                    div class="flex gap-3" {
+                        span class="text-sm text-muted" { "订单总额" }
+                        span class="text-lg font-bold text-fg grand" id="grand-value" { "¥ 0.00" }
                     }
                 }
             }
 
             // ── Remark ──
-            div class="form-section-card" {
+            div class="form-bg-bg border border-border-soft rounded-lg overflow-hidden" {
                 div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                     (icon::file_text_icon("w-[18px] h-[18px]"))
                     "备注"
@@ -402,12 +402,12 @@ fn order_create_page(customers: &[abt_core::master_data::customer::model::Custom
             }
 
             // ── Attachment ──
-            div class="form-section-card" {
+            div class="form-bg-bg border border-border-soft rounded-lg overflow-hidden" {
                 div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                     (icon::upload_icon("w-[18px] h-[18px]"))
                     "附件"
                 }
-                div class="upload-area" {
+                div class="rounded p-8 text-center cursor-pointer" {
                     (icon::upload_icon("w-8 h-8"))
                     p class="upload-title" { "点击或拖拽文件到此处上传" }
                     p class="upload-hint" { "支持 PDF、Word、Excel、图片，单个文件不超过 10MB" }
@@ -416,13 +416,13 @@ fn order_create_page(customers: &[abt_core::master_data::customer::model::Custom
 
             // ── Action Bar ──
             div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
-                a class="btn bg-white text-fg border border-border hover:bg-surface" href=(format!("{}?restore=true", OrderListPath::PATH)) { "取消" }
+                a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface" href=(format!("{}?restore=true", OrderListPath::PATH)) { "取消" }
                 div class="flex gap-3" {
-                    button type="button" class="btn bg-white text-fg border border-border hover:bg-surface" {
+                    button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface" {
                         (icon::save_icon("w-4 h-4"))
                         "保存草稿"
                     }
-                    button type="button" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" _="on click call salesOrderSubmit() then trigger submit on #order-form" {
+                    button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" _="on click call salesOrderSubmit() then trigger submit on #order-form" {
                         (icon::send_icon("w-4 h-4"))
                         "提交订单"
                     }
@@ -431,18 +431,18 @@ fn order_create_page(customers: &[abt_core::master_data::customer::model::Custom
             }
 
             // ── Product Selection Modal ──
-            div class="modal-overlay" id="product-modal"
+            div class="fixed z-[1000] grid place-items-center opacity-0" id="product-modal"
                 _="on click[me is event.target] remove .is-open" {
-                div class="modal modal-lg" onclick="event.stopPropagation()" {
+                div class="modal bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0-lg" onclick="event.stopPropagation()" {
                     div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
                         h2 { "选择产品" }
                         button class="bg-transparent border-none cursor-pointer text-xl text-muted p-1 hover:text-fg"
                             _="on click remove .is-open from #product-modal" { "×" }
                     }
                     div class="overflow-y-auto flex-1 min-h-0 p-6 p-0" {
-                        div class="product-search-bar" {
-                            div class="product-search-field" {
-                                label class="product-search-label" { "产品名称" }
+                        div class="flex gap-4 p-4 border-b" {
+                            div class="flex-1 flex flex-col gap-[4px]" {
+                                label class="text-[12px] font-medium text-fg-2" { "产品名称" }
                                 input class="product-w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="name" placeholder="输入产品名称…"
                                     hx-get=(OrderProductsPath::PATH)
                                     hx-trigger="keyup changed delay:300ms"
@@ -451,8 +451,8 @@ fn order_create_page(customers: &[abt_core::master_data::customer::model::Custom
                                     hx-swap="innerHTML"
                                     hx-include=".product-search-bar" {}
                             }
-                            div class="product-search-field" {
-                                label class="product-search-label" { "产品编码" }
+                            div class="flex-1 flex flex-col gap-[4px]" {
+                                label class="text-[12px] font-medium text-fg-2" { "产品编码" }
                                 input class="product-w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="code" placeholder="输入产品编码…"
                                     hx-get=(OrderProductsPath::PATH)
                                     hx-trigger="keyup changed delay:300ms"
@@ -461,7 +461,7 @@ fn order_create_page(customers: &[abt_core::master_data::customer::model::Custom
                                     hx-swap="innerHTML"
                                     hx-include=".product-search-bar" {}
                             }
-                            button type="button" class="product-search-clear"
+                            button type="button" class="border border-border rounded-sm bg-bg text-fg-2 text-sm cursor-pointer whitespace-nowrap"
                                 hx-get=(OrderProductsPath::PATH)
                                 hx-target="#product-search-results"
                                 hx-swap="innerHTML"
@@ -473,7 +473,7 @@ fn order_create_page(customers: &[abt_core::master_data::customer::model::Custom
                         hx-get=(OrderProductsPath::PATH)
                         hx-trigger="intersect once"
                         hx-swap="innerHTML" {
-                            div class="loading-placeholder" { "加载中…" }
+                            div class="flex items-center justify-center p-8 text-muted" { "加载中…" }
                         }
                     }
                 }
@@ -499,7 +499,7 @@ fn prefill_item_row(item: &QuotationItem, names: &HashMap<i64, String>, codes: &
 
     html! {
         tr oninput="salesOrderCalcRow(this)" {
-            td class="line-num" { }
+            td class="text-muted text-xs text-center" { }
             td class="mono" { (product_code) }
             td { (product_name) }
             td { input class="li-input" type="text" name="description" value=(item.description.as_str()) {} }
@@ -507,9 +507,9 @@ fn prefill_item_row(item: &QuotationItem, names: &HashMap<i64, String>, codes: &
             td { input class="li-input-num" type="number" min="1" step="1" name="quantity" value=(item.quantity) {} }
             td { input class="li-input-price" type="number" step="any" name="unit_price" value=(item.unit_price) {} }
             td { input class="li-input-disc" type="number" min="0" max="100" name="discount_rate" value=(discount) {} }
-            td class="line-total" { "—" }
+            td class="text-right font-semibold text-fg whitespace-nowrap" { "—" }
             td { input class="li-input-date" type="date" name="item_delivery_date" value=(delivery) {} }
-            td { button type="button" class="btn-remove-row" title="删除行"
+            td { button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center" title="删除行"
                 _="on click remove closest <tr/>" {
                 (icon::x_icon("w-3.5 h-3.5"))
             } }
@@ -522,25 +522,25 @@ fn prefill_item_row(item: &QuotationItem, names: &HashMap<i64, String>, codes: &
 fn product_list_fragment(products: &[abt_core::master_data::product::model::Product]) -> Markup {
     html! {
         @if products.is_empty() {
-            div class="flex-center" style="padding:var(--space-12)" {
+            div class="flex items-center justify-center" style="padding:var(--space-12)" {
                 (icon::package_icon("w-8 h-8"))
                 p class="mt-2 text-sm" { "未找到匹配的产品" }
             }
         } @else {
             div class="product-select-list" {
                 @for p in products {
-                    div class="product-select-item" {
+                    div class="flex items-center justify-between p-3 border-b" {
                         div class="product-select-info" {
-                            div class="product-select-name" { (p.pdt_name) }
-                            div class="product-select-meta" {
-                                span class="product-select-code" { (p.product_code) }
+                            div class="text-sm font-medium text-fg" { (p.pdt_name) }
+                            div class="text-[12px] text-muted flex items-center gap-[6px] flex-wrap" {
+                                span class="bg-surface rounded-sm" { (p.product_code) }
                                 span class="product-select-sep" { "·" }
                                 span { (p.meta.specification) }
                                 span class="product-select-sep" { "·" }
                                 span { (p.unit) }
                             }
                         }
-                        button type="button" class="btn btn-sm bg-accent text-accent-on border-none hover:bg-accent-hover"
+                        button type="button" class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm bg-accent text-accent-on border-none hover:bg-accent-hover"
                             hx-get=(format!("{}?product_id={}", OrderItemRowPath::PATH, p.product_id))
                             hx-target="#order-item-tbody"
                             hx-swap="beforeend"
@@ -557,7 +557,7 @@ fn product_list_fragment(products: &[abt_core::master_data::product::model::Prod
 fn item_row_fragment(product: &abt_core::master_data::product::model::Product) -> Markup {
     html! {
         tr oninput="salesOrderCalcRow(this)" {
-            td class="line-num" { }
+            td class="text-muted text-xs text-center" { }
             td class="mono" { (product.product_code) }
             td { (product.pdt_name) }
             td { input class="li-input" type="text" name="description" {} }
@@ -565,9 +565,9 @@ fn item_row_fragment(product: &abt_core::master_data::product::model::Product) -
             td { input class="li-input-num" type="number" min="1" step="1" name="quantity" placeholder="0" {} }
             td { input class="li-input-price" type="number" step="any" name="unit_price" placeholder="0.00" {} }
             td { input class="li-input-disc" type="number" min="0" max="100" name="discount_rate" {} }
-            td class="line-total" { "—" }
+            td class="text-right font-semibold text-fg whitespace-nowrap" { "—" }
             td { input class="li-input-date" type="date" name="item_delivery_date" {} }
-            td { button type="button" class="btn-remove-row" title="删除行"
+            td { button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center" title="删除行"
                 _="on click remove closest <tr/>" {
                 (icon::x_icon("w-3.5 h-3.5"))
             } }

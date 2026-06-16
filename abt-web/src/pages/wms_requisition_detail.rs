@@ -57,7 +57,7 @@ fn workflow_steps(status: RequisitionStatus) -> Markup {
     };
 
     html! {
-        div class="workflow-steps" {
+        div class="flex items-center" {
             @for (i, label) in steps.iter().enumerate() {
                 @if i > 0 {
                     @let line_class = if completed[i] { "wf-line completed" } else { "wf-line" };
@@ -69,7 +69,7 @@ fn workflow_steps(status: RequisitionStatus) -> Markup {
                     _ => "wf-step",
                 };
                 div class=(step_class) {
-                    span class="wf-dot" {}
+                    span class="w-[10px] h-[10px] rounded-full bg-border" {}
                     (label)
                 }
             }
@@ -203,10 +203,10 @@ fn requisition_detail_page(
                 "返回领料单列表"
             }
 
-            div class="detail-header" {
+            div class="block bg-bg border border-border-soft rounded-lg p-6" {
                 div {
-                    div class="detail-title-row" {
-                        h1 class="detail-no font-mono" { (requisition.doc_number) }
+                    div class="flex items-center justify-between" {
+                        h1 class="text-2xl font-extrabold font-mono" { (requisition.doc_number) }
                         span class=(format!("status-pill {status_class}")) { (status_text) }
                     }
                 }
@@ -252,9 +252,9 @@ fn requisition_detail_page(
                             tr {
                                 th { "行号" }
                                 th { "产品" }
-                                th class="num-right" { "需求数量" }
-                                th class="num-right" { "实领数量" }
-                                th class="num-right" { "差异量" }
+                                th class="text-right text-[13px]" { "需求数量" }
+                                th class="text-right text-[13px]" { "实领数量" }
+                                th class="text-right text-[13px]" { "差异量" }
                                 th { "工序" }
                                 th { "批次" }
                                 th { "储位" }
@@ -266,8 +266,8 @@ fn requisition_detail_page(
                                 tr {
                                     td class="mono" { (i + 1) }
                                     td { (product_names.get(&item.product_id).map(|n| n.as_str()).unwrap_or("—")) }
-                                    td class="num-right" { (format!("{:.2}", item.requested_qty)) }
-                                    td class="num-right" { (format!("{:.2}", item.issued_qty)) }
+                                    td class="text-right text-[13px]" { (format!("{:.2}", item.requested_qty)) }
+                                    td class="text-right text-[13px]" { (format!("{:.2}", item.issued_qty)) }
                                     td class=(format!("num-right {}", variance_class)) { (variance_text) }
                                     td class="mono" { (item.operation_id.map(|id| format!("#{}", id)).unwrap_or_else(|| "—".into())) }
                                     td class="mono" { (item.batch_id.map(|id| format!("#{}", id)).unwrap_or_else(|| "—".into())) }
@@ -276,7 +276,7 @@ fn requisition_detail_page(
                             }
                             @if items.is_empty() {
                                 tr {
-                                    td colspan="8" class="empty-row" { "暂无领料明细" }
+                                    td colspan="8" class="text-center text-muted text-sm" { "暂无领料明细" }
                                 }
                             }
                         }
@@ -291,7 +291,7 @@ fn requisition_action_buttons(status: RequisitionStatus, detail_path: &str) -> M
     match status {
         RequisitionStatus::Draft => {
             html! {
-                button class="btn bg-white text-fg border border-border hover:bg-surface"
+                button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface"
                     hx-post=(detail_path)
                     hx-vals=r#"{"action":"cancel"}"#
                     hx-confirm="确定要取消此领料单吗？"
@@ -299,7 +299,7 @@ fn requisition_action_buttons(status: RequisitionStatus, detail_path: &str) -> M
                     (icon::x_icon("w-4 h-4"))
                     "取消"
                 }
-                button class="btn bg-accent text-accent-on border-none hover:bg-accent-hover"
+                button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover"
                     hx-post=(detail_path)
                     hx-vals=r#"{"action":"confirm"}"#
                     hx-confirm="确定要确认此领料单吗？"
@@ -311,7 +311,7 @@ fn requisition_action_buttons(status: RequisitionStatus, detail_path: &str) -> M
         }
         RequisitionStatus::Confirmed => {
             html! {
-                button class="btn bg-white text-fg border border-border hover:bg-surface"
+                button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface"
                     hx-post=(detail_path)
                     hx-vals=r#"{"action":"cancel"}"#
                     hx-confirm="确定要取消此领料单吗？"
@@ -319,7 +319,7 @@ fn requisition_action_buttons(status: RequisitionStatus, detail_path: &str) -> M
                     (icon::x_icon("w-4 h-4"))
                     "取消"
                 }
-                button class="btn bg-accent text-accent-on border-none hover:bg-accent-hover"
+                button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover"
                     hx-post=(detail_path)
                     hx-vals=r#"{"action":"issue"}"#
                     hx-confirm="确定要确认发料吗？实发数量将按需求数量自动填写。"
@@ -331,7 +331,7 @@ fn requisition_action_buttons(status: RequisitionStatus, detail_path: &str) -> M
         }
         RequisitionStatus::Issued | RequisitionStatus::PartiallyIssued => {
             html! {
-                button class="btn bg-white text-fg border border-border hover:bg-surface" type="button"
+                button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface" type="button"
                     _="on click add .is-open to #return-modal" {
                     (icon::return_arrow_icon("w-4 h-4"))
                     "退料"

@@ -369,11 +369,11 @@ fn pr_create_page(
                                 th { "物料名称" }
                                 th { "规格" }
                                 th { "单位" }
-                                th class="num-right" { "订单数量" }
-                                th class="num-right" { "已收货" }
+                                th class="text-right text-[13px]" { "订单数量" }
+                                th class="text-right text-[13px]" { "已收货" }
                                 th style="width:120px;text-align:right" { "退货数量" }
-                                th class="num-right" { "单价" }
-                                th class="num-right" { "退货金额" }
+                                th class="text-right text-[13px]" { "单价" }
+                                th class="text-right text-[13px]" { "退货金额" }
                                 th style="width:36px" { "操作" }
                             }
                         }
@@ -386,12 +386,12 @@ fn pr_create_page(
             div id="pr-order-data" style="display:none" { }
 
             div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
-                a class="btn bg-white text-fg border border-border hover:bg-surface" href=(format!("{}?restore=true", PRListPath::PATH)) { "取消" }
+                a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface" href=(format!("{}?restore=true", PRListPath::PATH)) { "取消" }
                 div style="display:flex;gap:var(--space-3)" {
-                    button type="button" class="btn bg-white text-fg border border-border hover:bg-surface" id="pr-save-draft" {
+                    button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface" id="pr-save-draft" {
                         "保存草稿"
                     }
-                    button type="submit" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" {
+                    button type="submit" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" {
                         "提交退货"
                     }
                 }

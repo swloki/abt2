@@ -101,7 +101,7 @@ fn work_center_list_page(
                 h1 class="text-xl font-bold text-fg tracking-tight" { "工作中心管理" }
             }
             div class="flex gap-3" {
-                a class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" href=(WorkCenterCreatePath::PATH) {
+                a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" href=(WorkCenterCreatePath::PATH) {
                     (icon::plus_icon("w-4 h-4"))
                     "新建工作中心"
                 }
@@ -155,8 +155,8 @@ fn work_center_list_page(
                             th { "编码" }
                             th { "名称" }
                             th { "类型" }
-                            th class="num-right" { "产能/小时" }
-                            th class="num-right" { "成本费率/h" }
+                            th class="text-right text-[13px]" { "产能/小时" }
+                            th class="text-right text-[13px]" { "成本费率/h" }
                             th { "状态" }
                             th { "操作" }
                         }
@@ -167,13 +167,13 @@ fn work_center_list_page(
                                 td class="mono" { (wc.code) }
                                 td { strong { (wc.name) } }
                                 td { (work_center_type_label(wc.work_center_type)) }
-                                td class="mono num-right" { (crate::utils::fmt_qty(wc.default_capacity)) }
-                                td class="mono num-right" { (crate::utils::fmt_amount(wc.costs_hour)) }
+                                td class="mono text-right text-[13px]" { (crate::utils::fmt_qty(wc.default_capacity)) }
+                                td class="mono text-right text-[13px]" { (crate::utils::fmt_amount(wc.costs_hour)) }
                                 td {
                                     @if wc.is_active {
-                                        span class="status-pill status-active" { "启用" }
+                                        span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-[#f0fff0] text-[#389e0d]" { "启用" }
                                     } @else {
-                                        span class="status-pill status-inactive" { "停用" }
+                                        span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-[#fff2f0] text-[#cf1322]" { "停用" }
                                     }
                                 }
                                 td {
@@ -188,7 +188,7 @@ fn work_center_list_page(
                             }
                         }
                         @if result.items.is_empty() {
-                            tr { td colspan="7" class="empty-row" { "暂无工作中心数据" } }
+                            tr { td colspan="7" class="text-center text-muted text-sm" { "暂无工作中心数据" } }
                         }
                     }
                 }

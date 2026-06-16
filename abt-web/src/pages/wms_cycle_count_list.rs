@@ -107,7 +107,7 @@ fn cycle_count_list_page(
                 h1 class="text-xl font-bold text-fg tracking-tight" { "循环盘点" }
                 div class="flex gap-3" {
                     @if can_create {
-                        a class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" href=(CycleCountCreatePath::PATH) {
+                        a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" href=(CycleCountCreatePath::PATH) {
                             (icon::plus_icon("w-4 h-4"))
                             "新建盘点"
                         }
@@ -182,7 +182,7 @@ fn cycle_count_data_card(
                             th { "盘点日期" }
                             th { "状态" }
                             th { "盲盘" }
-                            th class="num-right" { "物料项数" }
+                            th class="text-right text-[13px]" { "物料项数" }
                             th { "操作员" }
                             th { "操作" }
                         }
@@ -213,7 +213,7 @@ fn cycle_count_row(item: &CycleCount) -> Markup {
 
     html! {
         tr style="cursor:pointer" {
-            td class="link-cell mono" onclick=(format!("location.href='{}'", detail_path)) {
+            td class="text-accent font-medium cursor-pointer mono" onclick=(format!("location.href='{}'", detail_path)) {
                 (item.doc_number)
             }
             td onclick=(format!("location.href='{}'", detail_path)) {
@@ -235,7 +235,7 @@ fn cycle_count_row(item: &CycleCount) -> Markup {
             td onclick=(format!("location.href='{}'", detail_path)) {
                 @if item.is_blind { "是" } @else { "否" }
             }
-            td class="num-right" onclick=(format!("location.href='{}'", detail_path)) {
+            td class="text-right text-[13px]" onclick=(format!("location.href='{}'", detail_path)) {
                 span style="color:var(--muted)" { "—" }
             }
             td onclick=(format!("location.href='{}'", detail_path)) {
@@ -243,7 +243,7 @@ fn cycle_count_row(item: &CycleCount) -> Markup {
             }
             td onclick="event.stopPropagation()" {
                 div class="row-actions" {
-                    a class="row-action-btn" title="查看" href=(detail_path) {
+                    a class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" title="查看" href=(detail_path) {
                         (icon::eye_icon("w-4 h-4"))
                     }
                 }

@@ -277,7 +277,7 @@ fn create_page_content(
                     }
                     h1 class="text-xl font-bold text-fg tracking-tight" { "从需求创建生产计划" }
                     div style="font-size:13px;color:var(--muted);margin-top:4px;" {
-                        span class="status-pill status-draft" style="font-size:11px;padding:2px 8px;margin-right:6px;background:#fef3c7;color:#d97706;" {
+                        span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-surface text-muted" style="font-size:11px;padding:2px 8px;margin-right:6px;background:#fef3c7;color:#d97706;" {
                             "生产需求池 · 按物料聚合"
                         }
                         "将生产需求池中的自制需求聚合为生产计划草稿"
@@ -332,7 +332,7 @@ fn create_page_content(
                         (icon::clock_icon("w-[18px] h-[18px]"))
                         "默认排程参数"
                     }
-                    div class="scheduling-hint" {
+                    div class="text-xs text-muted p-2 bg-surface-raised rounded-sm" {
                         "以下参数将应用于所有未单独配置的需求行。可在需求明细中逐行修改排程日期。"
                     }
                     div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" style="grid-template-columns:repeat(4,1fr)" {
@@ -387,7 +387,7 @@ fn create_page_content(
                                 }
                             }
                         }
-                        button type="button" class="btn btn-sm bg-white text-fg border border-border hover:bg-surface" id="applyDefaultBtn" { "应用默认排程" }
+                        button type="button" class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm bg-white text-fg border border-border hover:bg-surface" id="applyDefaultBtn" { "应用默认排程" }
                         (PreEscaped(r#"<script>document.getElementById('applyDefaultBtn').addEventListener('click',function(){
                             var start=document.getElementById('defaultStart').value;
                             var end=document.getElementById('defaultEnd').value;
@@ -406,7 +406,7 @@ fn create_page_content(
                                     th style="width:40px;" { input type="checkbox" id="checkAll" title="全选"; }
                                     th { "需求ID" }
                                     th { "来源订单" }
-                                    th class="num-right" { "需求数量" }
+                                    th class="text-right text-[13px]" { "需求数量" }
                                     th { "需求日期" }
                                     th { "排程开始" }
                                     th { "排程结束" }
@@ -429,21 +429,21 @@ fn create_page_content(
                     }
 
                     // ── Summary Bar ──
-                    div class="amount-summary" {
-                        div class="amount-row" {
+                    div class="flex justify-end gap-8 p-5 border-t bg-surface-raised" {
+                        div class="flex gap-3" {
                             span { "已选需求" }
                             span class="mono font-semibold" {
                                 span id="selectedCount" { (selected_count) }
                                 " 条"
                             }
                         }
-                        div class="amount-row" {
+                        div class="flex gap-3" {
                             span { "总数量" }
                             span class="mono font-semibold" {
                                 span id="totalQty" { (fmt_qty(total_qty)) }
                             }
                         }
-                        div class="amount-row" {
+                        div class="flex gap-3" {
                             span { "聚合方式" }
                             span class="mono font-semibold" { "按物料" }
                         }
@@ -452,17 +452,17 @@ fn create_page_content(
 
                 // ── Action Bar ──
                 div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
-                    a class="btn bg-white text-fg border border-border hover:bg-surface" href=(format!("{}?restore=true", MesDemandPoolListPath::PATH)) { "取消" }
+                    a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface" href=(format!("{}?restore=true", MesDemandPoolListPath::PATH)) { "取消" }
                     div style="display:flex;gap:var(--space-3);" {
-                        button type="submit" name="action" value="draft" class="btn bg-white text-fg border border-border hover:bg-surface" {
+                        button type="submit" name="action" value="draft" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface" {
                             (icon::save_icon("w-4 h-4"))
                             "保存草稿"
                         }
-                        button type="submit" name="action" value="draft" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" {
+                        button type="submit" name="action" value="draft" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" {
                             (icon::send_icon("w-4 h-4"))
                             "创建草稿"
                         }
-                        button type="submit" name="action" value="release" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover"
+                        button type="submit" name="action" value="release" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover"
                             style="background:linear-gradient(135deg,var(--accent),#6366f1)"
                             hx-confirm="创建后将自动确认并下达，生成工单（含工序、批次）。继续？"
                             hx-disabled-elt="this" {
@@ -581,9 +581,9 @@ fn demand_row(d: &DemandSummary, preselected_ids: &[i64]) -> Markup {
             }
             td class="mono" style="font-size:12px;" { (d.id) }
             td {
-                a class="link-cell" href=(OrderDetailPath { id: d.order_id }.to_string()) { (d.order_no.as_deref().unwrap_or("—")) }
+                a class="text-accent font-medium cursor-pointer" href=(OrderDetailPath { id: d.order_id }.to_string()) { (d.order_no.as_deref().unwrap_or("—")) }
             }
-            td class="num-right mono demand-qty" { (fmt_qty(d.quantity)) }
+            td class="text-right text-[13px] mono demand-qty" { (fmt_qty(d.quantity)) }
             td class="mono" { (req_date) }
             td {
                 input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="date"
@@ -596,7 +596,7 @@ fn demand_row(d: &DemandSummary, preselected_ids: &[i64]) -> Markup {
                     style="width:130px;font-size:12px;padding:4px 6px;" {}
             }
             td {
-                button type="button" class="btn-remove-row" title="移除" _="on click remove closest <tr/> then call updateDemandSummary()" {
+                button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center" title="移除" _="on click remove closest <tr/> then call updateDemandSummary()" {
                     (icon::x_icon("w-3.5 h-3.5"))
                 }
             }

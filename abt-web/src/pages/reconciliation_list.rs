@@ -174,7 +174,7 @@ fn reconciliation_list_page(
                 h1 class="text-xl font-bold text-fg tracking-tight" { "月对账单" }
                 div class="flex gap-3" {
                     @if can_create {
-                        a class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" href=(ReconciliationCreatePath::PATH) {
+                        a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" href=(ReconciliationCreatePath::PATH) {
                             (icon::plus_icon("w-4 h-4"))
                             "新建对账单"
                         }
@@ -257,9 +257,9 @@ fn reconciliation_table_fragment(
                                 th { "对账单号" }
                                 th { "客户名称" }
                                 th { "对账期间" }
-                                th class="num-right" { "总金额" }
-                                th class="num-right" { "确认金额" }
-                                th class="num-right" { "差额" }
+                                th class="text-right text-[13px]" { "总金额" }
+                                th class="text-right text-[13px]" { "确认金额" }
+                                th class="text-right text-[13px]" { "差额" }
                                 th { "状态" }
                                 th { "操作" }
                             }
@@ -270,7 +270,7 @@ fn reconciliation_table_fragment(
                             }
                             @if result.items.is_empty() {
                                 tr {
-                                    td colspan="8" class="td-empty" {
+                                    td colspan="8" class="text-center p-8 text-muted" {
                                         "暂无对账数据"
                                     }
                                 }
@@ -317,16 +317,16 @@ fn reconciliation_row(
 
     html! {
         tr {
-            td class="link-cell mono" onclick=(&onclick) { (r.doc_number) }
+            td class="text-accent font-medium cursor-pointer mono" onclick=(&onclick) { (r.doc_number) }
             td onclick=(&onclick) { (customer_name) }
             td onclick=(&onclick) { (r.period.as_str()) }
-            td class="num-right" onclick=(&onclick) {
+            td class="text-right text-[13px]" onclick=(&onclick) {
                 span class="mono" { (crate::utils::fmt_amount(r.total_amount)) }
             }
-            td class="num-right" onclick=(&onclick) {
+            td class="text-right text-[13px]" onclick=(&onclick) {
                 span class="mono" { (crate::utils::fmt_amount(r.confirmed_amount)) }
             }
-            td class="num-right" onclick=(&onclick) {
+            td class="text-right text-[13px]" onclick=(&onclick) {
                 span class="mono font-semibold" { (crate::utils::fmt_amount(r.difference)) }
             }
             td onclick=(&onclick) {
@@ -335,11 +335,11 @@ fn reconciliation_row(
             td onclick="event.stopPropagation()" {
                 div class="row-actions" {
                     @if is_draft {
-                        a class="row-action-btn" href=(detail_path.to_string()) title="编辑" {
+                        a class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" href=(detail_path.to_string()) title="编辑" {
                             (icon::edit_icon("w-4 h-4"))
                         }
                         @if can_delete {
-                            button type="button" class="row-action-btn text-danger" title="删除"
+                            button type="button" class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer text-danger" title="删除"
                                 hx-confirm=(format!("确认删除对账单 {}？", r.doc_number))
                                 hx-post=(delete_path.to_string())
                                 hx-target="closest tr"
@@ -348,7 +348,7 @@ fn reconciliation_row(
                             }
                         }
                     } @else {
-                        a class="row-action-btn" href=(detail_path.to_string()) title="查看详情" {
+                        a class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" href=(detail_path.to_string()) title="查看详情" {
                             (icon::eye_icon("w-4 h-4"))
                         }
                     }

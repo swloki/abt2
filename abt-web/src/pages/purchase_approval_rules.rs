@@ -183,7 +183,7 @@ fn list_page(rules: &[PurchaseApprovalRule]) -> Markup {
                     h1 class="text-xl font-bold text-fg tracking-tight" { "审批规则管理" }
                 }
                 div class="flex gap-3" {
-                    button type="button" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover"
+                    button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover"
                         hx-get=(RuleCreatePath::PATH)
                         hx-target="#rule-modal"
                         hx-swap="innerHTML"
@@ -317,8 +317,8 @@ fn data_card(rules: &[PurchaseApprovalRule]) -> Markup {
                             tr {
                                 th { "排序" }
                                 th { "规则名称" }
-                                th class="num-right" { "最低金额" }
-                                th class="num-right" { "最高金额" }
+                                th class="text-right text-[13px]" { "最低金额" }
+                                th class="text-right text-[13px]" { "最高金额" }
                                 th { "审批角色" }
                                 th { "审批人ID" }
                                 th { "状态" }
@@ -344,29 +344,29 @@ fn row_tr(rule: &PurchaseApprovalRule) -> Markup {
             td {
                 span style="font-weight:500" { (&rule.name) }
             }
-            td class="mono num-right" { (crate::utils::fmt_qty(rule.min_amount)) }
-            td class="mono num-right" {
+            td class="mono text-right text-[13px]" { (crate::utils::fmt_qty(rule.min_amount)) }
+            td class="mono text-right text-[13px]" {
                 (rule.max_amount.map(crate::utils::fmt_qty).unwrap_or_else(|| "不限".into()))
             }
             td { (&rule.approver_role) }
             td { (rule.approver_id.map(|id| id.to_string()).unwrap_or_else(|| "—".into())) }
             td {
                 @if rule.is_active {
-                    span class="status-pill status-active" { "启用" }
+                    span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-[#f0fff0] text-[#389e0d]" { "启用" }
                 } @else {
-                    span class="status-pill status-inactive" { "停用" }
+                    span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-[#fff2f0] text-[#cf1322]" { "停用" }
                 }
             }
             td {
                 div class="row-actions" {
-                    button type="button" class="btn btn-sm bg-white text-fg border border-border hover:bg-surface"
+                    button type="button" class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm bg-white text-fg border border-border hover:bg-surface"
                         hx-get=(RuleEditPath { id: rule.id }.to_string())
                         hx-target="#rule-modal"
                         hx-swap="innerHTML"
                         _="on 'htmx:afterRequest' add .is-open to #rule-modal" {
                         "编辑"
                     }
-                    button class="btn btn-sm bg-danger text-white border-none hover:opacity-90"
+                    button class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm bg-danger text-white border-none hover:opacity-90"
                         hx-post=(RuleDeletePath { id: rule.id }.to_string())
                         hx-confirm="确认删除此审批规则？"
                         hx-target="#rules-data-card"
@@ -393,7 +393,7 @@ fn empty_state() -> Markup {
 
 fn rule_modal_shell() -> Markup {
     html! {
-        div class="modal-overlay" id="rule-modal"
+        div class="fixed z-[1000] grid place-items-center opacity-0" id="rule-modal"
             _="on closeRuleModal from body remove .is-open
                on click[me is event.target] remove .is-open" {
         }
@@ -415,7 +415,7 @@ fn rule_form(action_url: &str, rule: Option<&PurchaseApprovalRule>) -> Markup {
     let common_roles = ["manager", "director", "finance", "vp", "ceo"];
 
     html! {
-        div class="modal" _="on click halt" {
+        div class="bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0" _="on click halt" {
             div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
                 h2 { (title) }
                 button class="bg-transparent border-none cursor-pointer text-xl text-muted p-1 hover:text-fg"
@@ -480,9 +480,9 @@ fn rule_form(action_url: &str, rule: Option<&PurchaseApprovalRule>) -> Markup {
                 }
 
                 div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" {
-                    button type="button" class="btn bg-white text-fg border border-border hover:bg-surface"
+                    button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface"
                         _="on click remove .is-open from #rule-modal" { "取消" }
-                    button type="submit" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" { "保存" }
+                    button type="submit" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" { "保存" }
                 }
             }
         }

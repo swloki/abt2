@@ -131,7 +131,7 @@ fn bin_list_page(
                 h1 class="text-xl font-bold text-fg tracking-tight" { "储位管理" }
                 div class="flex gap-3" {
                     @if can_create {
-                        a class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" href=(BinCreatePath::PATH) {
+                        a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" href=(BinCreatePath::PATH) {
                             (icon::plus_icon("w-4 h-4"))
                             "新建储位"
                         }
@@ -162,10 +162,10 @@ fn bin_data_card(
                             th { "储位名称" }
                             th { "所属仓库" }
                             th { "所属库区" }
-                            th class="num-right" { "行" }
-                            th class="num-right" { "列" }
-                            th class="num-right" { "层" }
-                            th class="num-right" { "容量上限" }
+                            th class="text-right text-[13px]" { "行" }
+                            th class="text-right text-[13px]" { "列" }
+                            th class="text-right text-[13px]" { "层" }
+                            th class="text-right text-[13px]" { "容量上限" }
                             th { "当前状态" }
                             th { "操作" }
                         }
@@ -253,20 +253,20 @@ fn bin_row(item: &BinWithWarehouse, zones: &HashMap<i64, Zone>) -> Markup {
 
     html! {
         tr style="cursor:pointer" {
-            td class="link-cell mono" onclick=(format!("location.href='{}'", detail_path)) { (bin.code) }
+            td class="text-accent font-medium cursor-pointer mono" onclick=(format!("location.href='{}'", detail_path)) { (bin.code) }
             td onclick=(format!("location.href='{}'", detail_path)) { (bin.name) }
             td onclick=(format!("location.href='{}'", detail_path)) { (item.warehouse_name) }
             td onclick=(format!("location.href='{}'", detail_path)) { (zone_name) }
-            td class="num-right" onclick=(format!("location.href='{}'", detail_path)) {
+            td class="text-right text-[13px]" onclick=(format!("location.href='{}'", detail_path)) {
                 (bin.row_no.as_deref().unwrap_or("—"))
             }
-            td class="num-right" onclick=(format!("location.href='{}'", detail_path)) {
+            td class="text-right text-[13px]" onclick=(format!("location.href='{}'", detail_path)) {
                 (bin.column_no.as_deref().unwrap_or("—"))
             }
-            td class="num-right" onclick=(format!("location.href='{}'", detail_path)) {
+            td class="text-right text-[13px]" onclick=(format!("location.href='{}'", detail_path)) {
                 (bin.layer_no.as_deref().unwrap_or("—"))
             }
-            td class="num-right" onclick=(format!("location.href='{}'", detail_path)) {
+            td class="text-right text-[13px]" onclick=(format!("location.href='{}'", detail_path)) {
                 @if let Some(cap) = &bin.capacity_limit {
                     (format!("{:.2}", cap))
                 } @else {
@@ -278,7 +278,7 @@ fn bin_row(item: &BinWithWarehouse, zones: &HashMap<i64, Zone>) -> Markup {
             }
             td onclick="event.stopPropagation()" {
                 div class="row-actions" {
-                    a class="row-action-btn" title="查看详情" href=(detail_path) {
+                    a class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" title="查看详情" href=(detail_path) {
                         (icon::eye_icon("w-4 h-4"))
                     }
                 }

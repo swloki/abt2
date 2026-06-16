@@ -185,7 +185,7 @@ fn misc_create_page() -> Markup {
             div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" style="padding:0;overflow:hidden;margin-bottom:var(--space-4)" {
                 div style="padding:var(--space-5) var(--space-5) var(--space-3);display:flex;justify-content:space-between;align-items:center" {
                     span class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" style="margin:0;padding:0;border:none" { "请购明细" }
-                    button type="button" class="btn btn-sm bg-accent text-accent-on border-none hover:bg-accent-hover"
+                    button type="button" class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm bg-accent text-accent-on border-none hover:bg-accent-hover"
                         hx-get=(MiscItemRowPath::PATH)
                         hx-target="#misc-item-tbody"
                         hx-swap="beforeend" {
@@ -211,8 +211,8 @@ fn misc_create_page() -> Markup {
                         tbody id="misc-item-tbody" { }
                     }
                 }
-                div class="add-row-bar" {
-                    button type="button" class="btn-add-row"
+                div class="p-3 flex items-center gap-2" {
+                    button type="button" class="inline-flex items-center gap-2 rounded-sm text-accent text-sm cursor-pointer"
                         hx-get=(MiscItemRowPath::PATH)
                         hx-target="#misc-item-tbody"
                         hx-swap="beforeend" {
@@ -224,10 +224,10 @@ fn misc_create_page() -> Markup {
 
             // ── Action Bar ──
             div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
-                a class="btn bg-white text-fg border border-border hover:bg-surface" href=(format!("{}?restore=true", MiscListPath::PATH)) { "取消" }
+                a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface" href=(format!("{}?restore=true", MiscListPath::PATH)) { "取消" }
                 div style="display:flex;gap:var(--space-3)" {
-                    button type="button" class="btn bg-white text-fg border border-border hover:bg-surface" { "保存草稿" }
-                    button type="submit" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" { "提交请购" }
+                    button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface" { "保存草稿" }
+                    button type="submit" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" { "提交请购" }
                 }
             }
             script {
@@ -250,7 +250,7 @@ fn misc_create_page() -> Markup {
 fn empty_row_fragment() -> Markup {
     html! {
         tr oninput="if(!event.target.classList.contains('num-input'))return;const r=this,q=parseFloat(r.querySelector('[name=quantity]').value)||0,p=parseFloat(r.querySelector('[name=estimated_price]').value)||0;r.querySelector('.line-subtotal').textContent=(q*p).toFixed(2)" {
-            td class="line-num" { }
+            td class="text-muted text-xs text-center" { }
             td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="item_name" required placeholder="物品名称" style="width:100%;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
             td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="specification" placeholder="规格型号" style="width:100%;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
             td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] num-input" type="number" step="any" min="0" name="quantity" placeholder="0" style="width:90px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
@@ -258,7 +258,7 @@ fn empty_row_fragment() -> Markup {
             td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] num-input" type="number" step="any" min="0" name="estimated_price" placeholder="0.00" style="width:110px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
             td class="line-subtotal mono" style="text-align:right" { "0.00" }
             td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="item_remark" placeholder="备注" style="width:100%;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
-            td { button type="button" class="btn-remove-row" title="删除行"
+            td { button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center" title="删除行"
                 _="on click remove closest <tr/>" {
                 (icon::x_icon("w-3.5 h-3.5"))
             } }

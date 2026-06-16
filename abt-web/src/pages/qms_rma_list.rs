@@ -174,7 +174,7 @@ fn rma_list_page(
                 h1 class="text-xl font-bold text-fg tracking-tight" { "RMA 客诉追溯" }
                 div class="flex gap-3" {
                     @if can_create {
-                        a class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" href=(RmaCreatePath::PATH) {
+                        a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" href=(RmaCreatePath::PATH) {
                             (icon::plus_icon("w-4 h-4"))
                             "新建RMA"
                         }
@@ -275,7 +275,7 @@ fn rma_data_card(
                             @let product_name = product_names.get(&item.product_id).map(|s| s.as_str()).unwrap_or("—");
                             @let detail_path = RmaDetailPath { id: item.id };
                             tr style="cursor:pointer" onclick=(format!("location.href='{}'", detail_path.to_string())) {
-                                td class="link-cell mono" style="color:var(--accent)" { (item.doc_number) }
+                                td class="text-accent font-medium cursor-pointer mono" style="color:var(--accent)" { (item.doc_number) }
                                 td { (customer_name) }
                                 td { (product_name) }
                                 td {

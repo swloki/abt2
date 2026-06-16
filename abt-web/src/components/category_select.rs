@@ -28,39 +28,39 @@ pub fn category_tree_select(
         // Currently non-functional — the tree-select component needs a vanilla JS rewrite.
         // The data is embedded in data-ct; the rendering/search/selection logic needs to be
         // reimplemented without Alpine.js.
-        div class="tree-select" data-ct=(json) {
+        div class="relative inline-block" data-ct=(json) {
 
             input type="hidden" name=(input_name)
                 value=(selected_id.map(|id| id.to_string()).unwrap_or_default());
 
-            button type="button" class="tree-select-trigger"
+            button type="button" class="relative inline-block-trigger"
                 id="tree-select-trigger" {
-                span class="tree-select-value" {
+                span class="relative inline-block-value" {
                     (selected_id.and_then(|id| {
                         categories.iter().find(|c| c.category_id == id)
                             .map(|c| c.category_name.as_str())
                     }).unwrap_or(all_label))
                 }
-                span class="tree-select-arrow" {}
+                span class="relative inline-block-arrow" {}
             }
 
-            div class="tree-select-backdrop" style="display:none" {}
+            div class="relative inline-block-backdrop" style="display:none" {}
 
-            div class="tree-select-dropdown" style="display:none" {
-                div class="tree-select-search" {
+            div class="relative inline-block-dropdown" style="display:none" {
+                div class="relative inline-block-search" {
                     input type="text"
                         placeholder="搜索分类…"
-                        class="tree-select-w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" {}
+                        class="relative inline-block-w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" {}
                 }
-                div class="tree-select-list" {
-                    button type="button" class="tree-select-option"
+                div class="relative inline-block-list" {
+                    button type="button" class="relative inline-block-option"
                         style="padding-left:var(--space-3)" {
                         span { (all_label) }
                     }
 
                     @for cat in flatten_tree(categories, 0) {
                         button type="button"
-                            class="tree-select-option"
+                            class="relative inline-block-option"
                             data-id=(cat.id)
                             style=(format!("padding-left: calc({} * 20px + var(--space-3))", cat.depth)) {
                             span { (cat.name) }

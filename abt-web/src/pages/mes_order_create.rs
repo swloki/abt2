@@ -198,7 +198,7 @@ fn order_create_page(work_centers: &[abt_core::master_data::work_center::WorkCen
                                 _="on click add .is-open to #product-modal" {
                                 "点击选择产品…"
                             }
-                            button type="button" class="btn bg-white text-fg border border-border hover:bg-surface"
+                            button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface"
                                 _="on click add .is-open to #product-modal" { "选择" }
                         }
                     }
@@ -232,9 +232,9 @@ fn order_create_page(work_centers: &[abt_core::master_data::work_center::WorkCen
                                 _="on click add .is-open to #so-modal" {
                                 "点击选择销售订单…"
                             }
-                            button type="button" class="btn bg-white text-fg border border-border hover:bg-surface"
+                            button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface"
                                 _="on click add .is-open to #so-modal" { "选择" }
-                            button type="button" class="btn bg-white text-fg border border-border hover:bg-surface"
+                            button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface"
                                 _="on click set #source_sales_order_id's value to '' then put '点击选择销售订单…' into #so-display then set #so-display's style.color to 'var(--muted)'" { "清除" }
                         }
                     }
@@ -246,9 +246,9 @@ fn order_create_page(work_centers: &[abt_core::master_data::work_center::WorkCen
                                 _="on click add .is-open to #pp-modal" {
                                 "点击选择生产计划…"
                             }
-                            button type="button" class="btn bg-white text-fg border border-border hover:bg-surface"
+                            button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface"
                                 _="on click add .is-open to #pp-modal" { "选择" }
-                            button type="button" class="btn bg-white text-fg border border-border hover:bg-surface"
+                            button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface"
                                 _="on click set #source_plan_id's value to '' then put '点击选择生产计划…' into #pp-display then set #pp-display's style.color to 'var(--muted)'" { "清除" }
                         }
                     }
@@ -256,8 +256,8 @@ fn order_create_page(work_centers: &[abt_core::master_data::work_center::WorkCen
                 }
             }
             div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
-                a class="btn bg-white text-fg border border-border hover:bg-surface" href=(format!("{}?restore=true", OrderListPath::PATH)) { "取消" }
-                button type="submit" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" { "提交" }
+                a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface" href=(format!("{}?restore=true", OrderListPath::PATH)) { "取消" }
+                button type="submit" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" { "提交" }
             }
         }
         // ── 弹窗组件 ──
@@ -271,18 +271,18 @@ fn order_create_page(work_centers: &[abt_core::master_data::work_center::WorkCen
 
 fn source_order_modal() -> Markup {
     html! {
-        div class="modal-overlay" id="so-modal"
+        div class="fixed z-[1000] grid place-items-center opacity-0" id="so-modal"
             _="on click remove .is-open from #so-modal" {
-            div class="modal modal-lg" _="on click halt" {
+            div class="modal bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0-lg" _="on click halt" {
                 div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
                     h2 { "选择销售订单" }
                     button style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
                         _="on click remove .is-open from #so-modal" { "\u{00d7}" }
                 }
                 div class="overflow-y-auto flex-1 min-h-0 p-6" style="padding:0" {
-                    div class="product-search-bar" {
-                        div class="product-search-field" {
-                            label class="product-search-label" { "订单编号 / 关键词" }
+                    div class="flex gap-4 p-4 border-b" {
+                        div class="flex-1 flex flex-col gap-[4px]" {
+                            label class="text-[12px] font-medium text-fg-2" { "订单编号 / 关键词" }
                             input class="product-w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword" placeholder="输入订单编号搜索…"
                                 hx-get=(SourceOrderSearchPath::PATH)
                                 hx-trigger="keyup changed delay:300ms"
@@ -307,18 +307,18 @@ fn source_order_modal() -> Markup {
 
 fn source_plan_modal() -> Markup {
     html! {
-        div class="modal-overlay" id="pp-modal"
+        div class="fixed z-[1000] grid place-items-center opacity-0" id="pp-modal"
             _="on click remove .is-open from #pp-modal" {
-            div class="modal modal-lg" _="on click halt" {
+            div class="modal bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0-lg" _="on click halt" {
                 div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
                     h2 { "选择生产计划" }
                     button style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
                         _="on click remove .is-open from #pp-modal" { "\u{00d7}" }
                 }
                 div class="overflow-y-auto flex-1 min-h-0 p-6" style="padding:0" {
-                    div class="product-search-bar" {
-                        div class="product-search-field" {
-                            label class="product-search-label" { "计划编号 / 关键词" }
+                    div class="flex gap-4 p-4 border-b" {
+                        div class="flex-1 flex flex-col gap-[4px]" {
+                            label class="text-[12px] font-medium text-fg-2" { "计划编号 / 关键词" }
                             input class="product-w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword" placeholder="输入计划编号搜索…"
                                 hx-get=(SourcePlanSearchPath::PATH)
                                 hx-trigger="keyup changed delay:300ms"
@@ -353,13 +353,13 @@ fn source_order_results(orders: &[abt_core::sales::sales_order::model::SalesOrde
         } @else {
             div class="product-select-list" {
                 @for o in orders {
-                    div class="product-select-item"
+                    div class="flex items-center justify-between p-3 border-b"
                         data-oid=(o.id)
                         data-label=(format!("{} ({})", o.doc_number, o.order_date.format("%Y-%m-%d")))
                         _=(click_hs) {
                         div class="product-select-info" {
-                            div class="product-select-name" { (o.doc_number) }
-                            div class="product-select-meta" {
+                            div class="text-sm font-medium text-fg" { (o.doc_number) }
+                            div class="text-[12px] text-muted flex items-center gap-[6px] flex-wrap" {
                                 span { (o.order_date.format("%Y-%m-%d")) }
                                 span class="product-select-sep" { "\u{00b7}" }
                                 span { (format!("{:?}", o.status)) }
@@ -382,13 +382,13 @@ fn source_plan_results(plans: &[abt_core::mes::production_plan::model::Productio
         } @else {
             div class="product-select-list" {
                 @for p in plans {
-                    div class="product-select-item"
+                    div class="flex items-center justify-between p-3 border-b"
                         data-pid=(p.id)
                         data-label=(format!("{} ({})", p.doc_number, p.plan_date.format("%Y-%m-%d")))
                         _=(click_hs) {
                         div class="product-select-info" {
-                            div class="product-select-name" { (p.doc_number) }
-                            div class="product-select-meta" {
+                            div class="text-sm font-medium text-fg" { (p.doc_number) }
+                            div class="text-[12px] text-muted flex items-center gap-[6px] flex-wrap" {
                                 span { (p.plan_date.format("%Y-%m-%d")) }
                                 span class="product-select-sep" { "\u{00b7}" }
                                 span { (format!("{:?}", p.status)) }

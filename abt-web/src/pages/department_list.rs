@@ -258,17 +258,17 @@ fn department_list_page(
     can_create: bool,
 ) -> Markup {
     html! {
-        div class="dept-layout" {
+        div class="grid items-stretch bg-white rounded-xl border border-border-soft overflow-hidden" {
             // ── Left: Tree Panel ──
             (tree_panel(departments, selected_id, can_create))
 
             // ── Right: Detail Panel ──
-            div class="dept-detail" id="deptDetail" {
+            div class="flex-1 flex flex-col bg-white" id="deptDetail" {
                 @if let Some(detail) = initial_detail {
                     (detail)
                 } @else {
-                    div class="dept-empty" {
-                        div class="dept-empty-illust" {
+                    div class="flex flex-col items-center justify-center flex-1" {
+                        div class="flex flex-col items-center justify-center flex-1-illust" {
                             (icon::building_icon("w-9 h-9"))
                         }
                         h4 { "选择部门查看详情" }
@@ -279,10 +279,10 @@ fn department_list_page(
         }
 
         // ── Drawer container (Surreal.js open/close) ──
-        div class="drawer-overlay" id="deptDrawer"
+        div class="fixed z-[1000] flex justify-end opacity-0" id="deptDrawer"
             tabindex="-1"
             _="on click[me is event.target] remove .open on keydown[event.key is 'Escape'] remove .open" {
-            div class="drawer-panel" id="drawerPanel" {
+            div class="bg-white h-full w-[420px] flex flex-col" id="drawerPanel" {
                 // Content loaded via HTMX
             }
         }
@@ -292,15 +292,15 @@ fn department_list_page(
 fn tree_panel(departments: &[Department], selected_id: Option<i64>, can_create: bool) -> Markup {
     let count = departments.len();
     html! {
-        div class="dept-tree-panel" {
+        div class="flex flex-col border-r bg-white" {
             // ── Top bar ──
-            div class="tree-top-bar" {
+            div class="p-4 flex justify-between items-center" {
                 h3 {
                     (icon::building_icon("w-[15px] h-[15px]"))
                     "组织架构"
                 }
                 @if can_create {
-                    button class="tree-add-btn" title="新建部门"
+                    button class="w-[26px] h-[26px] border border-border rounded-sm bg-white grid place-items-center cursor-pointer text-muted" title="新建部门"
                         hx-get=(DepartmentCreateDrawerPath::PATH)
                         hx-target="#drawerPanel"
                         hx-swap="innerHTML"
@@ -313,7 +313,7 @@ fn tree_panel(departments: &[Department], selected_id: Option<i64>, can_create: 
             // ── Search ──
             div class="tree-relative flex-1 max-w-xs" {
                 (icon::search_icon("w-[13px] h-[13px]"))
-                input type="text" class="tree-search" placeholder="搜索部门…" {}
+                input type="text" class="w-full border border-border-soft rounded-sm text-[12px] bg-surface text-fg" placeholder="搜索部门…" {}
                 script {
                     (maud::PreEscaped(r#"
 document.querySelector('.tree-search').addEventListener('input', function() {
@@ -329,19 +329,19 @@ document.querySelector('.tree-search').addEventListener('input', function() {
             }
 
             // ── Tree list ──
-            div class="tree-list" id="deptTree" {
+            div class="flex-1 overflow-y-auto p-1" id="deptTree" {
                 @for dept in departments {
                     (tree_item(dept, selected_id == Some(dept.department_id)))
                 }
                 @if departments.is_empty() {
-                    div class="empty-state-text" {
+                    div class="text-center p-6 text-muted text-sm-text" {
                         "暂无部门数据"
                     }
                 }
             }
 
             // ── Footer ──
-            div class="tree-foot" id="treeFoot" {
+            div class="border-t text-[11px] text-muted bg-surface" id="treeFoot" {
                 "共 " (count) " 个部门"
             }
         }
@@ -368,14 +368,14 @@ fn tree_item(dept: &Department, is_active: bool) -> Markup {
             span class={"tree-code " (code_color)} {
                 (dept.department_code.chars().take(2).collect::<String>())
             }
-            span class="tree-name" {
+            span class="flex-1 overflow-hidden whitespace-nowrap font-medium" {
                 (dept.department_name)
             }
             @if dept.is_default {
-                span class="tree-tag tag-default" { "默认" }
+                span class="text-[10px] shrink-0 font-medium tag-default" { "默认" }
             }
             @if !dept.is_active {
-                span class="tree-tag tag-off" { "停用" }
+                span class="text-[10px] shrink-0 font-medium tag-off" { "停用" }
             }
 
         }
@@ -414,24 +414,24 @@ fn detail_content_fragment(dept: &Department, members: &[UserWithRoles], can_cre
 
     html! {
         // ── Hero ──
-        div class="d-hero" {
-            div class="d-hero-left" {
+        div class="p-5 border-b flex justify-between items-center" {
+            div class="p-5 border-b flex justify-between items-center-left" {
                 div class={"d-hero-icon " (code_color)} {
                     (icon::building_icon("w-5 h-5"))
                 }
-                div class="d-hero-text" {
+                div class="p-5 border-b flex justify-between items-center-text" {
                     h2 { (dept.department_name) }
-                    div class="d-hero-sub" {
-                        span class="d-hero-code" { (dept.department_code) }
+                    div class="p-5 border-b flex justify-between items-center-sub" {
+                        span class="p-5 border-b flex justify-between items-center-code" { (dept.department_code) }
                         @if !description.is_empty() {
-                            span class="d-hero-desc" { (description) }
+                            span class="p-5 border-b flex justify-between items-center-desc" { (description) }
                         }
                     }
                 }
             }
-            div class="d-hero-actions" {
+            div class="p-5 border-b flex justify-between items-center-actions" {
                 @if can_create {
-                    button class="btn bg-white text-fg border border-border hover:bg-surface btn-sm"
+                    button class="btn bg-white text-fg border border-border hover:bg-surface inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm"
                         hx-get=(edit_path)
                         hx-target="#drawerPanel"
                         hx-swap="innerHTML"
@@ -441,7 +441,7 @@ fn detail_content_fragment(dept: &Department, members: &[UserWithRoles], can_cre
                     }
                 }
                 @if can_delete && !dept.is_default {
-                    button class="btn bg-white text-fg border border-border hover:bg-surface btn-sm text-danger"
+                    button class="btn bg-white text-fg border border-border hover:bg-surface inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm text-danger"
                         hx-confirm=(format!("确认删除部门「{}」？该操作不可恢复。", dept.department_name))
                         hx-post=(delete_path)
                         hx-target="body"
@@ -454,48 +454,48 @@ fn detail_content_fragment(dept: &Department, members: &[UserWithRoles], can_cre
         }
 
         // ── Stats ──
-        div class="d-stats" {
-            div class="d-stat" {
-                span class="d-stat-dot dot-blue" {}
+        div class="flex gap-3 p-3 border-b bg-surface" {
+            div class="flex items-center gap-[8px] bg-white rounded border border-border-soft flex-1" {
+                span class="flex items-center gap-[8px] bg-white rounded border border-border-soft flex-1-dot dot-blue" {}
                 b { (member_count) } span { "名成员" }
             }
-            div class="d-stat" {
-                span class="d-stat-dot dot-green" {}
+            div class="flex items-center gap-[8px] bg-white rounded border border-border-soft flex-1" {
+                span class="flex items-center gap-[8px] bg-white rounded border border-border-soft flex-1-dot dot-green" {}
                 b class=(status_class) { (status_text) }
             }
-            div class="d-stat" {
-                span class="d-stat-dot dot-amber" {}
+            div class="flex items-center gap-[8px] bg-white rounded border border-border-soft flex-1" {
+                span class="flex items-center gap-[8px] bg-white rounded border border-border-soft flex-1-dot dot-amber" {}
                 b { (default_text) } span { "部门" }
             }
         }
 
         // ── Body ──
-        div class="d-body" {
+        div class="flex-1 overflow-y-auto p-5" {
             // Info section
             div class="d-section" {
-                div class="d-section-head" {
-                    span class="d-section-title" {
+                div class="flex items-center justify-between" {
+                    span class="text-[13px] font-semibold text-fg flex items-center gap-[6px]" {
                         (icon::circle_alert_icon("w-[14px] h-[14px]"))
                         "基本信息"
                     }
                 }
                 div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
-                    div class="info-row" {
+                    div class="flex items-center text-[13px] border-b" {
                         span class="text-xs text-muted font-medium" { "部门 ID" }
-                        span class="info-val mono" { "#" (format!("{:03}", dept.department_id)) }
+                        span class="text-fg font-medium mono" { "#" (format!("{:03}", dept.department_id)) }
                     }
-                    div class="info-row" {
+                    div class="flex items-center text-[13px] border-b" {
                         span class="text-xs text-muted font-medium" { "部门代码" }
-                        span class="info-val mono" { (dept.department_code) }
+                        span class="text-fg font-medium mono" { (dept.department_code) }
                     }
-                    div class="info-row" {
+                    div class="flex items-center text-[13px] border-b" {
                         span class="text-xs text-muted font-medium" { "创建时间" }
-                        span class="info-val" { (dept.created_at.format("%Y-%m-%d %H:%M")) }
+                        span class="text-fg font-medium" { (dept.created_at.format("%Y-%m-%d %H:%M")) }
                     }
                     @if let Some(updated) = &dept.updated_at {
-                        div class="info-row" {
+                        div class="flex items-center text-[13px] border-b" {
                             span class="text-xs text-muted font-medium" { "最后更新" }
-                            span class="info-val" { (updated.format("%Y-%m-%d %H:%M")) }
+                            span class="text-fg font-medium" { (updated.format("%Y-%m-%d %H:%M")) }
                         }
                     }
                 }
@@ -503,26 +503,26 @@ fn detail_content_fragment(dept: &Department, members: &[UserWithRoles], can_cre
 
             // Members section
             div class="d-section" {
-                div class="d-section-head" {
-                    span class="d-section-title" {
+                div class="flex items-center justify-between" {
+                    span class="text-[13px] font-semibold text-fg flex items-center gap-[6px]" {
                         (icon::users_icon("w-[14px] h-[14px]"))
                         "部门成员"
                     }
-                    span class="d-section-count" { (member_count) " 人" }
+                    span class="text-[11px] text-muted bg-surface rounded-full border border-border-soft" { (member_count) " 人" }
                 }
                 @if members.is_empty() {
-                    div class="empty-state-text" {
+                    div class="text-center p-6 text-muted text-sm-text" {
                         "暂无成员"
                     }
                 } @else {
-                    div class="member-grid" {
+                    div class="grid gap-2" {
                         @for (i, m) in members.iter().enumerate() {
                             @if i < 4 {
                                 (member_card(m))
                             }
                         }
                         @if member_count > 4 {
-                            div class="m-more" {
+                            div class="text-[12px] text-muted text-center" {
                                 "还有 " (member_count - 4) " 人…"
                             }
                         }
@@ -542,11 +542,11 @@ fn member_card(m: &UserWithRoles) -> Markup {
     let role_display = role_names.first().copied().unwrap_or("—");
 
     html! {
-        div class="m-card" {
+        div class="flex items-center gap-2 border border-border-soft rounded bg-white" {
             span class={"m-ava " (ava_color)} { (initials) }
             div class="m-text" {
-                div class="m-name" { (display_name) }
-                span class="m-role" { (role_display) }
+                div class="text-[12px] font-semibold text-fg whitespace-nowrap overflow-hidden" { (display_name) }
+                span class="inline-block text-[10px] font-medium bg-surface text-muted" { (role_display) }
             }
         }
     }
@@ -674,8 +674,8 @@ fn dept_drawer_fragment(is_edit: bool, dept: Option<&Department>) -> Markup {
                 }
             }
             div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3" {
-                button class="btn bg-white text-fg border border-border hover:bg-surface" type="button" _="on click remove .open from #deptDrawer" { "取消" }
-                button class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" type="submit" {
+                button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface" type="button" _="on click remove .open from #deptDrawer" { "取消" }
+                button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" type="submit" {
                     (icon::check_circle_icon("w-[14px] h-[14px]"))
                     "保存"
                 }

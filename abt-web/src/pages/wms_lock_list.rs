@@ -151,7 +151,7 @@ fn lock_list_page(
                 h1 class="text-xl font-bold text-fg tracking-tight" { "库存锁定" }
                 div class="flex gap-3" {
                     @if can_create {
-                        a class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" href=(LockCreatePath::PATH) {
+                        a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" href=(LockCreatePath::PATH) {
                             (icon::plus_icon("w-4 h-4"))
                             "新建锁库"
                         }
@@ -238,7 +238,7 @@ fn lock_data_card_fragment(
                             th { "产品编码" }
                             th { "产品名称" }
                             th { "锁定仓库" }
-                            th class="num-right" { "锁定数量" }
+                            th class="text-right text-[13px]" { "锁定数量" }
                             th { "锁定原因" }
                             th { "关联客户" }
                             th { "状态" }
@@ -279,7 +279,7 @@ fn lock_row(
 
     html! {
         tr style="cursor:pointer" {
-            td class="link-cell mono" onclick=(format!("location.href='{}'", detail_path)) {
+            td class="text-accent font-medium cursor-pointer mono" onclick=(format!("location.href='{}'", detail_path)) {
                 (lock.doc_number)
             }
             td class="mono" onclick=(format!("location.href='{}'", detail_path)) {
@@ -291,7 +291,7 @@ fn lock_row(
             td onclick=(format!("location.href='{}'", detail_path)) {
                 (wh_names.get(&lock.warehouse_id).map(|s| s.as_str()).unwrap_or("—"))
             }
-            td class="num-right" onclick=(format!("location.href='{}'", detail_path)) {
+            td class="text-right text-[13px]" onclick=(format!("location.href='{}'", detail_path)) {
                 (locked_qty_fmt)
             }
             td onclick=(format!("location.href='{}'", detail_path)) {
@@ -312,7 +312,7 @@ fn lock_row(
             }
             td onclick="event.stopPropagation()" {
                 div class="row-actions" {
-                    a class="row-action-btn" title="查看" href=(detail_path) {
+                    a class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" title="查看" href=(detail_path) {
                         (icon::eye_icon("w-4 h-4"))
                     }
                 }

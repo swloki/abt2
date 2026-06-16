@@ -150,10 +150,10 @@ fn cycle_count_detail_page(
                 "返回循环盘点列表"
             }
 
-            div class="detail-header" {
+            div class="block bg-bg border border-border-soft rounded-lg p-6" {
                 div {
-                    div class="detail-title-row" {
-                        span class="detail-no mono" { (cc.doc_number) }
+                    div class="flex items-center justify-between" {
+                        span class="text-2xl font-extrabold mono" { (cc.doc_number) }
                         span class=(format!("status-pill {sc}")) { (sl) }
                     }
                 }
@@ -215,9 +215,9 @@ fn cycle_count_detail_page(
                                 th { "储位" }
                                 th { "产品ID" }
                                 th { "批次号" }
-                                th class="num-right" { "系统数量" }
-                                th class="num-right" { "实盘数量" }
-                                th class="num-right" { "差异数量" }
+                                th class="text-right text-[13px]" { "系统数量" }
+                                th class="text-right text-[13px]" { "实盘数量" }
+                                th class="text-right text-[13px]" { "差异数量" }
                                 th { "差异原因" }
                                 th { "已调整" }
                             }
@@ -233,9 +233,9 @@ fn cycle_count_detail_page(
                                     td class="mono" {
                                         (item.batch_no.as_deref().unwrap_or("—"))
                                     }
-                                    td class="num-right" { (format!("{:.2}", item.system_qty)) }
-                                    td class="num-right" { (format!("{:.2}", item.counted_qty)) }
-                                    td class="num-right" {
+                                    td class="text-right text-[13px]" { (format!("{:.2}", item.system_qty)) }
+                                    td class="text-right text-[13px]" { (format!("{:.2}", item.counted_qty)) }
+                                    td class="text-right text-[13px]" {
                                         @if item.variance_qty != rust_decimal::Decimal::ZERO {
                                             span style="color:var(--warning);font-weight:600" {
                                                 (format!("{:.2}", item.variance_qty))
@@ -247,7 +247,7 @@ fn cycle_count_detail_page(
                                     td { (item.variance_reason.as_deref().unwrap_or("—")) }
                                     td {
                                         @if item.is_adjusted {
-                                            span class="status-pill status-completed" { "已调整" }
+                                            span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-[#f0fff0] text-[#389e0d]" { "已调整" }
                                         } @else {
                                             span style="color:var(--muted)" { "—" }
                                         }
@@ -286,29 +286,29 @@ fn workflow_steps(status: &CycleCountStatus) -> Markup {
     };
 
     html! {
-        div class="workflow-steps" {
+        div class="flex items-center" {
             @for (i, (label, _)) in steps.iter().enumerate() {
                 @if i > 0 {
                     div class=(if i <= idx { "wf-line completed" } else { "wf-line" }) {}
                 }
                 @if matches!(status, CycleCountStatus::Cancelled) {
-                    div class="wf-step" {
-                        span class="wf-dot" {}
+                    div class="flex items-center gap-2 text-xs text-muted" {
+                        span class="w-[10px] h-[10px] rounded-full bg-border" {}
                         (label)
                     }
                 } @else if i < idx {
-                    div class="wf-step completed" {
-                        span class="wf-dot" {}
+                    div class="flex items-center gap-2 text-xs text-muted completed" {
+                        span class="w-[10px] h-[10px] rounded-full bg-border" {}
                         (label)
                     }
                 } @else if i == idx {
-                    div class="wf-step current" {
-                        span class="wf-dot" {}
+                    div class="flex items-center gap-2 text-xs text-muted current" {
+                        span class="w-[10px] h-[10px] rounded-full bg-border" {}
                         (label)
                     }
                 } @else {
-                    div class="wf-step" {
-                        span class="wf-dot" {}
+                    div class="flex items-center gap-2 text-xs text-muted" {
+                        span class="w-[10px] h-[10px] rounded-full bg-border" {}
                         (label)
                     }
                 }
@@ -321,7 +321,7 @@ fn action_buttons(cc: &abt_core::wms::cycle_count::model::CycleCount, detail_pat
     match &cc.status {
         CycleCountStatus::Draft => {
             html! {
-                button class="btn bg-white text-fg border border-border hover:bg-surface"
+                button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface"
                     hx-post=(detail_path)
                     hx-vals=r#"{"action":"start"}"#
                     hx-confirm="确定要开始盘点吗？"
@@ -332,7 +332,7 @@ fn action_buttons(cc: &abt_core::wms::cycle_count::model::CycleCount, detail_pat
         }
         CycleCountStatus::Counting => {
             html! {
-                button class="btn bg-accent text-accent-on border-none hover:bg-accent-hover"
+                button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover"
                     hx-post=(detail_path)
                     hx-vals=r#"{"action":"complete"}"#
                     hx-confirm="确定要完成盘点吗？"
@@ -343,7 +343,7 @@ fn action_buttons(cc: &abt_core::wms::cycle_count::model::CycleCount, detail_pat
         }
         CycleCountStatus::Completed => {
             html! {
-                button class="btn bg-white text-fg border border-border hover:bg-surface"
+                button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface"
                     hx-post=(detail_path)
                     hx-vals=r#"{"action":"cancel"}"#
                     hx-confirm="确定要取消此盘点单吗？"
@@ -351,7 +351,7 @@ fn action_buttons(cc: &abt_core::wms::cycle_count::model::CycleCount, detail_pat
                     (crate::components::icon::x_icon("w-4 h-4"))
                     "取消"
                 }
-                button class="btn bg-accent text-accent-on border-none hover:bg-accent-hover"
+                button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover"
                     hx-post=(detail_path)
                     hx-vals=r#"{"action":"adjust"}"#
                     hx-confirm="确定要确认调整库存吗？此操作不可撤销。"
@@ -366,7 +366,7 @@ fn action_buttons(cc: &abt_core::wms::cycle_count::model::CycleCount, detail_pat
 
 fn summary_card(label: &str, value: &str, color: &str) -> Markup {
     html! {
-        div class="summary-stat-card" style="background:var(--bg);border:1px solid var(--border-soft);border-radius:var(--radius-md);padding:var(--space-4) var(--space-5);display:flex;align-items:center;gap:var(--space-3)" {
+        div class="summary-flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" style="background:var(--bg);border:1px solid var(--border-soft);border-radius:var(--radius-md);padding:var(--space-4) var(--space-5);display:flex;align-items:center;gap:var(--space-3)" {
             div class=(format!("summary-stat-icon {color}")) style="width:40px;height:40px;border-radius:var(--radius-md);display:grid;place-items:center;flex-shrink:0" {}
             div {
                 div style="font-size:var(--text-xl);font-weight:700;line-height:1.1" { (value) }

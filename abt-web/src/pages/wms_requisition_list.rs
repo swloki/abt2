@@ -168,7 +168,7 @@ fn requisition_list_page(
                 h1 class="text-xl font-bold text-fg tracking-tight" { "领料单" }
                 div class="flex gap-3" {
                     @if can_create {
-                        a class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" href=(RequisitionCreatePath::PATH) {
+                        a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" href=(RequisitionCreatePath::PATH) {
                             (icon::plus_icon("w-4 h-4"))
                             "新建领料单"
                         }
@@ -293,7 +293,7 @@ fn requisition_row(
 
     html! {
         tr style="cursor:pointer" {
-            td class="link-cell mono" onclick=(&onclick) { (r.doc_number) }
+            td class="text-accent font-medium cursor-pointer mono" onclick=(&onclick) { (r.doc_number) }
             td class="mono" onclick=(&onclick) { "WO-" (r.work_order_id) }
             td onclick=(&onclick) { (warehouse_name) }
             td class="mono" onclick=(&onclick) { (r.requisition_date.format("%Y-%m-%d")) }
@@ -303,7 +303,7 @@ fn requisition_row(
             td onclick=(&onclick) { (operator_name) }
             td onclick="event.stopPropagation()" {
                 div class="row-actions" {
-                    a class="row-action-btn" href=(detail_path.to_string()) title="查看" {
+                    a class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" href=(detail_path.to_string()) title="查看" {
                         (icon::eye_icon("w-4 h-4"))
                     }
                 }

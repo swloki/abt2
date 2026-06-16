@@ -59,7 +59,7 @@ fn work_center_detail_page(wc: &WorkCenter) -> Markup {
                 h1 class="text-xl font-bold text-fg tracking-tight" { "工作中心 " (wc.code) " - " (wc.name) }
             }
             div class="flex gap-3" {
-                a class="btn bg-white text-fg border border-border hover:bg-surface" href=(WorkCenterEditPath { id: wc.id }.to_string()) {
+                a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface" href=(WorkCenterEditPath { id: wc.id }.to_string()) {
                     (icon::edit_icon("w-4 h-4"))
                     "编辑"
                 }
@@ -78,9 +78,9 @@ fn work_center_detail_page(wc: &WorkCenter) -> Markup {
                 div class="flex flex-col gap-1" {
                     label { "状态" }
                     @if wc.is_active {
-                        span class="status-pill status-active" { "启用" }
+                        span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-[#f0fff0] text-[#389e0d]" { "启用" }
                     } @else {
-                        span class="status-pill status-inactive" { "停用" }
+                        span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-[#fff2f0] text-[#cf1322]" { "停用" }
                     }
                 }
                 div class="flex flex-col gap-1" {

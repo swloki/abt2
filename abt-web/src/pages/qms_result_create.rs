@@ -293,7 +293,7 @@ fn result_create_page(
                                 // 5 pre-filled example rows
                                 @for i in 1..=5 {
                                     tr {
-                                        td class="line-num" { (i) }
+                                        td class="text-muted text-xs text-center" { (i) }
                                         td {
                                             input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text"
                                                 name={"item_" (i)}
@@ -333,9 +333,9 @@ fn result_create_page(
 
                 // ── Action bar ──
                 div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
-                    a class="btn bg-white text-fg border border-border hover:bg-surface" href=(format!("{}?restore=true", ResultListPath::PATH)) { "取消" }
-                    button type="button" class="btn bg-white text-fg border border-border hover:bg-surface" id="btn-save-draft" { "保存草稿" }
-                    button type="submit" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" { "提交检验结果" }
+                    a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface" href=(format!("{}?restore=true", ResultListPath::PATH)) { "取消" }
+                    button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface" id="btn-save-draft" { "保存草稿" }
+                    button type="submit" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" { "提交检验结果" }
                 }
             }
 

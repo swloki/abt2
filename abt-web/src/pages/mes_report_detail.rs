@@ -33,11 +33,11 @@ pub async fn get_report_detail(path: ReportDetailPath, ctx: RequestContext) -> R
     let worker = lookups.worker_name.as_deref().unwrap_or("—");
 
     let content = html! { div {
-        div class="batch-detail-header" {
-            div class="batch-detail-title-row" {
-                div class="detail-doc-no" { (report.doc_number) " " span class="status-pill status-completed" { "已确认" } }
+        div class="block bg-bg border border-border rounded p-6" {
+            div class="flex items-center justify-between" {
+                div class="text-[24px] font-bold text-fg flex items-center gap-[14px]" { (report.doc_number) " " span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-[#f0fff0] text-[#389e0d]" { "已确认" } }
             }
-            div class="detail-grid gap-4-5" {
+            div class="grid gap-5 gap-4-5" {
                 div class="detail-flex flex-col gap-1" { span class="detail-text-xs text-muted font-medium" { "工单" } span class="detail-text-sm text-fg font-medium" { (wo) } }
                 div class="detail-flex flex-col gap-1" { span class="detail-text-xs text-muted font-medium" { "批次" } span class="detail-text-sm text-fg font-medium" { (batch) } }
                 div class="detail-flex flex-col gap-1" { span class="detail-text-xs text-muted font-medium" { "工序" } span class="detail-text-sm text-fg font-medium" { (process) } }
@@ -72,15 +72,15 @@ pub async fn get_report_detail(path: ReportDetailPath, ctx: RequestContext) -> R
                 }
             }
             div class="calc-detail" {
-                div class="calc-row" {
-                    span class="calc-label" { "工序" }
-                    span class="calc-value" { (process) }
+                div class="flex gap-[12px]" {
+                    span class="w-[80px] text-[#999] text-[13px]" { "工序" }
+                    span class="text-[#333] text-[13px]" { (process) }
                 }
-                div class="calc-row" {
-                    span class="calc-label" { "实际工时" }
-                    span class="calc-value mono" { (crate::utils::fmt_qty(report.work_hours)) " h" }
+                div class="flex gap-[12px]" {
+                    span class="w-[80px] text-[#999] text-[13px]" { "实际工时" }
+                    span class="text-[#333] text-[13px] mono" { (crate::utils::fmt_qty(report.work_hours)) " h" }
                 }
-                div class="calc-formula" {
+                div class="bg-white text-[13px]" {
                     "合格量 = 完成量(" (crate::utils::fmt_qty(report.completed_qty)) ")"
                     " - 不良量(" (crate::utils::fmt_qty(report.defect_qty)) ")"
                     " = "

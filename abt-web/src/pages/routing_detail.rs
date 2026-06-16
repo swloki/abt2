@@ -92,16 +92,16 @@ fn routing_detail_page(
     html! {
         div {
             // ── Detail Top ──
-            div class="detail-top" {
-                div class="customer-identity" {
+            div class="flex justify-between items-start" {
+                div class="flex items-center gap-5" {
                     div class="customer-inline-grid place-items-center rounded-full text-white font-semibold shrink-0 select-none" style="background:var(--color-primary-light,#e0e7ff)" {
                         (icon::clipboard_list_icon("w-5 h-5"))
                     }
                     div {
-                        h1 class="customer-name" {
+                        h1 class="text-xl font-bold" {
                             (routing.name)
                         }
-                        div class="customer-meta" {
+                        div class="flex gap-4 text-muted text-xs" {
                             span { "工序: " (step_count) }
                             span { "必经: " (required_count) }
                             span { "关联BOM: " (boms.total) }
@@ -112,19 +112,19 @@ fn routing_detail_page(
                     }
                 }
                 div class="flex gap-3" {
-                    a class="btn bg-white text-fg border border-border hover:bg-surface" href=(format!("{list_path}?restore=true")) {
+                    a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface" href=(format!("{list_path}?restore=true")) {
                         (icon::arrow_left_icon("w-4 h-4"))
                         " 返回列表"
                     }
-                    a class="btn bg-white text-fg border border-border hover:bg-surface" href="#" {
+                    a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface" href="#" {
                         (icon::edit_icon("w-4 h-4"))
                         " 编辑"
                     }
-                    a class="btn bg-white text-fg border border-border hover:bg-surface" href="#" {
+                    a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface" href="#" {
                         (icon::copy_icon("w-4 h-4"))
                         " 复制"
                     }
-                    button class="btn bg-danger text-white border-none hover:opacity-90-ghost"
+                    button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-danger text-white border-none hover:opacity-90-ghost"
                         hx-confirm=(format!("确定要删除工艺路线 {} 吗？此操作不可撤销。", routing.name))
                         hx-post=(delete_path.to_string())
                         hx-target="body"
@@ -136,9 +136,9 @@ fn routing_detail_page(
             }
 
             // ── 基本信息 ──
-            div class="detail-card" {
+            div class="bg-white border border-border-soft rounded p-5" {
                 div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 border-b border-border-soft" { "基本信息" }
-                div class="detail-grid" style="grid-template-columns:repeat(3,1fr)" {
+                div class="grid gap-5" style="grid-template-columns:repeat(3,1fr)" {
                     (detail_row("编码", html! { span class="mono" { (routing.id) } }))
                     (detail_row("名称", html! { (routing.name) }))
                     (detail_row("描述", html! { (routing.description.as_deref().unwrap_or("—")) }))
@@ -163,7 +163,7 @@ fn routing_detail_page(
             }
 
             // ── 工序流程 ──
-            div class="detail-card" style="margin-top:var(--space-5)" {
+            div class="bg-white border border-border-soft rounded p-5" style="margin-top:var(--space-5)" {
                 div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 border-b border-border-soft" {
                     span { "工序流程" }
                     span style="color:var(--text-tertiary);font-weight:400;font-size:12px" {
@@ -171,7 +171,7 @@ fn routing_detail_page(
                     }
                 }
                 @if steps.is_empty() {
-                    div class="empty-state" { "暂无工序步骤" }
+                    div class="text-center p-6 text-muted text-sm" { "暂无工序步骤" }
                 } @else {
                     table class="data-table" {
                         thead {
@@ -191,9 +191,9 @@ fn routing_detail_page(
                                     td { (step.process_name.as_deref().unwrap_or(&step.process_code)) }
                                     td {
                                         @if step.is_required {
-                                            span class="status-pill status-accepted" { "必经" }
+                                            span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-[#fff8eb] text-[#d46b08]" { "必经" }
                                         } @else {
-                                            span class="status-pill status-draft" { "选检" }
+                                            span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-surface text-muted" { "选检" }
                                         }
                                     }
                                     td { (step.remark.as_deref().unwrap_or("—")) }
@@ -205,7 +205,7 @@ fn routing_detail_page(
             }
 
             // ── 关联BOM ──
-            div class="detail-card routing-bom-card" style="margin-top:var(--space-5)"
+            div class="bg-white border border-border-soft rounded p-5 routing-bom-card" style="margin-top:var(--space-5)"
                 hx-select=".routing-bom-card" hx-target=".routing-bom-card" hx-swap="outerHTML"
                 hx-push-url="true" {
                 div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 border-b border-border-soft" { "关联BOM" }
@@ -218,7 +218,7 @@ fn bom_table_fragment(routing_id: i64, boms: &abt_core::shared::types::Paginated
     let base_path = RoutingDetailPath { id: routing_id }.to_string();
     html! {
         @if boms.items.is_empty() {
-            div class="empty-state" { "暂无关联BOM" }
+            div class="text-center p-6 text-muted text-sm" { "暂无关联BOM" }
         } @else {
             table class="data-table" {
                 thead {

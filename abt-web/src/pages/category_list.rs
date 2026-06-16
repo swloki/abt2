@@ -618,7 +618,7 @@ fn category_page(tree: &[CategoryTree], initial_panel: Option<&Markup>, first_id
             div class="flex items-center justify-between mb-6" {
                 h1 class="text-xl font-bold text-fg tracking-tight" { "产品分类" }
                 div class="flex gap-3" {
-                    button class="btn bg-white text-fg border border-border hover:bg-surface" {
+                    button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface" {
                         (icon::upload_icon("w-4 h-4"))
                         "导出"
                     }
@@ -631,7 +631,7 @@ fn category_page(tree: &[CategoryTree], initial_panel: Option<&Markup>, first_id
                 div class="tree-panel" {
                     div class="tree-panel-header" {
                         h3 { "分类目录" }
-                        div class="tree-search" {
+                        div class="w-full border border-border-soft rounded-sm text-[12px] bg-surface text-fg" {
                             (icon::search_icon("search-icon"))
                             input type="text" placeholder="搜索分类…"
                                 oninput="filterTree(this.value)";
@@ -642,7 +642,7 @@ fn category_page(tree: &[CategoryTree], initial_panel: Option<&Markup>, first_id
                     }
                     @if can_create {
                         div class="tree-footer" {
-                            button class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" style="width: 100%; justify-content: center;"
+                            button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" style="width: 100%; justify-content: center;"
                                 _="on click add .is-open to #create-modal" {
                                 (icon::plus_icon("w-4 h-4"))
                                 "新建分类"
@@ -656,12 +656,12 @@ fn category_page(tree: &[CategoryTree], initial_panel: Option<&Markup>, first_id
                     @if let Some(panel) = initial_panel {
                         (panel)
                     } @else {
-                        div class="empty-state" {
+                        div class="text-center p-6 text-muted text-sm" {
                             svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" {
                                 path d="M4 20h16M8 16h8M6 12h12M10 8h4M12 4v16" {}
                             }
-                            div class="empty-state-text" { "请从左侧选择一个分类" }
-                            div class="empty-state-hint" { "选择分类查看详情和管理关联产品" }
+                            div class="text-center p-6 text-muted text-sm-text" { "请从左侧选择一个分类" }
+                            div class="text-center p-6 text-muted text-sm-hint" { "选择分类查看详情和管理关联产品" }
                         }
                     }
                 }
@@ -826,14 +826,14 @@ fn detail_panel(
                     }
                     div class="cat-info-actions" {
                         @if can_update {
-                            button class="btn bg-white text-fg border border-border hover:bg-surface btn-sm"
+                            button class="btn bg-white text-fg border border-border hover:bg-surface inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm"
                                 _="on click add .is-open to #edit-category-modal" {
                                 (icon::edit_icon("w-4 h-4"))
                                 "编辑"
                             }
                         }
                         @if can_delete {
-                            button class="btn bg-white text-fg border border-border hover:bg-surface btn-sm" style="color: var(--danger); border-color: var(--border);"
+                            button class="btn bg-white text-fg border border-border hover:bg-surface inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm" style="color: var(--danger); border-color: var(--border);"
                                 hx-post=(delete_url)
                                 hx-confirm="确定要删除此分类吗？此操作不可撤销。"
                                 hx-swap="none" {
@@ -868,7 +868,7 @@ fn detail_panel(
                 div class="detail-section" {
                     div class="detail-section-header" {
                         div {
-                            span class="detail-section-title" { "子分类" }
+                            span class="text-[13px] font-semibold text-fg flex items-center gap-[6px]" { "子分类" }
                             span class="detail-section-count" { "(" (child_tree.len()) ")" }
                         }
                     }
@@ -890,7 +890,7 @@ fn detail_panel(
                 hx-swap="outerHTML" hx-push-url="true" {
                 div class="detail-section-header" {
                     div {
-                        span class="detail-section-title" { "关联产品" }
+                        span class="text-[13px] font-semibold text-fg flex items-center gap-[6px]" { "关联产品" }
                         span class="detail-section-count" { "(" (total_products) ")" }
                     }
                 }
@@ -908,18 +908,18 @@ fn detail_panel(
                                 tbody {
                                     @for p in &products.items {
                                         tr {
-                                            td class="link-cell mono" { (p.product_code) }
+                                            td class="text-accent font-medium cursor-pointer mono" { (p.product_code) }
                                             td style="max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title=(p.pdt_name) { strong { (p.pdt_name) } }
                                             td {
                                                 @match p.status {
                                                     ProductStatus::Active => {
-                                                        span class="status-pill status-success" { "在用" }
+                                                        span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-[#f0fff0] text-[#389e0d]" { "在用" }
                                                     }
                                                     ProductStatus::Inactive => {
-                                                        span class="status-pill status-draft" { "停用" }
+                                                        span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-surface text-muted" { "停用" }
                                                     }
                                                     ProductStatus::Obsolete => {
-                                                        span class="status-pill status-danger" { "淘汰" }
+                                                        span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-[#fff2f0] text-[#cf1322]" { "淘汰" }
                                                     }
                                                 }
                                             }

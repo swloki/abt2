@@ -62,17 +62,17 @@ pub async fn get_receipt_detail(path: ReceiptDetailPath, ctx: RequestContext) ->
                 @if receipt.status == abt_core::mes::enums::ReceiptStatus::Draft {
                     @if matches!(fqc_status, FqcGate::AllPassed | FqcGate::NotRequired) {
                         form class="inline-form" hx-post=(ReceiptConfirmPath { receipt_id: receipt.id }.to_string()) hx-swap="none" {
-                            button class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" type="submit"
+                            button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" type="submit"
                                 hx-confirm="确认入库？将触发倒冲和成本结转。" {
                                 "确认入库"
                             }
                         }
                     } @else if matches!(fqc_status, FqcGate::PendingInspection) {
-                        button class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" disabled title="需完成 FQC 质检后才能确认入库" {
+                        button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" disabled title="需完成 FQC 质检后才能确认入库" {
                             "确认入库（待 FQC）"
                         }
                     } @else {
-                        button class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" disabled title="FQC 有不合格项，无法入库" {
+                        button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" disabled title="FQC 有不合格项，无法入库" {
                             "确认入库（FQC 不合格）"
                         }
                     }
@@ -81,7 +81,7 @@ pub async fn get_receipt_detail(path: ReceiptDetailPath, ctx: RequestContext) ->
         }
 
         // 状态条
-        div class="receipt-status-bar" {
+        div class="flex items-center gap-[16px] bg-[#fafafa]" {
             span class="receipt-status-label" {
                 "状态: "
                 span class=(format!("status-pill {}", sc)) { (sl) }

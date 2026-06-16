@@ -205,7 +205,7 @@ fn misc_list_page(
                 h1 class="text-xl font-bold text-fg tracking-tight" { "零星请购" }
                 div class="flex gap-3" {
                     @if can_create {
-                        a class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" href=(MiscCreatePath::PATH) {
+                        a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" href=(MiscCreatePath::PATH) {
                             (icon::plus_icon("w-4 h-4"))
                             "新建零星请购"
                         }
@@ -292,7 +292,7 @@ fn misc_table_fragment(
                                 th { "请购日期" }
                                 th { "用途" }
                                 th { "状态" }
-                                th class="num-right" { "预估金额" }
+                                th class="text-right text-[13px]" { "预估金额" }
                                 th { "申请人" }
                                 th { "操作" }
                             }
@@ -331,19 +331,19 @@ fn misc_row(
 
     html! {
         tr style="cursor:pointer" {
-            td class="link-cell mono" onclick=(&onclick) { (r.doc_number) }
+            td class="text-accent font-medium cursor-pointer mono" onclick=(&onclick) { (r.doc_number) }
             td onclick=(&onclick) { (dept_name) }
             td class="mono" onclick=(&onclick) { (r.request_date.format("%Y-%m-%d")) }
             td onclick=(&onclick) { (r.purpose.as_str()) }
             td onclick=(&onclick) {
                 span class=(format!("status-pill {status_class}")) { (status_text) }
             }
-            td class="num-right mono" onclick=(&onclick) { (format!("{:.2}", r.total_amount)) }
+            td class="text-right text-[13px] mono" onclick=(&onclick) { (format!("{:.2}", r.total_amount)) }
             td onclick=(&onclick) { (operator_name) }
             td onclick="event.stopPropagation()" {
                 @if is_draft {
                     div class="row-actions" {
-                        a class="row-action-btn" href=(detail_path.to_string()) title="编辑" {
+                        a class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" href=(detail_path.to_string()) title="编辑" {
                             (icon::edit_icon("w-4 h-4"))
                         }
                     }

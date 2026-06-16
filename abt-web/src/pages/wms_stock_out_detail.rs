@@ -123,11 +123,11 @@ fn stock_out_detail_page(
                 "返回出库列表"
             }
 
-            div class="detail-header" {
+            div class="block bg-bg border border-border-soft rounded-lg p-6" {
                 div {
-                    div class="detail-title-row" {
-                        h1 class="detail-no font-mono" { (txn.doc_number.as_deref().unwrap_or("—")) }
-                        span class="status-pill status-completed" { "已出库" }
+                    div class="flex items-center justify-between" {
+                        h1 class="text-2xl font-extrabold font-mono" { (txn.doc_number.as_deref().unwrap_or("—")) }
+                        span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-[#f0fff0] text-[#389e0d]" { "已出库" }
                     }
                 }
             }

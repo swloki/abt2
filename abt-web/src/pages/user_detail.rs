@@ -621,9 +621,9 @@ fn role_assign_modal(
     current_ids: &[i64],
 ) -> Markup {
     html! {
-        div id="role-assign-modal" class="modal-overlay"
+        div id="role-assign-modal" class="fixed z-[1000] grid place-items-center opacity-0"
             _="on click[me is event.target] remove .is-open" {
-            form id="role-assign-form" class="modal" hx-post=(action) hx-swap="none"
+            form id="role-assign-form" class="bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0" hx-post=(action) hx-swap="none"
                 onsubmit="this.closest('.modal-overlay').classList.remove('is-open');this.reset()" {
                 div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
                     h2 { "管理角色" }
@@ -632,14 +632,14 @@ fn role_assign_modal(
                 }
                 div class="overflow-y-auto flex-1 min-h-0 p-6" {
                     input type="hidden" name="role_ids" id="role-ids-input" {}
-                    div class="modal-checkbox-list" {
+                    div class="bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0-checkbox-list" {
                         @for role in all_roles {
-                            label class="modal-checkbox-label" {
+                            label class="bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0-checkbox-label" {
                                 input type="checkbox" class="role-checkbox" value=(role.role_id)
                                     checked[current_ids.contains(&role.role_id)];
                                 span { (role.role_name) }
                                 @if role.is_system_role {
-                                    span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium tag-key" { "系统" }
+                                    span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-[#e6f4ff] text-accent rounded-full text-[11px] font-medium" { "系统" }
                                 }
                                 @if let Some(desc) = &role.description {
                                     span class="ml-auto text-xs text-muted" { (desc) }
@@ -649,9 +649,9 @@ fn role_assign_modal(
                     }
                 }
                 div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" {
-                    button type="button" class="btn bg-white text-fg border border-border hover:bg-surface"
+                    button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface"
                         _="on click remove .is-open from closest .modal-overlay then reset #role-assign-form" { "取消" }
-                    button type="submit" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover"
+                    button type="submit" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover"
                         onclick="document.querySelector('#role-ids-input').value=Array.from(document.querySelectorAll('.role-checkbox:checked')).map(function(c){return c.value}).join(',')" {
                         "保存"
                     }
@@ -667,9 +667,9 @@ fn dept_assign_modal(
     current_ids: &[i64],
 ) -> Markup {
     html! {
-        div id="dept-assign-modal" class="modal-overlay"
+        div id="dept-assign-modal" class="fixed z-[1000] grid place-items-center opacity-0"
             _="on click[me is event.target] remove .is-open" {
-            form id="dept-assign-form" class="modal" hx-post=(action) hx-swap="none"
+            form id="dept-assign-form" class="bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0" hx-post=(action) hx-swap="none"
                 onsubmit="this.closest('.modal-overlay').classList.remove('is-open');this.reset()" {
                 div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
                     h2 { "管理部门" }
@@ -678,24 +678,24 @@ fn dept_assign_modal(
                 }
                 div class="overflow-y-auto flex-1 min-h-0 p-6" {
                     input type="hidden" name="dept_ids" id="dept-ids-input" {}
-                    div class="modal-checkbox-list" {
+                    div class="bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0-checkbox-list" {
                         @for dept in all_depts {
-                            label class="modal-checkbox-label" {
+                            label class="bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0-checkbox-label" {
                                 input type="checkbox" class="dept-checkbox" value=(dept.department_id)
                                     checked[current_ids.contains(&dept.department_id)];
                                 span { (dept.department_name) }
                                 span class="text-xs text-muted" { (dept.department_code) }
                                 @if !dept.is_active {
-                                    span class="status-pill status-inactive" { "停用" }
+                                    span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-[#fff2f0] text-[#cf1322]" { "停用" }
                                 }
                             }
                         }
                     }
                 }
                 div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" {
-                    button type="button" class="btn bg-white text-fg border border-border hover:bg-surface"
+                    button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface"
                         _="on click remove .is-open from closest .modal-overlay then reset #dept-assign-form" { "取消" }
-                    button type="submit" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover"
+                    button type="submit" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover"
                         onclick="document.querySelector('#dept-ids-input').value=Array.from(document.querySelectorAll('.dept-checkbox:checked')).map(function(c){return c.value}).join(',')" {
                         "保存"
                     }
@@ -707,9 +707,9 @@ fn dept_assign_modal(
 
 fn reset_password_modal(action: &str) -> Markup {
     html! {
-        div id="reset-pw-modal" class="modal-overlay"
+        div id="reset-pw-modal" class="fixed z-[1000] grid place-items-center opacity-0"
             _="on click[me is event.target] remove .is-open" {
-            form id="reset-pw-form" class="modal" hx-post=(action) hx-swap="none"
+            form id="reset-pw-form" class="bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0" hx-post=(action) hx-swap="none"
                 onsubmit="this.closest('.modal-overlay').classList.remove('is-open');this.reset()" {
                 div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
                     h2 { "重置密码" }
@@ -730,9 +730,9 @@ fn reset_password_modal(action: &str) -> Markup {
                     }
                 }
                 div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" {
-                    button type="button" class="btn bg-white text-fg border border-border hover:bg-surface"
+                    button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface"
                         _="on click remove .is-open from closest .modal-overlay then reset #reset-pw-form" { "取消" }
-                    button type="submit" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" {
+                    button type="submit" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" {
                         (icon::check_circle_icon("w-4 h-4"))
                         "确认重置"
                     }

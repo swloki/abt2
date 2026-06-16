@@ -316,7 +316,7 @@ fn om_dashboard_page(total: u64, ctx: &OmDashboardContext) -> Markup {
             div class="flex items-center justify-between mb-6" {
                 h1 class="text-xl font-bold text-fg tracking-tight" { "委外管理总览" }
                 div class="flex gap-3" {
-                    a href=(OmOutsourcingCreatePath::PATH) class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" {
+                    a href=(OmOutsourcingCreatePath::PATH) class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" {
                         (icon::plus_icon("w-4 h-4"))
                         " 新建委外单"
                     }
@@ -325,36 +325,36 @@ fn om_dashboard_page(total: u64, ctx: &OmDashboardContext) -> Markup {
 
             // ── Stat Cards ──
             div style="display:grid;grid-template-columns:repeat(5,1fr);gap:var(--space-5);margin-bottom:var(--space-6)" {
-                div class="stat-card" {
-                    div class="stat-icon blue" { (icon::file_text_icon("w-5 h-5")) }
+                div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
+                    div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 blue" { (icon::file_text_icon("w-5 h-5")) }
                     div {
                         div class="text-2xl font-bold font-mono tabular-nums text-fg" { (total) }
                         div class="text-sm text-muted mt-1" { "委外单总数" }
                     }
                 }
-                div class="stat-card" {
-                    div class="stat-icon green" { (icon::tool_icon("w-5 h-5")) }
+                div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
+                    div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 green" { (icon::tool_icon("w-5 h-5")) }
                     div {
                         div class="text-2xl font-bold font-mono tabular-nums text-fg" { (ctx.in_production) }
                         div class="text-sm text-muted mt-1" { "生产中" }
                     }
                 }
-                div class="stat-card" {
-                    div class="stat-icon orange" { (icon::package_icon("w-5 h-5")) }
+                div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
+                    div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 orange" { (icon::package_icon("w-5 h-5")) }
                     div {
                         div class="text-2xl font-bold font-mono tabular-nums text-fg" { (ctx.delivered) }
                         div class="text-sm text-muted mt-1" { "待收货" }
                     }
                 }
-                div class="stat-card" {
-                    div class="stat-icon red" { (icon::alert_triangle_icon("w-5 h-5")) }
+                div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
+                    div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 red" { (icon::alert_triangle_icon("w-5 h-5")) }
                     div {
                         div class="text-2xl font-bold font-mono tabular-nums text-fg" { (ctx.overdue) }
                         div class="text-sm text-muted mt-1" { "超期预警" }
                     }
                 }
-                div class="stat-card" {
-                    div class="stat-icon purple" { (icon::currency_icon("w-5 h-5")) }
+                div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
+                    div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 purple" { (icon::currency_icon("w-5 h-5")) }
                     div {
                         div class="text-2xl font-bold font-mono tabular-nums text-fg" { (format_amount(ctx.monthly_amount)) }
                         div class="text-sm text-muted mt-1" { "本月委外金额" }
@@ -364,7 +364,7 @@ fn om_dashboard_page(total: u64, ctx: &OmDashboardContext) -> Markup {
 
             // ── Quick Entry Grid ──
             div class="section-block" {
-                h2 class="section-block-title" { "快捷入口" }
+                h2 class="text-lg font-semibold text-fg flex items-center gap-2" { "快捷入口" }
                 div style="display:grid;grid-template-columns:repeat(4,1fr);gap:var(--space-4)" {
                     (quick_entry_card(OmOutsourcingCreatePath::PATH, "新建委外单", "创建委外生产订单", "blue", "plus", None))
                     (quick_entry_card(OmOutsourcingListPath::PATH, "委外单管理", "查看和管理所有委外单", "green", "list", Some(total)))
@@ -375,7 +375,7 @@ fn om_dashboard_page(total: u64, ctx: &OmDashboardContext) -> Markup {
 
             // ── Recent Outsourcing Orders ──
             div class="section-block" {
-                h2 class="section-block-title" {
+                h2 class="text-lg font-semibold text-fg flex items-center gap-2" {
                     (icon::clock_icon("w-4 h-4"))
                     " 最近委外单"
                 }
@@ -445,7 +445,7 @@ fn om_dashboard_page(total: u64, ctx: &OmDashboardContext) -> Markup {
             div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-5);margin-top:var(--space-5)" {
                 // ── 委外类型分布 ──
                 div class="section-block" style="margin-bottom:0" {
-                    h2 class="section-block-title" {
+                    h2 class="text-lg font-semibold text-fg flex items-center gap-2" {
                         (icon::grid_icon("w-4 h-4"))
                         " 委外类型分布"
                     }
@@ -474,7 +474,7 @@ fn om_dashboard_page(total: u64, ctx: &OmDashboardContext) -> Markup {
 
                 // ── 供应商委外金额排名 ──
                 div class="section-block" style="margin-bottom:0" {
-                    h2 class="section-block-title" {
+                    h2 class="text-lg font-semibold text-fg flex items-center gap-2" {
                         (icon::trending_up_icon("w-4 h-4"))
                         " 供应商委外金额排名"
                     }
@@ -559,14 +559,14 @@ fn quick_entry_card(
         _ => icon::grid_icon("w-full h-full"),
     };
     html! {
-        a href=(href) class="quick-card" style="text-decoration:none;position:relative" {
-            div class="quick-card-icon" style=(format!("background:{}", bg)) {
+        a href=(href) class="block p-5 rounded-lg bg-bg border border-border-soft no-underline relative overflow-hidden" style="text-decoration:none;position:relative" {
+            div class="block p-5 rounded-lg bg-bg border border-border-soft no-underline relative overflow-hidden-icon" style=(format!("background:{}", bg)) {
                 div style=(format!("width:22px;height:22px;color:{}", fg)) {
                     (icon_svg)
                 }
             }
-            span class="quick-card-title" { (title) }
-            span class="quick-card-desc" { (desc) }
+            span class="block p-5 rounded-lg bg-bg border border-border-soft no-underline relative overflow-hidden-title" { (title) }
+            span class="block p-5 rounded-lg bg-bg border border-border-soft no-underline relative overflow-hidden-desc" { (desc) }
             @if let Some(count) = badge {
                 span style="position:absolute;top:8px;right:8px;display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;border-radius:10px;font-size:11px;font-weight:600;background:var(--danger);color:#fff;line-height:1" {
                     (count)

@@ -8,7 +8,7 @@ pub fn header(claims: &Claims, module_name: &str, page_name: Option<&str>) -> Ma
     html! {
         header class="h-[var(--header-h)] bg-bg border-b border-border-soft flex items-center justify-between px-8 sticky top-0 z-10 shadow-xs" {
             div class="h-[var(--header-h)] bg-bg border-b border-border-soft flex items-center justify-between px-8 sticky top-0 z-10 shadow-xs-left" {
-                button class="mobile-menu-btn" _="on click add .open to .mobile-sidebar-overlay" aria-label="菜单" {
+                button class="hidden w-[38px] h-[38px] border-none rounded-sm place-items-center cursor-pointer shrink-0" _="on click add .open to .mobile-sidebar-overlay" aria-label="菜单" {
                     (icon::menu_icon(""))
                 }
                 div class="flex items-center gap-2 text-sm text-muted" {

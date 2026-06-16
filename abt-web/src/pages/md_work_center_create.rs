@@ -232,8 +232,8 @@ fn work_center_form_page(wc: Option<&WorkCenter>) -> Markup {
             }
 
             div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
-                a class="btn bg-white text-fg border border-border hover:bg-surface" href=(WorkCenterListPath::PATH) { "取消" }
-                button class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" type="submit" {
+                a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface" href=(WorkCenterListPath::PATH) { "取消" }
+                button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" type="submit" {
                     (icon::check_circle_icon("w-4 h-4"))
                     @if is_edit { "保存" } @else { "创建" }
                 }

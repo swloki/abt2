@@ -41,12 +41,12 @@ fn admin_shell(
         div id="app-wrapper" {
             div class="app-shell" _="on load if localStorage.getItem('sidebar-collapsed') is 'true' add .sidebar-collapsed" {
                 (sidebar::sidebar(claims, active_module, current_path, nav_filter))
-                div class="main-content" {
+                div class="flex flex-col bg-surface" {
                     (header::header(claims, module_name, page_name))
-                    div class="page-content" { (content) }
+                    div class="flex-1 p-8" { (content) }
                 }
             }
-            div class="mobile-sidebar-overlay" _="on click remove .open" {}
+            div class="hidden fixed z-[50]" _="on click remove .open" {}
             (sidebar::mobile_nav(active_module, current_path, nav_filter))
         }
     }
@@ -90,7 +90,7 @@ pub fn standalone_page(title: &str, body: Markup) -> Markup {
 
 fn toast_container() -> Markup {
     html! {
-        div class="toast-container"
+        div class="fixed z-[99999] flex flex-col gap-[10px]"
             hx-get="/api/toast"
             hx-trigger="showToast from:body"
             hx-swap="innerHTML" {}
@@ -101,21 +101,21 @@ fn global_confirm_dialog() -> Markup {
     let icon = r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-7 h-7"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>"#;
     html! {
         div id="global-confirm-dialog" {
-            div class="dialog-overlay" _="on click remove .open" {
-                div class="dialog" onclick="event.stopPropagation()" {
-                    div class="dialog-body" {
-                        div class="dialog-icon-wrap" { (PreEscaped(icon)) }
+            div class="hidden fixed z-[1100] place-items-center" _="on click remove .open" {
+                div class="bg-bg rounded-lg w-[480px]" onclick="event.stopPropagation()" {
+                    div class="bg-bg rounded-lg w-[480px]-body" {
+                        div class="bg-bg rounded-lg w-[480px]-icon-wrap" { (PreEscaped(icon)) }
                         p class="text-sm text-muted text-center leading-relaxed" id="global-confirm-message" {}
                     }
-                    div class="dialog-foot" {
+                    div class="bg-bg rounded-lg w-[480px]-foot" {
                         button
                             type="button"
-                            class="btn bg-white text-fg border border-border hover:bg-surface"
+                            class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface"
                             _="on click remove .open from closest .dialog-overlay"
                         { "取消" }
                         button
                             type="button"
-                            class="btn bg-danger text-white border-none hover:opacity-90"
+                            class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-danger text-white border-none hover:opacity-90"
                             _="on click call window._confirmIssueRequest() then remove .open from closest .dialog-overlay"
                         { "确认" }
                     }

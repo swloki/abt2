@@ -177,7 +177,7 @@ fn workflow_steps(current: ShippingStatus) -> Markup {
     let is_cancelled = current == ShippingStatus::Cancelled;
 
     html! {
-        div class="workflow-steps" {
+        div class="flex items-center" {
             @for (i, (label, _)) in steps.iter().enumerate() {
                 @if i > 0 {
                     div class=(if i <= current_idx && !is_cancelled { "wf-line current" } else { "wf-line" }) {}
@@ -192,13 +192,13 @@ fn workflow_steps(current: ShippingStatus) -> Markup {
                     "wf-step"
                 };
                 div class=(step_class) {
-                    div class="wf-dot" {}
+                    div class="w-[10px] h-[10px] rounded-full bg-border" {}
                     (label)
                 }
             }
             @if is_cancelled {
-                div class="wf-step cancelled danger" {
-                    div class="wf-dot" {}
+                div class="flex items-center gap-2 text-xs text-muted cancelled danger" {
+                    div class="w-[10px] h-[10px] rounded-full bg-border" {}
                     "已取消"
                 }
             }
@@ -228,13 +228,13 @@ fn shipping_detail_page(
             }
 
             // ── Detail Header ──
-            div class="detail-header" {
+            div class="block bg-bg border border-border-soft rounded-lg p-6" {
                 div {
-                    div class="detail-title-row" {
-                        h1 class="detail-no font-mono" { (s.doc_number) }
+                    div class="flex items-center justify-between" {
+                        h1 class="text-2xl font-extrabold font-mono" { (s.doc_number) }
                         span class=(format!("status-pill {status_class}")) { (status_text) }
                     }
-                    div class="detail-source" {
+                    div class="text-[13px] text-muted" {
                         "来源订单："
                         @if let Some(oid) = s.order_id {
                             a href=(format!("/admin/orders/{oid}")) { (order_number) }
@@ -244,24 +244,24 @@ fn shipping_detail_page(
                     }
                 }
                 div class="flex gap-3" {
-                    a class="btn bg-white text-fg border border-border hover:bg-surface" href=(format!("{}?restore=true", ShippingListPath::PATH)) { "返回列表" }
+                    a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface" href=(format!("{}?restore=true", ShippingListPath::PATH)) { "返回列表" }
                     @if s.status == ShippingStatus::Draft {
-                        button class="btn bg-accent text-accent-on border-none hover:bg-accent-hover"
+                        button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover"
                             hx-post=(ConfirmShippingPath { id: s.id }.to_string())
                             hx-confirm="确认审核此发货单？" { "确认发货" }
                     }
                     @if s.status == ShippingStatus::Confirmed {
-                        button class="btn bg-accent text-accent-on border-none hover:bg-accent-hover"
+                        button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover"
                             hx-post=(PickShippingPath { id: s.id }.to_string())
                             hx-confirm="确认开始拣货？" { "开始拣货" }
                     }
                     @if s.status == ShippingStatus::Picking {
-                        button class="btn btn-success"
+                        button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-[#10b981] text-[#fff]"
                             hx-post=(ShipShippingPath { id: s.id }.to_string())
                             hx-confirm="确认已发出？" { "确认发出" }
                     }
                     @if matches!(s.status, ShippingStatus::Draft | ShippingStatus::Confirmed) {
-                        button class="btn bg-danger text-white border-none hover:opacity-90"
+                        button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-danger text-white border-none hover:opacity-90"
                             hx-post=(CancelShippingPath { id: s.id }.to_string())
                             hx-confirm="确认取消此发货单？" { "取消" }
                     }
@@ -315,8 +315,8 @@ fn shipping_detail_page(
                                 th { "产品名称" }
                                 th { "规格描述" }
                                 th { "单位" }
-                                th class="num-right" { "申请数量" }
-                                th class="num-right" { "已发货" }
+                                th class="text-right text-[13px]" { "申请数量" }
+                                th class="text-right text-[13px]" { "已发货" }
                                 th { "发货仓库" }
                             }
                         }
@@ -326,7 +326,7 @@ fn shipping_detail_page(
                             }
                             @if items.is_empty() {
                                 tr {
-                                    td colspan="8" class="td-empty" {
+                                    td colspan="8" class="text-center p-8 text-muted" {
                                         "暂无明细"
                                     }
                                 }
@@ -366,8 +366,8 @@ fn item_row(
             td { (product_name) }
             td { (spec) }
             td { (unit) }
-            td class="num-right" { (fmt_qty(item.requested_qty)) }
-            td class="num-right" { (fmt_qty(item.shipped_qty)) }
+            td class="text-right text-[13px]" { (fmt_qty(item.requested_qty)) }
+            td class="text-right text-[13px]" { (fmt_qty(item.shipped_qty)) }
             td { (warehouse) }
         }
     }

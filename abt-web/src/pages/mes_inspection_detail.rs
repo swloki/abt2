@@ -68,7 +68,7 @@ pub async fn get_inspection_detail(path: InspectionDetailPath, ctx: RequestConte
                 select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="result" style="width:200px;display:inline-block" {
                     option value="1" { "合格" } option value="2" { "不合格" } option value="3" { "让步接收" }
                 }
-                button type="submit" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" style="margin-left:var(--space-3)" { "提交" }
+                button type="submit" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" style="margin-left:var(--space-3)" { "提交" }
             }
         }
     }};

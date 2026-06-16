@@ -118,20 +118,20 @@ fn backflush_detail_page(
                 "返回倒冲记录列表"
             }
 
-            div class="detail-header" {
+            div class="block bg-bg border border-border-soft rounded-lg p-6" {
                 div {
-                    div class="detail-title-row" {
-                        h1 class="detail-no font-mono" { (record.doc_number) }
+                    div class="flex items-center justify-between" {
+                        h1 class="text-2xl font-extrabold font-mono" { (record.doc_number) }
                         span class=(format!("status-pill {status_class}")) { (status_label) }
                     }
                 }
                 div class="flex gap-3" {
-                    button class="btn bg-white text-fg border border-border hover:bg-surface" {
+                    button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface" {
                         (icon::printer_icon("w-4 h-4"))
                         "打印"
                     }
                     @if show_adjust {
-                        button class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" {
+                        button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" {
                             "确认调整"
                         }
                     }
@@ -193,11 +193,11 @@ fn backflush_detail_page(
                                 th { "子件编码" }
                                 th { "子件名称" }
                                 th { "单位" }
-                                th class="num-right" { "BOM理论用量" }
-                                th class="num-right" { "实际倒冲量" }
-                                th class="num-right" { "差异量" }
-                                th class="num-right" { "差异率" }
-                                th class="num-right" { "超标" }
+                                th class="text-right text-[13px]" { "BOM理论用量" }
+                                th class="text-right text-[13px]" { "实际倒冲量" }
+                                th class="text-right text-[13px]" { "差异量" }
+                                th class="text-right text-[13px]" { "差异率" }
+                                th class="text-right text-[13px]" { "超标" }
                             }
                         }
                         tbody {
@@ -217,14 +217,14 @@ fn backflush_detail_page(
 
                 // ── Summary Bar ──
                 @if !items.is_empty() {
-                    div class="summary-bar" {
+                    div class="grid gap-4 p-4 bg-surface border border-border rounded" {
                         div class="summary-item" {
-                            div class="summary-value" { (items.len()) }
-                            div class="summary-label" { "总子件数" }
+                            div class="text-xl font-bold text-fg" { (items.len()) }
+                            div class="text-xs text-muted" { "总子件数" }
                         }
                         div class="summary-item" {
                             div class=(if over_count > 0 { "summary-value danger" } else { "summary-value" }) { (over_count) }
-                            div class="summary-label" { "超标项数" }
+                            div class="text-xs text-muted" { "超标项数" }
                         }
                         div class="summary-item" {
                             div class=(if max_rate > Decimal::ZERO { "summary-value danger" } else { "summary-value" }) {
@@ -234,7 +234,7 @@ fn backflush_detail_page(
                                     "0%"
                                 }
                             }
-                            div class="summary-label" { "最大差异率" }
+                            div class="text-xs text-muted" { "最大差异率" }
                         }
                     }
                 }
@@ -258,17 +258,17 @@ fn backflush_item_row(
             td class="mono" { (component_info.code(&item.component_id)) }
             td { (component_info.name(&item.component_id)) }
             td { (component_info.unit(&item.component_id)) }
-            td class="num-right" { (format!("{:.2}", item.theoretical_qty)) }
-            td class="num-right" { (format!("{:.2}", item.actual_qty)) }
-            td class="num-right" class=(if has_variance { "num-danger" } else { "" }) {
+            td class="text-right text-[13px]" { (format!("{:.2}", item.theoretical_qty)) }
+            td class="text-right text-[13px]" { (format!("{:.2}", item.actual_qty)) }
+            td class="text-right text-[13px]" class=(if has_variance { "num-danger" } else { "" }) {
                 (variance_sign) (format!("{:.2}", item.variance_qty))
             }
-            td class="num-right" class=(if has_variance { "num-danger" } else { "" }) {
+            td class="text-right text-[13px]" class=(if has_variance { "num-danger" } else { "" }) {
                 (rate_sign) (format!("{:.2}", item.variance_rate)) "%"
             }
-            td class="num-right" {
+            td class="text-right text-[13px]" {
                 @if item.is_over_threshold {
-                    span class="exceed-cell" { "✓" }
+                    span class="bg-[#fff2f0] text-danger font-semibold text-center" { "✓" }
                 } @else {
                     span class="muted-text" { "✗" }
                 }
@@ -291,10 +291,10 @@ fn backflush_status_flow(status: BackflushStatus) -> Markup {
     };
 
     html! {
-        div class="status-flow" {
+        div class="flex items-center gap-2 p-3 bg-bg border border-border-soft rounded" {
             @for (i, (label, _)) in steps.iter().enumerate() {
                 @if i > 0 {
-                    span class="status-flow-arrow" { "→" }
+                    span class="flex items-center gap-2 p-3 bg-bg border border-border-soft rounded-arrow" { "→" }
                 }
                 span class=(if i < current_idx { "status-flow-step done" }
                     else if i == current_idx { "status-flow-step current" }

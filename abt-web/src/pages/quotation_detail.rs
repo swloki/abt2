@@ -150,31 +150,31 @@ fn quotation_detail_page(
             }
 
             // ── Detail Header ──
-            div class="detail-header" {
-                div class="detail-title-row" {
-                    h1 class="detail-no font-mono" { (q.doc_number) }
+            div class="block bg-bg border border-border-soft rounded-lg p-6" {
+                div class="flex items-center justify-between" {
+                    h1 class="text-2xl font-extrabold font-mono" { (q.doc_number) }
                     span class=(format!("status-pill {status_class}")) { (status_text) }
                 }
                 div class="flex gap-3" {
                     @if is_draft {
-                        button class="btn bg-accent text-accent-on border-none hover:bg-accent-hover"
+                        button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover"
                             hx-post=(SubmitQuotationPath { id: q.id }.to_string())
                             hx-confirm="确认提交报价单？" { "提交报价" }
                     }
                     @if is_sent {
-                        button class="btn btn-success"
+                        button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-[#10b981] text-[#fff]"
                             hx-post=(AcceptQuotationPath { id: q.id }.to_string())
                             hx-confirm="确认接受该报价？" { "接受" }
-                        button class="btn bg-danger text-white border-none hover:opacity-90"
+                        button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-danger text-white border-none hover:opacity-90"
                             hx-post=(RejectQuotationPath { id: q.id }.to_string())
                             hx-confirm="确认拒绝该报价？" { "拒绝" }
                     }
                     @if is_accepted {
-                        button class="btn bg-white text-fg border border-border hover:bg-surface" onclick="window.print()" {
+                        button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface" onclick="window.print()" {
                             (icon::printer_icon("w-4 h-4"))
                             "打印"
                         }
-                        a class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" href=(format!("/admin/orders/create?from_quotation={}", q.id)) {
+                        a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" href=(format!("/admin/orders/create?from_quotation={}", q.id)) {
                             (icon::arrow_right_icon("w-4 h-4"))
                             "转销售订单"
                         }
@@ -231,10 +231,10 @@ fn quotation_detail_page(
                             th { "产品名称" }
                             th { "规格描述" }
                             th { "单位" }
-                            th class="num-right" { "数量" }
-                            th class="num-right" { "单价" }
-                            th class="num-right" { "折扣" }
-                            th class="num-right" { "小计" }
+                            th class="text-right text-[13px]" { "数量" }
+                            th class="text-right text-[13px]" { "单价" }
+                            th class="text-right text-[13px]" { "折扣" }
+                            th class="text-right text-[13px]" { "小计" }
                             th { "交货日期" }
                         }
                     }
@@ -244,29 +244,29 @@ fn quotation_detail_page(
                         }
                         @if items.is_empty() {
                             tr {
-                                td colspan="10" class="td-empty" {
+                                td colspan="10" class="text-center p-8 text-muted" {
                                     "暂无明细"
                                 }
                             }
                         }
                     }
                 }
-                div class="amount-summary" {
-                    div class="amount-row" {
-                        span class="amount-label" { "成本合计" }
-                        span class="amount-value" {
+                div class="flex justify-end gap-8 p-5 border-t bg-surface-raised" {
+                    div class="flex gap-3" {
+                        span class="text-[11px] text-muted font-medium uppercase" { "成本合计" }
+                        span class="text-[20px] font-bold text-fg" {
                             (crate::utils::fmt_amount(q.total_cost))
                         }
                     }
-                    div class="amount-row" {
-                        span class="amount-label" { "预估利润" }
-                        span class="amount-value text-success" {
+                    div class="flex gap-3" {
+                        span class="text-[11px] text-muted font-medium uppercase" { "预估利润" }
+                        span class="text-[20px] font-bold text-fg text-success" {
                             (format!("{:.1}%", q.estimated_margin * rust_decimal::Decimal::ONE_HUNDRED))
                         }
                     }
-                    div class="amount-row" {
-                        span class="amount-label" { "报价总额" }
-                        span class="amount-value accent" {
+                    div class="flex gap-3" {
+                        span class="text-[11px] text-muted font-medium uppercase" { "报价总额" }
+                        span class="text-[20px] font-bold text-fg accent" {
                             (crate::utils::fmt_amount(q.total_amount))
                         }
                     }
@@ -302,10 +302,10 @@ fn item_row(item: &QuotationItem, names: &HashMap<i64, String>, codes: &HashMap<
             td { (product_name) }
             td { (item.description.as_str()) }
             td { (item.unit.as_str()) }
-            td class="num-right" { (fmt_qty(item.quantity)) }
-            td class="num-right" { (crate::utils::fmt_amount(item.unit_price)) }
-            td class="num-right" { (discount) }
-            td class="num-right" { (crate::utils::fmt_amount(item.amount)) }
+            td class="text-right text-[13px]" { (fmt_qty(item.quantity)) }
+            td class="text-right text-[13px]" { (crate::utils::fmt_amount(item.unit_price)) }
+            td class="text-right text-[13px]" { (discount) }
+            td class="text-right text-[13px]" { (crate::utils::fmt_amount(item.amount)) }
             td class="mono" { (delivery) }
         }
     }

@@ -222,7 +222,7 @@ fn pq_list_page(
                 h1 class="text-xl font-bold text-fg tracking-tight" { "采购报价" }
                 div class="flex gap-3" {
                     @if can_create {
-                        a class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" href=(PQCreatePath::PATH) {
+                        a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" href=(PQCreatePath::PATH) {
                             (icon::plus_icon("w-4 h-4"))
                             "新建采购报价"
                         }
@@ -347,7 +347,7 @@ fn pq_row(
         let status_allows_delete = q.status != PurchaseQuotationStatus::Active;
         html! {
         tr style="cursor:pointer" {
-            td class="link-cell mono" onclick=(&onclick) { (q.doc_number) }
+            td class="text-accent font-medium cursor-pointer mono" onclick=(&onclick) { (q.doc_number) }
             td onclick=(&onclick) { (supplier_name) }
             td onclick=(&onclick) { (contact) }
             td onclick=(&onclick) {
@@ -360,12 +360,12 @@ fn pq_row(
                 @if is_draft || (can_delete && status_allows_delete) {
                     div class="row-actions" {
                         @if is_draft {
-                            a class="row-action-btn" href=(detail_path.to_string()) title="编辑" {
+                            a class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" href=(detail_path.to_string()) title="编辑" {
                                 (icon::edit_icon("w-4 h-4"))
                             }
                         }
                         @if can_delete && status_allows_delete {
-                            button class="row-action-btn row-action-danger"
+                            button class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer row-action-danger"
                                 title="删除"
                                 hx-post=(PQDeletePath { id: q.id }.to_string())
                                 hx-confirm="确认删除此报价？" {

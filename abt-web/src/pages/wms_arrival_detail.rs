@@ -70,7 +70,7 @@ fn workflow_steps(status: ArrivalStatus) -> Markup {
     };
 
     html! {
-        div class="workflow-steps" {
+        div class="flex items-center" {
             @for (i, (label, _)) in steps.iter().enumerate() {
                 @if i > 0 {
                     @let line_class = if completed[i] { "wf-line completed" } else { "wf-line" };
@@ -82,7 +82,7 @@ fn workflow_steps(status: ArrivalStatus) -> Markup {
                     _ => "wf-step",
                 };
                 div class=(step_class) {
-                    span class="wf-dot" {}
+                    span class="w-[10px] h-[10px] rounded-full bg-border" {}
                     (label)
                 }
             }
@@ -237,10 +237,10 @@ fn arrival_detail_page(
                 "返回来料通知列表"
             }
 
-            div class="detail-header" {
+            div class="block bg-bg border border-border-soft rounded-lg p-6" {
                 div {
-                    div class="detail-title-row" {
-                        h1 class="detail-no font-mono" { (notice.doc_number) }
+                    div class="flex items-center justify-between" {
+                        h1 class="text-2xl font-extrabold font-mono" { (notice.doc_number) }
                         span class=(format!("status-pill {status_class}")) { (status_text) }
                     }
                 }
@@ -306,9 +306,9 @@ fn arrival_detail_page(
                             tr {
                                 th { "行号" }
                                 th { "产品" }
-                                th class="num-right" { "申报数量" }
-                                th class="num-right" { "实收数量" }
-                                th class="num-right" { "合格数量" }
+                                th class="text-right text-[13px]" { "申报数量" }
+                                th class="text-right text-[13px]" { "实收数量" }
+                                th class="text-right text-[13px]" { "合格数量" }
                                 th { "批次号" }
                             }
                         }
@@ -317,9 +317,9 @@ fn arrival_detail_page(
                                 tr {
                                     td class="mono" { (i + 1) }
                                     td { (product_names.get(&item.product_id).map(|n| n.as_str()).unwrap_or("—")) }
-                                    td class="num-right" { (format!("{:.2}", item.declared_qty)) }
-                                    td class="num-right" { (format!("{:.2}", item.received_qty)) }
-                                    td class="num-right" { (format!("{:.2}", item.accepted_qty)) }
+                                    td class="text-right text-[13px]" { (format!("{:.2}", item.declared_qty)) }
+                                    td class="text-right text-[13px]" { (format!("{:.2}", item.received_qty)) }
+                                    td class="text-right text-[13px]" { (format!("{:.2}", item.accepted_qty)) }
                                     td class="mono" { (item.batch_no.as_deref().unwrap_or("—")) }
                                 }
                             }
@@ -341,7 +341,7 @@ fn arrival_detail_page(
                     div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" style="display:flex;align-items:center;gap:var(--space-2)" {
                         (icon::clipboard_list_icon("w-4 h-4"))
                         "IQC质检结果"
-                        span class="status-pill status-inspecting" style="margin-left:var(--space-2)" { "检验中" }
+                        span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-[#fff8eb] text-[#d46b08]" style="margin-left:var(--space-2)" { "检验中" }
                     }
                     div class="grid gap-4" style="margin-bottom:var(--space-4)" {
                         div class="flex flex-col gap-1" {
@@ -375,7 +375,7 @@ fn arrival_action_buttons(status: ArrivalStatus, detail_path: &str) -> Markup {
     match status {
         ArrivalStatus::Draft => {
             html! {
-                button class="btn bg-white text-fg border border-border hover:bg-surface"
+                button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface"
                     hx-post=(detail_path)
                     hx-vals=r#"{"action":"cancel"}"#
                     hx-confirm="确定要取消此来料通知吗？"
@@ -383,7 +383,7 @@ fn arrival_action_buttons(status: ArrivalStatus, detail_path: &str) -> Markup {
                     (icon::x_icon("w-4 h-4"))
                     "取消"
                 }
-                button class="btn bg-accent text-accent-on border-none hover:bg-accent-hover"
+                button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover"
                     hx-post=(detail_path)
                     hx-vals=r#"{"action":"receive"}"#
                     hx-confirm="确定要确认收货吗？实收数量将自动按申报数量填写。"
@@ -395,7 +395,7 @@ fn arrival_action_buttons(status: ArrivalStatus, detail_path: &str) -> Markup {
         }
         ArrivalStatus::Received => {
             html! {
-                button class="btn bg-white text-fg border border-border hover:bg-surface"
+                button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface"
                     hx-post=(detail_path)
                     hx-vals=r#"{"action":"cancel"}"#
                     hx-confirm="确定要取消此来料通知吗？"
@@ -403,7 +403,7 @@ fn arrival_action_buttons(status: ArrivalStatus, detail_path: &str) -> Markup {
                     (icon::x_icon("w-4 h-4"))
                     "取消"
                 }
-                button class="btn bg-accent text-accent-on border-none hover:bg-accent-hover"
+                button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover"
                     hx-post=(detail_path)
                     hx-vals=r#"{"action":"inspect"}"#
                     hx-confirm="确定要开始检验并确认接收吗？合格数量将按实收数量自动填写。"

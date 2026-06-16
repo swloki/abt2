@@ -193,9 +193,9 @@ fn expense_list_page(
             div class="flex items-center justify-between mb-6" {
                 h1 class="text-xl font-bold text-fg tracking-tight" { "费用报销" }
                 div class="flex gap-3" {
-                    button class="btn bg-white text-fg border border-border hover:bg-surface" type="button" { (icon::download_icon("w-4 h-4")) "导出" }
+                    button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface" type="button" { (icon::download_icon("w-4 h-4")) "导出" }
                     @if can_create {
-                        a class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" href=(ExpenseCreatePath::PATH) {
+                        a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" href=(ExpenseCreatePath::PATH) {
                             (icon::plus_icon("w-4 h-4"))
                             "新建报销"
                         }
@@ -313,7 +313,7 @@ fn expense_data_card(
                                 td style="color:var(--muted)" { (dept_name) }
                                 td style="font-size:12px;color:var(--muted)" { (item.expense_date.format("%Y-%m-%d")) }
                                 td style="color:var(--muted)" { "—" }
-                                td class="mono num-right" style="font-weight:600" { "¥" (format!("{:.2}", item.total_amount)) }
+                                td class="mono text-right text-[13px]" style="font-weight:600" { "¥" (format!("{:.2}", item.total_amount)) }
                                 td {
                                     span style=(format!("display:inline-flex;align-items:center;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{};color:{}", status_bg, status_color)) {
                                         (status_text)

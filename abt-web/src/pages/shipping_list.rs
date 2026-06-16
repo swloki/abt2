@@ -192,7 +192,7 @@ fn shipping_list_page(
                 h1 class="text-xl font-bold text-fg tracking-tight" { "发货申请" }
                 div class="flex gap-3" {
                     @if can_create {
-                        a class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" href=(ShippingCreatePath::PATH) {
+                        a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" href=(ShippingCreatePath::PATH) {
                             (icon::plus_icon("w-4 h-4"))
                             "新建发货申请"
                         }
@@ -282,7 +282,7 @@ fn shipping_table_fragment(
                             }
                             @if result.items.is_empty() {
                                 tr {
-                                    td colspan="9" class="td-empty" {
+                                    td colspan="9" class="text-center p-8 text-muted" {
                                         "暂无发货数据"
                                     }
                                 }
@@ -315,7 +315,7 @@ fn shipping_row(
 
     html! {
         tr {
-            td class="link-cell mono" onclick=(&onclick) { (s.doc_number) }
+            td class="text-accent font-medium cursor-pointer mono" onclick=(&onclick) { (s.doc_number) }
             td onclick=(&onclick) {
                 @if let Some(odp) = order_detail_path {
                     a href=(odp.to_string()) class="text-accent" onclick="event.stopPropagation()" { (order_num) }
@@ -334,11 +334,11 @@ fn shipping_row(
             td onclick="event.stopPropagation()" {
                 div class="row-actions" {
                     @if is_draft {
-                        a class="row-action-btn" href=(ShippingEditPath { id: s.id }.to_string()) title="编辑" {
+                        a class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" href=(ShippingEditPath { id: s.id }.to_string()) title="编辑" {
                             (icon::edit_icon("w-4 h-4"))
                         }
                         @if can_delete {
-                            button type="button" class="row-action-btn text-danger" title="删除"
+                            button type="button" class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer text-danger" title="删除"
                                 hx-confirm=(format!("确认删除发货申请 {}？", s.doc_number))
                                 hx-post=(delete_path.to_string())
                                 hx-target="closest tr"
@@ -347,7 +347,7 @@ fn shipping_row(
                             }
                         }
                     } @else {
-                        a class="row-action-btn" href=(detail_path.to_string()) title="查看详情" {
+                        a class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" href=(detail_path.to_string()) title="查看详情" {
                             (icon::eye_icon("w-4 h-4"))
                         }
                     }

@@ -68,7 +68,7 @@ fn wo_status_label(s: &WorkOrderStatus) -> (&'static str, &'static str, &'static
 
 fn status_pill(label: &str, bg: &str, color: &str) -> Markup {
     html! {
-        span class="status-pill" style=(format!("background:{bg};color:{color}")) {
+        span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap" style=(format!("background:{bg};color:{color}")) {
             (label)
         }
     }
@@ -94,7 +94,7 @@ fn completeness_dots(val: Option<&ReleaseValidation>) -> Markup {
         None => (false, false, false),
     };
     html! {
-        div class="completeness-dots" {
+        div class="inline-flex gap-[3px] items-center" {
             span class=(if bom { "comp-dot filled" } else { "comp-dot empty" })
                 title=(if bom { "BOM ✓" } else { "BOM ✗" }) {}
             span class=(if routing { "comp-dot filled" } else { "comp-dot empty" })
@@ -388,22 +388,22 @@ fn plan_detail_page(
             }
 
             // Detail Header
-            div class="detail-header" {
+            div class="block bg-bg border border-border-soft rounded-lg p-6" {
                 // 标题行
-                div class="detail-title-row" {
-                    div class="detail-doc-no mono" {
+                div class="flex items-center justify-between" {
+                    div class="text-[24px] font-bold text-fg flex items-center gap-[14px] mono" {
                         span { (plan.doc_number) }
                         (status_pill(status_label, status_bg, status_color))
                     }
                     div class="flex gap-3" {
                         @if plan.status == PlanStatus::Confirmed {
-                            a class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" href=(format!("/admin/mes/plans/{}?tab=planning", plan.id)) {
+                            a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" href=(format!("/admin/mes/plans/{}?tab=planning", plan.id)) {
                                 (icon::rocket_icon("w-4 h-4"))
                                 "工单规划"
                             }
                         }
                         @if plan.status == PlanStatus::Confirmed || plan.status == PlanStatus::InProgress {
-                            button class="btn bg-accent text-accent-on border-none hover:bg-accent-hover"
+                            button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover"
                                 hx-post=(PlanSchedulePath { plan_id: plan.id }.to_string())
                                 hx-confirm="执行工序级排程？将根据工作日历和工作中心产能自动分配时段。" {
                                 (icon::calendar_icon("w-4 h-4"))
@@ -411,7 +411,7 @@ fn plan_detail_page(
                             }
                         }
                         @if plan.status == PlanStatus::Draft {
-                            button class="btn bg-accent text-accent-on border-none hover:bg-accent-hover"
+                            button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover"
                                 hx-post=(PlanConfirmPath { plan_id: plan.id }.to_string())
                                 hx-confirm="确认此生产计划？确认后进入已确认状态。" {
                                 (icon::check_circle_icon("w-4 h-4"))
@@ -422,7 +422,7 @@ fn plan_detail_page(
                 }
 
                 // 来源追溯
-                div class="detail-sub-row" {
+                div class="flex items-center flex-wrap gap-2 text-muted text-sm" {
                     span { "创建人：" (op_name) }
                     span class="sep" { "|" }
                     span { (fmt_dt(plan.created_at)) }
@@ -433,7 +433,7 @@ fn plan_detail_page(
                 }
 
                 // 信息 Grid（4 列）
-                div class="detail-grid gap-4" {
+                div class="grid gap-5 gap-4" {
                     div class="detail-flex flex-col gap-1" {
                         span class="detail-text-xs text-muted font-medium" { "计划日期" }
                         span class="detail-text-sm text-fg font-medium mono" { (plan.plan_date) }
@@ -484,7 +484,7 @@ fn tab_detail(
                         tr {
                             th { "#" }
                             th { "产品" }
-                            th class="num-right" { "数量" }
+                            th class="text-right text-[13px]" { "数量" }
                             th { "排程" }
                             th { "BOM/工艺" }
                             th { "完整度" }
@@ -499,17 +499,17 @@ fn tab_detail(
                             @let val = val_map.get(&item.id).copied();
                             @let (p_label, p_color) = priority_label(item.priority);
                             tr {
-                                td class="line-num" { (idx + 1) }
+                                td class="text-muted text-xs text-center" { (idx + 1) }
                                 td { (pname) }
-                                td class="num-right mono" { (crate::utils::fmt_qty(item.planned_qty)) }
+                                td class="text-right text-[13px] mono" { (crate::utils::fmt_qty(item.planned_qty)) }
                                 td {
-                                    div class="cell-stack" {
+                                    div class="flex flex-col gap-[2px]" {
                                         span { (item.scheduled_start.format("%m-%d")) }
                                         span class="sub" { "至 " (item.scheduled_end.format("%m-%d")) }
                                     }
                                 }
                                 td {
-                                    div class="cell-stack" {
+                                    div class="flex flex-col gap-[2px]" {
                                         @if let Some(bom_id) = item.bom_snapshot_id {
                                             span class="mono" { "BS-" (bom_id) }
                                         } @else {
@@ -529,7 +529,7 @@ fn tab_detail(
                         }
                         @if items.is_empty() {
                             tr {
-                                td colspan="8" class="empty-row" { "暂无计划明细" }
+                                td colspan="8" class="text-center text-muted text-sm" { "暂无计划明细" }
                             }
                         }
                     }
@@ -545,20 +545,20 @@ fn tab_detail(
 fn tab_log(logs: &[AuditLog]) -> Markup {
     html! {
         @if logs.is_empty() {
-            div class="empty-row" { "暂无操作日志" }
+            div class="text-center text-muted text-sm" { "暂无操作日志" }
         } @else {
             div class="audit-timeline" {
                 @for log in logs {
                     div class="audit-item" {
-                        div class="audit-dot" {}
-                        div class="audit-title" { (audit_action_label(&log.action)) }
-                        div class="audit-meta" {
+                        div class="absolute w-[14px] h-[14px] rounded-full bg-accent" {}
+                        div class="font-semibold text-sm text-fg" { (audit_action_label(&log.action)) }
+                        div class="flex gap-2 text-[12px] text-muted items-center" {
                             span class="mono" { (fmt_dt(log.created_at)) }
                             span class="sep" { "|" }
                             span { "操作人 #" (log.operator_id) }
                         }
                         @if let Some(changes) = log.changes.as_ref() {
-                            div class="audit-desc" { (changes) }
+                            div class="text-[12px] text-muted" { (changes) }
                         }
                     }
                 }
@@ -602,12 +602,12 @@ fn tab_planning(
             // ── 上方区块：待规划明细 ──
             @if can_plan {
                 div class="planning-section" {
-                    h3 class="planning-section-title" style="font-size:var(--text-base);font-weight:600;margin-bottom:var(--space-3)" {
+                    h3 class="planning-text-lg font-semibold text-fg" style="font-size:var(--text-base);font-weight:600;margin-bottom:var(--space-3)" {
                         "待规划明细 " span class="muted" { "(" (pending_items.len()) ")" }
                     }
 
                     @if pending_items.is_empty() {
-                        div class="empty-row" { "所有明细已生成工单" }
+                        div class="text-center text-muted text-sm" { "所有明细已生成工单" }
                     } @else {
                         form id="wo-planning-form"
                             hx-post={(PlanGeneratePath { plan_id: plan.id }.to_string())}
@@ -620,7 +620,7 @@ fn tab_planning(
                                             tr {
                                                 th style="width:32px" { input type="checkbox" class="wo-check-all" checked; }
                                                 th { "产品" }
-                                                th class="num-right" { "数量" }
+                                                th class="text-right text-[13px]" { "数量" }
                                                 th { "排程(起→止)" }
                                                 th { "工艺路线" }
                                                 th { "完整度" }
@@ -638,7 +638,7 @@ fn tab_planning(
                                                         input type="checkbox" class="wo-check" checked;
                                                     }
                                                     td { (pname) }
-                                                    td class="num-right mono wo-qty" { (crate::utils::fmt_qty(item.planned_qty)) }
+                                                    td class="text-right text-[13px] mono wo-qty" { (crate::utils::fmt_qty(item.planned_qty)) }
                                                     td style="white-space:nowrap" {
                                                         input type="date" class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] wo-start" value=(item.scheduled_start) style="width:130px;display:inline-block";
                                                         " → "
@@ -652,7 +652,7 @@ fn tab_planning(
                                                     }
                                                     td { (completeness_dots(val)) }
                                                     td {
-                                                        button type="button" class="btn bg-white text-fg border border-border hover:bg-surface btn-sm"
+                                                        button type="button" class="btn bg-white text-fg border border-border hover:bg-surface inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm"
                                                             _="on click call openSplitDialog(me)" { "拆分" }
                                                     }
                                                 }
@@ -665,12 +665,12 @@ fn tab_planning(
                             input type="hidden" name="items_json" id="items_json" {};
 
                             div style="margin-top:var(--space-4);display:flex;gap:var(--space-3)" {
-                                button type="submit" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover"
+                                button type="submit" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover"
                                     onclick="document.getElementById('items_json').value=collectPlanItems()" {
                                     (icon::rocket_icon("w-4 h-4"))
                                     "生成草稿工单"
                                 }
-                                button type="submit" class="btn bg-white text-fg border border-border hover:bg-surface"
+                                button type="submit" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface"
                                     formaction=(PlanGenerateReleasePath { plan_id: plan.id }.to_string())
                                     onclick="document.getElementById('items_json').value=collectPlanItems()" {
                                     "一键生成并下达"
@@ -684,7 +684,7 @@ fn tab_planning(
             // ── 下方区块：Draft 工单列表 ──
             @if !draft_orders.is_empty() {
                 div class="planning-section" style=@if can_plan { "margin-top:var(--space-6)" } @else { "" } {
-                    h3 class="planning-section-title" style="font-size:var(--text-base);font-weight:600;margin-bottom:var(--space-3)" {
+                    h3 class="planning-text-lg font-semibold text-fg" style="font-size:var(--text-base);font-weight:600;margin-bottom:var(--space-3)" {
                         "草稿工单 " span class="muted" { "(" (draft_orders.len()) ")" }
                     }
 
@@ -695,7 +695,7 @@ fn tab_planning(
                                     tr {
                                         th { "工单号" }
                                         th { "产品" }
-                                        th class="num-right" { "数量" }
+                                        th class="text-right text-[13px]" { "数量" }
                                         th { "排程" }
                                         th { "状态" }
                                         th { "操作" }
@@ -707,17 +707,17 @@ fn tab_planning(
                                         tr {
                                             td class="mono" { (wo.doc_number) }
                                             td { (pname) }
-                                            td class="num-right mono" { (crate::utils::fmt_qty(wo.planned_qty)) }
+                                            td class="text-right text-[13px] mono" { (crate::utils::fmt_qty(wo.planned_qty)) }
                                             td style="white-space:nowrap" { (wo.scheduled_start.format("%m-%d")) " → " (wo.scheduled_end.format("%m-%d")) }
                                             td { (status_pill("草稿", "rgba(250,140,22,0.08)", "#fa8c16")) }
                                             td style="white-space:nowrap" {
-                                                button class="btn bg-accent text-accent-on border-none hover:bg-accent-hover btn-sm"
+                                                button class="btn bg-accent text-accent-on border-none hover:bg-accent-hover inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm"
                                                     hx-post=(OrderReleasePath { order_id: wo.id }.to_string())
                                                     hx-confirm="确认下达此工单？"
                                                     hx-disabled-elt="this" {
                                                     "下达"
                                                 }
-                                                button class="btn bg-danger text-white border-none hover:opacity-90 btn-sm"
+                                                button class="btn bg-danger text-white border-none hover:opacity-90 inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm"
                                                     hx-post=(OrderCancelPath { order_id: wo.id }.to_string())
                                                     hx-confirm="确认取消此草稿工单？" {
                                                     "取消"
@@ -731,7 +731,7 @@ fn tab_planning(
                     }
 
                     div style="margin-top:var(--space-4)" {
-                        button class="btn bg-accent text-accent-on border-none hover:bg-accent-hover"
+                        button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover"
                             hx-post=(PlanReleaseAllPath { plan_id: plan.id }.to_string())
                             hx-confirm="确认全部下达？"
                             hx-disabled-elt="this" {
@@ -745,7 +745,7 @@ fn tab_planning(
             // ── 已下达工单区（Released/InProduction/Closed）──
             @if !released_orders.is_empty() {
                 div class="planning-section" style="margin-top:var(--space-6)" {
-                    h3 class="planning-section-title" style="font-size:var(--text-base);font-weight:600;margin-bottom:var(--space-3)" {
+                    h3 class="planning-text-lg font-semibold text-fg" style="font-size:var(--text-base);font-weight:600;margin-bottom:var(--space-3)" {
                         "已下达工单 " span class="muted" { "(" (released_orders.len()) ")" }
                     }
 
@@ -759,32 +759,32 @@ fn tab_planning(
                                     WorkOrderStatus::Closed => "closed",
                                     _ => "released",
                                 };
-                                li class="work-order-item" {
+                                li class="flex items-center p-4 border-b relative" {
                                     div class={"wo-status-bar " (status_cls)} {}
-                                    div class="wo-row-content" {
+                                    div class="flex-1 grid gap-5 items-center" {
                                         // 工单号
-                                        div class="wo-order-num" { (wo.doc_number) }
+                                        div class="text-[14px] font-semibold text-fg" { (wo.doc_number) }
                                         // 产品信息
-                                        div class="wo-product-info" {
-                                            div class="wo-product-name" { (pname) }
-                                            div class="wo-product-meta" {
+                                        div class="flex flex-col gap-1" {
+                                            div class="text-[14px] font-medium text-fg whitespace-nowrap overflow-hidden" { (pname) }
+                                            div class="flex items-center gap-3 text-[12px] text-fg-2" {
                                                 span { span class="wo-meta-label" { "数量 " } (crate::utils::fmt_qty(wo.planned_qty)) "件" }
                                                 span { span class="wo-meta-label" { "排程 " } (wo.scheduled_start.format("%m-%d")) " → " (wo.scheduled_end.format("%m-%d")) }
                                             }
                                         }
                                         // 右侧：状态 + 进度 + 操作
-                                        div class="wo-right-info" {
+                                        div class="flex items-center gap-4" {
                                             (status_pill(wo_label, _wo_bg, _wo_color))
                                             @if let (Some(done), Some(total)) = (wo.completed_steps, wo.total_steps) {
-                                                div class="wo-step" {
-                                                    span class="wo-step-text" { (done) "/" (total) "步" }
-                                                    div class="wo-step-bar" {
+                                                div class="flex items-center gap-2 text-[12px] text-fg-2 whitespace-nowrap" {
+                                                    span class="flex items-center gap-2 text-[12px] text-fg-2 whitespace-nowrap-text" { (done) "/" (total) "步" }
+                                                    div class="flex items-center gap-2 text-[12px] text-fg-2 whitespace-nowrap-bar" {
                                                         div class={"wo-step-fill " (status_cls)}
                                                             style=(format!("width: {}%", if total > 0 { done * 100 / total } else { 0 })) {}
                                                     }
                                                 }
                                             }
-                                            a class="wo-action-btn"
+                                            a class="wo-action-inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative"
                                                 href=(OrderDetailPath { id: wo.id }.to_string()) {
                                                 "工单详情"
                                             }
@@ -799,7 +799,7 @@ fn tab_planning(
 
             // ── 空状态 ──
             @if pending_items.is_empty() && draft_orders.is_empty() && released_orders.is_empty() {
-                div class="empty-row" style="padding:var(--space-8);text-align:center" {
+                div class="text-center text-muted text-sm" style="padding:var(--space-8);text-align:center" {
                     "暂无工单数据"
                 }
             }

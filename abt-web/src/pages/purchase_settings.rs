@@ -194,8 +194,8 @@ fn settings_page(
 
                 // ── Actions ──
                 div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
-                    a class="btn bg-white text-fg border border-border hover:bg-surface" href=(POListPath::PATH) { "返回采购订单" }
-                    button type="submit" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" { "保存配置" }
+                    a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface" href=(POListPath::PATH) { "返回采购订单" }
+                    button type="submit" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" { "保存配置" }
                 }
             }
             // 成功保存后 toast（HX-Redirect 触发）

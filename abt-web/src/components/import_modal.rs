@@ -12,8 +12,8 @@ pub struct ImportModalConfig {
 pub fn import_modal(config: &ImportModalConfig) -> Markup {
     let modal_id = format!("import-modal-{}", config.import_type);
     html! {
-        div id=(modal_id) class="modal-overlay" _="on click[me is event.target] remove .is-open" {
-            div class="modal modal-import" {
+        div id=(modal_id) class="fixed z-[1000] grid place-items-center opacity-0" _="on click[me is event.target] remove .is-open" {
+            div class="modal bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0-import" {
                 div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
                     h2 { (config.title) }
                     button type="button" class="bg-transparent border-none cursor-pointer text-xl text-muted p-1 hover:text-fg"
@@ -41,9 +41,9 @@ fn render_import_form(config: &ImportModalConfig) -> Markup {
     let content_id = format!("import-content-{}", config.import_type);
 
     html! {
-        div class="import-file-zone" {
-            p class="import-cols" { "列格式：" (config.template_columns) }
-            a href=(template_path) class="btn bg-white text-fg border border-border hover:bg-surface" download {
+        div class="flex flex-col gap-3" {
+            p class="text-sm text-muted bg-[var(--slate-50)] p-2" { "列格式：" (config.template_columns) }
+            a href=(template_path) class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface" download {
                 (crate::components::icon::download_icon("w-4 h-4"))
                 " 下载模板"
             }
@@ -54,8 +54,8 @@ fn render_import_form(config: &ImportModalConfig) -> Markup {
                 hx-encoding="multipart/form-data"
                 hx-indicator=(format!("#{} .htmx-indicator", content_id)) {
                 input type="file" name="file" accept=".xlsx" required;
-                div class="import-actions" {
-                    button type="submit" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" {
+                div class="flex gap-2 items-center" {
+                    button type="submit" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" {
                         "开始导入"
                     }
                     div class="htmx-indicator" {
@@ -76,8 +76,8 @@ pub fn render_import_progress(import_type: &str, task_id: i64, current: usize, t
     html! {
         div class="import-progress" {
             p { "正在导入... " (current) "/" (total) }
-            div class="import-progress-bar" {
-                div class="import-progress-fill" style=(format!("width:{}%", pct)) {}
+            div class="h-[8px] bg-[var(--slate-100)] overflow-hidden" {
+                div class="h-full bg-[var(--primary)]" style=(format!("width:{}%", pct)) {}
             }
         }
         div hx-get=(progress_path)
@@ -91,18 +91,18 @@ pub fn render_import_progress(import_type: &str, task_id: i64, current: usize, t
 pub fn render_import_result(result: &abt_core::shared::excel::ImportResult) -> Markup {
     html! {
         div class="import-result" {
-            div class="import-result-stats" {
-                div class="import-stat" {
+            div class="flex gap-4" {
+                div class="flex flex-col items-center" {
                     span class="import-text-2xl font-bold font-mono tabular-nums text-fg success" { (result.success_count) }
                     span class="import-text-sm text-muted mt-1" { "成功" }
                 }
-                div class="import-stat" {
+                div class="flex flex-col items-center" {
                     span class="import-text-2xl font-bold font-mono tabular-nums text-fg failed" { (result.failed_count) }
                     span class="import-text-sm text-muted mt-1" { "失败" }
                 }
             }
             @if !result.row_errors.is_empty() {
-                div class="import-errors" {
+                div class="overflow-y-auto bg-[var(--red-50)] p-2" {
                     p class="import-error-title" { "错误详情：" }
                     ul {
                         @for err in &result.row_errors {
@@ -118,7 +118,7 @@ pub fn render_import_result(result: &abt_core::shared::excel::ImportResult) -> M
                 }
             }
             @if !result.errors.is_empty() {
-                div class="import-errors import-error-extra" {
+                div class="overflow-y-auto bg-[var(--red-50)] p-2 import-error-extra" {
                     p class="import-error-title" { "其他错误：" }
                     ul {
                         @for err in &result.errors {
@@ -128,7 +128,7 @@ pub fn render_import_result(result: &abt_core::shared::excel::ImportResult) -> M
                 }
             }
             div class="import-footer-actions" {
-                button type="button" class="btn bg-white text-fg border border-border hover:bg-surface"
+                button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface"
                     _="on click remove .is-open from closest .modal-overlay" { "关闭" }
             }
         }

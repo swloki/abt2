@@ -217,7 +217,7 @@ fn spec_create_page(products: &[abt_core::master_data::product::model::Product])
                                     td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="ci_standard" value="目视无划痕"; }
                                     td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="ci_tolerance" value="无明显缺陷"; }
                                     td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="ci_method" value="目视检查"; }
-                                    td { button type="button" class="btn-remove-row" title="删除行" { (icon::trash_icon("w-4 h-4")) } }
+                                    td { button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center" title="删除行" { (icon::trash_icon("w-4 h-4")) } }
                                 }
                                 // Row 2: 尺寸测量
                                 tr class="check-item-row" {
@@ -226,7 +226,7 @@ fn spec_create_page(products: &[abt_core::master_data::product::model::Product])
                                     td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="ci_standard" value="图纸公差要求"; }
                                     td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="ci_tolerance" value="±0.05mm"; }
                                     td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="ci_method" value="游标卡尺"; }
-                                    td { button type="button" class="btn-remove-row" title="删除行" { (icon::trash_icon("w-4 h-4")) } }
+                                    td { button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center" title="删除行" { (icon::trash_icon("w-4 h-4")) } }
                                 }
                                 // Row 3: 电气性能
                                 tr class="check-item-row" {
@@ -235,12 +235,12 @@ fn spec_create_page(products: &[abt_core::master_data::product::model::Product])
                                     td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="ci_standard" value="额定电压电流"; }
                                     td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="ci_tolerance" value="±5%"; }
                                     td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="ci_method" value="万用表"; }
-                                    td { button type="button" class="btn-remove-row" title="删除行" { (icon::trash_icon("w-4 h-4")) } }
+                                    td { button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center" title="删除行" { (icon::trash_icon("w-4 h-4")) } }
                                 }
                             }
                         }
                     }
-                    button type="button" class="add-row-btn" id="add-check-item-btn" {
+                    button type="button" class="flex items-center justify-center gap-2 w-full text-[#2563eb] text-sm font-medium cursor-pointer" id="add-check-item-btn" {
                         (icon::plus_icon("w-4 h-4"))
                         "添加检验项目"
                     }
@@ -288,9 +288,9 @@ fn spec_create_page(products: &[abt_core::master_data::product::model::Product])
 
                 // ── Action Bar ──
                 div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
-                    a class="btn bg-white text-fg border border-border hover:bg-surface" href=(format!("{}?restore=true", SpecListPath::PATH)) { "取消" }
-                    button type="button" class="btn bg-white text-fg border border-border hover:bg-surface" id="save-draft-btn" { "保存草稿" }
-                    button type="submit" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" {
+                    a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface" href=(format!("{}?restore=true", SpecListPath::PATH)) { "取消" }
+                    button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface" id="save-draft-btn" { "保存草稿" }
+                    button type="submit" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" {
                         (icon::check_circle_icon("w-4 h-4"))
                         "提交审核"
                     }
@@ -332,7 +332,7 @@ fn spec_create_page(products: &[abt_core::master_data::product::model::Product])
             '<td><input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="ci_standard" placeholder="检验标准"></td>' +
             '<td><input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="ci_tolerance" placeholder="公差范围"></td>' +
             '<td><input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="ci_method" placeholder="检验方法"></td>' +
-            '<td><button type="button" class="btn-remove-row" title="删除行"><svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></button></td>';
+            '<td><button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center" title="删除行"><svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></button></td>';
         return tr;
     }
 

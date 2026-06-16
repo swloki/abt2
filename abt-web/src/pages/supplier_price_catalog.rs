@@ -271,7 +271,7 @@ fn list_page(result: &PaginatedResult<PriceView>, query: &ListQuery) -> Markup {
                     h1 class="text-xl font-bold text-fg tracking-tight" { "供应商价格目录" }
                 }
                 div class="flex gap-3" {
-                    button type="button" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover"
+                    button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover"
                         hx-get=(PriceCreatePath::PATH)
                         hx-target="#price-modal"
                         hx-swap="innerHTML"
@@ -350,11 +350,11 @@ fn data_card(result: &PaginatedResult<PriceView>) -> Markup {
                                 th { "供应商" }
                                 th { "产品" }
                                 th { "供应商料号" }
-                                th class="num-right" { "价格" }
+                                th class="text-right text-[13px]" { "价格" }
                                 th { "币种" }
-                                th class="num-right" { "折扣%" }
-                                th class="num-right" { "起订量" }
-                                th class="num-right" { "交期(天)" }
+                                th class="text-right text-[13px]" { "折扣%" }
+                                th class="text-right text-[13px]" { "起订量" }
+                                th class="text-right text-[13px]" { "交期(天)" }
                                 th { "有效期" }
                                 th { "状态" }
                                 th { "操作" }
@@ -389,9 +389,9 @@ fn pagination_bar(result: &PaginatedResult<PriceView>) -> Markup {
                 }
                 @for p in page_range(current, total_pages) {
                     @if p == 0 {
-                        button class="page-btn" disabled { "…" }
+                        button class="w-[34px] h-[34px] grid place-items-center border border-border-soft rounded-sm bg-bg text-fg text-sm cursor-pointer no-underline" disabled { "…" }
                     } @else if p == current {
-                        button class="page-btn active" disabled { (p) }
+                        button class="w-[34px] h-[34px] grid place-items-center border border-border-soft rounded-sm bg-bg text-fg text-sm cursor-pointer no-underline active" disabled { (p) }
                     } @else {
                         (page_btn(p, &p.to_string()))
                     }
@@ -406,7 +406,7 @@ fn pagination_bar(result: &PaginatedResult<PriceView>) -> Markup {
 
 fn page_btn(page: u32, label: &str) -> Markup {
     html! {
-        button class="page-btn"
+        button class="w-[34px] h-[34px] grid place-items-center border border-border-soft rounded-sm bg-bg text-fg text-sm cursor-pointer no-underline"
             hx-get=(SupplierPricesPath::PATH)
             hx-vals=(format!(r#"{{"page":{page}}}"#))
             hx-include="#price-filter-form"
@@ -457,29 +457,29 @@ fn row_tr(price: &PriceView) -> Markup {
                 div class="text-muted" style="font-size:var(--text-xs)" { (&price.product_code) }
             }
             td { (price.supplier_item_code.as_deref().unwrap_or("—")) }
-            td class="mono num-right" { (crate::utils::fmt_qty(price.price)) }
+            td class="mono text-right text-[13px]" { (crate::utils::fmt_qty(price.price)) }
             td { (&price.currency_code) }
-            td class="num-right" { (crate::utils::fmt_qty(price.discount_pct)) }
-            td class="num-right" { (crate::utils::fmt_qty(price.min_order_qty)) }
-            td class="num-right" { (price.lead_time_days) }
+            td class="text-right text-[13px]" { (crate::utils::fmt_qty(price.discount_pct)) }
+            td class="text-right text-[13px]" { (crate::utils::fmt_qty(price.min_order_qty)) }
+            td class="text-right text-[13px]" { (price.lead_time_days) }
             td class="text-muted" style="font-size:var(--text-xs)" { (valid_text) }
             td {
                 @if price.is_active {
-                    span class="status-pill status-active" { "启用" }
+                    span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-[#f0fff0] text-[#389e0d]" { "启用" }
                 } @else {
-                    span class="status-pill status-inactive" { "停用" }
+                    span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-[#fff2f0] text-[#cf1322]" { "停用" }
                 }
             }
             td {
                 div class="row-actions" {
-                    button type="button" class="btn btn-sm bg-white text-fg border border-border hover:bg-surface"
+                    button type="button" class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm bg-white text-fg border border-border hover:bg-surface"
                         hx-get=(PriceEditPath { id: price.id }.to_string())
                         hx-target="#price-modal"
                         hx-swap="innerHTML"
                         _="on 'htmx:afterRequest' add .is-open to #price-modal" {
                         "编辑"
                     }
-                    button class="btn btn-sm bg-danger text-white border-none hover:opacity-90"
+                    button class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm bg-danger text-white border-none hover:opacity-90"
                         hx-post=(PriceDeletePath { id: price.id }.to_string())
                         hx-confirm="确认删除此价格记录？"
                         hx-target="#price-data-card"
@@ -506,7 +506,7 @@ fn empty_state() -> Markup {
 
 fn price_modal_shell() -> Markup {
     html! {
-        div class="modal-overlay" id="price-modal"
+        div class="fixed z-[1000] grid place-items-center opacity-0" id="price-modal"
             _="on closePriceModal from body remove .is-open
                on click[me is event.target] remove .is-open" {
         }
@@ -564,7 +564,7 @@ fn price_form(action_url: &str, price: Option<&PriceView>) -> Markup {
         .unwrap_or_default();
 
     html! {
-        div class="modal modal-lg" _="on click halt" {
+        div class="modal bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0-lg" _="on click halt" {
             div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
                 h2 { (title) }
                 button class="bg-transparent border-none cursor-pointer text-xl text-muted p-1 hover:text-fg"
@@ -679,9 +679,9 @@ fn price_form(action_url: &str, price: Option<&PriceView>) -> Markup {
                 }
 
                 div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" {
-                    button type="button" class="btn bg-white text-fg border border-border hover:bg-surface"
+                    button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface"
                         _="on click remove .is-open from #price-modal" { "取消" }
-                    button type="submit" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" { "保存" }
+                    button type="submit" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" { "保存" }
                 }
             }
         }

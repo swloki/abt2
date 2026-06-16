@@ -155,10 +155,10 @@ fn conversion_detail_page(
                 "返回形态转换列表"
             }
 
-            div class="detail-header" {
+            div class="block bg-bg border border-border-soft rounded-lg p-6" {
                 div {
-                    div class="detail-title-row" {
-                        h1 class="detail-no font-mono" { (conversion.doc_number) }
+                    div class="flex items-center justify-between" {
+                        h1 class="text-2xl font-extrabold font-mono" { (conversion.doc_number) }
                         span class=(format!("status-pill {status_class}")) { (status_label) }
                     }
                 }
@@ -197,7 +197,7 @@ fn conversion_detail_page(
             div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
                 div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" {
                     "消耗物料 "
-                    span class="status-pill status-cancelled" { "消耗" }
+                    span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap status-cancelled" { "消耗" }
                 }
                 table class="data-table" {
                     thead {
@@ -207,8 +207,8 @@ fn conversion_detail_page(
                             th { "名称" }
                             th { "规格" }
                             th { "单位" }
-                            th class="num-right" { "消耗数量" }
-                            th class="num-right" { "单位成本" }
+                            th class="text-right text-[13px]" { "消耗数量" }
+                            th class="text-right text-[13px]" { "单位成本" }
                             th { "批次号" }
                         }
                     }
@@ -220,8 +220,8 @@ fn conversion_detail_page(
                                 td { (product_info.name(&item.product_id)) }
                                 td { (product_info.spec(&item.product_id)) }
                                 td { (product_info.unit(&item.product_id)) }
-                                td class="num-right" { (format!("{:.2}", item.quantity)) }
-                                td class="num-right" { (format!("{:.2}", item.unit_cost)) }
+                                td class="text-right text-[13px]" { (format!("{:.2}", item.quantity)) }
+                                td class="text-right text-[13px]" { (format!("{:.2}", item.unit_cost)) }
                                 td class="mono" {
                                     @if let Some(ref batch) = item.batch_no {
                                         (batch)
@@ -246,7 +246,7 @@ fn conversion_detail_page(
             div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
                 div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" {
                     "产出物料 "
-                    span class="status-pill status-completed" { "产出" }
+                    span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-[#f0fff0] text-[#389e0d]" { "产出" }
                 }
                 table class="data-table" {
                     thead {
@@ -256,8 +256,8 @@ fn conversion_detail_page(
                             th { "名称" }
                             th { "规格" }
                             th { "单位" }
-                            th class="num-right" { "产出数量" }
-                            th class="num-right" { "单位成本" }
+                            th class="text-right text-[13px]" { "产出数量" }
+                            th class="text-right text-[13px]" { "单位成本" }
                             th { "批次号" }
                         }
                     }
@@ -269,8 +269,8 @@ fn conversion_detail_page(
                                 td { (product_info.name(&item.product_id)) }
                                 td { (product_info.spec(&item.product_id)) }
                                 td { (product_info.unit(&item.product_id)) }
-                                td class="num-right" { (format!("{:.2}", item.quantity)) }
-                                td class="num-right" { (format!("{:.2}", item.unit_cost)) }
+                                td class="text-right text-[13px]" { (format!("{:.2}", item.quantity)) }
+                                td class="text-right text-[13px]" { (format!("{:.2}", item.unit_cost)) }
                                 td class="mono" {
                                     @if let Some(ref batch) = item.batch_no {
                                         (batch)
@@ -298,7 +298,7 @@ fn conversion_action_buttons(status: ConversionStatus, detail_path: &str) -> Mar
     match status {
         ConversionStatus::Draft => {
             html! {
-                button class="btn bg-white text-fg border border-border hover:bg-surface"
+                button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface"
                     hx-post=(detail_path)
                     hx-vals=r#"{"action":"cancel"}"#
                     hx-confirm="确定要取消此转换单吗？"
@@ -306,7 +306,7 @@ fn conversion_action_buttons(status: ConversionStatus, detail_path: &str) -> Mar
                     (icon::x_icon("w-4 h-4"))
                     "取消"
                 }
-                button class="btn bg-accent text-accent-on border-none hover:bg-accent-hover"
+                button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover"
                     hx-post=(detail_path)
                     hx-vals=r#"{"action":"complete"}"#
                     hx-confirm="确定要完成形态转换吗？"
@@ -333,7 +333,7 @@ fn conversion_workflow_steps(status: ConversionStatus) -> Markup {
     };
 
     html! {
-        div class="workflow-steps" {
+        div class="flex items-center" {
             @for (i, (label, _)) in steps.iter().enumerate() {
                 @if i > 0 {
                     div class=(if i <= current_idx { "wf-line completed" } else { "wf-line" }) {}
@@ -343,7 +343,7 @@ fn conversion_workflow_steps(status: ConversionStatus) -> Markup {
                     @else if i == current_idx { "wf-step current" }
                     @else { "wf-step" }
                 } {
-                    span class="wf-dot" {}
+                    span class="w-[10px] h-[10px] rounded-full bg-border" {}
                     (label)
                 }
             }

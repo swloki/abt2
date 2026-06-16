@@ -19,20 +19,20 @@ pub fn confirm_dialog(
     form: Markup,
 ) -> Markup {
     html! {
-        div id=(dialog_id) class="dialog-overlay"
+        div id=(dialog_id) class="hidden fixed z-[1100] place-items-center"
             _=(format!("on click[me is event.target] remove .open")) {
-            div class="dialog" onclick="event.stopPropagation()" {
-                div class="dialog-body" {
-                    div class="dialog-icon-wrap" {
+            div class="bg-bg rounded-lg w-[480px]" onclick="event.stopPropagation()" {
+                div class="bg-bg rounded-lg w-[480px]-body" {
+                    div class="bg-bg rounded-lg w-[480px]-icon-wrap" {
                         (icon::circle_alert_icon("w-7 h-7"))
                     }
                     div class="text-lg font-semibold text-fg text-center mb-2" { (title) }
                     p class="text-sm text-muted text-center leading-relaxed" { (maud::PreEscaped(desc)) }
                 }
-                div class="dialog-foot" {
-                    button type="button" class="btn bg-white text-fg border border-border hover:bg-surface"
+                div class="bg-bg rounded-lg w-[480px]-foot" {
+                    button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface"
                         _="on click remove .open from closest .dialog-overlay" { "取消" }
-                    button type="button" class="btn bg-danger text-white border-none hover:opacity-90"
+                    button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-danger text-white border-none hover:opacity-90"
                         _=(format!("on click remove .open from closest .dialog-overlay then trigger submit on #{}", form_id))
                         { (confirm_label) }
                 }

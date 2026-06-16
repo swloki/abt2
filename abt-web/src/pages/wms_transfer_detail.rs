@@ -144,10 +144,10 @@ fn transfer_detail_page(
                 "返回库存调拨列表"
             }
 
-            div class="detail-header" {
+            div class="block bg-bg border border-border-soft rounded-lg p-6" {
                 div {
-                    div class="detail-title-row" {
-                        h1 class="detail-no font-mono" { (transfer.doc_number) }
+                    div class="flex items-center justify-between" {
+                        h1 class="text-2xl font-extrabold font-mono" { (transfer.doc_number) }
                         span class=(format!("status-pill {status_class}")) { (status_label) }
                     }
                 }
@@ -199,7 +199,7 @@ fn transfer_detail_page(
                             th { "产品名称" }
                             th { "规格" }
                             th { "单位" }
-                            th class="num-right" { "调拨数量" }
+                            th class="text-right text-[13px]" { "调拨数量" }
                             th { "批次号" }
                         }
                     }
@@ -211,7 +211,7 @@ fn transfer_detail_page(
                                 td { (ctx.product_names.get(&item.product_id).map(|n| n.as_str()).unwrap_or("—")) }
                                 td { (ctx.product_specs.get(&item.product_id).map(|s| s.as_str()).unwrap_or("—")) }
                                 td { (ctx.product_units.get(&item.product_id).map(|u| u.as_str()).unwrap_or("—")) }
-                                td class="num-right" { (format!("{:.2}", item.quantity)) }
+                                td class="text-right text-[13px]" { (format!("{:.2}", item.quantity)) }
                                 td class="mono" {
                                     @if let Some(ref batch) = item.batch_no {
                                         (batch)
@@ -239,7 +239,7 @@ fn transfer_action_buttons(status: TransferStatus, detail_path: &str) -> Markup 
     match status {
         TransferStatus::Draft => {
             html! {
-                button class="btn bg-white text-fg border border-border hover:bg-surface"
+                button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface"
                     hx-post=(detail_path)
                     hx-vals=r#"{"action":"cancel"}"#
                     hx-confirm="确定要取消此调拨单吗？"
@@ -247,7 +247,7 @@ fn transfer_action_buttons(status: TransferStatus, detail_path: &str) -> Markup 
                     (icon::x_icon("w-4 h-4"))
                     "取消"
                 }
-                button class="btn bg-accent text-accent-on border-none hover:bg-accent-hover"
+                button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover"
                     hx-post=(detail_path)
                     hx-vals=r#"{"action":"dispatch"}"#
                     hx-confirm="确定要发货吗？"
@@ -259,7 +259,7 @@ fn transfer_action_buttons(status: TransferStatus, detail_path: &str) -> Markup 
         }
         TransferStatus::InTransit => {
             html! {
-                button class="btn bg-accent text-accent-on border-none hover:bg-accent-hover"
+                button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover"
                     hx-post=(detail_path)
                     hx-vals=r#"{"action":"complete"}"#
                     hx-confirm="确定要完成调拨吗？"
@@ -288,7 +288,7 @@ fn transfer_workflow_steps(status: TransferStatus) -> Markup {
     };
 
     html! {
-        div class="workflow-steps" {
+        div class="flex items-center" {
             @for (i, (label, _)) in steps.iter().enumerate() {
                 @if i > 0 {
                     div class=(if i <= current_idx { "wf-line completed" } else { "wf-line" }) {}
@@ -298,7 +298,7 @@ fn transfer_workflow_steps(status: TransferStatus) -> Markup {
                     @else if i == current_idx { "wf-step current" }
                     @else { "wf-step" }
                 } {
-                    span class="wf-dot" {}
+                    span class="w-[10px] h-[10px] rounded-full bg-border" {}
                     (label)
                 }
             }

@@ -169,12 +169,12 @@ fn stock_out_list_page(
             div class="flex items-center justify-between mb-6" {
                 h1 class="text-xl font-bold text-fg tracking-tight" { "出库管理" }
                 div class="flex gap-3" {
-                    button class="btn bg-white text-fg border border-border hover:bg-surface" {
+                    button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface" {
                         (icon::download_icon("w-4 h-4"))
                         "导出"
                     }
                     @if can_create {
-                        a class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" href=(StockOutCreatePath::PATH) style="background:var(--danger);border-color:var(--danger)" {
+                        a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" href=(StockOutCreatePath::PATH) style="background:var(--danger);border-color:var(--danger)" {
                             (icon::upload_icon("w-4 h-4"))
                             "新建出库单"
                         }
@@ -206,8 +206,8 @@ fn stock_out_data_card(
                             th { "来源单号" }
                             th { "来源仓库" }
                             th { "物料数量" }
-                            th class="num-right" { "出库总量" }
-                            th class="num-right" { "总金额" }
+                            th class="text-right text-[13px]" { "出库总量" }
+                            th class="text-right text-[13px]" { "总金额" }
                             th { "拣货策略" }
                             th { "状态" }
                             th { "操作员" }
@@ -222,7 +222,7 @@ fn stock_out_data_card(
                             @let op_name = operator_names.get(&item.operator_id).map(|s| s.as_str()).unwrap_or("—");
                             tr {
                                 td { input type="checkbox"; }
-                                td class="link-cell mono" style="color:var(--accent)" { (item.doc_number.as_deref().unwrap_or("—")) }
+                                td class="text-accent font-medium cursor-pointer mono" style="color:var(--accent)" { (item.doc_number.as_deref().unwrap_or("—")) }
                                 td {
                                     span style=(format!("display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{};color:{}", type_bg, type_color)) {
                                         (type_label)
@@ -231,11 +231,11 @@ fn stock_out_data_card(
                                 td class="mono" style="color:var(--fg-2);font-size:12px" { (format!("{}-{}", item.source_type, item.source_id)) }
                                 td { (wh_name) }
                                 td { "1 种" }
-                                td class="num-right mono" { (format!("{:.2}", item.quantity)) }
-                                td class="num-right mono" { (item.unit_cost.map(|c| format!("¥{:.2}", c)).unwrap_or_else(|| "—".into())) }
+                                td class="text-right text-[13px] mono" { (format!("{:.2}", item.quantity)) }
+                                td class="text-right text-[13px] mono" { (item.unit_cost.map(|c| format!("¥{:.2}", c)).unwrap_or_else(|| "—".into())) }
                                 td style="font-size:12px;color:var(--fg-2)" { "FIFO" }
                                 td {
-                                    span class="status-pill status-completed" { "已出库" }
+                                    span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-[#f0fff0] text-[#389e0d]" { "已出库" }
                                 }
                                 td { (op_name) }
                                 td style="font-size:12px;color:var(--muted)" { (item.created_at.format("%Y-%m-%d %H:%M")) }
@@ -282,8 +282,8 @@ fn stock_out_table_fragment(
         div class="stockout-list-panel" {
             // ── Stat Cards ──
             div style="display:grid;grid-template-columns:repeat(4,1fr);gap:var(--space-5);margin-bottom:var(--space-6)" {
-                div class="stat-card" {
-                    div class="stat-icon" style="background:linear-gradient(135deg,#fff1f0,#ffccc7);color:#cf1322" {
+                div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
+                    div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0" style="background:linear-gradient(135deg,#fff1f0,#ffccc7);color:#cf1322" {
                         (icon::upload_icon("w-5 h-5"))
                     }
                     div {
@@ -291,8 +291,8 @@ fn stock_out_table_fragment(
                         div class="text-sm text-muted mt-1" { "本月出库单" }
                     }
                 }
-                div class="stat-card" {
-                    div class="stat-icon" style="background:linear-gradient(135deg,#fff1f0,#ffccc7);color:#cf1322" {
+                div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
+                    div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0" style="background:linear-gradient(135deg,#fff1f0,#ffccc7);color:#cf1322" {
                         (icon::currency_icon("w-5 h-5"))
                     }
                     div {
@@ -300,8 +300,8 @@ fn stock_out_table_fragment(
                         div class="text-sm text-muted mt-1" { "出库总金额" }
                     }
                 }
-                div class="stat-card" {
-                    div class="stat-icon orange" {
+                div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
+                    div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 orange" {
                         (icon::clock_icon("w-5 h-5"))
                     }
                     div {
@@ -309,8 +309,8 @@ fn stock_out_table_fragment(
                         div class="text-sm text-muted mt-1" { "待拣货" }
                     }
                 }
-                div class="stat-card" {
-                    div class="stat-icon green" {
+                div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
+                    div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 green" {
                         (icon::check_circle_icon("w-5 h-5"))
                     }
                     div {

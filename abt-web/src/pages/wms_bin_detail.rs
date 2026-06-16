@@ -135,10 +135,10 @@ fn bin_detail_page(
             }
 
             // ── Detail Header ──
-            div class="detail-header" style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:var(--space-5)" {
+            div class="block bg-bg border border-border-soft rounded-lg p-6" style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:var(--space-5)" {
                 div {
                     div style="display:flex;align-items:center;gap:var(--space-3)" {
-                        h1 class="detail-no" style="font-size:var(--text-xl);font-weight:700;margin:0;font-family:var(--font-mono)" {
+                        h1 class="text-2xl font-extrabold" style="font-size:var(--text-xl);font-weight:700;margin:0;font-family:var(--font-mono)" {
                             (bin.code)
                         }
                         span class=(format!("status-pill {status_class}")) { (status_label) }
@@ -150,10 +150,10 @@ fn bin_detail_page(
             }
 
             // ── Tabs ──
-            div class="detail-tabs" style="display:flex;gap:var(--space-1);margin-bottom:var(--space-5);border-bottom:1px solid var(--border-soft);padding-bottom:0" {
-                button class="detail-tab active" style="padding:var(--space-2) var(--space-4);font-size:var(--text-sm);cursor:pointer;border:none;background:none;color:var(--accent);border-bottom:2px solid var(--accent)" onclick="switchTab('info',this)" { "基本信息" }
-                button class="detail-tab" style="padding:var(--space-2) var(--space-4);font-size:var(--text-sm);cursor:pointer;border:none;background:none;color:var(--muted);border-bottom:2px solid transparent" onclick="switchTab('stock',this)" { "库存明细" }
-                button class="detail-tab" style="padding:var(--space-2) var(--space-4);font-size:var(--text-sm);cursor:pointer;border:none;background:none;color:var(--muted);border-bottom:2px solid transparent" onclick="switchTab('history',this)" { "操作历史" }
+            div class="flex border-b" style="display:flex;gap:var(--space-1);margin-bottom:var(--space-5);border-bottom:1px solid var(--border-soft);padding-bottom:0" {
+                button class="p-3 text-sm text-muted border-none cursor-pointer whitespace-nowrap font-medium active" style="padding:var(--space-2) var(--space-4);font-size:var(--text-sm);cursor:pointer;border:none;background:none;color:var(--accent);border-bottom:2px solid var(--accent)" onclick="switchTab('info',this)" { "基本信息" }
+                button class="p-3 text-sm text-muted border-none cursor-pointer whitespace-nowrap font-medium" style="padding:var(--space-2) var(--space-4);font-size:var(--text-sm);cursor:pointer;border:none;background:none;color:var(--muted);border-bottom:2px solid transparent" onclick="switchTab('stock',this)" { "库存明细" }
+                button class="p-3 text-sm text-muted border-none cursor-pointer whitespace-nowrap font-medium" style="padding:var(--space-2) var(--space-4);font-size:var(--text-sm);cursor:pointer;border:none;background:none;color:var(--muted);border-bottom:2px solid transparent" onclick="switchTab('history',this)" { "操作历史" }
             }
 
             // ── Tab: 基本信息 ──
@@ -210,7 +210,7 @@ fn bin_detail_page(
                                 @if let Some(types) = &bin.allowed_product_types {
                                     @for t in types {
                                         @let (bg, fg) = product_type_color(t);
-                                        span class="status-pill" style=(format!("background:{bg};color:{fg};margin-right:4px")) {
+                                        span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap" style=(format!("background:{bg};color:{fg};margin-right:4px")) {
                                             (product_type_label(t))
                                         }
                                     }
@@ -287,8 +287,8 @@ fn bin_detail_page(
                                     th { "产品编码" }
                                     th { "产品名称" }
                                     th { "批次号" }
-                                    th class="num-right" { "数量" }
-                                    th class="num-right" { "单位成本" }
+                                    th class="text-right text-[13px]" { "数量" }
+                                    th class="text-right text-[13px]" { "单位成本" }
                                     th { "入库日期" }
                                     th { "有效期" }
                                     th { "状态" }
@@ -317,7 +317,7 @@ fn bin_detail_page(
                                     th { "事务类型" }
                                     th { "关联单号" }
                                     th { "产品" }
-                                    th class="num-right" { "变动数量" }
+                                    th class="text-right text-[13px]" { "变动数量" }
                                     th { "操作员" }
                                     th { "备注" }
                                 }

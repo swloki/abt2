@@ -361,8 +361,8 @@ fn create_page(
                         input type="hidden" name="materials_json" id="materials-json" value="";
                     }
                     // Add row button
-                    div class="add-row-bar" {
-                        button type="button" class="btn-add-row"
+                    div class="p-3 flex items-center gap-2" {
+                        button type="button" class="inline-flex items-center gap-2 rounded-sm text-accent text-sm cursor-pointer"
                             onclick="omAddMaterialRow()"
                         {
                             (icon::plus_icon("w-4 h-4"))
@@ -381,18 +381,18 @@ fn create_page(
 
                 // ── Action bar ──
                 div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
-                    a class="btn bg-white text-fg border border-border hover:bg-surface" href=(format!("{}?restore=true", OmOutsourcingListPath::PATH)) { "取消" }
-                    button type="submit" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" { "确认提交" }
+                    a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface" href=(format!("{}?restore=true", OmOutsourcingListPath::PATH)) { "取消" }
+                    button type="submit" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" { "确认提交" }
                 }
             }
         }
 
         // ── Material row modal ──
-        div id="material-modal" class="modal-overlay" _="on click[me is event.target] remove .is-open" {
-            div class="modal" onclick="event.stopPropagation()" {
+        div id="material-modal" class="fixed z-[1000] grid place-items-center opacity-0" _="on click[me is event.target] remove .is-open" {
+            div class="bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0" onclick="event.stopPropagation()" {
                 div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
                     h3 { "选择物料" }
-                    button type="button" class="btn-remove-row" title="关闭"
+                    button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center" title="关闭"
                         _="on click remove .is-open from #material-modal"
                     {
                         (icon::x_icon("w-4 h-4"))
@@ -425,10 +425,10 @@ fn create_page(
                     }
                 }
                 div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" {
-                    button type="button" class="btn bg-white text-fg border border-border hover:bg-surface"
+                    button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface"
                         _="on click remove .is-open from #material-modal"
                     { "取消" }
-                    button type="button" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover"
+                    button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover"
                         onclick="omConfirmMaterial()"
                     { "确认" }
                 }
@@ -460,7 +460,7 @@ function omConfirmMaterial() {
         '<td><input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" step="any" min="0" name="m_planned_qty" value="' + qty + '" style="width:100px;text-align:right"></td>' +
         '<td><input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" step="any" min="0" name="m_unit_cost" value="' + cost + '" style="width:100px;text-align:right"></td>' +
         '<td class="line-subtotal mono" style="text-align:right">' + (qty * cost).toFixed(2) + '</td>' +
-        '<td><button type="button" class="btn-remove-row" title="删除" onclick="this.closest(\'tr\').remove();omUpdateMaterialJson()">' + '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></td>';
+        '<td><button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center" title="删除" onclick="this.closest(\'tr\').remove();omUpdateMaterialJson()">' + '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></td>';
     tbody.appendChild(tr);
     omUpdateMaterialJson();
     document.querySelector('#material-modal').classList.remove('is-open');

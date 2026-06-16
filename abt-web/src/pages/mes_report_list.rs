@@ -68,7 +68,7 @@ fn report_list_page(
     html! { div {
         div class="flex items-center justify-between mb-6" { h1 class="text-xl font-bold text-fg tracking-tight" { "报工记录" } div class="flex gap-3" {
             @if can_create {
-                a class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" href=(ReportCreatePath::PATH) { (icon::plus_icon("w-4 h-4")) "新建报工" }
+                a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" href=(ReportCreatePath::PATH) { (icon::plus_icon("w-4 h-4")) "新建报工" }
             }
         }}
         (report_table_fragment(result, params))
@@ -110,20 +110,20 @@ fn report_data_card(
             div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                 table class="data-table" { thead { tr {
                     th { "单号" } th { "产品" } th { "工序" } th { "日期" } th { "工人" }
-                    th class="num-right" { "完成" } th class="num-right" { "不良" } th { "班次" } th { "操作" }
+                    th class="text-right text-[13px]" { "完成" } th class="text-right text-[13px]" { "不良" } th { "班次" } th { "操作" }
                 }} tbody {
                     @for item in &result.items {
                         @let dp = format!("/admin/mes/reports/{}", item.id);
                         @let wn = item.worker_name.as_deref().unwrap_or("\u{2014}");
                         @let sl = shift_label(&item.shift);
                         tr style="cursor:pointer" onclick=(format!("location.href='{}'", dp)) {
-                            td class="link-cell mono" style="color:var(--accent)" { (item.doc_number) }
+                            td class="text-accent font-medium cursor-pointer mono" style="color:var(--accent)" { (item.doc_number) }
                             td { (item.product_name.as_deref().unwrap_or("\u{2014}")) }
                             td { (item.process_name) }
                             td { (item.report_date) }
                             td { (wn) }
-                            td class="num-right mono" { (crate::utils::fmt_qty(item.completed_qty)) }
-                            td class="num-right mono" { (crate::utils::fmt_qty(item.defect_qty)) }
+                            td class="text-right text-[13px] mono" { (crate::utils::fmt_qty(item.completed_qty)) }
+                            td class="text-right text-[13px] mono" { (crate::utils::fmt_qty(item.defect_qty)) }
                             td { (sl) }
                             td { a href=(dp) style="color:var(--accent);font-size:var(--text-xs)" { "查看" } }
                         }

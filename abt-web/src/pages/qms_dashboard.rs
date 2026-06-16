@@ -105,7 +105,7 @@ fn qms_dashboard_page(
             div class="flex items-center justify-between mb-6" {
                 h1 class="text-xl font-bold text-fg tracking-tight" { "质量管理总览" }
                 div class="flex gap-3" {
-                    a class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" href=(ResultCreatePath::PATH) {
+                    a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" href=(ResultCreatePath::PATH) {
                         (icon::plus_icon("w-4 h-4"))
                         " 新建检验结果"
                     }
@@ -113,9 +113,9 @@ fn qms_dashboard_page(
             }
 
             // ── 5 Stat Cards ──
-            div class="stat-grid-5" {
-                div class="stat-card" {
-                    div class="stat-icon" style="background:#fef3c7;color:#d97706" {
+            div class="grid gap-5" {
+                div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
+                    div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0" style="background:#fef3c7;color:#d97706" {
                         (icon::clipboard_list_icon("w-5 h-5"))
                     }
                     div {
@@ -123,8 +123,8 @@ fn qms_dashboard_page(
                         div class="text-sm text-muted mt-1" { "待检验" }
                     }
                 }
-                div class="stat-card" {
-                    div class="stat-icon green" {
+                div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
+                    div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 green" {
                         (icon::check_circle_icon("w-5 h-5"))
                     }
                     div {
@@ -132,8 +132,8 @@ fn qms_dashboard_page(
                         div class="text-sm text-muted mt-1" { "合格率" }
                     }
                 }
-                div class="stat-card" {
-                    div class="stat-icon red" {
+                div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
+                    div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 red" {
                         (icon::alert_triangle_icon("w-5 h-5"))
                     }
                     div {
@@ -141,8 +141,8 @@ fn qms_dashboard_page(
                         div class="text-sm text-muted mt-1" { "不良品数" }
                     }
                 }
-                div class="stat-card" {
-                    div class="stat-icon" style="background:#ede9fe;color:#7c3aed" {
+                div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
+                    div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0" style="background:#ede9fe;color:#7c3aed" {
                         (icon::file_text_icon("w-5 h-5"))
                     }
                     div {
@@ -150,8 +150,8 @@ fn qms_dashboard_page(
                         div class="text-sm text-muted mt-1" { "待审MRB" }
                     }
                 }
-                div class="stat-card" {
-                    div class="stat-icon" style="background:#cffafe;color:#0891b2" {
+                div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
+                    div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0" style="background:#cffafe;color:#0891b2" {
                         (icon::return_arrow_icon("w-5 h-5"))
                     }
                     div {
@@ -163,11 +163,11 @@ fn qms_dashboard_page(
 
             // ── Quick Entry Grid ──
             div class="section-block" {
-                h2 class="section-block-title" {
+                h2 class="text-lg font-semibold text-fg flex items-center gap-2" {
                     (icon::bolt_icon("w-4 h-4"))
                     " 快捷操作"
                 }
-                div class="quick-entry-grid" {
+                div class="grid gap-4" {
                     (quick_entry_card(SpecCreatePath::PATH, "新建检验规格", "定义检验标准 & AQL", "blue", "spec"))
                     (quick_entry_card(ResultCreatePath::PATH, "记录检验结果", "录入IQC/IPQC/FQC/OQC", "green", "result"))
                     (quick_entry_card(MrbCreatePath::PATH, "新建MRB评审", "不合格品评审处置", "red", "mrb"))
@@ -176,15 +176,15 @@ fn qms_dashboard_page(
             }
 
             // ── Two-Column: Recent Results + MRB ──
-            div class="two-col-section" {
-                div class="section-card" {
-                    div class="section-card-head" {
+            div class="grid gap-6" {
+                div class="bg-bg border border-border-soft rounded-lg overflow-hidden" {
+                    div class="p-4 border-b text-sm font-semibold text-fg flex items-center gap-2 bg-surface-raised" {
                         (icon::check_circle_icon("w-4 h-4"))
                         " 最近检验结果"
-                        a href=(ResultListPath::PATH) class="section-link" { "查看全部 →" }
+                        a href=(ResultListPath::PATH) class="text-[12px] text-accent font-semibold no-underline" { "查看全部 →" }
                     }
                     div class="qms-card-body" {
-                        div class="flow-row-list" {
+                        div class="flex flex-col" {
                             @if recent_results.is_empty() {
                                 div style="text-align:center;padding:var(--space-8);color:var(--muted);font-size:13px" { "暂无检验记录" }
                             } @else {
@@ -203,14 +203,14 @@ fn qms_dashboard_page(
                     }
                 }
 
-                div class="section-card" {
-                    div class="section-card-head" {
+                div class="bg-bg border border-border-soft rounded-lg overflow-hidden" {
+                    div class="p-4 border-b text-sm font-semibold text-fg flex items-center gap-2 bg-surface-raised" {
                         (icon::alert_triangle_icon("w-4 h-4"))
                         " MRB评审列表"
-                        a href=(MrbListPath::PATH) class="section-link" { "查看全部 →" }
+                        a href=(MrbListPath::PATH) class="text-[12px] text-accent font-semibold no-underline" { "查看全部 →" }
                     }
                     div class="qms-card-body" {
-                        div class="flow-row-list" {
+                        div class="flex flex-col" {
                             @if recent_mrbs.is_empty() {
                                 div style="text-align:center;padding:var(--space-8);color:var(--muted);font-size:13px" { "暂无MRB记录" }
                             } @else {
@@ -225,15 +225,15 @@ fn qms_dashboard_page(
 
             // ── 6-Month Quality Trend ──
             div class="section-block" {
-                h2 class="section-block-title" {
+                h2 class="text-lg font-semibold text-fg flex items-center gap-2" {
                     (icon::trending_up_icon("w-4 h-4"))
                     " 近6月质量趋势"
                 }
                 div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" style="padding:var(--space-5)" {
-                    div class="chart-legend" {
-                        div class="chart-legend-items" {
-                            span class="chart-legend-item" {
-                                span class="legend-dot" style="background:var(--success)" {}
+                    div class="flex justify-between text-[12px]" {
+                        div class="flex justify-between text-[12px]-items" {
+                            span class="flex justify-between text-[12px]-item" {
+                                span class="w-[10px] h-[3px]" style="background:var(--success)" {}
                                 "合格率"
                             }
                         }
@@ -241,7 +241,7 @@ fn qms_dashboard_page(
                             "合格率: " (pass_rate_str)
                         }
                     }
-                    div class="chart-bar-grid" {
+                    div class="grid gap-2" {
                         (chart_bar("1月", 92.5, false))
                         (chart_bar("2月", 93.8, false))
                         (chart_bar("3月", 95.1, false))
@@ -273,15 +273,15 @@ fn quick_entry_card(href: &str, title: &str, desc: &str, color: &str, badge: &st
         _ => icon::grid_icon("w-full h-full"),
     };
     html! {
-        a href=(href) class="quick-card" style="text-decoration:none" {
-            div class="quick-card-icon" style=(format!("background:{}", bg)) {
+        a href=(href) class="block p-5 rounded-lg bg-bg border border-border-soft no-underline relative overflow-hidden" style="text-decoration:none" {
+            div class="block p-5 rounded-lg bg-bg border border-border-soft no-underline relative overflow-hidden-icon" style=(format!("background:{}", bg)) {
                 div style=(format!("width:22px;height:22px;color:{}", fg)) {
                     (icon_svg)
                 }
             }
-            span class="quick-card-title" { (title) }
-            span class="quick-card-desc" { (desc) }
-            span class="quick-card-badge" style=(format!("background:{};color:{};font-size:11px;font-weight:600;padding:2px 8px;border-radius:var(--radius-pill);margin-top:6px;display:inline-block", badge_bg, badge_fg)) {
+            span class="block p-5 rounded-lg bg-bg border border-border-soft no-underline relative overflow-hidden-title" { (title) }
+            span class="block p-5 rounded-lg bg-bg border border-border-soft no-underline relative overflow-hidden-desc" { (desc) }
+            span class="block p-5 rounded-lg bg-bg border border-border-soft no-underline relative overflow-hidden-badge" style=(format!("background:{};color:{};font-size:11px;font-weight:600;padding:2px 8px;border-radius:var(--radius-pill);margin-top:6px;display:inline-block", badge_bg, badge_fg)) {
                 (badge.to_uppercase())
             }
         }
@@ -292,15 +292,15 @@ fn quick_entry_card(href: &str, title: &str, desc: &str, color: &str, badge: &st
 
 fn flow_row_pass(doc: &str, info: &str, result: &str, time: &str) -> Markup {
     html! {
-        div class="flow-row" {
-            div class="flow-dot pass" {}
-            div class="flow-row-content" {
-                div class="flow-row-title" { (doc) }
-                div class="flow-row-sub" { (info) }
+        div class="flex items-center gap-3 p-3 rounded-sm" {
+            div class="w-[10px] h-[10px] rounded-full shrink-0 pass" {}
+            div class="flex items-center gap-3 p-3 rounded-sm-content" {
+                div class="flex items-center gap-3 p-3 rounded-sm-title" { (doc) }
+                div class="flex items-center gap-3 p-3 rounded-sm-sub" { (info) }
             }
-            div class="flow-row-right" {
-                div class="flow-row-result pass" { (result) }
-                div class="flow-row-time" { (time) }
+            div class="flex items-center gap-3 p-3 rounded-sm-right" {
+                div class="flex items-center gap-3 p-3 rounded-sm-result pass" { (result) }
+                div class="flex items-center gap-3 p-3 rounded-sm-time" { (time) }
             }
         }
     }
@@ -308,15 +308,15 @@ fn flow_row_pass(doc: &str, info: &str, result: &str, time: &str) -> Markup {
 
 fn flow_row_fail(doc: &str, info: &str, result: &str, time: &str) -> Markup {
     html! {
-        div class="flow-row" {
-            div class="flow-dot fail" {}
-            div class="flow-row-content" {
-                div class="flow-row-title" { (doc) }
-                div class="flow-row-sub" { (info) }
+        div class="flex items-center gap-3 p-3 rounded-sm" {
+            div class="w-[10px] h-[10px] rounded-full shrink-0 fail" {}
+            div class="flex items-center gap-3 p-3 rounded-sm-content" {
+                div class="flex items-center gap-3 p-3 rounded-sm-title" { (doc) }
+                div class="flex items-center gap-3 p-3 rounded-sm-sub" { (info) }
             }
-            div class="flow-row-right" {
-                div class="flow-row-result fail" { (result) }
-                div class="flow-row-time" { (time) }
+            div class="flex items-center gap-3 p-3 rounded-sm-right" {
+                div class="flex items-center gap-3 p-3 rounded-sm-result fail" { (result) }
+                div class="flex items-center gap-3 p-3 rounded-sm-time" { (time) }
             }
         }
     }
@@ -324,14 +324,14 @@ fn flow_row_fail(doc: &str, info: &str, result: &str, time: &str) -> Markup {
 
 fn mrb_flow_row(doc: &str, desc: &str, status: &str) -> Markup {
     html! {
-        div class="flow-row" {
-            div class="flow-dot fail" {}
-            div class="flow-row-content" {
-                div class="flow-row-title" { (doc) }
-                div class="flow-row-sub" { (desc) }
+        div class="flex items-center gap-3 p-3 rounded-sm" {
+            div class="w-[10px] h-[10px] rounded-full shrink-0 fail" {}
+            div class="flex items-center gap-3 p-3 rounded-sm-content" {
+                div class="flex items-center gap-3 p-3 rounded-sm-title" { (doc) }
+                div class="flex items-center gap-3 p-3 rounded-sm-sub" { (desc) }
             }
-            div class="flow-row-right" {
-                span class="status-pill status-under-review" { (status) }
+            div class="flex items-center gap-3 p-3 rounded-sm-right" {
+                span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap status-under-review" { (status) }
             }
         }
     }
@@ -356,11 +356,11 @@ fn chart_bar(month: &str, pass_rate: f64, is_current: bool) -> Markup {
     let value_color = if is_current { "var(--accent)" } else { "var(--success)" };
     html! {
         div class="chart-bar-col" {
-            div class="chart-bar-stack" {
-                div class="chart-bar-wrap" style=(format!("width:100%;max-width:48px;height:{}px;background:{};border-top:2.5px solid {}", pass_height, accent_bg, accent)) {}
+            div class="flex flex-col items-center gap-[4px] h-[140px] justify-end" {
+                div class="relative overflow-hidden" style=(format!("width:100%;max-width:48px;height:{}px;background:{};border-top:2.5px solid {}", pass_height, accent_bg, accent)) {}
             }
-            div class="chart-bar-month" style=(month_weight) { (month) }
-            div class="chart-bar-value" style=(format!("color:{}", value_color)) {
+            div class="text-[12px] text-muted" style=(month_weight) { (month) }
+            div class="text-[11px] font-bold" style=(format!("color:{}", value_color)) {
                 (format!("{:.1}%", pass_rate))
             }
         }

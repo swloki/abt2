@@ -12,9 +12,9 @@ use maud::{Markup, html};
 /// `body`        — content slot (rendered inside drawer-body).
 pub fn drawer(drawer_id: &str, title: &str, submit_label: &str, form_id: &str, body: Markup) -> Markup {
     html! {
-        div id=(drawer_id) class="drawer-overlay"
+        div id=(drawer_id) class="fixed z-[1000] flex justify-end opacity-0"
             _="on click[me is event.target] remove .open" {
-            div class="drawer-panel" onclick="event.stopPropagation()" {
+            div class="bg-white h-full w-[420px] flex flex-col" onclick="event.stopPropagation()" {
                 div class="flex items-center justify-between px-6 py-4 border-b border-border-soft" {
                     h2 { (title) }
                     button style="background:none;border:none;cursor:pointer;font-size:22px;color:var(--muted);padding:4px;line-height:1"
@@ -24,9 +24,9 @@ pub fn drawer(drawer_id: &str, title: &str, submit_label: &str, form_id: &str, b
                     (body)
                 }
                 div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3" {
-                    button type="button" class="btn bg-white text-fg border border-border hover:bg-surface"
+                    button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface"
                         _="on click remove .open from closest .drawer-overlay" { "取消" }
-                    button type="submit" class="btn bg-accent text-accent-on border-none hover:bg-accent-hover" form=(form_id) { (submit_label) }
+                    button type="submit" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" form=(form_id) { (submit_label) }
                 }
             }
         }
@@ -41,9 +41,9 @@ pub fn drawer(drawer_id: &str, title: &str, submit_label: &str, form_id: &str, b
 /// `footer` — custom footer content.
 pub fn drawer_with_footer(drawer_id: &str, title: &str, body: Markup, footer: Markup) -> Markup {
     html! {
-        div id=(drawer_id) class="drawer-overlay"
+        div id=(drawer_id) class="fixed z-[1000] flex justify-end opacity-0"
             _="on click[me is event.target] remove .open" {
-            div class="drawer-panel" onclick="event.stopPropagation()" {
+            div class="bg-white h-full w-[420px] flex flex-col" onclick="event.stopPropagation()" {
                 div class="flex items-center justify-between px-6 py-4 border-b border-border-soft" {
                     h2 { (title) }
                     button style="background:none;border:none;cursor:pointer;font-size:22px;color:var(--muted);padding:4px;line-height:1"

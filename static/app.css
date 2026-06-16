@@ -1,119 +1,3 @@
-
-:root {
-  --bg: #ffffff;
-  --surface: #f0f2f7;
-  --surface-raised: #f8f9fc;
-  --surface-warm: #e6f4ff;
-  --fg: #0f172a;
-  --fg-2: #3b4a63;
-  --muted: #64748b;
-  --meta: var(--accent);
-  --border: #e2e8f0;
-  --border-soft: #eef1f6;
-  --accent: #2563eb;
-  --accent-on: #ffffff;
-  --accent-hover: #3b82f6;
-  --accent-active: #1d4ed8;
-  --accent-bg: rgba(37, 99, 235, 0.05);
-  --accent-glow: rgba(37, 99, 235, 0.12);
-  --success: #16a34a;
-  --success-bg: rgba(22, 163, 74, 0.06);
-  --warn: #d97706;
-  --warn-bg: rgba(217, 119, 6, 0.06);
-  --danger: #dc2626;
-  --danger-bg: rgba(220, 38, 38, 0.05);
-  --info: #2563eb;
-
-  --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", "Helvetica Neue", sans-serif;
-  --font-mono: "JetBrains Mono", "SF Mono", ui-monospace, Menlo, monospace;
-
-  --text-xs: 12px;
-  --text-sm: 14px;
-  --text-base: 15px;
-  --text-lg: 17px;
-  --text-xl: 21px;
-  --text-2xl: 28px;
-  --text-3xl: 36px;
-
-  --space-1: 4px;
-  --space-2: 8px;
-  --space-3: 12px;
-  --space-4: 16px;
-  --space-5: 20px;
-  --space-6: 24px;
-  --space-8: 32px;
-  --space-10: 40px;
-  --space-12: 48px;
-
-  --radius-sm: 6px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-xl: 16px;
-  --radius-pill: 9999px;
-
-  --sidebar-w: 240px;
-  --header-h: 60px;
-
-  --shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.04);
-  --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.05), 0 1px 2px rgba(15, 23, 42, 0.03);
-  --shadow-md: 0 4px 16px rgba(15, 23, 42, 0.06), 0 1px 3px rgba(15, 23, 42, 0.04);
-  --shadow-lg: 0 12px 40px rgba(15, 23, 42, 0.08), 0 4px 12px rgba(15, 23, 42, 0.04);
-  --shadow-xl: 0 24px 56px rgba(15, 23, 42, 0.12), 0 8px 20px rgba(15, 23, 42, 0.06);
-  --shadow-card: 0 1px 3px rgba(15, 23, 42, 0.04), 0 0 0 1px rgba(15, 23, 42, 0.03);
-  --shadow-card-hover: 0 8px 30px rgba(15, 23, 42, 0.08), 0 0 0 1px rgba(15, 23, 42, 0.04);
-  --shadow-focus: 0 0 0 3px rgba(37, 99, 235, 0.12);
-  --shadow-accent: 0 4px 14px rgba(37, 99, 235, 0.25);
-
-  --motion-fast: 150ms;
-  --motion-base: 240ms;
-  --motion-slow: 360ms;
-  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
-  --ease-decelerate: cubic-bezier(0, 0, 0.2, 1);
-  --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
-  --glass-bg: rgba(255, 255, 255, 0.72);
-  --glass-border: rgba(255, 255, 255, 0.18);
-  --glass-blur: 12px;
-}
-
-html { font-size: var(--text-sm); scroll-behavior: smooth; }
-body {
-  margin: 0;
-  background: var(--surface);
-  color: var(--fg);
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
-  line-height: 1.55;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-button { cursor: pointer; }
-input, select, textarea { font-family: inherit; font-size: inherit; line-height: 1.4; box-sizing: border-box; }
-p { margin: 0; }
-
-/* ─── Scrollbar ─── */
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: var(--muted); }
-
-/* ─── Alpine.js cloak ─── */
-[x-cloak] { display: none !important; }
-
-/* ─── Utility ─── */
-.font-mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
-
-/* ─── Layout Shell ─── */
-:root { --sidebar-w: 240px; --header-h: 60px; }
-.app-shell {
-  display: grid;
-  grid-template-columns: var(--sidebar-w) 1fr;
-  min-height: 100vh;
-  transition: grid-template-columns var(--motion-base) var(--ease-standard);
-}
-.app-shell.sidebar-collapsed {
-  grid-template-columns: 56px 1fr;
-}
-
 /* ─── Sidebar ─── */
 #sidebar {
   background: linear-gradient(180deg, #0a1628 0%, #0f1d32 100%);
@@ -142,29 +26,17 @@ p { margin: 0; }
 .sidebar-collapsed .sidebar-rail { border-right: none; }
 
 /* ── Sidebar Nav ── */
-.sidebar-item-text { overflow: hidden; text-overflow: ellipsis; }
 
 /* ── Sidebar User ── */
-.sidebar-user-info { flex: 1; min-width: 0; }
 .sidebar-user-role { font-size: 11px; color: rgba(255,255,255,0.4); }
 
-/* ─── Main Content ─── */
-
-/* ─── Top Header ─── */
 /* ─── User Menu Dropdown ─── */
 .user-menu-logout { color: var(--danger); }
 .user-menu-logout svg { color: var(--danger); }
 .user-menu-form { margin: 0; }
-.user-menu-form .user-menu-item { width: 100%; border: none; background: none; text-align: left; }
 
-/* ─── Page Content ─── */
-
-/* ─── Stat Icons ─── */
 /* ─── Role List ─── */
 @media (max-width: 768px) { .role-stats { grid-template-columns: 1fr; } }
-.perm-count-fill { height: 100%; border-radius: 2px; background: linear-gradient(90deg, var(--accent), var(--accent-hover)); transition: width .3s; }
-
-/* ─── Mobile ─── */
 
 /* ─── Responsive Layout ─── */
 @media (max-width: 768px) {
@@ -181,16 +53,6 @@ p { margin: 0; }
   .page-content { padding: var(--space-4); }
     }
 
-/* ─── Page Header ─── */
-
-/* ─── Customer Stats Grid ─── */
-
-/* ─── Filter Bar ─── */
-
-/* ─── Category Tree Select ─── */
-
-/* ─── Status Tabs ─── */
-
 /* ─── Data Card / Table ─── */
 .data-card-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
 .data-card-scroll::-webkit-scrollbar { height: 6px; }
@@ -204,7 +66,6 @@ p { margin: 0; }
 .line-items-table th { padding: var(--space-3); text-align: left; font-weight: 500; color: var(--muted); background: var(--surface); font-size: var(--text-xs); white-space: nowrap; border-bottom: 1px solid var(--border); }
 .line-items-table td { padding: var(--space-2) var(--space-3); border-bottom: 1px solid var(--border-soft); vertical-align: middle; }
 .line-items-table .form-input,
-.line-items-table .form-select { width: 100%; padding: 6px 8px; font-size: 13px; }
 .usage-table { width: 100%; border-collapse: collapse; }
 .usage-table th {
   text-align: left; font-size: 11px; font-weight: 500; color: var(--muted);
@@ -214,23 +75,13 @@ p { margin: 0; }
   padding: var(--space-3); font-size: var(--text-sm); border-bottom: 1px solid var(--border-soft);
 }
 .usage-table tr:last-child td { border-bottom: none; }
-.usage-table .link-cell {
-  color: var(--accent); font-weight: 600; font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
-}
 /* ─── Row Action Dropdown ─── */
 .row-actions:has(.row-actions-menu.is-open) .row-actions-menu a,
 .row-actions-menu a:hover,
 
 /* ─── Credit Bar ─── */
-.credit-bar-fill { height: 100%; border-radius: 2px; transition: width var(--motion-base); }
-
-/* ─── Pagination ─── */
-
-/* ─── Status Pills ─── */
 
 /* ─── Modal ─── */
-.modal-lg { width: 900px; max-width: 94vw; }
 
 /* ─── Category Select (Product Create modal) ─── */
 .category-select-item { }
@@ -242,60 +93,24 @@ p { margin: 0; }
 
 /* ─── Price Drawer internal ─── */
 .price-section { margin-bottom: 20px; }
-.change-badge.up { background: #fff1f0; color: #cf1322; }
-.change-badge.down { background: #f6ffed; color: #389e0d; }
 /* ─── BOM Drawer internal ─── */
-.bom-ref-info { flex: 1; min-width: 0; }
 .bom-ref-qty { text-align: right; }
 /* ─── Detail Drawer (price history) ─── */
 .detail-section { margin-bottom: 20px; }
 .detail-price-old { text-align: center; }
-.detail-price-old .label { font-size: 11px; color: var(--muted); }
-.detail-price-old .val { font-size: 20px; color: var(--muted); text-decoration: line-through; font-weight: 600; }
 .detail-price-new { text-align: center; }
-.detail-price-new .label { font-size: 11px; color: var(--muted); }
-.detail-price-new .val { font-size: 24px; color: var(--accent); font-weight: 700; }
-
-/* ─── Back Link ─── */
-
-/* ─── Line Items (Create Page) ─── */
-/* ─── Product Picker Cell (inline product selector) ─── */
-
-/* ─── Totals Bar ─── */
-
-/* ─── Create Action Bar (sticky bottom) ─── */
-
-/* ─── Workflow Steps ─── */
-
-/* ─── Info Card (Detail Page) ─── */
-
-/* ─── Info Grid (Detail Page) ─── */
-
-/* ─── Amount Summary (Detail Page) ─── */
 
 /* ─── Product Select List (Modal) ─── */
 .product-select-list { padding: var(--space-2) 0; }
-.product-select-info { flex: 1; min-width: 0; }
 .product-select-sep { color: var(--border); }
 
-/* ─── Product Search Bar (Modal) ─── */
-
 /* ─── Confirm Dialog ─── */
-@keyframes dialogSlideIn { from { opacity: 0; transform: translateY(-16px) scale(0.96); } to { opacity: 1; transform: translateY(0) scale(1); } }
+ to { opacity: 1; transform: translateY(0) scale(1); } }
 
 /* ─── Form ─── */
-.form-section .form-section .supplier-info-bar {
-  display: flex; gap: var(--space-6); margin-top: var(--space-3);
-  padding: var(--space-3) var(--space-4); background: var(--surface); border-radius: var(--radius-sm);
-  font-size: var(--text-sm); color: var(--fg-2);
-}
-.supplier-info-bar .label { color: var(--muted); font-size: 12px; }
 
-/* ─── Tag Chips ─── */
 /* ─── System Management ─── */
- /* ─── Detail Page ─── */
-
-.detail-value { color: var(--fg); }
+ 
 
 /* ─── Credit Ring ─── */
 .credit-info-footer { border-top: 1px solid var(--border-soft); padding-top: var(--space-4) }
@@ -306,28 +121,17 @@ p { margin: 0; }
 .history-table td { padding: var(--space-3); font-size: var(--text-sm); border-bottom: 1px solid var(--border-soft); }
 .history-table tr:last-child td { border-bottom: none; }
 
-/* ─── Contact Card ─── */
-
-/* ─── Address Card ─── */
-
-/* ─── Empty State ─── */
-
 /* ─── Utility ─── */
 .mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 .text-danger { color: var(--danger); }
 .text-success { color: var(--success); }
 .text-muted { color: var(--muted); }
 
-/* ─── BOM Table (blue primary header matching legacy) ─── */
-
 .bom-dragging { opacity: 0.4; }
-/* ─── BOM Level Badges ─── */
 
 /* ─── BOM Row Level Styles (matching legacy getNodeRowStyle) ─── */
 .bom-row-level-1 { background-color: #ff0; }
 .bom-row-level-default { }
-
-/* ─── BOM Status Colors ─── */
 
 /* ─── BOM Edit Toolbar ─── */
 .bom-toolbar-left, .bom-toolbar-right {
@@ -341,20 +145,8 @@ p { margin: 0; }
   background-repeat: no-repeat; background-position: right 8px center;
 }
 .bom-category-select select:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 2px var(--accent-bg); }
-.btn-warning-ghost {
-  background: transparent; color: #b45309; border: 1px solid #fbbf24;
-}
-.btn-warning-ghost:hover { background: #fef3c7; }
-.btn-danger-ghost {
-  background: transparent; color: #dc2626; border: 1px solid #fca5a5;
-}
-.btn-danger-ghost:hover { background: #fef2f2; }
 
 /* ─── Cost Drawer ─── */
-.cost-warning-banner {
-  border: 1px solid #fbbf24; background: #fffbeb;
-  border-radius: 6px; margin-bottom: 16px;
-}
 .cost-warning-list {
   display: grid; grid-template-rows: 0fr;
   transition: grid-template-rows 0.3s ease;
@@ -371,41 +163,9 @@ p { margin: 0; }
 .cost-warning-list li {
   font-size: 13px; color: #92400e; padding: 2px 0;
 }
-.cost-product-code {
-  background: #f8fafc; border-radius: 6px;
-  padding: 10px 16px; margin-bottom: 16px;
-}
-.cost-product-code p { font-size: 13px; color: #64748b; margin: 0; }
-.cost-product-code span { font-family: var(--font-mono); font-weight: 600; color: #0f172a; }
-.cost-summary-card {
-  border: 1px solid #e5e7eb; background: #fff;
-  border-radius: 6px; padding: 16px;
-}
-.cost-summary-card .card-label { font-size: 11px; font-weight: 500; color: #6b7280; margin-bottom: 4px; }
-.cost-summary-card .card-value { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; }
-.cost-summary-card .card-sub { font-size: 11px; color: #9ca3af; margin-top: 4px; }
-.cost-summary-card.primary .card-value { color: #2563eb; }
-.cost-summary-card.danger { border-color: #fecaca; background: #fef2f2; }
-.cost-summary-card.danger .card-label { color: #ef4444; }
-.cost-summary-card.danger .card-value { color: #dc2626; }
-.cost-summary-card.danger .card-sub { color: #f87171; }
-.cost-summary-card.total-ok { border-color: #bfdbfe; background: #eff6ff; }
-.cost-summary-card.total-ok .card-label { color: #3b82f6; }
-.cost-summary-card.total-ok .card-value { color: #2563eb; }
-.cost-summary-card.total-warn { border-color: #fde68a; background: #fefce8; }
-.cost-summary-card.total-warn .card-label { color: #d97706; }
-.cost-summary-card.total-warn .card-value { color: #d97706; }
-.cost-summary-card.total-warn .card-sub { color: #fbbf24; }
 .cost-section { margin-bottom: 24px; }
 .cost-warning-list ul { list-style: none; margin: 0; padding: 0; }
 /* ─── Temp Price Override ─── */
-.labor-summary-card {
-  border: 1px solid #e5e7eb; background: #fff;
-  border-radius: 6px; padding: 16px; margin-bottom: 24px;
-}
-.labor-summary-card .card-label { font-size: 11px; font-weight: 500; color: #6b7280; margin-bottom: 4px; }
-.labor-summary-card .card-value { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; color: #2563eb; }
-.labor-summary-card .card-sub { font-size: 11px; color: #9ca3af; margin-top: 4px; }
 /* ─── Component Responsive ─── */
 @media (max-width: 1024px) {
   .detail-grid { grid-template-columns: 1fr 1fr; }
@@ -417,10 +177,6 @@ p { margin: 0; }
   .detail-top { flex-direction: column; }
 }
 /* ─── Permission Config (Role Create/Edit) ─── */
-.perm-group-arrow { color: var(--muted); transition: transform .2s; }
-.perm-group-arrow.open { transform: rotate(180deg); }
-.perm-group-body { padding: 0; }
-.perm-group-body.collapsed { display: none; }
 .perm-cell { text-align: center; }
 .perm-cell input { width: 16px; height: 16px; cursor: pointer; appearance: none; -webkit-appearance: none; border: 2px solid #d1d5db; border-radius: 3px; background: #fff; transition: all .15s; flex-shrink: 0; position: relative; }
 .perm-cell input:checked { background: #22c55e; border-color: #22c55e; }
@@ -434,26 +190,8 @@ p { margin: 0; }
   .perm-group-head { padding: var(--space-2) var(--space-3); }
   .perm-group-actions { flex-direction: column; gap: var(--space-1); }
 }
-/* ─── Permission Config Page ─── */
-
-/* ── Stats Header ── */
-
-/* ── Split Layout ── */
 
 /* ── Left: Role List ── */
-.role-item-info{flex:1;min-width:0}
-
-/* ── Right: Permission Config ── */
-
-/* ── Read-only hint ── */
-
-/* ── Permission Groups ── */
-
-/* ── Resource Row ── */
-
-/* ── Empty State ── */
-
-/* ── Status Banner ── */
 
 /* ── Mobile ── */
 @media(max-width:768px){
@@ -467,7 +205,6 @@ p { margin: 0; }
   .stat-item{border-right:none;padding-right:8px;padding-left:0}
   .stat-item:last-child{padding-left:0}
 }
-/* ─── Department List: Two-panel layout ─── */
 
 /* ── Left: Tree panel ── */
 .tree-search-wrap{padding:0 var(--space-4) var(--space-3);position:relative}
@@ -480,14 +217,10 @@ p { margin: 0; }
 .tc-purple{background:linear-gradient(135deg,#7c3aed,#a78bfa)}
 .tc-red{background:linear-gradient(135deg,#cf1322,var(--danger))}
 
-/* ── Right: Detail panel ── */
-
 .d-hero-text h2{font-size:18px;font-weight:700;margin:0 0 2px;letter-spacing:-.01em}
 
 .d-section{margin-bottom:var(--space-5)}
 .d-section:last-child{margin-bottom:0}
-
-.m-text{min-width:0;flex:1}
 
 /* ── Drawer ── */
 .drawer-section{margin-bottom:var(--space-6)}
@@ -512,54 +245,22 @@ textarea.drawer-tip{background:var(--accent-bg);border:1px solid rgba(22,119,255
 .avatar-c6 { background: linear-gradient(135deg, #eb2f96, #ff85c0); }
 .avatar-c7 { background: linear-gradient(135deg, #8c8c8c, #bfbfbf); }
 .muted-text { color: var(--muted); }
-.stat-icon-purple {
-  background: linear-gradient(135deg, #f3e8ff, #e8d5ff) !important;
-  color: #7c3aed !important;
-}
 @media (max-width: 900px) { .user-stats { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 520px) { .user-stats { grid-template-columns: 1fr; } }
 /* ─── User Create Page ─── */
 .password-wrap 
 /* ── Role/Dept Picker Grid ── */
 
-/* ── DataScope Radio Cards ── */
-
 /* ── Line Item Table Inputs (shared by quotation/order/return create/edit) ── */
-.line-items-table .li-input{width:100%;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)}
-.line-items-table .li-input-center{width:56px;text-align:center;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface)}
-.line-items-table .li-input-num{width:80px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)}
-.line-items-table .li-input-price{width:100px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)}
-.line-items-table .li-input-disc{width:64px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)}
-.line-items-table .li-input-date{width:110px;padding:5px 6px;font-size:12px;border:1px solid var(--border);border-radius:var(--radius-sm)}
-.line-items-table .line-total{text-align:right;font-family:var(--font-mono);font-weight:600;white-space:nowrap}
-
-/* ── Table empty state (replaces inline style) ── */
-
-/* ── Detail page: source link line ── */
-
-/* ── Workflow step danger variant ── */
-
-/* ── Flush section (no padding, for embedded tables) ── */
-
-/* ── Modal close btn override ── */
-
-/* ── Reusable layout utilities ── */
-
-/* ── Stat mini cards (demand pool & reconciliation) ── */
-
-/* ── View toggle bar (demand pool) ── */
 
 /* ── Urgency hint (demand pool) ── */
 .urgency-hint{font-size:11px;margin-top:2px}
 .urgency-hint.text-danger{color:var(--danger)}
 .urgency-hint.text-warn{color:var(--warn)}
-.material-stat{text-align:center;min-width:80px}
-.material-stat-date{min-width:160px}
 
 /* ── Demand expand (demand pool) ── */
 .demand-expand-inner{padding:var(--space-4) var(--space-6) var(--space-4) 76px}
 .demand-expand-inner 
-/* ── Batch action bar (demand pool) ── */
 
 /* ── Tag chip variants (demand pool priority) ── */
 .tag-danger{background:rgba(245,63,63,0.08);color:var(--danger)}
@@ -570,12 +271,9 @@ textarea.drawer-tip{background:var(--accent-bg);border:1px solid rgba(22,119,255
 /* ── Demand row processed (demand pool) ── */
 .demand-processed{opacity:0.65}
 
-/* ── Amount row in detail pages ── */
-
 /* ── Form Section card (User Create/Edit) ── */
 /* Upload area for attachments */
 /* Product search scroll */
-.product-search-scroll{max-height:320px;overflow-y:auto}
 /* Loading placeholder */
 
 @media(max-width:768px){
@@ -586,8 +284,6 @@ textarea.drawer-tip{background:var(--accent-bg);border:1px solid rgba(22,119,255
 /* ─── User Detail: Profile Hero ─── */
 .ph-info h2{font-size:18px;font-weight:700;margin:0 0 3px;letter-spacing:-.01em}
 
-/* ─── User Detail: Stats Row ─── */
-
 /* ─── User Detail: Grid & Cards ─── */
 .d-card-spacer{margin-bottom:var(--space-5)}
 .d-card-body{padding:var(--space-4)}
@@ -597,15 +293,10 @@ textarea.drawer-tip{background:var(--accent-bg);border:1px solid rgba(22,119,255
 .info-success{color:#389e0d !important}
 
 /* ─── User Detail: Role List ─── */
-.role-info{flex:1;min-width:0}
 
 /* ─── User Detail: Dept List ─── */
-.dept-info{flex:1;min-width:0}
 
 /* ─── User Detail: Permission Preview ─── */
-.perm-preview{max-height:320px;overflow-y:auto}
-.perm-preview-group{margin-bottom:var(--space-3)}
-.perm-preview-group:last-child{margin-bottom:0}
 
 @media(max-width:768px){
   .detail-grid{grid-template-columns:1fr}
@@ -617,7 +308,6 @@ textarea.drawer-tip{background:var(--accent-bg);border:1px solid rgba(22,119,255
 .text-success { color: var(--success, var(--success)); }
 .text-muted-color { color: var(--muted); }
 
-/* ─── WMS (Inventory Management) ─── */
 /* Form section card — matches prototype 03-stockin-create.html */
 .wms-form-section .wms-form-section /* 4-column form grid for WMS pages */
 /* Detail table — compact editable table for line items */
@@ -665,25 +355,15 @@ textarea.drawer-tip{background:var(--accent-bg);border:1px solid rgba(22,119,255
 }
 
 /* ─── Login: Brand Panel ─── */
-.brand-desc { font-size: var(--text-base); color: rgba(255, 255, 255, 0.55); line-height: 1.7; margin-bottom: 48px; }
 
 /* ─── Field input icon positioning ─── */
 .field-input:focus ~ .field-icon,
 .field-input:focus + .field-icon { color: var(--accent); }
 
-/* ─── Password toggle ─── */
-
-/* ─── Custom checkbox ─── */
-
-/* ─── Divider ─── */
-
 /* ─── Loading spinner ─── */
-@keyframes spin { to { transform: rotate(360deg); } }
-
-/* ─── SSO button ─── */
+ }
 
 /* Toast Notification — HTMX Component */
-/* ─── Toast ─── */
 
 /* auto-dismiss progress bar */
 
@@ -744,33 +424,10 @@ textarea.drawer-tip{background:var(--accent-bg);border:1px solid rgba(22,119,255
 .worker-name { font-weight: 500; }
 .wage-mono { font-family: var(--font-mono); font-size: var(--text-sm); }
 
-/* ─── Consolidated from UnoCSS shortcuts ─── */
-
 /* ─── Buttons (Base) ─── */
-.btn-text { background: transparent; color: var(--fg-2); border-color: transparent; padding-left: 0.75rem; padding-right: 0.75rem; }
-.btn-text:hover { color: var(--accent); background: var(--accent-bg); }
-.btn-sm { padding: 5px 12px; font-size: var(--text-xs); }
-
-/* ─── Page Layout ─── */
-
-/* ─── Info Card Flat ─── */
-
-/* ─── Data Card Parts ─── */
-
-/* ─── Amount Value Accent ─── */
-
-/* ─── Status Pill Variants (additional) ─── */
 
 /* ── Card Query ── */
 .card-result-body{padding:var(--space-6)}
-.card-sub-table{width:100%;border-collapse:collapse}
-.card-sub-table th{padding:var(--space-2) var(--space-3);font-size:11px;font-weight:600;color:var(--muted);text-align:left;border-bottom:1px solid var(--border);background:var(--surface);text-transform:uppercase;letter-spacing:0.04em}
-.card-sub-table td{padding:10px var(--space-3);font-size:var(--text-sm);color:var(--fg);border-bottom:1px solid var(--border-soft)}
-.card-sub-table tr:last-child td{border-bottom:none}
-.card-sub-table tbody tr:hover{background:var(--accent-bg)}
-.recent-card-progress-bar{height:100%;border-radius:2px;transition:width .15s}
-
-/* ─── WO Header (MES Material Usage) ─── */
 
 /* ─── Section Card (replaces data-card for table sections) ─── */
 .section-card-body { padding: var(--space-6); }
@@ -778,9 +435,7 @@ textarea.drawer-tip{background:var(--accent-bg);border:1px solid rgba(22,119,255
 @media(max-width:768px){.card-info-grid{grid-template-columns:repeat(2,1fr)}.flow-step-node{width:40px;height:40px;font-size:12px}.flow-step-bar{top:20px;left:calc(50% + 20px);right:calc(-50% + 20px)}.card-search-box{padding:var(--space-6) var(--space-4)}}
 @media(max-width:480px){.card-info-grid{grid-template-columns:1fr}.card-search-input-wrap{flex-direction:column}}
 /* ─── Outsourcing Detail: Hero Card ─── */
-.detail-hero-accent { height: 4px; background: linear-gradient(90deg, var(--accent), #60a5fa, var(--accent)); background-size: 200% 100%; animation: shimmer-bar 6s ease-in-out infinite; }
 @keyframes shimmer-bar { 0%, 100% { background-position: 0% 0; } 50% { background-position: 100% 0; } }
-.detail-hero-body { padding: 32px 40px; }
 /* ─── Outsourcing Detail: Info Split ─── */
 .progress-ring-bg { fill: none; stroke: var(--border-soft); stroke-width: 4; }
 .progress-ring-fill { fill: none; stroke: var(--accent); stroke-width: 4; stroke-linecap: round; transition: stroke-dashoffset 0.6s ease; }
@@ -792,16 +447,9 @@ textarea.drawer-tip{background:var(--accent-bg);border:1px solid rgba(22,119,255
 @keyframes pulse-active { 0%, 100% { box-shadow: 0 0 0 5px rgba(37,99,235,0.08), 0 3px 14px rgba(37,99,235,0.3); } 50% { box-shadow: 0 0 0 8px rgba(37,99,235,0.06), 0 4px 18px rgba(37,99,235,0.35); } }
 .track-node:hover .track-content { border-color: rgba(37,99,235,0.15); box-shadow: var(--shadow-sm); }
 .track-info { flex: 1; }
-.track-status { flex-shrink: 0; align-self: center; }
 /* ─── Outsourcing Detail: Sub Section Card ─── */
 .sub-section-body { padding: 0; }
-.sub-section-body .sub-section-body .sub-section-body .sub-section-body .amount-bar { display: flex; justify-content: flex-end; gap: 48px; padding: 20px 40px; background: linear-gradient(135deg, var(--surface-raised), rgba(248,249,252,0.6)); border-top: 1px solid var(--border-soft); }
-/* ─── Type tags ─── */
-/* ─── Active track content highlight ─── */
-/* ─── Modal ─── */
-/* ─── QMS Dashboard ─── */
 /* Flow Row */
-.flow-row-content { flex: 1; min-width: 0; }
 /* Status pills — inherit from global .status-pill definition */
 .status-under-review { background: rgba(217,119,6,0.08); color: #b45309; border-color: rgba(217,119,6,0.12); }
 /* Chart */
@@ -811,8 +459,6 @@ textarea.drawer-tip{background:var(--accent-bg);border:1px solid rgba(22,119,255
 @media(max-width:1200px){.info-key-grid{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:768px){.detail-hero-body{padding:20px}.detail-info-split{grid-template-columns:1fr}.info-progress{padding-left:0;padding-top:20px;border-left:none;border-top:1px solid var(--border-soft)}.tracking-section{padding:20px}.sub-section-title{padding:16px 20px}.amount-bar{padding:16px 20px;flex-direction:column;gap:12px;align-items:flex-end}.track-content{flex-direction:column;gap:10px}.track-status{align-self:flex-start}.info-detail-row{flex-direction:column;gap:6px}}
 @media(max-width:480px){.info-key-grid{grid-template-columns:1fr}.detail-actions{flex-wrap:wrap;width:100%}.detail-actions .btn{flex:1;justify-content:center}}
-
-/* ─── FMS Premium Dashboard ─── */
 
 /* Page content gradient + decorative orbs */
 
@@ -851,56 +497,14 @@ textarea.drawer-tip{background:var(--accent-bg);border:1px solid rgba(22,119,255
 /* ─── FMS Form Page (Expense Create / Journal Create) ─── */
 
 /* Page background gradient + decorative orbs */
-.fms-form-page {
-  background:
-    radial-gradient(ellipse 600px 400px at 90% 5%, rgba(37,99,235,0.06) 0%, transparent 70%),
-    radial-gradient(ellipse 500px 350px at 10% 15%, rgba(124,58,237,0.04) 0%, transparent 70%),
-    linear-gradient(180deg, #f0f4ff 0%, var(--surface) 25%);
-  position: relative;
-}
-.fms-form-page::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 320px;
-  background: radial-gradient(circle at 50% -60px, rgba(37,99,235,0.05) 0%, transparent 70%);
-  pointer-events: none;
-  z-index: 0;
-}
-.fms-form-page > * { position: relative; z-index: 1; }
 
 /* Title gradient text */
-.fms-form-page .detail-no {
-  background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 50%, #7c3aed 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  font-weight: 700;
-  font-size: 24px;
-  letter-spacing: -0.01em;
-}
 
 /* Info card — glassmorphism + left accent bar */
-.fms-form-page .fms-form-page .fms-form-page .info-card-title {
-  font-weight: 600;
-  color: var(--fg);
-  letter-spacing: 0.01em;
-  padding-left: 14px;
-  position: relative;
-  margin-bottom: var(--space-5);
-}
 
 /* Form input focus glow */
 .fms-form-page .form-grid input,
-.fms-form-page .form-grid select {
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-}
 .fms-form-page .form-grid input:focus,
-.fms-form-page .form-grid select:focus {
-  outline: none;
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(37,99,235,0.12), 0 0 0 1px rgba(37,99,235,0.25);
-}
 
 /* Line table — gradient headers + hover rows */
 .line-table { width: 100%; border-collapse: separate; border-spacing: 0; }
@@ -957,25 +561,9 @@ textarea.drawer-tip{background:var(--accent-bg);border:1px solid rgba(22,119,255
 /* Remove row button */
 
 /* Action bar — glassmorphism */
-.fms-form-page .action-bar {
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--space-3);
-  padding: var(--space-4) var(--space-6) var(--space-4) 0;
-  margin-top: var(--space-6);
-  position: sticky;
-  bottom: 0;
-  background: rgba(255,255,255,0.7) !important;
-  backdrop-filter: blur(24px) saturate(1.2);
-  -webkit-backdrop-filter: blur(24px) saturate(1.2);
-  border-top: 1px solid rgba(226,232,240,0.6) !important;
-  box-shadow: 0 -4px 16px rgba(0,0,0,0.03);
-  z-index: 10;
-}
 
 /* Back link hover */
 .fms-form-page .fms-form-page 
-/* ─── FMS Writeoff List Page ─── */
 
 /* wo-type pill with dot indicator */
 
@@ -993,7 +581,6 @@ textarea.drawer-tip{background:var(--accent-bg);border:1px solid rgba(22,119,255
 
 /* ─── FMS List Page (shared gradient background) ─── */
 .fms-list-page .fms-list-page .fms-list-page .fms-list-page .fms-list-page 
-/* ─── FMS Cost Analysis Page ─── */
 
 /* Analysis Tabs — frosted glass */
 .analysis-panel { display: none; }
@@ -1004,9 +591,6 @@ textarea.drawer-tip{background:var(--accent-bg);border:1px solid rgba(22,119,255
 /* Table header gradient */
 .fms-list-page .info-card 
 /* Margin colors — gradient text */
-.margin-positive { background: linear-gradient(135deg, #16a34a, #22c55e); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; font-weight: 700; }
-.margin-negative { background: linear-gradient(135deg, #dc2626, #f87171); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; font-weight: 700; }
-.margin-warn { background: linear-gradient(135deg, #d97706, #fbbf24); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; font-weight: 700; }
 
 /* Cost breakdown bar */
 
@@ -1014,7 +598,7 @@ textarea.drawer-tip{background:var(--accent-bg);border:1px solid rgba(22,119,255
 
 /* Stat card icon — ensure fixed size in cost analysis */
 
-@keyframes dialogSlideIn { from { opacity: 0; transform: translateY(-16px) scale(0.96); } to { opacity: 1; transform: translateY(0) scale(1); } }
+ to { opacity: 1; transform: translateY(0) scale(1); } }
   border-radius: 50%;
   flex-shrink: 0;
   box-shadow: 0 0 0 2px currentColor;
@@ -1030,21 +614,16 @@ textarea.drawer-tip{background:var(--accent-bg);border:1px solid rgba(22,119,255
 .status-partial { background: rgba(37, 99, 235, 0.08); color: var(--accent); }
 .status-partial::before { background: var(--accent); opacity: 1; box-shadow: none; }
 /* ── Customer Detail ── */
-.detail-value { color: var(--fg); }
 .history-table { width: 100%; border-collapse: collapse; }
 .history-table th { text-align: left; font-size: 11px; font-weight: 500; color: var(--muted); padding: var(--space-2) var(--space-3); border-bottom: 1px solid var(--border-soft); }
 .history-table td { padding: var(--space-3); font-size: var(--text-sm); border-bottom: 1px solid var(--border-soft); }
 .history-table tr:last-child td { border-bottom: none; }
-.contact-info { flex: 1; min-width: 0; }
 
 .padded-section { padding: var(--space-6); }
 /* ── Line Items Card (reconciliation/shipping create) ── */
 .line-items-scroll { overflow-x: auto; }
 
-/* ── Amount Summary Card ── */
-
 /* ── Order Picker (shipping/reconciliation) ── */
-/* ── Order Picker Input (shipping create) ── */
 /* ── Inline style replacement classes ── */
 .hidden-initial { display: none; }
 .hidden-initial.is-visible { display: flex; }
@@ -1053,26 +632,14 @@ textarea.drawer-tip{background:var(--accent-bg);border:1px solid rgba(22,119,255
 .link-color-info { color: var(--info); }
 .text-info { color: var(--info); }
 .input-readonly-bg { background: var(--surface); }
-/* ── File item list ── */
 
 /* ── Import Modal ── */
-.import-stat-value {
-  font-size: 1.5rem;
-  font-weight: 700;
-}
-.import-stat-value.success { color: var(--green-600); }
-.import-stat-value.failed { color: var(--red-600); }
 
-/* ── Export Dropdown ── */
-
-/* ── Export Result ── */
 /* ── Import Modal Utilities ── */
 .modal-import { max-width: 560px; }
 .import-error-title { font-weight: 600; margin-bottom: 4px; }
 .import-error-extra { margin-top: 8px; }
 .import-footer-actions { margin-top: 12px; text-align: right; }
-
-/* ─── Expense Detail Page ─── */
 
 .status-submitted {
   background: rgba(37,99,235,0.08);
@@ -1082,17 +649,10 @@ textarea.drawer-tip{background:var(--accent-bg);border:1px solid rgba(22,119,255
 .status-submitted::before { background: var(--accent); opacity: 1; box-shadow: none; }
 
 /* ─── Fulfillment Progress Bar ─── */
-.progress-bar-shipped { background: var(--success); border-radius: 4px 0 0 4px; transition: width 600ms var(--ease-standard); }
 .progress-bar-allocated { background: var(--accent); transition: width 600ms var(--ease-standard); }
 .progress-bar-producing { background: var(--warn); transition: width 600ms var(--ease-standard); }
 .progress-bar-purchasing { background: #8b5cf6; transition: width 600ms var(--ease-standard); }
-.progress-bar-pending { background: var(--border); border-radius: 0 4px 4px 0; transition: width 600ms var(--ease-standard); }
 .progress-stat { text-align: center; }
-.progress-stat-label { color: var(--muted); margin-top: 2px; }
-
-/* ─── Line Status Pills ─── */
-
-/* ─── Fulfillment Workbench ─── */
 
 /* ─── Fulfillment Table ─── */
 .fulfill-table { width: 100%; border-collapse: collapse; }
@@ -1108,37 +668,14 @@ textarea.drawer-tip{background:var(--accent-bg);border:1px solid rgba(22,119,255
 .fulfill-table tr:last-child td { border-bottom: none; }
 .fulfill-table tr:hover td { background: var(--accent-bg); }
 .fulfill-table .num-right { text-align: right; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
-.fulfill-table .product-cell { display: flex; flex-direction: column; gap: 2px; }
-.fulfill-table .product-name { font-weight: 500; color: var(--fg); }
-.fulfill-table .product-code { font-size: 11px; color: var(--muted); font-family: var(--font-mono); }
 
 /* ─── Qty Bar (Fulfillment) ─── */
-.qty-bar-fill { height: 100%; border-radius: 2px; transition: width 400ms; }
-.qty-bar-fill.green { background: var(--success); }
-.qty-bar-fill.blue { background: var(--accent); }
-.qty-bar-fill.orange { background: var(--warn); }
-.qty-bar-fill.red { background: var(--danger); }
-
-/* ─── Acquire Channel Tags ─── */
 
 /* ─── Stock Bar ─── */
-.stock-bar-fill {
-  height: 100%;
-  border-radius: 6px;
-  transition: width 0.4s ease;
-}
-
-/* ─── 来源标签 ─── */
-
-/* ─── 需求复选框 ─── */
 
 .demand-row-selected {
   background: rgba(37, 99, 235, 0.04);
 }
-
-/* ─── 批量操作栏 ─── */
-
-/* ─── 排程提示 ─── */
 
 /* ── MES UI Alignment: Detail Tabs / Data Quality / WO Progress / Config ── */
 /* detail_tabs component (S3) — tab-panel display controlled by inline style, NOT css */
@@ -1161,26 +698,16 @@ textarea.drawer-tip{background:var(--accent-bg);border:1px solid rgba(22,119,255
 .audit-content{padding-left:0}
 /* modal variants */
 .modal-sm{max-width:420px}
-/* ─── Bento Grid (工单信息紧凑布局) ─── */
 /* ─── Routing Flow (工序进度可视化) ─── */
 .flow-node.completed{border-color:var(--success);background:rgba(79,138,79,.04)}
-.flow-node.current{border-color:var(--accent);background:rgba(37,99,235,.06);box-shadow:0 0 0 3px rgba(37,99,235,.1)}
-.flow-node.pending{border-color:var(--border-soft);opacity:.8}
-.flow-node.completed .flow-icon{background:var(--success);color:#fff}
-.flow-node.current .flow-icon{background:var(--accent);color:#fff}
-.flow-node.pending .flow-icon{background:var(--border-soft);color:var(--muted)}
 @media(max-width:768px){.bento-grid{grid-template-columns:1fr 1fr}}
 @media(max-width:480px){.bento-grid{grid-template-columns:1fr}.bento-half{grid-column:span 1}.routing-flow{flex-direction:column;gap:var(--space-3);overflow-x:visible}.flow-arrow{display:none}}
 
 /* ─── Plan Detail Header Info Grid ─── */
 @media(max-width:768px){.detail-info-grid{grid-template-columns:repeat(2,1fr)}}
-/* ─── Completeness Dots ─── */
-/* ─── Release Result Items ─── */
 /* ─── Release Preview (Modal) ─── */
-.release-preview{max-height:300px;overflow-y:auto;margin-bottom:var(--space-5)}
 /* ─── Work Order List (已下达工单紧凑行) ─── */
 .work-order-list{list-style:none;margin:0;padding:0}
-.wo-meta-label{color:var(--muted)}
 .wo-step-text{font-variant-numeric:tabular-nums}
 .wo-step-fill{height:100%;border-radius:var(--radius-full)}
 .wo-step-fill.released{background:var(--accent)}
@@ -1188,29 +715,16 @@ textarea.drawer-tip{background:var(--accent-bg);border:1px solid rgba(22,119,255
 .wo-step-fill.closed{background:var(--muted)}
 /* ── Progress Bar ── */
 .progress-section{padding:12px 0}
-.progress-bar-fill{height:100%;background:linear-gradient(90deg,#165dff,#4080ff);border-radius:4px;transition:width .3s ease}
-/* ── Mini Progress ── */
 /* ── FQC Badge ── */
-.fqc-badge--pending{background:rgba(255,159,67,.08);color:#ff9f43}
 .fqc-badge--passed{background:rgba(82,196,26,.08);color:#52c41a}
 .fqc-badge--failed{background:rgba(245,63,63,.06);color:#f53f3f}
 /* ── Calc Detail ── */
-.calc-detail{padding:12px 16px;background:#fafafa;border-radius:6px;margin:12px 0}
-/* ── View Toggle ── */
-/* ── Old Gantt CSS removed (replaced by Schedule Board Redesign below) ── */
 
 /* ============================================================ */
 /* Schedule Board Redesign (Odoo-style Gantt + Load + Kanban)   */
 /* ============================================================ */
 
-/* ── Stats Row ── */
-
-/* ── Toolbar ── */
-
 /* ── Gantt Chart ── */
-.gantt-table{width:100%;border-collapse:collapse;table-layout:fixed;min-width:800px}
-.gantt-table thead th{position:sticky;top:0;z-index:2;background:#fafafa}
-.gantt-corner{width:150px;min-width:150px;border-bottom:2px solid #e8e8e8}
 .gantt-date-today .gantt-date-day{color:#4f7df9}
 .gantt-cell-empty{display:block}
 
@@ -1228,20 +742,15 @@ textarea.drawer-tip{background:var(--accent-bg);border:1px solid rgba(22,119,255
 .gantt-color-7{background:#eab308}
 
 /* ── Load Analysis ── */
-.load-table{width:100%;border-collapse:collapse;table-layout:fixed;min-width:800px}
-.load-table thead th{position:sticky;top:0;z-index:2;background:#fafafa}
-.load-corner{width:150px;min-width:150px;border-bottom:2px solid #e8e8e8}
 .load-level-low{background:rgba(82,196,26,.12);color:#389e0d}
 .load-level-mid{background:rgba(250,140,22,.15);color:#d46b08}
 .load-level-high{background:rgba(245,34,45,.12);color:#cf1322}
-
-/* ── Load Legend ── */
 
 /* ── Empty State ── */
 .schedule-empty-icon{font-size:40px;margin-bottom:12px}
 
 /* layer: properties */
-@supports ((-webkit-hyphens: none) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color:rgb(from red r g b)))){*, ::before, ::after, ::backdrop{--un-border-opacity:100%;--un-bg-opacity:100%;--un-text-opacity:100%;--un-leading:initial;--un-accent-opacity:100%;--un-from-opacity:100%;--un-to-opacity:100%;--un-translate-x:initial;--un-translate-y:initial;--un-translate-z:initial;}}
+@supports ((-webkit-hyphens: none) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color:rgb(from red r g b)))){*, ::before, ::after, ::backdrop{--un-bg-opacity:100%;--un-border-opacity:100%;--un-text-opacity:100%;--un-leading:initial;--un-accent-opacity:100%;--un-from-opacity:100%;--un-to-opacity:100%;--un-translate-x:initial;--un-translate-y:initial;--un-translate-z:initial;}}
 @property --un-text-opacity{syntax:"<percentage>";inherits:false;initial-value:100%;}
 @property --un-leading{syntax:"*";inherits:false;}
 @property --un-outline-style{syntax:"*";inherits:false;initial-value:solid;}
@@ -1289,25 +798,25 @@ textarea.drawer-tip{background:var(--accent-bg);border:1px solid rgba(22,119,255
 --default-transition-timingFunction: cubic-bezier(0.4, 0, 0.2, 1);
 --default-transition-duration: 150ms;
 --radius-sm: var(--radius-sm);
+--fontWeight-semibold: 600;
+--spacing-4: var(--space-4);
 --colors-white: #fff;
 --text-sm-fontSize: 0.875rem;
 --text-sm-lineHeight: 1.25rem;
 --radius-lg: var(--radius-lg);
---fontWeight-semibold: 600;
 --leading-relaxed: 1.625;
 --fontWeight-medium: 500;
+--radius-DEFAULT: var(--radius-md);
 --text-lg-fontSize: 1.125rem;
 --text-lg-lineHeight: 1.75rem;
 --text-xs-fontSize: 0.75rem;
 --text-xs-lineHeight: 1rem;
 --spacing-2: var(--space-2);
 --radius-xl: var(--radius-xl);
---spacing-4: var(--space-4);
 --font-mono: ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;
 --text-xl-fontSize: 1.25rem;
 --text-xl-lineHeight: 1.75rem;
 --spacing-8: var(--space-8);
---radius-DEFAULT: var(--radius-md);
 --tracking-tight: -0.025em;
 --radius-md: 0.375rem;
 --spacing-5: var(--space-5);

@@ -52,7 +52,7 @@ fn dashboard_content(claims: &abt_core::shared::identity::model::Claims) -> Mark
                 div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-4)" {
                     h2 class="section-title" { "待办事项" }
                 }
-                div class="data-card" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" {
                     (todo_item("status-progress", "拣货中", "发货申请 SR-2026-0018 待确认发货", "今天"))
                     (todo_item("status-progress", "质检中", "退货单 RT-2026-0009 待质检判定", "今天"))
                     (todo_item("status-info", "已确认", "退货单 RT-2026-0007 待收货确认", "昨天"))
@@ -92,7 +92,7 @@ fn dashboard_content(claims: &abt_core::shared::identity::model::Claims) -> Mark
         // ── 最近活动 ──
         div {
             h2 class="section-title" style="margin-bottom:var(--space-4)" { "最近活动" }
-            div class="data-card" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" {
                 (activity_item("status-progress", "订单", "SO-2026-0038 状态变更为 ", "生产中", "10 分钟前"))
                 (activity_item("status-picking", "发货", "发货申请 SR-2026-0018 开始拣货", "", "2 小时前"))
                 (activity_item("status-inspecting", "退货", "退货单 RT-2026-0009 进入质检阶段", "", "昨天"))
@@ -107,8 +107,8 @@ fn dashboard_content(claims: &abt_core::shared::identity::model::Claims) -> Mark
 
 fn stat_card(label: &str, value: &str, unit: &str, trend: &str, trend_color: &str) -> Markup {
     html! {
-        div class="info-card-flat" {
-            span class="info-label" { (label) }
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-flat" {
+            span class="text-xs text-muted font-medium" { (label) }
             div style="display:flex;align-items:baseline;gap:var(--space-2);margin-top:var(--space-2)" {
                 span class="amount-value text-2xl" { (value) }
                 span class="text-muted text-xs" { (unit) }
@@ -126,8 +126,8 @@ fn stat_card_with_color(
     trend_color: &str,
 ) -> Markup {
     html! {
-        div class="info-card-flat" {
-            span class="info-label" { (label) }
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-flat" {
+            span class="text-xs text-muted font-medium" { (label) }
             div style="display:flex;align-items:baseline;gap:var(--space-2);margin-top:var(--space-2)" {
                 span class="amount-value text-2xl text-danger" { (value) }
                 span class="text-muted text-xs" { (unit) }
@@ -139,8 +139,8 @@ fn stat_card_with_color(
 
 fn stat_card_accent(label: &str, value: &str, trend: &str, trend_color: &str) -> Markup {
     html! {
-        div class="info-card-flat" {
-            span class="info-label" { (label) }
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-flat" {
+            span class="text-xs text-muted font-medium" { (label) }
             div style="display:flex;align-items:baseline;gap:var(--space-2);margin-top:var(--space-2)" {
                 span class="amount-value-accent text-2xl" { (value) }
             }

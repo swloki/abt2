@@ -93,17 +93,17 @@ pub async fn get_detail(path: ResultDetailPath, ctx: RequestContext) -> Result<H
         }
 
         // ── 基本信息 ──
-        div class="info-card" {
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
             h3 { "基本信息" }
-            div class="info-grid" {
-                div class="info-item" { label { "产品" } span { (product_name) } }
-                div class="info-item" {
+            div class="grid gap-4" {
+                div class="flex flex-col gap-1" { label { "产品" } span { (product_name) } }
+                div class="flex flex-col gap-1" {
                     label { "检验类型" }
                     span class=(format!("status-pill {type_class}")) { (type_text) }
                 }
-                div class="info-item" { label { "来源类型" } span { (source_type_label(&result.source_type)) } }
-                div class="info-item" { label { "批次号" } span class="mono" { (&result.batch_no) } }
-                div class="info-item" {
+                div class="flex flex-col gap-1" { label { "来源类型" } span { (source_type_label(&result.source_type)) } }
+                div class="flex flex-col gap-1" { label { "批次号" } span class="mono" { (&result.batch_no) } }
+                div class="flex flex-col gap-1" {
                     label { "检验日期" }
                     span { (result.inspection_date.map(|d| d.to_string()).unwrap_or_else(|| "—".into())) }
                 }
@@ -111,13 +111,13 @@ pub async fn get_detail(path: ResultDetailPath, ctx: RequestContext) -> Result<H
         }
 
         // ── 抽样结果 ──
-        div class="info-card" {
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
             h3 { "抽样结果" }
-            div class="info-grid" {
-                div class="info-item" { label { "抽样数量" } span class="mono num-right" { (fmt_qty(result.sample_qty)) } }
-                div class="info-item" { label { "合格数量" } span class="mono num-right" { (fmt_qty(result.qualified_qty)) } }
-                div class="info-item" { label { "不合格数量" } span class="mono num-right" { (fmt_qty(result.unqualified_qty)) } }
-                div class="info-item" {
+            div class="grid gap-4" {
+                div class="flex flex-col gap-1" { label { "抽样数量" } span class="mono num-right" { (fmt_qty(result.sample_qty)) } }
+                div class="flex flex-col gap-1" { label { "合格数量" } span class="mono num-right" { (fmt_qty(result.qualified_qty)) } }
+                div class="flex flex-col gap-1" { label { "不合格数量" } span class="mono num-right" { (fmt_qty(result.unqualified_qty)) } }
+                div class="flex flex-col gap-1" {
                     label { "检验结果" }
                     span class=(format!("status-pill {result_class}")) { (result_text) }
                 }
@@ -125,7 +125,7 @@ pub async fn get_detail(path: ResultDetailPath, ctx: RequestContext) -> Result<H
         }
 
         // ── 检验项目结果 ──
-        div class="data-card data-card-scroll" {
+        div class="data-card bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
             h3 { "检验项目结果" }
             @if result.check_results.is_empty() {
                 p { "暂无检验项目结果" }
@@ -162,24 +162,24 @@ pub async fn get_detail(path: ResultDetailPath, ctx: RequestContext) -> Result<H
         }
 
         // ── 其他信息 ──
-        div class="info-card" {
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
             h3 { "其他信息" }
-            div class="info-grid" {
-                div class="info-item" { label { "创建时间" } span { (result.created_at.format("%Y-%m-%d %H:%M")) } }
-                div class="info-item" { label { "更新时间" } span { (result.updated_at.format("%Y-%m-%d %H:%M")) } }
+            div class="grid gap-4" {
+                div class="flex flex-col gap-1" { label { "创建时间" } span { (result.created_at.format("%Y-%m-%d %H:%M")) } }
+                div class="flex flex-col gap-1" { label { "更新时间" } span { (result.updated_at.format("%Y-%m-%d %H:%M")) } }
             }
         }
 
         // ── 操作按钮 ──
         @if result.status == InspectionStatus::Pending {
-            div class="create-action-bar" {
+            div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
                 a class="btn btn-primary" href=(format!("{}?restore=true", ResultListPath::PATH)) {
                     "记录结果"
                 }
             }
         }
         @if result.status == InspectionStatus::Completed && result.result == InspectionResultType::Fail {
-            div class="create-action-bar" {
+            div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
                 a class="btn btn-danger-ghost" href=(MrbCreatePath::PATH) {
                     "创建MRB"
                 }

@@ -50,7 +50,7 @@ pub fn category_tree_select(
                 div class="tree-select-search" {
                     input type="text"
                         placeholder="搜索分类…"
-                        class="tree-select-search-input" {}
+                        class="tree-select-w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" {}
                 }
                 div class="tree-select-list" {
                     button type="button" class="tree-select-option"

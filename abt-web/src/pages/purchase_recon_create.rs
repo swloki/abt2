@@ -124,7 +124,7 @@ fn precon_create_page(
                 input type="hidden" id="items-json" name="items_json" value="[]";
 
             // ── 对账基本信息 ──
-            div class="data-card" style="margin-bottom:var(--space-4)" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" style="margin-bottom:var(--space-4)" {
                 div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "对账基本信息" }
                 div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                     div class="form-field" {
@@ -163,7 +163,7 @@ fn precon_create_page(
             }
 
             // ── 对账明细 ──
-            div class="data-card" style="padding:0;overflow:hidden;margin-bottom:var(--space-4)" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" style="padding:0;overflow:hidden;margin-bottom:var(--space-4)" {
                 div style="padding:var(--space-5) var(--space-5) var(--space-3);display:flex;justify-content:space-between;align-items:center" {
                     span class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" style="margin:0;padding:0;border:none" { "对账明细" }
                     button type="button" class="btn btn-sm btn-primary"
@@ -212,7 +212,7 @@ fn precon_create_page(
             }
 
             // ── Action Bar ──
-            div class="create-action-bar" {
+            div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
                 a class="btn btn-default" href=(format!("{}?restore=true", PreconListPath::PATH)) { "取消" }
                 div style="display:flex;gap:var(--space-3)" {
                     button type="submit" class="btn btn-default" name="action" value="draft" {
@@ -229,14 +229,14 @@ fn precon_create_page(
             div class="modal-overlay" id="order-modal"
                 _="on click[me is event.target] remove .is-open" {
                 div class="modal modal-lg" onclick="event.stopPropagation()" {
-                    div class="modal-head" {
+                    div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
                         h2 { "选择待对账订单" }
                         button style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
                             _="on click remove .is-open from #order-modal" {
                             (icon::x_icon("w-5 h-5"))
                         }
                     }
-                    div class="modal-body" style="padding:var(--space-4)" {
+                    div class="overflow-y-auto flex-1 min-h-0 p-6" style="padding:var(--space-4)" {
                         div style="margin-bottom:var(--space-3)" {
                             input type="text" id="order-search-input"
                                 placeholder="搜索订单号…"
@@ -248,7 +248,7 @@ fn precon_create_page(
                             }
                         }
                     }
-                    div class="modal-foot" style="display:flex;justify-content:space-between;align-items:center;padding:var(--space-3) var(--space-4);border-top:1px solid var(--border)" {
+                    div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" style="display:flex;justify-content:space-between;align-items:center;padding:var(--space-3) var(--space-4);border-top:1px solid var(--border)" {
                         span style="font-size:var(--text-sm);color:var(--muted)" {
                             "已选择 "
                             span id="order-selected-count" { "0" }

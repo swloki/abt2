@@ -291,20 +291,20 @@ fn reconciliation_detail_page(
 
             // ── Summary Cards ──
             div class="grid grid-cols-3 gap-4 mb-6" {
-                div class="data-card stat-mini" {
-                    div class="info-label" { "总金额" }
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)] stat-mini" {
+                    div class="text-xs text-muted font-medium" { "总金额" }
                     div class="mono stat-mini-value" {
                         (crate::utils::fmt_amount(rec.total_amount))
                     }
                 }
-                div class="data-card stat-mini" {
-                    div class="info-label" { "确认金额" }
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)] stat-mini" {
+                    div class="text-xs text-muted font-medium" { "确认金额" }
                     div class="mono stat-mini-value text-success" {
                         (crate::utils::fmt_amount(rec.confirmed_amount))
                     }
                 }
-                div class="data-card stat-mini" {
-                    div class="info-label" { "差额" }
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)] stat-mini" {
+                    div class="text-xs text-muted font-medium" { "差额" }
                     div class="mono stat-mini-value text-danger" {
                         (crate::utils::fmt_amount(rec.difference))
                     }
@@ -312,30 +312,30 @@ fn reconciliation_detail_page(
             }
 
             // ── Info ──
-            div class="info-card" {
-                div class="info-card-title" { "对账信息" }
-                div class="info-grid" {
-                    div class="info-item" {
-                        span class="info-label" { "客户名称" }
-                        span class="info-value" { (customer_name) }
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "对账信息" }
+                div class="grid gap-4" {
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "客户名称" }
+                        span class="text-sm text-fg font-medium" { (customer_name) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "对账期间" }
-                        span class="info-value" { (rec.period.as_str()) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "对账期间" }
+                        span class="text-sm text-fg font-medium" { (rec.period.as_str()) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "操作员" }
-                        span class="info-value" { (operator_name) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "操作员" }
+                        span class="text-sm text-fg font-medium" { (operator_name) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "创建时间" }
-                        span class="info-value" { (rec.created_at.format("%Y-%m-%d %H:%M")) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "创建时间" }
+                        span class="text-sm text-fg font-medium" { (rec.created_at.format("%Y-%m-%d %H:%M")) }
                     }
                 }
             }
 
             // ── Items Table ──
-            div class="data-card" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" {
                 table class="data-table" {
                     thead {
                         tr {
@@ -390,8 +390,8 @@ fn reconciliation_detail_page(
 
             // ── Remarks ──
             @if !rec.remark.is_empty() {
-                div class="info-card mt-6" {
-                    div class="info-card-title" { "备注" }
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)] mt-6" {
+                    div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "备注" }
                     p class="text-muted" { (rec.remark.as_str()) }
                 }
             }

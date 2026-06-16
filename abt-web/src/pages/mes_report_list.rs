@@ -80,12 +80,12 @@ fn report_table_fragment(
     params: &ReportQueryParams,
 ) -> Markup {
     html! { div {
-        form id="filter-form" class="filter-bar filter-form" hx-get=(ReportListPath::PATH)
+        form id="filter-form" class="flex items-center gap-3 mb-5 flex-wrap filter-form" hx-get=(ReportListPath::PATH)
             hx-trigger="change, keyup changed delay:300ms from:.search-input"
             hx-target="#report-data-card" hx-select="#report-data-card" hx-swap="outerHTML" hx-include="#filter-form"
                 hx-push-url="true" {
-            div class="search-wrap" { (icon::search_icon("w-4 h-4"))
-                input class="search-input" type="text" name="keyword" style="width:180px" placeholder="搜索单号…" value=(params.keyword.as_deref().unwrap_or(""));
+            div class="relative flex-1 max-w-xs" { (icon::search_icon("w-4 h-4"))
+                input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword" style="width:180px" placeholder="搜索单号…" value=(params.keyword.as_deref().unwrap_or(""));
             }
             input type="date" name="date_from" style="width:140px" value=(params.date_from.as_deref().unwrap_or(""));
             span style="color:var(--muted);font-size:var(--text-sm)" { "至" }
@@ -106,8 +106,8 @@ fn report_data_card(
     let query = qs.join("&");
 
     html! {
-        div class="data-card" id="report-data-card" {
-            div class="data-card-scroll" {
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" id="report-data-card" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                 table class="data-table" { thead { tr {
                     th { "单号" } th { "产品" } th { "工序" } th { "日期" } th { "工人" }
                     th class="num-right" { "完成" } th class="num-right" { "不良" } th { "班次" } th { "操作" }

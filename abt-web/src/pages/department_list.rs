@@ -311,7 +311,7 @@ fn tree_panel(departments: &[Department], selected_id: Option<i64>, can_create: 
             }
 
             // ── Search ──
-            div class="tree-search-wrap" {
+            div class="tree-relative flex-1 max-w-xs" {
                 (icon::search_icon("w-[13px] h-[13px]"))
                 input type="text" class="tree-search" placeholder="搜索部门…" {}
                 script {
@@ -479,22 +479,22 @@ fn detail_content_fragment(dept: &Department, members: &[UserWithRoles], can_cre
                         "基本信息"
                     }
                 }
-                div class="info-card" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
                     div class="info-row" {
-                        span class="info-label" { "部门 ID" }
+                        span class="text-xs text-muted font-medium" { "部门 ID" }
                         span class="info-val mono" { "#" (format!("{:03}", dept.department_id)) }
                     }
                     div class="info-row" {
-                        span class="info-label" { "部门代码" }
+                        span class="text-xs text-muted font-medium" { "部门代码" }
                         span class="info-val mono" { (dept.department_code) }
                     }
                     div class="info-row" {
-                        span class="info-label" { "创建时间" }
+                        span class="text-xs text-muted font-medium" { "创建时间" }
                         span class="info-val" { (dept.created_at.format("%Y-%m-%d %H:%M")) }
                     }
                     @if let Some(updated) = &dept.updated_at {
                         div class="info-row" {
-                            span class="info-label" { "最后更新" }
+                            span class="text-xs text-muted font-medium" { "最后更新" }
                             span class="info-val" { (updated.format("%Y-%m-%d %H:%M")) }
                         }
                     }
@@ -592,9 +592,9 @@ fn dept_drawer_fragment(is_edit: bool, dept: Option<&Department>) -> Markup {
 
     html! {
         form id="deptForm" hx-post=(action_path) hx-swap="none" _="on 'htmx:afterRequest' remove .open from #deptDrawer" {
-            div class="drawer-head" {
-                div class="drawer-head-left" {
-                    div class="drawer-head-icon" {
+            div class="flex items-center justify-between px-6 py-4 border-b border-border-soft" {
+                div class="flex items-center justify-between px-6 py-4 border-b border-border-soft-left" {
+                    div class="flex items-center justify-between px-6 py-4 border-b border-border-soft-icon" {
                         (icon::building_icon("w-[18px] h-[18px]"))
                     }
                     div {
@@ -606,7 +606,7 @@ fn dept_drawer_fragment(is_edit: bool, dept: Option<&Department>) -> Markup {
                     (icon::x_icon("w-[18px] h-[18px]"))
                 }
             }
-            div class="drawer-body" {
+            div class="flex-1 overflow-y-auto p-6" {
                 div class="drawer-section" {
                     div class="drawer-label" { "基本信息" }
                     div class="form-row" {
@@ -673,7 +673,7 @@ fn dept_drawer_fragment(is_edit: bool, dept: Option<&Department>) -> Markup {
                     }
                 }
             }
-            div class="drawer-foot" {
+            div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3" {
                 button class="btn btn-default" type="button" _="on click remove .open from #deptDrawer" { "取消" }
                 button class="btn btn-primary" type="submit" {
                     (icon::check_circle_icon("w-[14px] h-[14px]"))

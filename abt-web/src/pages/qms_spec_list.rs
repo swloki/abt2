@@ -199,7 +199,7 @@ fn spec_table_fragment(
             (status_tabs_with_param(SpecListPath::PATH, "#spec-data-card", "#filter-form", tabs, selected_status, "status"))
 
             // ── Filter Bar ──
-            form id="filter-form" class="filter-bar filter-form"
+            form id="filter-form" class="flex items-center gap-3 mb-5 flex-wrap filter-form"
                 hx-get=(SpecListPath::PATH)
                 hx-trigger="change, keyup changed delay:300ms from:.search-input"
                 hx-target="#spec-data-card"
@@ -207,21 +207,21 @@ fn spec_table_fragment(
                 hx-swap="outerHTML"
                 hx-include="#filter-form"
                 hx-push-url="true" {
-                div class="search-wrap" {
+                div class="relative flex-1 max-w-xs" {
                     (icon::search_icon("w-4 h-4"))
-                    input class="search-input" type="text" name="keyword"
+                    input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword"
                         style="width:180px"
                         placeholder="搜索单号…"
                         value=(params.keyword.as_deref().unwrap_or(""));
                 }
-                select class="filter-select" name="inspection_type" {
+                select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="inspection_type" {
                     option value="" selected[params.inspection_type.is_none()] { "全部类型" }
                     option value="Iqc" selected[params.inspection_type.as_deref() == Some("Iqc")] { "IQC (来料)" }
                     option value="Ipqc" selected[params.inspection_type.as_deref() == Some("Ipqc")] { "IPQC (过程)" }
                     option value="Fqc" selected[params.inspection_type.as_deref() == Some("Fqc")] { "FQC (成品)" }
                     option value="Oqc" selected[params.inspection_type.as_deref() == Some("Oqc")] { "OQC (出货)" }
                 }
-                select class="filter-select" name="status" {
+                select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="status" {
                     option value="" selected[params.status.is_none()] { "全部状态" }
                     option value="Draft" selected[params.status.as_deref() == Some("Draft")] { "草稿" }
                     option value="Active" selected[params.status.as_deref() == Some("Active")] { "生效" }
@@ -242,8 +242,8 @@ fn spec_data_card(
 ) -> Markup {
     let query = build_query_string(params);
     html! {
-        div class="data-card" id="spec-data-card" {
-            div class="data-card-scroll" {
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" id="spec-data-card" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                 table class="data-table" {
                     thead {
                         tr {

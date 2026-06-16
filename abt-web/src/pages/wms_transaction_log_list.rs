@@ -142,7 +142,7 @@ fn transaction_list_page(
 
 fn transaction_filter_form(params: &TransactionLogQueryParams) -> Markup {
     html! {
-        form class="filter-bar filter-form" id="transaction-filter-form"
+        form class="flex items-center gap-3 mb-5 flex-wrap filter-form" id="transaction-filter-form"
             hx-get=(TransactionListPath::PATH)
             hx-trigger="change,keyup changed delay:300ms from:.search-input"
             hx-target="#transaction-data-card"
@@ -150,20 +150,20 @@ fn transaction_filter_form(params: &TransactionLogQueryParams) -> Markup {
             hx-swap="outerHTML"
             hx-include="#transaction-filter-form"
                 hx-push-url="true" {
-            div class="search-wrap" {
+            div class="relative flex-1 max-w-xs" {
                 (icon::search_icon("w-4 h-4"))
-                input class="search-input" type="text" name="doc_number"
+                input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="doc_number"
                     style="width:180px"
                     placeholder="单号"
                     value=(params.doc_number.as_deref().unwrap_or(""));
             }
-            div class="search-wrap" {
+            div class="relative flex-1 max-w-xs" {
                 (icon::search_icon("w-4 h-4"))
-                input class="search-input" type="text" name="product"
+                input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="product"
                     placeholder="产品编码/名称"
                     value=(params.product.as_deref().unwrap_or(""));
             }
-            select class="filter-select" name="transaction_type" {
+            select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="transaction_type" {
                 option value="" selected[params.transaction_type.is_none() || params.transaction_type.as_deref() == Some("")] { "全部类型" }
                 option value="1" selected[params.transaction_type.as_deref() == Some("1")] { "采购入库" }
                 option value="2" selected[params.transaction_type.as_deref() == Some("2")] { "生产入库" }
@@ -178,13 +178,13 @@ fn transaction_filter_form(params: &TransactionLogQueryParams) -> Markup {
                 option value="11" selected[params.transaction_type.as_deref() == Some("11")] { "解锁" }
                 option value="12" selected[params.transaction_type.as_deref() == Some("12")] { "报废" }
             }
-            select class="filter-select" name="warehouse_id" {
+            select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="warehouse_id" {
                 option value="" { "全部仓库" }
             }
-            input class="search-input" type="date" name="start_date"
+            input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="date" name="start_date"
                 style="width:160px;padding-left:12px"
                 value=(params.start_date.as_deref().unwrap_or(""));
-            input class="search-input" type="date" name="end_date"
+            input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="date" name="end_date"
                 style="width:160px;padding-left:12px"
                 value=(params.end_date.as_deref().unwrap_or(""));
         }
@@ -199,8 +199,8 @@ fn transaction_data_card(
     let query = build_query_string(params);
 
     html! {
-        div id="transaction-data-card" class="data-card" {
-            div class="data-card-scroll" {
+        div id="transaction-data-card" class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                 table class="data-table" style="min-width:1360px" {
                     thead {
                         tr {

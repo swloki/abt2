@@ -69,7 +69,7 @@ pub async fn load_usage_data(
         Some(id) => id,
         None => {
             return Ok(Html(html! {
-                div class="info-card text-center-empty" { "请选择工单" }
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)] text-center-empty" { "请选择工单" }
             }.into_string()));
         }
     };
@@ -123,8 +123,8 @@ fn material_usage_page(
         }
 
         // Filter bar
-        div class="filter-bar" {
-            select class="filter-select" name="wo_id"
+        div class="flex items-center gap-3 mb-5 flex-wrap" {
+            select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="wo_id"
                 hx-get=(MaterialUsageDataPath::PATH)
                 hx-target="#usage-content"
                 hx-trigger="change"
@@ -138,14 +138,14 @@ fn material_usage_page(
                     option value=(wo.id) { (label) }
                 }
             }
-            select class="filter-select" disabled {
+            select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" disabled {
                 option { "全部批次" }
             }
         }
 
         // Content area
         div id="usage-content" {
-            div class="info-card text-center-empty" { "请选择工单查看物料消耗数据" }
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)] text-center-empty" { "请选择工单查看物料消耗数据" }
         }
     }}
 }
@@ -245,7 +245,7 @@ fn usage_data_fragment(wo_info: &abt_core::mes::dashboard::model::WoBasicInfo, c
                     (icon::box_icon(""))
                     "BOM 标准用量 vs 实际消耗"
                 }
-                div class="data-card-scroll" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                     table class="data-table" {
                         thead { tr {
                             th { "物料编码" }
@@ -290,7 +290,7 @@ fn usage_data_fragment(wo_info: &abt_core::mes::dashboard::model::WoBasicInfo, c
                 }
             }
         } @else {
-            div class="info-card text-center-empty" { "该工单未关联 BOM，无法显示物料对比" }
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)] text-center-empty" { "该工单未关联 BOM，无法显示物料对比" }
         }
 
         // ── Backflush detail records ──
@@ -300,7 +300,7 @@ fn usage_data_fragment(wo_info: &abt_core::mes::dashboard::model::WoBasicInfo, c
                     (icon::refresh_icon(""))
                     "倒冲明细记录"
                 }
-                div class="data-card-scroll" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                     table class="data-table" {
                         thead { tr {
                             th { "倒冲单号" }
@@ -332,7 +332,7 @@ fn usage_data_fragment(wo_info: &abt_core::mes::dashboard::model::WoBasicInfo, c
                     (icon::clipboard_list_icon(""))
                     "领料记录"
                 }
-                div class="data-card-scroll" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                     table class="data-table" {
                         thead { tr {
                             th { "领料单号" }

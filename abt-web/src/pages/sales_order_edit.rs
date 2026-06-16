@@ -186,7 +186,7 @@ fn order_edit_page(
             (customer_info_panel(customers, contacts, Some(order.customer_id), OrderCustomerContactsPath::PATH))
 
             // ── Order Info ──
-            div class="data-card mb-4" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)] mb-4" {
                 div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "订单信息" }
                 div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                     div class="form-field" {
@@ -294,13 +294,13 @@ fn order_edit_page(
             }
 
             // ── Remark ──
-            div class="data-card mb-4" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)] mb-4" {
                 div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "备注" }
                 textarea class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] min-h-[72px] resize-y leading-1.5" name="remark" placeholder="输入订单相关备注信息…" { (rm) }
             }
 
             // ── Action Bar ──
-            div class="create-action-bar" {
+            div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
                 a class="btn btn-default" href=(detail_path.to_string()) { "取消" }
                 div class="flex gap-3" {
                     button type="submit" class="btn btn-primary" {
@@ -314,16 +314,16 @@ fn order_edit_page(
             div class="modal-overlay" id="product-modal"
                 _="on click[me is event.target] remove .is-open" {
                 div class="modal modal-lg" onclick="event.stopPropagation()" {
-                    div class="modal-head" {
+                    div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
                         h2 { "选择产品" }
                         button class="modal-close-plain"
                             _="on click remove .is-open from #product-modal" { "×" }
                     }
-                    div class="modal-body p-0" {
+                    div class="overflow-y-auto flex-1 min-h-0 p-6 p-0" {
                         div class="product-search-bar" {
                             div class="product-search-field" {
                                 label class="product-search-label" { "产品名称" }
-                                input class="product-search-input" type="text" name="name" placeholder="输入产品名称…"
+                                input class="product-w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="name" placeholder="输入产品名称…"
                                     hx-get=(OrderProductsPath::PATH)
                                     hx-trigger="keyup changed delay:300ms"
                                     hx-sync="this:replace"
@@ -333,7 +333,7 @@ fn order_edit_page(
                             }
                             div class="product-search-field" {
                                 label class="product-search-label" { "产品编码" }
-                                input class="product-search-input" type="text" name="code" placeholder="输入产品编码…"
+                                input class="product-w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="code" placeholder="输入产品编码…"
                                     hx-get=(OrderProductsPath::PATH)
                                     hx-trigger="keyup changed delay:300ms"
                                     hx-sync="this:replace"

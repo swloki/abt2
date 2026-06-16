@@ -183,46 +183,46 @@ fn quotation_detail_page(
             }
 
             // ── Basic Info Card ──
-            div class="info-card" {
-                div class="info-card-title" { "基本信息" }
-                div class="info-grid" {
-                    div class="info-item" {
-                        span class="info-label" { "客户名称" }
-                        span class="info-value" { (customer_name) }
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "基本信息" }
+                div class="grid gap-4" {
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "客户名称" }
+                        span class="text-sm text-fg font-medium" { (customer_name) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "联系人" }
-                        span class="info-value" { (contact_name) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "联系人" }
+                        span class="text-sm text-fg font-medium" { (contact_name) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "联系电话" }
-                        span class="info-value mono" { (contact_phone) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "联系电话" }
+                        span class="text-sm text-fg font-medium mono" { (contact_phone) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "业务员" }
-                        span class="info-value" { (sales_rep_name) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "业务员" }
+                        span class="text-sm text-fg font-medium" { (sales_rep_name) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "报价日期" }
-                        span class="info-value mono" { (q.quotation_date.format("%Y-%m-%d")) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "报价日期" }
+                        span class="text-sm text-fg font-medium mono" { (q.quotation_date.format("%Y-%m-%d")) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "有效期至" }
-                        span class="info-value mono" { (q.valid_until.format("%Y-%m-%d")) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "有效期至" }
+                        span class="text-sm text-fg font-medium mono" { (q.valid_until.format("%Y-%m-%d")) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "付款条款" }
-                        span class="info-value" { (q.payment_terms.as_str()) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "付款条款" }
+                        span class="text-sm text-fg font-medium" { (q.payment_terms.as_str()) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "交货条款" }
-                        span class="info-value" { (q.delivery_terms.as_str()) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "交货条款" }
+                        span class="text-sm text-fg font-medium" { (q.delivery_terms.as_str()) }
                     }
                 }
             }
 
             // ── Items Table ──
-            div class="data-card" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" {
                 table class="data-table" {
                     thead {
                         tr {
@@ -275,8 +275,8 @@ fn quotation_detail_page(
 
             // ── Remark ──
             @if !q.remark.is_empty() {
-                div class="info-card mt-6" {
-                    div class="info-card-title" { "备注" }
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)] mt-6" {
+                    div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "备注" }
                     p class="text-muted" { (q.remark.as_str()) }
                 }
             }

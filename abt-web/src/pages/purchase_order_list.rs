@@ -249,7 +249,7 @@ fn po_table_fragment(
             (status_tabs_with_param(POListPath::PATH, "#po-data-card", "#po-filter-form", tabs, &active_value, "status"))
 
             // ── Filter Bar ──
-            form class="filter-bar filter-form" id="po-filter-form"
+            form class="flex items-center gap-3 mb-5 flex-wrap filter-form" id="po-filter-form"
                 hx-get=(POListPath::PATH)
                 hx-trigger="change, keyup changed delay:300ms from:.search-input"
                 hx-target="#po-data-card"
@@ -258,19 +258,19 @@ fn po_table_fragment(
                 hx-select-oob="#status-tabs"
                 hx-include="#po-filter-form"
                 hx-push-url="true" {
-                div class="search-wrap" {
+                div class="relative flex-1 max-w-xs" {
                     (icon::search_icon("w-4 h-4"))
-                    input class="search-input" type="text" name="keyword"
+                    input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword"
                         placeholder="搜索采购单号…"
                         value=(params.keyword.as_deref().unwrap_or(""));
                 }
-                select class="filter-select" name="supplier_id" {
+                select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="supplier_id" {
                     option value="" { "全部供应商" }
                     @for s in suppliers {
                         option value=(s.id) selected[selected_supplier == s.id.to_string()] { (s.name) }
                     }
                 }
-                select class="filter-select" name="date_range" {
+                select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="date_range" {
                     option value="" selected[selected_range.is_empty()] { "订单日期" }
                     option value="7d" selected[selected_range == "7d"] { "最近7天" }
                     option value="30d" selected[selected_range == "30d"] { "最近30天" }
@@ -279,7 +279,7 @@ fn po_table_fragment(
             }
 
             // ── Data Table ──
-            div class="data-card" id="po-data-card" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" id="po-data-card" {
                     table class="data-table" {
                         thead {
                             tr {

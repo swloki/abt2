@@ -189,7 +189,7 @@ fn writeoff_table_fragment(
             ))
 
             // 筛选栏 — 暂时只放占位搜索和日期筛选
-            form id="writeoff-filter-form" class="filter-bar filter-form"
+            form id="writeoff-filter-form" class="flex items-center gap-3 mb-5 flex-wrap filter-form"
                 hx-get=(WriteoffListPath::PATH)
                 hx-trigger="change, keyup changed delay:300ms from:.search-input"
                 hx-target="#writeoff-data-card"
@@ -197,14 +197,14 @@ fn writeoff_table_fragment(
                 hx-swap="outerHTML"
                 hx-include="#writeoff-filter-form"
                 hx-push-url="true" {
-                div class="search-wrap" {
+                div class="relative flex-1 max-w-xs" {
                     (icon::search_icon("w-4 h-4"))
-                    input class="search-input" type="text" name="keyword"
+                    input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword"
                         style="width:200px"
                         placeholder="搜索日记账号…";
                 }
-                input type="date" name="start_date" class="filter-select" style="width:150px" title="起始日期";
-                input type="date" name="end_date" class="filter-select" style="width:150px" title="截止日期";
+                input type="date" name="start_date" class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" style="width:150px" title="起始日期";
+                input type="date" name="end_date" class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" style="width:150px" title="截止日期";
             }
 
             (writeoff_data_card(result, params, operator_names))
@@ -219,8 +219,8 @@ fn writeoff_data_card(
 ) -> Markup {
     let query = build_query_string(params);
     html! {
-        div class="data-card" id="writeoff-data-card" {
-            div class="data-card-scroll" {
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" id="writeoff-data-card" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                 table class="data-table" style="min-width:1000px" {
                     thead {
                         tr {

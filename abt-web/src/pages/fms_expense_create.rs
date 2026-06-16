@@ -107,8 +107,8 @@ fn expense_create_page() -> Markup {
 
             form id="expense-form" hx-post=(ExpenseCreatePath::PATH) hx-swap="none" {
                 // ── 报销信息 ──
-                div class="info-card" {
-                    div class="info-card-title" { "报销信息" }
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
+                    div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "报销信息" }
                     div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                         div class="form-field" {
                             label { "申请人 " span style="color:var(--danger)" { "*" } }
@@ -137,12 +137,12 @@ fn expense_create_page() -> Markup {
                 }
 
                 // ── 费用明细 ──
-                div class="info-card" {
-                    div class="info-card-title" style="display:flex;justify-content:space-between;align-items:center" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
+                    div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" style="display:flex;justify-content:space-between;align-items:center" {
                         span { "费用明细" }
                         span style="font-size:14px;font-weight:400;color:var(--muted)" { "合计：" strong id="totalDisplay" style="color:var(--accent);font-family:var(--font-mono)" { "¥0.00" } }
                     }
-                    div class="data-card-scroll" {
+                    div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                         table class="line-table" style="min-width:800px" {
                             thead {
                                 tr {

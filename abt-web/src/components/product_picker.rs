@@ -71,19 +71,19 @@ pub fn product_picker_modal(modal_id: &str, target_id: &str, display_id: &str) -
         div class="modal-overlay" id=(modal_id)
             _=(format!("on click remove .is-open from #{}", modal_id)) {
             div class="modal modal-lg" _="on click halt" {
-                div class="modal-head" {
+                div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
                     h2 { "选择产品" }
                     button style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
                         _=(format!("on click remove .is-open from #{}", modal_id)) { "×" }
                 }
-                div class="modal-body" style="padding:0" {
+                div class="overflow-y-auto flex-1 min-h-0 p-6" style="padding:0" {
                     div class="product-search-bar" {
                         input type="hidden" name="target_id" value=(target_id);
                         input type="hidden" name="display_id" value=(display_id);
                         input type="hidden" name="modal_id" value=(modal_id);
                         div class="product-search-field" {
                             label class="product-search-label" { "产品名称" }
-                            input class="product-search-input" type="text" name="name" placeholder="输入产品名称…"
+                            input class="product-w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="name" placeholder="输入产品名称…"
                                 hx-get=(ProductSearchPath::PATH)
                                 hx-trigger="keyup changed delay:300ms"
                                 hx-sync="this:replace"
@@ -93,7 +93,7 @@ pub fn product_picker_modal(modal_id: &str, target_id: &str, display_id: &str) -
                         }
                         div class="product-search-field" {
                             label class="product-search-label" { "产品编码" }
-                            input class="product-search-input" type="text" name="code" placeholder="输入产品编码…"
+                            input class="product-w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="code" placeholder="输入产品编码…"
                                 hx-get=(ProductSearchPath::PATH)
                                 hx-trigger="keyup changed delay:300ms"
                                 hx-sync="this:replace"

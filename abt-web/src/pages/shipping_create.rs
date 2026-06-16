@@ -645,7 +645,7 @@ fn shipping_edit_page(
                         (icon::package_icon("w-[18px] h-[18px]"))
                         "发货产品明细"
                     }
-                    div class="data-card-scroll" {
+                    div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                         table class="line-items-table" id="lineItemsTable" {
                             thead {
                                 tr {
@@ -684,7 +684,7 @@ fn shipping_edit_page(
             }
 
             // ── Action Bar ──
-            div class="create-action-bar" {
+            div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
                 a class="btn btn-default" href=(format!("{}?restore=true", ShippingListPath::PATH)) { "取消" }
                 button type="button" class="btn btn-primary" _="on click call handleSave()" {
                     (icon::save_icon("w-4 h-4"))
@@ -696,19 +696,19 @@ fn shipping_edit_page(
             div class="modal-overlay" id="order-modal"
                 _="on click[me is event.target] remove .is-open" {
                 div class="modal modal-lg" onclick="event.stopPropagation()" {
-                    div class="modal-head" {
+                    div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
                         h2 { "选择来源订单" }
                         button class="modal-close-btn"
                             _="on click remove .is-open from #order-modal" {
                             "×"
                         }
                     }
-                    div class="modal-body p-0" {
+                    div class="overflow-y-auto flex-1 min-h-0 p-6 p-0" {
                         div class="product-search-bar" {
                             input type="hidden" name="customer_id" {}
                             div class="product-search-field" {
                                 label class="product-search-label" { "搜索订单" }
-                                input class="product-search-input" type="text" name="keyword" placeholder="输入订单号…"
+                                input class="product-w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword" placeholder="输入订单号…"
                                     hx-get=(ShippingOrderSearchPath::PATH)
                                     hx-trigger="keyup changed delay:300ms"
                                     hx-sync="this:replace"
@@ -920,7 +920,7 @@ fn shipping_create_page(
                         (icon::package_icon("w-[18px] h-[18px]"))
                         "发货产品明细"
                     }
-                    div class="data-card-scroll" {
+                    div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                         table class="line-items-table" id="lineItemsTable" {
                             thead {
                                 tr {
@@ -961,7 +961,7 @@ fn shipping_create_page(
             }
 
             // ── Action Bar ──
-            div class="create-action-bar" {
+            div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
                 a class="btn btn-default" href=(format!("{}?restore=true", ShippingListPath::PATH)) { "取消" }
                 button type="button" class="btn btn-primary" _="on click call handleSave()" {
                     (icon::save_icon("w-4 h-4"))
@@ -973,19 +973,19 @@ fn shipping_create_page(
             div class="modal-overlay" id="order-modal"
                 _="on click[me is event.target] remove .is-open" {
                 div class="modal modal-lg" onclick="event.stopPropagation()" {
-                    div class="modal-head" {
+                    div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
                         h2 { "选择来源订单" }
                         button class="modal-close-btn"
                             _="on click remove .is-open from #order-modal" {
                             "×"
                         }
                     }
-                    div class="modal-body p-0" {
+                    div class="overflow-y-auto flex-1 min-h-0 p-6 p-0" {
                         div class="product-search-bar" {
                             input type="hidden" name="customer_id" {}
                             div class="product-search-field" {
                                 label class="product-search-label" { "搜索订单" }
-                                input class="product-search-input" type="text" name="keyword" placeholder="输入订单号…"
+                                input class="product-w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword" placeholder="输入订单号…"
                                     hx-get=(ShippingOrderSearchPath::PATH)
                                     hx-trigger="keyup changed delay:300ms"
                                     hx-sync="this:replace"

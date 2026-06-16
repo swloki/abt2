@@ -133,66 +133,66 @@ fn stock_out_detail_page(
             }
 
             // ── 基本信息 ──
-            div class="info-card" {
-                div class="info-card-title" { "基本信息" }
-                div class="info-grid" {
-                    div class="info-item" {
-                        span class="info-label" { "单据编号" }
-                        span class="info-value mono" { (txn.doc_number.as_deref().unwrap_or("—")) }
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "基本信息" }
+                div class="grid gap-4" {
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "单据编号" }
+                        span class="text-sm text-fg font-medium mono" { (txn.doc_number.as_deref().unwrap_or("—")) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "出库类型" }
-                        span class="info-value" { (type_label) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "出库类型" }
+                        span class="text-sm text-fg font-medium" { (type_label) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "产品" }
-                        span class="info-value" { (product_name) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "产品" }
+                        span class="text-sm text-fg font-medium" { (product_name) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "来源仓库" }
-                        span class="info-value" { (wh_name) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "来源仓库" }
+                        span class="text-sm text-fg font-medium" { (wh_name) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "库区" }
-                        span class="info-value" { (zone_name) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "库区" }
+                        span class="text-sm text-fg font-medium" { (zone_name) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "储位" }
-                        span class="info-value" { (bin_name) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "储位" }
+                        span class="text-sm text-fg font-medium" { (bin_name) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "批次号" }
-                        span class="info-value mono" { (txn.batch_no.as_deref().unwrap_or("—")) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "批次号" }
+                        span class="text-sm text-fg font-medium mono" { (txn.batch_no.as_deref().unwrap_or("—")) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "数量" }
-                        span class="info-value mono" { (format!("{:.2}", txn.quantity)) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "数量" }
+                        span class="text-sm text-fg font-medium mono" { (format!("{:.2}", txn.quantity)) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "单位成本" }
-                        span class="info-value mono" {
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "单位成本" }
+                        span class="text-sm text-fg font-medium mono" {
                             (txn.unit_cost.map(|c| format!("¥{:.2}", c)).unwrap_or_else(|| "—".into()))
                         }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "来源类型" }
-                        span class="info-value" { (txn.source_type) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "来源类型" }
+                        span class="text-sm text-fg font-medium" { (txn.source_type) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "来源单号" }
-                        span class="info-value mono" { (txn.source_id) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "来源单号" }
+                        span class="text-sm text-fg font-medium mono" { (txn.source_id) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "备注" }
-                        span class="info-value" { (if txn.remark.as_deref().unwrap_or("").is_empty() { "—" } else { txn.remark.as_deref().unwrap_or("—") }) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "备注" }
+                        span class="text-sm text-fg font-medium" { (if txn.remark.as_deref().unwrap_or("").is_empty() { "—" } else { txn.remark.as_deref().unwrap_or("—") }) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "操作员" }
-                        span class="info-value" { (operator_name) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "操作员" }
+                        span class="text-sm text-fg font-medium" { (operator_name) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "创建时间" }
-                        span class="info-value mono" { (txn.created_at.format("%Y-%m-%d %H:%M:%S")) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "创建时间" }
+                        span class="text-sm text-fg font-medium mono" { (txn.created_at.format("%Y-%m-%d %H:%M:%S")) }
                     }
                 }
             }

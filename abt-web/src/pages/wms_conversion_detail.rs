@@ -171,31 +171,31 @@ fn conversion_detail_page(
             (conversion_workflow_steps(conversion.status))
 
             // ── Info Card ──
-            div class="info-card" {
-                div class="info-card-title" { "转换信息" }
-                div class="info-grid" {
-                    div class="info-item" {
-                        span class="info-label" { "转换单号" }
-                        span class="info-value mono" { (conversion.doc_number) }
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "转换信息" }
+                div class="grid gap-4" {
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "转换单号" }
+                        span class="text-sm text-fg font-medium mono" { (conversion.doc_number) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "转换仓库" }
-                        span class="info-value" { (wh_name) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "转换仓库" }
+                        span class="text-sm text-fg font-medium" { (wh_name) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "转换日期" }
-                        span class="info-value mono" { (conversion.conversion_date.to_string()) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "转换日期" }
+                        span class="text-sm text-fg font-medium mono" { (conversion.conversion_date.to_string()) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "操作员" }
-                        span class="info-value" { (operator_name) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "操作员" }
+                        span class="text-sm text-fg font-medium" { (operator_name) }
                     }
                 }
             }
 
             // ── Consume Items ──
-            div class="info-card" {
-                div class="info-card-title" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" {
                     "消耗物料 "
                     span class="status-pill status-cancelled" { "消耗" }
                 }
@@ -243,8 +243,8 @@ fn conversion_detail_page(
             }
 
             // ── Produce Items ──
-            div class="info-card" {
-                div class="info-card-title" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" {
                     "产出物料 "
                     span class="status-pill status-completed" { "产出" }
                 }

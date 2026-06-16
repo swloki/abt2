@@ -318,7 +318,7 @@ fn create_page_content(
                 input type="hidden" id="demand-ids-input" name="demand_ids" value=(preselected_str);
 
                 // ── Section 1: Basic Info ──
-                div class="data-card" style="margin-bottom:var(--space-4);" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" style="margin-bottom:var(--space-4);" {
                     div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "基本信息" }
                     div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                         div class="form-field" {
@@ -366,7 +366,7 @@ fn create_page_content(
                 }
 
                 // ── Section 2: Demand Details ──
-                div class="data-card" style="margin-bottom:var(--space-4);padding:0;overflow:hidden;" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" style="margin-bottom:var(--space-4);padding:0;overflow:hidden;" {
                     div style="padding:var(--space-5) var(--space-5) var(--space-3);display:flex;justify-content:space-between;align-items:center;" {
                         span class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" style="margin:0;padding:0;border:none;" {
                             "需求明细"
@@ -389,7 +389,7 @@ fn create_page_content(
                         }
                     }
 
-                    div class="data-card-scroll" {
+                    div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                         table class="data-table" {
                             thead {
                                 tr {
@@ -442,7 +442,7 @@ fn create_page_content(
                 }
 
                 // ── Action Bar ──
-                div class="create-action-bar" {
+                div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
                     a class="btn btn-default" href=(format!("{}?restore=true", PurchaseDemandPoolListPath::PATH)) { "取消" }
                     div style="display:flex;gap:var(--space-3);" {
                         button type="submit" name="action" value="draft" class="btn btn-default" {
@@ -531,7 +531,7 @@ fn demand_row(d: &DemandSummary, preselected_ids: &[i64]) -> Markup {
             td class="num-right mono demand-qty" { (fmt_qty(d.quantity)) }
             td class="mono" { (req_date) }
             td {
-                span class="tag-chip" style=(pri_style) { (pri_text) }
+                span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium" style=(pri_style) { (pri_text) }
             }
             td {
                 button type="button" class="btn-remove-row" title="移除" _="on click remove closest <tr/> then call updateDemandSummary()" {

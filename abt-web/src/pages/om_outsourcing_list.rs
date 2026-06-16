@@ -337,7 +337,7 @@ fn table_fragment(
             (status_tabs_with_param(OmOutsourcingListPath::PATH, "#outsourcing-data-card", "#outsourcing-filter-form", tabs, selected_status, "status"))
 
             // ── Filter Bar ──
-            form class="filter-bar filter-form" id="outsourcing-filter-form"
+            form class="flex items-center gap-3 mb-5 flex-wrap filter-form" id="outsourcing-filter-form"
                 hx-get=(OmOutsourcingListPath::PATH)
                 hx-trigger="change, keyup changed delay:300ms from:.search-input"
                 hx-target="#outsourcing-data-card"
@@ -345,29 +345,29 @@ fn table_fragment(
                 hx-swap="outerHTML"
                 hx-include="#outsourcing-filter-form"
                 hx-push-url="true" {
-                div class="search-wrap" {
+                div class="relative flex-1 max-w-xs" {
                     (icon::search_icon("w-4 h-4"))
-                    input class="search-input" type="text" name="keyword"
+                    input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword"
                         style="width:180px"
                         placeholder="搜索委外单号…"
                         value=(params.keyword.as_deref().unwrap_or(""));
                 }
-                select class="filter-select" name="outsourcing_type" {
+                select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="outsourcing_type" {
                     option value="" selected[params.outsourcing_type.is_none()] { "全部类型" }
                     option value="Full" selected[params.outsourcing_type.as_deref() == Some("Full")] { "产品全委外" }
                     option value="Process" selected[params.outsourcing_type.as_deref() == Some("Process")] { "工序委外" }
                     option value="Material" selected[params.outsourcing_type.as_deref() == Some("Material")] { "材料委外" }
                     option value="Rework" selected[params.outsourcing_type.as_deref() == Some("Rework")] { "委外返工" }
                 }
-                input class="search-input" type="text" name="supplier_id"
+                input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="supplier_id"
                     style="max-width:120px"
                     placeholder="供应商ID"
                     value=(params.supplier_id.as_deref().unwrap_or(""));
-                input class="search-input" type="date" name="date_from"
+                input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="date" name="date_from"
                     style="max-width:160px"
                     value=(params.date_from.as_deref().unwrap_or(""));
                 span style="color:var(--muted);font-size:13px" { "至" }
-                input class="search-input" type="date" name="date_to"
+                input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="date" name="date_to"
                     style="max-width:160px"
                     value=(params.date_to.as_deref().unwrap_or(""));
                 a href=(OmOutsourcingListPath::PATH) class="btn btn-default" style="height:36px;text-decoration:none" { "重置" }
@@ -388,8 +388,8 @@ fn data_card(
 ) -> Markup {
     let query = build_query_string(params);
     html! {
-        div class="data-card" id="outsourcing-data-card" {
-            div class="data-card-scroll" {
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" id="outsourcing-data-card" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                 table class="data-table" {
                     thead {
                         tr {

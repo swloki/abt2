@@ -237,7 +237,7 @@ fn ladder_vis(rules: &[PurchaseApprovalRule]) -> Markup {
     let colors = ["#165DFF", "#0FC6C2", "#FF7D00", "#F53F3F", "#722ED1", "#14C9C9"];
 
     html! {
-        div class="data-card" {
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" {
             div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "金额阶梯" }
             div style="padding:var(--space-4) var(--space-4) var(--space-2)" {
                 div style="position:relative;height:40px;margin-bottom:4px" {
@@ -307,11 +307,11 @@ fn ladder_bar(
 
 fn data_card(rules: &[PurchaseApprovalRule]) -> Markup {
     html! {
-        div class="data-card" {
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" {
             @if rules.is_empty() {
                 (empty_state())
             } @else {
-                div class="data-card-scroll" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                     table class="data-table" {
                         thead {
                             tr {
@@ -416,7 +416,7 @@ fn rule_form(action_url: &str, rule: Option<&PurchaseApprovalRule>) -> Markup {
 
     html! {
         div class="modal" _="on click halt" {
-            div class="modal-head" {
+            div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
                 h2 { (title) }
                 button class="modal-close-btn"
                     _="on click remove .is-open from #rule-modal" { "×" }
@@ -424,7 +424,7 @@ fn rule_form(action_url: &str, rule: Option<&PurchaseApprovalRule>) -> Markup {
             form hx-post=(action_url) hx-target="this" hx-swap="outerHTML"
                 _="on 'htmx:afterRequest'[detail.successful] remove .is-open from #rule-modal" {
 
-                div class="modal-body" {
+                div class="overflow-y-auto flex-1 min-h-0 p-6" {
                     div class="form-section" {
                         div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "规则信息" }
                         div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
@@ -479,7 +479,7 @@ fn rule_form(action_url: &str, rule: Option<&PurchaseApprovalRule>) -> Markup {
                     }
                 }
 
-                div class="modal-foot" {
+                div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" {
                     button type="button" class="btn btn-default"
                         _="on click remove .is-open from #rule-modal" { "取消" }
                     button type="submit" class="btn btn-primary" { "保存" }

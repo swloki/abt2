@@ -78,23 +78,23 @@ pub async fn get_detail(path: JournalDetailPath, ctx: RequestContext) -> Result<
         }
 
         // ── 基本信息 ──
-        div class="info-card" {
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
             h3 { "基本信息" }
-            div class="info-grid" {
-                div class="info-item" { label { "单号" } span class="mono" { (journal.doc_number) } }
-                div class="info-item" { label { "日记账类型" } span { (journal_type_label(&journal.journal_type)) } }
-                div class="info-item" { label { "方向" } span { (direction_text(&journal.direction)) } }
-                div class="info-item" {
+            div class="grid gap-4" {
+                div class="flex flex-col gap-1" { label { "单号" } span class="mono" { (journal.doc_number) } }
+                div class="flex flex-col gap-1" { label { "日记账类型" } span { (journal_type_label(&journal.journal_type)) } }
+                div class="flex flex-col gap-1" { label { "方向" } span { (direction_text(&journal.direction)) } }
+                div class="flex flex-col gap-1" {
                     label { "金额" }
                     span class="mono" style=(format!("font-weight:700;color:{}", amount_color(&journal.direction))) {
                         (fmt_direction_amount(journal.amount, &journal.direction))
                     }
                 }
-                div class="info-item" { label { "银行账户" } span class="mono" { (journal.bank_account) } }
-                div class="info-item" { label { "交易日期" } span { (journal.transaction_date.format("%Y-%m-%d")) } }
-                div class="info-item" { label { "期间" } span class="mono" { (journal.period) } }
-                div class="info-item" { label { "状态" } span { (s_text) } }
-                div class="info-item span-2" { label { "备注" } span { (if journal.remark.is_empty() { "—".into() } else { journal.remark.clone() }) } }
+                div class="flex flex-col gap-1" { label { "银行账户" } span class="mono" { (journal.bank_account) } }
+                div class="flex flex-col gap-1" { label { "交易日期" } span { (journal.transaction_date.format("%Y-%m-%d")) } }
+                div class="flex flex-col gap-1" { label { "期间" } span class="mono" { (journal.period) } }
+                div class="flex flex-col gap-1" { label { "状态" } span { (s_text) } }
+                div class="flex flex-col gap-1 span-2" { label { "备注" } span { (if journal.remark.is_empty() { "—".into() } else { journal.remark.clone() }) } }
             }
         }
     }};

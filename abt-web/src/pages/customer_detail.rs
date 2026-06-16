@@ -138,7 +138,7 @@ fn transaction_table_fragment(
 
     html! {
         div class="detail-card mt-5 transaction-panel" {
-            div class="detail-card-title" {
+            div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 border-b border-border-soft" {
                 span { "交易记录" }
             }
             @if page_txns.is_empty() {
@@ -414,43 +414,43 @@ fn customer_detail_page(
         div class="detail-grid" {
             // ── Left: Basic Info ──
             div class="detail-card" {
-                div class="detail-card-title" { "基本信息" }
-                div class="detail-row" {
-                    span class="detail-label" { "客户全称" }
+                div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 border-b border-border-soft" { "基本信息" }
+                div class="flex py-2 text-sm" {
+                    span class="w-[90px] shrink-0 text-muted" { "客户全称" }
                     span class="detail-value" { (customer.name) }
                 }
-                div class="detail-row" {
-                    span class="detail-label" { "客户简称" }
+                div class="flex py-2 text-sm" {
+                    span class="w-[90px] shrink-0 text-muted" { "客户简称" }
                     span class="detail-value" { (customer.short_name.as_deref().unwrap_or("—")) }
                 }
-                div class="detail-row" {
-                    span class="detail-label" { "客户编码" }
+                div class="flex py-2 text-sm" {
+                    span class="w-[90px] shrink-0 text-muted" { "客户编码" }
                     span class="detail-value mono" { (customer.code) }
                 }
-                div class="detail-row" {
-                    span class="detail-label" { "客户分类" }
+                div class="flex py-2 text-sm" {
+                    span class="w-[90px] shrink-0 text-muted" { "客户分类" }
                     span class="detail-value" { (category_label) }
                 }
-                div class="detail-row" {
-                    span class="detail-label" { "状态" }
+                div class="flex py-2 text-sm" {
+                    span class="w-[90px] shrink-0 text-muted" { "状态" }
                     span class="detail-value" {
                         span class=(format!("status-pill {status_class}")) { (status_label) }
                     }
                 }
-                div class="detail-row" {
-                    span class="detail-label" { "付款条款" }
+                div class="flex py-2 text-sm" {
+                    span class="w-[90px] shrink-0 text-muted" { "付款条款" }
                     span class="detail-value" { (customer.payment_terms.as_deref().unwrap_or("—")) }
                 }
-                div class="detail-row" {
-                    span class="detail-label" { "发票抬头" }
+                div class="flex py-2 text-sm" {
+                    span class="w-[90px] shrink-0 text-muted" { "发票抬头" }
                     span class="detail-value" { (customer.invoice_title.as_deref().unwrap_or("—")) }
                 }
-                div class="detail-row" {
-                    span class="detail-label" { "创建时间" }
+                div class="flex py-2 text-sm" {
+                    span class="w-[90px] shrink-0 text-muted" { "创建时间" }
                     span class="detail-value" { (customer.created_at.format("%Y-%m-%d")) }
                 }
-                div class="detail-row" {
-                    span class="detail-label" { "备注" }
+                div class="flex py-2 text-sm" {
+                    span class="w-[90px] shrink-0 text-muted" { "备注" }
                     span class="detail-value" {
                         @if customer.remark.is_empty() { "—" } @else { (&customer.remark) }
                     }
@@ -459,7 +459,7 @@ fn customer_detail_page(
 
             // ── Center: Contacts ──
             div class="detail-card" {
-                div class="detail-card-title" {
+                div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 border-b border-border-soft" {
                     span { "联系人" }
                     button class="btn btn-sm btn-primary"
                         _="on click add .is-open to #contact-create-modal" {
@@ -478,15 +478,15 @@ fn customer_detail_page(
 
             // ── Right: Credit & Financial ──
             div class="detail-card" {
-                div class="detail-card-title" { "信用额度" }
+                div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 border-b border-border-soft" { "信用额度" }
                 (credit_display(customer.credit_limit))
                 div class="credit-info-footer" {
-                    div class="detail-row" {
-                        span class="detail-label" { "付款条款" }
+                    div class="flex py-2 text-sm" {
+                        span class="w-[90px] shrink-0 text-muted" { "付款条款" }
                         span class="detail-value" { (customer.payment_terms.as_deref().unwrap_or("—")) }
                     }
-                    div class="detail-row" {
-                        span class="detail-label" { "税号" }
+                    div class="flex py-2 text-sm" {
+                        span class="w-[90px] shrink-0 text-muted" { "税号" }
                         span class="detail-value mono text-xs" {
                             (customer.tax_number.as_deref().unwrap_or("—"))
                         }
@@ -497,7 +497,7 @@ fn customer_detail_page(
 
         // ── Addresses Section (full width) ──
         div class="detail-card mt-5" {
-            div class="detail-card-title" {
+            div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 border-b border-border-soft" {
                 span { "地址信息" }
                 button class="btn btn-sm btn-primary"
                     _="on click add .is-open to #address-create-modal" {
@@ -653,10 +653,10 @@ fn contact_card(contact: &CustomerContact, detail_path: &CustomerDetailPath, can
             div class="contact-card-head" {
                 strong { (contact.name) }
                 @if contact.is_primary {
-                    span class="tag-chip tag-key" { "主要" }
+                    span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium tag-key" { "主要" }
                 }
                 @if let Some(ref pos) = contact.position {
-                    span class="tag-chip tag-normal" { (pos) }
+                    span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium tag-normal" { (pos) }
                 }
             }
             div class="contact-card-body" {
@@ -708,9 +708,9 @@ fn address_card(addr: &CustomerAddress, detail_path: &CustomerDetailPath, can_de
     html! {
         div class="address-card" {
             div class="address-card-head" {
-                span class="tag-chip tag-normal" { (type_label) }
+                span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium tag-normal" { (type_label) }
                 @if addr.is_default {
-                    span class="tag-chip tag-key" { "默认" }
+                    span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium tag-key" { "默认" }
                 }
             }
             div class="address-card-body" {

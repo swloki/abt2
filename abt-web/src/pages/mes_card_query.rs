@@ -122,9 +122,9 @@ fn card_query_page(recent_batches: &[abt_core::mes::production_batch::BatchListI
             div class="card-search-box" {
                 div class="card-search-title" { "流转卡查询" }
                 div class="card-search-desc" { "输入流转卡号、批次号或扫描二维码，实时查看工序流转进度" }
-                div class="card-search-input-wrap" {
+                div class="card-w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent-wrap" {
                     form hx-get=(CardQuerySearchPath::PATH) hx-target="#card-result" hx-swap="innerHTML" hx-trigger="submit" style="display:flex;gap:var(--space-3);flex:1" {
-                        input class="card-search-input" type="text" name="q" placeholder="输入流转卡号 / 批次号，如 FC-SN-060301" autofocus;
+                        input class="card-w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="q" placeholder="输入流转卡号 / 批次号，如 FC-SN-060301" autofocus;
                         button class="btn btn-primary" type="submit" style="display:inline-flex;align-items:center;gap:var(--space-2);white-space:nowrap" {
                             (PreEscaped(r#"<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>"#))
                             "查询"
@@ -256,33 +256,33 @@ fn card_search_result(
 
             div class="card-result-body" {
                 // 基本信息网格
-                div class="card-info-grid" {
-                    div class="card-info-item" {
-                        span class="card-info-label" { "产品" }
-                        span class="card-info-value" { (product_name) }
+                div class="card-grid gap-4" {
+                    div class="card-flex flex-col gap-1" {
+                        span class="card-text-xs text-muted font-medium" { "产品" }
+                        span class="card-text-sm text-fg font-medium" { (product_name) }
                     }
-                    div class="card-info-item" {
-                        span class="card-info-label" { "批次数量" }
-                        span class="card-info-value" style="font-family:var(--font-mono)" { (crate::utils::fmt_qty(batch.batch_qty)) }
+                    div class="card-flex flex-col gap-1" {
+                        span class="card-text-xs text-muted font-medium" { "批次数量" }
+                        span class="card-text-sm text-fg font-medium" style="font-family:var(--font-mono)" { (crate::utils::fmt_qty(batch.batch_qty)) }
                     }
-                    div class="card-info-item" {
-                        span class="card-info-label" { "完成/报废" }
-                        span class="card-info-value" {
+                    div class="card-flex flex-col gap-1" {
+                        span class="card-text-xs text-muted font-medium" { "完成/报废" }
+                        span class="card-text-sm text-fg font-medium" {
                             span style="color:var(--success);font-family:var(--font-mono)" { (crate::utils::fmt_qty(batch.completed_qty)) }
                             " / "
                             span style="color:var(--danger);font-family:var(--font-mono)" { (crate::utils::fmt_qty(batch.scrap_qty)) }
                         }
                     }
-                    div class="card-info-item" {
-                        span class="card-info-label" { "实际开始" }
-                        span class="card-info-value" { (actual_start_str) }
+                    div class="card-flex flex-col gap-1" {
+                        span class="card-text-xs text-muted font-medium" { "实际开始" }
+                        span class="card-text-sm text-fg font-medium" { (actual_start_str) }
                     }
-                    div class="card-info-item" {
-                        span class="card-info-label" { "当前工序" }
-                        span class="card-info-value" style="color:var(--warn)" { (current_step_display) }
+                    div class="card-flex flex-col gap-1" {
+                        span class="card-text-xs text-muted font-medium" { "当前工序" }
+                        span class="card-text-sm text-fg font-medium" style="color:var(--warn)" { (current_step_display) }
                     }
-                    div class="card-info-item" {
-                        span class="card-info-label" { "状态" }
+                    div class="card-flex flex-col gap-1" {
+                        span class="card-text-xs text-muted font-medium" { "状态" }
                         span class=(format!("card-info-value status-pill {status_cls}")) { (status_label) }
                     }
                 }
@@ -344,7 +344,7 @@ fn card_search_result(
                             "报工明细"
                         }
                         div class="section-card-body" style="padding:0" {
-                            div class="data-card-scroll" {
+                            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                                 table class="card-sub-table" {
                                     thead { tr {
                                         th { "报工单号" }

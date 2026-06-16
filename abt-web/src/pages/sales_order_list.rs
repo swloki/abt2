@@ -232,7 +232,7 @@ fn order_table_fragment(
             (status_tabs_with_param(OrderListPath::PATH, "#order-data-card", "#order-filter-form", tabs, &active_value, "status"))
 
             // ── Filter Bar ──
-            form class="filter-bar filter-form" id="order-filter-form"
+            form class="flex items-center gap-3 mb-5 flex-wrap filter-form" id="order-filter-form"
                 hx-get=(OrderListPath::PATH)
                 hx-trigger="change, keyup changed delay:300ms from:.search-input"
                 hx-target="#order-data-card"
@@ -241,19 +241,19 @@ fn order_table_fragment(
                 hx-select-oob="#status-tabs"
                 hx-include="#order-filter-form"
                 hx-push-url="true" {
-                div class="search-wrap" {
+                div class="relative flex-1 max-w-xs" {
                     (icon::search_icon("w-4 h-4"))
-                    input class="search-input" type="text" name="keyword"
+                    input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword"
                         placeholder="搜索订单号、客户名称…"
                         value=(params.keyword.as_deref().unwrap_or(""));
                 }
-                select class="filter-select" name="customer_id" {
+                select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="customer_id" {
                     option value="" { "全部客户" }
                     @for c in customers {
                         option value=(c.id) selected[selected_customer == c.id.to_string()] { (c.name) }
                     }
                 }
-                select class="filter-select" name="date_range" {
+                select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="date_range" {
                     option value="" selected[selected_range.is_empty()] { "交货日期" }
                     option value="7d" selected[selected_range == "7d"] { "最近7天" }
                     option value="30d" selected[selected_range == "30d"] { "最近30天" }
@@ -262,8 +262,8 @@ fn order_table_fragment(
             }
 
             // ── Data Table ──
-            div class="data-card" id="order-data-card" {
-                div class="data-card-scroll" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" id="order-data-card" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                     table class="data-table" {
                         thead {
                             tr {

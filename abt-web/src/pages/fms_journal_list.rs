@@ -250,7 +250,7 @@ fn journal_table_fragment(result: &PaginatedResult<CashJournal>, params: &Journa
         div {
             (status_tabs_with_param(JournalListPath::PATH, "#journal-data-card", "#journal-filter-form", tabs, &selected_status, "status"))
 
-            form class="filter-bar filter-form" id="journal-filter-form"
+            form class="flex items-center gap-3 mb-5 flex-wrap filter-form" id="journal-filter-form"
                 hx-get=(JournalListPath::PATH)
                 hx-trigger="change, keyup changed delay:300ms from:.search-input"
                 hx-target="#journal-data-card"
@@ -258,14 +258,14 @@ fn journal_table_fragment(result: &PaginatedResult<CashJournal>, params: &Journa
                 hx-swap="outerHTML"
                 hx-include="#journal-filter-form"
                 hx-push-url="true" {
-                div class="search-wrap" {
+                div class="relative flex-1 max-w-xs" {
                     (icon::search_icon("w-4 h-4"))
-                    input class="search-input" type="text" name="keyword"
+                    input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword"
                         style="width:200px"
                         placeholder="搜索单号、往来方名称…"
                         value=(params.keyword.as_deref().unwrap_or(""));
                 }
-                select class="filter-select" name="journal_type" {
+                select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="journal_type" {
                     option value="" selected[params.journal_type.is_none()] { "全部类型" }
                     option value="1" selected[params.journal_type == Some(1)] { "销售回款" }
                     option value="2" selected[params.journal_type == Some(2)] { "采购付款" }
@@ -273,7 +273,7 @@ fn journal_table_fragment(result: &PaginatedResult<CashJournal>, params: &Journa
                     option value="4" selected[params.journal_type == Some(4)] { "工资支付" }
                     option value="5" selected[params.journal_type == Some(5)] { "其他" }
                 }
-                select class="filter-select" name="direction" {
+                select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="direction" {
                     option value="" selected[params.direction.is_none()] { "全部方向" }
                     option value="1" selected[params.direction == Some(1)] { "流入" }
                     option value="2" selected[params.direction == Some(2)] { "流出" }
@@ -288,8 +288,8 @@ fn journal_table_fragment(result: &PaginatedResult<CashJournal>, params: &Journa
 fn journal_data_card(result: &PaginatedResult<CashJournal>, params: &JournalQueryParams, counterparty_names: &HashMap<(CounterpartyType, i64), String>) -> Markup {
     let query = build_query_string(params);
     html! {
-        div class="data-card" id="journal-data-card" {
-            div class="data-card-scroll" {
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" id="journal-data-card" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                 table class="data-table" {
                     thead {
                         tr {

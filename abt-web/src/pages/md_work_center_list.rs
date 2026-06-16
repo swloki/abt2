@@ -109,7 +109,7 @@ fn work_center_list_page(
         }
 
         // 筛选栏
-        div class="filter-bar" {
+        div class="flex items-center gap-3 mb-5 flex-wrap" {
             form class="filter-form" id="wc-filter-form"
                 hx-get=(WorkCenterListPath::PATH)
                 hx-trigger="change, keyup changed delay:300ms from:.search-input"
@@ -119,7 +119,7 @@ fn work_center_list_page(
                 hx-push-url="true"
                 hx-include="#wc-filter-form" {
 
-                select class="filter-select" name="is_active" {
+                select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="is_active" {
                     @if params.is_active.is_none() {
                         option value="" selected { "全部" }
                     } @else {
@@ -137,9 +137,9 @@ fn work_center_list_page(
                     }
                 }
 
-                div class="search-wrap" {
+                div class="relative flex-1 max-w-xs" {
                     (icon::search_icon("w-4 h-4"))
-                    input class="search-input" type="text" name="keyword"
+                    input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword"
                           placeholder="搜索编码 / 名称"
                           value=(params.keyword.as_deref().unwrap_or(""));
                 }
@@ -147,8 +147,8 @@ fn work_center_list_page(
         }
 
         // 数据表
-        div class="data-card" id="data-card" {
-            div class="data-card-scroll" {
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" id="data-card" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                 table class="data-table" {
                     thead {
                         tr {

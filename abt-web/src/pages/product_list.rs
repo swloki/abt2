@@ -371,7 +371,7 @@ fn product_table_fragment(
     html! {
         div class="customer-list-panel" {
             // ── Filter Bar ──
-            form id="filter-form" class="filter-bar filter-form"
+            form id="filter-form" class="flex items-center gap-3 mb-5 flex-wrap filter-form"
                 hx-get=(ProductListPath::PATH)
                 hx-trigger="change,keyup changed delay:300ms from:.search-input"
                 hx-target=".data-card"
@@ -379,20 +379,20 @@ fn product_table_fragment(
                 hx-swap="outerHTML"
                 hx-include="#filter-form"
                 hx-push-url="true" {
-                div class="search-wrap" {
+                div class="relative flex-1 max-w-xs" {
                     (icon::search_icon("w-4 h-4"))
-                    input class="search-input" type="text" name="code"
+                    input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="code"
                         style="width:180px"
                         placeholder="产品编码"
                         value=(params.code.as_deref().unwrap_or(""));
                 }
-                div class="search-wrap" {
+                div class="relative flex-1 max-w-xs" {
                     (icon::search_icon("w-4 h-4"))
-                    input class="search-input" type="text" name="name"
+                    input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="name"
                         placeholder="产品名称"
                         value=(params.name.as_deref().unwrap_or(""));
                 }
-                select class="filter-select" name="status" {
+                select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="status" {
                     option value="" { "全部状态" }
                     option value="1" selected[params.status == Some(1)] { "在用" }
                     option value="2" selected[params.status == Some(2)] { "停用" }
@@ -407,8 +407,8 @@ fn product_table_fragment(
             }
 
             // ── Data Table ──
-            div class="data-card" {
-                div class="data-card-scroll" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                     table class="data-table" {
                         thead {
                             tr {
@@ -714,8 +714,8 @@ fn usage_error_dialog(name: &str, total: u64) -> Markup {
                     div class="dialog-icon-wrap" {
                         (icon::circle_alert_icon("w-7 h-7"))
                     }
-                    div class="dialog-title" { "无法删除" }
-                    p class="dialog-desc" {
+                    div class="text-lg font-semibold text-fg text-center mb-2" { "无法删除" }
+                    p class="text-sm text-muted text-center leading-relaxed" {
                         (maud::PreEscaped(format!(
                             "产品 <strong>{name}</strong> 正被 <strong>{total}</strong> 个 BOM 引用，无法删除。请先移除相关引用后再试。",
                         )))
@@ -735,12 +735,12 @@ fn price_history_table(_product_id: i64, entries: &[PriceLogEntry]) -> Markup {
         div class="modal-overlay is-open"
             _="on click remove .is-open" {
             div class="modal" onclick="event.stopPropagation()" {
-                div class="modal-head" {
+                div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
                     h2 { "价格变更记录" }
                     button style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
                         _="on click remove .is-open from closest .modal-overlay" { "×" }
                 }
-                div class="modal-body" {
+                div class="overflow-y-auto flex-1 min-h-0 p-6" {
                     @if entries.is_empty() {
                         div class="empty-state" { "暂无价格变更记录" }
                     } @else {
@@ -749,7 +749,7 @@ fn price_history_table(_product_id: i64, entries: &[PriceLogEntry]) -> Markup {
                         }
                     }
                 }
-                div class="modal-foot" {
+                div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" {
                     button type="button" class="btn btn-default"
                         _="on click remove .is-open from closest .modal-overlay" { "关闭" }
                 }

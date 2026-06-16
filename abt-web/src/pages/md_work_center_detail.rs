@@ -66,16 +66,16 @@ fn work_center_detail_page(wc: &WorkCenter) -> Markup {
             }
         }
 
-        div class="info-card" {
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
             div class="info-section-title" { "基本信息" }
-            div class="info-grid" {
-                div class="info-item" { label { "编码" } span class="mono" { (wc.code) } }
-                div class="info-item" { label { "名称" } span { (wc.name) } }
-                div class="info-item" {
+            div class="grid gap-4" {
+                div class="flex flex-col gap-1" { label { "编码" } span class="mono" { (wc.code) } }
+                div class="flex flex-col gap-1" { label { "名称" } span { (wc.name) } }
+                div class="flex flex-col gap-1" {
                     label { "类型" }
                     span { (work_center_type_label(wc.work_center_type)) }
                 }
-                div class="info-item" {
+                div class="flex flex-col gap-1" {
                     label { "状态" }
                     @if wc.is_active {
                         span class="status-pill status-active" { "启用" }
@@ -83,33 +83,33 @@ fn work_center_detail_page(wc: &WorkCenter) -> Markup {
                         span class="status-pill status-inactive" { "停用" }
                     }
                 }
-                div class="info-item" {
+                div class="flex flex-col gap-1" {
                     label { "位置" }
                     span { (wc.location.as_deref().unwrap_or("—")) }
                 }
             }
         }
 
-        div class="info-card" {
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
             div class="info-section-title" { "产能与成本" }
-            div class="info-grid" {
-                div class="info-item" {
+            div class="grid gap-4" {
+                div class="flex flex-col gap-1" {
                     label { "产能/小时" }
                     span class="mono" { (crate::utils::fmt_qty(wc.default_capacity)) }
                 }
-                div class="info-item" {
+                div class="flex flex-col gap-1" {
                     label { "成本费率/h" }
                     span class="mono" { (crate::utils::fmt_amount(wc.costs_hour)) }
                 }
-                div class="info-item" {
+                div class="flex flex-col gap-1" {
                     label { "效率系数" }
                     span class="mono" { (crate::utils::fmt_qty(wc.time_efficiency)) }
                 }
-                div class="info-item" {
+                div class="flex flex-col gap-1" {
                     label { "准备时间 (分钟)" }
                     span class="mono" { (crate::utils::fmt_qty(wc.setup_time)) }
                 }
-                div class="info-item" {
+                div class="flex flex-col gap-1" {
                     label { "清理时间 (分钟)" }
                     span class="mono" { (crate::utils::fmt_qty(wc.cleanup_time)) }
                 }

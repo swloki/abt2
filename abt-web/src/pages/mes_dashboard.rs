@@ -51,36 +51,36 @@ fn mes_dashboard_page(stats: &abt_core::mes::dashboard::model::DashboardStats, d
                 div class="stat-card" {
                     div class="stat-icon blue" { (icon::file_text_icon("w-5 h-5")) }
                     div {
-                        div class="stat-value" { (stats.plan_count) }
-                        div class="stat-label" { "本月生产计划" }
+                        div class="text-2xl font-bold font-mono tabular-nums text-fg" { (stats.plan_count) }
+                        div class="text-sm text-muted mt-1" { "本月生产计划" }
                     }
                 }
                 div class="stat-card" {
                     div class="stat-icon green" { (icon::tool_icon("w-5 h-5")) }
                     div {
-                        div class="stat-value" { (stats.active_order_count) }
-                        div class="stat-label" { "进行中工单" }
+                        div class="text-2xl font-bold font-mono tabular-nums text-fg" { (stats.active_order_count) }
+                        div class="text-sm text-muted mt-1" { "进行中工单" }
                     }
                 }
                 div class="stat-card" {
                     div class="stat-icon orange" { (icon::briefcase_icon("w-5 h-5")) }
                     div {
-                        div class="stat-value" { (stats.active_batch_count) }
-                        div class="stat-label" { "活跃批次" }
+                        div class="text-2xl font-bold font-mono tabular-nums text-fg" { (stats.active_batch_count) }
+                        div class="text-sm text-muted mt-1" { "活跃批次" }
                     }
                 }
                 div class="stat-card" {
                     div class="stat-icon blue" { (icon::download_icon("w-5 h-5")) }
                     div {
-                        div class="stat-value" { (stats.pending_receipt_count) }
-                        div class="stat-label" { "待入库批次" }
+                        div class="text-2xl font-bold font-mono tabular-nums text-fg" { (stats.pending_receipt_count) }
+                        div class="text-sm text-muted mt-1" { "待入库批次" }
                     }
                 }
                 div class="stat-card" {
                     div class="stat-icon green" { (icon::check_circle_icon("w-5 h-5")) }
                     div {
-                        div class="stat-value" { (crate::utils::fmt_qty(stats.completed_qty)) }
-                        div class="stat-label" { "本月完工数量" }
+                        div class="text-2xl font-bold font-mono tabular-nums text-fg" { (crate::utils::fmt_qty(stats.completed_qty)) }
+                        div class="text-sm text-muted mt-1" { "本月完工数量" }
                     }
                 }
             }
@@ -127,7 +127,7 @@ fn mes_dashboard_page(stats: &abt_core::mes::dashboard::model::DashboardStats, d
                     (icon::clock_icon("w-4 h-4"))
                     " 最近操作"
                 }
-                div class="data-card" style="overflow:hidden" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" style="overflow:hidden" {
                     table class="data-table" style="width:100%;min-width:auto" {
                         thead {
                             tr {

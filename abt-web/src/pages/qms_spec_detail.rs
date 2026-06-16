@@ -64,29 +64,29 @@ pub async fn get_detail(path: SpecDetailPath, ctx: RequestContext) -> Result<Htm
         }
 
         // ── 基本信息 ──
-        div class="info-card" {
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
             h3 { "基本信息" }
-            div class="info-grid" {
-                div class="info-item" { label { "产品" } span { (product_name) } }
-                div class="info-item" { label { "检验类型" } span { (inspection_type_label(&spec.inspection_type)) } }
-                div class="info-item" { label { "版本" } span class="mono" { "V" (spec.version) } }
-                div class="info-item" { label { "状态" } span { (status_text) } }
-                div class="info-item" { label { "创建时间" } span { (spec.created_at.format("%Y-%m-%d %H:%M")) } }
+            div class="grid gap-4" {
+                div class="flex flex-col gap-1" { label { "产品" } span { (product_name) } }
+                div class="flex flex-col gap-1" { label { "检验类型" } span { (inspection_type_label(&spec.inspection_type)) } }
+                div class="flex flex-col gap-1" { label { "版本" } span class="mono" { "V" (spec.version) } }
+                div class="flex flex-col gap-1" { label { "状态" } span { (status_text) } }
+                div class="flex flex-col gap-1" { label { "创建时间" } span { (spec.created_at.format("%Y-%m-%d %H:%M")) } }
             }
         }
 
         // ── 抽样方案 ──
-        div class="info-card" {
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
             h3 { "抽样方案" }
-            div class="info-grid" {
-                div class="info-item" { label { "检验水平" } span { (&spec.sample_plan.level) } }
-                div class="info-item" { label { "AQL" } span class="mono" { (spec.sample_plan.aql.to_string()) } }
-                div class="info-item" { label { "抽样模式" } span { (&spec.sample_plan.mode) } }
+            div class="grid gap-4" {
+                div class="flex flex-col gap-1" { label { "检验水平" } span { (&spec.sample_plan.level) } }
+                div class="flex flex-col gap-1" { label { "AQL" } span class="mono" { (spec.sample_plan.aql.to_string()) } }
+                div class="flex flex-col gap-1" { label { "抽样模式" } span { (&spec.sample_plan.mode) } }
             }
         }
 
         // ── 检验项目 ──
-        div class="data-card" {
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" {
             h3 { "检验项目" }
             @if spec.check_items.is_empty() {
                 p { "暂无检验项目" }

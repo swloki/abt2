@@ -310,8 +310,8 @@ fn stock_list_page(
                         (icon::box_icon("w-5 h-5"))
                     }
                     div {
-                        div class="stat-value" { (result.items.iter().map(|s| s.product_id).collect::<HashSet<_>>().len()) }
-                        div class="stat-label" { "总品种" }
+                        div class="text-2xl font-bold font-mono tabular-nums text-fg" { (result.items.iter().map(|s| s.product_id).collect::<HashSet<_>>().len()) }
+                        div class="text-sm text-muted mt-1" { "总品种" }
                     }
                 }
                 div class="stat-card" {
@@ -319,8 +319,8 @@ fn stock_list_page(
                         (icon::package_icon("w-5 h-5"))
                     }
                     div {
-                        div class="stat-value" { (format_decimal(&result.items.iter().map(|s| s.quantity).sum::<Decimal>())) }
-                        div class="stat-label" { "总库存量" }
+                        div class="text-2xl font-bold font-mono tabular-nums text-fg" { (format_decimal(&result.items.iter().map(|s| s.quantity).sum::<Decimal>())) }
+                        div class="text-sm text-muted mt-1" { "总库存量" }
                     }
                 }
                 div class="stat-card" {
@@ -328,8 +328,8 @@ fn stock_list_page(
                         (icon::circle_alert_icon("w-5 h-5"))
                     }
                     div {
-                        div class="stat-value" style="color:var(--danger)" { (result.items.iter().filter(|s| s.available_qty <= Decimal::ZERO).count()) }
-                        div class="stat-label" { "低库存项" }
+                        div class="text-2xl font-bold font-mono tabular-nums text-fg" style="color:var(--danger)" { (result.items.iter().filter(|s| s.available_qty <= Decimal::ZERO).count()) }
+                        div class="text-sm text-muted mt-1" { "低库存项" }
                     }
                 }
                 div class="stat-card" {
@@ -337,8 +337,8 @@ fn stock_list_page(
                         (icon::lock_icon("w-5 h-5"))
                     }
                     div {
-                        div class="stat-value" { (format_decimal(&result.items.iter().map(|s| s.reserved_qty).sum::<Decimal>())) }
-                        div class="stat-label" { "已预留量" }
+                        div class="text-2xl font-bold font-mono tabular-nums text-fg" { (format_decimal(&result.items.iter().map(|s| s.reserved_qty).sum::<Decimal>())) }
+                        div class="text-sm text-muted mt-1" { "已预留量" }
                     }
                 }
             }
@@ -372,7 +372,7 @@ fn stock_filter_bar(
     params: &StockQueryParams,
 ) -> Markup {
     html! {
-        form class="filter-bar filter-form" id="stock-filter-form"
+        form class="flex items-center gap-3 mb-5 flex-wrap filter-form" id="stock-filter-form"
             hx-get=(StockListPath::PATH)
             hx-trigger="change, keyup changed delay:300ms from:.search-input"
             hx-target="#stock-data-card"
@@ -380,16 +380,16 @@ fn stock_filter_bar(
             hx-swap="outerHTML"
             hx-include="#stock-filter-form"
                 hx-push-url="true" {
-            div class="search-wrap" {
+            div class="relative flex-1 max-w-xs" {
                 (icon::search_icon("w-4 h-4"))
-                input class="search-input" type="text" name="product_code"
+                input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="product_code"
                     style="width:180px"
                     placeholder="产品编码"
                     value=(params.product_code.as_deref().unwrap_or(""));
             }
-            div class="search-wrap" {
+            div class="relative flex-1 max-w-xs" {
                 (icon::search_icon("w-4 h-4"))
-                input class="search-input" type="text" name="product_name"
+                input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="product_name"
                     placeholder="产品名称"
                     value=(params.product_name.as_deref().unwrap_or(""));
             }
@@ -405,9 +405,9 @@ fn stock_filter_bar(
                 }
             }
             (zone_select_fragment(zones, params.zone_id))
-            div class="search-wrap" {
+            div class="relative flex-1 max-w-xs" {
                 (icon::search_icon("w-4 h-4"))
-                input class="search-input" type="text" name="batch_no"
+                input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="batch_no"
                     placeholder="批次号"
                     value=(params.batch_no.as_deref().unwrap_or(""));
             }
@@ -430,8 +430,8 @@ fn stock_data_card(
     let query = build_query_string(params);
 
     html! {
-        div id="stock-data-card" class="data-card" {
-            div class="data-card-scroll" {
+        div id="stock-data-card" class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                 table class="data-table" {
                     thead {
                         tr {
@@ -536,25 +536,25 @@ fn stock_detail_content(
     html! {
         div class="drawer-section" {
             div class="drawer-label" { "基本信息" }
-            div class="detail-info-grid" {
-                div class="detail-info-item" { label { "产品编码" } span class="mono" { (p_code) } }
-                div class="detail-info-item" { label { "产品名称" } span { (p_name) } }
-                div class="detail-info-item" { label { "仓库" } span { (warehouse) } }
-                div class="detail-info-item" { label { "库区" } span { (zone) } }
-                div class="detail-info-item" { label { "储位" } span class="mono" { (bin) } }
-                div class="detail-info-item" { label { "批次号" } span class="mono" { (item.batch_no.as_deref().unwrap_or("—")) } }
+            div class="detail-grid gap-4" {
+                div class="detail-flex flex-col gap-1" { label { "产品编码" } span class="mono" { (p_code) } }
+                div class="detail-flex flex-col gap-1" { label { "产品名称" } span { (p_name) } }
+                div class="detail-flex flex-col gap-1" { label { "仓库" } span { (warehouse) } }
+                div class="detail-flex flex-col gap-1" { label { "库区" } span { (zone) } }
+                div class="detail-flex flex-col gap-1" { label { "储位" } span class="mono" { (bin) } }
+                div class="detail-flex flex-col gap-1" { label { "批次号" } span class="mono" { (item.batch_no.as_deref().unwrap_or("—")) } }
             }
         }
         div class="drawer-section" {
             div class="drawer-label" { "库存数量" }
-            div class="detail-info-grid" {
-                div class="detail-info-item" { label { "现有量" } span class="mono" { (format_decimal(&item.quantity)) } }
-                div class="detail-info-item" { label { "已预留" } span class="mono" { (format_decimal(&item.reserved_qty)) } }
-                div class="detail-info-item" {
+            div class="detail-grid gap-4" {
+                div class="detail-flex flex-col gap-1" { label { "现有量" } span class="mono" { (format_decimal(&item.quantity)) } }
+                div class="detail-flex flex-col gap-1" { label { "已预留" } span class="mono" { (format_decimal(&item.reserved_qty)) } }
+                div class="detail-flex flex-col gap-1" {
                     label { "可用量" }
                     span class={"mono" (if is_low { " danger" } else { "" })} { (format_decimal(&item.available_qty)) }
                 }
-                div class="detail-info-item" {
+                div class="detail-flex flex-col gap-1" {
                     label { "安全库存" }
                     span class={"mono" (if is_low { " warn" } else { "" })} { (format_decimal(&safe_stock)) }
                 }
@@ -571,11 +571,11 @@ fn stock_detail_content(
         }
         div class="drawer-section" {
             div class="drawer-label" { "财务与日期" }
-            div class="detail-info-grid" {
-                div class="detail-info-item" { label { "单位成本" } span class="mono" { (item.unit_cost.map(|c| format!("¥{}", format_decimal(&c))).unwrap_or_else(|| "—".into())) } }
-                div class="detail-info-item" { label { "库存金额" } span class="mono" { (stock_value.map(|v| format!("¥{}", format_decimal(&v))).unwrap_or_else(|| "—".into())) } }
-                div class="detail-info-item" { label { "入库日期" } span class="mono" { (item.received_date.map(|d| d.format("%Y-%m-%d").to_string()).unwrap_or_else(|| "—".into())) } }
-                div class="detail-info-item" { label { "有效期" } span class="mono" { (item.expiry_date.map(|d| d.format("%Y-%m-%d").to_string()).unwrap_or_else(|| "—".into())) } }
+            div class="detail-grid gap-4" {
+                div class="detail-flex flex-col gap-1" { label { "单位成本" } span class="mono" { (item.unit_cost.map(|c| format!("¥{}", format_decimal(&c))).unwrap_or_else(|| "—".into())) } }
+                div class="detail-flex flex-col gap-1" { label { "库存金额" } span class="mono" { (stock_value.map(|v| format!("¥{}", format_decimal(&v))).unwrap_or_else(|| "—".into())) } }
+                div class="detail-flex flex-col gap-1" { label { "入库日期" } span class="mono" { (item.received_date.map(|d| d.format("%Y-%m-%d").to_string()).unwrap_or_else(|| "—".into())) } }
+                div class="detail-flex flex-col gap-1" { label { "有效期" } span class="mono" { (item.expiry_date.map(|d| d.format("%Y-%m-%d").to_string()).unwrap_or_else(|| "—".into())) } }
             }
         }
     }

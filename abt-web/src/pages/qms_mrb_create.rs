@@ -226,7 +226,7 @@ fn mrb_create_page(products: &[Product], failed_results: &[InspectionResult]) ->
                 }
 
                 // ── Action bar ──
-                div class="create-action-bar" {
+                div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
                     a class="btn btn-default" href=(format!("{}?restore=true", MrbListPath::PATH)) { "取消" }
                     button type="button" class="btn btn-default"
                         onclick="document.getElementById('mrb-form').querySelector('[name=remark]').value+='[草稿]';htmx.trigger('#mrb-form','submit')" {

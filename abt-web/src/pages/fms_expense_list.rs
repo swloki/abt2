@@ -231,7 +231,7 @@ fn expense_table_fragment(
         div {
             (status_tabs_with_param(ExpenseListPath::PATH, "#expense-data-card", "#expense-filter-form", tabs, &selected_status, "status"))
 
-            form class="filter-bar filter-form" id="expense-filter-form"
+            form class="flex items-center gap-3 mb-5 flex-wrap filter-form" id="expense-filter-form"
                 hx-get=(ExpenseListPath::PATH)
                 hx-trigger="change, keyup changed delay:300ms from:.search-input"
                 hx-target="#expense-data-card"
@@ -239,7 +239,7 @@ fn expense_table_fragment(
                 hx-swap="outerHTML"
                 hx-include="#expense-filter-form"
                 hx-push-url="true" {
-                select class="filter-select" name="status" {
+                select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="status" {
                     option value="" selected[params.status.is_none()] { "全部状态" }
                     option value="1" selected[params.status == Some(1)] { "草稿" }
                     option value="2" selected[params.status == Some(2)] { "已提交" }
@@ -247,7 +247,7 @@ fn expense_table_fragment(
                     option value="4" selected[params.status == Some(4)] { "已付款" }
                     option value="5" selected[params.status == Some(5)] { "已取消" }
                 }
-                select class="filter-select" name="applicant_id" {
+                select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="applicant_id" {
                     option value="" selected[params.applicant_id.is_none()] { "全部申请人" }
                     @for u in all_users {
                         option value=(u.user.user_id) selected[params.applicant_id == Some(u.user.user_id)] {
@@ -255,7 +255,7 @@ fn expense_table_fragment(
                         }
                     }
                 }
-                select class="filter-select" name="department_id" {
+                select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="department_id" {
                     option value="" selected[params.department_id.is_none()] { "全部部门" }
                     @for d in all_depts {
                         option value=(d.department_id) selected[params.department_id == Some(d.department_id)] {
@@ -285,8 +285,8 @@ fn expense_data_card(
 ) -> Markup {
     let query = build_query_string(params);
     html! {
-        div class="data-card" id="expense-data-card" {
-            div class="data-card-scroll" {
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" id="expense-data-card" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                 table class="data-table" {
                     thead {
                         tr {

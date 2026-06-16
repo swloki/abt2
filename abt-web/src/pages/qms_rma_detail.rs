@@ -73,28 +73,28 @@ pub async fn get_detail(path: RmaDetailPath, ctx: RequestContext) -> Result<Html
         }
 
         // ── 基本信息 ──
-        div class="info-card" {
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
             h3 { "基本信息" }
-            div class="info-grid" {
-                div class="info-item" { label { "客户" } span { (customer_name) } }
-                div class="info-item" { label { "产品" } span { (product_name) } }
-                div class="info-item" {
+            div class="grid gap-4" {
+                div class="flex flex-col gap-1" { label { "客户" } span { (customer_name) } }
+                div class="flex flex-col gap-1" { label { "产品" } span { (product_name) } }
+                div class="flex flex-col gap-1" {
                     label { "严重程度" }
                     span class=(format!("status-pill {severity_class}")) { (severity_text) }
                 }
-                div class="info-item" {
+                div class="flex flex-col gap-1" {
                     label { "关联销售单" }
                     span {
                         (rma.sales_order_id.map(|id| id.to_string()).unwrap_or_else(|| "—".into()))
                     }
                 }
-                div class="info-item" {
+                div class="flex flex-col gap-1" {
                     label { "关联发货单" }
                     span {
                         (rma.shipping_request_id.map(|id| id.to_string()).unwrap_or_else(|| "—".into()))
                     }
                 }
-                div class="info-item" {
+                div class="flex flex-col gap-1" {
                     label { "关联检验结果" }
                     span {
                         (rma.linked_inspection_result_id.map(|id| id.to_string()).unwrap_or_else(|| "—".into()))
@@ -104,22 +104,22 @@ pub async fn get_detail(path: RmaDetailPath, ctx: RequestContext) -> Result<Html
         }
 
         // ── 缺陷描述 ──
-        div class="info-card" {
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
             h3 { "缺陷描述" }
             p style="white-space: pre-wrap;" { (&rma.defect_description) }
         }
 
         // ── 根因分析 ──
-        div class="info-card" {
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
             h3 { "根因分析" }
-            div class="info-grid" {
-                div class="info-item" {
+            div class="grid gap-4" {
+                div class="flex flex-col gap-1" {
                     label { "根本原因" }
                     span {
                         (rma.root_cause.as_deref().unwrap_or("待填写"))
                     }
                 }
-                div class="info-item" {
+                div class="flex flex-col gap-1" {
                     label { "纠正措施" }
                     span {
                         (rma.corrective_action.as_deref().unwrap_or("待填写"))
@@ -129,11 +129,11 @@ pub async fn get_detail(path: RmaDetailPath, ctx: RequestContext) -> Result<Html
         }
 
         // ── 其他信息 ──
-        div class="info-card" {
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
             h3 { "其他信息" }
-            div class="info-grid" {
-                div class="info-item" { label { "备注" } span { (or_dash(&rma.remark)) } }
-                div class="info-item" { label { "创建时间" } span { (rma.created_at.format("%Y-%m-%d %H:%M")) } }
+            div class="grid gap-4" {
+                div class="flex flex-col gap-1" { label { "备注" } span { (or_dash(&rma.remark)) } }
+                div class="flex flex-col gap-1" { label { "创建时间" } span { (rma.created_at.format("%Y-%m-%d %H:%M")) } }
             }
         }
     }};

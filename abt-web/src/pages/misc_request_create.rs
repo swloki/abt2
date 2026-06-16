@@ -182,7 +182,7 @@ fn misc_create_page() -> Markup {
             }
 
             // ── Line Items ──
-            div class="data-card" style="padding:0;overflow:hidden;margin-bottom:var(--space-4)" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" style="padding:0;overflow:hidden;margin-bottom:var(--space-4)" {
                 div style="padding:var(--space-5) var(--space-5) var(--space-3);display:flex;justify-content:space-between;align-items:center" {
                     span class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" style="margin:0;padding:0;border:none" { "请购明细" }
                     button type="button" class="btn btn-sm btn-primary"
@@ -223,7 +223,7 @@ fn misc_create_page() -> Markup {
             }
 
             // ── Action Bar ──
-            div class="create-action-bar" {
+            div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
                 a class="btn btn-default" href=(format!("{}?restore=true", MiscListPath::PATH)) { "取消" }
                 div style="display:flex;gap:var(--space-3)" {
                     button type="button" class="btn btn-default" { "保存草稿" }

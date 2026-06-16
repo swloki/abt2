@@ -47,7 +47,7 @@ pub async fn get_inspection_create(_path: InspectionCreatePath, ctx: RequestCont
                     div class="form-field span-2" { label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "处置意见" } input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="disposition"; }
                 }
             }
-            div class="create-action-bar" {
+            div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
                 a class="btn btn-default" href=(format!("{}?restore=true", InspectionListPath::PATH)) { "取消" }
                 button type="submit" class="btn btn-primary" { "提交" }
             }

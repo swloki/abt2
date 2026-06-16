@@ -143,7 +143,7 @@ pub(crate) fn warehouse_create_page(warehouse: Option<&Warehouse>) -> Markup {
                   hx-swap="none" {
 
                 // ── Section: 基本信息 ──
-                div class="data-card" style="margin-bottom:var(--space-4)" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" style="margin-bottom:var(--space-4)" {
                     div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                         (icon::building_icon("w-4 h-4"))
                         " 基本信息"
@@ -208,7 +208,7 @@ pub(crate) fn warehouse_create_page(warehouse: Option<&Warehouse>) -> Markup {
                 }
 
                 // ── Action Bar ──
-                div class="create-action-bar" {
+                div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
                     a class="btn btn-default" href=(format!("{}?restore=true", WarehouseListPath::PATH)) { "取消" }
                     button type="submit" class="btn btn-primary" {
                         (icon::check_circle_icon("w-4 h-4"))

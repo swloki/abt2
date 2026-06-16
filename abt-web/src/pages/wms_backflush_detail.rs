@@ -142,50 +142,50 @@ fn backflush_detail_page(
             (backflush_status_flow(record.status))
 
             // ── Info Card ──
-            div class="info-card" {
-                div class="info-card-title" { "倒冲信息" }
-                div class="info-grid" {
-                    div class="info-item" {
-                        span class="info-label" { "单据编号" }
-                        span class="info-value mono" { (record.doc_number) }
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "倒冲信息" }
+                div class="grid gap-4" {
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "单据编号" }
+                        span class="text-sm text-fg font-medium mono" { (record.doc_number) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "关联工单" }
-                        span class="info-value mono" { "—" }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "关联工单" }
+                        span class="text-sm text-fg font-medium mono" { "—" }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "完工产品" }
-                        span class="info-value" { (product_name) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "完工产品" }
+                        span class="text-sm text-fg font-medium" { (product_name) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "完工数量" }
-                        span class="info-value mono" { (format!("{:.2}", record.completed_qty)) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "完工数量" }
+                        span class="text-sm text-fg font-medium mono" { (format!("{:.2}", record.completed_qty)) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "倒冲日期" }
-                        span class="info-value mono" { (record.backflush_date.to_string()) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "倒冲日期" }
+                        span class="text-sm text-fg font-medium mono" { (record.backflush_date.to_string()) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "差异阈值" }
-                        span class="info-value mono" { (format!("{:.2}%", record.variance_threshold)) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "差异阈值" }
+                        span class="text-sm text-fg font-medium mono" { (format!("{:.2}%", record.variance_threshold)) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "状态" }
-                        span class="info-value" {
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "状态" }
+                        span class="text-sm text-fg font-medium" {
                             span class=(format!("status-pill {status_class}")) { (status_label) }
                         }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "操作员" }
-                        span class="info-value" { (operator_name) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "操作员" }
+                        span class="text-sm text-fg font-medium" { (operator_name) }
                     }
                 }
             }
 
             // ── Items Table ──
-            div class="data-card" {
-                div class="data-card-title" { "倒冲物料明细" }
-                div class="data-card-scroll" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-title" { "倒冲物料明细" }
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                     table class="data-table" {
                         thead {
                             tr {

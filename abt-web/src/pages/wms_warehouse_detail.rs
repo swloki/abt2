@@ -359,30 +359,30 @@ fn warehouse_detail_page(
         }
 
         // ── Info Card ──
-        div class="info-card" {
-            div class="info-card-title" { "仓库信息" }
-            div class="info-grid" {
-                div class="info-item" {
-                    span class="info-label" { "仓库编码" }
-                    span class="info-value mono" { (warehouse.code) }
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "仓库信息" }
+            div class="grid gap-4" {
+                div class="flex flex-col gap-1" {
+                    span class="text-xs text-muted font-medium" { "仓库编码" }
+                    span class="text-sm text-fg font-medium mono" { (warehouse.code) }
                 }
-                div class="info-item" {
-                    span class="info-label" { "仓库名称" }
-                    span class="info-value" { (warehouse.name) }
+                div class="flex flex-col gap-1" {
+                    span class="text-xs text-muted font-medium" { "仓库名称" }
+                    span class="text-sm text-fg font-medium" { (warehouse.name) }
                 }
-                div class="info-item" {
-                    span class="info-label" { "仓库类型" }
-                    span class="info-value" { (type_label) }
+                div class="flex flex-col gap-1" {
+                    span class="text-xs text-muted font-medium" { "仓库类型" }
+                    span class="text-sm text-fg font-medium" { (type_label) }
                 }
-                div class="info-item" {
-                    span class="info-label" { "状态" }
-                    span class="info-value" {
+                div class="flex flex-col gap-1" {
+                    span class="text-xs text-muted font-medium" { "状态" }
+                    span class="text-sm text-fg font-medium" {
                         span class=(format!("status-pill {status_class}")) { (status_label) }
                     }
                 }
-                div class="info-item" {
-                    span class="info-label" { "地址" }
-                    span class="info-value" {
+                div class="flex flex-col gap-1" {
+                    span class="text-xs text-muted font-medium" { "地址" }
+                    span class="text-sm text-fg font-medium" {
                         @if warehouse.is_virtual {
                             "—"
                         } @else if let Some(ref addr) = warehouse.address {
@@ -392,13 +392,13 @@ fn warehouse_detail_page(
                         }
                     }
                 }
-                div class="info-item" {
-                    span class="info-label" { "管理员" }
-                    span class="info-value" { "—" }
+                div class="flex flex-col gap-1" {
+                    span class="text-xs text-muted font-medium" { "管理员" }
+                    span class="text-sm text-fg font-medium" { "—" }
                 }
-                div class="info-item" {
-                    span class="info-label" { "创建时间" }
-                    span class="info-value mono" { (warehouse.created_at.format("%Y-%m-%d")) }
+                div class="flex flex-col gap-1" {
+                    span class="text-xs text-muted font-medium" { "创建时间" }
+                    span class="text-sm text-fg font-medium mono" { (warehouse.created_at.format("%Y-%m-%d")) }
                 }
             }
         }
@@ -505,13 +505,13 @@ fn zone_edit_form_fragment(zone: &Zone) -> Markup {
 
     html! {
         form class="modal" hx-put=(put_path) hx-swap="none" {
-            div class="modal-head" {
+            div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
                 h2 { "编辑库区" }
                 button type="button" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px" _="on click remove .is-open from #zone-edit-modal" {
                     "×"
                 }
             }
-            div class="modal-body" {
+            div class="overflow-y-auto flex-1 min-h-0 p-6" {
                 div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                     div class="form-field" {
                         label { "库区编码" }
@@ -545,7 +545,7 @@ fn zone_edit_form_fragment(zone: &Zone) -> Markup {
                     }
                 }
             }
-            div class="modal-foot" {
+            div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" {
                 button type="button" class="btn btn-default" _="on click remove .is-open from #zone-edit-modal" {
                     "取消"
                 }
@@ -557,8 +557,8 @@ fn zone_edit_form_fragment(zone: &Zone) -> Markup {
 
 fn zones_table_fragment(zones: &[Zone], warehouse_id: i64) -> Markup {
     html! {
-        div class="data-card" style="margin-bottom:0" {
-            div class="data-card-scroll" {
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" style="margin-bottom:0" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                 table class="data-table" {
                     thead {
                         tr {
@@ -635,8 +635,8 @@ fn zone_row(z: &Zone, _warehouse_id: i64) -> Markup {
 
 fn bins_table_fragment(bins: &[Bin]) -> Markup {
     html! {
-        div class="data-card" style="margin-bottom:0" {
-            div class="data-card-scroll" {
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" style="margin-bottom:0" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                 table class="data-table" {
                     thead {
                         tr {

@@ -291,7 +291,7 @@ fn pq_create_page(
                 input type="hidden" id="form-action" name="action" value="submit";
 
             // ── Supplier Selection ──
-            div class="data-card" style="margin-bottom:var(--space-4)" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" style="margin-bottom:var(--space-4)" {
                 div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "供应商信息" }
                 div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                     div class="form-field" {
@@ -322,7 +322,7 @@ fn pq_create_page(
             }
 
             // ── Quote Info ──
-            div class="data-card" style="margin-bottom:var(--space-4)" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" style="margin-bottom:var(--space-4)" {
                 div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "报价信息" }
                 div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                     div class="form-field" {
@@ -360,7 +360,7 @@ fn pq_create_page(
             }
 
             // ── Line Items ──
-            div class="data-card" style="padding:0;overflow:hidden;margin-bottom:var(--space-4)" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" style="padding:0;overflow:hidden;margin-bottom:var(--space-4)" {
                 div style="padding:var(--space-5) var(--space-5) var(--space-3);display:flex;justify-content:space-between;align-items:center" {
                     span class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" style="margin:0;padding:0;border:none" { "报价产品明细" }
                     button type="button" class="btn btn-sm btn-primary"
@@ -397,13 +397,13 @@ fn pq_create_page(
             }
 
             // ── Remark ──
-            div class="data-card" style="margin-bottom:var(--space-4)" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" style="margin-bottom:var(--space-4)" {
                 div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "备注" }
                 textarea name="remark" placeholder="输入报价相关备注信息…" style="width:100%;min-height:80px;padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:var(--text-sm);resize:vertical;font-family:inherit" {}
             }
 
             // ── Action Bar ──
-            div class="create-action-bar" {
+            div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
                 a class="btn btn-default" href=(format!("{}?restore=true", PQListPath::PATH)) { "取消" }
                 div style="display:flex;gap:var(--space-3)" {
                     button type="button" class="btn btn-default"
@@ -437,16 +437,16 @@ fn pq_create_page(
             div class="modal-overlay" id="product-modal"
                 _="on click remove .is-open from #product-modal" {
                 div class="modal modal-lg" onclick="event.stopPropagation()" {
-                    div class="modal-head" {
+                    div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
                         h2 { "选择产品" }
                         button style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
                             _="on click remove .is-open from #product-modal" { "×" }
                     }
-                    div class="modal-body" style="padding:0" {
+                    div class="overflow-y-auto flex-1 min-h-0 p-6" style="padding:0" {
                         div class="product-search-bar" {
                             div class="product-search-field" {
                                 label class="product-search-label" { "产品名称" }
-                                input class="product-search-input" type="text" name="name" placeholder="输入产品名称…"
+                                input class="product-w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="name" placeholder="输入产品名称…"
                                     hx-get=(PQProductsPath::PATH)
                                     hx-trigger="keyup changed delay:300ms"
                                     hx-sync="this:replace"
@@ -456,7 +456,7 @@ fn pq_create_page(
                             }
                             div class="product-search-field" {
                                 label class="product-search-label" { "产品编码" }
-                                input class="product-search-input" type="text" name="code" placeholder="输入产品编码…"
+                                input class="product-w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="code" placeholder="输入产品编码…"
                                     hx-get=(PQProductsPath::PATH)
                                     hx-trigger="keyup changed delay:300ms"
                                     hx-sync="this:replace"

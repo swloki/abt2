@@ -100,12 +100,12 @@ fn order_table_fragment(
 
     html! { div {
         (status_tabs_with_param(OrderListPath::PATH, "#order-data-card", "#filter-form", tabs, sel, "status"))
-        form id="filter-form" class="filter-bar filter-form" hx-get=(OrderListPath::PATH)
+        form id="filter-form" class="flex items-center gap-3 mb-5 flex-wrap filter-form" hx-get=(OrderListPath::PATH)
             hx-trigger="change, keyup changed delay:300ms from:.search-input"
             hx-target="#order-data-card" hx-select="#order-data-card" hx-swap="outerHTML" hx-include="#filter-form"
                 hx-push-url="true" {
-            div class="search-wrap" { (icon::search_icon("w-4 h-4"))
-                input class="search-input" type="text" name="keyword" style="width:180px" placeholder="搜索工单编号…" value=(params.keyword.as_deref().unwrap_or(""));
+            div class="relative flex-1 max-w-xs" { (icon::search_icon("w-4 h-4"))
+                input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword" style="width:180px" placeholder="搜索工单编号…" value=(params.keyword.as_deref().unwrap_or(""));
             }
         }
         (order_data_card(result, product_names, params))
@@ -120,8 +120,8 @@ fn order_data_card(
     if let Some(ref s) = params.status { qs.push(format!("status={s}")); }
     let query = qs.join("&");
     html! {
-        div class="data-card" id="order-data-card" {
-            div class="data-card-scroll" {
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" id="order-data-card" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                 table class="data-table" { thead { tr {
                     th { "工单编号" } th { "产品" } th class="num-right" { "计划数量" }
                     th { "生产进度" } th { "排程" } th { "车间" } th { "来源追溯" }

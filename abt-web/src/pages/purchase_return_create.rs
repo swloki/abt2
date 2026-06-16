@@ -261,7 +261,7 @@ fn pr_create_page(
                 input type="hidden" id="items-json" name="items_json" value="[]";
 
             // ── 关联单据 ──
-            div class="data-card" style="margin-bottom:var(--space-4)" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" style="margin-bottom:var(--space-4)" {
                 div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "关联单据" }
                 div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                     div class="form-field" {
@@ -296,7 +296,7 @@ fn pr_create_page(
             }
 
             // ── 退货信息 ──
-            div class="data-card" style="margin-bottom:var(--space-4)" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" style="margin-bottom:var(--space-4)" {
                 div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "退货信息" }
                 div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                     div class="form-field" {
@@ -356,7 +356,7 @@ fn pr_create_page(
             }
 
             // ── 退货产品明细 ──
-            div id="pr-items-section" class="data-card" style="display:none;padding:0;overflow:hidden;margin-bottom:var(--space-4)" {
+            div id="pr-items-section" class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" style="display:none;padding:0;overflow:hidden;margin-bottom:var(--space-4)" {
                 div style="padding:var(--space-5) var(--space-5) var(--space-3);display:flex;justify-content:space-between;align-items:center" {
                     span class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" style="margin:0;padding:0;border:none" { "退货产品明细" }
                 }
@@ -385,7 +385,7 @@ fn pr_create_page(
             // Hidden container for HTMX swap of order data
             div id="pr-order-data" style="display:none" { }
 
-            div class="create-action-bar" {
+            div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
                 a class="btn btn-default" href=(format!("{}?restore=true", PRListPath::PATH)) { "取消" }
                 div style="display:flex;gap:var(--space-3)" {
                     button type="button" class="btn btn-default" id="pr-save-draft" {

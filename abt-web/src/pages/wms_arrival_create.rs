@@ -420,16 +420,16 @@ fn arrival_create_page(
         div id="product-modal" class="modal-overlay"
             _="on click[me is event.target] remove .is-open" {
             div class="modal modal-lg" onclick="event.stopPropagation()" {
-                div class="modal-head" {
+                div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
                     h2 { "选择物料" }
                     button type="button" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
                         _="on click remove .is-open from #product-modal" { "×" }
                 }
-                div class="modal-body" style="padding:0" hx-disinherit="hx-select" {
+                div class="overflow-y-auto flex-1 min-h-0 p-6" style="padding:0" hx-disinherit="hx-select" {
                     div class="product-search-bar" {
                         div class="product-search-field" {
                             label class="product-search-label" { "产品名称" }
-                            input class="product-search-input" type="text" name="name" placeholder="输入产品名称…"
+                            input class="product-w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="name" placeholder="输入产品名称…"
                                 hx-get=(ArrivalProductsPath::PATH)
                                 hx-trigger="keyup changed delay:300ms"
                                 hx-sync="this:replace"
@@ -439,7 +439,7 @@ fn arrival_create_page(
                         }
                         div class="product-search-field" {
                             label class="product-search-label" { "产品编码" }
-                            input class="product-search-input" type="text" name="code" placeholder="输入产品编码…"
+                            input class="product-w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="code" placeholder="输入产品编码…"
                                 hx-get=(ArrivalProductsPath::PATH)
                                 hx-trigger="keyup changed delay:300ms"
                                 hx-sync="this:replace"
@@ -469,16 +469,16 @@ fn arrival_create_page(
         div id="po-modal" class="modal-overlay"
             _="on click[me is event.target] remove .is-open" {
             div class="modal modal-lg" onclick="event.stopPropagation()" {
-                div class="modal-head" {
+                div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
                     h2 { "从采购订单导入" }
                     button type="button" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
                         _="on click remove .is-open from #po-modal" { "×" }
                 }
-                div class="modal-body" style="padding:0" hx-disinherit="hx-select" {
+                div class="overflow-y-auto flex-1 min-h-0 p-6" style="padding:0" hx-disinherit="hx-select" {
                     div class="product-search-bar" {
                         div class="product-search-field" {
                             label class="product-search-label" { "采购订单号" }
-                            input class="product-search-input" type="text" id="po-search-input" name="keyword" placeholder="输入PO编号搜索…"
+                            input class="product-w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" id="po-search-input" name="keyword" placeholder="输入PO编号搜索…"
                                 hx-get=(ArrivalPoPickPath::PATH)
                                 hx-trigger="keyup changed delay:300ms"
                                 hx-sync="this:replace"

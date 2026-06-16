@@ -47,9 +47,9 @@ fn cascade_page(result: Option<&CascadeInventoryResult>) -> Markup {
             }
 
             div class="cascade-search" style="background:var(--bg);border:1px solid var(--border-soft);border-radius:var(--radius-md);padding:var(--space-5) var(--space-6);margin-bottom:var(--space-6);display:flex;align-items:center;gap:var(--space-3)" {
-                div class="search-wrap" style="flex:1" {
+                div class="relative flex-1 max-w-xs" style="flex:1" {
                     (icon::search_icon("w-4 h-4"))
-                    input class="search-input" type="text" name="product_code"
+                    input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="product_code"
                         placeholder="输入产品编码或产品名称"
                         hx-get=(CascadeListPath::PATH)
                         hx-trigger="keyup changed delay:500ms"
@@ -130,8 +130,8 @@ fn bom_group(group: &BomCascadeGroup) -> Markup {
                     (group.bom_name)
                 }
             }
-            div class="data-card" {
-                div class="data-card-scroll" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                     table class="data-table" style="min-width:860px" {
                         thead {
                             tr {

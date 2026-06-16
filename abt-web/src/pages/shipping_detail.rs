@@ -272,41 +272,41 @@ fn shipping_detail_page(
             (workflow_steps(s.status))
 
             // ── Shipping Info ──
-            div class="info-card" {
-                div class="info-card-title" { "发货信息" }
-                div class="info-grid" {
-                    div class="info-item" {
-                        span class="info-label" { "客户名称" }
-                        span class="info-value" { (customer_name) }
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "发货信息" }
+                div class="grid gap-4" {
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "客户名称" }
+                        span class="text-sm text-fg font-medium" { (customer_name) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "收货地址" }
-                        span class="info-value" { (s.shipping_address.as_str()) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "收货地址" }
+                        span class="text-sm text-fg font-medium" { (s.shipping_address.as_str()) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "预计发货日期" }
-                        span class="info-value mono" {
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "预计发货日期" }
+                        span class="text-sm text-fg font-medium mono" {
                             (s.expected_ship_date.map(|d| d.format("%Y-%m-%d").to_string()).unwrap_or_else(|| "—".into()))
                         }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "承运商" }
-                        span class="info-value" { (s.carrier.as_str()) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "承运商" }
+                        span class="text-sm text-fg font-medium" { (s.carrier.as_str()) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "物流单号" }
-                        span class="info-value mono" { (s.tracking_number.as_str()) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "物流单号" }
+                        span class="text-sm text-fg font-medium mono" { (s.tracking_number.as_str()) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "操作员" }
-                        span class="info-value" { (operator_name) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "操作员" }
+                        span class="text-sm text-fg font-medium" { (operator_name) }
                     }
                 }
             }
 
             // ── Items Table ──
-            div class="data-card" {
-                div class="data-card-scroll" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                     table class="data-table" {
                         thead {
                             tr {
@@ -338,8 +338,8 @@ fn shipping_detail_page(
 
             // ── Remarks ──
             @if !s.remark.is_empty() {
-                div class="info-card mt-6" {
-                    div class="info-card-title" { "备注" }
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)] mt-6" {
+                    div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "备注" }
                     p class="text-muted" { (s.remark.as_str()) }
                 }
             }

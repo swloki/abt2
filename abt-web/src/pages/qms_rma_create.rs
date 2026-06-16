@@ -266,7 +266,7 @@ fn rma_create_page(customers: &[Customer], products: &[Product], sales_orders: &
                 }
 
                 // ── Action bar ──
-                div class="create-action-bar" {
+                div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
                     a class="btn btn-default" href=(format!("{}?restore=true", RmaListPath::PATH)) { "取消" }
                     button type="submit" class="btn btn-default" name="action" value="save" {
                         (icon::check_circle_icon("w-4 h-4"))

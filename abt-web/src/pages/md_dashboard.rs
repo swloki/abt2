@@ -124,8 +124,8 @@ fn md_dashboard_content(
 
 fn stat_card(label: &str, value: &str) -> Markup {
     html! {
-        div class="info-card-flat" {
-            span class="info-label" { (label) }
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-flat" {
+            span class="text-xs text-muted font-medium" { (label) }
             div style="display:flex;align-items:baseline;gap:var(--space-2);margin-top:var(--space-2)" {
                 span class="amount-value text-2xl" { (value) }
             }

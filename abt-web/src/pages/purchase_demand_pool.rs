@@ -399,7 +399,7 @@ fn view_toggle_and_filter(active: &str, params: &DemandPoolQueryParams) -> Marku
                 }
             }
 
-            form class="filter-bar"
+            form class="flex items-center gap-3 mb-5 flex-wrap"
                 hx-get=(PurchaseDemandPoolListPath::PATH)
                 hx-trigger="change, keyup changed delay:300ms from:.search-input"
                 hx-target="#demand-pool-data-card"
@@ -407,13 +407,13 @@ fn view_toggle_and_filter(active: &str, params: &DemandPoolQueryParams) -> Marku
                 hx-swap="outerHTML"
                 hx-push-url="true" {
                 input type="hidden" name="view" value=(active);
-                div class="search-wrap" {
+                div class="relative flex-1 max-w-xs" {
                     (icon::search_icon("w-4 h-4"))
-                    input class="search-input" type="text" name="keyword"
+                    input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword"
                         placeholder="搜索物料名称、编码…"
                         value=(keyword);
                 }
-                select class="filter-select" name="date_filter" {
+                select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="date_filter" {
                     option value="" selected[date_filter_val.is_empty()] { "全部需求日期" }
                     option value="3days" selected[date_filter_val == "3days"] { "近3天到期" }
                     option value="7days" selected[date_filter_val == "7days"] { "近7天到期" }
@@ -557,7 +557,7 @@ fn material_table_fragment(
     let qs = material_query_string(params.keyword.as_deref(), params.date_filter.as_deref());
 
     html! {
-        div class="data-card" id="materialView" {
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" id="materialView" {
             (material_table_header())
             @for m in &result.items {
                 (material_row(m))
@@ -624,13 +624,13 @@ fn material_row(m: &MaterialAggSummary) -> Markup {
             }
 
             div class="material-stat" {
-                div class="material-stat-value" { (fmt_qty(m.total_demand_qty)) }
-                div class="material-stat-label" { "总需求量" }
+                div class="material-text-2xl font-bold font-mono tabular-nums text-fg" { (fmt_qty(m.total_demand_qty)) }
+                div class="material-text-sm text-muted mt-1" { "总需求量" }
             }
 
             div class="material-stat" {
-                div class="material-stat-value" { (m.demand_count) }
-                div class="material-stat-label" { "涉及订单" }
+                div class="material-text-2xl font-bold font-mono tabular-nums text-fg" { (m.demand_count) }
+                div class="material-text-sm text-muted mt-1" { "涉及订单" }
             }
 
             div class="material-stat material-stat-date" {
@@ -720,7 +720,7 @@ fn demand_expand_row(d: &DemandSummary) -> Markup {
             td class="num-right mono" { (fmt_qty(d.quantity)) }
             td class="mono" { (req_date) }
             td {
-                span class="tag-chip" style=(pri_style) { (pri_text) }
+                span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium" style=(pri_style) { (pri_text) }
             }
             td {
                 span class=(format!("status-pill {status_class}")) style="font-size:11px;padding:2px 8px;" { (status_text) }
@@ -738,8 +738,8 @@ fn detail_table_fragment(
     let qs = detail_query_string(params.keyword.as_deref(), params.date_filter.as_deref());
 
     html! {
-        div class="data-card" id="detailView" {
-            div class="data-card-scroll" {
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" id="detailView" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                 table class="data-table" {
                     thead {
                         tr {
@@ -814,7 +814,7 @@ fn detail_row(d: &DemandSummary) -> Markup {
             td class="num-right mono" { (fmt_qty(d.quantity)) }
             td class="mono" { (req_date) }
             td {
-                span class="tag-chip" style=(pri_style) { (pri_text) }
+                span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium" style=(pri_style) { (pri_text) }
             }
             td {
                 span class=(format!("status-pill {status_class}")) style="font-size:11px;padding:2px 8px;" { (status_text) }

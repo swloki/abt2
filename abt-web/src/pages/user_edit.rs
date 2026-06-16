@@ -194,7 +194,7 @@ fn user_edit_page(
             }
 
             // ── Action Bar ──
-            div class="create-action-bar" {
+            div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
                 a class="btn btn-default" href=(&detail_path) { "取消" }
                 button type="submit" class="btn btn-primary" form="user-edit-form" {
                     (icon::check_circle_icon("w-4 h-4"))
@@ -369,7 +369,7 @@ fn data_scope_section(user: &UserWithRoles, user_depts: &[Department]) -> Markup
                     @if !is_super_admin && has_departments {
                         div class="scope-dept-tags" {
                             @for dept in user_depts {
-                                span class="tag-chip tag-normal" { (&dept.department_name) }
+                                span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium tag-normal" { (&dept.department_name) }
                             }
                         }
                     }

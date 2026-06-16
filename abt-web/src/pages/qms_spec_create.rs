@@ -197,7 +197,7 @@ fn spec_create_page(products: &[abt_core::master_data::product::model::Product])
                         (icon::clipboard_list_icon("w-[18px] h-[18px]"))
                         "检验项目"
                     }
-                    div class="data-card-scroll" {
+                    div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                         table class="data-table" id="check-items-table" {
                             thead {
                                 tr {
@@ -287,7 +287,7 @@ fn spec_create_page(products: &[abt_core::master_data::product::model::Product])
                 input type="hidden" name="check_items_json" id="check-items-json";
 
                 // ── Action Bar ──
-                div class="create-action-bar" {
+                div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
                     a class="btn btn-default" href=(format!("{}?restore=true", SpecListPath::PATH)) { "取消" }
                     button type="button" class="btn btn-default" id="save-draft-btn" { "保存草稿" }
                     button type="submit" class="btn btn-primary" {

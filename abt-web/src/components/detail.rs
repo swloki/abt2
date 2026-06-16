@@ -3,8 +3,8 @@ use maud::{Markup, html};
 /// A label-value row used in detail pages.
 pub fn detail_row(label: &str, value: Markup) -> Markup {
     html! {
-        div class="detail-row" {
-            span class="detail-label" { (label) }
+        div class="flex py-2 text-sm" {
+            span class="w-[90px] shrink-0 text-muted" { (label) }
             span class="detail-value" { (value) }
         }
     }

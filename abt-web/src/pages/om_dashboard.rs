@@ -328,36 +328,36 @@ fn om_dashboard_page(total: u64, ctx: &OmDashboardContext) -> Markup {
                 div class="stat-card" {
                     div class="stat-icon blue" { (icon::file_text_icon("w-5 h-5")) }
                     div {
-                        div class="stat-value" { (total) }
-                        div class="stat-label" { "委外单总数" }
+                        div class="text-2xl font-bold font-mono tabular-nums text-fg" { (total) }
+                        div class="text-sm text-muted mt-1" { "委外单总数" }
                     }
                 }
                 div class="stat-card" {
                     div class="stat-icon green" { (icon::tool_icon("w-5 h-5")) }
                     div {
-                        div class="stat-value" { (ctx.in_production) }
-                        div class="stat-label" { "生产中" }
+                        div class="text-2xl font-bold font-mono tabular-nums text-fg" { (ctx.in_production) }
+                        div class="text-sm text-muted mt-1" { "生产中" }
                     }
                 }
                 div class="stat-card" {
                     div class="stat-icon orange" { (icon::package_icon("w-5 h-5")) }
                     div {
-                        div class="stat-value" { (ctx.delivered) }
-                        div class="stat-label" { "待收货" }
+                        div class="text-2xl font-bold font-mono tabular-nums text-fg" { (ctx.delivered) }
+                        div class="text-sm text-muted mt-1" { "待收货" }
                     }
                 }
                 div class="stat-card" {
                     div class="stat-icon red" { (icon::alert_triangle_icon("w-5 h-5")) }
                     div {
-                        div class="stat-value" { (ctx.overdue) }
-                        div class="stat-label" { "超期预警" }
+                        div class="text-2xl font-bold font-mono tabular-nums text-fg" { (ctx.overdue) }
+                        div class="text-sm text-muted mt-1" { "超期预警" }
                     }
                 }
                 div class="stat-card" {
                     div class="stat-icon purple" { (icon::currency_icon("w-5 h-5")) }
                     div {
-                        div class="stat-value" { (format_amount(ctx.monthly_amount)) }
-                        div class="stat-label" { "本月委外金额" }
+                        div class="text-2xl font-bold font-mono tabular-nums text-fg" { (format_amount(ctx.monthly_amount)) }
+                        div class="text-sm text-muted mt-1" { "本月委外金额" }
                     }
                 }
             }
@@ -379,7 +379,7 @@ fn om_dashboard_page(total: u64, ctx: &OmDashboardContext) -> Markup {
                     (icon::clock_icon("w-4 h-4"))
                     " 最近委外单"
                 }
-                div class="data-card" style="overflow:hidden" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" style="overflow:hidden" {
                     table class="data-table" style="width:100%;min-width:auto" {
                         thead {
                             tr {
@@ -449,7 +449,7 @@ fn om_dashboard_page(total: u64, ctx: &OmDashboardContext) -> Markup {
                         (icon::grid_icon("w-4 h-4"))
                         " 委外类型分布"
                     }
-                    div class="data-card" style="padding:var(--space-5)" {
+                    div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" style="padding:var(--space-5)" {
                         @for entry in ctx.type_dist {
                             div style="margin-bottom:var(--space-4)" {
                                 div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--space-2)" {
@@ -478,7 +478,7 @@ fn om_dashboard_page(total: u64, ctx: &OmDashboardContext) -> Markup {
                         (icon::trending_up_icon("w-4 h-4"))
                         " 供应商委外金额排名"
                     }
-                    div class="data-card" style="padding:var(--space-5)" {
+                    div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" style="padding:var(--space-5)" {
                         @for (i, entry) in ctx.supplier_ranking.iter().enumerate() {
                             @let medal = match i {
                                 0 => "🥇",

@@ -68,12 +68,12 @@ fn receipt_table_fragment(
     params: &ReceiptQueryParams,
 ) -> Markup {
     html! { div {
-        form id="filter-form" class="filter-bar filter-form" hx-get=(ReceiptListPath::PATH)
+        form id="filter-form" class="flex items-center gap-3 mb-5 flex-wrap filter-form" hx-get=(ReceiptListPath::PATH)
             hx-trigger="change, keyup changed delay:300ms from:.search-input"
             hx-target="#receipt-data-card" hx-select="#receipt-data-card" hx-swap="outerHTML" hx-include="#filter-form"
                 hx-push-url="true" {
-            div class="search-wrap" { (icon::search_icon("w-4 h-4"))
-                input class="search-input" type="text" name="keyword" style="width:180px" placeholder="搜索单号…" value=(params.keyword.as_deref().unwrap_or(""));
+            div class="relative flex-1 max-w-xs" { (icon::search_icon("w-4 h-4"))
+                input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword" style="width:180px" placeholder="搜索单号…" value=(params.keyword.as_deref().unwrap_or(""));
             }
         }
         (receipt_data_card(result, params))
@@ -89,8 +89,8 @@ fn receipt_data_card(
     let query = qs.join("&");
 
     html! {
-        div class="data-card" id="receipt-data-card" {
-            div class="data-card-scroll" {
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" id="receipt-data-card" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                 table class="data-table" { thead { tr {
                     th { "单号" } th { "工单" } th { "批次" } th { "产品" }
                     th class="num-right" { "入库数量" } th { "仓库" } th { "状态" } th { "操作" }

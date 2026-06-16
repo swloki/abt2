@@ -313,20 +313,20 @@ fn fulfillment_progress(items: &[SalesOrderItem], plan_lines: &[FulfillmentPlanL
                 }
                 div class="progress-stats" {
                     div class="progress-stat" {
-                        div class="progress-stat-value green" { (fmt_qty(total_shipped)) }
-                        div class="progress-stat-label" { "已发货" }
+                        div class="progress-text-2xl font-bold font-mono tabular-nums text-fg green" { (fmt_qty(total_shipped)) }
+                        div class="progress-text-sm text-muted mt-1" { "已发货" }
                     }
                     div class="progress-stat" {
-                        div class="progress-stat-value blue" { (fmt_qty(total_allocated)) }
-                        div class="progress-stat-label" { "已分配" }
+                        div class="progress-text-2xl font-bold font-mono tabular-nums text-fg blue" { (fmt_qty(total_allocated)) }
+                        div class="progress-text-sm text-muted mt-1" { "已分配" }
                     }
                     div class="progress-stat" {
-                        div class="progress-stat-value orange" { (fmt_qty(total_producing + total_purchasing)) }
-                        div class="progress-stat-label" { "补货中" }
+                        div class="progress-text-2xl font-bold font-mono tabular-nums text-fg orange" { (fmt_qty(total_producing + total_purchasing)) }
+                        div class="progress-text-sm text-muted mt-1" { "补货中" }
                     }
                     div class="progress-stat" {
-                        div class="progress-stat-value" { (fmt_qty(total_open)) }
-                        div class="progress-stat-label" { "未交量" }
+                        div class="progress-text-2xl font-bold font-mono tabular-nums text-fg" { (fmt_qty(total_open)) }
+                        div class="progress-text-sm text-muted mt-1" { "未交量" }
                     }
                 }
             }
@@ -669,7 +669,7 @@ fn order_detail_page(
             @if producing_count > 0 || purchasing_count > 0 || cascade_count > 0 {
                 div class="flex gap-3 mb-4" {
                     @if producing_count > 0 {
-                        a class="info-card flex items-center gap-2 px-4 py-2 hover:shadow-md transition-shadow"
+                        a class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)] flex items-center gap-2 px-4 py-2 hover:shadow-md transition-shadow"
                           href=(format!("/admin/mes/demand-pool?order_id={}", order_id))
                         {
                             span class="text-2xl font-bold text-blue-600" { (producing_count) }
@@ -677,7 +677,7 @@ fn order_detail_page(
                         }
                     }
                     @if purchasing_count > 0 {
-                        a class="info-card flex items-center gap-2 px-4 py-2 hover:shadow-md transition-shadow"
+                        a class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)] flex items-center gap-2 px-4 py-2 hover:shadow-md transition-shadow"
                           href=(format!("/admin/purchase/demand-pool?order_id={}", order_id))
                         {
                             span class="text-2xl font-bold text-orange-600" { (purchasing_count) }
@@ -685,7 +685,7 @@ fn order_detail_page(
                         }
                     }
                     @if cascade_count > 0 {
-                        div class="info-card flex items-center gap-2 px-4 py-2" {
+                        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)] flex items-center gap-2 px-4 py-2" {
                             span class="text-2xl font-bold text-purple-600" { (cascade_count) }
                             span class="text-sm text-gray-500" { "BOM展开需求" }
                         }
@@ -699,47 +699,47 @@ fn order_detail_page(
             (fulfillment_progress(items, plan_lines))
 
             // ── Order Info ──
-            div class="info-card" {
-                div class="info-card-title" { "订单信息" }
-                div class="info-grid" {
-                    div class="info-item" {
-                        span class="info-label" { "客户名称" }
-                        span class="info-value" { (customer_name) }
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "订单信息" }
+                div class="grid gap-4" {
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "客户名称" }
+                        span class="text-sm text-fg font-medium" { (customer_name) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "联系人" }
-                        span class="info-value" { (contact_name) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "联系人" }
+                        span class="text-sm text-fg font-medium" { (contact_name) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "联系电话" }
-                        span class="info-value mono" { (contact_phone) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "联系电话" }
+                        span class="text-sm text-fg font-medium mono" { (contact_phone) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "业务员" }
-                        span class="info-value" { (sales_rep) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "业务员" }
+                        span class="text-sm text-fg font-medium" { (sales_rep) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "交货日期" }
-                        span class="info-value mono" { (o.order_date.format("%Y-%m-%d")) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "交货日期" }
+                        span class="text-sm text-fg font-medium mono" { (o.order_date.format("%Y-%m-%d")) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "付款条款" }
-                        span class="info-value" { (o.payment_terms.as_str()) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "付款条款" }
+                        span class="text-sm text-fg font-medium" { (o.payment_terms.as_str()) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "交货条款" }
-                        span class="info-value" { (o.delivery_terms.as_str()) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "交货条款" }
+                        span class="text-sm text-fg font-medium" { (o.delivery_terms.as_str()) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "交货地址" }
-                        span class="info-value" { (o.delivery_address.as_str()) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "交货地址" }
+                        span class="text-sm text-fg font-medium" { (o.delivery_address.as_str()) }
                     }
                 }
             }
 
             // ── Items Table (四量模型) ──
-            div class="data-card" {
-                div class="data-card-scroll" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                     table class="data-table" {
                         thead {
                             tr {
@@ -788,8 +788,8 @@ fn order_detail_page(
 
             // ── Remarks ──
             @if !o.remark.is_empty() {
-                div class="info-card" style="margin-top:var(--space-6)" {
-                    div class="info-card-title" { "备注" }
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" style="margin-top:var(--space-6)" {
+                    div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "备注" }
                     p class="text-muted" { (o.remark.as_str()) }
                 }
             }

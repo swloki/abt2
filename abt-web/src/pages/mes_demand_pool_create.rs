@@ -399,7 +399,7 @@ fn create_page_content(
                         });</script>"#))
                     }
 
-                    div class="data-card-scroll" {
+                    div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                         table class="data-table" {
                             thead {
                                 tr {
@@ -451,7 +451,7 @@ fn create_page_content(
                 }
 
                 // ── Action Bar ──
-                div class="create-action-bar" {
+                div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
                     a class="btn btn-default" href=(format!("{}?restore=true", MesDemandPoolListPath::PATH)) { "取消" }
                     div style="display:flex;gap:var(--space-3);" {
                         button type="submit" name="action" value="draft" class="btn btn-default" {

@@ -182,36 +182,36 @@ fn price_history_page(rows: &[PriceHistoryRow], total: u64, page: u32, total_pag
                 div class="stat-card" {
                     div class="stat-icon blue" { (icon::currency_icon("w-5 h-5")) }
                     div {
-                        div class="stat-value" { (total) }
-                        div class="stat-label" { "总变更次数" }
+                        div class="text-2xl font-bold font-mono tabular-nums text-fg" { (total) }
+                        div class="text-sm text-muted mt-1" { "总变更次数" }
                     }
                 }
                 div class="stat-card" {
                     div class="stat-icon green" { (icon::trending_up_icon("w-5 h-5")) }
                     div {
-                        div class="stat-value" { "—" }
-                        div class="stat-label" { "平均涨幅" }
+                        div class="text-2xl font-bold font-mono tabular-nums text-fg" { "—" }
+                        div class="text-sm text-muted mt-1" { "平均涨幅" }
                     }
                 }
                 div class="stat-card" {
                     div class="stat-icon orange" { (icon::clock_icon("w-5 h-5")) }
                     div {
-                        div class="stat-value" { "—" }
-                        div class="stat-label" { "本月变更" }
+                        div class="text-2xl font-bold font-mono tabular-nums text-fg" { "—" }
+                        div class="text-sm text-muted mt-1" { "本月变更" }
                     }
                 }
                 div class="stat-card" {
                     div class="stat-icon red" { (icon::lock_icon("w-5 h-5")) }
                     div {
-                        div class="stat-value" { "—" }
-                        div class="stat-label" { "涉及产品数" }
+                        div class="text-2xl font-bold font-mono tabular-nums text-fg" { "—" }
+                        div class="text-sm text-muted mt-1" { "涉及产品数" }
                     }
                 }
             }
             // ── Filter Bar + Table ──
             div class="customer-list-panel" {
                 // ── Filter Bar ──
-                form id="filter-form" class="filter-bar filter-form"
+                form id="filter-form" class="flex items-center gap-3 mb-5 flex-wrap filter-form"
                     hx-get=(PriceHistoryListPath::PATH)
                     hx-trigger="change,keyup changed delay:300ms from:.search-input"
                     hx-target=".data-card"
@@ -219,18 +219,18 @@ fn price_history_page(rows: &[PriceHistoryRow], total: u64, page: u32, total_pag
                     hx-swap="outerHTML"
                     hx-include="#filter-form"
                 hx-push-url="true" {
-                    div class="search-wrap" {
+                    div class="relative flex-1 max-w-xs" {
                         (icon::search_icon("w-4 h-4"))
-                        input class="search-input" type="text" name="keyword"
+                        input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword"
                             placeholder="搜索产品名称 / 编码…"
                             value=(params.keyword.as_deref().unwrap_or(""));
                     }
-                    input class="search-input" type="date" name="date_from"
+                    input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="date" name="date_from"
                         style="width:150px;padding-left:12px"
                         value=(params.date_from.as_deref().unwrap_or(""))
                         title="开始日期";
                     span style="color:var(--muted);font-size:13px;line-height:36px" { "至" }
-                    input class="search-input" type="date" name="date_to"
+                    input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="date" name="date_to"
                         style="width:150px;padding-left:12px"
                         value=(params.date_to.as_deref().unwrap_or(""))
                         title="结束日期";
@@ -260,8 +260,8 @@ fn price_history_page(rows: &[PriceHistoryRow], total: u64, page: u32, total_pag
 
 fn data_card(rows: &[PriceHistoryRow], total: u64, page: u32, total_pages: u32) -> Markup {
     html! {
-        div class="data-card" {
-            div class="data-card-scroll" {
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                 table class="data-table" style="width:100%;table-layout:fixed" {
                     thead {
                         tr {
@@ -407,20 +407,20 @@ fn detail_content(row: &PriceHistoryRow) -> Markup {
                 (icon::box_icon("w-4 h-4"))
                 "产品信息"
             }
-            div class="detail-info-grid" {
-                div class="detail-info-item" {
+            div class="detail-grid gap-4" {
+                div class="detail-flex flex-col gap-1" {
                     label { "产品名称" }
                     span { (row.product_name) }
                 }
-                div class="detail-info-item" {
+                div class="detail-flex flex-col gap-1" {
                     label { "产品编码" }
                     span style="font-family:var(--font-mono)" { (row.product_code) }
                 }
-                div class="detail-info-item" {
+                div class="detail-flex flex-col gap-1" {
                     label { "价格类型" }
                     span { (price_type_label(row.price_type)) }
                 }
-                div class="detail-info-item" {
+                div class="detail-flex flex-col gap-1" {
                     label { "操作人" }
                     span { (row.operator_name) }
                 }

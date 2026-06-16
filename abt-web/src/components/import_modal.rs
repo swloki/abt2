@@ -14,12 +14,12 @@ pub fn import_modal(config: &ImportModalConfig) -> Markup {
     html! {
         div id=(modal_id) class="modal-overlay" _="on click[me is event.target] remove .is-open" {
             div class="modal modal-import" {
-                div class="modal-head" {
+                div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
                     h2 { (config.title) }
                     button type="button" class="modal-close-btn"
                         _="on click remove .is-open from closest .modal-overlay" { "×" }
                 }
-                div class="modal-body" {
+                div class="overflow-y-auto flex-1 min-h-0 p-6" {
                     div id=(format!("import-content-{}", config.import_type)) {
                         (render_import_form(config))
                     }
@@ -93,12 +93,12 @@ pub fn render_import_result(result: &abt_core::shared::excel::ImportResult) -> M
         div class="import-result" {
             div class="import-result-stats" {
                 div class="import-stat" {
-                    span class="import-stat-value success" { (result.success_count) }
-                    span class="import-stat-label" { "成功" }
+                    span class="import-text-2xl font-bold font-mono tabular-nums text-fg success" { (result.success_count) }
+                    span class="import-text-sm text-muted mt-1" { "成功" }
                 }
                 div class="import-stat" {
-                    span class="import-stat-value failed" { (result.failed_count) }
-                    span class="import-stat-label" { "失败" }
+                    span class="import-text-2xl font-bold font-mono tabular-nums text-fg failed" { (result.failed_count) }
+                    span class="import-text-sm text-muted mt-1" { "失败" }
                 }
             }
             @if !result.row_errors.is_empty() {

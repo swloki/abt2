@@ -159,34 +159,34 @@ fn bin_detail_page(
             // ── Tab: 基本信息 ──
             div.tab-panel id="tab-info" {
                 // Info card
-                div class="info-card" {
-                    div class="info-card-title" { "储位信息" }
-                    div class="info-grid" {
-                        div class="info-item" {
-                            span class="info-label" { "储位编码" }
-                            span class="info-value" style="font-family:var(--font-mono)" { (bin.code) }
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
+                    div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "储位信息" }
+                    div class="grid gap-4" {
+                        div class="flex flex-col gap-1" {
+                            span class="text-xs text-muted font-medium" { "储位编码" }
+                            span class="text-sm text-fg font-medium" style="font-family:var(--font-mono)" { (bin.code) }
                         }
-                        div class="info-item" {
-                            span class="info-label" { "储位名称" }
-                            span class="info-value" { (bin.name) }
+                        div class="flex flex-col gap-1" {
+                            span class="text-xs text-muted font-medium" { "储位名称" }
+                            span class="text-sm text-fg font-medium" { (bin.name) }
                         }
-                        div class="info-item" {
-                            span class="info-label" { "所属仓库" }
-                            span class="info-value" { (bww.warehouse_name) }
+                        div class="flex flex-col gap-1" {
+                            span class="text-xs text-muted font-medium" { "所属仓库" }
+                            span class="text-sm text-fg font-medium" { (bww.warehouse_name) }
                         }
-                        div class="info-item" {
-                            span class="info-label" { "所属库区" }
-                            span class="info-value" { (zone_name) }
+                        div class="flex flex-col gap-1" {
+                            span class="text-xs text-muted font-medium" { "所属库区" }
+                            span class="text-sm text-fg font-medium" { (zone_name) }
                         }
-                        div class="info-item" {
-                            span class="info-label" { "储位状态" }
-                            span class="info-value" {
+                        div class="flex flex-col gap-1" {
+                            span class="text-xs text-muted font-medium" { "储位状态" }
+                            span class="text-sm text-fg font-medium" {
                                 span class=(format!("status-pill {status_class}")) { (status_label) }
                             }
                         }
-                        div class="info-item" {
-                            span class="info-label" { "容量上限" }
-                            span class="info-value" style="font-family:var(--font-mono)" {
+                        div class="flex flex-col gap-1" {
+                            span class="text-xs text-muted font-medium" { "容量上限" }
+                            span class="text-sm text-fg font-medium" style="font-family:var(--font-mono)" {
                                 @if let Some(cap) = &bin.capacity_limit {
                                     (format!("{:.2}", cap))
                                 } @else {
@@ -194,19 +194,19 @@ fn bin_detail_page(
                                 }
                             }
                         }
-                        div class="info-item" {
-                            span class="info-label" { "已用容量" }
-                            span class="info-value" style="font-family:var(--font-mono);color:var(--warn)" { (used_qty) }
+                        div class="flex flex-col gap-1" {
+                            span class="text-xs text-muted font-medium" { "已用容量" }
+                            span class="text-sm text-fg font-medium" style="font-family:var(--font-mono);color:var(--warn)" { (used_qty) }
                         }
-                        div class="info-item" {
-                            span class="info-label" { "温控要求" }
-                            span class="info-value" {
+                        div class="flex flex-col gap-1" {
+                            span class="text-xs text-muted font-medium" { "温控要求" }
+                            span class="text-sm text-fg font-medium" {
                                 (bin.temperature_req.as_deref().map(temperature_label).unwrap_or("无要求"))
                             }
                         }
-                        div class="info-item" {
-                            span class="info-label" { "允许物料类型" }
-                            span class="info-value" {
+                        div class="flex flex-col gap-1" {
+                            span class="text-xs text-muted font-medium" { "允许物料类型" }
+                            span class="text-sm text-fg font-medium" {
                                 @if let Some(types) = &bin.allowed_product_types {
                                     @for t in types {
                                         @let (bg, fg) = product_type_color(t);
@@ -219,15 +219,15 @@ fn bin_detail_page(
                                 }
                             }
                         }
-                        div class="info-item" {
-                            span class="info-label" { "创建时间" }
-                            span class="info-value" style="font-family:var(--font-mono)" {
+                        div class="flex flex-col gap-1" {
+                            span class="text-xs text-muted font-medium" { "创建时间" }
+                            span class="text-sm text-fg font-medium" style="font-family:var(--font-mono)" {
                                 (bin.created_at.format("%Y-%m-%d %H:%M"))
                             }
                         }
-                        div class="info-item" {
-                            span class="info-label" { "最后更新" }
-                            span class="info-value" style="font-family:var(--font-mono)" {
+                        div class="flex flex-col gap-1" {
+                            span class="text-xs text-muted font-medium" { "最后更新" }
+                            span class="text-sm text-fg font-medium" style="font-family:var(--font-mono)" {
                                 (bin.updated_at.format("%Y-%m-%d %H:%M"))
                             }
                         }
@@ -235,8 +235,8 @@ fn bin_detail_page(
                 }
 
                 // Coordinates card
-                div class="info-card" style="margin-top:var(--space-4)" {
-                    div class="info-card-title" { "储位坐标" }
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" style="margin-top:var(--space-4)" {
+                    div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "储位坐标" }
                     div style="display:flex;gap:var(--space-4);margin-top:var(--space-3)" {
                         div style="text-align:center;flex:1;background:var(--surface);border:1px solid var(--border-soft);border-radius:var(--radius-md);padding:var(--space-4)" {
                             div style="font-size:var(--text-xl);font-weight:700;font-family:var(--font-mono);color:var(--fg)" {
@@ -279,8 +279,8 @@ fn bin_detail_page(
 
             // ── Tab: 库存明细 ──
             div.tab-panel id="tab-stock" style="display:none" {
-                div class="data-card" {
-                    div class="data-card-scroll" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" {
+                    div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                         table class="data-table" {
                             thead {
                                 tr {
@@ -308,8 +308,8 @@ fn bin_detail_page(
 
             // ── Tab: 操作历史 ──
             div.tab-panel id="tab-history" style="display:none" {
-                div class="data-card" {
-                    div class="data-card-scroll" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" {
+                    div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                         table class="data-table" {
                             thead {
                                 tr {

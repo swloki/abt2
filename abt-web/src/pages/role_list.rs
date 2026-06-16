@@ -271,8 +271,8 @@ fn role_list_page(
                         (icon::lock_icon("w-6 h-6"))
                     }
                     div {
-                        div class="stat-value" { (total) }
-                        div class="stat-label" { "角色总数" }
+                        div class="text-2xl font-bold font-mono tabular-nums text-fg" { (total) }
+                        div class="text-sm text-muted mt-1" { "角色总数" }
                     }
                 }
                 div class="stat-card" {
@@ -280,8 +280,8 @@ fn role_list_page(
                         (icon::check_circle_icon("w-6 h-6"))
                     }
                     div {
-                        div class="stat-value" { (system_count) }
-                        div class="stat-label" { "内置角色" }
+                        div class="text-2xl font-bold font-mono tabular-nums text-fg" { (system_count) }
+                        div class="text-sm text-muted mt-1" { "内置角色" }
                     }
                 }
                 div class="stat-card" {
@@ -289,8 +289,8 @@ fn role_list_page(
                         (icon::plus_icon("w-6 h-6"))
                     }
                     div {
-                        div class="stat-value" { (custom_count) }
-                        div class="stat-label" { "自定义角色" }
+                        div class="text-2xl font-bold font-mono tabular-nums text-fg" { (custom_count) }
+                        div class="text-sm text-muted mt-1" { "自定义角色" }
                     }
                 }
             }
@@ -313,10 +313,10 @@ fn role_table_fragment(
     html! {
         div class="role-list-panel" {
             // ── Filter Bar ──
-            div class="filter-bar" {
-                div class="search-wrap" {
+            div class="flex items-center gap-3 mb-5 flex-wrap" {
+                div class="relative flex-1 max-w-xs" {
                     (icon::search_icon("w-4 h-4"))
-                    input class="search-input" type="text" name="keyword"
+                    input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword"
                         placeholder="搜索角色名称、角色代码…"
                         value=(params.keyword.as_deref().unwrap_or(""))
                         hx-get=(RoleListPath::PATH)
@@ -326,7 +326,7 @@ fn role_table_fragment(
                         hx-swap="outerHTML"
                         hx-include="select[name='role_type']";
                 }
-                select class="filter-select" name="role_type"
+                select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="role_type"
                     hx-get=(RoleListPath::PATH)
                     hx-trigger="change"
                     hx-target="closest .role-list-panel"
@@ -339,8 +339,8 @@ fn role_table_fragment(
             }
 
             // ── Data Table ──
-            div class="data-card" {
-                div class="data-card-scroll" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                     table class="data-table" {
                         thead {
                             tr {
@@ -370,8 +370,8 @@ fn role_table_fragment(
             }
 
             // ── Pagination info ──
-            div class="pagination" {
-                span class="pagination-info" {
+            div class="flex items-center justify-between py-4" {
+                span class="flex items-center justify-between py-4-info" {
                     "共 " (roles.len()) " 条记录"
                 }
             }

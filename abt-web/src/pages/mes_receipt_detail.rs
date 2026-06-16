@@ -90,26 +90,26 @@ pub async fn get_receipt_detail(path: ReceiptDetailPath, ctx: RequestContext) ->
         }
 
         // 基本信息
-        div class="info-card" {
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
             div class="info-section-title" { "基本信息" }
-            div class="info-grid" {
-                div class="info-item" { label { "单号" } span class="mono" { (receipt.doc_number) } }
-                div class="info-item" { label { "工单" } span { (wo) } }
-                div class="info-item" { label { "批次" } span { (batch) } }
-                div class="info-item" { label { "产品" } span { (product) } }
-                div class="info-item" { label { "入库数量" } span class="mono" { (crate::utils::fmt_qty(receipt.received_qty)) } }
-                div class="info-item" { label { "仓库" } span { (warehouse) } }
-                div class="info-item" { label { "入库日期" } span { (receipt.receipt_date) } }
-                div class="info-item" { label { "倒冲触发" } span { (if receipt.backflush_triggered { "是" } else { "否" }) } }
-                div class="info-item" { label { "创建时间" } span { (receipt.created_at.format("%Y-%m-%d %H:%M")) } }
+            div class="grid gap-4" {
+                div class="flex flex-col gap-1" { label { "单号" } span class="mono" { (receipt.doc_number) } }
+                div class="flex flex-col gap-1" { label { "工单" } span { (wo) } }
+                div class="flex flex-col gap-1" { label { "批次" } span { (batch) } }
+                div class="flex flex-col gap-1" { label { "产品" } span { (product) } }
+                div class="flex flex-col gap-1" { label { "入库数量" } span class="mono" { (crate::utils::fmt_qty(receipt.received_qty)) } }
+                div class="flex flex-col gap-1" { label { "仓库" } span { (warehouse) } }
+                div class="flex flex-col gap-1" { label { "入库日期" } span { (receipt.receipt_date) } }
+                div class="flex flex-col gap-1" { label { "倒冲触发" } span { (if receipt.backflush_triggered { "是" } else { "否" }) } }
+                div class="flex flex-col gap-1" { label { "创建时间" } span { (receipt.created_at.format("%Y-%m-%d %H:%M")) } }
                 @if !receipt.remark.is_empty() {
-                    div class="info-item span-2" { label { "备注" } span { (receipt.remark) } }
+                    div class="flex flex-col gap-1 span-2" { label { "备注" } span { (receipt.remark) } }
                 }
             }
         }
 
         // FQC 质检卡片
-        div class="info-card" {
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
             div class="info-section-title" { "FQC 质检状态" }
             div { (fqc_badge(&fqc_status)) }
             @if matches!(fqc_status, FqcGate::PendingInspection) {
@@ -118,14 +118,14 @@ pub async fn get_receipt_detail(path: ReceiptDetailPath, ctx: RequestContext) ->
         }
 
         // 成本明细
-        div class="info-card" {
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
             div class="info-section-title" { "成本明细" }
-            div class="info-grid" {
-                div class="info-item" {
+            div class="grid gap-4" {
+                div class="flex flex-col gap-1" {
                     label { "入库数量" }
                     span class="mono" { (crate::utils::fmt_qty(receipt.received_qty)) }
                 }
-                div class="info-item" {
+                div class="flex flex-col gap-1" {
                     label { "单位成本" }
                     @if unit_cost > rust_decimal::Decimal::ZERO {
                         span class="mono" { (crate::utils::fmt_amount(unit_cost)) }
@@ -133,7 +133,7 @@ pub async fn get_receipt_detail(path: ReceiptDetailPath, ctx: RequestContext) ->
                         span class="muted" { "—（无历史成本）" }
                     }
                 }
-                div class="info-item" {
+                div class="flex flex-col gap-1" {
                     label { "总成本" }
                     span class="mono" { strong { (crate::utils::fmt_amount(total_cost)) } }
                 }

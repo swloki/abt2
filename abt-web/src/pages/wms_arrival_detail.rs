@@ -252,55 +252,55 @@ fn arrival_detail_page(
             (workflow_steps(notice.status))
 
             // ── 基本信息 ──
-            div class="info-card" {
-                div class="info-card-title" { "基本信息" }
-                div class="info-grid" {
-                    div class="info-item" {
-                        span class="info-label" { "单据编号" }
-                        span class="info-value mono" { (notice.doc_number) }
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "基本信息" }
+                div class="grid gap-4" {
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "单据编号" }
+                        span class="text-sm text-fg font-medium mono" { (notice.doc_number) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "来源采购单" }
-                        span class="info-value mono" {
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "来源采购单" }
+                        span class="text-sm text-fg font-medium mono" {
                             (notice.purchase_order_id.map(|id| id.to_string()).unwrap_or_else(|| "—".into()))
                         }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "供应商" }
-                        span class="info-value" { (supplier_name) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "供应商" }
+                        span class="text-sm text-fg font-medium" { (supplier_name) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "到货仓库" }
-                        span class="info-value" { (wh_name) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "到货仓库" }
+                        span class="text-sm text-fg font-medium" { (wh_name) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "到货库区" }
-                        span class="info-value" {
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "到货库区" }
+                        span class="text-sm text-fg font-medium" {
                             (notice.zone_id.map(|id| id.to_string()).unwrap_or_else(|| "—".into()))
                         }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "到货日期" }
-                        span class="info-value mono" { (notice.arrival_date.format("%Y-%m-%d")) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "到货日期" }
+                        span class="text-sm text-fg font-medium mono" { (notice.arrival_date.format("%Y-%m-%d")) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "送货单号" }
-                        span class="info-value mono" { (notice.delivery_note.as_deref().unwrap_or("—")) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "送货单号" }
+                        span class="text-sm text-fg font-medium mono" { (notice.delivery_note.as_deref().unwrap_or("—")) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "备注" }
-                        span class="info-value" { (if notice.remark.is_empty() { "—" } else { &notice.remark }) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "备注" }
+                        span class="text-sm text-fg font-medium" { (if notice.remark.is_empty() { "—" } else { &notice.remark }) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "操作员" }
-                        span class="info-value" { (operator_name) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "操作员" }
+                        span class="text-sm text-fg font-medium" { (operator_name) }
                     }
                 }
             }
 
             // ── 行项明细 ──
-            div class="data-card" {
-                div class="data-card-scroll" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                     table class="data-table" {
                         thead {
                             tr {
@@ -337,28 +337,28 @@ fn arrival_detail_page(
 
             // ── IQC 质检结果区 ──
             @if is_inspecting || notice.status == ArrivalStatus::Accepted || notice.status == ArrivalStatus::PartiallyAccepted || notice.status == ArrivalStatus::Rejected {
-                div class="info-card" style="border-left:3px solid var(--warn)" {
-                    div class="info-card-title" style="display:flex;align-items:center;gap:var(--space-2)" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" style="border-left:3px solid var(--warn)" {
+                    div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" style="display:flex;align-items:center;gap:var(--space-2)" {
                         (icon::clipboard_list_icon("w-4 h-4"))
                         "IQC质检结果"
                         span class="status-pill status-inspecting" style="margin-left:var(--space-2)" { "检验中" }
                     }
-                    div class="info-grid" style="margin-bottom:var(--space-4)" {
-                        div class="info-item" {
-                            span class="info-label" { "检验标准" }
-                            span class="info-value" { "GB/T 2828.1 抽样检验" }
+                    div class="grid gap-4" style="margin-bottom:var(--space-4)" {
+                        div class="flex flex-col gap-1" {
+                            span class="text-xs text-muted font-medium" { "检验标准" }
+                            span class="text-sm text-fg font-medium" { "GB/T 2828.1 抽样检验" }
                         }
-                        div class="info-item" {
-                            span class="info-label" { "AQL等级" }
-                            span class="info-value mono" { "0.65" }
+                        div class="flex flex-col gap-1" {
+                            span class="text-xs text-muted font-medium" { "AQL等级" }
+                            span class="text-sm text-fg font-medium mono" { "0.65" }
                         }
-                        div class="info-item" {
-                            span class="info-label" { "检验员" }
-                            span class="info-value" { "—" }
+                        div class="flex flex-col gap-1" {
+                            span class="text-xs text-muted font-medium" { "检验员" }
+                            span class="text-sm text-fg font-medium" { "—" }
                         }
-                        div class="info-item" {
-                            span class="info-label" { "计划完成日期" }
-                            span class="info-value mono" { "—" }
+                        div class="flex flex-col gap-1" {
+                            span class="text-xs text-muted font-medium" { "计划完成日期" }
+                            span class="text-sm text-fg font-medium mono" { "—" }
                         }
                     }
                     div style="background:var(--surface-warm);border:1px solid var(--border);border-radius:var(--radius-sm);padding:var(--space-3) var(--space-4);font-size:var(--text-sm);color:var(--fg-2)" {

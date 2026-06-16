@@ -94,43 +94,43 @@ pub async fn get_detail(path: MrbDetailPath, ctx: RequestContext) -> Result<Html
         }
 
         // ── 基本信息 ──
-        div class="info-card" {
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
             h3 { "基本信息" }
-            div class="info-grid" {
-                div class="info-item" {
+            div class="grid gap-4" {
+                div class="flex flex-col gap-1" {
                     label { "关联检验结果单号" }
                     span class="mono" { (inspection_doc) }
                 }
-                div class="info-item" { label { "产品" } span { (product_name) } }
-                div class="info-item" {
+                div class="flex flex-col gap-1" { label { "产品" } span { (product_name) } }
+                div class="flex flex-col gap-1" {
                     label { "处置方式" }
                     span class=(format!("status-pill {disp_class}")) { (disp_text) }
                 }
-                div class="info-item" {
+                div class="flex flex-col gap-1" {
                     label { "责任方" }
                     span class=(format!("status-pill {party_class}")) { (party_text) }
                 }
-                div class="info-item" { label { "成本影响" } span class="mono num-right" { (fmt_cost(mrb.cost_impact)) } }
+                div class="flex flex-col gap-1" { label { "成本影响" } span class="mono num-right" { (fmt_cost(mrb.cost_impact)) } }
             }
         }
 
         // ── 缺陷描述 ──
-        div class="info-card" {
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
             h3 { "缺陷描述" }
             p style="white-space: pre-wrap;" { (&mrb.defect_description) }
         }
 
         // ── 备注 ──
-        div class="info-card" {
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
             h3 { "备注" }
             p style="white-space: pre-wrap;" { (if mrb.remark.is_empty() { "—" } else { &mrb.remark }) }
         }
 
         // ── 其他信息 ──
-        div class="info-card" {
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
             h3 { "其他信息" }
-            div class="info-grid" {
-                div class="info-item" { label { "创建时间" } span { (mrb.created_at.format("%Y-%m-%d %H:%M")) } }
+            div class="grid gap-4" {
+                div class="flex flex-col gap-1" { label { "创建时间" } span { (mrb.created_at.format("%Y-%m-%d %H:%M")) } }
             }
         }
     }};

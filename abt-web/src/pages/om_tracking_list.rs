@@ -361,7 +361,7 @@ fn stat_card(
     icon_fn: fn(&str) -> Markup,
 ) -> Markup {
     html! {
-        div class="data-card" style="padding:var(--space-4);display:flex;align-items:center;gap:var(--space-3)" {
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" style="padding:var(--space-4);display:flex;align-items:center;gap:var(--space-3)" {
             div style=(format!("width:40px;height:40px;border-radius:var(--radius-lg);background:color-mix(in srgb, {color} 10%, transparent);display:flex;align-items:center;justify-content:center;color:{color}")) {
                 (icon_fn("w-5 h-5"))
             }
@@ -383,24 +383,24 @@ fn tracking_table_fragment(
     html! {
         div class="tracking-list-panel" {
             // ── Filter Bar ──
-            form class="filter-bar filter-form"
+            form class="flex items-center gap-3 mb-5 flex-wrap filter-form"
                 hx-get=(OmTrackingListPath::PATH)
                 hx-trigger="change, keyup changed delay:300ms from:.search-input"
                 hx-target="#tracking-data-card"
                 hx-select="#tracking-data-card"
                 hx-swap="outerHTML"
                 hx-include="closest form" {
-                div class="search-wrap" {
+                div class="relative flex-1 max-w-xs" {
                     (icon::search_icon("w-4 h-4"))
-                    input class="search-input" type="text" name="keyword"
+                    input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword"
                         style="width:180px"
                         placeholder="搜索委外单号…"
                         value=(params.keyword.as_deref().unwrap_or(""));
                 }
-                select class="filter-select" name="supplier_id" {
+                select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="supplier_id" {
                     option value="" selected[params.supplier_id.is_none()] { "全部供应商" }
                 }
-                select class="filter-select" name="node_type" {
+                select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="node_type" {
                     option value="" selected[params.node_type.is_none()] { "全部节点" }
                     option value="SendMaterial" selected[params.node_type.as_deref() == Some("SendMaterial")] { "发料" }
                     option value="CarrierPickup" selected[params.node_type.as_deref() == Some("CarrierPickup")] { "承运取货" }
@@ -410,7 +410,7 @@ fn tracking_table_fragment(
                     option value="IqcInspected" selected[params.node_type.as_deref() == Some("IqcInspected")] { "IQC检验" }
                     option value="Warehoused" selected[params.node_type.as_deref() == Some("Warehoused")] { "已入库" }
                 }
-                select class="filter-select" name="overdue_status" {
+                select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="overdue_status" {
                     option value="" selected[params.overdue_status.is_none()] { "全部状态" }
                     option value="overdue" selected[params.overdue_status.as_deref() == Some("overdue")] { "超期" }
                     option value="due_soon" selected[params.overdue_status.as_deref() == Some("due_soon")] { "即将到期" }
@@ -433,8 +433,8 @@ fn tracking_data_card(
 ) -> Markup {
     let query = build_query_string(params);
     html! {
-        div class="data-card" id="tracking-data-card" {
-            div class="data-card-scroll" {
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" id="tracking-data-card" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                 table class="data-table" {
                     thead {
                         tr {

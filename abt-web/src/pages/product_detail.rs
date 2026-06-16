@@ -316,7 +316,7 @@ fn tab_basic_info(product: &Product, status_label: &'static str, status_class: &
         div class="detail-grid" {
             // 基本信息
             div class="detail-card" {
-                div class="detail-card-title" { "基本信息" }
+                div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 border-b border-border-soft" { "基本信息" }
                 (detail_row("产品编码", html! { span class="mono" { (product.product_code) } }))
                 (detail_row("产品名称", html! { (product.pdt_name) }))
                 (detail_row("规格型号", html! {
@@ -337,7 +337,7 @@ fn tab_basic_info(product: &Product, status_label: &'static str, status_class: &
 
             // 分类与归属
             div class="detail-card" {
-                div class="detail-card-title" { "分类与归属" }
+                div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 border-b border-border-soft" { "分类与归属" }
                 (detail_row("外部编码", html! {
                     (product.external_code.as_deref().unwrap_or("—"))
                 }))
@@ -356,12 +356,12 @@ fn tab_basic_info(product: &Product, status_label: &'static str, status_class: &
 
             // 规格参数
             div class="detail-card" {
-                div class="detail-card-title" { "规格参数" }
+                div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 border-b border-border-soft" { "规格参数" }
                 @if product.meta.specification.is_empty() {
                     div class="empty-state" { "暂无规格参数" }
                 } @else {
                     @for line in product.meta.specification.lines() {
-                        div class="detail-row" {
+                        div class="flex py-2 text-sm" {
                             span class="detail-value" { (line) }
                         }
                     }
@@ -475,7 +475,7 @@ fn tab_production_config(
 
         // ── 使用情况（BOM 引用）──
         div class="detail-card" {
-            div class="detail-card-title" {
+            div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 border-b border-border-soft" {
                 span { "使用情况（BOM 引用）" }
                 " "
                 span class="config-label" { "该产品被以下 BOM 引用" }
@@ -535,7 +535,7 @@ fn tab_production_config(
 fn tab_bom(bom: Option<&Bom>, bom_nodes: &[BomNode], node_names: &HashMap<i64, String>) -> Markup {
     html! {
         div class="detail-card" {
-            div class="detail-card-title" {
+            div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 border-b border-border-soft" {
                 span { "BOM 组件清单" }
                 @if let Some(b) = bom {
                     span class="status-pill status-accepted" { "已发布 V"(b.version) }
@@ -577,7 +577,7 @@ fn tab_bom(bom: Option<&Bom>, bom_nodes: &[BomNode], node_names: &HashMap<i64, S
 fn tab_stock(stock: &[StockLedger]) -> Markup {
     html! {
         div class="detail-card" {
-            div class="detail-card-title" { "库存分布" }
+            div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 border-b border-border-soft" { "库存分布" }
             @if stock.is_empty() {
                 div class="empty-state" { "该产品暂无库存记录" }
             } @else {
@@ -613,7 +613,7 @@ fn tab_stock(stock: &[StockLedger]) -> Markup {
 fn tab_history(price_history: &[PriceLogEntry]) -> Markup {
     html! {
         div class="detail-card" {
-            div class="detail-card-title" { "价格变更记录" }
+            div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 border-b border-border-soft" { "价格变更记录" }
             @if price_history.is_empty() {
                 div class="empty-state" { "暂无价格变更记录" }
             } @else {
@@ -778,7 +778,7 @@ fn product_edit_page(product: &Product) -> Markup {
                 }
 
                 // ── Action Bar ──
-                div class="create-action-bar" {
+                div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
                     a class="btn btn-default" href=(detail_path) { "取消" }
                     button type="submit" class="btn btn-primary" {
                         "保存修改"

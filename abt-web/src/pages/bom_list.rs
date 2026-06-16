@@ -210,17 +210,17 @@ fn bom_list_page(
                 div id="cost-drawer" class="drawer-overlay"
                     _="on click remove .open from #cost-drawer" {
                     div class="drawer-panel" style="max-width:1000px;width:100%" onclick="event.stopPropagation()" {
-                        div class="drawer-head" {
+                        div class="flex items-center justify-between px-6 py-4 border-b border-border-soft" {
                             h2 { (icon::currency_icon("w-5 h-5")) " BOM成本报告" }
                             button style="background:none;border:none;cursor:pointer;font-size:22px;color:var(--muted);padding:4px;line-height:1"
                                 _="on click remove .open from #cost-drawer" { "×" }
                         }
-                        div class="drawer-body" {
+                        div class="flex-1 overflow-y-auto p-6" {
                             div id="cost-drawer-body" {
                                 div style="text-align:center;padding:40px;color:var(--muted)" { "加载中..." }
                             }
                         }
-                        div class="drawer-foot" {
+                        div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3" {
                             button type="button" class="btn btn-default"
                                 _="on click remove .open from #cost-drawer" { "关闭" }
                         }
@@ -231,17 +231,17 @@ fn bom_list_page(
                 div id="labor-drawer" class="drawer-overlay"
                     _="on click remove .open from #labor-drawer" {
                     div class="drawer-panel" style="max-width:800px;width:100%" onclick="event.stopPropagation()" {
-                        div class="drawer-head" {
+                        div class="flex items-center justify-between px-6 py-4 border-b border-border-soft" {
                             h2 { (icon::bolt_icon("w-5 h-5")) " BOM 人工成本" }
                             button style="background:none;border:none;cursor:pointer;font-size:22px;color:var(--muted);padding:4px;line-height:1"
                                 _="on click remove .open from #labor-drawer" { "×" }
                         }
-                        div class="drawer-body" {
+                        div class="flex-1 overflow-y-auto p-6" {
                             div id="labor-drawer-body" {
                                 div style="text-align:center;padding:40px;color:var(--muted)" { "加载中..." }
                             }
                         }
-                        div class="drawer-foot" {
+                        div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3" {
                             button type="button" class="btn btn-default"
                                 _="on click remove .open from #labor-drawer" { "关闭" }
                         }
@@ -278,7 +278,7 @@ fn bom_table_fragment(
         div class="bom-list-panel" {
             (status_tabs_with_param(BomListPath::PATH, "#bom-data-card", "#bom-filter-form", tabs, &active_value, "status"))
             // ── Filter Bar ──
-            form class="filter-bar filter-form" id="bom-filter-form"
+            form class="flex items-center gap-3 mb-5 flex-wrap filter-form" id="bom-filter-form"
                 hx-get=(BomListPath::PATH)
                 hx-trigger="change, keyup changed delay:300ms from:.search-input"
                 hx-target="#bom-data-card"
@@ -286,13 +286,13 @@ fn bom_table_fragment(
                 hx-swap="outerHTML"
                 hx-include="#bom-filter-form"
                 hx-push-url="true" {
-                div class="search-wrap" {
+                div class="relative flex-1 max-w-xs" {
                     (icon::search_icon("w-4 h-4"))
-                    input class="search-input" type="text" name="keyword"
+                    input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword"
                         placeholder="搜索BOM名称或产品编号…"
                         value=(params.keyword.as_deref().unwrap_or(""));
                 }
-                select class="filter-select" name="category_id" {
+                select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="category_id" {
                     option value="" { "全部分类" }
                     @for cat in ctx.cat_list {
                         option value=(cat.bom_category_id) selected[params.category_id == Some(cat.bom_category_id)] { (cat.bom_category_name) }
@@ -319,8 +319,8 @@ fn bom_table_fragment(
                 }
             }
             // ── Data Table ──
-            div class="data-card" id="bom-data-card" {
-                div class="data-card-scroll" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" id="bom-data-card" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                     table class="data-table" {
                         thead {
                             tr {

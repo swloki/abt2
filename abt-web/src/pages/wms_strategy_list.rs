@@ -96,8 +96,8 @@ fn strategy_list_page(
                 div class="section-block-header" {
                     div class="section-block-title" { "上架策略" }
                 }
-                div class="data-card" {
-                    div class="data-card-scroll" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" {
+                    div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                         table class="data-table" style="min-width:760px" {
                             thead {
                                 tr {
@@ -132,8 +132,8 @@ fn strategy_list_page(
                 div class="section-block-header" {
                     div class="section-block-title" { "拣货策略" }
                 }
-                div class="data-card" {
-                    div class="data-card-scroll" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" {
+                    div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                         table class="data-table" style="min-width:760px" {
                             thead {
                                 tr {

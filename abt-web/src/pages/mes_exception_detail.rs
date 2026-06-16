@@ -78,39 +78,39 @@ fn exception_detail_page(
         }
 
         // Status + severity
-        div class="info-card" {
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
             div style="display:flex;align-items:center;gap:var(--space-3);margin-bottom:var(--space-4)" {
                 span class=(format!("status-pill {type_cls}")) { (type_label) }
                 span class=(format!("status-pill {status_cls}")) { (status_label) }
                 span class=(format!("status-pill {severity_cls}")) { (severity_label) }
             }
-            div class="info-grid" {
-                div class="info-item" { label { "异常类型" } span { (type_label) } }
-                div class="info-item" { label { "原因分类" } span { (reason_label) } }
-                div class="info-item" { label { "关联工单" } span class="mono" {
+            div class="grid gap-4" {
+                div class="flex flex-col gap-1" { label { "异常类型" } span { (type_label) } }
+                div class="flex flex-col gap-1" { label { "原因分类" } span { (reason_label) } }
+                div class="flex flex-col gap-1" { label { "关联工单" } span class="mono" {
                     @if let Some(ref wo) = lookups.wo_doc_number {
                         a href=(format!("/admin/mes/orders/{}", exc.work_order_id.unwrap_or(0))) class="link-cell" { (wo) }
                     } @else { "—" }
                 }}
-                div class="info-item" { label { "关联批次" } span class="mono" {
+                div class="flex flex-col gap-1" { label { "关联批次" } span class="mono" {
                     @if let Some(ref bn) = lookups.batch_no {
                         a href=(format!("/admin/mes/batches/{}", exc.batch_id.unwrap_or(0))) class="link-cell" { (bn) }
                     } @else { "—" }
                 }}
-                div class="info-item" { label { "产品" } span { (lookups.product_name.as_deref().unwrap_or("—")) } }
-                div class="info-item" { label { "影响数量" } span class="mono" { (impact_display) } }
-                div class="info-item" { label { "发现时间" } span { (exc.found_at.format("%Y-%m-%d %H:%M")) } }
-                div class="info-item" { label { "发现人" } span { (lookups.finder_name.as_deref().unwrap_or("—")) } }
-                div class="info-item" { label { "负责人" } span { (lookups.owner_name.as_deref().unwrap_or("—")) } }
-                div class="info-item" { label { "处置方式" } span { (exc.disposition.as_deref().unwrap_or("—")) } }
-                div class="info-item" { label { "优先级" } span { (severity_label) } }
-                div class="info-item" { label { "状态" } span { (status_label) } }
+                div class="flex flex-col gap-1" { label { "产品" } span { (lookups.product_name.as_deref().unwrap_or("—")) } }
+                div class="flex flex-col gap-1" { label { "影响数量" } span class="mono" { (impact_display) } }
+                div class="flex flex-col gap-1" { label { "发现时间" } span { (exc.found_at.format("%Y-%m-%d %H:%M")) } }
+                div class="flex flex-col gap-1" { label { "发现人" } span { (lookups.finder_name.as_deref().unwrap_or("—")) } }
+                div class="flex flex-col gap-1" { label { "负责人" } span { (lookups.owner_name.as_deref().unwrap_or("—")) } }
+                div class="flex flex-col gap-1" { label { "处置方式" } span { (exc.disposition.as_deref().unwrap_or("—")) } }
+                div class="flex flex-col gap-1" { label { "优先级" } span { (severity_label) } }
+                div class="flex flex-col gap-1" { label { "状态" } span { (status_label) } }
             }
         }
 
         // Description
         @if let Some(ref desc) = exc.description {
-            div class="info-card" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
                 div style="font-weight:600;margin-bottom:var(--space-2)" { "异常描述" }
                 div style="white-space:pre-wrap;line-height:1.6" { (desc) }
             }
@@ -118,7 +118,7 @@ fn exception_detail_page(
 
         // Timeline
         @if !events.is_empty() {
-            div class="info-card" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
                 div style="font-weight:600;margin-bottom:var(--space-4)" { "处理时间线" }
                 div class="timeline" {
                     @for event in events {

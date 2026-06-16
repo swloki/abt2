@@ -215,8 +215,8 @@ fn stock_in_table_fragment(
                         (icon::download_icon("w-5 h-5"))
                     }
                     div {
-                        div class="stat-value" { (total_count) }
-                        div class="stat-label" { "本月入库单" }
+                        div class="text-2xl font-bold font-mono tabular-nums text-fg" { (total_count) }
+                        div class="text-sm text-muted mt-1" { "本月入库单" }
                     }
                 }
                 div class="stat-card" {
@@ -224,8 +224,8 @@ fn stock_in_table_fragment(
                         (icon::currency_icon("w-5 h-5"))
                     }
                     div {
-                        div class="stat-value" { "—" }
-                        div class="stat-label" { "入库总金额" }
+                        div class="text-2xl font-bold font-mono tabular-nums text-fg" { "—" }
+                        div class="text-sm text-muted mt-1" { "入库总金额" }
                     }
                 }
                 div class="stat-card" {
@@ -233,8 +233,8 @@ fn stock_in_table_fragment(
                         (icon::clock_icon("w-5 h-5"))
                     }
                     div {
-                        div class="stat-value" { "—" }
-                        div class="stat-label" { "待审核" }
+                        div class="text-2xl font-bold font-mono tabular-nums text-fg" { "—" }
+                        div class="text-sm text-muted mt-1" { "待审核" }
                     }
                 }
                 div class="stat-card" {
@@ -242,8 +242,8 @@ fn stock_in_table_fragment(
                         (icon::check_circle_icon("w-5 h-5"))
                     }
                     div {
-                        div class="stat-value" { (total_count) }
-                        div class="stat-label" { "已完成" }
+                        div class="text-2xl font-bold font-mono tabular-nums text-fg" { (total_count) }
+                        div class="text-sm text-muted mt-1" { "已完成" }
                     }
                 }
             }
@@ -251,7 +251,7 @@ fn stock_in_table_fragment(
             (status_tabs_with_param(StockInListPath::PATH, "#stock-in-data-card", "#stock-in-filter-form", tabs, selected_type, "transaction_type"))
 
             // ── Filter Bar ──
-            form class="filter-bar filter-form" id="stock-in-filter-form"
+            form class="flex items-center gap-3 mb-5 flex-wrap filter-form" id="stock-in-filter-form"
                 hx-get=(StockInListPath::PATH)
                 hx-trigger="change, keyup changed delay:300ms from:.search-input"
                 hx-target="#stock-in-data-card"
@@ -259,25 +259,25 @@ fn stock_in_table_fragment(
                 hx-swap="outerHTML"
                 hx-include="#stock-in-filter-form"
                 hx-push-url="true" {
-                div class="search-wrap" {
+                div class="relative flex-1 max-w-xs" {
                     (icon::search_icon("w-4 h-4"))
-                    input class="search-input" type="text" name="doc_number"
+                    input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="doc_number"
                         style="width:180px"
                         placeholder="单据编号"
                         value=(params.doc_number.as_deref().unwrap_or(""));
                 }
-                div class="search-wrap" {
+                div class="relative flex-1 max-w-xs" {
                     (icon::search_icon("w-4 h-4"))
-                    input class="search-input" type="text" name="product_code"
+                    input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="product_code"
                         placeholder="物料编码"
                         value=(params.product_code.as_deref().unwrap_or(""));
                 }
-                select class="filter-select" name="transaction_type" {
+                select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="transaction_type" {
                     option value="" selected[selected_type.is_empty()] { "入库类型" }
                     option value="PurchaseReceipt" selected[selected_type == "PurchaseReceipt"] { "采购入库" }
                     option value="ProductionReceipt" selected[selected_type == "ProductionReceipt"] { "生产入库" }
                 }
-                select class="filter-select" name="warehouse_id" {
+                select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="warehouse_id" {
                     option value="" selected[params.warehouse_id.is_none()] { "全部仓库" }
                     @for wh in warehouses {
                         option value=(wh.id) selected[params.warehouse_id == Some(wh.id)] { (wh.name) }
@@ -318,8 +318,8 @@ fn stock_in_data_card(
     let query = build_query_string(params);
 
     html! {
-        div class="data-card" id="stock-in-data-card" {
-            div class="data-card-scroll" {
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" id="stock-in-data-card" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                 table class="data-table" {
                     thead {
                         tr {

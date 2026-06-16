@@ -208,7 +208,7 @@ fn rma_table_fragment(
             (status_tabs_with_param(RmaListPath::PATH, "#rma-data-card", "#filter-form", tabs, selected_status, "status"))
 
             // ── Filter Bar ──
-            form id="filter-form" class="filter-bar filter-form"
+            form id="filter-form" class="flex items-center gap-3 mb-5 flex-wrap filter-form"
                 hx-get=(RmaListPath::PATH)
                 hx-trigger="change, keyup changed delay:300ms from:.search-input"
                 hx-target="#rma-data-card"
@@ -217,24 +217,24 @@ fn rma_table_fragment(
                 hx-include="#filter-form"
                 hx-push-url="true" {
                 input type="hidden" name="status" value=(selected_status);
-                div class="search-wrap" {
+                div class="relative flex-1 max-w-xs" {
                     (icon::search_icon("w-4 h-4"))
-                    input class="search-input" type="text" name="keyword"
+                    input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword"
                         style="width:180px"
                         placeholder="搜索单号…"
                         value=(params.keyword.as_deref().unwrap_or(""));
                 }
-                select class="filter-select" name="severity" {
+                select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="severity" {
                     option value="" selected[params.severity.is_none()] { "全部严重程度" }
                     option value="Minor" selected[params.severity.as_deref() == Some("Minor")] { "Minor" }
                     option value="Major" selected[params.severity.as_deref() == Some("Major")] { "Major" }
                     option value="Critical" selected[params.severity.as_deref() == Some("Critical")] { "Critical" }
                 }
-                input class="search-input" type="date" name="date_from"
+                input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="date" name="date_from"
                     style="max-width:160px"
                     value=(params.date_from.as_deref().unwrap_or(""));
                 span style="color:var(--muted);font-size:13px" { "至" }
-                input class="search-input" type="date" name="date_to"
+                input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="date" name="date_to"
                     style="max-width:160px"
                     value=(params.date_to.as_deref().unwrap_or(""));
             }
@@ -253,8 +253,8 @@ fn rma_data_card(
 ) -> Markup {
     let query = build_query_string(params);
     html! {
-        div class="data-card" id="rma-data-card" {
-            div class="data-card-scroll" {
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" id="rma-data-card" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                 table class="data-table" {
                     thead {
                         tr {

@@ -213,7 +213,7 @@ fn journal_create_page() -> Markup {
                 }
 
                 // ── 操作栏 ──
-                div class="create-action-bar" {
+                div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
                     a class="btn btn-default" href=(format!("{}?restore=true", JournalListPath::PATH)) { "取消" }
                     div style="display:flex;gap:var(--space-3)" {
                         button type="button" class="btn btn-default" { "保存草稿" }

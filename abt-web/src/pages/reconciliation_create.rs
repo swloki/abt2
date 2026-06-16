@@ -286,7 +286,7 @@ fn reconciliation_create_page(
                 }
 
                 // ── Action Bar ──
-                div class="create-action-bar" {
+                div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
                     a class="btn btn-default" href=(format!("{}?restore=true", ReconciliationListPath::PATH)) { "取消" }
                     div class="action-bar-right" {
                         button type="button" class="btn btn-default" onclick="show_info_toast('草稿功能开发中')" {
@@ -368,7 +368,7 @@ fn preview_table(
                     }
                 }
             }
-            div class="data-card-scroll" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                 table class="line-items-table" {
                     thead {
                         tr {

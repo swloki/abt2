@@ -199,7 +199,7 @@ fn warehouse_table_fragment(
             (status_tabs_with_param(WarehouseListPath::PATH, "#warehouse-data-card", "#warehouse-filter-form", tabs, &active_value, "status"))
 
             // ── Filter Bar ──
-            form class="filter-bar filter-form" id="warehouse-filter-form"
+            form class="flex items-center gap-3 mb-5 flex-wrap filter-form" id="warehouse-filter-form"
                 hx-get=(WarehouseListPath::PATH)
                 hx-trigger="change, keyup changed delay:300ms from:.search-input"
                 hx-target="#warehouse-data-card"
@@ -207,20 +207,20 @@ fn warehouse_table_fragment(
                 hx-swap="outerHTML"
                 hx-include="#warehouse-filter-form"
                 hx-push-url="true" {
-                div class="search-wrap" {
+                div class="relative flex-1 max-w-xs" {
                     (icon::search_icon("w-4 h-4"))
-                    input class="search-input" type="text" name="code"
+                    input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="code"
                         style="width:180px"
                         placeholder="仓库编码"
                         value=(params.code.as_deref().unwrap_or(""));
                 }
-                div class="search-wrap" {
+                div class="relative flex-1 max-w-xs" {
                     (icon::search_icon("w-4 h-4"))
-                    input class="search-input" type="text" name="name"
+                    input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="name"
                         placeholder="仓库名称"
                         value=(params.name.as_deref().unwrap_or(""));
                 }
-                select class="filter-select" name="warehouse_type" {
+                select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="warehouse_type" {
                     option value="" { "全部类型" }
                     option value="1" selected[params.warehouse_type == Some(1)] { "原材料仓" }
                     option value="2" selected[params.warehouse_type == Some(2)] { "成品仓" }
@@ -242,8 +242,8 @@ fn warehouse_data_card(
     can_delete: bool,
 ) -> Markup {
     html! {
-        div id="warehouse-data-card" class="data-card" {
-            div class="data-card-scroll" {
+        div id="warehouse-data-card" class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                 table class="data-table" {
                     thead {
                         tr {
@@ -291,7 +291,7 @@ fn warehouse_row(w: &Warehouse, manager_map: &std::collections::HashMap<i64, Str
             td class="link-cell mono" onclick=(format!("location.href='{}'", detail_path)) { (w.code) }
             td onclick=(format!("location.href='{}'", detail_path)) { strong { (w.name) } }
             td onclick=(format!("location.href='{}'", detail_path)) {
-                span class="tag-chip tag-normal" { (type_label) }
+                span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium tag-normal" { (type_label) }
             }
             td onclick=(format!("location.href='{}'", detail_path)) {
                 span class=(format!("status-pill {status_class}")) { (status_label) }

@@ -271,7 +271,7 @@ fn return_table_fragment(
         div class="return-list-panel" {
             (status_tabs_with_param(ReturnListPath::PATH, "#return-data-card", "#return-filter-form", tabs, &active_value, "status"))
 
-            form class="filter-bar filter-form" id="return-filter-form"
+            form class="flex items-center gap-3 mb-5 flex-wrap filter-form" id="return-filter-form"
                 hx-get=(ReturnListPath::PATH)
                 hx-trigger="change, keyup changed delay:300ms from:.search-input"
                 hx-target="#return-data-card"
@@ -280,13 +280,13 @@ fn return_table_fragment(
                 hx-select-oob="#status-tabs"
                 hx-include="#return-filter-form"
                 hx-push-url="true" {
-                div class="search-wrap" {
+                div class="relative flex-1 max-w-xs" {
                     (icon::search_icon("w-4 h-4"))
-                    input class="search-input" type="text" name="keyword"
+                    input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword"
                         placeholder="搜索退货单号、客户名称…"
                         value=(params.keyword.as_deref().unwrap_or(""));
                 }
-                select class="filter-select" name="customer_id" {
+                select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="customer_id" {
                     option value="" { "全部客户" }
                     @for c in customers {
                         option value=(c.id) selected[selected_customer == c.id.to_string()] { (c.name) }
@@ -294,8 +294,8 @@ fn return_table_fragment(
                 }
             }
 
-            div class="data-card" id="return-data-card" {
-                div class="data-card-scroll" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" id="return-data-card" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                     table class="data-table" {
                         thead {
                             tr {

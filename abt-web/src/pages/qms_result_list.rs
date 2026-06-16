@@ -272,7 +272,7 @@ fn result_table_fragment(
             (status_tabs_with_param(ResultListPath::PATH, "#result-data-card", "#filter-form", tabs, selected_status, "status"))
 
             // ── Filter Bar ──
-            form id="filter-form" class="filter-bar filter-form"
+            form id="filter-form" class="flex items-center gap-3 mb-5 flex-wrap filter-form"
                 hx-get=(ResultListPath::PATH)
                 hx-trigger="change, keyup changed delay:300ms from:.search-input"
                 hx-target="#result-data-card"
@@ -280,38 +280,38 @@ fn result_table_fragment(
                 hx-swap="outerHTML"
                 hx-include="#filter-form"
                 hx-push-url="true" {
-                div class="search-wrap" {
+                div class="relative flex-1 max-w-xs" {
                     (icon::search_icon("w-4 h-4"))
-                    input class="search-input" type="text" name="keyword"
+                    input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword"
                         style="width:160px"
                         placeholder="搜索单号…"
                         value=(params.keyword.as_deref().unwrap_or(""));
                 }
-                select class="filter-select" name="inspection_type" {
+                select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="inspection_type" {
                     option value="" selected[params.inspection_type.is_none()] { "全部类型" }
                     option value="Iqc" selected[params.inspection_type.as_deref() == Some("Iqc")] { "IQC" }
                     option value="Ipqc" selected[params.inspection_type.as_deref() == Some("Ipqc")] { "IPQC" }
                     option value="Fqc" selected[params.inspection_type.as_deref() == Some("Fqc")] { "FQC" }
                     option value="Oqc" selected[params.inspection_type.as_deref() == Some("Oqc")] { "OQC" }
                 }
-                select class="filter-select" name="result" {
+                select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="result" {
                     option value="" selected[params.result.is_none()] { "全部结果" }
                     option value="Pass" selected[params.result.as_deref() == Some("Pass")] { "合格" }
                     option value="Fail" selected[params.result.as_deref() == Some("Fail")] { "不合格" }
                     option value="Conditional" selected[params.result.as_deref() == Some("Conditional")] { "让步接收" }
                 }
-                select class="filter-select" name="source_type" {
+                select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="source_type" {
                     option value="" selected[params.source_type.is_none()] { "全部来源" }
                     option value="1" selected[params.source_type == Some(1)] { "来料通知" }
                     option value="2" selected[params.source_type == Some(2)] { "工单工序" }
                     option value="3" selected[params.source_type == Some(3)] { "发货单" }
                     option value="4" selected[params.source_type == Some(4)] { "委外单" }
                 }
-                input class="search-input" type="date" name="date_from"
+                input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="date" name="date_from"
                     style="max-width:140px"
                     value=(params.date_from.as_deref().unwrap_or(""));
                 span style="color:var(--muted);font-size:13px" { "至" }
-                input class="search-input" type="date" name="date_to"
+                input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="date" name="date_to"
                     style="max-width:140px"
                     value=(params.date_to.as_deref().unwrap_or(""));
             }
@@ -329,8 +329,8 @@ fn result_data_card(
 ) -> Markup {
     let query = build_query_string(params);
     html! {
-        div class="data-card" id="result-data-card" {
-            div class="data-card-scroll" {
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" id="result-data-card" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                 table class="data-table" {
                     thead {
                         tr {

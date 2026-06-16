@@ -593,7 +593,7 @@ fn stock_in_create_content(
                 input type="hidden" name="items_json" id="stockin-items-json" value="[]" {}
 
                 // ── Action Bar ──
-                div class="create-action-bar" {
+                div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
                     a class="btn btn-default" href=(format!("{}?restore=true", StockInListPath::PATH)) { "取消" }
                     div style="display:flex;gap:var(--space-3)" {
                         button type="button" class="btn btn-default" { "保存草稿" }
@@ -610,16 +610,16 @@ fn stock_in_create_content(
         div id="product-modal" class="modal-overlay"
             _="on click[me is event.target] remove .is-open" {
             div class="modal modal-lg" onclick="event.stopPropagation()" {
-                div class="modal-head" {
+                div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
                     h2 { "选择物料" }
                     button type="button" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
                         _="on click remove .is-open from #product-modal" { "×" }
                 }
-                div class="modal-body" style="padding:0" hx-disinherit="hx-select" {
+                div class="overflow-y-auto flex-1 min-h-0 p-6" style="padding:0" hx-disinherit="hx-select" {
                     div class="product-search-bar" {
                         div class="product-search-field" {
                             label class="product-search-label" { "产品名称" }
-                            input class="product-search-input" type="text" name="name" placeholder="输入产品名称…"
+                            input class="product-w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="name" placeholder="输入产品名称…"
                                 hx-get=(StockInProductsPath::PATH)
                                 hx-trigger="keyup changed delay:300ms"
                                 hx-sync="this:replace"
@@ -629,7 +629,7 @@ fn stock_in_create_content(
                         }
                         div class="product-search-field" {
                             label class="product-search-label" { "产品编码" }
-                            input class="product-search-input" type="text" name="code" placeholder="输入产品编码…"
+                            input class="product-w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="code" placeholder="输入产品编码…"
                                 hx-get=(StockInProductsPath::PATH)
                                 hx-trigger="keyup changed delay:300ms"
                                 hx-sync="this:replace"
@@ -659,17 +659,17 @@ fn stock_in_create_content(
         div id="source-modal" class="modal-overlay" data-source-path=(StockInSourcePickPath::PATH)
             _="on click[me is event.target] remove .is-open" {
             div class="modal modal-lg" onclick="event.stopPropagation()" {
-                div class="modal-head" {
+                div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
                     h2 { "选择来源单据" }
                     button type="button" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
                         _="on click remove .is-open from #source-modal" { "×" }
                 }
-                div class="modal-body" style="padding:0" hx-disinherit="hx-select" {
+                div class="overflow-y-auto flex-1 min-h-0 p-6" style="padding:0" hx-disinherit="hx-select" {
                     input type="hidden" id="source-pick-type" name="source_type" value="arrival" {}
                     div class="product-search-bar" {
                         div class="product-search-field" {
                             label class="product-search-label" { "来源单号" }
-                            input id="source-search-input" class="product-search-input" type="text" name="keyword" placeholder="输入单号关键词…"
+                            input id="source-search-input" class="product-w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword" placeholder="输入单号关键词…"
                                 hx-get=(StockInSourcePickPath::PATH)
                                 hx-trigger="keyup changed delay:300ms"
                                 hx-sync="this:replace"

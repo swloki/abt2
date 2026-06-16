@@ -315,8 +315,8 @@ fn purchase_dashboard_content(stats: &DashboardStats) -> Markup {
                     (icon::building_icon("w-[22px] h-[22px]"))
                 }
                 div {
-                    div class="stat-value" { (stats.active_suppliers.to_string()) }
-                    div class="stat-label" { "活跃供应商" }
+                    div class="text-2xl font-bold font-mono tabular-nums text-fg" { (stats.active_suppliers.to_string()) }
+                    div class="text-sm text-muted mt-1" { "活跃供应商" }
                 }
             }
             // 待比价报价
@@ -325,8 +325,8 @@ fn purchase_dashboard_content(stats: &DashboardStats) -> Markup {
                     (icon::clipboard_list_icon("w-[22px] h-[22px]"))
                 }
                 div {
-                    div class="stat-value" { (stats.pending_quotations.to_string()) }
-                    div class="stat-label" { "待比价报价" }
+                    div class="text-2xl font-bold font-mono tabular-nums text-fg" { (stats.pending_quotations.to_string()) }
+                    div class="text-sm text-muted mt-1" { "待比价报价" }
                 }
             }
             // 进行中订单
@@ -335,8 +335,8 @@ fn purchase_dashboard_content(stats: &DashboardStats) -> Markup {
                     (icon::clipboard_document_icon("w-[22px] h-[22px]"))
                 }
                 div {
-                    div class="stat-value" { (stats.in_progress_orders.to_string()) }
-                    div class="stat-label" { "进行中订单" }
+                    div class="text-2xl font-bold font-mono tabular-nums text-fg" { (stats.in_progress_orders.to_string()) }
+                    div class="text-sm text-muted mt-1" { "进行中订单" }
                 }
             }
             // 待付款金额
@@ -345,14 +345,14 @@ fn purchase_dashboard_content(stats: &DashboardStats) -> Markup {
                     (icon::payment_icon("w-[22px] h-[22px]"))
                 }
                 div {
-                    div class="stat-value" {
+                    div class="text-2xl font-bold font-mono tabular-nums text-fg" {
                         @if stats.pending_payment_total == rust_decimal::Decimal::ZERO {
                             "¥0"
                         } @else {
                             (format_amount(stats.pending_payment_total))
                         }
                     }
-                    div class="stat-label" { "待付款金额" }
+                    div class="text-sm text-muted mt-1" { "待付款金额" }
                 }
             }
             // 退货处理中
@@ -361,8 +361,8 @@ fn purchase_dashboard_content(stats: &DashboardStats) -> Markup {
                     (icon::return_arrow_icon("w-[22px] h-[22px]"))
                 }
                 div {
-                    div class="stat-value" { (stats.returns_in_progress.to_string()) }
-                    div class="stat-label" { "退货处理中" }
+                    div class="text-2xl font-bold font-mono tabular-nums text-fg" { (stats.returns_in_progress.to_string()) }
+                    div class="text-sm text-muted mt-1" { "退货处理中" }
                 }
             }
         }
@@ -374,7 +374,7 @@ fn purchase_dashboard_content(stats: &DashboardStats) -> Markup {
                 div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-4)" {
                     h2 class="section-title" { "待办事项" }
                 }
-                div class="data-card" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" {
                     @if stats.pending_quotations > 0 {
                         (todo_item("status-pill status-progress", "待比价", &format!("{} 份采购报价待比价", stats.pending_quotations), "需处理"))
                     }
@@ -415,8 +415,8 @@ fn purchase_dashboard_content(stats: &DashboardStats) -> Markup {
             }
         }
         // ── 采购业务流程 (info-card with circular icons) ──
-        div class="info-card" style="margin-bottom:var(--space-8)" {
-            div class="info-card-title" { "采购业务流程" }
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" style="margin-bottom:var(--space-8)" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "采购业务流程" }
             div style="display:flex;align-items:center;justify-content:center;padding:var(--space-6) 0;flex-wrap:wrap;gap:var(--space-3)" {
                 // 供应商
                 (flow_circle(&icon::building_icon("w-5 h-5"), "供应商", "主数据", "rgba(22,119,255,0.1)", "rgba(22,119,255,0.2)", "var(--accent)"))
@@ -453,7 +453,7 @@ fn purchase_dashboard_content(stats: &DashboardStats) -> Markup {
         // ── 最近活动 ──
         div {
             h2 style="font-size:var(--text-lg);font-weight:600;margin-bottom:var(--space-4)" { "最近活动" }
-            div class="data-card" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" {
                 (activity_row("status-pill status-info", "订单", "采购订单 PO-2026-05-00123 状态变更为", "部分收货", "30 分钟前"))
                 (activity_row("status-pill status-progress", "报价", "供应商「昆山宏达钢材」提交了新的采购报价 PQ-2026-05-00089", "", "2 小时前"))
                 (activity_row("status-pill status-completed", "付款", "付款申请 PAY-2026-05-00045 已完成付款", "", "昨天"))

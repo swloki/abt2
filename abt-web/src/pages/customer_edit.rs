@@ -227,7 +227,7 @@ fn customer_edit_page(
             form hx-post=(EditCustomerPath { id: c.id }.to_string()) hx-swap="none" {
 
                 // ── Section 1: 基本信息 ──
-                div class="data-card" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" {
                     div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "基本信息" }
                     div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                         div class="form-field" {
@@ -281,7 +281,7 @@ fn customer_edit_page(
                 }
 
                 // ── Section 2: 联系信息 ──
-                div class="data-card" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" {
                     div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "联系信息" }
                     // 隐藏字段：主联系人 ID
                     @if let Some(contact) = pc {
@@ -326,7 +326,7 @@ fn customer_edit_page(
                 }
 
                 // ── Section 3: 财务信息 ──
-                div class="data-card" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" {
                     div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "财务信息" }
                     div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                         div class="form-field" {
@@ -361,7 +361,7 @@ fn customer_edit_page(
                 }
 
                 // ── Section 4: 其他信息 ──
-                div class="data-card" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" {
                     div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "其他信息" }
                     div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                         div class="form-field" {
@@ -391,7 +391,7 @@ fn customer_edit_page(
                 }
 
                 // ── Action Bar ──
-                div class="create-action-bar" {
+                div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
                     button type="button" class="btn btn-default" onclick=(format!("location.href='{}'", detail_path)) { "取消" }
                     button type="submit" class="btn btn-primary" {
                         "保存修改"

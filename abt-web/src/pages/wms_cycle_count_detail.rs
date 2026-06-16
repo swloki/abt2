@@ -164,34 +164,34 @@ fn cycle_count_detail_page(
 
             (workflow_steps(&cc.status))
 
-            div class="info-card" {
-                div class="info-card-title" { "盘点信息" }
-                div class="info-grid" {
-                    div class="info-item" {
-                        span class="info-label" { "盘点单号" }
-                        span class="info-value mono" { (cc.doc_number) }
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "盘点信息" }
+                div class="grid gap-4" {
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "盘点单号" }
+                        span class="text-sm text-fg font-medium mono" { (cc.doc_number) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "仓库" }
-                        span class="info-value" { (wh_name) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "仓库" }
+                        span class="text-sm text-fg font-medium" { (wh_name) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "库区" }
-                        span class="info-value" { (zone_name) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "库区" }
+                        span class="text-sm text-fg font-medium" { (zone_name) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "盘点日期" }
-                        span class="info-value mono" { (cc.count_date.format("%Y-%m-%d")) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "盘点日期" }
+                        span class="text-sm text-fg font-medium mono" { (cc.count_date.format("%Y-%m-%d")) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "盲盘" }
-                        span class="info-value" {
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "盲盘" }
+                        span class="text-sm text-fg font-medium" {
                             @if cc.is_blind { "是" } @else { "否" }
                         }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "操作员" }
-                        span class="info-value" { "操作员#" (cc.operator_id) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "操作员" }
+                        span class="text-sm text-fg font-medium" { "操作员#" (cc.operator_id) }
                     }
                 }
             }
@@ -203,11 +203,11 @@ fn cycle_count_detail_page(
                 (summary_card("已调整项", &adjusted_items.to_string(), "purple"))
             }
 
-            div class="data-card" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" {
                 div style="padding:var(--space-5) var(--space-6) var(--space-3)" {
-                    div class="info-card-title" style="border-bottom:none;padding-bottom:0;margin-bottom:0" { "盘点明细" }
+                    div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" style="border-bottom:none;padding-bottom:0;margin-bottom:0" { "盘点明细" }
                 }
-                div class="data-card-scroll" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                     table class="data-table" {
                         thead {
                             tr {

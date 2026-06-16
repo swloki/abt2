@@ -305,8 +305,8 @@ fn user_table_fragment(
                         (icon::users_icon("w-6 h-6"))
                     }
                     div {
-                        div class="stat-value" { (total_count) }
-                        div class="stat-label" { "用户总数" }
+                        div class="text-2xl font-bold font-mono tabular-nums text-fg" { (total_count) }
+                        div class="text-sm text-muted mt-1" { "用户总数" }
                     }
                 }
                 div class="stat-card" {
@@ -314,8 +314,8 @@ fn user_table_fragment(
                         (icon::check_circle_icon("w-6 h-6"))
                     }
                     div {
-                        div class="stat-value" { (active_count) }
-                        div class="stat-label" { "已激活" }
+                        div class="text-2xl font-bold font-mono tabular-nums text-fg" { (active_count) }
+                        div class="text-sm text-muted mt-1" { "已激活" }
                     }
                 }
                 div class="stat-card" {
@@ -323,8 +323,8 @@ fn user_table_fragment(
                         (icon::clock_icon("w-6 h-6"))
                     }
                     div {
-                        div class="stat-value" { (inactive_count) }
-                        div class="stat-label" { "已停用" }
+                        div class="text-2xl font-bold font-mono tabular-nums text-fg" { (inactive_count) }
+                        div class="text-sm text-muted mt-1" { "已停用" }
                     }
                 }
                 div class="stat-card" {
@@ -334,8 +334,8 @@ fn user_table_fragment(
                         }
                     }
                     div {
-                        div class="stat-value" { (super_admin_count) }
-                        div class="stat-label" { "超级管理员" }
+                        div class="text-2xl font-bold font-mono tabular-nums text-fg" { (super_admin_count) }
+                        div class="text-sm text-muted mt-1" { "超级管理员" }
                     }
                 }
             }
@@ -369,10 +369,10 @@ fn user_table_fragment(
             }
 
             // ── Filter Bar ──
-            div class="filter-bar" {
-                div class="search-wrap" {
+            div class="flex items-center gap-3 mb-5 flex-wrap" {
+                div class="relative flex-1 max-w-xs" {
                     (icon::search_icon("w-4 h-4"))
-                    input class="search-input" type="text" name="keyword"
+                    input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword"
                         placeholder="搜索用户名、显示名称…"
                         value=(keyword)
                         hx-get=(UserListPath::PATH)
@@ -383,7 +383,7 @@ fn user_table_fragment(
                         hx-push-url=(UserListPath::PATH)
                         hx-include="select[name=role_filter],select[name=dept_filter]";
                 }
-                select class="filter-select" name="role_filter"
+                select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="role_filter"
                     hx-get=(UserListPath::PATH)
                     hx-trigger="change"
                     hx-target="closest .user-list-panel"
@@ -398,7 +398,7 @@ fn user_table_fragment(
                         }
                     }
                 }
-                select class="filter-select" name="dept_filter"
+                select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="dept_filter"
                     hx-get=(UserListPath::PATH)
                     hx-trigger="change"
                     hx-target="closest .user-list-panel"
@@ -416,8 +416,8 @@ fn user_table_fragment(
             }
 
             // ── Data Table ──
-            div class="data-card" {
-                div class="data-card-scroll" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                     table class="data-table" {
                         thead {
                             tr {

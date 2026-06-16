@@ -170,8 +170,8 @@ fn plan_create_page() -> Markup {
                 // ── Plan Items ──
                 div class="form-section" {
                     div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "计划明细" }
-                    div class="data-card" {
-                        div class="data-card-scroll" {
+                    div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" {
+                        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                             table class="data-table" {
                                 thead {
                                     tr {
@@ -200,7 +200,7 @@ fn plan_create_page() -> Markup {
                 }
 
                 // ── Actions ──
-                div class="create-action-bar" {
+                div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
                     a class="btn btn-default" href=(format!("{}?restore=true", PlanListPath::PATH)) { "取消" }
                     button type="submit" class="btn btn-primary" {
                         "提交"
@@ -218,14 +218,14 @@ fn plan_create_page() -> Markup {
                        put window._selectedProduct.name into (t's querySelector('[data-field=\"product_name\"]'))
                        set (t's querySelector('[data-field=\"product_id\"]'))'s value to window._selectedProduct.id" {
                 div class="modal modal-lg" _="on click halt" {
-                    div class="modal-head" {
+                    div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
                         h2 { "选择产品" }
                         button type="button" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
                             _="on click remove .is-open from #product-picker" { "×" }
                     }
-                    div class="modal-body" {
+                    div class="overflow-y-auto flex-1 min-h-0 p-6" {
                         div class="flex gap-2 mb-2" {
-                            input type="text" class="search-input" placeholder="产品名称…"
+                            input type="text" class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" placeholder="产品名称…"
                                 id="product-search-name"
                                 name="name"
                                 hx-get=(ProductSearchPath::PATH)
@@ -233,7 +233,7 @@ fn plan_create_page() -> Markup {
                                 hx-target="#product-search-results"
                                 hx-swap="innerHTML"
                                 hx-include="#product-search-name, #product-search-code";
-                            input type="text" class="search-input" placeholder="产品编码…"
+                            input type="text" class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" placeholder="产品编码…"
                                 id="product-search-code"
                                 name="code"
                                 hx-get=(ProductSearchPath::PATH)

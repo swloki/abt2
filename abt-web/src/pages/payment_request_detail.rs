@@ -202,28 +202,28 @@ fn pay_detail_page(
             (workflow_steps(pay.status))
 
             // ── Payment Info ──
-            div class="info-card" {
-                div class="info-card-title" { "付款信息" }
-                div class="info-grid" {
-                    div class="info-item" {
-                        span class="info-label" { "供应商名称" }
-                        span class="info-value" { (supplier_name) }
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "付款信息" }
+                div class="grid gap-4" {
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "供应商名称" }
+                        span class="text-sm text-fg font-medium" { (supplier_name) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "付款日期" }
-                        span class="info-value mono" { (pay.payment_date.format("%Y-%m-%d")) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "付款日期" }
+                        span class="text-sm text-fg font-medium mono" { (pay.payment_date.format("%Y-%m-%d")) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "付款方式" }
-                        span class="info-value" { (payment_method_label(pay.payment_method)) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "付款方式" }
+                        span class="text-sm text-fg font-medium" { (payment_method_label(pay.payment_method)) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "付款金额" }
-                        span class="info-value mono" { (format!("{}", pay.amount)) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "付款金额" }
+                        span class="text-sm text-fg font-medium mono" { (format!("{}", pay.amount)) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "关联对账单" }
-                        span class="info-value mono" {
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "关联对账单" }
+                        span class="text-sm text-fg font-medium mono" {
                             @if let Some(doc) = recon_doc_number {
                                 (doc)
                             } @else {
@@ -231,9 +231,9 @@ fn pay_detail_page(
                             }
                         }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "银行账户" }
-                        span class="info-value mono" {
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "银行账户" }
+                        span class="text-sm text-fg font-medium mono" {
                             @if let Some(bank_id) = pay.bank_account_id {
                                 (format!("{}", bank_id))
                             } @else {
@@ -241,20 +241,20 @@ fn pay_detail_page(
                             }
                         }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "操作人" }
-                        span class="info-value" { (operator_name) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "操作人" }
+                        span class="text-sm text-fg font-medium" { (operator_name) }
                     }
                 }
             }
 
             // ── Invoice Info ──
-            div class="info-card" style="margin-top:var(--space-6)" {
-                div class="info-card-title" { "发票信息" }
-                div class="info-grid" {
-                    div class="info-item" {
-                        span class="info-label" { "发票号" }
-                        span class="info-value mono" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" style="margin-top:var(--space-6)" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "发票信息" }
+                div class="grid gap-4" {
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "发票号" }
+                        span class="text-sm text-fg font-medium mono" {
                             @if let Some(ref inv) = pay.invoice_number {
                                 (inv.as_str())
                             } @else {
@@ -262,9 +262,9 @@ fn pay_detail_page(
                             }
                         }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "发票金额" }
-                        span class="info-value mono" {
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "发票金额" }
+                        span class="text-sm text-fg font-medium mono" {
                             @if let Some(amt) = pay.invoice_amount {
                                 (format!("{}", amt))
                             } @else {
@@ -277,8 +277,8 @@ fn pay_detail_page(
 
             // ── Remarks ──
             @if !pay.remark.is_empty() {
-                div class="info-card" style="margin-top:var(--space-6)" {
-                    div class="info-card-title" { "备注" }
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" style="margin-top:var(--space-6)" {
+                    div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "备注" }
                     p class="text-muted" { (pay.remark.as_str()) }
                 }
             }

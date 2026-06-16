@@ -430,12 +430,12 @@ fn node_edit_form_fragment(bom_id: i64, node_id: i64, bom_version: i32, node: &B
     let action = BomNodePath { id: bom_id, node_id }.to_string();
     html! {
         div class="modal" onclick="event.stopPropagation()" {
-            div class="modal-head" {
+            div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
                 h2 { "编辑节点" }
                 button style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
                     _="on click remove .is-open from #bom-edit-modal then empty #bom-edit-modal" { "×" }
             }
-            div class="modal-body" {
+            div class="overflow-y-auto flex-1 min-h-0 p-6" {
                 form hx-post=(action) hx-swap="none" {
                     input type="hidden" name="expected_version" value=(bom_version) {}
                     div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
@@ -464,7 +464,7 @@ fn node_edit_form_fragment(bom_id: i64, node_id: i64, bom_version: i32, node: &B
                             input type="text" name="remark" value=(node.remark.as_deref().unwrap_or("")) {}
                         }
                     }
-                    div class="modal-foot" style="padding:var(--space-4) 0 0;border-top:1px solid var(--border-soft)" {
+                    div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" style="padding:var(--space-4) 0 0;border-top:1px solid var(--border-soft)" {
                         button type="button" class="btn btn-default"
                             _="on click remove .is-open from #bom-edit-modal then empty #bom-edit-modal" { "取消" }
                         button type="submit" class="btn btn-primary" { "保存" }
@@ -596,7 +596,7 @@ fn bom_edit_page(
             }
 
             // ── Node Table ──
-            div class="data-card" style="padding:0;overflow:hidden" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" style="padding:0;overflow:hidden" {
                 @if bom.bom_detail.nodes.is_empty() {
                     div style="text-align:center;padding:var(--space-12);color:var(--muted)" {
                         "暂无组件数据，请点击上方按钮添加根节点"
@@ -639,18 +639,18 @@ fn bom_edit_page(
             div id="bom-add-modal" class="modal-overlay"
                 _="on click[me is event.target] remove .is-open" {
                 div class="modal modal-lg" onclick="event.stopPropagation()" {
-                    div class="modal-head" {
+                    div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
                         h2 { "添加物料" }
                         button style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
                             _="on click remove .is-open from #bom-add-modal" { "×" }
                     }
-                    div class="modal-body" style="padding:0" hx-disinherit="hx-select" {
+                    div class="overflow-y-auto flex-1 min-h-0 p-6" style="padding:0" hx-disinherit="hx-select" {
                         input type="hidden" name="parent_id" value="0" {}
                         div class="product-search-bar" {
                             input type="hidden" name="bom_id" value=(bom.bom_id) {}
                             div class="product-search-field" {
                                 label class="product-search-label" { "产品名称" }
-                                input class="product-search-input" type="text" name="name" placeholder="输入产品名称…"
+                                input class="product-w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="name" placeholder="输入产品名称…"
                                     hx-get=(BomProductsPath::PATH)
                                     hx-trigger="keyup changed delay:300ms"
                                     hx-sync="this:replace"
@@ -660,7 +660,7 @@ fn bom_edit_page(
                             }
                             div class="product-search-field" {
                                 label class="product-search-label" { "产品编码" }
-                                input class="product-search-input" type="text" name="code" placeholder="输入产品编码…"
+                                input class="product-w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="code" placeholder="输入产品编码…"
                                     hx-get=(BomProductsPath::PATH)
                                     hx-trigger="keyup changed delay:300ms"
                                     hx-sync="this:replace"
@@ -735,12 +735,12 @@ fn bom_edit_page(
             div id="bom-save-as-modal" class="modal-overlay"
                 _="on click[me is event.target] remove .is-open" {
                 div class="modal" onclick="event.stopPropagation()" {
-                    div class="modal-head" {
+                    div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
                         h2 { "另存为" }
                         button style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
                             _="on click remove .is-open from #bom-save-as-modal" { "×" }
                     }
-                    div class="modal-body" {
+                    div class="overflow-y-auto flex-1 min-h-0 p-6" {
                         form hx-post=(BomSaveAsPath { id: bom.bom_id }.to_string())
                             hx-swap="none" {
                             div class="form-field" {
@@ -748,7 +748,7 @@ fn bom_edit_page(
                                 input type="text" name="new_name" required
                                     placeholder="输入新的 BOM 名称" {}
                             }
-                            div class="modal-foot" style="padding:var(--space-4) 0 0;border-top:1px solid var(--border-soft)" {
+                            div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" style="padding:var(--space-4) 0 0;border-top:1px solid var(--border-soft)" {
                                 button type="button" class="btn btn-default" _="on click remove .is-open from #bom-save-as-modal" { "取消" }
                                 button type="submit" class="btn btn-success" { "确认另存为" }
                             }

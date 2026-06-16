@@ -116,8 +116,8 @@ fn stat_card(title: &str, value: &str, accent: &str, sub: Markup, icon_bg: &str,
                 (svg_icon(icon_path, "24px"))
             }
             div class="mes-stat-body" {
-                div class="mes-stat-label" { (title) }
-                div class="mes-stat-value" { (PreEscaped(value)) }
+                div class="mes-text-sm text-muted mt-1" { (title) }
+                div class="mes-text-2xl font-bold font-mono tabular-nums text-fg" { (PreEscaped(value)) }
                 div class="mes-stat-sub" { (sub) }
             }
         }

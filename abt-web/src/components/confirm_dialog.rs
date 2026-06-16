@@ -26,8 +26,8 @@ pub fn confirm_dialog(
                     div class="dialog-icon-wrap" {
                         (icon::circle_alert_icon("w-7 h-7"))
                     }
-                    div class="dialog-title" { (title) }
-                    p class="dialog-desc" { (maud::PreEscaped(desc)) }
+                    div class="text-lg font-semibold text-fg text-center mb-2" { (title) }
+                    p class="text-sm text-muted text-center leading-relaxed" { (maud::PreEscaped(desc)) }
                 }
                 div class="dialog-foot" {
                     button type="button" class="btn btn-default"

@@ -32,10 +32,10 @@ pub fn input_dialog(
         div id=(dialog_id) class="modal-overlay"
             _="on click[me is event.target] remove .is-open" {
             div class="modal modal-sm" onclick="event.stopPropagation()" {
-                div class="modal-head" {
+                div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
                     h2 { (title) }
                 }
-                div class="modal-body" {
+                div class="overflow-y-auto flex-1 min-h-0 p-6" {
                     p class="modal-desc" { (desc) }
                     div class="form-field" {
                         label { (input_label) }
@@ -43,7 +43,7 @@ pub fn input_dialog(
                             step=(input_step) min="1" placeholder=(input_placeholder);
                     }
                 }
-                div class="modal-foot" {
+                div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" {
                     button type="button" class="btn btn-default"
                         _=(format!("on click remove .is-open from closest .modal-overlay")) {
                         "取消"

@@ -216,16 +216,16 @@ fn pr_detail_page(
             (workflow_steps(pr.status))
 
             // ── Return Info ──
-            div class="info-card" {
-                div class="info-card-title" { "退货信息" }
-                div class="info-grid" {
-                    div class="info-item" {
-                        span class="info-label" { "供应商名称" }
-                        span class="info-value" { (supplier_name) }
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "退货信息" }
+                div class="grid gap-4" {
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "供应商名称" }
+                        span class="text-sm text-fg font-medium" { (supplier_name) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "关联订单" }
-                        span class="info-value mono" {
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "关联订单" }
+                        span class="text-sm text-fg font-medium mono" {
                             @if let Some(doc) = order_doc_number {
                                 (doc)
                             } @else {
@@ -233,28 +233,28 @@ fn pr_detail_page(
                             }
                         }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "退货日期" }
-                        span class="info-value mono" { (pr.return_date.format("%Y-%m-%d")) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "退货日期" }
+                        span class="text-sm text-fg font-medium mono" { (pr.return_date.format("%Y-%m-%d")) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "退货原因" }
-                        span class="info-value" { (pr.return_reason.as_str()) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "退货原因" }
+                        span class="text-sm text-fg font-medium" { (pr.return_reason.as_str()) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "操作人" }
-                        span class="info-value" { (operator_name) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "操作人" }
+                        span class="text-sm text-fg font-medium" { (operator_name) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "创建时间" }
-                        span class="info-value mono" { (pr.created_at.format("%Y-%m-%d %H:%M")) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "创建时间" }
+                        span class="text-sm text-fg font-medium mono" { (pr.created_at.format("%Y-%m-%d %H:%M")) }
                     }
                 }
             }
 
             // ── Items Table ──
-            div class="data-card" {
-                div class="data-card-scroll" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                     table class="data-table" {
                         thead {
                             tr {

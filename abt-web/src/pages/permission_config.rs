@@ -429,20 +429,20 @@ fn perm_page_content(
                 }
                 div class="stats-bar" id="stats-bar" {
                     div class="stat-item" {
-                        span class="stat-label" { "资源" }
-                        span class="stat-value" { (total_resources) }
+                        span class="text-sm text-muted mt-1" { "资源" }
+                        span class="text-2xl font-bold font-mono tabular-nums text-fg" { (total_resources) }
                     }
                     div class="stat-item" {
-                        span class="stat-label" { "角色" }
-                        span class="stat-value" { (total_roles) }
+                        span class="text-sm text-muted mt-1" { "角色" }
+                        span class="text-2xl font-bold font-mono tabular-nums text-fg" { (total_roles) }
                     }
                     div class="stat-item" {
-                        span class="stat-label" { "已配置" }
-                        span class="stat-value" { (configured) }
+                        span class="text-sm text-muted mt-1" { "已配置" }
+                        span class="text-2xl font-bold font-mono tabular-nums text-fg" { (configured) }
                     }
                     div class="stat-item" {
-                        span class="stat-label" { "配置率" }
-                        span class="stat-value accent" { (format!("{:.0}%", coverage_pct)) }
+                        span class="text-sm text-muted mt-1" { "配置率" }
+                        span class="text-2xl font-bold font-mono tabular-nums text-fg accent" { (format!("{:.0}%", coverage_pct)) }
                         div class="stat-progress" {
                             div class="stat-progress-bar" style=(format!("width:{}%", coverage_pct.min(100.0))) {}
                         }

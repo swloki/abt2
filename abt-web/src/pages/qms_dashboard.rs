@@ -119,8 +119,8 @@ fn qms_dashboard_page(
                         (icon::clipboard_list_icon("w-5 h-5"))
                     }
                     div {
-                        div class="stat-value" { (pending) }
-                        div class="stat-label" { "待检验" }
+                        div class="text-2xl font-bold font-mono tabular-nums text-fg" { (pending) }
+                        div class="text-sm text-muted mt-1" { "待检验" }
                     }
                 }
                 div class="stat-card" {
@@ -128,8 +128,8 @@ fn qms_dashboard_page(
                         (icon::check_circle_icon("w-5 h-5"))
                     }
                     div {
-                        div class="stat-value" { (pass_rate_str) }
-                        div class="stat-label" { "合格率" }
+                        div class="text-2xl font-bold font-mono tabular-nums text-fg" { (pass_rate_str) }
+                        div class="text-sm text-muted mt-1" { "合格率" }
                     }
                 }
                 div class="stat-card" {
@@ -137,8 +137,8 @@ fn qms_dashboard_page(
                         (icon::alert_triangle_icon("w-5 h-5"))
                     }
                     div {
-                        div class="stat-value" { (fail_count) }
-                        div class="stat-label" { "不良品数" }
+                        div class="text-2xl font-bold font-mono tabular-nums text-fg" { (fail_count) }
+                        div class="text-sm text-muted mt-1" { "不良品数" }
                     }
                 }
                 div class="stat-card" {
@@ -146,8 +146,8 @@ fn qms_dashboard_page(
                         (icon::file_text_icon("w-5 h-5"))
                     }
                     div {
-                        div class="stat-value" { (mrb_pending) }
-                        div class="stat-label" { "待审MRB" }
+                        div class="text-2xl font-bold font-mono tabular-nums text-fg" { (mrb_pending) }
+                        div class="text-sm text-muted mt-1" { "待审MRB" }
                     }
                 }
                 div class="stat-card" {
@@ -155,8 +155,8 @@ fn qms_dashboard_page(
                         (icon::return_arrow_icon("w-5 h-5"))
                     }
                     div {
-                        div class="stat-value" { (rma_active) }
-                        div class="stat-label" { "活跃RMA" }
+                        div class="text-2xl font-bold font-mono tabular-nums text-fg" { (rma_active) }
+                        div class="text-sm text-muted mt-1" { "活跃RMA" }
                     }
                 }
             }
@@ -229,7 +229,7 @@ fn qms_dashboard_page(
                     (icon::trending_up_icon("w-4 h-4"))
                     " 近6月质量趋势"
                 }
-                div class="data-card" style="padding:var(--space-5)" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" style="padding:var(--space-5)" {
                     div class="chart-legend" {
                         div class="chart-legend-items" {
                             span class="chart-legend-item" {

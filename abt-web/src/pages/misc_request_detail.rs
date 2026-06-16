@@ -192,31 +192,31 @@ fn misc_detail_page(
             (workflow_steps(req.status))
 
             // ── Request Info ──
-            div class="info-card" {
-                div class="info-card-title" { "请购信息" }
-                div class="info-grid" {
-                    div class="info-item" {
-                        span class="info-label" { "用途说明" }
-                        span class="info-value" { (req.purpose) }
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "请购信息" }
+                div class="grid gap-4" {
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "用途说明" }
+                        span class="text-sm text-fg font-medium" { (req.purpose) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "申请部门" }
-                        span class="info-value" { (department_name) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "申请部门" }
+                        span class="text-sm text-fg font-medium" { (department_name) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "申请日期" }
-                        span class="info-value mono" { (req.request_date.format("%Y-%m-%d")) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "申请日期" }
+                        span class="text-sm text-fg font-medium mono" { (req.request_date.format("%Y-%m-%d")) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "申请人" }
-                        span class="info-value" { (operator_name) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "申请人" }
+                        span class="text-sm text-fg font-medium" { (operator_name) }
                     }
                 }
             }
 
             // ── Items Table ──
-            div class="data-card" {
-                div class="data-card-scroll" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                     table class="data-table" {
                         thead {
                             tr {
@@ -247,12 +247,12 @@ fn misc_detail_page(
             }
 
             // ── Amount Summary ──
-            div class="info-card" style="margin-top:var(--space-6)" {
-                div class="info-card-title" { "金额汇总" }
-                div class="info-grid" {
-                    div class="info-item" {
-                        span class="info-label" { "总金额" }
-                        span class="info-value mono" style="font-size:1.125rem;font-weight:600" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" style="margin-top:var(--space-6)" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "金额汇总" }
+                div class="grid gap-4" {
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "总金额" }
+                        span class="text-sm text-fg font-medium mono" style="font-size:1.125rem;font-weight:600" {
                             (format!("{:.2}", total_amount))
                         }
                     }
@@ -261,8 +261,8 @@ fn misc_detail_page(
 
             // ── Remarks ──
             @if !req.remark.is_empty() {
-                div class="info-card" style="margin-top:var(--space-6)" {
-                    div class="info-card-title" { "备注" }
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" style="margin-top:var(--space-6)" {
+                    div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "备注" }
                     p class="text-muted" { (req.remark.as_str()) }
                 }
             }

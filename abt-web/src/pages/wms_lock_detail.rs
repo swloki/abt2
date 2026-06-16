@@ -177,44 +177,44 @@ fn lock_detail_page(
                 }
             }
 
-            div class="info-card" {
-                div class="info-card-title" { "锁库信息" }
-                div class="info-grid" {
-                    div class="info-item" {
-                        span class="info-label" { "锁库单号" }
-                        span class="info-value mono" { (lock.doc_number) }
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "锁库信息" }
+                div class="grid gap-4" {
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "锁库单号" }
+                        span class="text-sm text-fg font-medium mono" { (lock.doc_number) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "产品编码" }
-                        span class="info-value mono" { (product_code) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "产品编码" }
+                        span class="text-sm text-fg font-medium mono" { (product_code) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "产品名称" }
-                        span class="info-value" { (product_name_val) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "产品名称" }
+                        span class="text-sm text-fg font-medium" { (product_name_val) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "锁定仓库" }
-                        span class="info-value" { (wh_name) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "锁定仓库" }
+                        span class="text-sm text-fg font-medium" { (wh_name) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "锁定数量" }
-                        span class="info-value mono" { (locked_qty_fmt) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "锁定数量" }
+                        span class="text-sm text-fg font-medium mono" { (locked_qty_fmt) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "锁定原因" }
-                        span class="info-value" { (lock.lock_reason) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "锁定原因" }
+                        span class="text-sm text-fg font-medium" { (lock.lock_reason) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "关联客户" }
-                        span class="info-value" { (customer_name) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "关联客户" }
+                        span class="text-sm text-fg font-medium" { (customer_name) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "操作员" }
-                        span class="info-value" { (operator_name) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "操作员" }
+                        span class="text-sm text-fg font-medium" { (operator_name) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "创建时间" }
-                        span class="info-value mono" {
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "创建时间" }
+                        span class="text-sm text-fg font-medium mono" {
                             (lock.created_at.format("%Y-%m-%d %H:%M"))
                         }
                     }

@@ -116,10 +116,10 @@ fn transfer_table_fragment(
     ];
 
     html! {
-        div class="data-card" id="transfer-data-card" {
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" id="transfer-data-card" {
             (status_tabs(TransferListPath::PATH, "#transfer-data-card", ".filter-bar input, .filter-bar select", tabs, &active_value))
 
-            form class="filter-bar filter-form" id="transfer-filter-form"
+            form class="flex items-center gap-3 mb-5 flex-wrap filter-form" id="transfer-filter-form"
                 hx-get=(TransferListPath::PATH)
                 hx-trigger="change, keyup changed delay:300ms from:.search-input"
                 hx-target="#transfer-data-card"
@@ -127,14 +127,14 @@ fn transfer_table_fragment(
                 hx-swap="outerHTML"
                 hx-include="#transfer-filter-form"
                 hx-push-url="true" {
-                div class="search-wrap" {
+                div class="relative flex-1 max-w-xs" {
                     (icon::search_icon("w-4 h-4"))
-                    input class="search-input" type="text" name="doc_number"
+                    input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="doc_number"
                         placeholder="调拨单号";
                 }
             }
 
-            div class="data-card-scroll" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                 table class="data-table" {
                     thead {
                         tr {

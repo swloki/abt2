@@ -13,15 +13,15 @@ pub fn modal(modal_id: &str, title: &str, submit_label: &str, form_id: &str, hx_
             _="on click[me is event.target] remove .is-open" {
             form id=(form_id) class="modal" hx-post=(hx_post) hx-swap="none"
                 _="on 'htmx:afterRequest'[detail.xhr.status < 400] remove .is-open from closest .modal-overlay then reset me" {
-                div class="modal-head" {
+                div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
                     h2 { (title) }
                     button type="button" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
                         _=(format!("on click remove .is-open from closest .modal-overlay then reset #{}", form_id)) { "×" }
                 }
-                div class="modal-body" {
+                div class="overflow-y-auto flex-1 min-h-0 p-6" {
                     (body)
                 }
-                div class="modal-foot" {
+                div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" {
                     button type="button" class="btn btn-default"
                         _=(format!("on click remove .is-open from closest .modal-overlay then reset #{}", form_id)) { "取消" }
                     button type="submit" class="btn btn-primary" { (submit_label) }

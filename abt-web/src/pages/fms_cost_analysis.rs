@@ -341,14 +341,14 @@ fn cost_analysis_page(
 
             // ── 产品成本面板 ──
             div id="panel-product" class="analysis-panel active" {
-                div class="info-card" style="margin-bottom:0" {
-                    div class="info-card-title" style="display:flex;justify-content:space-between;align-items:center" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" style="margin-bottom:0" {
+                    div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" style="display:flex;justify-content:space-between;align-items:center" {
                         span { "产品成本汇总 · 2026-06" }
                     }
                     @if products.is_empty() {
                         div style="text-align:center;padding:var(--space-8);color:var(--muted)" { "暂无产品成本数据" }
                     } @else {
-                        div class="data-card-scroll" {
+                        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                             table class="data-table" style="min-width:900px" {
                                 thead {
                                     tr {
@@ -398,14 +398,14 @@ fn cost_analysis_page(
 
             // ── 工单成本面板 ──
             div id="panel-order" class="analysis-panel" {
-                div class="info-card" style="margin-bottom:0" {
-                    div class="info-card-title" style="display:flex;justify-content:space-between;align-items:center" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" style="margin-bottom:0" {
+                    div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" style="display:flex;justify-content:space-between;align-items:center" {
                         span { "工单成本归集" }
                     }
                     @if work_orders.is_empty() {
                         div style="text-align:center;padding:var(--space-8);color:var(--muted)" { "暂无工单成本数据" }
                     } @else {
-                        div class="data-card-scroll" {
+                        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                             table class="data-table" style="min-width:950px" {
                                 thead {
                                     tr {
@@ -444,14 +444,14 @@ fn cost_analysis_page(
 
             // ── 利润中心 P&L 面板 ──
             div id="panel-profit" class="analysis-panel" {
-                div class="info-card" style="margin-bottom:0" {
-                    div class="info-card-title" style="display:flex;justify-content:space-between;align-items:center" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" style="margin-bottom:0" {
+                    div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" style="display:flex;justify-content:space-between;align-items:center" {
                         span { "利润中心 P&L · 2026-06" }
                     }
                     @if profit_centers.is_empty() {
                         div style="text-align:center;padding:var(--space-8);color:var(--muted)" { "暂无利润中心数据" }
                     } @else {
-                        div class="data-card-scroll" {
+                        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                             table class="data-table" style="min-width:900px" {
                                 thead {
                                     tr {
@@ -487,14 +487,14 @@ fn cost_analysis_page(
 
             // ── 毛利分析面板 ──
             div id="panel-margin" class="analysis-panel" {
-                div class="info-card" style="margin-bottom:0" {
-                    div class="info-card-title" style="display:flex;justify-content:space-between;align-items:center" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" style="margin-bottom:0" {
+                    div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" style="display:flex;justify-content:space-between;align-items:center" {
                         span { "订单毛利分析" }
                     }
                     @if margins.is_empty() {
                         div style="text-align:center;padding:var(--space-8);color:var(--muted)" { "暂无毛利数据" }
                     } @else {
-                        div class="data-card-scroll" {
+                        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                             table class="data-table" style="min-width:1000px" {
                                 thead {
                                     tr {
@@ -576,8 +576,8 @@ fn stat_card(
                 (PreEscaped(format!(r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24"><path d="{icon_path}"/></svg>"#)))
             }
             div class="mes-stat-body" {
-                div class="mes-stat-label" { (title) }
-                div class="mes-stat-value" { (PreEscaped(value)) }
+                div class="mes-text-sm text-muted mt-1" { (title) }
+                div class="mes-text-2xl font-bold font-mono tabular-nums text-fg" { (PreEscaped(value)) }
             }
         }
     }

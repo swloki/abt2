@@ -146,7 +146,7 @@ fn supplier_table_fragment(
             (status_tabs_with_param(SupplierListPath::PATH, "#supplier-data-card", "#supplier-filter-form", tabs, &active_value, "status"))
 
             // ── Filter Bar ──
-            form class="filter-bar filter-form" id="supplier-filter-form"
+            form class="flex items-center gap-3 mb-5 flex-wrap filter-form" id="supplier-filter-form"
                 hx-get=(SupplierListPath::PATH)
                 hx-trigger="change, keyup changed delay:300ms from:.search-input"
                 hx-target="#supplier-data-card"
@@ -155,13 +155,13 @@ fn supplier_table_fragment(
                 hx-select-oob="#status-tabs"
                 hx-include="#supplier-filter-form"
                 hx-push-url="true" {
-                div class="search-wrap" {
+                div class="relative flex-1 max-w-xs" {
                     (icon::search_icon("w-4 h-4"))
-                    input class="search-input" type="text" name="keyword"
+                    input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword"
                         placeholder="搜索供应商名称、编码…"
                         value=(params.keyword.as_deref().unwrap_or(""));
                 }
-                select class="filter-select" name="category" {
+                select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="category" {
                     option value="" { "全部类别" }
                     option value="1" selected[params.category == Some(1)] { "原材料" }
                     option value="2" selected[params.category == Some(2)] { "包装材料" }
@@ -172,8 +172,8 @@ fn supplier_table_fragment(
             }
 
             // ── Data Table ──
-            div class="data-card" id="supplier-data-card" {
-                div class="data-card-scroll" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" id="supplier-data-card" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                     table class="data-table" {
                         thead {
                             tr {
@@ -232,7 +232,7 @@ fn supplier_row(s: &Supplier, can_delete: bool, can_edit: bool) -> Markup {
             td class="link-cell mono" onclick=(format!("location.href='{}'", detail_path)) { (s.code) }
             td onclick=(format!("location.href='{}'", detail_path)) { strong { (s.name) } }
             td onclick=(format!("location.href='{}'", detail_path)) {
-                span class="tag-chip tag-normal" { (category_label) }
+                span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium tag-normal" { (category_label) }
             }
             td onclick=(format!("location.href='{}'", detail_path)) {
                 span style="color:var(--muted)" { "—" }

@@ -625,12 +625,12 @@ fn role_assign_modal(
             _="on click[me is event.target] remove .is-open" {
             form id="role-assign-form" class="modal" hx-post=(action) hx-swap="none"
                 onsubmit="this.closest('.modal-overlay').classList.remove('is-open');this.reset()" {
-                div class="modal-head" {
+                div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
                     h2 { "管理角色" }
                     button type="button" class="modal-close-btn"
                         _="on click remove .is-open from closest .modal-overlay then reset #role-assign-form" { "×" }
                 }
-                div class="modal-body" {
+                div class="overflow-y-auto flex-1 min-h-0 p-6" {
                     input type="hidden" name="role_ids" id="role-ids-input" {}
                     div class="modal-checkbox-list" {
                         @for role in all_roles {
@@ -639,7 +639,7 @@ fn role_assign_modal(
                                     checked[current_ids.contains(&role.role_id)];
                                 span { (role.role_name) }
                                 @if role.is_system_role {
-                                    span class="tag-chip tag-key" { "系统" }
+                                    span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium tag-key" { "系统" }
                                 }
                                 @if let Some(desc) = &role.description {
                                     span class="ml-auto text-xs text-muted" { (desc) }
@@ -648,7 +648,7 @@ fn role_assign_modal(
                         }
                     }
                 }
-                div class="modal-foot" {
+                div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" {
                     button type="button" class="btn btn-default"
                         _="on click remove .is-open from closest .modal-overlay then reset #role-assign-form" { "取消" }
                     button type="submit" class="btn btn-primary"
@@ -671,12 +671,12 @@ fn dept_assign_modal(
             _="on click[me is event.target] remove .is-open" {
             form id="dept-assign-form" class="modal" hx-post=(action) hx-swap="none"
                 onsubmit="this.closest('.modal-overlay').classList.remove('is-open');this.reset()" {
-                div class="modal-head" {
+                div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
                     h2 { "管理部门" }
                     button type="button" class="modal-close-btn"
                         _="on click remove .is-open from closest .modal-overlay then reset #dept-assign-form" { "×" }
                 }
-                div class="modal-body" {
+                div class="overflow-y-auto flex-1 min-h-0 p-6" {
                     input type="hidden" name="dept_ids" id="dept-ids-input" {}
                     div class="modal-checkbox-list" {
                         @for dept in all_depts {
@@ -692,7 +692,7 @@ fn dept_assign_modal(
                         }
                     }
                 }
-                div class="modal-foot" {
+                div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" {
                     button type="button" class="btn btn-default"
                         _="on click remove .is-open from closest .modal-overlay then reset #dept-assign-form" { "取消" }
                     button type="submit" class="btn btn-primary"
@@ -711,12 +711,12 @@ fn reset_password_modal(action: &str) -> Markup {
             _="on click[me is event.target] remove .is-open" {
             form id="reset-pw-form" class="modal" hx-post=(action) hx-swap="none"
                 onsubmit="this.closest('.modal-overlay').classList.remove('is-open');this.reset()" {
-                div class="modal-head" {
+                div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
                     h2 { "重置密码" }
                     button type="button" class="modal-close-btn"
                         _="on click remove .is-open from closest .modal-overlay then reset #reset-pw-form" { "×" }
                 }
-                div class="modal-body" {
+                div class="overflow-y-auto flex-1 min-h-0 p-6" {
                     p style="margin-bottom:16px;color:#6b7280;font-size:14px" { "为该用户设置新密码，重置后立即生效。" }
                     div class="form-group" {
                         label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "新密码 " span class="required" { "*" } }
@@ -729,7 +729,7 @@ fn reset_password_modal(action: &str) -> Markup {
                             minlength="8" placeholder="再次输入新密码" {}
                     }
                 }
-                div class="modal-foot" {
+                div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" {
                     button type="button" class="btn btn-default"
                         _="on click remove .is-open from closest .modal-overlay then reset #reset-pw-form" { "取消" }
                     button type="submit" class="btn btn-primary" {

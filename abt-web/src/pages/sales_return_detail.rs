@@ -414,30 +414,30 @@ fn return_detail_page(
             // ── Workflow Steps ──
             (workflow_steps(r.status))
             // ── Return Info ──
-            div class="info-card" {
-                div class="info-card-title" { "退货信息" }
-                div class="info-grid" {
-                    div class="info-item" {
-                        span class="info-label" { "客户名称" }
-                        span class="info-value" { (customer_name) }
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "退货信息" }
+                div class="grid gap-4" {
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "客户名称" }
+                        span class="text-sm text-fg font-medium" { (customer_name) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "退货原因" }
-                        span class="info-value" { (r.return_reason.as_str()) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "退货原因" }
+                        span class="text-sm text-fg font-medium" { (r.return_reason.as_str()) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "操作员" }
-                        span class="info-value" { (operator_name) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "操作员" }
+                        span class="text-sm text-fg font-medium" { (operator_name) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "创建时间" }
-                        span class="info-value" { (r.created_at.format("%Y-%m-%d %H:%M")) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "创建时间" }
+                        span class="text-sm text-fg font-medium" { (r.created_at.format("%Y-%m-%d %H:%M")) }
                     }
                 }
             }
             // ── Items Table ──
-            div class="data-card" {
-                div class="data-card-scroll" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                     table class="data-table" {
                         thead {
                             tr {
@@ -467,7 +467,7 @@ fn return_detail_page(
                 div class="amount-summary" {
                     div class="amount-row" {
                         span { "退货总额" }
-                        span class="mono stat-value-lg" {
+                        span class="mono text-2xl font-bold font-mono tabular-nums text-fg-lg" {
                             "¥ "
                             (format!("{:.2}", r.total_amount))
                         }
@@ -476,8 +476,8 @@ fn return_detail_page(
             }
             // ── Remarks ──
             @if !r.remark.is_empty() {
-                div class="info-card mt-6" {
-                    div class="info-card-title" { "备注" }
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)] mt-6" {
+                    div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "备注" }
                     p class="text-muted" { (r.remark.as_str()) }
                 }
             }

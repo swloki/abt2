@@ -76,8 +76,8 @@ fn conversion_data_card(
     query: &str,
 ) -> Markup {
     html! {
-        div id="conversion-data-card" class="data-card" {
-            div class="data-card-scroll" {
+        div id="conversion-data-card" class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                 table class="data-table" {
                     thead {
                         tr {
@@ -155,7 +155,7 @@ fn conversion_table_fragment(
         div class="conversion-list-panel" {
             (status_tabs_with_param(ConversionListPath::PATH, "#conversion-data-card", "#conversion-filter-form", tabs, &active_value, "status"))
 
-            form class="filter-bar filter-form" id="conversion-filter-form"
+            form class="flex items-center gap-3 mb-5 flex-wrap filter-form" id="conversion-filter-form"
                 hx-get=(ConversionListPath::PATH)
                 hx-trigger="change, keyup changed delay:300ms from:.search-input"
                 hx-target="#conversion-data-card"
@@ -163,9 +163,9 @@ fn conversion_table_fragment(
                 hx-swap="outerHTML"
                 hx-include="#conversion-filter-form"
                 hx-push-url="true" {
-                div class="search-wrap" {
+                div class="relative flex-1 max-w-xs" {
                     (icon::search_icon("w-4 h-4"))
-                    input class="search-input" type="text" name="doc_number"
+                    input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="doc_number"
                         placeholder="转换单号";
                 }
             }

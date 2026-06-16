@@ -200,11 +200,11 @@ fn process_dict_table_fragment(
     html! {
         div class="customer-list-panel" {
             // ── Filter Bar ──
-            div class="filter-bar" {
+            div class="flex items-center gap-3 mb-5 flex-wrap" {
                 div class="stat-chip" { "全部 " span class="chip-count" { (total_count) } }
-                div class="search-wrap" {
+                div class="relative flex-1 max-w-xs" {
                     (icon::search_icon("w-4 h-4"))
-                    input class="search-input" type="text" name="keyword"
+                    input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword"
                         placeholder="搜索工序编码或名称…"
                         value=(params.keyword.as_deref().unwrap_or(""))
                         hx-get=(ProcessDictListPath::PATH)
@@ -217,8 +217,8 @@ fn process_dict_table_fragment(
             }
 
             // ── Data Table ──
-            div id="process-dict-table" class="data-card" {
-                div class="data-card-scroll" {
+            div id="process-dict-table" class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                     table class="data-table" {
                         thead {
                             tr {
@@ -315,7 +315,7 @@ fn process_dict_form_page(_existing: Option<&LaborProcessDict>) -> Markup {
             form hx-post=(ProcessDictCreatePath::PATH)
                   hx-swap="none" {
                 // ── Section: 基本信息 ──
-                div class="data-card" style="margin-bottom:var(--space-4)" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" style="margin-bottom:var(--space-4)" {
                     div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "基本信息" }
                     div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                         div class="form-field" {
@@ -341,7 +341,7 @@ fn process_dict_form_page(_existing: Option<&LaborProcessDict>) -> Markup {
                 }
 
                 // ── Action Bar ──
-                div class="create-action-bar" {
+                div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
                     a class="btn btn-default" href=(ProcessDictListPath::PATH) { "取消" }
                     button type="submit" class="btn btn-primary" { "保存工序" }
                 }

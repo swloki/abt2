@@ -375,7 +375,7 @@ fn return_create_page(customers: &[abt_core::master_data::customer::model::Custo
                             "退货产品明细"
                         }
                     }
-                    div class="data-card-scroll" {
+                    div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                         table class="line-items-table" {
                             thead {
                                 tr {
@@ -439,7 +439,7 @@ fn return_create_page(customers: &[abt_core::master_data::customer::model::Custo
             }
 
             // ── Action Bar ──
-            div class="create-action-bar" {
+            div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
                 a class="btn btn-default" href=(format!("{}?restore=true", ReturnListPath::PATH)) { "取消" }
                 div class="flex gap-3" {
                     button type="button" class="btn btn-default" onclick="handleSaveDraft()" {

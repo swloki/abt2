@@ -247,7 +247,7 @@ fn pay_table_fragment(
             (status_tabs_with_param(PayListPath::PATH, "#pay-data-card", "#pay-filter-form", tabs, &active_value, "status"))
 
             // ── Filter Bar ──
-            form class="filter-bar filter-form" id="pay-filter-form"
+            form class="flex items-center gap-3 mb-5 flex-wrap filter-form" id="pay-filter-form"
                 hx-get=(PayListPath::PATH)
                 hx-trigger="change, keyup changed delay:300ms from:.search-input"
                 hx-target="#pay-data-card"
@@ -256,25 +256,25 @@ fn pay_table_fragment(
                 hx-select-oob="#status-tabs"
                 hx-include="#pay-filter-form"
                 hx-push-url="true" {
-                div class="search-wrap" {
+                div class="relative flex-1 max-w-xs" {
                     (icon::search_icon("w-4 h-4"))
-                    input class="search-input" type="text" name="keyword"
+                    input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword"
                         placeholder="搜索申请单号、供应商名称…"
                         value=(params.keyword.as_deref().unwrap_or(""));
                 }
-                select class="filter-select" name="supplier_id" {
+                select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="supplier_id" {
                     option value="" { "全部供应商" }
                     @for s in suppliers {
                         option value=(s.id) selected[selected_supplier == s.id.to_string()] { (s.name) }
                     }
                 }
-                select class="filter-select" name="date_range" {
+                select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="date_range" {
                     option value="" selected[selected_range.is_empty()] { "付款日期" }
                     option value="7d" selected[selected_range == "7d"] { "最近7天" }
                     option value="30d" selected[selected_range == "30d"] { "最近30天" }
                     option value="3m" selected[selected_range == "3m"] { "最近3个月" }
                 }
-                select class="filter-select" name="payment_method" {
+                select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="payment_method" {
                     option value="" selected[selected_method.is_empty()] { "全部付款方式" }
                     option value="1" selected[selected_method == "1"] { "银行转账" }
                     option value="2" selected[selected_method == "2"] { "现金" }
@@ -283,8 +283,8 @@ fn pay_table_fragment(
             }
 
             // ── Data Table ──
-            div class="data-card" id="pay-data-card" {
-                div class="data-card-scroll" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" id="pay-data-card" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                     table class="data-table" {
                         thead {
                             tr {

@@ -156,7 +156,7 @@ fn work_center_form_page(wc: Option<&WorkCenter>) -> Markup {
             }
         }
 
-        form class="data-card form-card"
+        form class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)] form-card"
             hx-post={ @if is_edit {
                 (WorkCenterEditPath { id: wc.unwrap().id }.to_string())
             } @else {
@@ -231,7 +231,7 @@ fn work_center_form_page(wc: Option<&WorkCenter>) -> Markup {
                 }
             }
 
-            div class="create-action-bar" {
+            div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
                 a class="btn btn-default" href=(WorkCenterListPath::PATH) { "取消" }
                 button class="btn btn-primary" type="submit" {
                     (icon::check_circle_icon("w-4 h-4"))

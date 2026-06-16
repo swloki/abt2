@@ -816,7 +816,7 @@ fn detail_panel(
     html! {
         div {
             // ── Category Info Card ──
-            div class="info-card" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
                 div class="cat-info-header" {
                     div {
                         div class="cat-info-title" { (category.category_name) }
@@ -845,20 +845,20 @@ fn detail_panel(
                 }
                 div class="cat-meta-grid" {
                     div class="cat-meta-item" {
-                        span class="info-label" { "分类名称" }
-                        span class="info-value" { (category.category_name) }
+                        span class="text-xs text-muted font-medium" { "分类名称" }
+                        span class="text-sm text-fg font-medium" { (category.category_name) }
                     }
                     div class="cat-meta-item" {
-                        span class="info-label" { "分类路径" }
-                        span class="info-value mono" { (category.path) }
+                        span class="text-xs text-muted font-medium" { "分类路径" }
+                        span class="text-sm text-fg font-medium mono" { (category.path) }
                     }
                     div class="cat-meta-item" {
-                        span class="info-label" { "上级分类" }
-                        span class="info-value" { (parent_name) }
+                        span class="text-xs text-muted font-medium" { "上级分类" }
+                        span class="text-sm text-fg font-medium" { (parent_name) }
                     }
                     div class="cat-meta-item" {
-                        span class="info-label" { "关联产品数" }
-                        span class="info-value mono" { (category.meta.count) }
+                        span class="text-xs text-muted font-medium" { "关联产品数" }
+                        span class="text-sm text-fg font-medium mono" { (category.meta.count) }
                     }
                 }
             }
@@ -895,8 +895,8 @@ fn detail_panel(
                     }
                 }
                 @if has_products {
-                    div class="data-card" style="border: 1px solid var(--border-soft); border-radius: var(--radius-md);" {
-                        div class="data-card-scroll" {
+                    div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" style="border: 1px solid var(--border-soft); border-radius: var(--radius-md);" {
+                        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                             table class="data-table" style="min-width: 0;" {
                                 thead {
                                     tr {
@@ -936,7 +936,7 @@ fn detail_panel(
                         }
                     }
                 } @else {
-                    div class="data-card-empty" {
+                    div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-empty" {
                         "暂无关联产品"
                     }
                 }

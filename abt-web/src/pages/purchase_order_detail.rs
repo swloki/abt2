@@ -388,46 +388,46 @@ fn po_detail_page(
             // ── Workflow Steps ──
             (workflow_steps(order.status))
             // ── Order Info ──
-            div class="info-card" {
-                div class="info-card-title" { "订单信息" }
-                div class="info-grid" {
-                    div class="info-item" {
-                        span class="info-label" { "供应商" }
-                        span class="info-value" { (ctx.supplier_name) }
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "订单信息" }
+                div class="grid gap-4" {
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "供应商" }
+                        span class="text-sm text-fg font-medium" { (ctx.supplier_name) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "订单日期" }
-                        span class="info-value mono" { (order.order_date.format("%Y-%m-%d")) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "订单日期" }
+                        span class="text-sm text-fg font-medium mono" { (order.order_date.format("%Y-%m-%d")) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "预计到货" }
-                        span class="info-value mono" { (expected_delivery) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "预计到货" }
+                        span class="text-sm text-fg font-medium mono" { (expected_delivery) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "付款条款" }
-                        span class="info-value" { (payment_terms) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "付款条款" }
+                        span class="text-sm text-fg font-medium" { (payment_terms) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "交货地址" }
-                        span class="info-value" { (delivery_address) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "交货地址" }
+                        span class="text-sm text-fg font-medium" { (delivery_address) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "币种" }
-                        span class="info-value" { "CNY" }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "币种" }
+                        span class="text-sm text-fg font-medium" { "CNY" }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "采购员" }
-                        span class="info-value" { (ctx.operator_name) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "采购员" }
+                        span class="text-sm text-fg font-medium" { (ctx.operator_name) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "关联报价" }
-                        span class="info-value" { "—" }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "关联报价" }
+                        span class="text-sm text-fg font-medium" { "—" }
                     }
                 }
             }
             // ── Items Table ──
-            div class="data-card" {
-                div class="data-card-scroll" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                     table class="data-table" {
                         thead {
                             tr {
@@ -473,16 +473,16 @@ fn po_detail_page(
             }
             // ── Remarks ──
             @if !order.remark.is_empty() {
-                div class="info-card" style="margin-top:var(--space-6)" {
-                    div class="info-card-title" { "备注" }
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" style="margin-top:var(--space-6)" {
+                    div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "备注" }
                     p class="text-muted" { (order.remark.as_str()) }
                 }
             }
 
             // ── Payment Schedule ──
             @if !schedules.is_empty() {
-                div class="info-card" style="margin-top:var(--space-6)" {
-                    div class="info-card-title" { "付款计划" }
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" style="margin-top:var(--space-6)" {
+                    div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "付款计划" }
                     table class="data-table" {
                         thead {
                             tr {

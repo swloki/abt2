@@ -238,7 +238,7 @@ fn pay_create_page(
             (supplier_section(suppliers, None, &[], &[]))
 
             // ── 付款信息 ──
-            div class="data-card" style="margin-bottom:var(--space-4)" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" style="margin-bottom:var(--space-4)" {
                 div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "付款信息" }
                 div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                     div class="form-field" {
@@ -286,7 +286,7 @@ fn pay_create_page(
             }
 
             // ── 三单匹配校验 ──
-            div class="data-card" style="margin-bottom:var(--space-4)" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" style="margin-bottom:var(--space-4)" {
                 div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-4)" {
                     div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" style="margin:0;padding:0;border:none" { "三单匹配校验" }
                     span style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:var(--radius-sm);font-size:var(--text-xs);font-weight:600;background:#fef9c3;color:#a16207;border:1px solid #fde68a" {
@@ -323,7 +323,7 @@ fn pay_create_page(
             }
 
             // ── Action Bar ──
-            div class="create-action-bar" {
+            div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
                 a class="btn btn-default" href=(format!("{}?restore=true", PayListPath::PATH)) { "取消" }
                 div style="display:flex;gap:var(--space-3)" {
                     button type="button" class="btn btn-default" { "保存草稿" }
@@ -350,7 +350,7 @@ fn supplier_section(
     let default_account = bank_accounts.first();
 
     html! {
-        div class="data-card" style="margin-bottom:var(--space-4)" {
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" style="margin-bottom:var(--space-4)" {
             div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "供应商信息" }
             div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                 div class="form-field" {

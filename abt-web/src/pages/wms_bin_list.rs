@@ -153,8 +153,8 @@ fn bin_data_card(
     let query = build_query_string(params);
 
     html! {
-        div id="bin-data-card" class="data-card" {
-            div class="data-card-scroll" {
+        div id="bin-data-card" class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                 table class="data-table" {
                     thead {
                         tr {
@@ -200,7 +200,7 @@ fn bin_table_fragment(
     html! {
         div class="bin-list-panel" {
             // ── Filter Bar ──
-            form class="filter-bar filter-form" id="filter-form"
+            form class="flex items-center gap-3 mb-5 flex-wrap filter-form" id="filter-form"
                 hx-get=(BinListPath::PATH)
                 hx-trigger="change, keyup changed delay:300ms from:.search-input"
                 hx-target="#bin-data-card"
@@ -208,20 +208,20 @@ fn bin_table_fragment(
                 hx-swap="outerHTML"
                 hx-include="#filter-form"
                 hx-push-url="true" {
-                div class="search-wrap" {
+                div class="relative flex-1 max-w-xs" {
                     (icon::search_icon("w-4 h-4"))
-                    input class="search-input" type="text" name="code"
+                    input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="code"
                         style="width:180px"
                         placeholder="储位编码"
                         value=(params.code.as_deref().unwrap_or(""));
                 }
-                div class="search-wrap" {
+                div class="relative flex-1 max-w-xs" {
                     (icon::search_icon("w-4 h-4"))
-                    input class="search-input" type="text" name="name"
+                    input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="name"
                         placeholder="储位名称"
                         value=(params.name.as_deref().unwrap_or(""));
                 }
-                select class="filter-select" name="warehouse_id" {
+                select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="warehouse_id" {
                     option value="" { "全部仓库" }
                     @for wh in warehouses {
                         option value=(wh.id) selected[params.warehouse_id == Some(wh.id)] {
@@ -229,7 +229,7 @@ fn bin_table_fragment(
                         }
                     }
                 }
-                select class="filter-select" name="status" {
+                select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="status" {
                     option value="" { "全部状态" }
                     option value="1" selected[params.status == Some(1)] { "空闲" }
                     option value="2" selected[params.status == Some(2)] { "占用" }

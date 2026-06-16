@@ -149,8 +149,8 @@ fn wms_dashboard_content(stats: &DashboardStats) -> Markup {
                     (icon::building_icon("w-[22px] h-[22px]"))
                 }
                 div {
-                    div class="stat-value" { (stats.warehouse_count.to_string()) }
-                    div class="stat-label" { "仓库总数" }
+                    div class="text-2xl font-bold font-mono tabular-nums text-fg" { (stats.warehouse_count.to_string()) }
+                    div class="text-sm text-muted mt-1" { "仓库总数" }
                 }
             }
             // 库存品类
@@ -159,8 +159,8 @@ fn wms_dashboard_content(stats: &DashboardStats) -> Markup {
                     (icon::box_icon("w-[22px] h-[22px]"))
                 }
                 div {
-                    div class="stat-value" { (format_number(stats.stock_sku_count)) }
-                    div class="stat-label" { "库存品类" }
+                    div class="text-2xl font-bold font-mono tabular-nums text-fg" { (format_number(stats.stock_sku_count)) }
+                    div class="text-sm text-muted mt-1" { "库存品类" }
                 }
             }
             // 本月入库
@@ -169,8 +169,8 @@ fn wms_dashboard_content(stats: &DashboardStats) -> Markup {
                     (icon::download_icon("w-[22px] h-[22px]"))
                 }
                 div {
-                    div class="stat-value" { (stats.month_in_count.to_string()) }
-                    div class="stat-label" { "本月入库" }
+                    div class="text-2xl font-bold font-mono tabular-nums text-fg" { (stats.month_in_count.to_string()) }
+                    div class="text-sm text-muted mt-1" { "本月入库" }
                 }
             }
             // 本月出库
@@ -179,8 +179,8 @@ fn wms_dashboard_content(stats: &DashboardStats) -> Markup {
                     (icon::upload_icon("w-[22px] h-[22px]"))
                 }
                 div {
-                    div class="stat-value" { (stats.month_out_count.to_string()) }
-                    div class="stat-label" { "本月出库" }
+                    div class="text-2xl font-bold font-mono tabular-nums text-fg" { (stats.month_out_count.to_string()) }
+                    div class="text-sm text-muted mt-1" { "本月出库" }
                 }
             }
             // 低库存预警
@@ -189,8 +189,8 @@ fn wms_dashboard_content(stats: &DashboardStats) -> Markup {
                     (icon::circle_alert_icon("w-[22px] h-[22px]"))
                 }
                 div {
-                    div class="stat-value" { (stats.low_stock_count.to_string()) }
-                    div class="stat-label" { "低库存预警" }
+                    div class="text-2xl font-bold font-mono tabular-nums text-fg" { (stats.low_stock_count.to_string()) }
+                    div class="text-sm text-muted mt-1" { "低库存预警" }
                 }
             }
         }
@@ -221,7 +221,7 @@ fn wms_dashboard_content(stats: &DashboardStats) -> Markup {
         // ── Recent Operations ──
         div {
             h2 style="font-size:var(--text-lg);font-weight:600;margin-bottom:var(--space-4)" { "最近操作" }
-            div class="data-card" style="overflow:hidden" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" style="overflow:hidden" {
                 table class="data-table" style="width:100%" {
                     thead {
                         tr {

@@ -218,35 +218,35 @@ fn requisition_detail_page(
             (workflow_steps(requisition.status))
 
             // ── 领料信息 ──
-            div class="info-card" {
-                div class="info-card-title" { "领料信息" }
-                div class="info-grid" {
-                    div class="info-item" {
-                        span class="info-label" { "单据编号" }
-                        span class="info-value mono" { (requisition.doc_number) }
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "领料信息" }
+                div class="grid gap-4" {
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "单据编号" }
+                        span class="text-sm text-fg font-medium mono" { (requisition.doc_number) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "关联工单" }
-                        span class="info-value mono" { "WO-" (requisition.work_order_id) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "关联工单" }
+                        span class="text-sm text-fg font-medium mono" { "WO-" (requisition.work_order_id) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "领料仓库" }
-                        span class="info-value" { (wh_name) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "领料仓库" }
+                        span class="text-sm text-fg font-medium" { (wh_name) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "领料日期" }
-                        span class="info-value mono" { (requisition.requisition_date.format("%Y-%m-%d")) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "领料日期" }
+                        span class="text-sm text-fg font-medium mono" { (requisition.requisition_date.format("%Y-%m-%d")) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "操作员" }
-                        span class="info-value" { (operator_name) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "操作员" }
+                        span class="text-sm text-fg font-medium" { (operator_name) }
                     }
                 }
             }
 
             // ── 行项明细 ──
-            div class="data-card" {
-                div class="data-card-scroll" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                     table class="data-table" {
                         thead {
                             tr {

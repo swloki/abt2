@@ -164,8 +164,8 @@ fn stats_row(stats: &ScheduleStats) -> Markup {
 fn stat_card(value: &str, label: &str, cls: &str) -> Markup {
     html! {
         div class=(format!("board-stat-card {cls}")) {
-            span class="board-stat-value" { (value) }
-            span class="board-stat-label" { (label) }
+            span class="board-text-2xl font-bold font-mono tabular-nums text-fg" { (value) }
+            span class="board-text-sm text-muted mt-1" { (label) }
         }
     }
 }

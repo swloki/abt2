@@ -160,36 +160,36 @@ fn transfer_detail_page(
             (transfer_workflow_steps(transfer.status))
 
             // ── Info Card ──
-            div class="info-card" {
-                div class="info-card-title" { "调拨信息" }
-                div class="info-grid" {
-                    div class="info-item" {
-                        span class="info-label" { "调拨单号" }
-                        span class="info-value mono" { (transfer.doc_number) }
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "调拨信息" }
+                div class="grid gap-4" {
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "调拨单号" }
+                        span class="text-sm text-fg font-medium mono" { (transfer.doc_number) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "调出仓库" }
-                        span class="info-value" { (ctx.from_wh_name) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "调出仓库" }
+                        span class="text-sm text-fg font-medium" { (ctx.from_wh_name) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "调入仓库" }
-                        span class="info-value" { (ctx.to_wh_name) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "调入仓库" }
+                        span class="text-sm text-fg font-medium" { (ctx.to_wh_name) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "调拨日期" }
-                        span class="info-value mono" { (transfer.transfer_date.to_string()) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "调拨日期" }
+                        span class="text-sm text-fg font-medium mono" { (transfer.transfer_date.to_string()) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "操作员" }
-                        span class="info-value" { (ctx.operator_name) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "操作员" }
+                        span class="text-sm text-fg font-medium" { (ctx.operator_name) }
                     }
                 }
             }
 
             // ── Items Table ──
-            div class="data-card" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" {
                 div style="padding:var(--space-5) var(--space-6) var(--space-3)" {
-                    div class="info-card-title" style="border-bottom:none;padding-bottom:0;margin-bottom:0" { "调拨明细" }
+                    div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" style="border-bottom:none;padding-bottom:0;margin-bottom:0" { "调拨明细" }
                 }
                 table class="data-table" {
                     thead {

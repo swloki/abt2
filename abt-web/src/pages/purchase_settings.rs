@@ -110,7 +110,7 @@ fn settings_page(
             }
             form hx-post=(PurchaseSettingsPath::PATH) hx-swap="none" {
                 // ── Tolerance ──
-                div class="data-card" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" {
                     div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "收货容差" }
                     div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                         div class="form-field" {
@@ -137,7 +137,7 @@ fn settings_page(
                 }
 
                 // ── Business Rules ──
-                div class="data-card" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" {
                     div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "业务规则" }
                     div class="form-field" {
                         label class="flex items-center gap-2 text-[13px] text-fg cursor-pointer mt-1.5" {
@@ -166,7 +166,7 @@ fn settings_page(
                 }
 
                 // ── Defaults ──
-                div class="data-card" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" {
                     div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "默认值" }
                     div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                         div class="form-field" {
@@ -193,7 +193,7 @@ fn settings_page(
                 }
 
                 // ── Actions ──
-                div class="create-action-bar" {
+                div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
                     a class="btn btn-default" href=(POListPath::PATH) { "返回采购订单" }
                     button type="submit" class="btn btn-primary" { "保存配置" }
                 }

@@ -436,7 +436,7 @@ fn view_toggle_and_filter(view_mode: &str, params: &DemandPoolQueryParams) -> Ma
             }
 
             // Right: search + date filter
-            form class="filter-bar"
+            form class="flex items-center gap-3 mb-5 flex-wrap"
                 hx-get=(MesDemandPoolListPath::PATH)
                 hx-trigger="change, keyup changed delay:300ms from:.search-input"
                 hx-target="#demand-pool-data-card"
@@ -444,13 +444,13 @@ fn view_toggle_and_filter(view_mode: &str, params: &DemandPoolQueryParams) -> Ma
                 hx-swap="outerHTML"
                 hx-push-url="true" {
                 input type="hidden" name="view" value=(view_mode);
-                div class="search-wrap" {
+                div class="relative flex-1 max-w-xs" {
                     (icon::search_icon("w-4 h-4"))
-                    input class="search-input" type="text" name="keyword"
+                    input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword"
                         placeholder="搜索物料名称、编码…"
                         value=(kw);
                 }
-                select class="filter-select" name="date_filter" {
+                select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="date_filter" {
                     option value="" selected[df.is_empty()] { "全部需求日期" }
                     option value="3days" selected[df == "3days"] { "近3天到期" }
                     option value="7days" selected[df == "7days"] { "近7天到期" }
@@ -477,7 +477,7 @@ fn material_grid_fragment(
     let qs = material_query_string(params.keyword.as_deref(), params.date_filter.as_deref());
 
     html! {
-        div class="data-card" {
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" {
             // Column header
             div class="material-row-header" {
                 div style="flex:1" { "物料信息" }
@@ -546,13 +546,13 @@ fn material_row(item: &MaterialAggSummary) -> Markup {
             // Total demand qty
             div class="material-stat" {
                 div class=(format!("material-stat-value {qty_cls}")) { (fmt_qty(item.total_demand_qty)) }
-                div class="material-stat-label" { "总需求量" }
+                div class="material-text-sm text-muted mt-1" { "总需求量" }
             }
 
             // Demand count
             div class="material-stat" {
-                div class="material-stat-value accent" { (item.demand_count) }
-                div class="material-stat-label" { "涉及订单" }
+                div class="material-text-2xl font-bold font-mono tabular-nums text-fg accent" { (item.demand_count) }
+                div class="material-text-sm text-muted mt-1" { "涉及订单" }
             }
 
             // Date range
@@ -650,8 +650,8 @@ fn detail_table_fragment(
     );
 
     html! {
-        div class="data-card" {
-            div class="data-card-scroll" {
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                 table class="data-table" {
                     thead { tr {
                         th style="width:40px" {

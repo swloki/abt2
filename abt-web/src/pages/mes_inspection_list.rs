@@ -101,12 +101,12 @@ fn inspection_table_fragment(
 
     html! { div {
         (status_tabs_with_param(InspectionListPath::PATH, "#insp-data-card", "#filter-form", tabs, sel, "inspection_type"))
-        form id="filter-form" class="filter-bar filter-form" hx-get=(InspectionListPath::PATH)
+        form id="filter-form" class="flex items-center gap-3 mb-5 flex-wrap filter-form" hx-get=(InspectionListPath::PATH)
             hx-trigger="change, keyup changed delay:300ms from:.search-input"
             hx-target="#insp-data-card" hx-select="#insp-data-card" hx-swap="outerHTML" hx-include="#filter-form"
                 hx-push-url="true" {
-            div class="search-wrap" { (icon::search_icon("w-4 h-4"))
-                input class="search-input" type="text" name="keyword" style="width:180px" placeholder="搜索报检单号…" value=(params.keyword.as_deref().unwrap_or(""));
+            div class="relative flex-1 max-w-xs" { (icon::search_icon("w-4 h-4"))
+                input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword" style="width:180px" placeholder="搜索报检单号…" value=(params.keyword.as_deref().unwrap_or(""));
             }
         }
         (inspection_data_card(result, params))
@@ -123,8 +123,8 @@ fn inspection_data_card(
     let query = qs.join("&");
 
     html! {
-        div class="data-card" id="insp-data-card" {
-            div class="data-card-scroll" {
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" id="insp-data-card" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                 table class="data-table" { thead { tr {
                     th { "单号" } th { "工单" } th { "类型" } th { "产品" }
                     th class="num-right" { "样本" } th class="num-right" { "合格" } th { "结果" } th { "操作" }

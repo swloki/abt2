@@ -433,22 +433,22 @@ fn plan_detail_page(
                 }
 
                 // 信息 Grid（4 列）
-                div class="detail-info-grid" {
-                    div class="detail-info-item" {
-                        span class="detail-info-label" { "计划日期" }
-                        span class="detail-info-value mono" { (plan.plan_date) }
+                div class="detail-grid gap-4" {
+                    div class="detail-flex flex-col gap-1" {
+                        span class="detail-text-xs text-muted font-medium" { "计划日期" }
+                        span class="detail-text-sm text-fg font-medium mono" { (plan.plan_date) }
                     }
-                    div class="detail-info-item" {
-                        span class="detail-info-label" { "排产类型" }
-                        span class="detail-info-value" { (type_label) }
+                    div class="detail-flex flex-col gap-1" {
+                        span class="detail-text-xs text-muted font-medium" { "排产类型" }
+                        span class="detail-text-sm text-fg font-medium" { (type_label) }
                     }
-                    div class="detail-info-item" {
-                        span class="detail-info-label" { "生产中心" }
-                        span class="detail-info-value" { "—" }
+                    div class="detail-flex flex-col gap-1" {
+                        span class="detail-text-xs text-muted font-medium" { "生产中心" }
+                        span class="detail-text-sm text-fg font-medium" { "—" }
                     }
-                    div class="detail-info-item" {
-                        span class="detail-info-label" { "计划数量" }
-                        span class="detail-info-value mono" {
+                    div class="detail-flex flex-col gap-1" {
+                        span class="detail-text-xs text-muted font-medium" { "计划数量" }
+                        span class="detail-text-sm text-fg font-medium mono" {
                             (format!("{} 项 · {} 件", items.len(), crate::utils::fmt_qty(total_qty)))
                         }
                     }
@@ -477,8 +477,8 @@ fn tab_detail(
     val_map: &HashMap<i64, &ReleaseValidation>,
 ) -> Markup {
     html! {
-        div class="data-card" {
-            div class="data-card-scroll" {
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                 table class="data-table" {
                     thead {
                         tr {
@@ -613,8 +613,8 @@ fn tab_planning(
                             hx-post={(PlanGeneratePath { plan_id: plan.id }.to_string())}
                             hx-swap="none" {
 
-                            div class="data-card" {
-                                div class="data-card-scroll" {
+                            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" {
+                                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                                     table class="data-table" {
                                         thead {
                                             tr {
@@ -688,8 +688,8 @@ fn tab_planning(
                         "草稿工单 " span class="muted" { "(" (draft_orders.len()) ")" }
                     }
 
-                    div class="data-card" {
-                        div class="data-card-scroll" {
+                    div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" {
+                        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                             table class="data-table" {
                                 thead {
                                     tr {
@@ -749,7 +749,7 @@ fn tab_planning(
                         "已下达工单 " span class="muted" { "(" (released_orders.len()) ")" }
                     }
 
-                    div class="data-card" {
+                    div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" {
                         ul class="work-order-list" {
                             @for wo in &released_orders {
                                 @let pname = product_names.get(&wo.product_id).map(|s| s.as_str()).unwrap_or("—");

@@ -120,8 +120,8 @@ fn customer_list_page(
                         (icon::users_icon("w-6 h-6"))
                     }
                     div {
-                        div class="stat-value" { (total_count) }
-                        div class="stat-label" { "客户总数" }
+                        div class="text-2xl font-bold font-mono tabular-nums text-fg" { (total_count) }
+                        div class="text-sm text-muted mt-1" { "客户总数" }
                     }
                 }
                 div class="stat-card" {
@@ -129,8 +129,8 @@ fn customer_list_page(
                         (icon::check_circle_icon("w-6 h-6"))
                     }
                     div {
-                        div class="stat-value" { "—" }
-                        div class="stat-label" { "活跃客户" }
+                        div class="text-2xl font-bold font-mono tabular-nums text-fg" { "—" }
+                        div class="text-sm text-muted mt-1" { "活跃客户" }
                     }
                 }
                 div class="stat-card" {
@@ -138,8 +138,8 @@ fn customer_list_page(
                         (icon::trending_up_icon("w-6 h-6"))
                     }
                     div {
-                        div class="stat-value" { "—" }
-                        div class="stat-label" { "本月交易额" }
+                        div class="text-2xl font-bold font-mono tabular-nums text-fg" { "—" }
+                        div class="text-sm text-muted mt-1" { "本月交易额" }
                     }
                 }
                 div class="stat-card" {
@@ -147,8 +147,8 @@ fn customer_list_page(
                         (icon::circle_alert_icon("w-6 h-6"))
                     }
                     div {
-                        div class="stat-value" { "—" }
-                        div class="stat-label" { "信用预警" }
+                        div class="text-2xl font-bold font-mono tabular-nums text-fg" { "—" }
+                        div class="text-sm text-muted mt-1" { "信用预警" }
                     }
                 }
             }
@@ -181,7 +181,7 @@ fn customer_table_fragment(
             (status_tabs_with_param(CustomerListPath::PATH, "#customer-data-card", "#customer-filter-form", tabs, &active_value, "status"))
 
             // ── Filter Bar ──
-            form class="filter-bar filter-form" id="customer-filter-form"
+            form class="flex items-center gap-3 mb-5 flex-wrap filter-form" id="customer-filter-form"
                 hx-get=(CustomerListPath::PATH)
                 hx-trigger="change, keyup changed delay:300ms from:.search-input"
                 hx-target="#customer-data-card"
@@ -190,13 +190,13 @@ fn customer_table_fragment(
                 hx-select-oob="#status-tabs"
                 hx-include="#customer-filter-form"
                 hx-push-url="true" {
-                div class="search-wrap" {
+                div class="relative flex-1 max-w-xs" {
                     (icon::search_icon("w-4 h-4"))
-                    input class="search-input" type="text" name="keyword"
+                    input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword"
                         placeholder="搜索客户名称、联系人、电话…"
                         value=(params.keyword.as_deref().unwrap_or(""));
                 }
-                select class="filter-select" name="category" {
+                select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="category" {
                     option value="" { "全部分类" }
                     option value="1" selected[params.category == Some(1)] { "经销商" }
                     option value="2" selected[params.category == Some(2)] { "直客" }
@@ -206,8 +206,8 @@ fn customer_table_fragment(
             }
 
             // ── Data Table ──
-            div class="data-card" id="customer-data-card" {
-                div class="data-card-scroll" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" id="customer-data-card" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                     table class="data-table" {
                         thead {
                             tr {

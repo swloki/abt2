@@ -247,7 +247,7 @@ fn misc_table_fragment(
             (status_tabs_with_param(MiscListPath::PATH, "#misc-data-card", "#misc-filter-form", tabs, &active_value, "status"))
 
             // ── Filter Bar ──
-            form class="filter-bar filter-form" id="misc-filter-form"
+            form class="flex items-center gap-3 mb-5 flex-wrap filter-form" id="misc-filter-form"
                 hx-get=(MiscListPath::PATH)
                 hx-trigger="change, keyup changed delay:300ms from:.search-input"
                 hx-target="#misc-data-card"
@@ -256,13 +256,13 @@ fn misc_table_fragment(
                 hx-select-oob="#status-tabs"
                 hx-include="#misc-filter-form"
                 hx-push-url="true" {
-                div class="search-wrap" {
+                div class="relative flex-1 max-w-xs" {
                     (icon::search_icon("w-4 h-4"))
-                    input class="search-input" type="text" name="keyword"
+                    input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword"
                         placeholder="搜索单据编号…"
                         value=(params.keyword.as_deref().unwrap_or(""));
                 }
-                select class="filter-select" name="department" {
+                select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="department" {
                     option value="" selected[dept_value.is_empty()] { "全部部门" }
                     option value="行政部" selected[dept_value == "行政部"] { "行政部" }
                     option value="IT部" selected[dept_value == "IT部"] { "IT部" }
@@ -273,7 +273,7 @@ fn misc_table_fragment(
                     option value="人事部" selected[dept_value == "人事部"] { "人事部" }
                     option value="市场部" selected[dept_value == "市场部"] { "市场部" }
                 }
-                select class="filter-select" name="date_range" {
+                select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="date_range" {
                     option value="" selected[date_range_value.is_empty()] { "请购日期" }
                     option value="7d" selected[date_range_value == "7d"] { "最近7天" }
                     option value="30d" selected[date_range_value == "30d"] { "最近30天" }
@@ -282,8 +282,8 @@ fn misc_table_fragment(
             }
 
             // ── Data Table ──
-            div class="data-card" id="misc-data-card" {
-                div class="data-card-scroll" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" id="misc-data-card" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                     table class="data-table" {
                         thead {
                             tr {

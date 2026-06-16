@@ -161,31 +161,31 @@ fn precon_detail_page(
 
             (workflow_steps(recon.status))
             // ── Reconciliation Info ──
-            div class="info-card" {
-                div class="info-card-title" { "对账信息" }
-                div class="info-grid" {
-                    div class="info-item" {
-                        span class="info-label" { "供应商名称" }
-                        span class="info-value" { (supplier_name) }
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "对账信息" }
+                div class="grid gap-4" {
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "供应商名称" }
+                        span class="text-sm text-fg font-medium" { (supplier_name) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "对账期间" }
-                        span class="info-value mono" { (recon.period) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "对账期间" }
+                        span class="text-sm text-fg font-medium mono" { (recon.period) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "状态" }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "状态" }
                         span class=(format!("status-pill {status_class}")) { (status_text) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "操作人" }
-                        span class="info-value" { (operator_name) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "操作人" }
+                        span class="text-sm text-fg font-medium" { (operator_name) }
                     }
                 }
             }
 
             // ── Items Table ──
-            div class="data-card" {
-                div class="data-card-scroll" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                     table class="data-table" {
                         thead {
                             tr {
@@ -216,28 +216,28 @@ fn precon_detail_page(
             }
 
             // ── Amount Summary ──
-            div class="info-card" style="margin-top:var(--space-6)" {
-                div class="info-card-title" { "金额汇总" }
-                div class="info-grid" {
-                    div class="info-item" {
-                        span class="info-label" { "总金额" }
-                        span class="info-value mono" { (format!("{:.2}", recon.total_amount)) }
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" style="margin-top:var(--space-6)" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "金额汇总" }
+                div class="grid gap-4" {
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "总金额" }
+                        span class="text-sm text-fg font-medium mono" { (format!("{:.2}", recon.total_amount)) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "确认金额" }
-                        span class="info-value mono" { (format!("{:.2}", recon.confirmed_amount)) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "确认金额" }
+                        span class="text-sm text-fg font-medium mono" { (format!("{:.2}", recon.confirmed_amount)) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "差异" }
-                        span class="info-value mono" { (format!("{:.2}", recon.difference)) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "差异" }
+                        span class="text-sm text-fg font-medium mono" { (format!("{:.2}", recon.difference)) }
                     }
                 }
             }
 
             // ── Remarks ──
             @if !recon.remark.is_empty() {
-                div class="info-card" style="margin-top:var(--space-6)" {
-                    div class="info-card-title" { "备注" }
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" style="margin-top:var(--space-6)" {
+                    div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "备注" }
                     p class="text-muted" { (recon.remark.as_str()) }
                 }
             }

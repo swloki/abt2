@@ -332,7 +332,7 @@ fn result_create_page(
                 input type="hidden" name="check_results_json" id="check-results-json" value="";
 
                 // ── Action bar ──
-                div class="create-action-bar" {
+                div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
                     a class="btn btn-default" href=(format!("{}?restore=true", ResultListPath::PATH)) { "取消" }
                     button type="button" class="btn btn-default" id="btn-save-draft" { "保存草稿" }
                     button type="submit" class="btn btn-primary" { "提交检验结果" }

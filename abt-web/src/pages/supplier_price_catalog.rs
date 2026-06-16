@@ -306,7 +306,7 @@ fn table_fragment(result: &PaginatedResult<PriceView>, query: &ListQuery) -> Mar
 fn filter_bar(query: &ListQuery) -> Markup {
     let active_val = query.is_active.as_deref().unwrap_or("");
     html! {
-        form id="price-filter-form" class="filter-bar"
+        form id="price-filter-form" class="flex items-center gap-3 mb-5 flex-wrap"
             hx-get=(SupplierPricesPath::PATH)
             hx-trigger="change, keyup changed delay:300ms from:.search-input"
             hx-target="#price-data-card"
@@ -315,20 +315,20 @@ fn filter_bar(query: &ListQuery) -> Markup {
             hx-push-url="true"
             hx-include="#price-filter-form" {
 
-            div class="search-wrap" {
+            div class="relative flex-1 max-w-xs" {
                 span class="search-icon" { "🔍" }
-                input class="search-input" type="text" name="keyword"
+                input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword"
                     placeholder="搜索供应商/产品名称或编码..."
                     value=(query.keyword.as_deref().unwrap_or(""))
                     autocomplete="off";
             }
-            select name="currency_code" class="filter-select" {
+            select name="currency_code" class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" {
                 option value="" selected[query.currency_code.is_none()] { "全部币种" }
                 option value="CNY" selected[query.currency_code.as_deref() == Some("CNY")] { "CNY" }
                 option value="USD" selected[query.currency_code.as_deref() == Some("USD")] { "USD" }
                 option value="EUR" selected[query.currency_code.as_deref() == Some("EUR")] { "EUR" }
             }
-            select name="is_active" class="filter-select" {
+            select name="is_active" class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" {
                 option value="" selected[active_val.is_empty()] { "全部状态" }
                 option value="true" selected[active_val == "true"] { "启用" }
                 option value="false" selected[active_val == "false"] { "停用" }
@@ -339,11 +339,11 @@ fn filter_bar(query: &ListQuery) -> Markup {
 
 fn data_card(result: &PaginatedResult<PriceView>) -> Markup {
     html! {
-        div class="data-card" {
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" {
             @if result.items.is_empty() {
                 (empty_state())
             } @else {
-                div class="data-card-scroll" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                     table class="data-table" {
                         thead {
                             tr {
@@ -381,9 +381,9 @@ fn pagination_bar(result: &PaginatedResult<PriceView>) -> Markup {
         return html! {};
     }
     html! {
-        div class="pagination" {
+        div class="flex items-center justify-between py-4" {
             span { "共 " (total) " 条记录，第 " (current) "/" (total_pages) " 页" }
-            div class="pagination-pages" {
+            div class="flex items-center justify-between py-4-pages" {
                 @if current > 1 {
                     (page_btn(current - 1, "«"))
                 }
@@ -565,7 +565,7 @@ fn price_form(action_url: &str, price: Option<&PriceView>) -> Markup {
 
     html! {
         div class="modal modal-lg" _="on click halt" {
-            div class="modal-head" {
+            div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
                 h2 { (title) }
                 button class="modal-close-btn"
                     _="on click remove .is-open from #price-modal" { "×" }
@@ -573,7 +573,7 @@ fn price_form(action_url: &str, price: Option<&PriceView>) -> Markup {
             form hx-post=(action_url) hx-target="this" hx-swap="outerHTML"
                 _="on 'htmx:afterRequest'[detail.successful] remove .is-open from #price-modal" {
 
-                div class="modal-body" {
+                div class="overflow-y-auto flex-1 min-h-0 p-6" {
                     // Section: Basic info
                     div class="form-section" {
                         div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "基本信息" }
@@ -678,7 +678,7 @@ fn price_form(action_url: &str, price: Option<&PriceView>) -> Markup {
                     }
                 }
 
-                div class="modal-foot" {
+                div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" {
                     button type="button" class="btn btn-default"
                         _="on click remove .is-open from #price-modal" { "取消" }
                     button type="submit" class="btn btn-primary" { "保存" }

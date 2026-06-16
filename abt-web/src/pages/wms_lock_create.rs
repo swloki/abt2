@@ -95,7 +95,7 @@ pub async fn create_lock(
 
 fn lock_create_form() -> Markup {
     html! {
-        div class="data-card" {
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" {
             form method="POST" action=(LockCreatePath::PATH)
                 hx-post=(LockCreatePath::PATH)
                 hx-redirect=(LockListPath::PATH) {
@@ -132,7 +132,7 @@ fn lock_create_form() -> Markup {
                     }
                 }
 
-                div class="create-action-bar" {
+                div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
                     a class="btn btn-default" href=(format!("{}?restore=true", LockListPath::PATH)) { "取消" }
                     button type="submit" class="btn btn-primary" {
                         "确认锁定"

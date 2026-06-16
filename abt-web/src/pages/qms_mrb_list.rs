@@ -233,7 +233,7 @@ fn mrb_table_fragment(
             (status_tabs_with_param(MrbListPath::PATH, "#mrb-data-card", "#filter-form", tabs, selected_status, "status"))
 
             // ── Filter Bar ──
-            form id="filter-form" class="filter-bar filter-form"
+            form id="filter-form" class="flex items-center gap-3 mb-5 flex-wrap filter-form"
                 hx-get=(MrbListPath::PATH)
                 hx-trigger="change, keyup changed delay:300ms from:.search-input"
                 hx-target="#mrb-data-card"
@@ -241,31 +241,31 @@ fn mrb_table_fragment(
                 hx-swap="outerHTML"
                 hx-include="#filter-form"
                 hx-push-url="true" {
-                div class="search-wrap" {
+                div class="relative flex-1 max-w-xs" {
                     (icon::search_icon("w-4 h-4"))
-                    input class="search-input" type="text" name="keyword"
+                    input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword"
                         style="width:180px"
                         placeholder="搜索单号…"
                         value=(params.keyword.as_deref().unwrap_or(""));
                 }
-                select class="filter-select" name="disposition" {
+                select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="disposition" {
                     option value="" selected[params.disposition.is_none()] { "全部处置" }
                     option value="1" selected[params.disposition == Some(1)] { "报废" }
                     option value="2" selected[params.disposition == Some(2)] { "退货" }
                     option value="3" selected[params.disposition == Some(3)] { "降级" }
                     option value="4" selected[params.disposition == Some(4)] { "返工" }
                 }
-                select class="filter-select" name="responsible_party" {
+                select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="responsible_party" {
                     option value="" selected[params.responsible_party.is_none()] { "全部责任方" }
                     option value="1" selected[params.responsible_party == Some(1)] { "内部" }
                     option value="2" selected[params.responsible_party == Some(2)] { "供应商" }
                     option value="3" selected[params.responsible_party == Some(3)] { "客户" }
                 }
-                input class="search-input" type="date" name="date_from"
+                input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="date" name="date_from"
                     style="max-width:160px"
                     value=(params.date_from.as_deref().unwrap_or(""));
                 span style="color:var(--muted);font-size:13px" { "至" }
-                input class="search-input" type="date" name="date_to"
+                input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="date" name="date_to"
                     style="max-width:160px"
                     value=(params.date_to.as_deref().unwrap_or(""));
             }
@@ -284,8 +284,8 @@ fn mrb_data_card(
 ) -> Markup {
     let query = build_query_string(params);
     html! {
-        div class="data-card" id="mrb-data-card" {
-            div class="data-card-scroll" {
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" id="mrb-data-card" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                 table class="data-table" {
                     thead {
                         tr {

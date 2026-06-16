@@ -263,7 +263,7 @@ fn product_create_page(source: Option<&Product>, categories: &[CategoryTree]) ->
                 }
 
                 // ── Action Bar ──
-                div class="create-action-bar" {
+                div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
                     a class="btn btn-default" href=(format!("{}?restore=true", ProductListPath::PATH)) { "取消" }
                     button type="submit" class="btn btn-primary" {
                         (btn_label)
@@ -274,16 +274,16 @@ fn product_create_page(source: Option<&Product>, categories: &[CategoryTree]) ->
             // ── Category Select Modal ──
             div id="category-modal" class="modal-overlay" _="on click[me is event.target] remove .is-open" {
                 div class="modal" onclick="event.stopPropagation()" {
-                    div class="modal-head" {
+                    div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
                         h2 { "选择分类" }
                         button type="button" class="btn-icon" _="on click remove .is-open from #category-modal" {
                             (icon::x_icon("w-4 h-4"))
                         }
                     }
-                    div class="modal-body" {
+                    div class="overflow-y-auto flex-1 min-h-0 p-6" {
                         div class="category-search-bar" {
                             (icon::search_icon("w-4 h-4"))
-                            input type="text" id="category-search-input" class="category-search-input" placeholder="搜索分类…" {}
+                            input type="text" id="category-search-input" class="category-w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" placeholder="搜索分类…" {}
                         }
                         div id="category-list-container" class="category-select-list" {
                             @if categories.is_empty() {

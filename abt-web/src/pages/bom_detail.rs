@@ -286,7 +286,7 @@ fn bom_detail_page(
 
             // ── BOM结构 ──
             div class="detail-card" {
-                div class="detail-card-title" {
+                div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 border-b border-border-soft" {
                     span { "BOM结构" }
                     span style="color:var(--text-tertiary);font-weight:400;font-size:12px" {
                         "（共 " (node_count) " 个节点）"
@@ -327,17 +327,17 @@ fn bom_detail_page(
                 div id="cost-drawer" class="drawer-overlay"
                     _="on click remove .open from #cost-drawer" {
                         div class="drawer-panel" style="max-width:1000px;width:100%" onclick="event.stopPropagation()" {
-                        div class="drawer-head" {
+                        div class="flex items-center justify-between px-6 py-4 border-b border-border-soft" {
                             h2 { (icon::currency_icon("w-5 h-5")) " BOM成本报告" }
                             button style="background:none;border:none;cursor:pointer;font-size:22px;color:var(--muted);padding:4px;line-height:1"
                                 _="on click remove .open from #cost-drawer" { "×" }
                         }
-                        div class="drawer-body" {
+                        div class="flex-1 overflow-y-auto p-6" {
                             div id="cost-drawer-body" {
                                 div style="text-align:center;padding:40px;color:var(--muted)" { "加载中..." }
                             }
                         }
-                        div class="drawer-foot" {
+                        div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3" {
                             button type="button" class="btn btn-default"
                                 _="on click remove .open from #cost-drawer" { "关闭" }
                         }
@@ -348,17 +348,17 @@ fn bom_detail_page(
                 div id="labor-drawer" class="drawer-overlay"
                     _="on click remove .open from #labor-drawer" {
                     div class="drawer-panel" style="max-width:800px;width:100%" onclick="event.stopPropagation()" {
-                        div class="drawer-head" {
+                        div class="flex items-center justify-between px-6 py-4 border-b border-border-soft" {
                             h2 { (icon::bolt_icon("w-5 h-5")) " BOM 人工成本" }
                             button style="background:none;border:none;cursor:pointer;font-size:22px;color:var(--muted);padding:4px;line-height:1"
                                 _="on click remove .open from #labor-drawer" { "×" }
                         }
-                        div class="drawer-body" {
+                        div class="flex-1 overflow-y-auto p-6" {
                             div id="labor-drawer-body" {
                                 div style="text-align:center;padding:40px;color:var(--muted)" { "加载中..." }
                             }
                         }
-                        div class="drawer-foot" {
+                        div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3" {
                             button type="button" class="btn btn-default"
                                 _="on click remove .open from #labor-drawer" { "关闭" }
                         }

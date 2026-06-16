@@ -206,7 +206,7 @@ fn precon_table_fragment(
         div class="precon-list-panel" {
             (status_tabs_with_param(PreconListPath::PATH, "#precon-data-card", "#precon-filter-form", tabs, &active_value, "status"))
             // ── Filter Bar ──
-            form class="filter-bar filter-form" id="precon-filter-form"
+            form class="flex items-center gap-3 mb-5 flex-wrap filter-form" id="precon-filter-form"
                 hx-get=(PreconListPath::PATH)
                 hx-trigger="change, keyup changed delay:300ms from:.search-input"
                 hx-target="#precon-data-card"
@@ -215,19 +215,19 @@ fn precon_table_fragment(
                 hx-select-oob="#status-tabs"
                 hx-include="#precon-filter-form"
                 hx-push-url="true" {
-                div class="search-wrap" {
+                div class="relative flex-1 max-w-xs" {
                     (icon::search_icon("w-4 h-4"))
-                    input class="search-input" type="text" name="keyword"
+                    input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword"
                         placeholder="搜索对账单号…"
                         value=(params.keyword.as_deref().unwrap_or(""));
                 }
-                select class="filter-select" name="supplier_id" {
+                select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="supplier_id" {
                     option value="" { "全部供应商" }
                     @for s in suppliers {
                         option value=(s.id) selected[selected_supplier == s.id.to_string()] { (s.name) }
                     }
                 }
-                select class="filter-select" name="period" {
+                select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="period" {
                     option value="" { "全部期间" }
                     @for p in &periods {
                         option value=(p) selected[*selected_period == *p] { (p) }
@@ -235,8 +235,8 @@ fn precon_table_fragment(
                 }
             }
             // ── Data Table ──
-            div class="data-card" id="precon-data-card" {
-                div class="data-card-scroll" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" id="precon-data-card" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                     table class="data-table" {
                         thead {
                             tr {

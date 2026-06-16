@@ -140,14 +140,14 @@ fn wage_list_page(
         }
 
         // 筛选栏
-        div class="filter-bar" {
-            div class="search-wrap" {
+        div class="flex items-center gap-3 mb-5 flex-wrap" {
+            div class="relative flex-1 max-w-xs" {
                 (maud::PreEscaped(r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>"#))
-                input class="search-input" type="text" placeholder="搜索工人姓名、工号…";
+                input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" placeholder="搜索工人姓名、工号…";
             }
-            input type="date" class="filter-select" value=(date_from_str) style="max-width:160px";
+            input type="date" class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" value=(date_from_str) style="max-width:160px";
             span style="color:var(--muted);font-size:var(--text-sm);line-height:36px" { "至" }
-            input type="date" class="filter-select" value=(date_to_str) style="max-width:160px";
+            input type="date" class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" value=(date_to_str) style="max-width:160px";
         }
 
         // 汇总统计卡片
@@ -157,8 +157,8 @@ fn wage_list_page(
                     (maud::PreEscaped(r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>"#))
                 }
                 div {
-                    div class="stat-value" { "¥" (crate::utils::fmt_qty(ctx.total_wage)) }
-                    div class="stat-label" { "本月工资总额" }
+                    div class="text-2xl font-bold font-mono tabular-nums text-fg" { "¥" (crate::utils::fmt_qty(ctx.total_wage)) }
+                    div class="text-sm text-muted mt-1" { "本月工资总额" }
                 }
             }
             div class="stat-card" {
@@ -166,8 +166,8 @@ fn wage_list_page(
                     (maud::PreEscaped(r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>"#))
                 }
                 div {
-                    div class="stat-value" { (ctx.worker_count) }
-                    div class="stat-label" { "计件工人数" }
+                    div class="text-2xl font-bold font-mono tabular-nums text-fg" { (ctx.worker_count) }
+                    div class="text-sm text-muted mt-1" { "计件工人数" }
                 }
             }
             div class="stat-card" {
@@ -175,8 +175,8 @@ fn wage_list_page(
                     (maud::PreEscaped(r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>"#))
                 }
                 div {
-                    div class="stat-value" { (total_completed_fmt) }
-                    div class="stat-label" { "总完成数量" }
+                    div class="text-2xl font-bold font-mono tabular-nums text-fg" { (total_completed_fmt) }
+                    div class="text-sm text-muted mt-1" { "总完成数量" }
                     div style="font-size:var(--text-xs);color:var(--muted);margin-top:2px" { "不良品 " (total_defect_fmt) " (" (defect_rate) ")" }
                 }
             }
@@ -185,8 +185,8 @@ fn wage_list_page(
                     (maud::PreEscaped(r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>"#))
                 }
                 div {
-                    div class="stat-value" { "—" }
-                    div class="stat-label" { "扣减金额(操作失误)" }
+                    div class="text-2xl font-bold font-mono tabular-nums text-fg" { "—" }
+                    div class="text-sm text-muted mt-1" { "扣减金额(操作失误)" }
                     div style="font-size:var(--text-xs);color:var(--muted);margin-top:2px" { "操作失误不良: " (crate::utils::fmt_qty(ctx.total_operator_defect)) "件" }
                 }
             }
@@ -296,7 +296,7 @@ fn wage_list_page(
         }
 
         // 分页
-        div class="pagination" {
+        div class="flex items-center justify-between py-4" {
             span { "共 " (ctx.worker_count) " 名工人" }
         }
     }}

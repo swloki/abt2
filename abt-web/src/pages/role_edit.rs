@@ -354,7 +354,7 @@ fn role_edit_page(
                 }
             }
             // ── Action Bar ──
-            div class="create-action-bar" {
+            div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
                 a class="btn btn-default" href=(&detail_path) { "取消" }
                 div style="display:flex;gap:var(--space-3)" {
                     button type="submit" class="btn btn-primary" {

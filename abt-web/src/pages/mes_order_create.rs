@@ -255,7 +255,7 @@ fn order_create_page(work_centers: &[abt_core::master_data::work_center::WorkCen
                     div class="form-field span-2" { label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "备注" } textarea class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="remark" rows="2" {}; }
                 }
             }
-            div class="create-action-bar" {
+            div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
                 a class="btn btn-default" href=(format!("{}?restore=true", OrderListPath::PATH)) { "取消" }
                 button type="submit" class="btn btn-primary" { "提交" }
             }
@@ -274,16 +274,16 @@ fn source_order_modal() -> Markup {
         div class="modal-overlay" id="so-modal"
             _="on click remove .is-open from #so-modal" {
             div class="modal modal-lg" _="on click halt" {
-                div class="modal-head" {
+                div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
                     h2 { "选择销售订单" }
                     button style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
                         _="on click remove .is-open from #so-modal" { "\u{00d7}" }
                 }
-                div class="modal-body" style="padding:0" {
+                div class="overflow-y-auto flex-1 min-h-0 p-6" style="padding:0" {
                     div class="product-search-bar" {
                         div class="product-search-field" {
                             label class="product-search-label" { "订单编号 / 关键词" }
-                            input class="product-search-input" type="text" name="keyword" placeholder="输入订单编号搜索…"
+                            input class="product-w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword" placeholder="输入订单编号搜索…"
                                 hx-get=(SourceOrderSearchPath::PATH)
                                 hx-trigger="keyup changed delay:300ms"
                                 hx-sync="this:replace"
@@ -310,16 +310,16 @@ fn source_plan_modal() -> Markup {
         div class="modal-overlay" id="pp-modal"
             _="on click remove .is-open from #pp-modal" {
             div class="modal modal-lg" _="on click halt" {
-                div class="modal-head" {
+                div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
                     h2 { "选择生产计划" }
                     button style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
                         _="on click remove .is-open from #pp-modal" { "\u{00d7}" }
                 }
-                div class="modal-body" style="padding:0" {
+                div class="overflow-y-auto flex-1 min-h-0 p-6" style="padding:0" {
                     div class="product-search-bar" {
                         div class="product-search-field" {
                             label class="product-search-label" { "计划编号 / 关键词" }
-                            input class="product-search-input" type="text" name="keyword" placeholder="输入计划编号搜索…"
+                            input class="product-w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword" placeholder="输入计划编号搜索…"
                                 hx-get=(SourcePlanSearchPath::PATH)
                                 hx-trigger="keyup changed delay:300ms"
                                 hx-sync="this:replace"

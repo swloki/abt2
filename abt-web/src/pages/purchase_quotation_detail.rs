@@ -287,49 +287,49 @@ fn pq_detail_page(
             (workflow_steps(pq.status))
 
             // ── Quotation Info ──
-            div class="info-card" {
-                div class="info-card-title" { "报价信息" }
-                div class="info-grid" {
-                    div class="info-item" {
-                        span class="info-label" { "供应商名称" }
-                        span class="info-value" { (ctx.supplier_name) }
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "报价信息" }
+                div class="grid gap-4" {
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "供应商名称" }
+                        span class="text-sm text-fg font-medium" { (ctx.supplier_name) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "联系人" }
-                        span class="info-value" { (ctx.supplier_contact) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "联系人" }
+                        span class="text-sm text-fg font-medium" { (ctx.supplier_contact) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "联系电话" }
-                        span class="info-value" { (ctx.supplier_phone) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "联系电话" }
+                        span class="text-sm text-fg font-medium" { (ctx.supplier_phone) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "报价日期" }
-                        span class="info-value mono" { (pq.quotation_date.format("%Y-%m-%d")) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "报价日期" }
+                        span class="text-sm text-fg font-medium mono" { (pq.quotation_date.format("%Y-%m-%d")) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "有效期" }
-                        span class="info-value mono" {
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "有效期" }
+                        span class="text-sm text-fg font-medium mono" {
                             (format!("{} ~ {}", pq.valid_from.format("%Y-%m-%d"), pq.valid_until.format("%Y-%m-%d")))
                         }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "币种" }
-                        span class="info-value" { (currency) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "币种" }
+                        span class="text-sm text-fg font-medium" { (currency) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "采购员" }
-                        span class="info-value" { (ctx.buyer_name) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "采购员" }
+                        span class="text-sm text-fg font-medium" { (ctx.buyer_name) }
                     }
-                    div class="info-item" {
-                        span class="info-label" { "备注" }
-                        span class="info-value" { (remark) }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "备注" }
+                        span class="text-sm text-fg font-medium" { (remark) }
                     }
                 }
             }
 
             // ── Items Table ──
-            div class="data-card" {
-                div class="data-card-scroll" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" {
+                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                     table class="data-table" {
                         thead {
                             tr {

@@ -340,8 +340,8 @@ fn create_page(
                 // ── Section 3: 发料明细 ──
                 div class="form-section" {
                     div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "发料明细" }
-                    div class="data-card" {
-                        div class="data-card-scroll" {
+                    div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" {
+                        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                             table class="data-table" {
                                 thead {
                                     tr {
@@ -380,7 +380,7 @@ fn create_page(
                 }
 
                 // ── Action bar ──
-                div class="create-action-bar" {
+                div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
                     a class="btn btn-default" href=(format!("{}?restore=true", OmOutsourcingListPath::PATH)) { "取消" }
                     button type="submit" class="btn btn-primary" { "确认提交" }
                 }
@@ -390,7 +390,7 @@ fn create_page(
         // ── Material row modal ──
         div id="material-modal" class="modal-overlay" _="on click[me is event.target] remove .is-open" {
             div class="modal" onclick="event.stopPropagation()" {
-                div class="modal-head" {
+                div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
                     h3 { "选择物料" }
                     button type="button" class="btn-remove-row" title="关闭"
                         _="on click remove .is-open from #material-modal"
@@ -398,7 +398,7 @@ fn create_page(
                         (icon::x_icon("w-4 h-4"))
                     }
                 }
-                div class="modal-body" {
+                div class="overflow-y-auto flex-1 min-h-0 p-6" {
                     div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                         div class="form-field span-2" {
                             label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "物料" }
@@ -424,7 +424,7 @@ fn create_page(
                         }
                     }
                 }
-                div class="modal-foot" {
+                div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" {
                     button type="button" class="btn btn-default"
                         _="on click remove .is-open from #material-modal"
                     { "取消" }

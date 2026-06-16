@@ -62,8 +62,8 @@ fn work_calendar_list_page(calendars: &[WorkCalendar]) -> Markup {
             }
         }
 
-        div class="data-card" {
-            div class="data-card-scroll" {
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-scroll" {
                 table class="data-table" {
                     thead {
                         tr {

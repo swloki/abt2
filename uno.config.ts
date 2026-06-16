@@ -105,47 +105,33 @@ p { margin: 0; }
 [x-cloak] { display: none !important; }
 .font-mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 
-/* ─── Component state CSS (irreducible) ─── */
-.app-shell { display: grid; grid-template-columns: var(--sidebar-w) 1fr; min-height: 100vh; transition: grid-template-columns var(--motion-base) var(--ease-standard); }
-.app-shell.sidebar-collapsed { grid-template-columns: 56px 1fr; }
-.sidebar-collapsed .sidebar-body { display: none; }
-.sidebar-collapsed .sidebar-rail { border-right: none; }
-@media (max-width: 768px) { .app-shell { grid-template-columns: 1fr !important; } #sidebar { position: fixed; left: 0; top: 0; bottom: 0; width: 280px; transform: translateX(-100%); z-index: 55; transition: transform var(--motion-base) var(--ease-standard); } #sidebar.mobile-open { transform: translateX(0); } .main-content { padding-bottom: 68px; } .page-content { padding: var(--space-4); } }
+/* ─── Truly irreducible CSS (cannot be expressed as atomic utilities) ─── */
+/* field-input focus changes sibling icon color */
 .field-input:focus ~ .field-icon, .field-input:focus + .field-icon { color: var(--accent); }
-.cost-warning-list { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 0.3s ease; }
-.cost-warning-list.show { grid-template-rows: 1fr; }
-.cost-warning-list.show > ul { border-top: 1px solid #fbbf24; padding: 12px 16px; }
-.cost-warning-list > ul { overflow: hidden; }
-.cost-warning-list li { font-size: 13px; color: #92400e; padding: 2px 0; }
-.cost-warning-list ul { list-style: none; margin: 0; padding: 0; }
-.data-card:has(> .form-section-title), .data-card:has(> div > .form-section-title) { padding-top: 0; }
+/* perm-cell custom checkbox :checked::after draws a CSS checkmark */
 .perm-cell input { width: 16px; height: 16px; cursor: pointer; appearance: none; -webkit-appearance: none; border: 2px solid #d1d5db; border-radius: 3px; background: #fff; transition: all .15s; flex-shrink: 0; position: relative; }
 .perm-cell input:checked { background: #22c55e; border-color: #22c55e; }
 .perm-cell input:checked::after { content: ''; position: absolute; left: 4px; top: 1px; width: 5px; height: 9px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg); }
 .perm-cell input.perm-readonly { cursor: default; pointer-events: none; }
 .perm-cell input.perm-readonly:not(:checked) { opacity: 0.4; }
-.category-select-item.expanded > .category-select-info > .category-tree-toggle { transform: rotate(90deg); }
-.category-select-children { display: none; }
-.category-select-item.expanded > .category-select-children { display: block; }
-.hidden-initial { display: none; }
-.hidden-initial.is-visible { display: flex; }
-.info-bar-order-highlight { display: none; margin-top: var(--space-2); background: rgba(22,119,255,0.04); border-color: rgba(22,119,255,0.12); }
-.info-bar-order-highlight.is-visible { display: flex; }
-.analysis-panel { display: none; }
-.analysis-panel.active { display: block; }
-.row-actions-menu { position: fixed; display: none; z-index: 50; }
-.row-actions-menu.is-open { display: block; }
-.rail-collapse svg { width: 16px !important; height: 16px !important; opacity: 0.7; }
-.rail-collapse:hover svg { opacity: 1; }
+/* app-shell JS-driven sidebar collapse + mobile state */
+.app-shell { display: grid; grid-template-columns: var(--sidebar-w) 1fr; min-height: 100vh; transition: grid-template-columns var(--motion-base) var(--ease-standard); }
+.app-shell.sidebar-collapsed { grid-template-columns: 56px 1fr; }
+.sidebar-collapsed .sidebar-body { display: none; }
+.sidebar-collapsed .sidebar-rail { border-right: none; }
+@media (max-width: 768px) { .app-shell { grid-template-columns: 1fr !important; } #sidebar { position: fixed; left: 0; top: 0; bottom: 0; width: 280px; transform: translateX(-100%); z-index: 55; transition: transform var(--motion-base) var(--ease-standard); } #sidebar.mobile-open { transform: translateX(0); } .main-content { padding-bottom: 68px; } .page-content { padding: var(--space-4); } }
 `,
     },
   ],
 
-  // Custom variant: act: prefix matches .active class (not :active pseudo)
+  // Custom variants: prefix matches state class (not pseudo-class)
   variants: [
     (matcher) => {
-      if (matcher.startsWith('act:')) {
-        return { matcher: matcher.slice(4), selector: (s) => `${s}.active` };
+      const map = { 'act:': '.active', 'show:': '.show', 'is-open:': '.is-open', 'is-visible:': '.is-visible', 'expanded:': '.expanded' };
+      for (const [prefix, cls] of Object.entries(map)) {
+        if (matcher.startsWith(prefix)) {
+          return { matcher: matcher.slice(prefix.length), selector: (s) => `${s}${cls}` };
+        }
       }
     },
   ],

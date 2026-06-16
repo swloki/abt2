@@ -546,7 +546,7 @@ pub fn sidebar(claims: &Claims, active_module: &str, current_path: &str, filter:
                     }
                 }
                 div class="rail-bottom flex flex-col items-center w-full pt-3 border-t border-white/[0.06] mt-2" {
-                    button class="w-[44px] flex flex-col items-center gap-[3px] border-none bg-transparent rounded-sm cursor-pointer relative text-white/25 hover:text-white/60 transition-colors rail-collapse"
+                    button class="w-[44px] flex flex-col items-center gap-[3px] border-none bg-transparent rounded-sm cursor-pointer relative text-white/25 hover:text-white/60 transition-colors [&_svg]:w-4 [&_svg]:h-4 [&_svg]:opacity-70 hover:[&_svg]:opacity-100"
                             _="on click toggle .sidebar-collapsed on .app-shell then if .app-shell matches .sidebar-collapsed call localStorage.setItem('sidebar-collapsed','true') else call localStorage.removeItem('sidebar-collapsed')"
                             title="收起侧栏" {
                         (icon::sidebar_toggle_icon(""))

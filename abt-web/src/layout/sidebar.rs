@@ -489,7 +489,7 @@ pub fn sidebar_body_fragment(claims: &Claims, active_module: &str, filter: &NavF
     let visible_items = filter.visible_items(active_mod);
 
     html! {
-        div class="p-4 text-sm font-bold border-b border-white/[0.06] flex items-center gap-2 shrink-0 text-white/90" {
+        div class="p-4 text-sm font-bold [border-bottom:1px_solid_rgba(255,255,255,0.06)] flex items-center gap-2 shrink-0 text-white/90" {
             span class="w-[18px] h-[18px] grid place-items-center [&_svg]:w-4 [&_svg]:h-4 [&_svg]:text-accent" { (render_module_icon(active_mod.id)) }
             span class="whitespace-nowrap overflow-hidden" { (active_mod.name) }
         }
@@ -501,7 +501,7 @@ pub fn sidebar_body_fragment(claims: &Claims, active_module: &str, filter: &NavF
                 }
             }
         }
-        div class="p-4 border-t border-white/[0.06] flex items-center gap-3 mt-auto" {
+        div class="p-4 [border-top:1px_solid_rgba(255,255,255,0.06)] flex items-center gap-3 mt-auto" {
             div class="w-[34px] h-[34px] rounded-full bg-accent grid place-items-center text-[13px] font-bold text-white shrink-0" { (avatar_initials(&claims.display_name)) }
             div class="flex-1 min-w-0" {
                 div class="text-sm font-semibold text-white truncate" { (claims.display_name.as_str()) }
@@ -518,9 +518,9 @@ pub fn sidebar(claims: &Claims, active_module: &str, current_path: &str, filter:
     let active_mod = mods.iter().find(|m| m.id == active_module);
 
     html! {
-        nav id="sidebar" class="bg-[linear-gradient(180deg,#0a1628_0%,#0f1d32_100%)] text-white/85 flex flex-row sticky top-0 h-screen overflow-hidden z-20" {
+        nav id="sidebar" class="bg-[#0b1829] text-white/85 flex flex-row sticky top-0 h-screen overflow-hidden z-20" {
             // ── Icon Rail ──
-            div class="sidebar-rail w-[56px] min-w-[56px] bg-[#070f1e] flex flex-col items-center p-3 border-r border-white/[0.04] shrink-0" {
+            div class="sidebar-rail w-[56px] min-w-[56px] bg-[#070f1e] flex flex-col items-center p-3 [border-right:1px_solid_rgba(255,255,255,0.04)] shrink-0" {
                 div class="w-[36px] h-[36px] rounded-md bg-accent grid place-items-center mb-5 shadow-[var(--shadow-accent)]" title="ABT ERP" {
                     span class="[&_svg]:w-4.5 [&_svg]:h-4.5 [&_svg]:text-white" { (icon::box_icon("")) }
                 }
@@ -530,7 +530,7 @@ pub fn sidebar(claims: &Claims, active_module: &str, current_path: &str, filter:
                             @let is_initial_active = active_mod.is_some_and(|am| m.id == am.id);
                             @let hx_url = format!("/sidebar/body/{}", m.id);
                             button class=(if is_initial_active {
-                                "rail-item active w-[44px] flex flex-col items-center gap-[3px] py-2 px-0 pb-[6px] border-none bg-transparent rounded-sm text-white cursor-pointer transition-all duration-150 relative act:bg-[rgba(37,99,235,0.15)] act:before:content-[''] act:before:absolute act:before:left-[-4px] act:before:top-1/2 act:before:-translate-y-1/2 act:before:w-[3px] act:before:h-5 act:before:bg-accent act:before:rounded-r-sm"
+                                "rail-item active w-[44px] flex flex-col items-center gap-[3px] py-2 px-0 pb-[6px] border-none bg-transparent rounded-sm text-white cursor-pointer transition-all duration-150 relative act:bg-[rgba(37,99,235,0.15)] act:before:content-[''] act:before:absolute act:before:left-[-4px] act:before:top-1/2 act:before:-translate-y-1/2 act:before:w-[3px] act:before:h-5 act:before:bg-accent act:before:rounded-r-sm [&_svg]:text-accent"
                             } else {
                                 "rail-item w-[44px] flex flex-col items-center gap-[3px] py-2 px-0 pb-[6px] border-none bg-transparent rounded-sm text-white/40 cursor-pointer transition-all duration-150 relative hover:text-white/85 hover:bg-white/[0.06]"
                             })
@@ -545,7 +545,7 @@ pub fn sidebar(claims: &Claims, active_module: &str, current_path: &str, filter:
                         }
                     }
                 }
-                div class="rail-bottom flex flex-col items-center w-full pt-3 border-t border-white/[0.06] mt-2" {
+                div class="rail-bottom flex flex-col items-center w-full pt-3 [border-top:1px_solid_rgba(255,255,255,0.06)] mt-2" {
                     button class="w-[44px] flex flex-col items-center gap-[3px] border-none bg-transparent rounded-sm cursor-pointer relative text-white/25 hover:text-white/60 transition-colors [&_svg]:w-4 [&_svg]:h-4 [&_svg]:opacity-70 hover:[&_svg]:opacity-100"
                             _="on click toggle .sidebar-collapsed on .app-shell then if .app-shell matches .sidebar-collapsed call localStorage.setItem('sidebar-collapsed','true') else call localStorage.removeItem('sidebar-collapsed')"
                             title="收起侧栏" {
@@ -560,7 +560,7 @@ pub fn sidebar(claims: &Claims, active_module: &str, current_path: &str, filter:
                 @if let Some(active_mod) = active_mod {
                     (sidebar_body_fragment_inner(active_mod, current_path, filter))
                 }
-                div class="mt-auto p-4 border-t border-white/[0.06] flex items-center gap-3" {
+                div class="mt-auto p-4 [border-top:1px_solid_rgba(255,255,255,0.06)] flex items-center gap-3" {
                     div class="w-[34px] h-[34px] rounded-full bg-accent grid place-items-center text-[13px] font-bold text-white shrink-0" { (avatar_initials(&claims.display_name)) }
                     div class="flex-1 min-w-0" {
                         div class="text-sm font-semibold text-white truncate" { (claims.display_name.as_str()) }

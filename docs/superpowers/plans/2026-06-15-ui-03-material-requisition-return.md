@@ -662,7 +662,7 @@ git commit -m "fix: resolve clippy errors for requisition return flow"
 - [ ] **Step 1: 登录**
 
 ```bash
-agent-browser --cdp 9222 open https://localhost:8000/login
+agent-browser --cdp 9222 open http://localhost:8000/login
 agent-browser snapshot -i
 agent-browser fill @e<username_input> "admin"
 agent-browser fill @e<password_input> "chenxi0514"
@@ -673,7 +673,7 @@ agent-browser wait 2000
 - [ ] **Step 2: 测试列表页 PartiallyIssued Tab**
 
 ```bash
-agent-browser --cdp 9222 open https://localhost:8000/admin/wms/requisitions
+agent-browser --cdp 9222 open http://localhost:8000/admin/wms/requisitions
 agent-browser snapshot -i
 ```
 
@@ -735,7 +735,7 @@ agent-browser snapshot -i
 如果有 PartiallyIssued 状态的领料单：
 
 ```bash
-agent-browser --cdp 9222 open https://localhost:8000/admin/wms/requisitions
+agent-browser --cdp 9222 open http://localhost:8000/admin/wms/requisitions
 agent-browser snapshot -i
 # 筛选部分发料
 agent-browser select @e<status_filter> "5"

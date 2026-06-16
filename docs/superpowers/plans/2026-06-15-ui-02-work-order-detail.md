@@ -364,7 +364,7 @@ git commit -m "fix: resolve clippy errors for work order detail enhancement"
 - [ ] **Step 1: 登录**
 
 ```bash
-agent-browser --cdp 9222 open https://localhost:8000/login
+agent-browser --cdp 9222 open http://localhost:8000/login
 agent-browser snapshot -i
 agent-browser fill @e<username_input> "admin"
 agent-browser fill @e<password_input> "chenxi0514"
@@ -375,7 +375,7 @@ agent-browser wait 2000
 - [ ] **Step 2: 打开工单详情页**
 
 ```bash
-agent-browser --cdp 9222 open https://localhost:8000/admin/mes/orders
+agent-browser --cdp 9222 open http://localhost:8000/admin/mes/orders
 agent-browser snapshot -i
 # 点击第一条工单的详情链接
 agent-browser click @e<first_order_detail_link>

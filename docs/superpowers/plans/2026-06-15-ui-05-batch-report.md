@@ -417,7 +417,7 @@ git commit -m "fix: resolve clippy errors for batch/report enhancement"
 - [ ] **Step 1: 登录**
 
 ```bash
-agent-browser --cdp 9222 open https://localhost:8000/login
+agent-browser --cdp 9222 open http://localhost:8000/login
 agent-browser snapshot -i
 agent-browser fill @e<username_input> "admin"
 agent-browser fill @e<password_input> "chenxi0514"
@@ -428,7 +428,7 @@ agent-browser wait 2000
 - [ ] **Step 2: 打开流转卡详情**
 
 ```bash
-agent-browser --cdp 9222 open https://localhost:8000/admin/mes/cards
+agent-browser --cdp 9222 open http://localhost:8000/admin/mes/cards
 agent-browser snapshot -i
 # 点击第一条流转卡
 agent-browser click @e<first_batch_link>
@@ -453,7 +453,7 @@ agent-browser snapshot -i
 - [ ] **Step 4: 打开报工详情**
 
 ```bash
-agent-browser --cdp 9222 open https://localhost:8000/admin/mes/reports
+agent-browser --cdp 9222 open http://localhost:8000/admin/mes/reports
 agent-browser snapshot -i
 ```
 

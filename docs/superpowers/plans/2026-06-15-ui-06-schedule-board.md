@@ -706,7 +706,7 @@ git commit -m "fix: resolve clippy errors for schedule board enhancement"
 - [ ] **Step 1: 登录**
 
 ```bash
-agent-browser --cdp 9222 open https://localhost:8000/login
+agent-browser --cdp 9222 open http://localhost:8000/login
 agent-browser snapshot -i
 agent-browser fill @e<username_input> "admin"
 agent-browser fill @e<password_input> "chenxi0514"
@@ -717,7 +717,7 @@ agent-browser wait 2000
 - [ ] **Step 2: 打开排程看板**
 
 ```bash
-agent-browser --cdp 9222 open https://localhost:8000/admin/mes/schedule
+agent-browser --cdp 9222 open http://localhost:8000/admin/mes/schedule
 agent-browser wait 1000
 agent-browser snapshot -i
 ```
@@ -800,7 +800,7 @@ agent-browser snapshot -i
 
 ```bash
 agent-browser console --clear
-agent-browser --cdp 9222 open https://localhost:8000/admin/mes/schedule?view=gantt
+agent-browser --cdp 9222 open http://localhost:8000/admin/mes/schedule?view=gantt
 agent-browser wait 1000
 agent-browser errors
 ```

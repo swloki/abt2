@@ -443,16 +443,15 @@ Use `agent-browser` CLI for end-to-end page testing. **Never use `curl`** for pa
 >
 > **🚫 禁止截图**：当前模型不支持图片输入，禁止使用 `agent-browser screenshot` 或 `screenshot --full` 命令。页面验证改用 `snapshot -i`（无障碍树文本）+ `get text @eN`（元素文本内容）。
 >
-> **⚠ HTTPS 自签名证书**：服务器使用 HTTPS + 自签名证书，设环境变量 `AGENT_BROWSER_IGNORE_HTTPS_ERRORS=true` 可忽略证书错误（或通过 `--ignore-https-errors` 参数，但对已有 CDP 实例可能需要在浏览器启动时设置）。
 
 #### Login & Session Setup
 
 ```bash
 # First-time login — save auth profile
-agent-browser auth save abt --url https://localhost:8000/login --username admin --password chenxi0514
+agent-browser auth save abt --url http://localhost:8000/login --username admin --password chenxi0514
 
 # Login via CDP (连接用户已开的浏览器)
-agent-browser --cdp 9222 open https://localhost:8000/login
+agent-browser --cdp 9222 open http://localhost:8000/login
 agent-browser snapshot -i
 agent-browser fill @e<username_input> "admin"
 agent-browser fill @e<password_input> "chenxi0514"
@@ -464,7 +463,7 @@ agent-browser wait 2000
 
 ```bash
 # Navigate to target page
-agent-browser --cdp 9222 open https://localhost:8000/admin/md/products
+agent-browser --cdp 9222 open http://localhost:8000/admin/md/products
 agent-browser snapshot -i              # Get interactive elements with @eN refs
 
 # Test interaction (click, fill, submit)

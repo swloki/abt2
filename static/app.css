@@ -1,4 +1,3 @@
-/* Source: E:/work/abt/static/base.css */
 
 :root {
   --bg: #ffffff;
@@ -1885,8 +1884,8 @@ textarea.form-input{min-height:72px;resize:vertical;font-family:var(--font-body)
 .form-group{display:flex;flex-direction:column;gap:var(--space-1)}
 .form-label{font-size:13px;font-weight:500;color:var(--fg)}
 .form-label .required{color:var(--danger);margin-left:2px}
-.checkbox-row{display:flex;align-items:center;gap:var(--space-2);font-size:13px;color:var(--fg);cursor:pointer;margin-top:6px}
-.checkbox-row input[type="checkbox"]{width:16px;height:16px;accent-color:var(--accent)}
+.checkbox-row,.form-field .checkbox-row{display:flex;align-items:center;gap:var(--space-2);font-size:13px;color:var(--fg);cursor:pointer;margin-top:6px}
+.checkbox-row input[type="checkbox"],.form-field .checkbox-row input[type="checkbox"]{width:16px;height:16px;accent-color:var(--accent)}
 .section-desc{font-size:13px;color:var(--muted);margin-bottom:var(--space-4);line-height:1.6}
 .password-wrap{position:relative}
 .password-wrap .form-input{padding-right:36px}
@@ -4522,6 +4521,8 @@ textarea.form-input{min-height:72px;resize:vertical;font-family:var(--font-body)
 --spacing: 0.25rem;
 --text-2xl-fontSize: 1.5rem;
 --text-2xl-lineHeight: 2rem;
+--default-transition-timingFunction: cubic-bezier(0.4, 0, 0.2, 1);
+--default-transition-duration: 150ms;
 --spacing-2: var(--space-2);
 --spacing-4: var(--space-4);
 --spacing-8: var(--space-8);
@@ -4531,8 +4532,6 @@ textarea.form-input{min-height:72px;resize:vertical;font-family:var(--font-body)
 --colors-red-DEFAULT: oklch(70.4% 0.191 22.216);
 --colors-gray-DEFAULT: oklch(70.7% 0.022 261.325);
 --spacing-3: var(--space-3);
---default-transition-timingFunction: cubic-bezier(0.4, 0, 0.2, 1);
---default-transition-duration: 150ms;
 --text-xs-fontSize: 0.75rem;
 --text-xs-lineHeight: 1rem;
 --spacing-6: var(--space-6);

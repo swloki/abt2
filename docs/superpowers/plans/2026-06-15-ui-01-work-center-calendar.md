@@ -962,7 +962,7 @@ git commit -m "fix: resolve clippy errors for work_center/calendar UI"
 - [ ] **Step 1: 登录**
 
 ```bash
-agent-browser --cdp 9222 open https://localhost:8000/login
+agent-browser --cdp 9222 open http://localhost:8000/login
 agent-browser snapshot -i
 agent-browser fill @e<username_input> "admin"
 agent-browser fill @e<password_input> "chenxi0514"
@@ -973,7 +973,7 @@ agent-browser wait 2000
 - [ ] **Step 2: 测试列表页渲染**
 
 ```bash
-agent-browser --cdp 9222 open https://localhost:8000/admin/md/work-centers
+agent-browser --cdp 9222 open http://localhost:8000/admin/md/work-centers
 agent-browser snapshot -i
 ```
 
@@ -988,7 +988,7 @@ agent-browser snapshot -i
 - [ ] **Step 3: 测试创建工作中心**
 
 ```bash
-agent-browser --cdp 9222 open https://localhost:8000/admin/md/work-centers/new
+agent-browser --cdp 9222 open http://localhost:8000/admin/md/work-centers/new
 agent-browser snapshot -i
 ```
 
@@ -1022,7 +1022,7 @@ agent-browser snapshot -i
 - [ ] **Step 5: 测试搜索**
 
 ```bash
-agent-browser --cdp 9222 open https://localhost:8000/admin/md/work-centers
+agent-browser --cdp 9222 open http://localhost:8000/admin/md/work-centers
 agent-browser fill @e<search_input> "E2E"
 agent-browser wait 500
 agent-browser snapshot -i
@@ -1049,7 +1049,7 @@ agent-browser wait 500
 
 ```bash
 agent-browser console --clear
-agent-browser --cdp 9222 open https://localhost:8000/admin/md/work-centers
+agent-browser --cdp 9222 open http://localhost:8000/admin/md/work-centers
 agent-browser wait 1000
 agent-browser errors
 ```
@@ -1059,7 +1059,7 @@ agent-browser errors
 - [ ] **Step 8: 测试工作日历列表页**
 
 ```bash
-agent-browser --cdp 9222 open https://localhost:8000/admin/md/work-calendars
+agent-browser --cdp 9222 open http://localhost:8000/admin/md/work-calendars
 agent-browser snapshot -i
 ```
 

@@ -139,30 +139,28 @@ fn settings_page(
                 // ── Business Rules ──
                 div class="data-card" {
                     div class="form-section-title" { "业务规则" }
-                    div class="form-grid" {
-                        div class="form-field" {
-                            label class="form-label" {
-                                input type="checkbox" name="maintain_same_rate"
-                                    checked[s.maintain_same_rate];
-                                " 启用价格一致性校验"
-                            }
-                            span class="text-muted" {
-                                "确认订单时校验单价是否与关联报价单一致"
-                            }
+                    div class="form-field" {
+                        label class="checkbox-row" {
+                            input type="checkbox" name="maintain_same_rate" value="true"
+                                checked[s.maintain_same_rate] {};
+                            span { "启用价格一致性校验" }
                         }
-                        div class="form-field" {
-                            label class="form-label" {
-                                input type="checkbox" name="po_required_for_receipt"
-                                    checked[s.po_required_for_receipt];
-                                " 收货必须关联采购订单"
-                            }
+                        span class="text-muted" {
+                            "确认订单时校验单价是否与关联报价单一致"
                         }
-                        div class="form-field" {
-                            label class="form-label" {
-                                input type="checkbox" name="receipt_required_for_invoice"
-                                    checked[s.receipt_required_for_invoice];
-                                " 开票前必须完成收货"
-                            }
+                    }
+                    div class="form-field" {
+                        label class="checkbox-row" {
+                            input type="checkbox" name="po_required_for_receipt" value="true"
+                                checked[s.po_required_for_receipt] {};
+                            span { "收货必须关联采购订单" }
+                        }
+                    }
+                    div class="form-field" {
+                        label class="checkbox-row" {
+                            input type="checkbox" name="receipt_required_for_invoice" value="true"
+                                checked[s.receipt_required_for_invoice] {};
+                            span { "开票前必须完成收货" }
                         }
                     }
                 }
@@ -200,7 +198,7 @@ fn settings_page(
                     button type="submit" class="btn btn-primary" { "保存配置" }
                 }
             }
-            // Toast for successful save via HX-Redirect
+            // 成功保存后 toast（HX-Redirect 触发）
             (PreEscaped(r#"<script>
                 document.body.addEventListener('htmx:afterRequest', function(evt) {
                     if (evt.detail.xhr && evt.detail.xhr.status === 200 && evt.detail.xhr.getResponseHeader('HX-Redirect')) {

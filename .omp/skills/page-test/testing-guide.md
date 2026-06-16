@@ -22,7 +22,7 @@
 开始测试前先登录，使用默认 session：
 
 ```bash
-agent-browser open https://localhost:8000/login
+agent-browser open http://localhost:8000/login
 agent-browser snapshot -i
 agent-browser fill @e1 "admin"
 agent-browser fill @e2 "chenxi0514"

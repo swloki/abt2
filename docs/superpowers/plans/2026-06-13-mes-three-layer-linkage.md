@@ -926,19 +926,19 @@ Expected: 所有 UPDATE 成功，验证查询显示合理的状态分布
 
 ```bash
 # 登录
-agent-browser --session-name abt --ignore-https-errors open https://localhost:8000/login
+agent-browser --session-name abt --cdp 9222 open http://localhost:8000/login
 agent-browser fill @e<username_input> "admin"
 agent-browser fill @e<password_input> "chenxi0514"
 agent-browser click @e<login_button>
 agent-browser wait 2000
 
 # 验证计划详情页有"下达结果"Tab
-agent-browser open https://localhost:8000/admin/mes/plans/1
+agent-browser open http://localhost:8000/admin/mes/plans/1
 agent-browser snapshot -i
 agent-browser screenshot --full
 
 # 验证工单详情页有来源追溯+批次状态
-agent-browser open https://localhost:8000/admin/mes/orders/1
+agent-browser open http://localhost:8000/admin/mes/orders/1
 agent-browser snapshot -i
 agent-browser screenshot --full
 ```

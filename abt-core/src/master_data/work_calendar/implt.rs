@@ -252,4 +252,17 @@ impl WorkCalendarService for WorkCalendarServiceImpl {
     ) -> Result<Vec<WorkCenterBooking>> {
         BookingRepo.list_range(db, work_center_id, from, to).await
     }
+
+    async fn list_bookings_multi(
+        &self,
+        _ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        work_center_ids: &[i64],
+        from: DateTime<Utc>,
+        to: DateTime<Utc>,
+    ) -> Result<Vec<WorkCenterBooking>> {
+        BookingRepo
+            .list_range_multi(db, work_center_ids, from, to)
+            .await
+    }
 }

@@ -97,4 +97,13 @@ pub trait WorkCalendarService: Send + Sync {
         from: DateTime<Utc>,
         to: DateTime<Utc>,
     ) -> Result<Vec<WorkCenterBooking>>;
+    /// 批量查询多个工作中心的时段占用（甘特图用）
+    async fn list_bookings_multi(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        work_center_ids: &[i64],
+        from: DateTime<Utc>,
+        to: DateTime<Utc>,
+    ) -> Result<Vec<WorkCenterBooking>>;
 }

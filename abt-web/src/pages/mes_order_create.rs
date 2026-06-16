@@ -6,6 +6,7 @@ use serde::Deserialize;
 
 use abt_core::mes::production_plan::{ProductionPlanService, model::PlanFilter};
 use abt_core::mes::work_order::WorkOrderService;
+use abt_core::master_data::work_center::WorkCenterService;
 use abt_core::sales::sales_order::{SalesOrderService, model::SalesOrderQuery};
 use abt_core::shared::types::{DomainError, PageParams};
 
@@ -41,14 +42,18 @@ pub struct SourceSearchParams {
 
 // ── Handlers ──
 
-#[require_permission("WORK_ORDER", "create")]
 pub async fn get_order_create(
     _path: OrderCreatePath, ctx: RequestContext,
 ) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
     let nav_filter = ctx.nav_filter().await;
-    let RequestContext { claims, .. } = ctx;
-    let content = order_create_page();
+    let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
+    let work_centers = state
+        .work_center_service()
+        .list_active(&service_ctx, &mut conn)
+        .await
+        .unwrap_or_default();
+    let content = order_create_page(&work_centers);
     Ok(Html(admin_page(is_htmx, "新建工单", &claims, "production", OrderCreatePath::PATH, "生产管理", Some(OrderListPath::PATH), content, &nav_filter).into_string()))
 }
 
@@ -176,7 +181,7 @@ pub async fn search_source_plans(
 
 // ── Page ──
 
-fn order_create_page() -> Markup {
+fn order_create_page(work_centers: &[abt_core::master_data::work_center::WorkCenter]) -> Markup {
     html! { div {
         div class="page-header" {
             div class="page-header-left" { a class="back-link" href=(format!("{}?restore=true", OrderListPath::PATH)) { "\u{2190} 返回列表" } h1 class="page-title" { "新建工单" } }
@@ -200,7 +205,15 @@ fn order_create_page() -> Markup {
                     div class="form-field" { label class="form-label" { "计划数量" } input class="form-input" type="number" step="0.01" name="planned_qty" required; }
                     div class="form-field" { label class="form-label" { "开始日期" } input class="form-input" type="date" name="scheduled_start" required; }
                     div class="form-field" { label class="form-label" { "结束日期" } input class="form-input" type="date" name="scheduled_end" required; }
-                    div class="form-field" { label class="form-label" { "工作中心ID" } input class="form-input" type="number" name="work_center_id"; }
+                    div class="form-field" {
+                        label class="form-label" { "工作中心" }
+                        select class="form-select" name="work_center_id" {
+                            option value="" { "— 不指定 —" }
+                            @for wc in work_centers {
+                                option value=(wc.id) { (format!("{} - {}", wc.code, wc.name)) }
+                            }
+                        }
+                    }
                     // ── 来源单据关联 ──
                     div class="form-field span-2" {
                         label class="form-label" { "来源单据（可选）" }

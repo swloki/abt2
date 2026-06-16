@@ -1,3 +1,4 @@
+use chrono::NaiveDate;
 use super::model::*;
 use crate::shared::types::Result;
 
@@ -216,5 +217,121 @@ impl DashboardRepo {
         .fetch_all(&mut *executor)
         .await?;
         Ok(items)
+    }
+
+    // ── Gantt & Load (排程甘特图 & 负荷分析) ──
+
+    /// 查询甘特图色块数据（booking JOIN 工单/产品/工序）
+    pub async fn get_gantt_bookings(
+        executor: &mut sqlx::postgres::PgConnection,
+        work_center_ids: &[i64],
+        from: chrono::DateTime<chrono::Utc>,
+        to: chrono::DateTime<chrono::Utc>,
+    ) -> Result<Vec<GanttBooking>> {
+        let rows = sqlx::query_as::<_, GanttBooking>(
+            r#"SELECT DISTINCT ON (b.id)
+                   b.id AS booking_id, b.work_center_id,
+                   b.date_from, b.date_to, b.duration_minutes,
+                   b.work_order_id, wo.doc_number AS wo_doc_number,
+                   b.plan_item_id,
+                   p.pdt_name AS product_name,
+                   pb.batch_no,
+                   wor.process_name, wor.step_order,
+                   pb.status AS batch_status
+               FROM work_center_bookings b
+               JOIN work_orders wo ON wo.id = b.work_order_id
+               LEFT JOIN production_batches pb ON pb.work_order_id = b.work_order_id
+               LEFT JOIN products p ON p.product_id = pb.product_id
+               LEFT JOIN work_order_routings wor
+                     ON wor.work_order_id = b.work_order_id
+                    AND wor.work_center_id = b.work_center_id
+               WHERE b.work_center_id = ANY($1)
+                 AND b.date_from < $3 AND b.date_to > $2
+               ORDER BY b.id, wor.step_order"#,
+        )
+        .bind(work_center_ids)
+        .bind(from)
+        .bind(to)
+        .fetch_all(&mut *executor)
+        .await?;
+        Ok(rows)
+    }
+
+    /// 查询活跃工作中心列表（甘特图行头）
+    pub async fn get_active_work_centers(
+        executor: &mut sqlx::postgres::PgConnection,
+        work_center_ids: Option<&[i64]>,
+    ) -> Result<Vec<WorkCenterInfo>> {
+        let rows = if let Some(ids) = work_center_ids {
+            sqlx::query_as::<_, WorkCenterInfo>(
+                "SELECT id, code, name, work_center_type \
+                 FROM work_centers WHERE id = ANY($1) AND is_active \
+                 ORDER BY code",
+            )
+            .bind(ids)
+            .fetch_all(&mut *executor)
+            .await?
+        } else {
+            sqlx::query_as::<_, WorkCenterInfo>(
+                "SELECT id, code, name, work_center_type \
+                 FROM work_centers WHERE is_active ORDER BY code",
+            )
+            .fetch_all(&mut *executor)
+            .await?
+        };
+        Ok(rows)
+    }
+
+    /// 工作中心每日负荷（聚合 booking 工时 + 日历可用工时）
+    /// 单条 SQL 用 generate_series + CTE 计算，返回完整 WcDailyLoad
+    pub async fn get_work_center_load(
+        executor: &mut sqlx::postgres::PgConnection,
+        work_center_ids: &[i64],
+        from: NaiveDate,
+        to: NaiveDate,
+    ) -> Result<Vec<WcDailyLoad>> {
+        let rows = sqlx::query_as::<_, WcDailyLoad>(
+            r#"WITH date_range AS (
+                   SELECT generate_series($2, ($3 - 1), '1 day'::interval)::date AS d
+               ),
+               wc_days AS (
+                   SELECT wc.id, wc.code, wc.name, wc.calendar_id, dr.d,
+                          EXTRACT(DOW FROM dr.d)::int AS dow
+                   FROM work_centers wc
+                   CROSS JOIN date_range dr
+                   WHERE wc.is_active AND wc.id = ANY($1)
+               ),
+               avail AS (
+                   SELECT wd.id, wd.code, wd.name, wd.d,
+                          COALESCE(SUM(EXTRACT(EPOCH FROM (cl.to_time - cl.from_time)) / 60), 0) AS avail_mins
+                   FROM wc_days wd
+                   LEFT JOIN work_calendar_lines cl
+                         ON cl.calendar_id = wd.calendar_id AND cl.weekday = wd.dow
+                   GROUP BY wd.id, wd.code, wd.name, wd.d
+               ),
+               booked AS (
+                   SELECT work_center_id, DATE(date_from) AS d,
+                          SUM(duration_minutes) AS booked_mins
+                   FROM work_center_bookings
+                   WHERE work_center_id = ANY($1) AND date_from >= $2 AND date_from < $3
+                   GROUP BY work_center_id, DATE(date_from)
+               )
+               SELECT a.id AS work_center_id, a.code AS work_center_code,
+                      a.name AS work_center_name, a.d AS date,
+                      COALESCE(b.booked_mins, 0) AS booked_minutes,
+                      a.avail_mins AS available_minutes,
+                      CASE WHEN a.avail_mins > 0
+                           THEN ROUND(COALESCE(b.booked_mins, 0) * 100 / a.avail_mins, 1)
+                           ELSE 0 END AS load_pct
+               FROM avail a
+               LEFT JOIN booked b ON b.work_center_id = a.id AND b.d = a.d
+               ORDER BY a.id, a.d"#,
+        )
+        .bind(work_center_ids)
+        .bind(from)
+        .bind(to)
+        .fetch_all(&mut *executor)
+        .await?;
+        Ok(rows)
     }
 }

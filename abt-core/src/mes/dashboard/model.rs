@@ -1,5 +1,4 @@
-use chrono::DateTime;
-use chrono::Utc;
+use chrono::{DateTime, NaiveDate, Utc};
 use rust_decimal::Decimal;
 use serde::Serialize;
 use sqlx::FromRow;
@@ -110,4 +109,55 @@ pub struct DataQualityStats {
     pub no_routing_count: i64,
     pub no_bom_count: i64,
     pub complete_count: i64,
+}
+
+// ============================================================================
+// 排程甘特图 & 负荷分析（对标 Odoo mrp.workorder Calendar + Work Center Load）
+// ============================================================================
+
+/// 甘特图色块（WorkCenterBooking JOIN 工单/产品/工序）
+#[derive(Debug, Clone, FromRow)]
+pub struct GanttBooking {
+    pub booking_id: i64,
+    pub work_center_id: i64,
+    pub date_from: DateTime<Utc>,
+    pub date_to: DateTime<Utc>,
+    pub duration_minutes: Decimal,
+    pub work_order_id: i64,
+    pub wo_doc_number: Option<String>,
+    pub plan_item_id: Option<i64>,
+    pub product_name: Option<String>,
+    pub batch_no: Option<String>,
+    pub process_name: Option<String>,
+    pub step_order: Option<i32>,
+    pub batch_status: Option<i16>,
+}
+
+/// 工作中心简要信息（甘特图/负荷行头）
+#[derive(Debug, Clone, FromRow)]
+pub struct WorkCenterInfo {
+    pub id: i64,
+    pub code: String,
+    pub name: String,
+    pub work_center_type: i16,
+}
+
+/// 甘特图完整数据
+#[derive(Debug, Clone)]
+pub struct GanttData {
+    pub work_centers: Vec<WorkCenterInfo>,
+    pub bookings: Vec<GanttBooking>,
+    pub date_range: Vec<NaiveDate>,
+}
+
+/// 工作中心每日负荷
+#[derive(Debug, Clone, FromRow)]
+pub struct WcDailyLoad {
+    pub work_center_id: i64,
+    pub work_center_code: String,
+    pub work_center_name: String,
+    pub date: NaiveDate,
+    pub booked_minutes: Decimal,
+    pub available_minutes: Decimal,
+    pub load_pct: Decimal,
 }

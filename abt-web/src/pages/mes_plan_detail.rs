@@ -21,7 +21,7 @@ use crate::layout::page::admin_page;
 use crate::routes::mes_order::{OrderCancelPath, OrderDetailPath, OrderReleasePath};
 use crate::routes::mes_plan::{
     PlanConfirmPath, PlanDetailPath, PlanGeneratePath, PlanGenerateReleasePath, PlanListPath,
-    PlanReleaseAllPath, PlanReleasePath,
+    PlanReleaseAllPath, PlanReleasePath, PlanSchedulePath,
 };
 use crate::utils::RequestContext;
 use abt_macros::require_permission;
@@ -158,6 +158,22 @@ pub async fn release_plan(
     state
         .production_plan_service()
         .release_to_work_orders(&service_ctx, &mut conn, path.plan_id)
+        .await?;
+
+    let redirect = PlanDetailPath { id: path.plan_id }.to_string();
+    Ok(([("HX-Redirect", redirect)], Html(String::new())))
+}
+
+/// POST /plans/{id}/schedule — 工序级排程 V2（工作日历 + 工作中心产能自动分配时段）
+#[require_permission("WORK_ORDER", "update")]
+pub async fn schedule_plan(
+    path: PlanSchedulePath,
+    ctx: RequestContext,
+) -> Result<impl IntoResponse> {
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    state
+        .production_plan_service()
+        .schedule(&service_ctx, &mut conn, path.plan_id)
         .await?;
 
     let redirect = PlanDetailPath { id: path.plan_id }.to_string();
@@ -384,6 +400,14 @@ fn plan_detail_page(
                             a class="btn btn-primary" href=(format!("/admin/mes/plans/{}?tab=planning", plan.id)) {
                                 (icon::rocket_icon("w-4 h-4"))
                                 "工单规划"
+                            }
+                        }
+                        @if plan.status == PlanStatus::Confirmed || plan.status == PlanStatus::InProgress {
+                            button class="btn btn-primary"
+                                hx-post=(PlanSchedulePath { plan_id: plan.id }.to_string())
+                                hx-confirm="执行工序级排程？将根据工作日历和工作中心产能自动分配时段。" {
+                                (icon::calendar_icon("w-4 h-4"))
+                                "工序排程"
                             }
                         }
                         @if plan.status == PlanStatus::Draft {

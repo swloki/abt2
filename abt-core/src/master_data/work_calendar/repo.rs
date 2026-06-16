@@ -206,6 +206,29 @@ impl BookingRepo {
         Ok(rows)
     }
 
+    /// 批量查询多个工作中心的时段占用（甘特图用，避免 N+1）
+    pub async fn list_range_multi(
+        &self,
+        executor: PgExecutor<'_>,
+        work_center_ids: &[i64],
+        from: DateTime<Utc>,
+        to: DateTime<Utc>,
+    ) -> Result<Vec<WorkCenterBooking>> {
+        let rows = sqlx::query_as::<_, WorkCenterBooking>(
+            r#"SELECT id, work_center_id, work_order_id, plan_item_id,
+                      date_from, date_to, duration_minutes, created_at
+               FROM work_center_bookings
+               WHERE work_center_id = ANY($1) AND date_from < $2 AND date_to > $3
+               ORDER BY work_center_id, date_from"#,
+        )
+        .bind(work_center_ids)
+        .bind(to)
+        .bind(from)
+        .fetch_all(executor)
+        .await?;
+        Ok(rows)
+    }
+
     pub async fn cancel_by_work_order(
         &self,
         executor: PgExecutor<'_>,

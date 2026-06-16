@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use async_trait::async_trait;
 use rust_decimal::Decimal;
 use sqlx::postgres::PgPool;
@@ -414,6 +416,14 @@ impl ProductionPlanService for ProductionPlanServiceImpl {
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
 
+        // 获取计划关联的工单，建立 plan_item_id -> work_order_id 映射
+        let wo_svc = new_work_order_service(self.pool.clone());
+        let work_orders = wo_svc.list_by_plan(ctx, db, plan_id).await?;
+        let wo_map: HashMap<i64, i64> = work_orders
+            .iter()
+            .filter_map(|wo| wo.plan_item_id.map(|pid| (pid, wo.id)))
+            .collect();
+
         let cal_svc = new_work_calendar_service(self.pool.clone());
         let wc_svc = new_work_center_service(self.pool.clone());
         let routing_svc = new_routing_service(self.pool.clone());
@@ -423,6 +433,15 @@ impl ProductionPlanService for ProductionPlanServiceImpl {
         let mut warnings = Vec::new();
 
         for item in &items {
+            // 获取关联工单 ID（booking FK 要求有效的 work_order_id）
+            let wo_id = match wo_map.get(&item.id).copied() {
+                Some(id) => id,
+                None => {
+                    warnings.push(format!("计划项 {} 无关联工单，跳过排程", item.id));
+                    continue;
+                }
+            };
+
             // 获取产品代码
             let product = match product_svc.get(ctx, db, item.product_id).await {
                 Ok(p) => p,
@@ -503,7 +522,7 @@ impl ProductionPlanService for ProductionPlanServiceImpl {
                                 db,
                                 CreateBookingReq {
                                     work_center_id: wc_id,
-                                    work_order_id: 0,
+                                    work_order_id: wo_id,
                                     plan_item_id: Some(item.id),
                                     date_from: slot_start,
                                     date_to: slot_end,

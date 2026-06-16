@@ -55,6 +55,12 @@ pub struct PlanGenerateReleasePath {
 }
 
 #[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/mes/plans/{plan_id}/schedule")]
+pub struct PlanSchedulePath {
+    pub plan_id: i64,
+}
+
+#[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/mes/plans/{plan_id}/release-all")]
 pub struct PlanReleaseAllPath {
     pub plan_id: i64,
@@ -91,5 +97,9 @@ pub fn router() -> Router<AppState> {
         .route(
             PlanReleaseAllPath::PATH,
             post(mes_plan_detail::release_all_work_orders),
+        )
+        .route(
+            PlanSchedulePath::PATH,
+            post(mes_plan_detail::schedule_plan),
         )
 }

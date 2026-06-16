@@ -206,6 +206,69 @@ cd E:/work/abt && node_modules/.bin/unocss.exe --config uno.config.ts 2>&1 | tai
 
 Expected: 输出包含 `@keyframes toast-in`、`@keyframes spin`、`@keyframes pulse-active` 和对应的 `.animate-*` 规则。
 
+
+### Task 2b: 在 theme 中添加 boxShadow 和 bg 颜色映射
+
+**Files:**
+- Modify: `uno.config.ts` theme.colors 和 theme.boxShadow
+
+P1-P9 计划中使用了 `bg-bg`（对应 `--bg: #ffffff`）和 `shadow-card`/`shadow-card-hover`/`shadow-focus`/`shadow-accent`（对应 base.css 中的阴影变量）。这些 utility 当前无效因为没有映射到 UnoCSS theme 中。
+
+- [ ] **Step 1: 在 theme.colors 中添加 bg 映射**
+
+在 `colors` 块中（`info: "var(--info)",` 之后）添加：
+
+```typescript
+      bg: "var(--bg)",
+```
+
+这样 `bg-bg` utility 就会生成 `background-color: var(--bg)`。
+
+- [ ] **Step 2: 在 theme 中添加 boxShadow 块**
+
+在 `radius` 块之后（`animation` 块之前或之后均可）添加：
+
+```typescript
+    boxShadow: {
+      xs: "var(--shadow-xs)",
+      sm: "var(--shadow-sm)",
+      md: "var(--shadow-md)",
+      lg: "var(--shadow-lg)",
+      xl: "var(--shadow-xl)",
+      card: "var(--shadow-card)",
+      "card-hover": "var(--shadow-card-hover)",
+      focus: "var(--shadow-focus)",
+      accent: "var(--shadow-accent)",
+    },
+```
+
+这样 `shadow-card`、`shadow-card-hover`、`shadow-focus`、`shadow-accent` 等 utility 都会生成对应的 box-shadow。
+注意：presetWind4 内置的 `shadow-xs`/`shadow-sm`/`shadow-md` 等会被 theme 中的自定义值覆盖（theme 优先级高于 preset 默认值）。
+
+- [ ] **Step 3: 验证新增 utility 有效**
+
+Run:
+```bash
+cd E:/work/abt && node -e "
+const { createGenerator, presetWind4 } = require('unocss');
+(async () => {
+  const uno = await createGenerator({
+    presets: [presetWind4()],
+    theme: {
+      colors: { bg: 'var(--bg)' },
+      boxShadow: {
+        card: 'var(--shadow-card)',
+        xs: 'var(--shadow-xs)',
+      },
+    },
+  });
+  const { css } = await uno.generate('bg-bg shadow-card shadow-xs', { preflights: false });
+  console.log(css);
+})();
+" 2>&1
+```
+
+Expected: 输出包含 `.bg-bg{background-color:var(--bg)}` 和 `.shadow-card{box-shadow:var(--shadow-card)}`。
 ---
 
 ### Task 3: 构建并验证 app.css 不破坏现有页面

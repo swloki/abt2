@@ -344,14 +344,14 @@ fn demand_pool_detail_page(
 
 fn page_header() -> Markup {
     html! {
-        div class="page-header" {
+        div class="flex items-center justify-between mb-6" {
             div {
-                h1 class="page-title" { "采购需求池" }
+                h1 class="text-xl font-bold text-fg tracking-tight" { "采购需求池" }
                 p style="font-size:var(--text-sm);color:var(--muted);margin-top:var(--space-1)" {
                     "销售订单确认后产生的外购需求，按物料聚合展示。可选择需求创建采购订单草稿。"
                 }
             }
-            div class="page-actions" {
+            div class="flex gap-3" {
                 button class="btn btn-default"
                     hx-get=(PurchaseDemandPoolListPath::PATH)
                     hx-target="#demand-pool-data-card"

@@ -190,9 +190,9 @@ fn fms_dashboard_page(
 
     html! {
         div class="fms-dashboard" {
-            div class="page-header" {
-                h1 class="page-title" { "财务管理总览" }
-                div class="page-actions" {
+            div class="flex items-center justify-between mb-6" {
+                h1 class="text-xl font-bold text-fg tracking-tight" { "财务管理总览" }
+                div class="flex gap-3" {
                     a class="btn btn-primary" href=(JournalCreatePath::PATH) {
                         (svg_icon("M12 4v16m8-8H4", "16px"))
                         "新建日记账"

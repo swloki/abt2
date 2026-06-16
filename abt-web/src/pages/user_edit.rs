@@ -163,12 +163,12 @@ fn user_edit_page(
     html! {
         div {
             // ── Page Header ──
-            div class="page-header" {
-                a class="back-link" href=(detail_path) {
+            div class="flex items-center justify-between mb-6" {
+                a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(detail_path) {
                     (icon::chevron_left_icon("w-4 h-4"))
                     "返回用户详情"
                 }
-                h1 class="page-title" { "编辑用户" }
+                h1 class="text-xl font-bold text-fg tracking-tight" { "编辑用户" }
 
             }
 

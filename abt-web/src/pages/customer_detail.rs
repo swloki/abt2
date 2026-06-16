@@ -384,7 +384,7 @@ fn customer_detail_page(
     html! {
         div {
         // ── Back Link ──
-        a class="back-link" href=(format!("{list_path}?restore=true")) {
+        a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{list_path}?restore=true")) {
             (icon::arrow_left_icon("w-4 h-4"))
             "返回客户列表"
         }
@@ -405,7 +405,7 @@ fn customer_detail_page(
                     }
                 }
             }
-            div class="page-actions" {
+            div class="flex gap-3" {
                 a class="btn btn-primary" href=(format!("/admin/quotations/new")) { "新建报价单" }
             }
         }

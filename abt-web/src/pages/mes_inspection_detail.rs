@@ -45,8 +45,8 @@ pub async fn get_inspection_detail(path: InspectionDetailPath, ctx: RequestConte
     let inspector = lookups.inspector_name.as_deref().unwrap_or("—");
 
     let content = html! { div {
-        div class="page-header" {
-            div class="page-header-left" { a class="back-link" href=(format!("{}?restore=true", InspectionListPath::PATH)) { "\u{2190} 返回列表" } h1 class="page-title" { "检验 " (insp.doc_number) } }
+        div class="flex items-center justify-between mb-6" {
+            div class="flex items-center justify-between mb-6-left" { a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", InspectionListPath::PATH)) { "\u{2190} 返回列表" } h1 class="text-xl font-bold text-fg tracking-tight" { "检验 " (insp.doc_number) } }
         }
         div class="info-card" {
             div class="info-grid" {

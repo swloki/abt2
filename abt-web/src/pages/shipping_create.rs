@@ -519,12 +519,12 @@ fn shipping_edit_page(
             data-order-id=(order_id_str)
             data-items=(items_json) {
             // ── Page Header ──
-            a class="back-link" href=(format!("{}?restore=true", ShippingListPath::PATH)) {
+            a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", ShippingListPath::PATH)) {
                 (icon::arrow_left_icon("w-4 h-4"))
                 "返回发货申请列表"
             }
-            div class="page-header" {
-                h1 class="page-title" { "编辑发货申请（草稿）" }
+            div class="flex items-center justify-between mb-6" {
+                h1 class="text-xl font-bold text-fg tracking-tight" { "编辑发货申请（草稿）" }
             }
 
             form id="shipping-form"
@@ -782,12 +782,12 @@ fn shipping_create_page(
             data-warehouses=(warehouses_json)
             data-order-prefill=(prefill_order_json) {
             // ── Page Header ──
-            a class="back-link" href=(format!("{}?restore=true", ShippingListPath::PATH)) {
+            a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", ShippingListPath::PATH)) {
                 (icon::arrow_left_icon("w-4 h-4"))
                 "返回发货申请列表"
             }
-            div class="page-header" {
-                h1 class="page-title" { "新建发货申请" }
+            div class="flex items-center justify-between mb-6" {
+                h1 class="text-xl font-bold text-fg tracking-tight" { "新建发货申请" }
             }
 
             form id="shipping-form"

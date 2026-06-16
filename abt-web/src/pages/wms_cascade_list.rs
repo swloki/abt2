@@ -42,8 +42,8 @@ pub async fn get_cascade_list(
 fn cascade_page(result: Option<&CascadeInventoryResult>) -> Markup {
     html! {
         div {
-            div class="page-header" {
-                h1 class="page-title" { "级联库存查询" }
+            div class="flex items-center justify-between mb-6" {
+                h1 class="text-xl font-bold text-fg tracking-tight" { "级联库存查询" }
             }
 
             div class="cascade-search" style="background:var(--bg);border:1px solid var(--border-soft);border-radius:var(--radius-md);padding:var(--space-5) var(--space-6);margin-bottom:var(--space-6);display:flex;align-items:center;gap:var(--space-3)" {

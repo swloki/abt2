@@ -325,7 +325,7 @@ fn order_detail_page(
     html! {
         div {
             // 返回
-            a class="back-link" href=(format!("{}?restore=true", OrderListPath::PATH)) {
+            a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", OrderListPath::PATH)) {
                 (icon::chevron_left_icon("w-4 h-4"))
                 "返回工单列表"
             }
@@ -337,7 +337,7 @@ fn order_detail_page(
                         span { (order.doc_number) }
                         (status_pill(status_label, status_bg, status_color))
                     }
-                    div class="page-actions" {
+                    div class="flex gap-3" {
                         @if matches!(order.status, WorkOrderStatus::Released | WorkOrderStatus::InProduction) {
                             button class="btn btn-default" type="button" _="on click add .is-open to #unrelease-dialog" {
                                 "反下达"

@@ -37,9 +37,9 @@ fn mes_dashboard_page(stats: &abt_core::mes::dashboard::model::DashboardStats, d
     html! {
         div {
             // ── Page Header ──
-            div class="page-header" {
-                h1 class="page-title" { "生产管理总览" }
-                div class="page-actions" {
+            div class="flex items-center justify-between mb-6" {
+                h1 class="text-xl font-bold text-fg tracking-tight" { "生产管理总览" }
+                div class="flex gap-3" {
                     button class="btn btn-default" {
                         (icon::download_icon("w-4 h-4"))
                         " 导出报表"

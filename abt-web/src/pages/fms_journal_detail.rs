@@ -66,10 +66,10 @@ pub async fn get_detail(path: JournalDetailPath, ctx: RequestContext) -> Result<
     let (s_text, s_class) = status_text(&journal.status);
 
     let content = html! { div {
-        div class="page-header" {
-            div class="page-header-left" {
-                a class="back-link" href=(format!("{}?restore=true", JournalListPath::PATH)) { "\u{2190} 返回列表" }
-                h1 class="page-title" {
+        div class="flex items-center justify-between mb-6" {
+            div class="flex items-center justify-between mb-6-left" {
+                a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", JournalListPath::PATH)) { "\u{2190} 返回列表" }
+                h1 class="text-xl font-bold text-fg tracking-tight" {
                     "单号 " (journal.doc_number)
                     " "
                     span class=(format!("status-pill {s_class}")) { (s_text) }

@@ -178,13 +178,13 @@ fn cycle_count_create_page(
 ) -> Markup {
     html! {
         div {
-            a href=(format!("{}?restore=true", CycleCountListPath::PATH)) class="back-link" {
+            a href=(format!("{}?restore=true", CycleCountListPath::PATH)) class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" {
                 (icon::chevron_left_icon("w-4 h-4"))
                 "返回盘点列表"
             }
 
-            div class="page-header" {
-                h1 class="page-title" { "新建盘点" }
+            div class="flex items-center justify-between mb-6" {
+                h1 class="text-xl font-bold text-fg tracking-tight" { "新建盘点" }
             }
 
             div class="workflow-steps" {

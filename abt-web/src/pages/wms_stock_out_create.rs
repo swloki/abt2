@@ -205,14 +205,14 @@ fn stock_out_create_content(
     html! {
         div {
             // ── Back Link ──
-            a href="/admin/wms/stock-out" class="back-link" style="display:inline-flex;align-items:center;gap:var(--space-2);color:var(--fg-2);font-size:var(--text-sm);margin-bottom:var(--space-4);text-decoration:none" {
+            a href="/admin/wms/stock-out" class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" style="display:inline-flex;align-items:center;gap:var(--space-2);color:var(--fg-2);font-size:var(--text-sm);margin-bottom:var(--space-4);text-decoration:none" {
                 (icon::chevron_left_icon("w-4 h-4"))
                 "返回出库列表"
             }
 
             // ── Page Header ──
-            div class="page-header" style="margin-bottom:var(--space-6)" {
-                h1 class="page-title" { "新建出库单" }
+            div class="flex items-center justify-between mb-6" style="margin-bottom:var(--space-6)" {
+                h1 class="text-xl font-bold text-fg tracking-tight" { "新建出库单" }
             }
 
             // ── Type Switch ──

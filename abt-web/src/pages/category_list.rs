@@ -615,9 +615,9 @@ fn category_page(tree: &[CategoryTree], initial_panel: Option<&Markup>, first_id
             script { (category_split_view_script()) }
 
             // ── Page Header ──
-            div class="page-header" {
-                h1 class="page-title" { "产品分类" }
-                div class="page-actions" {
+            div class="flex items-center justify-between mb-6" {
+                h1 class="text-xl font-bold text-fg tracking-tight" { "产品分类" }
+                div class="flex gap-3" {
                     button class="btn btn-default" {
                         (icon::upload_icon("w-4 h-4"))
                         "导出"

@@ -269,14 +269,14 @@ fn arrival_create_page(
 ) -> Markup {
     html! {
         div {
-            a href=(format!("{}?restore=true", ArrivalListPath::PATH)) class="back-link" {
+            a href=(format!("{}?restore=true", ArrivalListPath::PATH)) class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" {
                 (icon::chevron_left_icon("w-4 h-4"))
                 "返回来料通知列表"
             }
 
-            div class="page-header" style="margin-bottom:var(--space-5)" {
-                h1 class="page-title" { "新建来料通知" }
-                div class="page-actions" {
+            div class="flex items-center justify-between mb-6" style="margin-bottom:var(--space-5)" {
+                h1 class="text-xl font-bold text-fg tracking-tight" { "新建来料通知" }
+                div class="flex gap-3" {
                     span style="font-size:var(--text-xs);color:var(--muted);display:flex;align-items:center;gap:var(--space-2)" {
                         (icon::clock_icon("w-3.5 h-3.5"))
                         "操作员: " (operator_name)

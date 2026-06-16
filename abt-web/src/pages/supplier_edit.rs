@@ -103,12 +103,12 @@ fn supplier_edit_page(supplier: &abt_core::master_data::supplier::model::Supplie
     html! {
         div {
             // ── Page Header ──
-            div class="page-header" {
-                a class="back-link" href=(detail_path) {
+            div class="flex items-center justify-between mb-6" {
+                a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(detail_path) {
                     (icon::arrow_left_icon("w-4 h-4"))
                     "返回供应商详情"
                 }
-                h1 class="page-title" { "编辑供应商" }
+                h1 class="text-xl font-bold text-fg tracking-tight" { "编辑供应商" }
             }
 
             form id="supplier-form"

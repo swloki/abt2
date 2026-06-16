@@ -97,8 +97,8 @@ fn md_dashboard_content(
 ) -> Markup {
     html! {
         // ── Page Header ──
-        div class="page-header" {
-            h1 class="page-title" { "主数据管理概览" }
+        div class="flex items-center justify-between mb-6" {
+            h1 class="text-xl font-bold text-fg tracking-tight" { "主数据管理概览" }
         }
 
         // ── Stat Cards (4 columns) ──

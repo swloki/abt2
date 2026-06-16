@@ -183,8 +183,8 @@ pub async fn search_source_plans(
 
 fn order_create_page(work_centers: &[abt_core::master_data::work_center::WorkCenter]) -> Markup {
     html! { div {
-        div class="page-header" {
-            div class="page-header-left" { a class="back-link" href=(format!("{}?restore=true", OrderListPath::PATH)) { "\u{2190} 返回列表" } h1 class="page-title" { "新建工单" } }
+        div class="flex items-center justify-between mb-6" {
+            div class="flex items-center justify-between mb-6-left" { a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", OrderListPath::PATH)) { "\u{2190} 返回列表" } h1 class="text-xl font-bold text-fg tracking-tight" { "新建工单" } }
         }
         form hx-post=(OrderCreatePath::PATH) hx-swap="none" {
             div class="form-section" {

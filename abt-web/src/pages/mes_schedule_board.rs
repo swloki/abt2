@@ -117,8 +117,8 @@ fn schedule_board_content(
     html! {
         div id="schedule-content" {
             // ── Page Header ──
-            div class="page-header" {
-                h1 class="page-title" { "排程看板" }
+            div class="flex items-center justify-between mb-6" {
+                h1 class="text-xl font-bold text-fg tracking-tight" { "排程看板" }
             }
 
             // ── Stats Row ──

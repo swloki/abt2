@@ -144,7 +144,7 @@ fn quotation_detail_page(
     html! {
         div {
             // ── Back Link ──
-            a class="back-link" href=(format!("{}?restore=true", QuotationListPath::PATH)) {
+            a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", QuotationListPath::PATH)) {
                 (icon::arrow_left_icon("w-4 h-4"))
                 "返回报价单列表"
             }
@@ -155,7 +155,7 @@ fn quotation_detail_page(
                     h1 class="detail-no font-mono" { (q.doc_number) }
                     span class=(format!("status-pill {status_class}")) { (status_text) }
                 }
-                div class="page-actions" {
+                div class="flex gap-3" {
                     @if is_draft {
                         button class="btn btn-primary"
                             hx-post=(SubmitQuotationPath { id: q.id }.to_string())

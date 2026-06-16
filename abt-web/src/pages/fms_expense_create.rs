@@ -95,7 +95,7 @@ fn expense_create_page() -> Markup {
     html! {
         div class="fms-form-page" {
             // 返回链接
-            a href=(format!("{}?restore=true", ExpenseListPath::PATH)) class="back-link" style="display:inline-flex;align-items:center;gap:6px;font-size:14px;color:var(--muted);margin-bottom:var(--space-6)" {
+            a href=(format!("{}?restore=true", ExpenseListPath::PATH)) class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" style="display:inline-flex;align-items:center;gap:6px;font-size:14px;color:var(--muted);margin-bottom:var(--space-6)" {
                 (PreEscaped(r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>"#))
                 "返回列表"
             }

@@ -269,13 +269,13 @@ fn create_page_content(
     html! {
         div {
             // ── Page Header ──
-            div class="page-header" {
+            div class="flex items-center justify-between mb-6" {
                 div {
-                    a class="back-link" href=(format!("{}?restore=true", MesDemandPoolListPath::PATH)) {
+                    a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", MesDemandPoolListPath::PATH)) {
                         (icon::arrow_left_icon("w-4 h-4"))
                         "返回需求池"
                     }
-                    h1 class="page-title" { "从需求创建生产计划" }
+                    h1 class="text-xl font-bold text-fg tracking-tight" { "从需求创建生产计划" }
                     div style="font-size:13px;color:var(--muted);margin-top:4px;" {
                         span class="status-pill status-draft" style="font-size:11px;padding:2px 8px;margin-right:6px;background:#fef3c7;color:#d97706;" {
                             "生产需求池 · 按物料聚合"

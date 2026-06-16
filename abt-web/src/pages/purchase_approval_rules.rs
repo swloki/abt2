@@ -178,11 +178,11 @@ fn list_page(rules: &[PurchaseApprovalRule]) -> Markup {
     use maud::PreEscaped;
     html! {
         div {
-            div class="page-header" {
-                div class="page-header-left" {
-                    h1 class="page-title" { "审批规则管理" }
+            div class="flex items-center justify-between mb-6" {
+                div class="flex items-center justify-between mb-6-left" {
+                    h1 class="text-xl font-bold text-fg tracking-tight" { "审批规则管理" }
                 }
-                div class="page-actions" {
+                div class="flex gap-3" {
                     button type="button" class="btn btn-primary"
                         hx-get=(RuleCreatePath::PATH)
                         hx-target="#rule-modal"

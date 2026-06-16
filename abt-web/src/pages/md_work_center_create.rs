@@ -147,10 +147,10 @@ pub async fn post_work_center_update(
 fn work_center_form_page(wc: Option<&WorkCenter>) -> Markup {
     let is_edit = wc.is_some();
     html! {
-        div class="page-header" {
-            div class="page-header-left" {
-                a class="back-link" href=(WorkCenterListPath::PATH) { "← 返回列表" }
-                h1 class="page-title" {
+        div class="flex items-center justify-between mb-6" {
+            div class="flex items-center justify-between mb-6-left" {
+                a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(WorkCenterListPath::PATH) { "← 返回列表" }
+                h1 class="text-xl font-bold text-fg tracking-tight" {
                     @if is_edit { "编辑工作中心" } @else { "新建工作中心" }
                 }
             }

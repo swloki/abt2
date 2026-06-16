@@ -402,14 +402,14 @@ fn stock_in_create_content(
     html! {
         div {
             // ── Back Link ──
-            a href="/admin/wms/stock-in" class="back-link" {
+            a href="/admin/wms/stock-in" class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" {
                 (icon::chevron_left_icon("w-4 h-4"))
                 "返回入库列表"
             }
 
             // ── Page Header ──
-            div class="page-header" style="margin-bottom:var(--space-6)" {
-                h1 class="page-title" { "新建入库单" }
+            div class="flex items-center justify-between mb-6" style="margin-bottom:var(--space-6)" {
+                h1 class="text-xl font-bold text-fg tracking-tight" { "新建入库单" }
             }
 
             // ── Type Switch ──

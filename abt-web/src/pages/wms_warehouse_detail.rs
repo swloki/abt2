@@ -334,7 +334,7 @@ fn warehouse_detail_page(
                 }
                 div style="margin-top:var(--space-2);font-size:13px;color:var(--muted)" { (warehouse.name) }
             }
-            div class="page-actions" {
+            div class="flex gap-3" {
                 a class="btn btn-default" href=(format!("{}?restore=true", WarehouseListPath::PATH)) {
                     (icon::arrow_left_icon("w-4 h-4"))
                     " 返回列表"

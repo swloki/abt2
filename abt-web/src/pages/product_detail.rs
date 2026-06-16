@@ -262,7 +262,7 @@ fn product_detail_page(
                         }
                     }
                 }
-                div class="page-actions" {
+                div class="flex gap-3" {
                     a class="btn btn-default" href=(format!("{list_path}?restore=true")) {
                         (icon::arrow_left_icon("w-4 h-4"))
                         " 返回列表"
@@ -672,12 +672,12 @@ fn product_edit_page(product: &Product) -> Markup {
     html! {
         div {
             // ── Page Header ──
-            div class="page-header" {
-                a class="back-link" href=(detail_path) {
+            div class="flex items-center justify-between mb-6" {
+                a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(detail_path) {
                     (icon::arrow_left_icon("w-4 h-4"))
                     "返回产品详情"
                 }
-                h1 class="page-title" { "编辑产品" }
+                h1 class="text-xl font-bold text-fg tracking-tight" { "编辑产品" }
             }
 
             form id="product-edit-form"

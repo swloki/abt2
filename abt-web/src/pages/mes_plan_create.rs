@@ -135,12 +135,12 @@ pub async fn search_products(
 fn plan_create_page() -> Markup {
     html! {
         div {
-            div class="page-header" {
-                div class="page-header-left" {
-                    a class="back-link" href=(format!("{}?restore=true", PlanListPath::PATH)) {
+            div class="flex items-center justify-between mb-6" {
+                div class="flex items-center justify-between mb-6-left" {
+                    a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", PlanListPath::PATH)) {
                         "← 返回列表"
                     }
-                    h1 class="page-title" { "新建生产计划" }
+                    h1 class="text-xl font-bold text-fg tracking-tight" { "新建生产计划" }
                 }
             }
 

@@ -382,7 +382,7 @@ fn plan_detail_page(
     html! {
         div {
             // 返回
-            a class="back-link" href=(format!("{}?restore=true", PlanListPath::PATH)) {
+            a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", PlanListPath::PATH)) {
                 (icon::chevron_left_icon("w-4 h-4"))
                 "返回计划列表"
             }
@@ -395,7 +395,7 @@ fn plan_detail_page(
                         span { (plan.doc_number) }
                         (status_pill(status_label, status_bg, status_color))
                     }
-                    div class="page-actions" {
+                    div class="flex gap-3" {
                         @if plan.status == PlanStatus::Confirmed {
                             a class="btn btn-primary" href=(format!("/admin/mes/plans/{}?tab=planning", plan.id)) {
                                 (icon::rocket_icon("w-4 h-4"))

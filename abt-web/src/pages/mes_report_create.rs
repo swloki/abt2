@@ -335,7 +335,7 @@ fn report_create_page(
     let today = chrono::Local::now().format("%Y-%m-%d").to_string();
 
     html! { div {
-        div class="page-header" { h1 class="page-title" { "新建报工" } }
+        div class="flex items-center justify-between mb-6" { h1 class="text-xl font-bold text-fg tracking-tight" { "新建报工" } }
         form hx-post=(ReportCreatePath::PATH) hx-swap="none" id="report-form" {
 
             // ── 基本信息 ──

@@ -590,7 +590,7 @@ fn bom_edit_page(
             }
 
             // ── Title ──
-            h1 class="page-title" style="display:flex;align-items:center;gap:var(--space-2);margin-bottom:var(--space-4)" {
+            h1 class="text-xl font-bold text-fg tracking-tight" style="display:flex;align-items:center;gap:var(--space-2);margin-bottom:var(--space-4)" {
                 (bom.bom_name)
                 span class=(format!("status-pill {status_class}")) { (status_label) }
             }

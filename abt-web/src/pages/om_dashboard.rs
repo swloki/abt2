@@ -313,9 +313,9 @@ fn om_dashboard_page(total: u64, ctx: &OmDashboardContext) -> Markup {
     html! {
         div {
             // ── Page Header ──
-            div class="page-header" {
-                h1 class="page-title" { "委外管理总览" }
-                div class="page-actions" {
+            div class="flex items-center justify-between mb-6" {
+                h1 class="text-xl font-bold text-fg tracking-tight" { "委外管理总览" }
+                div class="flex gap-3" {
                     a href=(OmOutsourcingCreatePath::PATH) class="btn btn-primary" {
                         (icon::plus_icon("w-4 h-4"))
                         " 新建委外单"

@@ -284,12 +284,12 @@ fn quotation_create_page(customers: &[abt_core::master_data::customer::model::Cu
     html! {
         div id="quotation-app" class="padded-section" {
             // ── Page Header ──
-            div class="page-header" {
-                a class="back-link" href=(format!("{}?restore=true", QuotationListPath::PATH)) {
+            div class="flex items-center justify-between mb-6" {
+                a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", QuotationListPath::PATH)) {
                     (icon::arrow_left_icon("w-4 h-4"))
                     "返回报价单列表"
                 }
-                h1 class="page-title" { "新建报价单" }
+                h1 class="text-xl font-bold text-fg tracking-tight" { "新建报价单" }
             }
             form id="quotation-form"
                   hx-post=(QuotationCreatePath::PATH)

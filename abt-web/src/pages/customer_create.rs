@@ -150,12 +150,12 @@ fn customer_create_page(users: &[(i64, String)]) -> Markup {
     html! {
         div {
             // ── Page Header ──
-            div class="page-header" {
-                a class="back-link" href=(format!("{}?restore=true", CustomerListPath::PATH)) {
+            div class="flex items-center justify-between mb-6" {
+                a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", CustomerListPath::PATH)) {
                     (icon::arrow_left_icon("w-4 h-4"))
                     "返回客户列表"
                 }
-                h1 class="page-title" { "新建客户" }
+                h1 class="text-xl font-bold text-fg tracking-tight" { "新建客户" }
             }
 
             form hx-post=(CreateCustomerPath::PATH) hx-swap="none" {

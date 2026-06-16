@@ -158,7 +158,7 @@ fn misc_detail_page(
     html! {
         div {
             // ── Back Link ──
-            a class="back-link" href=(format!("{}?restore=true", MiscListPath::PATH)) {
+            a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", MiscListPath::PATH)) {
                 (icon::chevron_left_icon("w-4 h-4"))
                 "返回零星请购列表"
             }
@@ -171,7 +171,7 @@ fn misc_detail_page(
                         span class=(format!("status-pill {status_class}")) { (status_text) }
                     }
                 }
-                div class="page-actions" {
+                div class="flex gap-3" {
                     @if req.status == MiscRequestStatus::Draft {
                         button class="btn btn-primary"
                             hx-post=(MiscApprovePath { id: req.id }.to_string())

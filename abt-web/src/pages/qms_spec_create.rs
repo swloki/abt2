@@ -135,8 +135,8 @@ fn spec_create_page(products: &[abt_core::master_data::product::model::Product])
 
         div {
             // ── Page Header ──
-            div class="page-header" style="margin-bottom:var(--space-6)" {
-                h1 class="page-title" { "新建检验规格" }
+            div class="flex items-center justify-between mb-6" style="margin-bottom:var(--space-6)" {
+                h1 class="text-xl font-bold text-fg tracking-tight" { "新建检验规格" }
             }
 
             form id="spec-form" hx-post=(SpecCreatePath::PATH) hx-swap="none" {

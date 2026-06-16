@@ -53,12 +53,12 @@ pub async fn get_receipt_detail(path: ReceiptDetailPath, ctx: RequestContext) ->
     let total_cost = receipt.received_qty * unit_cost;
 
     let content = html! { div {
-        div class="page-header" {
-            div class="page-header-left" {
-                a class="back-link" href=(format!("{}?restore=true", ReceiptListPath::PATH)) { "← 返回列表" }
-                h1 class="page-title" { "入库单 " (receipt.doc_number) }
+        div class="flex items-center justify-between mb-6" {
+            div class="flex items-center justify-between mb-6-left" {
+                a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", ReceiptListPath::PATH)) { "← 返回列表" }
+                h1 class="text-xl font-bold text-fg tracking-tight" { "入库单 " (receipt.doc_number) }
             }
-            div class="page-actions" {
+            div class="flex gap-3" {
                 @if receipt.status == abt_core::mes::enums::ReceiptStatus::Draft {
                     @if matches!(fqc_status, FqcGate::AllPassed | FqcGate::NotRequired) {
                         form class="inline-form" hx-post=(ReceiptConfirmPath { receipt_id: receipt.id }.to_string()) hx-swap="none" {

@@ -164,9 +164,9 @@ fn requisition_list_page(
 ) -> Markup {
     html! {
         div {
-            div class="page-header" {
-                h1 class="page-title" { "领料单" }
-                div class="page-actions" {
+            div class="flex items-center justify-between mb-6" {
+                h1 class="text-xl font-bold text-fg tracking-tight" { "领料单" }
+                div class="flex gap-3" {
                     @if can_create {
                         a class="btn btn-primary" href=(RequisitionCreatePath::PATH) {
                             (icon::plus_icon("w-4 h-4"))

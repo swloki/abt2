@@ -61,10 +61,10 @@ fn work_calendar_detail_page(
     exceptions: &[CalendarException],
 ) -> Markup {
     html! {
-        div class="page-header" {
-            div class="page-header-left" {
-                a class="back-link" href=(WorkCalendarListPath::PATH) { "← 返回列表" }
-                h1 class="page-title" { "工作日历 " (cal.name) }
+        div class="flex items-center justify-between mb-6" {
+            div class="flex items-center justify-between mb-6-left" {
+                a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(WorkCalendarListPath::PATH) { "← 返回列表" }
+                h1 class="text-xl font-bold text-fg tracking-tight" { "工作日历 " (cal.name) }
             }
         }
 

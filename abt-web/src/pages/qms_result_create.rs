@@ -158,17 +158,17 @@ fn result_create_page(
     html! {
         div {
             // ── Back link ──
-            a class="back-link" href=(format!("{}?restore=true", ResultListPath::PATH)) {
+            a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", ResultListPath::PATH)) {
                 (icon::arrow_left_icon(""))
                 " 返回检验结果列表"
             }
 
             // ── Page header ──
-            div class="page-header" {
-                div class="page-header-left" {
-                    h1 class="page-title" { "记录检验结果" }
+            div class="flex items-center justify-between mb-6" {
+                div class="flex items-center justify-between mb-6-left" {
+                    h1 class="text-xl font-bold text-fg tracking-tight" { "记录检验结果" }
                 }
-                div class="page-header-right" {
+                div class="flex items-center justify-between mb-6-right" {
                     span class="text-sm text-muted" { "自动保存草稿" }
                 }
             }

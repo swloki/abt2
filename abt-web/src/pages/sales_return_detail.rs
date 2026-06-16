@@ -354,7 +354,7 @@ fn return_detail_page(
     html! {
         div {
             // ── Back Link ──
-            a class="back-link" href=(format!("{}?restore=true", ReturnListPath::PATH)) {
+            a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", ReturnListPath::PATH)) {
                 (icon::chevron_left_icon("w-4 h-4"))
                 "返回退货列表"
             }
@@ -374,7 +374,7 @@ fn return_detail_page(
                         }
                     }
                 }
-                div class="page-actions" {
+                div class="flex gap-3" {
                     a class="btn btn-default" href=(format!("{}?restore=true", ReturnListPath::PATH)) { "返回列表" }
                     @if r.status == ReturnStatus::Draft {
                         button

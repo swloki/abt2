@@ -182,7 +182,7 @@ fn pr_detail_page(
     html! {
         div {
             // ── Back Link ──
-            a class="back-link" href=(format!("{}?restore=true", PRListPath::PATH)) {
+            a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", PRListPath::PATH)) {
                 (icon::chevron_left_icon("w-4 h-4"))
                 "返回采购退货列表"
             }
@@ -195,7 +195,7 @@ fn pr_detail_page(
                         span class=(format!("status-pill {status_class}")) { (status_text) }
                     }
                 }
-                div class="page-actions" {
+                div class="flex gap-3" {
                     @if pr.status == PurchaseReturnStatus::Draft {
                         button class="btn btn-primary"
                             hx-post=(PRConfirmPath { id: pr.id }.to_string())

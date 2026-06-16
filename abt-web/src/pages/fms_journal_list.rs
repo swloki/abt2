@@ -218,9 +218,9 @@ fn build_filter(params: &JournalQueryParams) -> CashJournalFilter {
 fn journal_list_page(result: &PaginatedResult<CashJournal>, params: &JournalQueryParams, counterparty_names: &HashMap<(CounterpartyType, i64), String>, can_create: bool) -> Markup {
     html! {
         div {
-            div class="page-header" {
-                h1 class="page-title" { "出纳日记账" }
-                div class="page-actions" {
+            div class="flex items-center justify-between mb-6" {
+                h1 class="text-xl font-bold text-fg tracking-tight" { "出纳日记账" }
+                div class="flex gap-3" {
                     button class="btn btn-default" type="button" { (icon::download_icon("w-4 h-4")) "导出" }
                     @if can_create {
                         a class="btn btn-primary" href=(JournalCreatePath::PATH) {

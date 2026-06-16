@@ -266,11 +266,11 @@ pub async fn delete_price(path: PriceDeletePath, ctx: RequestContext) -> Result<
 fn list_page(result: &PaginatedResult<PriceView>, query: &ListQuery) -> Markup {
     html! {
         div {
-            div class="page-header" {
-                div class="page-header-left" {
-                    h1 class="page-title" { "供应商价格目录" }
+            div class="flex items-center justify-between mb-6" {
+                div class="flex items-center justify-between mb-6-left" {
+                    h1 class="text-xl font-bold text-fg tracking-tight" { "供应商价格目录" }
                 }
-                div class="page-actions" {
+                div class="flex gap-3" {
                     button type="button" class="btn btn-primary"
                         hx-get=(PriceCreatePath::PATH)
                         hx-target="#price-modal"

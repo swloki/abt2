@@ -200,9 +200,9 @@ fn pay_list_page(
     html! {
         div {
             // ── Page Header ──
-            div class="page-header" {
-                h1 class="page-title" { "付款申请" }
-                div class="page-actions" {
+            div class="flex items-center justify-between mb-6" {
+                h1 class="text-xl font-bold text-fg tracking-tight" { "付款申请" }
+                div class="flex gap-3" {
                     @if can_create {
                         a class="btn btn-primary" href=(PayCreatePath::PATH) {
                             (icon::plus_icon("w-4 h-4"))

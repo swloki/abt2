@@ -250,7 +250,7 @@ fn pq_detail_page(
                         span class=(format!("status-pill {status_class}")) { (status_text) }
                     }
                 }
-                div class="page-actions" {
+                div class="flex gap-3" {
                     button class="btn btn-default" { "打印" }
                     @if pq.status == PurchaseQuotationStatus::Active {
                         button class="btn btn-primary"

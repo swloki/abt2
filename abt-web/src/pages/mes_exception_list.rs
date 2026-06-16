@@ -32,8 +32,8 @@ fn exception_list_page(
     result: &PaginatedResult<abt_core::mes::production_exception::model::ExceptionListItem>,
 ) -> Markup {
     html! { div {
-        div class="page-header" {
-            h1 class="page-title" { "生产异常" }
+        div class="flex items-center justify-between mb-6" {
+            h1 class="text-xl font-bold text-fg tracking-tight" { "生产异常" }
         }
 
         // Stats row

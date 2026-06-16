@@ -82,10 +82,10 @@ pub async fn get_detail(path: MrbDetailPath, ctx: RequestContext) -> Result<Html
     let (party_text, party_class) = responsible_party_label(&mrb.responsible_party);
 
     let content = html! { div {
-        div class="page-header" {
-            div class="page-header-left" {
-                a class="back-link" href=(format!("{}?restore=true", MrbListPath::PATH)) { "\u{2190} 返回列表" }
-                h1 class="page-title" {
+        div class="flex items-center justify-between mb-6" {
+            div class="flex items-center justify-between mb-6-left" {
+                a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", MrbListPath::PATH)) { "\u{2190} 返回列表" }
+                h1 class="text-xl font-bold text-fg tracking-tight" {
                     "MRB单号 " (&mrb.doc_number)
                     " "
                     span class=(format!("status-pill {status_class}")) { (status_text) }

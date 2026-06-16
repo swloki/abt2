@@ -124,9 +124,9 @@ fn transaction_list_page(
 ) -> Markup {
     html! {
         div {
-            div class="page-header" {
-                h1 class="page-title" { "库存事务日志" }
-                div class="page-actions" {
+            div class="flex items-center justify-between mb-6" {
+                h1 class="text-xl font-bold text-fg tracking-tight" { "库存事务日志" }
+                div class="flex gap-3" {
                     span style="font-size:var(--text-xs);color:var(--muted);display:flex;align-items:center;gap:var(--space-2);background:var(--surface);border:1px solid var(--border-soft);border-radius:var(--radius-md);padding:var(--space-1) var(--space-3)" {
                         (crate::components::icon::lock_icon("w-4 h-4"))
                         "Append-Only：事务日志仅追加，不可修改历史记录"

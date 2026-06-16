@@ -113,7 +113,7 @@ fn backflush_detail_page(
 
     html! {
         div {
-            a href="/admin/wms/backflushes" class="back-link" {
+            a href="/admin/wms/backflushes" class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" {
                 (icon::chevron_left_icon("w-4 h-4"))
                 "返回倒冲记录列表"
             }
@@ -125,7 +125,7 @@ fn backflush_detail_page(
                         span class=(format!("status-pill {status_class}")) { (status_label) }
                     }
                 }
-                div class="page-actions" {
+                div class="flex gap-3" {
                     button class="btn btn-default" {
                         (icon::printer_icon("w-4 h-4"))
                         "打印"

@@ -198,7 +198,7 @@ fn requisition_detail_page(
 
     html! {
         div {
-            a href=(format!("{}?restore=true", RequisitionListPath::PATH)) class="back-link" {
+            a href=(format!("{}?restore=true", RequisitionListPath::PATH)) class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" {
                 (icon::chevron_left_icon("w-4 h-4"))
                 "返回领料单列表"
             }
@@ -210,7 +210,7 @@ fn requisition_detail_page(
                         span class=(format!("status-pill {status_class}")) { (status_text) }
                     }
                 }
-                div class="page-actions" {
+                div class="flex gap-3" {
                     (requisition_action_buttons(requisition.status, detail_path))
                 }
             }

@@ -299,8 +299,8 @@ fn stock_list_page(
 ) -> Markup {
     html! {
         div {
-            div class="page-header" {
-                h1 class="page-title" { "库存查询" }
+            div class="flex items-center justify-between mb-6" {
+                h1 class="text-xl font-bold text-fg tracking-tight" { "库存查询" }
             }
 
             // ── Stat Cards ──

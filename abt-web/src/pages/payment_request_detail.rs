@@ -168,7 +168,7 @@ fn pay_detail_page(
     html! {
         div {
             // ── Back Link ──
-            a class="back-link" href=(format!("{}?restore=true", PayListPath::PATH)) {
+            a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", PayListPath::PATH)) {
                 (icon::chevron_left_icon("w-4 h-4"))
                 "返回付款列表"
             }
@@ -181,7 +181,7 @@ fn pay_detail_page(
                         span class=(format!("status-pill {status_class}")) { (status_text) }
                     }
                 }
-                div class="page-actions" {
+                div class="flex gap-3" {
                     @if pay.status == PaymentStatus::Draft {
                         button class="btn btn-primary"
                             hx-post=(PayApprovePath { id: pay.id }.to_string())

@@ -79,8 +79,8 @@ fn backflush_list_page(
 ) -> Markup {
     html! {
         div {
-            div class="page-header" {
-                h1 class="page-title" { "倒冲记录" }
+            div class="flex items-center justify-between mb-6" {
+                h1 class="text-xl font-bold text-fg tracking-tight" { "倒冲记录" }
             }
 
             (backflush_table_fragment(result, params))

@@ -179,9 +179,9 @@ fn order_list_page(
     html! {
         div {
             // ── Page Header ──
-            div class="page-header" {
-                h1 class="page-title" { "销售订单" }
-                div class="page-actions" {
+            div class="flex items-center justify-between mb-6" {
+                h1 class="text-xl font-bold text-fg tracking-tight" { "销售订单" }
+                div class="flex gap-3" {
                     button class="btn btn-default" {
                         (icon::download_icon("w-4 h-4"))
                         "导出"

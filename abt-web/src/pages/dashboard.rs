@@ -28,9 +28,9 @@ pub async fn get_dashboard(
 fn dashboard_content(claims: &abt_core::shared::identity::model::Claims) -> Markup {
     html! {
         // ── Page Header ──
-        div class="page-header" {
-            h1 class="page-title" { "销售管理概览" }
-            div class="page-actions" {
+        div class="flex items-center justify-between mb-6" {
+            h1 class="text-xl font-bold text-fg tracking-tight" { "销售管理概览" }
+            div class="flex gap-3" {
                 span class="text-muted text-[13px]" {
                     "欢迎回来, " (claims.display_name.as_str())
                 }

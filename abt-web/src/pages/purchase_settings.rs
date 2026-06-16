@@ -103,9 +103,9 @@ fn settings_page(
 ) -> Markup {
     html! {
         div {
-            div class="page-header" {
-                div class="page-header-left" {
-                    h1 class="page-title" { "采购参数配置" }
+            div class="flex items-center justify-between mb-6" {
+                div class="flex items-center justify-between mb-6-left" {
+                    h1 class="text-xl font-bold text-fg tracking-tight" { "采购参数配置" }
                 }
             }
             form hx-post=(PurchaseSettingsPath::PATH) hx-swap="none" {

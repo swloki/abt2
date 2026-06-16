@@ -173,13 +173,13 @@ fn requisition_create_page(
 ) -> Markup {
     html! {
         div {
-            a href=(format!("{}?restore=true", RequisitionListPath::PATH)) class="back-link" {
+            a href=(format!("{}?restore=true", RequisitionListPath::PATH)) class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" {
                 (icon::chevron_left_icon("w-4 h-4"))
                 "返回领料单列表"
             }
 
-            div class="page-header" style="margin-bottom:var(--space-5)" {
-                h1 class="page-title" { "新建领料单" }
+            div class="flex items-center justify-between mb-6" style="margin-bottom:var(--space-5)" {
+                h1 class="text-xl font-bold text-fg tracking-tight" { "新建领料单" }
             }
 
             div class="workflow-steps" {

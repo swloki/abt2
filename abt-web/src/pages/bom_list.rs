@@ -187,9 +187,9 @@ fn bom_list_page(
     html! {
         div {
             // ── Page Header ──
-            div class="page-header" {
-                h1 class="page-title" { "BOM管理" }
-                div class="page-actions" {
+            div class="flex items-center justify-between mb-6" {
+                h1 class="text-xl font-bold text-fg tracking-tight" { "BOM管理" }
+                div class="flex gap-3" {
                     (export_button::export_dropdown(&[
                         ExportItem { label: "导出BOM清单", export_type: "boms-list" },
                         ExportItem { label: "缺少人工成本BOM", export_type: "boms-no-labor-cost" },

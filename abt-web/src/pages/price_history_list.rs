@@ -173,8 +173,8 @@ fn price_history_page(rows: &[PriceHistoryRow], total: u64, page: u32, total_pag
     html! {
         div {
             // ── Page Header ──
-            div class="page-header" {
-                h1 class="page-title" { "价格变更记录" }
+            div class="flex items-center justify-between mb-6" {
+                h1 class="text-xl font-bold text-fg tracking-tight" { "价格变更记录" }
             }
 
             // ── Stats Row ──

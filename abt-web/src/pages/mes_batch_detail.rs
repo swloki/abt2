@@ -174,7 +174,7 @@ fn batch_detail_page(
 
     html! { div {
         // 工单上下文条
-        a class="back-link" href=(format!("/admin/mes/orders/{}", wo.id)) {
+        a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("/admin/mes/orders/{}", wo.id)) {
             (crate::components::icon::chevron_left_icon("w-4 h-4"))
             "返回工单 " span class="mono" { (wo.doc_number.as_str()) }
         }

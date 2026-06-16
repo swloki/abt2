@@ -328,9 +328,9 @@ fn tracking_list_page(
     html! {
         div {
             // ── Page Header ──
-            div class="page-header" {
-                h1 class="page-title" { "委外追踪" }
-                div class="page-actions" {
+            div class="flex items-center justify-between mb-6" {
+                h1 class="text-xl font-bold text-fg tracking-tight" { "委外追踪" }
+                div class="flex gap-3" {
                     button class="btn btn-secondary"
                         onclick="location.reload()"
                         style="display:inline-flex;align-items:center;gap:6px" {

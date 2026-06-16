@@ -169,9 +169,9 @@ fn process_dict_list_page(
     html! {
         div {
             // ── Page Header ──
-            div class="page-header" {
-                h1 class="page-title" { "工序字典管理" }
-                div class="page-actions" {
+            div class="flex items-center justify-between mb-6" {
+                h1 class="text-xl font-bold text-fg tracking-tight" { "工序字典管理" }
+                div class="flex gap-3" {
                     (export_button::export_button("导出工序字典", "labor-process-dict"))
                     @if can_create {
                         a class="btn btn-primary" href=(ProcessDictCreatePath::PATH) {
@@ -304,12 +304,12 @@ fn process_dict_form_page(_existing: Option<&LaborProcessDict>) -> Markup {
     html! {
         div {
             // ── Page Header ──
-            div class="page-header" {
-                a class="back-link" href=(ProcessDictListPath::PATH) {
+            div class="flex items-center justify-between mb-6" {
+                a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(ProcessDictListPath::PATH) {
                     (icon::arrow_left_icon("w-4 h-4"))
                     "返回工序字典"
                 }
-                h1 class="page-title" { "新建工序" }
+                h1 class="text-xl font-bold text-fg tracking-tight" { "新建工序" }
             }
 
             form hx-post=(ProcessDictCreatePath::PATH)

@@ -148,8 +148,8 @@ fn user_create_page(roles: &[Role], departments: &[Department]) -> Markup {
     html! {
         div {
             // ── Page Header ──
-            div class="page-header" {
-                h1 class="page-title" { "新建用户" }
+            div class="flex items-center justify-between mb-6" {
+                h1 class="text-xl font-bold text-fg tracking-tight" { "新建用户" }
             }
 
             form id="user-form"

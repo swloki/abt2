@@ -314,9 +314,9 @@ fn cost_analysis_page(
     html! {
         div class="fms-list-page" {
             // ── 页面标题栏 ──
-            div class="page-header" {
-                h1 class="page-title" { "成本核算分析" }
-                div class="page-actions" {
+            div class="flex items-center justify-between mb-6" {
+                h1 class="text-xl font-bold text-fg tracking-tight" { "成本核算分析" }
+                div class="flex gap-3" {
                     button class="btn btn-default" {
                         (PreEscaped(r#"<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>"#))
                         "导出报表"

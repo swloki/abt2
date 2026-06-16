@@ -175,12 +175,12 @@ fn quotation_edit_page(
     html! {
         div id="quotation-app" {
             // ── Page Header ──
-            div class="page-header" {
-                a class="back-link" href=(detail_path.to_string()) {
+            div class="flex items-center justify-between mb-6" {
+                a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(detail_path.to_string()) {
                     (icon::arrow_left_icon("w-4 h-4"))
                     "返回报价单详情"
                 }
-                h1 class="page-title" { "编辑报价单 " (quotation.doc_number) }
+                h1 class="text-xl font-bold text-fg tracking-tight" { "编辑报价单 " (quotation.doc_number) }
             }
 
             form id="quotation-form"

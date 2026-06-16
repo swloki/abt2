@@ -61,10 +61,10 @@ pub async fn get_detail(path: RmaDetailPath, ctx: RequestContext) -> Result<Html
     let (status_text, status_class) = status_label(&rma.status);
 
     let content = html! { div {
-        div class="page-header" {
-            div class="page-header-left" {
-                a class="back-link" href=(format!("{}?restore=true", RmaListPath::PATH)) { "\u{2190} 返回列表" }
-                h1 class="page-title" {
+        div class="flex items-center justify-between mb-6" {
+            div class="flex items-center justify-between mb-6-left" {
+                a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", RmaListPath::PATH)) { "\u{2190} 返回列表" }
+                h1 class="text-xl font-bold text-fg tracking-tight" {
                     "RMA单号 " (&rma.doc_number)
                     " "
                     span class=(format!("status-pill {status_class}")) { (status_text) }

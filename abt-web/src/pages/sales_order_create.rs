@@ -276,12 +276,12 @@ fn order_create_page(customers: &[abt_core::master_data::customer::model::Custom
     html! {
         div id="order-app" class="padded-section" {
             // ── Page Header ──
-            div class="page-header" {
-                a class="back-link" href=(format!("{}?restore=true", OrderListPath::PATH)) {
+            div class="flex items-center justify-between mb-6" {
+                a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", OrderListPath::PATH)) {
                     (icon::arrow_left_icon("w-4 h-4"))
                     "返回订单列表"
                 }
-                h1 class="page-title" { "新建订单" }
+                h1 class="text-xl font-bold text-fg tracking-tight" { "新建订单" }
             }
 
             form id="order-form"

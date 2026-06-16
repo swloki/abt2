@@ -146,9 +146,9 @@ fn warehouse_list_page(
     html! {
         div {
             // ── Page Header ──
-            div class="page-header" {
-                h1 class="page-title" { "仓库管理" }
-                div class="page-actions" {
+            div class="flex items-center justify-between mb-6" {
+                h1 class="text-xl font-bold text-fg tracking-tight" { "仓库管理" }
+                div class="flex gap-3" {
                     button type="button" class="btn btn-default"
                         _=(import_modal::import_modal_onclick(&ImportModalConfig { import_type: "warehouse-location", title: "", template_columns: "" })) {
                         (icon::upload_icon("w-4 h-4"))

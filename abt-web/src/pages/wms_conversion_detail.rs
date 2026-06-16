@@ -150,7 +150,7 @@ fn conversion_detail_page(
 
     html! {
         div {
-            a href="/admin/wms/conversions" class="back-link" {
+            a href="/admin/wms/conversions" class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" {
                 (icon::chevron_left_icon("w-4 h-4"))
                 "返回形态转换列表"
             }
@@ -162,7 +162,7 @@ fn conversion_detail_page(
                         span class=(format!("status-pill {status_class}")) { (status_label) }
                     }
                 }
-                div class="page-actions" {
+                div class="flex gap-3" {
                     (conversion_action_buttons(conversion.status, detail_path))
                 }
             }

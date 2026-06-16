@@ -96,11 +96,11 @@ fn work_center_list_page(
     let query_string = build_query_string(params);
 
     html! {
-        div class="page-header" {
-            div class="page-header-left" {
-                h1 class="page-title" { "工作中心管理" }
+        div class="flex items-center justify-between mb-6" {
+            div class="flex items-center justify-between mb-6-left" {
+                h1 class="text-xl font-bold text-fg tracking-tight" { "工作中心管理" }
             }
-            div class="page-actions" {
+            div class="flex gap-3" {
                 a class="btn btn-primary" href=(WorkCenterCreatePath::PATH) {
                     (icon::plus_icon("w-4 h-4"))
                     "新建工作中心"

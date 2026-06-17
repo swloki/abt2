@@ -439,11 +439,11 @@ fn order_create_page(customers: &[abt_core::master_data::customer::model::Custom
                         button class="bg-transparent border-none cursor-pointer text-xl text-muted p-1 hover:text-fg"
                             _="on click remove .is-open from #product-modal" { "×" }
                     }
-                    div class="overflow-y-auto flex-1 min-h-0 p-0" {
-                        div class="flex gap-4 p-4 border-b" {
-                            div class="flex-1 flex flex-col gap-[4px]" {
-                                label class="text-[12px] font-medium text-fg-2" { "产品名称" }
-                                input class="product-w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="name" placeholder="输入产品名称…"
+                    div class="overflow-y-auto flex-1 min-h-0 p-6" {
+                        div class="product-search-bar flex gap-4 mb-4 pb-4 [border-bottom:1px_solid_var(--border-soft)]" {
+                            div class="flex-1 flex flex-col gap-1" {
+                                label class="text-xs font-medium text-fg-2" { "产品名称" }
+                                input class="product-search-input w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="name" placeholder="输入产品名称…"
                                     hx-get=(OrderProductsPath::PATH)
                                     hx-trigger="keyup changed delay:300ms"
                                     hx-sync="this:replace"
@@ -451,9 +451,9 @@ fn order_create_page(customers: &[abt_core::master_data::customer::model::Custom
                                     hx-swap="innerHTML"
                                     hx-include=".product-search-bar" {}
                             }
-                            div class="flex-1 flex flex-col gap-[4px]" {
-                                label class="text-[12px] font-medium text-fg-2" { "产品编码" }
-                                input class="product-w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="code" placeholder="输入产品编码…"
+                            div class="flex-1 flex flex-col gap-1" {
+                                label class="text-xs font-medium text-fg-2" { "产品编码" }
+                                input class="product-search-input w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="code" placeholder="输入产品编码…"
                                     hx-get=(OrderProductsPath::PATH)
                                     hx-trigger="keyup changed delay:300ms"
                                     hx-sync="this:replace"
@@ -461,7 +461,7 @@ fn order_create_page(customers: &[abt_core::master_data::customer::model::Custom
                                     hx-swap="innerHTML"
                                     hx-include=".product-search-bar" {}
                             }
-                            button type="button" class="border border-border rounded-sm bg-bg text-fg-2 text-sm cursor-pointer whitespace-nowrap"
+                            button type="button" class="self-end py-2 px-4 border border-border rounded-sm bg-bg text-fg-2 text-sm cursor-pointer whitespace-nowrap hover:bg-surface transition-colors"
                                 hx-get=(OrderProductsPath::PATH)
                                 hx-target="#product-search-results"
                                 hx-swap="innerHTML"
@@ -469,11 +469,11 @@ fn order_create_page(customers: &[abt_core::master_data::customer::model::Custom
                                 "清除"
                             }
                         }
-                        div id="product-search-results" class="product-search-scroll"
+                        div id="product-search-results" class="max-h-[400px] overflow-y-auto"
                         hx-get=(OrderProductsPath::PATH)
                         hx-trigger="intersect once"
                         hx-swap="innerHTML" {
-                            div class="flex items-center justify-center p-8 text-muted" { "加载中…" }
+                            div class="flex items-center justify-center py-8 text-muted text-sm" { "加载中…" }
                         }
                     }
                 }

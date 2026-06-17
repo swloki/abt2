@@ -74,21 +74,21 @@
 --leading-none: 1;
 --spacing-5: var(--space-5);
 --spacing-4: var(--space-4);
---text-lg-fontSize: 1.125rem;
---text-lg-lineHeight: 1.75rem;
---spacing-2: var(--space-2);
---radius-xl: var(--radius-xl);
+--tracking-tight: -0.025em;
 --text-xl-fontSize: 1.25rem;
 --text-xl-lineHeight: 1.75rem;
---tracking-tight: -0.025em;
 --radius-DEFAULT: var(--radius-md);
+--spacing-2: var(--space-2);
 --font-mono: ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;
 --colors-blue-DEFAULT: oklch(70.7% 0.165 254.624);
 --colors-red-DEFAULT: oklch(70.4% 0.191 22.216);
 --colors-gray-DEFAULT: oklch(70.7% 0.022 261.325);
+--radius-xl: var(--radius-xl);
 --container-xs: 20rem;
 --tracking-wide: 0.025em;
 --spacing-3: var(--space-3);
+--text-lg-fontSize: 1.125rem;
+--text-lg-lineHeight: 1.75rem;
 --spacing-12: var(--space-12);
 --spacing-6: var(--space-6);
 --colors-green-DEFAULT: oklch(79.2% 0.209 151.711);
@@ -1084,6 +1084,7 @@ p { margin: 0; }
 .h-screen{height:100vh;}
 .h1{height:var(--spacing-1);}
 .h2{height:var(--spacing-2);}
+.max-h-\[400px\]{max-height:400px;}
 .max-w-\[380px\]{max-width:380px;}
 .max-w-\[420px\]{max-width:420px;}
 .max-w-\[92vw\]{max-width:92vw;}
@@ -1205,6 +1206,7 @@ p { margin: 0; }
 .items-start{align-items:flex-start;}
 .items-center{align-items:center;}
 .items-stretch{align-items:stretch;}
+.self-end{align-self:flex-end;}
 .inset-0{inset:calc(var(--spacing) * 0);}
 .\[\&_svg\]\:left-3 svg{left:calc(var(--spacing) * 3);}
 .\[\&_svg\]\:top-1\/2 svg{top:50%;}

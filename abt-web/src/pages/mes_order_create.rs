@@ -280,7 +280,7 @@ fn source_order_modal() -> Markup {
  _="on click remove .is-open from #so-modal" { "\u{00d7}" }
  }
  div class="overflow-y-auto flex-1 min-h-0 p-6" style="padding:0" {
- div class="flex gap-4 p-4 border-b" {
+ div class="flex gap-4 p-4 [border-bottom:1px_solid_var(--border-soft)]" {
  div class="flex-1 flex flex-col gap-[4px]" {
  label class="text-[12px] font-medium text-fg-2" { "订单编号 / 关键词" }
  input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword" placeholder="输入订单编号搜索…"
@@ -316,7 +316,7 @@ fn source_plan_modal() -> Markup {
  _="on click remove .is-open from #pp-modal" { "\u{00d7}" }
  }
  div class="overflow-y-auto flex-1 min-h-0 p-6" style="padding:0" {
- div class="flex gap-4 p-4 border-b" {
+ div class="flex gap-4 p-4 [border-bottom:1px_solid_var(--border-soft)]" {
  div class="flex-1 flex flex-col gap-[4px]" {
  label class="text-[12px] font-medium text-fg-2" { "计划编号 / 关键词" }
  input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword" placeholder="输入计划编号搜索…"
@@ -353,7 +353,7 @@ fn source_order_results(orders: &[abt_core::sales::sales_order::model::SalesOrde
  } @else {
  div class="py-2" {
  @for o in orders {
- div class="flex items-center justify-between p-3 border-b"
+ div class="flex items-center justify-between p-3 [border-bottom:1px_solid_var(--border-soft)]"
  data-oid=(o.id)
  data-label=(format!("{} ({})", o.doc_number, o.order_date.format("%Y-%m-%d")))
  _=(click_hs) {
@@ -382,7 +382,7 @@ fn source_plan_results(plans: &[abt_core::mes::production_plan::model::Productio
  } @else {
  div class="py-2" {
  @for p in plans {
- div class="flex items-center justify-between p-3 border-b"
+ div class="flex items-center justify-between p-3 [border-bottom:1px_solid_var(--border-soft)]"
  data-pid=(p.id)
  data-label=(format!("{} ({})", p.doc_number, p.plan_date.format("%Y-%m-%d")))
  _=(click_hs) {

@@ -704,7 +704,7 @@ fn shipping_edit_page(
  }
  }
  div class="overflow-y-auto flex-1 min-h-0 p-6 p-0" {
- div class="flex gap-4 p-4 border-b" {
+ div class="flex gap-4 p-4 [border-bottom:1px_solid_var(--border-soft)]" {
  input type="hidden" name="customer_id" {}
  div class="flex-1 flex flex-col gap-[4px]" {
  label class="text-[12px] font-medium text-fg-2" { "搜索订单" }
@@ -981,7 +981,7 @@ fn shipping_create_page(
  }
  }
  div class="overflow-y-auto flex-1 min-h-0 p-6 p-0" {
- div class="flex gap-4 p-4 border-b" {
+ div class="flex gap-4 p-4 [border-bottom:1px_solid_var(--border-soft)]" {
  input type="hidden" name="customer_id" {}
  div class="flex-1 flex flex-col gap-[4px]" {
  label class="text-[12px] font-medium text-fg-2" { "搜索订单" }
@@ -1101,7 +1101,7 @@ fn order_search_results(
  "items": items_map.get(&order.id).map(|items| items.iter().map(|item| order_item_to_json(item)).collect::<Vec<_>>()).unwrap_or_default()
  }).to_string();
 
- div class="flex items-center justify-between p-3 border-b" {
+ div class="flex items-center justify-between p-3 [border-bottom:1px_solid_var(--border-soft)]" {
  div class="product-select-info" {
  div class="text-sm font-medium text-fg" { (order.doc_number) }
  div class="text-[12px] text-muted flex items-center gap-[6px] flex-wrap" {

@@ -619,7 +619,7 @@ fn stock_in_create_content(
  }
  div class="overflow-y-auto flex-1 min-h-0 p-6" style="padding:0" hx-disinherit="hx-select" {
  input type="hidden" id="source-pick-type" name="source_type" value="arrival" {}
- div class="flex gap-4 p-4 border-b" {
+ div class="flex gap-4 p-4 [border-bottom:1px_solid_var(--border-soft)]" {
  div class="flex-1 flex flex-col gap-[4px]" {
  label class="text-[12px] font-medium text-fg-2" { "来源单号" }
  input id="source-search-input" class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword" placeholder="输入单号关键词…"
@@ -776,7 +776,7 @@ fn product_list_fragment(products: &[abt_core::master_data::product::model::Prod
  } @else {
  div class="py-2" {
  @for p in products {
- div class="flex items-center justify-between p-3 border-b" {
+ div class="flex items-center justify-between p-3 [border-bottom:1px_solid_var(--border-soft)]" {
  div class="product-select-info" {
  div class="text-sm font-medium text-fg" { (p.pdt_name) }
  div class="text-[12px] text-muted flex items-center gap-[6px] flex-wrap" {
@@ -812,7 +812,7 @@ fn source_pick_fragment(options: &[SourceOption]) -> Markup {
  } @else {
  div class="py-2" {
  @for o in options {
- div class="flex items-center justify-between p-3 border-b" {
+ div class="flex items-center justify-between p-3 [border-bottom:1px_solid_var(--border-soft)]" {
  div class="product-select-info" {
  div class="text-sm font-medium text-fg" { (o.doc_number) }
  div class="text-[12px] text-muted flex items-center gap-[6px] flex-wrap" {

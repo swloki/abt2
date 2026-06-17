@@ -646,7 +646,7 @@ fn bom_edit_page(
  }
  div class="overflow-y-auto flex-1 min-h-0 p-6" style="padding:0" hx-disinherit="hx-select" {
  input type="hidden" name="parent_id" value="0" {}
- div class="flex gap-4 p-4 border-b" {
+ div class="flex gap-4 p-4 [border-bottom:1px_solid_var(--border-soft)]" {
  input type="hidden" name="bom_id" value=(bom.bom_id) {}
  div class="flex-1 flex flex-col gap-[4px]" {
  label class="text-[12px] font-medium text-fg-2" { "产品名称" }
@@ -889,7 +889,7 @@ fn product_list_fragment(products: &[abt_core::master_data::product::model::Prod
  } @else {
  div class="py-2" {
  @for p in products {
- div class="flex items-center justify-between p-3 border-b" {
+ div class="flex items-center justify-between p-3 [border-bottom:1px_solid_var(--border-soft)]" {
  div class="product-select-info" {
  div class="text-sm font-medium text-fg" { (p.pdt_name) }
  div class="text-[12px] text-muted flex items-center gap-[6px] flex-wrap" {

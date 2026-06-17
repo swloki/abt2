@@ -341,7 +341,7 @@ fn user_table_fragment(
  }
 
  // ── Status Tabs ──
- div class="flex gap-1 border-b" {
+ div class="flex gap-1 [border-bottom:1px_solid_var(--border-soft)]" {
  button class=(tab_all)
  hx-get=(status_query(""))
  hx-target="closest .user-list-panel"

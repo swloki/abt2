@@ -414,22 +414,22 @@ fn detail_content_fragment(dept: &Department, members: &[UserWithRoles], can_cre
 
  html! {
  // ── Hero ──
- div class="p-5 border-b flex justify-between items-center" {
- div class="p-5 border-b flex justify-between items-center-left" {
+ div class="p-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center" {
+ div class="p-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center-left" {
  div class={"d-hero-icon " (code_color)} {
  (icon::building_icon("w-5 h-5"))
  }
- div class="p-5 border-b flex justify-between items-center-text" {
+ div class="p-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center-text" {
  h2 { (dept.department_name) }
- div class="p-5 border-b flex justify-between items-center-sub" {
- span class="p-5 border-b flex justify-between items-center-code" { (dept.department_code) }
+ div class="p-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center-sub" {
+ span class="p-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center-code" { (dept.department_code) }
  @if !description.is_empty() {
- span class="p-5 border-b flex justify-between items-center-desc" { (description) }
+ span class="p-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center-desc" { (description) }
  }
  }
  }
  }
- div class="p-5 border-b flex justify-between items-center-actions" {
+ div class="p-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center-actions" {
  @if can_create {
  button class="btn inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative [&_svg]:w-4 [&_svg]:h-4"
  hx-get=(edit_path)
@@ -454,7 +454,7 @@ fn detail_content_fragment(dept: &Department, members: &[UserWithRoles], can_cre
  }
 
  // ── Stats ──
- div class="flex gap-3 p-3 border-b bg-surface" {
+ div class="flex gap-3 p-3 [border-bottom:1px_solid_var(--border-soft)] bg-surface" {
  div class="flex items-center gap-[8px] bg-white rounded border border-border-soft flex-1" {
  span class="flex items-center gap-[8px] bg-white rounded border border-border-soft flex-1-dot dot-blue" {}
  b { (member_count) } span { "名成员" }
@@ -480,20 +480,20 @@ fn detail_content_fragment(dept: &Department, members: &[UserWithRoles], can_cre
  }
  }
  div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
- div class="flex items-center text-[13px] border-b" {
+ div class="flex items-center text-[13px] [border-bottom:1px_solid_var(--border-soft)]" {
  span class="text-xs text-muted font-medium" { "部门 ID" }
  span class="text-fg font-medium font-mono tabular-nums" { "#" (format!("{:03}", dept.department_id)) }
  }
- div class="flex items-center text-[13px] border-b" {
+ div class="flex items-center text-[13px] [border-bottom:1px_solid_var(--border-soft)]" {
  span class="text-xs text-muted font-medium" { "部门代码" }
  span class="text-fg font-medium font-mono tabular-nums" { (dept.department_code) }
  }
- div class="flex items-center text-[13px] border-b" {
+ div class="flex items-center text-[13px] [border-bottom:1px_solid_var(--border-soft)]" {
  span class="text-xs text-muted font-medium" { "创建时间" }
  span class="text-fg font-medium" { (dept.created_at.format("%Y-%m-%d %H:%M")) }
  }
  @if let Some(updated) = &dept.updated_at {
- div class="flex items-center text-[13px] border-b" {
+ div class="flex items-center text-[13px] [border-bottom:1px_solid_var(--border-soft)]" {
  span class="text-xs text-muted font-medium" { "最后更新" }
  span class="text-fg font-medium" { (updated.format("%Y-%m-%d %H:%M")) }
  }

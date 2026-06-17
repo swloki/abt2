@@ -374,7 +374,7 @@ fn view_toggle_and_filter(active: &str, params: &DemandPoolQueryParams) -> Marku
 
  html! {
  div class="flex items-center justify-between flex-wrap gap-3" {
- div class="flex border-b" {
+ div class="flex [border-bottom:1px_solid_var(--border-soft)]" {
  a class=(material_cls)
  hx-get=(PurchaseDemandPoolListPath::PATH)
  hx-vals="{\"view\":\"material\"}"
@@ -605,7 +605,7 @@ fn material_row(m: &MaterialAggSummary) -> Markup {
  let (icon_bg, icon_color, icon_svg) = material_icon(pid);
 
  html! {
- div class="grid items-center gap-6 p-4 border-b" {
+ div class="grid items-center gap-6 p-4 [border-bottom:1px_solid_var(--border-soft)]" {
 
  div class="flex items-center gap-4 cursor-pointer"
  hx-get=(format!("/admin/purchase/demand-pool/demand-rows?product_id={pid}"))
@@ -650,7 +650,7 @@ fn material_row(m: &MaterialAggSummary) -> Markup {
  }
 
  // ── Expandable demand detail ──
- div class="hidden bg-surface-raised border-b" id=(format!("expand-mat-{pid}")) {
+ div class="hidden bg-surface-raised [border-bottom:1px_solid_var(--border-soft)]" id=(format!("expand-mat-{pid}")) {
  div class="hidden bg-surface-raised border-b-inner" {
  table class="data-table" style="font-size:13px;" {
  thead {

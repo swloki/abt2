@@ -202,7 +202,7 @@ fn wage_list_page(
 
  // 工人工资明细卡片
  div class="wage-bg-white border border-border-soft rounded p-5" {
- div class="p-4 border-b" {
+ div class="p-4 [border-bottom:1px_solid_var(--border-soft)]" {
  div class="flex items-center gap-2 font-semibold text-base" {
  (maud::PreEscaped(r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>"#))
  " 工人工资明细"
@@ -238,7 +238,7 @@ fn wage_list_page(
  @let toggle_id = format!("w{}", idx);
 
  // Worker summary row
- div class="grid items-center gap-3 p-3 border-b" style="cursor:pointer" _=(format!("on click if #{0}'s *display is 'none' then show #{0} else hide #{0}", toggle_id)) {
+ div class="grid items-center gap-3 p-3 [border-bottom:1px_solid_var(--border-soft)]" style="cursor:pointer" _=(format!("on click if #{0}'s *display is 'none' then show #{0} else hide #{0}", toggle_id)) {
  div class="flex items-center gap-3" {
  div class="worker-inline-grid place-items-center rounded-full text-white font-semibold shrink-0 select-none" style="background:var(--accent)" { (initial) }
  div class="flex flex-col" {
@@ -255,8 +255,8 @@ fn wage_list_page(
  }
 
  // Expandable detail table
- div class="border-b bg-surface" id=(toggle_id) style="display:none" {
- table class="border-b bg-surface-table" {
+ div class="[border-bottom:1px_solid_var(--border-soft)] bg-surface" id=(toggle_id) style="display:none" {
+ table class="[border-bottom:1px_solid_var(--border-soft)] bg-surface-table" {
  thead { tr {
  th { "工单" } th { "工序" } th { "完成" }
  th { "不良(原因)" } th { "有效数" } th { "单价" }

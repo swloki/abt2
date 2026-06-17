@@ -241,7 +241,7 @@ fn usage_data_fragment(wo_info: &abt_core::mes::dashboard::model::WoBasicInfo, c
  // ── BOM comparison table ──
  @if !ctx.bom_items.is_empty() {
  div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden" {
- div class="p-4 border-b text-sm font-semibold text-fg flex items-center gap-2 bg-surface-raised" {
+ div class="p-4 [border-bottom:1px_solid_var(--border-soft)] text-sm font-semibold text-fg flex items-center gap-2 bg-surface-raised" {
  (icon::box_icon(""))
  "BOM 标准用量 vs 实际消耗"
  }
@@ -296,7 +296,7 @@ fn usage_data_fragment(wo_info: &abt_core::mes::dashboard::model::WoBasicInfo, c
  // ── Backflush detail records ──
  @if !ctx.bf_records.is_empty() {
  div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden" {
- div class="p-4 border-b text-sm font-semibold text-fg flex items-center gap-2 bg-surface-raised" {
+ div class="p-4 [border-bottom:1px_solid_var(--border-soft)] text-sm font-semibold text-fg flex items-center gap-2 bg-surface-raised" {
  (icon::refresh_icon(""))
  "倒冲明细记录"
  }
@@ -328,7 +328,7 @@ fn usage_data_fragment(wo_info: &abt_core::mes::dashboard::model::WoBasicInfo, c
  // ── Requisition records ──
  @if !ctx.requisitions.is_empty() {
  div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden" {
- div class="p-4 border-b text-sm font-semibold text-fg flex items-center gap-2 bg-surface-raised" {
+ div class="p-4 [border-bottom:1px_solid_var(--border-soft)] text-sm font-semibold text-fg flex items-center gap-2 bg-surface-raised" {
  (icon::clipboard_list_icon(""))
  "领料记录"
  }

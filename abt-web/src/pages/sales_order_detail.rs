@@ -391,8 +391,8 @@ fn fulfillment_workbench(
 
  html! {
  div class="bg-bg border border-border-soft rounded overflow-hidden" {
- div class="flex items-center justify-between p-4 border-b bg-surface-raised" {
- div class="flex items-center justify-between p-4 border-b bg-surface-raised-left" {
+ div class="flex items-center justify-between p-4 [border-bottom:1px_solid_var(--border-soft)] bg-surface-raised" {
+ div class="flex items-center justify-between p-4 [border-bottom:1px_solid_var(--border-soft)] bg-surface-raised-left" {
  span class="text-sm font-semibold text-fg" { "履约工作台" }
  span class="bg-[#dbeafe] text-[#2563eb] rounded-full text-[11px] font-medium" { (format!("{} 行", demand_total)) }
  }

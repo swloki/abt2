@@ -243,7 +243,7 @@ fn reconciliation_create_page(
  hx-include="#rec-customer-select,#rec-period-select"
  hx-target="this"
  hx-swap="outerHTML" {
- div class="flex items-center justify-between p-5 border-b" {
+ div class="flex items-center justify-between p-5 [border-bottom:1px_solid_var(--border-soft)]" {
  h3 {
  (icon::package_icon("w-[18px] h-[18px]"))
  "对账明细"
@@ -318,7 +318,7 @@ fn preview_empty(message: &str) -> Markup {
  hx-include="#rec-customer-select,#rec-period-select"
  hx-target="this"
  hx-swap="outerHTML" {
- div class="flex items-center justify-between p-5 border-b" {
+ div class="flex items-center justify-between p-5 [border-bottom:1px_solid_var(--border-soft)]" {
  h3 {
  (icon::package_icon("w-[18px] h-[18px]"))
  "对账明细"
@@ -353,7 +353,7 @@ fn preview_table(
  hx-include="#rec-customer-select,#rec-period-select"
  hx-target="this"
  hx-swap="outerHTML" {
- div class="flex items-center justify-between p-5 border-b" {
+ div class="flex items-center justify-between p-5 [border-bottom:1px_solid_var(--border-soft)]" {
  h3 {
  (icon::package_icon("w-[18px] h-[18px]"))
  "对账明细"

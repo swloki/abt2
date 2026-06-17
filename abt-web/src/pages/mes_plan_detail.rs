@@ -759,7 +759,7 @@ fn tab_planning(
  WorkOrderStatus::Closed => "closed",
  _ => "released",
  };
- li class="flex items-center p-4 border-b relative" {
+ li class="flex items-center p-4 [border-bottom:1px_solid_var(--border-soft)] relative" {
  div class={"wo-status-bar " (status_cls)} {}
  div class="flex-1 grid gap-5 items-center" {
  // 工单号

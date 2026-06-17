@@ -415,7 +415,7 @@ fn perm_page_content(
  html! {
  div class="flex flex-col overflow-hidden bg-[#f8fafc]" {
  // ── Stats Header ──
- div class="bg-white border-b" {
+ div class="bg-white [border-bottom:1px_solid_var(--border-soft)]" {
  div class="flex items-center justify-between" {
  div class="flex items-center justify-between-left" {
  div class="w-[40px] h-[40px] bg-accent flex items-center justify-center shrink-0" {
@@ -569,9 +569,9 @@ fn permission_panel(
  hx-vals=(hx_vals) {
 
  // ── Role header ──
- div class="border-b bg-[#eff6ff]" {
- div class="border-b bg-[#eff6ff]-inner" {
- div class="border-b bg-[#eff6ff]-left" {
+ div class="[border-bottom:1px_solid_var(--border-soft)] bg-[#eff6ff]" {
+ div class="[border-bottom:1px_solid_var(--border-soft)] bg-[#eff6ff]-inner" {
+ div class="[border-bottom:1px_solid_var(--border-soft)] bg-[#eff6ff]-left" {
  div class="perm-role-inline-grid place-items-center rounded-full text-white font-semibold shrink-0 select-none-lg" style=(format!("background:{}", gradient)) {
  (first_char.to_uppercase())
  }
@@ -710,7 +710,7 @@ fn perm_resource_row(
  };
 
  html! {
- div class="flex items-center gap-[12px] border-b" {
+ div class="flex items-center gap-[12px] [border-bottom:1px_solid_var(--border-soft)]" {
  span class="text-[13px] font-medium text-[#475569] w-[96px] shrink-0 whitespace-nowrap overflow-hidden" title=(res.resource_name) { (res.resource_name) }
  div class="flex items-center gap-[6px] flex-1 flex-wrap" {
  @for (ai, action) in ACTIONS.iter().enumerate() {

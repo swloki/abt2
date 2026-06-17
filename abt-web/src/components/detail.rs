@@ -14,7 +14,7 @@ pub fn detail_row(label: &str, value: Markup) -> Markup {
 /// 与 `tab_panel` 配合使用，CSS 类：`detail-tabs`/`detail-tab`/`tab-panel`。
 pub fn detail_tabs(active: &str, tabs: &[(&str, &str)]) -> Markup {
  html! {
- div class="flex border-b" {
+ div class="flex [border-bottom:1px_solid_var(--border-soft)]" {
  @for (id, label) in tabs {
  @let cls = if *id == active { "detail-tab active" } else { "detail-tab" };
  button class=(cls) type="button"

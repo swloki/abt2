@@ -150,7 +150,7 @@ fn bin_detail_page(
  }
 
  // ── Tabs ──
- div class="flex border-b" style="display:flex;gap:var(--space-1);margin-bottom:var(--space-5);border-bottom:1px solid var(--border-soft);padding-bottom:0" {
+ div class="flex [border-bottom:1px_solid_var(--border-soft)]" style="display:flex;gap:var(--space-1);margin-bottom:var(--space-5);border-bottom:1px solid var(--border-soft);padding-bottom:0" {
  button class="p-3 text-sm text-muted border-none cursor-pointer whitespace-nowrap font-medium active" style="padding:var(--space-2) var(--space-4);font-size:var(--text-sm);cursor:pointer;border:none;background:none;color:var(--accent);border-bottom:2px solid var(--accent)" onclick="switchTab('info',this)" { "基本信息" }
  button class="p-3 text-sm text-muted border-none cursor-pointer whitespace-nowrap font-medium" style="padding:var(--space-2) var(--space-4);font-size:var(--text-sm);cursor:pointer;border:none;background:none;color:var(--muted);border-bottom:2px solid transparent" onclick="switchTab('stock',this)" { "库存明细" }
  button class="p-3 text-sm text-muted border-none cursor-pointer whitespace-nowrap font-medium" style="padding:var(--space-2) var(--space-4);font-size:var(--text-sm);cursor:pointer;border:none;background:none;color:var(--muted);border-bottom:2px solid transparent" onclick="switchTab('history',this)" { "操作历史" }

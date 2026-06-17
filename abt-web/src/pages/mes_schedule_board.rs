@@ -264,7 +264,7 @@ fn gantt_view(data: &GanttData, today: NaiveDate) -> Markup {
  tbody {
  @for (wi, wc) in data.work_centers.iter().enumerate() {
  tr {
- td class="border-b bg-[#fafafa] text-center sticky z-[1]" {
+ td class="[border-bottom:1px_solid_var(--border-soft)] bg-[#fafafa] text-center sticky z-[1]" {
  span class=(format!("gantt-wc-dot gantt-color-{}", wi % 8)) {}
  span class="text-[13px] font-medium text-[#262626]" { (wc.name) }
  span class="block text-[11px] text-[#bfbfbf]" { (work_center_type_label(wc.work_center_type)) }
@@ -320,7 +320,7 @@ fn gantt_cell(data: &GanttData, wc_id: i64, date: NaiveDate, today: NaiveDate) -
  (gantt_block(b))
  }
  @if bookings.is_empty() {
- span class="border-b border-l h-[48px]-empty" {}
+ span class="[border-bottom:1px_solid_var(--border-soft)] border-l h-[48px]-empty" {}
  }
  }
  }
@@ -385,7 +385,7 @@ fn load_view(
  tbody {
  @for wc in work_centers {
  tr {
- td class="border-b bg-[#fafafa] sticky z-[1]" {
+ td class="[border-bottom:1px_solid_var(--border-soft)] bg-[#fafafa] sticky z-[1]" {
  span class="text-[13px] font-medium text-[#262626]" { (wc.name) }
  span class="block text-[11px] text-[#bfbfbf]" { (work_center_type_label(wc.work_center_type)) }
  }
@@ -461,12 +461,12 @@ fn load_cell(loads: &[WcDailyLoad], wc_id: i64, date: NaiveDate) -> Markup {
  };
 
  html! {
- td class="border-b border-l text-center h-[48px]" {
+ td class="[border-bottom:1px_solid_var(--border-soft)] border-l text-center h-[48px]" {
  div
  class=(format!("load-cell-block {level_cls}"))
  title=(format!("已排 {booked} / 可用 {avail}"))
  {
- span class="border-b border-l text-center h-[48px]-pct" { (pct) "%" }
+ span class="[border-bottom:1px_solid_var(--border-soft)] border-l text-center h-[48px]-pct" { (pct) "%" }
  }
  }
  }

@@ -681,7 +681,7 @@ fn order_search_results(
  }).collect::<Vec<_>>()).unwrap_or_default()
  }).to_string();
 
- div class="flex items-center justify-between p-3 border-b" {
+ div class="flex items-center justify-between p-3 [border-bottom:1px_solid_var(--border-soft)]" {
  div class="product-select-info" {
  div class="text-sm font-medium text-fg" { (order.doc_number) }
  div class="text-[12px] text-muted flex items-center gap-[6px] flex-wrap" {

@@ -408,7 +408,7 @@ fn view_toggle_and_filter(view_mode: &str, params: &DemandPoolQueryParams) -> Ma
  html! {
  div class="flex items-center justify-between flex-wrap gap-3" {
  // Left: view toggle
- div class="flex border-b" {
+ div class="flex [border-bottom:1px_solid_var(--border-soft)]" {
  button class=(material_cls)
  type="button"
  hx-get=(MesDemandPoolListPath::PATH)
@@ -526,7 +526,7 @@ fn material_row(item: &MaterialAggSummary) -> Markup {
  let (icon_bg, icon_color, mat_icon) = material_icon(pid);
 
  html! {
- div class="grid items-center gap-6 p-4 border-b" {
+ div class="grid items-center gap-6 p-4 [border-bottom:1px_solid_var(--border-soft)]" {
  // Material info (click toggles .open on expand panel; HTMX loads rows once)
  div class="flex items-center gap-4 cursor-pointer"
  hx-get=(format!("/admin/mes/demand-pool/demand-rows?product_id={pid}"))
@@ -574,7 +574,7 @@ fn material_row(item: &MaterialAggSummary) -> Markup {
  }
 
  // Expandable demand detail
- div class="hidden bg-surface-raised border-b" id=(format!("expand-mat-{pid}")) {
+ div class="hidden bg-surface-raised [border-bottom:1px_solid_var(--border-soft)]" id=(format!("expand-mat-{pid}")) {
  div class="hidden bg-surface-raised border-b-inner" {
  table class="data-table" {
  thead { tr {

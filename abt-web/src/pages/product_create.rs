@@ -281,7 +281,7 @@ fn product_create_page(source: Option<&Product>, categories: &[CategoryTree]) ->
  }
  }
  div class="overflow-y-auto flex-1 min-h-0 p-6" {
- div class="flex items-center gap-2 p-3 border-b" {
+ div class="flex items-center gap-2 p-3 [border-bottom:1px_solid_var(--border-soft)]" {
  (icon::search_icon("w-4 h-4"))
  input type="text" id="category-search-input" class="category-w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" placeholder="搜索分类…" {}
  }
@@ -357,7 +357,7 @@ fn category_tree_node(node: &CategoryTree, depth: usize) -> Markup {
 
  html! {
  div.category-select-item data-name=(name_lower) {
- div class="flex items-center gap-2 border-b" style=(pad) {
+ div class="flex items-center gap-2 [border-bottom:1px_solid_var(--border-soft)]" style=(pad) {
  @if has_children {
  span class="inline-flex items-center justify-center w-[20px] h-[20px] shrink-0 cursor-pointer text-muted rounded-sm" _="on click halt the event then toggle .expanded on closest .category-select-item" {
  (icon::chevron_right_icon("w-3.5 h-3.5"))

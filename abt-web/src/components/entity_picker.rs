@@ -108,7 +108,7 @@ pub fn entity_picker_modal(cfg: &EntityPickerConfig) -> Markup {
  input type="hidden" name="modal_id" value=(cfg.modal_id);
  input type="hidden" name="event_name" value=(cfg.event_name);
 
- div class="flex gap-4 p-4 border-b" {
+ div class="flex gap-4 p-4 [border-bottom:1px_solid_var(--border-soft)]" {
  div class="flex-1 flex flex-col gap-[4px]" {
  label class="text-[12px] font-medium text-fg-2" { (cfg.search_label) }
  input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text"
@@ -168,7 +168,7 @@ pub fn entity_picker_results(items: &[EntityPickerItem]) -> Markup {
  div class="py-2" {
  @for item in items {
  @if item.disabled {
- div class="flex items-center justify-between p-3 border-b"
+ div class="flex items-center justify-between p-3 [border-bottom:1px_solid_var(--border-soft)]"
  style="opacity:0.45;cursor:not-allowed"
  data-id=(item.id)
  data-label=(item.label.as_str()) {
@@ -180,7 +180,7 @@ pub fn entity_picker_results(items: &[EntityPickerItem]) -> Markup {
  }
  }
  } @else {
- div class="flex items-center justify-between p-3 border-b"
+ div class="flex items-center justify-between p-3 [border-bottom:1px_solid_var(--border-soft)]"
  data-id=(item.id)
  data-label=(item.label.as_str())
  _=(selection_hs()) {

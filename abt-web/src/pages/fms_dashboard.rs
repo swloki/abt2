@@ -282,7 +282,7 @@ fn fms_dashboard_page(
  div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-6);margin-bottom:var(--space-8)" {
  // 最近日记账
  div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden" {
- div class="p-4 border-b text-sm font-semibold text-fg flex items-center gap-2 bg-surface-raised" {
+ div class="p-4 [border-bottom:1px_solid_var(--border-soft)] text-sm font-semibold text-fg flex items-center gap-2 bg-surface-raised" {
  (PreEscaped(r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;color:var(--accent)"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>"#))
  "最近日记账"
  a href=(JournalListPath::PATH) style="margin-left:auto;font-size:12px;color:var(--accent);font-weight:600;letter-spacing:0" { "查看全部 →" }
@@ -316,7 +316,7 @@ fn fms_dashboard_page(
 
  // 待审批报销
  div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden" {
- div class="p-4 border-b text-sm font-semibold text-fg flex items-center gap-2 bg-surface-raised" {
+ div class="p-4 [border-bottom:1px_solid_var(--border-soft)] text-sm font-semibold text-fg flex items-center gap-2 bg-surface-raised" {
  (PreEscaped(r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;color:#7c3aed"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>"#))
  "待审批报销"
  a href=(ExpenseListPath::PATH) style="margin-left:auto;font-size:12px;color:var(--accent);font-weight:600;letter-spacing:0" { "查看全部 →" }
@@ -351,7 +351,7 @@ fn fms_dashboard_page(
  div style="display:grid;grid-template-columns:1fr 1.5fr;gap:var(--space-6);margin-bottom:var(--space-8)" {
  // 类型分布（真实数据）
  div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden" {
- div class="p-4 border-b text-sm font-semibold text-fg flex items-center gap-2 bg-surface-raised" {
+ div class="p-4 [border-bottom:1px_solid_var(--border-soft)] text-sm font-semibold text-fg flex items-center gap-2 bg-surface-raised" {
  (svg_icon("M21 21H3V3M18 9l-5 5-2-2-4 4", "18px"))
  "本月日记账分布"
  }
@@ -368,7 +368,7 @@ fn fms_dashboard_page(
 
  // 月度趋势（真实数据）
  div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden" {
- div class="p-4 border-b text-sm font-semibold text-fg flex items-center gap-2 bg-surface-raised" {
+ div class="p-4 [border-bottom:1px_solid_var(--border-soft)] text-sm font-semibold text-fg flex items-center gap-2 bg-surface-raised" {
  (svg_icon("M18 20V10M12 20V4M6 20v-6", "18px"))
  "近6月现金流趋势（万元）"
  }

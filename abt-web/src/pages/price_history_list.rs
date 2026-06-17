@@ -244,7 +244,7 @@ fn price_history_page(rows: &[PriceHistoryRow], total: u64, page: u32, total_pag
  div class="fixed z-[1000] opacity-0" id="detail-drawer"
  _="on click[me is event.target] remove .open" {
  div class="fixed z-[1001] w-[520px] bg-white flex flex-col" onclick="event.stopPropagation()" {
- div class="flex items-center justify-between border-b shrink-0" {
+ div class="flex items-center justify-between [border-bottom:1px_solid_var(--border-soft)] shrink-0" {
  h2 { "变更详情" }
  button class="w-[32px] h-[32px] border-none cursor-pointer flex items-center justify-center text-muted" _="on click remove .open from #detail-drawer" {
  (icon::x_icon("w-4.5 h-4.5"))

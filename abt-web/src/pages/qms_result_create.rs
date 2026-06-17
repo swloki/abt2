@@ -177,7 +177,7 @@ fn result_create_page(
 
                 // ── Section 1: 检验信息 ──
                 div class="form-section" {
-                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
                         (icon::file_text_icon(""))
                         " 检验信息"
                     }
@@ -227,7 +227,7 @@ fn result_create_page(
 
                 // ── Section 2: 检验结果 ──
                 div class="form-section" {
-                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
                         (icon::check_circle_icon(""))
                         " 检验结果"
                     }
@@ -272,7 +272,7 @@ fn result_create_page(
                 // ── Section 3: 检验项目明细 ──
                 div class="form-section" style="padding:0;overflow:hidden" {
                     div style="padding:var(--space-6) var(--space-6) var(--space-4)" {
-                        div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" style="border-bottom:none;padding-bottom:0;margin-bottom:0" {
+                        div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" style="border-bottom:none;padding-bottom:0;margin-bottom:0" {
                             (icon::clipboard_list_icon(""))
                             " 检验项目明细"
                         }

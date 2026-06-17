@@ -505,7 +505,7 @@ fn zone_edit_form_fragment(zone: &Zone) -> Markup {
 
     html! {
         form class="bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0" hx-put=(put_path) hx-swap="none" {
-            div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
+            div class="px-6 py-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center shrink-0" {
                 h2 { "编辑库区" }
                 button type="button" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px" _="on click remove .is-open from #zone-edit-modal" {
                     "×"

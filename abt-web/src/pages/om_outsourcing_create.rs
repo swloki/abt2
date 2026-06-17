@@ -250,7 +250,7 @@ fn create_page(
             {
                 // ── Section 1: 基本信息 ──
                 div class="form-section" {
-                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "基本信息" }
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "基本信息" }
                     div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                         div class="form-field" {
                             label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "委外单号" }
@@ -294,7 +294,7 @@ fn create_page(
 
                 // ── Section 2: 关联信息与数量 ──
                 div class="form-section" {
-                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "关联信息与数量" }
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "关联信息与数量" }
                     div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                         div class="form-field" {
                             label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "关联工单" }
@@ -339,7 +339,7 @@ fn create_page(
 
                 // ── Section 3: 发料明细 ──
                 div class="form-section" {
-                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "发料明细" }
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "发料明细" }
                     div class="data-card" {
                         div class="overflow-x-auto" {
                             table class="data-table" {
@@ -373,7 +373,7 @@ fn create_page(
 
                 // ── Section 4: 备注 ──
                 div class="form-section" {
-                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "备注" }
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "备注" }
                     div class="form-field span-2" {
                         textarea class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="remark" rows="3" placeholder="请输入备注信息" {};
                     }
@@ -390,7 +390,7 @@ fn create_page(
         // ── Material row modal ──
         div id="material-modal" class="fixed z-[1000] grid place-items-center opacity-0" _="on click[me is event.target] remove .is-open" {
             div class="bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0" onclick="event.stopPropagation()" {
-                div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
+                div class="px-6 py-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center shrink-0" {
                     h3 { "选择物料" }
                     button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center" title="关闭"
                         _="on click remove .is-open from #material-modal"

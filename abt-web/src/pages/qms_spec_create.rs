@@ -143,7 +143,7 @@ fn spec_create_page(products: &[abt_core::master_data::product::model::Product])
 
                 // ── Section 1: 基本信息 ──
                 div class="form-section" {
-                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
                         (icon::file_text_icon("w-[18px] h-[18px]"))
                         "基本信息"
                     }
@@ -193,7 +193,7 @@ fn spec_create_page(products: &[abt_core::master_data::product::model::Product])
 
                 // ── Section 2: 检验项目 ──
                 div class="form-section" {
-                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
                         (icon::clipboard_list_icon("w-[18px] h-[18px]"))
                         "检验项目"
                     }
@@ -248,7 +248,7 @@ fn spec_create_page(products: &[abt_core::master_data::product::model::Product])
 
                 // ── Section 3: 抽样方案 ──
                 div class="form-section" {
-                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
                         (icon::sliders_icon("w-[18px] h-[18px]"))
                         "抽样方案"
                     }

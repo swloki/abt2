@@ -71,7 +71,7 @@ pub fn product_picker_modal(modal_id: &str, target_id: &str, display_id: &str) -
         div class="fixed z-[1000] grid place-items-center opacity-0" id=(modal_id)
             _=(format!("on click remove .is-open from #{}", modal_id)) {
             div class="modal bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0-lg" _="on click halt" {
-                div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
+                div class="px-6 py-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center shrink-0" {
                     h2 { "选择产品" }
                     button style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
                         _=(format!("on click remove .is-open from #{}", modal_id)) { "×" }

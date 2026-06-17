@@ -294,7 +294,7 @@ fn create_page_content(
 
                 // ── Section 1: Plan Info ──
                 div class="form-section" {
-                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
                         (icon::sliders_icon("w-[18px] h-[18px]"))
                         "计划信息"
                     }
@@ -328,7 +328,7 @@ fn create_page_content(
 
                 // ── Section 2: Default Scheduling Parameters ──
                 div class="form-section" {
-                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
                         (icon::clock_icon("w-[18px] h-[18px]"))
                         "默认排程参数"
                     }
@@ -378,7 +378,7 @@ fn create_page_content(
                 // ── Section 3: Demand Details ──
                 div class="form-section" {
                     div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--space-3);" {
-                        div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" style="margin:0;padding:0;border:none;" {
+                        div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" style="margin:0;padding:0;border:none;" {
                             (icon::clipboard_list_icon("w-[18px] h-[18px]"))
                             "需求明细"
                             @if let Some(pid) = product_id {

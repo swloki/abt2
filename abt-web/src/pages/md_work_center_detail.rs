@@ -67,7 +67,7 @@ fn work_center_detail_page(wc: &WorkCenter) -> Markup {
         }
 
         div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
-            div class="text-sm font-semibold text-fg mb-3 pb-2 border-b border-border-soft" { "基本信息" }
+            div class="text-sm font-semibold text-fg mb-3 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "基本信息" }
             div class="grid gap-4" {
                 div class="flex flex-col gap-1" { label { "编码" } span class="font-mono tabular-nums" { (wc.code) } }
                 div class="flex flex-col gap-1" { label { "名称" } span { (wc.name) } }
@@ -91,7 +91,7 @@ fn work_center_detail_page(wc: &WorkCenter) -> Markup {
         }
 
         div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
-            div class="text-sm font-semibold text-fg mb-3 pb-2 border-b border-border-soft" { "产能与成本" }
+            div class="text-sm font-semibold text-fg mb-3 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "产能与成本" }
             div class="grid gap-4" {
                 div class="flex flex-col gap-1" {
                     label { "产能/小时" }

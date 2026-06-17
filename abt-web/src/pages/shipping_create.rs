@@ -536,7 +536,7 @@ fn shipping_edit_page(
 
                 // ── 客户信息 ──
                 div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden" {
-                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
                         (icon::clipboard_document_icon("w-[18px] h-[18px]"))
                         "客户信息"
                     }
@@ -578,7 +578,7 @@ fn shipping_edit_page(
 
                 // ── 发货信息 ──
                 div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden" {
-                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
                         (icon::truck_icon("w-[18px] h-[18px]"))
                         "发货信息"
                     }
@@ -619,7 +619,7 @@ fn shipping_edit_page(
 
                 // ── 备注 ──
                 div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden" {
-                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
                         (icon::file_text_icon("w-[18px] h-[18px]"))
                         "备注"
                     }
@@ -628,7 +628,7 @@ fn shipping_edit_page(
 
                 // ── 附件 ──
                 div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden" {
-                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
                         (icon::upload_icon("w-[18px] h-[18px]"))
                         "附件"
                     }
@@ -641,7 +641,7 @@ fn shipping_edit_page(
 
                 // ── 发货产品明细 ──
                 div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden" {
-                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
                         (icon::package_icon("w-[18px] h-[18px]"))
                         "发货产品明细"
                     }
@@ -696,7 +696,7 @@ fn shipping_edit_page(
             div class="fixed z-[1000] grid place-items-center opacity-0" id="order-modal"
                 _="on click[me is event.target] remove .is-open" {
                 div class="modal bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0-lg" onclick="event.stopPropagation()" {
-                    div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
+                    div class="px-6 py-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center shrink-0" {
                         h2 { "选择来源订单" }
                         button class="bg-transparent border-none cursor-pointer text-xl text-muted p-1 hover:text-fg"
                             _="on click remove .is-open from #order-modal" {
@@ -798,7 +798,7 @@ fn shipping_create_page(
 
                 // ── 客户信息 ──
                 div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden" {
-                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
                         (icon::clipboard_document_icon("w-[18px] h-[18px]"))
                         "客户信息"
                     }
@@ -853,7 +853,7 @@ fn shipping_create_page(
 
                 // ── 发货信息 ──
                 div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden" {
-                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
                         (icon::truck_icon("w-[18px] h-[18px]"))
                         "发货信息"
                     }
@@ -894,7 +894,7 @@ fn shipping_create_page(
 
                 // ── 备注 ──
                 div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden" {
-                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
                         (icon::file_text_icon("w-[18px] h-[18px]"))
                         "备注"
                     }
@@ -903,7 +903,7 @@ fn shipping_create_page(
 
                 // ── 附件 ──
                 div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden" {
-                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
                         (icon::upload_icon("w-[18px] h-[18px]"))
                         "附件"
                     }
@@ -916,7 +916,7 @@ fn shipping_create_page(
 
                 // ── 发货产品明细 ──
                 div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden" {
-                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
                         (icon::package_icon("w-[18px] h-[18px]"))
                         "发货产品明细"
                     }
@@ -973,7 +973,7 @@ fn shipping_create_page(
             div class="fixed z-[1000] grid place-items-center opacity-0" id="order-modal"
                 _="on click[me is event.target] remove .is-open" {
                 div class="modal bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0-lg" onclick="event.stopPropagation()" {
-                    div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
+                    div class="px-6 py-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center shrink-0" {
                         h2 { "选择来源订单" }
                         button class="bg-transparent border-none cursor-pointer text-xl text-muted p-1 hover:text-fg"
                             _="on click remove .is-open from #order-modal" {
@@ -1047,7 +1047,7 @@ fn customer_info_card(
 
     html! {
         div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden mb-4" {
-            div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
+            div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
                 (icon::clipboard_document_icon("w-[18px] h-[18px]"))
                 "客户信息"
             }

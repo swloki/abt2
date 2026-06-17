@@ -96,7 +96,7 @@ pub fn entity_picker_modal(cfg: &EntityPickerConfig) -> Markup {
     html! {
         div class="fixed z-[1000] grid place-items-center opacity-0" id=(cfg.modal_id) _=(open_hs) {
             div class="modal bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0-lg" _="on click halt" {
-                div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
+                div class="px-6 py-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center shrink-0" {
                     h2 { (cfg.title) }
                     button style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text-muted);padding:4px"
                         _=(format!("on click remove .is-open from #{}", cfg.modal_id)) { "×" }

@@ -137,7 +137,7 @@ fn routing_detail_page(
 
             // ── 基本信息 ──
             div class="bg-white border border-border-soft rounded p-5" {
-                div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 border-b border-border-soft" { "基本信息" }
+                div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "基本信息" }
                 div class="grid gap-5" style="grid-template-columns:repeat(3,1fr)" {
                     (detail_row("编码", html! { span class="font-mono tabular-nums" { (routing.id) } }))
                     (detail_row("名称", html! { (routing.name) }))
@@ -164,7 +164,7 @@ fn routing_detail_page(
 
             // ── 工序流程 ──
             div class="bg-white border border-border-soft rounded p-5" style="margin-top:var(--space-5)" {
-                div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 border-b border-border-soft" {
+                div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
                     span { "工序流程" }
                     span style="color:var(--text-tertiary);font-weight:400;font-size:12px" {
                         "（共 " (step_count) " 道工序）"
@@ -208,7 +208,7 @@ fn routing_detail_page(
             div class="bg-white border border-border-soft rounded p-5 routing-bom-card" style="margin-top:var(--space-5)"
                 hx-select=".routing-bom-card" hx-target=".routing-bom-card" hx-swap="outerHTML"
                 hx-push-url="true" {
-                div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 border-b border-border-soft" { "关联BOM" }
+                div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "关联BOM" }
                 (bom_table_fragment(routing.id, boms))
             }
         }

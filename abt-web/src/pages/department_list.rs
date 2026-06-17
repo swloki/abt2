@@ -592,9 +592,9 @@ fn dept_drawer_fragment(is_edit: bool, dept: Option<&Department>) -> Markup {
 
     html! {
         form id="deptForm" hx-post=(action_path) hx-swap="none" _="on 'htmx:afterRequest' remove .open from #deptDrawer" {
-            div class="flex items-center justify-between px-6 py-4 border-b border-border-soft" {
-                div class="flex items-center justify-between px-6 py-4 border-b border-border-soft-left" {
-                    div class="flex items-center justify-between px-6 py-4 border-b border-border-soft-icon" {
+            div class="flex items-center justify-between px-6 py-4 [border-bottom:1px_solid_var(--border-soft)]" {
+                div class="flex items-center justify-between px-6 py-4 [border-bottom:1px_solid_var(--border-soft)]-left" {
+                    div class="flex items-center justify-between px-6 py-4 [border-bottom:1px_solid_var(--border-soft)]-icon" {
                         (icon::building_icon("w-[18px] h-[18px]"))
                     }
                     div {

@@ -151,7 +151,7 @@ fn stat_card_accent(label: &str, value: &str, trend: &str, trend_color: &str) ->
 
 fn todo_item(status_class: &str, status_text: &str, desc: &str, time: &str) -> Markup {
     html! {
-        div class="flex items-center gap-3 px-5 py-4 border-b border-border-soft cursor-pointer hover:bg-accent-bg" {
+        div class="flex items-center gap-3 px-5 py-4 [border-bottom:1px_solid_var(--border-soft)] cursor-pointer hover:bg-accent-bg" {
             span class={"status-pill " (status_class)} style="font-size:11px" { (status_text) }
             span style="flex:1" { (desc) }
             span class="text-muted" style="font-size:12px" { (time) }

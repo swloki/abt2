@@ -15,7 +15,7 @@ pub fn drawer(drawer_id: &str, title: &str, submit_label: &str, form_id: &str, b
         div id=(drawer_id) class="fixed z-[1000] flex justify-end opacity-0"
             _="on click[me is event.target] remove .open" {
             div class="bg-white h-full w-[420px] flex flex-col" onclick="event.stopPropagation()" {
-                div class="flex items-center justify-between px-6 py-4 border-b border-border-soft" {
+                div class="flex items-center justify-between px-6 py-4 [border-bottom:1px_solid_var(--border-soft)]" {
                     h2 { (title) }
                     button style="background:none;border:none;cursor:pointer;font-size:22px;color:var(--muted);padding:4px;line-height:1"
                         _="on click remove .open from closest .drawer-overlay" { "×" }
@@ -44,7 +44,7 @@ pub fn drawer_with_footer(drawer_id: &str, title: &str, body: Markup, footer: Ma
         div id=(drawer_id) class="fixed z-[1000] flex justify-end opacity-0"
             _="on click[me is event.target] remove .open" {
             div class="bg-white h-full w-[420px] flex flex-col" onclick="event.stopPropagation()" {
-                div class="flex items-center justify-between px-6 py-4 border-b border-border-soft" {
+                div class="flex items-center justify-between px-6 py-4 [border-bottom:1px_solid_var(--border-soft)]" {
                     h2 { (title) }
                     button style="background:none;border:none;cursor:pointer;font-size:22px;color:var(--muted);padding:4px;line-height:1"
                         _="on click remove .open from closest .drawer-overlay" { "×" }

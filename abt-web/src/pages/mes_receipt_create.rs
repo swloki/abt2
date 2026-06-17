@@ -338,7 +338,7 @@ fn receipt_create_content() -> Markup {
             form hx-post=(ReceiptCreatePath::PATH) hx-swap="none" id="receipt-form" {
                 // ── 入库来源 ──
                 div class="form-section" {
-                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "入库来源" }
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "入库来源" }
 
                     (entity_picker::entity_picker_field(
                         "work_order_id", "work_order_id", "wo-display", "wo-picker",
@@ -363,7 +363,7 @@ fn receipt_create_content() -> Markup {
 
                 // ── 入库明细 ──
                 div class="form-section" {
-                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "入库明细" }
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "入库明细" }
                     div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                         div class="form-field" {
                             label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "入库数量 " span class="required" { "*" } }
@@ -378,7 +378,7 @@ fn receipt_create_content() -> Markup {
 
                 // ── 目标库位 ──
                 div class="form-section" {
-                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "目标库位" }
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "目标库位" }
 
                     (entity_picker::entity_picker_field(
                         "warehouse_id", "warehouse_id", "wh-display", "wh-picker",
@@ -411,7 +411,7 @@ fn receipt_create_content() -> Markup {
 
                 // ── 备注 ──
                 div class="form-section" {
-                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "备注" }
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "备注" }
                     div class="form-field" {
                         textarea class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="remark" rows="2" placeholder="可选" {}
                     }

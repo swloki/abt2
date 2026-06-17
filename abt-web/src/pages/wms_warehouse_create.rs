@@ -144,7 +144,7 @@ pub(crate) fn warehouse_create_page(warehouse: Option<&Warehouse>) -> Markup {
 
                 // ── Section: 基本信息 ──
                 div class="data-card" style="margin-bottom:var(--space-4)" {
-                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
                         (icon::building_icon("w-4 h-4"))
                         " 基本信息"
                     }

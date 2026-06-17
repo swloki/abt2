@@ -438,7 +438,7 @@ fn order_detail_page(
             @if matches!(order.status, WorkOrderStatus::Released) {
                 div class="fixed z-[1000] grid place-items-center opacity-0" id="unrelease-dialog" {
                     div class="modal bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0-sm" {
-                        div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
+                        div class="px-6 py-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center shrink-0" {
                             h2 { "确认反下达？" }
                         }
                         div class="overflow-y-auto flex-1 min-h-0 p-6" {
@@ -472,7 +472,7 @@ fn tab_info(order: &WorkOrder, product_name: &str, routing_count: usize, complet
     html! {
         div class="grid gap-5 bg-bg border border-border-soft rounded-lg p-6" {
             div class="flex flex-col gap-4" {
-                div class="text-sm font-semibold text-fg mb-3 pb-2 border-b border-border-soft" { "基础信息" }
+                div class="text-sm font-semibold text-fg mb-3 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "基础信息" }
                 div class="grid gap-4" {
                     div class="flex flex-col gap-1" { span class="text-xs text-muted font-medium" { "工单编号" } span class="text-sm text-fg font-medium font-mono tabular-nums" { (order.doc_number) } }
                     div class="flex flex-col gap-1" { span class="text-xs text-muted font-medium" { "产品" } span class="text-sm text-fg font-medium" { (product_name) } }
@@ -485,7 +485,7 @@ fn tab_info(order: &WorkOrder, product_name: &str, routing_count: usize, complet
                 }
             }
             div class="flex flex-col gap-4" {
-                div class="text-sm font-semibold text-fg mb-3 pb-2 border-b border-border-soft" { "生产配置" }
+                div class="text-sm font-semibold text-fg mb-3 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "生产配置" }
                 div class="grid gap-4" {
                     div class="flex flex-col gap-1" {
                         span class="text-xs text-muted font-medium" { "BOM 快照" }
@@ -504,7 +504,7 @@ fn tab_info(order: &WorkOrder, product_name: &str, routing_count: usize, complet
         }
         // 生产进度
         div class="bg-bg border border-border-soft rounded-lg p-6" {
-            div class="text-sm font-semibold text-fg mb-3 pb-2 border-b border-border-soft" { "生产进度" }
+            div class="text-sm font-semibold text-fg mb-3 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "生产进度" }
             div class="py-3" {
                 div class="flex gap-[24px]" {
                     span class="flex flex-col gap-1" {
@@ -529,7 +529,7 @@ fn tab_info(order: &WorkOrder, product_name: &str, routing_count: usize, complet
         }
         @if !order.remark.is_empty() {
             div class="bg-bg border border-border-soft rounded-lg p-6" {
-                div class="text-sm font-semibold text-fg mb-3 pb-2 border-b border-border-soft" { "备注" }
+                div class="text-sm font-semibold text-fg mb-3 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "备注" }
                 p class="text-sm text-muted" { (order.remark.as_str()) }
             }
         }
@@ -663,7 +663,7 @@ fn tab_batches(batches: &[ProductionBatch], routings: &[WorkOrderRouting], order
         @if can_split {
             div class="fixed z-[1000] grid place-items-center opacity-0" id="split-dialog" {
                 div class="modal bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0-sm" {
-                    div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
+                    div class="px-6 py-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center shrink-0" {
                         h2 { "新增生产批次" }
                     }
                     form {

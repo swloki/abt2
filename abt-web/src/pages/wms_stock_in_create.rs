@@ -431,7 +431,7 @@ fn stock_in_create_content(
                 input type="hidden" id="stockin-txn-type" name="transaction_type" value="PurchaseReceipt" {};
                 // ── Source Section ──
                 div class="bg-bg border border-border rounded p-6" {
-                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
                         (icon::link_icon("w-[18px] h-[18px]"))
                         "来源关联"
                     }
@@ -470,7 +470,7 @@ fn stock_in_create_content(
 
                 // ── Warehouse Section ──
                 div class="bg-bg border border-border rounded p-6" {
-                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
                         (icon::building_icon("w-[18px] h-[18px]"))
                         "入库信息"
                     }
@@ -527,7 +527,7 @@ fn stock_in_create_content(
 
                 // ── Line Items ──
                 div class="bg-bg border border-border rounded p-6" {
-                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
                         (icon::box_icon("w-[18px] h-[18px]"))
                         "入库物料明细"
                         span id="stockin-item-count" style="margin-left:auto;font-size:var(--text-xs);font-weight:400;color:var(--muted)" { "共 0 项" }
@@ -560,7 +560,7 @@ fn stock_in_create_content(
 
                 // ── Summary ──
                 div class="bg-bg border border-border rounded p-6" {
-                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
                         (icon::clipboard_list_icon("w-[18px] h-[18px]"))
                         "入库汇总"
                     }
@@ -582,7 +582,7 @@ fn stock_in_create_content(
 
                 // ── Remark ──
                 div class="bg-bg border border-border rounded p-6" {
-                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
                         (icon::edit_icon("w-[18px] h-[18px]"))
                         "备注"
                     }
@@ -610,7 +610,7 @@ fn stock_in_create_content(
         div id="product-modal" class="fixed z-[1000] grid place-items-center opacity-0"
             _="on click[me is event.target] remove .is-open" {
             div class="modal bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0-lg" onclick="event.stopPropagation()" {
-                div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
+                div class="px-6 py-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center shrink-0" {
                     h2 { "选择物料" }
                     button type="button" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
                         _="on click remove .is-open from #product-modal" { "×" }
@@ -659,7 +659,7 @@ fn stock_in_create_content(
         div id="source-modal" class="fixed z-[1000] grid place-items-center opacity-0" data-source-path=(StockInSourcePickPath::PATH)
             _="on click[me is event.target] remove .is-open" {
             div class="modal bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0-lg" onclick="event.stopPropagation()" {
-                div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
+                div class="px-6 py-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center shrink-0" {
                     h2 { "选择来源单据" }
                     button type="button" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
                         _="on click remove .is-open from #source-modal" { "×" }

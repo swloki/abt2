@@ -213,7 +213,7 @@ fn basic_info_section(user: &UserWithRoles) -> Markup {
 
     html! {
         div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden" {
-            div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
+            div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
                 (icon::user_icon("w-[18px] h-[18px]"))
                 "基本信息"
             }
@@ -256,7 +256,7 @@ fn basic_info_section(user: &UserWithRoles) -> Markup {
 fn role_section(roles: &[Role], selected_ids: &[i64]) -> Markup {
     html! {
         div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden" {
-            div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
+            div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
                 (icon::lock_icon("w-[18px] h-[18px]"))
                 "角色分配"
             }
@@ -298,7 +298,7 @@ fn role_section(roles: &[Role], selected_ids: &[i64]) -> Markup {
 fn dept_section(departments: &[Department], selected_ids: &[i64]) -> Markup {
     html! {
         div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden" {
-            div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
+            div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
                 (icon::building_icon("w-[18px] h-[18px]"))
                 "部门分配"
             }
@@ -340,7 +340,7 @@ fn data_scope_section(user: &UserWithRoles, user_depts: &[Department]) -> Markup
 
     html! {
         div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden" {
-            div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
+            div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
                 (shield_check_icon("w-[18px] h-[18px]"))
                 "数据权限 (DataScope)"
             }

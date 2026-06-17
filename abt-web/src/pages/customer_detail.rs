@@ -138,7 +138,7 @@ fn transaction_table_fragment(
 
     html! {
         div class="bg-white border border-border-soft rounded p-5 mt-5 transaction-panel" {
-            div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 border-b border-border-soft" {
+            div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
                 span { "交易记录" }
             }
             @if page_txns.is_empty() {
@@ -414,7 +414,7 @@ fn customer_detail_page(
         div class="grid gap-5" {
             // ── Left: Basic Info ──
             div class="bg-white border border-border-soft rounded p-5" {
-                div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 border-b border-border-soft" { "基本信息" }
+                div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "基本信息" }
                 div class="flex py-2 text-sm" {
                     span class="w-[90px] shrink-0 text-muted" { "客户全称" }
                     span class="detail-value" { (customer.name) }
@@ -459,7 +459,7 @@ fn customer_detail_page(
 
             // ── Center: Contacts ──
             div class="bg-white border border-border-soft rounded p-5" {
-                div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 border-b border-border-soft" {
+                div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
                     span { "联系人" }
                     button class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] [&_svg]:w-4 [&_svg]:h-4"
                         _="on click add .is-open to #contact-create-modal" {
@@ -478,7 +478,7 @@ fn customer_detail_page(
 
             // ── Right: Credit & Financial ──
             div class="bg-white border border-border-soft rounded p-5" {
-                div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 border-b border-border-soft" { "信用额度" }
+                div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "信用额度" }
                 (credit_display(customer.credit_limit))
                 div class="border-t border-border-soft pt-4" {
                     div class="flex py-2 text-sm" {
@@ -497,7 +497,7 @@ fn customer_detail_page(
 
         // ── Addresses Section (full width) ──
         div class="bg-white border border-border-soft rounded p-5 mt-5" {
-            div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 border-b border-border-soft" {
+            div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
                 span { "地址信息" }
                 button class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] [&_svg]:w-4 [&_svg]:h-4"
                     _="on click add .is-open to #address-create-modal" {

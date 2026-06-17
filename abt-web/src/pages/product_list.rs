@@ -735,7 +735,7 @@ fn price_history_table(_product_id: i64, entries: &[PriceLogEntry]) -> Markup {
         div class="fixed z-[1000] grid place-items-center opacity-0 is-open"
             _="on click remove .is-open" {
             div class="bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0" onclick="event.stopPropagation()" {
-                div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
+                div class="px-6 py-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center shrink-0" {
                     h2 { "价格变更记录" }
                     button style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
                         _="on click remove .is-open from closest .modal-overlay" { "×" }

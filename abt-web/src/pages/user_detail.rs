@@ -625,7 +625,7 @@ fn role_assign_modal(
             _="on click[me is event.target] remove .is-open" {
             form id="role-assign-form" class="bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0" hx-post=(action) hx-swap="none"
                 onsubmit="this.closest('.modal-overlay').classList.remove('is-open');this.reset()" {
-                div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
+                div class="px-6 py-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center shrink-0" {
                     h2 { "管理角色" }
                     button type="button" class="bg-transparent border-none cursor-pointer text-xl text-muted p-1 hover:text-fg"
                         _="on click remove .is-open from closest .modal-overlay then reset #role-assign-form" { "×" }
@@ -671,7 +671,7 @@ fn dept_assign_modal(
             _="on click[me is event.target] remove .is-open" {
             form id="dept-assign-form" class="bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0" hx-post=(action) hx-swap="none"
                 onsubmit="this.closest('.modal-overlay').classList.remove('is-open');this.reset()" {
-                div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
+                div class="px-6 py-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center shrink-0" {
                     h2 { "管理部门" }
                     button type="button" class="bg-transparent border-none cursor-pointer text-xl text-muted p-1 hover:text-fg"
                         _="on click remove .is-open from closest .modal-overlay then reset #dept-assign-form" { "×" }
@@ -711,7 +711,7 @@ fn reset_password_modal(action: &str) -> Markup {
             _="on click[me is event.target] remove .is-open" {
             form id="reset-pw-form" class="bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0" hx-post=(action) hx-swap="none"
                 onsubmit="this.closest('.modal-overlay').classList.remove('is-open');this.reset()" {
-                div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
+                div class="px-6 py-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center shrink-0" {
                     h2 { "重置密码" }
                     button type="button" class="bg-transparent border-none cursor-pointer text-xl text-muted p-1 hover:text-fg"
                         _="on click remove .is-open from closest .modal-overlay then reset #reset-pw-form" { "×" }

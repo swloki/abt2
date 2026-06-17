@@ -146,7 +146,7 @@ fn mrb_create_page(products: &[Product], failed_results: &[InspectionResult]) ->
 
                 // ── Section 1: 关联信息 ──
                 div class="form-section" {
-                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
                         (icon::link_icon("w-4 h-4"))
                         "关联信息"
                     }
@@ -174,7 +174,7 @@ fn mrb_create_page(products: &[Product], failed_results: &[InspectionResult]) ->
 
                 // ── Section 2: 缺陷信息 ──
                 div class="form-section" {
-                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
                         (icon::alert_triangle_icon("w-4 h-4"))
                         "缺陷信息"
                     }
@@ -216,7 +216,7 @@ fn mrb_create_page(products: &[Product], failed_results: &[InspectionResult]) ->
 
                 // ── Section 3: 备注 ──
                 div class="form-section" {
-                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
                         (icon::file_text_icon("w-4 h-4"))
                         "备注"
                     }

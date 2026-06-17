@@ -228,7 +228,7 @@ fn customer_edit_page(
 
                 // ── Section 1: 基本信息 ──
                 div class="data-card" {
-                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "基本信息" }
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "基本信息" }
                     div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                         div class="form-field" {
                             label { "客户名称 " span style="color:var(--danger)" { "*" } }
@@ -282,7 +282,7 @@ fn customer_edit_page(
 
                 // ── Section 2: 联系信息 ──
                 div class="data-card" {
-                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "联系信息" }
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "联系信息" }
                     // 隐藏字段：主联系人 ID
                     @if let Some(contact) = pc {
                         input type="hidden" name="primary_contact_id" value=(contact.id);
@@ -327,7 +327,7 @@ fn customer_edit_page(
 
                 // ── Section 3: 财务信息 ──
                 div class="data-card" {
-                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "财务信息" }
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "财务信息" }
                     div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                         div class="form-field" {
                             label { "信用额度 (元)" }
@@ -362,7 +362,7 @@ fn customer_edit_page(
 
                 // ── Section 4: 其他信息 ──
                 div class="data-card" {
-                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "其他信息" }
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "其他信息" }
                     div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                         div class="form-field" {
                             label { "负责业务员" }

@@ -188,7 +188,7 @@ fn order_create_page(work_centers: &[abt_core::master_data::work_center::WorkCen
         }
         form hx-post=(OrderCreatePath::PATH) hx-swap="none" {
             div class="form-section" {
-                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "基本信息" }
+                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "基本信息" }
                 div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                     div class="form-field" {
                         label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "产品" }
@@ -274,7 +274,7 @@ fn source_order_modal() -> Markup {
         div class="fixed z-[1000] grid place-items-center opacity-0" id="so-modal"
             _="on click remove .is-open from #so-modal" {
             div class="modal bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0-lg" _="on click halt" {
-                div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
+                div class="px-6 py-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center shrink-0" {
                     h2 { "选择销售订单" }
                     button style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
                         _="on click remove .is-open from #so-modal" { "\u{00d7}" }
@@ -310,7 +310,7 @@ fn source_plan_modal() -> Markup {
         div class="fixed z-[1000] grid place-items-center opacity-0" id="pp-modal"
             _="on click remove .is-open from #pp-modal" {
             div class="modal bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0-lg" _="on click halt" {
-                div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
+                div class="px-6 py-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center shrink-0" {
                     h2 { "选择生产计划" }
                     button style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
                         _="on click remove .is-open from #pp-modal" { "\u{00d7}" }

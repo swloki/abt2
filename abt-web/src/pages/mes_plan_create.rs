@@ -147,7 +147,7 @@ fn plan_create_page() -> Markup {
             form id="plan-create-form" hx-post=(PlanCreatePath::PATH) hx-swap="none" {
                 // ── Basic Info ──
                 div class="form-section" {
-                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "基本信息" }
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "基本信息" }
                     div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                         div class="form-field" {
                             label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "排产类型" }
@@ -169,7 +169,7 @@ fn plan_create_page() -> Markup {
 
                 // ── Plan Items ──
                 div class="form-section" {
-                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "计划明细" }
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "计划明细" }
                     div class="data-card" {
                         div class="overflow-x-auto" {
                             table class="data-table" {
@@ -218,7 +218,7 @@ fn plan_create_page() -> Markup {
                        put window._selectedProduct.name into (t's querySelector('[data-field=\"product_name\"]'))
                        set (t's querySelector('[data-field=\"product_id\"]'))'s value to window._selectedProduct.id" {
                 div class="modal bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0-lg" _="on click halt" {
-                    div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
+                    div class="px-6 py-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center shrink-0" {
                         h2 { "选择产品" }
                         button type="button" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
                             _="on click remove .is-open from #product-picker" { "×" }

@@ -505,7 +505,7 @@ fn kanban_column(
 ) -> Markup {
     html! {
         div class=(format!("kanban-column {col_class}")) {
-            div class="flex items-center justify-between px-4 py-3 border-b border-border-soft" {
+            div class="flex items-center justify-between px-4 py-3 [border-bottom:1px_solid_var(--border-soft)]" {
                 span class="text-sm font-semibold text-fg" { (title) }
                 span class="text-xs text-muted bg-[rgba(0,0,0,0.04)] px-2 py-0.5 rounded-full" { (cards.len()) }
             }

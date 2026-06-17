@@ -238,7 +238,7 @@ fn ladder_vis(rules: &[PurchaseApprovalRule]) -> Markup {
 
     html! {
         div class="data-card" {
-            div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "金额阶梯" }
+            div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "金额阶梯" }
             div style="padding:var(--space-4) var(--space-4) var(--space-2)" {
                 div style="position:relative;height:40px;margin-bottom:4px" {
                     @for (i, rule) in rules.iter().enumerate() {
@@ -416,7 +416,7 @@ fn rule_form(action_url: &str, rule: Option<&PurchaseApprovalRule>) -> Markup {
 
     html! {
         div class="bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0" _="on click halt" {
-            div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
+            div class="px-6 py-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center shrink-0" {
                 h2 { (title) }
                 button class="bg-transparent border-none cursor-pointer text-xl text-muted p-1 hover:text-fg"
                     _="on click remove .is-open from #rule-modal" { "×" }
@@ -426,7 +426,7 @@ fn rule_form(action_url: &str, rule: Option<&PurchaseApprovalRule>) -> Markup {
 
                 div class="overflow-y-auto flex-1 min-h-0 p-6" {
                     div class="form-section" {
-                        div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "规则信息" }
+                        div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "规则信息" }
                         div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                             div class="form-field" {
                                 label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "规则名称" span class="required" { "*" } }

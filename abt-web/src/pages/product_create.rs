@@ -171,7 +171,7 @@ fn product_create_page(source: Option<&Product>, categories: &[CategoryTree]) ->
 
                 // ── Section: 基本信息 ──
                 div class="form-section" {
-                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "基本信息" }
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "基本信息" }
                     div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                         div class="form-field" {
                             label { "产品名称 " span style="color:var(--danger)" { "*" } }
@@ -227,7 +227,7 @@ fn product_create_page(source: Option<&Product>, categories: &[CategoryTree]) ->
 
                 // ── Section: 分类与归属 ──
                 div class="form-section" {
-                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "分类与归属" }
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "分类与归属" }
                     div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                         div class="form-field" {
                             label { "所属分类 " span style="color:var(--danger)" { "*" } }
@@ -252,7 +252,7 @@ fn product_create_page(source: Option<&Product>, categories: &[CategoryTree]) ->
 
                 // ── Section: 其他信息 ──
                 div class="form-section" {
-                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "其他信息" }
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "其他信息" }
                     div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                         div class="form-field field-full" {
                             label { "备注" }
@@ -274,7 +274,7 @@ fn product_create_page(source: Option<&Product>, categories: &[CategoryTree]) ->
             // ── Category Select Modal ──
             div id="category-modal" class="fixed z-[1000] grid place-items-center opacity-0" _="on click[me is event.target] remove .is-open" {
                 div class="bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0" onclick="event.stopPropagation()" {
-                    div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
+                    div class="px-6 py-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center shrink-0" {
                         h2 { "选择分类" }
                         button type="button" class="border-none cursor-pointer text-muted flex items-center justify-center" _="on click remove .is-open from #category-modal" {
                             (icon::x_icon("w-4 h-4"))

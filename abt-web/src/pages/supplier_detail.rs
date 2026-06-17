@@ -201,7 +201,7 @@ fn supplier_detail_page(
 
         // ── Basic Info Card ──
         div class="bg-white border border-border-soft rounded p-5" style="margin-bottom:var(--space-5)" {
-            div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 border-b border-border-soft" { "基本信息" }
+            div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "基本信息" }
             div class="flex py-2 text-sm" {
                 span class="w-[90px] shrink-0 text-muted" { "供应商编码" }
                 span class="detail-value font-mono tabular-nums" { (supplier.code) }
@@ -269,7 +269,7 @@ fn supplier_detail_page(
 
         // ── Purchase History Section (placeholder) ──
         div class="bg-white border border-border-soft rounded p-5" style="margin-top:var(--space-5)" {
-            div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 border-b border-border-soft" { "采购历史" }
+            div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "采购历史" }
             div class="text-center p-6 text-muted text-sm" { "暂无采购记录" }
         }
 
@@ -349,7 +349,7 @@ fn contacts_card(contacts: &[SupplierContact], detail_path: &SupplierDetailPath,
             hx-target="this"
             hx-swap="outerHTML"
             hx-trigger="contactChanged from:body" {
-            div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 border-b border-border-soft" {
+            div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
                 span { "联系人" }
                 button class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] [&_svg]:w-4 [&_svg]:h-4"
                     _="on click add .is-open to #contact-create-modal" {
@@ -390,7 +390,7 @@ fn bank_accounts_card(bank_accounts: &[SupplierBankAccount], detail_path: &Suppl
             hx-target="this"
             hx-swap="outerHTML"
             hx-trigger="bankAccountChanged from:body" {
-            div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 border-b border-border-soft" {
+            div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
                 span { "银行账户" }
                 button class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] [&_svg]:w-4 [&_svg]:h-4"
                     _="on click add .is-open to #bank-account-create-modal" {

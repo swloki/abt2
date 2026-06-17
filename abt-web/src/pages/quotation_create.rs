@@ -301,7 +301,7 @@ fn quotation_create_page(customers: &[abt_core::master_data::customer::model::Cu
 
             // ── Quote Info ──
             div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden" {
-                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
+                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
                     (icon::clipboard_document_icon("w-[18px] h-[18px]"))
                     "报价信息"
                 }
@@ -348,7 +348,7 @@ fn quotation_create_page(customers: &[abt_core::master_data::customer::model::Cu
 
             // ── Line Items ──
             div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden" {
-                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
+                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
                     (icon::package_icon("w-[18px] h-[18px]"))
                     "产品明细"
                 }
@@ -396,7 +396,7 @@ fn quotation_create_page(customers: &[abt_core::master_data::customer::model::Cu
 
             // ── Remark ──
             div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden" {
-                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
+                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
                     (icon::file_text_icon("w-[18px] h-[18px]"))
                     "备注"
                 }
@@ -405,7 +405,7 @@ fn quotation_create_page(customers: &[abt_core::master_data::customer::model::Cu
 
             // ── Attachment ──
             div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden" {
-                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
+                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
                     (icon::upload_icon("w-[18px] h-[18px]"))
                     "附件"
                 }
@@ -436,7 +436,7 @@ fn quotation_create_page(customers: &[abt_core::master_data::customer::model::Cu
             div class="fixed z-[1000] grid place-items-center opacity-0" id="product-modal"
                 _="on click[me is event.target] remove .is-open" {
                 div class="modal bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0-lg" onclick="event.stopPropagation()" {
-                    div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
+                    div class="px-6 py-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center shrink-0" {
                         h2 { "选择产品" }
                         button class="bg-transparent border-none cursor-pointer text-xl text-muted p-1 hover:text-fg"
                             _="on click remove .is-open from #product-modal" {

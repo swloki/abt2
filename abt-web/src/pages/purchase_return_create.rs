@@ -262,7 +262,7 @@ fn pr_create_page(
 
             // ── 关联单据 ──
             div class="data-card" style="margin-bottom:var(--space-4)" {
-                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "关联单据" }
+                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "关联单据" }
                 div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                     div class="form-field" {
                         label { "采购订单" span style="color:var(--danger)" { "*" } }
@@ -297,7 +297,7 @@ fn pr_create_page(
 
             // ── 退货信息 ──
             div class="data-card" style="margin-bottom:var(--space-4)" {
-                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "退货信息" }
+                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "退货信息" }
                 div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                     div class="form-field" {
                         label { "退货日期" span style="color:var(--danger)" { "*" } }
@@ -358,7 +358,7 @@ fn pr_create_page(
             // ── 退货产品明细 ──
             div id="pr-items-section" class="data-card" style="display:none;padding:0;overflow:hidden;margin-bottom:var(--space-4)" {
                 div style="padding:var(--space-5) var(--space-5) var(--space-3);display:flex;justify-content:space-between;align-items:center" {
-                    span class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" style="margin:0;padding:0;border:none" { "退货产品明细" }
+                    span class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" style="margin:0;padding:0;border:none" { "退货产品明细" }
                 }
                 div style="overflow-x:auto" {
                     table class="data-table" style="min-width:1100px" {

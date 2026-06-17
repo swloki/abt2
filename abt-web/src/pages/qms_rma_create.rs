@@ -165,7 +165,7 @@ fn rma_create_page(customers: &[Customer], products: &[Product], sales_orders: &
 
                 // ── Section 1: 客户信息 ──
                 div class="form-section" {
-                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
                         (icon::users_icon("w-4 h-4"))
                         "客户信息"
                     }
@@ -207,7 +207,7 @@ fn rma_create_page(customers: &[Customer], products: &[Product], sales_orders: &
 
                 // ── Section 2: 产品信息 ──
                 div class="form-section" {
-                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
                         (icon::box_icon("w-4 h-4"))
                         "产品信息"
                     }
@@ -233,7 +233,7 @@ fn rma_create_page(customers: &[Customer], products: &[Product], sales_orders: &
 
                 // ── Section 3: 缺陷描述 ──
                 div class="form-section" {
-                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
                         (icon::alert_triangle_icon("w-4 h-4"))
                         "缺陷描述"
                     }
@@ -256,7 +256,7 @@ fn rma_create_page(customers: &[Customer], products: &[Product], sales_orders: &
 
                 // ── Section 4: 备注 ──
                 div class="form-section" {
-                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
                         (icon::edit_icon("w-4 h-4"))
                         "备注"
                     }

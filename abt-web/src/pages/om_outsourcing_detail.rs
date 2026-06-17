@@ -555,7 +555,7 @@ fn detail_page(
         // ── Record Node Modal ──
         div id="record-node-modal" class="fixed z-[1000] grid place-items-center opacity-0" _="on click[me is event.target] remove .is-open" {
             div class="bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0" style="width:520px" {
-                div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
+                div class="px-6 py-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center shrink-0" {
                     h2 style="display:flex;align-items:center;gap:var(--space-2)" {
                         (maud::PreEscaped(r#"<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>"#))
                         "记录追踪节点"
@@ -622,7 +622,7 @@ fn detail_page(
         // ── Receive Modal ──
         div id="receive-modal" class="fixed z-[1000] grid place-items-center opacity-0" _="on click[me is event.target] remove .is-open" {
             div class="bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0" {
-                div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
+                div class="px-6 py-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center shrink-0" {
                     h2 style="display:flex;align-items:center;gap:var(--space-2)" {
                         (maud::PreEscaped(r#"<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>"#))
                         "收货登记"
@@ -684,7 +684,7 @@ fn detail_page(
         // ── Convert Modal ──
         div id="convert-modal" class="fixed z-[1000] grid place-items-center opacity-0" _="on click[me is event.target] remove .is-open" {
             div class="bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0" style="width:520px" {
-                div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
+                div class="px-6 py-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center shrink-0" {
                     h2 style="display:flex;align-items:center;gap:var(--space-2)" {
                         (maud::PreEscaped(r#"<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--warn)" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><path d="M12 9v4M12 17h.01"/></svg>"#))
                         "转自制确认"
@@ -721,7 +721,7 @@ fn detail_page(
         // ── Cancel Modal ──
         div id="cancel-modal" class="fixed z-[1000] grid place-items-center opacity-0" _="on click[me is event.target] remove .is-open" {
             div class="bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0" style="width:480px" {
-                div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
+                div class="px-6 py-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center shrink-0" {
                     h2 style="display:flex;align-items:center;gap:var(--space-2)" {
                         (maud::PreEscaped(r#"<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/></svg>"#))
                         "取消委外单"

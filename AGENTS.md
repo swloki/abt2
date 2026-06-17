@@ -353,14 +353,14 @@ Only for interactions that cannot be expressed inline:
 样式文件位于项目根级 `static/` 目录：
 - **`static/base.css`** — **已删除**。不再存在手写 CSS 文件。所有样式通过 UnoCSS 原子类内联在 Maud 模板的 `class=""` 中
 - **`static/app.css`** — UnoCSS CLI 生成的纯原子 utility 输出。**禁止手动修改**，仅通过 `npm run build:css` 生成
-- **`uno.config.ts`**（项目根级）— UnoCSS 配置：`preflights`（:root 变量 + reset + 少量不可原子化的组件状态 CSS）+ `theme`（颜色/字号/间距/圆角/阴影/动画映射）+ `variants`（`act:`/`show:`/`is-open:` 等自定义状态前缀）+ `shortcuts: {}`（空，不使用语义化 shortcut）
+- **`uno.config.ts`**（项目根级）— UnoCSS 配置：`preflights`（:root 变量 + reset + 少量不可原子化的组件状态 CSS）+ `theme`（颜色/字号/间距/圆角/阴影/动画映射）+ `variants`（`act:`/`show:`/`is-open:` 等自定义状态前缀）+ `shortcuts`（仅 `data-table` 和 `data-card` 两个高频组件模式）
 
 **核心规则：**
 1. **所有样式写在 Maud 的 `class=""` 中** — 使用 UnoCSS 原子类组合，如 `class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-md shadow-[var(--shadow-card)]"`
 2. **禁止新建 CSS 文件** — 不在 `static/` 下新建独立 CSS，不在 Maud 模板中用 `style=""` 内联（`<col>` 元素例外）
 3. **修改 CSS 变量** — 在 `uno.config.ts` 的 `preflights` 的 `:root { ... }` 块中修改
 4. **新增动画** — 在 `uno.config.ts` 的 `theme.animation.keyframes` 中定义，Maud 中用 `animate-xxx` 引用
-5. **`shortcuts: {}` 保持空** — 不新增语义化 class 抽象，所有样式直接内联
+5. **`shortcuts` 只允许高频组件模式** — 当前仅 `data-table`（表格全样式）和 `data-card`（卡片容器），新增 shortcut 需满足：在 10+ 个 Maud 文件中重复使用且 class 字符串超过 100 字符
 
 **UnoCSS 高级语法速查（项目实际使用）：**
 

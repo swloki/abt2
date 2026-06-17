@@ -836,7 +836,9 @@ p { margin: 0; }
 .pt-3{padding-top:calc(var(--spacing) * 3);}
 .last\:pb-0:last-child{padding-bottom:calc(var(--spacing) * 0);}
 .text-center{text-align:center;}
+.\[\&_th\]\:text-left th,
 .text-left{text-align:left;}
+.\!text-right{text-align:right !important;}
 .text-right{text-align:right;}
 .\[\&_td\]\:align-middle td{vertical-align:middle;}
 .outline{outline-style:var(--un-outline-style);outline-width:1px;}

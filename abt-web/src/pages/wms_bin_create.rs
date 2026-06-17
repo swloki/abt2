@@ -125,7 +125,7 @@ fn bin_create_page(
                   hx-swap="none" {
 
                 // ── Section: 储位信息 ──
-                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" style="margin-bottom:var(--space-4)" {
+                div class="data-card" style="margin-bottom:var(--space-4)" {
                     div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                         (icon::grid_icon("w-4 h-4"))
                         " 储位信息"

@@ -237,7 +237,7 @@ fn ladder_vis(rules: &[PurchaseApprovalRule]) -> Markup {
     let colors = ["#165DFF", "#0FC6C2", "#FF7D00", "#F53F3F", "#722ED1", "#14C9C9"];
 
     html! {
-        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" {
+        div class="data-card" {
             div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "金额阶梯" }
             div style="padding:var(--space-4) var(--space-4) var(--space-2)" {
                 div style="position:relative;height:40px;margin-bottom:4px" {
@@ -307,12 +307,12 @@ fn ladder_bar(
 
 fn data_card(rules: &[PurchaseApprovalRule]) -> Markup {
     html! {
-        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" {
+        div class="data-card" {
             @if rules.is_empty() {
                 (empty_state())
             } @else {
                 div class="overflow-x-auto" {
-                    table class="data-table w-full border-collapse [&_th]:py-2.5 [&_th]:px-4 [&_th]:text-left [&_th]:font-semibold [&_th]:text-muted [&_th]:text-xs [&_th]:uppercase [&_th]:tracking-wide [&_th]:bg-surface-raised [&_th]:[border-bottom:1px_solid_var(--border-soft)] [&_th]:whitespace-nowrap [&_td]:py-3 [&_td]:px-4 [&_td]:[border-bottom:1px_solid_var(--border-soft)] [&_td]:whitespace-nowrap [&_td]:align-middle [&_tbody_tr]:transition-colors [&_tbody_tr]:cursor-pointer [&_tbody_tr:hover]:bg-accent-bg [&_tbody_tr:last-child_td]:[border-bottom:none] [&_tbody_tr:hover_.row-actions]:opacity-100" {
+                    table class="data-table" {
                         thead {
                             tr {
                                 th { "排序" }

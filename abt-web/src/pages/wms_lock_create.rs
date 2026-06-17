@@ -95,7 +95,7 @@ pub async fn create_lock(
 
 fn lock_create_form() -> Markup {
     html! {
-        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" {
+        div class="data-card" {
             form method="POST" action=(LockCreatePath::PATH)
                 hx-post=(LockCreatePath::PATH)
                 hx-redirect=(LockListPath::PATH) {

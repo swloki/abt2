@@ -112,7 +112,7 @@ fn bom_create_page(categories: &[BomCategory]) -> Markup {
             }
 
             // ── Form Card ──
-            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" style="margin-bottom:var(--space-4)" {
+            div class="data-card" style="margin-bottom:var(--space-4)" {
                 div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "基本信息" }
                 form hx-post=(BomCreatePath::PATH)
                       hx-swap="none" {

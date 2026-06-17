@@ -229,7 +229,7 @@ fn qms_dashboard_page(
                     (icon::trending_up_icon("w-4 h-4"))
                     " 近6月质量趋势"
                 }
-                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" style="padding:var(--space-5)" {
+                div class="data-card" style="padding:var(--space-5)" {
                     div class="flex justify-between text-[12px]" {
                         div class="flex justify-between text-[12px]-items" {
                             span class="flex justify-between text-[12px]-item" {

@@ -260,9 +260,9 @@ fn price_history_page(rows: &[PriceHistoryRow], total: u64, page: u32, total_pag
 
 fn data_card(rows: &[PriceHistoryRow], total: u64, page: u32, total_pages: u32) -> Markup {
     html! {
-        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" {
+        div class="data-card" {
             div class="overflow-x-auto" {
-                table class="data-table w-full border-collapse [&_th]:py-2.5 [&_th]:px-4 [&_th]:text-left [&_th]:font-semibold [&_th]:text-muted [&_th]:text-xs [&_th]:uppercase [&_th]:tracking-wide [&_th]:bg-surface-raised [&_th]:[border-bottom:1px_solid_var(--border-soft)] [&_th]:whitespace-nowrap [&_td]:py-3 [&_td]:px-4 [&_td]:[border-bottom:1px_solid_var(--border-soft)] [&_td]:whitespace-nowrap [&_td]:align-middle [&_tbody_tr]:transition-colors [&_tbody_tr]:cursor-pointer [&_tbody_tr:hover]:bg-accent-bg [&_tbody_tr:last-child_td]:[border-bottom:none]" style="width:100%;table-layout:fixed" {
+                table class="data-table" style="width:100%;table-layout:fixed" {
                     thead {
                         tr {
                             th style="width:40px" { "#" }

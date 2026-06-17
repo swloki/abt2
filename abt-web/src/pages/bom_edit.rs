@@ -596,7 +596,7 @@ fn bom_edit_page(
             }
 
             // ── Node Table ──
-            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" style="padding:0;overflow:hidden" {
+            div class="data-card" style="padding:0;overflow:hidden" {
                 @if bom.bom_detail.nodes.is_empty() {
                     div style="text-align:center;padding:var(--space-12);color:var(--muted)" {
                         "暂无组件数据，请点击上方按钮添加根节点"

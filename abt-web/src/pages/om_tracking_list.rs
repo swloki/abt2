@@ -361,7 +361,7 @@ fn stat_card(
     icon_fn: fn(&str) -> Markup,
 ) -> Markup {
     html! {
-        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" style="padding:var(--space-4);display:flex;align-items:center;gap:var(--space-3)" {
+        div class="data-card" style="padding:var(--space-4);display:flex;align-items:center;gap:var(--space-3)" {
             div style=(format!("width:40px;height:40px;border-radius:var(--radius-lg);background:color-mix(in srgb, {color} 10%, transparent);display:flex;align-items:center;justify-content:center;color:{color}")) {
                 (icon_fn("w-5 h-5"))
             }
@@ -433,9 +433,9 @@ fn tracking_data_card(
 ) -> Markup {
     let query = build_query_string(params);
     html! {
-        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" id="tracking-data-card" {
+        div class="data-card" id="tracking-data-card" {
             div class="overflow-x-auto" {
-                table class="data-table w-full border-collapse [&_th]:py-2.5 [&_th]:px-4 [&_th]:text-left [&_th]:font-semibold [&_th]:text-muted [&_th]:text-xs [&_th]:uppercase [&_th]:tracking-wide [&_th]:bg-surface-raised [&_th]:[border-bottom:1px_solid_var(--border-soft)] [&_th]:whitespace-nowrap [&_td]:py-3 [&_td]:px-4 [&_td]:[border-bottom:1px_solid_var(--border-soft)] [&_td]:whitespace-nowrap [&_td]:align-middle [&_tbody_tr]:transition-colors [&_tbody_tr]:cursor-pointer [&_tbody_tr:hover]:bg-accent-bg [&_tbody_tr:last-child_td]:[border-bottom:none]" {
+                table class="data-table" {
                     thead {
                         tr {
                             th { "委外单号" }

@@ -477,9 +477,9 @@ fn tab_detail(
     val_map: &HashMap<i64, &ReleaseValidation>,
 ) -> Markup {
     html! {
-        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" {
+        div class="data-card" {
             div class="overflow-x-auto" {
-                table class="data-table w-full border-collapse [&_th]:py-2.5 [&_th]:px-4 [&_th]:text-left [&_th]:font-semibold [&_th]:text-muted [&_th]:text-xs [&_th]:uppercase [&_th]:tracking-wide [&_th]:bg-surface-raised [&_th]:[border-bottom:1px_solid_var(--border-soft)] [&_th]:whitespace-nowrap [&_td]:py-3 [&_td]:px-4 [&_td]:[border-bottom:1px_solid_var(--border-soft)] [&_td]:whitespace-nowrap [&_td]:align-middle [&_tbody_tr]:transition-colors [&_tbody_tr]:cursor-pointer [&_tbody_tr:hover]:bg-accent-bg [&_tbody_tr:last-child_td]:[border-bottom:none]" {
+                table class="data-table" {
                     thead {
                         tr {
                             th { "#" }
@@ -613,9 +613,9 @@ fn tab_planning(
                             hx-post={(PlanGeneratePath { plan_id: plan.id }.to_string())}
                             hx-swap="none" {
 
-                            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" {
+                            div class="data-card" {
                                 div class="overflow-x-auto" {
-                                    table class="data-table w-full border-collapse [&_th]:py-2.5 [&_th]:px-4 [&_th]:text-left [&_th]:font-semibold [&_th]:text-muted [&_th]:text-xs [&_th]:uppercase [&_th]:tracking-wide [&_th]:bg-surface-raised [&_th]:[border-bottom:1px_solid_var(--border-soft)] [&_th]:whitespace-nowrap [&_td]:py-3 [&_td]:px-4 [&_td]:[border-bottom:1px_solid_var(--border-soft)] [&_td]:whitespace-nowrap [&_td]:align-middle [&_tbody_tr]:transition-colors [&_tbody_tr]:cursor-pointer [&_tbody_tr:hover]:bg-accent-bg [&_tbody_tr:last-child_td]:[border-bottom:none]" {
+                                    table class="data-table" {
                                         thead {
                                             tr {
                                                 th style="width:32px" { input type="checkbox" class="wo-check-all" checked; }
@@ -688,9 +688,9 @@ fn tab_planning(
                         "草稿工单 " span class="text-muted" { "(" (draft_orders.len()) ")" }
                     }
 
-                    div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" {
+                    div class="data-card" {
                         div class="overflow-x-auto" {
-                            table class="data-table w-full border-collapse [&_th]:py-2.5 [&_th]:px-4 [&_th]:text-left [&_th]:font-semibold [&_th]:text-muted [&_th]:text-xs [&_th]:uppercase [&_th]:tracking-wide [&_th]:bg-surface-raised [&_th]:[border-bottom:1px_solid_var(--border-soft)] [&_th]:whitespace-nowrap [&_td]:py-3 [&_td]:px-4 [&_td]:[border-bottom:1px_solid_var(--border-soft)] [&_td]:whitespace-nowrap [&_td]:align-middle [&_tbody_tr]:transition-colors [&_tbody_tr]:cursor-pointer [&_tbody_tr:hover]:bg-accent-bg [&_tbody_tr:last-child_td]:[border-bottom:none]" {
+                            table class="data-table" {
                                 thead {
                                     tr {
                                         th { "工单号" }
@@ -749,7 +749,7 @@ fn tab_planning(
                         "已下达工单 " span class="text-muted" { "(" (released_orders.len()) ")" }
                     }
 
-                    div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" {
+                    div class="data-card" {
                         ul class="list-none m-0 p-0" {
                             @for wo in &released_orders {
                                 @let pname = product_names.get(&wo.product_id).map(|s| s.as_str()).unwrap_or("—");

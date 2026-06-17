@@ -52,7 +52,7 @@ fn dashboard_content(claims: &abt_core::shared::identity::model::Claims) -> Mark
                 div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-4)" {
                     h2 class="text-lg font-semibold text-fg" { "待办事项" }
                 }
-                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" {
+                div class="data-card" {
                     (todo_item("status-progress", "拣货中", "发货申请 SR-2026-0018 待确认发货", "今天"))
                     (todo_item("status-progress", "质检中", "退货单 RT-2026-0009 待质检判定", "今天"))
                     (todo_item("status-info", "已确认", "退货单 RT-2026-0007 待收货确认", "昨天"))
@@ -92,7 +92,7 @@ fn dashboard_content(claims: &abt_core::shared::identity::model::Claims) -> Mark
         // ── 最近活动 ──
         div {
             h2 class="text-lg font-semibold text-fg" style="margin-bottom:var(--space-4)" { "最近活动" }
-            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" {
+            div class="data-card" {
                 (activity_item("status-progress", "订单", "SO-2026-0038 状态变更为 ", "生产中", "10 分钟前"))
                 (activity_item("status-picking", "发货", "发货申请 SR-2026-0018 开始拣货", "", "2 小时前"))
                 (activity_item("status-inspecting", "退货", "退货单 RT-2026-0009 进入质检阶段", "", "昨天"))

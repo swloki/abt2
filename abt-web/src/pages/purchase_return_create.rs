@@ -261,7 +261,7 @@ fn pr_create_page(
                 input type="hidden" id="items-json" name="items_json" value="[]";
 
             // ── 关联单据 ──
-            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" style="margin-bottom:var(--space-4)" {
+            div class="data-card" style="margin-bottom:var(--space-4)" {
                 div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "关联单据" }
                 div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                     div class="form-field" {
@@ -296,7 +296,7 @@ fn pr_create_page(
             }
 
             // ── 退货信息 ──
-            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" style="margin-bottom:var(--space-4)" {
+            div class="data-card" style="margin-bottom:var(--space-4)" {
                 div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "退货信息" }
                 div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                     div class="form-field" {
@@ -356,12 +356,12 @@ fn pr_create_page(
             }
 
             // ── 退货产品明细 ──
-            div id="pr-items-section" class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" style="display:none;padding:0;overflow:hidden;margin-bottom:var(--space-4)" {
+            div id="pr-items-section" class="data-card" style="display:none;padding:0;overflow:hidden;margin-bottom:var(--space-4)" {
                 div style="padding:var(--space-5) var(--space-5) var(--space-3);display:flex;justify-content:space-between;align-items:center" {
                     span class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" style="margin:0;padding:0;border:none" { "退货产品明细" }
                 }
                 div style="overflow-x:auto" {
-                    table class="data-table w-full border-collapse [&_th]:py-2.5 [&_th]:px-4 [&_th]:text-left [&_th]:font-semibold [&_th]:text-muted [&_th]:text-xs [&_th]:uppercase [&_th]:tracking-wide [&_th]:bg-surface-raised [&_th]:[border-bottom:1px_solid_var(--border-soft)] [&_th]:whitespace-nowrap [&_td]:py-3 [&_td]:px-4 [&_td]:[border-bottom:1px_solid_var(--border-soft)] [&_td]:whitespace-nowrap [&_td]:align-middle [&_tbody_tr]:transition-colors [&_tbody_tr]:cursor-pointer [&_tbody_tr:hover]:bg-accent-bg [&_tbody_tr:last-child_td]:[border-bottom:none]" style="min-width:1100px" {
+                    table class="data-table" style="min-width:1100px" {
                         thead {
                             tr {
                                 th style="width:36px;text-align:center" { "行号" }

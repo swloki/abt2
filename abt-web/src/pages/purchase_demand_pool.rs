@@ -557,7 +557,7 @@ fn material_table_fragment(
     let qs = material_query_string(params.keyword.as_deref(), params.date_filter.as_deref());
 
     html! {
-        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" id="materialView" {
+        div class="data-card" id="materialView" {
             (material_table_header())
             @for m in &result.items {
                 (material_row(m))
@@ -652,7 +652,7 @@ fn material_row(m: &MaterialAggSummary) -> Markup {
         // ── Expandable demand detail ──
         div class="hidden bg-surface-raised border-b" id=(format!("expand-mat-{pid}")) {
             div class="hidden bg-surface-raised border-b-inner" {
-                table class="data-table w-full border-collapse [&_th]:py-2.5 [&_th]:px-4 [&_th]:text-left [&_th]:font-semibold [&_th]:text-muted [&_th]:text-xs [&_th]:uppercase [&_th]:tracking-wide [&_th]:bg-surface-raised [&_th]:[border-bottom:1px_solid_var(--border-soft)] [&_th]:whitespace-nowrap [&_td]:py-3 [&_td]:px-4 [&_td]:[border-bottom:1px_solid_var(--border-soft)] [&_td]:whitespace-nowrap [&_td]:align-middle [&_tbody_tr]:transition-colors [&_tbody_tr]:cursor-pointer [&_tbody_tr:hover]:bg-accent-bg [&_tbody_tr:last-child_td]:[border-bottom:none]" style="font-size:13px;" {
+                table class="data-table" style="font-size:13px;" {
                     thead {
                         tr {
                             th style="width:40px;" {
@@ -738,9 +738,9 @@ fn detail_table_fragment(
     let qs = detail_query_string(params.keyword.as_deref(), params.date_filter.as_deref());
 
     html! {
-        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" id="detailView" {
+        div class="data-card" id="detailView" {
             div class="overflow-x-auto" {
-                table class="data-table w-full border-collapse [&_th]:py-2.5 [&_th]:px-4 [&_th]:text-left [&_th]:font-semibold [&_th]:text-muted [&_th]:text-xs [&_th]:uppercase [&_th]:tracking-wide [&_th]:bg-surface-raised [&_th]:[border-bottom:1px_solid_var(--border-soft)] [&_th]:whitespace-nowrap [&_td]:py-3 [&_td]:px-4 [&_td]:[border-bottom:1px_solid_var(--border-soft)] [&_td]:whitespace-nowrap [&_td]:align-middle [&_tbody_tr]:transition-colors [&_tbody_tr]:cursor-pointer [&_tbody_tr:hover]:bg-accent-bg [&_tbody_tr:last-child_td]:[border-bottom:none]" {
+                table class="data-table" {
                     thead {
                         tr {
                             th style="width:40px;" {

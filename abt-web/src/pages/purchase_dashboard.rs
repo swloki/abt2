@@ -374,7 +374,7 @@ fn purchase_dashboard_content(stats: &DashboardStats) -> Markup {
                 div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-4)" {
                     h2 class="text-lg font-semibold text-fg" { "待办事项" }
                 }
-                div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" {
+                div class="data-card" {
                     @if stats.pending_quotations > 0 {
                         (todo_item("status-pill status-progress", "待比价", &format!("{} 份采购报价待比价", stats.pending_quotations), "需处理"))
                     }
@@ -453,7 +453,7 @@ fn purchase_dashboard_content(stats: &DashboardStats) -> Markup {
         // ── 最近活动 ──
         div {
             h2 style="font-size:var(--text-lg);font-weight:600;margin-bottom:var(--space-4)" { "最近活动" }
-            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" {
+            div class="data-card" {
                 (activity_row("status-pill status-info", "订单", "采购订单 PO-2026-05-00123 状态变更为", "部分收货", "30 分钟前"))
                 (activity_row("status-pill status-progress", "报价", "供应商「昆山宏达钢材」提交了新的采购报价 PQ-2026-05-00089", "", "2 小时前"))
                 (activity_row("status-pill status-completed", "付款", "付款申请 PAY-2026-05-00045 已完成付款", "", "昨天"))

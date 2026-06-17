@@ -207,15 +207,15 @@ fn warehouse_table_fragment(
  hx-swap="outerHTML"
  hx-include="#warehouse-filter-form"
  hx-push-url="true" {
- div class="relative flex-1 max-w-xs" {
- (icon::search_icon("w-4 h-4"))
+ div class="relative flex-1 max-w-xs [&_svg]:absolute [&_svg]:left-3 [&_svg]:top-1/2 [&_svg]:-translate-y-1/2 [&_svg]:w-4 [&_svg]:h-4 [&_svg]:text-muted" {
+ (icon::search_icon(""))
  input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="code"
  style="width:180px"
  placeholder="仓库编码"
  value=(params.code.as_deref().unwrap_or(""));
  }
- div class="relative flex-1 max-w-xs" {
- (icon::search_icon("w-4 h-4"))
+ div class="relative flex-1 max-w-xs [&_svg]:absolute [&_svg]:left-3 [&_svg]:top-1/2 [&_svg]:-translate-y-1/2 [&_svg]:w-4 [&_svg]:h-4 [&_svg]:text-muted" {
+ (icon::search_icon(""))
  input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="name"
  placeholder="仓库名称"
  value=(params.name.as_deref().unwrap_or(""));

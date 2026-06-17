@@ -631,11 +631,11 @@ fn category_page(tree: &[CategoryTree], initial_panel: Option<&Markup>, first_id
  div class="tree-panel" {
  div class="tree-panel-header" {
  h3 { "分类目录" }
- div class="w-full border border-border-soft rounded-sm text-[12px] bg-surface text-fg" {
- (icon::search_icon("search-icon"))
- input type="text" placeholder="搜索分类…"
- oninput="filterTree(this.value)";
- }
+   div class="relative w-full [&_svg]:absolute [&_svg]:left-2.5 [&_svg]:top-1/2 [&_svg]:-translate-y-1/2 [&_svg]:w-3.5 [&_svg]:h-3.5 [&_svg]:text-muted border border-border-soft rounded-sm text-[12px] bg-surface text-fg" {
+   (icon::search_icon(""))
+   input class="w-full pl-8 pr-2 py-1.5 bg-transparent outline-none" type="text" placeholder="搜索分类…"
+   oninput="filterTree(this.value)";
+   }
  }
  div class="tree-scroll" id="category-tree" {
  (tree_fragment(tree, first_id))

@@ -370,8 +370,8 @@ fn user_table_fragment(
 
  // ── Filter Bar ──
  div class="flex items-center gap-3 mb-5 flex-wrap" {
- div class="relative flex-1 max-w-xs" {
- (icon::search_icon("w-4 h-4"))
+ div class="relative flex-1 max-w-xs [&_svg]:absolute [&_svg]:left-3 [&_svg]:top-1/2 [&_svg]:-translate-y-1/2 [&_svg]:w-4 [&_svg]:h-4 [&_svg]:text-muted" {
+ (icon::search_icon(""))
  input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword"
  placeholder="搜索用户名、显示名称…"
  value=(keyword)

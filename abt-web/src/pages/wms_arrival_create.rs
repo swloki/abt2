@@ -509,8 +509,12 @@ fn product_list_fragment(products: &[abt_core::master_data::product::model::Prod
  } @else {
  div class="py-2" {
  @for p in products {
- div class="flex items-center justify-between p-3 [border-bottom:1px_solid_var(--border-soft)]" {
- div class="product-select-info" {
+ div class="flex items-center p-3 [border-bottom:1px_solid_var(--border-soft)] cursor-pointer hover:bg-accent-bg transition-colors"
+                    hx-get=(format!("{}?product_id={}", ArrivalItemRowPath::PATH, p.product_id))
+                    hx-target="#arrival-item-tbody"
+                    hx-swap="beforeend"
+                    _="on 'htmx:afterRequest' remove .is-open from #product-modal" {
+ div class="flex-1 min-w-0" {
  div class="text-sm font-medium text-fg" { (p.pdt_name) }
  div class="text-[12px] text-muted flex items-center gap-[6px] flex-wrap" {
  span class="bg-surface rounded-sm" { (p.product_code) }
@@ -520,13 +524,7 @@ fn product_list_fragment(products: &[abt_core::master_data::product::model::Prod
  span { (p.unit) }
  }
  }
- button type="button" class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] [&_svg]:w-4 [&_svg]:h-4"
- hx-get=(format!("{}?product_id={}", ArrivalItemRowPath::PATH, p.product_id))
- hx-target="#arrival-item-tbody"
- hx-swap="beforeend"
- _="on 'htmx:afterRequest'[detail.xhr.status < 400] remove .is-open from #product-modal then wait 50ms then call arrivalRenumber()" {
- "选择"
- }
+ span class="text-xs text-accent font-medium shrink-0" { "点击添加" }
  }
  }
  }
@@ -567,8 +565,8 @@ fn po_list_fragment(
  } @else {
  div class="py-2" {
  @for o in orders {
- div class="flex items-center justify-between p-3 [border-bottom:1px_solid_var(--border-soft)]" {
- div class="product-select-info" {
+div class="flex items-center justify-between p-3 [border-bottom:1px_solid_var(--border-soft)]" {
+ div class="flex-1 min-w-0" {
  div class="text-sm font-medium text-fg" { (o.doc_number) }
  div class="text-[12px] text-muted flex items-center gap-[6px] flex-wrap" {
  span class="bg-surface rounded-sm" { (supplier_map.get(&o.supplier_id).cloned().unwrap_or_else(|| "-".into())) }

@@ -13,16 +13,16 @@ pub fn pagination(
 
     html! {
         div class="flex items-center justify-between py-4" {
-            span { "共 " (total) " 条记录，第 " (current_page) "/" (total_pages) " 页" }
-            div class="flex items-center justify-between py-4-pages" {
+            span class="text-[13px] text-muted" { "共 " (total) " 条记录，第 " (current_page) "/" (total_pages) " 页" }
+            div class="flex gap-1" {
                 @if current_page > 1 {
                     (page_link(base_path, query, current_page - 1, "«"))
                 }
                 @for p in page_range(current_page, total_pages) {
                     @if p == 0 {
-                        button class="w-[34px] h-[34px] grid place-items-center border border-border-soft rounded-sm bg-bg text-fg text-sm cursor-pointer no-underline" disabled { "…" }
+                        button class="w-[34px] h-[34px] grid place-items-center border border-border-soft rounded-sm bg-white text-fg-2 text-sm cursor-pointer hover:bg-surface hover:text-fg border border-border-soft transition-colors" disabled { "…" }
                     } @else if p == current_page {
-                        button class="w-[34px] h-[34px] grid place-items-center border border-border-soft rounded-sm bg-bg text-fg text-sm cursor-pointer no-underline active" disabled { (p) }
+                        button class="w-[34px] h-[34px] grid place-items-center border border-border-soft rounded-sm bg-accent text-white text-sm font-semibold cursor-pointer" disabled { (p) }
                     } @else {
                         (page_link(base_path, query, p, &p.to_string()))
                     }
@@ -51,16 +51,16 @@ pub fn htmx_pagination(
 
     html! {
         div class="flex items-center justify-between py-4" {
-            span { "共 " (total) " 条记录，第 " (current_page) "/" (total_pages) " 页" }
-            div class="flex items-center justify-between py-4-pages" {
+            span class="text-[13px] text-muted" { "共 " (total) " 条记录，第 " (current_page) "/" (total_pages) " 页" }
+            div class="flex gap-1" {
                 @if current_page > 1 {
                     (htmx_page_link(base_path, current_page - 1, "«", Some((hx_target, hx_swap))))
                 }
                 @for p in page_range(current_page, total_pages) {
                     @if p == 0 {
-                        button class="w-[34px] h-[34px] grid place-items-center border border-border-soft rounded-sm bg-bg text-fg text-sm cursor-pointer no-underline" disabled { "…" }
+                        button class="w-[34px] h-[34px] grid place-items-center border border-border-soft rounded-sm bg-white text-fg-2 text-sm cursor-pointer hover:bg-surface hover:text-fg border border-border-soft transition-colors" disabled { "…" }
                     } @else if p == current_page {
-                        button class="w-[34px] h-[34px] grid place-items-center border border-border-soft rounded-sm bg-bg text-fg text-sm cursor-pointer no-underline active" disabled { (p) }
+                        button class="w-[34px] h-[34px] grid place-items-center border border-border-soft rounded-sm bg-accent text-white text-sm font-semibold cursor-pointer" disabled { (p) }
                     } @else {
                         (htmx_page_link(base_path, p, &p.to_string(), Some((hx_target, hx_swap))))
                     }
@@ -87,16 +87,16 @@ pub fn htmx_pagination_inherited(
 
     html! {
         div class="flex items-center justify-between py-4" {
-            span { "共 " (total) " 条记录，第 " (current_page) "/" (total_pages) " 页" }
-            div class="flex items-center justify-between py-4-pages" {
+            span class="text-[13px] text-muted" { "共 " (total) " 条记录，第 " (current_page) "/" (total_pages) " 页" }
+            div class="flex gap-1" {
                 @if current_page > 1 {
                     (htmx_page_link(base_path, current_page - 1, "«", None))
                 }
                 @for p in page_range(current_page, total_pages) {
                     @if p == 0 {
-                        button class="w-[34px] h-[34px] grid place-items-center border border-border-soft rounded-sm bg-bg text-fg text-sm cursor-pointer no-underline" disabled { "…" }
+                        button class="w-[34px] h-[34px] grid place-items-center border border-border-soft rounded-sm bg-white text-fg-2 text-sm cursor-pointer hover:bg-surface hover:text-fg border border-border-soft transition-colors" disabled { "…" }
                     } @else if p == current_page {
-                        button class="w-[34px] h-[34px] grid place-items-center border border-border-soft rounded-sm bg-bg text-fg text-sm cursor-pointer no-underline active" disabled { (p) }
+                        button class="w-[34px] h-[34px] grid place-items-center border border-border-soft rounded-sm bg-accent text-white text-sm font-semibold cursor-pointer" disabled { (p) }
                     } @else {
                         (htmx_page_link(base_path, p, &p.to_string(), None))
                     }
@@ -114,10 +114,10 @@ fn htmx_page_link(base_path: &str, page: u32, label: &str, target_swap: Option<(
     let url = format!("{base_path}{sep}page={page}");
     match target_swap {
         Some((t, s)) => html! {
-            a class="w-[34px] h-[34px] grid place-items-center border border-border-soft rounded-sm bg-bg text-fg text-sm cursor-pointer no-underline" href=(url) hx-get=(url) hx-target=(t) hx-swap=(s) { (label) }
+            a class="w-[34px] h-[34px] grid place-items-center border border-border-soft rounded-sm bg-white text-fg-2 text-sm cursor-pointer hover:bg-surface hover:text-fg border border-border-soft transition-colors" href=(url) hx-get=(url) hx-target=(t) hx-swap=(s) { (label) }
         },
         None => html! {
-            a class="w-[34px] h-[34px] grid place-items-center border border-border-soft rounded-sm bg-bg text-fg text-sm cursor-pointer no-underline" href=(url) hx-get=(url) { (label) }
+            a class="w-[34px] h-[34px] grid place-items-center border border-border-soft rounded-sm bg-white text-fg-2 text-sm cursor-pointer hover:bg-surface hover:text-fg border border-border-soft transition-colors" href=(url) hx-get=(url) { (label) }
         },
     }
 }
@@ -130,7 +130,7 @@ fn page_link(base_path: &str, query: &str, page: u32, label: &str) -> Markup {
     };
 
     html! {
-        a class="w-[34px] h-[34px] grid place-items-center border border-border-soft rounded-sm bg-bg text-fg text-sm cursor-pointer no-underline" href=(format!("{base_path}?{qs}")) { (label) }
+        a class="w-[34px] h-[34px] grid place-items-center border border-border-soft rounded-sm bg-white text-fg-2 text-sm cursor-pointer hover:bg-surface hover:text-fg border border-border-soft transition-colors" href=(format!("{base_path}?{qs}")) { (label) }
     }
 }
 

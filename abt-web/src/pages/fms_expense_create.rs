@@ -142,7 +142,7 @@ fn expense_create_page() -> Markup {
                         span { "费用明细" }
                         span style="font-size:14px;font-weight:400;color:var(--muted)" { "合计：" strong id="totalDisplay" style="color:var(--accent);font-family:var(--font-mono)" { "¥0.00" } }
                     }
-                    div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)] overflow-x-auto" {
+                    div class="overflow-x-auto" {
                         table class="w-full border-separate border-spacing-0" style="min-width:800px" {
                             thead {
                                 tr {

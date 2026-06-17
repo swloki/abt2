@@ -330,7 +330,7 @@ fn reconciliation_row(
  span class="font-mono tabular-nums font-semibold" { (crate::utils::fmt_amount(r.difference)) }
  }
  td onclick=(&onclick) {
- span class=(format!("status-pill {status_class}")) { (status_text) }
+ span class=(format!("status-pill {}", crate::utils::status_color(status_class))) { (status_text) }
  }
  td onclick="event.stopPropagation()" {
  div class="row-actions flex items-center gap-1 justify-end opacity-0 transition-opacity duration-150 [&_a]:w-[28px] [&_a]:h-[28px] [&_a]:grid [&_a]:place-items-center [&_a]:rounded-sm [&_a]:cursor-pointer [&_a]:bg-surface [&_a]:hover:bg-accent-bg [&_svg]:w-3.5 [&_svg]:h-3.5" {

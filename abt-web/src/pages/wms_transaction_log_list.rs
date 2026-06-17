@@ -127,9 +127,7 @@ fn transaction_list_page(
  div class="flex items-center justify-between mb-6" {
  h1 class="text-xl font-bold text-fg tracking-tight" { "库存事务日志" }
  div class="flex gap-3" {
- span style="font-size:var(--text-xs);color:var(--muted);display:flex;align-items:center;gap:var(--space-2);background:var(--surface);border:1px solid var(--border-soft);border-radius:var(--radius-md);padding:var(--space-1) var(--space-3)" {
- (crate::components::icon::lock_icon("w-4 h-4"))
- "Append-Only：事务日志仅追加，不可修改历史记录"
+ span class="inline-flex items-center gap-2 text-xs text-muted bg-surface border border-border-soft rounded-md px-3 py-1" {
  }
  }
  }
@@ -142,7 +140,7 @@ fn transaction_list_page(
 
 fn transaction_filter_form(params: &TransactionLogQueryParams) -> Markup {
  html! {
- form class="flex items-center gap-3 mb-5 flex-wrap filter-form" id="transaction-filter-form"
+ form class="flex items-center gap-3 mb-6 flex-wrap filter-form" id="transaction-filter-form"
  hx-get=(TransactionListPath::PATH)
  hx-trigger="change,keyup changed delay:300ms from:.search-input"
  hx-target="#transaction-data-card"
@@ -150,16 +148,15 @@ fn transaction_filter_form(params: &TransactionLogQueryParams) -> Markup {
  hx-swap="outerHTML"
  hx-include="#transaction-filter-form"
  hx-push-url="true" {
- div class="relative flex-1 max-w-xs [&_svg]:absolute [&_svg]:left-3 [&_svg]:top-1/2 [&_svg]:-translate-y-1/2 [&_svg]:w-4 [&_svg]:h-4 [&_svg]:text-muted" {
+ div class="relative w-60 [&_svg]:absolute [&_svg]:left-3 [&_svg]:top-1/2 [&_svg]:-translate-y-1/2 [&_svg]:w-4 [&_svg]:h-4 [&_svg]:text-muted" {
  (icon::search_icon(""))
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="doc_number"
- style="width:180px"
- placeholder="单号"
+ input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input" type="text" name="doc_number"
+ placeholder="搜索单号…"
  value=(params.doc_number.as_deref().unwrap_or(""));
  }
- div class="relative flex-1 max-w-xs [&_svg]:absolute [&_svg]:left-3 [&_svg]:top-1/2 [&_svg]:-translate-y-1/2 [&_svg]:w-4 [&_svg]:h-4 [&_svg]:text-muted" {
+ div class="relative w-40 [&_svg]:absolute [&_svg]:left-3 [&_svg]:top-1/2 [&_svg]:-translate-y-1/2 [&_svg]:w-4 [&_svg]:h-4 [&_svg]:text-muted" {
  (icon::search_icon(""))
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="product"
+ input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input" type="text" name="product"
  placeholder="产品编码/名称"
  value=(params.product.as_deref().unwrap_or(""));
  }
@@ -181,11 +178,12 @@ fn transaction_filter_form(params: &TransactionLogQueryParams) -> Markup {
  select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="warehouse_id" {
  option value="" { "全部仓库" }
  }
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="date" name="start_date"
- style="width:160px;padding-left:12px"
+ input class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer" type="date" name="start_date"
+ style="width:140px"
  value=(params.start_date.as_deref().unwrap_or(""));
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="date" name="end_date"
- style="width:160px;padding-left:12px"
+ span class="text-muted leading-9" { "~" }
+ input class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer" type="date" name="end_date"
+ style="width:140px"
  value=(params.end_date.as_deref().unwrap_or(""));
  }
  }
@@ -201,14 +199,14 @@ fn transaction_data_card(
  html! {
  div id="transaction-data-card" class="data-card" {
  div class="overflow-x-auto" {
- table class="data-table" style="min-width:1360px" {
+ table class="data-table" {
  thead {
  tr {
  th { "事务类型" }
  th { "产品编码" }
  th { "产品名称" }
  th { "仓库" }
- th { "储位" }
+ th { "库位" }
  th class="text-right text-[13px]" { "数量" }
  th { "来源类型" }
  th { "来源单号" }
@@ -246,7 +244,7 @@ fn transaction_row(txn: &abt_core::wms::inventory::model::TransactionDetailView)
  html! {
  tr {
  td {
- span class=(format!("txn-type {css_class}")) style="display:inline-flex;align-items:center;padding:2px 10px;border-radius:var(--radius-pill);font-size:11px;font-weight:500;white-space:nowrap" {
+ span class=(format!("inline-flex items-center rounded-full text-[11px] font-medium px-2.5 py-0.5 whitespace-nowrap {}", css_class)) {
  (label)
  }
  }
@@ -256,11 +254,11 @@ fn transaction_row(txn: &abt_core::wms::inventory::model::TransactionDetailView)
  td class="font-mono tabular-nums" { (txn.bin_code) }
  td class="text-right text-[13px]" {
  @if is_positive {
- span class="qty-positive" style="color:var(--success);font-weight:600" {
+ span class="font-semibold text-success" {
  "+" (qty_fmt)
  }
  } @else {
- span class="qty-negative" style="color:var(--danger);font-weight:600" {
+ span class="font-semibold text-danger" {
  "-" (qty_fmt)
  }
  }
@@ -270,7 +268,7 @@ fn transaction_row(txn: &abt_core::wms::inventory::model::TransactionDetailView)
  @if txn.source_id > 0 {
  "#" (txn.source_id)
  } @else {
- span style="color:var(--muted)" { "—" }
+ span class="text-muted" { "—" }
  }
  }
  td { (txn.operator_name) }

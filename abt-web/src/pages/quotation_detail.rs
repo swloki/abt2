@@ -153,7 +153,7 @@ fn quotation_detail_page(
  div class="block bg-bg border border-border-soft rounded-lg p-6" {
  div class="flex items-center justify-between" {
  h1 class="text-2xl font-extrabold font-mono tabular-nums" { (q.doc_number) }
- span class=(format!("status-pill {status_class}")) { (status_text) }
+ span class=(format!("status-pill {}", crate::utils::status_color(status_class))) { (status_text) }
  }
  div class="flex gap-3" {
  @if is_draft {

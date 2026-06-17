@@ -248,7 +248,7 @@ fn supplier_row(s: &Supplier, can_delete: bool, can_edit: bool) -> Markup {
  }
  }
  td onclick=(format!("location.href='{}'", detail_path)) {
- span class=(format!("status-pill {status_class}")) { (status_label) }
+ span class=(format!("status-pill {}", crate::utils::status_color(status_class))) { (status_label) }
  }
  td onclick="event.stopPropagation()" {
  div class="row-actions flex items-center gap-1 justify-end opacity-0 transition-opacity duration-150 [&_a]:w-[28px] [&_a]:h-[28px] [&_a]:grid [&_a]:place-items-center [&_a]:rounded-sm [&_a]:cursor-pointer [&_a]:bg-surface [&_a]:hover:bg-accent-bg [&_svg]:w-3.5 [&_svg]:h-3.5" {

@@ -257,7 +257,7 @@ fn reconciliation_detail_page(
  div {
  div class="flex items-center justify-between" {
  h1 class="text-2xl font-extrabold font-mono tabular-nums" { (rec.doc_number) }
- span class=(format!("status-pill {status_class}")) { (status_text) }
+ span class=(format!("status-pill {}", crate::utils::status_color(status_class))) { (status_text) }
  }
  div class="text-[13px] text-muted" {
  "对账期间：" (rec.period.as_str())

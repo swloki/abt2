@@ -541,7 +541,7 @@ fn stock_detail_content(
  div class="detail-flex flex-col gap-1" { label { "产品名称" } span { (p_name) } }
  div class="detail-flex flex-col gap-1" { label { "仓库" } span { (warehouse) } }
  div class="detail-flex flex-col gap-1" { label { "库区" } span { (zone) } }
- div class="detail-flex flex-col gap-1" { label { "储位" } span class="font-mono tabular-nums" { (bin) } }
+ div class="detail-flex flex-col gap-1" { label { "库位" } span class="font-mono tabular-nums" { (bin) } }
  div class="detail-flex flex-col gap-1" { label { "批次号" } span class="font-mono tabular-nums" { (item.batch_no.as_deref().unwrap_or("—")) } }
  }
  }

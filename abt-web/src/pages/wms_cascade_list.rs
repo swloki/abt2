@@ -43,13 +43,14 @@ fn cascade_page(result: Option<&CascadeInventoryResult>) -> Markup {
  html! {
  div {
  div class="flex items-center justify-between mb-6" {
- h1 class="text-xl font-bold text-fg tracking-tight " { "级联库存查询" }
+ h1 class="text-xl font-bold text-fg tracking-tight" { "级联库存查询" }
  }
 
- div class="cascade-search " style="background:var(--bg);border:1px solid var(--border-soft);border-radius:var(--radius-md);padding:var(--space-5) var(--space-6);margin-bottom:var(--space-6);display:flex;align-items:center;gap:var(--space-3)" {
- div class="relative flex-1 max-w-xs " style="flex:1" {
- (icon::search_icon("w-4 h-4"))
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent " type="text" name="product_code"
+ // ── Search bar ──
+ div class="flex items-center gap-3 bg-bg border border-border-soft rounded-md py-5 px-6 mb-6" {
+ div class="relative flex-1 [&_svg]:absolute [&_svg]:left-3 [&_svg]:top-1/2 [&_svg]:-translate-y-1/2 [&_svg]:w-4 [&_svg]:h-4 [&_svg]:text-muted" {
+ (icon::search_icon(""))
+ input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input" type="text" name="product_code"
  placeholder="输入产品编码或产品名称"
  hx-get=(CascadeListPath::PATH)
  hx-trigger="keyup changed delay:500ms"
@@ -57,7 +58,7 @@ fn cascade_page(result: Option<&CascadeInventoryResult>) -> Markup {
  hx-target=".cascade-results"
  hx-swap="innerHTML";
  }
- button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+ button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
  hx-get=(CascadeListPath::PATH)
  hx-target=".cascade-results"
  hx-swap="innerHTML"
@@ -67,11 +68,12 @@ fn cascade_page(result: Option<&CascadeInventoryResult>) -> Markup {
  }
  }
 
- div class="cascade-results " {
+ // ── Results ──
+ div class="cascade-results" {
  @if let Some(r) = result {
  (cascade_results(r))
  } @else {
- div style="text-align:center;padding:var(--space-8);color:var(--muted)" {
+ div class="text-center py-8 text-muted" {
  "请输入产品编码进行查询"
  }
  }
@@ -83,34 +85,26 @@ fn cascade_page(result: Option<&CascadeInventoryResult>) -> Markup {
 fn cascade_results(result: &CascadeInventoryResult) -> Markup {
  html! {
  div {
- // Product info card
- div class="cascade-product " style="background:linear-gradient(135deg,#e6f4ff 0%,#f0f7ff 100%);border:1px solid rgba(22,119,255,0.15);border-radius:var(--radius-md);padding:var(--space-5) var(--space-6);margin-bottom:var(--space-6);display:flex;align-items:center;gap:var(--space-5)" {
- div class="cascade-product-icon " style="width:48px;height:48px;border-radius:var(--radius-md);background:linear-gradient(135deg,var(--accent) 0%,#4096ff 100%);display:grid;place-items:center;flex-shrink:0" {
+ div class="flex items-center gap-5 p-5 px-6 mb-6 rounded-md bg-[linear-gradient(135deg,#e6f4ff_0%,#f0f7ff_100%)] border border-[rgba(22,119,255,0.15)]" {
+ div class="w-12 h-12 rounded-md grid place-items-center shrink-0 bg-[linear-gradient(135deg,var(--accent)_0%,#4096ff_100%)] text-white" {
  (icon::box_icon("w-6 h-6"))
  }
- div class="cascade-product-info " style="flex:1" {
- div class="cascade-product-name " style="font-size:var(--text-lg);font-weight:700;color:var(--fg);margin-bottom:var(--space-1)" {
- (result.product_name)
+ div class="flex-1" {
+ div class="text-lg font-bold text-fg mb-1" { (result.product_name) }
+ div class="text-sm text-muted font-mono" { (result.product_code) }
  }
- div class="cascade-product-code " style="font-size:var(--text-sm);color:var(--muted);font-family:var(--font-mono)" {
- (result.product_code)
- }
- }
- div class="cascade-product-stock " style="text-align:right" {
- div style="font-size:12px;color:var(--muted)" { "当前库存总量" }
- div style="font-size:var(--text-2xl);font-weight:700;color:var(--fg);font-family:var(--font-mono)" {
+ div class="text-right" {
+ div class="text-xs text-muted" { "当前库存总量" }
+ div class="text-2xl font-bold font-mono text-fg" {
  (format!("{:.2}", result.total_quantity))
  }
  }
  }
-
- // BOM groups
  @for group in &result.bom_groups {
  (bom_group(group))
  }
-
  @if result.bom_groups.is_empty() {
- div style="text-align:center;padding:var(--space-8);color:var(--muted)" {
+ div class="text-center py-8 text-muted" {
  "该产品无关联BOM"
  }
  }
@@ -120,19 +114,19 @@ fn cascade_results(result: &CascadeInventoryResult) -> Markup {
 
 fn bom_group(group: &BomCascadeGroup) -> Markup {
  html! {
- div class="bom-section " style="margin-bottom:var(--space-6)" {
- div class="bom-header " style="display:flex;align-items:center;gap:var(--space-3);margin-bottom:var(--space-3)" {
- span class="bom-badge " style="display:inline-flex;align-items:center;gap:var(--space-1);padding:3px 12px;border-radius:var(--radius-pill);font-size:12px;font-weight:600;background:var(--accent-bg);color:var(--accent)" {
+ div class="mb-6" {
+ div class="flex items-center gap-3 mb-3" {
+ span class="inline-flex items-center gap-1 px-3 py-0.5 rounded-full text-xs font-semibold bg-accent-bg text-accent" {
  (icon::box_icon("w-3.5 h-3.5"))
  "BOM"
  }
- span class="bom-name " style="font-size:var(--text-base);font-weight:600;color:var(--fg)" {
+ span class="text-base font-semibold text-fg" {
  (group.bom_name)
  }
  }
- div class="data-card " {
- div class="overflow-x-auto " {
- table class="data-table " style="min-width:860px" {
+ div class="data-card" {
+ div class="overflow-x-auto" {
+ table class="data-table" {
  thead {
  tr {
  th { "子件编码" }
@@ -150,7 +144,7 @@ fn bom_group(group: &BomCascadeGroup) -> Markup {
  }
  @if group.children.is_empty() {
  tr {
- td colspan="7" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
+ td colspan="7" class="text-center py-8 text-muted" {
  "无子件数据"
  }
  }
@@ -162,39 +156,38 @@ fn bom_group(group: &BomCascadeGroup) -> Markup {
  }
  }
 }
-
 fn bom_child_row(child: &ChildNodeInventory) -> Markup {
  let is_shortage = child.total_stock < child.quantity;
  let loss_pct = child.loss_rate * Decimal::from(100);
 
  html! {
  tr {
- td class="font-mono tabular-nums " { (child.product_code) }
+ td class="font-mono tabular-nums" { (child.product_code) }
  td { (child.product_name) }
  td {
  @if let Some(ref u) = child.unit {
  (u)
  } @else {
- span style="color:var(--muted)" { "-" }
+ span class="text-muted" { "—" }
  }
  }
- td class="text-right text-[13px]" { (child.quantity) }
- td class="text-right text-[13px]" { (child.total_stock) }
- td class="text-right text-[13px]" {
+ td class="text-right text-[13px] font-mono tabular-nums" { (child.quantity) }
+ td class="text-right text-[13px] font-mono tabular-nums" { (child.total_stock) }
+ td class="text-right text-[13px] font-mono tabular-nums" {
  (format!("{:.1}%", loss_pct))
  }
  td {
  @if is_shortage {
- span class="shortage-cell " style="display:inline-flex;align-items:center;gap:var(--space-1);color:var(--danger);font-weight:600;font-family:var(--font-mono)" {
+ span class="inline-flex items-center gap-1 text-danger font-semibold font-mono" {
  (crate::components::icon::circle_alert_icon("w-3.5 h-3.5"))
  "缺料"
  }
  } @else {
- span class="ok-cell " style="color:var(--success);font-weight:500;font-family:var(--font-mono)" {
+ span class="text-success font-medium font-mono" {
  "充足"
  }
  }
  }
  }
- }
+}
 }

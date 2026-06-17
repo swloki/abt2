@@ -389,7 +389,7 @@ fn bom_row(bom: &Bom, cat_map: &HashMap<i64, String>, user_map: &HashMap<i64, St
  "v"(bom.version)
  }
  td onclick=(format!("location.href='{}'", detail_path)) {
- span class=(format!("status-pill {status_class}")) { (status_label) }
+ span class=(format!("status-pill {}", crate::utils::status_color(status_class))) { (status_label) }
  }
  td onclick=(format!("location.href='{}'", detail_path)) {
  @if let Some(creator_id) = bom.created_by {

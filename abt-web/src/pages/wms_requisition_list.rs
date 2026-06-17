@@ -168,7 +168,7 @@ fn requisition_list_page(
  h1 class="text-xl font-bold text-fg tracking-tight" { "领料单" }
  div class="flex gap-3" {
  @if can_create {
- a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(RequisitionCreatePath::PATH) {
+ a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(RequisitionCreatePath::PATH) {
  (icon::plus_icon("w-4 h-4"))
  "新建领料单"
  }
@@ -205,7 +205,7 @@ fn requisition_table_fragment(
  div class="requisition-list-panel" {
  (status_tabs_with_param(RequisitionListPath::PATH, "#requisition-data-card", "#requisition-filter-form", tabs, &active_value, "status"))
 
- form class="flex items-center gap-3 mb-5 flex-wrap filter-form" id="requisition-filter-form"
+ form class="flex items-center gap-3 mb-6 flex-wrap filter-form" id="requisition-filter-form"
  hx-get=(RequisitionListPath::PATH)
  hx-trigger="change, keyup changed delay:300ms from:.search-input"
  hx-target="#requisition-data-card"
@@ -213,16 +213,15 @@ fn requisition_table_fragment(
  hx-swap="outerHTML"
  hx-include="#requisition-filter-form"
  hx-push-url="true" {
- div class="relative flex-1 max-w-xs [&_svg]:absolute [&_svg]:left-3 [&_svg]:top-1/2 [&_svg]:-translate-y-1/2 [&_svg]:w-4 [&_svg]:h-4 [&_svg]:text-muted" {
+ div class="relative w-60 [&_svg]:absolute [&_svg]:left-3 [&_svg]:top-1/2 [&_svg]:-translate-y-1/2 [&_svg]:w-4 [&_svg]:h-4 [&_svg]:text-muted" {
  (icon::search_icon(""))
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="doc_number"
- style="width:180px"
- placeholder="单据编号"
+ input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input" type="text" name="doc_number"
+ placeholder="搜索单据编号…"
  value=(params.doc_number.as_deref().unwrap_or(""));
  }
- div class="relative flex-1 max-w-xs [&_svg]:absolute [&_svg]:left-3 [&_svg]:top-1/2 [&_svg]:-translate-y-1/2 [&_svg]:w-4 [&_svg]:h-4 [&_svg]:text-muted" {
+ div class="relative w-40 [&_svg]:absolute [&_svg]:left-3 [&_svg]:top-1/2 [&_svg]:-translate-y-1/2 [&_svg]:w-4 [&_svg]:h-4 [&_svg]:text-muted" {
  (icon::search_icon(""))
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="work_order"
+ input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input" type="text" name="work_order"
  placeholder="关联工单"
  value=(params.work_order.as_deref().unwrap_or(""));
  }
@@ -292,22 +291,24 @@ fn requisition_row(
  let operator_name = operator_names.get(&r.operator_id).map(|s| s.as_str()).unwrap_or("—");
 
  html! {
- tr style="cursor:pointer" {
- td class="text-accent font-medium cursor-pointer font-mono tabular-nums" onclick=(&onclick) { (r.doc_number) }
- td class="font-mono tabular-nums" onclick=(&onclick) { "WO-" (r.work_order_id) }
- td onclick=(&onclick) { (warehouse_name) }
- td class="font-mono tabular-nums" onclick=(&onclick) { (r.requisition_date.format("%Y-%m-%d")) }
- td onclick=(&onclick) {
- span class=(format!("status-pill {status_class}")) { (status_text) }
+ tr {
+ td {
+ a class="text-accent font-medium font-mono tabular-nums hover:underline" href=(detail_path.to_string()) { (r.doc_number) }
  }
- td onclick=(&onclick) { (operator_name) }
- td onclick="event.stopPropagation()" {
- div class="row-actions flex items-center gap-1 justify-end opacity-0 transition-opacity duration-150 [&_a]:w-[28px] [&_a]:h-[28px] [&_a]:grid [&_a]:place-items-center [&_a]:rounded-sm [&_a]:cursor-pointer [&_a]:bg-surface [&_a]:hover:bg-accent-bg [&_svg]:w-3.5 [&_svg]:h-3.5" {
- a class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" href=(detail_path.to_string()) title="查看" {
+ td class="font-mono tabular-nums text-fg-2" { "WO-" (r.work_order_id) }
+ td { (warehouse_name) }
+ td class="font-mono tabular-nums" { (r.requisition_date.format("%Y-%m-%d")) }
+ td {
+ span class=(format!("status-pill {}", crate::utils::status_color(status_class))) { (status_text) }
+ }
+ td { (operator_name) }
+ td {
+ div class="flex items-center gap-1 justify-end" {
+ a class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer hover:bg-accent-bg" href=(detail_path.to_string()) title="查看" {
  (icon::eye_icon("w-4 h-4"))
  }
  }
  }
  }
- }
+}
 }

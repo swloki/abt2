@@ -153,7 +153,7 @@ fn exception_type_label(t: &ExceptionType) -> Markup {
  ExceptionType::InspectionFailed => ("报检不合格", "status-confirmed"),
  ExceptionType::EquipmentFault => ("设备故障", "status-progress"),
  };
- html! { span class=(format!("status-pill {cls}")) { (label) } }
+ html! { span class=(format!("status-pill {}", crate::utils::status_color(cls))) { (label) } }
 }
 
 fn exception_status_label(s: &ExceptionStatus) -> Markup {
@@ -164,5 +164,5 @@ fn exception_status_label(s: &ExceptionStatus) -> Markup {
  ExceptionStatus::ConditionalRelease => ("条件放行", "status-inspecting"),
  ExceptionStatus::Resolved => ("已恢复", "status-completed"),
  };
- html! { span class=(format!("status-pill {cls}")) { (label) } }
+ html! { span class=(format!("status-pill {}", crate::utils::status_color(cls))) { (label) } }
 }

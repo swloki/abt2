@@ -54,7 +54,6 @@ impl StrategyRepo {
                 r#"
                 SELECT id, name, strategy_type, warehouse_id, product_category_id, priority, is_active
                 FROM putaway_strategies
-                WHERE is_active = TRUE
                 ORDER BY priority
                 "#,
             )
@@ -114,7 +113,6 @@ impl StrategyRepo {
                 r#"
                 SELECT id, name, strategy_type, warehouse_id, priority, is_active
                 FROM pick_strategies
-                WHERE is_active = TRUE
                 ORDER BY priority
                 "#,
             )

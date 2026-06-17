@@ -33,37 +33,37 @@ fn status_label(s: SalesOrderStatus) -> (&'static str, &'static str) {
  SalesOrderStatus::PartiallyShipped => ("部分发货", "status-progress"),
  SalesOrderStatus::Shipped => ("已发货", "status-shipped"),
  SalesOrderStatus::Completed => ("已完成", "status-completed"),
- SalesOrderStatus::Cancelled => ("已取消", "status-rejected"),
+ SalesOrderStatus::Cancelled => ("已取消", "status-cancelled"),
  }
 }
 
 fn line_status_pill(s: SalesOrderLineStatus) -> (&'static str, &'static str) {
  match s {
- SalesOrderLineStatus::Pending => ("待处理", "line-status-pending"),
- SalesOrderLineStatus::Allocated => ("已分配", "line-status-allocated"),
- SalesOrderLineStatus::Producing => ("生产中", "line-status-producing"),
- SalesOrderLineStatus::Purchasing => ("采购中", "line-status-purchasing"),
- SalesOrderLineStatus::Shipped => ("已发货", "line-status-shipped"),
- SalesOrderLineStatus::Cancelled => ("已取消", "line-status-cancelled"),
+ SalesOrderLineStatus::Pending => ("待处理", "status-pending"),
+ SalesOrderLineStatus::Allocated => ("已分配", "status-confirmed"),
+ SalesOrderLineStatus::Producing => ("生产中", "status-warn"),
+ SalesOrderLineStatus::Purchasing => ("采购中", "status-purple"),
+ SalesOrderLineStatus::Shipped => ("已发货", "status-success"),
+ SalesOrderLineStatus::Cancelled => ("已取消", "status-cancelled"),
  }
 }
 
 fn fulfill_status_pill(s: FulfillmentLineStatus) -> (&'static str, &'static str) {
  match s {
- FulfillmentLineStatus::Pending => ("待处理", "line-status-pending"),
- FulfillmentLineStatus::Allocated => ("已分配", "line-status-allocated"),
- FulfillmentLineStatus::Producing => ("生产中", "line-status-producing"),
- FulfillmentLineStatus::Purchasing => ("采购中", "line-status-purchasing"),
- FulfillmentLineStatus::Fulfilled => ("已履约", "line-status-shipped"),
+ FulfillmentLineStatus::Pending => ("待处理", "status-pending"),
+ FulfillmentLineStatus::Allocated => ("已分配", "status-confirmed"),
+ FulfillmentLineStatus::Producing => ("生产中", "status-warn"),
+ FulfillmentLineStatus::Purchasing => ("采购中", "status-purple"),
+ FulfillmentLineStatus::Fulfilled => ("已履约", "status-success"),
  }
 }
 
 fn acquire_tag(ch: AcquireChannel) -> (&'static str, &'static str) {
  match ch {
- AcquireChannel::SelfProduced | AcquireChannel::Legacy => ("自制", "self"),
- AcquireChannel::Purchased => ("外购", "purchase"),
- AcquireChannel::Outsourced => ("委外", "outsource"),
- AcquireChannel::NonInventory => ("非库存", "non-inventory"),
+ AcquireChannel::SelfProduced | AcquireChannel::Legacy => ("自制", "status-confirmed"),
+ AcquireChannel::Purchased => ("外购", "status-purple"),
+ AcquireChannel::Outsourced => ("委外", "status-warn"),
+ AcquireChannel::NonInventory => ("非库存", "status-muted"),
  }
 }
 
@@ -227,31 +227,30 @@ fn workflow_steps(current: SalesOrderStatus) -> Markup {
  let is_cancelled = current == SalesOrderStatus::Cancelled;
 
  html! {
- div class="flex items-center" {
+ div class="flex items-center mb-6" {
  @for (i, (label, _)) in steps.iter().enumerate() {
  @if i > 0 {
- @let line_class = if i <= current_idx && !is_cancelled { "wf-line completed" } else { "wf-line" };
- div class=(line_class) {}
+            div class=(format!("w-[48px] h-[2px] {}", if i <= current_idx && !is_cancelled { "bg-[#10b981]" } else { "bg-border" })) {}
  }
- @let step_class = if is_cancelled {
- "wf-step"
+ @let (dot_cls, text_cls, ring_cls) = if is_cancelled {
+ ("bg-border-soft", "text-muted", "")
  } else if i < current_idx {
- "wf-step completed"
+ ("bg-[#10b981]", "text-[#10b981]", "")
  } else if i == current_idx {
- "wf-step current"
+ ("bg-[#2563eb]", "text-[#2563eb] font-semibold", "shadow-[0_0_0_3px_rgba(37,99,235,0.1)]")
  } else {
- "wf-step"
+ ("bg-[#d1d5db]", "text-[#9ca3af]", "")
  };
- div class=(step_class) {
- span class="w-[10px] h-[10px] rounded-full bg-border" {}
- (label)
- }
+        div class="flex items-center gap-2 shrink-0" {
+            span class=(format!("w-2.5 h-2.5 rounded-full shrink-0 {} {}", dot_cls, ring_cls)) {}
+            span class=(format!("text-xs whitespace-nowrap font-medium {}", text_cls)) { (label) }
+        }
  }
  @if is_cancelled {
  div class="w-[48px] h-[2px] bg-border" {}
- div class="flex items-center gap-2 text-xs text-muted danger" {
- span class="w-[10px] h-[10px] rounded-full bg-border" {}
- "已取消"
+ div class="flex items-center gap-2 shrink-0" {
+ span class="w-2.5 h-2.5 rounded-full shrink-0 bg-[#ef4444]" {}
+ span class="text-xs text-[#ef4444] font-semibold whitespace-nowrap" { "已取消" }
  }
  }
  }
@@ -261,107 +260,116 @@ fn workflow_steps(current: SalesOrderStatus) -> Markup {
 // ── Fulfillment Progress Bar ──
 
 fn fulfillment_progress(items: &[SalesOrderItem], plan_lines: &[FulfillmentPlanLine]) -> Markup {
- // 聚合统计
- let total_ordered: Decimal = items.iter().map(|i| i.quantity).sum();
- let total_shipped: Decimal = items.iter().map(|i| i.shipped_qty).sum();
- let total_cancelled: Decimal = items.iter().map(|i| i.cancelled_qty).sum();
+    // 加权进度：基于数量（quantity），而非行数（line count）
+    let total_qty: Decimal = items.iter().map(|i| i.quantity).sum();
+    if total_qty <= Decimal::ZERO {
+        return html! {};
+    }
 
- // 从履行计划行聚合补货状态
- let mut total_allocated = Decimal::ZERO;
- let mut total_producing = Decimal::ZERO;
- let mut total_purchasing = Decimal::ZERO;
+    let shipped_qty: Decimal = items.iter().map(|i| i.shipped_qty).sum();
+    let allocated_qty: Decimal = plan_lines
+        .iter()
+        .filter(|p| p.status == FulfillmentLineStatus::Allocated)
+        .map(|p| p.reserved_qty)
+        .sum();
+    let producing_qty: Decimal = plan_lines
+        .iter()
+        .filter(|p| p.status == FulfillmentLineStatus::Producing)
+        .map(|p| p.shortage_qty)
+        .sum();
+    let purchasing_qty: Decimal = plan_lines
+        .iter()
+        .filter(|p| p.status == FulfillmentLineStatus::Purchasing)
+        .map(|p| p.shortage_qty)
+        .sum();
+    let pending_qty = total_qty - shipped_qty - allocated_qty - producing_qty - purchasing_qty;
+    let restock_qty = producing_qty + purchasing_qty; // 补货中 = 生产中 + 采购中
 
- for pl in plan_lines {
- match pl.status {
- FulfillmentLineStatus::Allocated => total_allocated += pl.required_qty - pl.reserved_qty,
- FulfillmentLineStatus::Producing => total_producing += pl.shortage_qty,
- FulfillmentLineStatus::Purchasing => total_purchasing += pl.shortage_qty,
- _ => {}
- }
- }
+    // 百分比辅助（trim .0 后缀，如 35.0% → 35%）
+    let pct_str = |qty: Decimal| -> String {
+        let v = (qty / total_qty * DECIMAL_100).round_dp(1);
+        let s = v.to_string();
+        if s.ends_with(".0") {
+            format!("{}%", &s[..s.len() - 2])
+        } else {
+            format!("{}%", s)
+        }
+    };
+    let pct_style = |qty: Decimal| -> String {
+        let v = (qty / total_qty * DECIMAL_100).round_dp(1);
+        format!("width:{}%", v)
+    };
 
- let total_open = total_ordered - total_shipped - total_cancelled;
- let active_total = total_ordered - total_cancelled;
-
- // 百分比（避免除以零）
- let pct = |v: Decimal| -> String {
- if active_total > Decimal::ZERO {
- let p = (v / active_total * DECIMAL_100)
- .round_dp_with_strategy(1, rust_decimal::RoundingStrategy::MidpointAwayFromZero);
- format!("{}%", p)
- } else {
- "0%".into()
- }
- };
-
- let pct_shipped = pct(total_shipped);
- let pct_allocated = pct(total_allocated);
- let pct_producing = pct(total_producing);
- let pct_purchasing = pct(total_purchasing);
- let pct_pending = pct(total_open - total_allocated - total_producing - total_purchasing);
-
- // 只有确认后且有关联数据才显示
- let show_bar = total_ordered > Decimal::ZERO;
-
- html! {
- @if show_bar {
- div class="bg-bg border border-border-soft rounded p-5" {
- div class="bg-bg border border-border-soft rounded p-5-header" {
- div class="bg-bg border border-border-soft rounded p-5-title" {
- (icon::chart_bar_icon("w-4 h-4"))
- "履约进度"
- }
- div class="flex gap-[24px]" {
- div class="text-center" {
- div class="text-[10px] text-muted mt-1-2xl font-bold font-mono tabular-nums tabular-nums text-fg green" { (fmt_qty(total_shipped)) }
- div class="text-[10px] text-muted mt-1-sm text-muted mt-1" { "已发货" }
- }
- div class="text-center" {
- div class="text-[10px] text-muted mt-1-2xl font-bold font-mono tabular-nums tabular-nums text-fg blue" { (fmt_qty(total_allocated)) }
- div class="text-[10px] text-muted mt-1-sm text-muted mt-1" { "已分配" }
- }
- div class="text-center" {
- div class="text-[10px] text-muted mt-1-2xl font-bold font-mono tabular-nums tabular-nums text-fg orange" { (fmt_qty(total_producing + total_purchasing)) }
- div class="text-[10px] text-muted mt-1-sm text-muted mt-1" { "补货中" }
- }
- div class="text-center" {
- div class="text-[10px] text-muted mt-1-2xl font-bold font-mono tabular-nums tabular-nums text-fg" { (fmt_qty(total_open)) }
- div class="text-[10px] text-muted mt-1-sm text-muted mt-1" { "未交量" }
- }
- }
- }
- div class="h-[8px] bg-border-soft overflow-hidden flex" {
- div class="h-1.5 bg-[rgba(0,0,0,0.06)] rounded-full overflow-hidden-shipped" style=(format!("width:{}", pct_shipped)) {}
- div class="bg-accent transition-all duration-600" style=(format!("width:{}", pct_allocated)) {}
- div class="bg-warn transition-all duration-600" style=(format!("width:{}", pct_producing)) {}
- div class="bg-[#8b5cf6] transition-all duration-600" style=(format!("width:{}", pct_purchasing)) {}
- div class="h-1.5 bg-[rgba(0,0,0,0.06)] rounded-full overflow-hidden-pending" style=(format!("width:{}", pct_pending)) {}
- }
- div class="flex gap-5 flex-wrap" {
- span class="flex gap-5 flex-wrap-item" {
- span class="progress-w-[10px] h-[3px]" style="background:var(--success)" {}
- "已发货 " (pct_shipped)
- }
- span class="flex gap-5 flex-wrap-item" {
- span class="progress-w-[10px] h-[3px]" style="background:var(--accent)" {}
- "已分配 " (pct_allocated)
- }
- span class="flex gap-5 flex-wrap-item" {
- span class="progress-w-[10px] h-[3px]" style="background:var(--warn)" {}
- "生产中 " (pct_producing)
- }
- span class="flex gap-5 flex-wrap-item" {
- span class="progress-w-[10px] h-[3px]" style="background:#8b5cf6" {}
- "采购中 " (pct_purchasing)
- }
- span class="flex gap-5 flex-wrap-item" {
- span class="progress-w-[10px] h-[3px]" style="background:var(--border)" {}
- "待处理 " (pct_pending)
- }
- }
- }
- }
- }
+    html! {
+        div class="bg-bg border border-border rounded-md py-5 px-6 mb-5" {
+            // Header: 标题 + 4 个统计箱
+            div class="flex items-center justify-between mb-4" {
+                div class="flex items-center gap-2 text-sm font-semibold text-fg" {
+                    (icon::chart_bar_icon("w-4 h-4 text-accent"))
+                    "履约进度"
+                }
+                div class="flex gap-6" {
+                    div class="text-center" {
+                        div class="text-lg font-bold font-mono tabular-nums text-success" { (crate::utils::fmt_qty(shipped_qty)) }
+                        div class="text-[11px] text-muted mt-0.5" { "已发货" }
+                    }
+                    div class="text-center" {
+                        div class="text-lg font-bold font-mono tabular-nums text-accent" { (crate::utils::fmt_qty(allocated_qty)) }
+                        div class="text-[11px] text-muted mt-0.5" { "已分配" }
+                    }
+                    div class="text-center" {
+                        div class="text-lg font-bold font-mono tabular-nums text-warn" { (crate::utils::fmt_qty(restock_qty)) }
+                        div class="text-[11px] text-muted mt-0.5" { "补货中" }
+                    }
+                    div class="text-center" {
+                        div class="text-lg font-bold font-mono tabular-nums text-fg" { (crate::utils::fmt_qty(pending_qty)) }
+                        div class="text-[11px] text-muted mt-0.5" { "未交量" }
+                    }
+                }
+            }
+            // 细进度条（8px 高，无文字）
+            div class="flex h-2 rounded overflow-hidden bg-border-soft" {
+                @if shipped_qty > Decimal::ZERO {
+                    div class="bg-success [transition:width_600ms_cubic-bezier(0.2,0,0,1)]" style=(pct_style(shipped_qty)) {}
+                }
+                @if allocated_qty > Decimal::ZERO {
+                    div class="bg-accent [transition:width_600ms_cubic-bezier(0.2,0,0,1)]" style=(pct_style(allocated_qty)) {}
+                }
+                @if producing_qty > Decimal::ZERO {
+                    div class="bg-warn [transition:width_600ms_cubic-bezier(0.2,0,0,1)]" style=(pct_style(producing_qty)) {}
+                }
+                @if purchasing_qty > Decimal::ZERO {
+                    div class="bg-[#8b5cf6] [transition:width_600ms_cubic-bezier(0.2,0,0,1)]" style=(pct_style(purchasing_qty)) {}
+                }
+                @if pending_qty > Decimal::ZERO {
+                    div class="bg-border [transition:width_600ms_cubic-bezier(0.2,0,0,1)]" style=(pct_style(pending_qty)) {}
+                }
+            }
+            // 图例
+            div class="flex gap-5 mt-3 flex-wrap" {
+                span class="flex items-center gap-1.5 text-[11px] text-muted" {
+                    span class="w-2 h-2 rounded-full shrink-0 bg-success" {}
+                    (format!("已发货 {}", pct_str(shipped_qty)))
+                }
+                span class="flex items-center gap-1.5 text-[11px] text-muted" {
+                    span class="w-2 h-2 rounded-full shrink-0 bg-accent" {}
+                    (format!("已分配 {}", pct_str(allocated_qty)))
+                }
+                span class="flex items-center gap-1.5 text-[11px] text-muted" {
+                    span class="w-2 h-2 rounded-full shrink-0 bg-warn" {}
+                    (format!("生产中 {}", pct_str(producing_qty)))
+                }
+                span class="flex items-center gap-1.5 text-[11px] text-muted" {
+                    span class="w-2 h-2 rounded-full shrink-0 bg-[#8b5cf6]" {}
+                    (format!("采购中 {}", pct_str(purchasing_qty)))
+                }
+                span class="flex items-center gap-1.5 text-[11px] text-muted" {
+                    span class="w-2 h-2 rounded-full shrink-0 bg-border" {}
+                    (format!("待处理 {}", pct_str(pending_qty)))
+                }
+            }
+        }
+    }
 }
 
 // ── Fulfillment Workbench ──
@@ -390,26 +398,27 @@ fn fulfillment_workbench(
  let demand_total = plan_lines.len();
 
  html! {
- div class="bg-bg border border-border-soft rounded overflow-hidden" {
- div class="flex items-center justify-between p-4 [border-bottom:1px_solid_var(--border-soft)] bg-surface-raised" {
- div class="flex items-center justify-between p-4 [border-bottom:1px_solid_var(--border-soft)] bg-surface-raised-left" {
+ div class="bg-bg border border-border rounded-md mt-5 overflow-hidden" {
+ // ── Header: 标题+badge 在左，操作按钮在右 ──
+ div class="flex items-center justify-between p-4 px-5 [border-bottom:1px_solid_var(--border-soft)] bg-bg" {
+ div class="flex items-center gap-3" {
  span class="text-sm font-semibold text-fg" { "履约工作台" }
- span class="bg-[#dbeafe] text-[#2563eb] rounded-full text-[11px] font-medium" { (format!("{} 行", demand_total)) }
+ span class="bg-[#dbeafe] text-[#2563eb] rounded-full text-[11px] font-medium px-2 py-0.5" { (format!("{} 行", demand_total)) }
  }
  div class="flex gap-2" {
- button class="fulfill-inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative" {
+ button class="inline-flex items-center gap-1 py-[5px] px-3 text-xs rounded-sm bg-white text-fg-2 border border-border hover:border-accent hover:text-accent font-medium cursor-pointer transition-all duration-150" {
  (icon::refresh_icon("w-3.5 h-3.5"))
  "刷新状态"
  }
- a class="fulfill-inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative" href="/admin/mes/demand-pool" title="生产需求池" {
+ a class="inline-flex items-center gap-1 py-[5px] px-3 text-xs rounded-sm bg-white text-fg-2 border border-border hover:border-accent hover:text-accent font-medium cursor-pointer transition-all duration-150" href="/admin/mes/demand-pool" title="生产需求池" {
  (icon::grid_icon("w-3.5 h-3.5"))
  "生产需求池"
  }
- a class="fulfill-inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative" href="/admin/purchase/demand-pool" title="采购需求池" {
+ a class="inline-flex items-center gap-1 py-[5px] px-3 text-xs rounded-sm bg-white text-fg-2 border border-border hover:border-accent hover:text-accent font-medium cursor-pointer transition-all duration-150" href="/admin/purchase/demand-pool" title="采购需求池" {
  (icon::clipboard_document_icon("w-3.5 h-3.5"))
  "采购需求池"
  }
- button class="fulfill-inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative primary" {
+ button class="inline-flex items-center gap-1 py-[5px] px-3 text-xs rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover font-medium cursor-pointer transition-all duration-150" {
  (icon::truck_icon("w-3.5 h-3.5"))
  "创建发货单"
  }
@@ -417,46 +426,26 @@ fn fulfillment_workbench(
  }
 
  // ── 需求流转状态卡片 ──
- div style="display:grid;grid-template-columns:repeat(4,1fr);gap:var(--space-3);margin-bottom:var(--space-4);" {
- div class="flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4" {
- div class="flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4-icon" style="background:#dbeafe;color:var(--accent);" {
- (icon::clipboard_list_icon("w-4 h-4"))
+ div class="flex gap-3 p-4 flex-wrap" {
+ div class="flex-1 min-w-[120px] bg-surface-raised border border-border-soft rounded-md py-3 px-4 text-center" {
+ div class="text-[11px] text-muted mb-1" { "需求总数" }
+ div class="text-[22px] font-bold font-mono tabular-nums text-fg" { (demand_total) }
  }
- div {
- div class="flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4-value" { (demand_total) }
- div class="flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4-label" { "总需求行" }
+ div class="flex-1 min-w-[120px] bg-surface-raised border border-border-soft rounded-md py-3 px-4 text-center" {
+ div class="text-[11px] text-muted mb-1" { "待处理" }
+ div class="text-[22px] font-bold font-mono tabular-nums text-fg" { (demand_open) }
  }
+ div class="flex-1 min-w-[120px] bg-surface-raised border border-border-soft rounded-md py-3 px-4 text-center" {
+ div class="text-[11px] text-muted mb-1" { "处理中" }
+ div class="text-[22px] font-bold font-mono tabular-nums text-warn" { (demand_processing) }
  }
- div class="flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4" {
- div class="flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4-icon" style="background:#fef3c7;color:var(--warn);" {
- (icon::clock_icon("w-4 h-4"))
- }
- div {
- div class="flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4-value" { (demand_open) }
- div class="flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4-label" { "待处理" }
- }
- }
- div class="flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4" {
- div class="flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4-icon" style="background:#ede9fe;color:#7c3aed;" {
- (icon::refresh_icon("w-4 h-4"))
- }
- div {
- div class="flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4-value" { (demand_processing) }
- div class="flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4-label" { "处理中" }
- }
- }
- div class="flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4" {
- div class="flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4-icon" style="background:#dcfce7;color:var(--success);" {
- (icon::check_circle_icon("w-4 h-4"))
- }
- div {
- div class="flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4-value" { (demand_done) }
- div class="flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4-label" { "已完成" }
- }
+ div class="flex-1 min-w-[120px] bg-surface-raised border border-border-soft rounded-md py-3 px-4 text-center" {
+ div class="text-[11px] text-muted mb-1" { "已完成" }
+ div class="text-[22px] font-bold font-mono tabular-nums text-success" { (demand_done) }
  }
  }
 
- table class="data-table" {
+ table class="data-table mb-6" {
  thead {
  tr {
  th { "产品" }
@@ -561,15 +550,15 @@ fn fulfill_plan_row(
  };
 
  html! {
- tr class=(if effective_shortage > Decimal::ZERO { "text-danger" } else if pl.reserved_qty > Decimal::ZERO { "text-warning" } else { "" }) {
+ tr class=(if effective_shortage > Decimal::ZERO { "text-danger" } else if pl.reserved_qty > Decimal::ZERO { "text-warn" } else { "" }) {
  td {
- div class="product-cell" {
- span class="product-name" { (p_name) }
- span class="product-code" { (p_code) }
+ div {
+ span class="block font-medium text-fg text-sm" { (p_name) }
+ span class="block text-xs text-muted mt-0.5 font-mono tabular-nums" { (p_code) }
  }
  }
  td {
- span class=(format!("acquire-tag {}", ch_class)) { (ch_label) }
+ span class=(format!("status-pill {}", crate::utils::status_color(ch_class))) { (ch_label) }
  }
  td class="text-right text-[13px]" { (fmt_qty(pl.required_qty)) }
  td class="text-right text-[13px]" { (fmt_qty(effective_qty)) }
@@ -592,7 +581,7 @@ fn fulfill_plan_row(
  span style=(format!("padding:2px 8px;border-radius:12px;font-size:12px;{}", demand_style)) { (demand_label) }
  }
  td {
- span class=(format!("line-status {}", st_class)) { (st_label) }
+ span class=(format!("status-pill {}", crate::utils::status_color(st_class))) { (st_label) }
  }
  td {
  @if let Some(doc) = downstream_doc {
@@ -627,67 +616,64 @@ fn order_detail_page(
  html! {
  div {
  // ── Back Link ──
- a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", OrderListPath::PATH)) {
+ a class="inline-flex items-center gap-1 text-sm text-muted hover:text-accent transition-colors mb-4 [&_svg]:w-4 [&_svg]:h-4" href=(format!("{}?restore=true", OrderListPath::PATH)) {
  (icon::chevron_left_icon("w-4 h-4"))
  "返回销售订单列表"
  }
 
- // ── Detail Header ──
- div class="block bg-bg border border-border-soft rounded-lg p-6" {
- div {
- div class="flex items-center justify-between" {
- h1 class="text-2xl font-extrabold font-mono tabular-nums" { (o.doc_number) }
- span class=(format!("status-pill {status_class}")) { (status_text) }
+ // ── Detail Header (flex layout, matching prototype) ──
+ div class="flex items-start justify-between mb-6" {
+ div class="flex items-center gap-3" {
+ h1 class="text-xl font-bold font-mono tabular-nums text-fg" { (o.doc_number) }
+ span class=(format!("status-pill {}", crate::utils::status_color(status_class))) { (status_text) }
  }
- }
- div class="flex gap-3" {
- button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" {
+ div class="flex gap-2" {
+ button class="inline-flex items-center gap-2 py-[6px] px-3 text-[13px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent font-medium cursor-pointer transition-all duration-150 shadow-xs" {
  (icon::printer_icon("w-4 h-4"))
  "打印"
  }
  @if matches!(o.status, SalesOrderStatus::Confirmed | SalesOrderStatus::PartiallyShipped) {
- a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href="#" {
+ a class="inline-flex items-center gap-2 py-[6px] px-3 text-[13px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href="#" {
  (icon::truck_icon("w-4 h-4"))
  "创建发货申请"
  }
  }
  @if o.status == SalesOrderStatus::Draft {
- button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+ button class="inline-flex items-center gap-2 py-[6px] px-3 text-[13px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
  hx-post=(ConfirmOrderPath { id: o.id }.to_string())
  hx-confirm="确认审核此订单？" { "确认订单" }
  }
  @if matches!(o.status, SalesOrderStatus::Draft | SalesOrderStatus::Confirmed) {
- button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-danger text-white border-none hover:opacity-90"
+ button class="inline-flex items-center gap-2 py-[6px] px-3 text-[13px] rounded-sm bg-[#fff1f0] text-[#cf1322] border border-[rgba(207,19,34,0.2)] hover:bg-[#ffe0e0] font-medium cursor-pointer transition-all duration-150"
  hx-post=(CancelOrderPath { id: o.id }.to_string())
  hx-confirm="确认取消此订单？取消后不可恢复。" { "取消订单" }
  }
  }
  }
 
-
- // ── Smart Buttons（参考 Odoo oe_button_box）──
+ // ── Smart Buttons ──
  @if producing_count > 0 || purchasing_count > 0 || cascade_count > 0 {
- div class="flex gap-3 mb-4" {
+ div class="flex gap-3 mb-6" {
  @if producing_count > 0 {
- a class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)] flex items-center gap-2 px-4 py-2 hover:shadow-md transition-shadow"
+ a class="inline-flex items-center gap-2 px-4 py-2 rounded-md border border-border-soft bg-bg shadow-xs hover:shadow-md transition-shadow text-sm"
  href=(format!("/admin/mes/demand-pool?order_id={}", order_id))
  {
- span class="text-2xl font-bold text-blue-600" { (producing_count) }
- span class="text-sm text-gray-500" { "自制需求" }
+ span class="text-lg font-bold text-accent font-mono tabular-nums" { (producing_count) }
+ span class="text-muted" { "自制需求" }
  }
  }
  @if purchasing_count > 0 {
- a class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)] flex items-center gap-2 px-4 py-2 hover:shadow-md transition-shadow"
+ a class="inline-flex items-center gap-2 px-4 py-2 rounded-md border border-border-soft bg-bg shadow-xs hover:shadow-md transition-shadow text-sm"
  href=(format!("/admin/purchase/demand-pool?order_id={}", order_id))
  {
- span class="text-2xl font-bold text-orange-600" { (purchasing_count) }
- span class="text-sm text-gray-500" { "采购需求" }
+ span class="text-lg font-bold text-warn font-mono tabular-nums" { (purchasing_count) }
+ span class="text-muted" { "采购需求" }
  }
  }
  @if cascade_count > 0 {
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)] flex items-center gap-2 px-4 py-2" {
- span class="text-2xl font-bold text-purple-600" { (cascade_count) }
- span class="text-sm text-gray-500" { "BOM展开需求" }
+ div class="inline-flex items-center gap-2 px-4 py-2 rounded-md border border-border-soft bg-bg shadow-xs text-sm" {
+ span class="text-lg font-bold text-[#7c3aed] font-mono tabular-nums" { (cascade_count) }
+ span class="text-muted" { "BOM展开需求" }
  }
  }
  }
@@ -699,9 +685,9 @@ fn order_detail_page(
  (fulfillment_progress(items, plan_lines))
 
  // ── Order Info ──
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "订单信息" }
- div class="grid gap-4" {
+ div class="bg-bg border border-border-soft rounded-lg p-6 mb-5 shadow-[var(--shadow-card)]" {
+ div class="text-sm font-semibold text-fg mb-4 pb-3 [border-bottom:1px_solid_var(--border-soft)]" { "订单信息" }
+ div class="grid grid-cols-2 md:grid-cols-3 gap-4" {
  div class="flex flex-col gap-1" {
  span class="text-xs text-muted font-medium" { "客户名称" }
  span class="text-sm text-fg font-medium" { (customer_name) }
@@ -789,7 +775,7 @@ fn order_detail_page(
  // ── Remarks ──
  @if !o.remark.is_empty() {
  div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" style="margin-top:var(--space-6)" {
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "备注" }
+ div class="text-sm font-semibold text-fg mb-4" { "备注" }
  p class="text-muted" { (o.remark.as_str()) }
  }
  }
@@ -827,7 +813,7 @@ fn item_row(
  td class="text-right text-[13px]" { (crate::utils::fmt_amount(item.unit_price)) }
  td class="text-right text-[13px]" { (crate::utils::fmt_amount(item.amount)) }
  td {
- span class=(format!("line-status {}", ls_class)) { (ls_label) }
+ span class=(format!("status-pill {}", crate::utils::status_color(ls_class))) { (ls_label) }
  }
  td class="font-mono tabular-nums" { (delivery) }
  }

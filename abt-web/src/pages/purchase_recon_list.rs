@@ -288,7 +288,7 @@ fn precon_row(
  td onclick=(&onclick) { (supplier_name) }
  td class="font-mono tabular-nums" onclick=(&onclick) { (&r.period) }
  td onclick=(&onclick) {
- span class=(format!("status-pill {status_class}")) { (status_text) }
+ span class=(format!("status-pill {}", crate::utils::status_color(status_class))) { (status_text) }
  }
  td class="text-right text-[13px]" onclick=(&onclick) { (count) }
  td class="text-right text-[13px]" onclick=(&onclick) { (format_amount(r.total_amount)) }

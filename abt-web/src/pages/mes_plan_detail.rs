@@ -382,28 +382,28 @@ fn plan_detail_page(
  html! {
  div {
  // 返回
- a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", PlanListPath::PATH)) {
+ a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150 mb-4" href=(format!("{}?restore=true", PlanListPath::PATH)) {
  (icon::chevron_left_icon("w-4 h-4"))
  "返回计划列表"
  }
 
- // Detail Header
- div class="block bg-bg border border-border-soft rounded-lg p-6" {
+ // ═══ Detail Header (card-style per prototype) ═══
+ div class="bg-bg border border-border-soft rounded-lg p-6 mb-6 shadow-[var(--shadow-card)]" {
  // 标题行
- div class="flex items-center justify-between" {
- div class="text-[24px] font-bold text-fg flex items-center gap-[14px] font-mono tabular-nums" {
- span { (plan.doc_number) }
+ div class="flex items-center justify-between mb-4" {
+ div class="flex items-center gap-3" {
+ h1 class="text-xl font-bold font-mono tabular-nums" { (plan.doc_number) }
  (status_pill(status_label, status_bg, status_color))
  }
  div class="flex gap-3" {
  @if plan.status == PlanStatus::Confirmed {
- a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(format!("/admin/mes/plans/{}?tab=planning", plan.id)) {
+ a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(format!("/admin/mes/plans/{}?tab=planning", plan.id)) {
  (icon::rocket_icon("w-4 h-4"))
  "工单规划"
  }
  }
  @if plan.status == PlanStatus::Confirmed || plan.status == PlanStatus::InProgress {
- button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+ button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
  hx-post=(PlanSchedulePath { plan_id: plan.id }.to_string())
  hx-confirm="执行工序级排程？将根据工作日历和工作中心产能自动分配时段。" {
  (icon::calendar_icon("w-4 h-4"))
@@ -411,7 +411,7 @@ fn plan_detail_page(
  }
  }
  @if plan.status == PlanStatus::Draft {
- button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+ button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
  hx-post=(PlanConfirmPath { plan_id: plan.id }.to_string())
  hx-confirm="确认此生产计划？确认后进入已确认状态。" {
  (icon::check_circle_icon("w-4 h-4"))
@@ -421,36 +421,36 @@ fn plan_detail_page(
  }
  }
 
- // 来源追溯
- div class="flex items-center flex-wrap gap-2 text-muted text-sm" {
+ // 副标题行：来源追溯
+ div class="flex items-center flex-wrap gap-x-4 gap-y-1 mb-4 text-sm text-fg-2" {
  span { "创建人：" (op_name) }
- span class="sep" { "|" }
- span { (fmt_dt(plan.created_at)) }
+ span class="text-border" { "|" }
+ span class="font-mono" { (fmt_dt(plan.created_at)) }
  @if !plan.remark.is_empty() {
- span class="sep" { "|" }
+ span class="text-border" { "|" }
  span class="text-muted" { (plan.remark.as_str()) }
  }
  }
 
- // 信息 Grid（4 列）
- div class="grid gap-5 gap-4" {
- div class="detail-flex flex-col gap-1" {
- span class="detail-text-xs text-muted font-medium" { "计划日期" }
- span class="detail-text-sm text-fg font-medium font-mono tabular-nums" { (plan.plan_date) }
+ // 计划概览 Bento Grid（4 列）
+ div class="grid grid-cols-4 gap-5" {
+ div class="flex flex-col gap-[3px]" {
+ span class="text-xs text-muted font-medium" { "计划日期" }
+ span class="text-sm text-fg font-medium font-mono tabular-nums" { (plan.plan_date) }
  }
- div class="detail-flex flex-col gap-1" {
- span class="detail-text-xs text-muted font-medium" { "排产类型" }
- span class="detail-text-sm text-fg font-medium" { (type_label) }
+ div class="flex flex-col gap-[3px]" {
+ span class="text-xs text-muted font-medium" { "排产类型" }
+ span class="text-sm text-fg font-medium" { (type_label) }
  }
- div class="detail-flex flex-col gap-1" {
- span class="detail-text-xs text-muted font-medium" { "生产中心" }
- span class="detail-text-sm text-fg font-medium" { "—" }
- }
- div class="detail-flex flex-col gap-1" {
- span class="detail-text-xs text-muted font-medium" { "计划数量" }
- span class="detail-text-sm text-fg font-medium font-mono tabular-nums" {
+ div class="flex flex-col gap-[3px]" {
+ span class="text-xs text-muted font-medium" { "计划数量" }
+ span class="text-sm text-fg font-medium font-mono tabular-nums" {
  (format!("{} 项 · {} 件", items.len(), crate::utils::fmt_qty(total_qty)))
  }
+ }
+ div class="flex flex-col gap-[3px]" {
+ span class="text-xs text-muted font-medium" { "创建人" }
+ span class="text-sm text-fg font-medium" { (op_name) }
  }
  }
  }
@@ -503,9 +503,9 @@ fn tab_detail(
  td { (pname) }
  td class="text-right text-[13px] font-mono tabular-nums" { (crate::utils::fmt_qty(item.planned_qty)) }
  td {
- div class="flex flex-col gap-[2px]" {
- span { (item.scheduled_start.format("%m-%d")) }
- span class="sub" { "至 " (item.scheduled_end.format("%m-%d")) }
+ div class="flex flex-col gap-[2px] whitespace-nowrap" {
+ span class="text-[13px]" { (item.scheduled_start.format("%m-%d")) }
+ span class="text-[11px] text-muted" { "至 " (item.scheduled_end.format("%m-%d")) }
  }
  }
  td {

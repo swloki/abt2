@@ -47,8 +47,8 @@ fn _putaway_type_label(t: &PutawayType) -> &'static str {
  match t {
  PutawayType::SameMerge => "同物料合并",
  PutawayType::Nearest => "就近入库",
- PutawayType::FixedBin => "指定储位",
- PutawayType::EmptyFirst => "空储位优先",
+ PutawayType::FixedBin => "指定库位",
+ PutawayType::EmptyFirst => "空库位优先",
  }
 }
 
@@ -93,12 +93,12 @@ fn strategy_list_page(
 
  // ── 上架策略 ──
  div class="mb-8" {
- div class="flex items-center justify-between" {
+ div class="flex items-center justify-between mb-4" {
  div class="text-lg font-semibold text-fg flex items-center gap-2" { "上架策略" }
  }
  div class="data-card" {
  div class="overflow-x-auto" {
- table class="data-table" style="min-width:760px" {
+ table class="data-table" {
  thead {
  tr {
  th { "策略名称" }
@@ -129,12 +129,12 @@ fn strategy_list_page(
 
  // ── 拣货策略 ──
  div class="mb-8" {
- div class="flex items-center justify-between" {
+ div class="flex items-center justify-between mb-4" {
  div class="text-lg font-semibold text-fg flex items-center gap-2" { "拣货策略" }
  }
  div class="data-card" {
  div class="overflow-x-auto" {
- table class="data-table" style="min-width:760px" {
+ table class="data-table" {
  thead {
  tr {
  th { "策略名称" }
@@ -168,46 +168,40 @@ fn strategy_list_page(
 
 fn putaway_row(s: &PutawayStrategy) -> Markup {
  let tag = putaway_type_tag(&s.strategy_type);
- let priority_class = format!("priority-{}", s.priority.min(4));
- let toggle_class = if s.is_active { "toggle-switch active" } else { "toggle-switch" };
  let status_text = if s.is_active { "启用" } else { "停用" };
+ let toggle_active = if s.is_active { "active" } else { "" };
 
  html! {
  tr {
- td { strong { (s.name) } }
+ td { strong class="font-medium" { (s.name) } }
  td {
- span class="type-tag inline-flex items-center rounded-full text-[12px] font-medium-putaway" {
- (tag)
- }
+ span class="inline-flex items-center rounded-full text-[11px] font-medium px-2.5 py-0.5 font-mono" style="background:#e8f4ff;color:#0958d9" { (tag) }
  }
  td {
  @if let Some(wid) = s.warehouse_id {
  "仓库#" (wid)
  } @else {
- "全部仓库"
+ span class="text-muted" { "全部仓库" }
  }
  }
  td {
  @if let Some(cid) = s.product_category_id {
  "分类#" (cid)
  } @else {
- span style="color:var(--muted)" { "全部" }
+ span class="text-muted" { "全部" }
  }
  }
+ td { (priority_badge(s.priority)) }
  td {
- span class=(format!("priority-badge {priority_class}")) {
- (s.priority)
- }
- }
- td {
- label class="flex items-center gap-2 text-sm text-fg-2 cursor-pointer whitespace-nowrap" {
- span class=(toggle_class) {}
+ label class="flex items-center gap-2 text-sm text-fg-2 cursor-pointer whitespace-nowrap"
+ _="on click toggle .active on closest .toggle-track" {
+ span class=(format!("toggle-track w-9 h-5 rounded-full relative shrink-0 transition-colors duration-150 bg-border act:bg-success after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:w-4 after:h-4 after:bg-white after:rounded-full after:transition-transform after:duration-150 after:shadow-[0_1px_3px_rgba(0,0,0,0.15)] act:after:translate-x-4 {}", toggle_active)) {}
  (status_text)
  }
  }
  td {
- div class="row-actions flex items-center gap-1 justify-end opacity-0 transition-opacity duration-150 [&_a]:w-[28px] [&_a]:h-[28px] [&_a]:grid [&_a]:place-items-center [&_a]:rounded-sm [&_a]:cursor-pointer [&_a]:bg-surface [&_a]:hover:bg-accent-bg [&_svg]:w-3.5 [&_svg]:h-3.5" {
- button class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" title="编辑" {
+ div class="flex items-center gap-1 justify-end" {
+ button class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer hover:bg-accent-bg" title="编辑" {
  (crate::components::icon::edit_icon("w-4 h-4"))
  }
  }
@@ -218,46 +212,51 @@ fn putaway_row(s: &PutawayStrategy) -> Markup {
 
 fn pick_row(s: &PickStrategy) -> Markup {
  let tag = pick_type_tag(&s.strategy_type);
- let priority_class = format!("priority-{}", s.priority.min(4));
- let toggle_class = if s.is_active { "toggle-switch active" } else { "toggle-switch" };
  let status_text = if s.is_active { "启用" } else { "停用" };
+ let toggle_active = if s.is_active { "active" } else { "" };
 
  html! {
  tr {
- td { strong { (s.name) } }
+ td { strong class="font-medium" { (s.name) } }
  td {
- span class="type-tag inline-flex items-center rounded-full text-[12px] font-medium-pick" {
- (tag)
- }
+ span class="inline-flex items-center rounded-full text-[11px] font-medium px-2.5 py-0.5 font-mono" style="background:#f0fff0;color:#389e0d" { (tag) }
  }
  td {
  @if let Some(wid) = s.warehouse_id {
  "仓库#" (wid)
  } @else {
- "全部仓库"
+ span class="text-muted" { "全部仓库" }
  }
  }
+ td { span class="text-muted" { "全部" } }
+ td { (priority_badge(s.priority)) }
  td {
- span style="color:var(--muted)" { "全部" }
- }
- td {
- span class=(format!("priority-badge {priority_class}")) {
- (s.priority)
- }
- }
- td {
- label class="flex items-center gap-2 text-sm text-fg-2 cursor-pointer whitespace-nowrap" {
- span class=(toggle_class) {}
+ label class="flex items-center gap-2 text-sm text-fg-2 cursor-pointer whitespace-nowrap"
+ _="on click toggle .active on closest .toggle-track" {
+ span class=(format!("toggle-track w-9 h-5 rounded-full relative shrink-0 transition-colors duration-150 bg-border act:bg-success after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:w-4 after:h-4 after:bg-white after:rounded-full after:transition-transform after:duration-150 after:shadow-[0_1px_3px_rgba(0,0,0,0.15)] act:after:translate-x-4 {}", toggle_active)) {}
  (status_text)
  }
  }
  td {
- div class="row-actions flex items-center gap-1 justify-end opacity-0 transition-opacity duration-150 [&_a]:w-[28px] [&_a]:h-[28px] [&_a]:grid [&_a]:place-items-center [&_a]:rounded-sm [&_a]:cursor-pointer [&_a]:bg-surface [&_a]:hover:bg-accent-bg [&_svg]:w-3.5 [&_svg]:h-3.5" {
- button class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" title="编辑" {
+ div class="flex items-center gap-1 justify-end" {
+ button class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer hover:bg-accent-bg" title="编辑" {
  (crate::components::icon::edit_icon("w-4 h-4"))
  }
  }
  }
  }
+ }
+}
+
+fn priority_badge(p: i32) -> Markup {
+ let p = p.clamp(1, 4);
+ let (bg, color) = match p {
+ 1 => ("#fff2f0", "#cf1322"),
+ 2 => ("#fff8eb", "#d46b08"),
+ 3 => ("#e8f4ff", "#0958d9"),
+ _ => ("var(--surface)", "var(--muted)"),
+ };
+ html! {
+ span class="inline-flex items-center justify-center w-7 h-7 rounded-sm text-sm font-bold font-mono" style=(format!("background:{};color:{}", bg, color)) { (p) }
  }
 }

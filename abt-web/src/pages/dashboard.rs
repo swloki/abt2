@@ -152,7 +152,7 @@ fn stat_card_accent(label: &str, value: &str, trend: &str, trend_color: &str) ->
 fn todo_item(status_class: &str, status_text: &str, desc: &str, time: &str) -> Markup {
  html! {
  div class="flex items-center gap-3 px-5 py-4 [border-bottom:1px_solid_var(--border-soft)] cursor-pointer hover:bg-accent-bg" {
- span class={"status-pill " (status_class)} style="font-size:11px" { (status_text) }
+ span class={(format!("status-pill {}", crate::utils::status_color(status_class)))} style="font-size:11px" { (status_text) }
  span style="flex:1" { (desc) }
  span class="text-muted" style="font-size:12px" { (time) }
  }
@@ -162,7 +162,7 @@ fn todo_item(status_class: &str, status_text: &str, desc: &str, time: &str) -> M
 fn todo_item_last(status_class: &str, status_text: &str, desc: &str, time: &str) -> Markup {
  html! {
  div style="padding:var(--space-4) var(--space-5);display:flex;align-items:center;gap:var(--space-3);cursor:pointer" {
- span class={"status-pill " (status_class)} style="font-size:11px" { (status_text) }
+ span class={(format!("status-pill {}", crate::utils::status_color(status_class)))} style="font-size:11px" { (status_text) }
  span style="flex:1" { (desc) }
  span class="text-muted" style="font-size:12px" { (time) }
  }
@@ -208,7 +208,7 @@ fn activity_item(
 ) -> Markup {
  html! {
  div style="padding:var(--space-4) var(--space-5);border-bottom:1px solid var(--border-soft);display:flex;align-items:center;gap:var(--space-4)" {
- span class={"status-pill " (status_class)} style="font-size:11px;min-width:56px;justify-content:center" { (status_text) }
+ span class={(format!("status-pill {}", crate::utils::status_color(status_class)))} style="font-size:11px;min-width:56px;justify-content:center" { (status_text) }
  span style="flex:1" {
  (desc)
  @if !highlight.is_empty() {
@@ -229,7 +229,7 @@ fn activity_item_last(
 ) -> Markup {
  html! {
  div style="padding:var(--space-4) var(--space-5);display:flex;align-items:center;gap:var(--space-4)" {
- span class={"status-pill " (status_class)} style="font-size:11px;min-width:56px;justify-content:center" { (status_text) }
+ span class={(format!("status-pill {}", crate::utils::status_color(status_class)))} style="font-size:11px;min-width:56px;justify-content:center" { (status_text) }
  span style="flex:1" {
  (desc)
  @if !highlight.is_empty() {

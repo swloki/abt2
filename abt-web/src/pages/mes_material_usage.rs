@@ -161,82 +161,84 @@ struct MaterialUsageContext<'a> {
 }
 
 fn usage_data_fragment(wo_info: &abt_core::mes::dashboard::model::WoBasicInfo, ctx: &MaterialUsageContext) -> Markup {
- let status_display = match wo_info.status {
- 1 => ("待计划", "pill-pending"),
- 2 => ("已计划", "pill-progress"),
- 3 => ("已下达", "pill-receipt"),
- 4 => ("已关闭", "pill-done"),
- 5 => ("已取消", "pill-suspended"),
- _ => ("—", ""),
- };
- let status_pill = html! { span class=(format!("kanban-card-pill {}", status_display.1)) { (status_display.0) } };
+    let status_label = match wo_info.status {
+        1 => "待计划",
+        2 => "已计划",
+        3 => "已下达",
+        4 => "已关闭",
+        5 => "已取消",
+        _ => "—",
+    };
+    let pill_cls = wo_status_pill_class(wo_info.status);
+    let status_pill = html! { span class=(format!("text-[11px] px-2 py-0.5 rounded-full font-medium {}", pill_cls)) { (status_label) } };
 
- html! {
- // ── WO header ──
- div class="bg-bg border border-border-soft rounded-lg p-5 flex items-center justify-between flex-wrap gap-3" {
- div class="bg-bg border border-border-soft rounded-lg p-5 flex items-center justify-between flex-wrap gap-3-left" {
- span class="bg-bg border border-border-soft rounded-lg p-5 flex items-center justify-between flex-wrap gap-3-no" { (wo_info.doc_number) }
- span class="bg-bg border border-border-soft rounded-lg p-5 flex items-center justify-between flex-wrap gap-3-product" { (wo_info.product_name.as_deref().unwrap_or("—")) }
- (status_pill)
- }
- div class="flex gap-4 text-sm text-muted" {
- span { "计划: " strong class="font-mono tabular-nums" { (crate::utils::fmt_qty(wo_info.planned_qty)) } }
- span { "完成: " strong class="text-success font-mono tabular-nums" { (crate::utils::fmt_qty(wo_info.completed_qty)) } }
- @if let Some(v) = &wo_info.bom_version {
- span { "BOM: " strong { (v) } }
- }
- }
- }
+    html! {
+        // ── WO header ──
+        div class="bg-bg border border-border-soft rounded-lg p-5 flex items-center justify-between flex-wrap gap-3" {
+            div class="flex items-center gap-3 flex-wrap" {
+                span class="text-lg font-bold font-mono tabular-nums text-fg" { (wo_info.doc_number) }
+                span class="text-sm text-fg-2" { (wo_info.product_name.as_deref().unwrap_or("—")) }
+                (status_pill)
+            }
+            div class="flex gap-4 text-sm text-muted" {
+                span { "计划: " strong class="font-mono tabular-nums" { (crate::utils::fmt_qty(wo_info.planned_qty)) } }
+                span { "完成: " strong class="text-success font-mono tabular-nums" { (crate::utils::fmt_qty(wo_info.completed_qty)) } }
+                @if let Some(v) = &wo_info.bom_version {
+                    span { "BOM: " strong { (v) } }
+                }
+            }
+        }
 
- // ── Summary stats ──
- div class="grid grid-cols-4 gap-4 mb-6" {
- // BOM standard
- div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
- div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 blue" { (icon::box_icon("")) }
- div {
- div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-value" { (crate::utils::fmt_qty(ctx.standard_qty)) }
- div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-label" { "BOM 标准用量" }
- div class="text-xs text-muted mt-1" {
- "按完成 " (crate::utils::fmt_qty(wo_info.completed_qty)) " 件计算"
- }
- }
- }
- // Actual picked
- div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
- div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 green" { (icon::clipboard_list_icon("")) }
- div {
- div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-value" { (crate::utils::fmt_qty(ctx.picked_total)) }
- div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-label" { "实际消耗(领料)" }
- div class="text-xs text-muted mt-1" { "含损耗余量" }
- }
- }
- // Backflush
- div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
- div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 orange" { (icon::refresh_icon("")) }
- div {
- div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-value" { (crate::utils::fmt_qty(ctx.backflush_qty)) }
- div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-label" { "倒冲消耗" }
- }
- }
- // Variance
- div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
- div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 red" { (icon::circle_alert_icon("")) }
- div {
- @let variance_cls = if ctx.variance > Decimal::ZERO { "text-danger" } else if ctx.variance < Decimal::ZERO { "text-success" } else { "" };
- div class=(format!("stat-card-value {variance_cls}")) {
- @if ctx.variance > Decimal::ZERO { "+" }
- (crate::utils::fmt_qty(ctx.variance))
- }
- div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-label" { "用量差异" }
- @if ctx.standard_qty > Decimal::ZERO {
- @let rate = ((ctx.variance / ctx.standard_qty) * Decimal::ONE_HUNDRED).abs();
- div class="text-xs text-muted mt-1" {
- "超出标准 " (crate::utils::fmt_qty(rate)) "%"
- }
- }
- }
- }
- }
+
+        // ── Summary stats ──
+        div class="grid grid-cols-4 gap-4 mb-6" {
+            // BOM standard
+            div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
+                div class="w-[44px] h-[44px] rounded-lg grid place-items-center shrink-0 bg-[#e6f4ff] text-accent" { (icon::box_icon("")) }
+                div {
+                    div class="text-lg font-bold font-mono tabular-nums text-fg" { (crate::utils::fmt_qty(ctx.standard_qty)) }
+                    div class="text-sm text-muted" { "BOM 标准用量" }
+                    div class="text-xs text-muted mt-1" {
+                        "按完成 " (crate::utils::fmt_qty(wo_info.completed_qty)) " 件计算"
+                    }
+                }
+            }
+            // Actual picked
+            div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
+                div class="w-[44px] h-[44px] rounded-lg grid place-items-center shrink-0 bg-success-bg text-success" { (icon::clipboard_list_icon("")) }
+                div {
+                    div class="text-lg font-bold font-mono tabular-nums text-fg" { (crate::utils::fmt_qty(ctx.picked_total)) }
+                    div class="text-sm text-muted" { "实际消耗(领料)" }
+                    div class="text-xs text-muted mt-1" { "含损耗余量" }
+                }
+            }
+            // Backflush
+            div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
+                div class="w-[44px] h-[44px] rounded-lg grid place-items-center shrink-0 bg-warn-bg text-warn" { (icon::refresh_icon("")) }
+                div {
+                    div class="text-lg font-bold font-mono tabular-nums text-fg" { (crate::utils::fmt_qty(ctx.backflush_qty)) }
+                    div class="text-sm text-muted" { "倒冲消耗" }
+                }
+            }
+            // Variance
+            div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
+                div class="w-[44px] h-[44px] rounded-lg grid place-items-center shrink-0 bg-danger-bg text-danger" { (icon::circle_alert_icon("")) }
+                div {
+                    @let variance_cls = if ctx.variance > Decimal::ZERO { "text-danger" } else if ctx.variance < Decimal::ZERO { "text-success" } else { "" };
+                    div class=(format!("text-lg font-bold font-mono tabular-nums {}", variance_cls)) {
+                        @if ctx.variance > Decimal::ZERO { "+" }
+                        (crate::utils::fmt_qty(ctx.variance))
+                    }
+                    div class="text-sm text-muted" { "用量差异" }
+                    @if ctx.standard_qty > Decimal::ZERO {
+                        @let rate = ((ctx.variance / ctx.standard_qty) * Decimal::ONE_HUNDRED).abs();
+                        div class="text-xs text-muted mt-1" {
+                            "超出标准 " (crate::utils::fmt_qty(rate)) "%"
+                        }
+                    }
+                }
+            }
+        }
 
  // ── BOM comparison table ──
  @if !ctx.bom_items.is_empty() {
@@ -261,7 +263,7 @@ fn usage_data_fragment(wo_info: &abt_core::mes::dashboard::model::WoBasicInfo, c
  tbody {
  @for item in ctx.bom_items {
  @let diff = item.backflush_total - item.standard_total;
- @let diff_cls = if diff > Decimal::ZERO { "diff-positive" } else if diff < Decimal::ZERO { "diff-negative" } else { "diff-zero" };
+                        @let diff_cls = if diff > Decimal::ZERO { "text-danger" } else if diff < Decimal::ZERO { "text-success" } else { "text-muted" };
  @let loss_rate = if item.standard_total > Decimal::ZERO {
  let r = ((item.picked_qty - item.standard_total) / item.standard_total) * Decimal::ONE_HUNDRED;
  format!("{}%", crate::utils::fmt_qty(r))
@@ -278,7 +280,7 @@ fn usage_data_fragment(wo_info: &abt_core::mes::dashboard::model::WoBasicInfo, c
  td class="text-right text-[13px] font-mono tabular-nums" { (crate::utils::fmt_qty(item.backflush_total)) }
  td class="text-right text-[13px] font-mono tabular-nums" { (loss_rate) }
  td class="text-right text-[13px]" {
- span class=(format!("diff-indicator {diff_cls}")) {
+                                span class=(format!("font-medium {}", diff_cls)) {
  @if diff > Decimal::ZERO { "+" }
  (crate::utils::fmt_qty(diff))
  }
@@ -358,23 +360,35 @@ fn usage_data_fragment(wo_info: &abt_core::mes::dashboard::model::WoBasicInfo, c
 }
 
 fn backflush_status_label(s: &abt_core::wms::enums::BackflushStatus) -> Markup {
- use abt_core::wms::enums::BackflushStatus;
- let (label, cls) = match s {
- BackflushStatus::Draft => ("待处理", "pill-pending"),
- BackflushStatus::Executed => ("已完成", "pill-done"),
- BackflushStatus::Adjusted => ("已调整", "pill-progress"),
- };
- html! { span class=(format!("kanban-card-pill {cls}")) { (label) } }
+    use abt_core::wms::enums::BackflushStatus;
+    let (label, cls) = match s {
+        BackflushStatus::Draft => ("待处理", "bg-warn-bg text-warn"),
+        BackflushStatus::Executed => ("已完成", "bg-success-bg text-success"),
+        BackflushStatus::Adjusted => ("已调整", "bg-accent-bg text-accent"),
+    };
+    html! { span class=(format!("text-[11px] px-2 py-0.5 rounded-full font-medium {}", cls)) { (label) } }
 }
 
 fn requisition_status_label(s: &abt_core::wms::enums::RequisitionStatus) -> Markup {
- use abt_core::wms::enums::RequisitionStatus;
- let (label, cls) = match s {
- RequisitionStatus::Draft => ("待确认", "pill-pending"),
- RequisitionStatus::Confirmed => ("已确认", "pill-progress"),
- RequisitionStatus::Issued => ("已发料", "pill-done"),
- RequisitionStatus::Cancelled => ("已取消", "pill-suspended"),
- RequisitionStatus::PartiallyIssued => ("部分发料", "pill-progress"),
- };
- html! { span class=(format!("kanban-card-pill {cls}")) { (label) } }
+    use abt_core::wms::enums::RequisitionStatus;
+    let (label, cls) = match s {
+        RequisitionStatus::Draft => ("待确认", "bg-warn-bg text-warn"),
+        RequisitionStatus::Confirmed => ("已确认", "bg-accent-bg text-accent"),
+        RequisitionStatus::Issued => ("已发料", "bg-success-bg text-success"),
+        RequisitionStatus::Cancelled => ("已取消", "bg-[#f5f5f5] text-muted"),
+        RequisitionStatus::PartiallyIssued => ("部分发料", "bg-accent-bg text-accent"),
+    };
+    html! { span class=(format!("text-[11px] px-2 py-0.5 rounded-full font-medium {}", cls)) { (label) } }
+}
+
+/// Returns a UnoCSS pill color class for a work-order status code.
+fn wo_status_pill_class(status: i16) -> &'static str {
+    match status {
+        1 => "bg-warn-bg text-warn",       // 待计划
+        2 => "bg-accent-bg text-accent",   // 已计划
+        3 => "bg-[rgba(124,58,237,0.1)] text-[#7c3aed]", // 已下达
+        4 => "bg-success-bg text-success", // 已关闭
+        5 => "bg-[#f5f5f5] text-muted",   // 已取消
+        _ => "bg-[#f5f5f5] text-muted",
+    }
 }

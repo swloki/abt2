@@ -240,7 +240,7 @@ pub async fn get_wh_zones(
  Ok(Html(zone_select_fragment(&zones).into_string()))
 }
 
-// ── HTMX: 库区选中后级联 — 返回储位下拉 ──
+// ── HTMX: 库区选中后级联 — 返回库位下拉 ──
 
 #[require_permission("WORK_ORDER", "read")]
 pub async fn get_zn_bins(
@@ -385,7 +385,7 @@ fn receipt_create_content() -> Markup {
  "目标仓库", true, "点击选择仓库…",
  ))
 
- // 仓库选中后级联加载：库区 + 储位
+ // 仓库选中后级联加载：库区 + 库位
  div id="zone-bin-area"
  hx-get=(ReceiptWhZonesPath::PATH)
  hx-trigger="whSelected from:body"
@@ -400,7 +400,7 @@ fn receipt_create_content() -> Markup {
  }
  }
  div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "储位" }
+ label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "库位" }
  select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="bin_id" disabled {
  option value="" { "选择库区后加载" }
  }
@@ -449,7 +449,7 @@ fn wo_cascade_fragment(product_id: i64, product_name: &str) -> Markup {
  }
 }
 
-/// 仓库选中后返回的库区下拉 + 储位占位
+/// 仓库选中后返回的库区下拉 + 库位占位
 fn zone_select_fragment(zones: &[abt_core::wms::warehouse::model::Zone]) -> Markup {
  html! {
  div id="zone-bin-area" {
@@ -476,7 +476,7 @@ fn zone_select_fragment(zones: &[abt_core::wms::warehouse::model::Zone]) -> Mark
  }
  }
  div class="form-field" id="bin-select-wrap" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "储位" }
+ label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "库位" }
  select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="bin_id" disabled {
  option value="" { "选择库区后加载" }
  }
@@ -486,14 +486,14 @@ fn zone_select_fragment(zones: &[abt_core::wms::warehouse::model::Zone]) -> Mark
  }
 }
 
-/// 库区选中后返回的储位下拉
+/// 库区选中后返回的库位下拉
 fn bin_select_fragment(bins: &[abt_core::wms::warehouse::model::Bin]) -> Markup {
  html! {
  div class="form-field" id="bin-select-wrap" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "储位" }
+ label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "库位" }
  @if bins.is_empty() {
  select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="bin_id" disabled {
- option value="" { "该库区暂无储位" }
+ option value="" { "该库区暂无库位" }
  }
  } @else {
  select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="bin_id" {

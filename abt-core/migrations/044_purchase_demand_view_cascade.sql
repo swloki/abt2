@@ -28,7 +28,7 @@ SELECT
     fp.pdt_name AS cascade_from_product_name,
     c.customer_name
 FROM demands d
-LEFT JOIN sales_orders so ON so.id = d.source_id AND d.source_type = 1
+LEFT JOIN sales_orders so ON so.id = d.source_id AND d.source_type IN (1, 2)
 LEFT JOIN products p ON p.product_id = d.product_id
 LEFT JOIN products fp ON fp.product_id = d.cascade_from_product_id
 LEFT JOIN customers c ON c.customer_id = so.customer_id

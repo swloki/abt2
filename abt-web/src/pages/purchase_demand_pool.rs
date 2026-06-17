@@ -83,22 +83,22 @@ fn material_icon(product_id: i64) -> (String, String, Markup) {
  0 => (
  "#ede9fe".into(),
  "#7c3aed".into(),
- icon::tool_icon(""),
+ icon::tool_icon("w-[20px] h-[20px]"),
  ),
  1 => (
  "#dbeafe".into(),
  "var(--accent)".into(),
- icon::clipboard_document_icon(""),
+ icon::clipboard_document_icon("w-[20px] h-[20px]"),
  ),
  2 => (
  "#fef3c7".into(),
  "var(--warn)".into(),
- icon::cube_icon(""),
+ icon::cube_icon("w-[20px] h-[20px]"),
  ),
  _ => (
  "#dcfce7".into(),
  "var(--success)".into(),
- icon::activity_icon(""),
+ icon::activity_icon("w-[20px] h-[20px]"),
  ),
  }
 }
@@ -132,6 +132,7 @@ fn detail_query_string(keyword: Option<&str>, date_filter: Option<&str>) -> Stri
  }
  q.join("&")
 }
+
 
 // ── Handlers ──
 
@@ -367,14 +368,22 @@ fn page_header() -> Markup {
 
 fn view_toggle_and_filter(active: &str, params: &DemandPoolQueryParams) -> Markup {
  let is_material = active == "material";
- let material_cls = if is_material { "view-toggle-btn active" } else { "view-toggle-btn" };
- let detail_cls = if is_material { "view-toggle-btn" } else { "view-toggle-btn active" };
+ let material_cls = if is_material {
+ "inline-flex items-center gap-1.5 px-4 py-1.5 text-sm font-semibold cursor-pointer whitespace-nowrap bg-bg text-accent shadow-[var(--shadow-xs)] rounded-sm"
+ } else {
+ "inline-flex items-center gap-1.5 px-4 py-1.5 text-sm cursor-pointer whitespace-nowrap bg-transparent border-none text-muted rounded-sm hover:text-fg transition-colors"
+ };
+ let detail_cls = if is_material {
+ "inline-flex items-center gap-1.5 px-4 py-1.5 text-sm cursor-pointer whitespace-nowrap bg-transparent border-none text-muted rounded-sm hover:text-fg transition-colors"
+ } else {
+ "inline-flex items-center gap-1.5 px-4 py-1.5 text-sm font-semibold cursor-pointer whitespace-nowrap bg-bg text-accent shadow-[var(--shadow-xs)] rounded-sm"
+ };
  let keyword = params.keyword.as_deref().unwrap_or("");
  let date_filter_val = params.date_filter.as_deref().unwrap_or("");
 
  html! {
  div class="flex items-center justify-between flex-wrap gap-3" {
- div class="flex [border-bottom:1px_solid_var(--border-soft)]" {
+ div class="inline-flex bg-surface border border-border-soft rounded-md p-[3px] gap-0.5" {
  a class=(material_cls)
  hx-get=(PurchaseDemandPoolListPath::PATH)
  hx-vals="{\"view\":\"material\"}"
@@ -432,41 +441,41 @@ fn view_toggle_and_filter(active: &str, params: &DemandPoolQueryParams) -> Marku
 
 fn stat_mini_cards(stats: &Stats) -> Markup {
  html! {
- div class="grid gap-4" {
- div class="flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4" {
- div class="flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4-icon" style="background:#ede9fe;color:#7c3aed;" {
- (icon::clipboard_list_icon(""))
+ div class="grid grid-cols-4 gap-4 mb-6" {
+ div class="flex items-center gap-3 bg-bg border border-border-soft rounded-lg px-5 py-4 shadow-[var(--shadow-card)]" {
+ div class="w-[38px] h-[38px] rounded-md grid place-items-center shrink-0" style="background:#ede9fe;color:#7c3aed;" {
+ (icon::clipboard_list_icon("w-[18px] h-[18px]"))
  }
  div {
- div class="flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4-value" { (stats.pending_count) }
- div class="flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4-label" { "待处理需求" }
+ div class="text-xl font-bold font-mono tabular-nums leading-tight text-fg" { (stats.pending_count) }
+ div class="text-[11px] text-muted mt-0.5" { "待处理需求" }
  }
  }
- div class="flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4" {
- div class="flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4-icon" style="background:#dbeafe;color:var(--accent);" {
- (icon::cube_icon(""))
- }
- div {
- div class="flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4-value" { (stats.material_count) }
- div class="flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4-label" { "涉及物料" }
- }
- }
- div class="flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4" {
- div class="flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4-icon" style="background:#dcfce7;color:var(--success);" {
- (icon::check_circle_icon(""))
+ div class="flex items-center gap-3 bg-bg border border-border-soft rounded-lg px-5 py-4 shadow-[var(--shadow-card)]" {
+ div class="w-[38px] h-[38px] rounded-md grid place-items-center shrink-0" style="background:#dbeafe;color:var(--accent);" {
+ (icon::cube_icon("w-[18px] h-[18px]"))
  }
  div {
- div class="flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4-value" { "—" }
- div class="flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4-label" { "处理中" }
+ div class="text-xl font-bold font-mono tabular-nums leading-tight text-fg" { (stats.material_count) }
+ div class="text-[11px] text-muted mt-0.5" { "涉及物料" }
  }
  }
- div class="flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4" {
- div class="flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4-icon" style="background:#fef3c7;color:var(--warn);" {
- (icon::clock_icon(""))
+ div class="flex items-center gap-3 bg-bg border border-border-soft rounded-lg px-5 py-4 shadow-[var(--shadow-card)]" {
+ div class="w-[38px] h-[38px] rounded-md grid place-items-center shrink-0" style="background:#dcfce7;color:var(--success);" {
+ (icon::check_circle_icon("w-[18px] h-[18px]"))
  }
  div {
- div class="flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4-value" { "—" }
- div class="flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4-label" { "近3日到期" }
+ div class="text-xl font-bold font-mono tabular-nums leading-tight text-muted" { "—" }
+ div class="text-[11px] text-muted mt-0.5" { "处理中" }
+ }
+ }
+ div class="flex items-center gap-3 bg-bg border border-border-soft rounded-lg px-5 py-4 shadow-[var(--shadow-card)]" {
+ div class="w-[38px] h-[38px] rounded-md grid place-items-center shrink-0" style="background:#fef3c7;color:var(--warn);" {
+ (icon::clock_icon("w-[18px] h-[18px]"))
+ }
+ div {
+ div class="text-xl font-bold font-mono tabular-nums leading-tight text-muted" { "—" }
+ div class="text-[11px] text-muted mt-0.5" { "近3日到期" }
  }
  }
  }
@@ -478,68 +487,76 @@ fn stat_mini_cards(stats: &Stats) -> Markup {
 fn batch_action_bar() -> Markup {
  html! {
  // ── Batch Action Bar ──
- div class="hidden fixed bg-[var(--fg)] text-[#fff] rounded-lg p-3 z-[100] items-center gap-5 text-sm opacity-0" id="batchBar" {
+ div class="fixed bottom-6 left-1/2 -translate-x-1/2 hidden show:flex bg-[var(--fg)] text-[#fff] rounded-lg p-3 px-6 z-[100] items-center gap-5 text-sm shadow-[0_12px_40px_rgba(15,23,42,0.25)]" id="batchBar" {
  span { "已选择 " span class="batch-count" id="batchCount" { "0" } " 条需求" }
- a class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] [&_svg]:w-4 [&_svg]:h-4" id="batchCreateBtn"
+ a class="inline-flex items-center gap-2 py-[5px] px-3 text-[13px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover font-medium cursor-pointer transition-all duration-150 shadow-[0_2px_8px_rgba(37,99,235,0.3)]" id="batchCreateBtn"
  href=(PurchaseDemandPoolCreatePath::PATH)
  data-base-path=(PurchaseDemandPoolCreatePath::PATH) {
  "创建采购单"
  }
- button class="btn btn-sm inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative [&_svg]:w-4 [&_svg]:h-4" type="button" id="batchClearBtn" {
+ button class="inline-flex items-center gap-2 py-[5px] px-3 text-[13px] rounded-sm border border-[rgba(255,255,255,0.15)] text-[rgba(255,255,255,0.7)] hover:text-white hover:bg-[rgba(255,255,255,0.1)] bg-transparent font-medium cursor-pointer transition-all duration-150" type="button" id="batchClearBtn" {
  "清除选择"
  }
  }
 
  // ── Global checkbox + batch bar logic ──
  (PreEscaped(r#"<script>
- document.addEventListener('change',function(e){
- if(e.target.type==='checkbox'&&e.target.classList.contains('demand-cb')){
- var tr=e.target.closest('tr');
- if(tr){
- if(e.target.checked){tr.classList.add('demand-row-selected');}
- else{tr.classList.remove('demand-row-selected');}
+ function toggleAllDemands(master, table) {
+ var cbs = table.querySelectorAll('input.demand-cb:not([disabled])');
+ cbs.forEach(function(c) {
+ c.checked = master.checked;
+ var tr = c.closest('tr');
+ if (tr) { tr.classList.toggle('demand-row-selected', master.checked); }
+ });
+ updateBatchBar();
+ }
+ document.addEventListener('change', function(e) {
+ if (e.target.type === 'checkbox' && e.target.classList.contains('demand-cb')) {
+ var tr = e.target.closest('tr');
+ if (tr) {
+ tr.classList.toggle('demand-row-selected', e.target.checked);
  }
  updateBatchBar();
  }
  });
- function updateBatchBar(){
- var checked=document.querySelectorAll('input[type=checkbox].demand-cb:checked:not([disabled])');
- var count=checked.length;
- var bar=document.getElementById('batchBar');
- var btn=document.getElementById('batchCreateBtn');
- if(count>0){
- var ids=[];
- var productIds=new Set();
- var productName='';
- var productCode='';
- checked.forEach(function(c){
+ function updateBatchBar() {
+ var checked = document.querySelectorAll('input[type=checkbox].demand-cb:checked:not([disabled])');
+ var count = checked.length;
+ var bar = document.getElementById('batchBar');
+ var btn = document.getElementById('batchCreateBtn');
+ if (count > 0) {
+ var ids = [];
+ var productIds = new Set();
+ var productName = '';
+ var productCode = '';
+ checked.forEach(function(c) {
  ids.push(c.value);
  productIds.add(c.getAttribute('data-product-id'));
- if(!productName){productName=c.getAttribute('data-product-name')||'';}
- if(!productCode){productCode=c.getAttribute('data-product-code')||'';}
+ if (!productName) { productName = c.getAttribute('data-product-name') || ''; }
+ if (!productCode) { productCode = c.getAttribute('data-product-code') || ''; }
  });
  bar.classList.add('show');
- document.getElementById('batchCount').textContent=count;
- var basePath=btn.getAttribute('data-base-path');
- if(productIds.size>1){
- btn.onclick=function(e){e.preventDefault();alert('请选择同一物料的需求进行批量创建采购单。');};
- }else{
- btn.href=basePath+'?demand_ids='+ids.join(',')+
- '&product_id='+[...productIds][0]+
- '&product_name='+encodeURIComponent(productName)+
- '&product_code='+encodeURIComponent(productCode);
- btn.onclick=null;
+ document.getElementById('batchCount').textContent = count;
+ var basePath = btn.getAttribute('data-base-path');
+ if (productIds.size > 1) {
+ btn.onclick = function(e) { e.preventDefault(); alert('请选择同一物料的需求进行批量创建采购单。'); };
+ } else {
+ btn.href = basePath + '?demand_ids=' + ids.join(',') +
+ '&product_id=' + [...productIds][0] +
+ '&product_name=' + encodeURIComponent(productName) +
+ '&product_code=' + encodeURIComponent(productCode);
+ btn.onclick = null;
  }
- }else{
+ } else {
  bar.classList.remove('show');
  }
  }
- document.getElementById('batchClearBtn').addEventListener('click',function(){
- document.querySelectorAll('input[type=checkbox].demand-cb').forEach(function(c){
- if(!c.disabled){
- c.checked=false;
- var tr=c.closest('tr');
- if(tr){tr.classList.remove('demand-row-selected');}
+ document.getElementById('batchClearBtn').addEventListener('click', function() {
+ document.querySelectorAll('input[type=checkbox]').forEach(function(c) {
+ if (!c.disabled && (c.classList.contains('demand-cb') || c.title === '全选')) {
+ c.checked = false;
+ var tr = c.closest('tr');
+ if (tr) { tr.classList.remove('demand-row-selected'); }
  }
  });
  document.getElementById('batchBar').classList.remove('show');
@@ -580,12 +597,12 @@ fn material_table_fragment(
 
 fn material_table_header() -> Markup {
  html! {
- div style="padding:var(--space-3) var(--space-6);background:var(--surface-raised);border-bottom:1px solid var(--border-soft);display:flex;align-items:center;gap:var(--space-8);font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.04em;" {
- div style="flex:1;" { "物料信息" }
- div style="width:100px;text-align:center;" { "总需求量" }
- div style="width:80px;text-align:center;" { "涉及订单" }
- div style="width:160px;text-align:center;" { "需求日期范围" }
- div style="width:120px;text-align:center;" { "操作" }
+ div class="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-6 px-6 py-3 bg-surface-raised text-xs font-semibold uppercase tracking-wide text-muted [border-bottom:1px_solid_var(--border-soft)]" {
+ div { "物料信息" }
+ div class="text-center w-[100px]" { "总需求量" }
+ div class="text-center w-[80px]" { "涉及订单" }
+ div class="text-center w-[160px]" { "需求日期范围" }
+ div class="text-center w-[120px]" { "操作" }
  }
  }
 }
@@ -605,17 +622,16 @@ fn material_row(m: &MaterialAggSummary) -> Markup {
  let (icon_bg, icon_color, icon_svg) = material_icon(pid);
 
  html! {
- div class="grid items-center gap-6 p-4 [border-bottom:1px_solid_var(--border-soft)]" {
+ div class="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-6 px-6 py-4 [border-bottom:1px_solid_var(--border-soft)]" {
 
  div class="flex items-center gap-4 cursor-pointer"
  hx-get=(format!("/admin/purchase/demand-pool/demand-rows?product_id={pid}"))
  hx-target=(format!("#expand-tbody-{pid}"))
  hx-swap="innerHTML"
  hx-trigger="click once"
- _=(format!("on click toggle .open on #expand-mat-{}", pid)) {
- div class="w-[40px] h-[40px] rounded grid place-items-center shrink-0" style=(format!("background:{icon_bg};color:{icon_color}")) {
+ _=(format!("on click toggle .expanded on #expand-mat-{}", pid)) {
+ div class="w-[40px] h-[40px] rounded-md grid place-items-center shrink-0" style=(format!("background:{icon_bg};color:{icon_color}")) {
  (icon_svg)
- (icon::box_icon("w-5 h-5"))
  }
  div {
  div class="font-semibold text-fg text-sm" { (m.product_name) }
@@ -623,41 +639,40 @@ fn material_row(m: &MaterialAggSummary) -> Markup {
  }
  }
 
- div class="material-stat" {
- div class="material-text-2xl font-bold font-mono tabular-nums tabular-nums text-fg" { (fmt_qty(m.total_demand_qty)) }
- div class="material-text-sm text-muted mt-1" { "总需求量" }
+ div class="text-center min-w-[80px]" {
+ div class="text-lg font-bold font-mono tabular-nums text-fg" { (fmt_qty(m.total_demand_qty)) }
+ div class="text-[11px] text-muted mt-0.5" { "总需求量" }
  }
 
- div class="material-stat" {
- div class="material-text-2xl font-bold font-mono tabular-nums tabular-nums text-fg" { (m.demand_count) }
- div class="material-text-sm text-muted mt-1" { "涉及订单" }
+ div class="text-center min-w-[80px]" {
+ div class="text-lg font-bold font-mono tabular-nums text-accent" { (m.demand_count) }
+ div class="text-[11px] text-muted mt-0.5" { "涉及订单" }
  }
 
- div class="material-stat material-stat-date" {
+ div class="text-center min-w-[160px]" {
  div class="text-[13px] font-semibold text-fg" { (date_range) }
  @if let Some((hint_text, cls)) = &hint {
- div class=(format!("urgency-hint {cls}")) { (hint_text) }
+ div class=(format!("text-[11px] mt-0.5 {}", cls)) { (hint_text) }
  }
  }
 
- div class="flex gap-2 opacity-0" {
+ div class="flex gap-2" {
  form method="get" action=(PurchaseDemandPoolCreatePath::PATH)
  style="display:inline" {
  input type="hidden" name="product_id" value=(pid) {}
- button type="submit" class="btn inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative [&_svg]:w-4 [&_svg]:h-4" { "创建采购单" }
+ button type="submit" class="inline-flex items-center gap-1.5 py-[5px] px-3 text-[13px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" { "创建采购单" }
  }
  }
  }
 
  // ── Expandable demand detail ──
- div class="hidden bg-surface-raised [border-bottom:1px_solid_var(--border-soft)]" id=(format!("expand-mat-{pid}")) {
- div class="hidden bg-surface-raised border-b-inner" {
+ div class="hidden expanded:block bg-surface-raised [border-bottom:1px_solid_var(--border-soft)]" id=(format!("expand-mat-{pid}")) {
+ div class="px-6 py-4" {
  table class="data-table" style="font-size:13px;" {
  thead {
  tr {
  th style="width:40px;" {
- input type="checkbox" title="全选";
- (PreEscaped(r#"<script>document.currentScript.parentElement.addEventListener('change',function(e){e.target.closest('table').querySelectorAll('input.demand-cb:not([disabled])').forEach(function(c){c.checked=e.target.checked;c.dispatchEvent(new Event('change',{bubbles:true}))})})</script>"#))
+ input type="checkbox" title="全选" _="on change call toggleAllDemands(me, closest <table/>)";
  }
  th { "需求ID" }
  th { "来源订单" }
@@ -723,7 +738,7 @@ fn demand_expand_row(d: &DemandSummary) -> Markup {
  span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium" style=(pri_style) { (pri_text) }
  }
  td {
- span class=(format!("status-pill {status_class}")) style="font-size:11px;padding:2px 8px;" { (status_text) }
+ span class=(format!("status-pill {}", crate::utils::status_color(status_class))) style="font-size:11px;padding:2px 8px;" { (status_text) }
  }
  }
  }
@@ -817,7 +832,7 @@ fn detail_row(d: &DemandSummary) -> Markup {
  span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium" style=(pri_style) { (pri_text) }
  }
  td {
- span class=(format!("status-pill {status_class}")) style="font-size:11px;padding:2px 8px;" { (status_text) }
+ span class=(format!("status-pill {}", crate::utils::status_color(status_class))) style="font-size:11px;padding:2px 8px;" { (status_text) }
  }
  td class="font-mono tabular-nums" {
  @if let (Some(doc_type), Some(doc_id)) = (d.target_doc_type, d.target_doc_id) {

@@ -57,20 +57,26 @@ fn workflow_steps(status: RequisitionStatus) -> Markup {
  };
 
  html! {
- div class="flex items-center" {
+ div class="flex items-center mt-6 mb-6" {
  @for (i, label) in steps.iter().enumerate() {
  @if i > 0 {
- @let line_class = if completed[i] { "wf-line completed" } else { "wf-line" };
- div class=(line_class) {}
+ div class=(format!("w-[48px] h-[2px] {}", if completed[i] { "bg-[#10b981]" } else { "bg-border" })) {}
  }
- @let step_class = match current_idx {
- Some(ci) if ci == i => "wf-step current",
- _ if completed[i] => "wf-step completed",
- _ => "wf-step",
+ @let (dot_cls, text_cls, ring_cls) = match current_idx {
+ Some(ci) if ci == i => ("bg-[#2563eb]", "text-[#2563eb] font-semibold", "shadow-[0_0_0_3px_rgba(37,99,235,0.1)]"),
+ _ if completed[i] => ("bg-[#10b981]", "text-[#10b981]", ""),
+ _ => ("bg-[#d1d5db]", "text-[#9ca3af]", ""),
  };
- div class=(step_class) {
- span class="w-[10px] h-[10px] rounded-full bg-border" {}
- (label)
+ div class="flex items-center gap-2 shrink-0" {
+ span class=(format!("w-2.5 h-2.5 rounded-full shrink-0 {} {}", dot_cls, ring_cls)) {}
+ span class=(format!("text-xs whitespace-nowrap font-medium {}", text_cls)) { (label) }
+ }
+ }
+ @if status == RequisitionStatus::Cancelled {
+ div class="w-[48px] h-[2px] bg-border" {}
+ div class="flex items-center gap-2 shrink-0" {
+ span class="w-2.5 h-2.5 rounded-full shrink-0 bg-[#ef4444]" {}
+ span class="text-xs text-[#ef4444] font-semibold whitespace-nowrap" { "已取消" }
  }
  }
  }
@@ -194,57 +200,53 @@ fn requisition_detail_page(
  operator_name: &str,
  product_names: &std::collections::HashMap<i64, String>,
 ) -> Markup {
- let (status_text, status_class) = status_label(requisition.status);
-
- html! {
+let (status_text, status_class) = status_label(requisition.status);
+html! {
  div {
- a href=(format!("{}?restore=true", RequisitionListPath::PATH)) class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" {
+ // ── Back Link ──
+ a href=(format!("{}?restore=true", RequisitionListPath::PATH)) class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150 mb-4" {
  (icon::chevron_left_icon("w-4 h-4"))
  "返回领料单列表"
  }
-
- div class="block bg-bg border border-border-soft rounded-lg p-6" {
- div {
- div class="flex items-center justify-between" {
- h1 class="text-2xl font-extrabold font-mono tabular-nums" { (requisition.doc_number) }
- span class=(format!("status-pill {status_class}")) { (status_text) }
- }
+ // ── Detail Header（裸 flex，非 card）──
+ div class="flex items-start justify-between mb-6" {
+ div class="flex items-center gap-4" {
+ h1 class="text-xl font-bold font-mono tabular-nums" { (requisition.doc_number) }
+ span class=(format!("status-pill {}", crate::utils::status_color(status_class))) { (status_text) }
  }
  div class="flex gap-3" {
  (requisition_action_buttons(requisition.status, detail_path))
  }
  }
-
+ // ── Workflow Steps ──
  (workflow_steps(requisition.status))
-
- // ── 领料信息 ──
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "领料信息" }
- div class="grid gap-4" {
+ // ── 领料信息（info-card 样式）──
+ div class="bg-bg border border-border-soft rounded-lg p-6 mb-6 shadow-[var(--shadow-card)]" {
+ div class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" { "领料信息" }
+ div class="grid gap-5 [grid-template-columns:repeat(auto-fill,minmax(200px,1fr))]" {
  div class="flex flex-col gap-1" {
  span class="text-xs text-muted font-medium" { "单据编号" }
- span class="text-sm text-fg font-medium font-mono tabular-nums" { (requisition.doc_number) }
+ span class="text-sm text-fg font-mono tabular-nums" { (requisition.doc_number) }
  }
  div class="flex flex-col gap-1" {
  span class="text-xs text-muted font-medium" { "关联工单" }
- span class="text-sm text-fg font-medium font-mono tabular-nums" { "WO-" (requisition.work_order_id) }
+ span class="text-sm text-fg font-mono tabular-nums" { "WO-" (requisition.work_order_id) }
  }
  div class="flex flex-col gap-1" {
  span class="text-xs text-muted font-medium" { "领料仓库" }
- span class="text-sm text-fg font-medium" { (wh_name) }
+ span class="text-sm text-fg" { (wh_name) }
  }
  div class="flex flex-col gap-1" {
  span class="text-xs text-muted font-medium" { "领料日期" }
- span class="text-sm text-fg font-medium font-mono tabular-nums" { (requisition.requisition_date.format("%Y-%m-%d")) }
+ span class="text-sm text-fg font-mono tabular-nums" { (requisition.requisition_date.format("%Y-%m-%d")) }
  }
  div class="flex flex-col gap-1" {
  span class="text-xs text-muted font-medium" { "操作员" }
- span class="text-sm text-fg font-medium" { (operator_name) }
+ span class="text-sm text-fg" { (operator_name) }
  }
  }
  }
-
- // ── 行项明细 ──
+ // ── 行项明细（data-card）──
  div class="data-card" {
  div class="overflow-x-auto" {
  table class="data-table" {
@@ -257,7 +259,7 @@ fn requisition_detail_page(
  th class="text-right text-[13px]" { "差异量" }
  th { "工序" }
  th { "批次" }
- th { "储位" }
+ th { "库位" }
  }
  }
  tbody {
@@ -266,9 +268,9 @@ fn requisition_detail_page(
  tr {
  td class="font-mono tabular-nums" { (i + 1) }
  td { (product_names.get(&item.product_id).map(|n| n.as_str()).unwrap_or("—")) }
- td class="text-right text-[13px]" { (format!("{:.2}", item.requested_qty)) }
- td class="text-right text-[13px]" { (format!("{:.2}", item.issued_qty)) }
- td class=(format!("num-right {}", variance_class)) { (variance_text) }
+ td class="text-right text-[13px] font-mono tabular-nums" { (format!("{:.2}", item.requested_qty)) }
+ td class="text-right text-[13px] font-mono tabular-nums" { (format!("{:.2}", item.issued_qty)) }
+ td class=(format!("text-right text-[13px] font-mono tabular-nums {}", variance_class)) { (variance_text) }
  td class="font-mono tabular-nums" { (item.operation_id.map(|id| format!("#{}", id)).unwrap_or_else(|| "—".into())) }
  td class="font-mono tabular-nums" { (item.batch_id.map(|id| format!("#{}", id)).unwrap_or_else(|| "—".into())) }
  td { (item.bin_id.map(|id| id.to_string()).unwrap_or_else(|| "—".into())) }
@@ -276,7 +278,9 @@ fn requisition_detail_page(
  }
  @if items.is_empty() {
  tr {
- td colspan="8" class="text-center text-muted text-sm" { "暂无领料明细" }
+ td colspan="8" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
+ "暂无领料明细"
+ }
  }
  }
  }

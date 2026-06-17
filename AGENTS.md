@@ -7,7 +7,8 @@
 - **Use Chinese (中文)** for all communication
 - **Do not use `cargo run` to start the server** — it's already running. Verify correctness with `cargo clippy`
 - **Code navigation**: Prefer `lsp` (definition / references / hover / type_definition); forbidden to use text search as a substitute for LSP lookups
-- **Before writing `abt-web/` components**, must read `abt-web/CLAUDE.md` first (component three principles, anti-fragmentation practices, etc.)
+ - **Before writing `abt-web/` components**, must read `abt-web/CLAUDE.md` first (component three principles, anti-fragmentation practices, etc.)
+ - **Rust 2024 edition — Maud prefix literal 陷阱**：`class="cascade-product" style="..."` 中，字符串 `"-product"` 后直接跟 `style` 会被 Rust 2024 lexer 误解析为 prefix literal。解法：`class="cascade-product "`（字符串末尾加空格）。仅影响 pattern `"<值>-<标识符>" <下一属性>`。
 
 ## Project Overview
 
@@ -97,14 +98,16 @@ cargo test -p abt-core         # Test core library only
 cargo test -p abt-core -- test_name  # Single test
 
 # Web frontend
-cargo run -p abt-web           # Start server (default port 8000) — DO NOT use if server is already running
-
-# CSS build (项目根级运行，static/ 在根目录)
-npm run build:css   # Build UnoCSS → static/app.css
-npm run watch       # Watch mode for CSS changes
-```
-
-**Important**: Do not use `cargo run` to start the server if it's already running. Verify correctness with `cargo clippy`.
+ # Web frontend
+ cargo watch -x run            # 自动重编译重启（推荐用于开发，stderr 重新输出到终端）
+ cargo run -p abt-web          # 单次启动（默认端口 8000）— 已有服务运行时禁止使用
+ 
+ # CSS build（项目根级运行，static/ 在根目录）
+ npm run build:css             # Build UnoCSS → static/app.css（修改 uno.config.ts 或 Maud 模板后必须执行）
+ npm run watch                 # Watch mode for CSS changes
+ ```
+ 
+ **Important**: 服务由 `cargo watch -x run` 管理，CSS 变更不会触发 Rust 重编译 — 必须手动 `npm run build:css` 后服务自动重载静态文件。验证正确性用 `cargo clippy`。
 
 ## Code Conventions & Common Patterns
 
@@ -349,18 +352,17 @@ Only for interactions that cannot be expressed inline:
 - `htmx:afterSettle` fires on **target element** (the swap target)
 - `hx-select` is inherited by child elements — add `hx-disinherit="hx-select"` on parent to prevent
 
-### CSS Management（100% 原子化 UnoCSS）
-样式文件位于项目根级 `static/` 目录：
-- **`static/base.css`** — **已删除**。不再存在手写 CSS 文件。所有样式通过 UnoCSS 原子类内联在 Maud 模板的 `class=""` 中
-- **`static/app.css`** — UnoCSS CLI 生成的纯原子 utility 输出。**禁止手动修改**，仅通过 `npm run build:css` 生成
-- **`uno.config.ts`**（项目根级）— UnoCSS 配置：`preflights`（:root 变量 + reset + 少量不可原子化的组件状态 CSS）+ `theme`（颜色/字号/间距/圆角/阴影/动画映射）+ `variants`（`act:`/`show:`/`is-open:` 等自定义状态前缀）+ `shortcuts`（仅 `data-table` 和 `data-card` 两个高频组件模式）
+ ### CSS Management（100% 原子化 UnoCSS）
+ 样式文件位于项目根级 `static/` 目录：
+ - **`static/base.css`** — **已删除**。不再存在手写 CSS 文件。所有样式通过 UnoCSS 原子类或 shortcuts 实现
+ - **`static/app.css`** — UnoCSS CLI 生成的纯原子 utility 输出。**禁止手动修改**，仅通过 `npm run build:css` 生成
 
 **核心规则：**
 1. **所有样式写在 Maud 的 `class=""` 中** — 使用 UnoCSS 原子类组合，如 `class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-md shadow-[var(--shadow-card)]"`
 2. **禁止新建 CSS 文件** — 不在 `static/` 下新建独立 CSS，不在 Maud 模板中用 `style=""` 内联（`<col>` 元素例外）
 3. **修改 CSS 变量** — 在 `uno.config.ts` 的 `preflights` 的 `:root { ... }` 块中修改
 4. **新增动画** — 在 `uno.config.ts` 的 `theme.animation.keyframes` 中定义，Maud 中用 `animate-xxx` 引用
-5. **`shortcuts` 只允许高频组件模式** — 当前仅 `data-table`（表格全样式）和 `data-card`（卡片容器），新增 shortcut 需满足：在 10+ 个 Maud 文件中重复使用且 class 字符串超过 100 字符
+ 5. **`shortcuts` 只允许高频组件模式** — 当前有 `data-table`（表格全样式）、`data-card`（卡片容器）、`form-field`（表单字段）、`form-section`（表单分区容器）、`field-full`（跨列）五个 shortcut，新增需满足：在 10+ 个 Maud 文件中重复使用且 class 字符串超过 100 字符
 
 **UnoCSS 高级语法速查（项目实际使用）：**
 
@@ -424,7 +426,7 @@ All shared enums are `#[repr(i16)]` stored as PostgreSQL `smallint`. They implem
 | `abt-web/src/state.rs` | `AppState` — holds PgPool, 45+ service factory methods |
 | `abt-web/src/utils.rs` | `RequestContext` axum extractor, serde helpers |
 | `abt-web/src/routes/mod.rs` | Master router — merges all 51 domain routers |
-| `uno.config.ts` | UnoCSS configuration: preflights (:root variables + reset + component state CSS) + theme (colors/spacing/radius/shadow/animation) + custom variants (act:/show:/is-open:) + shortcuts: {} (项目根级) |
+ | `uno.config.ts` | UnoCSS configuration: preflights (:root variables + reset + component state CSS) + theme (colors/spacing/radius/shadow/animation) + custom variants (act:/show:/is-open:) + shortcuts (data-table, data-card, form-field, form-section, field-full) (项目根级) |
 | `abt-macros/src/lib.rs` | `#[require_permission]` proc macro |
 | `docs/uml-design/` | Authoritative design documents — code must stay in sync |
 

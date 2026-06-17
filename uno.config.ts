@@ -121,7 +121,23 @@ p { margin: 0; }
 .perm-cell input:checked { background: #22c55e; border-color: #22c55e; }
 .perm-cell input:checked::after { content: ''; position: absolute; left: 4px; top: 1px; width: 5px; height: 9px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg); }
 .perm-cell input.perm-readonly { cursor: default; pointer-events: none; }
-.perm-cell input.perm-readonly:not(:checked) { opacity: 0.4; }
+.placeholder { color: var(--muted); }
+/* Global select: custom chevron (matches prototype .filter-select) */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23697386' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 32px !important;
+  cursor: pointer;
+}
+select:disabled {
+  background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23cbd5e1' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  cursor: default;
+}
+/* Allow elements that set their own background-image (e.g. native date input arrow) to override */
 /* app-shell JS-driven sidebar collapse + mobile state */
 .app-shell { display: grid; grid-template-columns: var(--sidebar-w) 1fr; min-height: 100vh; transition: grid-template-columns var(--motion-base) var(--ease-standard); }
 .app-shell.sidebar-collapsed { grid-template-columns: 56px 1fr; }
@@ -250,9 +266,11 @@ p { margin: 0; }
     "form-section": "bg-bg border border-border rounded-md p-6 mb-6",
     // ─── Form Field ─── (59+ files: label + input/select/textarea container)
     // label: block, xs, medium, fg-2, mb-1, nowrap; controls: w-full, px-3 py-2, border-border, rounded-sm, sm, bg-white, fg, focus→accent+shadow; textarea: resize-y, min-h-72px
-    "form-field": "[&_label]:block [&_label]:text-xs [&_label]:font-medium [&_label]:text-fg-2 [&_label]:mb-1 [&_label]:whitespace-nowrap [&_input,&_select,&_textarea]:w-full [&_input,&_select,&_textarea]:px-3 [&_input,&_select,&_textarea]:py-2 [&_input,&_select,&_textarea]:border [&_input,&_select,&_textarea]:border-border [&_input,&_select,&_textarea]:rounded-sm [&_input,&_select,&_textarea]:text-sm [&_input,&_select,&_textarea]:bg-white [&_input,&_select,&_textarea]:text-fg [&_input,&_select,&_textarea]:outline-none [&_input,&_select,&_textarea]:transition-all [&_input,&_select,&_textarea]:duration-150 [&_input:focus,&_select:focus,&_textarea:focus]:border-accent [&_input:focus,&_select:focus,&_textarea:focus]:[box-shadow:var(--shadow-focus)] [&_textarea]:resize-y [&_textarea]:min-h-[72px]",
+    "form-field": "[&_label]:block [&_label]:text-xs [&_label]:font-medium [&_label]:text-fg-2 [&_label]:mb-1 [&_label]:whitespace-nowrap [&_input,&_select,&_textarea]:w-full [&_input,&_select,&_textarea]:px-3 [&_input,&_select,&_textarea]:py-2 [&_input,&_select,&_textarea]:border [&_input,&_select,&_textarea]:border-border [&_input,&_select,&_textarea]:rounded-sm [&_input,&_select,&_textarea]:text-sm [&_input,&_select,&_textarea]:bg-white [&_input,&_select,&_textarea]:text-fg [&_input,&_select,&_textarea]:outline-none [&_input,&_select,&_textarea]:transition-all [&_input,&_select,&_textarea]:duration-150 [&_input:focus,&_select:focus,&_textarea:focus]:border-accent [&_input:focus,&_select:focus,&_textarea:focus]:[box-shadow:var(--shadow-focus)] [&_textarea]…",
     // ─── Field Full ─── (18+ files: grid-column 1/-1, spans all columns)
     "field-full": "col-span-full",
+    // ─── Status Pill ─── (65+ files: inline status badge shape; color resolved at call site via crate::utils::status_color())
+    "status-pill": "inline-flex items-center text-[11px] px-2 py-0.5 rounded-full font-medium whitespace-nowrap",
   },
   cli: {
     entry: {

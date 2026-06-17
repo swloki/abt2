@@ -7,6 +7,7 @@ use rust_decimal::Decimal;
 use abt_core::wms::inventory_lock::model::CreateLockReq;
 use abt_core::wms::inventory_lock::InventoryLockService;
 
+use crate::components::icon;
 use crate::layout::page::admin_page;
 use crate::routes::wms_inventory_lock::{LockCreatePath, LockListPath};
 use crate::utils::RequestContext;
@@ -38,7 +39,15 @@ pub async fn get_lock_create(
  let nav_filter = ctx.nav_filter().await;
  let claims = ctx.claims;
 
- let content = lock_create_form();
+ use abt_core::wms::warehouse::{WarehouseService, model::WarehouseFilter};
+ let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let warehouses = state.warehouse_service()
+ .list(&service_ctx, &mut conn, WarehouseFilter::default(), 1, 200)
+ .await
+ .map(|r| r.items)
+ .unwrap_or_default();
+
+ let content = lock_create_form(&warehouses);
  let page_html = admin_page(
  is_htmx,
  "新建锁库",
@@ -52,7 +61,6 @@ pub async fn get_lock_create(
  Ok(Html(page_html.into_string()))
 }
 
-#[require_permission("INVENTORY", "create")]
 pub async fn create_lock(
  _path: LockCreatePath,
  ctx: RequestContext,
@@ -86,39 +94,51 @@ pub async fn create_lock(
  "HX-Redirect",
  LockListPath::PATH.parse().unwrap(),
  );
- *resp.status_mut() = axum::http::StatusCode::SEE_OTHER;
-
- Ok(resp)
+Ok(resp)
 }
 
-// ── Components ──
-
-fn lock_create_form() -> Markup {
+fn lock_create_form(warehouses: &[abt_core::wms::warehouse::model::Warehouse]) -> Markup {
  html! {
- div class="data-card" {
+ div {
+ // ── Back Link ──
+ a href=(format!("{}?restore=true", LockListPath::PATH)) class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150 mb-4" {
+ (icon::chevron_left_icon("w-4 h-4"))
+ "返回库存锁定列表"
+ }
+ // ── Page Header ──
+ div class="flex items-center justify-between mb-5" {
+ h1 class="text-xl font-bold text-fg tracking-tight" { "新建锁库" }
+ }
  form method="POST" action=(LockCreatePath::PATH)
  hx-post=(LockCreatePath::PATH)
  hx-redirect=(LockListPath::PATH) {
-
- div class="bg-bg border border-border rounded p-6" {
- div class="wms-grid grid-cols-2 gap-4 gap-x-6 mb-6" {
+ // ── 锁库信息 ──
+ div class="form-section" {
+ div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-3 border-b border-border-soft" {
+ (icon::lock_icon("w-[18px] h-[18px]"))
+ "锁库信息"
+ }
+ div class="grid grid-cols-2 gap-4 gap-x-6" {
  div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "产品ID" }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" name="product_id" required placeholder="输入产品ID";
+ label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "产品ID " span class="required" { "*" } }
+ input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="number" name="product_id" required placeholder="输入产品ID";
  }
  div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "仓库" }
- select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="warehouse_id" required {
+ label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "仓库 " span class="required" { "*" } }
+ select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" name="warehouse_id" required {
  option value="" { "请选择仓库" }
+ @for w in warehouses {
+ option value=(w.id) { (w.name) }
+ }
  }
  }
  div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "锁定数量" }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" name="locked_qty" step="0.01" required placeholder="输入数量";
+ label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "锁定数量 " span class="required" { "*" } }
+ input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="number" name="locked_qty" step="0.01" required placeholder="输入数量";
  }
  div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "锁定原因" }
- select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="lock_reason" required {
+ label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "锁定原因 " span class="required" { "*" } }
+ select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" name="lock_reason" required {
  option value="客户预留" { "客户预留" }
  option value="质量问题" { "质量问题" }
  option value="安全库存" { "安全库存" }
@@ -126,19 +146,22 @@ fn lock_create_form() -> Markup {
  }
  }
  div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "关联客户ID（可选）" }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" name="customer_id" placeholder="可选";
+ label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "关联客户ID" }
+ input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="number" name="customer_id" placeholder="可选";
  }
  }
  }
-
- div class="flex items-center justify-end gap-3 pt-4 [border-top:1px_solid_var(--border-soft)]" {
- a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{}?restore=true", LockListPath::PATH)) { "取消" }
- button type="submit" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" {
+ // ── Action Bar ──
+ div class="sticky bottom-0 flex items-center justify-between gap-3 px-6 py-4 bg-bg [border-top:1px_solid_var(--border-soft)]" {
+ div { }
+ div class="flex gap-3" {
+ a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{}?restore=true", LockListPath::PATH)) { "取消" }
+ button type="submit" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" {
  "确认锁定"
  }
  }
  }
  }
  }
+}
 }

@@ -74,11 +74,11 @@ pub fn entity_picker_field(
  }
  div class="flex gap-2 items-stretch" {
  input type="hidden" name=(name) id=(target_id);
- div class="flex gap-2 items-stretch-display placeholder" id=(display_id)
+ div class="flex-1 flex items-center px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg cursor-pointer transition-all duration-150 hover:border-accent truncate placeholder" id=(display_id)
  _=(open_hs.as_str()) {
  (placeholder)
  }
- button type="button" class="flex gap-2 items-stretch-inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative"
+ button type="button" class="inline-flex items-center gap-2 px-3 py-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap bg-white text-fg-2 border border-border hover:bg-surface hover:border-accent transition-all duration-150"
  _=(open_hs.as_str()) {
  "选择"
  }
@@ -94,8 +94,8 @@ pub fn entity_picker_modal(cfg: &EntityPickerConfig) -> Markup {
  let open_hs = format!("on click[me is event.target] remove .is-open from #{}", cfg.modal_id);
 
  html! {
- div class="fixed z-[1000] grid place-items-center opacity-0" id=(cfg.modal_id) _=(open_hs) {
- div class="modal bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0" _="on click halt" {
+ div class="modal-overlay fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto" id=(cfg.modal_id) _=(open_hs) {
+ div class="modal bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl" _="on click halt" {
  div class="px-6 py-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center shrink-0" {
  h2 { (cfg.title) }
  button style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text-muted);padding:4px"

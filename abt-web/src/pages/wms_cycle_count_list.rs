@@ -230,7 +230,7 @@ fn cycle_count_row(item: &CycleCount) -> Markup {
  (item.count_date.format("%Y-%m-%d"))
  }
  td onclick=(format!("location.href='{}'", detail_path)) {
- span class=(format!("status-pill {sc}")) { (sl) }
+ span class=(format!("status-pill {}", crate::utils::status_color(sc))) { (sl) }
  }
  td onclick=(format!("location.href='{}'", detail_path)) {
  @if item.is_blind { "是" } @else { "否" }

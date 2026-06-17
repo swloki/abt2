@@ -81,7 +81,7 @@ fn format_amount(d: rust_decimal::Decimal) -> String {
 }
 
 fn status_pill(label: &str, class: &str) -> Markup {
- html! { span class=(format!("status-pill {class}")) { (label) } }
+ html! { span class=(format!("status-pill {}", crate::utils::status_color(class))) { (label) } }
 }
 
 // ── Handlers ──

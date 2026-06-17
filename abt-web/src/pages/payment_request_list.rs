@@ -342,7 +342,7 @@ fn pay_row(
  td onclick=(&onclick) { (supplier_name) }
  td class="font-mono tabular-nums" onclick=(&onclick) { (recon_doc_number) }
  td onclick=(&onclick) {
- span class=(format!("status-pill {status_class}")) { (status_text) }
+ span class=(format!("status-pill {}", crate::utils::status_color(status_class))) { (status_text) }
  }
  td class="text-right text-[13px]" onclick=(&onclick) { (r.amount) }
  td class="font-mono tabular-nums" onclick=(&onclick) { (r.payment_date.format("%Y-%m-%d")) }

@@ -41,9 +41,9 @@ fn admin_shell(
         div id="app-wrapper" {
             div class="app-shell" _="on load if localStorage.getItem('sidebar-collapsed') is 'true' add .sidebar-collapsed" {
                 (sidebar::sidebar(claims, active_module, current_path, nav_filter))
-                div class="flex flex-col bg-surface" {
+                div class="flex flex-col bg-surface min-w-0" {
                     (header::header(claims, module_name, page_name))
-                    div class="flex-1 p-8" { (content) }
+                    div class="flex-1 p-8 min-w-0 overflow-x-hidden" { (content) }
                 }
             }
             div class="hidden fixed z-[50]" _="on click remove .open" {}

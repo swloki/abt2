@@ -152,7 +152,7 @@ fn lock_detail_page(
  div {
  div class="flex items-center justify-between" {
  span class="text-2xl font-extrabold font-mono tabular-nums" { (lock.doc_number) }
- span class=(format!("status-pill {sc}")) { (sl) }
+ span class=(format!("status-pill {}", crate::utils::status_color(sc))) { (sl) }
  }
  }
  @if is_active {

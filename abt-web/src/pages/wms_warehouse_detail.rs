@@ -327,7 +327,7 @@ fn warehouse_detail_page(
  div {
  div style="display:flex;align-items:center;gap:var(--space-3)" {
  h1 class="text-2xl font-extrabold" style="font-size:var(--text-xl);font-weight:700;margin:0;font-family:var(--font-mono)" { (warehouse.code) }
- span class=(format!("status-pill {status_class}")) { (status_label) }
+ span class=(format!("status-pill {}", crate::utils::status_color(status_class))) { (status_label) }
  @if warehouse.is_virtual {
  span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap" style="background:rgba(114,46,209,0.08);color:#722ed1;font-size:11px;padding:2px 8px" { "虚拟仓" }
  }
@@ -377,7 +377,7 @@ fn warehouse_detail_page(
  div class="flex flex-col gap-1" {
  span class="text-xs text-muted font-medium" { "状态" }
  span class="text-sm text-fg font-medium" {
- span class=(format!("status-pill {status_class}")) { (status_label) }
+ span class=(format!("status-pill {}", crate::utils::status_color(status_class))) { (status_label) }
  }
  }
  div class="flex flex-col gap-1" {
@@ -425,13 +425,13 @@ fn warehouse_detail_page(
  // ── Zone Bins Table (placeholder, populated on zone click) ──
  div id="bins-section" class="bg-bg border border-border-soft rounded-xl overflow-hidden" style="background:var(--bg);border:1px solid var(--border-soft);border-radius:var(--radius-md);padding:var(--space-6);margin-bottom:var(--space-6)" {
  div class="sub-text-lg font-semibold text-fg" style="font-size:var(--text-base);font-weight:600;color:var(--fg);margin-bottom:var(--space-4);padding-bottom:var(--space-3);border-bottom:1px solid var(--border-soft)" {
- "储位明细 "
+ "库位明细 "
  span style="font-weight:400;font-size:12px;color:var(--muted);margin-left:var(--space-2)" {
- "请点击库区查看储位"
+ "请点击库区查看库位"
  }
  }
  div id="bins-table-container" {
- div style="text-align:center;padding:var(--space-8);color:var(--muted)" { "选择库区后显示储位列表" }
+ div style="text-align:center;padding:var(--space-8);color:var(--muted)" { "选择库区后显示库位列表" }
  }
  }
 
@@ -565,7 +565,7 @@ fn zones_table_fragment(zones: &[Zone], warehouse_id: i64) -> Markup {
  th { "库区编码" }
  th { "名称" }
  th { "类型" }
- th { "储位数" }
+ th { "库位数" }
  th { "排序" }
  th { "备注" }
  th class="!text-right" { "操作" }
@@ -608,7 +608,7 @@ fn zone_row(z: &Zone, _warehouse_id: i64) -> Markup {
  }
  td {
  div class="row-actions flex items-center gap-1 justify-end opacity-0 transition-opacity duration-150 [&_a]:w-[28px] [&_a]:h-[28px] [&_a]:grid [&_a]:place-items-center [&_a]:rounded-sm [&_a]:cursor-pointer [&_a]:bg-surface [&_a]:hover:bg-accent-bg [&_svg]:w-3.5 [&_svg]:h-3.5" {
- button type="button" class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" title="查看储位"
+ button type="button" class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" title="查看库位"
  hx-get=(bins_path)
  hx-target="#bins-table-container"
  hx-swap="innerHTML" {
@@ -640,7 +640,7 @@ fn bins_table_fragment(bins: &[Bin]) -> Markup {
  table class="data-table" {
  thead {
  tr {
- th { "储位编码" }
+ th { "库位编码" }
  th { "名称" }
  th { "行/列/层" }
  th { "容量上限" }
@@ -655,7 +655,7 @@ fn bins_table_fragment(bins: &[Bin]) -> Markup {
  @if bins.is_empty() {
  tr {
  td colspan="6" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
- "暂无储位数据"
+ "暂无库位数据"
  }
  }
  }
@@ -690,7 +690,7 @@ fn bin_row(b: &Bin) -> Markup {
  }
  }
  td {
- span class=(format!("status-pill {status_class}")) { (status_label) }
+ span class=(format!("status-pill {}", crate::utils::status_color(status_class))) { (status_label) }
  }
  td {
  @if let Some(ref req) = b.temperature_req {

@@ -136,7 +136,7 @@ fn precon_detail_page(
  div {
  div class="flex items-center justify-between" {
  h1 class="text-2xl font-extrabold font-mono tabular-nums" { (recon.doc_number) }
- span class=(format!("status-pill {status_class}")) { (status_text) }
+ span class=(format!("status-pill {}", crate::utils::status_color(status_class))) { (status_text) }
  }
  }
  div class="flex gap-3" {
@@ -174,7 +174,7 @@ fn precon_detail_page(
  }
  div class="flex flex-col gap-1" {
  span class="text-xs text-muted font-medium" { "状态" }
- span class=(format!("status-pill {status_class}")) { (status_text) }
+ span class=(format!("status-pill {}", crate::utils::status_color(status_class))) { (status_text) }
  }
  div class="flex flex-col gap-1" {
  span class="text-xs text-muted font-medium" { "操作人" }

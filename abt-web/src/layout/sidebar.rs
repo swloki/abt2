@@ -230,7 +230,7 @@ fn modules() -> Vec<NavModule> {
             items: vec![
                 NavItem { name: "库存总览", path: "/admin/wms", icon: NavIcon::Home, permission: Some(("INVENTORY", "read")) },
                 NavItem { name: "仓库管理", path: "/admin/wms/warehouses", icon: NavIcon::Building, permission: Some(("WAREHOUSE", "read")) },
-                NavItem { name: "储位管理", path: "/admin/wms/bins", icon: NavIcon::Database, permission: Some(("LOCATION", "read")) },
+                NavItem { name: "库位管理", path: "/admin/wms/bins", icon: NavIcon::Database, permission: Some(("LOCATION", "read")) },
                 NavItem { name: "库存查询", path: "/admin/wms/stock", icon: NavIcon::Search, permission: Some(("INVENTORY", "read")) },
                 NavItem { name: "入库管理", path: "/admin/wms/stock-in", icon: NavIcon::ArrowDown, permission: Some(("INVENTORY", "read")) },
                 NavItem { name: "出库管理", path: "/admin/wms/stock-out", icon: NavIcon::ArrowUp, permission: Some(("INVENTORY", "read")) },

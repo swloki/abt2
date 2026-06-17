@@ -154,7 +154,7 @@ fn cycle_count_detail_page(
  div {
  div class="flex items-center justify-between" {
  span class="text-2xl font-extrabold font-mono tabular-nums" { (cc.doc_number) }
- span class=(format!("status-pill {sc}")) { (sl) }
+ span class=(format!("status-pill {}", crate::utils::status_color(sc))) { (sl) }
  }
  }
  div class="flex gap-3" {
@@ -212,7 +212,7 @@ fn cycle_count_detail_page(
  thead {
  tr {
  th { "行号" }
- th { "储位" }
+ th { "库位" }
  th { "产品ID" }
  th { "批次号" }
  th class="text-right text-[13px]" { "系统数量" }

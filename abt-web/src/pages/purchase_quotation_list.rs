@@ -351,7 +351,7 @@ fn pq_row(
  td onclick=(&onclick) { (supplier_name) }
  td onclick=(&onclick) { (contact) }
  td onclick=(&onclick) {
- span class=(format!("status-pill {status_class}")) { (status_text) }
+ span class=(format!("status-pill {}", crate::utils::status_color(status_class))) { (status_text) }
  }
  td class="font-mono tabular-nums" onclick=(&onclick) { (q.quotation_date.format("%Y-%m-%d")) }
  td class="font-mono tabular-nums" onclick=(&onclick) { (q.valid_until.format("%Y-%m-%d")) }

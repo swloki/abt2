@@ -336,7 +336,7 @@ fn misc_row(
  td class="font-mono tabular-nums" onclick=(&onclick) { (r.request_date.format("%Y-%m-%d")) }
  td onclick=(&onclick) { (r.purpose.as_str()) }
  td onclick=(&onclick) {
- span class=(format!("status-pill {status_class}")) { (status_text) }
+ span class=(format!("status-pill {}", crate::utils::status_color(status_class))) { (status_text) }
  }
  td class="text-right text-[13px] font-mono tabular-nums" onclick=(&onclick) { (format!("{:.2}", r.total_amount)) }
  td onclick=(&onclick) { (operator_name) }

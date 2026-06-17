@@ -67,7 +67,7 @@ pub async fn get_detail(path: RmaDetailPath, ctx: RequestContext) -> Result<Html
  h1 class="text-xl font-bold text-fg tracking-tight" {
  "RMA单号 " (&rma.doc_number)
  " "
- span class=(format!("status-pill {status_class}")) { (status_text) }
+ span class=(format!("status-pill {}", crate::utils::status_color(status_class))) { (status_text) }
  }
  }
  }
@@ -80,7 +80,7 @@ pub async fn get_detail(path: RmaDetailPath, ctx: RequestContext) -> Result<Html
  div class="flex flex-col gap-1" { label { "产品" } span { (product_name) } }
  div class="flex flex-col gap-1" {
  label { "严重程度" }
- span class=(format!("status-pill {severity_class}")) { (severity_text) }
+ span class=(format!("status-pill {}", crate::utils::status_color(severity_class))) { (severity_text) }
  }
  div class="flex flex-col gap-1" {
  label { "关联销售单" }

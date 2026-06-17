@@ -283,7 +283,7 @@ fn quotation_row(q: &Quotation, names: &HashMap<i64, String>, can_delete: bool) 
  td class="text-accent font-medium cursor-pointer font-mono tabular-nums" onclick=(format!("location.href='{}'", detail_path)) { (q.doc_number) }
  td onclick=(format!("location.href='{}'", detail_path)) { (customer_name) }
  td onclick=(format!("location.href='{}'", detail_path)) {
- span class=(format!("status-pill {status_class}")) { (status_text) }
+ span class=(format!("status-pill {}", crate::utils::status_color(status_class))) { (status_text) }
  }
  td class="text-right text-[13px]" onclick=(format!("location.href='{}'", detail_path)) {
  span class="font-mono tabular-nums" { (crate::utils::fmt_amount(q.total_amount)) }

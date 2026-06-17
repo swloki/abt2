@@ -58,7 +58,7 @@ pub async fn get_detail(path: SpecDetailPath, ctx: RequestContext) -> Result<Htm
  h1 class="text-xl font-bold text-fg tracking-tight" {
  "单号 " (spec.doc_number)
  " "
- span class=(format!("status-pill {status_class}")) { (status_text) }
+ span class=(format!("status-pill {}", crate::utils::status_color(status_class))) { (status_text) }
  }
  }
  }

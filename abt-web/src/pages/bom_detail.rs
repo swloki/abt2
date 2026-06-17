@@ -214,7 +214,7 @@ fn bom_detail_page(
  " "
  span class="bg-[#e6f4ff] text-accent rounded-full text-[11px] font-medium" { "v" (bom.version) }
  " "
- span class=(format!("status-pill {status_class}")) { (status_label) }
+ span class=(format!("status-pill {}", crate::utils::status_color(status_class))) { (status_label) }
  }
  div class="flex gap-4 text-muted text-xs" {
  span { "节点: " (node_count) }

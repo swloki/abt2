@@ -40,72 +40,72 @@ fn mes_dashboard_page(stats: &abt_core::mes::dashboard::model::DashboardStats, d
  div class="flex items-center justify-between mb-6" {
  h1 class="text-xl font-bold text-fg tracking-tight" { "生产管理总览" }
  div class="flex gap-3" {
- button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" {
+ button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" {
  (icon::download_icon("w-4 h-4"))
  " 导出报表"
  }
  }
- }
+}
  // ── Stat Cards ──
- div style="display:grid;grid-template-columns:repeat(5,1fr);gap:var(--space-5);margin-bottom:var(--space-6)" {
- div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
- div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 blue" { (icon::file_text_icon("w-5 h-5")) }
+ div class="grid grid-cols-5 gap-5 mb-6" {
+ div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-md" {
+ div class="w-11 h-11 rounded-md grid place-items-center shrink-0 bg-[linear-gradient(135deg,#e6f4ff,#d6e8ff)] text-accent" { (icon::file_text_icon("w-5 h-5")) }
  div {
- div class="text-2xl font-bold font-mono tabular-nums tabular-nums text-fg" { (stats.plan_count) }
+ div class="text-2xl font-bold font-mono tabular-nums text-fg" { (stats.plan_count) }
  div class="text-sm text-muted mt-1" { "本月生产计划" }
  }
  }
- div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
- div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 green" { (icon::tool_icon("w-5 h-5")) }
+ div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-md" {
+ div class="w-11 h-11 rounded-md grid place-items-center shrink-0 bg-[linear-gradient(135deg,#f0fff0,#e0ffe0)] text-success" { (icon::tool_icon("w-5 h-5")) }
  div {
- div class="text-2xl font-bold font-mono tabular-nums tabular-nums text-fg" { (stats.active_order_count) }
+ div class="text-2xl font-bold font-mono tabular-nums text-fg" { (stats.active_order_count) }
  div class="text-sm text-muted mt-1" { "进行中工单" }
  }
  }
- div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
- div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 orange" { (icon::briefcase_icon("w-5 h-5")) }
+ div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-md" {
+ div class="w-11 h-11 rounded-md grid place-items-center shrink-0 bg-[linear-gradient(135deg,#fff8eb,#fff0d6)] text-[#fa8c16]" { (icon::briefcase_icon("w-5 h-5")) }
  div {
- div class="text-2xl font-bold font-mono tabular-nums tabular-nums text-fg" { (stats.active_batch_count) }
+ div class="text-2xl font-bold font-mono tabular-nums text-fg" { (stats.active_batch_count) }
  div class="text-sm text-muted mt-1" { "活跃批次" }
  }
  }
- div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
- div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 blue" { (icon::download_icon("w-5 h-5")) }
+ div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-md" {
+ div class="w-11 h-11 rounded-md grid place-items-center shrink-0 bg-[linear-gradient(135deg,#e6f4ff,#d6e8ff)] text-accent" { (icon::download_icon("w-5 h-5")) }
  div {
- div class="text-2xl font-bold font-mono tabular-nums tabular-nums text-fg" { (stats.pending_receipt_count) }
+ div class="text-2xl font-bold font-mono tabular-nums text-fg" { (stats.pending_receipt_count) }
  div class="text-sm text-muted mt-1" { "待入库批次" }
  }
  }
- div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
- div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 green" { (icon::check_circle_icon("w-5 h-5")) }
+ div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-md" {
+ div class="w-11 h-11 rounded-md grid place-items-center shrink-0 bg-[linear-gradient(135deg,#f0fff0,#e0ffe0)] text-success" { (icon::check_circle_icon("w-5 h-5")) }
  div {
- div class="text-2xl font-bold font-mono tabular-nums tabular-nums text-fg" { (crate::utils::fmt_qty(stats.completed_qty)) }
+ div class="text-2xl font-bold font-mono tabular-nums text-fg" { (crate::utils::fmt_qty(stats.completed_qty)) }
  div class="text-sm text-muted mt-1" { "本月完工数量" }
  }
  }
  }
  // ── 数据质量 ──
  div class="mb-8" {
- h2 class="text-lg font-semibold text-fg flex items-center gap-2" { "数据质量" }
- div class="grid gap-4" {
- a class="bg-bg border border-border-soft rounded-lg p-5 flex items-center gap-4 cursor-pointer no-underline warn" href="/admin/md/products" {
- div class="bg-bg border border-border-soft rounded-lg p-5 flex items-center gap-4 cursor-pointer no-underline-value" { (dq.no_routing_count) }
- div class="bg-bg border border-border-soft rounded-lg p-5 flex items-center gap-4 cursor-pointer no-underline-label" { "个产品无 Routing" }
+ h2 class="text-lg font-semibold text-fg mb-4" { "数据质量" }
+ div class="grid grid-cols-3 gap-5" {
+ a class="flex items-center gap-4 p-5 px-6 rounded-lg bg-bg border border-border-soft no-underline hover:shadow-md transition-shadow" href="/admin/md/products" {
+ div class="text-2xl font-bold font-mono tabular-nums text-warn" { (dq.no_routing_count) }
+ div class="text-sm text-muted" { "个产品无 Routing" }
  }
- a class="bg-bg border border-border-soft rounded-lg p-5 flex items-center gap-4 cursor-pointer no-underline warn" href="/admin/md/boms" {
- div class="bg-bg border border-border-soft rounded-lg p-5 flex items-center gap-4 cursor-pointer no-underline-value" { (dq.no_bom_count) }
- div class="bg-bg border border-border-soft rounded-lg p-5 flex items-center gap-4 cursor-pointer no-underline-label" { "个产品无已发布 BOM" }
+ a class="flex items-center gap-4 p-5 px-6 rounded-lg bg-bg border border-border-soft no-underline hover:shadow-md transition-shadow" href="/admin/md/boms" {
+ div class="text-2xl font-bold font-mono tabular-nums text-warn" { (dq.no_bom_count) }
+ div class="text-sm text-muted" { "个产品无已发布 BOM" }
  }
- a class="bg-bg border border-border-soft rounded-lg p-5 flex items-center gap-4 cursor-pointer no-underline ok" href="/admin/md/products" {
- div class="bg-bg border border-border-soft rounded-lg p-5 flex items-center gap-4 cursor-pointer no-underline-value" { (dq.complete_count) }
- div class="bg-bg border border-border-soft rounded-lg p-5 flex items-center gap-4 cursor-pointer no-underline-label" { "个产品数据完整" }
+ a class="flex items-center gap-4 p-5 px-6 rounded-lg bg-bg border border-border-soft no-underline hover:shadow-md transition-shadow" href="/admin/md/products" {
+ div class="text-2xl font-bold font-mono tabular-nums text-success" { (dq.complete_count) }
+ div class="text-sm text-muted" { "个产品数据完整" }
  }
  }
  }
- // ── Quick Entry Grid (12 cards matching design) ──
+ // ── Quick Entry Grid ──
  div class="mb-8" {
- h2 class="text-lg font-semibold text-fg flex items-center gap-2" { "快捷入口" }
- div style="display:grid;grid-template-columns:repeat(4,1fr);gap:var(--space-4)" {
+ h2 class="text-lg font-semibold text-fg mb-4" { "快捷入口" }
+ div class="grid grid-cols-4 gap-4" {
  (quick_entry_card("/admin/mes/demand-pool", "生产需求池", "销售订单驱动的生产需求", "purple", 0, "条待处理"))
  (quick_entry_card("/admin/mes/plans", "生产计划", "MTO/MTS 双轨排产", "blue", qs.plan_total, "条计划"))
  (quick_entry_card("/admin/mes/orders", "工单管理", "BOM展开与工序排程", "green", qs.order_active, "进行中"))
@@ -123,12 +123,13 @@ fn mes_dashboard_page(stats: &abt_core::mes::dashboard::model::DashboardStats, d
  }
  // ── Recent Operations Table ──
  div class="mb-8" {
- h2 class="text-lg font-semibold text-fg flex items-center gap-2" {
+ h2 class="flex items-center gap-2 text-lg font-semibold text-fg mb-4" {
  (icon::clock_icon("w-4 h-4"))
  " 最近操作"
  }
- div class="data-card" style="overflow:hidden" {
- table class="data-table" style="width:100%;min-width:auto" {
+ div class="data-card" {
+ div class="overflow-x-auto" {
+ table class="data-table" {
  thead {
  tr {
  th { "时间" }
@@ -164,6 +165,7 @@ fn mes_dashboard_page(stats: &abt_core::mes::dashboard::model::DashboardStats, d
  }
  }
  }
+ }
 }
 fn quick_entry_card(href: &str, title: &str, desc: &str, color: &str, count: i64, stat_suffix: &str) -> Markup {
  let (bg, fg) = match color {
@@ -190,19 +192,19 @@ fn quick_entry_card(href: &str, title: &str, desc: &str, color: &str, count: i64
  "计件工资" => icon::dollar_icon("w-full h-full"),
  "物料消耗" => icon::box_icon("w-full h-full"),
  "生产异常" => icon::alert_triangle_icon("w-full h-full"),
- "委外管理" => icon::truck_icon("w-full h-full"),
  _ => icon::grid_icon("w-full h-full"),
  };
  html! {
- a href=(href) class="block p-5 rounded-lg bg-bg border border-border-soft no-underline relative overflow-hidden" style="text-decoration:none" {
- div class="block p-5 rounded-lg bg-bg border border-border-soft no-underline relative overflow-hidden-icon" style=(format!("background:{}", bg)) {
- div style=(format!("width:22px;height:22px;color:{}", fg)) {
+ a href=(href) class="block p-5 rounded-lg bg-bg border border-border-soft no-underline relative overflow-hidden hover:shadow-md transition-shadow" {
+ div class="w-[22px] h-[22px] mb-3" style=(format!("color:{}", fg)) {
  (icon_svg)
  }
+ div class="text-sm font-semibold text-fg mb-1" { (title) }
+ div class="text-xs text-muted mb-3" { (desc) }
+ div class="flex items-baseline gap-1" {
+ span class="text-lg font-bold font-mono tabular-nums" style=(format!("color:{}", fg)) { (count) }
+ span class="text-xs text-muted" { (stat_suffix) }
  }
- span class="block p-5 rounded-lg bg-bg border border-border-soft no-underline relative overflow-hidden-title" { (title) }
- span class="block p-5 rounded-lg bg-bg border border-border-soft no-underline relative overflow-hidden-desc" { (desc) }
- span class="block p-5 rounded-lg bg-bg border border-border-soft no-underline relative overflow-hidden-stat" { (count) " " (stat_suffix) }
  }
  }
 }

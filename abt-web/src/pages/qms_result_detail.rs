@@ -87,7 +87,7 @@ pub async fn get_detail(path: ResultDetailPath, ctx: RequestContext) -> Result<H
  h1 class="text-xl font-bold text-fg tracking-tight" {
  "单号 " (&result.doc_number)
  " "
- span class=(format!("status-pill {status_class}")) { (status_text) }
+ span class=(format!("status-pill {}", crate::utils::status_color(status_class))) { (status_text) }
  }
  }
  }
@@ -99,7 +99,7 @@ pub async fn get_detail(path: ResultDetailPath, ctx: RequestContext) -> Result<H
  div class="flex flex-col gap-1" { label { "产品" } span { (product_name) } }
  div class="flex flex-col gap-1" {
  label { "检验类型" }
- span class=(format!("status-pill {type_class}")) { (type_text) }
+ span class=(format!("status-pill {}", crate::utils::status_color(type_class))) { (type_text) }
  }
  div class="flex flex-col gap-1" { label { "来源类型" } span { (source_type_label(&result.source_type)) } }
  div class="flex flex-col gap-1" { label { "批次号" } span class="font-mono tabular-nums" { (&result.batch_no) } }
@@ -119,7 +119,7 @@ pub async fn get_detail(path: ResultDetailPath, ctx: RequestContext) -> Result<H
  div class="flex flex-col gap-1" { label { "不合格数量" } span class="font-mono tabular-nums text-right text-[13px]" { (fmt_qty(result.unqualified_qty)) } }
  div class="flex flex-col gap-1" {
  label { "检验结果" }
- span class=(format!("status-pill {result_class}")) { (result_text) }
+ span class=(format!("status-pill {}", crate::utils::status_color(result_class))) { (result_text) }
  }
  }
  }

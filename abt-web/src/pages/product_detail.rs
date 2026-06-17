@@ -251,7 +251,7 @@ fn product_detail_page(
  h1 class="text-xl font-bold" {
  (product.pdt_name)
  " "
- span class=(format!("status-pill {status_class}")) { (status_label) }
+ span class=(format!("status-pill {}", crate::utils::status_color(status_class))) { (status_label) }
  }
  div class="flex gap-4 text-muted text-xs" {
  span { "编码: " (product.product_code) }
@@ -325,7 +325,7 @@ fn tab_basic_info(product: &Product, status_label: &'static str, status_class: &
  (detail_row("计量单位", html! { (product.unit) }))
  (detail_row("获取途径", html! { (acquire_channel_label(product.acquire_channel)) }))
  (detail_row("产品状态", html! {
- span class=(format!("status-pill {status_class}")) { (status_label) }
+ span class=(format!("status-pill {}", crate::utils::status_color(status_class))) { (status_label) }
  }))
  (detail_row("创建时间", html! {
  @if let Some(dt) = product.created_at { (dt.format("%Y-%m-%d %H:%M")) } @else { "—" }

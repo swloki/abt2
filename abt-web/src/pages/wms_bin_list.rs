@@ -66,12 +66,12 @@ pub async fn get_bin_list(
  let content = bin_list_page(&result, &params, &warehouses.items, &zone_map, can_create);
  let page_html = admin_page(
  is_htmx,
- "储位管理",
+ "库位管理",
  &claims,
  "inventory",
  BinListPath::PATH,
  "库存管理",
- Some("储位管理"),
+ Some("库位管理"),
  content, &nav_filter, );
  Ok(Html(page_html.into_string()))
 }
@@ -128,12 +128,12 @@ fn bin_list_page(
  html! {
  div {
  div class="flex items-center justify-between mb-6" {
- h1 class="text-xl font-bold text-fg tracking-tight" { "储位管理" }
+ h1 class="text-xl font-bold text-fg tracking-tight" { "库位管理" }
  div class="flex gap-3" {
  @if can_create {
- a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(BinCreatePath::PATH) {
+ a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(BinCreatePath::PATH) {
  (icon::plus_icon("w-4 h-4"))
- "新建储位"
+ "新建库位"
  }
  }
  }
@@ -158,8 +158,8 @@ fn bin_data_card(
  table class="data-table" {
  thead {
  tr {
- th { "储位编码" }
- th { "储位名称" }
+ th { "库位编码" }
+ th { "库位名称" }
  th { "所属仓库" }
  th { "所属库区" }
  th class="text-right text-[13px]" { "行" }
@@ -177,7 +177,7 @@ fn bin_data_card(
  @if result.items.is_empty() {
  tr {
  td colspan="10" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
- "暂无储位数据"
+ "暂无库位数据"
  }
  }
  }
@@ -195,12 +195,10 @@ fn bin_table_fragment(
  warehouses: &[Warehouse],
  zones: &HashMap<i64, Zone>,
 ) -> Markup {
- let _query = build_query_string(params);
-
  html! {
- div class="bin-list-panel" {
+ div {
  // ── Filter Bar ──
- form class="flex items-center gap-3 mb-5 flex-wrap filter-form" id="filter-form"
+ form class="flex items-center gap-3 mb-6 flex-wrap filter-form" id="filter-form"
  hx-get=(BinListPath::PATH)
  hx-trigger="change, keyup changed delay:300ms from:.search-input"
  hx-target="#bin-data-card"
@@ -210,16 +208,9 @@ fn bin_table_fragment(
  hx-push-url="true" {
  div class="relative flex-1 max-w-xs [&_svg]:absolute [&_svg]:left-3 [&_svg]:top-1/2 [&_svg]:-translate-y-1/2 [&_svg]:w-4 [&_svg]:h-4 [&_svg]:text-muted" {
  (icon::search_icon(""))
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="code"
- style="width:180px"
- placeholder="储位编码"
- value=(params.code.as_deref().unwrap_or(""));
- }
- div class="relative flex-1 max-w-xs [&_svg]:absolute [&_svg]:left-3 [&_svg]:top-1/2 [&_svg]:-translate-y-1/2 [&_svg]:w-4 [&_svg]:h-4 [&_svg]:text-muted" {
- (icon::search_icon(""))
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="name"
- placeholder="储位名称"
- value=(params.name.as_deref().unwrap_or(""));
+ input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input" type="text" name="code"
+ placeholder="搜索库位编码/名称…"
+ value=(params.code.as_deref().or(params.name.as_deref()).unwrap_or(""));
  }
  select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="warehouse_id" {
  option value="" { "全部仓库" }
@@ -252,39 +243,38 @@ fn bin_row(item: &BinWithWarehouse, zones: &HashMap<i64, Zone>) -> Markup {
  let zone_name = zones.get(&bin.zone_id).map(|z| z.name.as_str()).unwrap_or("—");
 
  html! {
- tr style="cursor:pointer" {
- td class="text-accent font-medium cursor-pointer font-mono tabular-nums" onclick=(format!("location.href='{}'", detail_path)) { (bin.code) }
- td onclick=(format!("location.href='{}'", detail_path)) { (bin.name) }
- td onclick=(format!("location.href='{}'", detail_path)) { (item.warehouse_name) }
- td onclick=(format!("location.href='{}'", detail_path)) { (zone_name) }
- td class="text-right text-[13px]" onclick=(format!("location.href='{}'", detail_path)) {
- (bin.row_no.as_deref().unwrap_or("—"))
+ tr {
+ td {
+ a class="text-accent font-medium font-mono tabular-nums hover:underline" href=(detail_path) { (bin.code) }
  }
- td class="text-right text-[13px]" onclick=(format!("location.href='{}'", detail_path)) {
- (bin.column_no.as_deref().unwrap_or("—"))
- }
- td class="text-right text-[13px]" onclick=(format!("location.href='{}'", detail_path)) {
- (bin.layer_no.as_deref().unwrap_or("—"))
- }
- td class="text-right text-[13px]" onclick=(format!("location.href='{}'", detail_path)) {
+ td { (bin.name) }
+ td { (item.warehouse_name) }
+ td { (zone_name) }
+ td class="text-right text-[13px]" { (bin.row_no.as_deref().unwrap_or("—")) }
+ td class="text-right text-[13px]" { (bin.column_no.as_deref().unwrap_or("—")) }
+ td class="text-right text-[13px]" { (bin.layer_no.as_deref().unwrap_or("—")) }
+ td class="text-right text-[13px]" {
  @if let Some(cap) = &bin.capacity_limit {
  (format!("{:.2}", cap))
  } @else {
  "—"
  }
  }
- td onclick=(format!("location.href='{}'", detail_path)) {
- span class=(format!("status-pill {status_class}")) { (status_label) }
+ td {
+ span class=(format!("status-pill {}", crate::utils::status_color(status_class))) { (status_label) }
  }
- td onclick="event.stopPropagation()" {
- div class="row-actions flex items-center gap-1 justify-end opacity-0 transition-opacity duration-150 [&_a]:w-[28px] [&_a]:h-[28px] [&_a]:grid [&_a]:place-items-center [&_a]:rounded-sm [&_a]:cursor-pointer [&_a]:bg-surface [&_a]:hover:bg-accent-bg [&_svg]:w-3.5 [&_svg]:h-3.5" {
- a class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" title="查看详情" href=(detail_path) {
+ td {
+ div class="flex items-center gap-1 justify-end" {
+ a class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer hover:bg-accent-bg" title="查看详情" href=(detail_path) {
  (icon::eye_icon("w-4 h-4"))
  }
+ a class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer hover:bg-accent-bg" title="编辑" href=(format!("{}?restore=true", BinDetailPath { id: item.bin.id }.to_string())) {
+ (icon::edit_icon("w-4 h-4"))
  }
  }
  }
  }
+}
 }
 
 fn build_query_string(params: &BinQueryParams) -> String {

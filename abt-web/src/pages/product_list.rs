@@ -638,7 +638,7 @@ fn bom_ref_card(entry: &UsageEntry) -> Markup {
  @if !parent_name.is_empty() && parent_name != "—" {
  span { "父件: " (parent_name) }
  }
- span class=(format!("status-pill {status_class}")) { (status_label) }
+ span class=(format!("status-pill {}", crate::utils::status_color(status_class))) { (status_label) }
  }
  }
  div class="flex items-center gap-[10px] shrink-0" {

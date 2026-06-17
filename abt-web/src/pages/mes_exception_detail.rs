@@ -80,9 +80,9 @@ fn exception_detail_page(
  // Status + severity
  div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
  div style="display:flex;align-items:center;gap:var(--space-3);margin-bottom:var(--space-4)" {
- span class=(format!("status-pill {type_cls}")) { (type_label) }
- span class=(format!("status-pill {status_cls}")) { (status_label) }
- span class=(format!("status-pill {severity_cls}")) { (severity_label) }
+ span class=(format!("status-pill {}", crate::utils::status_color(type_cls))) { (type_label) }
+ span class=(format!("status-pill {}", crate::utils::status_color(status_cls))) { (status_label) }
+ span class=(format!("status-pill {}", crate::utils::status_color(severity_cls))) { (severity_label) }
  }
  div class="grid gap-4" {
  div class="flex flex-col gap-1" { label { "异常类型" } span { (type_label) } }

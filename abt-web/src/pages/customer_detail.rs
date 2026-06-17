@@ -159,7 +159,7 @@ fn transaction_table_fragment(
  tr {
  td.mono { (tx.doc_number) }
  td { (match tx.tx_type { TxType::Quotation => "报价单", TxType::Order => "销售订单", TxType::Shipping => "发货申请", TxType::Return => "退货单" }) }
- td { span class=(format!("status-pill {}", tx.status_class)) { (tx.status_label) } }
+ td { span class=(format!("status-pill {}", crate::utils::status_color(tx.status_class))) { (tx.status_label) } }
  td.mono.num-right {
  @if let Some(amt) = tx.amount {
  (crate::utils::fmt_amount(amt))
@@ -434,7 +434,7 @@ fn customer_detail_page(
  div class="flex py-2 text-sm" {
  span class="w-[90px] shrink-0 text-muted" { "状态" }
  span class="detail-value" {
- span class=(format!("status-pill {status_class}")) { (status_label) }
+ span class=(format!("status-pill {}", crate::utils::status_color(status_class))) { (status_label) }
  }
  }
  div class="flex py-2 text-sm" {

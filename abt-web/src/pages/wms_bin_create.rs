@@ -60,12 +60,12 @@ pub async fn get_bin_create(
  let content = bin_create_page(&warehouses.items, &all_zones);
  let page_html = admin_page(
  is_htmx,
- "新建储位",
+ "新建库位",
  &claims,
  "inventory",
  BinCreatePath::PATH,
  "库存管理",
- Some("新建储位"),
+ Some("新建库位"),
  content, &nav_filter, );
  Ok(Html(page_html.into_string()))
 }
@@ -115,20 +115,20 @@ fn bin_create_page(
  div class="flex items-center justify-between mb-6" {
  a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", BinListPath::PATH)) {
  (icon::arrow_left_icon("w-4 h-4"))
- "返回储位管理列表"
+ "返回库位管理列表"
  }
- h1 class="text-xl font-bold text-fg tracking-tight" { "新建储位" }
+ h1 class="text-xl font-bold text-fg tracking-tight" { "新建库位" }
  }
 
  form id="bin-create-form"
  hx-post=(BinCreatePath::PATH)
  hx-swap="none" {
 
- // ── Section: 储位信息 ──
+ // ── Section: 库位信息 ──
  div class="data-card" style="margin-bottom:var(--space-4)" {
  div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
  (icon::grid_icon("w-4 h-4"))
- " 储位信息"
+ " 库位信息"
  }
  div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
  div class="form-field" {
@@ -153,11 +153,11 @@ fn bin_create_page(
  }
  }
  div class="form-field" {
- label { "储位编码 " span style="color:var(--danger)" { "*" } }
+ label { "库位编码 " span style="color:var(--danger)" { "*" } }
  input type="text" name="code" required placeholder="如 A01-R01-C01-L01";
  }
  div class="form-field" {
- label { "储位名称 " span style="color:var(--danger)" { "*" } }
+ label { "库位名称 " span style="color:var(--danger)" { "*" } }
  input type="text" name="name" required placeholder="如 A区1排1列";
  }
  div class="form-field" {
@@ -219,7 +219,7 @@ fn bin_create_page(
  a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{}?restore=true", BinListPath::PATH)) { "取消" }
  button type="submit" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" {
  (icon::check_circle_icon("w-4 h-4"))
- "保存储位"
+ "保存库位"
  }
  }
  }

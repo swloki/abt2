@@ -92,7 +92,7 @@ pub async fn get_detail(path: ExpenseDetailPath, ctx: RequestContext) -> Result<
  div.detail-header {
  div.detail-title-row {
  h1.detail-no { (expense.doc_number) }
- span class=(format!("status-pill {s_class}")) { (s_text) }
+ span class=(format!("status-pill {}", crate::utils::status_color(s_class))) { (s_text) }
  }
  }
 
@@ -125,7 +125,7 @@ pub async fn get_detail(path: ExpenseDetailPath, ctx: RequestContext) -> Result<
  div.info-item {
  span.info-label { "当前状态" }
  span.info-value {
- span class=(format!("status-pill {s_class}")) { (s_text) }
+ span class=(format!("status-pill {}", crate::utils::status_color(s_class))) { (s_text) }
  }
  }
  div.info-item {

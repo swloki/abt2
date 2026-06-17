@@ -182,7 +182,7 @@ fn batch_detail_page(
  div class="flex items-center justify-between" {
  div class="text-[24px] font-bold text-fg flex items-center gap-[14px]" {
  (batch.batch_no)
- span class=(format!("status-pill {sc}")) { (sl) }
+ span class=(format!("status-pill {}", crate::utils::status_color(sc))) { (sl) }
  span class="text-muted text-[13px]" style="font-weight:400;margin-left:var(--space-2)" { "流转卡: " (batch.card_sn) }
  }
  div style="display:flex;gap:var(--space-3)" {

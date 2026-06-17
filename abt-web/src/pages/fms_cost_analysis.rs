@@ -432,7 +432,7 @@ fn cost_analysis_page(
  td class="text-right text-[13px]" { (fmt_money_full(w.outsource_cost)) }
  td class="text-right text-[13px]" style="font-weight:700;color:var(--accent)" { (fmt_money_full(w.total_cost)) }
  @let (label, cls) = wo_status_label(w.wo_status);
- td { span class=(format!("status-pill {cls}")) { (label) } }
+ td { span class=(format!("status-pill {}", crate::utils::status_color(cls))) { (label) } }
  }
  }
  }

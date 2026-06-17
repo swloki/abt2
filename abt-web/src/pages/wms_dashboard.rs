@@ -202,7 +202,7 @@ fn wms_dashboard_content(stats: &DashboardStats) -> Markup {
  }
  div style="display:grid;grid-template-columns:repeat(4,1fr);gap:var(--space-4)" {
  (quick_entry_card("/admin/wms/warehouses", "#e6f4ff", "#d6e8ff", "var(--accent)", &icon::building_icon("w-[22px] h-[22px]"), "仓库管理", "仓库主数据与分区配置"))
- (quick_entry_card("/admin/wms/bins", "#f0fff0", "#e0ffe0", "var(--success)", &icon::grid_icon("w-[22px] h-[22px]"), "储位管理", "库位规划与容量管理"))
+ (quick_entry_card("/admin/wms/bins", "#f0fff0", "#e0ffe0", "var(--success)", &icon::grid_icon("w-[22px] h-[22px]"), "库位管理", "库位规划与容量管理"))
  (quick_entry_card("/admin/wms/stock", "#e6f4ff", "#d6e8ff", "var(--accent)", &icon::search_icon("w-[22px] h-[22px]"), "库存查询", "实时库存数量与批次"))
  (quick_entry_card("/admin/wms/arrivals", "#fff8eb", "#fff0d6", "var(--warn)", &icon::truck_icon("w-[22px] h-[22px]"), "来料通知", "供应商送货到货登记"))
  (quick_entry_card("/admin/wms/stock-in", "#e6f7ff", "#bae7ff", "var(--accent)", &icon::download_icon("w-[22px] h-[22px]"), "入库管理", "采购入库 / 生产入库"))

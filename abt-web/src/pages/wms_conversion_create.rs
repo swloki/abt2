@@ -164,30 +164,31 @@ fn conversion_create_page(
 ) -> Markup {
  html! {
  div {
- a href=(format!("{}?restore=true", ConversionListPath::PATH)) class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" {
+ // ── Back Link ──
+ a href=(format!("{}?restore=true", ConversionListPath::PATH)) class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150 mb-4" {
  (icon::chevron_left_icon("w-4 h-4"))
  "返回形态转换列表"
  }
-
- div class="flex items-center justify-between mb-6" {
+ // ── Page Header ──
+ div class="flex items-center justify-between mb-5" {
  h1 class="text-xl font-bold text-fg tracking-tight" { "新建形态转换单" }
+ span class="text-xs text-muted flex items-center gap-2" {
+ (icon::clock_icon("w-3.5 h-3.5"))
+ "自动保存草稿"
  }
-
- div class="flex items-center" {
- div class="flex items-center gap-2 text-xs text-muted current" { span class="w-[10px] h-[10px] rounded-full bg-border" {} "草稿" }
- div class="w-[48px] h-[2px] bg-border" {}
- div class="flex items-center gap-2 text-xs text-muted" { span class="w-[10px] h-[10px] rounded-full bg-border" {} "已完成" }
  }
-
  form hx-post=(ConversionCreatePath::PATH) hx-swap="none" id="conversionForm"
  onsubmit="return conversionCollectItems()" {
- // ── Basic Info ──
- div class="bg-bg border border-border rounded p-6" {
- h3 class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "转换信息" }
- div class="wms-grid grid-cols-2 gap-4 gap-x-6 mb-6" {
+ // ── 转换信息 ──
+ div class="form-section" {
+ div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-3 border-b border-border-soft" {
+ (icon::refresh_icon("w-[18px] h-[18px]"))
+ "转换信息"
+ }
+ div class="grid grid-cols-2 gap-4 gap-x-6" {
  div class="form-field" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "仓库 " span class="required" { "*" } }
- select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="warehouse_id" required {
+ select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" name="warehouse_id" required {
  option value="" { "请选择仓库" }
  @for w in warehouses {
  option value=(w.id) { (w.name) }
@@ -196,32 +197,31 @@ fn conversion_create_page(
  }
  div class="form-field" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "转换日期 " span class="required" { "*" } }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="date" name="conversion_date" required {}
+ input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="date" name="conversion_date" required {}
  }
- div class="form-field" style="grid-column:span 2" {
+ div class="form-field col-span-2" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "备注" }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="remark" {}
+ input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="remark" {}
  }
  }
  }
-
- // ── Consume Items ──
- div class="bg-bg border border-border rounded p-6" {
- h3 class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
- "消耗物料 "
- span style="display:inline-flex;align-items:center;padding:3px 10px;border-radius:9999px;font-size:12px;font-weight:600;background:#fff2f0;color:var(--danger)" { "消耗" }
- span id="consume-item-count" style="margin-left:auto;font-size:var(--text-xs);font-weight:400;color:var(--muted)" { "共 0 项" }
+ // ── 消耗物料 ──
+ div class="form-section" style="padding:0;overflow:hidden" {
+ div class="px-6 pt-6 pb-4 flex items-center gap-2" {
+ span class="text-sm font-semibold text-fg" { "消耗物料" }
+ span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#fff2f0] text-danger" { "消耗" }
+ span id="consume-item-count" class="ml-auto text-xs font-normal text-muted" { "共 0 项" }
  }
- div class="data-card" {
+ div class="overflow-x-auto" {
  table class="data-table" {
  thead {
  tr {
- th style="width:40px" { "行号" }
+ th style="width:40px;text-align:center" { "行号" }
  th { "产品编码" }
  th { "产品名称" }
  th { "规格" }
- th style="width:100px" { "数量 " span class="required" { "*" } }
- th style="width:110px" { "单位成本" }
+ th style="width:100px;text-align:right" { "数量 " span class="required" { "*" } }
+ th style="width:110px;text-align:right" { "单位成本" }
  th style="width:120px" { "批次号" }
  th style="width:40px" { }
  }
@@ -229,30 +229,31 @@ fn conversion_create_page(
  tbody id="consume-item-tbody" { }
  }
  }
+ div class="p-4" {
  button type="button" class="flex items-center justify-center gap-2 w-full text-[#2563eb] text-sm font-medium cursor-pointer"
  onclick="conversionOpenModal('consume')" {
  (icon::plus_icon("w-3.5 h-3.5"))
  "添加消耗行"
  }
  }
-
- // ── Produce Items ──
- div class="bg-bg border border-border rounded p-6" {
- h3 class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
- "产出物料 "
- span style="display:inline-flex;align-items:center;padding:3px 10px;border-radius:9999px;font-size:12px;font-weight:600;background:#f0fff0;color:var(--success)" { "产出" }
- span id="produce-item-count" style="margin-left:auto;font-size:var(--text-xs);font-weight:400;color:var(--muted)" { "共 0 项" }
  }
- div class="data-card" {
+ // ── 产出物料 ──
+ div class="form-section" style="padding:0;overflow:hidden" {
+ div class="px-6 pt-6 pb-4 flex items-center gap-2" {
+ span class="text-sm font-semibold text-fg" { "产出物料" }
+ span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#f0fff0] text-success" { "产出" }
+ span id="produce-item-count" class="ml-auto text-xs font-normal text-muted" { "共 0 项" }
+ }
+ div class="overflow-x-auto" {
  table class="data-table" {
  thead {
  tr {
- th style="width:40px" { "行号" }
+ th style="width:40px;text-align:center" { "行号" }
  th { "产品编码" }
  th { "产品名称" }
  th { "规格" }
- th style="width:100px" { "数量 " span class="required" { "*" } }
- th style="width:110px" { "单位成本" }
+ th style="width:100px;text-align:right" { "数量 " span class="required" { "*" } }
+ th style="width:110px;text-align:right" { "单位成本" }
  th style="width:120px" { "批次号" }
  th style="width:40px" { }
  }
@@ -260,36 +261,34 @@ fn conversion_create_page(
  tbody id="produce-item-tbody" { }
  }
  }
+ div class="p-4" {
  button type="button" class="flex items-center justify-center gap-2 w-full text-[#2563eb] text-sm font-medium cursor-pointer"
  onclick="conversionOpenModal('produce')" {
  (icon::plus_icon("w-3.5 h-3.5"))
  "添加产出行"
  }
  }
-
+ }
  input type="hidden" name="consume_json" id="consume-json" value="[]" {}
  input type="hidden" name="produce_json" id="produce-json" value="[]" {}
  div id="conversion-item-target" style="display:none" { }
-
- // ── Actions ──
- div class="flex items-center justify-end gap-3 pt-4 [border-top:1px_solid_var(--border-soft)]" {
- a href=(format!("{}?restore=true", ConversionListPath::PATH)) class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" { "取消" }
- button type="submit" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" { "提交" }
+ // ── Action Bar ──
+ div class="sticky bottom-0 flex items-center justify-between gap-3 px-6 py-4 bg-bg [border-top:1px_solid_var(--border-soft)]" {
+ div { }
+ div class="flex gap-3" {
+ a href=(format!("{}?restore=true", ConversionListPath::PATH)) class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" { "取消" }
+ button type="submit" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" { "提交" }
  }
  }
  }
-
-            (crate::components::product_picker::product_picker_modal_with_search("product-modal", ConversionItemRowPath::PATH, "conversion-item-tbody"))
-
+ (crate::components::product_picker::product_picker_modal_with_search("product-modal", ConversionItemRowPath::PATH, "conversion-item-tbody"))
  // ── JS ──
  (maud::PreEscaped(r#"<script>
- var conversionTarget = 'consume'; // 'consume' or 'produce'
-
+ var conversionTarget = 'consume';
  function conversionOpenModal(target) {
  conversionTarget = target;
  document.querySelector('#product-modal').classList.add('is-open');
  }
-
  function conversionRenumber(tbodyId) {
  var tbody = document.getElementById(tbodyId);
  var rows = tbody.querySelectorAll('tr');
@@ -299,13 +298,11 @@ fn conversion_create_page(
  var countId = tbodyId === 'consume-item-tbody' ? 'consume-item-count' : 'produce-item-count';
  document.getElementById(countId).textContent = '共 ' + rows.length + ' 项';
  }
-
  function conversionCollectItems() {
  var consumeTbody = document.getElementById('consume-item-tbody');
  var produceTbody = document.getElementById('produce-item-tbody');
  var consumeItems = [];
  var produceItems = [];
-
  consumeTbody.querySelectorAll('tr').forEach(function(row) {
  consumeItems.push({
  product_id: row.querySelector('input[name="product_id"]').value,
@@ -322,17 +319,14 @@ fn conversion_create_page(
  batch_no: row.querySelector('input[name="batch_no"]').value || null
  });
  });
-
  document.getElementById('consume-json').value = JSON.stringify(consumeItems);
  document.getElementById('produce-json').value = JSON.stringify(produceItems);
-
  if (consumeItems.length === 0 && produceItems.length === 0) {
  alert('请至少添加一行消耗物料或产出物料');
  return false;
  }
  return true;
  }
-
  function conversionAfterAdd() {
  var target = document.getElementById('conversion-item-target');
  var tbodyId = conversionTarget === 'consume' ? 'consume-item-tbody' : 'produce-item-tbody';
@@ -343,7 +337,6 @@ fn conversion_create_page(
  document.querySelector('#product-modal').classList.remove('is-open');
  conversionRenumber(tbodyId);
  }
-
  function conversionRemoveRow(btn) {
  btn.closest('tr').remove();
  conversionRenumber('consume-item-tbody');
@@ -352,23 +345,32 @@ fn conversion_create_page(
  </script>"#))
  }
 }
+}
 
 /// Single item row fragment
 fn item_row_fragment(product: &abt_core::master_data::product::model::Product) -> Markup {
- html! {
- tr {
- td class="text-muted text-xs text-center" { }
+html! {
+tr {
+ td class="text-muted text-xs text-center line-num" { }
  td class="font-mono tabular-nums" { (product.product_code) }
  td { (product.pdt_name) }
- td style="color:var(--fg-2);font-size:var(--text-sm)" { (product.meta.specification) }
- td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] num-input" type="number" min="0.01" step="any" name="quantity" placeholder="0" style="width:90px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
- td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] num-input" type="number" step="any" name="unit_cost" placeholder="0.00" style="width:100px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
- td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="batch_no" placeholder="批次号" style="width:100px;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
- td { button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center" title="删除行"
+ td class="text-sm text-fg-2" { (product.meta.specification) }
+ td {
+ input class="num-input w-full text-right px-2 py-[5px] text-[13px] font-mono tabular-nums border border-border rounded-sm bg-white text-fg outline-none focus:border-accent" type="number" min="0.01" step="any" name="quantity" placeholder="0" {}
+ }
+ td {
+ input class="num-input w-full text-right px-2 py-[5px] text-[13px] font-mono tabular-nums border border-border rounded-sm bg-white text-fg outline-none focus:border-accent" type="number" step="any" name="unit_cost" placeholder="0.00" {}
+ }
+ td {
+ input class="w-full px-2 py-[5px] text-[13px] border border-border rounded-sm bg-white text-fg outline-none focus:border-accent" type="text" name="batch_no" placeholder="批次号" {}
+ }
+ td {
+ button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center hover:text-danger" title="删除行"
  onclick="conversionRemoveRow(this)" {
  (icon::x_icon("w-3.5 h-3.5"))
- } }
+ }
+ }
  input type="hidden" name="product_id" value=(product.product_id) {}
  }
- }
+}
 }

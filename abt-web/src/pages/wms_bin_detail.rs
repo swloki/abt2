@@ -31,15 +31,15 @@ pub async fn get_bin_detail(
  Ok(bww) => bww,
  Err(e) => {
  if matches!(e, abt_core::shared::types::DomainError::NotFound(_)) {
- let content = error_page("储位未找到", &format!("储位 ID {} 不存在或已被删除", path.id));
+ let content = error_page("库位未找到", &format!("库位 ID {} 不存在或已被删除", path.id));
  let page_html = admin_page(
  is_htmx,
- "储位未找到",
+ "库位未找到",
  &claims,
  "inventory",
  &BinListPath.to_string(),
  "库存管理",
- Some("储位未找到"),
+ Some("库位未找到"),
  content, &nav_filter, );
  return Ok(Html(page_html.into_string()));
  }
@@ -54,7 +54,7 @@ pub async fn get_bin_detail(
  let detail_path_str = BinDetailPath { id: path.id }.to_string();
  let page_html = admin_page(
  is_htmx,
- &format!("{} - 储位详情", bww.bin.code),
+ &format!("{} - 库位详情", bww.bin.code),
  &claims,
  "inventory",
  &detail_path_str,
@@ -131,7 +131,7 @@ fn bin_detail_page(
  // ── Back Link ──
  a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", BinListPath::PATH)) {
  (icon::arrow_left_icon("w-4 h-4"))
- "返回储位管理列表"
+ "返回库位管理列表"
  }
 
  // ── Detail Header ──
@@ -141,7 +141,7 @@ fn bin_detail_page(
  h1 class="text-2xl font-extrabold" style="font-size:var(--text-xl);font-weight:700;margin:0;font-family:var(--font-mono)" {
  (bin.code)
  }
- span class=(format!("status-pill {status_class}")) { (status_label) }
+ span class=(format!("status-pill {}", crate::utils::status_color(status_class))) { (status_label) }
  }
  div style="margin-top:var(--space-2);font-size:13px;color:var(--muted)" {
  (bww.warehouse_name) " · " (zone_name)
@@ -160,14 +160,14 @@ fn bin_detail_page(
  div.tab-panel id="tab-info" {
  // Info card
  div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "储位信息" }
+ div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "库位信息" }
  div class="grid gap-4" {
  div class="flex flex-col gap-1" {
- span class="text-xs text-muted font-medium" { "储位编码" }
+ span class="text-xs text-muted font-medium" { "库位编码" }
  span class="text-sm text-fg font-medium" style="font-family:var(--font-mono)" { (bin.code) }
  }
  div class="flex flex-col gap-1" {
- span class="text-xs text-muted font-medium" { "储位名称" }
+ span class="text-xs text-muted font-medium" { "库位名称" }
  span class="text-sm text-fg font-medium" { (bin.name) }
  }
  div class="flex flex-col gap-1" {
@@ -179,9 +179,9 @@ fn bin_detail_page(
  span class="text-sm text-fg font-medium" { (zone_name) }
  }
  div class="flex flex-col gap-1" {
- span class="text-xs text-muted font-medium" { "储位状态" }
+ span class="text-xs text-muted font-medium" { "库位状态" }
  span class="text-sm text-fg font-medium" {
- span class=(format!("status-pill {status_class}")) { (status_label) }
+ span class=(format!("status-pill {}", crate::utils::status_color(status_class))) { (status_label) }
  }
  }
  div class="flex flex-col gap-1" {
@@ -236,7 +236,7 @@ fn bin_detail_page(
 
  // Coordinates card
  div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" style="margin-top:var(--space-4)" {
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "储位坐标" }
+ div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "库位坐标" }
  div style="display:flex;gap:var(--space-4);margin-top:var(--space-3)" {
  div style="text-align:center;flex:1;background:var(--surface);border:1px solid var(--border-soft);border-radius:var(--radius-md);padding:var(--space-4)" {
  div style="font-size:var(--text-xl);font-weight:700;font-family:var(--font-mono);color:var(--fg)" {

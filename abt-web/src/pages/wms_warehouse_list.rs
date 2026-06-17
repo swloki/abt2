@@ -254,7 +254,7 @@ fn warehouse_data_card(
  th { "地址" }
  th { "管理员" }
  th { "库区数" }
- th { "储位数" }
+ th { "库位数" }
  th class="!text-right" { "操作" }
  }
  }
@@ -294,7 +294,7 @@ fn warehouse_row(w: &Warehouse, manager_map: &std::collections::HashMap<i64, Str
  span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-surface text-[#666]" { (type_label) }
  }
  td onclick=(format!("location.href='{}'", detail_path)) {
- span class=(format!("status-pill {status_class}")) { (status_label) }
+ span class=(format!("status-pill {}", crate::utils::status_color(status_class))) { (status_label) }
  }
  td onclick=(format!("location.href='{}'", detail_path)) {
  @if w.is_virtual {

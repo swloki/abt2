@@ -72,7 +72,7 @@ pub async fn get_detail(path: JournalDetailPath, ctx: RequestContext) -> Result<
  h1 class="text-xl font-bold text-fg tracking-tight" {
  "单号 " (journal.doc_number)
  " "
- span class=(format!("status-pill {s_class}")) { (s_text) }
+ span class=(format!("status-pill {}", crate::utils::status_color(s_class))) { (s_text) }
  }
  }
  }

@@ -355,41 +355,41 @@ fn demand_pool_page(
 
 fn stat_mini_cards(stats: &DemandPoolStats) -> Markup {
  html! {
- div class="grid gap-4" {
- div class="flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4" {
- div class="flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4-icon" style="background:#fef3c7;color:var(--warn);" {
- (icon::tool_icon(""))
+ div class="grid grid-cols-4 gap-4 mb-6" {
+ div class="flex items-center gap-3 bg-bg border border-border-soft rounded-lg px-5 py-4 shadow-[var(--shadow-card)]" {
+ div class="w-[38px] h-[38px] rounded-md grid place-items-center shrink-0" style="background:#fef3c7;color:var(--warn);" {
+ (icon::tool_icon("w-[18px] h-[18px]"))
  }
  div {
- div class="flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4-value" { (stats.pending_count) }
- div class="flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4-label" { "待处理需求" }
+ div class="text-xl font-bold font-mono tabular-nums leading-tight text-fg" { (stats.pending_count) }
+ div class="text-[11px] text-muted mt-0.5" { "待处理需求" }
  }
  }
- div class="flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4" {
- div class="flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4-icon" style="background:#dbeafe;color:var(--accent);" {
- (icon::cube_icon(""))
- }
- div {
- div class="flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4-value" { (stats.material_count) }
- div class="flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4-label" { "涉及物料" }
- }
- }
- div class="flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4" {
- div class="flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4-icon" style="background:#dcfce7;color:var(--success);" {
- (icon::check_circle_icon(""))
+ div class="flex items-center gap-3 bg-bg border border-border-soft rounded-lg px-5 py-4 shadow-[var(--shadow-card)]" {
+ div class="w-[38px] h-[38px] rounded-md grid place-items-center shrink-0" style="background:#dbeafe;color:var(--accent);" {
+ (icon::cube_icon("w-[18px] h-[18px]"))
  }
  div {
- div class="flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4-value" { (stats.planned_count) }
- div class="flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4-label" { "计划中" }
+ div class="text-xl font-bold font-mono tabular-nums leading-tight text-fg" { (stats.material_count) }
+ div class="text-[11px] text-muted mt-0.5" { "涉及物料" }
  }
  }
- div class="flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4" {
- div class="flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4-icon" style="background:#fee2e2;color:var(--danger);" {
- (icon::clock_icon(""))
+ div class="flex items-center gap-3 bg-bg border border-border-soft rounded-lg px-5 py-4 shadow-[var(--shadow-card)]" {
+ div class="w-[38px] h-[38px] rounded-md grid place-items-center shrink-0" style="background:#dcfce7;color:var(--success);" {
+ (icon::check_circle_icon("w-[18px] h-[18px]"))
  }
  div {
- div class="flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4-value text-danger" { (stats.due_soon_count) }
- div class="flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4-label" { "近3日到期" }
+ div class="text-xl font-bold font-mono tabular-nums leading-tight text-fg" { (stats.planned_count) }
+ div class="text-[11px] text-muted mt-0.5" { "计划中" }
+ }
+ }
+ div class="flex items-center gap-3 bg-bg border border-border-soft rounded-lg px-5 py-4 shadow-[var(--shadow-card)]" {
+ div class="w-[38px] h-[38px] rounded-md grid place-items-center shrink-0" style="background:#fee2e2;color:var(--danger);" {
+ (icon::clock_icon("w-[18px] h-[18px]"))
+ }
+ div {
+ div class="text-xl font-bold font-mono tabular-nums leading-tight text-danger" { (stats.due_soon_count) }
+ div class="text-[11px] text-muted mt-0.5" { "近3日到期" }
  }
  }
  }
@@ -400,15 +400,23 @@ fn stat_mini_cards(stats: &DemandPoolStats) -> Markup {
 
 fn view_toggle_and_filter(view_mode: &str, params: &DemandPoolQueryParams) -> Markup {
  let is_material = view_mode == "material";
- let material_cls = if is_material { "view-toggle-btn active" } else { "view-toggle-btn" };
- let detail_cls = if is_material { "view-toggle-btn" } else { "view-toggle-btn active" };
+ let material_cls = if is_material {
+ "inline-flex items-center gap-1.5 px-4 py-1.5 text-sm text-accent font-semibold cursor-pointer whitespace-nowrap bg-bg shadow-xs rounded-sm"
+ } else {
+ "inline-flex items-center gap-1.5 px-4 py-1.5 text-sm text-muted cursor-pointer whitespace-nowrap bg-transparent border-none rounded-sm hover:text-fg transition-colors"
+ };
+ let detail_cls = if is_material {
+ "inline-flex items-center gap-1.5 px-4 py-1.5 text-sm text-muted cursor-pointer whitespace-nowrap bg-transparent border-none rounded-sm hover:text-fg transition-colors"
+ } else {
+ "inline-flex items-center gap-1.5 px-4 py-1.5 text-sm text-accent font-semibold cursor-pointer whitespace-nowrap bg-bg shadow-xs rounded-sm"
+ };
  let kw = params.keyword.as_deref().unwrap_or("");
  let df = params.date_filter.as_deref().unwrap_or("");
 
  html! {
  div class="flex items-center justify-between flex-wrap gap-3" {
  // Left: view toggle
- div class="flex [border-bottom:1px_solid_var(--border-soft)]" {
+ div class="inline-flex bg-surface border border-border-soft rounded-md p-[3px] gap-0.5" {
  button class=(material_cls)
  type="button"
  hx-get=(MesDemandPoolListPath::PATH)
@@ -479,17 +487,17 @@ fn material_grid_fragment(
  html! {
  div class="data-card" {
  // Column header
- div class="grid items-center gap-6 p-4 border-b-header" {
- div style="flex:1" { "物料信息" }
- div style="width:100px;text-align:center" { "总需求量" }
- div style="width:80px;text-align:center" { "涉及订单" }
- div style="width:160px;text-align:center" { "需求日期范围" }
- div style="width:120px;text-align:center" { "操作" }
+ div class="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-6 px-6 py-3 bg-surface-raised text-xs font-semibold uppercase tracking-wide text-muted [border-bottom:1px_solid_var(--border-soft)]" {
+ div { "物料信息" }
+ div class="text-center w-[100px]" { "总需求量" }
+ div class="text-center w-[80px]" { "涉及订单" }
+ div class="text-center w-[160px]" { "需求日期范围" }
+ div class="text-center w-[120px]" { "操作" }
  }
 
  // Material rows
  @if result.items.is_empty() {
- div class="text-center p-6 text-muted text-sm-text" { "暂无待处理需求" }
+ div class="text-center p-6 text-muted text-sm" { "暂无待处理需求" }
  }
  @for item in &result.items {
  (material_row(item))
@@ -526,15 +534,15 @@ fn material_row(item: &MaterialAggSummary) -> Markup {
  let (icon_bg, icon_color, mat_icon) = material_icon(pid);
 
  html! {
- div class="grid items-center gap-6 p-4 [border-bottom:1px_solid_var(--border-soft)]" {
+ div class="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-6 p-4 px-6 [border-bottom:1px_solid_var(--border-soft)]" {
  // Material info (click toggles .open on expand panel; HTMX loads rows once)
  div class="flex items-center gap-4 cursor-pointer"
  hx-get=(format!("/admin/mes/demand-pool/demand-rows?product_id={pid}"))
  hx-target=(format!("#expand-tbody-{pid}"))
  hx-swap="innerHTML"
  hx-trigger="click once"
- _=(format!("on click toggle .open on #expand-mat-{pid}")) {
- div class="w-[40px] h-[40px] rounded grid place-items-center shrink-0" style=(format!("background:{};color:{}", icon_bg, icon_color)) {
+ _=(format!("on click toggle .expanded on #expand-mat-{pid}")) {
+ div class="w-[40px] h-[40px] rounded-md grid place-items-center shrink-0" style=(format!("background:{};color:{}", icon_bg, icon_color)) {
  (mat_icon)
  }
  div {
@@ -544,28 +552,28 @@ fn material_row(item: &MaterialAggSummary) -> Markup {
  }
 
  // Total demand qty
- div class="material-stat" {
- div class=(format!("material-stat-value {qty_cls}")) { (fmt_qty(item.total_demand_qty)) }
- div class="material-text-sm text-muted mt-1" { "总需求量" }
+ div class="flex flex-col" {
+ div class=(format!("text-lg font-bold font-mono tabular-nums {}", qty_cls)) { (fmt_qty(item.total_demand_qty)) }
+ div class="text-sm text-muted mt-1" { "总需求量" }
  }
 
  // Demand count
- div class="material-stat" {
- div class="material-text-2xl font-bold font-mono tabular-nums tabular-nums text-fg accent" { (item.demand_count) }
- div class="material-text-sm text-muted mt-1" { "涉及订单" }
+ div class="flex flex-col" {
+ div class="text-2xl font-bold font-mono tabular-nums text-accent" { (item.demand_count) }
+ div class="text-sm text-muted mt-1" { "涉及订单" }
  }
 
  // Date range
- div class="material-stat material-stat-date" {
+ div class="flex flex-col" {
  div class="text-[13px] font-semibold text-fg" { (date_range) }
- @if let Some((hint_text, cls)) = &hint {
- div class=(format!("urgency-hint {cls}")) { (hint_text) }
+ @if let Some((hint_text, hint_cls)) = &hint {
+ div class=(format!("text-xs font-medium {}", hint_cls)) { (hint_text) }
  }
  }
 
  // Actions (visible on hover)
- div class="flex gap-2 opacity-0" {
- a class="btn inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative [&_svg]:w-4 [&_svg]:h-4"
+ div class="flex gap-2" {
+ a class="inline-flex items-center gap-1.5 py-[5px] px-3 text-[13px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
  href=(format!("{}?product_id={}", MesDemandPoolCreatePath::PATH, pid))
  onclick="event.stopPropagation()" {
  "创建生产计划"
@@ -574,12 +582,12 @@ fn material_row(item: &MaterialAggSummary) -> Markup {
  }
 
  // Expandable demand detail
- div class="hidden bg-surface-raised [border-bottom:1px_solid_var(--border-soft)]" id=(format!("expand-mat-{pid}")) {
- div class="hidden bg-surface-raised border-b-inner" {
+ div class="hidden expanded:block bg-surface-raised [border-bottom:1px_solid_var(--border-soft)]" id=(format!("expand-mat-{pid}")) {
+ div class="p-4" {
  table class="data-table" {
  thead { tr {
  th style="width:40px" {
- input type="checkbox" title="全选" checked onchange="var cb=this;cb.closest('table').querySelectorAll('input.demand-cb:not([disabled])').forEach(function(c){c.checked=cb.checked;c.dispatchEvent(new Event('change',{bubbles:true}))})";
+ input type="checkbox" title="全选" checked _="on change call toggleAllDemands(me, closest <table/>)";
  }
  th { "需求ID" }
  th { "来源订单" }
@@ -731,7 +739,7 @@ fn detail_row(item: &DemandSummary) -> Markup {
  @if is_pending {
  form method="get" action=(MesDemandPoolCreatePath::PATH) {
  input type="hidden" name="product_id" value=(item.product_id) {}
- button type="submit" class="btn inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative [&_svg]:w-4 [&_svg]:h-4" { "创建" }
+ button type="submit" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative [&_svg]:w-4 [&_svg]:h-4" { "创建" }
  }
  } @else {
  @if let (Some(doc_type), Some(doc_id)) = (item.target_doc_type, item.target_doc_id) {
@@ -755,40 +763,77 @@ fn detail_row(item: &DemandSummary) -> Markup {
 
 fn batch_action_bar() -> Markup {
  html! {
- div class="hidden fixed bg-[var(--fg)] text-[#fff] rounded-lg p-3 z-[100] items-center gap-5 text-sm opacity-0" id="batchBar" {
+ div class="fixed bottom-6 left-1/2 -translate-x-1/2 hidden show:flex bg-[var(--fg)] text-[#fff] rounded-lg p-3 px-6 z-[100] items-center gap-5 text-sm shadow-[0_12px_40px_rgba(15,23,42,0.25)]" id="batchBar" {
  span { "已选择 " span class="batch-count" id="batchCount" { "0" } " 条需求" }
- button class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative [&_svg]:w-4 [&_svg]:h-4" type="button" id="batchCreateBtn"
- onclick=(format!("window.location.href='{}'", MesDemandPoolCreatePath::PATH)) {
+ a class="inline-flex items-center gap-2 py-[5px] px-3 text-[13px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover font-medium cursor-pointer transition-all duration-150 shadow-[0_2px_8px_rgba(37,99,235,0.3)]" type="button" id="batchCreateBtn"
+ href=(MesDemandPoolCreatePath::PATH)
+ data-base-path=(MesDemandPoolCreatePath::PATH) {
  "创建生产计划"
  }
- button class="btn btn-sm inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative [&_svg]:w-4 [&_svg]:h-4" type="button" onclick="document.querySelectorAll('input[type=checkbox].demand-cb').forEach(function(c){if(!c.disabled){c.checked=false}});document.getElementById('batchBar').classList.remove('show')" { "清除选择" }
+ button class="inline-flex items-center gap-2 py-[5px] px-3 text-[13px] rounded-sm border border-[rgba(255,255,255,0.15)] text-[rgba(255,255,255,0.7)] hover:text-white hover:bg-[rgba(255,255,255,0.1)] bg-transparent font-medium cursor-pointer transition-all duration-150" type="button" id="batchClearBtn" {
+ "清除选择"
+ }
  }
 
  (PreEscaped(r#"<script>
- document.addEventListener('change',function(e){
- if(e.target.type==='checkbox'&&e.target.classList.contains('demand-cb')){
- var tr=e.target.closest('tr');
- if(tr){
- if(e.target.checked){tr.classList.add('demand-row-selected');}
- else{tr.classList.remove('demand-row-selected');}
+ function toggleAllDemands(master, table) {
+ var cbs = table.querySelectorAll('input.demand-cb:not([disabled])');
+ cbs.forEach(function(c) {
+ c.checked = master.checked;
+ var tr = c.closest('tr');
+ if (tr) { tr.classList.toggle('demand-row-selected', master.checked); }
+ });
+ updateBatchBar();
  }
+ document.addEventListener('change', function(e) {
+ if (e.target.type === 'checkbox' && e.target.classList.contains('demand-cb')) {
+ var tr = e.target.closest('tr');
+ if (tr) { tr.classList.toggle('demand-row-selected', e.target.checked); }
  updateBatchBar();
  }
  });
- function updateBatchBar(){
- var checked=document.querySelectorAll('input[type=checkbox].demand-cb:checked:not([disabled])');
- var count=checked.length;
- var bar=document.getElementById('batchBar');
- if(count>0){
- var ids=[];
- checked.forEach(function(c){ids.push(c.value);});
+ function updateBatchBar() {
+ var checked = document.querySelectorAll('input[type=checkbox].demand-cb:checked:not([disabled])');
+ var count = checked.length;
+ var bar = document.getElementById('batchBar');
+ var btn = document.getElementById('batchCreateBtn');
+ if (count > 0) {
+ var ids = [];
+ var productIds = new Set();
+ var productName = '';
+ var productCode = '';
+ checked.forEach(function(c) {
+ ids.push(c.value);
+ productIds.add(c.getAttribute('data-product-id'));
+ if (!productName) { productName = c.getAttribute('data-product-name') || ''; }
+ if (!productCode) { productCode = c.getAttribute('data-product-code') || ''; }
+ });
  bar.classList.add('show');
- document.getElementById('batchCount').textContent=count;
- document.getElementById('batchCreateBtn').href='/admin/mes/demand-pool/create?demand_ids='+ids.join(',');
- }else{
+ document.getElementById('batchCount').textContent = count;
+ var basePath = btn.getAttribute('data-base-path');
+ if (productIds.size > 1) {
+ btn.onclick = function(e) { e.preventDefault(); alert('请选择同一物料的需求进行批量创建生产计划。'); };
+ } else {
+ btn.href = basePath + '?demand_ids=' + ids.join(',') +
+ '&product_id=' + [...productIds][0] +
+ '&product_name=' + encodeURIComponent(productName) +
+ '&product_code=' + encodeURIComponent(productCode);
+ btn.onclick = null;
+ }
+ } else {
  bar.classList.remove('show');
  }
  }
+ document.getElementById('batchClearBtn').addEventListener('click', function() {
+ document.querySelectorAll('input[type=checkbox]').forEach(function(c) {
+ if (!c.disabled && (c.classList.contains('demand-cb') || c.title === '全选')) {
+ c.checked = false;
+ var tr = c.closest('tr');
+ if (tr) { tr.classList.remove('demand-row-selected'); }
+ }
+ });
+ document.getElementById('batchBar').classList.remove('show');
+ });
  </script>"#))
  }
 }
@@ -802,22 +847,22 @@ fn material_icon(product_id: i64) -> (String, String, Markup) {
  0 => (
  "#fef3c7".into(),
  "var(--warn)".into(),
- icon::tool_icon(""),
+ icon::tool_icon("w-[20px] h-[20px]"),
  ),
  1 => (
  "#ede9fe".into(),
  "#7c3aed".into(),
- icon::cube_icon(""),
+ icon::cube_icon("w-[20px] h-[20px]"),
  ),
  2 => (
  "#dbeafe".into(),
  "var(--accent)".into(),
- icon::briefcase_icon(""),
+ icon::briefcase_icon("w-[20px] h-[20px]"),
  ),
  _ => (
  "#dcfce7".into(),
  "var(--success)".into(),
- icon::check_circle_icon(""),
+ icon::check_circle_icon("w-[20px] h-[20px]"),
  ),
  }
 }
@@ -829,17 +874,17 @@ fn demand_qty_class(total: rust_decimal::Decimal, earliest: Option<NaiveDate>) -
  let today = chrono::Local::now().date_naive();
  let diff = (d - today).num_days();
  if diff <= 3 {
- return "danger".into();
+ return "text-danger".into();
  }
  if diff <= 7 {
- return "warn".into();
+ return "text-warn".into();
  }
  }
  // Check magnitude
  if total > rust_decimal::Decimal::from(100) {
- return "warn".into();
+ return "text-warn".into();
  }
- "accent".into()
+ "text-accent".into()
 }
 
 /// Urgency hint text and CSS class for earliest required date
@@ -925,19 +970,19 @@ fn demand_status_label(status: i16) -> Markup {
  _ => ("未知", "status-pill-muted"),
  };
  html! {
- span class=(format!("status-pill {cls}")) { (label) }
+ span class=(format!("status-pill {}", crate::utils::status_color(cls))) { (label) }
  }
 }
 
 fn priority_label(priority: i32) -> Markup {
  let (label, cls) = match priority {
- p if p >= 4 => ("紧急", "tag-danger"),
- 3 => ("高", "tag-warn"),
- 2 => ("中", "tag-info"),
- _ => ("低", "tag-muted"),
+ p if p >= 4 => ("紧急", "bg-[#fff1f0] text-[#cf1322]"),
+ 3 => ("高", "bg-[#fff7e6] text-[#c87d0e]"),
+ 2 => ("中", "bg-[#e6f4ff] text-[#0958d9]"),
+ _ => ("低", "bg-[#f5f5f5] text-[#8c8c8c]"),
  };
  html! {
- span class=(format!("tag-chip {cls}")) { (label) }
+ span class=(format!("inline-flex items-center text-[11px] px-2 py-0.5 rounded-full font-medium {}", cls)) { (label) }
  }
 }
 

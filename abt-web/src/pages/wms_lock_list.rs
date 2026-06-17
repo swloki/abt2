@@ -151,7 +151,7 @@ fn lock_list_page(
  h1 class="text-xl font-bold text-fg tracking-tight" { "库存锁定" }
  div class="flex gap-3" {
  @if can_create {
- a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(LockCreatePath::PATH) {
+ a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(LockCreatePath::PATH) {
  (icon::plus_icon("w-4 h-4"))
  "新建锁库"
  }
@@ -187,7 +187,7 @@ fn lock_table_fragment(
  div class="lock-list-panel" {
  (status_tabs_with_param(LockListPath::PATH, "#lock-data-card", "#lock-filter-form", tabs, &active_value, "status"))
 
- form class="flex items-center gap-3 mb-5 flex-wrap filter-form" id="lock-filter-form"
+ form class="flex items-center gap-3 mb-6 flex-wrap filter-form" id="lock-filter-form"
  hx-get=(LockListPath::PATH)
  hx-trigger="change, keyup changed delay:300ms from:.search-input"
  hx-target="#lock-data-card"
@@ -195,16 +195,15 @@ fn lock_table_fragment(
  hx-swap="outerHTML"
  hx-include="#lock-filter-form"
  hx-push-url="true" {
- div class="relative flex-1 max-w-xs [&_svg]:absolute [&_svg]:left-3 [&_svg]:top-1/2 [&_svg]:-translate-y-1/2 [&_svg]:w-4 [&_svg]:h-4 [&_svg]:text-muted" {
+ div class="relative w-60 [&_svg]:absolute [&_svg]:left-3 [&_svg]:top-1/2 [&_svg]:-translate-y-1/2 [&_svg]:w-4 [&_svg]:h-4 [&_svg]:text-muted" {
  (icon::search_icon(""))
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="doc_number"
- style="width:180px"
- placeholder="锁库单号"
+ input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input" type="text" name="doc_number"
+ placeholder="搜索锁库单号…"
  value=(params.doc_number.as_deref().unwrap_or(""));
  }
- div class="relative flex-1 max-w-xs [&_svg]:absolute [&_svg]:left-3 [&_svg]:top-1/2 [&_svg]:-translate-y-1/2 [&_svg]:w-4 [&_svg]:h-4 [&_svg]:text-muted" {
+ div class="relative w-40 [&_svg]:absolute [&_svg]:left-3 [&_svg]:top-1/2 [&_svg]:-translate-y-1/2 [&_svg]:w-4 [&_svg]:h-4 [&_svg]:text-muted" {
  (icon::search_icon(""))
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="product"
+ input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input" type="text" name="product"
  placeholder="产品编码/名称"
  value=(params.product.as_deref().unwrap_or(""));
  }
@@ -278,47 +277,43 @@ fn lock_row(
  let locked_qty_fmt = format!("{:.2}", lock.locked_qty);
 
  html! {
- tr style="cursor:pointer" {
- td class="text-accent font-medium cursor-pointer font-mono tabular-nums" onclick=(format!("location.href='{}'", detail_path)) {
- (lock.doc_number)
+ tr {
+ td {
+ a class="text-accent font-medium font-mono tabular-nums hover:underline" href=(&detail_path) { (lock.doc_number) }
  }
- td class="font-mono tabular-nums" onclick=(format!("location.href='{}'", detail_path)) {
+ td class="font-mono tabular-nums" {
  (product_map.get(&lock.product_id).map(|(c,_)| c.as_str()).unwrap_or("—"))
  }
- td onclick=(format!("location.href='{}'", detail_path)) {
+ td {
  (product_map.get(&lock.product_id).map(|(_,n)| n.as_str()).unwrap_or("—"))
  }
- td onclick=(format!("location.href='{}'", detail_path)) {
+ td {
  (wh_names.get(&lock.warehouse_id).map(|s| s.as_str()).unwrap_or("—"))
  }
- td class="text-right text-[13px]" onclick=(format!("location.href='{}'", detail_path)) {
- (locked_qty_fmt)
- }
- td onclick=(format!("location.href='{}'", detail_path)) {
- (lock.lock_reason)
- }
- td onclick=(format!("location.href='{}'", detail_path)) {
+ td class="text-right text-[13px] font-mono tabular-nums" { (locked_qty_fmt) }
+ td { (lock.lock_reason) }
+ td {
  @if let Some(cid) = lock.customer_id {
  (customer_map.get(&cid).map(|s| s.as_str()).unwrap_or("—"))
  } @else {
  span class="text-muted" { "—" }
  }
  }
- td onclick=(format!("location.href='{}'", detail_path)) {
- span class=(format!("status-pill {sc}")) { (sl) }
+ td {
+ span class=(format!("status-pill {}", crate::utils::status_color(sc))) { (sl) }
  }
- td onclick=(format!("location.href='{}'", detail_path)) {
+ td {
  (operator_map.get(&lock.operator_id).map(|s| s.as_str()).unwrap_or("—"))
  }
- td onclick="event.stopPropagation()" {
- div class="row-actions flex items-center gap-1 justify-end opacity-0 transition-opacity duration-150 [&_a]:w-[28px] [&_a]:h-[28px] [&_a]:grid [&_a]:place-items-center [&_a]:rounded-sm [&_a]:cursor-pointer [&_a]:bg-surface [&_a]:hover:bg-accent-bg [&_svg]:w-3.5 [&_svg]:h-3.5" {
- a class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" title="查看" href=(detail_path) {
+ td {
+ div class="flex items-center gap-1 justify-end" {
+ a class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer hover:bg-accent-bg" href=(&detail_path) title="查看" {
  (icon::eye_icon("w-4 h-4"))
  }
  }
  }
  }
- }
+}
 }
 
 fn build_query_string(params: &LockQueryParams) -> String {

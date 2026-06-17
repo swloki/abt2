@@ -310,7 +310,7 @@ pub async fn create_stock_in(
  .filter(|s| !s.is_empty())
  .cloned();
 
- // 问题三修复：未选库区/储位时自动解析默认值，确保库存台账更新
+ // 问题三修复：未选库区/库位时自动解析默认值，确保库存台账更新
  let warehouse_svc = state.warehouse_service();
  let zone_id = match form.zone_id {
  Some(zid) => Some(zid),
@@ -474,7 +474,7 @@ fn stock_in_create_content(
  }
  }
  div class="form-group" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "目标储位" }
+ label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "目标库位" }
  select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="bin_id" id="bin-select" {
  option value="" { "请先选择库区" }
  @for (zone_id, bins) in all_bins {
@@ -497,7 +497,7 @@ fn stock_in_create_content(
  span style="font-size:var(--text-sm);color:var(--fg-2)" {
  "当前仓库上架策略："
  strong { "同物料合并 (SAME_MERGE)" }
- " — 系统将自动分配至同物料已有储位，储位满时按就近原则分配。"
+ " — 系统将自动分配至同物料已有库位，库位满时按就近原则分配。"
  }
  }
 
@@ -517,7 +517,7 @@ fn stock_in_create_content(
  th { "规格型号" }
  th { "批次号" }
  th style="width:100px" { "入库数量 " span class="required" { "*" } }
- th { "目标储位" }
+ th { "目标库位" }
  th style="width:40px" { }
  }
  }

@@ -3,6 +3,7 @@
 Rust 全栈前端，Axum + Maud + HTMX + Hyperscript + UnoCSS，直接调用 `abt-core` Service trait。
 
 ## Constraints（必须遵守）
+ **Rust 2024 Maud 陷阱**：字符串 `"xxx-yyy"` 后直接跟属性名（如 `style`）会被 Rust 2024 lexer 解析为 prefix literal，编译报错 `prefix 'yyy' is unknown`。解法：字符串末尾加空格 `"xxx-yyy "`。
 
 **数据访问**
 - **禁止直接访问数据库** — 所有数据操作必须通过 `abt-core` Service trait（`state.xxx_service()`）完成
@@ -18,7 +19,8 @@ Rust 全栈前端，Axum + Maud + HTMX + Hyperscript + UnoCSS，直接调用 `ab
 - **禁止在 Maud 模板中使用 `style` 属性内联样式** — 所有样式用 UnoCSS 原子类写在 `class=""` 中（`<col>` 元素例外）
 - **禁止手动修改 `static/app.css`**（UnoCSS 生成文件），仅通过 `npm run build:css` 生成
 - **禁止新建 CSS 文件** — `static/base.css` 已删除，不再有手写 CSS 文件
-- **禁止在 `uno.config.ts` 中添加 shortcuts** — `shortcuts: {}` 保持空，所有样式直接内联到 Maud 的 `class=""` 中
+ - **禁止新建 CSS 文件或手写 CSS** — 所有样式通过 UnoCSS 原子类或 shortcuts（高频复用语义类）实现
+ - **`uno.config.ts` shortcuts 仅用于高频复用模式** — 当前有 `data-table`、`data-card`、`form-field`、`form-section`、`field-full` 五个 shortcut，新增需满足"10+ 文件复用且 class 字符串 >100 字符"标准
 - **修改 CSS 变量 / 新增动画** — 在 `uno.config.ts` 的 `preflights`（`:root` 块）或 `theme.animation.keyframes` 中操作
 - 详见 `AGENTS.md` 的 "CSS Management" 部分获取完整的原子化语法速查表和自定义 variants 说明
 
@@ -53,8 +55,7 @@ src/
 样式文件位于项目根级 `static/` 目录（非 `abt-web/static/`）：
 
 - **`static/base.css`** — **已删除**，不再有手写 CSS 文件
-- **`static/app.css`** — UnoCSS CLI 生成的纯原子 utility 输出。**禁止手动修改**，仅通过 `npm run build:css` 生成
-- **`uno.config.ts`**（项目根级）— UnoCSS 配置文件，包含 `preflights`（:root 变量 + reset + 少量不可原子化的组件状态 CSS）+ `theme`（颜色/字号/间距/圆角/阴影/动画）+ `variants`（自定义状态前缀）+ `shortcuts: {}`（空）
+ - **`uno.config.ts`**（项目根级）— UnoCSS 配置文件，包含 `preflights`（:root 变量 + reset + 少量不可原子化的组件状态 CSS）+ `theme`（颜色/字号/间距/圆角/阴影/动画）+ `variants`（自定义状态前缀）+ `shortcuts`（`data-table`、`data-card`、`form-field`、`form-section`、`field-full` 五个高频复用模式）
 
 **核心原则：所有样式直接内联在 Maud 的 `class=""` 中，使用 UnoCSS 原子类组合。**
 
@@ -62,8 +63,10 @@ src/
 
 | 场景 | 原子 class 示例 |
 |---|---|
-| 数据卡片 | `bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]` |
-| 表单输入 | `w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]` |
+ | 数据卡片 | 使用 `data-card` shortcut（107+ 页面共用），或内联 `bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]` |
+ | 表单字段 | 使用 `form-field` shortcut（59+ 页面）：自动处理 label（block/xs/medium/fg-2/mb-1/nowrap）+ input/select/textarea（w-full/px-3/py-2/border-border/rounded-sm/sm/bg-white/fg/focus→accent+shadow）+ textarea（resize-y/min-h-72px） |
+ | 表单分区 | 使用 `form-section` shortcut：`bg-bg border border-border rounded-md p-6 mb-6`（22+ 页面） |
+ | 表单跨列 | 使用 `field-full` shortcut：`col-span-full`（18+ 页面） |
 | 页面标题 | `text-xl font-bold text-fg tracking-tight` |
 | 状态标签 | `inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs before:content-[''] before:w-1.5 before:h-1.5 before:rounded-full before:bg-success` |
 | 侧边栏导航项 | `flex items-center gap-3 px-5 py-[9px] text-sm text-white/60 rounded-sm cursor-pointer hover:bg-white/[0.06] [&_svg]:w-4.5 [&_svg]:h-4.5 [&_svg]:opacity-55` |

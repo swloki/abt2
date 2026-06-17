@@ -122,7 +122,7 @@ fn backflush_detail_page(
  div {
  div class="flex items-center justify-between" {
  h1 class="text-2xl font-extrabold font-mono tabular-nums" { (record.doc_number) }
- span class=(format!("status-pill {status_class}")) { (status_label) }
+ span class=(format!("status-pill {}", crate::utils::status_color(status_class))) { (status_label) }
  }
  }
  div class="flex gap-3" {
@@ -172,7 +172,7 @@ fn backflush_detail_page(
  div class="flex flex-col gap-1" {
  span class="text-xs text-muted font-medium" { "状态" }
  span class="text-sm text-fg font-medium" {
- span class=(format!("status-pill {status_class}")) { (status_label) }
+ span class=(format!("status-pill {}", crate::utils::status_color(status_class))) { (status_label) }
  }
  }
  div class="flex flex-col gap-1" {

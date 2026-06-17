@@ -158,7 +158,7 @@ fn plan_list_page(
  h1 class="text-xl font-bold text-fg tracking-tight" { "生产计划" }
  div class="flex gap-3" {
  @if can_create {
- a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(PlanCreatePath::PATH) {
+ a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(PlanCreatePath::PATH) {
  (icon::plus_icon("w-4 h-4"))
  "新建计划"
  }
@@ -192,7 +192,7 @@ fn plan_table_fragment(
  (status_tabs_with_param(PlanListPath::PATH, "#plan-data-card", "#filter-form", tabs, selected_status, "status"))
 
  // ── Filter Bar ──
- form id="filter-form" class="flex items-center gap-3 mb-5 flex-wrap filter-form"
+ form id="filter-form" class="flex items-center gap-3 mb-6 flex-wrap filter-form"
  hx-get=(PlanListPath::PATH)
  hx-trigger="change, keyup changed delay:300ms from:.search-input"
  hx-target="#plan-data-card"
@@ -200,10 +200,9 @@ fn plan_table_fragment(
  hx-swap="outerHTML"
  hx-include="#filter-form"
  hx-push-url="true" {
- div class="relative flex-1 max-w-xs [&_svg]:absolute [&_svg]:left-3 [&_svg]:top-1/2 [&_svg]:-translate-y-1/2 [&_svg]:w-4 [&_svg]:h-4 [&_svg]:text-muted" {
+ div class="relative w-60 [&_svg]:absolute [&_svg]:left-3 [&_svg]:top-1/2 [&_svg]:-translate-y-1/2 [&_svg]:w-4 [&_svg]:h-4 [&_svg]:text-muted" {
  (icon::search_icon(""))
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword"
- style="width:180px"
+ input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input" type="text" name="keyword"
  placeholder="搜索计划编号…"
  value=(params.keyword.as_deref().unwrap_or(""));
  }
@@ -212,20 +211,20 @@ fn plan_table_fragment(
  option value="Mto" selected[params.plan_type.as_deref() == Some("Mto")] { "按单生产 (MTO)" }
  option value="Mts" selected[params.plan_type.as_deref() == Some("Mts")] { "按库存备货 (MTS)" }
  }
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="date" name="date_from"
- style="max-width:160px"
+ input class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer" type="date" name="date_from"
+ style="width:140px"
  value=(params.date_from.as_deref().unwrap_or(""));
- span style="color:var(--muted);font-size:13px" { "至" }
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="date" name="date_to"
- style="max-width:160px"
+ span class="text-muted text-[13px]" { "至" }
+ input class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer" type="date" name="date_to"
+ style="width:140px"
  value=(params.date_to.as_deref().unwrap_or(""));
+ }
  }
 
  // ── Data Table ──
  (plan_data_card(result, operator_names, plan_stats, params))
  }
  }
-}
 fn plan_data_card(
  result: &abt_core::shared::types::PaginatedResult<ProductionPlan>,
  operator_names: &HashMap<i64, String>,
@@ -260,33 +259,37 @@ fn plan_data_card(
  @let item_count = stats.map(|s| s.item_count).unwrap_or(0);
  @let sales_orders = stats.map(|s| s.sales_orders.as_str()).unwrap_or("—");
  @let sales_orders_display = if sales_orders.is_empty() { "—" } else { sales_orders };
- tr style="cursor:pointer" onclick=(format!("location.href='{}'", detail_path.to_string())) {
- td class="text-accent font-medium cursor-pointer font-mono tabular-nums" style="color:var(--accent)" { (item.doc_number) }
+ tr {
+ td {
+ a class="text-accent font-medium font-mono tabular-nums hover:underline" href=(detail_path.to_string()) { (item.doc_number) }
+ }
  td { (item.plan_date) }
  td {
- span style=(format!("display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{};color:{}", type_bg, type_color)) {
+ span class="inline-flex items-center rounded-full text-xs font-medium px-2 py-0.5" style=(format!("background:{};color:{}", type_bg, type_color)) {
  (type_label)
  }
  }
- td style="text-align:center" { (item_count) }
+ td class="text-center" { (item_count) }
  td { (sales_orders_display) }
  td {
- span style=(format!("display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{};color:{}", status_bg, status_color)) {
+ span class="inline-flex items-center rounded-full text-xs font-medium px-2 py-0.5" style=(format!("background:{};color:{}", status_bg, status_color)) {
  (status_label)
  }
  }
  td { (op_name) }
- td style="font-size:12px;color:var(--muted)" { (item.created_at.format("%Y-%m-%d %H:%M")) }
+ td class="text-xs text-muted" { (item.created_at.format("%Y-%m-%d %H:%M")) }
  td {
- div class="row-actions flex items-center gap-1 justify-end opacity-0 transition-opacity duration-150 [&_a]:w-[28px] [&_a]:h-[28px] [&_a]:grid [&_a]:place-items-center [&_a]:rounded-sm [&_a]:cursor-pointer [&_a]:bg-surface [&_a]:hover:bg-accent-bg [&_svg]:w-3.5 [&_svg]:h-3.5" {
- a href=(detail_path.to_string()) style="color:var(--accent);font-size:var(--text-xs)" { "查看" }
+ div class="flex items-center gap-1 justify-end" {
+ a class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer hover:bg-accent-bg" href=(detail_path.to_string()) title="查看" {
+ (icon::eye_icon("w-4 h-4"))
  }
  }
  }
- }
+}
+}
  @if result.items.is_empty() {
  tr {
- td colspan="9" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
+ td colspan="9" class="text-center py-8 text-muted" {
  "暂无生产计划"
  }
  }

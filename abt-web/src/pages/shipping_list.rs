@@ -325,7 +325,7 @@ fn shipping_row(
  }
  td onclick=(&onclick) { (customer_name) }
  td onclick=(&onclick) {
- span class=(format!("status-pill {status_class}")) { (status_text) }
+ span class=(format!("status-pill {}", crate::utils::status_color(status_class))) { (status_text) }
  }
  td onclick=(&onclick) { (ship_date) }
  td onclick=(&onclick) { (s.carrier.as_str()) }

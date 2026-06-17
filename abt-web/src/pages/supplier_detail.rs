@@ -177,7 +177,7 @@ fn supplier_detail_page(
  h1 class="text-xl font-bold" {
  (supplier.name)
  " "
- span class=(format!("status-pill {status_class}")) { (status_label) }
+ span class=(format!("status-pill {}", crate::utils::status_color(status_class))) { (status_label) }
  }
  div class="flex gap-4 text-muted text-xs" {
  span { (supplier.code) }
@@ -221,7 +221,7 @@ fn supplier_detail_page(
  div class="flex py-2 text-sm" {
  span class="w-[90px] shrink-0 text-muted" { "状态" }
  span class="detail-value" {
- span class=(format!("status-pill {status_class}")) { (status_label) }
+ span class=(format!("status-pill {}", crate::utils::status_color(status_class))) { (status_label) }
  }
  }
  div class="flex py-2 text-sm" {

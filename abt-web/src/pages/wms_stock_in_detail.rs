@@ -84,7 +84,7 @@ pub async fn get_stock_in_detail(
  .get_bin_with_warehouse(&service_ctx, &mut conn, bid)
  .await
  .map(|b| format!("{} ({})", b.bin.name, b.bin.code))
- .unwrap_or_else(|_| format!("储位 #{}", bid))
+ .unwrap_or_else(|_| format!("库位 #{}", bid))
  } else {
  "—".into()
  };
@@ -161,7 +161,7 @@ fn stock_in_detail_page(
  span class="text-sm text-fg font-medium" { (zone_name) }
  }
  div class="flex flex-col gap-1" {
- span class="text-xs text-muted font-medium" { "储位" }
+ span class="text-xs text-muted font-medium" { "库位" }
  span class="text-sm text-fg font-medium" { (bin_name) }
  }
  div class="flex flex-col gap-1" {

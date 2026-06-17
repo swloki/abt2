@@ -173,16 +173,16 @@ fn arrival_list_page(
  h1 class="text-xl font-bold text-fg tracking-tight" { "来料通知" }
  div class="flex gap-3" {
  @if can_create {
- a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(ArrivalCreatePath::PATH) {
+ a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(ArrivalCreatePath::PATH) {
  (icon::plus_icon("w-4 h-4"))
  "新建来料通知"
  }
  }
  }
- }
+}
  (arrival_table_fragment(result, warehouse_names, supplier_names, warehouses, params, can_delete))
  }
- }
+}
 }
 
 fn arrival_table_fragment(
@@ -214,7 +214,7 @@ fn arrival_table_fragment(
  div class="arrival-list-panel" {
  (status_tabs_with_param(ArrivalListPath::PATH, "#arrival-data-card", "#arrival-filter-form", tabs, &active_value, "status"))
 
- form class="flex items-center gap-3 mb-5 flex-wrap filter-form" id="arrival-filter-form"
+ form class="flex items-center gap-3 mb-6 flex-wrap filter-form" id="arrival-filter-form"
  hx-get=(ArrivalListPath::PATH)
  hx-trigger="change, keyup changed delay:300ms from:.search-input"
  hx-target="#arrival-data-card"
@@ -222,18 +222,11 @@ fn arrival_table_fragment(
  hx-swap="outerHTML"
  hx-include="#arrival-filter-form"
  hx-push-url="true" {
- div class="relative flex-1 max-w-xs [&_svg]:absolute [&_svg]:left-3 [&_svg]:top-1/2 [&_svg]:-translate-y-1/2 [&_svg]:w-4 [&_svg]:h-4 [&_svg]:text-muted" {
+ div class="relative w-60 [&_svg]:absolute [&_svg]:left-3 [&_svg]:top-1/2 [&_svg]:-translate-y-1/2 [&_svg]:w-4 [&_svg]:h-4 [&_svg]:text-muted" {
  (icon::search_icon(""))
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="doc_number"
- style="width:180px"
- placeholder="单据编号"
+ input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input" type="text" name="doc_number"
+ placeholder="搜索单号/供应商…"
  value=(params.doc_number.as_deref().unwrap_or(""));
- }
- div class="relative flex-1 max-w-xs [&_svg]:absolute [&_svg]:left-3 [&_svg]:top-1/2 [&_svg]:-translate-y-1/2 [&_svg]:w-4 [&_svg]:h-4 [&_svg]:text-muted" {
- (icon::search_icon(""))
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="supplier"
- placeholder="供应商"
- value=(params.supplier.as_deref().unwrap_or(""));
  }
  select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="warehouse_id" {
  option value="" { "全部仓库" }
@@ -297,47 +290,42 @@ fn arrival_row(
  can_delete: bool,
 ) -> Markup {
  let detail_path = ArrivalDetailPath { id: n.id };
- let onclick = format!("location.href='{}'", detail_path);
+ let detail_url = detail_path.to_string();
  let (status_text, status_class) = status_label(n.status);
  let warehouse_name = warehouse_names.get(&n.warehouse_id).map(|s| s.as_str()).unwrap_or("—");
  let supplier_name = supplier_names.get(&n.supplier_id).map(|s| s.as_str()).unwrap_or("—");
  let is_draft = n.status == ArrivalStatus::Draft;
 
  html! {
- tr style="cursor:pointer" {
- td class="text-accent font-medium cursor-pointer font-mono tabular-nums" onclick=(&onclick) { (n.doc_number) }
- td class="font-mono tabular-nums" onclick=(&onclick) { "—" }
- td onclick=(&onclick) { (supplier_name) }
- td onclick=(&onclick) { (warehouse_name) }
- td class="font-mono tabular-nums" onclick=(&onclick) { (n.arrival_date.format("%Y-%m-%d")) }
- td onclick=(&onclick) {
- span class=(format!("status-pill {status_class}")) { (status_text) }
+ tr {
+ td {
+ a class="text-accent font-medium font-mono tabular-nums hover:underline" href=(&detail_url) { (n.doc_number) }
  }
- td onclick="event.stopPropagation()" {
+ td class="font-mono tabular-nums text-fg-2" { "—" }
+ td { (supplier_name) }
+ td { (warehouse_name) }
+ td class="font-mono tabular-nums" { (n.arrival_date.format("%Y-%m-%d")) }
+ td {
+ span class=(format!("status-pill {}", crate::utils::status_color(status_class))) { (status_text) }
+ }
+ td {
+ div class="flex items-center gap-1 justify-end" {
  @if is_draft {
- div class="row-actions flex items-center gap-1 justify-end opacity-0 transition-opacity duration-150 [&_a]:w-[28px] [&_a]:h-[28px] [&_a]:grid [&_a]:place-items-center [&_a]:rounded-sm [&_a]:cursor-pointer [&_a]:bg-surface [&_a]:hover:bg-accent-bg [&_svg]:w-3.5 [&_svg]:h-3.5" {
- a class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" href=(ArrivalCreatePath::PATH) title="编辑" {
+ a class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer hover:bg-accent-bg" href=(ArrivalCreatePath::PATH) title="编辑" {
  (icon::edit_icon("w-4 h-4"))
  }
- @if can_delete {
- button type="button" class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer text-danger" title="删除" {
- (icon::trash_icon("w-4 h-4"))
- }
- }
- }
  } @else {
- div class="row-actions flex items-center gap-1 justify-end opacity-0 transition-opacity duration-150 [&_a]:w-[28px] [&_a]:h-[28px] [&_a]:grid [&_a]:place-items-center [&_a]:rounded-sm [&_a]:cursor-pointer [&_a]:bg-surface [&_a]:hover:bg-accent-bg [&_svg]:w-3.5 [&_svg]:h-3.5" {
- a class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" href=(detail_path.to_string()) title="查看" {
+ a class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer hover:bg-accent-bg" href=(&detail_url) title="查看" {
  (icon::eye_icon("w-4 h-4"))
  }
+ }
  @if can_delete {
- button type="button" class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer text-danger" title="删除" {
+ button type="button" class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer hover:bg-accent-bg text-danger" title="删除" {
  (icon::trash_icon("w-4 h-4"))
  }
  }
  }
  }
  }
- }
- }
+}
 }

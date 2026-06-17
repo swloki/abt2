@@ -173,3 +173,43 @@ pub fn fmt_amount(v: impl Into<rust_decimal::Decimal>) -> String {
         format!("¥ {}.{}", int_with_sep, dec_part)
     }
 }
+
+/// Maps a semantic status name (e.g. "status-draft", "status-completed") to
+/// the equivalent UnoCSS atomic utility classes for a status pill color.
+/// This replaces per-class shortcuts in uno.config.ts — the pill *shape*
+/// stays as the `status-pill` shortcut; only the *color* is resolved here.
+///
+/// Convention:
+///   grey   → `bg-[#f5f5f5] text-[#8c8c8c]`
+///   blue   → `bg-[#e6f4ff] text-[#0958d9]`
+///   cyan   → `bg-[#e6fffb] text-[#08979c]`
+///   green  → `bg-[#f6ffed] text-[#389e0d]`
+///   orange → `bg-[#fff7e6] text-[#c87d0e]`
+///   red    → `bg-[#fff1f0] text-[#cf1322]`
+pub fn status_color(status_class: &str) -> &'static str {
+    match status_class {
+        // grey/neutral
+        "status-draft" | "status-pending" | "status-expired" | "status-inactive"
+        | "status-neutral" | "status-bom-draft" | "status-pill-muted"
+        | "status-pill-draft" | "status-default" | "status-muted" => "bg-[#f5f5f5] text-[#8c8c8c]",
+        // blue/info
+        "status-progress" | "status-picking" | "status-sent" | "status-shipped"
+        | "status-planned" | "status-submitted" | "status-info"
+        | "status-pill-info" | "status-approved" | "status-paid" | "status-settled"
+        | "status-disputed" => "bg-[#e6f4ff] text-[#0958d9]",
+        // cyan
+        "status-confirmed" => "bg-[#e6fffb] text-[#08979c]",
+        // green/success
+        "status-completed" | "status-accepted" | "status-received" | "status-active"
+        | "status-success" | "status-bom-published" | "status-pill-success" => "bg-[#f6ffed] text-[#389e0d]",
+ // orange/warn
+ "status-inspecting" | "status-suspended" | "status-partial"
+ | "status-warn" | "status-warning" | "status-pill-warn" => "bg-[#fff7e6] text-[#c87d0e]",
+ // purple (purchasing/outsourcing)
+ "status-purple" | "status-outsourcing" => "bg-[#f3e8ff] text-[#7c3aed]",
+ // red/danger
+ "status-cancelled" | "status-rejected" | "status-defect" | "status-danger"
+ | "status-pill-danger" => "bg-[#fff1f0] text-[#cf1322]",
+        _ => "bg-[#f5f5f5] text-[#8c8c8c]",
+    }
+}

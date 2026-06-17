@@ -135,79 +135,85 @@ pub async fn search_products(
 fn plan_create_page() -> Markup {
  html! {
  div {
- div class="flex items-center justify-between mb-6" {
- div class="flex items-center justify-between mb-6-left" {
- a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", PlanListPath::PATH)) {
- "← 返回列表"
+ // ── Back Link ──
+ a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150 mb-4" href=(format!("{}?restore=true", PlanListPath::PATH)) {
+ (icon::chevron_left_icon("w-4 h-4"))
+ "返回计划列表"
  }
+ // ── Page Header ──
+ div class="flex items-center justify-between mb-5" {
  h1 class="text-xl font-bold text-fg tracking-tight" { "新建生产计划" }
  }
- }
-
  form id="plan-create-form" hx-post=(PlanCreatePath::PATH) hx-swap="none" {
  // ── Basic Info ──
  div class="form-section" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "基本信息" }
- div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
+ div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-3 border-b border-border-soft" {
+ (icon::clipboard_document_icon("w-[18px] h-[18px]"))
+ "基本信息"
+ }
+ div class="grid grid-cols-2 gap-4 gap-x-6" {
  div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "排产类型" }
- select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="plan_type" required {
+ label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "排产类型 " span class="required" { "*" } }
+ select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" name="plan_type" required {
  option value="Mto" { "按单生产 (MTO)" }
  option value="Mts" { "按库存备货 (MTS)" }
  }
  }
  div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "计划日期" }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="date" name="plan_date" required;
+ label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "计划日期 " span class="required" { "*" } }
+ input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="date" name="plan_date" required;
  }
- div class="form-field span-2" {
+ div class="form-field col-span-2" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "备注" }
- textarea class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="remark" rows="2" {}
+ textarea class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent resize-y" name="remark" rows="2" placeholder="可选备注…" {}
  }
  }
  }
-
  // ── Plan Items ──
- div class="form-section" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "计划明细" }
- div class="data-card" {
+ div class="form-section" style="padding:0;overflow:hidden" {
+ div class="px-6 pt-6 pb-4" {
+ div class="flex items-center gap-2 text-sm font-semibold text-fg mb-3" {
+ (icon::box_icon("w-[18px] h-[18px]"))
+ "计划明细"
+ span id="plan-item-count" class="ml-auto text-xs font-normal text-muted" { "共 0 项" }
+ }
+ }
  div class="overflow-x-auto" {
  table class="data-table" {
  thead {
  tr {
- th style="width:40px" { "序号" }
+ th style="width:40px;text-align:center" { "序号" }
  th { "产品" }
- th class="text-right text-[13px]" { "计划数量" }
+ th class="text-right text-[13px]" { "计划数量 " span class="required" { "*" } }
  th { "开始日期" }
  th { "结束日期" }
  th { "优先级" }
  th style="width:40px" { }
  }
  }
- tbody id="plan-items-tbody" {
- // Dynamic rows added via JS
+ tbody id="plan-items-tbody" { }
  }
  }
- }
- }
- div class="p-3 flex items-center gap-2" {
- button type="button" class="inline-flex items-center gap-2 rounded-sm text-accent text-sm cursor-pointer" id="add-plan-item-btn" {
+ div class="p-4" {
+ button type="button" class="flex items-center justify-center gap-2 w-full text-[#2563eb] text-sm font-medium cursor-pointer" id="add-plan-item-btn" {
  (icon::plus_icon("w-3.5 h-3.5"))
  "添加计划行"
  }
  }
- input type="hidden" name="items_json" id="items-json-input";
  }
-
- // ── Actions ──
- div class="flex items-center justify-end gap-3 pt-4 [border-top:1px_solid_var(--border-soft)]" {
- a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{}?restore=true", PlanListPath::PATH)) { "取消" }
- button type="submit" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" {
+ input type="hidden" name="items_json" id="items-json-input";
+ // ── Action Bar ──
+ div class="sticky bottom-0 flex items-center justify-between gap-3 px-6 py-4 bg-bg [border-top:1px_solid_var(--border-soft)]" {
+ div { }
+ div class="flex gap-3" {
+ a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{}?restore=true", PlanListPath::PATH)) { "取消" }
+ button type="submit" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" {
+ (icon::check_circle_icon("w-4 h-4"))
  "提交"
  }
  }
  }
-
+ }
  // ── Product Picker Modal ──
  div id="product-picker" class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto"
  _="on click[me is event.target] remove .is-open
@@ -272,18 +278,18 @@ fn plan_create_page() -> Markup {
  tr.innerHTML = `
  <td class="text-muted text-xs text-center">${i+1}</td>
  <td>
- <div class="flex items-center gap-[6px] border border-border rounded-sm bg-white cursor-pointer"
+ <div class="flex items-center gap-[6px] border border-border rounded-sm bg-white cursor-pointer px-2 py-[5px]"
  onclick="window.openProductPicker(this.closest('tr'))">
- <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" clip-rule="evenodd"/></svg>
- <span data-field="product_name" class="picker-placeholder">点击选择产品</span>
+ <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" clip-rule="evenodd"/></svg>
+ <span data-field="product_name" class="text-muted text-[13px]">点击选择产品</span>
  <input type="hidden" data-field="product_id">
  </div>
  </td>
- <td><input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] text-right text-[13px]" type="number" step="0.01" data-field="planned_qty" placeholder="数量" required></td>
- <td><input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="date" data-field="scheduled_start" required></td>
- <td><input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="date" data-field="scheduled_end" required></td>
- <td><input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" data-field="priority" value="1" style="width:60px"></td>
- <td><button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center" onclick="this.closest('tr').remove()">✕</button></td>
+ <td><input class="w-full px-2 py-[5px] text-right text-[13px] font-mono tabular-nums border border-border rounded-sm bg-white text-fg outline-none focus:border-accent" type="number" step="0.01" data-field="planned_qty" placeholder="0" required></td>
+ <td><input class="w-full px-2 py-[5px] text-[13px] border border-border rounded-sm bg-white text-fg outline-none focus:border-accent" type="date" data-field="scheduled_start" required></td>
+ <td><input class="w-full px-2 py-[5px] text-[13px] border border-border rounded-sm bg-white text-fg outline-none focus:border-accent" type="date" data-field="scheduled_end" required></td>
+ <td><input class="w-full px-2 py-[5px] text-[13px] font-mono tabular-nums border border-border rounded-sm bg-white text-fg outline-none focus:border-accent" type="number" data-field="priority" value="1" style="width:60px"></td>
+ <td><button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center hover:text-danger" onclick="this.closest('tr').remove()">✕</button></td>
  `;
  tbody.appendChild(tr);
  });
@@ -312,17 +318,18 @@ fn plan_item_row_html(index: usize) -> Markup {
  tr {
  td class="text-muted text-xs text-center" { (index + 1) }
  td {
- div class="product-cell" style="cursor:pointer;padding:4px 8px;border:1px dashed var(--border);border-radius:4px"
+ div class="flex items-center gap-[6px] border border-border rounded-sm bg-white cursor-pointer px-2 py-[5px]"
  _="on click set window._productPickerTarget to closest tr then add .is-open to #product-picker" {
- span data-field="product_name" style="color:var(--muted)" { "点击选择产品" }
+ (icon::search_icon("w-3.5 h-3.5 text-muted"))
+ span data-field="product_name" class="text-muted text-[13px]" { "点击选择产品" }
  input type="hidden" data-field="product_id";
  }
  }
- td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] text-right text-[13px]" type="number" step="0.01" name=(format!("items[{index}].planned_qty")); }
- td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="date" name=(format!("items[{index}].scheduled_start")); }
- td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="date" name=(format!("items[{index}].scheduled_end")); }
- td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" name=(format!("items[{index}].priority")) value="1" style="width:60px"; }
- td { button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center" { "✕" } }
+ td { input class="w-full px-2 py-[5px] text-right text-[13px] font-mono tabular-nums border border-border rounded-sm bg-white text-fg outline-none focus:border-accent" type="number" step="0.01" name=(format!("items[{index}].planned_qty")); }
+ td { input class="w-full px-2 py-[5px] text-[13px] border border-border rounded-sm bg-white text-fg outline-none focus:border-accent" type="date" name=(format!("items[{index}].scheduled_start")); }
+ td { input class="w-full px-2 py-[5px] text-[13px] border border-border rounded-sm bg-white text-fg outline-none focus:border-accent" type="date" name=(format!("items[{index}].scheduled_end")); }
+ td { input class="w-full px-2 py-[5px] text-[13px] font-mono tabular-nums border border-border rounded-sm bg-white text-fg outline-none focus:border-accent" type="number" name=(format!("items[{index}].priority")) value="1" style="width:60px"; }
+ td { button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center hover:text-danger" { "✕" } }
  }
  }
 }

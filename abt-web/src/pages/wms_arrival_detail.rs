@@ -70,20 +70,19 @@ fn workflow_steps(status: ArrivalStatus) -> Markup {
  };
 
  html! {
- div class="flex items-center" {
+ div class="flex items-center mt-6 mb-6" {
  @for (i, (label, _)) in steps.iter().enumerate() {
  @if i > 0 {
- @let line_class = if completed[i] { "wf-line completed" } else { "wf-line" };
- div class=(line_class) {}
+ div class=(format!("w-[48px] h-[2px] {}", if completed[i] { "bg-[#10b981]" } else { "bg-border" })) {}
  }
- @let step_class = match current_idx {
- Some(ci) if ci == i => "wf-step current",
- _ if completed[i] => "wf-step completed",
- _ => "wf-step",
+ @let (dot_cls, text_cls, ring_cls) = match current_idx {
+ Some(ci) if ci == i => ("bg-[#2563eb]", "text-[#2563eb] font-semibold", "shadow-[0_0_0_3px_rgba(37,99,235,0.1)]"),
+ _ if completed[i] => ("bg-[#10b981]", "text-[#10b981]", ""),
+ _ => ("bg-[#d1d5db]", "text-[#9ca3af]", ""),
  };
- div class=(step_class) {
- span class="w-[10px] h-[10px] rounded-full bg-border" {}
- (label)
+ div class="flex items-center gap-2 shrink-0" {
+ span class=(format!("w-2.5 h-2.5 rounded-full shrink-0 {} {}", dot_cls, ring_cls)) {}
+ span class=(format!("text-xs whitespace-nowrap font-medium {}", text_cls)) { (label) }
  }
  }
  }
@@ -134,16 +133,21 @@ pub async fn get_arrival_detail(
  .unwrap_or_else(|_| "—".into());
 
  let product_svc = state.product_service();
- let mut product_names: std::collections::HashMap<i64, String> = std::collections::HashMap::new();
+ let mut product_info: std::collections::HashMap<i64, (String, String, String, String)> = std::collections::HashMap::new();
  for item in &items {
- if !product_names.contains_key(&item.product_id)
+ if !product_info.contains_key(&item.product_id)
  && let Ok(p) = product_svc.get(&service_ctx, &mut conn, item.product_id).await {
- product_names.insert(item.product_id, format!("{} ({})", p.pdt_name, p.product_code));
+ product_info.insert(item.product_id, (
+ p.product_code,
+ p.pdt_name,
+ if p.meta.specification.is_empty() { "—".to_string() } else { p.meta.specification.clone() },
+ if p.unit.is_empty() { "—".to_string() } else { p.unit.clone() },
+ ));
  }
  }
 
  let detail_path = ArrivalDetailPath { id: path.id }.to_string();
- let content = arrival_detail_page(&notice, &items, &detail_path, &wh_name, &supplier_name, &operator_name, &product_names);
+ let content = arrival_detail_page(&notice, &items, &product_info, &detail_path, &wh_name, &supplier_name, &operator_name);
  let page_html = admin_page(
  is_htmx,
  &format!("{} - 来料通知详情", notice.doc_number),
@@ -221,91 +225,84 @@ pub async fn post_arrival_action(
 fn arrival_detail_page(
  notice: &ArrivalNotice,
  items: &[abt_core::wms::arrival_notice::model::ArrivalNoticeItem],
+ product_info: &std::collections::HashMap<i64, (String, String, String, String)>,
  detail_path: &str,
  wh_name: &str,
  supplier_name: &str,
  operator_name: &str,
- product_names: &std::collections::HashMap<i64, String>,
 ) -> Markup {
  let (status_text, status_class) = status_label(notice.status);
  let is_inspecting = notice.status == ArrivalStatus::Inspecting;
 
  html! {
  div {
- a href=(format!("{}?restore=true", ArrivalListPath::PATH)) class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" {
+ // ── Back Link ──
+ a href=(format!("{}?restore=true", ArrivalListPath::PATH)) class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150 mb-4" {
  (icon::chevron_left_icon("w-4 h-4"))
  "返回来料通知列表"
  }
-
- div class="block bg-bg border border-border-soft rounded-lg p-6" {
- div {
- div class="flex items-center justify-between" {
- h1 class="text-2xl font-extrabold font-mono tabular-nums" { (notice.doc_number) }
- span class=(format!("status-pill {status_class}")) { (status_text) }
+ // ── Detail Header（裸 flex，非 card）──
+ div class="flex items-start justify-between mb-6" {
+ div class="flex items-center gap-4" {
+ h1 class="text-xl font-bold font-mono tabular-nums" { (notice.doc_number) }
+ span class=(format!("status-pill {}", crate::utils::status_color(status_class))) { (status_text) }
  }
  }
- div class="flex gap-3" {
- (arrival_action_buttons(notice.status, detail_path))
- }
- }
-
+ // ── Workflow Steps ──
  (workflow_steps(notice.status))
-
- // ── 基本信息 ──
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "基本信息" }
- div class="grid gap-4" {
+ // ── Basic Info（info-card 样式）──
+ div class="bg-bg border border-border-soft rounded-lg p-6 mb-6 shadow-[var(--shadow-card)]" {
+ div class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" { "基本信息" }
+ div class="grid gap-5 [grid-template-columns:repeat(auto-fill,minmax(200px,1fr))]" {
  div class="flex flex-col gap-1" {
  span class="text-xs text-muted font-medium" { "单据编号" }
- span class="text-sm text-fg font-medium font-mono tabular-nums" { (notice.doc_number) }
+ span class="text-sm text-fg font-mono tabular-nums" { (notice.doc_number) }
  }
  div class="flex flex-col gap-1" {
  span class="text-xs text-muted font-medium" { "来源采购单" }
- span class="text-sm text-fg font-medium font-mono tabular-nums" {
+ span class="text-sm text-fg font-mono tabular-nums" {
  (notice.purchase_order_id.map(|id| id.to_string()).unwrap_or_else(|| "—".into()))
  }
  }
  div class="flex flex-col gap-1" {
  span class="text-xs text-muted font-medium" { "供应商" }
- span class="text-sm text-fg font-medium" { (supplier_name) }
+ span class="text-sm text-fg" { (supplier_name) }
  }
  div class="flex flex-col gap-1" {
  span class="text-xs text-muted font-medium" { "到货仓库" }
- span class="text-sm text-fg font-medium" { (wh_name) }
+ span class="text-sm text-fg" { (wh_name) }
  }
  div class="flex flex-col gap-1" {
  span class="text-xs text-muted font-medium" { "到货库区" }
- span class="text-sm text-fg font-medium" {
+ span class="text-sm text-fg" {
  (notice.zone_id.map(|id| id.to_string()).unwrap_or_else(|| "—".into()))
  }
  }
  div class="flex flex-col gap-1" {
  span class="text-xs text-muted font-medium" { "到货日期" }
- span class="text-sm text-fg font-medium font-mono tabular-nums" { (notice.arrival_date.format("%Y-%m-%d")) }
+ span class="text-sm text-fg font-mono tabular-nums" { (notice.arrival_date.format("%Y-%m-%d")) }
  }
  div class="flex flex-col gap-1" {
  span class="text-xs text-muted font-medium" { "送货单号" }
- span class="text-sm text-fg font-medium font-mono tabular-nums" { (notice.delivery_note.as_deref().unwrap_or("—")) }
- }
- div class="flex flex-col gap-1" {
- span class="text-xs text-muted font-medium" { "备注" }
- span class="text-sm text-fg font-medium" { (if notice.remark.is_empty() { "—" } else { &notice.remark }) }
+ span class="text-sm text-fg font-mono tabular-nums" { (notice.delivery_note.as_deref().unwrap_or("—")) }
  }
  div class="flex flex-col gap-1" {
  span class="text-xs text-muted font-medium" { "操作员" }
- span class="text-sm text-fg font-medium" { (operator_name) }
+ span class="text-sm text-fg" { (operator_name) }
  }
  }
  }
-
- // ── 行项明细 ──
+ // ── 行项明细（data-card）──
  div class="data-card" {
  div class="overflow-x-auto" {
  table class="data-table" {
  thead {
  tr {
  th { "行号" }
- th { "产品" }
+ th { "产品编码" }
+ th { "产品名称" }
+ th { "规格" }
+ th { "单位" }
  th class="text-right text-[13px]" { "申报数量" }
  th class="text-right text-[13px]" { "实收数量" }
  th class="text-right text-[13px]" { "合格数量" }
@@ -314,18 +311,24 @@ fn arrival_detail_page(
  }
  tbody {
  @for (i, item) in items.iter().enumerate() {
+ @let (code, name, spec, unit) = product_info.get(&item.product_id)
+ .map(|(c, n, s, u)| (c.as_str(), n.as_str(), s.as_str(), u.as_str()))
+ .unwrap_or(("—", "—", "—", "—"));
  tr {
  td class="font-mono tabular-nums" { (i + 1) }
- td { (product_names.get(&item.product_id).map(|n| n.as_str()).unwrap_or("—")) }
- td class="text-right text-[13px]" { (format!("{:.2}", item.declared_qty)) }
- td class="text-right text-[13px]" { (format!("{:.2}", item.received_qty)) }
- td class="text-right text-[13px]" { (format!("{:.2}", item.accepted_qty)) }
+ td class="font-mono tabular-nums" { (code) }
+ td { (name) }
+ td { (spec) }
+ td { (unit) }
+ td class="text-right text-[13px] font-mono tabular-nums" { (format!("{:.2}", item.declared_qty)) }
+ td class="text-right text-[13px] font-mono tabular-nums" { (format!("{:.2}", item.received_qty)) }
+ td class="text-right text-[13px] font-mono tabular-nums" { (format!("{:.2}", item.accepted_qty)) }
  td class="font-mono tabular-nums" { (item.batch_no.as_deref().unwrap_or("—")) }
  }
  }
  @if items.is_empty() {
  tr {
- td colspan="6" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
+ td colspan="9" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
  "暂无物料明细"
  }
  }
@@ -334,38 +337,41 @@ fn arrival_detail_page(
  }
  }
  }
-
  // ── IQC 质检结果区 ──
  @if is_inspecting || notice.status == ArrivalStatus::Accepted || notice.status == ArrivalStatus::PartiallyAccepted || notice.status == ArrivalStatus::Rejected {
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" style="border-left:3px solid var(--warn)" {
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" style="display:flex;align-items:center;gap:var(--space-2)" {
- (icon::clipboard_list_icon("w-4 h-4"))
+ div class="bg-bg border border-border-soft rounded-lg p-6 mb-6 shadow-[var(--shadow-card)] [border-left:3px_solid_var(--warn)]" {
+ div class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft flex items-center gap-2" {
+ (icon::clipboard_list_icon("w-[18px] h-[18px]"))
  "IQC质检结果"
- span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-[#fff8eb] text-[#d46b08]" style="margin-left:var(--space-2)" { "检验中" }
+ span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-[#fff8eb] text-[#d46b08] ml-2" { "检验中" }
  }
- div class="grid gap-4" style="margin-bottom:var(--space-4)" {
+ div class="grid gap-5 [grid-template-columns:repeat(auto-fill,minmax(200px,1fr))] mb-4" {
  div class="flex flex-col gap-1" {
  span class="text-xs text-muted font-medium" { "检验标准" }
- span class="text-sm text-fg font-medium" { "GB/T 2828.1 抽样检验" }
+ span class="text-sm text-fg" { "GB/T 2828.1 抽样检验" }
  }
  div class="flex flex-col gap-1" {
  span class="text-xs text-muted font-medium" { "AQL等级" }
- span class="text-sm text-fg font-medium font-mono tabular-nums" { "0.65" }
+ span class="text-sm text-fg font-mono tabular-nums" { "0.65" }
  }
  div class="flex flex-col gap-1" {
  span class="text-xs text-muted font-medium" { "检验员" }
- span class="text-sm text-fg font-medium" { "—" }
+ span class="text-sm text-fg" { "—" }
  }
  div class="flex flex-col gap-1" {
  span class="text-xs text-muted font-medium" { "计划完成日期" }
- span class="text-sm text-fg font-medium font-mono tabular-nums" { "—" }
+ span class="text-sm text-fg font-mono tabular-nums" { "—" }
  }
  }
- div style="background:var(--surface-warm);border:1px solid var(--border);border-radius:var(--radius-sm);padding:var(--space-3) var(--space-4);font-size:var(--text-sm);color:var(--fg-2)" {
+ div class="rounded-sm px-4 py-3 text-sm text-fg-2" style="background:var(--surface-warm);border:1px solid var(--border)" {
  strong style="color:var(--warn)" { "⚠ IQC硬门规则：" }
  "质检不合格的物料将阻断入库流程。不合格批次将触发MRB（物料评审委员会）处理流程，需由质量部判定：退货 / 让步接收 / 挑选使用。"
  }
  }
+ }
+ // ── Action Bar ──
+ div class="flex items-center gap-3 mt-6" {
+ (arrival_action_buttons(notice.status, detail_path))
  }
  }
  }

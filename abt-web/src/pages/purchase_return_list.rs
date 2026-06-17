@@ -293,7 +293,7 @@ fn pr_row(
  td onclick=(&onclick) { (supplier_name) }
  td class="font-mono tabular-nums" onclick=(&onclick) { (r.order_id) }
  td onclick=(&onclick) {
- span class=(format!("status-pill {status_class}")) { (status_text) }
+ span class=(format!("status-pill {}", crate::utils::status_color(status_class))) { (status_text) }
  }
  td onclick=(&onclick) { (r.return_reason) }
  td class="text-right text-[13px]" onclick=(&onclick) { (r.total_amount) }

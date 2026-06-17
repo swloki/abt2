@@ -340,11 +340,11 @@ fn po_row(
  td class="font-mono tabular-nums" onclick=(&onclick) { (o.order_date.format("%Y-%m-%d")) }
  td class="font-mono tabular-nums" onclick=(&onclick) { (o.expected_delivery_date.map(|d| d.format("%Y-%m-%d").to_string()).unwrap_or_else(|| "—".into())) }
  td onclick=(&onclick) {
- span class=(format!("status-pill {status_class}")) { (status_text) }
+ span class=(format!("status-pill {}", crate::utils::status_color(status_class))) { (status_text) }
  }
  td onclick=(&onclick) {
  @let (inv_text, inv_class) = invoice_status_label(o.invoice_status);
- span class=(format!("status-pill {inv_class}")) { (inv_text) }
+ span class=(format!("status-pill {}", crate::utils::status_color(inv_class))) { (inv_text) }
  }
  td class="text-right text-[13px] font-mono tabular-nums" onclick=(&onclick) { (format!("{:.2}", o.total_amount)) }
  td onclick=(&onclick) { (buyer_name) }

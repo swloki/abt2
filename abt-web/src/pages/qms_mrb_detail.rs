@@ -88,7 +88,7 @@ pub async fn get_detail(path: MrbDetailPath, ctx: RequestContext) -> Result<Html
  h1 class="text-xl font-bold text-fg tracking-tight" {
  "MRB单号 " (&mrb.doc_number)
  " "
- span class=(format!("status-pill {status_class}")) { (status_text) }
+ span class=(format!("status-pill {}", crate::utils::status_color(status_class))) { (status_text) }
  }
  }
  }
@@ -104,11 +104,11 @@ pub async fn get_detail(path: MrbDetailPath, ctx: RequestContext) -> Result<Html
  div class="flex flex-col gap-1" { label { "产品" } span { (product_name) } }
  div class="flex flex-col gap-1" {
  label { "处置方式" }
- span class=(format!("status-pill {disp_class}")) { (disp_text) }
+ span class=(format!("status-pill {}", crate::utils::status_color(disp_class))) { (disp_text) }
  }
  div class="flex flex-col gap-1" {
  label { "责任方" }
- span class=(format!("status-pill {party_class}")) { (party_text) }
+ span class=(format!("status-pill {}", crate::utils::status_color(party_class))) { (party_text) }
  }
  div class="flex flex-col gap-1" { label { "成本影响" } span class="font-mono tabular-nums text-right text-[13px]" { (fmt_cost(mrb.cost_impact)) } }
  }

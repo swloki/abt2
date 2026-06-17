@@ -184,7 +184,7 @@ fn transfer_row(t: &InventoryTransfer) -> Markup {
  td onclick=(format!("location.href='{}'", detail_path)) { "—" }
  td class="font-mono tabular-nums" onclick=(format!("location.href='{}'", detail_path)) { (t.transfer_date.to_string()) }
  td onclick=(format!("location.href='{}'", detail_path)) {
- span class=(format!("status-pill {status_class}")) { (status_label) }
+ span class=(format!("status-pill {}", crate::utils::status_color(status_class))) { (status_label) }
  }
  td class="text-right text-[13px]" onclick=(format!("location.href='{}'", detail_path)) { "—" }
  td onclick=(format!("location.href='{}'", detail_path)) { "—" }

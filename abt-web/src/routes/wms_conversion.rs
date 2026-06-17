@@ -35,8 +35,7 @@ pub struct ConversionDetailPath {
 pub fn router() -> Router<AppState> {
     Router::new()
         .route(ConversionListPath::PATH, get(wms_conversion_list::get_conversion_list))
-        .route(ConversionProductsPath::PATH, get(wms_conversion_create::get_products))
-        .route(ConversionItemRowPath::PATH, get(wms_conversion_create::get_item_row))
+                .route(ConversionItemRowPath::PATH, get(wms_conversion_create::get_item_row))
         .route(ConversionCreatePath::PATH, get(wms_conversion_create::get_conversion_create).post(wms_conversion_create::create_conversion))
         .route(ConversionDetailPath::PATH, get(wms_conversion_detail::get_conversion_detail).post(wms_conversion_detail::post_conversion_action))
 }

@@ -35,8 +35,7 @@ pub struct CycleCountDetailPath {
 pub fn router() -> Router<AppState> {
     Router::new()
         .route(CycleCountListPath::PATH, get(wms_cycle_count_list::get_cycle_count_list))
-        .route(CycleCountProductsPath::PATH, get(wms_cycle_count_create::get_products))
-        .route(CycleCountItemRowPath::PATH, get(wms_cycle_count_create::get_item_row))
+                .route(CycleCountItemRowPath::PATH, get(wms_cycle_count_create::get_item_row))
         .route(CycleCountCreatePath::PATH, get(wms_cycle_count_create::get_cycle_count_create).post(wms_cycle_count_create::create_cycle_count))
         .route(CycleCountDetailPath::PATH, get(wms_cycle_count_detail::get_cycle_count_detail).post(wms_cycle_count_detail::post_cycle_count_action))
 }

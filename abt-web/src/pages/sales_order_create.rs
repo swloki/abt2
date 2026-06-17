@@ -26,12 +26,6 @@ use abt_macros::require_permission;
 
 // ── Query Params ──
 
-#[derive(Debug, Deserialize)]
-pub struct ProductSearchParams {
- pub name: Option<String>,
- pub code: Option<String>,
-}
-
 // ── Form Request ──
 
 #[derive(Debug, Deserialize)]
@@ -151,26 +145,6 @@ pub async fn get_customer_contacts(
  Ok(Html(customer_info_panel(&result.items, &contacts, params.customer_id, OrderCustomerContactsPath::PATH).into_string()))
 }
 
-/// HTMX: search products
-#[require_permission("PRODUCT", "read")]
-pub async fn get_products(
- ctx: RequestContext,
- Query(params): Query<ProductSearchParams>,
-) -> Result<Html<String>> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
- let svc = state.product_service();
-
- let filter = ProductQuery {
- name: params.name.filter(|s| !s.is_empty()),
- code: params.code.filter(|s| !s.is_empty()),
- status: None,
- owner_department_id: None,
- category_id: None,
- };
- let result = svc.list(&service_ctx, &mut conn, filter, PageParams::new(1, 20)).await?;
-
- Ok(Html(product_list_fragment(&result.items).into_string()))
-}
 
 
 #[derive(Debug, Deserialize)]
@@ -431,7 +405,7 @@ fn order_create_page(customers: &[abt_core::master_data::customer::model::Custom
  }
 
             // ── Product Selection Modal ──
-            (crate::components::product_picker::product_picker_modal_with_search("product-modal", OrderProductsPath::PATH))
+            (crate::components::product_picker::product_picker_modal_with_search("product-modal", OrderItemRowPath::PATH, "order-item-tbody"))
 
  }
  // ── Pre-fill: recalculate totals after page load ──
@@ -468,40 +442,6 @@ fn prefill_item_row(item: &QuotationItem, names: &HashMap<i64, String>, codes: &
  (icon::x_icon("w-3.5 h-3.5"))
  } }
  input type="hidden" name="product_id" value=(item.product_id) {}
- }
- }
-}
-
-/// Product search results fragment
-fn product_list_fragment(products: &[abt_core::master_data::product::model::Product]) -> Markup {
- html! {
- @if products.is_empty() {
- div class="flex items-center justify-center" style="padding:var(--space-12)" {
- (icon::package_icon("w-8 h-8"))
- p class="mt-2 text-sm" { "未找到匹配的产品" }
- }
- } @else {
- div class="py-2" {
-            @for p in products {
-                div class="flex items-center p-3 [border-bottom:1px_solid_var(--border-soft)] cursor-pointer hover:bg-accent-bg transition-colors"
-                    hx-get=(format!("{}?product_id={}", OrderItemRowPath::PATH, p.product_id))
-                    hx-target="#order-item-tbody"
-                    hx-swap="beforeend"
-                    _="on 'htmx:afterRequest' remove .is-open from #product-modal" {
-                    div class="flex-1 min-w-0" {
-                        div class="text-sm font-medium text-fg" { (p.pdt_name) }
-                        div class="text-xs text-muted flex items-center gap-1.5 flex-wrap mt-0.5" {
-                            span class="bg-surface rounded px-1.5 py-0.5 font-mono" { (p.product_code) }
-                            span class="text-border" { "·" }
-                            span { (p.meta.specification) }
-                            span class="text-border" { "·" }
-                            span { (p.unit) }
-                        }
-                    }
-                    span class="text-xs text-accent font-medium shrink-0" { "点击添加" }
-                }
- }
- }
  }
  }
 }

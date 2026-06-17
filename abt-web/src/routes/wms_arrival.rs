@@ -45,8 +45,7 @@ pub struct ArrivalDetailPath {
 pub fn router() -> Router<AppState> {
     Router::new()
         .route(ArrivalListPath::PATH, get(wms_arrival_list::get_arrival_list))
-        .route(ArrivalProductsPath::PATH, get(wms_arrival_create::get_products))
-        .route(ArrivalItemRowPath::PATH, get(wms_arrival_create::get_item_row))
+                .route(ArrivalItemRowPath::PATH, get(wms_arrival_create::get_item_row))
         .route(ArrivalPoPickPath::PATH, get(wms_arrival_create::get_po_pick))
         .route(ArrivalPoItemsPath::PATH, get(wms_arrival_create::get_po_items))
         .route(ArrivalCreatePath::PATH, get(wms_arrival_create::get_arrival_create).post(wms_arrival_create::create_arrival))

@@ -177,33 +177,6 @@ pub async fn get_po_supplier_detail(
  ))
 }
 
-/// HTMX: search products → return HTML fragment
-#[require_permission("PRODUCT", "read")]
-pub async fn get_po_products(
- ctx: RequestContext,
- Query(params): Query<ProductSearchParams>,
-) -> Result<Html<String>> {
- let RequestContext {
- mut conn,
- state,
- service_ctx,
- ..
- } = ctx;
- let svc = state.product_service();
-
- let filter = ProductQuery {
- name: params.name.filter(|s| !s.is_empty()),
- code: params.code.filter(|s| !s.is_empty()),
- status: None,
- owner_department_id: None,
- category_id: None,
- };
- let result = svc
- .list(&service_ctx, &mut conn, filter, PageParams::new(1, 20))
- .await?;
-
- Ok(Html(product_list_fragment(&result.items).into_string()))
-}
 
 /// HTMX/JS: return active tax rates as JSON
 #[require_permission("PURCHASE_ORDER", "read")]
@@ -540,7 +513,7 @@ fn po_create_page(
  }
  }
 
-            (crate::components::product_picker::product_picker_modal_with_search("product-modal", POProductsPath::PATH))
+            (crate::components::product_picker::product_picker_modal_with_search("product-modal", POItemRowPath::PATH, "po-item-tbody"))
 
  }
  }
@@ -558,40 +531,6 @@ fn supplier_detail_fragment(contact_name: &str, contact_phone: &str, coop_years:
  script {
  (maud::PreEscaped(format!("document.querySelector('#supplier-contact').value = '{}';", contact_name.replace('\'', "\\'"))))
  (maud::PreEscaped(format!("document.querySelector('#supplier-phone').value = '{}';", contact_phone.replace('\'', "\\'"))))
- }
- }
-}
-
-/// Product search results fragment
-fn product_list_fragment(products: &[abt_core::master_data::product::model::Product]) -> Markup {
- html! {
- @if products.is_empty() {
- div style="text-align:center;padding:var(--space-12);color:var(--muted)" {
- (icon::package_icon("w-8 h-8"))
- p style="margin:var(--space-2) 0 0;font-size:var(--text-sm)" { "未找到匹配的产品" }
- }
- } @else {
- div class="py-2" {
- @for p in products {
- div class="flex items-center p-3 [border-bottom:1px_solid_var(--border-soft)] cursor-pointer hover:bg-accent-bg transition-colors"
-                    hx-get=(format!("{}?product_id={}", POItemRowPath::PATH, p.product_id))
-                    hx-target="#po-item-tbody"
-                    hx-swap="beforeend"
-                    _="on 'htmx:afterRequest' remove .is-open from #product-modal" {
- div class="flex-1 min-w-0" {
- div class="text-sm font-medium text-fg" { (p.pdt_name) }
- div class="text-[12px] text-muted flex items-center gap-[6px] flex-wrap" {
- span class="bg-surface rounded-sm" { (p.product_code) }
- span class="text-border" { "·" }
- span { (p.meta.specification) }
- span class="text-border" { "·" }
- span { (p.unit) }
- }
- }
- span class="text-xs text-accent font-medium shrink-0" { "点击添加" }
- }
- }
- }
  }
  }
 }

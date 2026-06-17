@@ -23,11 +23,6 @@ use abt_macros::require_permission;
 
 // ── Query Params ──
 
-#[derive(Debug, Deserialize)]
-pub struct ProductSearchParams {
- pub name: Option<String>,
- pub code: Option<String>,
-}
 
 #[derive(Debug, Deserialize)]
 pub struct ItemRowParams {
@@ -66,25 +61,6 @@ pub async fn get_conversion_create(
 }
 
 /// HTMX: search products for the modal
-#[require_permission("PRODUCT", "read")]
-pub async fn get_products(
- ctx: RequestContext,
- Query(params): Query<ProductSearchParams>,
-) -> Result<Html<String>> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
- let svc = state.product_service();
-
- let filter = ProductQuery {
- name: params.name.filter(|s| !s.is_empty()),
- code: params.code.filter(|s| !s.is_empty()),
- status: None,
- owner_department_id: None,
- category_id: None,
- };
- let result = svc.list(&service_ctx, &mut conn, filter, PageParams::new(1, 20)).await?;
-
- Ok(Html(product_list_fragment(&result.items).into_string()))
-}
 
 /// HTMX: return a single item row fragment
 #[require_permission("INVENTORY", "create")]
@@ -303,7 +279,7 @@ fn conversion_create_page(
  }
  }
 
-            (crate::components::product_picker::product_picker_modal_with_search("product-modal", ConversionProductsPath::PATH))
+            (crate::components::product_picker::product_picker_modal_with_search("product-modal", ConversionItemRowPath::PATH, "conversion-item-tbody"))
 
  // ── JS ──
  (maud::PreEscaped(r#"<script>
@@ -374,40 +350,6 @@ fn conversion_create_page(
  conversionRenumber('produce-item-tbody');
  }
  </script>"#))
- }
-}
-
-/// Product search results fragment
-fn product_list_fragment(products: &[abt_core::master_data::product::model::Product]) -> Markup {
- html! {
- @if products.is_empty() {
- div style="text-align:center;padding:var(--space-12);color:var(--muted)" {
- (icon::package_icon("w-8 h-8"))
- p style="margin:var(--space-2) 0 0;font-size:var(--text-sm)" { "未找到匹配的产品" }
- }
- } @else {
- div class="py-2" {
- @for p in products {
- div class="flex items-center p-3 [border-bottom:1px_solid_var(--border-soft)] cursor-pointer hover:bg-accent-bg transition-colors"
-                    hx-get=(format!("{}?product_id={}", ConversionItemRowPath::PATH, p.product_id))
-                    hx-target="#conversion-item-tbody"
-                    hx-swap="beforeend"
-                    _="on 'htmx:afterRequest' remove .is-open from #product-modal" {
- div class="flex-1 min-w-0" {
- div class="text-sm font-medium text-fg" { (p.pdt_name) }
- div class="text-[12px] text-muted flex items-center gap-[6px] flex-wrap" {
- span class="bg-surface rounded-sm" { (p.product_code) }
- span class="text-border" { "·" }
- span { (p.meta.specification) }
- span class="text-border" { "·" }
- span { (p.unit) }
- }
- }
- span class="text-xs text-accent font-medium shrink-0" { "点击添加" }
- }
- }
- }
- }
  }
 }
 

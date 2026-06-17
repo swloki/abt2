@@ -27,8 +27,12 @@ pub struct ProductSearchPath;
 pub struct ProductSearchParams {
     pub name: Option<String>,
     pub code: Option<String>,
+    // fill-input 模式参数
     pub target_id: Option<String>,
     pub display_id: Option<String>,
+    // add-row 模式参数
+    pub item_row_path: Option<String>,
+    pub tbody_id: Option<String>,
     pub modal_id: Option<String>,
 }
 
@@ -54,10 +58,16 @@ pub async fn search_products(
         category_id: None,
     };
     let result = svc.list(&service_ctx, &mut conn, filter, PageParams::new(1, 20)).await?;
-    let target = params.target_id.as_deref().unwrap_or("product_id");
-    let display = params.display_id.as_deref().unwrap_or("product-display");
     let modal = params.modal_id.as_deref().unwrap_or("product-modal");
-    Ok(Html(product_picker_results(&result.items, target, display, modal).into_string()))
+    // 如果有 item_row_path 参数 → add-row 模式，否则 fill-input 模式
+    if let Some(row_path) = &params.item_row_path {
+        let tbody = params.tbody_id.as_deref().unwrap_or("item-tbody");
+        Ok(Html(product_picker_results_for_table(&result.items, row_path, tbody, modal).into_string()))
+    } else {
+        let target = params.target_id.as_deref().unwrap_or("product_id");
+        let display = params.display_id.as_deref().unwrap_or("product-display");
+        Ok(Html(product_picker_results(&result.items, target, display, modal).into_string()))
+    }
 }
 
 // ── Modal Component ──
@@ -138,29 +148,29 @@ pub fn product_picker_modal(modal_id: &str, target_id: &str, display_id: &str) -
     }
 }
 
-/// 产品选择弹窗（自定义搜索路径）
+/// 产品选择弹窗（选产品→添加表格行模式）
 ///
-/// 用于"选产品→添加行"模式的表单页面（订单、报价单、WMS 等）。
-/// `search_path` 指定搜索 API 路径，结果由该路径的 handler 渲染。
-/// 结果中的每个产品行需要自行实现选中回调（通常 hx-get 添加行 + 关闭弹窗）。
-pub fn product_picker_modal_with_search(modal_id: &str, search_path: &str) -> Markup {
+/// 搜索统一走 `/api/products/search`，结果由公共组件渲染。
+/// 选中产品行后通过 `item_row_path?product_id=xxx` 添加一行到 `tbody_id`。
+pub fn product_picker_modal_with_search(modal_id: &str, item_row_path: &str, tbody_id: &str) -> Markup {
     let close_hs = format!("on click remove .is-open from #{}", modal_id);
+    let search_path = ProductSearchPath::PATH;
     html! {
         div class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto"
             id=(modal_id)
             _=(close_hs) {
             div class="bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl"
                 onclick="event.stopPropagation()" {
-                // ── Header ──
                 div class="px-6 py-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center shrink-0" {
                     h2 class="text-lg font-semibold m-0" { "选择产品" }
                     button class="bg-transparent border-none cursor-pointer text-xl text-muted p-1 hover:text-fg transition-colors"
                         _=(close_hs) { "×" }
                 }
-                // ── Body ──
                 div class="overflow-y-auto flex-1 min-h-0 p-6" {
-                    // ── Search Bar ──
                     div class="product-search-bar flex gap-4 mb-4 pb-4 [border-bottom:1px_solid_var(--border-soft)]" {
+                        input type="hidden" name="item_row_path" value=(item_row_path);
+                        input type="hidden" name="tbody_id" value=(tbody_id);
+                        input type="hidden" name="modal_id" value=(modal_id);
                         div class="flex-1 flex flex-col gap-1" {
                             label class="text-xs font-medium text-fg-2" { "产品名称" }
                             input class="product-search-input w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
@@ -191,11 +201,11 @@ pub fn product_picker_modal_with_search(modal_id: &str, search_path: &str) -> Ma
                             "清除"
                         }
                     }
-                    // ── Results ──
                     div id="product-search-results" class="max-h-[400px] overflow-y-auto"
                         hx-get=(search_path)
                         hx-trigger="intersect once"
-                        hx-swap="innerHTML" {
+                        hx-swap="innerHTML"
+                        hx-vals=(format!("{{\"item_row_path\":\"{}\",\"tbody_id\":\"{}\",\"modal_id\":\"{}\"}}", item_row_path, tbody_id, modal_id)) {
                         div class="flex items-center justify-center py-8 text-muted text-sm" { "加载中…" }
                     }
                 }
@@ -204,8 +214,7 @@ pub fn product_picker_modal_with_search(modal_id: &str, search_path: &str) -> Ma
     }
 }
 
-// ── Results Fragment ──
-
+/// 渲染产品搜索结果（fill-input 模式：点击行填充 hidden input + 显示名称）
 pub fn product_picker_results(
     products: &[Product],
     target_id: &str,
@@ -239,6 +248,45 @@ pub fn product_picker_results(
                                 span { (p.unit.as_str()) }
                             }
                         }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// 渲染产品搜索结果（点击整行添加表格行模式）
+pub fn product_picker_results_for_table(
+    products: &[Product],
+    item_row_path: &str,
+    tbody_id: &str,
+    modal_id: &str,
+) -> Markup {
+    html! {
+        @if products.is_empty() {
+            div class="flex flex-col items-center justify-center py-12 text-muted" {
+                (icon::package_icon("w-8 h-8 opacity-40"))
+                p class="mt-2 text-sm" { "未找到匹配的产品" }
+            }
+        } @else {
+            div class="py-2" {
+                @for p in products {
+                    div class="flex items-center p-3 [border-bottom:1px_solid_var(--border-soft)] cursor-pointer hover:bg-accent-bg transition-colors"
+                        hx-get=(format!("{}?product_id={}", item_row_path, p.product_id))
+                        hx-target=(format!("#{}", tbody_id))
+                        hx-swap="beforeend"
+                        _=(format!("on 'htmx:afterRequest' remove .is-open from #{}", modal_id)) {
+                        div class="flex-1 min-w-0" {
+                            div class="text-sm font-medium text-fg truncate" { (p.pdt_name.as_str()) }
+                            div class="text-xs text-muted flex items-center gap-1.5 flex-wrap mt-0.5" {
+                                span class="bg-surface rounded px-1.5 py-0.5 font-mono" { (p.product_code.as_str()) }
+                                span class="text-border" { "·" }
+                                span { (p.meta.specification.as_str()) }
+                                span class="text-border" { "·" }
+                                span { (p.unit.as_str()) }
+                            }
+                        }
+                        span class="text-xs text-accent font-medium shrink-0" { "点击添加" }
                     }
                 }
             }

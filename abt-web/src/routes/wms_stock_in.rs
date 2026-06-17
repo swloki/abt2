@@ -42,8 +42,7 @@ pub struct StockInDetailPath {
 pub fn router() -> Router<AppState> {
     Router::new()
         .route(StockInListPath::PATH, get(wms_stock_in_list::get_stock_in_list))
-        .route(StockInProductsPath::PATH, get(wms_stock_in_create::get_products))
-        .route(StockInSourcePickPath::PATH, get(wms_stock_in_create::get_source_pick))
+                .route(StockInSourcePickPath::PATH, get(wms_stock_in_create::get_source_pick))
         .route(StockInSourceItemsPath::PATH, get(wms_stock_in_create::get_source_items))
         .route(StockInCreatePath::PATH, get(wms_stock_in_create::get_stock_in_create).post(wms_stock_in_create::create_stock_in))
         .route(StockInDetailPath::PATH, get(wms_stock_in_detail::get_stock_in_detail))

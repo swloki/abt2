@@ -86,7 +86,6 @@ pub fn router() -> Router<AppState> {
         .route(SubmitQuotationPath::PATH, post(quotation_detail::submit_quotation))
         .route(AcceptQuotationPath::PATH, post(quotation_detail::accept_quotation))
         .route(RejectQuotationPath::PATH, post(quotation_detail::reject_quotation))
-        .route(QuotationProductsPath::PATH, get(quotation_create::get_products))
-        .route(QuotationItemRowPath::PATH, get(quotation_create::get_quotation_item_row))
+                .route(QuotationItemRowPath::PATH, get(quotation_create::get_quotation_item_row))
         .route(QuotationCustomerContactsPath::PATH, get(quotation_create::get_customer_contacts))
 }

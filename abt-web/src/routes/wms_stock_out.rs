@@ -35,8 +35,7 @@ pub struct StockOutDetailPath {
 pub fn router() -> Router<AppState> {
     Router::new()
         .route(StockOutListPath::PATH, get(wms_stock_out_list::get_stock_out_list))
-        .route(StockOutProductsPath::PATH, get(wms_stock_out_create::get_products))
-        .route(StockOutItemRowPath::PATH, get(wms_stock_out_create::get_item_row))
+                .route(StockOutItemRowPath::PATH, get(wms_stock_out_create::get_item_row))
         .route(StockOutCreatePath::PATH, get(wms_stock_out_create::get_stock_out_create).post(wms_stock_out_create::create_stock_out))
         .route(StockOutDetailPath::PATH, get(wms_stock_out_detail::get_stock_out_detail))
 }

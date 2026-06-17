@@ -51,14 +51,14 @@
 @property --un-slashed-zero{syntax:"*";inherits:false;}
 /* layer: theme */
 :root, :host {
---default-transition-timingFunction: cubic-bezier(0.4, 0, 0.2, 1);
---default-transition-duration: 150ms;
 --spacing-1: var(--space-1);
 --fontWeight-bold: 700;
 --spacing: 0.25rem;
 --text-2xl-fontSize: 1.5rem;
 --text-2xl-lineHeight: 2rem;
 --colors-white: #fff;
+--default-transition-timingFunction: cubic-bezier(0.4, 0, 0.2, 1);
+--default-transition-duration: 150ms;
 --radius-sm: var(--radius-sm);
 --text-sm-fontSize: 0.875rem;
 --text-sm-lineHeight: 1.25rem;
@@ -74,15 +74,15 @@
 --spacing-2: var(--space-2);
 --radius-xl: var(--radius-xl);
 --spacing-4: var(--space-4);
+--font-mono: ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;
 --text-xl-fontSize: 1.25rem;
 --text-xl-lineHeight: 1.75rem;
 --spacing-8: var(--space-8);
+--radius-DEFAULT: var(--radius-md);
 --leading-tight: 1.25;
 --leading-none: 1;
 --spacing-5: var(--space-5);
 --tracking-tight: -0.025em;
---radius-DEFAULT: var(--radius-md);
---font-mono: ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;
 --colors-blue-DEFAULT: oklch(70.7% 0.165 254.624);
 --colors-red-DEFAULT: oklch(70.4% 0.191 22.216);
 --colors-gray-DEFAULT: oklch(70.7% 0.022 261.325);

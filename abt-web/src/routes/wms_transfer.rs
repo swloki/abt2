@@ -35,8 +35,7 @@ pub struct TransferDetailPath {
 pub fn router() -> Router<AppState> {
     Router::new()
         .route(TransferListPath::PATH, get(wms_transfer_list::get_transfer_list))
-        .route(TransferProductsPath::PATH, get(wms_transfer_create::get_products))
-        .route(TransferItemRowPath::PATH, get(wms_transfer_create::get_item_row))
+                .route(TransferItemRowPath::PATH, get(wms_transfer_create::get_item_row))
         .route(TransferCreatePath::PATH, get(wms_transfer_create::get_transfer_create).post(wms_transfer_create::create_transfer))
         .route(TransferDetailPath::PATH, get(wms_transfer_detail::get_transfer_detail).post(wms_transfer_detail::post_transfer_action))
 }

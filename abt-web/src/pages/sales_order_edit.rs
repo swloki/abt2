@@ -310,7 +310,7 @@ fn order_edit_page(
  }
  }
 
-            (crate::components::product_picker::product_picker_modal_with_search("product-modal", OrderProductsPath::PATH))
+            (crate::components::product_picker::product_picker_modal_with_search("product-modal", OrderItemRowPath::PATH, "order-item-tbody"))
 
  (maud::PreEscaped(r#"<script>
  function oeRecalc() { lineItemCalc('#order-item-tbody').recalcTotals() }

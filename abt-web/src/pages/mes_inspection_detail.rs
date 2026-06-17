@@ -12,76 +12,76 @@ use crate::utils::RequestContext;
 use abt_macros::require_permission;
 
 fn insp_result_label(r: &abt_core::mes::enums::InspectionResultType) -> (&'static str, &'static str, &'static str) {
-    match r {
-        abt_core::mes::enums::InspectionResultType::Pass => ("合格", "rgba(82,196,26,0.08)", "var(--success)"),
-        abt_core::mes::enums::InspectionResultType::Fail => ("不合格", "rgba(245,63,63,0.06)", "#f53f3f"),
-        abt_core::mes::enums::InspectionResultType::Conditional => ("让步接收", "rgba(250,140,22,0.08)", "#fa8c16"),
-    }
+ match r {
+ abt_core::mes::enums::InspectionResultType::Pass => ("合格", "rgba(82,196,26,0.08)", "var(--success)"),
+ abt_core::mes::enums::InspectionResultType::Fail => ("不合格", "rgba(245,63,63,0.06)", "#f53f3f"),
+ abt_core::mes::enums::InspectionResultType::Conditional => ("让步接收", "rgba(250,140,22,0.08)", "#fa8c16"),
+ }
 }
 
 #[derive(Debug, Deserialize)]
 pub struct RecordResultForm {
-    pub result: i16,
+ pub result: i16,
 }
 
 #[require_permission("INSPECTION", "read")]
 pub async fn get_inspection_detail(path: InspectionDetailPath, ctx: RequestContext) -> Result<Html<String>> {
-    let is_htmx = ctx.is_htmx();
-    let nav_filter = ctx.nav_filter().await;
-    let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
-    let svc = state.production_inspection_service();
-    let insp = svc.find_by_id(&service_ctx, &mut conn, path.id).await?;
-    let lookups = svc.get_detail_lookups(&mut conn, &insp).await?;
+ let is_htmx = ctx.is_htmx();
+ let nav_filter = ctx.nav_filter().await;
+ let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
+ let svc = state.production_inspection_service();
+ let insp = svc.find_by_id(&service_ctx, &mut conn, path.id).await?;
+ let lookups = svc.get_detail_lookups(&mut conn, &insp).await?;
 
-    let type_label = match insp.inspection_type {
-        abt_core::mes::enums::InspectionType::FirstArticle => "首检",
-        abt_core::mes::enums::InspectionType::InProcess => "巡检",
-        _ => "完工检",
-    };
-    let (rl, rb, rc) = insp_result_label(&insp.result);
+ let type_label = match insp.inspection_type {
+ abt_core::mes::enums::InspectionType::FirstArticle => "首检",
+ abt_core::mes::enums::InspectionType::InProcess => "巡检",
+ _ => "完工检",
+ };
+ let (rl, rb, rc) = insp_result_label(&insp.result);
 
-    let wo = lookups.wo_doc_number.as_deref().unwrap_or("—");
-    let product = lookups.product_name.as_deref().unwrap_or("—");
-    let inspector = lookups.inspector_name.as_deref().unwrap_or("—");
+ let wo = lookups.wo_doc_number.as_deref().unwrap_or("—");
+ let product = lookups.product_name.as_deref().unwrap_or("—");
+ let inspector = lookups.inspector_name.as_deref().unwrap_or("—");
 
-    let content = html! { div {
-        div class="flex items-center justify-between mb-6" {
-            div class="flex items-center justify-between mb-6-left" { a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", InspectionListPath::PATH)) { "\u{2190} 返回列表" } h1 class="text-xl font-bold text-fg tracking-tight" { "检验 " (insp.doc_number) } }
-        }
-        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
-            div class="grid gap-4" {
-                div class="flex flex-col gap-1" { label { "单号" } span class="font-mono tabular-nums" { (insp.doc_number) } }
-                div class="flex flex-col gap-1" { label { "工单" } span { (wo) } }
-                div class="flex flex-col gap-1" { label { "产品" } span { (product) } }
-                div class="flex flex-col gap-1" { label { "检验类型" } span { (type_label) } }
-                div class="flex flex-col gap-1" { label { "样本数量" } span class="font-mono tabular-nums" { (crate::utils::fmt_qty(insp.sample_qty)) } }
-                div class="flex flex-col gap-1" { label { "合格数量" } span class="font-mono tabular-nums" { (crate::utils::fmt_qty(insp.qualified_qty)) } }
-                div class="flex flex-col gap-1" { label { "不合格数量" } span class="font-mono tabular-nums" { (crate::utils::fmt_qty(insp.unqualified_qty)) } }
-                div class="flex flex-col gap-1" { label { "结果" } span style=(format!("display:inline-flex;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{};color:{}", rb, rc)) { (rl) } }
-                div class="flex flex-col gap-1" { label { "检验员" } span { (inspector) } }
-                div class="flex flex-col gap-1" { label { "检验日期" } span { (insp.inspection_date) } }
-            }
-        }
-        div class="form-section" style="margin-top:var(--space-6)" {
-            div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "记录检验结果" }
-            form hx-post=(format!("/admin/mes/inspections/{}/record-result", insp.id)) hx-swap="none" {
-                select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="result" style="width:200px;display:inline-block" {
-                    option value="1" { "合格" } option value="2" { "不合格" } option value="3" { "让步接收" }
-                }
-                button type="submit" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" style="margin-left:var(--space-3)" { "提交" }
-            }
-        }
-    }};
-    Ok(Html(admin_page(is_htmx, "检验详情", &claims, "production", &format!("/admin/mes/inspections/{}", path.id), "生产管理", Some(InspectionListPath::PATH), content, &nav_filter).into_string()))
+ let content = html! { div {
+ div class="flex items-center justify-between mb-6" {
+ div class="flex items-center justify-between mb-6-left" { a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", InspectionListPath::PATH)) { "\u{2190} 返回列表" } h1 class="text-xl font-bold text-fg tracking-tight" { "检验 " (insp.doc_number) } }
+ }
+ div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
+ div class="grid gap-4" {
+ div class="flex flex-col gap-1" { label { "单号" } span class="font-mono tabular-nums" { (insp.doc_number) } }
+ div class="flex flex-col gap-1" { label { "工单" } span { (wo) } }
+ div class="flex flex-col gap-1" { label { "产品" } span { (product) } }
+ div class="flex flex-col gap-1" { label { "检验类型" } span { (type_label) } }
+ div class="flex flex-col gap-1" { label { "样本数量" } span class="font-mono tabular-nums" { (crate::utils::fmt_qty(insp.sample_qty)) } }
+ div class="flex flex-col gap-1" { label { "合格数量" } span class="font-mono tabular-nums" { (crate::utils::fmt_qty(insp.qualified_qty)) } }
+ div class="flex flex-col gap-1" { label { "不合格数量" } span class="font-mono tabular-nums" { (crate::utils::fmt_qty(insp.unqualified_qty)) } }
+ div class="flex flex-col gap-1" { label { "结果" } span style=(format!("display:inline-flex;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{};color:{}", rb, rc)) { (rl) } }
+ div class="flex flex-col gap-1" { label { "检验员" } span { (inspector) } }
+ div class="flex flex-col gap-1" { label { "检验日期" } span { (insp.inspection_date) } }
+ }
+ }
+ div class="form-section" style="margin-top:var(--space-6)" {
+ div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "记录检验结果" }
+ form hx-post=(format!("/admin/mes/inspections/{}/record-result", insp.id)) hx-swap="none" {
+ select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="result" style="width:200px;display:inline-block" {
+ option value="1" { "合格" } option value="2" { "不合格" } option value="3" { "让步接收" }
+ }
+ button type="submit" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" style="margin-left:var(--space-3)" { "提交" }
+ }
+ }
+ }};
+ Ok(Html(admin_page(is_htmx, "检验详情", &claims, "production", &format!("/admin/mes/inspections/{}", path.id), "生产管理", Some(InspectionListPath::PATH), content, &nav_filter).into_string()))
 }
 
 #[require_permission("INSPECTION", "update")]
 pub async fn record_result(
-    path: InspectionRecordResultPath, ctx: RequestContext, axum::Form(form): axum::Form<RecordResultForm>,
+ path: InspectionRecordResultPath, ctx: RequestContext, axum::Form(form): axum::Form<RecordResultForm>,
 ) -> Result<impl IntoResponse> {
-    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
-    let result = abt_core::mes::enums::InspectionResultType::from_i16(form.result)
-        .ok_or_else(|| abt_core::shared::types::DomainError::Validation("无效检验结果".into()))?;
-    state.production_inspection_service().record_result(&service_ctx, &mut conn, path.inspection_id, result).await?;
-    Ok(axum::response::Response::builder().header("HX-Redirect", &format!("/admin/mes/inspections/{}", path.inspection_id)).body(axum::body::Body::empty()).unwrap())
+ let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let result = abt_core::mes::enums::InspectionResultType::from_i16(form.result)
+ .ok_or_else(|| abt_core::shared::types::DomainError::Validation("无效检验结果".into()))?;
+ state.production_inspection_service().record_result(&service_ctx, &mut conn, path.inspection_id, result).await?;
+ Ok(axum::response::Response::builder().header("HX-Redirect", &format!("/admin/mes/inspections/{}", path.inspection_id)).body(axum::body::Body::empty()).unwrap())
 }

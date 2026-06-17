@@ -18,726 +18,726 @@ use abt_macros::require_permission;
 
 #[require_permission("USER", "read")]
 pub async fn get_user_detail(
-    path: UserDetailPath,
-    ctx: RequestContext,
+ path: UserDetailPath,
+ ctx: RequestContext,
 ) -> crate::errors::Result<Html<String>> {
-    let is_htmx = ctx.is_htmx();
-    let nav_filter = ctx.nav_filter().await;
-    let RequestContext {
-        mut conn,
-        state,
-        service_ctx,
-        claims,
-        ..
-    } = ctx;
+ let is_htmx = ctx.is_htmx();
+ let nav_filter = ctx.nav_filter().await;
+ let RequestContext {
+ mut conn,
+ state,
+ service_ctx,
+ claims,
+ ..
+ } = ctx;
 
-    let user_svc = state.user_service();
-    let role_svc = state.role_service();
-    let dept_svc = state.department_service();
-    let perm_svc = state.permission_service();
+ let user_svc = state.user_service();
+ let role_svc = state.role_service();
+ let dept_svc = state.department_service();
+ let perm_svc = state.permission_service();
 
-    let user = user_svc
-        .get_user_with_roles(&service_ctx, &mut conn, path.id)
-        .await?;
-    let all_roles = role_svc.list_roles(&service_ctx, &mut conn).await?;
-    let all_depts = dept_svc
-        .list_departments(&service_ctx, &mut conn)
-        .await?;
-    let user_depts = dept_svc
-        .get_user_departments(&service_ctx, &mut conn, path.id)
-        .await?;
+ let user = user_svc
+ .get_user_with_roles(&service_ctx, &mut conn, path.id)
+ .await?;
+ let all_roles = role_svc.list_roles(&service_ctx, &mut conn).await?;
+ let all_depts = dept_svc
+ .list_departments(&service_ctx, &mut conn)
+ .await?;
+ let user_depts = dept_svc
+ .get_user_departments(&service_ctx, &mut conn, path.id)
+ .await?;
 
-    // Resolve effective permissions for this user's roles
-    let role_ids: Vec<i64> = user.roles.iter().map(|r| r.role_id).collect();
-    let perm_strings = perm_svc.get_user_permissions(&role_ids).await?;
-    let grouped_perms = group_permissions_by_resource(&perm_strings);
+ // Resolve effective permissions for this user's roles
+ let role_ids: Vec<i64> = user.roles.iter().map(|r| r.role_id).collect();
+ let perm_strings = perm_svc.get_user_permissions(&role_ids).await?;
+ let grouped_perms = group_permissions_by_resource(&perm_strings);
 
-    // Compute data scope
-    let data_scope_label = compute_data_scope(&user, &user_depts);
+ // Compute data scope
+ let data_scope_label = compute_data_scope(&user, &user_depts);
 
-    let content = user_detail_page(&user, &all_roles, &all_depts, &user_depts, &grouped_perms, data_scope_label);
-    let detail_path_str = UserDetailPath { id: path.id }.to_string();
-    let page_html = admin_page(
-        is_htmx,
-        &format!("{} - 用户详情", user.user.username),
-        &claims,
-        "system",
-        &detail_path_str,
-        "系统管理",
-        Some(&user.user.username),
-        content, &nav_filter,    );
+ let content = user_detail_page(&user, &all_roles, &all_depts, &user_depts, &grouped_perms, data_scope_label);
+ let detail_path_str = UserDetailPath { id: path.id }.to_string();
+ let page_html = admin_page(
+ is_htmx,
+ &format!("{} - 用户详情", user.user.username),
+ &claims,
+ "system",
+ &detail_path_str,
+ "系统管理",
+ Some(&user.user.username),
+ content, &nav_filter, );
 
-    Ok(Html(page_html.into_string()))
+ Ok(Html(page_html.into_string()))
 }
 
 #[require_permission("USER", "update")]
 pub async fn post_role_assign(
-    path: UserRoleAssignPath,
-    ctx: RequestContext,
-    Form(form): Form<RoleAssignForm>,
+ path: UserRoleAssignPath,
+ ctx: RequestContext,
+ Form(form): Form<RoleAssignForm>,
 ) -> crate::errors::Result<impl IntoResponse> {
-    let RequestContext {
-        mut conn,
-        state,
-        service_ctx,
-        ..
-    } = ctx;
-    let svc = state.user_service();
+ let RequestContext {
+ mut conn,
+ state,
+ service_ctx,
+ ..
+ } = ctx;
+ let svc = state.user_service();
 
-    let desired: Vec<i64> = form
-        .role_ids
-        .split(',')
-        .filter_map(|s| s.trim().parse::<i64>().ok())
-        .collect();
+ let desired: Vec<i64> = form
+ .role_ids
+ .split(',')
+ .filter_map(|s| s.trim().parse::<i64>().ok())
+ .collect();
 
-    let current_user = svc
-        .get_user_with_roles(&service_ctx, &mut conn, path.id)
-        .await?;
-    let current: Vec<i64> = current_user.roles.iter().map(|r| r.role_id).collect();
+ let current_user = svc
+ .get_user_with_roles(&service_ctx, &mut conn, path.id)
+ .await?;
+ let current: Vec<i64> = current_user.roles.iter().map(|r| r.role_id).collect();
 
-    let to_add: Vec<i64> = desired
-        .iter()
-        .filter(|id| !current.contains(id))
-        .copied()
-        .collect();
-    let to_remove: Vec<i64> = current
-        .iter()
-        .filter(|id| !desired.contains(id))
-        .copied()
-        .collect();
+ let to_add: Vec<i64> = desired
+ .iter()
+ .filter(|id| !current.contains(id))
+ .copied()
+ .collect();
+ let to_remove: Vec<i64> = current
+ .iter()
+ .filter(|id| !desired.contains(id))
+ .copied()
+ .collect();
 
-    if !to_add.is_empty() {
-        svc.assign_roles(&service_ctx, &mut conn, path.id, to_add)
-            .await?;
-    }
-    if !to_remove.is_empty() {
-        svc.remove_roles(&service_ctx, &mut conn, path.id, to_remove)
-            .await?;
-    }
+ if !to_add.is_empty() {
+ svc.assign_roles(&service_ctx, &mut conn, path.id, to_add)
+ .await?;
+ }
+ if !to_remove.is_empty() {
+ svc.remove_roles(&service_ctx, &mut conn, path.id, to_remove)
+ .await?;
+ }
 
-    let redirect = UserDetailPath { id: path.id }.to_string();
-    Ok(([("HX-Redirect", redirect)], Html(String::new())))
+ let redirect = UserDetailPath { id: path.id }.to_string();
+ Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }
 
 #[require_permission("USER", "update")]
 pub async fn post_dept_assign(
-    path: UserDeptAssignPath,
-    ctx: RequestContext,
-    Form(form): Form<DeptAssignForm>,
+ path: UserDeptAssignPath,
+ ctx: RequestContext,
+ Form(form): Form<DeptAssignForm>,
 ) -> crate::errors::Result<impl IntoResponse> {
-    let RequestContext {
-        mut conn,
-        state,
-        service_ctx,
-        ..
-    } = ctx;
-    let svc = state.department_service();
+ let RequestContext {
+ mut conn,
+ state,
+ service_ctx,
+ ..
+ } = ctx;
+ let svc = state.department_service();
 
-    let desired: Vec<i64> = form
-        .dept_ids
-        .split(',')
-        .filter_map(|s| s.trim().parse::<i64>().ok())
-        .collect();
+ let desired: Vec<i64> = form
+ .dept_ids
+ .split(',')
+ .filter_map(|s| s.trim().parse::<i64>().ok())
+ .collect();
 
-    let current_depts = svc
-        .get_user_departments(&service_ctx, &mut conn, path.id)
-        .await?;
-    let current: Vec<i64> = current_depts.iter().map(|d| d.department_id).collect();
+ let current_depts = svc
+ .get_user_departments(&service_ctx, &mut conn, path.id)
+ .await?;
+ let current: Vec<i64> = current_depts.iter().map(|d| d.department_id).collect();
 
-    let to_add: Vec<i64> = desired
-        .iter()
-        .filter(|id| !current.contains(id))
-        .copied()
-        .collect();
-    let to_remove: Vec<i64> = current
-        .iter()
-        .filter(|id| !desired.contains(id))
-        .copied()
-        .collect();
+ let to_add: Vec<i64> = desired
+ .iter()
+ .filter(|id| !current.contains(id))
+ .copied()
+ .collect();
+ let to_remove: Vec<i64> = current
+ .iter()
+ .filter(|id| !desired.contains(id))
+ .copied()
+ .collect();
 
-    if !to_add.is_empty() {
-        svc.assign_departments(&service_ctx, &mut conn, path.id, to_add)
-            .await?;
-    }
-    if !to_remove.is_empty() {
-        svc.remove_departments(&service_ctx, &mut conn, path.id, to_remove)
-            .await?;
-    }
+ if !to_add.is_empty() {
+ svc.assign_departments(&service_ctx, &mut conn, path.id, to_add)
+ .await?;
+ }
+ if !to_remove.is_empty() {
+ svc.remove_departments(&service_ctx, &mut conn, path.id, to_remove)
+ .await?;
+ }
 
-    let redirect = UserDetailPath { id: path.id }.to_string();
-    Ok(([("HX-Redirect", redirect)], Html(String::new())))
+ let redirect = UserDetailPath { id: path.id }.to_string();
+ Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }
 
 #[require_permission("USER", "update")]
 pub async fn post_change_password(
-    path: UserChangePasswordPath,
-    ctx: RequestContext,
-    Form(form): Form<ChangePasswordForm>,
+ path: UserChangePasswordPath,
+ ctx: RequestContext,
+ Form(form): Form<ChangePasswordForm>,
 ) -> crate::errors::Result<impl IntoResponse> {
-    let RequestContext {
-        mut conn,
-        state,
-        service_ctx,
-        ..
-    } = ctx;
-    let svc = state.user_service();
+ let RequestContext {
+ mut conn,
+ state,
+ service_ctx,
+ ..
+ } = ctx;
+ let svc = state.user_service();
 
-    // Validate password confirmation
-    if form.new_password != form.confirm_password {
-        return Err(abt_core::shared::types::DomainError::validation(
-            "新密码与确认密码不匹配".to_string(),
-        ).into());
-    }
+ // Validate password confirmation
+ if form.new_password != form.confirm_password {
+ return Err(abt_core::shared::types::DomainError::validation(
+ "新密码与确认密码不匹配".to_string(),
+ ).into());
+ }
 
-    svc.admin_reset_password(
-        &service_ctx,
-        &mut conn,
-        path.id,
-        &form.new_password,
-    )
-    .await?;
+ svc.admin_reset_password(
+ &service_ctx,
+ &mut conn,
+ path.id,
+ &form.new_password,
+ )
+ .await?;
 
-    let redirect = UserDetailPath { id: path.id }.to_string();
-    Ok(([("HX-Redirect", redirect)], Html(String::new())))
+ let redirect = UserDetailPath { id: path.id }.to_string();
+ Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }
 
 // ── Form Data ──
 
 #[derive(Debug, Deserialize)]
 pub(crate) struct RoleAssignForm {
-    pub role_ids: String,
+ pub role_ids: String,
 }
 
 #[derive(Debug, Deserialize)]
 pub(crate) struct DeptAssignForm {
-    pub dept_ids: String,
+ pub dept_ids: String,
 }
 
 #[derive(Debug, Deserialize)]
 pub(crate) struct ChangePasswordForm {
-    pub new_password: String,
-    pub confirm_password: String,
+ pub new_password: String,
+ pub confirm_password: String,
 }
 
 // ── Helpers ──
 
 /// Extract up to 2 leading characters, uppercased, for avatar/badge initials.
 fn get_initials(s: &str) -> String {
-    s.chars().take(2).collect::<String>().to_uppercase()
+ s.chars().take(2).collect::<String>().to_uppercase()
 }
 
 /// Check whether a role (by code) is flagged as a system/built-in role.
 fn is_role_system(role_code: &str, all_roles: &[Role]) -> bool {
-    all_roles
-        .iter()
-        .any(|r| r.role_code == role_code && r.is_system_role)
+ all_roles
+ .iter()
+ .any(|r| r.role_code == role_code && r.is_system_role)
 }
 
 /// Compute data scope label: All (super admin), Department (has depts), or Self.
 fn compute_data_scope(user: &UserWithRoles, user_depts: &[Department]) -> &'static str {
-    if user.user.is_super_admin {
-        "All"
-    } else if !user_depts.is_empty() {
-        "Department"
-    } else {
-        "Self"
-    }
+ if user.user.is_super_admin {
+ "All"
+ } else if !user_depts.is_empty() {
+ "Department"
+ } else {
+ "Self"
+ }
 }
 
 /// Chinese display names for permission resources (matching prototype design).
 fn resource_display_name(code: &str) -> &str {
-    match code {
-        "CUSTOMER" => "客户管理",
-        "PRODUCT" => "产品管理",
-        "CATEGORY" => "分类管理",
-        "BOM" => "BOM管理",
-        "BOM_CATEGORY" => "BOM分类",
-        "WAREHOUSE" => "仓库管理",
-        "LOCATION" => "库位管理",
-        "INVENTORY" => "库存管理",
-        "PRICE" => "价格管理",
-        "SALES_ORDER" => "销售订单",
-        "PURCHASE_ORDER" => "采购订单",
-        "WORK_ORDER" => "工单管理",
-        "INSPECTION" => "质检管理",
-        "COST" => "成本管理",
-        "LABOR_COST" => "人工成本",
-        "USER" => "用户管理",
-        "ROLE" => "角色管理",
-        "DEPARTMENT" => "部门管理",
-        "SHIPPING" => "发货管理",
-        _ => code,
-    }
+ match code {
+ "CUSTOMER" => "客户管理",
+ "PRODUCT" => "产品管理",
+ "CATEGORY" => "分类管理",
+ "BOM" => "BOM管理",
+ "BOM_CATEGORY" => "BOM分类",
+ "WAREHOUSE" => "仓库管理",
+ "LOCATION" => "库位管理",
+ "INVENTORY" => "库存管理",
+ "PRICE" => "价格管理",
+ "SALES_ORDER" => "销售订单",
+ "PURCHASE_ORDER" => "采购订单",
+ "WORK_ORDER" => "工单管理",
+ "INSPECTION" => "质检管理",
+ "COST" => "成本管理",
+ "LABOR_COST" => "人工成本",
+ "USER" => "用户管理",
+ "ROLE" => "角色管理",
+ "DEPARTMENT" => "部门管理",
+ "SHIPPING" => "发货管理",
+ _ => code,
+ }
 }
 
 /// Group flat `"RESOURCE:action"` strings into `(resource_code, display_name, actions)`.
 fn group_permissions_by_resource(perms: &[String]) -> Vec<(String, String, Vec<String>)> {
-    let mut map: BTreeMap<String, Vec<String>> = BTreeMap::new();
-    for perm in perms {
-        if let Some((resource, action)) = perm.split_once(':') {
-            map.entry(resource.to_string())
-                .or_default()
-                .push(action.to_string());
-        }
-    }
+ let mut map: BTreeMap<String, Vec<String>> = BTreeMap::new();
+ for perm in perms {
+ if let Some((resource, action)) = perm.split_once(':') {
+ map.entry(resource.to_string())
+ .or_default()
+ .push(action.to_string());
+ }
+ }
 
-    let mut result = Vec::new();
-    for (code, actions) in map {
-        let name = resource_display_name(&code).to_string();
-        result.push((code, name, actions));
-    }
-    result
+ let mut result = Vec::new();
+ for (code, actions) in map {
+ let name = resource_display_name(&code).to_string();
+ result.push((code, name, actions));
+ }
+ result
 }
 
 // ── Resource icon mapper (matching prototype design) ──
 
 /// Returns an appropriate icon for each permission resource type.
 fn resource_icon(code: &str, c: &str) -> Markup {
-    match code {
-        "SALES_ORDER" => icon::file_text_icon(c),
-        "PURCHASE_ORDER" => icon::clipboard_document_icon(c),
-        "CUSTOMER" => icon::users_icon(c),
-        "PRODUCT" => icon::box_icon(c),
-        "CATEGORY" => icon::grid_icon(c),
-        "BOM" | "BOM_CATEGORY" => icon::clipboard_list_icon(c),
-        "WAREHOUSE" => icon::building_icon(c),
-        "LOCATION" => icon::building_icon(c),
-        "INVENTORY" => icon::package_icon(c),
-        "PRICE" => icon::currency_icon(c),
-        "SHIPPING" => icon::truck_icon(c),
-        "WORK_ORDER" => icon::bolt_icon(c),
-        "INSPECTION" => icon::check_circle_icon(c),
-        "COST" | "LABOR_COST" => icon::currency_icon(c),
-        "USER" => icon::user_icon(c),
-        "ROLE" => icon::lock_icon(c),
-        "DEPARTMENT" => icon::building_icon(c),
-        _ => icon::box_icon(c),
-    }
+ match code {
+ "SALES_ORDER" => icon::file_text_icon(c),
+ "PURCHASE_ORDER" => icon::clipboard_document_icon(c),
+ "CUSTOMER" => icon::users_icon(c),
+ "PRODUCT" => icon::box_icon(c),
+ "CATEGORY" => icon::grid_icon(c),
+ "BOM" | "BOM_CATEGORY" => icon::clipboard_list_icon(c),
+ "WAREHOUSE" => icon::building_icon(c),
+ "LOCATION" => icon::building_icon(c),
+ "INVENTORY" => icon::package_icon(c),
+ "PRICE" => icon::currency_icon(c),
+ "SHIPPING" => icon::truck_icon(c),
+ "WORK_ORDER" => icon::bolt_icon(c),
+ "INSPECTION" => icon::check_circle_icon(c),
+ "COST" | "LABOR_COST" => icon::currency_icon(c),
+ "USER" => icon::user_icon(c),
+ "ROLE" => icon::lock_icon(c),
+ "DEPARTMENT" => icon::building_icon(c),
+ _ => icon::box_icon(c),
+ }
 }
 
 fn info_circle_icon(c: &str) -> Markup {
-    icon::svg(
-        r#"<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>"#,
-        c,
-    )
+ icon::svg(
+ r#"<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>"#,
+ c,
+ )
 }
 
 fn shield_check_icon(c: &str) -> Markup {
-    icon::svg(
-        r#"<path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>"#,
-        c,
-    )
+ icon::svg(
+ r#"<path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>"#,
+ c,
+ )
 }
 
 // ── Page Component ──
 
 fn user_detail_page(
-    user: &UserWithRoles,
-    all_roles: &[Role],
-    all_depts: &[Department],
-    user_depts: &[Department],
-    grouped_perms: &[(String, String, Vec<String>)],
-    data_scope: &str,
+ user: &UserWithRoles,
+ all_roles: &[Role],
+ all_depts: &[Department],
+ user_depts: &[Department],
+ grouped_perms: &[(String, String, Vec<String>)],
+ data_scope: &str,
 ) -> Markup {
-    let user_id = user.user.user_id;
-    let display_name = user
-        .user
-        .display_name
-        .as_deref()
-        .unwrap_or(&user.user.username);
-    let avatar_initials = get_initials(&user.user.username);
-    let edit_path = UserEditPath { id: user_id }.to_string();
-    let list_path = UserListPath.to_string();
-    let role_assign_path = UserRoleAssignPath { id: user_id }.to_string();
-    let dept_assign_path = UserDeptAssignPath { id: user_id }.to_string();
-    let password_path = UserChangePasswordPath { id: user_id }.to_string();
+ let user_id = user.user.user_id;
+ let display_name = user
+ .user
+ .display_name
+ .as_deref()
+ .unwrap_or(&user.user.username);
+ let avatar_initials = get_initials(&user.user.username);
+ let edit_path = UserEditPath { id: user_id }.to_string();
+ let list_path = UserListPath.to_string();
+ let role_assign_path = UserRoleAssignPath { id: user_id }.to_string();
+ let dept_assign_path = UserDeptAssignPath { id: user_id }.to_string();
+ let password_path = UserChangePasswordPath { id: user_id }.to_string();
 
-    let current_role_ids: Vec<i64> = user.roles.iter().map(|r| r.role_id).collect();
-    let current_dept_ids: Vec<i64> = user_depts.iter().map(|d| d.department_id).collect();
+ let current_role_ids: Vec<i64> = user.roles.iter().map(|r| r.role_id).collect();
+ let current_dept_ids: Vec<i64> = user_depts.iter().map(|d| d.department_id).collect();
 
-    let total_perms: usize = grouped_perms
-        .iter()
-        .map(|(_, _, actions)| actions.len())
-        .sum();
+ let total_perms: usize = grouped_perms
+ .iter()
+ .map(|(_, _, actions)| actions.len())
+ .sum();
 
-    html! {
-        div {
-            // ── Back Link ──
-            a.back-link href=(format!("{list_path}?restore=true")) {
-                (icon::chevron_left_icon("w-4 h-4"))
-                "返回用户列表"
-            }
+ html! {
+ div {
+ // ── Back Link ──
+ a.back-link href=(format!("{list_path}?restore=true")) {
+ (icon::chevron_left_icon("w-4 h-4"))
+ "返回用户列表"
+ }
 
-            // ── Profile Hero ──
-            div.profile-hero {
-                div.ph-left {
-                    div.ph-avatar { (avatar_initials) }
-                    div.ph-info {
-                        h2 { (display_name) }
-                        div.ph-meta {
-                            span.ph-code { (&user.user.username) }
-                            span.ph-text {
-                                "ID: " (user_id) " · 创建于 "
-                                (user.user.created_at.format("%Y-%m-%d"))
-                            }
-                        }
-                        div.ph-badges {
-                            @if user.user.is_active {
-                                span.tag-pill.tag-active { "已激活" }
-                            } @else {
-                                span.tag-pill.tag-inactive { "未激活" }
-                            }
-                            @if user.user.is_super_admin {
-                                span.tag-pill.tag-super { "超级管理员" }
-                            }
-                            @for dept in user_depts {
-                                span.tag-pill.tag-dept { (&dept.department_name) }
-                            }
-                            // DataScope badge
-                            span.tag-pill.tag-dept { (data_scope) }
-                        }
-                    }
-                }
-                div.ph-actions {
-                    a.btn.btn-default.btn-sm href=(edit_path) {
-                        (icon::edit_icon("w-3.5 h-3.5"))
-                        " 编辑"
-                    }
-                    button.btn.btn-default.btn-sm type="button" _="on click add .is-open to #reset-pw-modal" {
-                        (icon::lock_icon("w-3.5 h-3.5"))
-                        " 重置密码"
-                    }
-                }
-            }
+ // ── Profile Hero ──
+ div.profile-hero {
+ div.ph-left {
+ div.ph-avatar { (avatar_initials) }
+ div.ph-info {
+ h2 { (display_name) }
+ div.ph-meta {
+ span.ph-code { (&user.user.username) }
+ span.ph-text {
+ "ID: " (user_id) " · 创建于 "
+ (user.user.created_at.format("%Y-%m-%d"))
+ }
+ }
+ div.ph-badges {
+ @if user.user.is_active {
+ span.tag-pill.tag-active { "已激活" }
+ } @else {
+ span.tag-pill.tag-inactive { "未激活" }
+ }
+ @if user.user.is_super_admin {
+ span.tag-pill.tag-super { "超级管理员" }
+ }
+ @for dept in user_depts {
+ span.tag-pill.tag-dept { (&dept.department_name) }
+ }
+ // DataScope badge
+ span.tag-pill.tag-dept { (data_scope) }
+ }
+ }
+ }
+ div.ph-actions {
+ a.btn.btn-default.btn-sm href=(edit_path) {
+ (icon::edit_icon("w-3.5 h-3.5"))
+ " 编辑"
+ }
+ button.btn.btn-default.btn-sm type="button" _="on click add .is-open to #reset-pw-modal" {
+ (icon::lock_icon("w-3.5 h-3.5"))
+ " 重置密码"
+ }
+ }
+ }
 
-            // ── Stats Row ──
-            div.profile-stats {
-                div.ps-item {
-                    span.ps-dot.d-blue {}
-                    b { (user.roles.len()) }
-                    span { "个角色" }
-                }
-                div.ps-item {
-                    span.ps-dot.d-green {}
-                    b { (user_depts.len()) }
-                    span { "个部门" }
-                }
-                div.ps-item {
-                    span.ps-dot.d-purple {}
-                    b { (total_perms) }
-                    span { "项权限" }
-                }
-                div.ps-item {
-                    span.ps-dot.d-amber {}
-                    b { (data_scope) }
-                    span { "数据范围" }
-                }
-            }
+ // ── Stats Row ──
+ div.profile-stats {
+ div.ps-item {
+ span.ps-dot.d-blue {}
+ b { (user.roles.len()) }
+ span { "个角色" }
+ }
+ div.ps-item {
+ span.ps-dot.d-green {}
+ b { (user_depts.len()) }
+ span { "个部门" }
+ }
+ div.ps-item {
+ span.ps-dot.d-purple {}
+ b { (total_perms) }
+ span { "项权限" }
+ }
+ div.ps-item {
+ span.ps-dot.d-amber {}
+ b { (data_scope) }
+ span { "数据范围" }
+ }
+ }
 
-            // ── Two-Column Grid ──
-            div.detail-grid {
-                // ── LEFT COLUMN ──
-                div {
-                    // Basic Info Card
-                    div.d-card.d-card-spacer {
-                        div.d-card-head {
-                            h3 {
-                                (info_circle_icon("w-3.5 h-3.5"))
-                                " 基本信息"
-                            }
-                        }
-                        div.d-card-body {
-                            div.info-card-rows {
-                                div.info-row {
-                                    span.info-label { "用户 ID" }
-                                    span.info-val.info-mono {
-                                        "#" (format!("{:03}", user_id))
-                                    }
-                                }
-                                div.info-row {
-                                    span.info-label { "登录名" }
-                                    span.info-val.info-mono { (&user.user.username) }
-                                }
-                                div.info-row {
-                                    span.info-label { "显示名称" }
-                                    span.info-val { (display_name) }
-                                }
-                                div.info-row {
-                                    span.info-label { "超级管理员" }
-                                    @if user.user.is_super_admin {
-                                        span.info-val { "是" }
-                                    } @else {
-                                        span.info-val.info-muted { "否" }
-                                    }
-                                }
-                                div.info-row {
-                                    span.info-label { "激活状态" }
-                                    @if user.user.is_active {
-                                        span.info-val.info-success { "已激活" }
-                                    } @else {
-                                        span.info-val.info-muted { "未激活" }
-                                    }
-                                }
-                                div.info-row {
-                                    span.info-label { "数据权限" }
-                                    span.info-val { (data_scope) }
-                                }
-                                div.info-row {
-                                    span.info-label { "创建时间" }
-                                    span.info-val.info-mono {
-                                        (user.user.created_at.format("%Y-%m-%d %H:%M"))
-                                    }
-                                }
-                                div.info-row {
-                                    span.info-label { "最后更新" }
-                                    @if let Some(updated) = &user.user.updated_at {
-                                        span.info-val.info-mono {
-                                            (updated.format("%Y-%m-%d %H:%M"))
-                                        }
-                                    } @else {
-                                        span.info-val.info-muted { "—" }
-                                    }
-                                }
-                            }
-                        }
-                    }
+ // ── Two-Column Grid ──
+ div.detail-grid {
+ // ── LEFT COLUMN ──
+ div {
+ // Basic Info Card
+ div.d-card.d-card-spacer {
+ div.d-card-head {
+ h3 {
+ (info_circle_icon("w-3.5 h-3.5"))
+ " 基本信息"
+ }
+ }
+ div.d-card-body {
+ div.info-card-rows {
+ div.info-row {
+ span.info-label { "用户 ID" }
+ span.info-val.info-mono {
+ "#" (format!("{:03}", user_id))
+ }
+ }
+ div.info-row {
+ span.info-label { "登录名" }
+ span.info-val.info-mono { (&user.user.username) }
+ }
+ div.info-row {
+ span.info-label { "显示名称" }
+ span.info-val { (display_name) }
+ }
+ div.info-row {
+ span.info-label { "超级管理员" }
+ @if user.user.is_super_admin {
+ span.info-val { "是" }
+ } @else {
+ span.info-val.info-muted { "否" }
+ }
+ }
+ div.info-row {
+ span.info-label { "激活状态" }
+ @if user.user.is_active {
+ span.info-val.info-success { "已激活" }
+ } @else {
+ span.info-val.info-muted { "未激活" }
+ }
+ }
+ div.info-row {
+ span.info-label { "数据权限" }
+ span.info-val { (data_scope) }
+ }
+ div.info-row {
+ span.info-label { "创建时间" }
+ span.info-val.info-mono {
+ (user.user.created_at.format("%Y-%m-%d %H:%M"))
+ }
+ }
+ div.info-row {
+ span.info-label { "最后更新" }
+ @if let Some(updated) = &user.user.updated_at {
+ span.info-val.info-mono {
+ (updated.format("%Y-%m-%d %H:%M"))
+ }
+ } @else {
+ span.info-val.info-muted { "—" }
+ }
+ }
+ }
+ }
+ }
 
-                    // Departments Card
-                    div.d-card {
-                        div.d-card-head {
-                            h3 {
-                                (icon::building_icon("w-3.5 h-3.5"))
-                                " 所属部门"
-                            }
-                            span.d-card-count { (user_depts.len()) }
-                        }
-                        div.d-card-body {
-                            @if user_depts.is_empty() {
-                                p.info-muted { "暂未分配部门" }
-                            } @else {
-                                @for dept in user_depts {
-                                    div.dept-item {
-                                        span.dept-badge {
-                                            (get_initials(&dept.department_code))
-                                        }
-                                        div.dept-info {
-                                            div.dept-name { (&dept.department_name) }
-                                            div.dept-code-text { (&dept.department_code) }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
+ // Departments Card
+ div.d-card {
+ div.d-card-head {
+ h3 {
+ (icon::building_icon("w-3.5 h-3.5"))
+ " 所属部门"
+ }
+ span.d-card-count { (user_depts.len()) }
+ }
+ div.d-card-body {
+ @if user_depts.is_empty() {
+ p.info-muted { "暂未分配部门" }
+ } @else {
+ @for dept in user_depts {
+ div.dept-item {
+ span.dept-badge {
+ (get_initials(&dept.department_code))
+ }
+ div.dept-info {
+ div.dept-name { (&dept.department_name) }
+ div.dept-code-text { (&dept.department_code) }
+ }
+ }
+ }
+ }
+ }
+ }
+ }
 
-                // ── RIGHT COLUMN ──
-                div {
-                    // Roles Card
-                    div.d-card.d-card-spacer {
-                        div.d-card-head {
-                            h3 {
-                                (icon::lock_icon("w-3.5 h-3.5"))
-                                " 已分配角色"
-                            }
-                            span.d-card-count { (user.roles.len()) }
-                        }
-                        div.d-card-body {
-                            @if user.roles.is_empty() {
-                                p.info-muted { "暂未分配角色" }
-                            } @else {
-                                @for role in &user.roles {
-                                    div.role-item {
-                                        span.role-badge {
-                                            (get_initials(&role.role_code))
-                                        }
-                                        div.role-info {
-                                            div.role-name { (&role.role_name) }
-                                            div.role-code { (&role.role_code) }
-                                        }
-                                        @if is_role_system(&role.role_code, all_roles) {
-                                            span.role-tag.role-tag-built-in { "内置" }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
+ // ── RIGHT COLUMN ──
+ div {
+ // Roles Card
+ div.d-card.d-card-spacer {
+ div.d-card-head {
+ h3 {
+ (icon::lock_icon("w-3.5 h-3.5"))
+ " 已分配角色"
+ }
+ span.d-card-count { (user.roles.len()) }
+ }
+ div.d-card-body {
+ @if user.roles.is_empty() {
+ p.info-muted { "暂未分配角色" }
+ } @else {
+ @for role in &user.roles {
+ div.role-item {
+ span.role-badge {
+ (get_initials(&role.role_code))
+ }
+ div.role-info {
+ div.role-name { (&role.role_name) }
+ div.role-code { (&role.role_code) }
+ }
+ @if is_role_system(&role.role_code, all_roles) {
+ span.role-tag.role-tag-built-in { "内置" }
+ }
+ }
+ }
+ }
+ }
+ }
 
-                    // Permission Preview Card
-                    div.d-card {
-                        div.d-card-head {
-                            h3 {
-                                (shield_check_icon("w-3.5 h-3.5"))
-                                " 权限预览"
-                            }
-                            span.d-card-count { (format!("{} 项", total_perms)) }
-                        }
-                        div.d-card-body.perm-preview {
-                            @if grouped_perms.is_empty() {
-                                p.info-muted { "暂无权限" }
-                            } @else {
-                                @for (code, name, actions) in grouped_perms {
-                                    div.perm-preview-group {
-                                        div.perm-preview-head {
-                                            (resource_icon(code, "w-3 h-3"))
-                                            " " (name) " (" (code) ")"
-                                        }
-                                        div.perm-chips {
-                                            @for action in actions {
-                                                @let chip_class = match action.to_lowercase().as_str() {
-                                                    "read" => "perm-chip pc-read",
-                                                    "create" => "perm-chip pc-create",
-                                                    "update"|"write" => "perm-chip pc-write",
-                                                    "delete" => "perm-chip pc-delete",
-                                                    _ => "perm-chip",
-                                                };
-                                                span class=(chip_class) {
-                                                    (action.to_uppercase())
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+ // Permission Preview Card
+ div.d-card {
+ div.d-card-head {
+ h3 {
+ (shield_check_icon("w-3.5 h-3.5"))
+ " 权限预览"
+ }
+ span.d-card-count { (format!("{} 项", total_perms)) }
+ }
+ div.d-card-body.perm-preview {
+ @if grouped_perms.is_empty() {
+ p.info-muted { "暂无权限" }
+ } @else {
+ @for (code, name, actions) in grouped_perms {
+ div.perm-preview-group {
+ div.perm-preview-head {
+ (resource_icon(code, "w-3 h-3"))
+ " " (name) " (" (code) ")"
+ }
+ div.perm-chips {
+ @for action in actions {
+ @let chip_class = match action.to_lowercase().as_str() {
+ "read" => "perm-chip pc-read",
+ "create" => "perm-chip pc-create",
+ "update"|"write" => "perm-chip pc-write",
+ "delete" => "perm-chip pc-delete",
+ _ => "perm-chip",
+ };
+ span class=(chip_class) {
+ (action.to_uppercase())
+ }
+ }
+ }
+ }
+ }
+ }
+ }
+ }
+ }
+ }
 
-            // ── Modals ──
-            (role_assign_modal(&role_assign_path, all_roles, &current_role_ids))
-            (dept_assign_modal(&dept_assign_path, all_depts, &current_dept_ids))
-            (reset_password_modal(&password_path))
-        }
-    }
+ // ── Modals ──
+ (role_assign_modal(&role_assign_path, all_roles, &current_role_ids))
+ (dept_assign_modal(&dept_assign_path, all_depts, &current_dept_ids))
+ (reset_password_modal(&password_path))
+ }
+ }
 }
 
 // ── Modals ──
 
 fn role_assign_modal(
-    action: &str,
-    all_roles: &[Role],
-    current_ids: &[i64],
+ action: &str,
+ all_roles: &[Role],
+ current_ids: &[i64],
 ) -> Markup {
-    html! {
-        div id="role-assign-modal" class="fixed z-[1000] grid place-items-center opacity-0"
-            _="on click[me is event.target] remove .is-open" {
-            form id="role-assign-form" class="bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0" hx-post=(action) hx-swap="none"
-                onsubmit="this.closest('.modal-overlay').classList.remove('is-open');this.reset()" {
-                div class="px-6 py-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center shrink-0" {
-                    h2 { "管理角色" }
-                    button type="button" class="bg-transparent border-none cursor-pointer text-xl text-muted p-1 hover:text-fg"
-                        _="on click remove .is-open from closest .modal-overlay then reset #role-assign-form" { "×" }
-                }
-                div class="overflow-y-auto flex-1 min-h-0 p-6" {
-                    input type="hidden" name="role_ids" id="role-ids-input" {}
-                    div class="bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0-checkbox-list" {
-                        @for role in all_roles {
-                            label class="bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0-checkbox-label" {
-                                input type="checkbox" class="role-checkbox" value=(role.role_id)
-                                    checked[current_ids.contains(&role.role_id)];
-                                span { (role.role_name) }
-                                @if role.is_system_role {
-                                    span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-[#e6f4ff] text-accent rounded-full text-[11px] font-medium" { "系统" }
-                                }
-                                @if let Some(desc) = &role.description {
-                                    span class="ml-auto text-xs text-muted" { (desc) }
-                                }
-                            }
-                        }
-                    }
-                }
-                div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" {
-                    button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
-                        _="on click remove .is-open from closest .modal-overlay then reset #role-assign-form" { "取消" }
-                    button type="submit" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
-                        onclick="document.querySelector('#role-ids-input').value=Array.from(document.querySelectorAll('.role-checkbox:checked')).map(function(c){return c.value}).join(',')" {
-                        "保存"
-                    }
-                }
-            }
-        }
-    }
+ html! {
+ div id="role-assign-modal" class="fixed z-[1000] grid place-items-center opacity-0"
+ _="on click[me is event.target] remove .is-open" {
+ form id="role-assign-form" class="bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0" hx-post=(action) hx-swap="none"
+ onsubmit="this.closest('.modal-overlay').classList.remove('is-open');this.reset()" {
+ div class="px-6 py-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center shrink-0" {
+ h2 { "管理角色" }
+ button type="button" class="bg-transparent border-none cursor-pointer text-xl text-muted p-1 hover:text-fg"
+ _="on click remove .is-open from closest .modal-overlay then reset #role-assign-form" { "×" }
+ }
+ div class="overflow-y-auto flex-1 min-h-0 p-6" {
+ input type="hidden" name="role_ids" id="role-ids-input" {}
+ div class="bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden " {
+ @for role in all_roles {
+ label class="bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden " {
+ input type="checkbox" class="role-checkbox" value=(role.role_id)
+ checked[current_ids.contains(&role.role_id)];
+ span { (role.role_name) }
+ @if role.is_system_role {
+ span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-[#e6f4ff] text-accent rounded-full text-[11px] font-medium" { "系统" }
+ }
+ @if let Some(desc) = &role.description {
+ span class="ml-auto text-xs text-muted" { (desc) }
+ }
+ }
+ }
+ }
+ }
+ div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" {
+ button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+ _="on click remove .is-open from closest .modal-overlay then reset #role-assign-form" { "取消" }
+ button type="submit" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+ onclick="document.querySelector('#role-ids-input').value=Array.from(document.querySelectorAll('.role-checkbox:checked')).map(function(c){return c.value}).join(',')" {
+ "保存"
+ }
+ }
+ }
+ }
+ }
 }
 
 fn dept_assign_modal(
-    action: &str,
-    all_depts: &[Department],
-    current_ids: &[i64],
+ action: &str,
+ all_depts: &[Department],
+ current_ids: &[i64],
 ) -> Markup {
-    html! {
-        div id="dept-assign-modal" class="fixed z-[1000] grid place-items-center opacity-0"
-            _="on click[me is event.target] remove .is-open" {
-            form id="dept-assign-form" class="bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0" hx-post=(action) hx-swap="none"
-                onsubmit="this.closest('.modal-overlay').classList.remove('is-open');this.reset()" {
-                div class="px-6 py-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center shrink-0" {
-                    h2 { "管理部门" }
-                    button type="button" class="bg-transparent border-none cursor-pointer text-xl text-muted p-1 hover:text-fg"
-                        _="on click remove .is-open from closest .modal-overlay then reset #dept-assign-form" { "×" }
-                }
-                div class="overflow-y-auto flex-1 min-h-0 p-6" {
-                    input type="hidden" name="dept_ids" id="dept-ids-input" {}
-                    div class="bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0-checkbox-list" {
-                        @for dept in all_depts {
-                            label class="bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0-checkbox-label" {
-                                input type="checkbox" class="dept-checkbox" value=(dept.department_id)
-                                    checked[current_ids.contains(&dept.department_id)];
-                                span { (dept.department_name) }
-                                span class="text-xs text-muted" { (dept.department_code) }
-                                @if !dept.is_active {
-                                    span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-[#fff2f0] text-[#cf1322]" { "停用" }
-                                }
-                            }
-                        }
-                    }
-                }
-                div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" {
-                    button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
-                        _="on click remove .is-open from closest .modal-overlay then reset #dept-assign-form" { "取消" }
-                    button type="submit" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
-                        onclick="document.querySelector('#dept-ids-input').value=Array.from(document.querySelectorAll('.dept-checkbox:checked')).map(function(c){return c.value}).join(',')" {
-                        "保存"
-                    }
-                }
-            }
-        }
-    }
+ html! {
+ div id="dept-assign-modal" class="fixed z-[1000] grid place-items-center opacity-0"
+ _="on click[me is event.target] remove .is-open" {
+ form id="dept-assign-form" class="bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0" hx-post=(action) hx-swap="none"
+ onsubmit="this.closest('.modal-overlay').classList.remove('is-open');this.reset()" {
+ div class="px-6 py-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center shrink-0" {
+ h2 { "管理部门" }
+ button type="button" class="bg-transparent border-none cursor-pointer text-xl text-muted p-1 hover:text-fg"
+ _="on click remove .is-open from closest .modal-overlay then reset #dept-assign-form" { "×" }
+ }
+ div class="overflow-y-auto flex-1 min-h-0 p-6" {
+ input type="hidden" name="dept_ids" id="dept-ids-input" {}
+ div class="bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden " {
+ @for dept in all_depts {
+ label class="bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden " {
+ input type="checkbox" class="dept-checkbox" value=(dept.department_id)
+ checked[current_ids.contains(&dept.department_id)];
+ span { (dept.department_name) }
+ span class="text-xs text-muted" { (dept.department_code) }
+ @if !dept.is_active {
+ span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-[#fff2f0] text-[#cf1322]" { "停用" }
+ }
+ }
+ }
+ }
+ }
+ div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" {
+ button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+ _="on click remove .is-open from closest .modal-overlay then reset #dept-assign-form" { "取消" }
+ button type="submit" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+ onclick="document.querySelector('#dept-ids-input').value=Array.from(document.querySelectorAll('.dept-checkbox:checked')).map(function(c){return c.value}).join(',')" {
+ "保存"
+ }
+ }
+ }
+ }
+ }
 }
 
 fn reset_password_modal(action: &str) -> Markup {
-    html! {
-        div id="reset-pw-modal" class="fixed z-[1000] grid place-items-center opacity-0"
-            _="on click[me is event.target] remove .is-open" {
-            form id="reset-pw-form" class="bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0" hx-post=(action) hx-swap="none"
-                onsubmit="this.closest('.modal-overlay').classList.remove('is-open');this.reset()" {
-                div class="px-6 py-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center shrink-0" {
-                    h2 { "重置密码" }
-                    button type="button" class="bg-transparent border-none cursor-pointer text-xl text-muted p-1 hover:text-fg"
-                        _="on click remove .is-open from closest .modal-overlay then reset #reset-pw-form" { "×" }
-                }
-                div class="overflow-y-auto flex-1 min-h-0 p-6" {
-                    p style="margin-bottom:16px;color:#6b7280;font-size:14px" { "为该用户设置新密码，重置后立即生效。" }
-                    div class="form-group" {
-                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "新密码 " span class="required" { "*" } }
-                        input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="password" name="new_password" required
-                            minlength="8" placeholder="至少 8 位，含字母和数字" {}
-                    }
-                    div class="form-group" {
-                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "确认密码 " span class="required" { "*" } }
-                        input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="password" name="confirm_password" required
-                            minlength="8" placeholder="再次输入新密码" {}
-                    }
-                }
-                div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" {
-                    button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
-                        _="on click remove .is-open from closest .modal-overlay then reset #reset-pw-form" { "取消" }
-                    button type="submit" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" {
-                        (icon::check_circle_icon("w-4 h-4"))
-                        "确认重置"
-                    }
-                }
-            }
-        }
-    }
+ html! {
+ div id="reset-pw-modal" class="fixed z-[1000] grid place-items-center opacity-0"
+ _="on click[me is event.target] remove .is-open" {
+ form id="reset-pw-form" class="bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0" hx-post=(action) hx-swap="none"
+ onsubmit="this.closest('.modal-overlay').classList.remove('is-open');this.reset()" {
+ div class="px-6 py-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center shrink-0" {
+ h2 { "重置密码" }
+ button type="button" class="bg-transparent border-none cursor-pointer text-xl text-muted p-1 hover:text-fg"
+ _="on click remove .is-open from closest .modal-overlay then reset #reset-pw-form" { "×" }
+ }
+ div class="overflow-y-auto flex-1 min-h-0 p-6" {
+ p style="margin-bottom:16px;color:#6b7280;font-size:14px" { "为该用户设置新密码，重置后立即生效。" }
+ div class="form-group" {
+ label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "新密码 " span class="required" { "*" } }
+ input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="password" name="new_password" required
+ minlength="8" placeholder="至少 8 位，含字母和数字" {}
+ }
+ div class="form-group" {
+ label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "确认密码 " span class="required" { "*" } }
+ input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="password" name="confirm_password" required
+ minlength="8" placeholder="再次输入新密码" {}
+ }
+ }
+ div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" {
+ button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+ _="on click remove .is-open from closest .modal-overlay then reset #reset-pw-form" { "取消" }
+ button type="submit" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" {
+ (icon::check_circle_icon("w-4 h-4"))
+ "确认重置"
+ }
+ }
+ }
+ }
+ }
 }

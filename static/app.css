@@ -74,6 +74,7 @@
 --spacing-2: var(--space-2);
 --radius-xl: var(--radius-xl);
 --spacing-4: var(--space-4);
+--font-mono: ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;
 --text-xl-fontSize: 1.25rem;
 --text-xl-lineHeight: 1.75rem;
 --spacing-8: var(--space-8);
@@ -82,7 +83,6 @@
 --spacing-5: var(--space-5);
 --tracking-tight: -0.025em;
 --radius-DEFAULT: var(--radius-md);
---font-mono: ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;
 --colors-blue-DEFAULT: oklch(70.7% 0.165 254.624);
 --colors-red-DEFAULT: oklch(70.4% 0.191 22.216);
 --colors-gray-DEFAULT: oklch(70.7% 0.022 261.325);

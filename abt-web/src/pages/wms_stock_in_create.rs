@@ -606,54 +606,7 @@ fn stock_in_create_content(
  }
  }
 
- // ── Product Search Modal ──
- div id="product-modal" class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto"
- _="on click[me is event.target] remove .is-open" {
- div class="modal bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl" onclick="event.stopPropagation()" {
- div class="px-6 py-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center shrink-0" {
- h2 { "选择物料" }
- button type="button" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
- _="on click remove .is-open from #product-modal" { "×" }
- }
- div class="overflow-y-auto flex-1 min-h-0 p-6" style="padding:0" hx-disinherit="hx-select" {
- div class="flex gap-4 p-4 border-b" {
- div class="flex-1 flex flex-col gap-[4px]" {
- label class="text-[12px] font-medium text-fg-2" { "产品名称" }
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="name" placeholder="输入产品名称…"
- hx-get=(StockInProductsPath::PATH)
- hx-trigger="keyup changed delay:300ms"
- hx-sync="this:replace"
- hx-target="#stockin-product-results"
- hx-swap="innerHTML"
- hx-include=".product-search-bar" {}
- }
- div class="flex-1 flex flex-col gap-[4px]" {
- label class="text-[12px] font-medium text-fg-2" { "产品编码" }
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="code" placeholder="输入产品编码…"
- hx-get=(StockInProductsPath::PATH)
- hx-trigger="keyup changed delay:300ms"
- hx-sync="this:replace"
- hx-target="#stockin-product-results"
- hx-swap="innerHTML"
- hx-include=".product-search-bar" {}
- }
- button type="button" class="border border-border rounded-sm bg-bg text-fg-2 text-sm cursor-pointer whitespace-nowrap"
- hx-get=(StockInProductsPath::PATH)
- hx-target="#stockin-product-results"
- hx-swap="innerHTML"
- _="on click set (.product-search-input)'s value to '' then trigger keyup on .product-search-input" {
- "清除"
- }
- }
- div id="stockin-product-results" hx-get=(StockInProductsPath::PATH) hx-trigger="load" {
- div style="text-align:center;padding:var(--space-12);color:var(--muted)" {
- (icon::package_icon("w-8 h-8"))
- p style="margin:var(--space-2) 0 0;font-size:var(--text-sm)" { "输入关键词搜索物料" }
- }
- }
- }
- }
- }
+            (crate::components::product_picker::product_picker_modal_with_search("product-modal", StockInProductsPath::PATH))
 
  // ── Source Pick Modal ──
  div id="source-modal" class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto" data-source-path=(StockInSourcePickPath::PATH)

@@ -138,6 +138,72 @@ pub fn product_picker_modal(modal_id: &str, target_id: &str, display_id: &str) -
     }
 }
 
+/// 产品选择弹窗（自定义搜索路径）
+///
+/// 用于"选产品→添加行"模式的表单页面（订单、报价单、WMS 等）。
+/// `search_path` 指定搜索 API 路径，结果由该路径的 handler 渲染。
+/// 结果中的每个产品行需要自行实现选中回调（通常 hx-get 添加行 + 关闭弹窗）。
+pub fn product_picker_modal_with_search(modal_id: &str, search_path: &str) -> Markup {
+    let close_hs = format!("on click remove .is-open from #{}", modal_id);
+    html! {
+        div class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto"
+            id=(modal_id)
+            _=(close_hs) {
+            div class="bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl"
+                onclick="event.stopPropagation()" {
+                // ── Header ──
+                div class="px-6 py-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center shrink-0" {
+                    h2 class="text-lg font-semibold m-0" { "选择产品" }
+                    button class="bg-transparent border-none cursor-pointer text-xl text-muted p-1 hover:text-fg transition-colors"
+                        _=(close_hs) { "×" }
+                }
+                // ── Body ──
+                div class="overflow-y-auto flex-1 min-h-0 p-6" {
+                    // ── Search Bar ──
+                    div class="product-search-bar flex gap-4 mb-4 pb-4 [border-bottom:1px_solid_var(--border-soft)]" {
+                        div class="flex-1 flex flex-col gap-1" {
+                            label class="text-xs font-medium text-fg-2" { "产品名称" }
+                            input class="product-search-input w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
+                                type="text" name="name" placeholder="输入产品名称…"
+                                hx-get=(search_path)
+                                hx-trigger="keyup changed delay:300ms"
+                                hx-sync="this:replace"
+                                hx-target="#product-search-results"
+                                hx-swap="innerHTML"
+                                hx-include=".product-search-bar" {}
+                        }
+                        div class="flex-1 flex flex-col gap-1" {
+                            label class="text-xs font-medium text-fg-2" { "产品编码" }
+                            input class="product-search-input w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
+                                type="text" name="code" placeholder="输入产品编码…"
+                                hx-get=(search_path)
+                                hx-trigger="keyup changed delay:300ms"
+                                hx-sync="this:replace"
+                                hx-target="#product-search-results"
+                                hx-swap="innerHTML"
+                                hx-include=".product-search-bar" {}
+                        }
+                        button type="button" class="self-end py-2 px-4 border border-border rounded-sm bg-bg text-fg-2 text-sm cursor-pointer whitespace-nowrap hover:bg-surface transition-colors"
+                            hx-get=(search_path)
+                            hx-target="#product-search-results"
+                            hx-swap="innerHTML"
+                            _="on click set <.product-search-input/>'s value to '' then trigger keyup on the first <.product-search-input/>" {
+                            "清除"
+                        }
+                    }
+                    // ── Results ──
+                    div id="product-search-results" class="max-h-[400px] overflow-y-auto"
+                        hx-get=(search_path)
+                        hx-trigger="intersect once"
+                        hx-swap="innerHTML" {
+                        div class="flex items-center justify-center py-8 text-muted text-sm" { "加载中…" }
+                    }
+                }
+            }
+        }
+    }
+}
+
 // ── Results Fragment ──
 
 pub fn product_picker_results(

@@ -310,56 +310,7 @@ fn order_edit_page(
  }
  }
 
- // ── Product Selection Modal ──
- div class="group fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto" id="product-modal"
- _="on click[me is event.target] remove .is-open" {
- div class="modal bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl" onclick="event.stopPropagation()" {
- div class="px-6 py-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center shrink-0" {
- h2 { "选择产品" }
- button class="bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden "
- _="on click remove .is-open from #product-modal" { "×" }
- }
- div class="overflow-y-auto flex-1 min-h-0 p-6 p-0" {
- div class="flex gap-4 p-4 border-b" {
- div class="flex-1 flex flex-col gap-[4px]" {
- label class="text-[12px] font-medium text-fg-2" { "产品名称" }
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="name" placeholder="输入产品名称…"
- hx-get=(OrderProductsPath::PATH)
- hx-trigger="keyup changed delay:300ms"
- hx-sync="this:replace"
- hx-target="#product-search-results"
- hx-swap="innerHTML"
- hx-include=".product-search-bar" {}
- }
- div class="flex-1 flex flex-col gap-[4px]" {
- label class="text-[12px] font-medium text-fg-2" { "产品编码" }
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="code" placeholder="输入产品编码…"
- hx-get=(OrderProductsPath::PATH)
- hx-trigger="keyup changed delay:300ms"
- hx-sync="this:replace"
- hx-target="#product-search-results"
- hx-swap="innerHTML"
- hx-include=".product-search-bar" {}
- }
- button type="button" class="border border-border rounded-sm bg-bg text-fg-2 text-sm cursor-pointer whitespace-nowrap"
- hx-get=(OrderProductsPath::PATH)
- hx-target="#product-search-results"
- hx-swap="innerHTML"
- _="on click set <.product-search-input/>'s value to '' then trigger keyup on the first <.product-search-input/>" {
- "清除"
- }
- }
- div id="product-search-results" class="max-h-[400px] overflow-y-auto"
- hx-get=(OrderProductsPath::PATH)
- hx-trigger="intersect once"
- hx-swap="innerHTML" {
- div class="flex items-center justify-center" style="padding:var(--space-8)" {
- "加载中…"
- }
- }
- }
- }
- }
+            (crate::components::product_picker::product_picker_modal_with_search("product-modal", OrderProductsPath::PATH))
 
  (maud::PreEscaped(r#"<script>
  function oeRecalc() { lineItemCalc('#order-item-tbody').recalcTotals() }

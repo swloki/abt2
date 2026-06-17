@@ -374,7 +374,7 @@ fn order_create_page(customers: &[abt_core::master_data::customer::model::Custom
                         "添加产品行"
                     }
                 }
-                div class="flex justify-end p-4 bg-surface border-t gap-8" {
+                div class="flex justify-end p-4 bg-surface [border-top:1px_solid_var(--border-soft)] gap-8" {
                     div class="flex gap-3" {
                         span class="text-sm text-muted" { "合计金额" }
                         span class="text-lg font-bold text-fg" id="subtotal-value" { "¥ 0.00" }
@@ -529,7 +529,7 @@ fn product_list_fragment(products: &[abt_core::master_data::product::model::Prod
         } @else {
             div class="py-2" {
                 @for p in products {
-                    div class="flex items-center justify-between p-3 border-b" {
+                    div class="flex items-center justify-between p-3 [border-bottom:1px_solid_var(--border-soft)]" {
                         div class="product-select-info" {
                             div class="text-sm font-medium text-fg" { (p.pdt_name) }
                             div class="text-[12px] text-muted flex items-center gap-[6px] flex-wrap" {
@@ -540,7 +540,7 @@ fn product_list_fragment(products: &[abt_core::master_data::product::model::Prod
                                 span { (p.unit) }
                             }
                         }
-                        button type="button" class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] [&_svg]:w-4 [&_svg]:h-4"
+                        button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] hover:bg-accent-hover [&_svg]:w-4 [&_svg]:h-4"
                             hx-get=(format!("{}?product_id={}", OrderItemRowPath::PATH, p.product_id))
                             hx-target="#order-item-tbody"
                             hx-swap="beforeend"

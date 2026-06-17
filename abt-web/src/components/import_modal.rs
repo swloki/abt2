@@ -16,7 +16,7 @@ pub fn import_modal(config: &ImportModalConfig) -> Markup {
             div class="modal bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0-import" {
                 div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
                     h2 { (config.title) }
-                    button type="button" class="bg-transparent border-none cursor-pointer text-xl text-text-muted p-1 hover:text-fg"
+                    button type="button" class="bg-transparent border-none cursor-pointer text-xl text-muted p-1 hover:text-fg"
                         _="on click remove .is-open from closest .modal-overlay" { "×" }
                 }
                 div class="overflow-y-auto flex-1 min-h-0 p-6" {
@@ -42,7 +42,7 @@ fn render_import_form(config: &ImportModalConfig) -> Markup {
 
     html! {
         div class="flex flex-col gap-3" {
-            p class="text-sm text-text-muted bg-[var(--slate-50)] p-2" { "列格式：" (config.template_columns) }
+            p class="text-sm text-muted bg-[var(--slate-50)] p-2" { "列格式：" (config.template_columns) }
             a href=(template_path) class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" download {
                 (crate::components::icon::download_icon("w-4 h-4"))
                 " 下载模板"
@@ -94,11 +94,11 @@ pub fn render_import_result(result: &abt_core::shared::excel::ImportResult) -> M
             div class="flex gap-4" {
                 div class="flex flex-col items-center" {
                     span class="import-text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg success" { (result.success_count) }
-                    span class="import-text-sm text-text-muted mt-1" { "成功" }
+                    span class="import-text-sm text-muted mt-1" { "成功" }
                 }
                 div class="flex flex-col items-center" {
                     span class="import-text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg failed" { (result.failed_count) }
-                    span class="import-text-sm text-text-muted mt-1" { "失败" }
+                    span class="import-text-sm text-muted mt-1" { "失败" }
                 }
             }
             @if !result.row_errors.is_empty() {

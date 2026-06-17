@@ -222,7 +222,7 @@ fn workflow_steps(current: ReconciliationStatus) -> Markup {
                 }
             }
             @if is_disputed {
-                div class="flex items-center gap-2 text-xs text-text-muted disputed" {
+                div class="flex items-center gap-2 text-xs text-muted disputed" {
                     div class="w-[10px] h-[10px] rounded-full bg-border" {}
                     "有异议"
                 }
@@ -247,7 +247,7 @@ fn reconciliation_detail_page(
     html! {
         div {
             // ── Back Link ──
-            a class="inline-flex items-center gap-2 text-sm text-text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", ReconciliationListPath::PATH)) {
+            a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", ReconciliationListPath::PATH)) {
                 (icon::chevron_left_icon("w-4 h-4"))
                 "返回对账单列表"
             }
@@ -259,7 +259,7 @@ fn reconciliation_detail_page(
                         h1 class="text-2xl font-extrabold font-font-mono tabular-nums" { (rec.doc_number) }
                         span class=(format!("status-pill {status_class}")) { (status_text) }
                     }
-                    div class="text-[13px] text-text-muted" {
+                    div class="text-[13px] text-muted" {
                         "对账期间：" (rec.period.as_str())
                         "　客户：" (customer_name)
                     }
@@ -292,19 +292,19 @@ fn reconciliation_detail_page(
             // ── Summary Cards ──
             div class="grid grid-cols-3 gap-4 mb-6" {
                 div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)] flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4" {
-                    div class="text-xs text-text-muted font-medium" { "总金额" }
+                    div class="text-xs text-muted font-medium" { "总金额" }
                     div class="font-mono tabular-nums flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4-value" {
                         (crate::utils::fmt_amount(rec.total_amount))
                     }
                 }
                 div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)] flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4" {
-                    div class="text-xs text-text-muted font-medium" { "确认金额" }
+                    div class="text-xs text-muted font-medium" { "确认金额" }
                     div class="font-mono tabular-nums flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4-value text-success" {
                         (crate::utils::fmt_amount(rec.confirmed_amount))
                     }
                 }
                 div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)] flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4" {
-                    div class="text-xs text-text-muted font-medium" { "差额" }
+                    div class="text-xs text-muted font-medium" { "差额" }
                     div class="font-mono tabular-nums flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4-value text-danger" {
                         (crate::utils::fmt_amount(rec.difference))
                     }
@@ -316,19 +316,19 @@ fn reconciliation_detail_page(
                 div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "对账信息" }
                 div class="grid gap-4" {
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-text-muted font-medium" { "客户名称" }
+                        span class="text-xs text-muted font-medium" { "客户名称" }
                         span class="text-sm text-fg font-medium" { (customer_name) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-text-muted font-medium" { "对账期间" }
+                        span class="text-xs text-muted font-medium" { "对账期间" }
                         span class="text-sm text-fg font-medium" { (rec.period.as_str()) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-text-muted font-medium" { "操作员" }
+                        span class="text-xs text-muted font-medium" { "操作员" }
                         span class="text-sm text-fg font-medium" { (operator_name) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-text-muted font-medium" { "创建时间" }
+                        span class="text-xs text-muted font-medium" { "创建时间" }
                         span class="text-sm text-fg font-medium" { (rec.created_at.format("%Y-%m-%d %H:%M")) }
                     }
                 }
@@ -357,7 +357,7 @@ fn reconciliation_detail_page(
                         }
                         @if items.is_empty() {
                             tr {
-                                td colspan="10" class="text-center p-8 text-text-muted" {
+                                td colspan="10" class="text-center p-8 text-muted" {
                                     "暂无明细"
                                 }
                             }
@@ -369,19 +369,19 @@ fn reconciliation_detail_page(
             // ── Amount Summary ──
             div class="flex justify-end gap-8 p-5 border-t bg-surface-raised" {
                 div class="flex gap-3" {
-                    span class="text-[11px] text-text-muted font-medium uppercase" { "确认金额" }
+                    span class="text-[11px] text-muted font-medium uppercase" { "确认金额" }
                     span class="text-[20px] font-bold text-fg text-success" {
                         (crate::utils::fmt_amount(rec.confirmed_amount))
                     }
                 }
                 div class="flex gap-3" {
-                    span class="text-[11px] text-text-muted font-medium uppercase" { "差异金额" }
+                    span class="text-[11px] text-muted font-medium uppercase" { "差异金额" }
                     span class="text-[20px] font-bold text-fg" {
                         (crate::utils::fmt_amount(rec.difference))
                     }
                 }
                 div class="flex gap-3" {
-                    span class="text-[11px] text-text-muted font-medium uppercase" { "对账净额" }
+                    span class="text-[11px] text-muted font-medium uppercase" { "对账净额" }
                     span class="text-[20px] font-bold text-fg accent" {
                         (crate::utils::fmt_amount(rec.total_amount))
                     }
@@ -392,7 +392,7 @@ fn reconciliation_detail_page(
             @if !rec.remark.is_empty() {
                 div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)] mt-6" {
                     div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "备注" }
-                    p class="text-text-muted" { (rec.remark.as_str()) }
+                    p class="text-muted" { (rec.remark.as_str()) }
                 }
             }
         }
@@ -433,7 +433,7 @@ fn item_row(
                 @if item.confirmed {
                     span class="text-success" { "已确认" }
                 } @else {
-                    span class="text-text-muted" { "未确认" }
+                    span class="text-muted" { "未确认" }
                 }
             }
         }

@@ -179,7 +179,7 @@ fn usage_data_fragment(wo_info: &abt_core::mes::dashboard::model::WoBasicInfo, c
                 span class="bg-bg border border-border-soft rounded-lg p-5 flex items-center justify-between flex-wrap gap-3-product" { (wo_info.product_name.as_deref().unwrap_or("—")) }
                 (status_pill)
             }
-            div class="flex gap-4 text-sm text-text-muted" {
+            div class="flex gap-4 text-sm text-muted" {
                 span { "计划: " strong class="font-mono tabular-nums" { (crate::utils::fmt_qty(wo_info.planned_qty)) } }
                 span { "完成: " strong class="text-success font-mono tabular-nums" { (crate::utils::fmt_qty(wo_info.completed_qty)) } }
                 @if let Some(v) = &wo_info.bom_version {
@@ -196,7 +196,7 @@ fn usage_data_fragment(wo_info: &abt_core::mes::dashboard::model::WoBasicInfo, c
                 div {
                     div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-value" { (crate::utils::fmt_qty(ctx.standard_qty)) }
                     div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-label" { "BOM 标准用量" }
-                    div class="text-xs text-text-muted mt-1" {
+                    div class="text-xs text-muted mt-1" {
                         "按完成 " (crate::utils::fmt_qty(wo_info.completed_qty)) " 件计算"
                     }
                 }
@@ -207,7 +207,7 @@ fn usage_data_fragment(wo_info: &abt_core::mes::dashboard::model::WoBasicInfo, c
                 div {
                     div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-value" { (crate::utils::fmt_qty(ctx.picked_total)) }
                     div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-label" { "实际消耗(领料)" }
-                    div class="text-xs text-text-muted mt-1" { "含损耗余量" }
+                    div class="text-xs text-muted mt-1" { "含损耗余量" }
                 }
             }
             // Backflush
@@ -230,7 +230,7 @@ fn usage_data_fragment(wo_info: &abt_core::mes::dashboard::model::WoBasicInfo, c
                     div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-label" { "用量差异" }
                     @if ctx.standard_qty > Decimal::ZERO {
                         @let rate = ((ctx.variance / ctx.standard_qty) * Decimal::ONE_HUNDRED).abs();
-                        div class="text-xs text-text-muted mt-1" {
+                        div class="text-xs text-muted mt-1" {
                             "超出标准 " (crate::utils::fmt_qty(rate)) "%"
                         }
                     }

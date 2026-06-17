@@ -418,7 +418,7 @@ fn rule_form(action_url: &str, rule: Option<&PurchaseApprovalRule>) -> Markup {
         div class="bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0" _="on click halt" {
             div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
                 h2 { (title) }
-                button class="bg-transparent border-none cursor-pointer text-xl text-text-muted p-1 hover:text-fg"
+                button class="bg-transparent border-none cursor-pointer text-xl text-muted p-1 hover:text-fg"
                     _="on click remove .is-open from #rule-modal" { "×" }
             }
             form hx-post=(action_url) hx-target="this" hx-swap="outerHTML"

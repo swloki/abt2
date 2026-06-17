@@ -200,7 +200,7 @@ fn basic_info_section() -> Markup {
                 div class="form-group" {
                     label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "登录名 " span class="required" { "*" } }
                     input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="username" required placeholder="登录账号，如 zhangm" autocomplete="off" {}
-                    span class="text-xs text-text-muted mt-0.5" { "唯一标识，创建后不可修改" }
+                    span class="text-xs text-muted mt-0.5" { "唯一标识，创建后不可修改" }
                 }
                 // 显示名称
                 div class="form-group" {
@@ -229,7 +229,7 @@ fn basic_info_section() -> Markup {
                         input type="checkbox" name="is_super_admin" value="true" {}
                         span { "设为超级管理员（绕过所有权限检查）" }
                     }
-                    span class="text-xs text-text-muted mt-0.5" { "超级管理员拥有所有资源的完全访问权限，请谨慎授予" }
+                    span class="text-xs text-muted mt-0.5" { "超级管理员拥有所有资源的完全访问权限，请谨慎授予" }
                 }
                 // 激活状态
                 div class="form-group" {
@@ -251,7 +251,7 @@ fn role_section(roles: &[Role]) -> Markup {
                 (icon::lock_icon("w-[18px] h-[18px]"))
                 "角色分配"
             }
-            p class="text-[13px] text-text-muted mb-4 leading-relaxed" { "用户可拥有多个角色，权限取所有角色的并集。" }
+            p class="text-[13px] text-muted mb-4 leading-relaxed" { "用户可拥有多个角色，权限取所有角色的并集。" }
             div class="grid gap-3" {
                 @for role in roles {
                     label class="flex items-center gap-2 p-2 border border-border rounded-sm cursor-pointer text-[13px]" {
@@ -288,7 +288,7 @@ fn dept_section(departments: &[Department]) -> Markup {
                 (icon::building_icon("w-[18px] h-[18px]"))
                 "部门分配"
             }
-            p class="text-[13px] text-text-muted mb-4 leading-relaxed" { "用户可归属多个部门（多对多关系）。" }
+            p class="text-[13px] text-muted mb-4 leading-relaxed" { "用户可归属多个部门（多对多关系）。" }
             div class="grid gap-3" {
                 @for dept in departments {
                     label class="flex items-center gap-2 p-2 border border-border rounded-sm cursor-pointer text-[13px]" {
@@ -322,7 +322,7 @@ fn data_scope_section() -> Markup {
                 (shield_check_icon("w-[18px] h-[18px]"))
                 "数据权限 (DataScope)"
             }
-            p class="text-[13px] text-text-muted mb-4 leading-relaxed" { "控制用户在系统中可查看的数据范围。超级管理员默认为 All。" }
+            p class="text-[13px] text-muted mb-4 leading-relaxed" { "控制用户在系统中可查看的数据范围。超级管理员默认为 All。" }
             div class="grid gap-3" {
                 // All
                 div class="p-4 border border-border rounded-sm cursor-pointer text-center" data-value="All" _="on click take .selected from .scope-option then put my @data-value into #dataScopeInput's value" {

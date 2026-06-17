@@ -119,7 +119,7 @@ fn settings_page(
                                 name="over_delivery_allowance_pct"
                                 value=(s.over_delivery_allowance_pct)
                                 class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]";
-                            span class="text-text-muted" {
+                            span class="text-muted" {
                                 "收货数量超过订单数量的最大允许百分比，0 表示不允许超收"
                             }
                         }
@@ -129,7 +129,7 @@ fn settings_page(
                                 name="over_shortage_allowance_pct"
                                 value=(s.over_shortage_allowance_pct)
                                 class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]";
-                            span class="text-text-muted" {
+                            span class="text-muted" {
                                 "收货数量少于订单数量的最大允许百分比"
                             }
                         }
@@ -145,7 +145,7 @@ fn settings_page(
                                 checked[s.maintain_same_rate] {};
                             span { "启用价格一致性校验" }
                         }
-                        span class="text-text-muted" {
+                        span class="text-muted" {
                             "确认订单时校验单价是否与关联报价单一致"
                         }
                     }

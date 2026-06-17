@@ -363,25 +363,25 @@ fn warehouse_detail_page(
             div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "仓库信息" }
             div class="grid gap-4" {
                 div class="flex flex-col gap-1" {
-                    span class="text-xs text-text-muted font-medium" { "仓库编码" }
+                    span class="text-xs text-muted font-medium" { "仓库编码" }
                     span class="text-sm text-fg font-medium font-mono tabular-nums" { (warehouse.code) }
                 }
                 div class="flex flex-col gap-1" {
-                    span class="text-xs text-text-muted font-medium" { "仓库名称" }
+                    span class="text-xs text-muted font-medium" { "仓库名称" }
                     span class="text-sm text-fg font-medium" { (warehouse.name) }
                 }
                 div class="flex flex-col gap-1" {
-                    span class="text-xs text-text-muted font-medium" { "仓库类型" }
+                    span class="text-xs text-muted font-medium" { "仓库类型" }
                     span class="text-sm text-fg font-medium" { (type_label) }
                 }
                 div class="flex flex-col gap-1" {
-                    span class="text-xs text-text-muted font-medium" { "状态" }
+                    span class="text-xs text-muted font-medium" { "状态" }
                     span class="text-sm text-fg font-medium" {
                         span class=(format!("status-pill {status_class}")) { (status_label) }
                     }
                 }
                 div class="flex flex-col gap-1" {
-                    span class="text-xs text-text-muted font-medium" { "地址" }
+                    span class="text-xs text-muted font-medium" { "地址" }
                     span class="text-sm text-fg font-medium" {
                         @if warehouse.is_virtual {
                             "—"
@@ -393,11 +393,11 @@ fn warehouse_detail_page(
                     }
                 }
                 div class="flex flex-col gap-1" {
-                    span class="text-xs text-text-muted font-medium" { "管理员" }
+                    span class="text-xs text-muted font-medium" { "管理员" }
                     span class="text-sm text-fg font-medium" { "—" }
                 }
                 div class="flex flex-col gap-1" {
-                    span class="text-xs text-text-muted font-medium" { "创建时间" }
+                    span class="text-xs text-muted font-medium" { "创建时间" }
                     span class="text-sm text-fg font-medium font-mono tabular-nums" { (warehouse.created_at.format("%Y-%m-%d")) }
                 }
             }

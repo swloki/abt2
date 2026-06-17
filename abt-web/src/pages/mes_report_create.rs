@@ -432,7 +432,7 @@ fn report_create_page(
                         label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "预计工资" }
                         div class="flex flex-col gap-[4px] p-4 bg-surface rounded-sm border border-border-soft text-center" {
                             div class="font-bold text-success" id="wage-amount" { "\u{00a5}0.00" }
-                            div class="text-[12px] text-text-muted" { "完成数量 \u{00d7} 计件单价" }
+                            div class="text-[12px] text-muted" { "完成数量 \u{00d7} 计件单价" }
                         }
                     }
                 }

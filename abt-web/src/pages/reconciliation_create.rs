@@ -181,7 +181,7 @@ fn reconciliation_create_page(
         div id="rec-app" class="p-6" {
             // ── Page Header ──
             div class="flex items-center justify-between mb-6" {
-                a class="inline-flex items-center gap-2 text-sm text-text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", ReconciliationListPath::PATH)) {
+                a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", ReconciliationListPath::PATH)) {
                     (icon::arrow_left_icon("w-4 h-4"))
                     "返回对账单列表"
                 }
@@ -255,10 +255,10 @@ fn reconciliation_create_page(
                     }
 
                     // Empty state
-                    div class="text-center p-6 text-text-muted text-sm" id="emptyState" {
+                    div class="text-center p-6 text-muted text-sm" id="emptyState" {
                         (icon::clipboard_list_icon("w-12 h-12"))
-                        p class="text-center p-6 text-text-muted text-sm-title" { "暂无对账明细" }
-                        p class="text-center p-6 text-text-muted text-sm-desc" { "请先选择客户，然后从发货单中添加对账明细" }
+                        p class="text-center p-6 text-muted text-sm-title" { "暂无对账明细" }
+                        p class="text-center p-6 text-muted text-sm-desc" { "请先选择客户，然后从发货单中添加对账明细" }
                         button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] mt-5" onclick="document.getElementById('pickOrderBtn').click()" { "选择发货单" }
                     }
                 }
@@ -328,9 +328,9 @@ fn preview_empty(message: &str) -> Markup {
                     "从发货单添加"
                 }
             }
-            div class="text-center p-6 text-text-muted text-sm" id="emptyState" {
+            div class="text-center p-6 text-muted text-sm" id="emptyState" {
                 (icon::clipboard_list_icon("w-12 h-12"))
-                p class="text-center p-6 text-text-muted text-sm-title" { (message) }
+                p class="text-center p-6 text-muted text-sm-title" { (message) }
             }
         }
     }
@@ -393,7 +393,7 @@ fn preview_table(
                             @let shipping_detail = ShippingDetailPath { id: item.shipping_request_id };
 
                             tr {
-                                td class="text-text-muted text-xs text-center" { (i + 1) }
+                                td class="text-muted text-xs text-center" { (i + 1) }
                                 td {
                                     a href=(shipping_detail.to_string()) class="link-accent" { (shipping_num) }
                                 }
@@ -405,7 +405,7 @@ fn preview_table(
                                 td class="text-right text-[13px] font-mono tabular-nums" { (format!("{:.2}", item.unit_price)) }
                                 td class="text-right text-[13px] font-mono tabular-nums" { (format!("{:.2}", item.amount)) }
                                 td {
-                                    button type="button" class="w-[28px] h-[28px] border-none text-text-muted rounded-sm cursor-pointer grid place-items-center" title="删除" {
+                                    button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center" title="删除" {
                                         (icon::x_icon("w-3.5 h-3.5"))
                                     }
                                 }

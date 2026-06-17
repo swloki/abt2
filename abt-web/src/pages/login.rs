@@ -124,12 +124,12 @@ fn login_page(error: Option<&str>, username: &str) -> Markup {
                 div class="w-full max-w-[380px]" {
                     div class="text-[13px] font-medium text-accent mb-2 tracking-wide" { "欢迎回来" }
                     h2 class="text-[28px] font-extrabold text-fg tracking-tight mb-1.5" { "登录您的账户" }
-                    p class="text-sm text-text-muted mb-9" { "请输入账号和密码以继续使用系统" }
+                    p class="text-sm text-muted mb-9" { "请输入账号和密码以继续使用系统" }
 
                     (login_form_area(error, username))
 
                     div class="flex items-center gap-[16px]" {
-                        span class="text-xs text-text-muted whitespace-nowrap" { "其他登录方式" }
+                        span class="text-xs text-muted whitespace-nowrap" { "其他登录方式" }
                     }
 
                     button class="w-full bg-bg text-fg-2 border border-border rounded text-sm font-medium cursor-pointer flex items-center justify-center gap-[10px]" {
@@ -137,7 +137,7 @@ fn login_page(error: Option<&str>, username: &str) -> Markup {
                         "企业 SSO 单点登录"
                     }
 
-                    div class="mt-10 text-center text-xs text-text-muted leading-relaxed" {
+                    div class="mt-10 text-center text-xs text-muted leading-relaxed" {
                         "登录即表示您同意 "
                         a href="#" class="text-accent font-medium hover-underline" { "服务条款" }
                         " 和 "
@@ -145,7 +145,7 @@ fn login_page(error: Option<&str>, username: &str) -> Markup {
                     }
                 }
 
-                div class="absolute bottom-6 left-1/2 -translate-x-1/2 text-[11px] text-text-muted opacity-60" { "ABT ERP v2.1.0" }
+                div class="absolute bottom-6 left-1/2 -translate-x-1/2 text-[11px] text-muted opacity-60" { "ABT ERP v2.1.0" }
             }
         }
     }
@@ -190,7 +190,7 @@ fn login_form_area(error: Option<&str>, username: &str) -> Markup {
                                class="w-full py-[11px] px-[14px] pl-[42px] border border-border rounded-md bg-white text-sm text-fg outline-none transition-all duration-150 hover:border-[#c4cdd5] focus:border-accent focus:shadow-[0_0_0_3px_rgba(22,119,255,0.15)]" style="padding-right: 44px"
                                placeholder="请输入密码" autocomplete="current-password";
                         (lock_icon("field-icon"))
-                        button type="button" class="absolute w-[32px] h-[32px] border-none grid place-items-center cursor-pointer text-text-muted rounded-sm" aria-label="显示密码" _="on click toggle .pw-visible on closest <div/> then if (closest <div/>) matches .pw-visible set #password's type to 'text' else set #password's type to 'password'" {
+                        button type="button" class="absolute w-[32px] h-[32px] border-none grid place-items-center cursor-pointer text-muted rounded-sm" aria-label="显示密码" _="on click toggle .pw-visible on closest <div/> then if (closest <div/>) matches .pw-visible set #password's type to 'text' else set #password's type to 'password'" {
                             (eye_icon("w-[18px] h-[18px]"))
                         }
                     }

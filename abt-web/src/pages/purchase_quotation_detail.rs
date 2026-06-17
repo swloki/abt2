@@ -202,14 +202,14 @@ fn workflow_steps(current: PurchaseQuotationStatus) -> Markup {
             }
             @if is_cancelled {
                 div class="w-[48px] h-[2px] bg-border" {}
-                div class="flex items-center gap-2 text-xs text-text-muted" style="color:var(--danger)" {
+                div class="flex items-center gap-2 text-xs text-muted" style="color:var(--danger)" {
                     span class="w-[10px] h-[10px] rounded-full bg-border" {}
                     "已取消"
                 }
             }
             @if is_expired {
                 div class="w-[48px] h-[2px] bg-border completed" {}
-                div class="flex items-center gap-2 text-xs text-text-muted completed" {
+                div class="flex items-center gap-2 text-xs text-muted completed" {
                     span class="w-[10px] h-[10px] rounded-full bg-border" {}
                     "已过期"
                 }
@@ -291,37 +291,37 @@ fn pq_detail_page(
                 div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "报价信息" }
                 div class="grid gap-4" {
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-text-muted font-medium" { "供应商名称" }
+                        span class="text-xs text-muted font-medium" { "供应商名称" }
                         span class="text-sm text-fg font-medium" { (ctx.supplier_name) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-text-muted font-medium" { "联系人" }
+                        span class="text-xs text-muted font-medium" { "联系人" }
                         span class="text-sm text-fg font-medium" { (ctx.supplier_contact) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-text-muted font-medium" { "联系电话" }
+                        span class="text-xs text-muted font-medium" { "联系电话" }
                         span class="text-sm text-fg font-medium" { (ctx.supplier_phone) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-text-muted font-medium" { "报价日期" }
+                        span class="text-xs text-muted font-medium" { "报价日期" }
                         span class="text-sm text-fg font-medium font-mono tabular-nums" { (pq.quotation_date.format("%Y-%m-%d")) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-text-muted font-medium" { "有效期" }
+                        span class="text-xs text-muted font-medium" { "有效期" }
                         span class="text-sm text-fg font-medium font-mono tabular-nums" {
                             (format!("{} ~ {}", pq.valid_from.format("%Y-%m-%d"), pq.valid_until.format("%Y-%m-%d")))
                         }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-text-muted font-medium" { "币种" }
+                        span class="text-xs text-muted font-medium" { "币种" }
                         span class="text-sm text-fg font-medium" { (currency) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-text-muted font-medium" { "采购员" }
+                        span class="text-xs text-muted font-medium" { "采购员" }
                         span class="text-sm text-fg font-medium" { (ctx.buyer_name) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-text-muted font-medium" { "备注" }
+                        span class="text-xs text-muted font-medium" { "备注" }
                         span class="text-sm text-fg font-medium" { (remark) }
                     }
                 }
@@ -363,11 +363,11 @@ fn pq_detail_page(
             // ── Amount Summary ──
             div class="flex justify-end gap-8 p-5 border-t bg-surface-raised" {
                 div class="flex gap-3" {
-                    span class="text-[11px] text-text-muted font-medium uppercase" { "报价项目" }
+                    span class="text-[11px] text-muted font-medium uppercase" { "报价项目" }
                     span class="text-[20px] font-bold text-fg" { (format!("{} 项", items.len())) }
                 }
                 div class="flex gap-3" {
-                    span class="text-[11px] text-text-muted font-medium uppercase" { "首选供应商" }
+                    span class="text-[11px] text-muted font-medium uppercase" { "首选供应商" }
                     span class="text-[20px] font-bold text-fg accent" {
                         (format!("{} 项", items.iter().filter(|i| i.is_preferred).count()))
                     }

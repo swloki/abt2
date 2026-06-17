@@ -150,7 +150,7 @@ fn conversion_detail_page(
 
     html! {
         div {
-            a href="/admin/wms/conversions" class="inline-flex items-center gap-2 text-sm text-text-muted hover:text-accent transition-colors duration-150" {
+            a href="/admin/wms/conversions" class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" {
                 (icon::chevron_left_icon("w-4 h-4"))
                 "返回形态转换列表"
             }
@@ -175,19 +175,19 @@ fn conversion_detail_page(
                 div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "转换信息" }
                 div class="grid gap-4" {
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-text-muted font-medium" { "转换单号" }
+                        span class="text-xs text-muted font-medium" { "转换单号" }
                         span class="text-sm text-fg font-medium font-mono tabular-nums" { (conversion.doc_number) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-text-muted font-medium" { "转换仓库" }
+                        span class="text-xs text-muted font-medium" { "转换仓库" }
                         span class="text-sm text-fg font-medium" { (wh_name) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-text-muted font-medium" { "转换日期" }
+                        span class="text-xs text-muted font-medium" { "转换日期" }
                         span class="text-sm text-fg font-medium font-mono tabular-nums" { (conversion.conversion_date.to_string()) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-text-muted font-medium" { "操作员" }
+                        span class="text-xs text-muted font-medium" { "操作员" }
                         span class="text-sm text-fg font-medium" { (operator_name) }
                     }
                 }

@@ -402,7 +402,7 @@ fn stock_in_create_content(
     html! {
         div {
             // ── Back Link ──
-            a href="/admin/wms/stock-in" class="inline-flex items-center gap-2 text-sm text-text-muted hover:text-accent transition-colors duration-150" {
+            a href="/admin/wms/stock-in" class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" {
                 (icon::chevron_left_icon("w-4 h-4"))
                 "返回入库列表"
             }
@@ -826,7 +826,7 @@ fn product_list_fragment(products: &[abt_core::master_data::product::model::Prod
                     div class="flex items-center justify-between p-3 border-b" {
                         div class="product-select-info" {
                             div class="text-sm font-medium text-fg" { (p.pdt_name) }
-                            div class="text-[12px] text-text-muted flex items-center gap-[6px] flex-wrap" {
+                            div class="text-[12px] text-muted flex items-center gap-[6px] flex-wrap" {
                                 span class="bg-surface rounded-sm" { (p.product_code) }
                                 span class="text-border" { "·" }
                                 span { (p.meta.specification) }
@@ -862,7 +862,7 @@ fn source_pick_fragment(options: &[SourceOption]) -> Markup {
                     div class="flex items-center justify-between p-3 border-b" {
                         div class="product-select-info" {
                             div class="text-sm font-medium text-fg" { (o.doc_number) }
-                            div class="text-[12px] text-text-muted flex items-center gap-[6px] flex-wrap" {
+                            div class="text-[12px] text-muted flex items-center gap-[6px] flex-wrap" {
                                 span { (o.supplier_name) }
                                 span class="text-border" { "·" }
                                 span { (o.extra) }
@@ -886,14 +886,14 @@ fn source_pick_fragment(options: &[SourceOption]) -> Markup {
 fn item_row_fragment(product: &abt_core::master_data::product::model::Product) -> Markup {
     html! {
         tr oninput="wmsStockInCalcRow(this)" {
-            td class="text-text-muted text-xs text-center" { }
+            td class="text-muted text-xs text-center" { }
             td class="font-mono tabular-nums" { (product.product_code) }
             td { (product.pdt_name) }
             td style="color:var(--fg-2);font-size:var(--text-sm)" { (product.meta.specification) }
             td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="batch_no" placeholder="批次号" style="width:100%;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
             td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] num-input" type="number" min="0.01" step="any" name="quantity" placeholder="0" style="width:90px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
             td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="item_bin_id" placeholder="自动" style="width:80px;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface)" {} }
-            td { button type="button" class="w-[28px] h-[28px] border-none text-text-muted rounded-sm cursor-pointer grid place-items-center" title="删除行"
+            td { button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center" title="删除行"
                 _="on click remove closest <tr/> then call wmsStockInRenumber()" {
                 (icon::x_icon("w-3.5 h-3.5"))
             } }
@@ -907,14 +907,14 @@ fn source_items_fragment(items: &[(abt_core::master_data::product::model::Produc
     html! {
         @for (product, qty) in items {
             tr oninput="wmsStockInCalcRow(this)" {
-                td class="text-text-muted text-xs text-center" { }
+                td class="text-muted text-xs text-center" { }
                 td class="font-mono tabular-nums" { (product.product_code) }
                 td { (product.pdt_name) }
                 td style="color:var(--fg-2);font-size:var(--text-sm)" { (product.meta.specification) }
                 td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="batch_no" placeholder="批次号" style="width:100%;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
                 td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] num-input" type="number" min="0.01" step="any" name="quantity" value=(qty.to_string()) style="width:90px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
                 td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="item_bin_id" placeholder="自动" style="width:80px;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface)" {} }
-                td { button type="button" class="w-[28px] h-[28px] border-none text-text-muted rounded-sm cursor-pointer grid place-items-center" title="删除行"
+                td { button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center" title="删除行"
                     _="on click remove closest <tr/> then call wmsStockInRenumber()" {
                     (icon::x_icon("w-3.5 h-3.5"))
                 } }

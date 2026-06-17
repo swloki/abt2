@@ -297,13 +297,13 @@ fn create_page_content(
             // ── Page Header ──
             div class="flex items-center justify-between mb-6" {
                 div {
-                    a class="inline-flex items-center gap-2 text-sm text-text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", PurchaseDemandPoolListPath::PATH)) {
+                    a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", PurchaseDemandPoolListPath::PATH)) {
                         (icon::arrow_left_icon("w-4 h-4"))
                         "返回需求池"
                     }
                     h1 class="text-xl font-bold text-fg tracking-tight" { "从需求创建采购订单" }
                     div style="font-size:13px;color:var(--muted);margin-top:4px;" {
-                        span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-surface text-text-muted" style="font-size:11px;padding:2px 8px;margin-right:6px;" {
+                        span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-surface text-muted" style="font-size:11px;padding:2px 8px;margin-right:6px;" {
                             "采购需求池 · 按物料聚合"
                         }
                         "选择待处理的需求，指定供应商后创建采购订单草稿"
@@ -534,7 +534,7 @@ fn demand_row(d: &DemandSummary, preselected_ids: &[i64]) -> Markup {
                 span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium" style=(pri_style) { (pri_text) }
             }
             td {
-                button type="button" class="w-[28px] h-[28px] border-none text-text-muted rounded-sm cursor-pointer grid place-items-center" title="移除" _="on click remove closest <tr/> then call updateDemandSummary()" {
+                button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center" title="移除" _="on click remove closest <tr/> then call updateDemandSummary()" {
                     (icon::x_icon("w-3.5 h-3.5"))
                 }
             }

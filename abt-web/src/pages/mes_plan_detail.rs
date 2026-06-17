@@ -382,7 +382,7 @@ fn plan_detail_page(
     html! {
         div {
             // 返回
-            a class="inline-flex items-center gap-2 text-sm text-text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", PlanListPath::PATH)) {
+            a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", PlanListPath::PATH)) {
                 (icon::chevron_left_icon("w-4 h-4"))
                 "返回计划列表"
             }
@@ -422,7 +422,7 @@ fn plan_detail_page(
                 }
 
                 // 来源追溯
-                div class="flex items-center flex-wrap gap-2 text-text-muted text-sm" {
+                div class="flex items-center flex-wrap gap-2 text-muted text-sm" {
                     span { "创建人：" (op_name) }
                     span class="sep" { "|" }
                     span { (fmt_dt(plan.created_at)) }
@@ -435,19 +435,19 @@ fn plan_detail_page(
                 // 信息 Grid（4 列）
                 div class="grid gap-5 gap-4" {
                     div class="detail-flex flex-col gap-1" {
-                        span class="detail-text-xs text-text-muted font-medium" { "计划日期" }
+                        span class="detail-text-xs text-muted font-medium" { "计划日期" }
                         span class="detail-text-sm text-fg font-medium font-mono tabular-nums" { (plan.plan_date) }
                     }
                     div class="detail-flex flex-col gap-1" {
-                        span class="detail-text-xs text-text-muted font-medium" { "排产类型" }
+                        span class="detail-text-xs text-muted font-medium" { "排产类型" }
                         span class="detail-text-sm text-fg font-medium" { (type_label) }
                     }
                     div class="detail-flex flex-col gap-1" {
-                        span class="detail-text-xs text-text-muted font-medium" { "生产中心" }
+                        span class="detail-text-xs text-muted font-medium" { "生产中心" }
                         span class="detail-text-sm text-fg font-medium" { "—" }
                     }
                     div class="detail-flex flex-col gap-1" {
-                        span class="detail-text-xs text-text-muted font-medium" { "计划数量" }
+                        span class="detail-text-xs text-muted font-medium" { "计划数量" }
                         span class="detail-text-sm text-fg font-medium font-mono tabular-nums" {
                             (format!("{} 项 · {} 件", items.len(), crate::utils::fmt_qty(total_qty)))
                         }
@@ -499,7 +499,7 @@ fn tab_detail(
                             @let val = val_map.get(&item.id).copied();
                             @let (p_label, p_color) = priority_label(item.priority);
                             tr {
-                                td class="text-text-muted text-xs text-center" { (idx + 1) }
+                                td class="text-muted text-xs text-center" { (idx + 1) }
                                 td { (pname) }
                                 td class="text-right text-[13px] font-mono tabular-nums" { (crate::utils::fmt_qty(item.planned_qty)) }
                                 td {
@@ -529,7 +529,7 @@ fn tab_detail(
                         }
                         @if items.is_empty() {
                             tr {
-                                td colspan="8" class="text-center text-text-muted text-sm" { "暂无计划明细" }
+                                td colspan="8" class="text-center text-muted text-sm" { "暂无计划明细" }
                             }
                         }
                     }
@@ -545,20 +545,20 @@ fn tab_detail(
 fn tab_log(logs: &[AuditLog]) -> Markup {
     html! {
         @if logs.is_empty() {
-            div class="text-center text-text-muted text-sm" { "暂无操作日志" }
+            div class="text-center text-muted text-sm" { "暂无操作日志" }
         } @else {
             div class="relative pl-6 before:content-[''] before:absolute before:left-[7px] before:top-1 before:bottom-1 before:w-0.5 before:bg-border-soft" {
                 @for log in logs {
                     div class="relative pb-5 last:pb-0" {
                         div class="absolute w-[14px] h-[14px] rounded-full bg-accent" {}
                         div class="font-semibold text-sm text-fg" { (audit_action_label(&log.action)) }
-                        div class="flex gap-2 text-[12px] text-text-muted items-center" {
+                        div class="flex gap-2 text-[12px] text-muted items-center" {
                             span class="font-mono tabular-nums" { (fmt_dt(log.created_at)) }
                             span class="sep" { "|" }
                             span { "操作人 #" (log.operator_id) }
                         }
                         @if let Some(changes) = log.changes.as_ref() {
-                            div class="text-[12px] text-text-muted" { (changes) }
+                            div class="text-[12px] text-muted" { (changes) }
                         }
                     }
                 }
@@ -607,7 +607,7 @@ fn tab_planning(
                     }
 
                     @if pending_items.is_empty() {
-                        div class="text-center text-text-muted text-sm" { "所有明细已生成工单" }
+                        div class="text-center text-muted text-sm" { "所有明细已生成工单" }
                     } @else {
                         form id="wo-planning-form"
                             hx-post={(PlanGeneratePath { plan_id: plan.id }.to_string())}
@@ -799,7 +799,7 @@ fn tab_planning(
 
             // ── 空状态 ──
             @if pending_items.is_empty() && draft_orders.is_empty() && released_orders.is_empty() {
-                div class="text-center text-text-muted text-sm" style="padding:var(--space-8);text-align:center" {
+                div class="text-center text-muted text-sm" style="padding:var(--space-8);text-align:center" {
                     "暂无工单数据"
                 }
             }

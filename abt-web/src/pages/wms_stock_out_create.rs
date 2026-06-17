@@ -205,7 +205,7 @@ fn stock_out_create_content(
     html! {
         div {
             // ── Back Link ──
-            a href="/admin/wms/stock-out" class="inline-flex items-center gap-2 text-sm text-text-muted hover:text-accent transition-colors duration-150" style="display:inline-flex;align-items:center;gap:var(--space-2);color:var(--fg-2);font-size:var(--text-sm);margin-bottom:var(--space-4);text-decoration:none" {
+            a href="/admin/wms/stock-out" class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" style="display:inline-flex;align-items:center;gap:var(--space-2);color:var(--fg-2);font-size:var(--text-sm);margin-bottom:var(--space-4);text-decoration:none" {
                 (icon::chevron_left_icon("w-4 h-4"))
                 "返回出库列表"
             }
@@ -570,7 +570,7 @@ fn product_list_fragment(products: &[abt_core::master_data::product::model::Prod
                     div class="flex items-center justify-between p-3 border-b" {
                         div class="product-select-info" {
                             div class="text-sm font-medium text-fg" { (p.pdt_name) }
-                            div class="text-[12px] text-text-muted flex items-center gap-[6px] flex-wrap" {
+                            div class="text-[12px] text-muted flex items-center gap-[6px] flex-wrap" {
                                 span class="bg-surface rounded-sm" { (p.product_code) }
                                 span class="text-border" { "·" }
                                 span { (p.meta.specification) }
@@ -596,7 +596,7 @@ fn product_list_fragment(products: &[abt_core::master_data::product::model::Prod
 fn item_row_fragment(product: &abt_core::master_data::product::model::Product) -> Markup {
     html! {
         tr oninput="wmsStockOutCalcRow(this)" {
-            td class="text-text-muted text-xs text-center" { }
+            td class="text-muted text-xs text-center" { }
             td class="font-mono tabular-nums" { (product.product_code) }
             td { (product.pdt_name) }
             td style="color:var(--fg-2);font-size:var(--text-sm)" { (product.meta.specification) }
@@ -604,7 +604,7 @@ fn item_row_fragment(product: &abt_core::master_data::product::model::Product) -
             td style="text-align:center;font-size:var(--text-sm);color:var(--fg-2)" { (product.unit) }
             td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] num-input" type="number" step="any" name="unit_cost" placeholder="0.00" style="width:100px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
             td class="line-subtotal" style="text-align:right;font-family:var(--font-mono);font-weight:600;white-space:nowrap" { "—" }
-            td { button type="button" class="w-[28px] h-[28px] border-none text-text-muted rounded-sm cursor-pointer grid place-items-center" title="删除行"
+            td { button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center" title="删除行"
                 _="on click remove closest <tr/> then call wmsStockOutRenumber()" {
                 (icon::x_icon("w-3.5 h-3.5"))
             } }

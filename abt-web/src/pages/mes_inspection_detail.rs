@@ -46,7 +46,7 @@ pub async fn get_inspection_detail(path: InspectionDetailPath, ctx: RequestConte
 
     let content = html! { div {
         div class="flex items-center justify-between mb-6" {
-            div class="flex items-center justify-between mb-6-left" { a class="inline-flex items-center gap-2 text-sm text-text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", InspectionListPath::PATH)) { "\u{2190} 返回列表" } h1 class="text-xl font-bold text-fg tracking-tight" { "检验 " (insp.doc_number) } }
+            div class="flex items-center justify-between mb-6-left" { a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", InspectionListPath::PATH)) { "\u{2190} 返回列表" } h1 class="text-xl font-bold text-fg tracking-tight" { "检验 " (insp.doc_number) } }
         }
         div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
             div class="grid gap-4" {

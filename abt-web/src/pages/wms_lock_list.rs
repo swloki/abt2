@@ -252,7 +252,7 @@ fn lock_data_card_fragment(
                         }
                         @if result.items.is_empty() {
                             tr {
-                                td colspan="10" class="text-text-muted" style="text-align:center;padding:var(--space-8)" {
+                                td colspan="10" class="text-muted" style="text-align:center;padding:var(--space-8)" {
                                     "暂无锁库数据"
                                 }
                             }
@@ -301,7 +301,7 @@ fn lock_row(
                 @if let Some(cid) = lock.customer_id {
                     (customer_map.get(&cid).map(|s| s.as_str()).unwrap_or("—"))
                 } @else {
-                    span class="text-text-muted" { "—" }
+                    span class="text-muted" { "—" }
                 }
             }
             td onclick=(format!("location.href='{}'", detail_path)) {

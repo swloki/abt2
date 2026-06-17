@@ -256,7 +256,7 @@ fn quotation_table_fragment(
                             }
                             @if result.items.is_empty() {
                                 tr {
-                                    td colspan="7" class="text-center p-8 text-text-muted" {
+                                    td colspan="7" class="text-center p-8 text-muted" {
                                         "暂无报价单数据"
                                     }
                                 }

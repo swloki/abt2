@@ -150,7 +150,7 @@ fn wms_dashboard_content(stats: &DashboardStats) -> Markup {
                 }
                 div {
                     div class="text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg" { (stats.warehouse_count.to_string()) }
-                    div class="text-sm text-text-muted mt-1" { "仓库总数" }
+                    div class="text-sm text-muted mt-1" { "仓库总数" }
                 }
             }
             // 库存品类
@@ -160,7 +160,7 @@ fn wms_dashboard_content(stats: &DashboardStats) -> Markup {
                 }
                 div {
                     div class="text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg" { (format_number(stats.stock_sku_count)) }
-                    div class="text-sm text-text-muted mt-1" { "库存品类" }
+                    div class="text-sm text-muted mt-1" { "库存品类" }
                 }
             }
             // 本月入库
@@ -170,7 +170,7 @@ fn wms_dashboard_content(stats: &DashboardStats) -> Markup {
                 }
                 div {
                     div class="text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg" { (stats.month_in_count.to_string()) }
-                    div class="text-sm text-text-muted mt-1" { "本月入库" }
+                    div class="text-sm text-muted mt-1" { "本月入库" }
                 }
             }
             // 本月出库
@@ -180,7 +180,7 @@ fn wms_dashboard_content(stats: &DashboardStats) -> Markup {
                 }
                 div {
                     div class="text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg" { (stats.month_out_count.to_string()) }
-                    div class="text-sm text-text-muted mt-1" { "本月出库" }
+                    div class="text-sm text-muted mt-1" { "本月出库" }
                 }
             }
             // 低库存预警
@@ -190,7 +190,7 @@ fn wms_dashboard_content(stats: &DashboardStats) -> Markup {
                 }
                 div {
                     div class="text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg" { (stats.low_stock_count.to_string()) }
-                    div class="text-sm text-text-muted mt-1" { "低库存预警" }
+                    div class="text-sm text-muted mt-1" { "低库存预警" }
                 }
             }
         }
@@ -256,7 +256,7 @@ fn wms_dashboard_content(stats: &DashboardStats) -> Markup {
                         }
                         tr {
                             td style="color:var(--muted);font-size:12px" { "—" }
-                            td { span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-surface text-text-muted" { "循环盘点" } }
+                            td { span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-surface text-muted" { "循环盘点" } }
                             td { a href="/admin/wms/cycle-counts" style="color:var(--accent)" { "—" } }
                             td { "—" }
                             td { "—" }

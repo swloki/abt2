@@ -216,7 +216,7 @@ fn stock_in_table_fragment(
                     }
                     div {
                         div class="text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg" { (total_count) }
-                        div class="text-sm text-text-muted mt-1" { "本月入库单" }
+                        div class="text-sm text-muted mt-1" { "本月入库单" }
                     }
                 }
                 div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
@@ -225,7 +225,7 @@ fn stock_in_table_fragment(
                     }
                     div {
                         div class="text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg" { "—" }
-                        div class="text-sm text-text-muted mt-1" { "入库总金额" }
+                        div class="text-sm text-muted mt-1" { "入库总金额" }
                     }
                 }
                 div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
@@ -234,7 +234,7 @@ fn stock_in_table_fragment(
                     }
                     div {
                         div class="text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg" { "—" }
-                        div class="text-sm text-text-muted mt-1" { "待审核" }
+                        div class="text-sm text-muted mt-1" { "待审核" }
                     }
                 }
                 div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
@@ -243,7 +243,7 @@ fn stock_in_table_fragment(
                     }
                     div {
                         div class="text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg" { (total_count) }
-                        div class="text-sm text-text-muted mt-1" { "已完成" }
+                        div class="text-sm text-muted mt-1" { "已完成" }
                     }
                 }
             }

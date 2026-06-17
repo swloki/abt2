@@ -271,13 +271,13 @@ fn create_page_content(
             // ── Page Header ──
             div class="flex items-center justify-between mb-6" {
                 div {
-                    a class="inline-flex items-center gap-2 text-sm text-text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", MesDemandPoolListPath::PATH)) {
+                    a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", MesDemandPoolListPath::PATH)) {
                         (icon::arrow_left_icon("w-4 h-4"))
                         "返回需求池"
                     }
                     h1 class="text-xl font-bold text-fg tracking-tight" { "从需求创建生产计划" }
                     div style="font-size:13px;color:var(--muted);margin-top:4px;" {
-                        span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-surface text-text-muted" style="font-size:11px;padding:2px 8px;margin-right:6px;background:#fef3c7;color:#d97706;" {
+                        span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-surface text-muted" style="font-size:11px;padding:2px 8px;margin-right:6px;background:#fef3c7;color:#d97706;" {
                             "生产需求池 · 按物料聚合"
                         }
                         "将生产需求池中的自制需求聚合为生产计划草稿"
@@ -332,7 +332,7 @@ fn create_page_content(
                         (icon::clock_icon("w-[18px] h-[18px]"))
                         "默认排程参数"
                     }
-                    div class="text-xs text-text-muted p-2 bg-surface-raised rounded-sm" {
+                    div class="text-xs text-muted p-2 bg-surface-raised rounded-sm" {
                         "以下参数将应用于所有未单独配置的需求行。可在需求明细中逐行修改排程日期。"
                     }
                     div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" style="grid-template-columns:repeat(4,1fr)" {
@@ -596,7 +596,7 @@ fn demand_row(d: &DemandSummary, preselected_ids: &[i64]) -> Markup {
                     style="width:130px;font-size:12px;padding:4px 6px;" {}
             }
             td {
-                button type="button" class="w-[28px] h-[28px] border-none text-text-muted rounded-sm cursor-pointer grid place-items-center" title="移除" _="on click remove closest <tr/> then call updateDemandSummary()" {
+                button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center" title="移除" _="on click remove closest <tr/> then call updateDemandSummary()" {
                     (icon::x_icon("w-3.5 h-3.5"))
                 }
             }

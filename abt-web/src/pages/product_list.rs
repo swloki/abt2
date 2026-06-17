@@ -557,7 +557,7 @@ fn bom_drawer_content(product: &Product, entries: &[UsageEntry], total: u64) -> 
             }
             div style="flex:1;min-width:0" {
                 div class="text-[15px] font-semibold text-fg" { (product.pdt_name) }
-                div class="text-[12px] text-text-muted" {
+                div class="text-[12px] text-muted" {
                     (product.product_code) "  \u{00b7}  "
                     @if spec.is_empty() {
                         (product.unit)
@@ -591,7 +591,7 @@ fn bom_drawer_content(product: &Product, entries: &[UsageEntry], total: u64) -> 
                 "BOM 清单"
             }
             @if entries.is_empty() {
-                div class="text-center text-text-muted" {
+                div class="text-center text-muted" {
                     (icon::clipboard_list_icon("w-12 h-12"))
                     p { "暂无 BOM 引用" }
                     p class="sub" { "该产品尚未被任何 BOM 引用" }
@@ -633,7 +633,7 @@ fn bom_ref_card(entry: &UsageEntry) -> Markup {
                             "BOM-" (entry.source_id)
                         }
                     }
-                    div class="flex items-center gap-[12px] text-[12px] text-text-muted" {
+                    div class="flex items-center gap-[12px] text-[12px] text-muted" {
                         span { "版本 " (version) }
                         @if !parent_name.is_empty() && parent_name != "—" {
                             span { "父件: " (parent_name) }
@@ -648,7 +648,7 @@ fn bom_ref_card(entry: &UsageEntry) -> Markup {
                             span style="font-size:12px;font-weight:400;color:var(--muted)" { (unit) }
                         }
                     }
-                    button class="border-none cursor-pointer text-text-muted flex items-center justify-center" {
+                    button class="border-none cursor-pointer text-muted flex items-center justify-center" {
                         svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" {
                             path d="M19 9l-7 7-7-7" {}
                         }
@@ -715,7 +715,7 @@ fn usage_error_dialog(name: &str, total: u64) -> Markup {
                         (icon::circle_alert_icon("w-7 h-7"))
                     }
                     div class="text-lg font-semibold text-fg text-center mb-2" { "无法删除" }
-                    p class="text-sm text-text-muted text-center leading-relaxed" {
+                    p class="text-sm text-muted text-center leading-relaxed" {
                         (maud::PreEscaped(format!(
                             "产品 <strong>{name}</strong> 正被 <strong>{total}</strong> 个 BOM 引用，无法删除。请先移除相关引用后再试。",
                         )))
@@ -742,7 +742,7 @@ fn price_history_table(_product_id: i64, entries: &[PriceLogEntry]) -> Markup {
                 }
                 div class="overflow-y-auto flex-1 min-h-0 p-6" {
                     @if entries.is_empty() {
-                        div class="text-center p-6 text-text-muted text-sm" { "暂无价格变更记录" }
+                        div class="text-center p-6 text-muted text-sm" { "暂无价格变更记录" }
                     } @else {
                         @for entry in entries {
                             (price_history_diff_item(entry))
@@ -780,7 +780,7 @@ fn price_drawer_content(product: &Product, current_price: &Decimal, history: &[P
                 }
                 div style="flex:1;min-width:0" {
                     div class="text-[15px] font-semibold text-fg" { (product.pdt_name) }
-                    div class="text-[12px] text-text-muted" {
+                    div class="text-[12px] text-muted" {
                         (product.product_code) "  \u{00b7}  "
                         @if spec.is_empty() {
                             (product.unit)

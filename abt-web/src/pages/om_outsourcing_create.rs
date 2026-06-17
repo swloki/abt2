@@ -236,7 +236,7 @@ fn create_page(
             // ── Page Header ──
             div class="flex items-center justify-between mb-6" {
                 div class="flex items-center justify-between mb-6-left" {
-                    a class="inline-flex items-center gap-2 text-sm text-text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", OmOutsourcingListPath::PATH)) {
+                    a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", OmOutsourcingListPath::PATH)) {
                         "\u{2190} 返回列表"
                     }
                     h1 class="text-xl font-bold text-fg tracking-tight" { "新建委外单" }
@@ -392,7 +392,7 @@ fn create_page(
             div class="bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0" onclick="event.stopPropagation()" {
                 div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
                     h3 { "选择物料" }
-                    button type="button" class="w-[28px] h-[28px] border-none text-text-muted rounded-sm cursor-pointer grid place-items-center" title="关闭"
+                    button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center" title="关闭"
                         _="on click remove .is-open from #material-modal"
                     {
                         (icon::x_icon("w-4 h-4"))
@@ -460,7 +460,7 @@ function omConfirmMaterial() {
         '<td><input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" step="any" min="0" name="m_planned_qty" value="' + qty + '" style="width:100px;text-align:right"></td>' +
         '<td><input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" step="any" min="0" name="m_unit_cost" value="' + cost + '" style="width:100px;text-align:right"></td>' +
         '<td class="line-subtotal font-mono tabular-nums" style="text-align:right">' + (qty * cost).toFixed(2) + '</td>' +
-        '<td><button type="button" class="w-[28px] h-[28px] border-none text-text-muted rounded-sm cursor-pointer grid place-items-center" title="删除" onclick="this.closest(\'tr\').remove();omUpdateMaterialJson()">' + '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></td>';
+        '<td><button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center" title="删除" onclick="this.closest(\'tr\').remove();omUpdateMaterialJson()">' + '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></td>';
     tbody.appendChild(tr);
     omUpdateMaterialJson();
     document.querySelector('#material-modal').classList.remove('is-open');

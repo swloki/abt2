@@ -254,7 +254,7 @@ fn writeoff_data_card(
                                 td {
                                     span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap full" { "已核销完毕" }
                                 }
-                                td class="text-text-muted text-[13px]" { (item.write_off_date.format("%Y-%m-%d")) }
+                                td class="text-muted text-[13px]" { (item.write_off_date.format("%Y-%m-%d")) }
                                 td { (operator_name) }
                             }
                         }

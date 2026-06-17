@@ -103,7 +103,7 @@ fn bom_create_page(categories: &[BomCategory]) -> Markup {
         div {
             // ── Page Header ──
             div class="flex items-center justify-between mb-6" {
-                a class="inline-flex items-center gap-2 text-sm text-text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", BomListPath::PATH)) {
+                a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", BomListPath::PATH)) {
                     (icon::arrow_left_icon("w-4 h-4"))
                     "返回物料清单列表"
                 }

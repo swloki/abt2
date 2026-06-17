@@ -142,7 +142,7 @@ fn transaction_table_fragment(
                 span { "交易记录" }
             }
             @if page_txns.is_empty() {
-                div class="text-center p-6 text-text-muted text-sm" { "暂无交易记录" }
+                div class="text-center p-6 text-muted text-sm" { "暂无交易记录" }
             } @else {
                 table class="w-full border-collapse" {
                     thead {
@@ -384,7 +384,7 @@ fn customer_detail_page(
     html! {
         div {
         // ── Back Link ──
-        a class="inline-flex items-center gap-2 text-sm text-text-muted hover:text-accent transition-colors duration-150" href=(format!("{list_path}?restore=true")) {
+        a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{list_path}?restore=true")) {
             (icon::arrow_left_icon("w-4 h-4"))
             "返回客户列表"
         }
@@ -399,7 +399,7 @@ fn customer_detail_page(
                         " "
                         span class="bg-[#e6f4ff] text-accent rounded-full text-[11px] font-medium" { (category_label) }
                     }
-                    div class="flex gap-4 text-text-muted text-xs" {
+                    div class="flex gap-4 text-muted text-xs" {
                         span { (customer.code) }
                         span { (customer.created_at.format("%Y-%m-%d")) }
                     }
@@ -416,41 +416,41 @@ fn customer_detail_page(
             div class="bg-white border border-border-soft rounded p-5" {
                 div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 border-b border-border-soft" { "基本信息" }
                 div class="flex py-2 text-sm" {
-                    span class="w-[90px] shrink-0 text-text-muted" { "客户全称" }
+                    span class="w-[90px] shrink-0 text-muted" { "客户全称" }
                     span class="detail-value" { (customer.name) }
                 }
                 div class="flex py-2 text-sm" {
-                    span class="w-[90px] shrink-0 text-text-muted" { "客户简称" }
+                    span class="w-[90px] shrink-0 text-muted" { "客户简称" }
                     span class="detail-value" { (customer.short_name.as_deref().unwrap_or("—")) }
                 }
                 div class="flex py-2 text-sm" {
-                    span class="w-[90px] shrink-0 text-text-muted" { "客户编码" }
+                    span class="w-[90px] shrink-0 text-muted" { "客户编码" }
                     span class="detail-value font-mono tabular-nums" { (customer.code) }
                 }
                 div class="flex py-2 text-sm" {
-                    span class="w-[90px] shrink-0 text-text-muted" { "客户分类" }
+                    span class="w-[90px] shrink-0 text-muted" { "客户分类" }
                     span class="detail-value" { (category_label) }
                 }
                 div class="flex py-2 text-sm" {
-                    span class="w-[90px] shrink-0 text-text-muted" { "状态" }
+                    span class="w-[90px] shrink-0 text-muted" { "状态" }
                     span class="detail-value" {
                         span class=(format!("status-pill {status_class}")) { (status_label) }
                     }
                 }
                 div class="flex py-2 text-sm" {
-                    span class="w-[90px] shrink-0 text-text-muted" { "付款条款" }
+                    span class="w-[90px] shrink-0 text-muted" { "付款条款" }
                     span class="detail-value" { (customer.payment_terms.as_deref().unwrap_or("—")) }
                 }
                 div class="flex py-2 text-sm" {
-                    span class="w-[90px] shrink-0 text-text-muted" { "发票抬头" }
+                    span class="w-[90px] shrink-0 text-muted" { "发票抬头" }
                     span class="detail-value" { (customer.invoice_title.as_deref().unwrap_or("—")) }
                 }
                 div class="flex py-2 text-sm" {
-                    span class="w-[90px] shrink-0 text-text-muted" { "创建时间" }
+                    span class="w-[90px] shrink-0 text-muted" { "创建时间" }
                     span class="detail-value" { (customer.created_at.format("%Y-%m-%d")) }
                 }
                 div class="flex py-2 text-sm" {
-                    span class="w-[90px] shrink-0 text-text-muted" { "备注" }
+                    span class="w-[90px] shrink-0 text-muted" { "备注" }
                     span class="detail-value" {
                         @if customer.remark.is_empty() { "—" } @else { (&customer.remark) }
                     }
@@ -468,7 +468,7 @@ fn customer_detail_page(
                     }
                 }
                 @if contacts.is_empty() {
-                    div class="text-center p-6 text-text-muted text-sm" { "暂无联系人" }
+                    div class="text-center p-6 text-muted text-sm" { "暂无联系人" }
                 } @else {
                     @for c in contacts {
                         (contact_card(c, &detail_path, can_delete))
@@ -482,11 +482,11 @@ fn customer_detail_page(
                 (credit_display(customer.credit_limit))
                 div class="border-t border-border-soft pt-4" {
                     div class="flex py-2 text-sm" {
-                        span class="w-[90px] shrink-0 text-text-muted" { "付款条款" }
+                        span class="w-[90px] shrink-0 text-muted" { "付款条款" }
                         span class="detail-value" { (customer.payment_terms.as_deref().unwrap_or("—")) }
                     }
                     div class="flex py-2 text-sm" {
-                        span class="w-[90px] shrink-0 text-text-muted" { "税号" }
+                        span class="w-[90px] shrink-0 text-muted" { "税号" }
                         span class="detail-value font-mono tabular-nums text-xs" {
                             (customer.tax_number.as_deref().unwrap_or("—"))
                         }
@@ -506,7 +506,7 @@ fn customer_detail_page(
                 }
             }
             @if addresses.is_empty() {
-                div class="text-center p-6 text-text-muted text-sm" { "暂无地址" }
+                div class="text-center p-6 text-muted text-sm" { "暂无地址" }
             } @else {
                 div class="grid gap-3" {
                     @for a in addresses {
@@ -618,11 +618,11 @@ fn credit_display(credit_limit: Option<rust_decimal::Decimal>) -> Markup {
                             stroke-dasharray="314.16" stroke-dashoffset="314.16" stroke-linecap="round" {}
                     }
                     div class="w-[120px] h-[120px] relative-text" {
-                        div class="w-[120px] h-[120px] relative-value text-text-muted" { "—" }
+                        div class="w-[120px] h-[120px] relative-value text-muted" { "—" }
                         div class="w-[120px] h-[120px] relative-label" { "已用额度" }
                     }
                 }
-                div class="text-xs text-text-muted" { "总额度" }
+                div class="text-xs text-muted" { "总额度" }
                 div class="text-lg font-bold" {
                     (crate::utils::fmt_amount(limit))
                 }
@@ -632,11 +632,11 @@ fn credit_display(credit_limit: Option<rust_decimal::Decimal>) -> Markup {
                         circle cx="60" cy="60" r="50" fill="none" stroke="var(--border-soft)" stroke-width="10" {}
                     }
                     div class="w-[120px] h-[120px] relative-text" {
-                        div class="w-[120px] h-[120px] relative-value text-text-muted" { "—" }
+                        div class="w-[120px] h-[120px] relative-value text-muted" { "—" }
                         div class="w-[120px] h-[120px] relative-label" { "未设置" }
                     }
                 }
-                div class="text-xs text-text-muted" { "未设置信用额度" }
+                div class="text-xs text-muted" { "未设置信用额度" }
             }
         }
     }
@@ -716,7 +716,7 @@ fn address_card(addr: &CustomerAddress, detail_path: &CustomerDetailPath, can_de
             div class="p-3 border border-border-soft rounded-sm-body" {
                 p { (full_addr) }
                 @if let Some(ref name) = addr.contact_name {
-                    p class="flex items-center gap-2 text-xs text-text-muted" {
+                    p class="flex items-center gap-2 text-xs text-muted" {
                         (icon::user_icon("w-3.5 h-3.5"))
                         span { (name) }
                         @if let Some(ref phone) = addr.contact_phone {

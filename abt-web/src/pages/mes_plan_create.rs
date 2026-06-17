@@ -137,7 +137,7 @@ fn plan_create_page() -> Markup {
         div {
             div class="flex items-center justify-between mb-6" {
                 div class="flex items-center justify-between mb-6-left" {
-                    a class="inline-flex items-center gap-2 text-sm text-text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", PlanListPath::PATH)) {
+                    a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", PlanListPath::PATH)) {
                         "← 返回列表"
                     }
                     h1 class="text-xl font-bold text-fg tracking-tight" { "新建生产计划" }
@@ -270,7 +270,7 @@ fn plan_create_page() -> Markup {
                 const tr = document.createElement('tr');
                 const i = idx++;
                 tr.innerHTML = `
-                    <td class="text-text-muted text-xs text-center">${i+1}</td>
+                    <td class="text-muted text-xs text-center">${i+1}</td>
                     <td>
                       <div class="flex items-center gap-[6px] border border-border rounded-sm bg-white cursor-pointer"
                            onclick="window.openProductPicker(this.closest('tr'))">
@@ -283,7 +283,7 @@ fn plan_create_page() -> Markup {
                     <td><input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="date" data-field="scheduled_start" required></td>
                     <td><input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="date" data-field="scheduled_end" required></td>
                     <td><input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" data-field="priority" value="1" style="width:60px"></td>
-                    <td><button type="button" class="w-[28px] h-[28px] border-none text-text-muted rounded-sm cursor-pointer grid place-items-center" onclick="this.closest('tr').remove()">✕</button></td>
+                    <td><button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center" onclick="this.closest('tr').remove()">✕</button></td>
                 `;
                 tbody.appendChild(tr);
             });
@@ -310,7 +310,7 @@ fn plan_create_page() -> Markup {
 fn plan_item_row_html(index: usize) -> Markup {
     html! {
         tr {
-            td class="text-text-muted text-xs text-center" { (index + 1) }
+            td class="text-muted text-xs text-center" { (index + 1) }
             td {
                 div class="product-cell" style="cursor:pointer;padding:4px 8px;border:1px dashed var(--border);border-radius:4px"
                     _="on click set window._productPickerTarget to closest tr then add .is-open to #product-picker" {
@@ -322,7 +322,7 @@ fn plan_item_row_html(index: usize) -> Markup {
             td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="date" name=(format!("items[{index}].scheduled_start")); }
             td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="date" name=(format!("items[{index}].scheduled_end")); }
             td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" name=(format!("items[{index}].priority")) value="1" style="width:60px"; }
-            td { button type="button" class="w-[28px] h-[28px] border-none text-text-muted rounded-sm cursor-pointer grid place-items-center" { "✕" } }
+            td { button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center" { "✕" } }
         }
     }
 }

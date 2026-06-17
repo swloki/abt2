@@ -333,10 +333,10 @@ fn cost_analysis_page(
 
             // ── 分析Tab ──
             div class="flex gap-1 rounded-lg p-1" {
-                button class="flex-1 p-3 rounded text-sm font-medium text-text-muted cursor-pointer text-center border-none active" onclick="switchTab('product')" { "产品成本" }
-                button class="flex-1 p-3 rounded text-sm font-medium text-text-muted cursor-pointer text-center border-none" onclick="switchTab('order')" { "工单成本" }
-                button class="flex-1 p-3 rounded text-sm font-medium text-text-muted cursor-pointer text-center border-none" onclick="switchTab('profit')" { "利润中心 P&L" }
-                button class="flex-1 p-3 rounded text-sm font-medium text-text-muted cursor-pointer text-center border-none" onclick="switchTab('margin')" { "毛利分析" }
+                button class="flex-1 p-3 rounded text-sm font-medium text-muted cursor-pointer text-center border-none active" onclick="switchTab('product')" { "产品成本" }
+                button class="flex-1 p-3 rounded text-sm font-medium text-muted cursor-pointer text-center border-none" onclick="switchTab('order')" { "工单成本" }
+                button class="flex-1 p-3 rounded text-sm font-medium text-muted cursor-pointer text-center border-none" onclick="switchTab('profit')" { "利润中心 P&L" }
+                button class="flex-1 p-3 rounded text-sm font-medium text-muted cursor-pointer text-center border-none" onclick="switchTab('margin')" { "毛利分析" }
             }
 
             // ── 产品成本面板 ──
@@ -378,7 +378,7 @@ fn cost_analysis_page(
                                 }
                             }
                         }
-                        div class="flex gap-5 text-[12px] text-text-muted" {
+                        div class="flex gap-5 text-[12px] text-muted" {
                             span style="display:flex;align-items:center;gap:6px" {
                                 span class="cost-w-[10px] h-[3px]" style="background:linear-gradient(135deg,var(--accent),#60a5fa)" {}
                                 "材料成本"
@@ -576,7 +576,7 @@ fn stat_card(
                 (PreEscaped(format!(r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24"><path d="{icon_path}"/></svg>"#)))
             }
             div class="mes-stat-body" {
-                div class="mes-text-sm text-text-muted mt-1" { (title) }
+                div class="mes-text-sm text-muted mt-1" { (title) }
                 div class="mes-text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg" { (PreEscaped(value)) }
             }
         }

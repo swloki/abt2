@@ -142,7 +142,7 @@ fn routing_create_page(
             div id="routing-app" {
             // ── Page Header ──
             div class="flex items-center justify-between mb-6" {
-                a class="inline-flex items-center gap-2 text-sm text-text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", RoutingListPath::PATH)) {
+                a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", RoutingListPath::PATH)) {
                     (icon::arrow_left_icon("w-4 h-4"))
                     "返回工艺路线列表"
                 }
@@ -278,12 +278,12 @@ function renderSteps() {{
         }}
         let chk = step.is_required ? ' checked' : '';
         html += '<tr>' +
-            '<td class="text-text-muted text-xs text-center">' + (idx + 1) + '</td>' +
+            '<td class="text-muted text-xs text-center">' + (idx + 1) + '</td>' +
             '<td><select onchange="onStepChange(' + idx + ')" style="width:100%;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)">' + opts + '</select></td>' +
             '<td style="padding:5px 8px;font-size:13px">' + getProcessName(step.process_code) + '</td>' +
             '<td style="text-align:center"><input type="checkbox" onchange="onStepChange(' + idx + ')" style="width:18px;height:18px;cursor:pointer;accent-color:var(--primary)"' + chk + '></td>' +
             '<td><input type="text" onchange="onStepChange(' + idx + ')" placeholder="备注" style="width:100%;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)"></td>' +
-            '<td><button type="button" class="w-[28px] h-[28px] border-none text-text-muted rounded-sm cursor-pointer grid place-items-center" onclick="removeStep(' + idx + ')" title="删除"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button></td>' +
+            '<td><button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center" onclick="removeStep(' + idx + ')" title="删除"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button></td>' +
             '</tr>';
     }});
     document.querySelector('#routing-steps-body').innerHTML = html;

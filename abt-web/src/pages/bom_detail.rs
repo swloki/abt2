@@ -216,7 +216,7 @@ fn bom_detail_page(
                             " "
                             span class=(format!("status-pill {status_class}")) { (status_label) }
                         }
-                        div class="flex gap-4 text-text-muted text-xs" {
+                        div class="flex gap-4 text-muted text-xs" {
                             span { "节点: " (node_count) }
                             @if let Some(cat_id) = bom.bom_category_id {
                                 span { "分类ID: " (cat_id) }
@@ -293,7 +293,7 @@ fn bom_detail_page(
                     }
                 }
                 @if bom.bom_detail.nodes.is_empty() {
-                    div class="text-center p-6 text-text-muted text-sm" { "暂无BOM节点" }
+                    div class="text-center p-6 text-muted text-sm" { "暂无BOM节点" }
                 } @else {
                     table class="w-full text-[13px]" style="table-layout:fixed" {
                         thead {
@@ -643,7 +643,7 @@ fn cost_drawer_content(report: &BomCostReport, temp_prices: &HashMap<i64, String
                     tbody {
                         @if report.labor_costs.is_empty() {
                             tr {
-                                td colspan="5" class="text-center text-text-muted text-sm" { "暂无人工成本数据" }
+                                td colspan="5" class="text-center text-muted text-sm" { "暂无人工成本数据" }
                             }
                         } @else {
                             @for item in &report.labor_costs {

@@ -656,12 +656,12 @@ fn category_page(tree: &[CategoryTree], initial_panel: Option<&Markup>, first_id
                     @if let Some(panel) = initial_panel {
                         (panel)
                     } @else {
-                        div class="text-center p-6 text-text-muted text-sm" {
+                        div class="text-center p-6 text-muted text-sm" {
                             svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" {
                                 path d="M4 20h16M8 16h8M6 12h12M10 8h4M12 4v16" {}
                             }
-                            div class="text-center p-6 text-text-muted text-sm-text" { "请从左侧选择一个分类" }
-                            div class="text-center p-6 text-text-muted text-sm-hint" { "选择分类查看详情和管理关联产品" }
+                            div class="text-center p-6 text-muted text-sm-text" { "请从左侧选择一个分类" }
+                            div class="text-center p-6 text-muted text-sm-hint" { "选择分类查看详情和管理关联产品" }
                         }
                     }
                 }
@@ -845,19 +845,19 @@ fn detail_panel(
                 }
                 div class="cat-meta-grid" {
                     div class="cat-meta-item" {
-                        span class="text-xs text-text-muted font-medium" { "分类名称" }
+                        span class="text-xs text-muted font-medium" { "分类名称" }
                         span class="text-sm text-fg font-medium" { (category.category_name) }
                     }
                     div class="cat-meta-item" {
-                        span class="text-xs text-text-muted font-medium" { "分类路径" }
+                        span class="text-xs text-muted font-medium" { "分类路径" }
                         span class="text-sm text-fg font-medium font-mono tabular-nums" { (category.path) }
                     }
                     div class="cat-meta-item" {
-                        span class="text-xs text-text-muted font-medium" { "上级分类" }
+                        span class="text-xs text-muted font-medium" { "上级分类" }
                         span class="text-sm text-fg font-medium" { (parent_name) }
                     }
                     div class="cat-meta-item" {
-                        span class="text-xs text-text-muted font-medium" { "关联产品数" }
+                        span class="text-xs text-muted font-medium" { "关联产品数" }
                         span class="text-sm text-fg font-medium font-mono tabular-nums" { (category.meta.count) }
                     }
                 }
@@ -916,7 +916,7 @@ fn detail_panel(
                                                         span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-[#f0fff0] text-[#389e0d]" { "在用" }
                                                     }
                                                     ProductStatus::Inactive => {
-                                                        span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-surface text-text-muted" { "停用" }
+                                                        span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-surface text-muted" { "停用" }
                                                     }
                                                     ProductStatus::Obsolete => {
                                                         span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-[#fff2f0] text-[#cf1322]" { "淘汰" }

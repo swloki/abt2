@@ -319,13 +319,13 @@ fn workflow_steps(current: ReturnStatus) -> Markup {
                 }
             }
             @if is_cancelled {
-                div class="flex items-center gap-2 text-xs text-text-muted cancelled danger" {
+                div class="flex items-center gap-2 text-xs text-muted cancelled danger" {
                     div class="w-[10px] h-[10px] rounded-full bg-border" {}
                     "已取消"
                 }
             }
             @if is_rejected {
-                div class="flex items-center gap-2 text-xs text-text-muted cancelled danger" {
+                div class="flex items-center gap-2 text-xs text-muted cancelled danger" {
                     div class="w-[10px] h-[10px] rounded-full bg-border" {}
                     "已驳回"
                 }
@@ -354,7 +354,7 @@ fn return_detail_page(
     html! {
         div {
             // ── Back Link ──
-            a class="inline-flex items-center gap-2 text-sm text-text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", ReturnListPath::PATH)) {
+            a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", ReturnListPath::PATH)) {
                 (icon::chevron_left_icon("w-4 h-4"))
                 "返回退货列表"
             }
@@ -365,7 +365,7 @@ fn return_detail_page(
                         h1 class="text-2xl font-extrabold font-font-mono tabular-nums" { (r.doc_number) }
                         span class=(format!("status-pill {status_class}")) { (status_text) }
                     }
-                    div class="text-[13px] text-text-muted" {
+                    div class="text-[13px] text-muted" {
                         "来源发货："
                         a href=(shipping_detail.to_string()) { (shipping_number) }
                         "　来源订单："
@@ -418,19 +418,19 @@ fn return_detail_page(
                 div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "退货信息" }
                 div class="grid gap-4" {
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-text-muted font-medium" { "客户名称" }
+                        span class="text-xs text-muted font-medium" { "客户名称" }
                         span class="text-sm text-fg font-medium" { (customer_name) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-text-muted font-medium" { "退货原因" }
+                        span class="text-xs text-muted font-medium" { "退货原因" }
                         span class="text-sm text-fg font-medium" { (r.return_reason.as_str()) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-text-muted font-medium" { "操作员" }
+                        span class="text-xs text-muted font-medium" { "操作员" }
                         span class="text-sm text-fg font-medium" { (operator_name) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-text-muted font-medium" { "创建时间" }
+                        span class="text-xs text-muted font-medium" { "创建时间" }
                         span class="text-sm text-fg font-medium" { (r.created_at.format("%Y-%m-%d %H:%M")) }
                     }
                 }
@@ -457,7 +457,7 @@ fn return_detail_page(
                             }
                             @if items.is_empty() {
                                 tr {
-                                    td  colspan="8" class="text-center p-8 text-text-muted"
+                                    td  colspan="8" class="text-center p-8 text-muted"
                                     { "暂无明细" }
                                 }
                             }
@@ -478,7 +478,7 @@ fn return_detail_page(
             @if !r.remark.is_empty() {
                 div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)] mt-6" {
                     div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "备注" }
-                    p class="text-text-muted" { (r.remark.as_str()) }
+                    p class="text-muted" { (r.remark.as_str()) }
                 }
             }
         }

@@ -158,7 +158,7 @@ fn product_create_page(source: Option<&Product>, categories: &[CategoryTree]) ->
         div {
             // ── Page Header ──
             div class="flex items-center justify-between mb-6" {
-                a class="inline-flex items-center gap-2 text-sm text-text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", ProductListPath::PATH)) {
+                a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", ProductListPath::PATH)) {
                     (icon::arrow_left_icon("w-4 h-4"))
                     "返回产品列表"
                 }
@@ -276,7 +276,7 @@ fn product_create_page(source: Option<&Product>, categories: &[CategoryTree]) ->
                 div class="bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0" onclick="event.stopPropagation()" {
                     div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
                         h2 { "选择分类" }
-                        button type="button" class="border-none cursor-pointer text-text-muted flex items-center justify-center" _="on click remove .is-open from #category-modal" {
+                        button type="button" class="border-none cursor-pointer text-muted flex items-center justify-center" _="on click remove .is-open from #category-modal" {
                             (icon::x_icon("w-4 h-4"))
                         }
                     }
@@ -287,7 +287,7 @@ fn product_create_page(source: Option<&Product>, categories: &[CategoryTree]) ->
                         }
                         div id="category-list-container" class="overflow-y-auto p-2" {
                             @if categories.is_empty() {
-                                div class="p-8 text-center text-text-muted text-sm" { "暂无分类数据" }
+                                div class="p-8 text-center text-muted text-sm" { "暂无分类数据" }
                             } @else {
                                 @for node in categories {
                                     (category_tree_node(node, 0))
@@ -359,7 +359,7 @@ fn category_tree_node(node: &CategoryTree, depth: usize) -> Markup {
         div.category-select-item data-name=(name_lower) {
             div class="flex items-center gap-2 border-b" style=(pad) {
                 @if has_children {
-                    span class="inline-flex items-center justify-center w-[20px] h-[20px] shrink-0 cursor-pointer text-text-muted rounded-sm" _="on click halt the event then toggle .expanded on closest .category-select-item" {
+                    span class="inline-flex items-center justify-center w-[20px] h-[20px] shrink-0 cursor-pointer text-muted rounded-sm" _="on click halt the event then toggle .expanded on closest .category-select-item" {
                         (icon::chevron_right_icon("w-3.5 h-3.5"))
                     }
                 }

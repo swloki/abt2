@@ -158,7 +158,7 @@ fn wage_list_page(
                 }
                 div {
                     div class="text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg" { "¥" (crate::utils::fmt_qty(ctx.total_wage)) }
-                    div class="text-sm text-text-muted mt-1" { "本月工资总额" }
+                    div class="text-sm text-muted mt-1" { "本月工资总额" }
                 }
             }
             div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
@@ -167,7 +167,7 @@ fn wage_list_page(
                 }
                 div {
                     div class="text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg" { (ctx.worker_count) }
-                    div class="text-sm text-text-muted mt-1" { "计件工人数" }
+                    div class="text-sm text-muted mt-1" { "计件工人数" }
                 }
             }
             div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
@@ -176,7 +176,7 @@ fn wage_list_page(
                 }
                 div {
                     div class="text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg" { (total_completed_fmt) }
-                    div class="text-sm text-text-muted mt-1" { "总完成数量" }
+                    div class="text-sm text-muted mt-1" { "总完成数量" }
                     div style="font-size:var(--text-xs);color:var(--muted);margin-top:2px" { "不良品 " (total_defect_fmt) " (" (defect_rate) ")" }
                 }
             }
@@ -186,7 +186,7 @@ fn wage_list_page(
                 }
                 div {
                     div class="text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg" { "—" }
-                    div class="text-sm text-text-muted mt-1" { "扣减金额(操作失误)" }
+                    div class="text-sm text-muted mt-1" { "扣减金额(操作失误)" }
                     div style="font-size:var(--text-xs);color:var(--muted);margin-top:2px" { "操作失误不良: " (crate::utils::fmt_qty(ctx.total_operator_defect)) "件" }
                 }
             }

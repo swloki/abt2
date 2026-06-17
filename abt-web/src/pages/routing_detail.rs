@@ -101,7 +101,7 @@ fn routing_detail_page(
                         h1 class="text-xl font-bold" {
                             (routing.name)
                         }
-                        div class="flex gap-4 text-text-muted text-xs" {
+                        div class="flex gap-4 text-muted text-xs" {
                             span { "工序: " (step_count) }
                             span { "必经: " (required_count) }
                             span { "关联BOM: " (boms.total) }
@@ -171,7 +171,7 @@ fn routing_detail_page(
                     }
                 }
                 @if steps.is_empty() {
-                    div class="text-center p-6 text-text-muted text-sm" { "暂无工序步骤" }
+                    div class="text-center p-6 text-muted text-sm" { "暂无工序步骤" }
                 } @else {
                     table class="data-table" {
                         thead {
@@ -193,7 +193,7 @@ fn routing_detail_page(
                                         @if step.is_required {
                                             span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-[#fff8eb] text-[#d46b08]" { "必经" }
                                         } @else {
-                                            span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-surface text-text-muted" { "选检" }
+                                            span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-surface text-muted" { "选检" }
                                         }
                                     }
                                     td { (step.remark.as_deref().unwrap_or("—")) }
@@ -218,7 +218,7 @@ fn bom_table_fragment(routing_id: i64, boms: &abt_core::shared::types::Paginated
     let base_path = RoutingDetailPath { id: routing_id }.to_string();
     html! {
         @if boms.items.is_empty() {
-            div class="text-center p-6 text-text-muted text-sm" { "暂无关联BOM" }
+            div class="text-center p-6 text-muted text-sm" { "暂无关联BOM" }
         } @else {
             table class="data-table" {
                 thead {

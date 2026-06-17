@@ -113,7 +113,7 @@ fn backflush_detail_page(
 
     html! {
         div {
-            a href="/admin/wms/backflushes" class="inline-flex items-center gap-2 text-sm text-text-muted hover:text-accent transition-colors duration-150" {
+            a href="/admin/wms/backflushes" class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" {
                 (icon::chevron_left_icon("w-4 h-4"))
                 "返回倒冲记录列表"
             }
@@ -146,37 +146,37 @@ fn backflush_detail_page(
                 div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "倒冲信息" }
                 div class="grid gap-4" {
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-text-muted font-medium" { "单据编号" }
+                        span class="text-xs text-muted font-medium" { "单据编号" }
                         span class="text-sm text-fg font-medium font-mono tabular-nums" { (record.doc_number) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-text-muted font-medium" { "关联工单" }
+                        span class="text-xs text-muted font-medium" { "关联工单" }
                         span class="text-sm text-fg font-medium font-mono tabular-nums" { "—" }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-text-muted font-medium" { "完工产品" }
+                        span class="text-xs text-muted font-medium" { "完工产品" }
                         span class="text-sm text-fg font-medium" { (product_name) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-text-muted font-medium" { "完工数量" }
+                        span class="text-xs text-muted font-medium" { "完工数量" }
                         span class="text-sm text-fg font-medium font-mono tabular-nums" { (format!("{:.2}", record.completed_qty)) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-text-muted font-medium" { "倒冲日期" }
+                        span class="text-xs text-muted font-medium" { "倒冲日期" }
                         span class="text-sm text-fg font-medium font-mono tabular-nums" { (record.backflush_date.to_string()) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-text-muted font-medium" { "差异阈值" }
+                        span class="text-xs text-muted font-medium" { "差异阈值" }
                         span class="text-sm text-fg font-medium font-mono tabular-nums" { (format!("{:.2}%", record.variance_threshold)) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-text-muted font-medium" { "状态" }
+                        span class="text-xs text-muted font-medium" { "状态" }
                         span class="text-sm text-fg font-medium" {
                             span class=(format!("status-pill {status_class}")) { (status_label) }
                         }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-text-muted font-medium" { "操作员" }
+                        span class="text-xs text-muted font-medium" { "操作员" }
                         span class="text-sm text-fg font-medium" { (operator_name) }
                     }
                 }
@@ -220,11 +220,11 @@ fn backflush_detail_page(
                     div class="grid gap-4 p-4 bg-surface border border-border rounded" {
                         div class="text-center" {
                             div class="text-xl font-bold text-fg" { (items.len()) }
-                            div class="text-xs text-text-muted" { "总子件数" }
+                            div class="text-xs text-muted" { "总子件数" }
                         }
                         div class="text-center" {
                             div class=(if over_count > 0 { "summary-value danger" } else { "summary-value" }) { (over_count) }
-                            div class="text-xs text-text-muted" { "超标项数" }
+                            div class="text-xs text-muted" { "超标项数" }
                         }
                         div class="text-center" {
                             div class=(if max_rate > Decimal::ZERO { "summary-value danger" } else { "summary-value" }) {
@@ -234,7 +234,7 @@ fn backflush_detail_page(
                                     "0%"
                                 }
                             }
-                            div class="text-xs text-text-muted" { "最大差异率" }
+                            div class="text-xs text-muted" { "最大差异率" }
                         }
                     }
                 }
@@ -270,7 +270,7 @@ fn backflush_item_row(
                 @if item.is_over_threshold {
                     span class="bg-[#fff2f0] text-danger font-semibold text-center" { "✓" }
                 } @else {
-                    span class="text-text-muted" { "✗" }
+                    span class="text-muted" { "✗" }
                 }
             }
         }

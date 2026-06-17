@@ -175,7 +175,7 @@ pub fn entity_picker_results(items: &[EntityPickerItem]) -> Markup {
                             div class="product-select-info" {
                                 div class="text-sm font-medium text-fg" { (item.label.as_str()) }
                                 @if let Some(ref sub) = item.sub_label {
-                                    div class="text-[12px] text-text-muted flex items-center gap-[6px] flex-wrap" { (sub.as_str()) }
+                                    div class="text-[12px] text-muted flex items-center gap-[6px] flex-wrap" { (sub.as_str()) }
                                 }
                             }
                         }
@@ -187,7 +187,7 @@ pub fn entity_picker_results(items: &[EntityPickerItem]) -> Markup {
                             div class="product-select-info" {
                                 div class="text-sm font-medium text-fg" { (item.label.as_str()) }
                                 @if let Some(ref sub) = item.sub_label {
-                                    div class="text-[12px] text-text-muted flex items-center gap-[6px] flex-wrap" { (sub.as_str()) }
+                                    div class="text-[12px] text-muted flex items-center gap-[6px] flex-wrap" { (sub.as_str()) }
                                 }
                             }
                         }

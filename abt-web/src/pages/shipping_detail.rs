@@ -197,7 +197,7 @@ fn workflow_steps(current: ShippingStatus) -> Markup {
                 }
             }
             @if is_cancelled {
-                div class="flex items-center gap-2 text-xs text-text-muted cancelled danger" {
+                div class="flex items-center gap-2 text-xs text-muted cancelled danger" {
                     div class="w-[10px] h-[10px] rounded-full bg-border" {}
                     "已取消"
                 }
@@ -222,7 +222,7 @@ fn shipping_detail_page(
     html! {
         div {
             // ── Back Link ──
-            a class="inline-flex items-center gap-2 text-sm text-text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", ShippingListPath::PATH)) {
+            a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", ShippingListPath::PATH)) {
                 (icon::chevron_left_icon("w-4 h-4"))
                 "返回发货申请列表"
             }
@@ -234,7 +234,7 @@ fn shipping_detail_page(
                         h1 class="text-2xl font-extrabold font-font-mono tabular-nums" { (s.doc_number) }
                         span class=(format!("status-pill {status_class}")) { (status_text) }
                     }
-                    div class="text-[13px] text-text-muted" {
+                    div class="text-[13px] text-muted" {
                         "来源订单："
                         @if let Some(oid) = s.order_id {
                             a href=(format!("/admin/orders/{oid}")) { (order_number) }
@@ -276,29 +276,29 @@ fn shipping_detail_page(
                 div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "发货信息" }
                 div class="grid gap-4" {
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-text-muted font-medium" { "客户名称" }
+                        span class="text-xs text-muted font-medium" { "客户名称" }
                         span class="text-sm text-fg font-medium" { (customer_name) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-text-muted font-medium" { "收货地址" }
+                        span class="text-xs text-muted font-medium" { "收货地址" }
                         span class="text-sm text-fg font-medium" { (s.shipping_address.as_str()) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-text-muted font-medium" { "预计发货日期" }
+                        span class="text-xs text-muted font-medium" { "预计发货日期" }
                         span class="text-sm text-fg font-medium font-mono tabular-nums" {
                             (s.expected_ship_date.map(|d| d.format("%Y-%m-%d").to_string()).unwrap_or_else(|| "—".into()))
                         }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-text-muted font-medium" { "承运商" }
+                        span class="text-xs text-muted font-medium" { "承运商" }
                         span class="text-sm text-fg font-medium" { (s.carrier.as_str()) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-text-muted font-medium" { "物流单号" }
+                        span class="text-xs text-muted font-medium" { "物流单号" }
                         span class="text-sm text-fg font-medium font-mono tabular-nums" { (s.tracking_number.as_str()) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-text-muted font-medium" { "操作员" }
+                        span class="text-xs text-muted font-medium" { "操作员" }
                         span class="text-sm text-fg font-medium" { (operator_name) }
                     }
                 }
@@ -326,7 +326,7 @@ fn shipping_detail_page(
                             }
                             @if items.is_empty() {
                                 tr {
-                                    td colspan="8" class="text-center p-8 text-text-muted" {
+                                    td colspan="8" class="text-center p-8 text-muted" {
                                         "暂无明细"
                                     }
                                 }
@@ -340,7 +340,7 @@ fn shipping_detail_page(
             @if !s.remark.is_empty() {
                 div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)] mt-6" {
                     div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "备注" }
-                    p class="text-text-muted" { (s.remark.as_str()) }
+                    p class="text-muted" { (s.remark.as_str()) }
                 }
             }
         }

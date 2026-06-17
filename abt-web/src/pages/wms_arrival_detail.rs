@@ -232,7 +232,7 @@ fn arrival_detail_page(
 
     html! {
         div {
-            a href=(format!("{}?restore=true", ArrivalListPath::PATH)) class="inline-flex items-center gap-2 text-sm text-text-muted hover:text-accent transition-colors duration-150" {
+            a href=(format!("{}?restore=true", ArrivalListPath::PATH)) class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" {
                 (icon::chevron_left_icon("w-4 h-4"))
                 "返回来料通知列表"
             }
@@ -256,43 +256,43 @@ fn arrival_detail_page(
                 div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "基本信息" }
                 div class="grid gap-4" {
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-text-muted font-medium" { "单据编号" }
+                        span class="text-xs text-muted font-medium" { "单据编号" }
                         span class="text-sm text-fg font-medium font-mono tabular-nums" { (notice.doc_number) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-text-muted font-medium" { "来源采购单" }
+                        span class="text-xs text-muted font-medium" { "来源采购单" }
                         span class="text-sm text-fg font-medium font-mono tabular-nums" {
                             (notice.purchase_order_id.map(|id| id.to_string()).unwrap_or_else(|| "—".into()))
                         }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-text-muted font-medium" { "供应商" }
+                        span class="text-xs text-muted font-medium" { "供应商" }
                         span class="text-sm text-fg font-medium" { (supplier_name) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-text-muted font-medium" { "到货仓库" }
+                        span class="text-xs text-muted font-medium" { "到货仓库" }
                         span class="text-sm text-fg font-medium" { (wh_name) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-text-muted font-medium" { "到货库区" }
+                        span class="text-xs text-muted font-medium" { "到货库区" }
                         span class="text-sm text-fg font-medium" {
                             (notice.zone_id.map(|id| id.to_string()).unwrap_or_else(|| "—".into()))
                         }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-text-muted font-medium" { "到货日期" }
+                        span class="text-xs text-muted font-medium" { "到货日期" }
                         span class="text-sm text-fg font-medium font-mono tabular-nums" { (notice.arrival_date.format("%Y-%m-%d")) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-text-muted font-medium" { "送货单号" }
+                        span class="text-xs text-muted font-medium" { "送货单号" }
                         span class="text-sm text-fg font-medium font-mono tabular-nums" { (notice.delivery_note.as_deref().unwrap_or("—")) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-text-muted font-medium" { "备注" }
+                        span class="text-xs text-muted font-medium" { "备注" }
                         span class="text-sm text-fg font-medium" { (if notice.remark.is_empty() { "—" } else { &notice.remark }) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-text-muted font-medium" { "操作员" }
+                        span class="text-xs text-muted font-medium" { "操作员" }
                         span class="text-sm text-fg font-medium" { (operator_name) }
                     }
                 }
@@ -345,19 +345,19 @@ fn arrival_detail_page(
                     }
                     div class="grid gap-4" style="margin-bottom:var(--space-4)" {
                         div class="flex flex-col gap-1" {
-                            span class="text-xs text-text-muted font-medium" { "检验标准" }
+                            span class="text-xs text-muted font-medium" { "检验标准" }
                             span class="text-sm text-fg font-medium" { "GB/T 2828.1 抽样检验" }
                         }
                         div class="flex flex-col gap-1" {
-                            span class="text-xs text-text-muted font-medium" { "AQL等级" }
+                            span class="text-xs text-muted font-medium" { "AQL等级" }
                             span class="text-sm text-fg font-medium font-mono tabular-nums" { "0.65" }
                         }
                         div class="flex flex-col gap-1" {
-                            span class="text-xs text-text-muted font-medium" { "检验员" }
+                            span class="text-xs text-muted font-medium" { "检验员" }
                             span class="text-sm text-fg font-medium" { "—" }
                         }
                         div class="flex flex-col gap-1" {
-                            span class="text-xs text-text-muted font-medium" { "计划完成日期" }
+                            span class="text-xs text-muted font-medium" { "计划完成日期" }
                             span class="text-sm text-fg font-medium font-mono tabular-nums" { "—" }
                         }
                     }

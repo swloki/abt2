@@ -306,7 +306,7 @@ fn user_table_fragment(
                     }
                     div {
                         div class="text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg" { (total_count) }
-                        div class="text-sm text-text-muted mt-1" { "用户总数" }
+                        div class="text-sm text-muted mt-1" { "用户总数" }
                     }
                 }
                 div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
@@ -315,7 +315,7 @@ fn user_table_fragment(
                     }
                     div {
                         div class="text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg" { (active_count) }
-                        div class="text-sm text-text-muted mt-1" { "已激活" }
+                        div class="text-sm text-muted mt-1" { "已激活" }
                     }
                 }
                 div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
@@ -324,7 +324,7 @@ fn user_table_fragment(
                     }
                     div {
                         div class="text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg" { (inactive_count) }
-                        div class="text-sm text-text-muted mt-1" { "已停用" }
+                        div class="text-sm text-muted mt-1" { "已停用" }
                     }
                 }
                 div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
@@ -335,7 +335,7 @@ fn user_table_fragment(
                     }
                     div {
                         div class="text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg" { (super_admin_count) }
-                        div class="text-sm text-text-muted mt-1" { "超级管理员" }
+                        div class="text-sm text-muted mt-1" { "超级管理员" }
                     }
                 }
             }
@@ -437,7 +437,7 @@ fn user_table_fragment(
                             }
                             @if page_users.is_empty() {
                                 tr {
-                                    td colspan="8" class="text-center p-6 text-text-muted text-sm" {
+                                    td colspan="8" class="text-center p-6 text-muted text-sm" {
                                         "暂无用户数据"
                                     }
                                 }
@@ -519,7 +519,7 @@ fn user_row(
                         span class="text-[10px] font-medium" { (role.role_name) }
                     }
                     @if u.roles.is_empty() {
-                        span class="text-text-muted" { "—" }
+                        span class="text-muted" { "—" }
                     }
                 }
             }
@@ -527,7 +527,7 @@ fn user_row(
             // Departments
             td {
                 @if depts.is_empty() {
-                    span class="text-text-muted" { "—" }
+                    span class="text-muted" { "—" }
                 } @else {
                     @for dept in depts {
                         span class="text-[10px] bg-[#f0fff0] text-[#389e0d] font-medium" { (dept.department_name) }
@@ -537,7 +537,7 @@ fn user_row(
 
             // Data scope
             td {
-                span class="text-[12px] text-text-muted" { (scope) }
+                span class="text-[12px] text-muted" { (scope) }
             }
 
             // Status

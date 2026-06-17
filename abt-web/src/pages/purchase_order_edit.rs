@@ -240,7 +240,7 @@ fn po_edit_page(
         div id="po-app" {
             // ── Page Header ──
             div class="flex items-center justify-between mb-6" {
-                a class="inline-flex items-center gap-2 text-sm text-text-muted hover:text-accent transition-colors duration-150" href=(PODetailPath { id: order.id }.to_string()) {
+                a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(PODetailPath { id: order.id }.to_string()) {
                     (icon::arrow_left_icon("w-4 h-4"))
                     "返回订单详情"
                 }
@@ -463,7 +463,7 @@ fn existing_item_row(
 
     html! {
         tr data-item-row="" {
-            td class="text-text-muted text-xs text-center" { }
+            td class="text-muted text-xs text-center" { }
             td class="font-mono tabular-nums" { (code) }
             td { (name) }
             td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="description" placeholder="—" value=(&item.description)
@@ -489,7 +489,7 @@ fn existing_item_row(
             }
             td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="date" name="item_delivery_date" value=(&delivery)
                 style="width:110px;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
-            td { button type="button" class="w-[28px] h-[28px] border-none text-text-muted rounded-sm cursor-pointer grid place-items-center" title="删除行"
+            td { button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center" title="删除行"
                 _="on click remove closest <tr/> then call updatePurchaseSummary()" {
                 (icon::x_icon("w-3.5 h-3.5"))
             } }

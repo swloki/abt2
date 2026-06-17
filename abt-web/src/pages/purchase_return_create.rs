@@ -247,7 +247,7 @@ fn pr_create_page(
         div id="pr-app" {
             // ── Page Header ──
             div class="flex items-center justify-between mb-6" {
-                a class="inline-flex items-center gap-2 text-sm text-text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", PRListPath::PATH)) {
+                a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", PRListPath::PATH)) {
                     (icon::arrow_left_icon("w-4 h-4"))
                     "返回采购退货列表"
                 }

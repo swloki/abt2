@@ -249,7 +249,7 @@ fn workflow_steps(current: SalesOrderStatus) -> Markup {
             }
             @if is_cancelled {
                 div class="w-[48px] h-[2px] bg-border" {}
-                div class="flex items-center gap-2 text-xs text-text-muted danger" {
+                div class="flex items-center gap-2 text-xs text-muted danger" {
                     span class="w-[10px] h-[10px] rounded-full bg-border" {}
                     "已取消"
                 }
@@ -314,19 +314,19 @@ fn fulfillment_progress(items: &[SalesOrderItem], plan_lines: &[FulfillmentPlanL
                 div class="flex gap-[24px]" {
                     div class="text-center" {
                         div class="text-[10px] text-muted mt-1-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg green" { (fmt_qty(total_shipped)) }
-                        div class="text-[10px] text-muted mt-1-sm text-text-muted mt-1" { "已发货" }
+                        div class="text-[10px] text-muted mt-1-sm text-muted mt-1" { "已发货" }
                     }
                     div class="text-center" {
                         div class="text-[10px] text-muted mt-1-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg blue" { (fmt_qty(total_allocated)) }
-                        div class="text-[10px] text-muted mt-1-sm text-text-muted mt-1" { "已分配" }
+                        div class="text-[10px] text-muted mt-1-sm text-muted mt-1" { "已分配" }
                     }
                     div class="text-center" {
                         div class="text-[10px] text-muted mt-1-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg orange" { (fmt_qty(total_producing + total_purchasing)) }
-                        div class="text-[10px] text-muted mt-1-sm text-text-muted mt-1" { "补货中" }
+                        div class="text-[10px] text-muted mt-1-sm text-muted mt-1" { "补货中" }
                     }
                     div class="text-center" {
                         div class="text-[10px] text-muted mt-1-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg" { (fmt_qty(total_open)) }
-                        div class="text-[10px] text-muted mt-1-sm text-text-muted mt-1" { "未交量" }
+                        div class="text-[10px] text-muted mt-1-sm text-muted mt-1" { "未交量" }
                     }
                 }
             }
@@ -598,7 +598,7 @@ fn fulfill_plan_row(
                 @if let Some(doc) = downstream_doc {
                     (doc)
                 } @else {
-                    span class="text-text-muted" { "—" }
+                    span class="text-muted" { "—" }
                 }
             }
         }
@@ -627,7 +627,7 @@ fn order_detail_page(
     html! {
         div {
             // ── Back Link ──
-            a class="inline-flex items-center gap-2 text-sm text-text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", OrderListPath::PATH)) {
+            a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", OrderListPath::PATH)) {
                 (icon::chevron_left_icon("w-4 h-4"))
                 "返回销售订单列表"
             }
@@ -703,35 +703,35 @@ fn order_detail_page(
                 div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "订单信息" }
                 div class="grid gap-4" {
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-text-muted font-medium" { "客户名称" }
+                        span class="text-xs text-muted font-medium" { "客户名称" }
                         span class="text-sm text-fg font-medium" { (customer_name) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-text-muted font-medium" { "联系人" }
+                        span class="text-xs text-muted font-medium" { "联系人" }
                         span class="text-sm text-fg font-medium" { (contact_name) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-text-muted font-medium" { "联系电话" }
+                        span class="text-xs text-muted font-medium" { "联系电话" }
                         span class="text-sm text-fg font-medium font-mono tabular-nums" { (contact_phone) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-text-muted font-medium" { "业务员" }
+                        span class="text-xs text-muted font-medium" { "业务员" }
                         span class="text-sm text-fg font-medium" { (sales_rep) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-text-muted font-medium" { "交货日期" }
+                        span class="text-xs text-muted font-medium" { "交货日期" }
                         span class="text-sm text-fg font-medium font-mono tabular-nums" { (o.order_date.format("%Y-%m-%d")) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-text-muted font-medium" { "付款条款" }
+                        span class="text-xs text-muted font-medium" { "付款条款" }
                         span class="text-sm text-fg font-medium" { (o.payment_terms.as_str()) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-text-muted font-medium" { "交货条款" }
+                        span class="text-xs text-muted font-medium" { "交货条款" }
                         span class="text-sm text-fg font-medium" { (o.delivery_terms.as_str()) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-text-muted font-medium" { "交货地址" }
+                        span class="text-xs text-muted font-medium" { "交货地址" }
                         span class="text-sm text-fg font-medium" { (o.delivery_address.as_str()) }
                     }
                 }
@@ -763,7 +763,7 @@ fn order_detail_page(
                             }
                             @if items.is_empty() {
                                 tr {
-                                    td colspan="12" class="text-center p-8 text-text-muted" {
+                                    td colspan="12" class="text-center p-8 text-muted" {
                                         "暂无明细"
                                     }
                                 }
@@ -773,11 +773,11 @@ fn order_detail_page(
                 }
                 div class="flex justify-end gap-8 p-5 border-t bg-surface-raised" {
                     div class="flex gap-3" {
-                        span class="text-[11px] text-text-muted font-medium uppercase" { "成本合计" }
+                        span class="text-[11px] text-muted font-medium uppercase" { "成本合计" }
                         span class="text-[20px] font-bold text-fg" { (crate::utils::fmt_amount(o.total_cost)) }
                     }
                     div class="flex gap-3" {
-                        span class="text-[11px] text-text-muted font-medium uppercase" { "订单总额" }
+                        span class="text-[11px] text-muted font-medium uppercase" { "订单总额" }
                         span class="text-[20px] font-bold text-fg accent" { (crate::utils::fmt_amount(o.total_amount)) }
                     }
                 }
@@ -790,7 +790,7 @@ fn order_detail_page(
             @if !o.remark.is_empty() {
                 div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" style="margin-top:var(--space-6)" {
                     div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "备注" }
-                    p class="text-text-muted" { (o.remark.as_str()) }
+                    p class="text-muted" { (o.remark.as_str()) }
                 }
             }
         }

@@ -188,7 +188,7 @@ fn work_center_list_page(
                             }
                         }
                         @if result.items.is_empty() {
-                            tr { td colspan="7" class="text-center text-text-muted text-sm" { "暂无工作中心数据" } }
+                            tr { td colspan="7" class="text-center text-muted text-sm" { "暂无工作中心数据" } }
                         }
                     }
                 }

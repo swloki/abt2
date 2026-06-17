@@ -316,7 +316,7 @@ fn purchase_dashboard_content(stats: &DashboardStats) -> Markup {
                 }
                 div {
                     div class="text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg" { (stats.active_suppliers.to_string()) }
-                    div class="text-sm text-text-muted mt-1" { "活跃供应商" }
+                    div class="text-sm text-muted mt-1" { "活跃供应商" }
                 }
             }
             // 待比价报价
@@ -326,7 +326,7 @@ fn purchase_dashboard_content(stats: &DashboardStats) -> Markup {
                 }
                 div {
                     div class="text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg" { (stats.pending_quotations.to_string()) }
-                    div class="text-sm text-text-muted mt-1" { "待比价报价" }
+                    div class="text-sm text-muted mt-1" { "待比价报价" }
                 }
             }
             // 进行中订单
@@ -336,7 +336,7 @@ fn purchase_dashboard_content(stats: &DashboardStats) -> Markup {
                 }
                 div {
                     div class="text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg" { (stats.in_progress_orders.to_string()) }
-                    div class="text-sm text-text-muted mt-1" { "进行中订单" }
+                    div class="text-sm text-muted mt-1" { "进行中订单" }
                 }
             }
             // 待付款金额
@@ -352,7 +352,7 @@ fn purchase_dashboard_content(stats: &DashboardStats) -> Markup {
                             (format_amount(stats.pending_payment_total))
                         }
                     }
-                    div class="text-sm text-text-muted mt-1" { "待付款金额" }
+                    div class="text-sm text-muted mt-1" { "待付款金额" }
                 }
             }
             // 退货处理中
@@ -362,7 +362,7 @@ fn purchase_dashboard_content(stats: &DashboardStats) -> Markup {
                 }
                 div {
                     div class="text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg" { (stats.returns_in_progress.to_string()) }
-                    div class="text-sm text-text-muted mt-1" { "退货处理中" }
+                    div class="text-sm text-muted mt-1" { "退货处理中" }
                 }
             }
         }
@@ -521,7 +521,7 @@ fn activity_row(
                     span style="font-weight:600" { " " (highlight) }
                 }
             }
-            span class="text-text-muted" style="font-size:12px" { (time) }
+            span class="text-muted" style="font-size:12px" { (time) }
         }
     }
 }
@@ -542,7 +542,7 @@ fn activity_row_last(
                     span style="font-weight:600" { " " (highlight) }
                 }
             }
-            span class="text-text-muted" style="font-size:12px" { (time) }
+            span class="text-muted" style="font-size:12px" { (time) }
         }
     }
 }
@@ -552,7 +552,7 @@ fn todo_item(status_class: &str, status_text: &str, desc: &str, time: &str) -> M
         div class="flex items-center gap-3 px-5 py-4 border-b border-border-soft cursor-pointer hover:bg-accent-bg" {
             span class=(status_class) style="font-size:11px" { (status_text) }
             span style="flex:1" { (desc) }
-            span class="text-text-muted" style="font-size:12px" { (time) }
+            span class="text-muted" style="font-size:12px" { (time) }
         }
     }
 }
@@ -562,7 +562,7 @@ fn todo_item_last(status_class: &str, status_text: &str, desc: &str, time: &str)
         div style="padding:var(--space-4) var(--space-5);display:flex;align-items:center;gap:var(--space-3);cursor:pointer" {
             span class=(status_class) style="font-size:11px" { (status_text) }
             span style="flex:1" { (desc) }
-            span class="text-text-muted" style="font-size:12px" { (time) }
+            span class="text-muted" style="font-size:12px" { (time) }
         }
     }
 }
@@ -571,7 +571,7 @@ fn quick_link_card(href: &str, title: &str, count: &str) -> Markup {
     html! {
         a href=(href) class="flex flex-col gap-1 p-4 bg-bg border border-border-soft rounded cursor-pointer no-underline" {
             span class="text-sm font-semibold text-fg" { (title) }
-            span class="text-xs text-text-muted" { (count) }
+            span class="text-xs text-muted" { (count) }
         }
     }
 }

@@ -183,28 +183,28 @@ fn price_history_page(rows: &[PriceHistoryRow], total: u64, page: u32, total_pag
                     div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 blue" { (icon::currency_icon("w-5 h-5")) }
                     div {
                         div class="text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg" { (total) }
-                        div class="text-sm text-text-muted mt-1" { "总变更次数" }
+                        div class="text-sm text-muted mt-1" { "总变更次数" }
                     }
                 }
                 div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
                     div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 green" { (icon::trending_up_icon("w-5 h-5")) }
                     div {
                         div class="text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg" { "—" }
-                        div class="text-sm text-text-muted mt-1" { "平均涨幅" }
+                        div class="text-sm text-muted mt-1" { "平均涨幅" }
                     }
                 }
                 div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
                     div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 orange" { (icon::clock_icon("w-5 h-5")) }
                     div {
                         div class="text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg" { "—" }
-                        div class="text-sm text-text-muted mt-1" { "本月变更" }
+                        div class="text-sm text-muted mt-1" { "本月变更" }
                     }
                 }
                 div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
                     div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 red" { (icon::lock_icon("w-5 h-5")) }
                     div {
                         div class="text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg" { "—" }
-                        div class="text-sm text-text-muted mt-1" { "涉及产品数" }
+                        div class="text-sm text-muted mt-1" { "涉及产品数" }
                     }
                 }
             }
@@ -246,7 +246,7 @@ fn price_history_page(rows: &[PriceHistoryRow], total: u64, page: u32, total_pag
                 div class="fixed z-[1001] w-[520px] bg-white flex flex-col" onclick="event.stopPropagation()" {
                     div class="flex items-center justify-between border-b shrink-0" {
                         h2 { "变更详情" }
-                        button class="w-[32px] h-[32px] border-none cursor-pointer flex items-center justify-center text-text-muted" _="on click remove .open from #detail-drawer" {
+                        button class="w-[32px] h-[32px] border-none cursor-pointer flex items-center justify-center text-muted" _="on click remove .open from #detail-drawer" {
                             (icon::x_icon("w-4.5 h-4.5"))
                         }
                     }

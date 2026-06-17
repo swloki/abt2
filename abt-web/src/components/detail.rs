@@ -4,7 +4,7 @@ use maud::{Markup, html};
 pub fn detail_row(label: &str, value: Markup) -> Markup {
     html! {
         div class="flex py-2 text-sm" {
-            span class="w-[90px] shrink-0 text-text-muted" { (label) }
+            span class="w-[90px] shrink-0 text-muted" { (label) }
             span class="detail-value" { (value) }
         }
     }

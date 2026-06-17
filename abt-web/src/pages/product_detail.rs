@@ -253,7 +253,7 @@ fn product_detail_page(
                             " "
                             span class=(format!("status-pill {status_class}")) { (status_label) }
                         }
-                        div class="flex gap-4 text-text-muted text-xs" {
+                        div class="flex gap-4 text-muted text-xs" {
                             span { "编码: " (product.product_code) }
                             span { "单位: " (product.unit) }
                             @if let Some(dt) = product.created_at {
@@ -358,7 +358,7 @@ fn tab_basic_info(product: &Product, status_label: &'static str, status_class: &
             div class="bg-white border border-border-soft rounded p-5" {
                 div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 border-b border-border-soft" { "规格参数" }
                 @if product.meta.specification.is_empty() {
-                    div class="text-center p-6 text-text-muted text-sm" { "暂无规格参数" }
+                    div class="text-center p-6 text-muted text-sm" { "暂无规格参数" }
                 } @else {
                     @for line in product.meta.specification.lines() {
                         div class="flex py-2 text-sm" {
@@ -389,29 +389,29 @@ fn tab_production_config(
             div class="text-sm font-semibold text-fg mb-3 pb-2 border-b border-border-soft" { "BOM 与工艺路线" }
             div class="grid gap-5" {
                 div class="flex flex-col gap-[3px]" {
-                    span class="text-[12px] text-text-muted font-medium" { "当前 BOM" }
+                    span class="text-[12px] text-muted font-medium" { "当前 BOM" }
                     span class="text-sm text-fg font-medium flex items-center gap-2" {
                         @if let Some(b) = bom {
                             span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-[#fff8eb] text-[#d46b08]" { (b.bom_name) " V"(b.version) }
                         } @else {
-                            span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-surface text-text-muted" { "未关联" }
+                            span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-surface text-muted" { "未关联" }
                         }
                     }
                 }
                 div class="flex flex-col gap-[3px]" {
-                    span class="text-[12px] text-text-muted font-medium" { "工艺路线" }
+                    span class="text-[12px] text-muted font-medium" { "工艺路线" }
                     span class="text-sm text-fg font-medium flex items-center gap-2" {
                         @if let Some(rd) = routing {
                             (rd.routing.name)
                             " "
                             span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-[#fff8eb] text-[#d46b08]" { (rd.steps.len()) " 工序" }
                         } @else {
-                            span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-surface text-text-muted" { "未关联" }
+                            span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-surface text-muted" { "未关联" }
                         }
                     }
                 }
                 div class="flex flex-col gap-[3px]" {
-                    span class="text-[12px] text-text-muted font-medium" { "工作中心" }
+                    span class="text-[12px] text-muted font-medium" { "工作中心" }
                     span class="text-sm text-fg font-medium flex items-center gap-2" { "—" }
                 }
             }
@@ -422,7 +422,7 @@ fn tab_production_config(
             div class="text-sm font-semibold text-fg mb-3 pb-2 border-b border-border-soft" { "物料消耗配置" }
             div class="grid gap-5" {
                 div class="flex flex-col gap-[3px]" {
-                    span class="text-[12px] text-text-muted font-medium" { "物料消耗模式" }
+                    span class="text-[12px] text-muted font-medium" { "物料消耗模式" }
                     div class="text-sm text-fg font-medium flex items-center gap-2" {
                         div class="inline-flex bg-surface border border-border rounded-full gap-[2px]" {
                             span class=(if mode == MaterialConsumptionMode::Backflush { "toggle-option active" } else { "toggle-option" }) { "倒冲" }
@@ -431,7 +431,7 @@ fn tab_production_config(
                     }
                 }
                 div class="flex flex-col gap-[3px]" {
-                    span class="text-[12px] text-text-muted font-medium" { "超额完工容差" }
+                    span class="text-[12px] text-muted font-medium" { "超额完工容差" }
                     span class="text-sm text-fg font-medium flex items-center gap-2" {
                         span class="font-mono tabular-nums" {
                             @if let Some(t) = &product.meta.over_completion_tolerance {
@@ -443,7 +443,7 @@ fn tab_production_config(
                     }
                 }
                 div class="flex flex-col gap-[3px]" {
-                    span class="text-[12px] text-text-muted font-medium" { "模式说明" }
+                    span class="text-[12px] text-muted font-medium" { "模式说明" }
                     span class="text-sm text-fg font-medium flex items-center gap-2" {
                         @match mode {
                             MaterialConsumptionMode::Backflush => { "倒冲模式：完工入库时按 BOM 自动扣减原材料，不生成领料单" }
@@ -459,15 +459,15 @@ fn tab_production_config(
             div class="text-sm font-semibold text-fg mb-3 pb-2 border-b border-border-soft" { "生产参数" }
             div class="grid gap-5" {
                 div class="flex flex-col gap-[3px]" {
-                    span class="text-[12px] text-text-muted font-medium" { "默认仓库" }
+                    span class="text-[12px] text-muted font-medium" { "默认仓库" }
                     span class="text-sm text-fg font-medium flex items-center gap-2" { "—" }
                 }
                 div class="flex flex-col gap-[3px]" {
-                    span class="text-[12px] text-text-muted font-medium" { "BOM 组件数" }
+                    span class="text-[12px] text-muted font-medium" { "BOM 组件数" }
                     span class="text-sm text-fg font-medium flex items-center gap-2 font-mono tabular-nums" { (bom_node_count) }
                 }
                 div class="flex flex-col gap-[3px]" {
-                    span class="text-[12px] text-text-muted font-medium" { "工序总数" }
+                    span class="text-[12px] text-muted font-medium" { "工序总数" }
                     span class="text-sm text-fg font-medium flex items-center gap-2 font-mono tabular-nums" { (routing.map_or(0, |rd| rd.steps.len())) }
                 }
             }
@@ -478,10 +478,10 @@ fn tab_production_config(
             div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 border-b border-border-soft" {
                 span { "使用情况（BOM 引用）" }
                 " "
-                span class="text-[12px] text-text-muted font-medium" { "该产品被以下 BOM 引用" }
+                span class="text-[12px] text-muted font-medium" { "该产品被以下 BOM 引用" }
             }
             @if usage.is_empty() {
-                div class="text-center p-6 text-text-muted text-sm" { "该产品暂未被任何 BOM 引用" }
+                div class="text-center p-6 text-muted text-sm" { "该产品暂未被任何 BOM 引用" }
             } @else {
                 table class="data-table" {
                     thead {
@@ -513,7 +513,7 @@ fn tab_production_config(
                                     @if entry.bom_status == Some(2) {
                                         span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-[#fff8eb] text-[#d46b08]" { "已发布" }
                                     } @else if entry.bom_status == Some(1) {
-                                        span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-surface text-text-muted" { "草稿" }
+                                        span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-surface text-muted" { "草稿" }
                                     } @else {
                                         "—"
                                     }
@@ -523,7 +523,7 @@ fn tab_production_config(
                     }
                 }
                 @if (usage_total as usize) > usage.len() {
-                    div class="text-[12px] text-text-muted font-medium" { "共 " (usage_total) " 条引用记录" }
+                    div class="text-[12px] text-muted font-medium" { "共 " (usage_total) " 条引用记录" }
                 }
             }
         }
@@ -542,7 +542,7 @@ fn tab_bom(bom: Option<&Bom>, bom_nodes: &[BomNode], node_names: &HashMap<i64, S
                 }
             }
             @if bom_nodes.is_empty() {
-                div class="text-center p-6 text-text-muted text-sm" {
+                div class="text-center p-6 text-muted text-sm" {
                     p { "该产品暂无已发布 BOM 组件" }
                     a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href="/admin/md/boms" { "前往维护 BOM" }
                 }
@@ -579,7 +579,7 @@ fn tab_stock(stock: &[StockLedger]) -> Markup {
         div class="bg-white border border-border-soft rounded p-5" {
             div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 border-b border-border-soft" { "库存分布" }
             @if stock.is_empty() {
-                div class="text-center p-6 text-text-muted text-sm" { "该产品暂无库存记录" }
+                div class="text-center p-6 text-muted text-sm" { "该产品暂无库存记录" }
             } @else {
                 table class="data-table" {
                     thead {
@@ -615,7 +615,7 @@ fn tab_history(price_history: &[PriceLogEntry]) -> Markup {
         div class="bg-white border border-border-soft rounded p-5" {
             div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 border-b border-border-soft" { "价格变更记录" }
             @if price_history.is_empty() {
-                div class="text-center p-6 text-text-muted text-sm" { "暂无价格变更记录" }
+                div class="text-center p-6 text-muted text-sm" { "暂无价格变更记录" }
             } @else {
                 table class="data-table" {
                     thead {
@@ -673,7 +673,7 @@ fn product_edit_page(product: &Product) -> Markup {
         div {
             // ── Page Header ──
             div class="flex items-center justify-between mb-6" {
-                a class="inline-flex items-center gap-2 text-sm text-text-muted hover:text-accent transition-colors duration-150" href=(detail_path) {
+                a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(detail_path) {
                     (icon::arrow_left_icon("w-4 h-4"))
                     "返回产品详情"
                 }

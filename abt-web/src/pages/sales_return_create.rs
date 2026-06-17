@@ -283,13 +283,13 @@ fn return_create_page(customers: &[abt_core::master_data::customer::model::Custo
         div id="return-app" class="p-6" {
             // ── Page Header ──
             div class="flex items-center justify-between mb-6" {
-                a class="inline-flex items-center gap-2 text-sm text-text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", ReturnListPath::PATH)) {
+                a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", ReturnListPath::PATH)) {
                     (icon::arrow_left_icon("w-4 h-4"))
                     "返回退货列表"
                 }
                 h1 class="text-xl font-bold text-fg tracking-tight" { "新建退货单" }
                 div class="flex gap-3" {
-                    span class="flex items-center justify-center p-8 text-text-muted" {
+                    span class="flex items-center justify-center p-8 text-muted" {
                         (icon::clock_icon("w-3.5 h-3.5"))
                         "自动保存草稿"
                     }
@@ -403,11 +403,11 @@ fn return_create_page(customers: &[abt_core::master_data::customer::model::Custo
                     }
                     div class="flex justify-end p-4 bg-surface border-t gap-8" {
                         div class="flex gap-3" {
-                            span class="text-sm text-text-muted" { "退货总数量" }
+                            span class="text-sm text-muted" { "退货总数量" }
                             span class="text-lg font-bold text-fg" id="total-qty" { "0" }
                         }
                         div class="flex gap-3" {
-                            span class="text-sm text-text-muted" { "退货总额" }
+                            span class="text-sm text-muted" { "退货总额" }
                             span class="text-lg font-bold text-fg grand" id="grand-total" { "¥ 0.00" }
                         }
                     }
@@ -527,7 +527,7 @@ function populateItems(items) {{
 function createItemRow(num, item) {{
     const tr = document.createElement('tr');
     tr.innerHTML = `
-        <td class="text-text-muted text-xs text-center">${{num}}</td>
+        <td class="text-muted text-xs text-center">${{num}}</td>
         <td><input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] bg-surface" type="text" value="${{item.product_code||''}}" readonly tabindex="-1"></td>
         <td><input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] bg-surface" type="text" value="${{item.product_name||''}}" readonly tabindex="-1"></td>
         <td><input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] bg-surface text-center" type="text" value="${{item.unit||''}}" readonly tabindex="-1"></td>
@@ -535,7 +535,7 @@ function createItemRow(num, item) {{
         <td><input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] num-input bg-surface" type="text" value="${{item.order_qty||''}}" readonly tabindex="-1"></td>
         <td><input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] num-input" type="number" data-field="qty" data-order-item-id="${{item.order_item_id}}" data-price="${{item.unit_price||0}}" value="" placeholder="0" min="1" oninput="calcRow(this)"></td>
         <td class="text-right font-semibold text-fg whitespace-nowrap" data-field="subtotal">—</td>
-        <td><button type="button" class="w-[28px] h-[28px] border-none text-text-muted rounded-sm cursor-pointer grid place-items-center" onclick="removeRow(this)" title="删除行">{chevron}</button></td>
+        <td><button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center" onclick="removeRow(this)" title="删除行">{chevron}</button></td>
     `;
     return tr;
 }}
@@ -639,7 +639,7 @@ window.handleSaveDraft = handleSaveDraft;
         Array.from(input.files).forEach(f => {{
             const d = document.createElement('div');
             d.className = 'file-item';
-            d.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg><span class="flex-1 overflow-hidden whitespace-nowrap">'+f.name+'</span><span class="text-text-muted text-xs shrink-0">'+(f.size/1024).toFixed(0)+' KB</span>';
+            d.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg><span class="flex-1 overflow-hidden whitespace-nowrap">'+f.name+'</span><span class="text-muted text-xs shrink-0">'+(f.size/1024).toFixed(0)+' KB</span>';
             list.appendChild(d);
         }});
     }}
@@ -684,7 +684,7 @@ fn order_search_results(
                 div class="flex items-center justify-between p-3 border-b" {
                     div class="product-select-info" {
                         div class="text-sm font-medium text-fg" { (order.doc_number) }
-                        div class="text-[12px] text-text-muted flex items-center gap-[6px] flex-wrap" {
+                        div class="text-[12px] text-muted flex items-center gap-[6px] flex-wrap" {
                             span { (order_date) }
                             span class="text-border" { "·" }
                             span { (status_text) }
@@ -705,7 +705,7 @@ fn order_search_results(
 
 fn order_search_empty() -> Markup {
     html! {
-        div class="flex items-center justify-center p-8 text-text-muted" {
+        div class="flex items-center justify-center p-8 text-muted" {
             (icon::package_icon("w-8 h-8"))
             p class="mt-2 text-sm" { "请先选择客户，或未找到匹配的订单" }
         }

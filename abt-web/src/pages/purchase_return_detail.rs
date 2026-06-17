@@ -155,7 +155,7 @@ fn workflow_steps(current: PurchaseReturnStatus) -> Markup {
             }
             @if is_cancelled {
                 div class="w-[48px] h-[2px] bg-border" {}
-                div class="flex items-center gap-2 text-xs text-text-muted" style="color:var(--danger)" {
+                div class="flex items-center gap-2 text-xs text-muted" style="color:var(--danger)" {
                     span class="w-[10px] h-[10px] rounded-full bg-border" {}
                     "已取消"
                 }
@@ -182,7 +182,7 @@ fn pr_detail_page(
     html! {
         div {
             // ── Back Link ──
-            a class="inline-flex items-center gap-2 text-sm text-text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", PRListPath::PATH)) {
+            a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", PRListPath::PATH)) {
                 (icon::chevron_left_icon("w-4 h-4"))
                 "返回采购退货列表"
             }
@@ -220,11 +220,11 @@ fn pr_detail_page(
                 div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "退货信息" }
                 div class="grid gap-4" {
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-text-muted font-medium" { "供应商名称" }
+                        span class="text-xs text-muted font-medium" { "供应商名称" }
                         span class="text-sm text-fg font-medium" { (supplier_name) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-text-muted font-medium" { "关联订单" }
+                        span class="text-xs text-muted font-medium" { "关联订单" }
                         span class="text-sm text-fg font-medium font-mono tabular-nums" {
                             @if let Some(doc) = order_doc_number {
                                 (doc)
@@ -234,19 +234,19 @@ fn pr_detail_page(
                         }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-text-muted font-medium" { "退货日期" }
+                        span class="text-xs text-muted font-medium" { "退货日期" }
                         span class="text-sm text-fg font-medium font-mono tabular-nums" { (pr.return_date.format("%Y-%m-%d")) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-text-muted font-medium" { "退货原因" }
+                        span class="text-xs text-muted font-medium" { "退货原因" }
                         span class="text-sm text-fg font-medium" { (pr.return_reason.as_str()) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-text-muted font-medium" { "操作人" }
+                        span class="text-xs text-muted font-medium" { "操作人" }
                         span class="text-sm text-fg font-medium" { (operator_name) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-text-muted font-medium" { "创建时间" }
+                        span class="text-xs text-muted font-medium" { "创建时间" }
                         span class="text-sm text-fg font-medium font-mono tabular-nums" { (pr.created_at.format("%Y-%m-%d %H:%M")) }
                     }
                 }
@@ -287,7 +287,7 @@ fn pr_detail_page(
             // ── Amount Summary ──
             div class="flex justify-end gap-8 p-5 border-t bg-surface-raised" {
                 div class="flex gap-3" {
-                    span class="text-[11px] text-text-muted font-medium uppercase" { "退货总额" }
+                    span class="text-[11px] text-muted font-medium uppercase" { "退货总额" }
                     span class="text-[20px] font-bold text-fg accent" { (format!("¥ {:.2}", pr.total_amount)) }
                 }
             }

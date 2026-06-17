@@ -87,7 +87,7 @@ fn work_calendar_list_page(calendars: &[WorkCalendar]) -> Markup {
                             }
                         }
                         @if calendars.is_empty() {
-                            tr { td colspan="4" class="text-center text-text-muted text-sm" { "暂无工作日历数据" } }
+                            tr { td colspan="4" class="text-center text-muted text-sm" { "暂无工作日历数据" } }
                         }
                     }
                 }

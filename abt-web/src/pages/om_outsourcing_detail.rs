@@ -322,7 +322,7 @@ fn detail_page(
 
     html! { div {
         // ── Back link ──
-        a class="inline-flex items-center gap-2 text-sm text-text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", OmOutsourcingListPath::PATH)) {
+        a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", OmOutsourcingListPath::PATH)) {
             (icon::chevron_left_icon("w-4 h-4"))
             "返回委外单列表"
         }
@@ -372,31 +372,31 @@ fn detail_page(
                     div {
                         div class="grid gap-[20px 48px]" {
                             div class="flex flex-col gap-[6px]" {
-                                span class="text-[12px] text-text-muted font-semibold" { "供应商" }
+                                span class="text-[12px] text-muted font-semibold" { "供应商" }
                                 span class="text-[15px] text-fg font-semibold" { (supplier_name) }
                             }
                             div class="flex flex-col gap-[6px]" {
-                                span class="text-[12px] text-text-muted font-semibold" { "产品" }
+                                span class="text-[12px] text-muted font-semibold" { "产品" }
                                 span class="text-[15px] text-fg font-semibold" { (product_name) }
                             }
                             div class="flex flex-col gap-[6px]" {
-                                span class="text-[12px] text-text-muted font-semibold" { "关联工单" }
+                                span class="text-[12px] text-muted font-semibold" { "关联工单" }
                                 span class="text-[15px] text-fg font-semibold" {
                                     (order.work_order_id.map(|id| id.to_string()).unwrap_or_else(|| "—".into()))
                                 }
                             }
                             div class="flex flex-col gap-[6px]" {
-                                span class="text-[12px] text-text-muted font-semibold" { "关联工序" }
+                                span class="text-[12px] text-muted font-semibold" { "关联工序" }
                                 span class="text-[15px] text-fg font-semibold" {
                                     (order.routing_id.map(|id| id.to_string()).unwrap_or_else(|| "—".into()))
                                 }
                             }
                             div class="flex flex-col gap-[6px]" {
-                                span class="text-[12px] text-text-muted font-semibold" { "虚拟仓库" }
+                                span class="text-[12px] text-muted font-semibold" { "虚拟仓库" }
                                 span class="text-[15px] text-fg font-semibold" { (warehouse_name) }
                             }
                             div class="flex flex-col gap-[6px]" {
-                                span class="text-[12px] text-text-muted font-semibold" { "预计交期" }
+                                span class="text-[12px] text-muted font-semibold" { "预计交期" }
                                 span class="text-[15px] text-fg font-semibold font-mono tabular-nums" {
                                     (order.scheduled_date.map(|d| d.to_string()).unwrap_or_else(|| "—".into()))
                                 }
@@ -404,13 +404,13 @@ fn detail_page(
                         }
                         // Detail row — secondary meta
                         div class="info-flex py-2 text-sm" {
-                            span class="flex gap-[6px] text-[12px] text-text-muted" { "计划数量 " strong class="font-mono tabular-nums" { (crate::utils::fmt_qty(order.planned_qty)) } }
-                            span class="flex gap-[6px] text-[12px] text-text-muted" { "完成数量 " strong class="font-mono tabular-nums" style="color:var(--success)" { (crate::utils::fmt_qty(order.completed_qty)) } }
-                            span class="flex gap-[6px] text-[12px] text-text-muted" { "单价 " strong class="font-mono tabular-nums" { (crate::utils::fmt_qty(order.unit_price)) } }
-                            span class="flex gap-[6px] text-[12px] text-text-muted" { "总金额 " strong class="font-mono tabular-nums" style="color:var(--accent)" { (format_amount(order.planned_qty * order.unit_price)) } }
-                            span class="flex gap-[6px] text-[12px] text-text-muted" { "创建人 " strong { (operator_name) } }
-                            span class="flex gap-[6px] text-[12px] text-text-muted" { "创建 " strong class="font-mono tabular-nums" { (order.created_at.format("%Y-%m-%d %H:%M")) } }
-                            span class="flex gap-[6px] text-[12px] text-text-muted" { "更新 " strong class="font-mono tabular-nums" { (order.updated_at.format("%Y-%m-%d %H:%M")) } }
+                            span class="flex gap-[6px] text-[12px] text-muted" { "计划数量 " strong class="font-mono tabular-nums" { (crate::utils::fmt_qty(order.planned_qty)) } }
+                            span class="flex gap-[6px] text-[12px] text-muted" { "完成数量 " strong class="font-mono tabular-nums" style="color:var(--success)" { (crate::utils::fmt_qty(order.completed_qty)) } }
+                            span class="flex gap-[6px] text-[12px] text-muted" { "单价 " strong class="font-mono tabular-nums" { (crate::utils::fmt_qty(order.unit_price)) } }
+                            span class="flex gap-[6px] text-[12px] text-muted" { "总金额 " strong class="font-mono tabular-nums" style="color:var(--accent)" { (format_amount(order.planned_qty * order.unit_price)) } }
+                            span class="flex gap-[6px] text-[12px] text-muted" { "创建人 " strong { (operator_name) } }
+                            span class="flex gap-[6px] text-[12px] text-muted" { "创建 " strong class="font-mono tabular-nums" { (order.created_at.format("%Y-%m-%d %H:%M")) } }
+                            span class="flex gap-[6px] text-[12px] text-muted" { "更新 " strong class="font-mono tabular-nums" { (order.updated_at.format("%Y-%m-%d %H:%M")) } }
                         }
                     }
                     // Progress Ring
@@ -449,7 +449,7 @@ fn detail_page(
                     }
                     "追踪节点"
                 }
-                div class="text-[12px] text-text-muted flex items-center gap-[8px]" {
+                div class="text-[12px] text-muted flex items-center gap-[8px]" {
                     span class="hint-dot" {}
                     (format!("实时追踪 · 7 个节点 · 当前第 {} 步", active_index + 1))
                 }
@@ -474,7 +474,7 @@ fn detail_page(
                                 }
                                 @if let Some(t) = tracked {
                                     @if let Some(at) = t.tracked_at {
-                                        div class="text-[12px] text-text-muted" { (at.format("%Y-%m-%d %H:%M")) }
+                                        div class="text-[12px] text-muted" { (at.format("%Y-%m-%d %H:%M")) }
                                     }
                                     @if let Some(remark) = &t.remark {
                                         div class="text-[12px] text-fg-2 bg-bg rounded-sm inline-flex items-start gap-[8px]" { (remark) }
@@ -482,7 +482,7 @@ fn detail_page(
                                 } @else {
                                     @if let Some(t) = tracked_nodes.get(&all_node_types[if i > 0 { i - 1 } else { 0 }]) {
                                         @if let Some(planned) = &t.planned_at {
-                                            div class="text-[12px] text-text-muted" { "计划 " (planned.format("%m-%d")) }
+                                            div class="text-[12px] text-muted" { "计划 " (planned.format("%m-%d")) }
                                         }
                                     }
                                 }
@@ -526,7 +526,7 @@ fn detail_page(
                             tbody {
                                 @for t in tracking {
                                     tr {
-                                        td class="text-text-muted text-[13px]" {
+                                        td class="text-muted text-[13px]" {
                                             (t.tracked_at.map(|at| at.format("%Y-%m-%d %H:%M").to_string()).unwrap_or_else(|| "—".into()))
                                         }
                                         td { (node_type_label(&t.node_type)) }

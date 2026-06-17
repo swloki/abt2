@@ -619,18 +619,18 @@ fn material_row(m: &MaterialAggSummary) -> Markup {
                 }
                 div {
                     div class="font-semibold text-fg text-sm" { (m.product_name) }
-                    div class="text-[12px] text-text-muted" { (m.product_code) }
+                    div class="text-[12px] text-muted" { (m.product_code) }
                 }
             }
 
             div class="material-stat" {
                 div class="material-text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg" { (fmt_qty(m.total_demand_qty)) }
-                div class="material-text-sm text-text-muted mt-1" { "总需求量" }
+                div class="material-text-sm text-muted mt-1" { "总需求量" }
             }
 
             div class="material-stat" {
                 div class="material-text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg" { (m.demand_count) }
-                div class="material-text-sm text-text-muted mt-1" { "涉及订单" }
+                div class="material-text-sm text-muted mt-1" { "涉及订单" }
             }
 
             div class="material-stat material-stat-date" {
@@ -833,7 +833,7 @@ fn detail_row(d: &DemandSummary) -> Markup {
                         "—"
                     }
                 } @else {
-                    span class="text-text-muted" { "—" }
+                    span class="text-muted" { "—" }
                 }
             }
             td {
@@ -843,7 +843,7 @@ fn detail_row(d: &DemandSummary) -> Markup {
                         button type="submit" class="btn inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm [&_svg]:w-4 [&_svg]:h-4" { "创建" }
                     }
                 } @else {
-                    span class="text-text-muted text-sm" { "—" }
+                    span class="text-muted text-sm" { "—" }
                 }
             }
         }

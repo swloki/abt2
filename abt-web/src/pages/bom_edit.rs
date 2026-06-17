@@ -892,7 +892,7 @@ fn product_list_fragment(products: &[abt_core::master_data::product::model::Prod
                     div class="flex items-center justify-between p-3 border-b" {
                         div class="product-select-info" {
                             div class="text-sm font-medium text-fg" { (p.pdt_name) }
-                            div class="text-[12px] text-text-muted flex items-center gap-[6px] flex-wrap" {
+                            div class="text-[12px] text-muted flex items-center gap-[6px] flex-wrap" {
                                 span class="bg-surface rounded-sm" { (p.product_code) }
                                 span class="text-border" { "·" }
                                 span { (p.meta.specification) }

@@ -313,7 +313,7 @@ fn demand_pool_page(
             div class="flex items-center justify-between mb-6" {
                 div {
                     h1 class="text-xl font-bold text-fg tracking-tight" { "生产需求池" }
-                    p class="text-text-muted text-sm mt-1" {
+                    p class="text-muted text-sm mt-1" {
                         "销售订单确认后产生的自制需求，按物料聚合展示。可选择需求创建生产计划草稿。"
                     }
                 }
@@ -489,7 +489,7 @@ fn material_grid_fragment(
 
             // Material rows
             @if result.items.is_empty() {
-                div class="text-center p-6 text-text-muted text-sm-text" { "暂无待处理需求" }
+                div class="text-center p-6 text-muted text-sm-text" { "暂无待处理需求" }
             }
             @for item in &result.items {
                 (material_row(item))
@@ -539,20 +539,20 @@ fn material_row(item: &MaterialAggSummary) -> Markup {
                 }
                 div {
                     div class="font-semibold text-fg text-sm" { (item.product_name) }
-                    div class="text-[12px] text-text-muted" { (item.product_code) }
+                    div class="text-[12px] text-muted" { (item.product_code) }
                 }
             }
 
             // Total demand qty
             div class="material-stat" {
                 div class=(format!("material-stat-value {qty_cls}")) { (fmt_qty(item.total_demand_qty)) }
-                div class="material-text-sm text-text-muted mt-1" { "总需求量" }
+                div class="material-text-sm text-muted mt-1" { "总需求量" }
             }
 
             // Demand count
             div class="material-stat" {
                 div class="material-text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg accent" { (item.demand_count) }
-                div class="material-text-sm text-text-muted mt-1" { "涉及订单" }
+                div class="material-text-sm text-muted mt-1" { "涉及订单" }
             }
 
             // Date range
@@ -590,7 +590,7 @@ fn material_row(item: &MaterialAggSummary) -> Markup {
                     }}
                     tbody id=(format!("expand-tbody-{pid}")) {
                         tr {
-                            td colspan="7" class="flex items-center justify-center p-8 text-text-muted" { "加载中..." }
+                            td colspan="7" class="flex items-center justify-center p-8 text-muted" { "加载中..." }
                         }
                     }
                 }
@@ -605,7 +605,7 @@ fn demand_expand_rows(items: &[DemandSummary]) -> Markup {
     html! {
         @if items.is_empty() {
             tr {
-                td colspan="7" class="text-center text-text-muted" {
+                td colspan="7" class="text-center text-muted" {
                     "暂无需求记录"
                 }
             }
@@ -670,7 +670,7 @@ fn detail_table_fragment(
                     }}
                     tbody {
                         @if result.items.is_empty() {
-                            tr { td colspan="11" class="text-center text-text-muted" {
+                            tr { td colspan="11" class="text-center text-muted" {
                                 "暂无需求记录"
                             }}
                         }
@@ -740,10 +740,10 @@ fn detail_row(item: &DemandSummary) -> Markup {
                         } @else if doc_type == 10 {
                             a class="text-accent font-medium cursor-pointer" href=(format!("/admin/mes/orders/{}", doc_id)) { "查看" }
                         } @else {
-                            span class="text-text-muted" { "—" }
+                            span class="text-muted" { "—" }
                         }
                     } @else {
-                        span class="text-text-muted" { "—" }
+                        span class="text-muted" { "—" }
                     }
                 }
             }
@@ -911,7 +911,7 @@ fn detail_query_string(
 fn format_date(d: Option<NaiveDate>) -> Markup {
     match d {
         Some(date) => html! { (date.format("%Y-%m-%d").to_string()) },
-        None => html! { span class="text-text-muted" { "—" } },
+        None => html! { span class="text-muted" { "—" } },
     }
 }
 

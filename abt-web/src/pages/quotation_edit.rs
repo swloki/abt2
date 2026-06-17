@@ -176,7 +176,7 @@ fn quotation_edit_page(
         div id="quotation-app" {
             // ── Page Header ──
             div class="flex items-center justify-between mb-6" {
-                a class="inline-flex items-center gap-2 text-sm text-text-muted hover:text-accent transition-colors duration-150" href=(detail_path.to_string()) {
+                a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(detail_path.to_string()) {
                     (icon::arrow_left_icon("w-4 h-4"))
                     "返回报价单详情"
                 }
@@ -256,7 +256,7 @@ fn quotation_edit_page(
                             @for item in items {
                                 @let (code, name) = product_codes.get(&item.product_id).cloned().unwrap_or_default();
                                 tr oninput="lineItemCalc('#quotation-item-tbody').calcRow(this)" {
-                                    td class="text-text-muted text-xs text-center" { }
+                                    td class="text-muted text-xs text-center" { }
                                     td class="font-mono tabular-nums" { (code) }
                                     td { (name) }
                                     td { input class="li-input" type="text" name="description" value=(&item.description) {} }
@@ -265,7 +265,7 @@ fn quotation_edit_page(
                                     td { input class="li-input-price" type="number" step="any" name="unit_price" value=(item.unit_price.to_string()) placeholder="0.00" style="width:100px" {} }
                                     td { input class="li-input-disc" type="number" min="0" max="100" name="discount_rate" value=(item.discount_rate.to_string()) style="width:64px" {} }
                                     td class="text-right font-semibold text-fg whitespace-nowrap" { "—" }
-                                    td { button type="button" class="w-[28px] h-[28px] border-none text-text-muted rounded-sm cursor-pointer grid place-items-center" title="删除行"
+                                    td { button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center" title="删除行"
                                         _="on click remove closest <tr/>" {
                                         (icon::x_icon("w-3.5 h-3.5"))
                                     } }
@@ -284,15 +284,15 @@ fn quotation_edit_page(
                 }
                 div class="flex justify-end p-4 bg-surface border-t gap-8" {
                     div class="flex gap-3" {
-                        span class="text-sm text-text-muted" { "合计金额" }
+                        span class="text-sm text-muted" { "合计金额" }
                         span class="text-lg font-bold text-fg" id="subtotal-value" { "¥ 0.00" }
                     }
                     div class="flex gap-3" {
-                        span class="text-sm text-text-muted" { "折扣总额" }
+                        span class="text-sm text-muted" { "折扣总额" }
                         span class="text-lg font-bold text-fg" id="discount-value" { "- ¥ 0.00" }
                     }
                     div class="flex gap-3" {
-                        span class="text-sm text-text-muted" { "报价总额" }
+                        span class="text-sm text-muted" { "报价总额" }
                         span class="text-lg font-bold text-fg grand" id="grand-value" { "¥ 0.00" }
                     }
                 }

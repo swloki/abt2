@@ -276,7 +276,7 @@ fn customer_row(c: &Customer, can_delete: bool) -> Markup {
                         }
                     }
                 } @else {
-                    span class="text-text-muted" { "—" }
+                    span class="text-muted" { "—" }
                 }
             }
             td onclick=(format!("location.href='{}'", detail_path)) { span class=(format!("status-pill {status_class}")) { (status_label) } }

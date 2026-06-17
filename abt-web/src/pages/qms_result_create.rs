@@ -158,7 +158,7 @@ fn result_create_page(
     html! {
         div {
             // ── Back link ──
-            a class="inline-flex items-center gap-2 text-sm text-text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", ResultListPath::PATH)) {
+            a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", ResultListPath::PATH)) {
                 (icon::arrow_left_icon(""))
                 " 返回检验结果列表"
             }
@@ -169,7 +169,7 @@ fn result_create_page(
                     h1 class="text-xl font-bold text-fg tracking-tight" { "记录检验结果" }
                 }
                 div class="flex items-center justify-between mb-6-right" {
-                    span class="text-sm text-text-muted" { "自动保存草稿" }
+                    span class="text-sm text-muted" { "自动保存草稿" }
                 }
             }
 
@@ -293,7 +293,7 @@ fn result_create_page(
                                 // 5 pre-filled example rows
                                 @for i in 1..=5 {
                                     tr {
-                                        td class="text-text-muted text-xs text-center" { (i) }
+                                        td class="text-muted text-xs text-center" { (i) }
                                         td {
                                             input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text"
                                                 name={"item_" (i)}

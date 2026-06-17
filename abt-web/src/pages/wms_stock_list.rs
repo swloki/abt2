@@ -311,7 +311,7 @@ fn stock_list_page(
                     }
                     div {
                         div class="text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg" { (result.items.iter().map(|s| s.product_id).collect::<HashSet<_>>().len()) }
-                        div class="text-sm text-text-muted mt-1" { "总品种" }
+                        div class="text-sm text-muted mt-1" { "总品种" }
                     }
                 }
                 div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
@@ -320,7 +320,7 @@ fn stock_list_page(
                     }
                     div {
                         div class="text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg" { (format_decimal(&result.items.iter().map(|s| s.quantity).sum::<Decimal>())) }
-                        div class="text-sm text-text-muted mt-1" { "总库存量" }
+                        div class="text-sm text-muted mt-1" { "总库存量" }
                     }
                 }
                 div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
@@ -329,7 +329,7 @@ fn stock_list_page(
                     }
                     div {
                         div class="text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg" style="color:var(--danger)" { (result.items.iter().filter(|s| s.available_qty <= Decimal::ZERO).count()) }
-                        div class="text-sm text-text-muted mt-1" { "低库存项" }
+                        div class="text-sm text-muted mt-1" { "低库存项" }
                     }
                 }
                 div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
@@ -338,7 +338,7 @@ fn stock_list_page(
                     }
                     div {
                         div class="text-2xl font-bold font-font-mono tabular-nums tabular-nums text-fg" { (format_decimal(&result.items.iter().map(|s| s.reserved_qty).sum::<Decimal>())) }
-                        div class="text-sm text-text-muted mt-1" { "已预留量" }
+                        div class="text-sm text-muted mt-1" { "已预留量" }
                     }
                 }
             }

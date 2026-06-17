@@ -121,7 +121,7 @@ fn card_query_page(recent_batches: &[abt_core::mes::production_batch::BatchListI
             // 搜索区
             div class="bg-bg border border-border-soft rounded-lg p-10 text-center relative overflow-hidden" {
                 div class="text-2xl font-bold text-fg" { "流转卡查询" }
-                div class="text-sm text-text-muted" { "输入流转卡号、批次号或扫描二维码，实时查看工序流转进度" }
+                div class="text-sm text-muted" { "输入流转卡号、批次号或扫描二维码，实时查看工序流转进度" }
                 div class="card-w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent-wrap" {
                     form hx-get=(CardQuerySearchPath::PATH) hx-target="#card-result" hx-swap="innerHTML" hx-trigger="submit" style="display:flex;gap:var(--space-3);flex:1" {
                         input class="card-w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="q" placeholder="输入流转卡号 / 批次号，如 FC-SN-060301" autofocus;
@@ -258,15 +258,15 @@ fn card_search_result(
                 // 基本信息网格
                 div class="card-grid gap-4" {
                     div class="card-flex flex-col gap-1" {
-                        span class="card-text-xs text-text-muted font-medium" { "产品" }
+                        span class="card-text-xs text-muted font-medium" { "产品" }
                         span class="card-text-sm text-fg font-medium" { (product_name) }
                     }
                     div class="card-flex flex-col gap-1" {
-                        span class="card-text-xs text-text-muted font-medium" { "批次数量" }
+                        span class="card-text-xs text-muted font-medium" { "批次数量" }
                         span class="card-text-sm text-fg font-medium" style="font-family:var(--font-mono)" { (crate::utils::fmt_qty(batch.batch_qty)) }
                     }
                     div class="card-flex flex-col gap-1" {
-                        span class="card-text-xs text-text-muted font-medium" { "完成/报废" }
+                        span class="card-text-xs text-muted font-medium" { "完成/报废" }
                         span class="card-text-sm text-fg font-medium" {
                             span style="color:var(--success);font-family:var(--font-mono)" { (crate::utils::fmt_qty(batch.completed_qty)) }
                             " / "
@@ -274,15 +274,15 @@ fn card_search_result(
                         }
                     }
                     div class="card-flex flex-col gap-1" {
-                        span class="card-text-xs text-text-muted font-medium" { "实际开始" }
+                        span class="card-text-xs text-muted font-medium" { "实际开始" }
                         span class="card-text-sm text-fg font-medium" { (actual_start_str) }
                     }
                     div class="card-flex flex-col gap-1" {
-                        span class="card-text-xs text-text-muted font-medium" { "当前工序" }
+                        span class="card-text-xs text-muted font-medium" { "当前工序" }
                         span class="card-text-sm text-fg font-medium" style="color:var(--warn)" { (current_step_display) }
                     }
                     div class="card-flex flex-col gap-1" {
-                        span class="card-text-xs text-text-muted font-medium" { "状态" }
+                        span class="card-text-xs text-muted font-medium" { "状态" }
                         span class=(format!("card-info-value status-pill {status_cls}")) { (status_label) }
                     }
                 }

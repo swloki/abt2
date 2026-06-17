@@ -63,7 +63,7 @@ fn work_calendar_detail_page(
     html! {
         div class="flex items-center justify-between mb-6" {
             div class="flex items-center justify-between mb-6-left" {
-                a class="inline-flex items-center gap-2 text-sm text-text-muted hover:text-accent transition-colors duration-150" href=(WorkCalendarListPath::PATH) { "← 返回列表" }
+                a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(WorkCalendarListPath::PATH) { "← 返回列表" }
                 h1 class="text-xl font-bold text-fg tracking-tight" { "工作日历 " (cal.name) }
             }
         }
@@ -105,7 +105,7 @@ fn work_calendar_detail_page(
                             }
                         }
                         @if lines.is_empty() {
-                            tr { td colspan="3" class="text-center text-text-muted text-sm" { "暂无工作时间设置" } }
+                            tr { td colspan="3" class="text-center text-muted text-sm" { "暂无工作时间设置" } }
                         }
                     }
                 }
@@ -147,7 +147,7 @@ fn work_calendar_detail_page(
                             }
                         }
                         @if exceptions.is_empty() {
-                            tr { td colspan="4" class="text-center text-text-muted text-sm" { "暂无例外日设置" } }
+                            tr { td colspan="4" class="text-center text-muted text-sm" { "暂无例外日设置" } }
                         }
                     }
                 }

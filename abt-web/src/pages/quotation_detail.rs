@@ -144,7 +144,7 @@ fn quotation_detail_page(
     html! {
         div {
             // ── Back Link ──
-            a class="inline-flex items-center gap-2 text-sm text-text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", QuotationListPath::PATH)) {
+            a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", QuotationListPath::PATH)) {
                 (icon::arrow_left_icon("w-4 h-4"))
                 "返回报价单列表"
             }
@@ -187,35 +187,35 @@ fn quotation_detail_page(
                 div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "基本信息" }
                 div class="grid gap-4" {
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-text-muted font-medium" { "客户名称" }
+                        span class="text-xs text-muted font-medium" { "客户名称" }
                         span class="text-sm text-fg font-medium" { (customer_name) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-text-muted font-medium" { "联系人" }
+                        span class="text-xs text-muted font-medium" { "联系人" }
                         span class="text-sm text-fg font-medium" { (contact_name) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-text-muted font-medium" { "联系电话" }
+                        span class="text-xs text-muted font-medium" { "联系电话" }
                         span class="text-sm text-fg font-medium font-mono tabular-nums" { (contact_phone) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-text-muted font-medium" { "业务员" }
+                        span class="text-xs text-muted font-medium" { "业务员" }
                         span class="text-sm text-fg font-medium" { (sales_rep_name) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-text-muted font-medium" { "报价日期" }
+                        span class="text-xs text-muted font-medium" { "报价日期" }
                         span class="text-sm text-fg font-medium font-mono tabular-nums" { (q.quotation_date.format("%Y-%m-%d")) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-text-muted font-medium" { "有效期至" }
+                        span class="text-xs text-muted font-medium" { "有效期至" }
                         span class="text-sm text-fg font-medium font-mono tabular-nums" { (q.valid_until.format("%Y-%m-%d")) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-text-muted font-medium" { "付款条款" }
+                        span class="text-xs text-muted font-medium" { "付款条款" }
                         span class="text-sm text-fg font-medium" { (q.payment_terms.as_str()) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-text-muted font-medium" { "交货条款" }
+                        span class="text-xs text-muted font-medium" { "交货条款" }
                         span class="text-sm text-fg font-medium" { (q.delivery_terms.as_str()) }
                     }
                 }
@@ -244,7 +244,7 @@ fn quotation_detail_page(
                         }
                         @if items.is_empty() {
                             tr {
-                                td colspan="10" class="text-center p-8 text-text-muted" {
+                                td colspan="10" class="text-center p-8 text-muted" {
                                     "暂无明细"
                                 }
                             }
@@ -253,19 +253,19 @@ fn quotation_detail_page(
                 }
                 div class="flex justify-end gap-8 p-5 border-t bg-surface-raised" {
                     div class="flex gap-3" {
-                        span class="text-[11px] text-text-muted font-medium uppercase" { "成本合计" }
+                        span class="text-[11px] text-muted font-medium uppercase" { "成本合计" }
                         span class="text-[20px] font-bold text-fg" {
                             (crate::utils::fmt_amount(q.total_cost))
                         }
                     }
                     div class="flex gap-3" {
-                        span class="text-[11px] text-text-muted font-medium uppercase" { "预估利润" }
+                        span class="text-[11px] text-muted font-medium uppercase" { "预估利润" }
                         span class="text-[20px] font-bold text-fg text-success" {
                             (format!("{:.1}%", q.estimated_margin * rust_decimal::Decimal::ONE_HUNDRED))
                         }
                     }
                     div class="flex gap-3" {
-                        span class="text-[11px] text-text-muted font-medium uppercase" { "报价总额" }
+                        span class="text-[11px] text-muted font-medium uppercase" { "报价总额" }
                         span class="text-[20px] font-bold text-fg accent" {
                             (crate::utils::fmt_amount(q.total_amount))
                         }
@@ -277,7 +277,7 @@ fn quotation_detail_page(
             @if !q.remark.is_empty() {
                 div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)] mt-6" {
                     div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "备注" }
-                    p class="text-text-muted" { (q.remark.as_str()) }
+                    p class="text-muted" { (q.remark.as_str()) }
                 }
             }
         }

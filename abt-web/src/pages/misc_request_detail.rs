@@ -135,7 +135,7 @@ fn workflow_steps(current: MiscRequestStatus) -> Markup {
             }
             @if is_cancelled {
                 div class="w-[48px] h-[2px] bg-border" {}
-                div class="flex items-center gap-2 text-xs text-text-muted" style="color:var(--danger)" {
+                div class="flex items-center gap-2 text-xs text-muted" style="color:var(--danger)" {
                     span class="w-[10px] h-[10px] rounded-full bg-border" {}
                     "已取消"
                 }
@@ -158,7 +158,7 @@ fn misc_detail_page(
     html! {
         div {
             // ── Back Link ──
-            a class="inline-flex items-center gap-2 text-sm text-text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", MiscListPath::PATH)) {
+            a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", MiscListPath::PATH)) {
                 (icon::chevron_left_icon("w-4 h-4"))
                 "返回零星请购列表"
             }
@@ -196,19 +196,19 @@ fn misc_detail_page(
                 div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "请购信息" }
                 div class="grid gap-4" {
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-text-muted font-medium" { "用途说明" }
+                        span class="text-xs text-muted font-medium" { "用途说明" }
                         span class="text-sm text-fg font-medium" { (req.purpose) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-text-muted font-medium" { "申请部门" }
+                        span class="text-xs text-muted font-medium" { "申请部门" }
                         span class="text-sm text-fg font-medium" { (department_name) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-text-muted font-medium" { "申请日期" }
+                        span class="text-xs text-muted font-medium" { "申请日期" }
                         span class="text-sm text-fg font-medium font-mono tabular-nums" { (req.request_date.format("%Y-%m-%d")) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-text-muted font-medium" { "申请人" }
+                        span class="text-xs text-muted font-medium" { "申请人" }
                         span class="text-sm text-fg font-medium" { (operator_name) }
                     }
                 }
@@ -251,7 +251,7 @@ fn misc_detail_page(
                 div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "金额汇总" }
                 div class="grid gap-4" {
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-text-muted font-medium" { "总金额" }
+                        span class="text-xs text-muted font-medium" { "总金额" }
                         span class="text-sm text-fg font-medium font-mono tabular-nums" style="font-size:1.125rem;font-weight:600" {
                             (format!("{:.2}", total_amount))
                         }
@@ -263,7 +263,7 @@ fn misc_detail_page(
             @if !req.remark.is_empty() {
                 div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" style="margin-top:var(--space-6)" {
                     div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "备注" }
-                    p class="text-text-muted" { (req.remark.as_str()) }
+                    p class="text-muted" { (req.remark.as_str()) }
                 }
             }
         }

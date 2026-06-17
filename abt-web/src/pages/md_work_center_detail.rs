@@ -55,7 +55,7 @@ fn work_center_detail_page(wc: &WorkCenter) -> Markup {
     html! {
         div class="flex items-center justify-between mb-6" {
             div class="flex items-center justify-between mb-6-left" {
-                a class="inline-flex items-center gap-2 text-sm text-text-muted hover:text-accent transition-colors duration-150" href=(WorkCenterListPath::PATH) { "← 返回列表" }
+                a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(WorkCenterListPath::PATH) { "← 返回列表" }
                 h1 class="text-xl font-bold text-fg tracking-tight" { "工作中心 " (wc.code) " - " (wc.name) }
             }
             div class="flex gap-3" {

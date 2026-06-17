@@ -70,7 +70,7 @@ fn workflow_steps(current: PaymentStatus) -> Markup {
             }
             @if is_cancelled {
                 div class="w-[48px] h-[2px] bg-border" {}
-                div class="flex items-center gap-2 text-xs text-text-muted" style="color:var(--danger)" {
+                div class="flex items-center gap-2 text-xs text-muted" style="color:var(--danger)" {
                     span class="w-[10px] h-[10px] rounded-full bg-border" {}
                     "已取消"
                 }
@@ -168,7 +168,7 @@ fn pay_detail_page(
     html! {
         div {
             // ── Back Link ──
-            a class="inline-flex items-center gap-2 text-sm text-text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", PayListPath::PATH)) {
+            a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", PayListPath::PATH)) {
                 (icon::chevron_left_icon("w-4 h-4"))
                 "返回付款列表"
             }
@@ -206,23 +206,23 @@ fn pay_detail_page(
                 div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "付款信息" }
                 div class="grid gap-4" {
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-text-muted font-medium" { "供应商名称" }
+                        span class="text-xs text-muted font-medium" { "供应商名称" }
                         span class="text-sm text-fg font-medium" { (supplier_name) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-text-muted font-medium" { "付款日期" }
+                        span class="text-xs text-muted font-medium" { "付款日期" }
                         span class="text-sm text-fg font-medium font-mono tabular-nums" { (pay.payment_date.format("%Y-%m-%d")) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-text-muted font-medium" { "付款方式" }
+                        span class="text-xs text-muted font-medium" { "付款方式" }
                         span class="text-sm text-fg font-medium" { (payment_method_label(pay.payment_method)) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-text-muted font-medium" { "付款金额" }
+                        span class="text-xs text-muted font-medium" { "付款金额" }
                         span class="text-sm text-fg font-medium font-mono tabular-nums" { (format!("{}", pay.amount)) }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-text-muted font-medium" { "关联对账单" }
+                        span class="text-xs text-muted font-medium" { "关联对账单" }
                         span class="text-sm text-fg font-medium font-mono tabular-nums" {
                             @if let Some(doc) = recon_doc_number {
                                 (doc)
@@ -232,7 +232,7 @@ fn pay_detail_page(
                         }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-text-muted font-medium" { "银行账户" }
+                        span class="text-xs text-muted font-medium" { "银行账户" }
                         span class="text-sm text-fg font-medium font-mono tabular-nums" {
                             @if let Some(bank_id) = pay.bank_account_id {
                                 (format!("{}", bank_id))
@@ -242,7 +242,7 @@ fn pay_detail_page(
                         }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-text-muted font-medium" { "操作人" }
+                        span class="text-xs text-muted font-medium" { "操作人" }
                         span class="text-sm text-fg font-medium" { (operator_name) }
                     }
                 }
@@ -253,7 +253,7 @@ fn pay_detail_page(
                 div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "发票信息" }
                 div class="grid gap-4" {
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-text-muted font-medium" { "发票号" }
+                        span class="text-xs text-muted font-medium" { "发票号" }
                         span class="text-sm text-fg font-medium font-mono tabular-nums" {
                             @if let Some(ref inv) = pay.invoice_number {
                                 (inv.as_str())
@@ -263,7 +263,7 @@ fn pay_detail_page(
                         }
                     }
                     div class="flex flex-col gap-1" {
-                        span class="text-xs text-text-muted font-medium" { "发票金额" }
+                        span class="text-xs text-muted font-medium" { "发票金额" }
                         span class="text-sm text-fg font-medium font-mono tabular-nums" {
                             @if let Some(amt) = pay.invoice_amount {
                                 (format!("{}", amt))
@@ -279,7 +279,7 @@ fn pay_detail_page(
             @if !pay.remark.is_empty() {
                 div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" style="margin-top:var(--space-6)" {
                     div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "备注" }
-                    p class="text-text-muted" { (pay.remark.as_str()) }
+                    p class="text-muted" { (pay.remark.as_str()) }
                 }
             }
         }

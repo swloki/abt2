@@ -226,9 +226,9 @@ fn precon_create_page(
  }
 
  // ── Order Picker Modal ──
- div class="fixed z-[1000] grid place-items-center opacity-0" id="order-modal"
+ div class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto" id="order-modal"
  _="on click[me is event.target] remove .is-open" {
- div class="modal bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0" onclick="event.stopPropagation()" {
+ div class="modal bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl" onclick="event.stopPropagation()" {
  div class="px-6 py-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center shrink-0" {
  h2 { "选择待对账订单" }
  button style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"

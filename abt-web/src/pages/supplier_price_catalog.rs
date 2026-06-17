@@ -506,7 +506,7 @@ fn empty_state() -> Markup {
 
 fn price_modal_shell() -> Markup {
  html! {
- div class="fixed z-[1000] grid place-items-center opacity-0" id="price-modal"
+ div class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto" id="price-modal"
  _="on closePriceModal from body remove .is-open
  on click[me is event.target] remove .is-open" {
  }
@@ -564,7 +564,7 @@ fn price_form(action_url: &str, price: Option<&PriceView>) -> Markup {
  .unwrap_or_default();
 
  html! {
- div class="modal bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0" _="on click halt" {
+ div class="modal bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl" _="on click halt" {
  div class="px-6 py-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center shrink-0" {
  h2 { (title) }
  button class="bg-transparent border-none cursor-pointer text-xl text-muted p-1 hover:text-fg"

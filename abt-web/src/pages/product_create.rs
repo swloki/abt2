@@ -272,8 +272,8 @@ fn product_create_page(source: Option<&Product>, categories: &[CategoryTree]) ->
  }
 
  // ── Category Select Modal ──
- div id="category-modal" class="fixed z-[1000] grid place-items-center opacity-0" _="on click[me is event.target] remove .is-open" {
- div class="bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0" onclick="event.stopPropagation()" {
+ div id="category-modal" class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto" _="on click[me is event.target] remove .is-open" {
+ div class="bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl" onclick="event.stopPropagation()" {
  div class="px-6 py-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center shrink-0" {
  h2 { "选择分类" }
  button type="button" class="border-none cursor-pointer text-muted flex items-center justify-center" _="on click remove .is-open from #category-modal" {

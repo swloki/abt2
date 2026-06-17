@@ -621,9 +621,9 @@ fn role_assign_modal(
  current_ids: &[i64],
 ) -> Markup {
  html! {
- div id="role-assign-modal" class="fixed z-[1000] grid place-items-center opacity-0"
+ div id="role-assign-modal" class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto"
  _="on click[me is event.target] remove .is-open" {
- form id="role-assign-form" class="bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0" hx-post=(action) hx-swap="none"
+ form id="role-assign-form" class="bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl" hx-post=(action) hx-swap="none"
  onsubmit="this.closest('.modal-overlay').classList.remove('is-open');this.reset()" {
  div class="px-6 py-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center shrink-0" {
  h2 { "管理角色" }
@@ -667,9 +667,9 @@ fn dept_assign_modal(
  current_ids: &[i64],
 ) -> Markup {
  html! {
- div id="dept-assign-modal" class="fixed z-[1000] grid place-items-center opacity-0"
+ div id="dept-assign-modal" class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto"
  _="on click[me is event.target] remove .is-open" {
- form id="dept-assign-form" class="bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0" hx-post=(action) hx-swap="none"
+ form id="dept-assign-form" class="bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl" hx-post=(action) hx-swap="none"
  onsubmit="this.closest('.modal-overlay').classList.remove('is-open');this.reset()" {
  div class="px-6 py-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center shrink-0" {
  h2 { "管理部门" }
@@ -707,9 +707,9 @@ fn dept_assign_modal(
 
 fn reset_password_modal(action: &str) -> Markup {
  html! {
- div id="reset-pw-modal" class="fixed z-[1000] grid place-items-center opacity-0"
+ div id="reset-pw-modal" class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto"
  _="on click[me is event.target] remove .is-open" {
- form id="reset-pw-form" class="bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0" hx-post=(action) hx-swap="none"
+ form id="reset-pw-form" class="bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl" hx-post=(action) hx-swap="none"
  onsubmit="this.closest('.modal-overlay').classList.remove('is-open');this.reset()" {
  div class="px-6 py-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center shrink-0" {
  h2 { "重置密码" }

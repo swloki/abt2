@@ -78,11 +78,11 @@
 --text-xl-fontSize: 1.25rem;
 --text-xl-lineHeight: 1.75rem;
 --spacing-8: var(--space-8);
+--radius-DEFAULT: var(--radius-md);
 --leading-tight: 1.25;
 --leading-none: 1;
 --spacing-5: var(--space-5);
 --tracking-tight: -0.025em;
---radius-DEFAULT: var(--radius-md);
 --colors-blue-DEFAULT: oklch(70.7% 0.165 254.624);
 --colors-red-DEFAULT: oklch(70.4% 0.191 22.216);
 --colors-gray-DEFAULT: oklch(70.7% 0.022 261.325);
@@ -811,6 +811,7 @@ p { margin: 0; }
 .py-0\.5{padding-block:calc(var(--spacing) * 0.5);}
 .py-1{padding-block:calc(var(--spacing) * 1);}
 .py-1\.5{padding-block:calc(var(--spacing) * 1.5);}
+.py-12{padding-block:calc(var(--spacing) * 12);}
 .py-16{padding-block:calc(var(--spacing) * 16);}
 .py-2{padding-block:calc(var(--spacing) * 2);}
 .py-3{padding-block:calc(var(--spacing) * 3);}
@@ -966,6 +967,7 @@ p { margin: 0; }
 .\[\&_svg\]\:opacity-55 svg{opacity:55%;}
 .\[\&_svg\]\:opacity-70 svg{opacity:70%;}
 .opacity-0{opacity:0%;}
+.opacity-40{opacity:40%;}
 .opacity-60{opacity:60%;}
 .hover\:\[\&_svg\]\:opacity-100 svg:hover{opacity:100%;}
 .hover\:\[\&_svg\]\:opacity-80 svg:hover{opacity:80%;}
@@ -996,6 +998,7 @@ p { margin: 0; }
 .gap-\[8px\]{gap:8px;}
 .gap-0{gap:calc(var(--spacing) * 0);}
 .gap-1{gap:calc(var(--spacing) * 1);}
+.gap-1\.5{gap:calc(var(--spacing) * 1.5);}
 .gap-2{gap:calc(var(--spacing) * 2);}
 .gap-3{gap:calc(var(--spacing) * 3);}
 .gap-4{gap:calc(var(--spacing) * 4);}

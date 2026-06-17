@@ -209,7 +209,7 @@ fn plan_create_page() -> Markup {
  }
 
  // ── Product Picker Modal ──
- div id="product-picker" class="fixed z-[1000] grid place-items-center opacity-0"
+ div id="product-picker" class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto"
  _="on click[me is event.target] remove .is-open
  on productSelected
  if window._productPickerTarget
@@ -217,7 +217,7 @@ fn plan_create_page() -> Markup {
  remove .picker-placeholder from (t's querySelector('[data-field=\"product_name\"]'))
  put window._selectedProduct.name into (t's querySelector('[data-field=\"product_name\"]'))
  set (t's querySelector('[data-field=\"product_id\"]'))'s value to window._selectedProduct.id" {
- div class="modal bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0" _="on click halt" {
+ div class="modal bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl" _="on click halt" {
  div class="px-6 py-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center shrink-0" {
  h2 { "选择产品" }
  button type="button" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"

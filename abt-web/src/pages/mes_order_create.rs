@@ -271,7 +271,7 @@ fn order_create_page(work_centers: &[abt_core::master_data::work_center::WorkCen
 
 fn source_order_modal() -> Markup {
  html! {
- div class="fixed z-[1000] grid place-items-center opacity-0" id="so-modal"
+ div class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto" id="so-modal"
  _="on click remove .is-open from #so-modal" {
  div class="modal bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl" _="on click halt" {
  div class="px-6 py-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center shrink-0" {
@@ -307,7 +307,7 @@ fn source_order_modal() -> Markup {
 
 fn source_plan_modal() -> Markup {
  html! {
- div class="fixed z-[1000] grid place-items-center opacity-0" id="pp-modal"
+ div class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto" id="pp-modal"
  _="on click remove .is-open from #pp-modal" {
  div class="modal bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl" _="on click halt" {
  div class="px-6 py-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center shrink-0" {

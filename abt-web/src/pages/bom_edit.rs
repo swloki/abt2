@@ -429,7 +429,7 @@ pub async fn get_node_edit_form(
 fn node_edit_form_fragment(bom_id: i64, node_id: i64, bom_version: i32, node: &BomNode) -> Markup {
  let action = BomNodePath { id: bom_id, node_id }.to_string();
  html! {
- div class="bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0" onclick="event.stopPropagation()" {
+ div class="bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl" onclick="event.stopPropagation()" {
  div class="px-6 py-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center shrink-0" {
  h2 { "编辑节点" }
  button style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
@@ -636,9 +636,9 @@ fn bom_edit_page(
  }
 
  // ── Add Node Modal ──
- div id="bom-add-modal" class="fixed z-[1000] grid place-items-center opacity-0"
+ div id="bom-add-modal" class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto"
  _="on click[me is event.target] remove .is-open" {
- div class="modal bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0" onclick="event.stopPropagation()" {
+ div class="modal bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl" onclick="event.stopPropagation()" {
  div class="px-6 py-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center shrink-0" {
  h2 { "添加物料" }
  button style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
@@ -686,7 +686,7 @@ fn bom_edit_page(
  }
 
  // ── Edit Node Modal (content loaded via HTMX) ──
- div id="bom-edit-modal" class="fixed z-[1000] grid place-items-center opacity-0" _="on htmx:afterSettle if detail.xhr.responseText !== '' add .is-open on click[me is event.target] remove .is-open" { }
+ div id="bom-edit-modal" class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto" _="on htmx:afterSettle if detail.xhr.responseText !== '' add .is-open on click[me is event.target] remove .is-open" { }
 
  // ── Delete Confirm ──
  (crate::components::confirm_dialog::confirm_dialog(
@@ -732,9 +732,9 @@ fn bom_edit_page(
 
 
  // ── Save As Modal ──
- div id="bom-save-as-modal" class="fixed z-[1000] grid place-items-center opacity-0"
+ div id="bom-save-as-modal" class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto"
  _="on click[me is event.target] remove .is-open" {
- div class="bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0" onclick="event.stopPropagation()" {
+ div class="bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl" onclick="event.stopPropagation()" {
  div class="px-6 py-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center shrink-0" {
  h2 { "另存为" }
  button style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"

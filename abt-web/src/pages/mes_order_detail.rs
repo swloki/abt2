@@ -436,13 +436,13 @@ fn order_detail_page(
 
  // 反下达对话框
  @if matches!(order.status, WorkOrderStatus::Released) {
- div class="fixed z-[1000] grid place-items-center opacity-0" id="unrelease-dialog" {
- div class="modal bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0" {
+ div class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto" id="unrelease-dialog" {
+ div class="modal bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl" {
  div class="px-6 py-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center shrink-0" {
  h2 { "确认反下达？" }
  }
  div class="overflow-y-auto flex-1 min-h-0 p-6" {
- p class="bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0" {
+ p class="bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl" {
  "反下达将回退工单到 "
  strong { "草稿" }
  " 状态，同时取消领料单、释放库存预留、软删除生产批次（若有报工记录则无法反下达）。此操作不可撤销。"
@@ -661,14 +661,14 @@ fn tab_batches(batches: &[ProductionBatch], routings: &[WorkOrderRouting], order
 
  // 拆批对话框
  @if can_split {
- div class="fixed z-[1000] grid place-items-center opacity-0" id="split-dialog" {
- div class="modal bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0" {
+ div class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto" id="split-dialog" {
+ div class="modal bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl" {
  div class="px-6 py-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center shrink-0" {
  h2 { "新增生产批次" }
  }
  form {
  div class="overflow-y-auto flex-1 min-h-0 p-6" {
- p class="bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0" {
+ p class="bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl" {
  "工单计划量 " strong { (crate::utils::fmt_qty(order.planned_qty)) }
  "，已分批 " strong { (crate::utils::fmt_qty(existing_qty)) }
  @if remaining > rust_decimal::Decimal::ZERO {

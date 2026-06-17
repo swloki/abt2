@@ -646,7 +646,7 @@ fn shipping_edit_page(
  "发货产品明细"
  }
  div class="overflow-x-auto" {
- table class="w-full border-collapse" id="lineItemsTable" {
+ table class="data-table" id="lineItemsTable" {
  thead {
  tr {
  th class="col-num" { "行号" }
@@ -670,7 +670,7 @@ fn shipping_edit_page(
  "添加产品"
  }
  }
- div class="flex justify-end p-4 bg-surface border-t gap-8" {
+ div class="flex justify-end p-4 bg-surface [border-top:1px_solid_var(--border-soft)] gap-8" {
  div class="flex gap-3" {
  span class="text-sm text-muted" { "发货项目" }
  span class="text-lg font-bold text-fg" id="totalItems" { "0 项" }
@@ -684,7 +684,7 @@ fn shipping_edit_page(
  }
 
  // ── Action Bar ──
- div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
+ div class="flex items-center justify-end gap-3 pt-4 [border-top:1px_solid_var(--border-soft)]" {
  a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{}?restore=true", ShippingListPath::PATH)) { "取消" }
  button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" _="on click call handleSave()" {
  (icon::save_icon("w-4 h-4"))
@@ -921,7 +921,7 @@ fn shipping_create_page(
  "发货产品明细"
  }
  div class="overflow-x-auto" {
- table class="w-full border-collapse" id="lineItemsTable" {
+ table class="data-table" id="lineItemsTable" {
  thead {
  tr {
  th class="col-num" { "行号" }
@@ -947,7 +947,7 @@ fn shipping_create_page(
  "添加产品"
  }
  }
- div class="flex justify-end p-4 bg-surface border-t gap-8" {
+ div class="flex justify-end p-4 bg-surface [border-top:1px_solid_var(--border-soft)] gap-8" {
  div class="flex gap-3" {
  span class="text-sm text-muted" { "发货项目" }
  span class="text-lg font-bold text-fg" id="totalItems" { "0 项" }
@@ -961,7 +961,7 @@ fn shipping_create_page(
  }
 
  // ── Action Bar ──
- div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
+ div class="flex items-center justify-end gap-3 pt-4 [border-top:1px_solid_var(--border-soft)]" {
  a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{}?restore=true", ShippingListPath::PATH)) { "取消" }
  button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" _="on click call handleSave()" {
  (icon::save_icon("w-4 h-4"))

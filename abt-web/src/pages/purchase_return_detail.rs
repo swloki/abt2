@@ -285,7 +285,7 @@ fn pr_detail_page(
  }
 
  // ── Amount Summary ──
- div class="flex justify-end gap-8 p-5 border-t bg-surface-raised" {
+ div class="flex justify-end gap-8 p-5 [border-top:1px_solid_var(--border-soft)] bg-surface-raised" {
  div class="flex gap-3" {
  span class="text-[11px] text-muted font-medium uppercase" { "退货总额" }
  span class="text-[20px] font-bold text-fg accent" { (format!("¥ {:.2}", pr.total_amount)) }

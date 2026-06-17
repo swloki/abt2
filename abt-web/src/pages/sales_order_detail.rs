@@ -456,7 +456,7 @@ fn fulfillment_workbench(
  }
  }
 
- table class="w-full border-collapse" {
+ table class="data-table" {
  thead {
  tr {
  th { "产品" }
@@ -771,7 +771,7 @@ fn order_detail_page(
  }
  }
  }
- div class="flex justify-end gap-8 p-5 border-t bg-surface-raised" {
+ div class="flex justify-end gap-8 p-5 [border-top:1px_solid_var(--border-soft)] bg-surface-raised" {
  div class="flex gap-3" {
  span class="text-[11px] text-muted font-medium uppercase" { "成本合计" }
  span class="text-[20px] font-bold text-fg" { (crate::utils::fmt_amount(o.total_cost)) }

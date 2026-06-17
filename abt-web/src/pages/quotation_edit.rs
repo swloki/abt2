@@ -237,7 +237,7 @@ fn quotation_edit_page(
  }
  }
  div class="flush-scroll" {
- table class="w-full border-collapse" {
+ table class="data-table" {
  thead {
  tr {
  th style="width:36px" { "#" }
@@ -282,7 +282,7 @@ fn quotation_edit_page(
  "添加产品行"
  }
  }
- div class="flex justify-end p-4 bg-surface border-t gap-8" {
+ div class="flex justify-end p-4 bg-surface [border-top:1px_solid_var(--border-soft)] gap-8" {
  div class="flex gap-3" {
  span class="text-sm text-muted" { "合计金额" }
  span class="text-lg font-bold text-fg" id="subtotal-value" { "¥ 0.00" }
@@ -305,7 +305,7 @@ fn quotation_edit_page(
  }
 
  // ── Action Bar ──
- div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
+ div class="flex items-center justify-end gap-3 pt-4 [border-top:1px_solid_var(--border-soft)]" {
  a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(detail_path.to_string()) { "取消" }
  div class="flex gap-3" {
  button type="submit" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" {
@@ -316,9 +316,9 @@ fn quotation_edit_page(
  }
 
  // ── Product Selection Modal ──
- div class="fixed z-[1000] grid place-items-center opacity-0" id="product-modal"
+ div class="group fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto" id="product-modal"
  _="on click[me is event.target] remove .is-open" {
- div class="modal bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0" onclick="event.stopPropagation()" {
+ div class="modal bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl" onclick="event.stopPropagation()" {
  div class="px-6 py-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center shrink-0" {
  h2 { "选择产品" }
  button class="bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden "

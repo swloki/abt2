@@ -255,7 +255,7 @@ fn order_create_page(work_centers: &[abt_core::master_data::work_center::WorkCen
  div class="form-field span-2" { label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "备注" } textarea class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="remark" rows="2" {}; }
  }
  }
- div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
+ div class="flex items-center justify-end gap-3 pt-4 [border-top:1px_solid_var(--border-soft)]" {
  a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{}?restore=true", OrderListPath::PATH)) { "取消" }
  button type="submit" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" { "提交" }
  }
@@ -273,7 +273,7 @@ fn source_order_modal() -> Markup {
  html! {
  div class="fixed z-[1000] grid place-items-center opacity-0" id="so-modal"
  _="on click remove .is-open from #so-modal" {
- div class="modal bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0" _="on click halt" {
+ div class="modal bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl" _="on click halt" {
  div class="px-6 py-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center shrink-0" {
  h2 { "选择销售订单" }
  button style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
@@ -309,7 +309,7 @@ fn source_plan_modal() -> Markup {
  html! {
  div class="fixed z-[1000] grid place-items-center opacity-0" id="pp-modal"
  _="on click remove .is-open from #pp-modal" {
- div class="modal bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0" _="on click halt" {
+ div class="modal bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl" _="on click halt" {
  div class="px-6 py-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center shrink-0" {
  h2 { "选择生产计划" }
  button style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"

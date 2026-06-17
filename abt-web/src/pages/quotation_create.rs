@@ -353,7 +353,7 @@ fn quotation_create_page(customers: &[abt_core::master_data::customer::model::Cu
  "产品明细"
  }
  div class="overflow-x-auto" {
- table class="w-full border-collapse" {
+ table class="data-table" {
  thead {
  tr {
  th class="col-num" { "#" }
@@ -378,7 +378,7 @@ fn quotation_create_page(customers: &[abt_core::master_data::customer::model::Cu
  "添加产品行"
  }
  }
- div class="flex justify-end p-4 bg-surface border-t gap-8" {
+ div class="flex justify-end p-4 bg-surface [border-top:1px_solid_var(--border-soft)] gap-8" {
  div class="flex gap-3" {
  span class="text-sm text-muted" { "合计金额" }
  span class="text-lg font-bold text-fg" id="subtotal-value" { "¥ 0.00" }
@@ -417,7 +417,7 @@ fn quotation_create_page(customers: &[abt_core::master_data::customer::model::Cu
  }
 
  // ── Action Bar ──
- div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
+ div class="flex items-center justify-end gap-3 pt-4 [border-top:1px_solid_var(--border-soft)]" {
  a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{}?restore=true", QuotationListPath::PATH)) { "取消" }
  div class="flex gap-3" {
  button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" {
@@ -433,9 +433,9 @@ fn quotation_create_page(customers: &[abt_core::master_data::customer::model::Cu
  }
 
  // ── Product Selection Modal ──
- div class="fixed z-[1000] grid place-items-center opacity-0" id="product-modal"
+ div class="group fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto" id="product-modal"
  _="on click[me is event.target] remove .is-open" {
- div class="modal bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0" onclick="event.stopPropagation()" {
+ div class="modal bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl" onclick="event.stopPropagation()" {
  div class="px-6 py-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center shrink-0" {
  h2 { "选择产品" }
  button class="bg-transparent border-none cursor-pointer text-xl text-muted p-1 hover:text-fg"

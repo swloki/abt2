@@ -368,7 +368,7 @@ fn detail_page(
  }
 
  // Info Split: Key fields + Progress ring
- div class="grid border-t" {
+ div class="grid [border-top:1px_solid_var(--border-soft)]" {
  div {
  div class="grid gap-[20px 48px]" {
  div class="flex flex-col gap-[6px]" {
@@ -609,7 +609,7 @@ fn detail_page(
  }
  }
  }
- div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" {
+ div class="px-6 py-4 [border-top:1px_solid_var(--border-soft)] flex justify-end gap-3 shrink-0" {
  button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" _="on click remove .is-open from #record-node-modal" {
  "取消"
  }
@@ -671,7 +671,7 @@ fn detail_page(
  }
  }
  }
- div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" {
+ div class="px-6 py-4 [border-top:1px_solid_var(--border-soft)] flex justify-end gap-3 shrink-0" {
  button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" _="on click remove .is-open from #receive-modal" {
  "取消"
  }
@@ -708,7 +708,7 @@ fn detail_page(
  }
  }
  }
- div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" {
+ div class="px-6 py-4 [border-top:1px_solid_var(--border-soft)] flex justify-end gap-3 shrink-0" {
  button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" _="on click remove .is-open from #convert-modal" {
  "取消"
  }
@@ -745,7 +745,7 @@ fn detail_page(
  }
  }
  }
- div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" {
+ div class="px-6 py-4 [border-top:1px_solid_var(--border-soft)] flex justify-end gap-3 shrink-0" {
  button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" _="on click remove .is-open from #cancel-modal" {
  "返回"
  }

@@ -464,7 +464,7 @@ fn node_edit_form_fragment(bom_id: i64, node_id: i64, bom_version: i32, node: &B
  input type="text" name="remark" value=(node.remark.as_deref().unwrap_or("")) {}
  }
  }
- div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" style="padding:var(--space-4) 0 0;border-top:1px solid var(--border-soft)" {
+ div class="px-6 py-4 [border-top:1px_solid_var(--border-soft)] flex justify-end gap-3 shrink-0" style="padding:var(--space-4) 0 0;border-top:1px solid var(--border-soft)" {
  button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
  _="on click remove .is-open from #bom-edit-modal then empty #bom-edit-modal" { "取消" }
  button type="submit" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" { "保存" }
@@ -748,7 +748,7 @@ fn bom_edit_page(
  input type="text" name="new_name" required
  placeholder="输入新的 BOM 名称" {}
  }
- div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" style="padding:var(--space-4) 0 0;border-top:1px solid var(--border-soft)" {
+ div class="px-6 py-4 [border-top:1px_solid_var(--border-soft)] flex justify-end gap-3 shrink-0" style="padding:var(--space-4) 0 0;border-top:1px solid var(--border-soft)" {
  button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" _="on click remove .is-open from #bom-save-as-modal" { "取消" }
  button type="submit" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-[#10b981] text-[#fff]" { "确认另存为" }
  }

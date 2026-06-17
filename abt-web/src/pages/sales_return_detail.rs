@@ -464,7 +464,7 @@ fn return_detail_page(
  }
  }
  }
- div class="flex justify-end gap-8 p-5 border-t bg-surface-raised" {
+ div class="flex justify-end gap-8 p-5 [border-top:1px_solid_var(--border-soft)] bg-surface-raised" {
  div class="flex gap-3" {
  span { "退货总额" }
  span class="mono text-2xl font-bold font-mono tabular-nums tabular-nums text-fg-lg" {

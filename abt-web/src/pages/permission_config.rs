@@ -427,7 +427,7 @@ fn perm_page_content(
  }
  }
  }
- div class="flex items-center border-t" id="stats-bar" {
+ div class="flex items-center [border-top:1px_solid_var(--border-soft)]" id="stats-bar" {
  div class="flex items-center gap-[6px] border-r" {
  span class="text-sm text-muted mt-1" { "资源" }
  span class="text-2xl font-bold font-mono tabular-nums tabular-nums text-fg" { (total_resources) }

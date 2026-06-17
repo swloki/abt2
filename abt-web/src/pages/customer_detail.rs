@@ -144,7 +144,7 @@ fn transaction_table_fragment(
  @if page_txns.is_empty() {
  div class="text-center p-6 text-muted text-sm" { "暂无交易记录" }
  } @else {
- table class="w-full border-collapse" {
+ table class="data-table" {
  thead {
  tr {
  th { "单据编号" }

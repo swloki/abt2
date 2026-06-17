@@ -376,7 +376,7 @@ fn return_create_page(customers: &[abt_core::master_data::customer::model::Custo
  }
  }
  div class="overflow-x-auto" {
- table class="w-full border-collapse" {
+ table class="data-table" {
  thead {
  tr {
  th class="col-num" { "#" }
@@ -401,7 +401,7 @@ fn return_create_page(customers: &[abt_core::master_data::customer::model::Custo
  "添加产品行"
  }
  }
- div class="flex justify-end p-4 bg-surface border-t gap-8" {
+ div class="flex justify-end p-4 bg-surface [border-top:1px_solid_var(--border-soft)] gap-8" {
  div class="flex gap-3" {
  span class="text-sm text-muted" { "退货总数量" }
  span class="text-lg font-bold text-fg" id="total-qty" { "0" }
@@ -439,7 +439,7 @@ fn return_create_page(customers: &[abt_core::master_data::customer::model::Custo
  }
 
  // ── Action Bar ──
- div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
+ div class="flex items-center justify-end gap-3 pt-4 [border-top:1px_solid_var(--border-soft)]" {
  a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{}?restore=true", ReturnListPath::PATH)) { "取消" }
  div class="flex gap-3" {
  button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" onclick="handleSaveDraft()" {

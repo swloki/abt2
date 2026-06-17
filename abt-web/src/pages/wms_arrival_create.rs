@@ -362,7 +362,7 @@ fn arrival_create_page(
  }
  }
  div style="overflow-x:auto" {
- table class="w-full border-collapse" {
+ table class="data-table" {
  thead {
  tr {
  th style="width:40px;text-align:center" { "行号" }
@@ -419,7 +419,7 @@ fn arrival_create_page(
  // ── Product Search Modal ──
  div id="product-modal" class="fixed z-[1000] grid place-items-center opacity-0"
  _="on click[me is event.target] remove .is-open" {
- div class="modal bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0" onclick="event.stopPropagation()" {
+ div class="modal bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl" onclick="event.stopPropagation()" {
  div class="px-6 py-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center shrink-0" {
  h2 { "选择物料" }
  button type="button" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
@@ -468,7 +468,7 @@ fn arrival_create_page(
  // ── PO Import Modal ──
  div id="po-modal" class="fixed z-[1000] grid place-items-center opacity-0"
  _="on click[me is event.target] remove .is-open" {
- div class="modal bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0" onclick="event.stopPropagation()" {
+ div class="modal bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl" onclick="event.stopPropagation()" {
  div class="px-6 py-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center shrink-0" {
  h2 { "从采购订单导入" }
  button type="button" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"

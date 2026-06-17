@@ -157,7 +157,7 @@ fn lock_detail_page(
                 }
                 @if is_active {
                     div class="flex gap-3" {
-                        button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface"
+                        button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
                             hx-post=(detail_path)
                             hx-vals=r#"{"action":"release"}"#
                             hx-confirm="确定要释放此锁定吗？释放后库存将恢复可用。"

@@ -431,7 +431,7 @@ fn detail_content_fragment(dept: &Department, members: &[UserWithRoles], can_cre
             }
             div class="p-5 border-b flex justify-between items-center-actions" {
                 @if can_create {
-                    button class="btn bg-white text-fg border border-border hover:bg-surface inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm [&_svg]:w-4 [&_svg]:h-4"
+                    button class="btn inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm [&_svg]:w-4 [&_svg]:h-4"
                         hx-get=(edit_path)
                         hx-target="#drawerPanel"
                         hx-swap="innerHTML"
@@ -441,7 +441,7 @@ fn detail_content_fragment(dept: &Department, members: &[UserWithRoles], can_cre
                     }
                 }
                 @if can_delete && !dept.is_default {
-                    button class="btn bg-white text-fg border border-border hover:bg-surface inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm text-danger [&_svg]:w-4 [&_svg]:h-4"
+                    button class="btn inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm text-danger [&_svg]:w-4 [&_svg]:h-4"
                         hx-confirm=(format!("确认删除部门「{}」？该操作不可恢复。", dept.department_name))
                         hx-post=(delete_path)
                         hx-target="body"
@@ -674,8 +674,8 @@ fn dept_drawer_fragment(is_edit: bool, dept: Option<&Department>) -> Markup {
                 }
             }
             div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3" {
-                button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface" type="button" _="on click remove .open from #deptDrawer" { "取消" }
-                button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" type="submit" {
+                button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" type="button" _="on click remove .open from #deptDrawer" { "取消" }
+                button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" type="submit" {
                     (icon::check_circle_icon("w-[14px] h-[14px]"))
                     "保存"
                 }

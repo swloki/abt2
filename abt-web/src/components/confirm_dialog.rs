@@ -30,7 +30,7 @@ pub fn confirm_dialog(
                     p class="text-sm text-text-muted text-center leading-relaxed" { (maud::PreEscaped(desc)) }
                 }
                 div class="bg-bg rounded-lg w-[480px]-foot" {
-                    button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface"
+                    button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
                         _="on click remove .open from closest .dialog-overlay" { "取消" }
                     button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-danger text-white border-none hover:opacity-90"
                         _=(format!("on click remove .open from closest .dialog-overlay then trigger submit on #{}", form_id))

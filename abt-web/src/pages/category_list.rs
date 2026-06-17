@@ -618,7 +618,7 @@ fn category_page(tree: &[CategoryTree], initial_panel: Option<&Markup>, first_id
             div class="flex items-center justify-between mb-6" {
                 h1 class="text-xl font-bold text-fg tracking-tight" { "产品分类" }
                 div class="flex gap-3" {
-                    button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface" {
+                    button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" {
                         (icon::upload_icon("w-4 h-4"))
                         "导出"
                     }
@@ -642,7 +642,7 @@ fn category_page(tree: &[CategoryTree], initial_panel: Option<&Markup>, first_id
                     }
                     @if can_create {
                         div class="tree-footer" {
-                            button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" style="width: 100%; justify-content: center;"
+                            button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" style="width: 100%; justify-content: center;"
                                 _="on click add .is-open to #create-modal" {
                                 (icon::plus_icon("w-4 h-4"))
                                 "新建分类"
@@ -826,14 +826,14 @@ fn detail_panel(
                     }
                     div class="cat-info-actions" {
                         @if can_update {
-                            button class="btn bg-white text-fg border border-border hover:bg-surface inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm [&_svg]:w-4 [&_svg]:h-4"
+                            button class="btn inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm [&_svg]:w-4 [&_svg]:h-4"
                                 _="on click add .is-open to #edit-category-modal" {
                                 (icon::edit_icon("w-4 h-4"))
                                 "编辑"
                             }
                         }
                         @if can_delete {
-                            button class="btn bg-white text-fg border border-border hover:bg-surface inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm [&_svg]:w-4 [&_svg]:h-4" style="color: var(--danger); border-color: var(--border);"
+                            button class="btn inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-sm [&_svg]:w-4 [&_svg]:h-4" style="color: var(--danger); border-color: var(--border);"
                                 hx-post=(delete_url)
                                 hx-confirm="确定要删除此分类吗？此操作不可撤销。"
                                 hx-swap="none" {
@@ -897,7 +897,7 @@ fn detail_panel(
                 @if has_products {
                     div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]" style="border: 1px solid var(--border-soft); border-radius: var(--radius-md);" {
                         div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)] overflow-x-auto" {
-                            table class="data-table w-full border-collapse [&_th]:py-2.5 [&_th]:px-4 [&_th]:font-semibold [&_th]:text-muted [&_th]:text-xs [&_th]:uppercase [&_th]:tracking-wide [&_th]:bg-surface-raised [&_th]:[border-bottom:1px_solid_var(--border-soft)] [&_th]:whitespace-nowrap [&_td]:py-3 [&_td]:px-4 [&_td]:[border-bottom:1px_solid_var(--border-soft)] [&_td]:whitespace-nowrap [&_td]:align-middle [&_tbody_tr]:transition-colors [&_tbody_tr]:cursor-pointer [&_tbody_tr:hover]:bg-accent-bg [&_tbody_tr:last-child_td]:[border-bottom:none]" style="min-width: 0;" {
+                            table class="data-table w-full border-collapse [&_th]:py-2.5 [&_th]:px-4 [&_th]:font-semibold [&_th]:text-muted [&_th]:text-xs [&_th]:uppercase [&_th]:tracking-wide [&_th]:bg-surface-raised [&_th]:[border-bottom:1px_solid_var(--border-soft)] [&_th]:whitespace-nowrap [&_td]:py-3 [&_td]:px-4 [&_td]:[border-bottom:1px_solid_var(--border-soft)] [&_td]:whitespace-nowrap [&_td]:align-middle [&_tbody_tr]:transition-colors [&_tbody_tr]:cursor-pointer group/tr [&_tbody_tr:hover]:bg-accent-bg [&_tbody_tr:last-child_td]:[border-bottom:none]" style="min-width: 0;" {
                                 thead {
                                     tr {
                                         th { "产品编码" }

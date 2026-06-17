@@ -62,17 +62,17 @@ pub async fn get_receipt_detail(path: ReceiptDetailPath, ctx: RequestContext) ->
                 @if receipt.status == abt_core::mes::enums::ReceiptStatus::Draft {
                     @if matches!(fqc_status, FqcGate::AllPassed | FqcGate::NotRequired) {
                         form class="inline-form" hx-post=(ReceiptConfirmPath { receipt_id: receipt.id }.to_string()) hx-swap="none" {
-                            button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" type="submit"
+                            button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" type="submit"
                                 hx-confirm="确认入库？将触发倒冲和成本结转。" {
                                 "确认入库"
                             }
                         }
                     } @else if matches!(fqc_status, FqcGate::PendingInspection) {
-                        button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" disabled title="需完成 FQC 质检后才能确认入库" {
+                        button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" disabled title="需完成 FQC 质检后才能确认入库" {
                             "确认入库（待 FQC）"
                         }
                     } @else {
-                        button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" disabled title="FQC 有不合格项，无法入库" {
+                        button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" disabled title="FQC 有不合格项，无法入库" {
                             "确认入库（FQC 不合格）"
                         }
                     }

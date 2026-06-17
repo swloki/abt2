@@ -11,7 +11,7 @@ pub fn export_button(label: &str, export_type: &str) -> Markup {
     let path = format!("{}/{}", crate::routes::excel::EXPORT_START_PATH, export_type);
     let confirm_msg = format!("确定要导出「{}」吗？", label);
     html! {
-        button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface"
+        button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
             hx-post=(path)
             hx-confirm=(confirm_msg)
             hx-swap="none" {
@@ -25,7 +25,7 @@ pub fn export_button(label: &str, export_type: &str) -> Markup {
 pub fn export_dropdown(items: &[ExportItem]) -> Markup {
     html! {
         div class="relative inline-block" {
-            button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface"
+            button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
                 _="on click toggle .is-open on next <div/>" {
                 (crate::components::icon::download_icon("w-4 h-4"))
                 " 导出"

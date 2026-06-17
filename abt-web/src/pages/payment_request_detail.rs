@@ -183,7 +183,7 @@ fn pay_detail_page(
                 }
                 div class="flex gap-3" {
                     @if pay.status == PaymentStatus::Draft {
-                        button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover"
+                        button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
                             hx-post=(PayApprovePath { id: pay.id }.to_string())
                             hx-confirm="确认审批此付款申请？" {
                             (icon::check_circle_icon("w-4 h-4"))

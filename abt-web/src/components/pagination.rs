@@ -12,7 +12,7 @@ pub fn pagination(
     }
 
     html! {
-        div class="flex items-center justify-between py-4" {
+        div class="flex items-center justify-between py-4 px-5" {
             span class="text-[13px] text-muted" { "共 " (total) " 条记录，第 " (current_page) "/" (total_pages) " 页" }
             div class="flex gap-1" {
                 @if current_page > 1 {
@@ -50,7 +50,7 @@ pub fn htmx_pagination(
     }
 
     html! {
-        div class="flex items-center justify-between py-4" {
+        div class="flex items-center justify-between py-4 px-5" {
             span class="text-[13px] text-muted" { "共 " (total) " 条记录，第 " (current_page) "/" (total_pages) " 页" }
             div class="flex gap-1" {
                 @if current_page > 1 {
@@ -86,7 +86,7 @@ pub fn htmx_pagination_inherited(
     }
 
     html! {
-        div class="flex items-center justify-between py-4" {
+        div class="flex items-center justify-between py-4 px-5" {
             span class="text-[13px] text-muted" { "共 " (total) " 条记录，第 " (current_page) "/" (total_pages) " 页" }
             div class="flex gap-1" {
                 @if current_page > 1 {

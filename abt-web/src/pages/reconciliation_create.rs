@@ -248,7 +248,7 @@ fn reconciliation_create_page(
                             (icon::package_icon("w-[18px] h-[18px]"))
                             "对账明细"
                         }
-                        button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface" id="pickOrderBtn" disabled {
+                        button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" id="pickOrderBtn" disabled {
                             (icon::plus_icon("w-3.5 h-3.5"))
                             "从发货单添加"
                         }
@@ -259,7 +259,7 @@ fn reconciliation_create_page(
                         (icon::clipboard_list_icon("w-12 h-12"))
                         p class="text-center p-6 text-text-muted text-sm-title" { "暂无对账明细" }
                         p class="text-center p-6 text-text-muted text-sm-desc" { "请先选择客户，然后从发货单中添加对账明细" }
-                        button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover mt-5" onclick="document.getElementById('pickOrderBtn').click()" { "选择发货单" }
+                        button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] mt-5" onclick="document.getElementById('pickOrderBtn').click()" { "选择发货单" }
                     }
                 }
 
@@ -287,13 +287,13 @@ fn reconciliation_create_page(
 
                 // ── Action Bar ──
                 div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
-                    a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface" href=(format!("{}?restore=true", ReconciliationListPath::PATH)) { "取消" }
+                    a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{}?restore=true", ReconciliationListPath::PATH)) { "取消" }
                     div class="action-bar-right" {
-                        button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface" onclick="show_info_toast('草稿功能开发中')" {
+                        button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" onclick="show_info_toast('草稿功能开发中')" {
                             (icon::save_icon("w-4 h-4"))
                             "保存草稿"
                         }
-                        button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-accent text-accent-on border-none hover:bg-accent-hover" _="on click trigger submit on #rec-create-form" {
+                        button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" _="on click trigger submit on #rec-create-form" {
                             (icon::send_icon("w-4 h-4"))
                             "提交确认"
                         }
@@ -323,7 +323,7 @@ fn preview_empty(message: &str) -> Markup {
                     (icon::package_icon("w-[18px] h-[18px]"))
                     "对账明细"
                 }
-                button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface" id="pickOrderBtn" disabled {
+                button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" id="pickOrderBtn" disabled {
                     (icon::plus_icon("w-3.5 h-3.5"))
                     "从发货单添加"
                 }
@@ -362,7 +362,7 @@ fn preview_table(
                     span class="line-items-count" {
                         (item_count) " 行"
                     }
-                    button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-white text-fg border border-border hover:bg-surface" id="pickOrderBtn" {
+                    button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" id="pickOrderBtn" {
                         (icon::plus_icon("w-3.5 h-3.5"))
                         "从发货单添加"
                     }

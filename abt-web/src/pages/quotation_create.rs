@@ -300,7 +300,7 @@ fn quotation_create_page(customers: &[abt_core::master_data::customer::model::Cu
             (customer_info_panel(customers, &[], None, QuotationCustomerContactsPath::PATH))
 
             // ── Quote Info ──
-            div class="form-bg-bg border border-border-soft rounded-lg overflow-hidden" {
+            div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden" {
                 div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                     (icon::clipboard_document_icon("w-[18px] h-[18px]"))
                     "报价信息"
@@ -347,7 +347,7 @@ fn quotation_create_page(customers: &[abt_core::master_data::customer::model::Cu
             }
 
             // ── Line Items ──
-            div class="form-bg-bg border border-border-soft rounded-lg overflow-hidden" {
+            div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden" {
                 div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                     (icon::package_icon("w-[18px] h-[18px]"))
                     "产品明细"
@@ -395,7 +395,7 @@ fn quotation_create_page(customers: &[abt_core::master_data::customer::model::Cu
             }
 
             // ── Remark ──
-            div class="form-bg-bg border border-border-soft rounded-lg overflow-hidden" {
+            div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden" {
                 div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                     (icon::file_text_icon("w-[18px] h-[18px]"))
                     "备注"
@@ -404,7 +404,7 @@ fn quotation_create_page(customers: &[abt_core::master_data::customer::model::Cu
             }
 
             // ── Attachment ──
-            div class="form-bg-bg border border-border-soft rounded-lg overflow-hidden" {
+            div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden" {
                 div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                     (icon::upload_icon("w-[18px] h-[18px]"))
                     "附件"

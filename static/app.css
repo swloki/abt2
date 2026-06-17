@@ -51,14 +51,14 @@
 @property --un-slashed-zero{syntax:"*";inherits:false;}
 /* layer: theme */
 :root, :host {
---default-transition-timingFunction: cubic-bezier(0.4, 0, 0.2, 1);
---default-transition-duration: 150ms;
 --spacing-1: var(--space-1);
 --fontWeight-bold: 700;
 --spacing: 0.25rem;
 --text-2xl-fontSize: 1.5rem;
 --text-2xl-lineHeight: 2rem;
 --colors-white: #fff;
+--default-transition-timingFunction: cubic-bezier(0.4, 0, 0.2, 1);
+--default-transition-duration: 150ms;
 --radius-sm: var(--radius-sm);
 --text-sm-fontSize: 0.875rem;
 --text-sm-lineHeight: 1.25rem;

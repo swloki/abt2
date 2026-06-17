@@ -234,14 +234,14 @@ fn card_search_result(
     };
 
     html! {
-        div class="bg-bg border border-border-soft rounded-lg overflow-hidden" {
+        div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden" {
             // 结果头部
-            div class="bg-bg border border-border-soft rounded-lg overflow-hidden-header" {
-                div class="bg-bg border border-border-soft rounded-lg overflow-hidden-no" {
+            div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden-header" {
+                div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden-no" {
                     (batch.card_sn)
                     span class=(format!("status-pill {status_cls}")) { (status_label) }
                 }
-                div class="bg-bg border border-border-soft rounded-lg overflow-hidden-meta" {
+                div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden-meta" {
                     span {
                         (PreEscaped(r#"<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/></svg>"#))
                         "批次 " span class="font-mono tabular-nums" { (batch.batch_no) }
@@ -254,7 +254,7 @@ fn card_search_result(
                 }
             }
 
-            div class="bg-bg border border-border-soft rounded-lg overflow-hidden-body" {
+            div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden-body" {
                 // 基本信息网格
                 div class="card-grid gap-4" {
                     div class="card-flex flex-col gap-1" {
@@ -338,12 +338,12 @@ fn card_search_result(
 
                 // 报工明细
                 @if !reports.is_empty() {
-                    div class="bg-bg border border-border-soft rounded-lg overflow-hidden" style="margin-bottom:0" {
+                    div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden" style="margin-bottom:0" {
                         div class="p-4 border-b text-sm font-semibold text-fg flex items-center gap-2 bg-surface-raised" {
                             (PreEscaped(r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>"#))
                             "报工明细"
                         }
-                        div class="bg-bg border border-border-soft rounded-lg overflow-hidden-body" style="padding:0" {
+                        div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden-body" style="padding:0" {
                             div class="overflow-x-auto" {
                                 table class="card-sub-table" {
                                     thead { tr {

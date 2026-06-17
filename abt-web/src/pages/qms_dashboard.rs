@@ -177,7 +177,7 @@ fn qms_dashboard_page(
 
             // ── Two-Column: Recent Results + MRB ──
             div class="grid gap-6" {
-                div class="bg-bg border border-border-soft rounded-lg overflow-hidden" {
+                div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden" {
                     div class="p-4 border-b text-sm font-semibold text-fg flex items-center gap-2 bg-surface-raised" {
                         (icon::check_circle_icon("w-4 h-4"))
                         " 最近检验结果"
@@ -203,7 +203,7 @@ fn qms_dashboard_page(
                     }
                 }
 
-                div class="bg-bg border border-border-soft rounded-lg overflow-hidden" {
+                div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden" {
                     div class="p-4 border-b text-sm font-semibold text-fg flex items-center gap-2 bg-surface-raised" {
                         (icon::alert_triangle_icon("w-4 h-4"))
                         " MRB评审列表"

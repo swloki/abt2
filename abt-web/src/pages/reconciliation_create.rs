@@ -193,7 +193,7 @@ fn reconciliation_create_page(
                   hx-swap="none" {
 
                 // ── 对账基本信息 ──
-                div class="form-bg-bg border border-border-soft rounded-lg overflow-hidden" {
+                div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden" {
                     div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                         (icon::clipboard_document_icon("w-[18px] h-[18px]"))
                         "对账基本信息"
@@ -264,7 +264,7 @@ fn reconciliation_create_page(
                 }
 
                 // ── Remark ──
-                div class="form-bg-bg border border-border-soft rounded-lg overflow-hidden" {
+                div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden" {
                     div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                         (icon::file_text_icon("w-[18px] h-[18px]"))
                         "备注"
@@ -273,7 +273,7 @@ fn reconciliation_create_page(
                 }
 
                 // ── Attachment ──
-                div class="form-bg-bg border border-border-soft rounded-lg overflow-hidden" {
+                div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden" {
                     div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                         (icon::upload_icon("w-[18px] h-[18px]"))
                         "附件"

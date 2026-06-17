@@ -535,7 +535,7 @@ fn shipping_edit_page(
                 input type="hidden" name="order_id" value=(order_id_str);
 
                 // ── 客户信息 ──
-                div class="form-bg-bg border border-border-soft rounded-lg overflow-hidden" {
+                div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden" {
                     div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                         (icon::clipboard_document_icon("w-[18px] h-[18px]"))
                         "客户信息"
@@ -577,7 +577,7 @@ fn shipping_edit_page(
                 }
 
                 // ── 发货信息 ──
-                div class="form-bg-bg border border-border-soft rounded-lg overflow-hidden" {
+                div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden" {
                     div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                         (icon::truck_icon("w-[18px] h-[18px]"))
                         "发货信息"
@@ -618,7 +618,7 @@ fn shipping_edit_page(
                 }
 
                 // ── 备注 ──
-                div class="form-bg-bg border border-border-soft rounded-lg overflow-hidden" {
+                div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden" {
                     div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                         (icon::file_text_icon("w-[18px] h-[18px]"))
                         "备注"
@@ -627,7 +627,7 @@ fn shipping_edit_page(
                 }
 
                 // ── 附件 ──
-                div class="form-bg-bg border border-border-soft rounded-lg overflow-hidden" {
+                div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden" {
                     div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                         (icon::upload_icon("w-[18px] h-[18px]"))
                         "附件"
@@ -640,7 +640,7 @@ fn shipping_edit_page(
                 }
 
                 // ── 发货产品明细 ──
-                div class="form-bg-bg border border-border-soft rounded-lg overflow-hidden" {
+                div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden" {
                     div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                         (icon::package_icon("w-[18px] h-[18px]"))
                         "发货产品明细"
@@ -797,7 +797,7 @@ fn shipping_create_page(
                 input type="hidden" name="order_id";
 
                 // ── 客户信息 ──
-                div class="form-bg-bg border border-border-soft rounded-lg overflow-hidden" {
+                div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden" {
                     div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                         (icon::clipboard_document_icon("w-[18px] h-[18px]"))
                         "客户信息"
@@ -852,7 +852,7 @@ fn shipping_create_page(
                 }
 
                 // ── 发货信息 ──
-                div class="form-bg-bg border border-border-soft rounded-lg overflow-hidden" {
+                div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden" {
                     div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                         (icon::truck_icon("w-[18px] h-[18px]"))
                         "发货信息"
@@ -893,7 +893,7 @@ fn shipping_create_page(
                 }
 
                 // ── 备注 ──
-                div class="form-bg-bg border border-border-soft rounded-lg overflow-hidden" {
+                div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden" {
                     div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                         (icon::file_text_icon("w-[18px] h-[18px]"))
                         "备注"
@@ -902,7 +902,7 @@ fn shipping_create_page(
                 }
 
                 // ── 附件 ──
-                div class="form-bg-bg border border-border-soft rounded-lg overflow-hidden" {
+                div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden" {
                     div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                         (icon::upload_icon("w-[18px] h-[18px]"))
                         "附件"
@@ -915,7 +915,7 @@ fn shipping_create_page(
                 }
 
                 // ── 发货产品明细 ──
-                div class="form-bg-bg border border-border-soft rounded-lg overflow-hidden" {
+                div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden" {
                     div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                         (icon::package_icon("w-[18px] h-[18px]"))
                         "发货产品明细"
@@ -1046,7 +1046,7 @@ fn customer_info_card(
     let selected = selected_customer_id.map(|id| id.to_string()).unwrap_or_default();
 
     html! {
-        div class="form-bg-bg border border-border-soft rounded-lg overflow-hidden mb-4" {
+        div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden mb-4" {
             div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
                 (icon::clipboard_document_icon("w-[18px] h-[18px]"))
                 "客户信息"

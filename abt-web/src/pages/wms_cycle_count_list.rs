@@ -107,7 +107,7 @@ fn cycle_count_list_page(
  h1 class="text-xl font-bold text-fg tracking-tight" { "循环盘点" }
  div class="flex gap-3" {
  @if can_create {
- a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(CycleCountCreatePath::PATH) {
+ a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(CycleCountCreatePath::PATH) {
  (icon::plus_icon("w-4 h-4"))
  "新建盘点"
  }
@@ -140,7 +140,7 @@ fn cycle_count_table_fragment(
  div class="cycle-count-panel" {
  (status_tabs_with_param(CycleCountListPath::PATH, "#cycle-count-data-card", "#cycle-count-filter-form", tabs, &active_value, "status"))
 
- form class="flex items-center gap-3 mb-5 flex-wrap filter-form" id="cycle-count-filter-form"
+ form class="flex items-center gap-3 mb-5 flex-wrap" id="cycle-count-filter-form"
  hx-get=(CycleCountListPath::PATH)
  hx-trigger="change, keyup changed delay:300ms from:.search-input"
  hx-target="#cycle-count-data-card"
@@ -150,7 +150,7 @@ fn cycle_count_table_fragment(
  hx-push-url="true" {
  div class="relative flex-1 max-w-xs [&_svg]:absolute [&_svg]:left-3 [&_svg]:top-1/2 [&_svg]:-translate-y-1/2 [&_svg]:w-4 [&_svg]:h-4 [&_svg]:text-muted" {
  (icon::search_icon(""))
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="doc_number"
+ input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input" type="text" name="doc_number"
  placeholder="盘点单号"
  value=(params.doc_number.as_deref().unwrap_or(""));
  }

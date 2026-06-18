@@ -204,52 +204,8 @@ fn bom_list_page(
  }
  // ── Tabs + Filter + Data Table (HTMX panel) ──
  (bom_table_fragment(result, params, &BomTableContext { cat_map: ctx.cat_map, cat_list: ctx.cat_list, user_map: ctx.user_map, can_view_labor_cost: ctx.can_view_labor_cost, can_view_cost: ctx.can_view_cost, can_delete: ctx.can_delete }))
-
- @if ctx.can_view_cost {
- // ── Cost Drawer ──
- div id="cost-drawer" class="fixed z-[1000] flex justify-end opacity-0"
- _="on click remove .open from #cost-drawer" {
- div class="bg-white h-full w-[420px] flex flex-col max-w-[1000px] w-full" {
- div class="flex items-center justify-between px-6 py-4 border-b border-border-soft" {
- h2 { (icon::currency_icon("w-5 h-5")) " BOM成本报告" }
- button class="text-muted hover:text-fg cursor-pointer bg-transparent border-none"
- _="on click remove .open from #cost-drawer" { "×" }
- }
- div class="flex-1 overflow-y-auto p-6" {
- div id="cost-drawer-body" {
- div class="text-center text-muted text-sm py-8" { "加载中..." }
- }
- }
- div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3" {
- button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
- _="on click remove .open from #cost-drawer" { "关闭" }
- }
- }
- }
- } @else if ctx.can_view_labor_cost {
- // ── Labor Cost Drawer ──
- div id="labor-drawer" class="fixed z-[1000] flex justify-end opacity-0"
- _="on click remove .open from #labor-drawer" {
- div class="bg-white h-full w-[420px] flex flex-col max-w-[800px] w-full" {
- div class="flex items-center justify-between px-6 py-4 border-b border-border-soft" {
- h2 { (icon::bolt_icon("w-5 h-5")) " BOM 人工成本" }
- button class="text-muted hover:text-fg cursor-pointer bg-transparent border-none"
- _="on click remove .open from #labor-drawer" { "×" }
- }
- div class="flex-1 overflow-y-auto p-6" {
- div id="labor-drawer-body" {
- div class="text-center text-muted text-sm py-8" { "加载中..." }
- }
- }
- div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3" {
- button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
- _="on click remove .open from #labor-drawer" { "关闭" }
- }
- }
- }
- }
- }
  script src="/cost-drawer.js?v=20260602" {}
+ }
  }
 }
 struct BomTableContext<'a> {
@@ -287,7 +243,7 @@ fn bom_table_fragment(
  hx-push-url="true" {
  div class="relative flex-1 max-w-xs [&_svg]:absolute [&_svg]:left-3 [&_svg]:top-1/2 [&_svg]:-translate-y-1/2 [&_svg]:w-4 [&_svg]:h-4 [&_svg]:text-muted" {
  (icon::search_icon("w-4 h-4"))
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword"
+ input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input" type="text" name="keyword"
  placeholder="搜索BOM名称或产品编号…"
  value=(params.keyword.as_deref().unwrap_or_default());
  }

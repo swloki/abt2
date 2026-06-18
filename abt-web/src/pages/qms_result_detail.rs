@@ -82,7 +82,7 @@ pub async fn get_detail(path: ResultDetailPath, ctx: RequestContext) -> Result<H
 
  let content = html! { div {
  div class="flex items-center justify-between mb-6" {
- div class="flex items-center justify-between mb-6-left" {
+ div class="flex items-center justify-between mb-6" {
  a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", ResultListPath::PATH)) { "\u{2190} 返回列表" }
  h1 class="text-xl font-bold text-fg tracking-tight" {
  "单号 " (&result.doc_number)
@@ -94,7 +94,7 @@ pub async fn get_detail(path: ResultDetailPath, ctx: RequestContext) -> Result<H
 
  // ── 基本信息 ──
  div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
- h3 { "基本信息" }
+ h3 class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" { "基本信息" }
  div class="grid gap-4" {
  div class="flex flex-col gap-1" { label { "产品" } span { (product_name) } }
  div class="flex flex-col gap-1" {
@@ -112,7 +112,7 @@ pub async fn get_detail(path: ResultDetailPath, ctx: RequestContext) -> Result<H
 
  // ── 抽样结果 ──
  div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
- h3 { "抽样结果" }
+ h3 class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" { "抽样结果" }
  div class="grid gap-4" {
  div class="flex flex-col gap-1" { label { "抽样数量" } span class="font-mono tabular-nums text-right text-[13px]" { (fmt_qty(result.sample_qty)) } }
  div class="flex flex-col gap-1" { label { "合格数量" } span class="font-mono tabular-nums text-right text-[13px]" { (fmt_qty(result.qualified_qty)) } }
@@ -125,8 +125,8 @@ pub async fn get_detail(path: ResultDetailPath, ctx: RequestContext) -> Result<H
  }
 
  // ── 检验项目结果 ──
- div class="data-card bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)] overflow-x-auto" {
- h3 { "检验项目结果" }
+ div class="data-card overflow-x-auto" {
+ h3 class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" { "检验项目结果" }
  @if result.check_results.is_empty() {
  p { "暂无检验项目结果" }
  } @else {
@@ -163,7 +163,7 @@ pub async fn get_detail(path: ResultDetailPath, ctx: RequestContext) -> Result<H
 
  // ── 其他信息 ──
  div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
- h3 { "其他信息" }
+ h3 class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" { "其他信息" }
  div class="grid gap-4" {
  div class="flex flex-col gap-1" { label { "创建时间" } span { (result.created_at.format("%Y-%m-%d %H:%M")) } }
  div class="flex flex-col gap-1" { label { "更新时间" } span { (result.updated_at.format("%Y-%m-%d %H:%M")) } }
@@ -172,15 +172,15 @@ pub async fn get_detail(path: ResultDetailPath, ctx: RequestContext) -> Result<H
 
  // ── 操作按钮 ──
  @if result.status == InspectionStatus::Pending {
- div class="flex items-center justify-end gap-3 pt-4 [border-top:1px_solid_var(--border-soft)]" {
- a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(format!("{}?restore=true", ResultListPath::PATH)) {
+ div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg [border-top:1px_solid_var(--border-soft)]" {
+ a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(format!("{}?restore=true", ResultListPath::PATH)) {
  "记录结果"
  }
  }
  }
  @if result.status == InspectionStatus::Completed && result.result == InspectionResultType::Fail {
- div class="flex items-center justify-end gap-3 pt-4 [border-top:1px_solid_var(--border-soft)]" {
- a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-danger text-white border-none hover:opacity-90-ghost" href=(MrbCreatePath::PATH) {
+ div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg [border-top:1px_solid_var(--border-soft)]" {
+ a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-danger text-white border-none hover:opacity-90" href=(MrbCreatePath::PATH) {
  "创建MRB"
  }
  }

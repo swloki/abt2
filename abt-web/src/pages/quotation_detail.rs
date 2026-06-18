@@ -157,7 +157,7 @@ fn quotation_detail_page(
  }
  div class="flex gap-3" {
  @if is_draft {
- button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+ button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
  hx-post=(SubmitQuotationPath { id: q.id }.to_string())
  hx-confirm="确认提交报价单？" { "提交报价" }
  }
@@ -170,11 +170,11 @@ fn quotation_detail_page(
  hx-confirm="确认拒绝该报价？" { "拒绝" }
  }
  @if is_accepted {
- button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" onclick="window.print()" {
+ button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" onclick="window.print()" {
  (icon::printer_icon("w-4 h-4"))
  "打印"
  }
- a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(format!("/admin/orders/create?from_quotation={}", q.id)) {
+ a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(format!("/admin/orders/create?from_quotation={}", q.id)) {
  (icon::arrow_right_icon("w-4 h-4"))
  "转销售订单"
  }
@@ -184,7 +184,7 @@ fn quotation_detail_page(
 
  // ── Basic Info Card ──
  div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "基本信息" }
+ div class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" { "基本信息" }
  div class="grid gap-4" {
  div class="flex flex-col gap-1" {
  span class="text-xs text-muted font-medium" { "客户名称" }
@@ -276,7 +276,7 @@ fn quotation_detail_page(
  // ── Remark ──
  @if !q.remark.is_empty() {
  div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)] mt-6" {
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "备注" }
+ div class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" { "备注" }
  p class="text-muted" { (q.remark.as_str()) }
  }
  }

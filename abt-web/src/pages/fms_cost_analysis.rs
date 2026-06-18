@@ -277,6 +277,19 @@ fn fmt_money(d: Decimal) -> String {
  }
 }
 
+/// 返回统计卡片的金额 HTML：
+/// - 值 ≥10000：除以 10000 显示并以小字追加"万"单位
+/// - 值 <10000：原值显示，不加"万"（避免被放大 10000 倍）
+fn fmt_money_wan_html(d: Decimal) -> String {
+ let val = d.round_dp(2);
+ if val >= Decimal::from(10000) {
+ let wan = val / Decimal::from(10000);
+ format!("¥{} <span class=\"text-sm text-muted\">万</span>", wan.round_dp(1))
+ } else {
+ format!("¥{}", val)
+ }
+}
+
 fn fmt_money_full(d: Decimal) -> String {
  format!("¥{}", d.round_dp(2))
 }
@@ -312,7 +325,7 @@ fn cost_analysis_page(
  stats: &PageStats,
 ) -> Markup {
  html! {
- div class="p-6 relative" {
+ div class="relative" {
  // ── 页面标题栏 ──
  div class="flex items-center justify-between mb-6" {
  h1 class="text-xl font-bold text-fg tracking-tight" { "成本核算分析" }
@@ -325,8 +338,8 @@ fn cost_analysis_page(
  }
  // ── 统计概要 ──
  div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6" {
- (stat_card("本月产品成本", &format!("{} <span class=\"text-sm text-muted\">万</span>", fmt_money(stats.total_product_cost).trim_start_matches('¥').replace("万", "")), "border-accent", "bg-[#dbeafe] text-accent", r#"M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"#))
- (stat_card("本月工单成本", &format!("{} <span class=\"text-sm text-muted\">万</span>", fmt_money(stats.total_wo_cost).trim_start_matches('¥').replace("万", "")), "border-warn", "bg-[#fef3c7] text-[#d97706]", r#"M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"#))
+ (stat_card("本月产品成本", &fmt_money_wan_html(stats.total_product_cost), "border-accent", "bg-[#dbeafe] text-accent", r#"M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"#))
+ (stat_card("本月工单成本", &fmt_money_wan_html(stats.total_wo_cost), "border-warn", "bg-[#fef3c7] text-[#d97706]", r#"M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"#))
  (stat_card("综合毛利率", &format!("<span class=\"text-success\">{}%</span>", stats.avg_margin_rate), "border-success", "bg-[#dcfce7] text-success", r#"M23 6l-9.5 9.5-5-5L1 18M17 6h6v6"#))
  (stat_card("利润中心数", &stats.pc_count.to_string(), "border-[#7c3aed]", "bg-[#ede9fe] text-[#7c3aed]", r#"M18 20V10M12 20V4M6 20v-6"#))
  }

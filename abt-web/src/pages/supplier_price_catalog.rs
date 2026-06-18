@@ -9,6 +9,7 @@ use abt_core::purchase::supplier_price::{
 };
 use abt_core::shared::types::{DomainError, PageParams, PaginatedResult};
 
+use crate::components::icon;
 use crate::errors::Result;
 use crate::layout::page::admin_page;
 use crate::routes::supplier_price_catalog::{
@@ -267,11 +268,9 @@ fn list_page(result: &PaginatedResult<PriceView>, query: &ListQuery) -> Markup {
  html! {
  div {
  div class="flex items-center justify-between mb-6" {
- div class="flex items-center justify-between mb-6-left" {
  h1 class="text-xl font-bold text-fg tracking-tight" { "供应商价格目录" }
- }
  div class="flex gap-3" {
- button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+ button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
  hx-get=(PriceCreatePath::PATH)
  hx-target="#price-modal"
  hx-swap="innerHTML"
@@ -316,8 +315,8 @@ fn filter_bar(query: &ListQuery) -> Markup {
  hx-include="#price-filter-form" {
 
  div class="relative flex-1 max-w-xs" {
- span class="search-icon" { "🔍" }
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword"
+ (icon::search_icon("absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted"))
+ input class="search-input w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword"
  placeholder="搜索供应商/产品名称或编码..."
  value=(query.keyword.as_deref().unwrap_or(""))
  autocomplete="off";
@@ -383,7 +382,7 @@ fn pagination_bar(result: &PaginatedResult<PriceView>) -> Markup {
  html! {
  div class="flex items-center justify-between py-4 px-5" {
  span { "共 " (total) " 条记录，第 " (current) "/" (total_pages) " 页" }
- div class="flex items-center justify-between py-4-pages" {
+ div class="flex items-center gap-1" {
  @if current > 1 {
  (page_btn(current - 1, "«"))
  }
@@ -391,7 +390,7 @@ fn pagination_bar(result: &PaginatedResult<PriceView>) -> Markup {
  @if p == 0 {
  button class="w-[34px] h-[34px] grid place-items-center border border-border-soft rounded-sm bg-bg text-fg text-sm cursor-pointer no-underline" disabled { "…" }
  } @else if p == current {
- button class="w-[34px] h-[34px] grid place-items-center border border-border-soft rounded-sm bg-bg text-fg text-sm cursor-pointer no-underline active" disabled { (p) }
+ button class="w-[34px] h-[34px] grid place-items-center border border-border-soft rounded-sm bg-accent text-accent-on text-sm cursor-pointer no-underline" disabled { (p) }
  } @else {
  (page_btn(p, &p.to_string()))
  }
@@ -472,7 +471,7 @@ fn row_tr(price: &PriceView) -> Markup {
  }
  td {
  div class="row-actions flex items-center gap-1 justify-end opacity-0 transition-opacity duration-150 [&_a]:w-[28px] [&_a]:h-[28px] [&_a]:grid [&_a]:place-items-center [&_a]:rounded-sm [&_a]:cursor-pointer [&_a]:bg-surface [&_a]:hover:bg-accent-bg [&_svg]:w-3.5 [&_svg]:h-3.5" {
- button type="button" class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs [&_svg]:w-4 [&_svg]:h-4"
+ button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs [&_svg]:w-4 [&_svg]:h-4"
  hx-get=(PriceEditPath { id: price.id }.to_string())
  hx-target="#price-modal"
  hx-swap="innerHTML"
@@ -679,9 +678,9 @@ fn price_form(action_url: &str, price: Option<&PriceView>) -> Markup {
  }
 
  div class="px-6 py-4 [border-top:1px_solid_var(--border-soft)] flex justify-end gap-3 shrink-0" {
- button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+ button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
  _="on click remove .is-open from #price-modal" { "取消" }
- button type="submit" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" { "保存" }
+ button type="submit" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" { "保存" }
  }
  }
  }

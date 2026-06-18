@@ -62,7 +62,7 @@ pub async fn get_detail(path: RmaDetailPath, ctx: RequestContext) -> Result<Html
 
  let content = html! { div {
  div class="flex items-center justify-between mb-6" {
- div class="flex items-center justify-between mb-6-left" {
+ div class="flex items-center justify-between mb-6" {
  a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", RmaListPath::PATH)) { "\u{2190} 返回列表" }
  h1 class="text-xl font-bold text-fg tracking-tight" {
  "RMA单号 " (&rma.doc_number)
@@ -74,7 +74,7 @@ pub async fn get_detail(path: RmaDetailPath, ctx: RequestContext) -> Result<Html
 
  // ── 基本信息 ──
  div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
- h3 { "基本信息" }
+ h3 class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" { "基本信息" }
  div class="grid gap-4" {
  div class="flex flex-col gap-1" { label { "客户" } span { (customer_name) } }
  div class="flex flex-col gap-1" { label { "产品" } span { (product_name) } }
@@ -105,13 +105,13 @@ pub async fn get_detail(path: RmaDetailPath, ctx: RequestContext) -> Result<Html
 
  // ── 缺陷描述 ──
  div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
- h3 { "缺陷描述" }
+ h3 class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" { "缺陷描述" }
  p class="whitespace-pre-wrap" { (&rma.defect_description) }
  }
 
  // ── 根因分析 ──
  div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
- h3 { "根因分析" }
+ h3 class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" { "根因分析" }
  div class="grid gap-4" {
  div class="flex flex-col gap-1" {
  label { "根本原因" }
@@ -130,7 +130,7 @@ pub async fn get_detail(path: RmaDetailPath, ctx: RequestContext) -> Result<Html
 
  // ── 其他信息 ──
  div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
- h3 { "其他信息" }
+ h3 class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" { "其他信息" }
  div class="grid gap-4" {
  div class="flex flex-col gap-1" { label { "备注" } span { (or_dash(&rma.remark)) } }
  div class="flex flex-col gap-1" { label { "创建时间" } span { (rma.created_at.format("%Y-%m-%d %H:%M")) } }

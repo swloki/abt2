@@ -165,7 +165,7 @@ fn cycle_count_detail_page(
  (workflow_steps(&cc.status))
 
  div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "盘点信息" }
+ div class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" { "盘点信息" }
  div class="grid gap-4" {
  div class="flex flex-col gap-1" {
  span class="text-xs text-muted font-medium" { "盘点单号" }
@@ -196,7 +196,7 @@ fn cycle_count_detail_page(
  }
  }
 
- div class="summary-stats" class="grid" class="gap-4 mb-6" class="grid-cols-4" {
+ div class="grid grid-cols-4 gap-4 mb-6" {
  (summary_card("总项数", &total_items.to_string(), "blue"))
  (summary_card("一致项", &matching_items.to_string(), "green"))
  (summary_card("差异项", &variance_items.to_string(), "orange"))
@@ -204,8 +204,8 @@ fn cycle_count_detail_page(
  }
 
  div class="data-card" {
- div style="padding:var(--space-5) var(--space-6) var(--space-3)" {
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" class="mb-0" style="border-bottom:none;padding-bottom:0" { "盘点明细" }
+ div class="pt-5 px-6 pb-3" {
+ div class="text-base font-semibold text-fg pb-3 mb-0 [border-bottom:1px_solid_var(--border-soft)]" { "盘点明细" }
  }
  div class="overflow-x-auto" {
  table class="data-table" {
@@ -237,7 +237,7 @@ fn cycle_count_detail_page(
  td class="text-right text-[13px]" { (format!("{:.2}", item.counted_qty)) }
  td class="text-right text-[13px]" {
  @if item.variance_qty != rust_decimal::Decimal::ZERO {
- span class="font-semibold" style="color:var(--warning)" {
+ span class="font-semibold text-warn" {
  (format!("{:.2}", item.variance_qty))
  }
  } @else {
@@ -284,33 +284,33 @@ fn workflow_steps(status: &CycleCountStatus) -> Markup {
  CycleCountStatus::Adjusted => 3,
  CycleCountStatus::Cancelled => 0,
  };
+ let is_cancelled = matches!(status, CycleCountStatus::Cancelled);
 
  html! {
  div class="flex items-center" {
  @for (i, (label, _)) in steps.iter().enumerate() {
  @if i > 0 {
- div class=(if i <= idx { "wf-line completed" } else { "wf-line" }) {}
+ div class=(format!("w-[48px] h-[2px] {}", if i <= idx && !is_cancelled { "bg-[#10b981]" } else { "bg-border" })) {}
  }
- @if matches!(status, CycleCountStatus::Cancelled) {
- div class="flex items-center gap-2 text-xs text-muted" {
- span class="w-[10px] h-[10px] rounded-full bg-border" {}
- (label)
+ @let (dot_cls, text_cls, ring_cls) = if is_cancelled {
+ ("bg-border-soft", "text-muted", "")
+ } else if i < idx {
+ ("bg-[#10b981]", "text-[#10b981]", "")
+ } else if i == idx {
+ ("bg-[#2563eb]", "text-[#2563eb] font-semibold", "shadow-[0_0_0_3px_rgba(37,99,235,0.1)]")
+ } else {
+ ("bg-[#d1d5db]", "text-[#9ca3af]", "")
+ };
+ div class="flex items-center gap-2 shrink-0" {
+ span class=(format!("w-2.5 h-2.5 rounded-full shrink-0 {} {}", dot_cls, ring_cls)) {}
+ span class=(format!("text-xs whitespace-nowrap font-medium {}", text_cls)) { (label) }
  }
- } @else if i < idx {
- div class="flex items-center gap-2 text-xs text-muted completed" {
- span class="w-[10px] h-[10px] rounded-full bg-border" {}
- (label)
  }
- } @else if i == idx {
- div class="flex items-center gap-2 text-xs text-muted current" {
- span class="w-[10px] h-[10px] rounded-full bg-border" {}
- (label)
- }
- } @else {
- div class="flex items-center gap-2 text-xs text-muted" {
- span class="w-[10px] h-[10px] rounded-full bg-border" {}
- (label)
- }
+ @if is_cancelled {
+ div class="w-[48px] h-[2px] bg-border" {}
+ div class="flex items-center gap-2 shrink-0" {
+ span class="w-2.5 h-2.5 rounded-full shrink-0 bg-[#ef4444]" {}
+ span class="text-xs text-[#ef4444] font-semibold whitespace-nowrap" { "已取消" }
  }
  }
  }
@@ -321,7 +321,7 @@ fn action_buttons(cc: &abt_core::wms::cycle_count::model::CycleCount, detail_pat
  match &cc.status {
  CycleCountStatus::Draft => {
  html! {
- button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+ button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
  hx-post=(detail_path)
  hx-vals=r#"{"action":"start"}"#
  hx-confirm="确定要开始盘点吗？"
@@ -332,7 +332,7 @@ fn action_buttons(cc: &abt_core::wms::cycle_count::model::CycleCount, detail_pat
  }
  CycleCountStatus::Counting => {
  html! {
- button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+ button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
  hx-post=(detail_path)
  hx-vals=r#"{"action":"complete"}"#
  hx-confirm="确定要完成盘点吗？"
@@ -343,7 +343,7 @@ fn action_buttons(cc: &abt_core::wms::cycle_count::model::CycleCount, detail_pat
  }
  CycleCountStatus::Completed => {
  html! {
- button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+ button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
  hx-post=(detail_path)
  hx-vals=r#"{"action":"cancel"}"#
  hx-confirm="确定要取消此盘点单吗？"
@@ -351,7 +351,7 @@ fn action_buttons(cc: &abt_core::wms::cycle_count::model::CycleCount, detail_pat
  (crate::components::icon::x_icon("w-4 h-4"))
  "取消"
  }
- button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+ button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
  hx-post=(detail_path)
  hx-vals=r#"{"action":"adjust"}"#
  hx-confirm="确定要确认调整库存吗？此操作不可撤销。"
@@ -365,12 +365,18 @@ fn action_buttons(cc: &abt_core::wms::cycle_count::model::CycleCount, detail_pat
 }
 
 fn summary_card(label: &str, value: &str, color: &str) -> Markup {
+ let icon_bg = match color {
+ "green" => "bg-success-bg",
+ "orange" => "bg-warn-bg",
+ "purple" => "bg-accent-bg",
+ _ => "bg-accent-bg",
+ };
  html! {
- div class="summary-flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" class="flex items-center" class="rounded-md gap-3" class="border border-border-soft px-5 py-4" style="background:var(--bg)" {
- div class=(format!("summary-stat-icon {color}")) class="w-10 grid" class="rounded-md" style="height:40px;place-items:center;flex-shrink:0" {}
+ div class="flex items-center gap-3 px-5 py-4 bg-bg border border-border-soft rounded-md" {
+ div class={(format!("w-10 h-10 rounded-md grid place-items-center shrink-0 {icon_bg}"))} {}
  div {
- div class="font-bold" class="text-xl" class="leading-tight" { (value) }
- div class="text-xs text-muted" style="margin-top:2px" { (label) }
+ div class="font-bold text-xl leading-tight" { (value) }
+ div class="text-xs text-muted mt-0.5" { (label) }
  }
  }
  }

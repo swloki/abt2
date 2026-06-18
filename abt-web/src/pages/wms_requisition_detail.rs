@@ -295,7 +295,7 @@ fn requisition_action_buttons(status: RequisitionStatus, detail_path: &str) -> M
  match status {
  RequisitionStatus::Draft => {
  html! {
- button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+ button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
  hx-post=(detail_path)
  hx-vals=r#"{"action":"cancel"}"#
  hx-confirm="确定要取消此领料单吗？"
@@ -303,7 +303,7 @@ fn requisition_action_buttons(status: RequisitionStatus, detail_path: &str) -> M
  (icon::x_icon("w-4 h-4"))
  "取消"
  }
- button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+ button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
  hx-post=(detail_path)
  hx-vals=r#"{"action":"confirm"}"#
  hx-confirm="确定要确认此领料单吗？"
@@ -315,7 +315,7 @@ fn requisition_action_buttons(status: RequisitionStatus, detail_path: &str) -> M
  }
  RequisitionStatus::Confirmed => {
  html! {
- button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+ button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
  hx-post=(detail_path)
  hx-vals=r#"{"action":"cancel"}"#
  hx-confirm="确定要取消此领料单吗？"
@@ -323,7 +323,7 @@ fn requisition_action_buttons(status: RequisitionStatus, detail_path: &str) -> M
  (icon::x_icon("w-4 h-4"))
  "取消"
  }
- button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+ button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
  hx-post=(detail_path)
  hx-vals=r#"{"action":"issue"}"#
  hx-confirm="确定要确认发料吗？实发数量将按需求数量自动填写。"
@@ -335,7 +335,7 @@ fn requisition_action_buttons(status: RequisitionStatus, detail_path: &str) -> M
  }
  RequisitionStatus::Issued | RequisitionStatus::PartiallyIssued => {
  html! {
- button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" type="button"
+ button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" type="button"
  _="on click add .is-open to #return-modal" {
  (icon::return_arrow_icon("w-4 h-4"))
  "退料"

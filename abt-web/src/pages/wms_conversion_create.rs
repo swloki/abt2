@@ -206,7 +206,7 @@ fn conversion_create_page(
  }
  }
  // ── 消耗物料 ──
- div class="form-section" class="p-0 overflow-hidden" {
+ div class="form-section p-0 overflow-hidden" {
  div class="px-6 pt-6 pb-4 flex items-center gap-2" {
  span class="text-sm font-semibold text-fg" { "消耗物料" }
  span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#fff2f0] text-danger" { "消耗" }
@@ -238,7 +238,7 @@ fn conversion_create_page(
  }
  }
  // ── 产出物料 ──
- div class="form-section" class="p-0 overflow-hidden" {
+ div class="form-section p-0 overflow-hidden" {
  div class="px-6 pt-6 pb-4 flex items-center gap-2" {
  span class="text-sm font-semibold text-fg" { "产出物料" }
  span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#f0fff0] text-success" { "产出" }
@@ -271,7 +271,7 @@ fn conversion_create_page(
  }
  input type="hidden" name="consume_json" id="consume-json" value="[]" {}
  input type="hidden" name="produce_json" id="produce-json" value="[]" {}
- div id="conversion-item-target" style="display:none" { }
+ div id="conversion-item-target" class="hidden" { }
  // ── Action Bar ──
  div class="sticky bottom-0 flex items-center justify-between gap-3 px-6 py-4 bg-bg [border-top:1px_solid_var(--border-soft)]" {
  div { }

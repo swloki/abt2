@@ -113,7 +113,7 @@ pub async fn search_products(
  PageParams { page: 1, page_size: 20 },
  ).await?;
  let rows = if result.items.is_empty() {
- html! { tr { td colspan="3" class="text-center text-muted" style="padding:24px" { "未找到匹配的产品" } } }
+ html! { tr { td colspan="3" class="text-center text-muted p-6" { "未找到匹配的产品" } } }
  } else {
  html! {
  @for p in &result.items {
@@ -170,7 +170,7 @@ fn plan_create_page() -> Markup {
  }
  }
  // ── Plan Items ──
- div class="form-section" class="p-0 overflow-hidden" {
+ div class="form-section p-0 overflow-hidden" {
  div class="px-6 pt-6 pb-4" {
  div class="flex items-center gap-2 text-sm font-semibold text-fg mb-3" {
  (icon::box_icon("w-[18px] h-[18px]"))
@@ -257,7 +257,7 @@ fn plan_create_page() -> Markup {
  }
  }
  tbody id="product-search-results" {
- tr { td colspan="3" class="text-center text-muted" style="padding:24px" { "正在加载..." } }
+ tr { td colspan="3" class="text-center text-muted p-6" { "正在加载..." } }
  }
  }
  }

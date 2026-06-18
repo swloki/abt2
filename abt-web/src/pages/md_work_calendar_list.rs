@@ -51,7 +51,7 @@ pub async fn get_work_calendar_list(
 fn work_calendar_list_page(calendars: &[WorkCalendar]) -> Markup {
  html! {
  div class="flex items-center justify-between mb-6" {
- div class="flex items-center justify-between mb-6-left" {
+ div class="flex items-center justify-between mb-6" {
  h1 class="text-xl font-bold text-fg tracking-tight" { "工作日历管理" }
  }
  div class="flex gap-3" {

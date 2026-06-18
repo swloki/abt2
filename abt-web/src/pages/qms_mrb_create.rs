@@ -133,7 +133,7 @@ fn mrb_create_page(products: &[Product], failed_results: &[InspectionResult]) ->
  div {
  // ── Page header ──
  div class="flex items-center justify-between mb-6" {
- div class="flex items-center justify-between mb-6-left" {
+ div class="flex items-center justify-between mb-6" {
  a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", MrbListPath::PATH)) {
  (icon::arrow_left_icon("w-4 h-4"))
  "返回列表"
@@ -151,7 +151,7 @@ fn mrb_create_page(products: &[Product], failed_results: &[InspectionResult]) ->
  "关联信息"
  }
  div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
- div class="form-field" class="col-span-2" {
+ div class="form-field col-span-2" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap required" { "关联检验结果" }
  select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent" name="inspection_result_id" required {
  option value="" disabled selected { "请选择检验结果" }
@@ -160,7 +160,7 @@ fn mrb_create_page(products: &[Product], failed_results: &[InspectionResult]) ->
  }
  }
  }
- div class="form-field" class="col-span-2" {
+ div class="form-field col-span-2" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap required" { "产品" }
  select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent" name="product_id" required {
  option value="" disabled selected { "请选择产品" }
@@ -226,12 +226,12 @@ fn mrb_create_page(products: &[Product], failed_results: &[InspectionResult]) ->
 
  // ── Action bar ──
  div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
- a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{}?restore=true", MrbListPath::PATH)) { "取消" }
- button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+ a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{}?restore=true", MrbListPath::PATH)) { "取消" }
+ button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
  onclick="document.getElementById('mrb-form').querySelector('[name=remark]').value+='[草稿]';htmx.trigger('#mrb-form','submit')" {
  "保存草稿"
  }
- button type="submit" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" { "提交审批" }
+ button type="submit" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" { "提交审批" }
  }
  }
  }

@@ -318,7 +318,7 @@ fn demand_pool_page(
  }
  }
  div class="flex gap-3" {
- button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+ button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
  hx-get=(MesDemandPoolListPath::PATH)
  hx-target="#demand-pool-data-card"
  hx-select="#demand-pool-data-card"
@@ -357,7 +357,7 @@ fn stat_mini_cards(stats: &DemandPoolStats) -> Markup {
  html! {
  div class="grid grid-cols-4 gap-4 mb-6" {
  div class="flex items-center gap-3 bg-bg border border-border-soft rounded-lg px-5 py-4 shadow-[var(--shadow-card)]" {
- div class="w-[38px] h-[38px] rounded-md grid place-items-center shrink-0" class="text-warn" style="background:#fef3c7" {
+ div class="w-[38px] h-[38px] rounded-md grid place-items-center shrink-0 text-warn bg-[#fef3c7]" {
  (icon::tool_icon("w-[18px] h-[18px]"))
  }
  div {
@@ -366,7 +366,7 @@ fn stat_mini_cards(stats: &DemandPoolStats) -> Markup {
  }
  }
  div class="flex items-center gap-3 bg-bg border border-border-soft rounded-lg px-5 py-4 shadow-[var(--shadow-card)]" {
- div class="w-[38px] h-[38px] rounded-md grid place-items-center shrink-0" class="text-accent" style="background:#dbeafe" {
+ div class="w-[38px] h-[38px] rounded-md grid place-items-center shrink-0 text-accent bg-[#dbeafe]" {
  (icon::cube_icon("w-[18px] h-[18px]"))
  }
  div {
@@ -375,7 +375,7 @@ fn stat_mini_cards(stats: &DemandPoolStats) -> Markup {
  }
  }
  div class="flex items-center gap-3 bg-bg border border-border-soft rounded-lg px-5 py-4 shadow-[var(--shadow-card)]" {
- div class="w-[38px] h-[38px] rounded-md grid place-items-center shrink-0" class="text-success" style="background:#dcfce7" {
+ div class="w-[38px] h-[38px] rounded-md grid place-items-center shrink-0 text-success bg-[#dcfce7]" {
  (icon::check_circle_icon("w-[18px] h-[18px]"))
  }
  div {
@@ -384,7 +384,7 @@ fn stat_mini_cards(stats: &DemandPoolStats) -> Markup {
  }
  }
  div class="flex items-center gap-3 bg-bg border border-border-soft rounded-lg px-5 py-4 shadow-[var(--shadow-card)]" {
- div class="w-[38px] h-[38px] rounded-md grid place-items-center shrink-0" class="text-danger" style="background:#fee2e2" {
+ div class="w-[38px] h-[38px] rounded-md grid place-items-center shrink-0 text-danger bg-[#fee2e2]" {
  (icon::clock_icon("w-[18px] h-[18px]"))
  }
  div {
@@ -454,7 +454,7 @@ fn view_toggle_and_filter(view_mode: &str, params: &DemandPoolQueryParams) -> Ma
  input type="hidden" name="view" value=(view_mode);
  div class="relative flex-1 max-w-xs [&_svg]:absolute [&_svg]:left-3 [&_svg]:top-1/2 [&_svg]:-translate-y-1/2 [&_svg]:w-4 [&_svg]:h-4 [&_svg]:text-muted" {
  (icon::search_icon(""))
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword"
+ input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input" type="text" name="keyword"
  placeholder="搜索物料名称、编码…"
  value=(kw);
  }
@@ -468,7 +468,7 @@ fn view_toggle_and_filter(view_mode: &str, params: &DemandPoolQueryParams) -> Ma
  }
 
  // Hidden form for view toggle to preserve keyword/date_filter
- form id="mes-filter-form" style="display:none;" {
+ form id="mes-filter-form" class="hidden" {
  input type="hidden" name="keyword" value=(kw);
  input type="hidden" name="date_filter" value=(df);
  }
@@ -632,9 +632,9 @@ fn demand_expand_row(d: &DemandSummary) -> Markup {
  input type="checkbox" class="demand-cb" value=(d.id) checked;
  }
  }
- td class="font-mono tabular-nums" class="text-xs" { (d.id) }
+ td class="font-mono tabular-nums text-xs" { (d.id) }
  td {
- a class="text-accent font-medium cursor-pointer" href=(format!("/admin/orders/{}", d.order_id)) class="text-xs" { (d.order_no.as_deref().unwrap_or("—")) }
+ a class="text-accent font-medium cursor-pointer text-xs" href=(format!("/admin/orders/{}", d.order_id)) { (d.order_no.as_deref().unwrap_or("—")) }
  }
  td class="text-right text-[13px] font-mono tabular-nums" { (fmt_qty(d.quantity)) }
  td class="font-mono tabular-nums" { (format_date(d.required_date)) }

@@ -96,7 +96,7 @@ fn backflush_table_fragment(
 
  html! {
  div class="backflush-list-panel" {
- form class="flex items-center gap-3 mb-5 flex-wrap filter-form" id="filter-form"
+ form class="flex items-center gap-3 mb-5 flex-wrap" id="filter-form"
  hx-get=(BackflushListPath::PATH)
  hx-trigger="change,keyup changed delay:300ms from:.search-input"
  hx-target="#backflush-data-card"
@@ -106,14 +106,14 @@ fn backflush_table_fragment(
  hx-push-url="true" {
  div class="relative flex-1 max-w-xs [&_svg]:absolute [&_svg]:left-3 [&_svg]:top-1/2 [&_svg]:-translate-y-1/2 [&_svg]:w-4 [&_svg]:h-4 [&_svg]:text-muted" {
  (icon::search_icon(""))
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="doc_number"
+ input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input" type="text" name="doc_number"
  class="w-[180px]"
  placeholder="单据编号"
  value=(params.doc_number.as_deref().unwrap_or(""));
  }
  div class="relative flex-1 max-w-xs [&_svg]:absolute [&_svg]:left-3 [&_svg]:top-1/2 [&_svg]:-translate-y-1/2 [&_svg]:w-4 [&_svg]:h-4 [&_svg]:text-muted" {
  (icon::search_icon(""))
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="work_order"
+ input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input" type="text" name="work_order"
  placeholder="工单号"
  value=(params.work_order.as_deref().unwrap_or(""));
  }

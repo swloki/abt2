@@ -244,7 +244,7 @@ fn product_detail_page(
  // ── Detail Top ──
  div class="flex justify-between items-start" {
  div class="flex items-center gap-5" {
- div class="customer-inline-grid place-items-center rounded-full text-white font-semibold shrink-0 select-none" {
+ div class="w-10 h-10 grid place-items-center rounded-full bg-accent text-white font-semibold shrink-0 select-none" {
  (icon::box_icon("w-5 h-5"))
  }
  div {
@@ -263,11 +263,11 @@ fn product_detail_page(
  }
  }
  div class="flex gap-3" {
- a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{list_path}?restore=true")) {
+ a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{list_path}?restore=true")) {
  (icon::arrow_left_icon("w-4 h-4"))
  " 返回列表"
  }
- a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(edit_path) {
+ a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(edit_path) {
  (icon::edit_icon("w-4 h-4"))
  " 编辑"
  }
@@ -425,8 +425,8 @@ fn tab_production_config(
  span class="text-[12px] text-muted font-medium" { "物料消耗模式" }
  div class="text-sm text-fg font-medium flex items-center gap-2" {
  div class="inline-flex bg-surface border border-border rounded-full gap-[2px]" {
- span class=(if mode == MaterialConsumptionMode::Backflush { "toggle-option active" } else { "toggle-option" }) { "倒冲" }
- span class=(if mode == MaterialConsumptionMode::Picking { "toggle-option active" } else { "toggle-option" }) { "领料" }
+ span class=(if mode == MaterialConsumptionMode::Backflush { "px-3 py-1 text-xs rounded-full bg-accent text-accent-on" } else { "px-3 py-1 text-xs rounded-full bg-surface text-muted" }) { "倒冲" }
+ span class=(if mode == MaterialConsumptionMode::Picking { "px-3 py-1 text-xs rounded-full bg-accent text-accent-on" } else { "px-3 py-1 text-xs rounded-full bg-surface text-muted" }) { "领料" }
  }
  }
  }
@@ -544,7 +544,7 @@ fn tab_bom(bom: Option<&Bom>, bom_nodes: &[BomNode], node_names: &HashMap<i64, S
  @if bom_nodes.is_empty() {
  div class="text-center p-6 text-muted text-sm" {
  p { "该产品暂无已发布 BOM 组件" }
- a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href="/admin/md/boms" { "前往维护 BOM" }
+ a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href="/admin/md/boms" { "前往维护 BOM" }
  }
  } @else {
  table class="data-table" {
@@ -778,9 +778,9 @@ fn product_edit_page(product: &Product) -> Markup {
  }
 
  // ── Action Bar ──
- div class="flex items-center justify-end gap-3 pt-4 [border-top:1px_solid_var(--border-soft)]" {
- a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(detail_path) { "取消" }
- button type="submit" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" {
+ div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg [border-top:1px_solid_var(--border-soft)]" {
+ a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(detail_path) { "取消" }
+ button type="submit" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" {
  "保存修改"
  }
  }

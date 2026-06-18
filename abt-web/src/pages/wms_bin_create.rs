@@ -125,8 +125,8 @@ fn bin_create_page(
  hx-swap="none" {
 
  // ── Section: 库位信息 ──
- div class="data-card" class="mb-4" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
+ div class="data-card mb-4" {
+ div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)]" {
  (icon::grid_icon("w-4 h-4"))
  " 库位信息"
  }
@@ -186,27 +186,27 @@ fn bin_create_page(
  option value="constant" { "恒温" }
  }
  }
- div class="form-field" style="grid-column: span 2" {
- label class="whitespace-nowrap" { "允许物料类型" }
- div class="flex flex-wrap" style="gap:10px;padding-top:4px" {
- label class="flex items-center text-fg-2 cursor-pointer" class="gap-1 text-sm" {
- input type="checkbox" name="allowed_product_types" value="raw_material" class="accent-accent" checked;
+ div class="col-span-2 flex flex-col" {
+ label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "允许物料类型" }
+ div class="flex flex-wrap gap-2.5 pt-1" {
+ label class="flex items-center gap-1 text-sm text-fg-2 cursor-pointer" {
+ input type="checkbox" name="allowed_product_types" value="raw_material" class="accent-accent w-4 h-4 cursor-pointer" checked;
  "原材料"
  }
- label class="flex items-center text-fg-2 cursor-pointer" class="gap-1 text-sm" {
- input type="checkbox" name="allowed_product_types" value="semi_finished" class="accent-accent";
+ label class="flex items-center gap-1 text-sm text-fg-2 cursor-pointer" {
+ input type="checkbox" name="allowed_product_types" value="semi_finished" class="accent-accent w-4 h-4 cursor-pointer";
  "半成品"
  }
- label class="flex items-center text-fg-2 cursor-pointer" class="gap-1 text-sm" {
- input type="checkbox" name="allowed_product_types" value="finished" class="accent-accent";
+ label class="flex items-center gap-1 text-sm text-fg-2 cursor-pointer" {
+ input type="checkbox" name="allowed_product_types" value="finished" class="accent-accent w-4 h-4 cursor-pointer";
  "成品"
  }
- label class="flex items-center text-fg-2 cursor-pointer" class="gap-1 text-sm" {
- input type="checkbox" name="allowed_product_types" value="packaging" class="accent-accent";
+ label class="flex items-center gap-1 text-sm text-fg-2 cursor-pointer" {
+ input type="checkbox" name="allowed_product_types" value="packaging" class="accent-accent w-4 h-4 cursor-pointer";
  "包材"
  }
- label class="flex items-center text-fg-2 cursor-pointer" class="gap-1 text-sm" {
- input type="checkbox" name="allowed_product_types" value="consumable" class="accent-accent";
+ label class="flex items-center gap-1 text-sm text-fg-2 cursor-pointer" {
+ input type="checkbox" name="allowed_product_types" value="consumable" class="accent-accent w-4 h-4 cursor-pointer";
  "耗材"
  }
  }
@@ -215,9 +215,9 @@ fn bin_create_page(
  }
 
  // ── Action Bar ──
- div class="flex items-center justify-end gap-3 pt-4 [border-top:1px_solid_var(--border-soft)]" {
- a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{}?restore=true", BinListPath::PATH)) { "取消" }
- button type="submit" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" {
+ div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg [border-top:1px_solid_var(--border-soft)]" {
+ a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{}?restore=true", BinListPath::PATH)) { "取消" }
+ button type="submit" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" {
  (icon::check_circle_icon("w-4 h-4"))
  "保存库位"
  }
@@ -226,7 +226,7 @@ fn bin_create_page(
 
  // ── Warehouse-Zone dependent dropdown script ──
  script {
- r#"
+ (maud::PreEscaped(r#"
  function updateZones() {
  var whId = document.getElementById('warehouse-select').value;
  var zoneSelect = document.getElementById('zone-select');
@@ -236,7 +236,7 @@ fn bin_create_page(
  });
  zoneSelect.value = '';
  }
- "#
+ "#))
  }
  }
  }

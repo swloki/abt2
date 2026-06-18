@@ -369,6 +369,7 @@ fn bom_detail_page(
  }
  }
  }
+ @if can_view_labor_cost {
  @let labor_overlay_cls = if auto_open == Some("labor") { "drawer-overlay open fixed inset-0 z-[1000] flex justify-end bg-[rgba(0,0,0,0.35)]" } else { "drawer-overlay fixed inset-0 z-[1000] flex justify-end bg-[rgba(0,0,0,0.35)]" };
  div id="labor-drawer" class=(labor_overlay_cls)
  _="on click[me is event.target] remove .open from me" {
@@ -401,6 +402,7 @@ fn bom_detail_page(
  div class="px-6 py-4 [border-top:1px_solid_var(--border-soft)] flex justify-end gap-3" {
  button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
  _="on click remove .open from closest .drawer-overlay" { "关闭" }
+ }
  }
  }
  }
@@ -464,7 +466,7 @@ fn bom_node_row(
  td class="px-3 py-2.5 text-center text-xs font-mono opacity-60 [border-bottom:1px_solid_var(--border-soft)]" { (index + 1) }
  td class="px-3 py-2.5 text-center [border-bottom:1px_solid_var(--border-soft)]" { (level) }
  td class="px-3 py-2.5 font-mono tabular-nums text-sm whitespace-nowrap [border-bottom:1px_solid_var(--border-soft)]" { (code) }
- td class="px-3 py-2.5 text-sm [border-bottom:1px_solid_var(--border-soft)]" {
+ td class="px-3 py-2.5 text-sm [border-bottom:1px_solid_var(--border-soft)]" style=(format!("padding-left:{}px", (level - 1) * 24 + 12)) {
  span class="block max-w-[250px] truncate" title=(name) { (name) }
  }
  td class="px-3 py-2.5 text-sm truncate [border-bottom:1px_solid_var(--border-soft)]" { (work_center) }

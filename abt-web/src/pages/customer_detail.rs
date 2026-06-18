@@ -392,7 +392,7 @@ fn customer_detail_page(
  // ── Detail Top ──
  div class="flex justify-between items-start" {
  div class="flex items-center gap-5" {
- div class="customer-inline-grid place-items-center rounded-full text-white font-semibold shrink-0 select-none" { (avatar_chars(&customer.name)) }
+ div class="w-10 h-10 grid place-items-center rounded-full bg-accent text-white font-semibold shrink-0 select-none" { (avatar_chars(&customer.name)) }
  div {
  h1 class="text-xl font-bold" {
  (customer.name)
@@ -406,7 +406,7 @@ fn customer_detail_page(
  }
  }
  div class="flex gap-3" {
- a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(format!("/admin/quotations/new")) { "新建报价单" }
+ a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(format!("/admin/quotations/new")) { "新建报价单" }
  }
  }
 
@@ -461,7 +461,7 @@ fn customer_detail_page(
  div class="bg-white border border-border-soft rounded p-5" {
  div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
  span { "联系人" }
- button class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] [&_svg]:w-4 [&_svg]:h-4"
+ button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] [&_svg]:w-4 [&_svg]:h-4"
  _="on click add .is-open to #contact-create-modal" {
  (icon::plus_icon("w-3.5 h-3.5"))
  "添加"
@@ -499,7 +499,7 @@ fn customer_detail_page(
  div class="bg-white border border-border-soft rounded p-5 mt-5" {
  div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
  span { "地址信息" }
- button class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] [&_svg]:w-4 [&_svg]:h-4"
+ button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] [&_svg]:w-4 [&_svg]:h-4"
  _="on click add .is-open to #address-create-modal" {
  (icon::plus_icon("w-3.5 h-3.5"))
  "添加"
@@ -611,32 +611,37 @@ fn credit_display(credit_limit: Option<rust_decimal::Decimal>) -> Markup {
  html! {
  div class="text-center p-5" {
  @if let Some(limit) = credit_limit {
- div class="w-[120px] h-[120px] relative" {
- svg viewBox="0 0 120 120" {
+ // 仅有总额度，无已用数据 → 空环 + "未设置"提示
+ div class="w-[120px] h-[120px] relative mx-auto" {
+ svg viewBox="0 0 120 120" class="w-[120px] h-[120px] -rotate-90" {
  circle cx="60" cy="60" r="50" fill="none" stroke="var(--border-soft)" stroke-width="10" {}
  circle cx="60" cy="60" r="50" fill="none" stroke="var(--accent)" stroke-width="10"
  stroke-dasharray="314.16" stroke-dashoffset="314.16" stroke-linecap="round" {}
  }
- div class="w-[120px] h-[120px] relative" {
- div class="w-[120px] h-[120px] relative text-muted" { "—" }
- div class="w-[120px] h-[120px] relative" { "已用额度" }
+ div class="absolute inset-0 grid place-items-center" {
+ div class="flex flex-col items-center" {
+ div class="text-muted text-sm" { "—" }
+ div class="text-xs text-muted" { "未设置" }
  }
  }
- div class="text-xs text-muted" { "总额度" }
+ }
+ div class="text-xs text-muted mt-2" { "总额度" }
  div class="text-lg font-bold" {
  (crate::utils::fmt_amount(limit))
  }
  } @else {
- div class="w-[120px] h-[120px] relative" {
- svg viewBox="0 0 120 120" {
+ div class="w-[120px] h-[120px] relative mx-auto" {
+ svg viewBox="0 0 120 120" class="w-[120px] h-[120px] -rotate-90" {
  circle cx="60" cy="60" r="50" fill="none" stroke="var(--border-soft)" stroke-width="10" {}
  }
- div class="w-[120px] h-[120px] relative" {
- div class="w-[120px] h-[120px] relative text-muted" { "—" }
- div class="w-[120px] h-[120px] relative" { "未设置" }
+ div class="absolute inset-0 grid place-items-center" {
+ div class="flex flex-col items-center" {
+ div class="text-muted text-sm" { "—" }
+ div class="text-xs text-muted" { "未设置" }
  }
  }
- div class="text-xs text-muted" { "未设置信用额度" }
+ }
+ div class="text-xs text-muted mt-2" { "未设置信用额度" }
  }
  }
  }
@@ -650,16 +655,16 @@ fn contact_card(contact: &CustomerContact, detail_path: &CustomerDetailPath, can
 
  html! {
  div class="p-3 border border-border-soft rounded-sm" {
- div class="p-3 border border-border-soft rounded-sm-head" {
+ div class="flex items-center gap-2 p-3 border border-border-soft rounded-sm" {
  strong { (contact.name) }
  @if contact.is_primary {
- span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-[#e6f4ff] text-accent rounded-full text-[11px] font-medium" { "主要" }
+ span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-[#e6f4ff] text-accent" { "主要" }
  }
  @if let Some(ref pos) = contact.position {
  span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-surface text-[#666]" { (pos) }
  }
  }
- div class="p-3 border border-border-soft rounded-sm-body" {
+ div class="p-3" {
  @if let Some(ref phone) = contact.phone {
  div class="flex items-center gap-2 text-xs text-fg-2" {
  (icon::phone_icon("w-3.5 h-3.5"))
@@ -673,7 +678,7 @@ fn contact_card(contact: &CustomerContact, detail_path: &CustomerDetailPath, can
  }
  }
  }
- div class="p-3 border border-border-soft rounded-sm-actions" {
+ div class="p-3 flex justify-end" {
  @if can_delete {
  button type="button" class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer text-danger" title="删除"
  hx-post=(delete_path)
@@ -707,13 +712,13 @@ fn address_card(addr: &CustomerAddress, detail_path: &CustomerDetailPath, can_de
 
  html! {
  div class="p-3 border border-border-soft rounded-sm" {
- div class="p-3 border border-border-soft rounded-sm-head" {
+ div class="flex items-center gap-2 p-3 border border-border-soft rounded-sm" {
  span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-surface text-[#666]" { (type_label) }
  @if addr.is_default {
- span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-[#e6f4ff] text-accent rounded-full text-[11px] font-medium" { "默认" }
+ span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-[#e6f4ff] text-accent" { "默认" }
  }
  }
- div class="p-3 border border-border-soft rounded-sm-body" {
+ div class="p-3" {
  p { (full_addr) }
  @if let Some(ref name) = addr.contact_name {
  p class="flex items-center gap-2 text-xs text-muted" {
@@ -725,7 +730,7 @@ fn address_card(addr: &CustomerAddress, detail_path: &CustomerDetailPath, can_de
  }
  }
  }
- div class="p-3 border border-border-soft rounded-sm-actions" {
+ div class="p-3 flex justify-end" {
  @if can_delete {
  button type="button" class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer text-danger" title="删除"
  hx-post=(delete_path)

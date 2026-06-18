@@ -83,65 +83,63 @@ pub async fn get_detail(path: ExpenseDetailPath, ctx: RequestContext) -> Result<
  let content = html! {
 
  // 返回链接
- a.back-link href=(format!("{}?restore=true", ExpenseListPath::PATH)) {
+ a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150 mb-4" href=(format!("{}?restore=true", ExpenseListPath::PATH)) {
  (PreEscaped(r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>"#))
  " 返回列表"
  }
 
  // 详情头
- div.detail-header {
- div.detail-title-row {
- h1.detail-no { (expense.doc_number) }
+ div class="flex items-center gap-4 mb-6" {
+ h1 class="text-xl font-bold font-mono tabular-nums" { (expense.doc_number) }
  span class=(format!("status-pill {}", crate::utils::status_color(s_class))) { (s_text) }
- }
  }
 
  // 报销信息卡片
- div.info-card {
- div.info-card-title { "报销信息" }
- div.info-grid {
- div.info-item {
- span.info-label { "单号" }
- span.info-value.mono { (expense.doc_number) }
+ div class="bg-bg border border-border-soft rounded-lg p-6 mb-6 shadow-[var(--shadow-card)]" {
+ div class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" { "报销信息" }
+ div class="grid gap-5 [grid-template-columns:repeat(auto-fill,minmax(200px,1fr))]" {
+ div class="flex flex-col gap-1" {
+ span class="text-xs text-muted font-medium" { "单号" }
+ span class="text-sm text-fg font-medium font-mono tabular-nums" { (expense.doc_number) }
  }
- div.info-item {
- span.info-label { "申请人" }
- span.info-value class="font-semibold" { (applicant_name) }
+ div class="flex flex-col gap-1" {
+ span class="text-xs text-muted font-medium" { "申请人" }
+ span class="text-sm text-fg font-semibold" { (applicant_name) }
  }
- div.info-item {
- span.info-label { "所属部门" }
- span.info-value { (department_name) }
+ div class="flex flex-col gap-1" {
+ span class="text-xs text-muted font-medium" { "所属部门" }
+ span class="text-sm text-fg font-medium" { (department_name) }
  }
- div.info-item {
- span.info-label { "报销日期" }
- span.info-value { (expense.expense_date.format("%Y-%m-%d")) }
+ div class="flex flex-col gap-1" {
+ span class="text-xs text-muted font-medium" { "报销日期" }
+ span class="text-sm text-fg font-medium" { (expense.expense_date.format("%Y-%m-%d")) }
  }
- div.info-item {
- span.info-label { "报销金额" }
- span.info-value.mono class="text-accent font-bold" class="text-lg" {
+ div class="flex flex-col gap-1" {
+ span class="text-xs text-muted font-medium" { "报销金额" }
+ span class="text-sm text-fg font-medium font-mono tabular-nums text-accent font-bold text-lg" {
  "¥" (format!("{:.2}", expense.total_amount))
  }
  }
- div.info-item {
- span.info-label { "当前状态" }
- span.info-value {
+ div class="flex flex-col gap-1" {
+ span class="text-xs text-muted font-medium" { "当前状态" }
+ span class="text-sm text-fg font-medium" {
  span class=(format!("status-pill {}", crate::utils::status_color(s_class))) { (s_text) }
  }
  }
- div.info-item {
- span.info-label { "操作人" }
- span.info-value { (operator_name) }
+ div class="flex flex-col gap-1" {
+ span class="text-xs text-muted font-medium" { "操作人" }
+ span class="text-sm text-fg font-medium" { (operator_name) }
  }
- div.info-item {
- span.info-label { "创建时间" }
- span.info-value.mono class="text-[13px]" { (expense.created_at.format("%Y-%m-%d %H:%M:%S")) }
+ div class="flex flex-col gap-1" {
+ span class="text-xs text-muted font-medium" { "创建时间" }
+ span class="text-[13px] text-fg font-medium font-mono tabular-nums" { (expense.created_at.format("%Y-%m-%d %H:%M:%S")) }
  }
- div.info-item {
- span.info-label { "版本号" }
- span.info-value.mono { "v" (expense.version) }
+ div class="flex flex-col gap-1" {
+ span class="text-xs text-muted font-medium" { "版本号" }
+ span class="text-sm text-fg font-medium font-mono tabular-nums" { "v" (expense.version) }
  }
- div.info-item {
- span.info-label { "备注" }
+ div class="flex flex-col gap-1" {
+ span class="text-xs text-muted font-medium" { "备注" }
  (remark_display)
  }
  }
@@ -168,14 +166,14 @@ pub async fn get_detail(path: ExpenseDetailPath, ctx: RequestContext) -> Result<
 
 fn items_card(items: &[ExpenseReimbursementItem], total: Decimal) -> Markup {
  html! {
- div.info-card {
- div.info-card-title { "费用明细" }
+ div class="bg-bg border border-border-soft rounded-lg p-6 mb-6 shadow-[var(--shadow-card)]" {
+ div class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" { "费用明细" }
  @if items.is_empty() {
- p class="text-center text-muted" class="p-6" {
+ p class="text-center text-muted p-6" {
  "暂无费用明细"
  }
  } @else {
- div.data-card-scroll {
+ div class="overflow-x-auto" {
  table class="data-table" style="min-width:700px" {
  thead {
  tr {
@@ -194,11 +192,9 @@ fn items_card(items: &[ExpenseReimbursementItem], total: Decimal) -> Markup {
  }
  }
  }
- div.amount-summary {
- div.amount-row {
- span.amount-label { "合计金额" }
- span.amount-value.accent.mono { "¥" (format!("{:.2}", total)) }
- }
+ div class="flex items-center justify-end gap-6 mt-4 pt-4 border-t border-border-soft" {
+ span class="text-xs text-muted" { "合计金额" }
+ span class="text-lg font-bold font-mono tabular-nums text-accent" { "¥" (format!("{:.2}", total)) }
  }
  }
  }
@@ -214,11 +210,11 @@ fn item_row(item: &ExpenseReimbursementItem) -> Markup {
  html! {
  tr {
  td {
- span.tag-chip.tag-key { (type_label) }
+ span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium text-muted mr-1" { (type_label) }
  }
- td.num-right class="font-semibold" { "¥" (format!("{:.2}", item.amount)) }
+ td class="text-right font-semibold" { "¥" (format!("{:.2}", item.amount)) }
  td { (item.description) }
- td.mono class="text-xs" { (receipt) }
+ td class="font-mono tabular-nums text-xs" { (receipt) }
  td { (cost) }
  td { (profit) }
  }

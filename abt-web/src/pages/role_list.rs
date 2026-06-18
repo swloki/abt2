@@ -199,7 +199,7 @@ fn avatar_gradient(ch: char) -> (String, String) {
  'G'..='L' => ("#1677ff".into(), "#4096ff".into()),
  'M'..='R' => ("#13c2c2".into(), "#36cfc9".into()),
  'S'..='Z' => ("#fa8c16".into(), "#ffc53d".into()),
- _ => ("#a18cd1".into(), "#fbc2eb".into()),
+ _ => ("#4f46e5".into(), "#818cf8".into()),
  }
 }
 
@@ -264,74 +264,52 @@ fn role_list_page(
  }
  }
 
+ // ── Panel (stats + filter + table): HTMX swap boundary ──
+ div class="role-list-panel" id="role-list-panel" {
  // ── Stats ──
- div class="grid gap-5" {
+ div class="grid grid-cols-3 gap-5" {
  div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
- div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 purple" {
+ div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 bg-[#f3e8ff] text-[#7c3aed]" {
  (icon::lock_icon("w-6 h-6"))
  }
  div {
- div class="text-2xl font-bold font-mono tabular-nums tabular-nums text-fg" { (total) }
+ div class="text-2xl font-bold font-mono tabular-nums text-fg" { (total) }
  div class="text-sm text-muted mt-1" { "角色总数" }
  }
  }
  div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
- div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 orange" {
+ div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 bg-[#fff7e6] text-[#fa8c16]" {
  (icon::check_circle_icon("w-6 h-6"))
  }
  div {
- div class="text-2xl font-bold font-mono tabular-nums tabular-nums text-fg" { (system_count) }
+ div class="text-2xl font-bold font-mono tabular-nums text-fg" { (system_count) }
  div class="text-sm text-muted mt-1" { "内置角色" }
  }
  }
  div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
- div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 blue" {
+ div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 bg-[#e8f4ff] text-accent" {
  (icon::plus_icon("w-6 h-6"))
  }
  div {
- div class="text-2xl font-bold font-mono tabular-nums tabular-nums text-fg" { (custom_count) }
+ div class="text-2xl font-bold font-mono tabular-nums text-fg" { (custom_count) }
  div class="text-sm text-muted mt-1" { "自定义角色" }
  }
  }
  }
 
- // ── Filter + Data Table (HTMX panel) ──
- (role_table_fragment(roles, params, perm_counts, total_perms, user_map, can_create, can_delete))
- }
- }
-}
-
-fn role_table_fragment(
- roles: &[&Role],
- params: &RoleQueryParams,
- perm_counts: &HashMap<i64, usize>,
- total_perms: usize,
- user_map: &HashMap<i64, Vec<UserBrief>>,
- can_create: bool,
- can_delete: bool,
-) -> Markup {
- html! {
- div class="flex-1 overflow-y-auto-panel" {
- // ── Filter Bar ──
- div class="flex items-center gap-3 mb-5 flex-wrap" {
+ // ── Filter Bar (single-endpoint: form submits, panel refreshes) ──
+ form id="role-filter-form" class="flex items-center gap-3 mb-5 mt-5 flex-wrap"
+ hx-get=(RoleListPath::PATH)
+ hx-target="#role-list-panel" hx-select="#role-list-panel"
+ hx-swap="outerHTML" hx-push-url="true"
+ hx-trigger="change, keyup changed delay:300ms from:input[name=keyword]" {
  div class="relative flex-1 max-w-xs [&_svg]:absolute [&_svg]:left-3 [&_svg]:top-1/2 [&_svg]:-translate-y-1/2 [&_svg]:w-4 [&_svg]:h-4 [&_svg]:text-muted" {
  (icon::search_icon("w-4 h-4"))
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword"
+ input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input" type="text" name="keyword"
  placeholder="搜索角色名称、角色代码…"
- value=(params.keyword.as_deref().unwrap_or(""))
- hx-get=(RoleListPath::PATH)
- hx-trigger="keyup changed delay:300ms"
- hx-sync="this:replace"
- hx-target="closest .role-list-panel"
- hx-swap="outerHTML"
- hx-include="select[name='role_type']";
+ value=(params.keyword.as_deref().unwrap_or("")) {}
  }
- select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="role_type"
- hx-get=(RoleListPath::PATH)
- hx-trigger="change"
- hx-target="closest .role-list-panel"
- hx-swap="outerHTML"
- hx-include="input[name='keyword']" {
+ select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="role_type" {
  option value="" selected[params.role_type.is_none() || params.role_type.as_deref() == Some("")] { "全部类型" }
  option value="system" selected[params.role_type.as_deref() == Some("system")] { "内置角色" }
  option value="custom" selected[params.role_type.as_deref() == Some("custom")] { "自定义角色" }
@@ -369,10 +347,11 @@ fn role_table_fragment(
  }
  }
 
- // ── Pagination info ──
- div class="flex items-center justify-between py-4 px-5" {
- span class="flex items-center justify-between py-4-info" {
+ // ── Record count ──
+ div class="flex items-center px-5 py-4" {
+ span class="text-[13px] text-muted" {
  "共 " (roles.len()) " 条记录"
+ }
  }
  }
  }
@@ -420,9 +399,9 @@ fn role_row(
  // Type
  td {
  @if role.is_system_role {
- span class="text-[11px] rounded-full bg-[#fff7e6] text-[#fa8c16] font-medium" { "内置" }
+ span class="inline-block text-[11px] px-2 py-0.5 rounded-full bg-[#fff7e6] text-[#fa8c16] font-medium" { "内置" }
  } @else {
- span class="text-[11px] rounded-full bg-[#f0f5ff] text-accent font-medium" { "自定义" }
+ span class="inline-block text-[11px] px-2 py-0.5 rounded-full bg-[#f0f5ff] text-accent font-medium" { "自定义" }
  }
  }
  // Permission Count
@@ -443,18 +422,19 @@ fn role_row(
  div class="flex items-center" {
  @if let Some(users) = users {
  @for u in users.iter().take(3) {
- span class="av" style=(format!("background:linear-gradient(135deg,{},{})", u.gradient.0, u.gradient.1)) {
+ span class="inline-flex w-7 h-7 rounded-full items-center justify-center text-[10px] font-semibold text-white shrink-0 border-2 border-bg -ml-2 first:ml-0"
+ style=(format!("background:linear-gradient(135deg,{},{})", u.gradient.0, u.gradient.1)) {
  (u.initials)
  }
  }
  @if user_count > 3 {
- span class="av more" {
+ span class="inline-flex w-7 h-7 rounded-full items-center justify-center text-[10px] font-semibold shrink-0 border-2 border-bg bg-surface text-muted -ml-2 first:ml-0" {
  "+" (user_count - 3)
  }
  }
  }
  @if user_count == 0 {
- span class="av more" { "0" }
+ span class="inline-flex w-7 h-7 rounded-full items-center justify-center text-[10px] font-semibold shrink-0 border border-border-soft bg-surface text-muted" { "0" }
  }
  }
  }
@@ -468,7 +448,7 @@ fn role_row(
  }
  // Actions
  td {
- div class="row-actions flex items-center gap-1 justify-end opacity-0 transition-opacity duration-150 [&_a]:w-[28px] [&_a]:h-[28px] [&_a]:grid [&_a]:place-items-center [&_a]:rounded-sm [&_a]:cursor-pointer [&_a]:bg-surface [&_a]:hover:bg-accent-bg [&_svg]:w-3.5 [&_svg]:h-3.5" {
+ div class="row-actions flex items-center gap-1 justify-end opacity-0 transition-opacity duration-150 [&_a]:w-[28px] [&_a]:h-[28px] [&_a]:grid [&_a]:place-items-center [&_a]:rounded-sm [&_a]:cursor-pointer [&_a]:bg-surface [&_a]:hover:bg-accent-bg [&_button]:w-[28px] [&_button]:h-[28px] [&_button]:grid [&_button]:place-items-center [&_button]:rounded-sm [&_button]:cursor-pointer [&_button]:bg-surface [&_button]:hover:bg-accent-bg [&_svg]:w-3.5 [&_svg]:h-3.5" {
  @if can_create {
  a class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" title="编辑" href=(edit_path) {
  (icon::edit_icon("w-3.5 h-3.5"))

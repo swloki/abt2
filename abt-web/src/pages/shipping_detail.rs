@@ -177,29 +177,30 @@ fn workflow_steps(current: ShippingStatus) -> Markup {
  let is_cancelled = current == ShippingStatus::Cancelled;
 
  html! {
- div class="flex items-center" {
+ div class="flex items-center mt-6 mb-6" {
  @for (i, (label, _)) in steps.iter().enumerate() {
  @if i > 0 {
- div class=(if i <= current_idx && !is_cancelled { "wf-line current" } else { "wf-line" }) {}
+ div class=(format!("w-[48px] h-[2px] {}", if i <= current_idx && !is_cancelled { "bg-[#10b981]" } else { "bg-border" })) {}
  }
- @let step_class = if is_cancelled {
- "wf-step"
+ @let (dot_cls, text_cls, ring_cls) = if is_cancelled {
+ ("bg-border-soft", "text-muted", "")
  } else if i < current_idx {
- "wf-step completed"
+ ("bg-[#10b981]", "text-[#10b981]", "")
  } else if i == current_idx {
- "wf-step current"
+ ("bg-[#2563eb]", "text-[#2563eb] font-semibold", "shadow-[0_0_0_3px_rgba(37,99,235,0.1)]")
  } else {
- "wf-step"
+ ("bg-[#d1d5db]", "text-[#9ca3af]", "")
  };
- div class=(step_class) {
- div class="w-[10px] h-[10px] rounded-full bg-border" {}
- (label)
+ div class="flex items-center gap-2 shrink-0" {
+ span class=(format!("w-2.5 h-2.5 rounded-full shrink-0 {} {}", dot_cls, ring_cls)) {}
+ span class=(format!("text-xs whitespace-nowrap font-medium {}", text_cls)) { (label) }
  }
  }
  @if is_cancelled {
- div class="flex items-center gap-2 text-xs text-muted cancelled danger" {
- div class="w-[10px] h-[10px] rounded-full bg-border" {}
- "已取消"
+ div class="w-[48px] h-[2px] bg-border" {}
+ div class="flex items-center gap-2 shrink-0" {
+ span class="w-2.5 h-2.5 rounded-full shrink-0 bg-[#ef4444]" {}
+ span class="text-xs text-[#ef4444] font-semibold whitespace-nowrap" { "已取消" }
  }
  }
  }
@@ -244,14 +245,14 @@ fn shipping_detail_page(
  }
  }
  div class="flex gap-3" {
- a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{}?restore=true", ShippingListPath::PATH)) { "返回列表" }
+ a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{}?restore=true", ShippingListPath::PATH)) { "返回列表" }
  @if s.status == ShippingStatus::Draft {
- button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+ button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
  hx-post=(ConfirmShippingPath { id: s.id }.to_string())
  hx-confirm="确认审核此发货单？" { "确认发货" }
  }
  @if s.status == ShippingStatus::Confirmed {
- button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+ button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
  hx-post=(PickShippingPath { id: s.id }.to_string())
  hx-confirm="确认开始拣货？" { "开始拣货" }
  }
@@ -273,7 +274,7 @@ fn shipping_detail_page(
 
  // ── Shipping Info ──
  div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "发货信息" }
+ div class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" { "发货信息" }
  div class="grid gap-4" {
  div class="flex flex-col gap-1" {
  span class="text-xs text-muted font-medium" { "客户名称" }
@@ -339,7 +340,7 @@ fn shipping_detail_page(
  // ── Remarks ──
  @if !s.remark.is_empty() {
  div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)] mt-6" {
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "备注" }
+ div class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" { "备注" }
  p class="text-muted" { (s.remark.as_str()) }
  }
  }

@@ -83,7 +83,7 @@ pub async fn get_detail(path: MrbDetailPath, ctx: RequestContext) -> Result<Html
 
  let content = html! { div {
  div class="flex items-center justify-between mb-6" {
- div class="flex items-center justify-between mb-6-left" {
+ div class="flex items-center justify-between mb-6" {
  a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", MrbListPath::PATH)) { "\u{2190} 返回列表" }
  h1 class="text-xl font-bold text-fg tracking-tight" {
  "MRB单号 " (&mrb.doc_number)
@@ -95,7 +95,7 @@ pub async fn get_detail(path: MrbDetailPath, ctx: RequestContext) -> Result<Html
 
  // ── 基本信息 ──
  div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
- h3 { "基本信息" }
+ h3 class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" { "基本信息" }
  div class="grid gap-4" {
  div class="flex flex-col gap-1" {
  label { "关联检验结果单号" }
@@ -116,19 +116,19 @@ pub async fn get_detail(path: MrbDetailPath, ctx: RequestContext) -> Result<Html
 
  // ── 缺陷描述 ──
  div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
- h3 { "缺陷描述" }
+ h3 class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" { "缺陷描述" }
  p class="whitespace-pre-wrap" { (&mrb.defect_description) }
  }
 
  // ── 备注 ──
  div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
- h3 { "备注" }
+ h3 class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" { "备注" }
  p class="whitespace-pre-wrap" { (if mrb.remark.is_empty() { "—" } else { &mrb.remark }) }
  }
 
  // ── 其他信息 ──
  div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
- h3 { "其他信息" }
+ h3 class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" { "其他信息" }
  div class="grid gap-4" {
  div class="flex flex-col gap-1" { label { "创建时间" } span { (mrb.created_at.format("%Y-%m-%d %H:%M")) } }
  }

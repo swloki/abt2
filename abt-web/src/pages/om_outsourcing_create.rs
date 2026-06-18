@@ -344,8 +344,7 @@ fn create_page(
  (icon::box_icon("w-[18px] h-[18px]"))
  "发料明细"
  }
- div class="data-card" {
- div class="overflow-x-auto" {
+ div class="overflow-x-auto -mx-2" {
  table class="data-table" {
  thead { tr {
  th { "物料" }
@@ -355,7 +354,6 @@ fn create_page(
  th style="width:50px" { }
  }}
  tbody id="material-tbody" { }
- }
  }
  input type="hidden" name="materials_json" id="materials-json" value="";
  }
@@ -456,8 +454,8 @@ function omConfirmMaterial() {
  var tr = document.createElement('tr');
  tr.setAttribute('oninput','omUpdateMaterialJson()');
  tr.innerHTML = '<td>' + pname + '<input type="hidden" name="m_product_id" value="' + pid + '"></td>' +
- '<td><input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="number" step="any" min="0" name="m_planned_qty" value="' + qty + '" class="w-[100px] text-right"></td>' +
- '<td><input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="number" step="any" min="0" name="m_unit_cost" value="' + cost + '" class="w-[100px] text-right"></td>' +
+ '<td><input class="w-[100px] text-right px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="number" step="any" min="0" name="m_planned_qty" value="' + qty + '"></td>' +
+ '<td><input class="w-[100px] text-right px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="number" step="any" min="0" name="m_unit_cost" value="' + cost + '"></td>' +
  '<td class="line-subtotal font-mono tabular-nums text-right">' + (qty * cost).toFixed(2) + '</td>' +
  '<td><button type="button" class="w-7 h-7 border-none text-muted rounded-sm cursor-pointer grid place-items-center hover:bg-surface transition-colors duration-150" title="删除" onclick="this.closest(\'tr\').remove();omUpdateMaterialJson()">' + '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></td>';
  tbody.appendChild(tr);

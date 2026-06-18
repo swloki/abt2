@@ -147,7 +147,7 @@ fn writeoff_list_page(
  operator_names: &HashMap<i64, String>,
 ) -> Markup {
  html! {
- div class="p-6 relative" {
+ div class="relative" {
  div class="flex items-center justify-between mb-6" {
  h1 class="text-xl font-bold text-fg tracking-tight" { "核销管理" }
  div class="flex gap-3" {
@@ -199,7 +199,7 @@ fn writeoff_table_fragment(
  hx-push-url="true" {
  div class="relative w-[200px]" {
  (icon::search_icon("absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted"))
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword"
+ input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input" type="text" name="keyword"
  placeholder="搜索日记账号、来源单号…";
  }
  input type="date" name="start_date" class="w-[150px] px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer" title="起始日期";

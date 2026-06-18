@@ -86,7 +86,7 @@ fn transfer_list_page(
  h1 class="text-xl font-bold text-fg tracking-tight" { "库存调拨" }
  div class="flex gap-3" {
  @if can_create {
- a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(TransferCreatePath::PATH) {
+ a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(TransferCreatePath::PATH) {
  (icon::plus_icon("w-4 h-4"))
  "新建调拨"
  }
@@ -119,7 +119,7 @@ fn transfer_table_fragment(
  div class="data-card" id="transfer-data-card" {
  (status_tabs(TransferListPath::PATH, "#transfer-data-card", ".filter-bar input, .filter-bar select", tabs, &active_value))
 
- form class="flex items-center gap-3 mb-5 flex-wrap filter-form" id="transfer-filter-form"
+ form class="flex items-center gap-3 mb-5 flex-wrap" id="transfer-filter-form"
  hx-get=(TransferListPath::PATH)
  hx-trigger="change, keyup changed delay:300ms from:.search-input"
  hx-target="#transfer-data-card"
@@ -129,7 +129,7 @@ fn transfer_table_fragment(
  hx-push-url="true" {
  div class="relative flex-1 max-w-xs [&_svg]:absolute [&_svg]:left-3 [&_svg]:top-1/2 [&_svg]:-translate-y-1/2 [&_svg]:w-4 [&_svg]:h-4 [&_svg]:text-muted" {
  (icon::search_icon(""))
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="doc_number"
+ input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input" type="text" name="doc_number"
  placeholder="调拨单号";
  }
  }

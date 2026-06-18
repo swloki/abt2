@@ -6,119 +6,12 @@ use maud::{html, Markup};
 
 use abt_core::shared::identity::RoleService;
 use abt_core::shared::identity::UserService;
-use abt_core::shared::identity::model::{RESOURCE_ACTION_DEFS, ResourceActionDef};
 
 use crate::components::icon;
 use crate::layout::page::admin_page;
 use crate::routes::role::{RoleDetailPath, RoleEditPath, RoleListPath, RolePermissionPath};
 use crate::utils::RequestContext;
 use abt_macros::require_permission;
-
-// ── Resource Groupings (same layout as role_create / role_edit) ──
-
-struct ResourceGroupDef {
- name: &'static str,
- icon_cls: &'static str,
- resources: &'static [&'static str],
-}
-
-const RESOURCE_GROUPS: &[ResourceGroupDef] = &[
- ResourceGroupDef {
- name: "基础数据",
- icon_cls: "g1",
- resources: &["CUSTOMER", "PRODUCT", "CATEGORY", "BOM", "BOM_CATEGORY"],
- },
- ResourceGroupDef {
- name: "仓储库存",
- icon_cls: "g2",
- resources: &["WAREHOUSE", "LOCATION", "INVENTORY", "PRICE"],
- },
- ResourceGroupDef {
- name: "业务单据",
- icon_cls: "g3",
- resources: &["SALES_ORDER", "PURCHASE_ORDER"],
- },
- ResourceGroupDef {
- name: "生产质检",
- icon_cls: "g4",
- resources: &["WORK_ORDER", "INSPECTION", "COST", "LABOR_COST"],
- },
- ResourceGroupDef {
- name: "系统管理",
- icon_cls: "g5",
- resources: &["USER", "ROLE", "DEPARTMENT"],
- },
-];
-
-const ACTIONS: &[&str] = &["create", "read", "update", "delete"];
-const ACTION_LABELS: &[&str] = &["CREATE", "READ", "UPDATE", "DELETE"];
-
-struct GroupResource {
- code: &'static str,
- name: &'static str,
- defs: Vec<&'static ResourceActionDef>,
-}
-
-struct GroupData {
- name: &'static str,
- icon_cls: &'static str,
- resources: Vec<GroupResource>,
-}
-
-fn build_groups() -> Vec<GroupData> {
- let mut out: Vec<GroupData> = Vec::new();
- for group in RESOURCE_GROUPS {
- let mut resources: Vec<GroupResource> = Vec::new();
- for &res in group.resources {
- let mut defs: Vec<&'static ResourceActionDef> = Vec::new();
- let mut res_name: &'static str = res;
- for def in RESOURCE_ACTION_DEFS.iter() {
- if def.resource_code == res {
- if defs.is_empty() {
- res_name = def.resource_name;
- }
- defs.push(def);
- }
- }
- if !defs.is_empty() {
- resources.push(GroupResource {
- code: res,
- name: res_name,
- defs,
- });
- }
- }
- if !resources.is_empty() {
- out.push(GroupData {
- name: group.name,
- icon_cls: group.icon_cls,
- resources,
- });
- }
- }
- out
-}
-
-fn total_perm_count(groups: &[GroupData]) -> usize {
- groups.iter()
- .map(|g| g.resources.iter().map(|r| r.defs.len()).sum::<usize>())
- .sum()
-}
-
-fn count_matched_perms(groups: &[GroupData], normalized_perms: &[String]) -> usize {
- let mut count = 0;
- for group in groups {
- for res in &group.resources {
- for action in ACTIONS {
- let key = format!("{}:{}", res.code, action);
- if normalized_perms.contains(&key) {
- count += 1;
- }
- }
- }
- }
- count
-}
 
 // ── Handlers ──
 
@@ -154,28 +47,17 @@ pub async fn get_role_detail(
  .filter(|u| u.roles.iter().any(|r| r.role_id == path.id))
  .count();
 
- // Build grouped permission data
- let groups = build_groups();
- let total_perms = total_perm_count(&groups);
+ let direct_count = rwp.permissions.len();
+ let inherited_count = rwp.inherited_permissions.len();
 
- // Normalize permissions: RESOURCE (uppercase) : action (lowercase) for consistent matching
- let normalized_perms: Vec<String> = rwp.permissions.iter()
- .map(|p| { let (r, a) = p.split_once(':').unwrap_or((p, "")); format!("{}:{}", r.to_uppercase(), a.to_lowercase()) })
- .collect();
-
- // Count how many permissions actually match the matrix resources
- let matched_count = count_matched_perms(&groups, &normalized_perms);
-
- let ctx = RoleDetailContext {
- parent_role_name: parent_role_name.as_deref(),
- child_roles: &child_roles,
+ let content = role_detail_page(
+ &rwp,
+ parent_role_name.as_deref(),
+ &child_roles,
  user_count,
- groups: &groups,
- total_perms,
- normalized_perms: &normalized_perms,
- matched_count,
- };
- let content = role_detail_page(&rwp, &ctx);
+ direct_count,
+ inherited_count,
+ );
 
  let detail_path_str = RoleDetailPath { id: path.id }.to_string();
  let page_html = admin_page(
@@ -191,7 +73,8 @@ pub async fn get_role_detail(
  Ok(Html(page_html.into_string()))
 }
 
-/// Keep handler for backward compatibility — permission editing now lives in role_edit.
+/// Keep handler for backward compatibility — permission editing lives on
+/// /admin/system/permissions now.
 #[require_permission("ROLE", "update")]
 pub async fn post_permission_assign(
  path: RolePermissionPath,
@@ -241,300 +124,191 @@ fn get_initials(s: &str) -> String {
  s.chars().take(2).collect::<String>().to_uppercase()
 }
 
-fn group_icon_svg(cls: &str) -> Markup {
- match cls {
- "g1" => html! {
- svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" {
- path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" {}
- }
- },
- "g2" => html! {
- svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" {
- path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1" {}
- }
- },
- "g3" => html! {
- svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" {
- path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" {}
- }
- },
- "g4" => html! {
- svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" {
- path d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" {}
- }
- },
- "g5" => html! {
- svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" {
- path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" {}
- circle cx="12" cy="12" r="3" {}
- }
- },
- _ => html! {},
- }
-}
+// ── Shared class strings ──
+
+const BTN_DEFAULT_SM: &str =
+ "inline-flex items-center gap-1.5 py-1.5 px-3 rounded-sm bg-white text-fg-2 border border-border \
+  hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium \
+  cursor-pointer transition-all duration-150";
+
+const INFO_CARD: &str =
+ "bg-bg border border-border-soft rounded-lg overflow-hidden shadow-xs mb-5";
+
+const INFO_CARD_TITLE: &str =
+ "flex items-center gap-2 px-4 py-3 border-b border-border-soft bg-surface-raised text-sm \
+  font-semibold text-fg";
+
+const TAG_PILL: &str =
+ "text-[10px] px-2 py-[2px] rounded-[3px] font-semibold tracking-[0.02em]";
 
 // ── Page Component ──
-struct RoleDetailContext<'a> {
- parent_role_name: Option<&'a str>,
- child_roles: &'a [&'a abt_core::shared::identity::model::Role],
- user_count: usize,
- groups: &'a [GroupData],
- total_perms: usize,
- normalized_perms: &'a [String],
- matched_count: usize,
-}
-
 
 fn role_detail_page(
  rwp: &abt_core::shared::identity::model::RoleWithPermissions,
- ctx: &RoleDetailContext,
+ parent_role_name: Option<&str>,
+ child_roles: &[&abt_core::shared::identity::model::Role],
+ user_count: usize,
+ direct_count: usize,
+ inherited_count: usize,
 ) -> Markup {
  let role = &rwp.role;
  let role_id = role.role_id;
  let list_path = RoleListPath.to_string();
  let edit_path = RoleEditPath { id: role_id }.to_string();
  let initials = get_initials(&role.role_name);
- let perm_count = ctx.matched_count;
 
  html! {
- div {
+ div class="space-y-5" {
  // ── Back Link ──
- a.back-link href=(format!("{list_path}?restore=true")) {
+ a class="inline-flex items-center gap-1 text-sm text-muted hover:text-fg transition-colors"
+ href=(format!("{list_path}?restore=true")) {
  (icon::chevron_left_icon("w-4 h-4"))
  "返回角色列表"
  }
 
  // ── Profile Hero ──
- div.profile-hero {
- div.ph-left {
- div.ph-avatar { (initials) }
- div.ph-info {
- h2 { (&role.role_name) }
- div.ph-meta {
- span.ph-code { (&role.role_code) }
- span.ph-text {
+ div class="flex items-center justify-between p-5 px-6 bg-bg border border-border-soft rounded-xl shadow-xs" {
+ div class="flex items-center gap-4" {
+ div class="w-[52px] h-[52px] rounded-lg flex items-center justify-center text-[18px] font-bold text-white shrink-0 bg-[linear-gradient(135deg,#7c3aed,#a78bfa)] shadow-[0_3px_10px_rgba(124,58,237,0.2)]" {
+ (initials)
+ }
+ div {
+ h2 class="text-[18px] font-bold text-fg mb-[3px] tracking-[-0.01em]" { (&role.role_name) }
+ div class="flex items-center gap-[6px] flex-wrap" {
+ span class="inline-flex items-center px-[7px] py-[1px] bg-surface border border-border rounded-[3px] font-mono text-[11px] font-semibold text-accent tracking-[0.04em]" {
+ (&role.role_code)
+ }
+ span class="text-xs text-muted" {
  "ID: " (role_id) " · 创建于 "
  (role.created_at.format("%Y-%m-%d"))
  }
  }
- div.ph-badges {
+ div class="flex gap-[4px] mt-[4px]" {
  @if role.is_system_role {
- span.tag-pill.tag-active { "内置角色" }
+ span class=(format!("{TAG_PILL} bg-[#f0fff0] text-[#389e0d] border border-[#d1f5e0]")) { "内置角色" }
  } @else {
- span.tag-pill.tag-dept { "自定义角色" }
+ span class=(format!("{TAG_PILL} bg-[#e8f4ff] text-[#1677ff] border border-[#d6e4ff]")) { "自定义角色" }
  }
- @if let Some(pname) = ctx.parent_role_name {
- span.tag-pill.tag-super { "上级: " (pname) }
- }
- }
+ @if let Some(pname) = parent_role_name {
+ span class=(format!("{TAG_PILL} bg-[#f3e8ff] text-[#7c3aed] border border-[#e8d5ff]")) { "上级: " (pname) }
  }
  }
- div.ph-actions {
- a.btn.btn-default.btn-sm href=(edit_path) {
+ }
+ }
+ div class="flex gap-[6px]" {
+ a class=(BTN_DEFAULT_SM) href=(edit_path) {
  (icon::edit_icon("w-3.5 h-3.5"))
- " 编辑"
+ "编辑"
  }
  }
  }
 
  // ── Stats Row ──
- div.profile-stats {
- div.ps-item {
- span.ps-dot.d-blue {}
- b { (perm_count) }
- span { "项权限" }
- }
- div.ps-item {
- span.ps-dot.d-green {}
- b { (ctx.user_count) }
- span { "个用户" }
- }
- div.ps-item {
- span.ps-dot.d-purple {}
- b { (ctx.total_perms) }
- span { "项可分配" }
- }
+ div class="flex gap-3" {
+ (stat_item("bg-[#1677ff]", &direct_count.to_string(), "项直属权限"))
+ (stat_item("bg-[#52c41a]", &user_count.to_string(), "个用户"))
+ (stat_item("bg-[#7c3aed]", &inherited_count.to_string(), "项继承权限"))
  }
 
  // ── Role Info Card ──
- div.info-card {
- div.info-card-title {
+ div class=(INFO_CARD) {
+ div class=(INFO_CARD_TITLE) {
  (icon::lock_icon("w-[18px] h-[18px] text-accent"))
  "角色信息"
  }
- div.info-card-rows {
- div.info-row {
- span.info-label { "角色 ID" }
- span.info-val.info-mono {
- "#" (format!("{:03}", role_id))
- }
- }
- div.info-row {
- span.info-label { "角色编码" }
- span.info-val.info-mono { (&role.role_code) }
- }
- div.info-row {
- span.info-label { "角色类型" }
+ div {
+ (info_row("角色 ID", html! { span class="text-fg font-medium font-mono text-xs text-accent" { "#" (format!("{:03}", role_id)) } }))
+ (info_row("角色编码", html! { span class="text-fg font-medium font-mono text-xs text-accent" { (&role.role_code) } }))
+ (info_row("角色类型", html! {
  @if role.is_system_role {
- span.info-val.info-success { "内置角色" }
+ span class="text-[#389e0d] font-medium" { "内置角色" }
  } @else {
- span.info-val { "自定义角色" }
+ span class="text-fg font-medium" { "自定义角色" }
  }
- }
- div.info-row {
- span.info-label { "上级角色" }
- @if let Some(pname) = ctx.parent_role_name {
- span.info-val { (pname) }
+ }))
+ (info_row("上级角色", html! {
+ @if let Some(pname) = parent_role_name {
+ span class="text-fg font-medium" { (pname) }
  } @else {
- span.info-val.info-muted { "无" }
+ span class="text-muted font-medium" { "无" }
  }
- }
- div.info-row {
- span.info-label { "描述" }
+ }))
+ (info_row("描述", html! {
  @if let Some(desc) = &role.description {
- span.info-val { (desc) }
+ span class="text-fg font-medium" { (desc) }
  } @else {
- span.info-val.info-muted { "—" }
+ span class="text-muted font-medium" { "—" }
  }
- }
- div.info-row {
- span.info-label { "创建时间" }
- span.info-val.info-mono {
- (role.created_at.format("%Y-%m-%d %H:%M"))
- }
- }
- div.info-row {
- span.info-label { "最后更新" }
+ }))
+ (info_row("创建时间", html! { span class="text-fg font-medium font-mono text-xs text-accent" { (role.created_at.format("%Y-%m-%d %H:%M")) } }))
+ (info_row("最后更新", html! {
  @if let Some(updated) = &role.updated_at {
- span.info-val.info-mono {
- (updated.format("%Y-%m-%d %H:%M"))
- }
+ span class="text-fg font-medium font-mono text-xs text-accent" { (updated.format("%Y-%m-%d %H:%M")) }
  } @else {
- span.info-val.info-muted { "—" }
+ span class="text-muted font-medium" { "—" }
  }
- }
+ }))
  }
  }
 
  // ── Child Roles Card ──
- @if !ctx.child_roles.is_empty() {
- div.info-card {
- div.info-card-title {
+ @if !child_roles.is_empty() {
+ div class=(INFO_CARD) {
+ div class=(INFO_CARD_TITLE) {
  (icon::grid_icon("w-[18px] h-[18px] text-accent"))
  "下级角色"
- span.d-card-count { (ctx.child_roles.len()) }
+ span class="ml-auto text-[11px] text-muted bg-bg px-2 py-[1px] rounded-full border border-border-soft" {
+ (child_roles.len())
  }
- div.info-card-rows {
- @for child in ctx.child_roles {
- div.info-row {
- span.info-label {
- a href=(RoleDetailPath { id: child.role_id }.to_string()) class="text-accent" {
+ }
+ div {
+ @for child in child_roles {
+ div class="flex items-center px-4 py-[9px] text-[13px] border-b border-border-soft last:border-b-0" {
+ span class="w-[80px] shrink-0 text-muted text-xs" {
+ a href=(RoleDetailPath { id: child.role_id }.to_string()) class="text-accent hover:underline" {
  (child.role_name)
  }
  }
- span.info-val.info-mono { (child.role_code) }
+ span class="text-fg font-medium font-mono text-xs text-accent" { (child.role_code) }
  }
  }
  }
  }
  }
 
- // ── Permission Config Card (read-only matrix) ──
- div.info-card {
- div.info-card-title {
+ // ── Permissions managed on /admin/system/permissions ──
+ div class=(INFO_CARD) {
+ div class="p-4 flex items-center justify-between gap-3" {
+ div class="flex items-center gap-2 text-sm text-muted" {
  (icon::sliders_icon("w-[18px] h-[18px] text-accent"))
- "权限配置"
- span.d-card-count {
- (format!("{} / {} 项", perm_count, ctx.total_perms))
+ "角色权限请在权限管理页面统一配置"
+ }
+ a class="inline-flex items-center gap-1 text-sm font-medium text-accent hover:underline"
+ href="/admin/system/permissions" {
+ "前往权限管理"
+ (icon::chevron_right_icon("w-4 h-4"))
  }
  }
-
- div.perm-toolbar {
- div.perm-toolbar-left {
- "已分配 "
- span.perm-count { (perm_count) }
- " / "
- span { (ctx.total_perms) }
- " 项权限"
- }
- }
-
- div.perm-groups {
- @for (gi, group) in ctx.groups.iter().enumerate() {
- (perm_detail_group(gi, group, ctx.normalized_perms))
- }
- }
- }
-
- // Inline script for permission group toggling
- script {
- (r#"
-function toggleGroup(g) {
- var body = document.getElementById('groupBody' + g);
- var group = body.parentElement;
- var arrow = group.querySelector('.perm-group-arrow');
- body.classList.toggle('collapsed');
- arrow.classList.toggle('open');
-}
-"#)
  }
  }
  }
 }
 
-// ── Permission Matrix (read-only, grouped) ──
-
-fn perm_detail_group(gi: usize, group: &GroupData, perms: &[String]) -> Markup {
- let resource_count = group.resources.len();
+fn stat_item(dot_class: &str, value: &str, label: &str) -> Markup {
  html! {
- div.perm-group data-group=(gi) {
- div.perm-group-head onclick={ "toggleGroup(" (gi) ")" } {
- div.perm-group-head-left {
- span.perm-group-icon class=(format!("perm-group-icon {}", group.icon_cls)) {
- (group_icon_svg(group.icon_cls))
- }
- span.perm-group-name { (group.name) }
- span.perm-group-count { "(" (resource_count) ")" }
- }
- div.perm-group-actions {
- svg.perm-group-arrow.open width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" {
- path d="M6 9l6 6 6-6" {}
- }
- }
- }
- div.perm-group-body id={ "groupBody" (gi) } {
- div.perm-row.perm-row-header {
- div { "资源" }
- @for label in ACTION_LABELS {
- div.perm-cell-header { (label) }
- }
- }
- @for res in &group.resources {
- (perm_detail_row(res, perms))
- }
- }
+ div class="flex items-center gap-2 py-[10px] px-4 bg-bg border border-border-soft rounded-md flex-1 shadow-xs" {
+ span class=(format!("w-2 h-2 rounded-full shrink-0 {dot_class}")) {}
+ b class="text-[15px] font-bold text-fg leading-none" { (value) }
+ span class="text-[11px] text-muted ml-[2px]" { (label) }
  }
  }
 }
 
-fn perm_detail_row(res: &GroupResource, perms: &[String]) -> Markup {
+fn info_row(label: &str, value: Markup) -> Markup {
  html! {
- div.perm-row {
- div.perm-resource {
- (res.name)
- " "
- span.perm-code { (res.code) }
- }
- @for action in ACTIONS {
- div.perm-cell {
- @let perm_key = format!("{}:{}", res.code, action);
- @let checked = perms.contains(&perm_key);
- input type="checkbox"
- checked[checked]
- class="perm-readonly"
- tabindex="-1" {}
- }
- }
+ div class="flex items-center px-4 py-[9px] text-[13px] border-b border-border-soft last:border-b-0" {
+ span class="w-[80px] shrink-0 text-muted text-xs" { (label) }
+ (value)
  }
  }
 }

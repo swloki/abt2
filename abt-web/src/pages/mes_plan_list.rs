@@ -211,12 +211,10 @@ fn plan_table_fragment(
  option value="Mto" selected[params.plan_type.as_deref() == Some("Mto")] { "按单生产 (MTO)" }
  option value="Mts" selected[params.plan_type.as_deref() == Some("Mts")] { "按库存备货 (MTS)" }
  }
- input class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer" type="date" name="date_from"
- class="w-[140px]"
+ input class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer w-[140px]" type="date" name="date_from"
  value=(params.date_from.as_deref().unwrap_or(""));
  span class="text-muted text-[13px]" { "至" }
- input class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer" type="date" name="date_to"
- class="w-[140px]"
+ input class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer w-[140px]" type="date" name="date_to"
  value=(params.date_to.as_deref().unwrap_or(""));
  }
  }

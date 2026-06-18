@@ -179,8 +179,8 @@ fn routing_create_page(
  // ── Section: 工序步骤 ──
  div class="data-card" class="p-0 overflow-hidden mb-4" {
  div class="p-5 pb-3 flex justify-between items-center" {
- span class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft border-border-soft" class="m-0 p-0 border-none" { "工序步骤" }
- button type="button" class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] [&_svg]:w-4 [&_svg]:h-4" onclick="addStep()" {
+ span class="flex items-center gap-2 text-sm font-semibold text-fg m-0 p-0" { "工序步骤" }
+ button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] [&_svg]:w-4 [&_svg]:h-4" onclick="addStep()" {
  (icon::plus_icon("w-3.5 h-3.5"))
  "添加工序"
  }
@@ -279,10 +279,10 @@ function renderSteps() {{
  let chk = step.is_required ? ' checked' : '';
  html += '<tr>' +
  '<td class="text-muted text-xs text-center">' + (idx + 1) + '</td>' +
- '<td><select onchange="onStepChange(' + idx + ')" class="w-full text-[13px]" class="rounded-sm" class="px-2 py-[5px] border border-border">' + opts + '</select></td>' +
- '<td class="text-[13px]" class="px-2 py-[5px]">' + getProcessName(step.process_code) + '</td>' +
- '<td class="text-center"><input type="checkbox" onchange="onStepChange(' + idx + ')" class="cursor-pointer" style="width:18px;height:18px;accent-color:var(--primary)"' + chk + '></td>' +
- '<td><input type="text" onchange="onStepChange(' + idx + ')" placeholder="备注" class="w-full text-[13px]" class="rounded-sm" class="px-2 py-[5px] border border-border"></td>' +
+ '<td><select onchange="onStepChange(' + idx + ')" class="w-full text-[13px] rounded-sm px-2 py-[5px] border border-border">' + opts + '</select></td>' +
+ '<td class="text-[13px] px-2 py-[5px]">' + getProcessName(step.process_code) + '</td>' +
+ '<td class="text-center"><input type="checkbox" onchange="onStepChange(' + idx + ')" class="cursor-pointer w-[18px] h-[18px] accent-accent"' + chk + '></td>' +
+ '<td><input type="text" onchange="onStepChange(' + idx + ')" placeholder="备注" class="w-full text-[13px] rounded-sm px-2 py-[5px] border border-border"></td>' +
  '<td><button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center" onclick="removeStep(' + idx + ')" title="删除"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button></td>' +
  '</tr>';
  }});

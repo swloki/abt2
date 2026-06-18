@@ -140,7 +140,7 @@ fn transaction_list_page(
 
 fn transaction_filter_form(params: &TransactionLogQueryParams) -> Markup {
  html! {
- form class="flex items-center gap-3 mb-6 flex-wrap filter-form" id="transaction-filter-form"
+ form class="flex items-center gap-3 mb-6 flex-wrap" id="transaction-filter-form"
  hx-get=(TransactionListPath::PATH)
  hx-trigger="change,keyup changed delay:300ms from:.search-input"
  hx-target="#transaction-data-card"

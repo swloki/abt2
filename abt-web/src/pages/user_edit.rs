@@ -144,6 +144,29 @@ pub async fn post_user_edit(
  Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }
 
+// ── Shared class strings ──
+
+const BTN_DEFAULT: &str =
+ "inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border \
+  hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium \
+  cursor-pointer transition-all duration-150 shadow-xs";
+
+const BTN_PRIMARY: &str =
+ "inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none \
+  hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 \
+  shadow-[0_1px_2px_rgba(37,99,235,0.2)]";
+
+const SECTION: &str =
+ "bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden";
+
+const SECTION_HEAD: &str =
+ "flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 \
+  [border-bottom:1px_solid_var(--border-soft)]";
+
+const FIELD_INPUT: &str =
+ "w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg \
+  transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]";
+
 // ── Components ──
 
 fn user_edit_page(
@@ -169,7 +192,6 @@ fn user_edit_page(
  "返回用户详情"
  }
  h1 class="text-xl font-bold text-fg tracking-tight" { "编辑用户" }
-
  }
 
  form id="user-edit-form"
@@ -177,8 +199,10 @@ fn user_edit_page(
  hx-swap="none" {
 
  // Hidden fields for multi-select values
- input type="hidden" name="role_ids" id="roleIdsInput" value=(selected_role_ids.iter().map(|id| id.to_string()).collect::<Vec<_>>().join(",")) {}
- input type="hidden" name="dept_ids" id="deptIdsInput" value=(selected_dept_ids.iter().map(|id| id.to_string()).collect::<Vec<_>>().join(",")) {}
+ input type="hidden" name="role_ids" id="roleIdsInput"
+ value=(selected_role_ids.iter().map(|id| id.to_string()).collect::<Vec<_>>().join(",")) {}
+ input type="hidden" name="dept_ids" id="deptIdsInput"
+ value=(selected_dept_ids.iter().map(|id| id.to_string()).collect::<Vec<_>>().join(",")) {}
 
  // ── Section 1: 基本信息 ──
  (basic_info_section(user))
@@ -194,15 +218,14 @@ fn user_edit_page(
  }
 
  // ── Action Bar ──
- div class="flex items-center justify-end gap-3 pt-4 [border-top:1px_solid_var(--border-soft)]" {
- a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(&detail_path) { "取消" }
- button type="submit" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" form="user-edit-form" {
+ div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg [border-top:1px_solid_var(--border-soft)]" {
+ a class=(BTN_DEFAULT) href=(&detail_path) { "取消" }
+ button type="submit" class=(BTN_PRIMARY) form="user-edit-form" {
  (icon::check_circle_icon("w-4 h-4"))
  "保存"
  }
  }
  }
-
  }
 }
 
@@ -212,39 +235,42 @@ fn basic_info_section(user: &UserWithRoles) -> Markup {
  let is_active = user.user.is_active;
 
  html! {
- div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
+ div class=(SECTION) {
+ div class=(SECTION_HEAD) {
  (icon::user_icon("w-[18px] h-[18px]"))
  "基本信息"
  }
- div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
+ div class="grid grid-cols-2 gap-4 gap-x-6 mb-2" {
  // 用户名 (disabled)
- div class="form-group" {
+ div class="flex flex-col" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "登录名" }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" value=(&user.user.username) disabled {}
- span class="text-xs text-muted mt-0.5" { "登录名不可修改" }
+ input class=(format!("{FIELD_INPUT} opacity-60 cursor-not-allowed")) type="text"
+ value=(&user.user.username) disabled {}
+ span class="text-xs text-muted mt-1" { "登录名不可修改" }
  }
  // 显示名称
- div class="form-group" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "显示名称 " span class="required" { "*" } }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="display_name"
+ div class="flex flex-col" {
+ label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "显示名称 " span class="text-danger" { "*" } }
+ input class=(FIELD_INPUT) type="text" name="display_name"
  value=(display_name_val)
  placeholder="中文名称，如 张明" {}
  }
  // 超级管理员
- div class="form-group" {
+ div class="flex flex-col" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "超级管理员" }
  label class="flex items-center gap-2 text-[13px] text-fg cursor-pointer mt-1.5" {
- input type="checkbox" name="is_super_admin" value="true" checked[is_super_admin] {}
+ input type="checkbox" name="is_super_admin" value="true" class="w-4 h-4 accent-[var(--accent)] cursor-pointer"
+ checked[is_super_admin] {}
  span { "设为超级管理员（绕过所有权限检查）" }
  }
- span class="text-xs text-muted mt-0.5" { "超级管理员拥有所有资源的完全访问权限，请谨慎授予" }
+ span class="text-xs text-muted mt-1" { "超级管理员拥有所有资源的完全访问权限，请谨慎授予" }
  }
  // 激活状态
- div class="form-group" {
+ div class="flex flex-col" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "激活状态" }
  label class="flex items-center gap-2 text-[13px] text-fg cursor-pointer mt-1.5" {
- input type="checkbox" name="is_active" value="true" checked[is_active] {}
+ input type="checkbox" name="is_active" value="true" class="w-4 h-4 accent-[var(--accent)] cursor-pointer"
+ checked[is_active] {}
  span { "用户已激活，可正常登录系统" }
  }
  }
@@ -255,25 +281,24 @@ fn basic_info_section(user: &UserWithRoles) -> Markup {
 
 fn role_section(roles: &[Role], selected_ids: &[i64]) -> Markup {
  html! {
- div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
+ div class=(SECTION) {
+ div class=(SECTION_HEAD) {
  (icon::lock_icon("w-[18px] h-[18px]"))
  "角色分配"
  }
  p class="text-[13px] text-muted mb-4 leading-relaxed" { "用户可拥有多个角色，权限取所有角色的并集。" }
- div class="grid gap-3" {
+ div class="grid gap-2" {
  @for role in roles {
  @let is_sel = selected_ids.contains(&role.role_id);
- label class=(if is_sel { "pick-item selected" } else { "pick-item" }) {
- @if is_sel {
- input type="checkbox" name="role" value=(role.role_id) checked {}
- } @else {
- input type="checkbox" name="role" value=(role.role_id) {}
+ label class="pick-item flex items-center gap-3 p-3 border rounded-md cursor-pointer transition-colors border-border-soft hover:border-border [&.selected]:border-accent [&.selected]:bg-accent-bg" {
+ input type="checkbox" name="role" value=(role.role_id) class="w-4 h-4 accent-[var(--accent)] cursor-pointer"
+ checked[is_sel] {}
+ span class=(format!("w-7 h-7 rounded-lg flex items-center justify-center text-[9px] font-bold text-white shrink-0 bg-[{}] ", role_color(&role.role_code))) {
+ (short_code(&role.role_code))
  }
- span.pick-code style=(format!("background:{}", role_color(&role.role_code))) { (short_code(&role.role_code)) }
- span { (role.role_name) }
+ span class="text-sm font-medium text-fg" { (role.role_name) }
  @if role.is_system_role {
- span class="text-[10px] bg-[#fff7e6] text-[#fa8c16]" { "内置" }
+ span class="text-[10px] font-medium px-[6px] py-[1px] rounded-[3px] bg-[#fff7e6] text-[#fa8c16]" { "内置" }
  }
  }
  }
@@ -297,23 +322,25 @@ fn role_section(roles: &[Role], selected_ids: &[i64]) -> Markup {
 
 fn dept_section(departments: &[Department], selected_ids: &[i64]) -> Markup {
  html! {
- div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
+ div class=(SECTION) {
+ div class=(SECTION_HEAD) {
  (icon::building_icon("w-[18px] h-[18px]"))
  "部门分配"
  }
  p class="text-[13px] text-muted mb-4 leading-relaxed" { "用户可归属多个部门（多对多关系）。" }
- div class="grid gap-3" {
+ div class="grid gap-2" {
  @for dept in departments {
  @let is_sel = selected_ids.contains(&dept.department_id);
- label class=(if is_sel { "pick-item selected" } else { "pick-item" }) {
- @if is_sel {
- input type="checkbox" name="dept" value=(dept.department_id) checked {}
- } @else {
- input type="checkbox" name="dept" value=(dept.department_id) {}
+ label class="pick-item flex items-center gap-3 p-3 border rounded-md cursor-pointer transition-colors border-border-soft hover:border-border [&.selected]:border-accent [&.selected]:bg-accent-bg" {
+ input type="checkbox" name="dept" value=(dept.department_id) class="w-4 h-4 accent-[var(--accent)] cursor-pointer"
+ checked[is_sel] {}
+ span class=(format!("w-7 h-7 rounded-lg flex items-center justify-center text-[9px] font-bold text-white shrink-0 bg-[{}] ", dept_color(&dept.department_code))) {
+ (short_code(&dept.department_code))
  }
- span.pick-code style=(format!("background:{}", dept_color(&dept.department_code))) { (short_code(&dept.department_code)) }
- span { (dept.department_name) }
+ span class="text-sm font-medium text-fg" { (dept.department_name) }
+ @if !dept.is_active {
+ span class="text-[10px] font-medium px-[6px] py-[1px] rounded-[3px] bg-[#fff2f0] text-[#cf1322]" { "停用" }
+ }
  }
  }
  script { (maud::PreEscaped(r#"
@@ -339,50 +366,65 @@ fn data_scope_section(user: &UserWithRoles, user_depts: &[Department]) -> Markup
  let has_departments = !user_depts.is_empty();
 
  html! {
- div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
+ div class=(SECTION) {
+ div class=(SECTION_HEAD) {
  (shield_check_icon("w-[18px] h-[18px]"))
  "数据权限 (DataScope)"
  }
  p class="text-[13px] text-muted mb-4 leading-relaxed" { "数据范围由角色配置决定，不支持在用户级别单独修改。以下为当前用户的实际数据范围。" }
- div class="grid gap-3" {
+ div class="grid grid-cols-3 gap-3" {
  // All scope
- div class={"scope-option" @if is_super_admin { " selected" } @else { "" }} data-value="All" {
- div class="p-4 border border-border rounded-sm cursor-pointer text-center-icon si-all" {
- svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" {
- path d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064" {}
- circle cx="12" cy="12" r="10" {}
- }
- }
- div class="p-4 border border-border rounded-sm cursor-pointer text-center-title" { "All — 全部数据" }
- div class="p-4 border border-border rounded-sm cursor-pointer text-center-desc" { "可查看系统中所有数据，通常授予管理层" }
- }
+ (scope_card(
+ is_super_admin,
+ "bg-[#dbeafe] text-accent",
+ r#"<path d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064" /><circle cx="12" cy="12" r="10" />"#,
+ "All — 全部数据",
+ "可查看系统中所有数据，通常授予管理层",
+ None,
+ ))
  // Department scope
- div class={"scope-option" @if !is_super_admin && has_departments { " selected" } @else { "" }} data-value="Department" {
- div class="p-4 border border-border rounded-sm cursor-pointer text-center-icon si-dept" {
- svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" {
- path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5" {}
- }
- }
- div class="p-4 border border-border rounded-sm cursor-pointer text-center-title" { "Department — 本部门" }
- div class="p-4 border border-border rounded-sm cursor-pointer text-center-desc" { "仅可查看所属部门的数据" }
- @if !is_super_admin && has_departments {
- div class="scope-dept-tags" {
- @for dept in user_depts {
- span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-surface text-[#666]" { (&dept.department_name) }
- }
- }
- }
- }
+ (scope_card(
+ !is_super_admin && has_departments,
+ "bg-[#dcfce7] text-success",
+ r#"<path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5" />"#,
+ "Department — 本部门",
+ "仅可查看所属部门的数据",
+ if !is_super_admin && has_departments { Some(user_depts) } else { None },
+ ))
  // Self scope
- div class={"scope-option" @if !is_super_admin && !has_departments { " selected" } @else { "" }} data-value="Self" {
- div class="p-4 border border-border rounded-sm cursor-pointer text-center-icon si-self" {
- svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" {
- path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" {}
+ (scope_card(
+ !is_super_admin && !has_departments,
+ "bg-surface text-muted",
+ r#"<path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />"#,
+ "Self — 仅本人",
+ "仅可查看自己创建的数据",
+ None,
+ ))
  }
  }
- div class="p-4 border border-border rounded-sm cursor-pointer text-center-title" { "Self — 仅本人" }
- div class="p-4 border border-border rounded-sm cursor-pointer text-center-desc" { "仅可查看自己创建的数据" }
+ }
+}
+
+fn scope_card(selected: bool, icon_cls: &str, paths: &str, title: &str, desc: &str, dept_tags: Option<&[Department]>) -> Markup {
+ let border_cls = if selected {
+ "border-accent bg-accent-bg"
+ } else {
+ "border-border-soft"
+ };
+ html! {
+ div class=(format!("p-4 border rounded-md {border_cls}")) {
+ div class=(format!("w-10 h-10 rounded-md flex items-center justify-center mx-auto mb-2 {icon_cls}")) {
+ svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-5 h-5" {
+ (maud::PreEscaped(paths))
+ }
+ }
+ div class="text-sm font-semibold text-fg text-center" { (title) }
+ div class="text-xs text-muted text-center mt-1" { (desc) }
+ @if let Some(depts) = dept_tags {
+ div class="flex flex-wrap gap-1 justify-center mt-2" {
+ @for dept in depts {
+ span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-surface text-[#666]" { (&dept.department_name) }
+ }
  }
  }
  }

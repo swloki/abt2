@@ -209,7 +209,7 @@ fn cycle_count_create_page(
  }
  }
  // ── 盘点物料 ──
- div class="form-section" class="p-0 overflow-hidden" {
+ div class="form-section p-0 overflow-hidden" {
  div class="px-6 pt-6 pb-4" {
  div class="flex items-center gap-2 text-sm font-semibold text-fg mb-3" {
  (icon::box_icon("w-[18px] h-[18px]"))

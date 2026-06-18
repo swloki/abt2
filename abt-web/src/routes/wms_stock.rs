@@ -30,5 +30,6 @@ pub struct StockDetailQuery {
 pub fn router() -> Router<AppState> {
     Router::new()
         .route(StockListPath::PATH, get(wms_stock_list::get_stock_list))
+        .route(StockZonesPath::PATH, get(wms_stock_list::get_zone_options))
         .route(StockDetailPath::PATH, get(wms_stock_list::get_stock_detail))
 }

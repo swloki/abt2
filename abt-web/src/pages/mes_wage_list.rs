@@ -145,7 +145,7 @@ fn wage_list_page(
  div class="flex items-center gap-3 mb-5 flex-wrap" {
  div class="relative w-60" {
  (icon::search_icon("absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted"))
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" placeholder="搜索工人姓名、工号…";
+ input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input" type="text" placeholder="搜索工人姓名、工号…";
  }
  input type="date" class="w-40 px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" value=(date_from_str);
  span class="text-sm text-muted" { "至" }

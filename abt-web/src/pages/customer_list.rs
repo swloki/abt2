@@ -100,12 +100,12 @@ fn customer_list_page(
  div class="flex items-center justify-between mb-6" {
  h1 class="text-xl font-bold text-fg tracking-tight" { "客户管理" }
  div class="flex gap-3" {
- button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" {
+ button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" {
  (icon::download_icon("w-4 h-4"))
  "导出"
  }
  @if can_create {
- a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href="/admin/customers/new" {
+ a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href="/admin/customers/new" {
  (icon::plus_icon("w-4 h-4"))
  "新建客户"
  }
@@ -192,7 +192,7 @@ fn customer_table_fragment(
  hx-push-url="true" {
  div class="relative flex-1 max-w-xs [&_svg]:absolute [&_svg]:left-3 [&_svg]:top-1/2 [&_svg]:-translate-y-1/2 [&_svg]:w-4 [&_svg]:h-4 [&_svg]:text-muted" {
  (icon::search_icon(""))
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword"
+ input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input" type="text" name="keyword"
  placeholder="搜索客户名称、联系人、电话…"
  value=(params.keyword.as_deref().unwrap_or(""));
  }
@@ -250,10 +250,10 @@ fn customer_row(c: &Customer, can_delete: bool) -> Markup {
  let edit_path = EditCustomerPath { id: c.id };
  let delete_path = DeleteCustomerPath { id: c.id };
  let category_label = match c.category {
- CustomerCategory::Distributor => ("经销商", "tag-normal"),
- CustomerCategory::DirectCustomer => ("直客", "tag-normal"),
- CustomerCategory::OEM => ("OEM", "tag-normal"),
- CustomerCategory::Retailer => ("零售商", "tag-normal"),
+ CustomerCategory::Distributor => ("经销商", "inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-surface text-fg-2"),
+ CustomerCategory::DirectCustomer => ("直客", "inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-surface text-fg-2"),
+ CustomerCategory::OEM => ("OEM", "inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-surface text-fg-2"),
+ CustomerCategory::Retailer => ("零售商", "inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-surface text-fg-2"),
  };
  let (status_label, status_class) = match c.status {
  CustomerStatus::Prospective => ("潜在客户", "status-draft"),
@@ -266,13 +266,13 @@ fn customer_row(c: &Customer, can_delete: bool) -> Markup {
  tr {
  td class="text-accent font-medium cursor-pointer font-mono tabular-nums" onclick=(format!("location.href='{}'", detail_path)) { (c.code) }
  td onclick=(format!("location.href='{}'", detail_path)) { strong { (c.name) } }
- td onclick=(format!("location.href='{}'", detail_path)) { span class=(format!("tag-chip {}", category_label.1)) { (category_label.0) } }
+ td onclick=(format!("location.href='{}'", detail_path)) { span class=(category_label.1) { (category_label.0) } }
  td onclick=(format!("location.href='{}'", detail_path)) {
  @if let Some(limit) = c.credit_limit {
  div class="flex items-center gap-[6px]" {
  span class="font-mono tabular-nums text-xs" { "¥ " (format_amount(limit)) }
- div class="w-[60px] h-[4px] bg-border-soft overflow-hidden" {
- div class="w-[60px] h-[4px] bg-border-soft overflow-hidden-fill" style="width:0%;background:var(--accent)" {}
+ div class="w-[60px] h-1 bg-border-soft rounded-full overflow-hidden" {
+ div class="h-full bg-accent rounded-full" style="width:0%" {}
  }
  }
  } @else {

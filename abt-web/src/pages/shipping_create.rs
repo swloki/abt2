@@ -569,7 +569,7 @@ fn shipping_edit_page(
  }
  }
  }
- div class="form-field span-2" {
+ div class="form-field col-span-2" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "收货地址" }
  input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="shipping_address" id="shipping-address" value=(shipping_address) placeholder="请输入收货地址";
  }
@@ -649,16 +649,16 @@ fn shipping_edit_page(
  table class="data-table" id="lineItemsTable" {
  thead {
  tr {
- th class="col-num" { "行号" }
+ th class="w-12" { "行号" }
  th { "产品编码" }
  th { "产品名称" }
  th { "规格描述" }
- th class="col-unit" { "单位" }
- th class="col-qty" { "订单数量" }
- th class="col-qty" { "已发货" }
- th class="col-qty" { "本次发货" }
- th class="col-action" { "发货仓库" }
- th class="col-action" { }
+ th class="w-20" { "单位" }
+ th class="w-24" { "订单数量" }
+ th class="w-24" { "已发货" }
+ th class="w-24" { "本次发货" }
+ th class="w-16" { "发货仓库" }
+ th class="w-16" { }
  }
  }
  tbody id="lineItemsBody" { }
@@ -684,9 +684,9 @@ fn shipping_edit_page(
  }
 
  // ── Action Bar ──
- div class="flex items-center justify-end gap-3 pt-4 [border-top:1px_solid_var(--border-soft)]" {
- a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{}?restore=true", ShippingListPath::PATH)) { "取消" }
- button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" _="on click call handleSave()" {
+ div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg [border-top:1px_solid_var(--border-soft)]" {
+ a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{}?restore=true", ShippingListPath::PATH)) { "取消" }
+ button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" _="on click call handleSave()" {
  (icon::save_icon("w-4 h-4"))
  "保存"
  }
@@ -831,7 +831,7 @@ fn shipping_create_page(
  }
  }
  }
- div class="form-field span-2" {
+ div class="form-field col-span-2" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "收货地址 " span class="required" { "*" } }
  input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="shipping_address" id="shipping-address" placeholder="请输入收货地址";
  }
@@ -924,16 +924,16 @@ fn shipping_create_page(
  table class="data-table" id="lineItemsTable" {
  thead {
  tr {
- th class="col-num" { "行号" }
+ th class="w-12" { "行号" }
  th { "产品编码" }
  th { "产品名称" }
  th { "规格描述" }
- th class="col-unit" { "单位" }
- th class="col-qty" { "订单数量" }
- th class="col-qty" { "已发货" }
- th class="col-qty" { "本次发货 " span class="required" { "*" } }
- th class="col-action" { "发货仓库" }
- th class="col-action" { }
+ th class="w-20" { "单位" }
+ th class="w-24" { "订单数量" }
+ th class="w-24" { "已发货" }
+ th class="w-24" { "本次发货 " span class="required" { "*" } }
+ th class="w-16" { "发货仓库" }
+ th class="w-16" { }
  }
  }
  tbody id="lineItemsBody" {
@@ -961,9 +961,9 @@ fn shipping_create_page(
  }
 
  // ── Action Bar ──
- div class="flex items-center justify-end gap-3 pt-4 [border-top:1px_solid_var(--border-soft)]" {
- a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{}?restore=true", ShippingListPath::PATH)) { "取消" }
- button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" _="on click call handleSave()" {
+ div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg [border-top:1px_solid_var(--border-soft)]" {
+ a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{}?restore=true", ShippingListPath::PATH)) { "取消" }
+ button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" _="on click call handleSave()" {
  (icon::save_icon("w-4 h-4"))
  "保存"
  }
@@ -1076,7 +1076,7 @@ fn customer_info_card(
  }
  }
  div class="grid grid-cols-2 gap-4 gap-x-6 mb-6 mt-3" {
- div class="form-field span-2" {
+ div class="form-field col-span-2" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "收货地址" }
  input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="shipping_address" value=(shipping_address) placeholder="选择客户后自动填充" {}
  }
@@ -1112,7 +1112,7 @@ fn order_search_results(
  span { "¥" (total) }
  }
  }
- button type="button" class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] [&_svg]:w-4 [&_svg]:h-4"
+ button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] [&_svg]:w-4 [&_svg]:h-4"
  data-order=(items_json)
  onclick="selectOrder(JSON.parse(this.dataset.order))" {
  "选择"

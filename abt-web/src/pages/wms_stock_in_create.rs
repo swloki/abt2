@@ -384,25 +384,27 @@ fn stock_in_create_content(
  }
 
  // ── Page Header ──
- div class="flex items-center justify-between mb-6" class="mb-6" {
+ div class="flex items-center justify-between mb-6" {
  h1 class="text-xl font-bold text-fg tracking-tight" { "新建入库单" }
  }
 
  // ── Type Switch ──
- div class="flex gap-3" {
- div class="flex-1 flex flex-col items-center gap-2 p-5 rounded-lg bg-bg cursor-pointer active" _="on click take .active from .type-btn then put 'PurchaseReceipt' into #stockin-txn-type's value" {
+ div class="flex gap-3 mb-6" {
+ div class="type-btn flex-1 flex flex-col items-center gap-2 p-5 rounded-lg border cursor-pointer transition-colors border-border-soft text-muted hover:border-border [&.active]:border-accent [&.active]:bg-accent-bg [&.active]:text-accent active"
+ _="on click take .active from .type-btn then put 'PurchaseReceipt' into #stockin-txn-type's value" {
  (icon::download_icon("w-7 h-7"))
- span class="type-label" { "采购入库" }
- span class="type-desc" { "PURCHASE_RECEIPT" br; "关联来料通知 / 采购订单" }
+ span class="text-sm font-semibold" { "采购入库" }
+ span class="text-xs" { "PURCHASE_RECEIPT" br; "关联来料通知 / 采购订单" }
  }
- div class="flex-1 flex flex-col items-center gap-2 p-5 rounded-lg bg-bg cursor-pointer" _="on click take .active from .type-btn then put 'ProductionReceipt' into #stockin-txn-type's value" {
+ div class="type-btn flex-1 flex flex-col items-center gap-2 p-5 rounded-lg border cursor-pointer transition-colors border-border-soft text-muted hover:border-border [&.active]:border-accent [&.active]:bg-accent-bg [&.active]:text-accent"
+ _="on click take .active from .type-btn then put 'ProductionReceipt' into #stockin-txn-type's value" {
  (icon::box_icon("w-7 h-7"))
- span class="type-label" { "生产入库" }
- span class="type-desc" { "PRODUCTION_RECEIPT" br; "关联工单完工报工" }
+ span class="text-sm font-semibold" { "生产入库" }
+ span class="text-xs" { "PRODUCTION_RECEIPT" br; "关联工单完工报工" }
  }
  }
 
- form id="stockInForm" hx-post=(StockInCreatePath::PATH) hx-swap="none"
+ form id="stockInForm" class="space-y-5" hx-post=(StockInCreatePath::PATH) hx-swap="none"
  onsubmit="return wmsStockInCollectItems()" {
  input type="hidden" id="stockin-txn-type" name="transaction_type" value="PurchaseReceipt" {};
  // ── Source Section ──
@@ -411,8 +413,8 @@ fn stock_in_create_content(
  (icon::link_icon("w-[18px] h-[18px]"))
  "来源关联"
  }
- div class="wms-grid grid-cols-2 gap-4 gap-x-6 mb-6" {
- div class="form-group" {
+ div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
+ div class="flex flex-col" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "来源类型" }
  select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="source_type" id="source-type-select"
  _="on change[my value is 'manual'] put '可选：输入来源单号' into #source-ref-input's @placeholder then hide #source-ref-pick-btn then hide #source-ref-required then hide #source-supplier-group then set #source-ref-input's value to '' then set #source-id-input's value to '' then set #source-supplier-input's value to '' then set #stockin-item-tbody's innerHTML to '' then call wmsStockInCalcSummary()
@@ -422,24 +424,24 @@ fn stock_in_create_content(
  option value="manual" { "手工录入" }
  }
  }
- div class="form-group" id="source-ref-group" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "来源单号 " span class="required" id="source-ref-required" { "*" } }
+ div class="flex flex-col" id="source-ref-group" {
+ label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "来源单号 " span class="text-danger" id="source-ref-required" { "*" } }
  div class="flex gap-2" {
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" id="source-ref-input" name="source_ref"
- placeholder="选择来源单号或直接输入" class="flex-1" {};
+ input class="flex-1 min-w-0 px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" id="source-ref-input" name="source_ref"
+ placeholder="选择来源单号或直接输入" {};
  input type="hidden" id="source-id-input" name="source_id" {};
- button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" id="source-ref-pick-btn"
+ button type="button" class="inline-flex items-center px-3 py-2 rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:text-accent text-sm font-medium cursor-pointer transition-colors whitespace-nowrap shrink-0" id="source-ref-pick-btn"
  _="on click set #source-pick-type's value to #source-type-select's value then add .is-open to #source-modal then call wmsOpenSourceModal()" { "选择" }
  }
  }
- div class="form-group" {
+ div class="flex flex-col" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "送货单号" }
  input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="delivery_no" placeholder="输入送货单号";
  }
- div class="form-group" id="source-supplier-group" {
+ div class="flex flex-col" id="source-supplier-group" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "供应商" }
  input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" id="source-supplier-input"
- placeholder="选择来源后自动填充" readonly class="bg-surface";
+ placeholder="选择来源后自动填充" readonly class="bg-surface cursor-not-allowed";
  }
  }
  }
@@ -450,9 +452,9 @@ fn stock_in_create_content(
  (icon::building_icon("w-[18px] h-[18px]"))
  "入库信息"
  }
- div class="wms-grid grid-cols-2 gap-4 gap-x-6 mb-6" {
- div class="form-group" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "目标仓库 " span class="required" { "*" } }
+ div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
+ div class="flex flex-col" {
+ label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "目标仓库 " span class="text-danger" { "*" } }
  select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="warehouse_id" id="warehouse-select"
  onchange="wmsUpdateZones()" {
  option value="" disabled selected { "请选择仓库" }
@@ -461,7 +463,7 @@ fn stock_in_create_content(
  }
  }
  }
- div class="form-group" {
+ div class="flex flex-col" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "目标库区" }
  select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="zone_id" id="zone-select"
  onchange="wmsUpdateBins()" {
@@ -473,7 +475,7 @@ fn stock_in_create_content(
  }
  }
  }
- div class="form-group" {
+ div class="flex flex-col" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "目标库位" }
  select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="bin_id" id="bin-select" {
  option value="" { "请先选择库区" }
@@ -484,17 +486,17 @@ fn stock_in_create_content(
  }
  }
  }
- div class="form-group" {
+ div class="flex flex-col" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "操作员" }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" value=(operator_name) readonly class="bg-surface";
+ input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" value=(operator_name) readonly class="bg-surface cursor-not-allowed";
  }
  }
  }
 
  // ── Strategy Tip ──
- div class="flex items-center" class="rounded-md mb-6 gap-3" class="px-4 py-3" style="background:rgba(82,196,26,0.05);border:1px solid rgba(82,196,26,0.15)" {
- (icon::check_circle_icon("w-4 h-4"))
- span class="text-fg-2" class="text-sm" {
+ div class="flex items-center rounded-md mb-6 gap-3 px-4 py-3 bg-[rgba(82,196,26,0.05)] border border-[rgba(82,196,26,0.15)]" {
+ (icon::check_circle_icon("w-4 h-4 text-success shrink-0"))
+ span class="text-sm text-fg-2" {
  "当前仓库上架策略："
  strong { "同物料合并 (SAME_MERGE)" }
  " — 系统将自动分配至同物料已有库位，库位满时按就近原则分配。"
@@ -506,7 +508,7 @@ fn stock_in_create_content(
  div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
  (icon::box_icon("w-[18px] h-[18px]"))
  "入库物料明细"
- span id="stockin-item-count" class="font-normal text-muted" class="ml-auto text-xs" { "共 0 项" }
+ span id="stockin-item-count" class="ml-auto text-xs font-normal text-muted" { "共 0 项" }
  }
  table class="data-table" {
  thead {
@@ -516,7 +518,7 @@ fn stock_in_create_content(
  th { "产品名称" }
  th { "规格型号" }
  th { "批次号" }
- th class="w-[100px]" { "入库数量 " span class="required" { "*" } }
+ th class="w-[100px]" { "入库数量 " span class="text-danger" { "*" } }
  th { "目标库位" }
  th class="w-10" { }
  }
@@ -540,18 +542,18 @@ fn stock_in_create_content(
  (icon::clipboard_list_icon("w-[18px] h-[18px]"))
  "入库汇总"
  }
- div class="grid" class="grid-cols-3" style="gap:var(--space-6)" {
- div class="text-center bg-surface" class="p-4 rounded-md" {
- div class="text-[11px] text-muted" class="mb-1" { "物料种类" }
- div id="stockin-summary-kinds" class="font-mono tabular-nums" class="font-semibold" class="text-xl" { "0" }
+ div class="grid grid-cols-3 gap-6" {
+ div class="text-center bg-surface p-4 rounded-md" {
+ div class="text-[11px] text-muted mb-1" { "物料种类" }
+ div id="stockin-summary-kinds" class="font-mono tabular-nums font-semibold text-xl text-fg" { "0" }
  }
- div class="text-center bg-surface" class="p-4 rounded-md" {
- div class="text-[11px] text-muted" class="mb-1" { "入库总量" }
- div id="stockin-summary-qty" class="font-mono tabular-nums" class="font-semibold" class="text-xl" { "0" }
+ div class="text-center bg-surface p-4 rounded-md" {
+ div class="text-[11px] text-muted mb-1" { "入库总量" }
+ div id="stockin-summary-qty" class="font-mono tabular-nums font-semibold text-xl text-fg" { "0" }
  }
- div class="text-center bg-surface" class="p-4 rounded-md" {
- div class="text-[11px] text-muted" class="mb-1" { "上架策略" }
- div class="font-semibold" class="text-sm" { "同物料合并" }
+ div class="text-center bg-surface p-4 rounded-md" {
+ div class="text-[11px] text-muted mb-1" { "上架策略" }
+ div class="font-semibold text-sm text-fg" { "同物料合并" }
  }
  }
  }
@@ -562,18 +564,18 @@ fn stock_in_create_content(
  (icon::edit_icon("w-[18px] h-[18px]"))
  "备注"
  }
- textarea class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="remark" placeholder="输入备注信息…" rows="3" class="w-full resize-y" class="min-h-[80px]" style="padding:var(--space-2) var(--space-3)" { }
+ textarea class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none resize-y min-h-[80px] transition-all duration-150 focus:border-accent focus:shadow-[var(--shadow-focus)]" name="remark" placeholder="输入备注信息…" rows="3" { }
  }
 
  // hidden input for items JSON
  input type="hidden" name="items_json" id="stockin-items-json" value="[]" {}
 
  // ── Action Bar ──
- div class="flex items-center justify-end gap-3 pt-4 [border-top:1px_solid_var(--border-soft)]" {
- a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{}?restore=true", StockInListPath::PATH)) { "取消" }
+ div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg [border-top:1px_solid_var(--border-soft)]" {
+ a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{}?restore=true", StockInListPath::PATH)) { "取消" }
  div class="flex gap-3" {
- button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" { "保存草稿" }
- button type="submit" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" {
+ button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" { "保存草稿" }
+ button type="submit" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" {
  (icon::check_circle_icon("w-4 h-4"))
  "确认入库"
  }
@@ -593,7 +595,7 @@ fn stock_in_create_content(
  button type="button" class="bg-transparent border-none cursor-pointer text-xl text-muted p-1"
  _="on click remove .is-open from #source-modal" { "×" }
  }
- div class="overflow-y-auto flex-1 min-h-0 p-6" class="p-0" hx-disinherit="hx-select" {
+ div class="overflow-y-auto flex-1 min-h-0 p-4" hx-disinherit="hx-select" {
  input type="hidden" id="source-pick-type" name="source_type" value="arrival" {}
  div class="flex gap-4 p-4 [border-bottom:1px_solid_var(--border-soft)]" {
  div class="flex-1 flex flex-col gap-[4px]" {
@@ -761,7 +763,7 @@ div class="flex items-center justify-between p-3 [border-bottom:1px_solid_var(--
  span { (o.extra) }
  }
  }
- button type="button" class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] [&_svg]:w-4 [&_svg]:h-4"
+ button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] [&_svg]:w-4 [&_svg]:h-4"
  data-doc=(o.doc_number)
  data-supplier=(o.supplier_name)
  data-source-id=(o.id)
@@ -775,18 +777,35 @@ div class="flex items-center justify-between p-3 [border-bottom:1px_solid_var(--
  }
 }
 
+const CELL_INPUT: &str =
+ "w-full px-2 py-[5px] border border-border rounded-sm text-[13px] bg-white text-fg \
+  outline-none transition-all duration-150 focus:border-accent focus:shadow-[var(--shadow-focus)]";
+
 /// Single item row fragment
 fn item_row_fragment(product: &abt_core::master_data::product::model::Product) -> Markup {
+ line_item_row(product, "")
+}
+
+/// Multiple item rows with pre-filled quantities (from PO / arrival notice)
+fn source_items_fragment(items: &[(abt_core::master_data::product::model::Product, Decimal)]) -> Markup {
+ html! {
+ @for (product, qty) in items {
+ (line_item_row(product, &qty.to_string()))
+ }
+ }
+}
+
+fn line_item_row(product: &abt_core::master_data::product::model::Product, qty: &str) -> Markup {
  html! {
  tr oninput="wmsStockInCalcRow(this)" {
- td class="text-muted text-xs text-center" { }
- td class="font-mono tabular-nums" { (product.product_code) }
- td { (product.pdt_name) }
- td class="text-fg-2" class="text-sm" { (product.meta.specification) }
- td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="batch_no" placeholder="批次号" class="w-full text-[13px]" class="rounded-sm" class="px-2 py-[5px] border border-border" {} }
- td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] num-input" type="number" min="0.01" step="any" name="quantity" placeholder="0" class="w-[90px] text-right text-[13px] font-mono" class="rounded-sm" class="px-2 py-[5px] border border-border" {} }
- td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="item_bin_id" placeholder="自动" class="w-[80px] text-[13px] bg-surface" class="rounded-sm" class="px-2 py-[5px] border border-border" {} }
- td { button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center" title="删除行"
+ td class="line-num text-muted text-xs text-center" { }
+ td class="font-mono tabular-nums text-sm text-fg" { (product.product_code) }
+ td class="text-sm text-fg" { (product.pdt_name) }
+ td class="text-sm text-fg-2" { (product.meta.specification) }
+ td { input class=(CELL_INPUT) type="text" name="batch_no" placeholder="批次号" {} }
+ td { input class=(format!("{CELL_INPUT} w-[90px] text-right font-mono")) type="number" min="0.01" step="any" name="quantity" placeholder="0" value=(qty) {} }
+ td { input class=(format!("{CELL_INPUT} w-[80px] bg-surface")) type="text" name="item_bin_id" placeholder="自动" {} }
+ td { button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center hover:text-danger" title="删除行"
  _="on click remove closest <tr/> then call wmsStockInRenumber()" {
  (icon::x_icon("w-3.5 h-3.5"))
  } }
@@ -795,24 +814,3 @@ fn item_row_fragment(product: &abt_core::master_data::product::model::Product) -
  }
 }
 
-/// Multiple item rows with pre-filled quantities (from PO / arrival notice)
-fn source_items_fragment(items: &[(abt_core::master_data::product::model::Product, Decimal)]) -> Markup {
- html! {
- @for (product, qty) in items {
- tr oninput="wmsStockInCalcRow(this)" {
- td class="text-muted text-xs text-center" { }
- td class="font-mono tabular-nums" { (product.product_code) }
- td { (product.pdt_name) }
- td class="text-fg-2" class="text-sm" { (product.meta.specification) }
- td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="batch_no" placeholder="批次号" class="w-full text-[13px]" class="rounded-sm" class="px-2 py-[5px] border border-border" {} }
- td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] num-input" type="number" min="0.01" step="any" name="quantity" value=(qty.to_string()) class="w-[90px] text-right text-[13px] font-mono" class="rounded-sm" class="px-2 py-[5px] border border-border" {} }
- td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="item_bin_id" placeholder="自动" class="w-[80px] text-[13px] bg-surface" class="rounded-sm" class="px-2 py-[5px] border border-border" {} }
- td { button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center" title="删除行"
- _="on click remove closest <tr/> then call wmsStockInRenumber()" {
- (icon::x_icon("w-3.5 h-3.5"))
- } }
- input type="hidden" name="product_id" value=(product.product_id) {}
- }
- }
- }
-}

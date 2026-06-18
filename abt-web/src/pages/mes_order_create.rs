@@ -247,7 +247,7 @@ fn order_create_page(work_centers: &[abt_core::master_data::work_center::WorkCen
  option value="production_plan" { "生产计划" }
  }
  }
- div class="form-field col-span-2" id="source-order-field" style="display:none" {
+ div class="form-field col-span-2 hidden" id="source-order-field" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "关联销售订单" }
  div class="flex gap-2" {
  input type="hidden" name="source_sales_order_id" id="source_sales_order_id";
@@ -261,7 +261,7 @@ fn order_create_page(work_centers: &[abt_core::master_data::work_center::WorkCen
  _="on click set #source_sales_order_id's value to '' then put '点击选择销售订单…' into #so-display" { "清除" }
  }
  }
- div class="form-field col-span-2" id="source-plan-field" style="display:none" {
+ div class="form-field col-span-2 hidden" id="source-plan-field" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "关联生产计划" }
  div class="flex gap-2" {
  input type="hidden" name="source_plan_id" id="source_plan_id";
@@ -313,7 +313,7 @@ fn source_order_modal() -> Markup {
  button class="bg-transparent border-none cursor-pointer text-xl text-muted p-1"
  _="on click remove .is-open from #so-modal" { "\u{00d7}" }
  }
- div class="overflow-y-auto flex-1 min-h-0 p-6" class="p-0" {
+ div class="overflow-y-auto flex-1 min-h-0 p-0" {
  div class="flex gap-4 p-4 [border-bottom:1px_solid_var(--border-soft)]" {
  div class="flex-1 flex flex-col gap-[4px]" {
  label class="text-[12px] font-medium text-fg-2" { "订单编号 / 关键词" }
@@ -325,11 +325,11 @@ fn source_order_modal() -> Markup {
  hx-swap="innerHTML" {}
  }
  }
- div id="so-search-results" class="overflow-y-auto" style="max-height:320px"
+ div id="so-search-results" class="overflow-y-auto max-h-[320px]"
  hx-get=(SourceOrderSearchPath::PATH)
  hx-trigger="intersect once"
  hx-swap="innerHTML" {
- div class="flex items-center justify-center text-muted" class="p-8" {
+ div class="flex items-center justify-center text-muted p-8" {
  "加载中…"
  }
  }
@@ -349,7 +349,7 @@ fn source_plan_modal() -> Markup {
  button class="bg-transparent border-none cursor-pointer text-xl text-muted p-1"
  _="on click remove .is-open from #pp-modal" { "\u{00d7}" }
  }
- div class="overflow-y-auto flex-1 min-h-0 p-6" class="p-0" {
+ div class="overflow-y-auto flex-1 min-h-0 p-0" {
  div class="flex gap-4 p-4 [border-bottom:1px_solid_var(--border-soft)]" {
  div class="flex-1 flex flex-col gap-[4px]" {
  label class="text-[12px] font-medium text-fg-2" { "计划编号 / 关键词" }
@@ -361,11 +361,11 @@ fn source_plan_modal() -> Markup {
  hx-swap="innerHTML" {}
  }
  }
- div id="pp-search-results" class="overflow-y-auto" style="max-height:320px"
+ div id="pp-search-results" class="overflow-y-auto max-h-[320px]"
  hx-get=(SourcePlanSearchPath::PATH)
  hx-trigger="intersect once"
  hx-swap="innerHTML" {
- div class="flex items-center justify-center text-muted" class="p-8" {
+ div class="flex items-center justify-center text-muted p-8" {
  "加载中…"
  }
  }
@@ -382,7 +382,7 @@ fn source_order_results(orders: &[abt_core::sales::sales_order::model::SalesOrde
  html! {
  @if orders.is_empty() {
  div class="text-center text-muted py-12" {
- p class="m-0" class="text-sm" { "未找到匹配的销售订单" }
+ p class="m-0 text-sm" { "未找到匹配的销售订单" }
  }
  } @else {
  div class="py-2" {
@@ -411,7 +411,7 @@ fn source_plan_results(plans: &[abt_core::mes::production_plan::model::Productio
  html! {
  @if plans.is_empty() {
  div class="text-center text-muted py-12" {
- p class="m-0" class="text-sm" { "未找到匹配的生产计划" }
+ p class="m-0 text-sm" { "未找到匹配的生产计划" }
  }
  } @else {
  div class="py-2" {

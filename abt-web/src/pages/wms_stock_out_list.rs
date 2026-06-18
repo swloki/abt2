@@ -42,11 +42,12 @@ pub struct StockOutQueryParams {
 
 // ── Helpers ──
 
-fn out_type_label(t: &TransactionType) -> (&'static str, &'static str, &'static str) {
+fn out_type_label(t: &TransactionType) -> (&'static str, &'static str) {
+ // (label, pill_class)
  match t {
- TransactionType::SalesShipment => ("销售出库", "rgba(255,77,79,0.08)", "var(--danger)"),
- TransactionType::MaterialIssue => ("生产领料", "rgba(250,173,20,0.08)", "var(--warn)"),
- _ => ("其他", "rgba(0,0,0,0.04)", "var(--muted)"),
+ TransactionType::SalesShipment => ("销售出库", "bg-[#fff1f0] text-danger"),
+ TransactionType::MaterialIssue => ("生产领料", "bg-[#fff7e6] text-warn"),
+ _ => ("其他", "bg-surface text-muted"),
  }
 }
 
@@ -155,6 +156,20 @@ pub async fn get_stock_out_list(
 
 // ── Components ──
 
+fn stat_card(icon_markup: &Markup, icon_cls: &str, value: &str, label: &str) -> Markup {
+ html! {
+ div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-md shadow-xs" {
+ div class=(format!("w-[44px] h-[44px] rounded-md grid place-items-center shrink-0 {}", icon_cls)) {
+ (icon_markup)
+ }
+ div {
+ div class="text-2xl font-bold font-mono tabular-nums text-fg" { (value) }
+ div class="text-sm text-muted mt-1" { (label) }
+ }
+ }
+ }
+}
+
 fn stock_out_list_page(
  result: &abt_core::shared::types::PaginatedResult<abt_core::wms::inventory_transaction::model::InventoryTransaction>,
  operator_names: &HashMap<i64, String>,
@@ -200,7 +215,7 @@ fn stock_out_data_card(
  table class="data-table" {
  thead {
  tr {
- th style="width:30px" { input type="checkbox"; }
+ th class="w-[30px]" { input type="checkbox" class="cursor-pointer"; }
  th { "出库单号" }
  th { "出库类型" }
  th { "来源单号" }
@@ -217,30 +232,30 @@ fn stock_out_data_card(
  }
  tbody {
  @for item in &result.items {
- @let (type_label, type_bg, type_color) = out_type_label(&item.transaction_type);
+ @let (type_label, type_cls) = out_type_label(&item.transaction_type);
  @let wh_name = wh_names.get(&item.warehouse_id).map(|s| s.as_str()).unwrap_or("—");
  @let op_name = operator_names.get(&item.operator_id).map(|s| s.as_str()).unwrap_or("—");
  @let detail_url = format!("{}/{}", StockOutListPath::PATH, item.id);
  tr {
- td { input type="checkbox"; }
+ td { input type="checkbox" class="cursor-pointer"; }
  td {
  a class="font-mono tabular-nums text-accent hover:underline" href=(detail_url) { (item.doc_number.as_deref().unwrap_or("—")) }
  }
  td {
- span style=(format!("display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{};color:{}", type_bg, type_color)) {
+ span class=(format!("inline-flex items-center gap-1 rounded-full text-[12px] font-medium px-2 py-0.5 {}", type_cls)) {
  (type_label)
  }
  }
  td class="font-mono tabular-nums text-[12px] text-fg-2" { (format!("{}-{}", item.source_type, item.source_id)) }
- td { (wh_name) }
- td { "1 种" }
+ td class="text-sm text-fg" { (wh_name) }
+ td class="text-sm text-muted" { "1 种" }
  td class="text-right text-[13px] font-mono tabular-nums" { (format!("{:.2}", item.quantity)) }
  td class="text-right text-[13px] font-mono tabular-nums" { (item.unit_cost.map(|c| format!("¥{:.2}", c)).unwrap_or_else(|| "—".into())) }
  td class="text-[12px] text-fg-2" { "FIFO" }
  td {
  span class="status-pill bg-[#f0fff0] text-[#389e0d]" { "已出库" }
  }
- td { (op_name) }
+ td class="text-sm text-fg" { (op_name) }
  td class="text-[12px] text-muted" { (item.created_at.format("%Y-%m-%d %H:%M")) }
  td {
  a href=(detail_url) class="text-accent text-xs hover:underline" { "详情" }
@@ -284,48 +299,16 @@ fn stock_out_table_fragment(
  div class="stockout-list-panel" {
  // ── Stat Cards ──
  div class="grid grid-cols-4 gap-5 mb-6" {
- div class="stat-card flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-md shadow-xs" {
- div class="w-[44px] h-[44px] rounded-md grid place-items-center shrink-0" class="text-[#cf1322]" style="background:linear-gradient(135deg,#fff1f0,#ffccc7)" {
- (icon::upload_icon("w-[22px] h-[22px]"))
- }
- div {
- div class="text-2xl font-bold font-mono tabular-nums text-fg" { (total_count) }
- div class="text-sm text-muted mt-1" { "本月出库单" }
- }
- }
- div class="stat-card flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-md shadow-xs" {
- div class="w-[44px] h-[44px] rounded-md grid place-items-center shrink-0" class="text-[#cf1322]" style="background:linear-gradient(135deg,#fff1f0,#ffccc7)" {
- (icon::currency_icon("w-[22px] h-[22px]"))
- }
- div {
- div class="text-2xl font-bold font-mono tabular-nums text-fg" { "—" }
- div class="text-sm text-muted mt-1" { "出库总金额" }
- }
- }
- div class="stat-card flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-md shadow-xs" {
- div class="w-[44px] h-[44px] rounded-md grid place-items-center shrink-0" style="background:linear-gradient(135deg,#fffbe6,#fff1b8);color:#d48806" {
- (icon::clock_icon("w-[22px] h-[22px]"))
- }
- div {
- div class="text-2xl font-bold font-mono tabular-nums text-fg" { "—" }
- div class="text-sm text-muted mt-1" { "待拣货" }
- }
- }
- div class="stat-card flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-md shadow-xs" {
- div class="w-[44px] h-[44px] rounded-md grid place-items-center shrink-0" class="text-[#389e0d]" style="background:linear-gradient(135deg,#f6ffed,#d9f7be)" {
- (icon::check_circle_icon("w-[22px] h-[22px]"))
- }
- div {
- div class="text-2xl font-bold font-mono tabular-nums text-fg" { (total_count) }
- div class="text-sm text-muted mt-1" { "已完成" }
- }
- }
+ (stat_card(&icon::upload_icon("w-[22px] h-[22px]"), "bg-[#fff1f0] text-danger", &total_count.to_string(), "本月出库单"))
+ (stat_card(&icon::currency_icon("w-[22px] h-[22px]"), "bg-[#fff1f0] text-danger", "—", "出库总金额"))
+ (stat_card(&icon::clock_icon("w-[22px] h-[22px]"), "bg-[#fff7e6] text-warn", "—", "待拣货"))
+ (stat_card(&icon::check_circle_icon("w-[22px] h-[22px]"), "bg-[#f0fff0] text-success", &total_count.to_string(), "已完成"))
  }
 
  (status_tabs_with_param(StockOutListPath::PATH, "#stockout-data-card", "#stockout-filter-form", tabs, selected_type, "transaction_type"))
 
  // ── Filter Bar ──
- form class="flex items-center gap-3 mb-6 flex-wrap filter-form" id="stockout-filter-form"
+ form class="flex items-center gap-3 mb-6 flex-wrap" id="stockout-filter-form"
  hx-get=(StockOutListPath::PATH)
  hx-trigger="change,keyup changed delay:300ms from:.search-input"
  hx-target="#stockout-data-card"
@@ -345,20 +328,16 @@ fn stock_out_table_fragment(
  option value=(wh.id) selected[params.warehouse_id == Some(wh.id)] { (wh.name) }
  }
  }
- input class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer" type="date" name="date_start"
- class="w-[140px]"
- value=(params.date_start.as_deref().unwrap_or(""));
+ input class="w-[140px] px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" type="date" name="date_start" value=(params.date_start.as_deref().unwrap_or("")) {};
  span class="text-muted leading-9" { "~" }
- input class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer" type="date" name="date_end"
- class="w-[140px]"
- value=(params.date_end.as_deref().unwrap_or(""));
+ input class="w-[140px] px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" type="date" name="date_end" value=(params.date_end.as_deref().unwrap_or("")) {};
  }
 
  // ── Data Table ──
  (stock_out_data_card(result, operator_names, wh_names, &query))
 
  // ── Info Note ──
- div class="mt-6 p-4 px-5 flex items-start gap-3 rounded-md" style="background:var(--danger-bg);border:1px solid rgba(255,77,79,0.15)" {
+ div class="mt-6 p-4 px-5 flex items-start gap-3 rounded-md bg-danger-bg border border-[rgba(255,77,79,0.15)]" {
  (icon::circle_alert_icon("w-[18px] h-[18px]"))
  div class="text-sm text-fg-2 leading-relaxed" {
  strong { "出库流程说明：" }

@@ -302,7 +302,7 @@ fn order_create_page(customers: &[abt_core::master_data::customer::model::Custom
  option value="EXW 工厂交货" selected[sel_delivery == Some("EXW 工厂交货")] { "EXW 工厂交货" }
  }
  }
- div class="form-field span-2" {
+ div class="form-field col-span-2" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "交货地址" }
  input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="delivery_address" placeholder="默认取客户地址，可修改" {}
  }
@@ -319,17 +319,17 @@ fn order_create_page(customers: &[abt_core::master_data::customer::model::Custom
  table class="data-table" {
  thead {
  tr {
- th class="col-num" { "#" }
+ th class="w-12" { "#" }
  th { "产品编码" }
  th { "产品名称" }
  th { "规格描述" }
- th class="col-unit" { "单位" }
- th class="col-qty" { "数量" }
- th class="col-price" { "单价 (¥)" }
- th class="col-disc" { "折扣%" }
- th class="col-subtotal" { "小计 (¥)" }
+ th class="w-20" { "单位" }
+ th class="w-24" { "数量" }
+ th class="w-28" { "单价 (¥)" }
+ th class="w-20" { "折扣%" }
+ th class="w-32" { "小计 (¥)" }
  th class="col-date" { "交货日期" }
- th class="col-action" { }
+ th class="w-16" { }
  }
  }
  tbody id="order-item-tbody" {
@@ -389,14 +389,14 @@ fn order_create_page(customers: &[abt_core::master_data::customer::model::Custom
  }
 
  // ── Action Bar ──
- div class="flex items-center justify-end gap-3 pt-4 [border-top:1px_solid_var(--border-soft)]" {
- a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{}?restore=true", OrderListPath::PATH)) { "取消" }
+ div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg [border-top:1px_solid_var(--border-soft)]" {
+ a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{}?restore=true", OrderListPath::PATH)) { "取消" }
  div class="flex gap-3" {
- button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" {
+ button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" {
  (icon::save_icon("w-4 h-4"))
  "保存草稿"
  }
- button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" _="on click call salesOrderSubmit() then trigger submit on #order-form" {
+ button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" _="on click call salesOrderSubmit() then trigger submit on #order-form" {
  (icon::send_icon("w-4 h-4"))
  "提交订单"
  }

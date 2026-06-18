@@ -340,7 +340,7 @@ fn product_list_page(
  html! {
  button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
  _="on click remove .open from #bom-drawer" { "关闭" }
- a href="/admin/md/boms/new" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" class="no-underline" {
+ a href="/admin/md/boms/new" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] no-underline" {
  (icon::plus_icon("w-4 h-4"))
  "新建 BOM"
  }
@@ -381,13 +381,13 @@ fn product_table_fragment(
  hx-push-url="true" {
  div class="relative w-60" {
  (icon::search_icon("absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted"))
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="code"
+ input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input" type="text" name="code"
  placeholder="产品编码"
  value=(params.code.as_deref().unwrap_or_default());
  }
  div class="relative w-60" {
  (icon::search_icon("absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted"))
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="name"
+ input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input" type="text" name="name"
  placeholder="产品名称"
  value=(params.name.as_deref().unwrap_or_default());
  }
@@ -579,18 +579,18 @@ fn bom_drawer_content(product: &Product, entries: &[UsageEntry], total: u64) -> 
  }
 
  // Summary stats
- div class="grid gap-[12px]" {
- div class="grid gap-[12px]-item" {
- div class="grid gap-[12px]-value accent" { (total) }
- div class="grid gap-[12px]-label" { "引用 BOM 数" }
+ div class="grid grid-cols-3 gap-3" {
+ div class="flex flex-col p-3 bg-surface rounded" {
+ div class="text-[18px] font-bold text-accent" { (total) }
+ div class="text-[11px] text-muted mt-1" { "引用 BOM 数" }
  }
- div class="grid gap-[12px]-item" {
- div class="grid gap-[12px]-value green" { (active_count) }
- div class="grid gap-[12px]-label" { "生效中" }
+ div class="flex flex-col p-3 bg-surface rounded" {
+ div class="text-[18px] font-bold text-success" { (active_count) }
+ div class="text-[11px] text-muted mt-1" { "生效中" }
  }
- div class="grid gap-[12px]-item" {
- div class="grid gap-[12px]-value" { (draft_count) }
- div class="grid gap-[12px]-label" { "草稿" }
+ div class="flex flex-col p-3 bg-surface rounded" {
+ div class="text-[18px] font-bold text-fg" { (draft_count) }
+ div class="text-[11px] text-muted mt-1" { "草稿" }
  }
  }
 
@@ -604,7 +604,7 @@ fn bom_drawer_content(product: &Product, entries: &[UsageEntry], total: u64) -> 
  div class="text-center text-muted" {
  (icon::clipboard_list_icon("w-12 h-12"))
  p { "暂无 BOM 引用" }
- p class="sub" { "该产品尚未被任何 BOM 引用" }
+ p class="text-xs text-muted mt-1" { "该产品尚未被任何 BOM 引用" }
  }
  } @else {
  @for entry in entries {
@@ -629,12 +629,13 @@ fn bom_ref_card(entry: &UsageEntry) -> Markup {
  let has_detail = entry.bom_version.is_some() || entry.parent_product_name.is_some();
 
  html! {
- div class="border border-border rounded overflow-hidden" {
- div class="flex items-center gap-[14px] cursor-pointer" _="on click toggle .is-expanded on closest .bom-ref-card" {
- div class="w-[38px] h-[38px] rounded-sm shrink-0 flex items-center justify-center parent" {
+ div class="bom-ref-card border border-border rounded overflow-hidden" {
+ div class="flex items-center gap-[14px] cursor-pointer p-3"
+ _="on click toggle .hidden on next <div/>" {
+ div class="w-[38px] h-[38px] rounded-sm shrink-0 flex items-center justify-center bg-surface" {
  (icon::bolt_icon("w-4.5 h-4.5"))
  }
- div class="bom-ref-info" {
+ div class="flex-1 min-w-0" {
  div class="text-[14px] font-semibold text-fg flex items-center gap-[8px]" {
  a href=(bom_detail_path) class="text-accent no-underline font-semibold" {
  (entry.source_name)
@@ -668,20 +669,19 @@ fn bom_ref_card(entry: &UsageEntry) -> Markup {
 
  }
  @if has_detail {
- div class="border-t bg-surface hidden" {
- div class="border-t bg-surface hidden-grid" {
- div class="border-t bg-surface hidden-item" {
- span class="label" { "BOM 编码:" }
- span class="value" class="font-mono" { "BOM-" (entry.source_id) }
+ div class="border-t bg-surface p-3 grid grid-cols-2 gap-x-6 gap-y-2 text-[12px] hidden" {
+ div class="flex gap-2" {
+ span class="text-muted" { "BOM 编码:" }
+ span class="text-fg font-medium font-mono" { "BOM-" (entry.source_id) }
  }
- div class="border-t bg-surface hidden-item" {
- span class="label" { "版本:" }
- span class="value" { (version) }
+ div class="flex gap-2" {
+ span class="text-muted" { "版本:" }
+ span class="text-fg font-medium" { (version) }
  }
  @if let Some(pn) = &entry.parent_product_name {
- div class="border-t bg-surface hidden-item" {
- span class="label" { "父件产品:" }
- span class="value" {
+ div class="flex gap-2" {
+ span class="text-muted" { "父件产品:" }
+ span class="text-fg font-medium" {
  a href=(format!("/admin/md/products/{}", entry.parent_product_code.as_deref().unwrap_or(""))) class="text-accent no-underline" {
  (pn)
  }
@@ -689,23 +689,22 @@ fn bom_ref_card(entry: &UsageEntry) -> Markup {
  }
  }
  @if let Some(pc) = &entry.parent_product_code {
- div class="border-t bg-surface hidden-item" {
- span class="label" { "父件编码:" }
- span class="value" class="font-mono" { (pc) }
+ div class="flex gap-2" {
+ span class="text-muted" { "父件编码:" }
+ span class="text-fg font-medium font-mono" { (pc) }
  }
  }
- div class="border-t bg-surface hidden-item" {
- span class="label" { "用量:" }
- span class="value" class="font-mono" {
+ div class="flex gap-2" {
+ span class="text-muted" { "用量:" }
+ span class="text-fg font-medium font-mono" {
  (qty) " " (unit)
  }
  }
  @if let Some(remark) = &entry.node_remark {
  @if !remark.is_empty() {
- div class="border-t bg-surface hidden-item" class="col-span-full" {
- span class="label" { "备注:" }
- span class="value" { (remark) }
- }
+ div class="flex gap-2 col-span-full" {
+ span class="text-muted" { "备注:" }
+ span class="text-fg font-medium" { (remark) }
  }
  }
  }
@@ -717,11 +716,10 @@ fn bom_ref_card(entry: &UsageEntry) -> Markup {
 
 fn usage_error_dialog(name: &str, total: u64) -> Markup {
  html! {
- div class="hidden fixed z-[1100] place-items-center open"
- _="on click remove .open" {
- div class="bg-bg rounded-lg w-[480px]" {
- div class="bg-bg rounded-lg w-[480px]-body" {
- div class="bg-bg rounded-lg w-[480px]-icon-wrap" {
+ div id="usage-error-dialog" class="error-dialog fixed inset-0 z-[1100] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto is-open"
+ _="on click[me is event.target] remove .is-open" {
+ div class="bg-bg rounded-xl w-[480px] p-6 shadow-xl" {
+ div class="flex justify-center mb-3" {
  (icon::circle_alert_icon("w-7 h-7"))
  }
  div class="text-lg font-semibold text-fg text-center mb-2" { "无法删除" }
@@ -730,10 +728,9 @@ fn usage_error_dialog(name: &str, total: u64) -> Markup {
  "产品 <strong>{name}</strong> 正被 <strong>{total}</strong> 个 BOM 引用，无法删除。请先移除相关引用后再试。",
  )))
  }
- }
- div class="bg-bg rounded-lg w-[480px]-foot" {
+ div class="flex justify-center mt-5" {
  button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
- _="on click remove .open from closest .dialog-overlay" { "知道了" }
+ _="on click remove .is-open from closest .error-dialog" { "知道了" }
  }
  }
  }
@@ -742,13 +739,13 @@ fn usage_error_dialog(name: &str, total: u64) -> Markup {
 
 fn price_history_table(_product_id: i64, entries: &[PriceLogEntry]) -> Markup {
  html! {
- div class="fixed z-[1000] grid place-items-center opacity-0 is-open"
- _="on click remove .is-open" {
+ div class="history-modal fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto is-open"
+ _="on click[me is event.target] remove .is-open" {
  div class="bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl" {
  div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
  h2 { "价格变更记录" }
  button class="text-muted hover:text-fg cursor-pointer bg-transparent border-none"
- _="on click remove .is-open from closest .modal-overlay" { "×" }
+ _="on click remove .is-open from closest .history-modal" { "×" }
  }
  div class="overflow-y-auto flex-1 min-h-0 p-6" {
  @if entries.is_empty() {
@@ -761,7 +758,7 @@ fn price_history_table(_product_id: i64, entries: &[PriceLogEntry]) -> Markup {
  }
  div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" {
  button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
- _="on click remove .is-open from closest .modal-overlay" { "关闭" }
+ _="on click remove .is-open from closest .history-modal" { "关闭" }
  }
  }
  }
@@ -807,9 +804,10 @@ fn price_drawer_content(product: &Product, current_price: &Decimal, history: &[P
  "产品单价"
  }
  div class="flex items-center border border-border rounded overflow-hidden bg-bg" {
- div class="flex items-center border border-border rounded overflow-hidden bg-bg-label" { "单价" }
- div class="prefix" { "¥" }
+ div class="px-3 py-2 bg-surface text-muted border-r border-border" { "单价" }
+ div class="px-2 text-muted" { "¥" }
  input type="text" name="new_price"
+ class="flex-1 min-w-0 px-3 py-2 text-sm text-fg outline-none bg-transparent"
  value=(format!("{:.4}", current_price))
  placeholder="0.0000";
  }
@@ -863,17 +861,21 @@ fn price_history_diff_item(entry: &PriceLogEntry) -> Markup {
  _ => "—".into(),
  };
  let is_up = entry.old_price.is_some_and(|old| entry.new_price >= old);
- let badge_class = if is_up { "change-badge up" } else { "change-badge down" };
+ let badge_class = if is_up {
+ "inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold bg-[#f6ffed] text-[#389e0d]"
+ } else {
+ "inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold bg-[#fff2f0] text-[#cf1322]"
+ };
 
  html! {
- div class="border border-border-soft rounded-lg" {
- div class="price-diff" {
- span class="old-price" { "¥ " (old_str) }
- svg class="arrow-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" { path d="M17 8l4 4m0 0l-4 4m4-4H3" {} }
- span class="new-price" { "¥ " (new_str) }
+ div class="border border-border-soft rounded-lg p-3" {
+ div class="flex items-center gap-2 mb-2" {
+ span class="text-muted line-through" { "¥ " (old_str) }
+ svg class="text-muted" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" { path d="M17 8l4 4m0 0l-4 4m4-4H3" {} }
+ span class="text-fg font-medium" { "¥ " (new_str) }
  span class=(badge_class) { (pct) }
  }
- div class="meta" {
+ div class="flex items-center gap-3 text-[11px] text-muted" {
  span { (price_type_label(entry.price_type)) }
  span { (entry.created_at.format("%Y-%m-%d")) }
  @if !entry.remark.is_empty() {

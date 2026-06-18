@@ -202,29 +202,30 @@ fn workflow_steps(current: ReconciliationStatus) -> Markup {
  let is_disputed = current == ReconciliationStatus::Disputed;
 
  html! {
- div class="flex items-center" {
+ div class="flex items-center mt-6 mb-6" {
  @for (i, (label, _)) in steps.iter().enumerate() {
  @if i > 0 {
- div class=(if i <= current_idx && !is_disputed { "wf-line current" } else { "wf-line" }) {}
+ div class=(format!("w-[48px] h-[2px] {}", if i <= current_idx && !is_disputed { "bg-[#10b981]" } else { "bg-border" })) {}
  }
- @let step_class = if is_disputed {
- "wf-step"
+ @let (dot_cls, text_cls, ring_cls) = if is_disputed {
+ ("bg-border-soft", "text-muted", "")
  } else if i < current_idx {
- "wf-step completed"
+ ("bg-[#10b981]", "text-[#10b981]", "")
  } else if i == current_idx {
- "wf-step current"
+ ("bg-[#2563eb]", "text-[#2563eb] font-semibold", "shadow-[0_0_0_3px_rgba(37,99,235,0.1)]")
  } else {
- "wf-step"
+ ("bg-[#d1d5db]", "text-[#9ca3af]", "")
  };
- div class=(step_class) {
- div class="w-[10px] h-[10px] rounded-full bg-border" {}
- (label)
+ div class="flex items-center gap-2 shrink-0" {
+ span class=(format!("w-2.5 h-2.5 rounded-full shrink-0 {} {}", dot_cls, ring_cls)) {}
+ span class=(format!("text-xs whitespace-nowrap font-medium {}", text_cls)) { (label) }
  }
  }
  @if is_disputed {
- div class="flex items-center gap-2 text-xs text-muted disputed" {
- div class="w-[10px] h-[10px] rounded-full bg-border" {}
- "有异议"
+ div class="w-[48px] h-[2px] bg-border" {}
+ div class="flex items-center gap-2 shrink-0" {
+ span class="w-2.5 h-2.5 rounded-full shrink-0 bg-[#ef4444]" {}
+ span class="text-xs text-[#ef4444] font-semibold whitespace-nowrap" { "有异议" }
  }
  }
  }
@@ -253,33 +254,33 @@ fn reconciliation_detail_page(
  }
 
  // ── Detail Header ──
- div class="block bg-bg border border-border-soft rounded-lg p-6" {
+ div class="flex items-center justify-between bg-bg border border-border-soft rounded-lg p-6" {
  div {
  div class="flex items-center justify-between" {
  h1 class="text-2xl font-extrabold font-mono tabular-nums" { (rec.doc_number) }
  span class=(format!("status-pill {}", crate::utils::status_color(status_class))) { (status_text) }
  }
- div class="text-[13px] text-muted" {
+ div class="text-[13px] text-muted mt-2" {
  "对账期间：" (rec.period.as_str())
  "　客户：" (customer_name)
  }
  }
  div class="flex gap-3" {
  @if rec.status == ReconciliationStatus::Draft {
- button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+ button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
  hx-post=(SendReconciliationPath { id: rec.id }.to_string())
  hx-confirm="确认发送此对账单？" { "发送对账" }
  }
  @if rec.status == ReconciliationStatus::Sent {
- button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-[#10b981] text-[#fff]"
+ button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-[#10b981] text-[#fff]"
  hx-post=(ConfirmReconciliationPath { id: rec.id }.to_string())
  hx-confirm="确认此对账单？" { "确认" }
- button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-danger text-white border-none hover:opacity-90"
+ button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-danger text-white border-none hover:opacity-90"
  hx-post=(DisputeReconciliationPath { id: rec.id }.to_string())
  hx-confirm="确认提出异议？" { "异议" }
  }
  @if rec.status == ReconciliationStatus::Confirmed {
- button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-[#10b981] text-[#fff]"
+ button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-[#10b981] text-[#fff]"
  hx-post=(SettleReconciliationPath { id: rec.id }.to_string())
  hx-confirm="确认结算？" { "结算" }
  }
@@ -291,21 +292,21 @@ fn reconciliation_detail_page(
 
  // ── Summary Cards ──
  div class="grid grid-cols-3 gap-4 mb-6" {
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)] flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4" {
+ div class="bg-bg border border-border-soft rounded-lg p-4" {
  div class="text-xs text-muted font-medium" { "总金额" }
- div class="font-mono tabular-nums flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4-value" {
+ div class="font-mono tabular-nums text-lg font-bold text-fg mt-1" {
  (crate::utils::fmt_amount(rec.total_amount))
  }
  }
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)] flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4" {
+ div class="bg-bg border border-border-soft rounded-lg p-4" {
  div class="text-xs text-muted font-medium" { "确认金额" }
- div class="font-mono tabular-nums flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4-value text-success" {
+ div class="font-mono tabular-nums text-lg font-bold text-success mt-1" {
  (crate::utils::fmt_amount(rec.confirmed_amount))
  }
  }
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)] flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4" {
+ div class="bg-bg border border-border-soft rounded-lg p-4" {
  div class="text-xs text-muted font-medium" { "差额" }
- div class="font-mono tabular-nums flex items-center gap-3 text-center bg-bg border border-border-soft rounded-lg p-4-value text-danger" {
+ div class="font-mono tabular-nums text-lg font-bold text-danger mt-1" {
  (crate::utils::fmt_amount(rec.difference))
  }
  }
@@ -313,7 +314,7 @@ fn reconciliation_detail_page(
 
  // ── Info ──
  div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "对账信息" }
+ div class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" { "对账信息" }
  div class="grid gap-4" {
  div class="flex flex-col gap-1" {
  span class="text-xs text-muted font-medium" { "客户名称" }
@@ -382,7 +383,7 @@ fn reconciliation_detail_page(
  }
  div class="flex gap-3" {
  span class="text-[11px] text-muted font-medium uppercase" { "对账净额" }
- span class="text-[20px] font-bold text-fg accent" {
+ span class="text-[20px] font-bold text-accent" {
  (crate::utils::fmt_amount(rec.total_amount))
  }
  }
@@ -391,7 +392,7 @@ fn reconciliation_detail_page(
  // ── Remarks ──
  @if !rec.remark.is_empty() {
  div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)] mt-6" {
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "备注" }
+ div class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" { "备注" }
  p class="text-muted" { (rec.remark.as_str()) }
  }
  }

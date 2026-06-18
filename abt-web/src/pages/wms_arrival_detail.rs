@@ -10,6 +10,7 @@ use abt_core::wms::arrival_notice::ArrivalNoticeService;
 use abt_core::wms::enums::ArrivalStatus;
 use abt_core::master_data::product::ProductService;
 use abt_core::master_data::supplier::SupplierService;
+use abt_core::purchase::order::PurchaseOrderService;
 use abt_core::wms::warehouse::WarehouseService;
 use abt_core::shared::identity::UserService;
 
@@ -86,13 +87,13 @@ fn workflow_steps(status: ArrivalStatus) -> Markup {
  }
  }
  }
- div class="flex items-center flex-wrap" class="gap-4" class="mt-3" {
+ div class="flex items-center flex-wrap gap-4 mt-3" {
  span class="text-xs text-muted" { "检验结果分支：" }
- span class="items-center text-xs text-success" class="inline-flex gap-1" { "● 全部接收 (Accepted)" }
- span class="items-center text-xs" class="text-warn" class="inline-flex gap-1" { "● 部分接收 (Partially Accepted)" }
- span class="items-center text-xs text-danger" class="inline-flex gap-1" { "● 拒收 (Rejected)" }
- span style="color:var(--border-soft)" { "|" }
- span class="items-center text-xs text-muted" class="inline-flex gap-1" { "仅草稿状态可取消 (Cancelled)" }
+ span class="inline-flex items-center gap-1 text-xs text-success" { "● 全部接收 (Accepted)" }
+ span class="inline-flex items-center gap-1 text-xs text-warn" { "● 部分接收 (Partially Accepted)" }
+ span class="inline-flex items-center gap-1 text-xs text-danger" { "● 拒收 (Rejected)" }
+ span class="text-border" { "|" }
+ span class="inline-flex items-center gap-1 text-xs text-muted" { "仅草稿状态可取消 (Cancelled)" }
  }
  }
 }
@@ -132,6 +133,26 @@ pub async fn get_arrival_detail(
  .map(|u| u.display_name.unwrap_or(u.username))
  .unwrap_or_else(|_| "—".into());
 
+ // Resolve linked PO doc number (instead of showing raw purchase_order_id)
+ let po_number: String = match notice.purchase_order_id {
+ Some(pid) => state.purchase_order_service()
+ .get(&service_ctx, &mut conn, pid).await
+ .map(|po| po.doc_number)
+ .unwrap_or_else(|_| "—".into()),
+ None => "—".into(),
+ };
+
+ // Resolve zone code+name (instead of showing raw zone_id)
+ let zone_name: String = match notice.zone_id {
+ Some(zid) => state.warehouse_service()
+ .list_zones(&service_ctx, &mut conn, notice.warehouse_id).await
+ .ok()
+ .and_then(|zs| zs.into_iter().find(|z| z.id == zid))
+ .map(|z| format!("{} {}", z.code, z.name))
+ .unwrap_or_else(|| "—".into()),
+ None => "—".into(),
+ };
+
  let product_svc = state.product_service();
  let mut product_info: std::collections::HashMap<i64, (String, String, String, String)> = std::collections::HashMap::new();
  for item in &items {
@@ -147,7 +168,7 @@ pub async fn get_arrival_detail(
  }
 
  let detail_path = ArrivalDetailPath { id: path.id }.to_string();
- let content = arrival_detail_page(&notice, &items, &product_info, &detail_path, &wh_name, &supplier_name, &operator_name);
+ let content = arrival_detail_page(&notice, &items, &product_info, &detail_path, &wh_name, &supplier_name, &operator_name, &po_number, &zone_name);
  let page_html = admin_page(
  is_htmx,
  &format!("{} - 来料通知详情", notice.doc_number),
@@ -230,6 +251,8 @@ fn arrival_detail_page(
  wh_name: &str,
  supplier_name: &str,
  operator_name: &str,
+ po_number: &str,
+ zone_name: &str,
 ) -> Markup {
  let (status_text, status_class) = status_label(notice.status);
  let is_inspecting = notice.status == ArrivalStatus::Inspecting;
@@ -260,9 +283,7 @@ fn arrival_detail_page(
  }
  div class="flex flex-col gap-1" {
  span class="text-xs text-muted font-medium" { "来源采购单" }
- span class="text-sm text-fg font-mono tabular-nums" {
- (notice.purchase_order_id.map(|id| id.to_string()).unwrap_or_else(|| "—".into()))
- }
+ span class="text-sm text-fg font-mono tabular-nums" { (po_number) }
  }
  div class="flex flex-col gap-1" {
  span class="text-xs text-muted font-medium" { "供应商" }
@@ -274,9 +295,7 @@ fn arrival_detail_page(
  }
  div class="flex flex-col gap-1" {
  span class="text-xs text-muted font-medium" { "到货库区" }
- span class="text-sm text-fg" {
- (notice.zone_id.map(|id| id.to_string()).unwrap_or_else(|| "—".into()))
- }
+ span class="text-sm text-fg" { (zone_name) }
  }
  div class="flex flex-col gap-1" {
  span class="text-xs text-muted font-medium" { "到货日期" }
@@ -363,7 +382,7 @@ fn arrival_detail_page(
  span class="text-sm text-fg font-mono tabular-nums" { "—" }
  }
  }
- div class="rounded-sm px-4 py-3 text-sm text-fg-2" class="border border-border" style="background:var(--surface-warm)" {
+ div class="rounded-sm border border-border bg-surface-warm px-4 py-3 text-sm text-fg-2" {
  strong class="text-warn" { "⚠ IQC硬门规则：" }
  "质检不合格的物料将阻断入库流程。不合格批次将触发MRB（物料评审委员会）处理流程，需由质量部判定：退货 / 让步接收 / 挑选使用。"
  }
@@ -381,7 +400,7 @@ fn arrival_action_buttons(status: ArrivalStatus, detail_path: &str) -> Markup {
  match status {
  ArrivalStatus::Draft => {
  html! {
- button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+ button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
  hx-post=(detail_path)
  hx-vals=r#"{"action":"cancel"}"#
  hx-confirm="确定要取消此来料通知吗？"
@@ -389,7 +408,7 @@ fn arrival_action_buttons(status: ArrivalStatus, detail_path: &str) -> Markup {
  (icon::x_icon("w-4 h-4"))
  "取消"
  }
- button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+ button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
  hx-post=(detail_path)
  hx-vals=r#"{"action":"receive"}"#
  hx-confirm="确定要确认收货吗？实收数量将自动按申报数量填写。"
@@ -401,7 +420,7 @@ fn arrival_action_buttons(status: ArrivalStatus, detail_path: &str) -> Markup {
  }
  ArrivalStatus::Received => {
  html! {
- button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+ button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
  hx-post=(detail_path)
  hx-vals=r#"{"action":"cancel"}"#
  hx-confirm="确定要取消此来料通知吗？"
@@ -409,7 +428,7 @@ fn arrival_action_buttons(status: ArrivalStatus, detail_path: &str) -> Markup {
  (icon::x_icon("w-4 h-4"))
  "取消"
  }
- button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+ button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
  hx-post=(detail_path)
  hx-vals=r#"{"action":"inspect"}"#
  hx-confirm="确定要开始检验并确认接收吗？合格数量将按实收数量自动填写。"

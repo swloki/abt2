@@ -140,10 +140,11 @@ pub(crate) fn warehouse_create_page(warehouse: Option<&Warehouse>) -> Markup {
 
  form id="warehouse-form"
  hx-post=(form_action)
- hx-swap="none" {
+ hx-swap="none"
+ class="space-y-5" {
 
  // ── Section: 基本信息 ──
- div class="data-card" class="mb-4" {
+ div class="data-card mb-4" {
  div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
  (icon::building_icon("w-4 h-4"))
  " 基本信息"
@@ -182,17 +183,18 @@ pub(crate) fn warehouse_create_page(warehouse: Option<&Warehouse>) -> Markup {
  input type="text" name="address" placeholder="请输入仓库地址"
  value=(address_val);
  }
- div class="form-field" class="flex" class="items-end" style="padding-bottom:4px" {
- label class="flex items-center cursor-pointer m-0" class="gap-2" {
+ div class="form-field flex items-end pb-1" {
+ label class="flex items-center cursor-pointer m-0 gap-2" {
  input type="checkbox" name="is_virtual" value="true"
  id="is-virtual-checkbox"
  checked[is_virtual];
  "是否虚拟仓库（委外）"
  }
  }
- div id="virtual-tip" style=(if is_virtual { "grid-column:1/-1;display:block" } else { "grid-column:1/-1;display:none" }) {
- div class="text-fg-2" class="rounded-md" class="px-5 py-4 text-sm" style="background:rgba(22,119,255,0.04);border:1px solid rgba(22,119,255,0.15);line-height:1.6" {
- div class="flex items-center font-semibold text-accent" class="gap-2" class="mb-1" {
+ div id="virtual-tip" class="col-span-full"
+ style=(if is_virtual { "display:block" } else { "display:none" }) {
+ div class="text-fg-2 rounded-md px-5 py-4 text-sm bg-accent-bg border border-[rgba(22,119,255,0.15)] leading-relaxed" {
+ div class="flex items-center font-semibold text-accent gap-2 mb-1" {
  (icon::circle_alert_icon("w-4 h-4"))
  "虚拟委外仓说明"
  }
@@ -202,15 +204,15 @@ pub(crate) fn warehouse_create_page(warehouse: Option<&Warehouse>) -> Markup {
  div class="form-field field-full" {
  label { "备注" }
  textarea name="remark" placeholder="输入仓库相关备注信息…"
- class="w-full resize-y" class="min-h-[80px]" { (remark_val) }
+ class="w-full resize-y min-h-[80px]" { (remark_val) }
  }
  }
  }
 
  // ── Action Bar ──
- div class="flex items-center justify-end gap-3 pt-4 [border-top:1px_solid_var(--border-soft)]" {
- a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{}?restore=true", WarehouseListPath::PATH)) { "取消" }
- button type="submit" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" {
+ div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg [border-top:1px_solid_var(--border-soft)]" {
+ a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{}?restore=true", WarehouseListPath::PATH)) { "取消" }
+ button type="submit" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" {
  (icon::check_circle_icon("w-4 h-4"))
  "保存仓库"
  }

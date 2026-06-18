@@ -205,7 +205,7 @@ fn requisition_table_fragment(
  div class="requisition-list-panel" {
  (status_tabs_with_param(RequisitionListPath::PATH, "#requisition-data-card", "#requisition-filter-form", tabs, &active_value, "status"))
 
- form class="flex items-center gap-3 mb-6 flex-wrap filter-form" id="requisition-filter-form"
+ form class="flex items-center gap-3 mb-6 flex-wrap" id="requisition-filter-form"
  hx-get=(RequisitionListPath::PATH)
  hx-trigger="change, keyup changed delay:300ms from:.search-input"
  hx-target="#requisition-data-card"

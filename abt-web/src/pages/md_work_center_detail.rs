@@ -54,12 +54,12 @@ pub async fn get_work_center_detail(
 fn work_center_detail_page(wc: &WorkCenter) -> Markup {
  html! {
  div class="flex items-center justify-between mb-6" {
- div class="flex items-center justify-between mb-6-left" {
+ div class="flex items-center justify-between mb-6" {
  a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(WorkCenterListPath::PATH) { "← 返回列表" }
  h1 class="text-xl font-bold text-fg tracking-tight" { "工作中心 " (wc.code) " - " (wc.name) }
  }
  div class="flex gap-3" {
- a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(WorkCenterEditPath { id: wc.id }.to_string()) {
+ a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(WorkCenterEditPath { id: wc.id }.to_string()) {
  (icon::edit_icon("w-4 h-4"))
  "编辑"
  }

@@ -222,14 +222,14 @@ fn reconciliation_create_page(
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "销售员" }
  input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" readonly value=(username);
  }
- div class="form-field span-2" {
+ div class="form-field field-full" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "联系人 / 电话" }
- div class="contact-inline-fields" {
+ div class="grid grid-cols-2 gap-4" {
  input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" id="rec-contact-name" readonly placeholder="选择客户后自动填充";
  input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" id="rec-contact-phone" readonly placeholder="—";
  }
  }
- div class="form-field span-2" {
+ div class="form-field col-span-2" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "备注" }
  input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" placeholder="对账备注信息…";
  }
@@ -248,7 +248,7 @@ fn reconciliation_create_page(
  (icon::package_icon("w-[18px] h-[18px]"))
  "对账明细"
  }
- button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" id="pickOrderBtn" disabled {
+ button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" id="pickOrderBtn" disabled {
  (icon::plus_icon("w-3.5 h-3.5"))
  "从发货单添加"
  }
@@ -257,9 +257,9 @@ fn reconciliation_create_page(
  // Empty state
  div class="text-center p-6 text-muted text-sm" id="emptyState" {
  (icon::clipboard_list_icon("w-12 h-12"))
- p class="text-center p-6 text-muted text-sm-title" { "暂无对账明细" }
- p class="text-center p-6 text-muted text-sm-desc" { "请先选择客户，然后从发货单中添加对账明细" }
- button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] mt-5" onclick="document.getElementById('pickOrderBtn').click()" { "选择发货单" }
+ p class="text-center text-muted text-sm font-medium" { "暂无对账明细" }
+ p class="text-center text-muted text-sm mt-1" { "请先选择客户，然后从发货单中添加对账明细" }
+ button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] mt-5" _="on click trigger click on #pickOrderBtn" { "选择发货单" }
  }
  }
 
@@ -280,20 +280,20 @@ fn reconciliation_create_page(
  }
  div class="rounded p-8 text-center cursor-pointer" {
  (icon::upload_icon("w-8 h-8"))
- p class="upload-title" { "点击或拖拽文件到此处上传" }
- p class="upload-hint" { "支持 PDF、Word、Excel、图片，单个文件不超过 10MB" }
+ p class="text-sm font-medium text-fg mt-2" { "点击或拖拽文件到此处上传" }
+ p class="text-xs text-muted mt-1" { "支持 PDF、Word、Excel、图片，单个文件不超过 10MB" }
  }
  }
 
  // ── Action Bar ──
- div class="flex items-center justify-end gap-3 pt-4 [border-top:1px_solid_var(--border-soft)]" {
- a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{}?restore=true", ReconciliationListPath::PATH)) { "取消" }
+ div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg [border-top:1px_solid_var(--border-soft)]" {
+ a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{}?restore=true", ReconciliationListPath::PATH)) { "取消" }
  div class="action-bar-right" {
- button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" onclick="show_info_toast('草稿功能开发中')" {
+ button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" onclick="show_info_toast('草稿功能开发中')" {
  (icon::save_icon("w-4 h-4"))
  "保存草稿"
  }
- button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" _="on click trigger submit on #rec-create-form" {
+ button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" _="on click trigger submit on #rec-create-form" {
  (icon::send_icon("w-4 h-4"))
  "提交确认"
  }
@@ -323,7 +323,7 @@ fn preview_empty(message: &str) -> Markup {
  (icon::package_icon("w-[18px] h-[18px]"))
  "对账明细"
  }
- button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" id="pickOrderBtn" disabled {
+ button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" id="pickOrderBtn" disabled {
  (icon::plus_icon("w-3.5 h-3.5"))
  "从发货单添加"
  }
@@ -358,11 +358,11 @@ fn preview_table(
  (icon::package_icon("w-[18px] h-[18px]"))
  "对账明细"
  }
- div class="flex items-center justify-between p-5 border-b-actions" {
- span class="line-items-count" {
+ div class="flex items-center gap-2" {
+ span class="text-xs text-muted" {
  (item_count) " 行"
  }
- button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" id="pickOrderBtn" {
+ button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" id="pickOrderBtn" {
  (icon::plus_icon("w-3.5 h-3.5"))
  "从发货单添加"
  }
@@ -372,16 +372,16 @@ fn preview_table(
  table class="data-table" {
  thead {
  tr {
- th class="col-num" { "行号" }
+ th class="w-12" { "行号" }
  th { "关联发货单" }
  th { "产品编码" }
  th { "产品名称" }
- th class="col-qty" { "发货数量" }
- th class="col-qty" { "退货数量" }
- th class="col-price" { "退货金额" }
- th class="col-price" { "单价" }
- th class="col-subtotal" { "应收金额" }
- th class="col-action" { }
+ th class="w-24" { "发货数量" }
+ th class="w-24" { "退货数量" }
+ th class="w-28" { "退货金额" }
+ th class="w-28" { "单价" }
+ th class="w-32" { "应收金额" }
+ th class="w-16" { }
  }
  }
  tbody {
@@ -417,22 +417,22 @@ fn preview_table(
  }
 
  // ── 金额汇总 ──
- div class="flex justify-end gap-8 p-5 [border-top:1px_solid_var(--border-soft)] bg-surface-raised-card" {
- div class="flex justify-end gap-8 p-5 [border-top:1px_solid_var(--border-soft)] bg-surface-raised-row" {
- span class="label" { "发货总额" }
- span class="value" { (crate::utils::fmt_amount(total_amount)) }
+ div class="flex justify-end gap-8 p-5 border-t border-border-soft bg-surface-raised" {
+ div {
+ span class="text-xs text-muted" { "发货总额" }
+ span class="text-lg font-bold font-mono tabular-nums text-fg" { (crate::utils::fmt_amount(total_amount)) }
  }
- div class="flex justify-end gap-8 p-5 [border-top:1px_solid_var(--border-soft)] bg-surface-raised-row" {
- span class="label" { "退货总额" }
- span class="value negative" { "— ¥ 0.00" }
+ div {
+ span class="text-xs text-muted" { "退货总额" }
+ span class="text-lg font-bold font-mono tabular-nums text-danger" { "— ¥ 0.00" }
  }
- div class="flex justify-end gap-8 p-5 [border-top:1px_solid_var(--border-soft)] bg-surface-raised-row" {
- span class="label" { "调整金额" }
- span class="value text-muted-value" { "¥ 0.00" }
+ div {
+ span class="text-xs text-muted" { "调整金额" }
+ span class="text-lg font-bold font-mono tabular-nums text-muted" { "¥ 0.00" }
  }
- div class="flex justify-end gap-8 p-5 [border-top:1px_solid_var(--border-soft)] bg-surface-raised-row total" {
- span class="label" { "净额（应收）" }
- span class="value" { (crate::utils::fmt_amount(total_amount)) }
+ div {
+ span class="text-xs text-muted" { "净额（应收）" }
+ span class="text-lg font-bold font-mono tabular-nums text-fg" { (crate::utils::fmt_amount(total_amount)) }
  }
  }
  }

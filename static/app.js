@@ -39,13 +39,18 @@ window.show_info_toast = function (msg) { show_toast(msg, 'info'); };
 
 // ── HTMX global error handling ──
 
-// 错误兜底：通过 POST /api/toast 显示错误 toast
+// 错误兜底：仅在真实 HTTP 错误响应（4xx/5xx）时弹 toast。
+// 注意：HX-Redirect 成功响应（200 + 空 body + 重定向头）会被 htmx 标记 successful=false，
+// 但它不是错误；status===0 是请求被页面跳转/离开打断，也不是错误。两者都必须豁免，
+// 否则每次提交成功都会闪一个"操作失败"toast。这样无需在每个 form 上加 hx-sync。
 document.addEventListener('htmx:afterRequest', function (e) {
     if (e.detail.successful) return;
     var xhr = e.detail.xhr;
     if (!xhr) return;
-    // status===0：请求被 abort（通常是表单提交成功后页面跳转，或用户离开页面），非真实错误，不弹 toast
+    // status===0：请求被 abort（页面跳转/离开），非真实错误
     if (xhr.status === 0) return;
+    // 2xx/3xx（HX-Redirect 成功响应、被 hx-sync 丢弃等）不是真实错误
+    if (xhr.status < 400) return;
 
     if (xhr.status === 401) {
         window.location.href = '/login';

@@ -41,12 +41,12 @@ pub struct StockInQueryParams {
 
 // ── Helpers ──
 
-fn transaction_type_label(t: &TransactionType) -> (&'static str, &'static str, &'static str) {
- // (label, bg_class, text_class)
+fn transaction_type_label(t: &TransactionType) -> (&'static str, &'static str) {
+ // (label, pill_class)
  match t {
- TransactionType::PurchaseReceipt => ("采购入库", "rgba(22,119,255,0.08)", "var(--accent)"),
- TransactionType::ProductionReceipt => ("生产入库", "rgba(82,196,26,0.08)", "var(--success)"),
- _ => ("其他", "rgba(0,0,0,0.04)", "var(--muted)"),
+ TransactionType::PurchaseReceipt => ("采购入库", "bg-[#e8f4ff] text-accent"),
+ TransactionType::ProductionReceipt => ("生产入库", "bg-[#f0fff0] text-success"),
+ _ => ("其他", "bg-surface text-muted"),
  }
 }
 
@@ -155,6 +155,20 @@ pub async fn get_stock_in_list(
 
 // ── Components ──
 
+fn stat_card(icon_markup: &Markup, icon_cls: &str, value: &str, label: &str) -> Markup {
+ html! {
+ div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-md shadow-xs" {
+ div class=(format!("w-[44px] h-[44px] rounded-md grid place-items-center shrink-0 {}", icon_cls)) {
+ (icon_markup)
+ }
+ div {
+ div class="text-2xl font-bold font-mono tabular-nums text-fg" { (value) }
+ div class="text-sm text-muted mt-1" { (label) }
+ }
+ }
+ }
+}
+
 fn stock_in_list_page(
  result: &abt_core::shared::types::PaginatedResult<abt_core::wms::inventory_transaction::model::InventoryTransaction>,
  operator_names: &HashMap<i64, String>,
@@ -169,12 +183,12 @@ fn stock_in_list_page(
  div class="flex items-center justify-between mb-6" {
  h1 class="text-xl font-bold text-fg tracking-tight" { "入库管理" }
  div class="flex gap-3" {
- button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" {
+ button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" {
  (icon::download_icon("w-4 h-4"))
  "导出"
  }
  @if can_create {
- a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(StockInCreatePath::PATH) {
+ a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(StockInCreatePath::PATH) {
  (icon::plus_icon("w-4 h-4"))
  "新建入库单"
  }
@@ -209,49 +223,17 @@ fn stock_in_table_fragment(
  html! {
  div class="stockin-list-panel" {
  // ── Stat Cards ──
- div class="grid" class="gap-5 mb-6" class="grid-cols-4" {
- div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
- div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 blue" {
- (icon::download_icon("w-5 h-5"))
- }
- div {
- div class="text-2xl font-bold font-mono tabular-nums tabular-nums text-fg" { (total_count) }
- div class="text-sm text-muted mt-1" { "本月入库单" }
- }
- }
- div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
- div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 green" {
- (icon::currency_icon("w-5 h-5"))
- }
- div {
- div class="text-2xl font-bold font-mono tabular-nums tabular-nums text-fg" { "—" }
- div class="text-sm text-muted mt-1" { "入库总金额" }
- }
- }
- div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
- div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 orange" {
- (icon::clock_icon("w-5 h-5"))
- }
- div {
- div class="text-2xl font-bold font-mono tabular-nums tabular-nums text-fg" { "—" }
- div class="text-sm text-muted mt-1" { "待审核" }
- }
- }
- div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
- div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0" style="background:linear-gradient(135deg,#f0e6ff,#e0d0ff);color:#7c3aed" {
- (icon::check_circle_icon("w-5 h-5"))
- }
- div {
- div class="text-2xl font-bold font-mono tabular-nums tabular-nums text-fg" { (total_count) }
- div class="text-sm text-muted mt-1" { "已完成" }
- }
- }
+ div class="grid grid-cols-4 gap-5 mb-6" {
+ (stat_card(&icon::download_icon("w-5 h-5"), "bg-[#dbeafe] text-accent", &total_count.to_string(), "本月入库单"))
+ (stat_card(&icon::currency_icon("w-5 h-5"), "bg-[#f0fff0] text-success", "—", "入库总金额"))
+ (stat_card(&icon::clock_icon("w-5 h-5"), "bg-[#fff7e6] text-warn", "—", "待审核"))
+ (stat_card(&icon::check_circle_icon("w-5 h-5"), "bg-[#f3e8ff] text-[#7c3aed]", &total_count.to_string(), "已完成"))
  }
 
  (status_tabs_with_param(StockInListPath::PATH, "#stock-in-data-card", "#stock-in-filter-form", tabs, selected_type, "transaction_type"))
 
  // ── Filter Bar ──
- form class="flex items-center gap-3 mb-5 flex-wrap filter-form" id="stock-in-filter-form"
+ form class="flex items-center gap-3 mb-5 flex-wrap" id="stock-in-filter-form"
  hx-get=(StockInListPath::PATH)
  hx-trigger="change, keyup changed delay:300ms from:.search-input"
  hx-target="#stock-in-data-card"
@@ -261,16 +243,15 @@ fn stock_in_table_fragment(
  hx-push-url="true" {
  div class="relative flex-1 max-w-xs [&_svg]:absolute [&_svg]:left-3 [&_svg]:top-1/2 [&_svg]:-translate-y-1/2 [&_svg]:w-4 [&_svg]:h-4 [&_svg]:text-muted" {
  (icon::search_icon(""))
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="doc_number"
- class="w-[180px]"
+ input class="search-input w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input" type="text" name="doc_number"
  placeholder="单据编号"
- value=(params.doc_number.as_deref().unwrap_or(""));
+ value=(params.doc_number.as_deref().unwrap_or("")) {};
  }
  div class="relative flex-1 max-w-xs [&_svg]:absolute [&_svg]:left-3 [&_svg]:top-1/2 [&_svg]:-translate-y-1/2 [&_svg]:w-4 [&_svg]:h-4 [&_svg]:text-muted" {
  (icon::search_icon(""))
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="product_code"
+ input class="search-input w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input" type="text" name="product_code"
  placeholder="物料编码"
- value=(params.product_code.as_deref().unwrap_or(""));
+ value=(params.product_code.as_deref().unwrap_or("")) {};
  }
  select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="transaction_type" {
  option value="" selected[selected_type.is_empty()] { "入库类型" }
@@ -283,22 +264,20 @@ fn stock_in_table_fragment(
  option value=(wh.id) selected[params.warehouse_id == Some(wh.id)] { (wh.name) }
  }
  }
- input class="filter-input" type="date" name="date_start"
- class="w-[140px]"
- value=(params.date_start.as_deref().unwrap_or(""));
- span class="text-muted" style="line-height:36px" { "~" }
- input class="filter-input" type="date" name="date_end"
- class="w-[140px]"
- value=(params.date_end.as_deref().unwrap_or(""));
+ input class="w-[140px] px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" type="date" name="date_start"
+ value=(params.date_start.as_deref().unwrap_or("")) {};
+ span class="leading-9 text-muted" { "~" }
+ input class="w-[140px] px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" type="date" name="date_end"
+ value=(params.date_end.as_deref().unwrap_or("")) {};
  }
 
  // ── Data Table ──
  (stock_in_data_card(result, operator_names, wh_names, warehouses, params))
 
  // ── Info Note ──
- div class="mt-6 flex" class="rounded-md items-start gap-3" class="px-5 py-4" style="background:var(--accent-bg);border:1px solid rgba(22,119,255,0.15)" {
- (icon::circle_alert_icon("w-4 h-4"))
- div class="text-fg-2" class="text-sm" style="line-height:1.6" {
+ div class="mt-6 flex rounded-md items-start gap-3 px-5 py-4 bg-accent-bg border border-[rgba(37,99,235,0.15)]" {
+ (icon::circle_alert_icon("w-4 h-4 text-accent shrink-0 mt-0.5"))
+ div class="text-sm text-fg-2 leading-relaxed" {
  strong { "入库流程说明：" }
  "入库操作通过 InventoryTransactionService.record() 执行，每次入库自动生成 InventoryTransaction 记录并更新 StockLedger 库存账，单据号格式为 RK-YYYY-MM-SEQ（如 RK-2026-06-000001）。"
  "采购入库需关联来料通知单（IQC质检通过后）；生产入库关联工单完工报工。"
@@ -323,7 +302,7 @@ fn stock_in_data_card(
  table class="data-table" {
  thead {
  tr {
- th style="width:30px" { input type="checkbox"; }
+ th class="w-[30px]" { input type="checkbox" class="cursor-pointer"; }
  th { "入库单号" }
  th { "入库类型" }
  th { "来源单号" }
@@ -339,35 +318,35 @@ fn stock_in_data_card(
  }
  tbody {
  @for item in &result.items {
- @let (type_label, type_bg, type_color) = transaction_type_label(&item.transaction_type);
+ @let (type_label, type_cls) = transaction_type_label(&item.transaction_type);
  @let wh_name = wh_names.get(&item.warehouse_id).map(|s| s.as_str()).unwrap_or("—");
  @let op_name = operator_names.get(&item.operator_id).map(|s| s.as_str()).unwrap_or("—");
  tr {
- td { input type="checkbox"; }
- td class="text-accent font-medium cursor-pointer font-mono tabular-nums" class="text-accent" { (item.doc_number.as_deref().unwrap_or("—")) }
+ td { input type="checkbox" class="cursor-pointer"; }
+ td class="text-accent font-medium cursor-pointer font-mono tabular-nums" { (item.doc_number.as_deref().unwrap_or("—")) }
  td {
- span style=(format!("display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{};color:{}", type_bg, type_color)) {
+ span class=(format!("inline-flex items-center gap-1 rounded-full text-[12px] font-medium px-2 py-0.5 {}", type_cls)) {
  (type_label)
  }
  }
- td class="font-mono tabular-nums" class="text-fg-2 text-xs" {
+ td class="font-mono tabular-nums text-fg-2 text-xs" {
  @if let Some(ref sn) = item.source_doc_number {
  (sn)
  } @else {
  span class="text-muted" { "—" }
  }
  }
- td { (wh_name) }
- td { "1 种" }
+ td class="text-sm text-fg" { (wh_name) }
+ td class="text-sm text-muted" { "1 种" }
  td class="text-right text-[13px] font-mono tabular-nums" { (format!("{:.2}", item.quantity)) }
  td class="text-right text-[13px] font-mono tabular-nums" { (item.unit_cost.map(|c| format!("¥{:.2}", c)).unwrap_or_else(|| "—".into())) }
  td {
- span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-[#f0fff0] text-[#389e0d]" { "已入库" }
+ span class="inline-flex items-center gap-1 rounded-full text-[12px] font-medium px-2 py-0.5 bg-[#f0fff0] text-[#389e0d]" { "已入库" }
  }
- td { (op_name) }
+ td class="text-sm text-fg" { (op_name) }
  td class="text-xs text-muted" { (item.created_at.format("%Y-%m-%d %H:%M")) }
  td {
- a href=(format!("/admin/wms/stock-in/{}", item.id)) class="text-accent" class="text-xs" { "详情" }
+ a href=(format!("/admin/wms/stock-in/{}", item.id)) class="text-accent text-xs hover:underline" { "详情" }
  }
  }
  }

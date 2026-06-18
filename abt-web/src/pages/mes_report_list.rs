@@ -92,7 +92,7 @@ fn report_table_fragment(
  hx-push-url="true" {
  div class="relative w-60" {
  (icon::search_icon("absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted"))
- input class="search-input w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword" placeholder="搜索单号…" value=(params.keyword.as_deref().unwrap_or(""));
+ input class="search-input w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input" type="text" name="keyword" placeholder="搜索单号…" value=(params.keyword.as_deref().unwrap_or(""));
  }
  input class="w-40 px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="date" name="date_from" value=(params.date_from.as_deref().unwrap_or(""));
  span class="text-sm text-muted" { "至" }

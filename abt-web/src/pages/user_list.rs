@@ -14,8 +14,9 @@ use abt_core::shared::types::{PgExecutor, ServiceContext};
 use crate::components::icon;
 use crate::components::pagination;
 use crate::layout::page::admin_page;
+use crate::components::tabs::{status_tabs_with_oob, TabItem};
 use crate::routes::user::*;
-use crate::utils::RequestContext;
+use crate::utils::{empty_as_none, RequestContext};
 
 use abt_macros::require_permission;
 
@@ -24,7 +25,9 @@ use abt_macros::require_permission;
 #[derive(Debug, Deserialize, Clone, Default)]
 pub struct UserQueryParams {
  pub keyword: Option<String>,
+ #[serde(default, deserialize_with = "empty_as_none")]
  pub role_id: Option<i64>,
+ #[serde(default, deserialize_with = "empty_as_none")]
  pub dept_id: Option<i64>,
  pub status: Option<String>,
  pub page: Option<u32>,
@@ -72,7 +75,6 @@ pub async fn get_user_list(
  "系统管理",
  Some("用户管理"),
  content, &nav_filter, );
-
  Ok(Html(page_html.into_string()))
 }
 
@@ -96,25 +98,28 @@ pub async fn delete_user(
 
 #[require_permission("USER", "update")]
 pub async fn toggle_user_status(
- path: UserToggleStatusPath,
- ctx: RequestContext,
+    path: UserToggleStatusPath,
+    ctx: RequestContext,
 ) -> crate::errors::Result<impl IntoResponse> {
- let RequestContext {
- mut conn,
- state,
- service_ctx,
- ..
- } = ctx;
- let svc = state.user_service();
+    let RequestContext {
+        mut conn,
+        state,
+        service_ctx,
+        ..
+    } = ctx;
+    let svc = state.user_service();
 
- let user = svc
- .get_user_with_roles(&service_ctx, &mut conn, path.id)
- .await?;
- let new_status = !user.user.is_active;
- svc.update_user_status(&service_ctx, &mut conn, path.id, new_status)
- .await?;
+    let user = svc
+        .get_user_with_roles(&service_ctx, &mut conn, path.id)
+        .await?;
+    let new_status = !user.user.is_active;
+    svc.update_user_status(&service_ctx, &mut conn, path.id, new_status)
+        .await?;
 
- Ok(([("HX-Redirect", UserListPath::PATH)], Html(String::new())))
+    // Event-driven refresh: emit `userToggled`, the filter form listens on it
+    // and re-submits (keeping current filters/tab/pagination) instead of a
+    // full-page HX-Redirect that would discard that state.
+    Ok(([("HX-Trigger", "userToggled")], Html(String::new())))
 }
 
 // ── Helpers ──
@@ -184,26 +189,40 @@ fn filter_users<'a>(
 fn avatar_color_class(name: &str) -> &'static str {
  let code = name.chars().next().map_or(0, |c| c as u32);
  match code % 8 {
- 0 => "avatar-c0",
- 1 => "avatar-c1",
- 2 => "avatar-c2",
- 3 => "avatar-c3",
- 4 => "avatar-c4",
- 5 => "avatar-c5",
- 6 => "avatar-c6",
- _ => "avatar-c7",
+ 0 => "bg-blue-500",
+ 1 => "bg-purple-500",
+ 2 => "bg-green-500",
+ 3 => "bg-orange-500",
+ 4 => "bg-pink-500",
+ 5 => "bg-indigo-500",
+ 6 => "bg-teal-500",
+ _ => "bg-cyan-500",
  }
 }
 
 fn initials(name: &str) -> String {
- let chars: Vec<char> = name.chars().collect();
- if chars.len() >= 2 {
- format!("{}{}", chars[0], chars[1])
- } else if chars.len() == 1 {
- chars[0].to_string()
- } else {
- "?".to_string()
+ name.chars().next().map(|c| c.to_string()).unwrap_or_else(|| "?".to_string())
+}
+
+fn build_query_string(params: &UserQueryParams) -> String {
+ let mut q = vec![];
+ if let Some(ref kw) = params.keyword {
+ if !kw.is_empty() {
+ q.push(format!("keyword={kw}"));
  }
+ }
+ if let Some(r) = params.role_id {
+ q.push(format!("role_id={r}"));
+ }
+ if let Some(d) = params.dept_id {
+ q.push(format!("dept_id={d}"));
+ }
+ if let Some(ref s) = params.status {
+ if !s.is_empty() {
+ q.push(format!("status={s}"));
+ }
+ }
+ q.join("&")
 }
 
 fn data_scope_label(u: &UserWithRoles) -> &'static str {
@@ -283,113 +302,80 @@ fn user_table_fragment(
  let skip = ((page - 1) * page_size) as usize;
  let page_users: Vec<_> = filtered.into_iter().skip(skip).take(page_size as usize).collect();
 
- let status_query = |s: &str| -> String {
- let mut qs = format!("{}?page=1", UserListPath::PATH);
- if !s.is_empty() {
- qs.push_str("&status=");
- qs.push_str(s);
- }
- qs
- };
-
- let tab_all = if status_filter.is_empty() { "status-tab active" } else { "status-tab" };
- let tab_active = if status_filter == "active" { "status-tab active" } else { "status-tab" };
- let tab_inactive = if status_filter == "inactive" { "status-tab active" } else { "status-tab" };
 
  html! {
- div class="user-list-panel" {
+div class="user-list-panel" id="user-list-panel" {
  // ── Stats ──
- div class="grid grid-cols-4 gap-5" {
+div id="user-stats" class="grid grid-cols-4 gap-5" {
  div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
- div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 blue" {
+div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 bg-[#dbeafe] text-accent" {
  (icon::users_icon("w-6 h-6"))
  }
  div {
- div class="text-2xl font-bold font-mono tabular-nums tabular-nums text-fg" { (total_count) }
+div class="text-2xl font-bold font-mono tabular-nums text-fg" { (total_count) }
  div class="text-sm text-muted mt-1" { "用户总数" }
  }
  }
  div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
- div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 green" {
+div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 bg-[#dcfce7] text-success" {
  (icon::check_circle_icon("w-6 h-6"))
  }
  div {
- div class="text-2xl font-bold font-mono tabular-nums tabular-nums text-fg" { (active_count) }
+div class="text-2xl font-bold font-mono tabular-nums text-fg" { (active_count) }
  div class="text-sm text-muted mt-1" { "已激活" }
  }
  }
  div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
- div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 orange" {
+div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 bg-[#fef3c7] text-[#d97706]" {
  (icon::clock_icon("w-6 h-6"))
  }
  div {
- div class="text-2xl font-bold font-mono tabular-nums tabular-nums text-fg" { (inactive_count) }
+div class="text-2xl font-bold font-mono tabular-nums text-fg" { (inactive_count) }
  div class="text-sm text-muted mt-1" { "已停用" }
  }
  }
  div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
- div class="stat-icon w-[44px] h-[44px] rounded grid place-items-center shrink-0-purple" {
+div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 bg-[#f3e8ff] text-[#7c3aed]" {
  svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-6 h-6" {
  path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" {}
  }
  }
  div {
- div class="text-2xl font-bold font-mono tabular-nums tabular-nums text-fg" { (super_admin_count) }
+div class="text-2xl font-bold font-mono tabular-nums text-fg" { (super_admin_count) }
  div class="text-sm text-muted mt-1" { "超级管理员" }
  }
  }
  }
 
- // ── Status Tabs ──
- div class="flex gap-1 border-b border-border-soft" {
- button class=(tab_all)
- hx-get=(status_query(""))
- hx-target="closest .user-list-panel"
- hx-swap="outerHTML"
- hx-push-url=(UserListPath::PATH) {
- "全部"
- span class="count" { (total_count) }
- }
- button class=(tab_active)
- hx-get=(status_query("active"))
- hx-target="closest .user-list-panel"
- hx-swap="outerHTML"
- hx-push-url=(UserListPath::PATH) {
- "已激活"
- span class="count" { (active_count) }
- }
- button class=(tab_inactive)
- hx-get=(status_query("inactive"))
- hx-target="closest .user-list-panel"
- hx-swap="outerHTML"
- hx-push-url=(UserListPath::PATH) {
- "已停用"
- span class="count" { (inactive_count) }
- }
- }
+(status_tabs_with_oob(
+    UserListPath::PATH,
+    ".data-card",
+    "#user-filter-form",
+    "#status-tabs,#user-stats,#user-filter-form",
+    &[
+        TabItem { value: String::new(), label: "全部", count: Some(total_count as u64) },
+        TabItem { value: "active".to_string(), label: "已激活", count: Some(active_count as u64) },
+        TabItem { value: "inactive".to_string(), label: "已停用", count: Some(inactive_count as u64) },
+    ],
+    status_filter,
+    "status",
+))
 
- // ── Filter Bar ──
- div class="flex items-center gap-3 mb-5 flex-wrap" {
+// ── Filter Bar ──
+form id="user-filter-form" class="flex items-center gap-3 mb-5 flex-wrap"
+hx-get=(UserListPath::PATH)
+hx-target=".data-card" hx-select=".data-card" hx-select-oob="#status-tabs,#user-stats,#user-filter-form"
+hx-swap="outerHTML"
+hx-push-url="true"
+hx-trigger="change, keyup changed delay:300ms from:input[name=keyword], userToggled from:body" {
+ input type="hidden" name="status" value=(status_filter);
  div class="relative w-[280px] shrink-0 [&_svg]:absolute [&_svg]:left-3 [&_svg]:top-1/2 [&_svg]:-translate-y-1/2 [&_svg]:w-4 [&_svg]:h-4 [&_svg]:text-muted" {
  (icon::search_icon("w-4 h-4"))
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword"
+ input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input" type="text" name="keyword"
  placeholder="搜索用户名、显示名称…"
- value=(keyword)
- hx-get=(UserListPath::PATH)
- hx-trigger="keyup changed delay:300ms"
- hx-sync="this:replace"
- hx-target="closest .user-list-panel"
- hx-swap="outerHTML"
- hx-push-url=(UserListPath::PATH)
- hx-include="select[name=role_filter],select[name=dept_filter]";
+ value=(keyword);
  }
- select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="role_filter"
- hx-get=(UserListPath::PATH)
- hx-trigger="change"
- hx-target="closest .user-list-panel"
- hx-swap="outerHTML"
- hx-push-url=(UserListPath::PATH)
- hx-include="input[name=keyword],select[name=dept_filter]" {
+ select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="role_id" {
  option value="" { "全部角色" }
  @for role in all_roles {
  @let selected = role_filter == Some(role.role_id);
@@ -398,13 +384,7 @@ fn user_table_fragment(
  }
  }
  }
- select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="dept_filter"
- hx-get=(UserListPath::PATH)
- hx-trigger="change"
- hx-target="closest .user-list-panel"
- hx-swap="outerHTML"
- hx-push-url=(UserListPath::PATH)
- hx-include="input[name=keyword],select[name=role_filter]" {
+ select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="dept_id" {
  option value="" { "全部部门" }
  @for dept in all_depts {
  @let selected = dept_filter == Some(dept.department_id);
@@ -413,7 +393,7 @@ fn user_table_fragment(
  }
  }
  }
- }
+}
 
  // ── Data Table ──
  div class="data-card" {
@@ -448,8 +428,9 @@ fn user_table_fragment(
  }
 
  // ── Pagination ──
- (pagination::htmx_pagination_inherited(
+ (pagination::pagination(
  UserListPath::PATH,
+ &build_query_string(params),
  total,
  page,
  total_pages,
@@ -467,14 +448,15 @@ fn user_row(
  let edit_path = UserEditPath { id: u.user.user_id };
  let toggle_path = UserToggleStatusPath { id: u.user.user_id };
 
+
  let display_name = u.user.display_name.as_deref().unwrap_or(&u.user.username);
  let avatar_initials = initials(display_name);
  let avatar_cls = avatar_color_class(display_name);
 
  let (status_label, dot_class) = if u.user.is_active {
- ("已激活", "status-dot active")
+ ("已激活", "w-1.5 h-1.5 rounded-full bg-green-500 shrink-0")
  } else {
- ("已停用", "status-dot inactive")
+ ("已停用", "w-1.5 h-1.5 rounded-full bg-gray-400 shrink-0")
  };
 
  let depts = user_depts
@@ -490,17 +472,17 @@ fn user_row(
  // User info
  td {
  div class="flex items-center gap-3" {
- div class={"avatar-sm " (avatar_cls)} {
+ div class={"w-8 h-8 rounded-[10px] flex items-center justify-center text-xs font-semibold shrink-0 text-white " (avatar_cls)} {
  (avatar_initials)
  }
- div class="flex items-center gap-3-info" {
- span class="flex items-center gap-3-name" {
+div class="flex flex-col gap-[2px]" {
+span class="flex items-center gap-[6px] text-[13px] font-semibold text-fg" {
  (display_name)
  @if u.user.is_super_admin {
- span class="bg-[#f3e8ff] text-[#7c3aed]" { "超管" }
+ span class="text-[10px] font-semibold px-[6px] py-[2px] rounded-[3px] bg-[#f3e8ff] text-[#7c3aed] border border-[#e8d5ff] tracking-[0.02em]" { "超管" }
  }
  }
- span class="flex items-center gap-3-id" {
+span class="text-[12px] text-muted" {
  "ID: " (u.user.user_id)
  }
  }
@@ -516,7 +498,7 @@ fn user_row(
  td {
  div class="flex flex-wrap gap-[4px]" {
  @for role in &u.roles {
- span class="text-[10px] font-medium" { (role.role_name) }
+ span class="text-[10px] font-medium px-[7px] py-[2px] rounded-[3px] bg-[#e8f4ff] text-[#1677ff] border border-[#d6e4ff]" { (role.role_name) }
  }
  @if u.roles.is_empty() {
  span class="text-muted" { "—" }
@@ -530,7 +512,7 @@ fn user_row(
  span class="text-muted" { "—" }
  } @else {
  @for dept in depts {
- span class="text-[10px] bg-[#f0fff0] text-[#389e0d] font-medium" { (dept.department_name) }
+ span class="text-[10px] font-medium px-[7px] py-[2px] rounded-[3px] bg-[#f0fff0] text-[#389e0d] border border-[#d1f5e0]" { (dept.department_name) }
  }
  }
  }
@@ -542,34 +524,33 @@ fn user_row(
 
  // Status
  td {
- span class="flex items-center text-[13px]" {
+ span class="flex items-center gap-1 text-[13px]" {
  span class=(dot_class) {}
  (status_label)
  }
  }
 
  // Created at
- td class="font-mono tabular-nums" {
+ td class="font-mono tabular-nums text-xs text-muted" {
  (u.user.created_at.format("%Y-%m-%d"))
  }
 
  // Actions
  td _="on click halt the event" {
- div class="row-actions flex items-center gap-1 justify-end opacity-0 transition-opacity duration-150 [&_a]:w-[28px] [&_a]:h-[28px] [&_a]:grid [&_a]:place-items-center [&_a]:rounded-sm [&_a]:cursor-pointer [&_a]:bg-surface [&_a]:hover:bg-accent-bg [&_svg]:w-3.5 [&_svg]:h-3.5" {
+div class="row-actions flex items-center gap-1 justify-end opacity-0 transition-opacity duration-150 [&_a]:w-[28px] [&_a]:h-[28px] [&_a]:grid [&_a]:place-items-center [&_a]:rounded-sm [&_a]:cursor-pointer [&_a]:bg-surface [&_a]:hover:bg-accent-bg [&_button]:w-[28px] [&_button]:h-[28px] [&_button]:grid [&_button]:place-items-center [&_button]:rounded-sm [&_button]:cursor-pointer [&_button]:bg-surface [&_button]:hover:bg-accent-bg [&_svg]:w-3.5 [&_svg]:h-3.5" {
  a class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" title="编辑"
  href=(edit_path.to_string()) {
  (icon::edit_icon("w-3.5 h-3.5"))
  }
  @if can_delete && !u.user.is_super_admin {
- button type="button" class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" title=(toggle_title)
- hx-post=(toggle_path.to_string())
- hx-confirm=(format!(
- "确定要{}用户 <strong>{}</strong> 吗？",
- if u.user.is_active { "停用" } else { "启用" },
- display_name,
- ))
- hx-target="closest .user-list-panel"
- hx-swap="outerHTML" {
+button type="button" class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" title=(toggle_title)
+hx-post=(toggle_path.to_string())
+hx-swap="none"
+hx-confirm=(format!(
+    "确定要{}用户 <strong>{}</strong> 吗？",
+    if u.user.is_active { "停用" } else { "启用" },
+    display_name,
+)) {
  @if u.user.is_active {
  svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5" {
  path d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" {}

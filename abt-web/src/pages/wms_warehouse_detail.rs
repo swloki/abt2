@@ -323,30 +323,30 @@ fn warehouse_detail_page(
  html! {
  div {
  // ── Detail Header ──
- div class="block bg-bg border border-border-soft rounded-lg p-6" class="flex justify-between" class="items-start mb-5" {
+ div class="block bg-bg border border-border-soft rounded-lg p-6 flex justify-between items-start mb-5" {
  div {
- div class="flex items-center" class="gap-3" {
- h1 class="text-2xl font-extrabold" class="font-bold m-0 font-mono" class="text-xl" { (warehouse.code) }
+ div class="flex items-center gap-3" {
+ h1 class="text-xl font-bold m-0 font-mono" { (warehouse.code) }
  span class=(format!("status-pill {}", crate::utils::status_color(status_class))) { (status_label) }
  @if warehouse.is_virtual {
- span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap" class="text-[11px]" style="background:rgba(114,46,209,0.08);color:#722ed1;padding:2px 8px" { "虚拟仓" }
+ span class="inline-flex items-center gap-[5px] rounded-full text-[11px] font-medium whitespace-nowrap bg-[rgba(114,46,209,0.08)] text-[#722ed1] px-2 py-0.5" { "虚拟仓" }
  }
  }
- div class="text-[13px] text-muted" class="mt-2" { (warehouse.name) }
+ div class="text-[13px] text-muted mt-2" { (warehouse.name) }
  }
  div class="flex gap-3" {
- a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{}?restore=true", WarehouseListPath::PATH)) {
+ a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{}?restore=true", WarehouseListPath::PATH)) {
  (icon::arrow_left_icon("w-4 h-4"))
  " 返回列表"
  }
  @if can_edit {
- a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(edit_path) {
+ a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(edit_path) {
  (icon::edit_icon("w-4 h-4"))
  " 编辑"
  }
  }
  @if can_delete {
- button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-danger text-white border-none hover:opacity-90" class="ml-2"
+ button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-danger text-white border-none hover:opacity-90 ml-2"
  hx-post=(delete_path)
  hx-confirm=(format!("删除后无法恢复，确定要删除仓库 <strong>{}</strong> 吗？", warehouse.name))
  hx-target="body"
@@ -359,8 +359,8 @@ fn warehouse_detail_page(
  }
 
  // ── Info Card ──
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "仓库信息" }
+ div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-sm" {
+ div class="text-base font-semibold text-fg mb-4" { "仓库信息" }
  div class="grid gap-4" {
  div class="flex flex-col gap-1" {
  span class="text-xs text-muted font-medium" { "仓库编码" }
@@ -404,15 +404,15 @@ fn warehouse_detail_page(
  }
 
  // ── Zones Table ──
- div class="bg-bg border border-border-soft rounded-xl overflow-hidden" class="rounded-md mb-6" class="border border-border-soft p-6" style="background:var(--bg)" {
- div class="flex items-center justify-between mb-4" style="padding-bottom:var(--space-3);border-bottom:1px solid var(--border-soft)" {
- div class="font-semibold text-fg" class="text-base" {
+ div class="bg-bg border border-border-soft rounded-md overflow-hidden mb-6 p-6" {
+ div class="flex items-center justify-between mb-4 pb-3 [border-bottom:1px_solid_var(--border-soft)]" {
+ div class="font-semibold text-fg text-base" {
  "库区列表 "
- span class="font-normal text-xs text-muted" class="ml-2" {
+ span class="font-normal text-xs text-muted ml-2" {
  "共 " (zones.len()) " 个库区"
  }
  }
- button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" class="text-xs" style="padding:4px 12px" _="on click add .is-open to #zone-create-modal" {
+ button type="button" class="inline-flex items-center gap-2 rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-xs font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] px-3 py-1" _="on click add .is-open to #zone-create-modal" {
  (icon::plus_icon("w-3.5 h-3.5"))
  "新建库区"
  }
@@ -423,10 +423,10 @@ fn warehouse_detail_page(
  }
 
  // ── Zone Bins Table (placeholder, populated on zone click) ──
- div id="bins-section" class="bg-bg border border-border-soft rounded-xl overflow-hidden" class="rounded-md mb-6" class="border border-border-soft p-6" style="background:var(--bg)" {
- div class="sub-text-lg font-semibold text-fg" class="font-semibold text-fg mb-4" class="text-base" style="padding-bottom:var(--space-3);border-bottom:1px solid var(--border-soft)" {
+ div id="bins-section" class="bg-bg border border-border-soft rounded-md overflow-hidden mb-6 p-6" {
+ div class="font-semibold text-fg mb-4 pb-3 text-base [border-bottom:1px_solid_var(--border-soft)]" {
  "库位明细 "
- span class="font-normal text-xs text-muted" class="ml-2" {
+ span class="font-normal text-xs text-muted ml-2" {
  "请点击库区查看库位"
  }
  }
@@ -474,7 +474,7 @@ fn warehouse_detail_page(
  div class="form-field field-full" {
  label { "备注" }
  textarea name="remark" placeholder="库区备注信息…"
- class="w-full resize-y" style="min-height:60px" {}
+ class="w-full resize-y min-h-[60px]" {}
  }
  }
  },
@@ -539,17 +539,17 @@ fn zone_edit_form_fragment(zone: &Zone) -> Markup {
  }
  div class="form-field field-full" {
  label { "备注" }
- textarea name="remark" class="w-full resize-y" style="min-height:60px" {
+ textarea name="remark" class="w-full resize-y min-h-[60px]" {
  (zone.remark.as_deref().unwrap_or(""))
  }
  }
  }
  }
  div class="px-6 py-4 [border-top:1px_solid_var(--border-soft)] flex justify-end gap-3 shrink-0" {
- button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" _="on click remove .is-open from #zone-edit-modal" {
+ button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" _="on click remove .is-open from #zone-edit-modal" {
  "取消"
  }
- button type="submit" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" { "保存" }
+ button type="submit" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" { "保存" }
  }
  }
  }
@@ -557,7 +557,7 @@ fn zone_edit_form_fragment(zone: &Zone) -> Markup {
 
 fn zones_table_fragment(zones: &[Zone], warehouse_id: i64) -> Markup {
  html! {
- div class="data-card" class="mb-0" {
+ div class="data-card mb-0" {
  div class="overflow-x-auto" {
  table class="data-table" {
  thead {
@@ -599,9 +599,9 @@ fn zone_row(z: &Zone, _warehouse_id: i64) -> Markup {
  td class="font-mono tabular-nums" { (z.code) }
  td { (z.name) }
  td {
- span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap" style="background:rgba(22,119,255,0.06);color:#1677ff" { (type_label) }
+ span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-[rgba(22,119,255,0.06)] text-[#1677ff]" { (type_label) }
  }
- td class="text-right text-[13px]" class="text-muted" { "—" }
+ td class="text-right text-[13px] text-muted" { "—" }
  td class="font-mono tabular-nums" { (z.sort_order) }
  td class="text-muted" {
  @if let Some(ref r) = z.remark { (r) } @else { "—" }
@@ -620,7 +620,7 @@ fn zone_row(z: &Zone, _warehouse_id: i64) -> Markup {
  hx-swap="innerHTML" {
  (icon::edit_icon("w-4 h-4"))
  }
- button type="button" class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" title="删除" class="text-danger"
+ button type="button" class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer text-danger" title="删除"
  hx-delete=(delete_path)
  hx-confirm="确定要删除该库区吗？删除后不可恢复。"
  hx-target="closest tr"
@@ -635,7 +635,7 @@ fn zone_row(z: &Zone, _warehouse_id: i64) -> Markup {
 
 fn bins_table_fragment(bins: &[Bin]) -> Markup {
  html! {
- div class="data-card" class="mb-0" {
+ div class="data-card mb-0" {
  div class="overflow-x-auto" {
  table class="data-table" {
  thead {
@@ -710,26 +710,26 @@ fn stats_section(stats: Option<&WarehouseInventoryStats>) -> Markup {
  };
 
  html! {
- div class="bg-bg border border-border-soft rounded-xl overflow-hidden" class="rounded-md mb-6" class="border border-border-soft p-6" style="background:var(--bg)" {
- div class="sub-text-lg font-semibold text-fg" class="font-semibold text-fg mb-4" class="text-base" style="padding-bottom:var(--space-3);border-bottom:1px solid var(--border-soft)" {
+ div class="bg-bg border border-border-soft rounded-md overflow-hidden mb-6 p-6" {
+ div class="font-semibold text-fg mb-4 pb-3 text-base [border-bottom:1px_solid_var(--border-soft)]" {
  "库存统计"
  }
- div class="grid" class="gap-5" class="grid-cols-4" {
- div class="text-center" class="rounded-md p-5" class="bg-surface border border-border-soft" {
- div class="font-bold text-accent" class="text-2xl" class="tracking-tight leading-tight" { (total_qty) }
- div class="text-xs text-muted font-medium" class="mt-2" { "总库存量" }
+ div class="grid gap-5 grid-cols-4" {
+ div class="text-center rounded-md p-5 bg-surface border border-border-soft" {
+ div class="font-bold text-accent text-2xl tracking-tight leading-tight" { (total_qty) }
+ div class="text-xs text-muted font-medium mt-2" { "总库存量" }
  }
- div class="text-center" class="rounded-md p-5" class="bg-surface border border-border-soft" {
- div class="font-bold text-success" class="text-2xl" class="tracking-tight leading-tight" { (product_count) }
- div class="text-xs text-muted font-medium" class="mt-2" { "品种数" }
+ div class="text-center rounded-md p-5 bg-surface border border-border-soft" {
+ div class="font-bold text-success text-2xl tracking-tight leading-tight" { (product_count) }
+ div class="text-xs text-muted font-medium mt-2" { "品种数" }
  }
- div class="text-center" class="rounded-md p-5" class="bg-surface border border-border-soft" {
- div class="font-bold" class="text-2xl text-warn" class="tracking-tight leading-tight" { (low_stock) }
- div class="text-xs text-muted font-medium" class="mt-2" { "低库存项" }
+ div class="text-center rounded-md p-5 bg-surface border border-border-soft" {
+ div class="font-bold text-2xl text-warn tracking-tight leading-tight" { (low_stock) }
+ div class="text-xs text-muted font-medium mt-2" { "低库存项" }
  }
- div class="text-center" class="rounded-md p-5" class="bg-surface border border-border-soft" {
- div class="font-bold text-danger" class="text-2xl" class="tracking-tight leading-tight" { (safety_warning) }
- div class="text-xs text-muted font-medium" class="mt-2" { "安全库存预警" }
+ div class="text-center rounded-md p-5 bg-surface border border-border-soft" {
+ div class="font-bold text-danger text-2xl tracking-tight leading-tight" { (safety_warning) }
+ div class="text-xs text-muted font-medium mt-2" { "安全库存预警" }
  }
  }
  }

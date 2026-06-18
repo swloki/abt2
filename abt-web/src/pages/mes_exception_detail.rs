@@ -71,7 +71,7 @@ fn exception_detail_page(
 
  html! { div {
  div class="flex items-center justify-between mb-6" {
- div class="flex items-center justify-between mb-6-left" {
+ div class="flex items-center justify-between mb-6" {
  a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", ExceptionListPath::PATH)) { "\u{2190} 返回列表" }
  h1 class="text-xl font-bold text-fg tracking-tight" { "异常 " (exc.doc_number) }
  }
@@ -79,7 +79,7 @@ fn exception_detail_page(
 
  // Status + severity
  div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
- div class="flex items-center mb-4" class="gap-3" {
+ div class="flex items-center mb-4 gap-3" {
  span class=(format!("status-pill {}", crate::utils::status_color(type_cls))) { (type_label) }
  span class=(format!("status-pill {}", crate::utils::status_color(status_cls))) { (status_label) }
  span class=(format!("status-pill {}", crate::utils::status_color(severity_cls))) { (severity_label) }
@@ -111,8 +111,8 @@ fn exception_detail_page(
  // Description
  @if let Some(ref desc) = exc.description {
  div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
- div class="font-semibold" class="mb-2" { "异常描述" }
- div style="white-space:pre-wrap;line-height:1.6" { (desc) }
+ div class="font-semibold mb-2" { "异常描述" }
+ div class="whitespace-pre-wrap leading-relaxed" { (desc) }
  }
  }
 

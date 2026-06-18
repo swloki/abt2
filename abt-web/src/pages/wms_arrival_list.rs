@@ -8,6 +8,7 @@ use serde::Deserialize;
 
 use abt_core::wms::arrival_notice::model::ArrivalNoticeFilter;
 use abt_core::wms::arrival_notice::ArrivalNoticeService;
+use abt_core::purchase::order::PurchaseOrderService;
 use abt_core::wms::enums::ArrivalStatus;
 use abt_core::wms::warehouse::model::WarehouseFilter;
 use abt_core::wms::warehouse::WarehouseService;
@@ -120,6 +121,27 @@ async fn resolve_supplier_names<S: SupplierService>(
  map
 }
 
+/// Resolve purchase_order_id → doc_number for each notice (linked PO source).
+async fn resolve_po_numbers<S: PurchaseOrderService>(
+ svc: &S,
+ ctx: &abt_core::shared::types::ServiceContext,
+ db: abt_core::shared::types::PgExecutor<'_>,
+ notices: &[abt_core::wms::arrival_notice::model::ArrivalNotice],
+) -> HashMap<i64, String> {
+ let ids: Vec<i64> = notices.iter().filter_map(|n| n.purchase_order_id).collect();
+ if ids.is_empty() {
+ return HashMap::new();
+ }
+ let mut map = HashMap::new();
+ for id in ids {
+ if !map.contains_key(&id)
+ && let Ok(po) = svc.get(ctx, db, id).await {
+ map.insert(id, po.doc_number);
+ }
+ }
+ map
+}
+
 // ── Handlers ──
 
 #[require_permission("INVENTORY", "read")]
@@ -136,6 +158,7 @@ pub async fn get_arrival_list(
  let svc = state.arrival_notice_service();
  let warehouse_svc = state.warehouse_service();
  let supplier_svc = state.supplier_service();
+ let po_svc = state.purchase_order_service();
 
  let filter = build_filter(&params);
  let page = params.page.unwrap_or(1);
@@ -143,12 +166,13 @@ pub async fn get_arrival_list(
 
  let warehouse_names = resolve_warehouse_names(&warehouse_svc, &service_ctx, &mut conn, &result.items).await;
  let supplier_names = resolve_supplier_names(&supplier_svc, &service_ctx, &mut conn, &result.items).await;
+ let po_numbers = resolve_po_numbers(&po_svc, &service_ctx, &mut conn, &result.items).await;
 
  let warehouses = warehouse_svc
  .list(&service_ctx, &mut conn, WarehouseFilter::default(), 1, 200)
  .await?;
 
- let content = arrival_list_page(&result, &warehouse_names, &supplier_names, &warehouses.items, &params, can_create, can_delete);
+ let content = arrival_list_page(&result, &warehouse_names, &supplier_names, &po_numbers, &warehouses.items, &params, can_create, can_delete);
  let page_html = admin_page(
  is_htmx, "来料通知", &claims, "inventory", ArrivalListPath::PATH, "库存管理", Some("来料通知"), content, &nav_filter,
  );
@@ -162,6 +186,7 @@ fn arrival_list_page(
  result: &abt_core::shared::types::pagination::PaginatedResult<abt_core::wms::arrival_notice::model::ArrivalNotice>,
  warehouse_names: &HashMap<i64, String>,
  supplier_names: &HashMap<i64, String>,
+ po_numbers: &HashMap<i64, String>,
  warehouses: &[abt_core::wms::warehouse::model::Warehouse],
  params: &ArrivalQueryParams,
  can_create: bool,
@@ -179,16 +204,17 @@ fn arrival_list_page(
  }
  }
  }
-}
- (arrival_table_fragment(result, warehouse_names, supplier_names, warehouses, params, can_delete))
  }
-}
+ (arrival_table_fragment(result, warehouse_names, supplier_names, po_numbers, warehouses, params, can_delete))
+ }
+ }
 }
 
 fn arrival_table_fragment(
  result: &abt_core::shared::types::pagination::PaginatedResult<abt_core::wms::arrival_notice::model::ArrivalNotice>,
  warehouse_names: &HashMap<i64, String>,
  supplier_names: &HashMap<i64, String>,
+ po_numbers: &HashMap<i64, String>,
  warehouses: &[abt_core::wms::warehouse::model::Warehouse],
  params: &ArrivalQueryParams,
  can_delete: bool,
@@ -214,7 +240,7 @@ fn arrival_table_fragment(
  div class="arrival-list-panel" {
  (status_tabs_with_param(ArrivalListPath::PATH, "#arrival-data-card", "#arrival-filter-form", tabs, &active_value, "status"))
 
- form class="flex items-center gap-3 mb-6 flex-wrap filter-form" id="arrival-filter-form"
+ form class="flex items-center gap-3 mb-6 flex-wrap" id="arrival-filter-form"
  hx-get=(ArrivalListPath::PATH)
  hx-trigger="change, keyup changed delay:300ms from:.search-input"
  hx-target="#arrival-data-card"
@@ -236,7 +262,7 @@ fn arrival_table_fragment(
  }
  }
 
- (arrival_data_card(result, warehouse_names, supplier_names, params, can_delete))
+ (arrival_data_card(result, warehouse_names, supplier_names, po_numbers, params, can_delete))
  }
  }
 }
@@ -245,6 +271,7 @@ fn arrival_data_card(
  result: &abt_core::shared::types::pagination::PaginatedResult<abt_core::wms::arrival_notice::model::ArrivalNotice>,
  warehouse_names: &HashMap<i64, String>,
  supplier_names: &HashMap<i64, String>,
+ po_numbers: &HashMap<i64, String>,
  params: &ArrivalQueryParams,
  can_delete: bool,
 ) -> Markup {
@@ -266,7 +293,7 @@ fn arrival_data_card(
  }
  tbody {
  @for n in &result.items {
- (arrival_row(n, warehouse_names, supplier_names, can_delete))
+ (arrival_row(n, warehouse_names, supplier_names, po_numbers, can_delete))
  }
  @if result.items.is_empty() {
  tr {
@@ -287,6 +314,7 @@ fn arrival_row(
  n: &abt_core::wms::arrival_notice::model::ArrivalNotice,
  warehouse_names: &HashMap<i64, String>,
  supplier_names: &HashMap<i64, String>,
+ po_numbers: &HashMap<i64, String>,
  can_delete: bool,
 ) -> Markup {
  let detail_path = ArrivalDetailPath { id: n.id };
@@ -294,6 +322,8 @@ fn arrival_row(
  let (status_text, status_class) = status_label(n.status);
  let warehouse_name = warehouse_names.get(&n.warehouse_id).map(|s| s.as_str()).unwrap_or("—");
  let supplier_name = supplier_names.get(&n.supplier_id).map(|s| s.as_str()).unwrap_or("—");
+ let po_number = n.purchase_order_id
+ .and_then(|pid| po_numbers.get(&pid).map(|s| s.as_str()));
  let is_draft = n.status == ArrivalStatus::Draft;
 
  html! {
@@ -301,7 +331,13 @@ fn arrival_row(
  td {
  a class="text-accent font-medium font-mono tabular-nums hover:underline" href=(&detail_url) { (n.doc_number) }
  }
- td class="font-mono tabular-nums text-fg-2" { "—" }
+ td class="font-mono tabular-nums text-fg-2" {
+ @if let Some(po) = po_number {
+ (po)
+ } @else {
+ span class="text-muted" { "—" }
+ }
+ }
  td { (supplier_name) }
  td { (warehouse_name) }
  td class="font-mono tabular-nums" { (n.arrival_date.format("%Y-%m-%d")) }
@@ -327,5 +363,5 @@ fn arrival_row(
  }
  }
  }
-}
+ }
 }

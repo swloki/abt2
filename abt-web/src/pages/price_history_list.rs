@@ -221,7 +221,7 @@ fn price_history_page(rows: &[PriceHistoryRow], total: u64, page: u32, total_pag
  hx-push-url="true" {
  div class="relative flex-1 max-w-xs [&_svg]:absolute [&_svg]:left-3 [&_svg]:top-1/2 [&_svg]:-translate-y-1/2 [&_svg]:w-4 [&_svg]:h-4 [&_svg]:text-muted" {
  (icon::search_icon(""))
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword"
+ input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input" type="text" name="keyword"
  placeholder="搜索产品名称 / 编码…"
  value=(params.keyword.as_deref().unwrap_or(""));
  }
@@ -234,7 +234,7 @@ fn price_history_page(rows: &[PriceHistoryRow], total: u64, page: u32, total_pag
  style="width:150px;padding-left:12px"
  value=(params.date_to.as_deref().unwrap_or(""))
  title="结束日期";
- a href=(PriceHistoryListPath::PATH) class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" style="height:36px;text-decoration:none" { "重置" }
+ a href=(PriceHistoryListPath::PATH) class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" style="height:36px;text-decoration:none" { "重置" }
  }
  // ── Data Table ──
  (data_card(rows, total, page, total_pages))
@@ -306,7 +306,7 @@ fn price_history_row(index: usize, row: &PriceHistoryRow) -> Markup {
  }
  _ => ("—".into(), true),
  };
- let tag_class = if is_up { "change-tag up" } else { "change-tag down" };
+ let tag_class = if is_up { "inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold bg-[#f6ffed] text-[#389e0d]" } else { "inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold bg-[#fff2f0] text-[#cf1322]" };
  let detail_path = PriceHistoryDetailPath { log_id: row.log_id };
  html! {
  tr class="cursor-pointer"
@@ -316,17 +316,17 @@ fn price_history_row(index: usize, row: &PriceHistoryRow) -> Markup {
  _="on 'htmx:afterRequest' add .open to #detail-drawer" {
  td class="text-muted" { (index + 1) }
  td class="font-mono tabular-nums" { (row.product_code) }
- td class="overflow-hidden whitespace-nowrap" style="text-overflow:ellipsis" title=(row.product_name) {
+ td class="overflow-hidden whitespace-nowrap text-ellipsis" title=(row.product_name) {
  a href="#" class="text-accent cursor-pointer font-medium no-underline" onclick="event.preventDefault()" { (row.product_name) }
  }
- td class="text-right text-[13px]" class="text-muted" { "¥ " (old_str) }
+ td class="text-right text-[13px] text-muted" { "¥ " (old_str) }
  td class="text-right text-[13px]" { strong { "¥ " (new_str) } }
  td class="text-right text-[13px]" {
  span class=(tag_class) { (pct) }
  }
  td { (row.operator_name) }
  td class="text-muted text-[13px]" { (row.created_at.format("%Y-%m-%d %H:%M")) }
- td class="overflow-hidden whitespace-nowrap" style="text-overflow:ellipsis" title=(row.remark) {
+ td class="overflow-hidden whitespace-nowrap text-ellipsis" title=(row.remark) {
  @if row.remark.is_empty() {
  span class="text-muted" { "—" }
  } @else {
@@ -334,7 +334,7 @@ fn price_history_row(index: usize, row: &PriceHistoryRow) -> Markup {
  }
  }
  td {
- button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" class="text-xs" style="padding:4px 10px"
+ button class="inline-flex items-center gap-2 py-1 px-2.5 rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-xs font-medium cursor-pointer transition-all duration-150 shadow-xs"
  _="on click halt the event on 'htmx:afterRequest' add .open to #detail-drawer"
  hx-get=(detail_path.to_string())
  hx-target="#detail-body"
@@ -399,7 +399,7 @@ fn detail_content(row: &PriceHistoryRow) -> Markup {
  }
  _ => ("—".into(), true),
  };
- let tag_class = if is_up { "change-tag up" } else { "change-tag down" };
+ let tag_class = if is_up { "inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold bg-[#f6ffed] text-[#389e0d]" } else { "inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold bg-[#fff2f0] text-[#cf1322]" };
  html! {
  // ── 产品信息 ──
  div class="mb-5" {
@@ -432,20 +432,20 @@ fn detail_content(row: &PriceHistoryRow) -> Markup {
  (icon::currency_icon("w-4 h-4"))
  "价格变动"
  }
- div class="bg-[#f8faff] flex items-center gap-[16px]" {
+ div class="bg-[#f8faff] flex items-center gap-4 p-4 rounded-md" {
  div class="text-center" {
- div class="label" { "原价格" }
- div class="val" { (old_str) }
+ div class="text-xs text-muted mb-1" { "原价格" }
+ div class="text-lg font-bold font-mono tabular-nums text-fg" { (old_str) }
  }
  div class="text-accent text-[20px]" {
  (icon::arrow_right_icon("w-6 h-6"))
  }
  div class="text-center" {
- div class="label" { "新价格" }
- div class="val" { (new_str) }
+ div class="text-xs text-muted mb-1" { "新价格" }
+ div class="text-lg font-bold font-mono tabular-nums text-fg" { (new_str) }
  }
  div class="ml-auto" {
- span class=(tag_class) class="text-sm" style="padding:4px 12px" { (pct) }
+ span class=(format!("{} px-3 py-1 text-sm", tag_class)) { (pct) }
  }
  }
  }
@@ -455,7 +455,7 @@ fn detail_content(row: &PriceHistoryRow) -> Markup {
  (icon::comment_icon("w-4 h-4"))
  "调价说明"
  }
- div class="bg-surface text-[14px] text-fg border border-border" {
+ div class="bg-surface text-sm text-fg border border-border p-3 rounded-md" {
  @if row.remark.is_empty() { "—" } @else { (row.remark) }
  }
  }
@@ -465,7 +465,7 @@ fn detail_content(row: &PriceHistoryRow) -> Markup {
  (icon::clock_icon("w-4 h-4"))
  "变更时间"
  }
- div class="text-fg font-medium" style="font-size:15px" {
+ div class="text-fg font-medium text-[15px]" {
  (row.created_at.format("%Y-%m-%d %H:%M"))
  }
  }

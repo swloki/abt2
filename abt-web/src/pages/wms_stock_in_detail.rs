@@ -134,7 +134,7 @@ fn stock_in_detail_page(
 
  // ── 基本信息 ──
  div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "基本信息" }
+ div class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" { "基本信息" }
  div class="grid gap-4" {
  div class="flex flex-col gap-1" {
  span class="text-xs text-muted font-medium" { "单据编号" }

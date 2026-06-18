@@ -135,36 +135,36 @@ fn bin_detail_page(
  }
 
  // ── Detail Header ──
- div class="block bg-bg border border-border-soft rounded-lg p-6" class="flex justify-between" class="items-start mb-5" {
+ div class="block bg-bg border border-border-soft rounded-lg p-6 flex justify-between items-start mb-5" {
  div {
- div class="flex items-center" class="gap-3" {
- h1 class="text-2xl font-extrabold" class="font-bold m-0 font-mono" class="text-xl" {
+ div class="flex items-center gap-3" {
+ h1 class="text-xl font-bold m-0 font-mono" {
  (bin.code)
  }
  span class=(format!("status-pill {}", crate::utils::status_color(status_class))) { (status_label) }
  }
- div class="text-[13px] text-muted" class="mt-2" {
+ div class="text-[13px] text-muted mt-2" {
  (bww.warehouse_name) " · " (zone_name)
  }
  }
  }
 
  // ── Tabs ──
- div class="flex [border-bottom:1px_solid_var(--border-soft)]" class="flex" class="mb-5" style="gap:var(--space-1);border-bottom:1px solid var(--border-soft);padding-bottom:0" {
- button class="p-3 text-sm text-muted border-none cursor-pointer whitespace-nowrap font-medium active" class="cursor-pointer border-none bg-transparent text-accent" class="text-sm" style="padding:var(--space-2) var(--space-4);border-bottom:2px solid var(--accent)" onclick="switchTab('info',this)" { "基本信息" }
- button class="p-3 text-sm text-muted border-none cursor-pointer whitespace-nowrap font-medium" class="cursor-pointer border-none bg-transparent text-muted" class="text-sm" style="padding:var(--space-2) var(--space-4);border-bottom:2px solid transparent" onclick="switchTab('stock',this)" { "库存明细" }
- button class="p-3 text-sm text-muted border-none cursor-pointer whitespace-nowrap font-medium" class="cursor-pointer border-none bg-transparent text-muted" class="text-sm" style="padding:var(--space-2) var(--space-4);border-bottom:2px solid transparent" onclick="switchTab('history',this)" { "操作历史" }
+ div class="flex gap-1 mb-5 border-b border-border-soft pb-0" {
+ button class="py-2 px-4 text-sm font-medium cursor-pointer border-none bg-transparent text-accent border-b-2 border-accent whitespace-nowrap active" onclick="switchTab('info',this)" { "基本信息" }
+ button class="py-2 px-4 text-sm font-medium cursor-pointer border-none bg-transparent text-muted border-b-2 border-transparent whitespace-nowrap" onclick="switchTab('stock',this)" { "库存明细" }
+ button class="py-2 px-4 text-sm font-medium cursor-pointer border-none bg-transparent text-muted border-b-2 border-transparent whitespace-nowrap" onclick="switchTab('history',this)" { "操作历史" }
  }
 
  // ── Tab: 基本信息 ──
  div.tab-panel id="tab-info" {
  // Info card
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "库位信息" }
+ div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-sm" {
+ div class="font-bold text-fg mb-4" { "库位信息" }
  div class="grid gap-4" {
  div class="flex flex-col gap-1" {
  span class="text-xs text-muted font-medium" { "库位编码" }
- span class="text-sm text-fg font-medium" class="font-mono" { (bin.code) }
+ span class="text-sm text-fg font-medium font-mono" { (bin.code) }
  }
  div class="flex flex-col gap-1" {
  span class="text-xs text-muted font-medium" { "库位名称" }
@@ -186,7 +186,7 @@ fn bin_detail_page(
  }
  div class="flex flex-col gap-1" {
  span class="text-xs text-muted font-medium" { "容量上限" }
- span class="text-sm text-fg font-medium" class="font-mono" {
+ span class="text-sm text-fg font-medium font-mono" {
  @if let Some(cap) = &bin.capacity_limit {
  (format!("{:.2}", cap))
  } @else {
@@ -196,7 +196,7 @@ fn bin_detail_page(
  }
  div class="flex flex-col gap-1" {
  span class="text-xs text-muted font-medium" { "已用容量" }
- span class="text-sm text-fg font-medium" class="font-mono" class="text-warn" { (used_qty) }
+ span class="text-sm text-fg font-medium font-mono text-warn" { (used_qty) }
  }
  div class="flex flex-col gap-1" {
  span class="text-xs text-muted font-medium" { "温控要求" }
@@ -210,7 +210,7 @@ fn bin_detail_page(
  @if let Some(types) = &bin.allowed_product_types {
  @for t in types {
  @let (bg, fg) = product_type_color(t);
- span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap" style=(format!("background:{bg};color:{fg};margin-right:4px")) {
+ span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap mr-1" style=(format!("background:{bg};color:{fg}")) {
  (product_type_label(t))
  }
  }
@@ -221,13 +221,13 @@ fn bin_detail_page(
  }
  div class="flex flex-col gap-1" {
  span class="text-xs text-muted font-medium" { "创建时间" }
- span class="text-sm text-fg font-medium" class="font-mono" {
+ span class="text-sm text-fg font-medium font-mono" {
  (bin.created_at.format("%Y-%m-%d %H:%M"))
  }
  }
  div class="flex flex-col gap-1" {
  span class="text-xs text-muted font-medium" { "最后更新" }
- span class="text-sm text-fg font-medium" class="font-mono" {
+ span class="text-sm text-fg font-medium font-mono" {
  (bin.updated_at.format("%Y-%m-%d %H:%M"))
  }
  }
@@ -235,42 +235,42 @@ fn bin_detail_page(
  }
 
  // Coordinates card
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" class="mt-4" {
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "库位坐标" }
- div class="flex" class="gap-4" class="mt-3" {
- div class="text-center flex-1 bg-surface" class="rounded-md p-4" class="border border-border-soft" {
- div class="font-bold font-mono text-fg" class="text-xl" {
+ div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-sm mt-4" {
+ div class="font-bold text-fg mb-4" { "库位坐标" }
+ div class="flex gap-4 mt-3" {
+ div class="text-center flex-1 bg-surface rounded-md p-4 border border-border-soft" {
+ div class="font-bold font-mono text-fg text-xl" {
  (bin.row_no.as_deref().unwrap_or("—"))
  }
- div class="text-muted" class="text-xs mt-1" { "行号 (Row)" }
+ div class="text-muted text-xs mt-1" { "行号 (Row)" }
  }
- div class="text-center flex-1 bg-surface" class="rounded-md p-4" class="border border-border-soft" {
- div class="font-bold font-mono text-fg" class="text-xl" {
+ div class="text-center flex-1 bg-surface rounded-md p-4 border border-border-soft" {
+ div class="font-bold font-mono text-fg text-xl" {
  (bin.column_no.as_deref().unwrap_or("—"))
  }
- div class="text-muted" class="text-xs mt-1" { "列号 (Column)" }
+ div class="text-muted text-xs mt-1" { "列号 (Column)" }
  }
- div class="text-center flex-1 bg-surface" class="rounded-md p-4" class="border border-border-soft" {
- div class="font-bold font-mono text-fg" class="text-xl" {
+ div class="text-center flex-1 bg-surface rounded-md p-4 border border-border-soft" {
+ div class="font-bold font-mono text-fg text-xl" {
  (bin.layer_no.as_deref().unwrap_or("—"))
  }
- div class="text-muted" class="text-xs mt-1" { "层号 (Layer)" }
+ div class="text-muted text-xs mt-1" { "层号 (Layer)" }
  }
- div class="text-center flex-1 bg-surface" class="rounded-md p-4" class="border border-border-soft" {
- div class="font-bold font-mono text-fg" class="text-xl" {
+ div class="text-center flex-1 bg-surface rounded-md p-4 border border-border-soft" {
+ div class="font-bold font-mono text-fg text-xl" {
  @if let Some(pct) = capacity_pct {
  (format!("{}%", pct.round()))
  } @else {
  "—"
  }
  }
- div class="text-muted" class="text-xs mt-1" { "容量使用率" }
+ div class="text-muted text-xs mt-1" { "容量使用率" }
  }
  }
  @if let Some(pct) = capacity_pct {
- div class="mt-4" style="max-width:400px" {
- div class="overflow-hidden" style="height:8px;background:var(--border-soft);border-radius:4px" {
- div style=(format!("width:{}%;background:var(--warn);height:100%;border-radius:4px;transition:width 0.3s", pct.round())) {}
+ div class="mt-4 max-w-[400px]" {
+ div class="overflow-hidden h-2 bg-border-soft rounded" {
+ div class="h-full rounded bg-warn transition-all duration-300" style=(format!("width:{}%", pct.round())) {}
  }
  }
  }

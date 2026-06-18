@@ -298,7 +298,7 @@ fn list_page(
  h1 class="text-xl font-bold text-fg tracking-tight" { "委外单管理" }
  div class="flex gap-3" {
  @if can_create {
- a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(OmOutsourcingCreatePath::PATH) {
+ a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(OmOutsourcingCreatePath::PATH) {
  (icon::plus_icon("w-4 h-4"))
  "新建委外单"
  }
@@ -333,7 +333,7 @@ fn table_fragment(
  ];
 
  html! {
- div class="plan-list-panel" {
+ div {
  (status_tabs_with_param(OmOutsourcingListPath::PATH, "#outsourcing-data-card", "#outsourcing-filter-form", tabs, selected_status, "status"))
 
  // ── Filter Bar ──
@@ -347,8 +347,7 @@ fn table_fragment(
  hx-push-url="true" {
  div class="relative flex-1 max-w-xs [&_svg]:absolute [&_svg]:left-3 [&_svg]:top-1/2 [&_svg]:-translate-y-1/2 [&_svg]:w-4 [&_svg]:h-4 [&_svg]:text-muted" {
  (icon::search_icon(""))
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword"
- class="w-[180px]"
+ input class="w-[180px] pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input" type="text" name="keyword"
  placeholder="搜索委外单号…"
  value=(params.keyword.as_deref().unwrap_or(""));
  }
@@ -359,18 +358,15 @@ fn table_fragment(
  option value="Material" selected[params.outsourcing_type.as_deref() == Some("Material")] { "材料委外" }
  option value="Rework" selected[params.outsourcing_type.as_deref() == Some("Rework")] { "委外返工" }
  }
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="supplier_id"
- style="max-width:120px"
+ input class="max-w-[120px] w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input" type="text" name="supplier_id"
  placeholder="供应商ID"
  value=(params.supplier_id.as_deref().unwrap_or(""));
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="date" name="date_from"
- style="max-width:160px"
+ input class="max-w-[160px] w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="date" name="date_from"
  value=(params.date_from.as_deref().unwrap_or(""));
  span class="text-muted text-[13px]" { "至" }
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="date" name="date_to"
- style="max-width:160px"
+ input class="max-w-[160px] w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="date" name="date_to"
  value=(params.date_to.as_deref().unwrap_or(""));
- a href=(OmOutsourcingListPath::PATH) class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" style="height:36px;text-decoration:none" { "重置" }
+ a href=(OmOutsourcingListPath::PATH) class="inline-flex items-center gap-2 h-9 no-underline py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" { "重置" }
  }
 
  // ── Data Table ──
@@ -415,7 +411,7 @@ fn data_card(
  @let detail_path = OmOutsourcingDetailPath { id: item.id };
  @let tracking_info = latest_tracking.get(&item.id);
  tr class="cursor-pointer" onclick=(format!("location.href='{}'", detail_path.to_string())) {
- td class="text-accent font-medium cursor-pointer font-mono tabular-nums" class="text-accent" { (item.doc_number) }
+ td class="text-accent font-medium cursor-pointer font-mono tabular-nums" { (item.doc_number) }
  td { (supplier_name) }
  td { (product_name) }
  td {
@@ -434,7 +430,7 @@ fn data_card(
  @if let Some(label) = tracking_info {
  span class="text-xs" { (label) }
  } @else {
- span class="text-muted" class="text-xs" { "—" }
+ span class="text-muted text-xs" { "—" }
  }
  }
  td {

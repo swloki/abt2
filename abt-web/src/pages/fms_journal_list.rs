@@ -221,9 +221,9 @@ fn journal_list_page(result: &PaginatedResult<CashJournal>, params: &JournalQuer
  div class="flex items-center justify-between mb-6" {
  h1 class="text-xl font-bold text-fg tracking-tight" { "出纳日记账" }
  div class="flex gap-3" {
- button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" type="button" { (icon::download_icon("w-4 h-4")) "导出" }
+ button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" type="button" { (icon::download_icon("w-4 h-4")) "导出" }
  @if can_create {
- a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(JournalCreatePath::PATH) {
+ a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(JournalCreatePath::PATH) {
  (icon::plus_icon("w-4 h-4"))
  "新建日记账"
  }
@@ -260,8 +260,7 @@ fn journal_table_fragment(result: &PaginatedResult<CashJournal>, params: &Journa
  hx-push-url="true" {
  div class="relative flex-1 max-w-xs [&_svg]:absolute [&_svg]:left-3 [&_svg]:top-1/2 [&_svg]:-translate-y-1/2 [&_svg]:w-4 [&_svg]:h-4 [&_svg]:text-muted" {
  (icon::search_icon(""))
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword"
- class="w-[200px]"
+ input class="w-[200px] pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input" type="text" name="keyword"
  placeholder="搜索单号、往来方名称…"
  value=(params.keyword.as_deref().unwrap_or(""));
  }
@@ -312,7 +311,7 @@ fn journal_data_card(result: &PaginatedResult<CashJournal>, params: &JournalQuer
  @let (status_text, status_bg, status_color) = status_label(&item.status);
  @let detail_path = JournalDetailPath { id: item.id };
  tr class="cursor-pointer" onclick=(format!("location.href='{}'", detail_path.to_string())) {
- td class="font-mono tabular-nums" class="text-accent" { (item.doc_number) }
+ td class="font-mono tabular-nums text-accent" { (item.doc_number) }
  td {
  span style=(format!("display:inline-flex;align-items:center;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{};color:{}", type_bg, type_color)) {
  (type_label)
@@ -327,7 +326,7 @@ fn journal_data_card(result: &PaginatedResult<CashJournal>, params: &JournalQuer
  (fmt_amount(item.amount, &item.direction))
  }
  td { (counterparty_name(item, counterparty_names)) }
- td class="font-mono tabular-nums" class="text-muted" { (&item.bank_account) }
+ td class="font-mono tabular-nums text-muted" { (&item.bank_account) }
  td class="text-xs text-muted" { (item.transaction_date.format("%Y-%m-%d")) }
  td class="font-mono tabular-nums" { (&item.period) }
  td {

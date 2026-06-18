@@ -73,7 +73,7 @@ fn exception_list_page(
  div class="flex items-center gap-3 mb-5 flex-wrap" {
  div class="relative w-60" {
  (icon::search_icon("absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted"))
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword" placeholder="搜索编号或描述…"
+ input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input" type="text" name="keyword" placeholder="搜索编号或描述…"
  hx-get=(ExceptionListPath::PATH)
  hx-target="#exception-table"
  hx-trigger="keyup changed delay:300ms"

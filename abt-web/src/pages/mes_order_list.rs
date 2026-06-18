@@ -77,7 +77,7 @@ fn order_list_page(
  html! { div {
  div class="flex items-center justify-between mb-6" { h1 class="text-xl font-bold text-fg tracking-tight" { "工单管理" } div class="flex gap-3" {
  @if can_create {
- a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(OrderCreatePath::PATH) { (icon::plus_icon("w-4 h-4")) "新建工单" }
+ a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(OrderCreatePath::PATH) { (icon::plus_icon("w-4 h-4")) "新建工单" }
  }
  }}
  (order_table_fragment(result, product_names, params))
@@ -105,7 +105,7 @@ fn order_table_fragment(
  hx-target="#order-data-card" hx-select="#order-data-card" hx-swap="outerHTML" hx-include="#filter-form"
  hx-push-url="true" {
  div class="relative flex-1 max-w-xs [&_svg]:absolute [&_svg]:left-3 [&_svg]:top-1/2 [&_svg]:-translate-y-1/2 [&_svg]:w-4 [&_svg]:h-4 [&_svg]:text-muted" {(icon::search_icon(""))
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword" class="w-[180px]" placeholder="搜索工单编号…" value=(params.keyword.as_deref().unwrap_or(""));
+ input class="w-[180px] pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input" type="text" name="keyword" placeholder="搜索工单编号…" value=(params.keyword.as_deref().unwrap_or(""));
  }
  }
  (order_data_card(result, product_names, params))
@@ -134,12 +134,12 @@ fn order_data_card(
  @let total = item.total_steps.unwrap_or(0);
  @let done = item.completed_steps.unwrap_or(0);
  tr class="cursor-pointer" onclick=(format!("location.href='{}'", dp)) {
- td class="text-accent font-medium cursor-pointer font-mono tabular-nums" class="text-accent" { (item.doc_number) }
+ td class="text-accent font-medium cursor-pointer font-mono tabular-nums" { (item.doc_number) }
  td { (pn) }
  td class="text-right text-[13px] font-mono tabular-nums" { (crate::utils::fmt_qty(item.planned_qty)) }
  td {
  @if total == 0 && item.completed_qty == rust_decimal::Decimal::ZERO {
- span class="w-[80px] h-[6px] bg-border-soft overflow-hidden" class="text-muted" { "尚未开始" }
+ span class="inline-block w-[80px] text-center text-muted text-xs" { "尚未开始" }
  } @else {
  // 工序进度
  @if total > 0 {
@@ -149,7 +149,7 @@ fn order_data_card(
  @let pct = done * 100 / total;
  div class="w-[80px] h-[6px] bg-border-soft overflow-hidden" {
  div class="wo-flex items-center gap-[2px]" {
- div class="w-[80px] h-[6px] bg-border-soft overflow-hidden-fill" style=(format!("width:{}%", pct)) {}
+ div class="w-[80px] h-[6px] bg-border-soft overflow-hidden" style=(format!("width:{}%", pct)) {}
  }
  span class="text-xs" { (format!("工序 {}/{}", done, total)) }
  }
@@ -157,12 +157,12 @@ fn order_data_card(
  }
  // 完成数量
  @if item.completed_qty > rust_decimal::Decimal::ZERO {
- div class="text-xs" style="margin-top:2px" {
+ div class="text-xs mt-0.5" {
  span class="text-success" { (crate::utils::fmt_qty(item.completed_qty)) }
  " / "
  span class="text-muted" { (crate::utils::fmt_qty(item.planned_qty)) " 件" }
  @if item.scrap_qty > rust_decimal::Decimal::ZERO {
- span class="text-danger" style="margin-left:4px" { "废 " (crate::utils::fmt_qty(item.scrap_qty)) }
+ span class="text-danger ml-1" { "废 " (crate::utils::fmt_qty(item.scrap_qty)) }
  }
  }
  }
@@ -196,7 +196,7 @@ fn order_data_card(
  }
  }
  td { span style=(format!("display:inline-flex;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{};color:{}", sb, sc)) { (sl) } }
- td { a href=(dp) class="text-accent" class="text-xs" { "查看" } }
+ td { a href=(dp) class="text-accent text-xs" { "查看" } }
  }
  }
  @if result.items.is_empty() {

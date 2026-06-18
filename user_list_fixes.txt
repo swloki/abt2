@@ -1,0 +1,37 @@
+# 修复状态 dot 类
+let (status_label, dot_class) = if u.user.is_active {
+ ("已激活", "w-1.5 h-1.5 rounded-full bg-green-500")
+} else {
+ ("已停用", "w-1.5 h-1.5 rounded-full bg-gray-400")
+};
+
+# 修复 avatar
+div class={(format!("w-8 h-8 rounded-md grid place-items-center text-sm font-semibold text-white {}", avatar_cls))} {
+ (avatar_initials)
+}
+
+# 修复用户信息列
+div class="flex flex-col gap-0.5" {
+ span class="text-sm font-medium text-fg" {
+ (display_name)
+ @if u.user.is_super_admin {
+ span class="text-[10px] font-medium px-1.5 py-0.5 rounded bg-purple-50 text-purple-600" { "超管" }
+ }
+ }
+ span class="text-xs text-muted" {
+ "ID: " (u.user.user_id)
+ }
+}
+
+# 修复角色列
+@for role in &u.roles {
+ span class="text-xs font-medium text-muted" { (role.role_name) }
+}
+
+# 修复部门列
+@for dept in depts {
+ span class="text-xs bg-green-50 text-green-600 font-medium" { (dept.department_name) }
+}
+
+# 修复数据权限列
+span class="text-xs text-muted" { (scope) }

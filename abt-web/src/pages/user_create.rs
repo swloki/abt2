@@ -23,7 +23,6 @@ pub struct UserCreateForm {
  pub confirm_password: String,
  pub is_super_admin: Option<String>,
  pub is_active: Option<String>,
- pub data_scope: Option<String>,
  pub role_ids: Option<String>,
  pub dept_ids: Option<String>,
 }
@@ -142,6 +141,29 @@ pub async fn post_user_create(
  Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }
 
+// ── Shared class strings ──
+
+const BTN_DEFAULT: &str =
+ "inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border \
+  hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium \
+  cursor-pointer transition-all duration-150 shadow-xs";
+
+const BTN_PRIMARY: &str =
+ "inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none \
+  hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 \
+  shadow-[0_1px_2px_rgba(37,99,235,0.2)]";
+
+const SECTION: &str =
+ "bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden";
+
+const SECTION_HEAD: &str =
+ "flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 \
+  [border-bottom:1px_solid_var(--border-soft)]";
+
+const FIELD_INPUT: &str =
+ "w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg \
+  transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]";
+
 // ── Components ──
 
 fn user_create_page(roles: &[Role], departments: &[Department]) -> Markup {
@@ -159,7 +181,6 @@ fn user_create_page(roles: &[Role], departments: &[Department]) -> Markup {
  // Hidden fields for multi-select values
  input type="hidden" name="role_ids" id="roleIdsInput" {}
  input type="hidden" name="dept_ids" id="deptIdsInput" {}
- input type="hidden" name="data_scope" id="dataScopeInput" value="Department" {}
 
  // ── Section 1: 基本信息 ──
  (basic_info_section())
@@ -170,17 +191,15 @@ fn user_create_page(roles: &[Role], departments: &[Department]) -> Markup {
  // ── Section 3: 部门分配 ──
  (dept_section(departments))
 
- // ── Section 4: 数据权限 ──
+ // ── Section 4: 数据权限（只读说明） ──
  (data_scope_section())
 
  // ── Action Bar ──
- div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
- a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{}?restore=true", UserListPath::PATH)) { "取消" }
- div class="flex gap-3" {
- button type="submit" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" {
+ div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg [border-top:1px_solid_var(--border-soft)]" {
+ a class=(BTN_DEFAULT) href=(format!("{}?restore=true", UserListPath::PATH)) { "取消" }
+ button type="submit" class=(BTN_PRIMARY) {
  (icon::check_circle_icon("w-4 h-4"))
  "保存"
- }
  }
  }
  }
@@ -190,52 +209,57 @@ fn user_create_page(roles: &[Role], departments: &[Department]) -> Markup {
 
 fn basic_info_section() -> Markup {
  html! {
- div class="data-card overflow-hidden" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft border-border-soft" {
+ div class=(SECTION) {
+ div class=(SECTION_HEAD) {
  (icon::user_icon("w-[18px] h-[18px]"))
  "基本信息"
  }
- div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
+ div class="grid grid-cols-2 gap-4 gap-x-6 mb-2" {
  // 登录名
- div class="form-group" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "登录名 " span class="required" { "*" } }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent" type="text" name="username" required placeholder="登录账号，如 zhangm" autocomplete="off" {}
- span class="text-xs text-muted mt-0.5" { "唯一标识，创建后不可修改" }
+ div class="flex flex-col" {
+ label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "登录名 " span class="text-danger" { "*" } }
+ input class=(FIELD_INPUT) type="text" name="username" required
+ placeholder="登录账号，如 zhangm" autocomplete="off" {}
+ span class="text-xs text-muted mt-1" { "唯一标识，创建后不可修改" }
  }
  // 显示名称
- div class="form-group" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "显示名称 " span class="required" { "*" } }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent" type="text" name="display_name" placeholder="中文名称，如 张明" {}
+ div class="flex flex-col" {
+ label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "显示名称 " span class="text-danger" { "*" } }
+ input class=(FIELD_INPUT) type="text" name="display_name" placeholder="中文名称，如 张明" {}
  }
  // 密码
- div class="form-group" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "密码 " span class="required" { "*" } }
+ div class="flex flex-col" {
+ label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "密码 " span class="text-danger" { "*" } }
  div class="relative" {
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent" type="password" id="password" name="password" required placeholder="8-32位，含字母和数字" {}
- button class="password-toggle" type="button" _="on click if previous <input/>'s type is 'password' set previous <input/>'s type to 'text' else set previous <input/>'s type to 'password'" {
+ input class=(FIELD_INPUT) type="password" id="password" name="password" required
+ placeholder="8-32位，含字母和数字" {}
+ button class="absolute right-2 top-1/2 -translate-y-1/2 text-muted hover:text-fg cursor-pointer bg-transparent border-none p-1"
+ type="button"
+ _="on click if previous <input/>'s type is 'password' set previous <input/>'s type to 'text' else set previous <input/>'s type to 'password'" {
  (icon::eye_icon("w-4 h-4"))
  }
  }
  }
  // 确认密码
- div class="form-group" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "确认密码 " span class="required" { "*" } }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent" type="password" id="confirmPwd" name="confirm_password" required placeholder="再次输入密码" {}
+ div class="flex flex-col" {
+ label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "确认密码 " span class="text-danger" { "*" } }
+ input class=(FIELD_INPUT) type="password" id="confirmPwd" name="confirm_password" required
+ placeholder="再次输入密码" {}
  }
  // 超级管理员
- div class="form-group" {
+ div class="flex flex-col" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "超级管理员" }
  label class="flex items-center gap-2 text-[13px] text-fg cursor-pointer mt-1.5" {
- input type="checkbox" name="is_super_admin" value="true" {}
+ input type="checkbox" name="is_super_admin" value="true" class="w-4 h-4 accent-[var(--accent)] cursor-pointer" {}
  span { "设为超级管理员（绕过所有权限检查）" }
  }
- span class="text-xs text-muted mt-0.5" { "超级管理员拥有所有资源的完全访问权限，请谨慎授予" }
+ span class="text-xs text-muted mt-1" { "超级管理员拥有所有资源的完全访问权限，请谨慎授予" }
  }
  // 激活状态
- div class="form-group" {
+ div class="flex flex-col" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "激活状态" }
  label class="flex items-center gap-2 text-[13px] text-fg cursor-pointer mt-1.5" {
- input type="checkbox" name="is_active" value="true" checked {}
+ input type="checkbox" name="is_active" value="true" class="w-4 h-4 accent-[var(--accent)] cursor-pointer" checked {}
  span { "立即激活用户" }
  }
  }
@@ -246,20 +270,22 @@ fn basic_info_section() -> Markup {
 
 fn role_section(roles: &[Role]) -> Markup {
  html! {
- div class="data-card overflow-hidden" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft border-border-soft" {
+ div class=(SECTION) {
+ div class=(SECTION_HEAD) {
  (icon::lock_icon("w-[18px] h-[18px]"))
  "角色分配"
  }
  p class="text-[13px] text-muted mb-4 leading-relaxed" { "用户可拥有多个角色，权限取所有角色的并集。" }
- div class="grid gap-3" {
+ div class="grid gap-2" {
  @for role in roles {
- label class="flex items-center gap-2 p-2 border border-border rounded-sm cursor-pointer text-[13px]" {
- input type="checkbox" name="role" value=(role.role_id) {}
- span.pick-code style=(format!("background:{}", role_color(&role.role_code))) { (short_code(&role.role_code)) }
- span { (role.role_name) }
+ label class="pick-item flex items-center gap-3 p-3 border rounded-md cursor-pointer transition-colors border-border-soft hover:border-border [&.selected]:border-accent [&.selected]:bg-accent-bg" {
+ input type="checkbox" name="role" value=(role.role_id) class="w-4 h-4 accent-[var(--accent)] cursor-pointer" {}
+ span class=(format!("w-7 h-7 rounded-lg flex items-center justify-center text-[9px] font-bold text-white shrink-0 bg-[{}] ", role_color(&role.role_code))) {
+ (short_code(&role.role_code))
+ }
+ span class="text-sm font-medium text-fg" { (role.role_name) }
  @if role.is_system_role {
- span.sys-badge { "内置" }
+ span class="text-[10px] font-medium px-[6px] py-[1px] rounded-[3px] bg-[#fff7e6] text-[#fa8c16]" { "内置" }
  }
  }
  }
@@ -271,7 +297,6 @@ fn role_section(roles: &[Role]) -> Markup {
  var inp = lbl.querySelector('input');
  lbl.classList.toggle('selected', inp.checked);
  document.querySelector('#roleIdsInput').value = Array.from(document.querySelectorAll('input[name="role"]:checked')).map(function(c){return c.value}).join(',');
- document.querySelector('#deptIdsInput').value = Array.from(document.querySelectorAll('input[name="dept"]:checked')).map(function(c){return c.value}).join(',');
  });
  });
 })();
@@ -283,18 +308,23 @@ fn role_section(roles: &[Role]) -> Markup {
 
 fn dept_section(departments: &[Department]) -> Markup {
  html! {
- div class="data-card overflow-hidden" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft border-border-soft" {
+ div class=(SECTION) {
+ div class=(SECTION_HEAD) {
  (icon::building_icon("w-[18px] h-[18px]"))
  "部门分配"
  }
  p class="text-[13px] text-muted mb-4 leading-relaxed" { "用户可归属多个部门（多对多关系）。" }
- div class="grid gap-3" {
+ div class="grid gap-2" {
  @for dept in departments {
- label class="flex items-center gap-2 p-2 border border-border rounded-sm cursor-pointer text-[13px]" {
- input type="checkbox" name="dept" value=(dept.department_id) {}
- span.pick-code style=(format!("background:{}", dept_color(&dept.department_code))) { (short_code(&dept.department_code)) }
- span { (dept.department_name) }
+ label class="pick-item flex items-center gap-3 p-3 border rounded-md cursor-pointer transition-colors border-border-soft hover:border-border [&.selected]:border-accent [&.selected]:bg-accent-bg" {
+ input type="checkbox" name="dept" value=(dept.department_id) class="w-4 h-4 accent-[var(--accent)] cursor-pointer" {}
+ span class=(format!("w-7 h-7 rounded-lg flex items-center justify-center text-[9px] font-bold text-white shrink-0 bg-[{}] ", dept_color(&dept.department_code))) {
+ (short_code(&dept.department_code))
+ }
+ span class="text-sm font-medium text-fg" { (dept.department_name) }
+ @if !dept.is_active {
+ span class="text-[10px] font-medium px-[6px] py-[1px] rounded-[3px] bg-[#fff2f0] text-[#cf1322]" { "停用" }
+ }
  }
  }
  script { (maud::PreEscaped(r#"
@@ -304,7 +334,6 @@ fn dept_section(departments: &[Department]) -> Markup {
  lbl.addEventListener('change', function(){
  var inp = lbl.querySelector('input');
  lbl.classList.toggle('selected', inp.checked);
- document.querySelector('#roleIdsInput').value = Array.from(document.querySelectorAll('input[name="role"]:checked')).map(function(c){return c.value}).join(',');
  document.querySelector('#deptIdsInput').value = Array.from(document.querySelectorAll('input[name="dept"]:checked')).map(function(c){return c.value}).join(',');
  });
  });
@@ -317,45 +346,54 @@ fn dept_section(departments: &[Department]) -> Markup {
 
 fn data_scope_section() -> Markup {
  html! {
- div class="data-card overflow-hidden" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft border-border-soft" {
+ div class=(SECTION) {
+ div class=(SECTION_HEAD) {
  (shield_check_icon("w-[18px] h-[18px]"))
  "数据权限 (DataScope)"
  }
- p class="text-[13px] text-muted mb-4 leading-relaxed" { "控制用户在系统中可查看的数据范围。超级管理员默认为 All。" }
- div class="grid gap-3" {
- // All
- div class="p-4 border border-border rounded-sm cursor-pointer text-center" data-value="All" _="on click take .selected from .scope-option then put my @data-value into #dataScopeInput's value" {
- div class="p-4 border border-border rounded-sm cursor-pointer text-center-icon si-all" {
- svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" {
- path d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064" {}
- circle cx="12" cy="12" r="10" {}
+ p class="text-[13px] text-muted mb-4 leading-relaxed" { "数据范围由角色与部门自动派生：超级管理员=All，分配部门=Department，否则=Self。无需手动选择。" }
+ div class="grid grid-cols-3 gap-3" {
+ (scope_card(
+ false,
+ "bg-[#dbeafe] text-accent",
+ r#"<path d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064" /><circle cx="12" cy="12" r="10" />"#,
+ "All — 全部数据",
+ "可查看系统中所有数据，通常授予管理层",
+ ))
+ (scope_card(
+ true,
+ "bg-[#dcfce7] text-success",
+ r#"<path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5" />"#,
+ "Department — 本部门",
+ "仅可查看所属部门的数据",
+ ))
+ (scope_card(
+ false,
+ "bg-surface text-muted",
+ r#"<path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />"#,
+ "Self — 仅本人",
+ "仅可查看自己创建的数据",
+ ))
  }
  }
- div class="p-4 border border-border rounded-sm cursor-pointer text-center-title" { "All — 全部数据" }
- div class="p-4 border border-border rounded-sm cursor-pointer text-center-desc" { "可查看系统中所有数据，通常授予管理层" }
  }
- // Department (default selected)
- div class="p-4 border border-border rounded-sm cursor-pointer text-center selected" data-value="Department" _="on click take .selected from .scope-option then put my @data-value into #dataScopeInput's value" {
- div class="p-4 border border-border rounded-sm cursor-pointer text-center-icon si-dept" {
- svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" {
- path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5" {}
- }
- }
- div class="p-4 border border-border rounded-sm cursor-pointer text-center-title" { "Department — 本部门" }
- div class="p-4 border border-border rounded-sm cursor-pointer text-center-desc" { "仅可查看所属部门的数据" }
- }
- // Self
- div class="p-4 border border-border rounded-sm cursor-pointer text-center" data-value="Self" _="on click take .selected from .scope-option then put my @data-value into #dataScopeInput's value" {
- div class="p-4 border border-border rounded-sm cursor-pointer text-center-icon si-self" {
- svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" {
- path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" {}
+}
+
+fn scope_card(selected: bool, icon_cls: &str, paths: &str, title: &str, desc: &str) -> Markup {
+ let border_cls = if selected {
+ "border-accent bg-accent-bg"
+ } else {
+ "border-border-soft"
+ };
+ html! {
+ div class=(format!("p-4 border rounded-md {border_cls}")) {
+ div class=(format!("w-10 h-10 rounded-md flex items-center justify-center mx-auto mb-2 {icon_cls}")) {
+ svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-5 h-5" {
+ (maud::PreEscaped(paths))
  }
  }
- div class="p-4 border border-border rounded-sm cursor-pointer text-center-title" { "Self — 仅本人" }
- div class="p-4 border border-border rounded-sm cursor-pointer text-center-desc" { "仅可查看自己创建的数据" }
- }
- }
+ div class="text-sm font-semibold text-fg text-center" { (title) }
+ div class="text-xs text-muted text-center mt-1" { (desc) }
  }
  }
 }
@@ -402,4 +440,3 @@ fn shield_check_icon(c: &str) -> Markup {
  }
  }
 }
-

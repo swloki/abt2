@@ -187,7 +187,7 @@ fn lock_table_fragment(
  div class="lock-list-panel" {
  (status_tabs_with_param(LockListPath::PATH, "#lock-data-card", "#lock-filter-form", tabs, &active_value, "status"))
 
- form class="flex items-center gap-3 mb-6 flex-wrap filter-form" id="lock-filter-form"
+ form class="flex items-center gap-3 mb-6 flex-wrap" id="lock-filter-form"
  hx-get=(LockListPath::PATH)
  hx-trigger="change, keyup changed delay:300ms from:.search-input"
  hx-target="#lock-data-card"
@@ -230,7 +230,7 @@ fn lock_data_card_fragment(
  html! {
  div class="data-card" id="lock-data-card" {
  div class="overflow-x-auto" {
- table class="data-table" style="min-width:1060px" {
+ table class="data-table min-w-[1060px]" {
  thead {
  tr {
  th { "锁库单号" }
@@ -251,7 +251,7 @@ fn lock_data_card_fragment(
  }
  @if result.items.is_empty() {
  tr {
- td colspan="10" class="text-muted" class="text-center" class="p-8" {
+ td colspan="10" class="text-center text-muted p-8" {
  "暂无锁库数据"
  }
  }

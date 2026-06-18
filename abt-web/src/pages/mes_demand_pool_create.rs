@@ -276,8 +276,8 @@ fn create_page_content(
  "返回需求池"
  }
  h1 class="text-xl font-bold text-fg tracking-tight" { "从需求创建生产计划" }
- div class="text-[13px] text-muted" style="margin-top:4px" {
- span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-surface text-muted" class="text-[11px]" style="padding:2px 8px;margin-right:6px;background:#fef3c7;color:#d97706" {
+ div class="text-[13px] text-muted mt-1" {
+ span class="inline-flex items-center gap-[5px] rounded-full text-[11px] font-medium whitespace-nowrap bg-surface text-muted px-2 py-0.5 mr-1.5 bg-[#fef3c7] text-[#d97706]" {
  "生产需求池 · 按物料聚合"
  }
  "将生产需求池中的自制需求聚合为生产计划草稿"
@@ -301,15 +301,13 @@ fn create_page_content(
  div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
  div class="form-field" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "物料名称 " span class="text-danger" { "*" } }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" readonly
- value=(product_name)
- class="bg-surface" {}
+ input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-surface text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" readonly
+ value=(product_name) {}
  }
  div class="form-field" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "物料编码" }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] font-mono tabular-nums" type="text" readonly
- value=(product_code)
- class="bg-surface" {}
+ input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-surface text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] font-mono tabular-nums" type="text" readonly
+ value=(product_code) {}
  }
  div class="form-field" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "计划类型 " span class="text-danger" { "*" } }
@@ -335,7 +333,7 @@ fn create_page_content(
  div class="text-xs text-muted p-2 bg-surface-raised rounded-sm" {
  "以下参数将应用于所有未单独配置的需求行。可在需求明细中逐行修改排程日期。"
  }
- div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" class="grid-cols-4" {
+ div class="grid grid-cols-4 gap-4 gap-x-6 mb-6" {
  div class="form-field" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "默认排程开始" }
  input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="date"
@@ -365,7 +363,7 @@ fn create_page_content(
  }
  }
  }
- div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" class="mt-4" {
+ div class="grid grid-cols-2 gap-4 gap-x-6 mb-6 mt-4" {
  div class="form-field" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "备注" }
  textarea class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="remark"
@@ -377,17 +375,17 @@ fn create_page_content(
 
  // ── Section 3: Demand Details ──
  div class="form-section" {
- div class="flex justify-between items-center" class="mb-3" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" class="m-0 p-0 border-none" {
+ div class="flex justify-between items-center mb-3" {
+ div class="flex items-center gap-2 text-sm font-semibold text-fg m-0 p-0 border-none" {
  (icon::clipboard_list_icon("w-[18px] h-[18px]"))
  "需求明细"
  @if let Some(pid) = product_id {
- span class="font-normal text-muted" class="ml-2" {
+ span class="font-normal text-muted ml-2" {
  "(物料 ID: " (pid) ")"
  }
  }
  }
- button type="button" class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs [&_svg]:w-4 [&_svg]:h-4" id="applyDefaultBtn" { "应用默认排程" }
+ button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs [&_svg]:w-4 [&_svg]:h-4" id="applyDefaultBtn" { "应用默认排程" }
  (PreEscaped(r#"<script>document.getElementById('applyDefaultBtn').addEventListener('click',function(){
  var start=document.getElementById('defaultStart').value;
  var end=document.getElementById('defaultEnd').value;
@@ -451,19 +449,18 @@ fn create_page_content(
  }
 
  // ── Action Bar ──
- div class="flex items-center justify-end gap-3 pt-4 [border-top:1px_solid_var(--border-soft)]" {
- a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{}?restore=true", MesDemandPoolListPath::PATH)) { "取消" }
+ div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg [border-top:1px_solid_var(--border-soft)]" {
+ a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{}?restore=true", MesDemandPoolListPath::PATH)) { "取消" }
  div class="flex gap-3" {
- button type="submit" name="action" value="draft" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" {
+ button type="submit" name="action" value="draft" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" {
  (icon::save_icon("w-4 h-4"))
  "保存草稿"
  }
- button type="submit" name="action" value="draft" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" {
+ button type="submit" name="action" value="draft" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" {
  (icon::send_icon("w-4 h-4"))
  "创建草稿"
  }
- button type="submit" name="action" value="release" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
- style="background:linear-gradient(135deg,var(--accent),#6366f1)"
+ button type="submit" name="action" value="release" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] bg-[linear-gradient(135deg,var(--accent),#6366f1)]"
  hx-confirm="创建后将自动确认并下达，生成工单（含工序、批次）。继续？"
  hx-disabled-elt="this" {
  (icon::rocket_icon("w-4 h-4"))
@@ -574,26 +571,24 @@ fn demand_row(d: &DemandSummary, preselected_ids: &[i64]) -> Markup {
  @if is_pending {
  input type="checkbox" value=(d.id)
  checked[is_checked];
- span class="priority-val" style="display:none;" { (d.priority) }
+ span class="priority-val hidden" { (d.priority) }
  } @else {
  input type="checkbox" disabled;
  }
  }
- td class="font-mono tabular-nums" class="text-xs" { (d.id) }
+ td class="font-mono tabular-nums text-xs" { (d.id) }
  td {
  a class="text-accent font-medium cursor-pointer" href=(OrderDetailPath { id: d.order_id }.to_string()) { (d.order_no.as_deref().unwrap_or("—")) }
  }
  td class="text-right text-[13px] font-mono tabular-nums demand-qty" { (fmt_qty(d.quantity)) }
  td class="font-mono tabular-nums" { (req_date) }
  td {
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="date"
- value=(row_start)
- class="text-xs" class="w-[130px]" style="padding:4px 6px" {}
+ input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] text-xs w-[130px] px-1.5 py-1" type="date"
+ value=(row_start) {}
  }
  td {
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="date"
- value=(row_end)
- class="text-xs" class="w-[130px]" style="padding:4px 6px" {}
+ input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] text-xs w-[130px] px-1.5 py-1" type="date"
+ value=(row_end) {}
  }
  td {
  button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center" title="移除" _="on click remove closest <tr/> then call updateDemandSummary()" {

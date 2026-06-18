@@ -170,7 +170,7 @@ fn supplier_detail_page(
  // ── Detail Top ──
  div class="flex justify-between items-start" {
  div class="flex items-center gap-5" {
- div class="customer-inline-grid place-items-center rounded-full text-white font-semibold shrink-0 select-none" {
+ div class="w-10 h-10 grid place-items-center rounded-full bg-accent text-white font-semibold shrink-0 select-none" {
  (icon::building_icon("w-5 h-5"))
  }
  div {
@@ -187,11 +187,11 @@ fn supplier_detail_page(
  }
  }
  div class="flex gap-3" {
- a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{list_path}?restore=true")) {
+ a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{list_path}?restore=true")) {
  (icon::arrow_left_icon("w-4 h-4"))
  " 返回列表"
  }
- a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(edit_path) {
+ a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(edit_path) {
  (icon::edit_icon("w-4 h-4"))
  " 编辑"
  }
@@ -261,7 +261,7 @@ fn supplier_detail_page(
  }
 
  // ── 2-Column Grid: Contacts + Bank Accounts ──
- div class="grid" class="gap-5" style="grid-template-columns:1fr" {
+ div class="grid grid-cols-2 gap-5" {
  // ── Contacts Card ──
  (contacts_card(contacts, &detail_path, can_delete))
  (bank_accounts_card(bank_accounts, &detail_path, can_delete))
@@ -351,7 +351,7 @@ fn contacts_card(contacts: &[SupplierContact], detail_path: &SupplierDetailPath,
  hx-trigger="contactChanged from:body" {
  div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
  span { "联系人" }
- button class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] [&_svg]:w-4 [&_svg]:h-4"
+ button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] [&_svg]:w-4 [&_svg]:h-4"
  _="on click add .is-open to #contact-create-modal" {
  (icon::plus_icon("w-3.5 h-3.5"))
  "添加联系人"
@@ -392,7 +392,7 @@ fn bank_accounts_card(bank_accounts: &[SupplierBankAccount], detail_path: &Suppl
  hx-trigger="bankAccountChanged from:body" {
  div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
  span { "银行账户" }
- button class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] [&_svg]:w-4 [&_svg]:h-4"
+ button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] [&_svg]:w-4 [&_svg]:h-4"
  _="on click add .is-open to #bank-account-create-modal" {
  (icon::plus_icon("w-3.5 h-3.5"))
  "添加账户"
@@ -437,7 +437,7 @@ fn contact_row(contact: &SupplierContact, detail_path: &SupplierDetailPath, can_
  td { (contact.email.as_deref().unwrap_or("—")) }
  td {
  @if contact.is_primary {
- span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-[#e6f4ff] text-accent rounded-full text-[11px] font-medium" { "主要" }
+ span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-[#e6f4ff] text-accent" { "主要" }
  }
  }
  td {
@@ -468,7 +468,7 @@ fn bank_account_row(account: &SupplierBankAccount, detail_path: &SupplierDetailP
  td class="font-mono tabular-nums" { (account.account_number) }
  td {
  @if account.is_default {
- span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-[#e6f4ff] text-accent rounded-full text-[11px] font-medium" { "默认" }
+ span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-[#e6f4ff] text-accent" { "默认" }
  }
  }
  td {

@@ -327,7 +327,7 @@ fn return_create_page(customers: &[abt_core::master_data::customer::model::Custo
  option value="" { "请先选择客户" }
  }
  }
- div class="form-field span-2" {
+ div class="form-field col-span-2" {
  div class="flex items-center gap-6 p-3 rounded-sm text-xs text-fg-2 hidden" id="linked-info" {
  span { span class="label" { "客户：" } span id="li-customer" { "—" } }
  span { span class="label" { "订单金额：" } span id="li-amount" { "—" } }
@@ -379,15 +379,15 @@ fn return_create_page(customers: &[abt_core::master_data::customer::model::Custo
  table class="data-table" {
  thead {
  tr {
- th class="col-num" { "#" }
+ th class="w-12" { "#" }
  th { "产品编码" }
  th { "产品名称" }
- th class="col-unit" { "单位" }
- th class="col-price" { "原单价 (¥)" }
- th class="col-qty" { "已发数量" }
- th class="col-qty" { "退货数量 " span class="required" { "*" } }
- th class="col-subtotal" { "退货金额 (¥)" }
- th class="col-action" { }
+ th class="w-20" { "单位" }
+ th class="w-28" { "原单价 (¥)" }
+ th class="w-24" { "已发数量" }
+ th class="w-24" { "退货数量 " span class="required" { "*" } }
+ th class="w-32" { "退货金额 (¥)" }
+ th class="w-16" { }
  }
  }
  tbody id="line-items-body" {
@@ -439,14 +439,14 @@ fn return_create_page(customers: &[abt_core::master_data::customer::model::Custo
  }
 
  // ── Action Bar ──
- div class="flex items-center justify-end gap-3 pt-4 [border-top:1px_solid_var(--border-soft)]" {
- a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{}?restore=true", ReturnListPath::PATH)) { "取消" }
+ div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg [border-top:1px_solid_var(--border-soft)]" {
+ a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{}?restore=true", ReturnListPath::PATH)) { "取消" }
  div class="flex gap-3" {
- button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" onclick="handleSaveDraft()" {
+ button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" onclick="handleSaveDraft()" {
  (icon::save_icon("w-4 h-4"))
  "保存草稿"
  }
- button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" _="on click call handleSubmit() then if it trigger submit on #return-form" {
+ button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" _="on click call handleSubmit() then if it trigger submit on #return-form" {
  (icon::send_icon("w-4 h-4"))
  "提交退货"
  }
@@ -692,7 +692,7 @@ fn order_search_results(
  span { "¥" (total) }
  }
  }
- button type="button" class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] [&_svg]:w-4 [&_svg]:h-4"
+ button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] [&_svg]:w-4 [&_svg]:h-4"
  data-order=(items_json)
  onclick="selectOrder(JSON.parse(this.dataset.order))" {
  "选择"

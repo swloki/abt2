@@ -607,7 +607,7 @@ span class=(format!("status-pill {}", crate::utils::status_color(status_class)))
 }
 
  // ── Node Table ──
- div class="data-card" class="p-0 overflow-hidden" {
+ div class="data-card p-0 overflow-hidden" {
  @if bom.bom_detail.nodes.is_empty() {
  div class="text-center text-muted text-sm py-8" {
  "暂无组件数据，请点击上方按钮添加根节点"
@@ -688,8 +688,8 @@ div class="modal bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-
  "清除"
  }
  }
- div id="bom-edit-product-results" class="overflow-y-auto" style="min-height:200px;max-height:360px" {
- div class="flex items-center justify-center p-8" style="color:var(--text-muted)" {
+ div id="bom-edit-product-results" class="overflow-y-auto min-h-[200px] max-h-[360px]" {
+ div class="flex items-center justify-center p-8 text-muted" {
  "搜索产品或直接输入关键词…"
  }
  }
@@ -817,7 +817,7 @@ fn bom_node_row(
         "w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer text-danger hover:bg-[#fef2f2] transition-colors"
     };
  let ancestors_str = ancestors.iter().map(|id| id.to_string()).collect::<Vec<_>>().join(",");
- let _indent_px = (level - 1) * 24;
+ let indent_px = (level - 1) * 24 + 12;
  html! {
  tr class=(row_class) draggable="true"
 data-node-id=(node.id) data-parent-id=(node.parent_id) data-level=(level) data-ancestors=(ancestors_str) {
@@ -832,7 +832,7 @@ onclick=(format!("bomToggleCollapse({})", node.id)) {
 td class="text-center px-2 py-2.5 text-xs [border-bottom:1px_solid_var(--border-soft)]" { (index + 1) }
 td class="text-center px-2 py-2.5 text-xs [border-bottom:1px_solid_var(--border-soft)]" { (level) }
 td class="font-mono tabular-nums px-3 py-2.5 text-xs [border-bottom:1px_solid_var(--border-soft)]" { (code) }
-td class="px-3 py-2.5 text-xs [border-bottom:1px_solid_var(--border-soft)]" { (name) }
+td class="px-3 py-2.5 text-xs [border-bottom:1px_solid_var(--border-soft)]" style=(format!("padding-left:{}px", indent_px)) { (name) }
 td class="px-3 py-2.5 text-xs [border-bottom:1px_solid_var(--border-soft)]" { (work_center) }
 td class="font-mono tabular-nums text-right px-3 py-2.5 text-xs [border-bottom:1px_solid_var(--border-soft)]" { (node.quantity) }
 td class="text-center px-3 py-2.5 text-xs [border-bottom:1px_solid_var(--border-soft)]" { (unit) }
@@ -928,7 +928,7 @@ p class="mt-2 text-sm" { "未找到匹配的产品" }
  input type="hidden" name="product_id" value=(p.product_id) {}
  input type="hidden" name="quantity" value="1" {}
  input type="hidden" name="unit" value=(p.unit) {}
- button type="submit" class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] [&_svg]:w-4 [&_svg]:h-4" { "选择" }
+ button type="submit" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] [&_svg]:w-4 [&_svg]:h-4" { "选择" }
  }
  }
  }

@@ -198,7 +198,7 @@ fn bin_table_fragment(
  html! {
  div {
  // ── Filter Bar ──
- form class="flex items-center gap-3 mb-6 flex-wrap filter-form" id="filter-form"
+ form class="flex items-center gap-3 mb-6 flex-wrap" id="filter-form"
  hx-get=(BinListPath::PATH)
  hx-trigger="change, keyup changed delay:300ms from:.search-input"
  hx-target="#bin-data-card"

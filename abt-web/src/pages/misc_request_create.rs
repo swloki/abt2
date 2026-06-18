@@ -174,7 +174,7 @@ fn misc_create_page() -> Markup {
  label { "请购日期" }
  input type="date" name="request_date" value=(today) {}
  }
- div class="form-field span-2" {
+ div class="form-field field-full" {
  label { "备注" }
  textarea name="remark" placeholder="输入请购相关备注信息…" {}
  }
@@ -182,10 +182,10 @@ fn misc_create_page() -> Markup {
  }
 
  // ── Line Items ──
- div class="data-card" class="p-0 overflow-hidden mb-4" {
- div class="flex justify-between items-center" class="px-5 pt-5 pb-3" {
- span class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" class="m-0 p-0 border-none" { "请购明细" }
- button type="button" class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] [&_svg]:w-4 [&_svg]:h-4"
+ div class="data-card p-0 overflow-hidden mb-4" {
+ div class="flex justify-between items-center px-5 pt-5 pb-3" {
+ span class="flex items-center gap-2 text-sm font-semibold text-fg m-0 p-0 border-none" { "请购明细" }
+ button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] [&_svg]:w-4 [&_svg]:h-4"
  hx-get=(MiscItemRowPath::PATH)
  hx-target="#misc-item-tbody"
  hx-swap="beforeend" {
@@ -194,7 +194,7 @@ fn misc_create_page() -> Markup {
  }
  }
  div class="overflow-x-auto" {
- table class="data-table" class="min-w-[900px]" {
+ table class="data-table min-w-[900px]" {
  thead {
  tr {
  th class="w-9 text-center" { "#" }
@@ -211,23 +211,14 @@ fn misc_create_page() -> Markup {
  tbody id="misc-item-tbody" { }
  }
  }
- div class="p-3 flex items-center gap-2" {
- button type="button" class="inline-flex items-center gap-2 rounded-sm text-accent text-sm cursor-pointer"
- hx-get=(MiscItemRowPath::PATH)
- hx-target="#misc-item-tbody"
- hx-swap="beforeend" {
- (icon::plus_icon("w-3.5 h-3.5"))
- "添加行"
- }
- }
  }
 
  // ── Action Bar ──
- div class="flex items-center justify-end gap-3 pt-4 [border-top:1px_solid_var(--border-soft)]" {
- a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{}?restore=true", MiscListPath::PATH)) { "取消" }
+ div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg [border-top:1px_solid_var(--border-soft)]" {
+ a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{}?restore=true", MiscListPath::PATH)) { "取消" }
  div class="flex gap-3" {
- button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" { "保存草稿" }
- button type="submit" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" { "提交请购" }
+ button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" { "保存草稿" }
+ button type="submit" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" { "提交请购" }
  }
  }
  script {
@@ -251,13 +242,13 @@ fn empty_row_fragment() -> Markup {
  html! {
  tr oninput="if(!event.target.classList.contains('num-input'))return;const r=this,q=parseFloat(r.querySelector('[name=quantity]').value)||0,p=parseFloat(r.querySelector('[name=estimated_price]').value)||0;r.querySelector('.line-subtotal').textContent=(q*p).toFixed(2)" {
  td class="text-muted text-xs text-center" { }
- td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="item_name" required placeholder="物品名称" class="w-full text-[13px]" class="rounded-sm" class="px-2 py-[5px] border border-border" {} }
- td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="specification" placeholder="规格型号" class="w-full text-[13px]" class="rounded-sm" class="px-2 py-[5px] border border-border" {} }
- td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] num-input" type="number" step="any" min="0" name="quantity" placeholder="0" class="w-[90px] text-right text-[13px] font-mono" class="rounded-sm" class="px-2 py-[5px] border border-border" {} }
- td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="unit" placeholder="单位" class="text-center text-[13px]" class="rounded-sm" class="px-2 py-[5px] border border-border" style="width:70px" {} }
- td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] num-input" type="number" step="any" min="0" name="estimated_price" placeholder="0.00" class="w-[110px] text-right text-[13px] font-mono" class="rounded-sm" class="px-2 py-[5px] border border-border" {} }
- td class="line-subtotal font-mono tabular-nums" class="text-right" { "0.00" }
- td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="item_remark" placeholder="备注" class="w-full text-[13px]" class="rounded-sm" class="px-2 py-[5px] border border-border" {} }
+ td { input class="w-full text-[13px] px-2 py-[5px] border border-border rounded-sm bg-white text-fg outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="item_name" required placeholder="物品名称" {} }
+ td { input class="w-full text-[13px] px-2 py-[5px] border border-border rounded-sm bg-white text-fg outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="specification" placeholder="规格型号" {} }
+ td { input class="num-input w-[90px] text-right text-[13px] font-mono px-2 py-[5px] border border-border rounded-sm bg-white text-fg outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" step="any" min="0" name="quantity" placeholder="0" {} }
+ td { input class="w-[70px] text-center text-[13px] px-2 py-[5px] border border-border rounded-sm bg-white text-fg outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="unit" placeholder="单位" {} }
+ td { input class="num-input w-[110px] text-right text-[13px] font-mono px-2 py-[5px] border border-border rounded-sm bg-white text-fg outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" step="any" min="0" name="estimated_price" placeholder="0.00" {} }
+ td class="line-subtotal font-mono tabular-nums text-right" { "0.00" }
+ td { input class="w-full text-[13px] px-2 py-[5px] border border-border rounded-sm bg-white text-fg outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="item_remark" placeholder="备注" {} }
  td { button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center" title="删除行"
  _="on click remove closest <tr/>" {
  (icon::x_icon("w-3.5 h-3.5"))

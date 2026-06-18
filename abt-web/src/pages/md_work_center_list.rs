@@ -75,7 +75,7 @@ pub async fn get_work_center_list(
  "md",
  WorkCenterListPath::PATH,
  "工程",
- Some(WorkCenterListPath::PATH),
+        Some("工作中心管理"),
  content,
  &nav_filter,
  )
@@ -97,20 +97,18 @@ fn work_center_list_page(
 
  html! {
  div class="flex items-center justify-between mb-6" {
- div class="flex items-center justify-between mb-6-left" {
- h1 class="text-xl font-bold text-fg tracking-tight" { "工作中心管理" }
- }
+ h1 class="text-2xl font-bold text-fg tracking-tight" { "工作中心管理" }
  div class="flex gap-3" {
- a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(WorkCenterCreatePath::PATH) {
- (icon::plus_icon("w-4 h-4"))
- "新建工作中心"
- }
- }
- }
+a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(WorkCenterCreatePath::PATH) {
+(icon::plus_icon("w-4 h-4"))
+"新建工作中心"
+}
+}
+}
 
  // 筛选栏
  div class="flex items-center gap-3 mb-5 flex-wrap" {
- form class="filter-form" id="wc-filter-form"
+ form class="filter-form flex items-center gap-3" id="wc-filter-form"
  hx-get=(WorkCenterListPath::PATH)
  hx-trigger="change, keyup changed delay:300ms from:.search-input"
  hx-target="#data-card"
@@ -139,7 +137,7 @@ fn work_center_list_page(
 
  div class="relative flex-1 max-w-xs [&_svg]:absolute [&_svg]:left-3 [&_svg]:top-1/2 [&_svg]:-translate-y-1/2 [&_svg]:w-4 [&_svg]:h-4 [&_svg]:text-muted" {
  (icon::search_icon("w-4 h-4"))
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword"
+ input class="search-input w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword"
  placeholder="搜索编码 / 名称"
  value=(params.keyword.as_deref().unwrap_or(""));
  }
@@ -176,15 +174,14 @@ fn work_center_list_page(
  span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-[#fff2f0] text-[#cf1322]" { "停用" }
  }
  }
- td {
- a href=(WorkCenterDetailPath { id: wc.id }.to_string()) {
- (icon::eye_icon("w-4 h-4"))
- }
- a href=(WorkCenterEditPath { id: wc.id }.to_string())
- class="ml-2" {
- (icon::edit_icon("w-4 h-4"))
- }
- }
+ td class="text-center whitespace-nowrap" {
+a class="inline-flex items-center justify-center w-[28px] h-[28px] border-none bg-surface rounded-sm cursor-pointer hover:bg-accent-bg hover:text-accent transition-colors no-underline text-fg-2" href=(WorkCenterDetailPath { id: wc.id }.to_string()) title="查看" {
+(icon::eye_icon("w-3.5 h-3.5"))
+}
+a class="inline-flex items-center justify-center w-[28px] h-[28px] border-none bg-surface rounded-sm cursor-pointer hover:bg-accent-bg hover:text-accent transition-colors no-underline ml-1 text-fg-2" href=(WorkCenterEditPath { id: wc.id }.to_string()) title="编辑" {
+(icon::edit_icon("w-3.5 h-3.5"))
+}
+}
  }
  }
  @if result.items.is_empty() {

@@ -1,0 +1,15 @@
+http://localhost:8000/admin/md/boms
+http://localhost:8000/admin/md/boms/1000879/edit
+http://localhost:8000/admin/md/process-dicts
+http://localhost:8000/admin/md/process-dicts/new
+http://localhost:8000/admin/md/routings
+http://localhost:8000/admin/md/routings/new
+http://localhost:8000/admin/md/work-centers
+http://localhost:8000/admin/md/work-centers/new
+http://localhost:8000/admin/md/work-calendars
+http://localhost:8000/admin/system/users
+http://localhost:8000/admin/system/users/new
+http://localhost:8000/admin/system/roles
+http://localhost:8000/admin/system/roles/new
+http://localhost:8000/admin/system/departments
+http://localhost:8000/admin/system/permissions

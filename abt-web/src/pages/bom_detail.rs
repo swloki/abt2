@@ -16,11 +16,13 @@ use crate::layout::page::admin_page;
 use crate::routes::bom::{BomCostDrawerPath, BomCostTempPricePath, BomCostClearTempPath, BomDeletePath, BomDetailPath, BomEditPath, BomLaborCostDrawerPath, BomListPath, BomPublishPath};
 use crate::utils::RequestContext;
 
-// ── Handlers ──
-
-#[require_permission("BOM", "read")]
+#[derive(Deserialize)]
+pub struct BomDetailQuery {
+ pub action: Option<String>,
+}
 pub async fn get_bom_detail(
  path: BomDetailPath,
+ axum::extract::Query(query): axum::extract::Query<BomDetailQuery>,
  ctx: RequestContext,
 ) -> crate::errors::Result<Html<String>> {
  let is_htmx = ctx.is_htmx();
@@ -48,8 +50,7 @@ pub async fn get_bom_detail(
 
  // Filter out nodes whose products no longer exist (and their descendants)
  filter_invalid_nodes(&mut bom.bom_detail.nodes, &product_map);
-
- let content = bom_detail_page(&bom, &product_map, can_view_cost, can_view_labor_cost, can_edit, can_delete);
+ let content = bom_detail_page(&bom, &product_map, can_view_cost, can_view_labor_cost, can_edit, can_delete, query.action.as_deref());
  let detail_path_str = BomDetailPath { id: path.id }.to_string();
  let page_html = admin_page(
  is_htmx,
@@ -182,6 +183,7 @@ fn bom_detail_page(
  can_view_labor_cost: bool,
  can_edit: bool,
  can_delete: bool,
+ auto_open: Option<&str>,
 ) -> Markup {
  let list_path = BomListPath;
  let delete_path = BomDeletePath { id: bom.bom_id };
@@ -235,7 +237,7 @@ fn bom_detail_page(
  hx-get=(cost_drawer_path.to_string())
  hx-target="#cost-drawer-body"
  hx-swap="innerHTML"
- _="on click show #cost-drawer" {
+ {
  (icon::currency_icon("w-3.5 h-3.5"))
  "查看成本"
  }
@@ -331,52 +333,74 @@ fn bom_detail_page(
 
  @if can_view_cost {
  // ── Cost Drawer (wider: 1000px) ──
- div id="cost-drawer" class="fixed inset-0 z-[1000] flex justify-end bg-[rgba(0,0,0,0.35)]" style="display:none"
- _="on click[me is event.target] hide me" {
- div class="bg-white h-full w-[1000px] max-w-[100vw] flex flex-col shadow-[-8px_0_30px_rgba(0,0,0,0.1)]" _="on click halt the event" {
+ @let cost_overlay_cls = if auto_open == Some("cost") { "drawer-overlay open fixed inset-0 z-[1000] flex justify-end bg-[rgba(0,0,0,0.35)]" } else { "drawer-overlay fixed inset-0 z-[1000] flex justify-end bg-[rgba(0,0,0,0.35)]" };
+ div id="cost-drawer" class=(cost_overlay_cls)
+ _="on click[me is event.target] remove .open from me" {
+ div id="costpanel" class="drawer-panel bg-white h-full w-[1000px] max-w-[100vw] flex flex-col shadow-[-8px_0_30px_rgba(0,0,0,0.1)]"
+ _="on click halt the event on htmx:afterSettle add .open to #cost-drawer" {
  div class="flex items-center justify-between px-6 py-4 [border-bottom:1px_solid_var(--border-soft)] sticky top-0 bg-white z-10" {
  h2 class="flex items-center gap-2 text-base font-semibold text-fg m-0" {
  (icon::currency_icon("w-5 h-5 text-muted"))
  " BOM成本报告"
  }
  button type="button" class="w-8 h-8 border-none bg-transparent cursor-pointer text-muted rounded-md grid place-items-center hover:bg-surface hover:text-fg transition-colors"
- _="on click hide #cost-drawer" {
+ _="on click remove .open from closest .drawer-overlay" {
  "×"
  }
  }
+ @if auto_open == Some("cost") {
  div class="flex-1 overflow-y-auto p-6" {
- div id="cost-drawer-body" {
+ div id="cost-drawer-body"
+ hx-get=(cost_drawer_path.to_string())
+ hx-trigger="load"
+ hx-swap="innerHTML" {
  div class="text-center text-muted py-10" { "加载中..." }
+ }
+ }
+ } @else {
+ div class="flex-1 overflow-y-auto p-6" {
+ div id="cost-drawer-body" {}
  }
  }
  div class="px-6 py-4 [border-top:1px_solid_var(--border-soft)] flex justify-end gap-3" {
  button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
- _="on click hide #cost-drawer" { "关闭" }
+ _="on click remove .open from closest .drawer-overlay" { "关闭" }
  }
  }
  }
- div id="labor-drawer" class="fixed inset-0 z-[1000] flex justify-end bg-[rgba(0,0,0,0.35)]" style="display:none"
- _="on click[me is event.target] hide me" {
- div class="bg-white h-full w-[800px] max-w-[100vw] flex flex-col shadow-[-8px_0_30px_rgba(0,0,0,0.1)]" _="on click halt the event" {
+ }
+ @let labor_overlay_cls = if auto_open == Some("labor") { "drawer-overlay open fixed inset-0 z-[1000] flex justify-end bg-[rgba(0,0,0,0.35)]" } else { "drawer-overlay fixed inset-0 z-[1000] flex justify-end bg-[rgba(0,0,0,0.35)]" };
+ div id="labor-drawer" class=(labor_overlay_cls)
+ _="on click[me is event.target] remove .open from me" {
+ div class="drawer-panel bg-white h-full w-[800px] max-w-[100vw] flex flex-col shadow-[-8px_0_30px_rgba(0,0,0,0.1)]"
+ _="on click halt the event on htmx:afterSettle add .open to #labor-drawer" {
  div class="flex items-center justify-between px-6 py-4 [border-bottom:1px_solid_var(--border-soft)] sticky top-0 bg-white z-10" {
  h2 class="flex items-center gap-2 text-base font-semibold text-fg m-0" {
  (icon::bolt_icon("w-5 h-5 text-muted"))
  " BOM 人工成本"
  }
  button type="button" class="w-8 h-8 border-none bg-transparent cursor-pointer text-muted rounded-md grid place-items-center hover:bg-surface hover:text-fg transition-colors"
- _="on click hide #labor-drawer" {
+ _="on click remove .open from closest .drawer-overlay" {
  "×"
  }
  }
+ @if auto_open == Some("labor") {
  div class="flex-1 overflow-y-auto p-6" {
- div id="labor-drawer-body" {
+ div id="labor-drawer-body"
+ hx-get=(labor_drawer_path.to_string())
+ hx-trigger="load"
+ hx-swap="innerHTML" {
  div class="text-center text-muted py-10" { "加载中..." }
+ }
+ }
+ } @else {
+ div class="flex-1 overflow-y-auto p-6" {
+ div id="labor-drawer-body" {}
  }
  }
  div class="px-6 py-4 [border-top:1px_solid_var(--border-soft)] flex justify-end gap-3" {
  button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
- _="on click hide #labor-drawer" { "关闭" }
- }
+ _="on click remove .open from closest .drawer-overlay" { "关闭" }
  }
  }
  }
@@ -499,78 +523,82 @@ fn cost_drawer_content(report: &BomCostReport, temp_prices: &HashMap<i64, String
  };
 
  html! {
- div {
+ div class="space-y-4" {
  // Warning banner
  @if !report.warnings.is_empty() {
- div class="cost-warning-banner" {
- button type="button" class="flex items-center justify-between w-full border-none cursor-pointer text-left"
- _="on click toggle .show on next <div/>" {
- div class="warning-left" {
- (icon::circle_alert_icon("w-4 h-4"))
+ div class="border border-[#fbbf24] bg-[#fffbeb] rounded-md" {
+ button type="button" class="flex items-center justify-between w-full py-3 px-4 border-none bg-transparent cursor-pointer text-left hover:bg-[#fef3c7] rounded-md"
+ _="on click if next <div/>'s style's display is 'none' then show next <div/> else hide next <div/>" {
+ div class="flex items-center gap-2 text-[13px] font-medium text-[#92400e]" {
+ (icon::circle_alert_icon("w-4 h-4 text-[#d97706]"))
  span { "部分材料缺失单价（共 " (report.warnings.len()) " 项）" }
  }
  (icon::chevron_down_icon("w-4 h-4"))
  }
- div class="grid grid-rows-[0fr] transition-[grid-template-rows] duration-300" {
- ul {
+ div class="overflow-hidden border-t border-[#fbbf24]" style="display:none" {
+ ul class="list-none m-0 p-0 py-3 px-4" {
  @for w in &report.warnings {
- li { "- " (w) }
+ li class="text-[13px] text-[#92400e] py-0.5" { "- " (w) }
  }
  }
  }
  }
  }
  // Product code
- div class="cost-product-code" {
- p { "产品编码：" span { (report.product_code) } }
+ div class="bg-[#f8fafc] rounded-md px-4 py-2.5" {
+ p class="text-[13px] text-[#64748b] m-0" { "产品编码：" span class="font-mono font-semibold text-[#0f172a]" { (report.product_code) } }
  }
  // Summary cards
- div class="grid gap-[12px]" {
- div class="cost-summary-card primary" {
- div class="card-label" { "材料成本" }
- div class="card-value" { (format_currency(material_total)) }
- div class="card-sub" { (report.material_costs.len()) " 项材料" }
+ div class="grid grid-cols-3 gap-3" {
+ // Material cost card
+ div class="border border-[#e5e7eb] bg-white rounded-md p-4" {
+ div class="text-[11px] font-medium text-[#6b7280] mb-1" { "材料成本" }
+ div class="text-lg font-bold tabular-nums text-[#2563eb]" { (format_currency(material_total)) }
+ div class="text-[11px] text-[#9ca3af] mt-1" { (report.material_costs.len()) " 项材料" }
  }
- div class={"cost-summary-card " (if has_labor_cost_issue { "danger" } else { "" })} {
- div class="card-label" { "人工成本" }
- div class="card-value" { (format_currency(labor_total)) }
- div class="card-sub" {
+ // Labor cost card
+ div class={(format!("border rounded-md p-4 {}", if has_labor_cost_issue { "border-[#fecaca] bg-[#fef2f2]" } else { "border-[#e5e7eb] bg-white" }))} {
+ div class={(format!("text-[11px] font-medium mb-1 {}", if has_labor_cost_issue { "text-[#ef4444]" } else { "text-[#6b7280]" }))} { "人工成本" }
+ div class={(format!("text-lg font-bold tabular-nums {}", if has_labor_cost_issue { "text-[#dc2626]" } else { "text-[#2563eb]" }))} { (format_currency(labor_total)) }
+ div class={(format!("text-[11px] mt-1 {}", if has_labor_cost_issue { "text-[#f87171]" } else { "text-[#9ca3af]" }))} {
  (report.labor_costs.len()) " 道工序"
  @if has_labor_cost_issue { "（单价为0）" }
  }
  }
- div class={"cost-summary-card " (total_card_class)} {
- div class="card-label" { "总成本" }
+ // Total cost card
+ div class={(format!("border rounded-md p-4 {}", if all_resolved { "border-[#bfdbfe] bg-[#eff6ff]" } else { "border-[#fde68a] bg-[#fefce8]" }))} {
+ div class={(format!("text-[11px] font-medium mb-1 {}", if all_resolved { "text-[#3b82f6]" } else { "text-[#d97706]" }))} { "总成本" }
  @if all_resolved {
- div class="card-value" { (format_currency(material_total + labor_total)) }
+ div class={(format!("text-lg font-bold tabular-nums {}", if all_resolved { "text-[#2563eb]" } else { "text-[#d97706]" }))} { (format_currency(material_total + labor_total)) }
  } @else {
- div class="card-value" { "-" }
+ div class="text-lg font-bold text-[#d97706]" { "-" }
  }
- div class="card-sub" { (total_sub) }
+ div class={(format!("text-[11px] mt-1 {}", if all_resolved { "text-[#9ca3af]" } else { "text-[#fbbf24]" }))} { (total_sub) }
  }
  }
  // Temp price notice
  @if !temp_prices.is_empty() {
- div class="flex items-center gap-[8px] bg-[#eff6ff] text-[12px] text-[#3b82f6]" {
+ div class="flex items-center gap-2 bg-[#eff6ff] text-xs text-[#3b82f6] px-3 py-2 rounded-sm" {
  (icon::circle_alert_icon("w-4 h-4"))
  span { "已使用 " strong { (temp_prices.len()) } " 个临时价格" }
- button type="button" class="border-none text-[#3b82f6] text-[12px] cursor-pointer font-medium"
+ button type="button" class="border-none text-[#3b82f6] text-xs cursor-pointer font-medium bg-transparent"
  hx-delete=(clear_path)
  hx-target="#cost-drawer-body"
  hx-swap="innerHTML" { "清除全部" }
  }
  }
  // Material cost table
- div class="mb-6" {
- div class="text-[13px] font-semibold text-[#374151]" { "【材料成本】" }
- table class="w-full overflow-hidden" {
+ div class="mb-4" {
+ div class="text-[13px] font-semibold text-[#374151] mb-2" { "【材料成本】" }
+ div class="overflow-hidden border border-[#e5e7eb] rounded-md" {
+ table class="w-full border-collapse" {
  thead {
  tr {
- th class="col-name" { "产品名称" }
- th { "产品编码" }
- th class="text-right" { "数量" }
- th class="text-right" { "单价" }
- th class="text-right" { "小计" }
+ th class="text-left text-xs font-medium text-[#6b7280] bg-[#f8fafc] px-3 py-2 whitespace-nowrap [border-bottom:1px_solid_#e5e7eb]" { "产品名称" }
+ th class="text-left text-xs font-medium text-[#6b7280] bg-[#f8fafc] px-3 py-2 whitespace-nowrap [border-bottom:1px_solid_#e5e7eb]" { "产品编码" }
+ th class="text-right text-xs font-medium text-[#6b7280] bg-[#f8fafc] px-3 py-2 whitespace-nowrap [border-bottom:1px_solid_#e5e7eb]" { "数量" }
+ th class="text-right text-xs font-medium text-[#6b7280] bg-[#f8fafc] px-3 py-2 whitespace-nowrap [border-bottom:1px_solid_#e5e7eb]" { "单价" }
+ th class="text-right text-xs font-medium text-[#6b7280] bg-[#f8fafc] px-3 py-2 whitespace-nowrap [border-bottom:1px_solid_#e5e7eb]" { "小计" }
  }
  }
  tbody {
@@ -579,20 +607,20 @@ fn cost_drawer_content(report: &BomCostReport, temp_prices: &HashMap<i64, String
  .or_else(|| temp_prices.get(&item.product_id).and_then(|s| s.parse::<Decimal>().ok()));
  @let is_missing = item.unit_price.is_none();
  @let has_temp = is_missing && temp_prices.contains_key(&item.product_id);
- @let tr_class = if is_missing && !has_temp { "row-danger" } else { "" };
+ @let tr_class = if is_missing && !has_temp { "bg-[#fee2e2] text-[#991b1b]" } else { "" };
  tr class=(tr_class) {
- td class="cell-name font-mono tabular-nums" title=(item.product_name) {
+ td class="px-3 py-2 text-sm font-medium truncate max-w-[160px]" title=(item.product_name) {
  (item.product_name)
  }
- td class="font-mono tabular-nums cell-code" { (item.product_code) }
- td class="text-right font-mono tabular-nums" { (item.quantity) }
- td class="text-right" {
+ td class="px-3 py-2 text-sm font-mono tabular-nums text-[#6b7280] whitespace-nowrap" { (item.product_code) }
+ td class="px-3 py-2 text-sm text-right font-mono tabular-nums whitespace-nowrap" { (item.quantity) }
+ td class="px-3 py-2 text-sm text-right whitespace-nowrap" {
  @if let Some(price) = item.unit_price {
  span class="font-mono tabular-nums" { (format_currency(price)) }
  } @else if has_temp {
- span class="inline-flex items-center gap-[6px]" {
- span { (format_currency(effective_price.unwrap_or(Decimal::ZERO))) }
- span class="temp-tag" { "临时" }
+ span class="inline-flex items-center gap-1.5" {
+ span class="font-mono tabular-nums" { (format_currency(effective_price.unwrap_or(Decimal::ZERO))) }
+ span class="text-[10px] bg-[#fef3c7] text-[#92400e] px-1.5 py-0.5 rounded" { "临时" }
  }
  form class="inline-flex"
  hx-post=(temp_price_path)
@@ -600,87 +628,89 @@ fn cost_drawer_content(report: &BomCostReport, temp_prices: &HashMap<i64, String
  hx-swap="innerHTML" {
  input type="hidden" name="product_id" value=(item.product_id) {}
  input type="hidden" name="temp_price" value="" {}
- button type="submit" class="border-none bg-[#fef2f2] text-[#ef4444] w-[22px] h-[22px] text-[14px] cursor-pointer place-items-center" title="回退"
+ button type="submit" class="border-none bg-[#fef2f2] text-[#ef4444] w-[22px] h-[22px] text-sm cursor-pointer grid place-items-center rounded" title="回退"
  _="on click halt the event" {
  "×"
  }
  }
  } @else {
- form class="inline-flex items-center gap-[4px]"
+ form class="inline-flex items-center gap-1"
  hx-post=(temp_price_path)
  hx-target="#cost-drawer-body"
  hx-swap="innerHTML" {
  input type="hidden" name="product_id" value=(item.product_id) {}
- input type="text" class="w-[100px] text-[12px] bg-white outline-none text-right" name="temp_price"
+ input type="text" class="w-[100px] text-xs bg-white outline-none text-right border border-[#e5e7eb] rounded px-2 py-1" name="temp_price"
  placeholder="输入单价"
  _="on click halt the event on focus halt the event" {}
- button type="submit" class="border-none bg-[#2563eb] text-[#fff] w-[24px] h-[24px] text-[13px] cursor-pointer grid place-items-center" title="确认"
+ button type="submit" class="border-none bg-[#2563eb] text-white w-6 h-6 text-xs cursor-pointer grid place-items-center rounded" title="确认"
  _="on click halt the event" {
  "✓"
  }
  }
  }
  }
- td class="text-right cell-amount" {
+ td class="px-3 py-2 text-sm text-right whitespace-nowrap" {
  @if let Some(price) = effective_price {
  @let amt = price * item.quantity;
  @if has_temp {
- span class="font-mono tabular-nums amount-warn" { (format_currency(amt)) }
+ span class="font-mono tabular-nums text-[#d97706] font-medium" { (format_currency(amt)) }
  } @else {
- span class="font-mono tabular-nums amount-primary" { (format_currency(amt)) }
+ span class="font-mono tabular-nums text-[#2563eb] font-medium" { (format_currency(amt)) }
  }
  } @else {
- span class="missing-price" { "-" }
+ span class="text-[#ef4444] font-medium" { "-" }
  }
  }
  }
  }
  }
  }
- div class="flex items-center justify-end gap-[8px] bg-blue" {
- span class="footer-label" { "材料成本合计:" }
- span class="footer-value blue" id="cost-material-total" { (format_currency(material_total)) }
+ }
+ div class="flex items-center justify-end gap-2 bg-[#eff6ff] px-4 py-2.5 rounded-md mt-2" {
+ span class="text-[13px] font-medium text-[#374151]" { "材料成本合计:" }
+ span class="text-base font-bold tabular-nums text-[#2563eb]" id="cost-material-total" { (format_currency(material_total)) }
  }
  }
  // Labor cost table
- div class="mb-6" {
- div class="text-[13px] font-semibold text-[#374151]" { "【人工成本】" }
- table class="w-full overflow-hidden" {
+ div class="mb-4" {
+ div class="text-[13px] font-semibold text-[#374151] mb-2" { "【人工成本】" }
+ div class="overflow-hidden border border-[#e5e7eb] rounded-md" {
+ table class="w-full border-collapse" {
  thead {
  tr {
- th { "工序名称" }
- th class="text-right" { "单价" }
- th class="text-right" { "数量" }
- th class="text-right" { "小计" }
- th { "备注" }
+ th class="text-left text-xs font-medium text-[#6b7280] bg-[#f8fafc] px-3 py-2 whitespace-nowrap [border-bottom:1px_solid_#e5e7eb]" { "工序名称" }
+ th class="text-right text-xs font-medium text-[#6b7280] bg-[#f8fafc] px-3 py-2 whitespace-nowrap [border-bottom:1px_solid_#e5e7eb]" { "单价" }
+ th class="text-right text-xs font-medium text-[#6b7280] bg-[#f8fafc] px-3 py-2 whitespace-nowrap [border-bottom:1px_solid_#e5e7eb]" { "数量" }
+ th class="text-right text-xs font-medium text-[#6b7280] bg-[#f8fafc] px-3 py-2 whitespace-nowrap [border-bottom:1px_solid_#e5e7eb]" { "小计" }
+ th class="text-left text-xs font-medium text-[#6b7280] bg-[#f8fafc] px-3 py-2 whitespace-nowrap [border-bottom:1px_solid_#e5e7eb]" { "备注" }
  }
  }
  tbody {
  @if report.labor_costs.is_empty() {
  tr {
- td colspan="5" class="text-center text-muted text-sm" { "暂无人工成本数据" }
+ td colspan="5" class="text-center text-muted text-sm py-6" { "暂无人工成本数据" }
  }
  } @else {
  @for item in &report.labor_costs {
  @let is_zero = item.unit_price == Decimal::ZERO;
- tr class=(if is_zero { "row-danger" } else { "" }) {
- td class="cell-bold" { (item.name) }
- td class="text-right" {
+ tr class=(if is_zero { "bg-[#fee2e2] text-[#991b1b]" } else { "" }) {
+ td class="px-3 py-2 text-sm font-medium" { (item.name) }
+ td class="px-3 py-2 text-sm text-right whitespace-nowrap" {
  @if is_zero {
- span class="price-zero" { "¥0.000000" }
+ span class="text-[#ef4444] font-medium" { "¥0.000000" }
  } @else {
  span class="font-mono tabular-nums" { (format_currency(item.unit_price)) }
  }
  }
- td class="text-right font-mono tabular-nums" { (item.quantity) }
- td class="text-right cell-amount" {
+ td class="px-3 py-2 text-sm text-right font-mono tabular-nums whitespace-nowrap" { (item.quantity) }
+ td class="px-3 py-2 text-sm text-right whitespace-nowrap" {
  @if is_zero {
- span class="amount-danger" { (format_amount(item.unit_price, item.quantity)) }
+ span class="text-[#ef4444] font-medium" { (format_amount(item.unit_price, item.quantity)) }
  } @else {
- span class="font-mono tabular-nums amount-primary" { (format_amount(item.unit_price, item.quantity)) }
+ span class="font-mono tabular-nums text-[#2563eb] font-medium" { (format_amount(item.unit_price, item.quantity)) }
  }
  }
- td class="cell-remark" {
+ td class="px-3 py-2 text-sm text-[#6b7280]" {
  @if item.remark.is_empty() { "—" } @else { (item.remark) }
  }
  }
@@ -688,18 +718,19 @@ fn cost_drawer_content(report: &BomCostReport, temp_prices: &HashMap<i64, String
  }
  }
  }
- div class={"cost-drawer-footer " (if has_labor_cost_issue { "bg-red" } else { "bg-blue" })} {
- span class="footer-label" { "人工成本合计:" }
- span class={"footer-value " (if has_labor_cost_issue { "red" } else { "blue" })} {
+ }
+ div class={(format!("flex items-center justify-end gap-2 px-4 py-2.5 rounded-md mt-2 {}", if has_labor_cost_issue { "bg-[#fef2f2] border border-[#fecaca]" } else { "bg-[#eff6ff]" }))} {
+ span class="text-[13px] font-medium text-[#374151]" { "人工成本合计:" }
+ span class={(format!("text-base font-bold tabular-nums {}", if has_labor_cost_issue { "text-[#dc2626]" } else { "text-[#2563eb]" }))} {
  (format_currency(labor_total))
  }
  @if has_labor_cost_issue {
- span class="hint-labor" { "（所有工序单价为0）" }
+ span class="text-[11px] text-[#ef4444] ml-1" { "（所有工序单价为0）" }
  }
  }
  }
  // Total footer
- div class="flex items-center justify-end gap-[8px] bg-gray total-footer" {
+ div class="flex items-center justify-end gap-2 bg-[#f1f5f9] px-4 py-3 rounded-md" {
  @if !all_resolved {
  @let total_hint = if has_uncovered_missing && has_labor_cost_issue {
  "请补全材料单价并设置人工成本"
@@ -708,10 +739,10 @@ fn cost_drawer_content(report: &BomCostReport, temp_prices: &HashMap<i64, String
  } else {
  "请设置人工成本单价"
  };
- span class="hint-warn" { (total_hint) }
+ span class="text-[13px] font-medium text-[#d97706]" { (total_hint) }
  } @else {
- span class="footer-label" { "总成本:" }
- span class="footer-value dark value-lg" {
+ span class="text-[13px] font-medium text-[#374151]" { "总成本:" }
+ span class="text-lg font-bold tabular-nums text-[#111827]" {
  (format_currency(material_total + labor_total))
  }
  }

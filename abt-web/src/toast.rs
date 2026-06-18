@@ -144,12 +144,24 @@ pub async fn get_toasts(session: Session) -> Response {
 
 fn render_single_toast(msg: &str, toast_type: ToastType) -> Markup {
     let type_str = toast_type.as_str();
+    // (icon_bg, border) per type — progress bar color via .toast-{type}::after in preflights
+    let (icon_bg, border) = match toast_type {
+        ToastType::Error => ("bg-[#dc2626]", "border-[rgba(220,38,38,0.12)]"),
+        ToastType::Success => ("bg-[#16a34a]", "border-[rgba(22,163,74,0.12)]"),
+        ToastType::Warning => ("bg-[#d97706]", "border-[rgba(217,119,6,0.12)]"),
+        ToastType::Info => ("bg-[#2563eb]", "border-[rgba(37,99,235,0.12)]"),
+    };
     let icon = toast_type.icon_svg();
     html! {
-        div class={"toast toast-" (type_str)} role="alert" {
-            span class="toast-icon [&_svg]:w-4.5 [&_svg]:h-4.5 [&_svg]:text-white" { (maud::PreEscaped(icon)) }
-            span class="toast-message" { (msg) }
-            button class="toast-close" onclick="this.closest('.toast').classList.add('toast-dismiss')" { "×" }
+        div class={"toast toast-" (type_str) " flex items-center gap-3.5 pl-3.5 pr-4 py-3.5 rounded-lg bg-bg border " (border) " shadow-lg min-w-[280px] max-w-[420px] text-sm"}
+            role="alert"
+            _="on animationend[event.animationName is 'toast-in'] wait 3.5s then add .toast-dismiss\non animationend[event.animationName is 'toast-out'] remove me" {
+            span class={"shrink-0 w-9 h-9 rounded-full grid place-items-center " (icon_bg)} {
+                span class="[&_svg]:w-[18px] [&_svg]:h-[18px] [&_svg]:text-white" { (maud::PreEscaped(icon)) }
+            }
+            span class="flex-1 text-fg font-medium break-words" { (msg) }
+            button class="shrink-0 w-6 h-6 grid place-items-center bg-transparent border-none rounded-sm cursor-pointer text-muted text-[15px] leading-none hover:bg-surface"
+                _="on click add .toast-dismiss to closest .toast" { "×" }
         }
     }
 }

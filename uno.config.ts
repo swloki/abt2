@@ -3,6 +3,7 @@ import { defineConfig, presetWind4 } from "unocss";
 export default defineConfig({
   presets: [presetWind4()],
 
+
   // preflights: 全局样式（:root 变量 + reset + scrollbar + [x-cloak]）
   // 从 base.css 行 1-104 迁移
   preflights: [
@@ -139,11 +140,29 @@ select:disabled {
 }
 /* Allow elements that set their own background-image (e.g. native date input arrow) to override */
 /* app-shell JS-driven sidebar collapse + mobile state */
+
+/* Toast: keyframes + progress bar (::after) + dismiss animation */
+@keyframes toast-in { from { opacity: 0; transform: translateX(40px) scale(0.95); } to { opacity: 1; transform: translateX(0) scale(1); } }
+@keyframes toast-out { from { opacity: 1; transform: translateX(0) scale(1); } to { opacity: 0; transform: translateX(40px) scale(0.95); } }
+@keyframes toast-progress { from { width: 100%; } to { width: 0%; } }
+.toast { position: relative; animation: toast-in 0.3s ease forwards; }
+.toast::after { content: ''; position: absolute; bottom: 0; left: 0; height: 3px; opacity: 0.4; animation: toast-progress 4s linear forwards; }
+.toast-error::after { background: var(--danger); }
+.toast-success::after { background: var(--success); }
+.toast-warning::after { background: var(--warn); }
+.toast-info::after { background: var(--info); }
+.toast.toast-dismiss { animation: toast-out 0.3s ease forwards; }
+.toast.toast-dismiss::after { display: none; }
+
 .app-shell { display: grid; grid-template-columns: var(--sidebar-w) 1fr; min-height: 100vh; transition: grid-template-columns var(--motion-base) var(--ease-standard); }
 .app-shell.sidebar-collapsed { grid-template-columns: 56px 1fr; }
 .sidebar-collapsed .sidebar-body { display: none; }
 .sidebar-collapsed .sidebar-rail { border-right: none; }
-@media (max-width: 768px) { .app-shell { grid-template-columns: 1fr !important; } #sidebar { position: fixed; left: 0; top: 0; bottom: 0; width: 280px; transform: translateX(-100%); z-index: 55; transition: transform var(--motion-base) var(--ease-standard); } #sidebar.mobile-open { transform: translateX(0); } .main-content { padding-bottom: 68px; } .page-content { padding: var(--space-4); } }
+/* Drawer overlay + slide animation */
+.drawer-overlay { display: none !important; opacity: 0 !important; transition: opacity 0.35s ease-out; }
+.drawer-overlay.open { display: flex !important; opacity: 1 !important; }
+.drawer-overlay .drawer-panel { transform: translateX(100%) !important; transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1) !important; }
+.drawer-overlay.open .drawer-panel { transform: translateX(0) !important; }
 `,
     },
   ],
@@ -151,7 +170,7 @@ select:disabled {
   // Custom variants: prefix matches state class (not pseudo-class)
   variants: [
     (matcher) => {
-      const map = { 'act:': '.active', 'show:': '.show', 'is-open:': '.is-open', 'is-visible:': '.is-visible', 'expanded:': '.expanded' };
+      const map = { 'act:': '.active', 'show:': '.show', 'is-open:': '.is-open', 'is-visible:': '.is-visible', 'expanded:': '.expanded', 'toast-dismiss:': '.toast-dismiss' };
       for (const [prefix, cls] of Object.entries(map)) {
         if (matcher.startsWith(prefix)) {
           return { matcher: matcher.slice(prefix.length), selector: (s) => `${s}${cls}` };

@@ -26,6 +26,7 @@ use crate::routes::bom::{
  BomPublishPath, BomSaveAsPath, BomUpdateCategoryPath,
 };
 use crate::utils::RequestContext;
+use crate::toast::{toast_response, ToastType};
 
 // ── Query Params ──
 
@@ -183,59 +184,74 @@ pub async fn get_bom_products(
 /// POST: add a node to BOM
 #[require_permission("BOM", "update")]
 pub async fn add_node(
- path: BomNodesPath,
- ctx: RequestContext,
- axum::Form(form): axum::Form<AddNodeForm>,
-) -> Result<impl IntoResponse> {
- let RequestContext {
- mut conn,
- state,
- service_ctx,
- ..
- } = ctx;
+    path: BomNodesPath,
+    ctx: RequestContext,
+    axum::Form(form): axum::Form<AddNodeForm>,
+) -> Result<axum::response::Response> {
+    let RequestContext {
+        mut conn,
+        state,
+        service_ctx,
+        ..
+    } = ctx;
 
- let node_svc = state.bom_node_service();
- let quantity: Decimal = form.quantity.parse().unwrap_or(Decimal::ONE);
- let loss_rate: Decimal = form
- .loss_rate
- .as_deref()
- .and_then(|s| s.parse().ok())
- .unwrap_or(Decimal::ZERO);
+    let node_svc = state.bom_node_service();
+    let quantity: Decimal = form.quantity.parse().unwrap_or(Decimal::ONE);
+    let loss_rate: Decimal = form
+        .loss_rate
+        .as_deref()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(Decimal::ZERO);
 
- // Determine order: max existing order among siblings + 1
- let bom_svc = state.bom_query_service();
- let bom = bom_svc.get(&service_ctx, &mut conn, path.id).await?;
- let max_order = bom
- .bom_detail
- .nodes
- .iter()
- .filter(|n| n.parent_id == form.parent_id)
- .map(|n| n.order)
- .max()
- .unwrap_or(0);
+    // Determine order: max existing order among siblings + 1
+    let bom_svc = state.bom_query_service();
+    let bom = bom_svc.get(&service_ctx, &mut conn, path.id).await?;
+    let max_order = bom
+        .bom_detail
+        .nodes
+        .iter()
+        .filter(|n| n.parent_id == form.parent_id)
+        .map(|n| n.order)
+        .max()
+        .unwrap_or(0);
 
- node_svc
- .add_node(
- &service_ctx,
- &mut conn,
- path.id,
- NewBomNode {
- product_id: form.product_id,
- quantity,
- parent_id: form.parent_id,
- loss_rate,
- order: max_order + 1,
- unit: form.unit.filter(|s| !s.is_empty()),
- remark: form.remark.filter(|s| !s.is_empty()),
- position: form.position.filter(|s| !s.is_empty()),
- work_center: form.work_center.filter(|s| !s.is_empty()),
- properties: None,
- },
- )
- .await?;
-
- let redirect = BomEditPath { id: path.id }.to_string();
- Ok(([("HX-Redirect", redirect)], Html(String::new())))
+    if let Err(e) = node_svc
+        .add_node(
+            &service_ctx,
+            &mut conn,
+            path.id,
+            NewBomNode {
+                product_id: form.product_id,
+                quantity,
+                parent_id: form.parent_id,
+                loss_rate,
+                order: max_order + 1,
+                unit: form.unit.filter(|s| !s.is_empty()),
+                remark: form.remark.filter(|s| !s.is_empty()),
+                position: form.position.filter(|s| !s.is_empty()),
+                work_center: form.work_center.filter(|s| !s.is_empty()),
+                properties: None,
+            },
+        )
+        .await
+    {
+        let msg = match &e {
+            DomainError::BusinessRule(m)
+            | DomainError::Validation(m)
+            | DomainError::NotFound(m)
+            | DomainError::Duplicate(m)
+            | DomainError::Unauthorized(m)
+            | DomainError::PermissionDenied(m) => m.clone(),
+            _ => format!("{}", e),
+        };
+        return Ok(toast_response(
+            service_ctx.operator_id,
+            msg,
+            ToastType::Error,
+        ));
+    }
+    let redirect = BomEditPath { id: path.id }.to_string();
+    Ok(([("HX-Redirect", redirect)], Html(String::new())).into_response())
 }
 
 /// POST: update a node
@@ -508,18 +524,15 @@ fn bom_edit_page(
  html! {
  div id="bom-edit-app" hx-get=(BomEditPath { id: bom.bom_id }.to_string()) hx-trigger="nodeUpdated from:body" hx-select="#bom-edit-app" hx-swap="outerHTML" hx-disinherit="hx-select" {
  // ── Toolbar ──
- div class="flex flex-wrap items-center justify-between gap-3" {
- // Left side: back, category, view toggle, level filter
- div class="flex flex-wrap items-center justify-between gap-3-left" {
- a class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs [&_svg]:w-4 [&_svg]:h-4" href=(format!("{list_path}?restore=true")) {
- (icon::arrow_left_icon("w-4 h-4"))
- " 返回列表"
+div class="flex items-center justify-between gap-3 mb-4 flex-wrap" {
+ div class="flex items-center gap-2 flex-wrap" {
+ a class="inline-flex items-center gap-1.5 py-1.5 px-3 text-xs font-medium rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent cursor-pointer transition-all duration-150 no-underline [&_svg]:w-3.5 [&_svg]:h-3.5" href=(format!("{list_path}?restore=true")) {
+ (icon::arrow_left_icon("w-3.5 h-3.5"))
+ "返回列表"
  }
-
- // Category selector
  @if !categories.is_empty() {
- div class="relative" {
  select name="bom_category_id"
+ class="h-[29px] px-2 text-xs font-medium bg-white border border-border text-fg-2 rounded-sm cursor-pointer outline-none"
  hx-post=(BomUpdateCategoryPath { id: bom.bom_id }.to_string())
  hx-trigger="change"
  hx-swap="none"
@@ -533,67 +546,65 @@ fn bom_edit_page(
  }
  }
  }
- }
-
- // Level filter
- select id="bom-level-filter" class="h-[32px] text-sm font-medium bg-white border border-border text-fg-2 rounded-sm cursor-pointer" {
+ select id="bom-level-filter" class="h-[29px] px-2 text-xs font-medium bg-white border border-border text-fg-2 rounded-sm cursor-pointer outline-none" {
  option value="0" { "全部层级" }
  @for lv in 1..=max_level {
  option value=(lv) { "层级 " (lv) }
  }
  }
-
- button type="button" class="h-[32px] text-sm font-medium bg-white border border-border text-fg-2 rounded-sm cursor-pointer" id="bom-collapse-all-btn"
+ button type="button" class="inline-flex items-center gap-1.5 py-1.5 px-3 text-xs font-medium rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent cursor-pointer transition-all duration-150" id="bom-collapse-all-btn"
  onclick="bomToggleAllCollapse()" {
  "全部折叠"
  }
  }
-
- // Right side: publish/unpublish, add/save-as, labor cost
- div class="flex flex-wrap items-center justify-between gap-3-right" {
+ div class="flex items-center gap-2 flex-wrap" {
  @if !is_draft && is_owner {
- button class="btn btn-sm inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative-ghost [&_svg]:w-4 [&_svg]:h-4" id="bom-publish-btn"
- _="on click add .open to #bom-publish-dialog" {
- (icon::return_arrow_icon("w-4 h-4"))
- " 取消发布"
+ button class="inline-flex items-center gap-1.5 py-1.5 px-3 text-xs font-medium rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent cursor-pointer transition-all duration-150 [&_svg]:w-3.5 [&_svg]:h-3.5" id="bom-publish-btn"
+ _="on click show #bom-publish-dialog" {
+ (icon::return_arrow_icon("w-3.5 h-3.5"))
+ "取消发布"
  }
  } @else if is_draft {
- button class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-[#10b981] text-[#fff] [&_svg]:w-4 [&_svg]:h-4" id="bom-publish-btn"
- _="on click add .open to #bom-publish-dialog"
+button class="inline-flex items-center gap-1.5 py-1.5 px-3 text-xs font-medium rounded-sm bg-[#10b981] text-white border border-transparent hover:opacity-90 cursor-pointer transition-all duration-150 [&_svg]:w-3.5 [&_svg]:h-3.5" id="bom-publish-btn"
+ _="on click show #bom-publish-dialog"
  disabled[node_count == 0]
  title="请先添加物料" {
- (icon::rocket_icon("w-4 h-4"))
- " 发布"
+ (icon::rocket_icon("w-3.5 h-3.5"))
+ "发布"
  }
  }
-
  @if node_count == 0 {
- button type="button" class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] [&_svg]:w-4 [&_svg]:h-4" id="bom-add-root-btn"
+ button type="button" class="inline-flex items-center gap-1.5 py-1.5 px-3 text-xs font-medium rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover cursor-pointer transition-all duration-150 [&_svg]:w-3.5 [&_svg]:h-3.5" id="bom-add-root-btn"
  _="on click put '0' into <input[name='parent_id']/>'s value then add .is-open to #bom-add-modal then call bomLoadProducts()" {
- (icon::plus_icon("w-4 h-4"))
- " 添加根节点"
+ (icon::plus_icon("w-3.5 h-3.5"))
+ "添加根节点"
  }
  } @else {
- button type="button" class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-[#10b981] text-[#fff] [&_svg]:w-4 [&_svg]:h-4" id="bom-save-as-btn"
+button type="button" class="inline-flex items-center gap-1.5 py-1.5 px-3 text-xs font-medium rounded-sm bg-[#10b981] text-white border border-transparent hover:opacity-90 cursor-pointer transition-all duration-150 [&_svg]:w-3.5 [&_svg]:h-3.5" id="bom-save-as-btn"
  data-name=(bom.bom_name)
  _="on click put (my @data-name + '_副本') into <input[name='new_name']/>'s value then add .is-open to #bom-save-as-modal" {
- (icon::copy_icon("w-4 h-4"))
- " 另存为"
+ (icon::copy_icon("w-3.5 h-3.5"))
+ "另存为"
  }
  }
-
- a class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-[#f97316] text-[#fff] [&_svg]:w-4 [&_svg]:h-4" href=(format!("/admin/labor/bom-cost/{}", bom.bom_id)) {
- (icon::currency_icon("w-4 h-4"))
- " 人工成本"
+a class="inline-flex items-center gap-1.5 py-1.5 px-3 text-xs font-medium rounded-sm bg-[#f97316] text-white border border-transparent hover:opacity-90 cursor-pointer transition-all duration-150 no-underline [&_svg]:w-3.5 [&_svg]:h-3.5" href=(format!("/admin/labor/bom-cost/{}", bom.bom_id)) {
+ (icon::currency_icon("w-3.5 h-3.5"))
+ "人工成本"
  }
  }
  }
 
  // ── Title ──
- h1 class="text-xl font-bold text-fg tracking-tight" class="flex items-center gap-2 mb-4" {
- (bom.bom_name)
- span class=(format!("status-pill {}", crate::utils::status_color(status_class))) { (status_label) }
- }
+div class="flex items-start gap-5 mb-5" {
+div class="flex-1 min-w-0" {
+h1 class="text-2xl font-bold text-fg tracking-tight flex items-center flex-wrap gap-x-3 gap-y-1" {
+span class="font-mono text-sm font-normal text-muted" { (bom.product_code.as_deref().unwrap_or("—")) }
+span { (bom.bom_name) }
+span class="text-xs font-normal bg-[#f0f0f0] text-fg-2 rounded-sm px-2 py-[2px] whitespace-nowrap" { "v" (bom.version) }
+span class=(format!("status-pill {}", crate::utils::status_color(status_class))) { (status_label) }
+}
+}
+}
 
  // ── Node Table ──
  div class="data-card" class="p-0 overflow-hidden" {
@@ -604,22 +615,22 @@ fn bom_edit_page(
  } @else {
  div class="overflow-x-auto" {
  table class="w-full text-[13px]" class="min-w-[900px]" {
- thead {
- tr {
- th class="w-[32px]" { }
- th class="w-[40px]" { "编号" }
- th class="w-[40px]" { "层级" }
- th class="w-[120px]" { "产品编码" }
- th class="bom-col-name" { "产品" }
- th class="w-[100px]" { "工作中心" }
- th class="w-[80px]" { "数量" }
- th class="w-[60px]" { "单位" }
- th class="w-[50px]" { "损耗率" }
- th class="w-[100px]" { "位置" }
- th class="w-[90px]" { "备注" }
- th class="w-[120px]" { "操作" }
- }
- }
+thead {
+tr {
+th class="w-[32px] px-2 py-3 bg-[#2563eb]" { }
+th class="w-[40px] px-2 py-3 text-center text-xs font-semibold text-white whitespace-nowrap bg-[#2563eb]" { "编号" }
+th class="w-[40px] px-2 py-3 text-center text-xs font-semibold text-white whitespace-nowrap bg-[#2563eb]" { "层级" }
+th class="w-[120px] px-3 py-3 text-xs font-semibold text-white whitespace-nowrap bg-[#2563eb]" { "产品编码" }
+th class="px-3 py-3 text-xs font-semibold text-white whitespace-nowrap bg-[#2563eb]" { "产品" }
+th class="w-[100px] px-3 py-3 text-xs font-semibold text-white whitespace-nowrap bg-[#2563eb]" { "工作中心" }
+th class="w-[80px] px-3 py-3 text-right text-xs font-semibold text-white whitespace-nowrap bg-[#2563eb]" { "数量" }
+th class="w-[60px] px-3 py-3 text-center text-xs font-semibold text-white whitespace-nowrap bg-[#2563eb]" { "单位" }
+th class="w-[50px] px-3 py-3 text-right text-xs font-semibold text-white whitespace-nowrap bg-[#2563eb]" { "损耗率" }
+th class="w-[100px] px-3 py-3 text-xs font-semibold text-white whitespace-nowrap bg-[#2563eb]" { "位置" }
+th class="w-[90px] px-3 py-3 text-xs font-semibold text-white whitespace-nowrap bg-[#2563eb]" { "备注" }
+th class="w-[120px] px-3 py-3 text-center text-xs font-semibold text-white whitespace-nowrap bg-[#2563eb]" { "操作" }
+}
+}
  tbody id="bom-sortable-tbody" {
  @for (idx, node) in bom.bom_detail.nodes.iter().enumerate() {
  @let depth = *depth_map.get(&node.id).unwrap_or(&0);
@@ -636,21 +647,21 @@ fn bom_edit_page(
  }
 
  // ── Add Node Modal ──
- div id="bom-add-modal" class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto"
+ div id="bom-add-modal" class="modal-overlay fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto"
  _="on click[me is event.target] remove .is-open" {
- div class="modal bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl" {
+div class="modal bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl" {
  div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
  h2 { "添加物料" }
- button class="text-muted hover:text-fg cursor-pointer bg-transparent border-none"
+ button class="text-2xl text-muted hover:text-fg cursor-pointer bg-transparent border-none p-1 leading-none"
  _="on click remove .is-open from #bom-add-modal" { "×" }
  }
- div class="overflow-y-auto flex-1 min-h-0 p-6" class="p-0" hx-disinherit="hx-select" {
+ div class="overflow-y-auto flex-1 min-h-0" {
  input type="hidden" name="parent_id" value="0" {}
- div class="flex gap-4 p-4 border-b border-border-soft" {
+ div class="flex gap-4 p-4 border-b border-border-soft product-search-bar" {
  input type="hidden" name="bom_id" value=(bom.bom_id) {}
  div class="flex-1 flex flex-col gap-[4px]" {
  label class="text-[12px] font-medium text-fg-2" { "产品名称" }
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="name" placeholder="输入产品名称…"
+ input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent product-search-input" type="text" name="name" placeholder="输入产品名称…" autocomplete="off"
  hx-get=(BomProductsPath::PATH)
  hx-trigger="keyup changed delay:300ms"
  hx-sync="this:replace"
@@ -660,7 +671,7 @@ fn bom_edit_page(
  }
  div class="flex-1 flex flex-col gap-[4px]" {
  label class="text-[12px] font-medium text-fg-2" { "产品编码" }
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="code" placeholder="输入产品编码…"
+ input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent product-search-input" type="text" name="code" placeholder="输入产品编码…" autocomplete="off"
  hx-get=(BomProductsPath::PATH)
  hx-trigger="keyup changed delay:300ms"
  hx-sync="this:replace"
@@ -668,16 +679,17 @@ fn bom_edit_page(
  hx-swap="innerHTML"
  hx-include=".product-search-bar" {}
  }
- button type="button" class="border border-border rounded-sm bg-bg text-fg-2 text-sm cursor-pointer whitespace-nowrap"
+ button type="button" class="self-end px-4 py-2 border border-border rounded-sm bg-bg text-fg-2 text-sm cursor-pointer whitespace-nowrap hover:bg-surface hover:border-accent transition-all duration-150"
  hx-get=(BomProductsPath::PATH)
  hx-target="#bom-edit-product-results"
  hx-swap="innerHTML"
+ hx-include=".product-search-bar"
  _="on click set <.product-search-input/>'s value to '' then trigger keyup on the first <.product-search-input/>" {
  "清除"
  }
  }
- div id="bom-edit-product-results" class="overflow-y-auto" style="min-height:200px;max-height:320px" {
- div class="flex items-center justify-center py-8 text-muted" {
+ div id="bom-edit-product-results" class="overflow-y-auto" style="min-height:200px;max-height:360px" {
+ div class="flex items-center justify-center p-8" style="color:var(--text-muted)" {
  "搜索产品或直接输入关键词…"
  }
  }
@@ -686,7 +698,7 @@ fn bom_edit_page(
  }
 
  // ── Edit Node Modal (content loaded via HTMX) ──
- div id="bom-edit-modal" class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto" _="on htmx:afterSettle if detail.xhr.responseText !== '' add .is-open on click[me is event.target] remove .is-open" { }
+div id="bom-edit-modal" class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto" _="on htmx:afterSettle add .is-open\non click[me is event.target] remove .is-open" { }
 
  // ── Delete Confirm ──
  (crate::components::confirm_dialog::confirm_dialog(
@@ -787,53 +799,63 @@ fn bom_node_row(
  } else {
  format!("{}%", node.loss_rate)
  };
- let row_class = if level == 1 {
- "bom-row-level-0"
- } else if has_children {
- "bom-row-level-1"
- } else {
- "bom-row-level-default"
- };
+    let row_class = if level == 1 {
+        "bg-[#7030a0] text-white font-medium"
+    } else if has_children {
+        "bg-[#ff0] text-[#1a1a1a]"
+    } else {
+        "hover:bg-slate-50"
+    };
+    let btn_class = if level == 1 {
+        "w-[28px] h-[28px] border-none bg-white/20 text-white rounded-sm grid place-items-center cursor-pointer hover:bg-white/30 transition-colors"
+    } else {
+        "w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer hover:bg-accent-bg hover:text-accent transition-colors"
+    };
+    let delete_btn_class = if level == 1 {
+        "w-[28px] h-[28px] border-none bg-white/30 text-danger rounded-sm grid place-items-center cursor-pointer hover:bg-white/40 transition-colors"
+    } else {
+        "w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer text-danger hover:bg-[#fef2f2] transition-colors"
+    };
  let ancestors_str = ancestors.iter().map(|id| id.to_string()).collect::<Vec<_>>().join(",");
  let _indent_px = (level - 1) * 24;
  html! {
  tr class=(row_class) draggable="true"
- data-node-id=(node.id) data-parent-id=(node.parent_id) data-level=(level) data-ancestors=(ancestors_str) {
- td class="text-center" {
- @if has_children {
- button type="button" class="inline-flex items-center justify-center w-[20px] h-[20px] border-none rounded-sm cursor-pointer shrink-0"
- onclick=(format!("bomToggleCollapse({})", node.id)) {
- (icon::chevron_down_icon("bom-collapse-icon"))
- }
- }
- }
- td class="text-center" { (index + 1) }
- td class="text-center" { (level) }
- td class="font-mono tabular-nums" { (code) }
- td class="bom-col-name" { (name) }
- td { (work_center) }
- td class="font-mono tabular-nums" class="text-right" { (node.quantity) }
- td { (unit) }
- td class="text-right" { (loss_rate) }
- td { (position) }
- td class="text-muted" { (remark) }
- td {
- div class="flex gap-1" {
- button type="button" class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" title="添加子节点"
- _=(format!("on click put '{}' into <input[name='parent_id']/>'s value then add .is-open to #bom-add-modal then call bomLoadProducts()", node.id)) {
- (icon::plus_icon("w-3.5 h-3.5"))
- }
- button type="button" class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" title="编辑"
- hx-get=(format!("/admin/md/boms/{}/nodes/{}", bom_id, node.id))
- hx-target="#bom-edit-modal" hx-swap="innerHTML" {
- (icon::edit_icon("w-3.5 h-3.5"))
- }
- button type="button" class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer text-danger" title="删除"
- _=(format!("on click set #bom-node-delete-form's @hx-delete to '/admin/md/boms/{}/nodes/{}' then call htmx.process(document.querySelector('#bom-node-delete-form')) then add .open to #bom-delete-dialog", bom_id, node.id)) {
- (icon::trash_icon("w-3.5 h-3.5"))
- }
- }
- }
+data-node-id=(node.id) data-parent-id=(node.parent_id) data-level=(level) data-ancestors=(ancestors_str) {
+td class="text-center px-2 py-2.5 [border-bottom:1px_solid_var(--border-soft)]" {
+@if has_children {
+button type="button" class="inline-flex items-center justify-center w-[20px] h-[20px] border-none rounded-sm cursor-pointer shrink-0"
+onclick=(format!("bomToggleCollapse({})", node.id)) {
+(icon::chevron_down_icon("bom-collapse-icon"))
+}
+}
+}
+td class="text-center px-2 py-2.5 text-xs [border-bottom:1px_solid_var(--border-soft)]" { (index + 1) }
+td class="text-center px-2 py-2.5 text-xs [border-bottom:1px_solid_var(--border-soft)]" { (level) }
+td class="font-mono tabular-nums px-3 py-2.5 text-xs [border-bottom:1px_solid_var(--border-soft)]" { (code) }
+td class="px-3 py-2.5 text-xs [border-bottom:1px_solid_var(--border-soft)]" { (name) }
+td class="px-3 py-2.5 text-xs [border-bottom:1px_solid_var(--border-soft)]" { (work_center) }
+td class="font-mono tabular-nums text-right px-3 py-2.5 text-xs [border-bottom:1px_solid_var(--border-soft)]" { (node.quantity) }
+td class="text-center px-3 py-2.5 text-xs [border-bottom:1px_solid_var(--border-soft)]" { (unit) }
+td class="text-right px-3 py-2.5 text-xs [border-bottom:1px_solid_var(--border-soft)]" { (loss_rate) }
+td class="px-3 py-2.5 text-xs [border-bottom:1px_solid_var(--border-soft)]" { (position) }
+td class="text-muted px-3 py-2.5 text-xs [border-bottom:1px_solid_var(--border-soft)]" { (remark) }
+td class="px-3 py-2.5 text-center [border-bottom:1px_solid_var(--border-soft)]" {
+div class="flex gap-1 justify-center" {
+button type="button" class=(btn_class) title="添加子节点"
+_=(format!("on click put '{}' into <input[name='parent_id']/>'s value then add .is-open to #bom-add-modal then call bomLoadProducts()", node.id)) {
+(icon::plus_icon("w-3.5 h-3.5"))
+}
+button type="button" class=(btn_class) title="编辑"
+hx-get=(format!("/admin/md/boms/{}/nodes/{}", bom_id, node.id))
+hx-target="#bom-edit-modal" hx-swap="innerHTML" {
+(icon::edit_icon("w-3.5 h-3.5"))
+}
+button type="button" class=(delete_btn_class) title="删除"
+_=(format!("on click set #bom-node-delete-form's @hx-delete to '/admin/md/boms/{}/nodes/{}' then call htmx.process(document.querySelector('#bom-node-delete-form')) then show #bom-delete-dialog", bom_id, node.id)) {
+(icon::trash_icon("w-3.5 h-3.5"))
+}
+}
+}
  }
  }
 }
@@ -881,12 +903,12 @@ fn build_ancestors_map(nodes: &[BomNode]) -> HashMap<i64, Vec<i64>> {
 fn product_list_fragment(products: &[abt_core::master_data::product::model::Product], bom_id: Option<i64>) -> Markup {
  let bid = bom_id.unwrap_or(0);
  html! {
- @if products.is_empty() {
- div class="text-center text-muted text-sm py-8" {
- (icon::package_icon("w-8 h-8"))
- p class="mt-2 text-sm" { "未找到匹配的产品" }
- }
- } @else {
+@if products.is_empty() {
+div class="flex flex-col items-center justify-center text-muted" style="min-height:200px" {
+(icon::package_icon("w-8 h-8 opacity-40"))
+p class="mt-2 text-sm" { "未找到匹配的产品" }
+}
+} @else {
  div class="py-2" {
  @for p in products {
  div class="flex items-center justify-between p-3 border-b border-border-soft" {

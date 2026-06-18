@@ -766,20 +766,23 @@ impl BomCostService for BomCostServiceImpl {
             .await?
             .ok_or_else(|| DomainError::not_found("BOM"))?;
 
-        let leaf_nodes = self.node_repo.find_leaf_nodes(db, bom_id)
-            .await?;
+ let mut leaf_nodes = self.node_repo.find_leaf_nodes(db, bom_id)
+ .await?;
 
-        // Resolve product names
-        let product_ids: Vec<i64> = leaf_nodes.iter().map(|n| n.product_id).collect();
-        let product_svc = new_product_service(self.pool.clone());
-        let products = if product_ids.is_empty() {
-            Vec::new()
-        } else {
-            product_svc.get_by_ids(_ctx, db, product_ids).await.unwrap_or_default()
-        };
-        let product_map: std::collections::HashMap<i64, String> = products.iter()
-            .map(|p| (p.product_id, p.pdt_name.clone()))
-            .collect();
+ // Resolve product names
+ let product_ids: Vec<i64> = leaf_nodes.iter().map(|n| n.product_id).collect();
+ let product_svc = new_product_service(self.pool.clone());
+ let products = if product_ids.is_empty() {
+ Vec::new()
+ } else {
+ product_svc.get_by_ids(_ctx, db, product_ids).await.unwrap_or_default()
+ };
+ let product_map: std::collections::HashMap<i64, String> = products.iter()
+ .map(|p| (p.product_id, p.pdt_name.clone()))
+ .collect();
+
+ // Filter out leaf nodes whose products no longer exist
+ leaf_nodes.retain(|n| product_map.contains_key(&n.product_id));
 
         // Root product_code for labor cost lookup — may be NULL on the node, resolve from product table
         let root_node = self.node_repo.find_root_node(db, bom_id).await?;

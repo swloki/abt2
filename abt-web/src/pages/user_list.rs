@@ -235,7 +235,7 @@ fn user_list_page(
  html! {
  div {
  div class="flex items-center justify-between mb-6" {
- h1 class="text-xl font-bold text-fg tracking-tight" { "用户管理" }
+ h1 class="text-2xl font-bold text-fg tracking-tight" { "用户管理" }
  div class="flex gap-3" {
  @if can_create {
  a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(UserCreatePath::PATH) {
@@ -299,7 +299,7 @@ fn user_table_fragment(
  html! {
  div class="user-list-panel" {
  // ── Stats ──
- div class="grid gap-5" {
+ div class="grid grid-cols-4 gap-5" {
  div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
  div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 blue" {
  (icon::users_icon("w-6 h-6"))
@@ -370,7 +370,7 @@ fn user_table_fragment(
 
  // ── Filter Bar ──
  div class="flex items-center gap-3 mb-5 flex-wrap" {
- div class="relative flex-1 max-w-xs [&_svg]:absolute [&_svg]:left-3 [&_svg]:top-1/2 [&_svg]:-translate-y-1/2 [&_svg]:w-4 [&_svg]:h-4 [&_svg]:text-muted" {
+ div class="relative w-[280px] shrink-0 [&_svg]:absolute [&_svg]:left-3 [&_svg]:top-1/2 [&_svg]:-translate-y-1/2 [&_svg]:w-4 [&_svg]:h-4 [&_svg]:text-muted" {
  (icon::search_icon("w-4 h-4"))
  input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword"
  placeholder="搜索用户名、显示名称…"

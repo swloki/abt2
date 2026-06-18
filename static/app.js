@@ -61,17 +61,6 @@ document.addEventListener('exportDone', function (e) {
     window.location.href = e.detail.url;
 });
 
-// Toast 生命周期：入场结束 → 3.5s 后离场 → 离场结束移除 DOM
-document.addEventListener('animationend', function (e) {
-    var el = e.target;
-    if (!el.classList || !el.classList.contains('toast')) return;
-    if (e.animationName === 'toast-in') {
-        setTimeout(function () { el.classList.add('toast-dismiss'); }, 3500);
-    }
-    if (e.animationName === 'toast-out') {
-        el.remove();
-    }
-});
 
 
 // ── HTMX: re-init for swapped content ──
@@ -297,4 +286,33 @@ window.selectCat = function(btn) {
     if (label) label.textContent = name;
     if (dropdown) dropdown.style.display = 'none';
     if (backdrop) backdrop.style.display = 'none';
+};
+
+// ===== Drawer Slide Animation =====
+
+window.slideDrawerIn = function(panelSelector) {
+    var panel = document.querySelector(panelSelector);
+    var overlay = panel ? panel.parentElement : null;
+    if (overlay) overlay.style.opacity = '1';
+    if (!panel) return;
+    panel.style.transition = 'transform 0.3s ease';
+    panel.style.transform = 'translateX(100%)';
+    requestAnimationFrame(function() {
+        requestAnimationFrame(function() {
+            panel.style.transform = 'translateX(0)';
+        });
+    });
+};
+
+window.slideDrawerOut = function(panelSelector, overlay) {
+    var panel = document.querySelector(panelSelector);
+    if (!panel) { if (overlay) overlay.style.display = 'none'; return; }
+    panel.style.transition = 'transform 0.3s ease';
+    panel.style.transform = 'translateX(100%)';
+    setTimeout(function() {
+        if (overlay) {
+            overlay.style.opacity = '0';
+            setTimeout(function() { overlay.style.display = 'none'; }, 300);
+        }
+    }, 300);
 };

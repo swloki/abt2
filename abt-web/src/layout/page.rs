@@ -90,7 +90,7 @@ pub fn standalone_page(title: &str, body: Markup) -> Markup {
 
 fn toast_container() -> Markup {
     html! {
-        div class="fixed z-[99999] flex flex-col gap-[10px]"
+div class="toast-container fixed z-[99999] flex flex-col gap-[10px] top-4 right-4 w-[360px] max-w-[calc(100vw-32px)]"
             hx-get="/api/toast"
             hx-trigger="showToast from:body"
             hx-swap="innerHTML" {}

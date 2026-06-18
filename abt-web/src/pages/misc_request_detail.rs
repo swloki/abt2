@@ -135,7 +135,7 @@ fn workflow_steps(current: MiscRequestStatus) -> Markup {
  }
  @if is_cancelled {
  div class="w-[48px] h-[2px] bg-border" {}
- div class="flex items-center gap-2 text-xs text-muted" style="color:var(--danger)" {
+ div class="flex items-center gap-2 text-xs text-muted" class="text-danger" {
  span class="w-[10px] h-[10px] rounded-full bg-border" {}
  "已取消"
  }
@@ -236,7 +236,7 @@ fn misc_detail_page(
  }
  @if items.is_empty() {
  tr {
- td colspan="8" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
+ td colspan="8" class="text-center text-muted py-8" {
  "暂无明细"
  }
  }
@@ -247,12 +247,12 @@ fn misc_detail_page(
  }
 
  // ── Amount Summary ──
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" style="margin-top:var(--space-6)" {
+ div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" class="mt-6" {
  div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "金额汇总" }
  div class="grid gap-4" {
  div class="flex flex-col gap-1" {
  span class="text-xs text-muted font-medium" { "总金额" }
- span class="text-sm text-fg font-medium font-mono tabular-nums" style="font-size:1.125rem;font-weight:600" {
+ span class="text-sm text-fg font-medium font-mono tabular-nums" class="font-semibold" style="font-size:1.125rem" {
  (format!("{:.2}", total_amount))
  }
  }
@@ -261,7 +261,7 @@ fn misc_detail_page(
 
  // ── Remarks ──
  @if !req.remark.is_empty() {
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" style="margin-top:var(--space-6)" {
+ div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" class="mt-6" {
  div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "备注" }
  p class="text-muted" { (req.remark.as_str()) }
  }

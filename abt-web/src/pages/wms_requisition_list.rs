@@ -266,7 +266,7 @@ fn requisition_data_card(
  }
  @if result.items.is_empty() {
  tr {
- td colspan="7" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
+ td colspan="7" class="text-center text-muted py-8" {
  "暂无领料单数据"
  }
  }

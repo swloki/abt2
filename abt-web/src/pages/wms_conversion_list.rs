@@ -97,7 +97,7 @@ fn conversion_data_card(
  }
  @if result.items.is_empty() {
  tr {
- td colspan="8" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
+ td colspan="8" class="text-center text-muted py-8" {
  "暂无转换数据"
  }
  }
@@ -185,7 +185,7 @@ fn conversion_row(c: &FormConversion) -> Markup {
  };
 
  html! {
- tr style="cursor:pointer" {
+ tr class="cursor-pointer" {
  td class="text-accent font-medium cursor-pointer font-mono tabular-nums" onclick=(format!("location.href='{}'", detail_path)) { (c.doc_number) }
  td onclick=(format!("location.href='{}'", detail_path)) { "—" }
  td class="font-mono tabular-nums" onclick=(format!("location.href='{}'", detail_path)) { (c.conversion_date.to_string()) }
@@ -195,7 +195,7 @@ fn conversion_row(c: &FormConversion) -> Markup {
  td onclick=(format!("location.href='{}'", detail_path)) { "—" }
  td onclick=(format!("location.href='{}'", detail_path)) { "—" }
  td onclick=(format!("location.href='{}'", detail_path)) { "—" }
- td onclick="event.stopPropagation()" {
+ td _="on click halt the event" {
  div class="row-actions flex items-center gap-1 justify-end opacity-0 transition-opacity duration-150 [&_a]:w-[28px] [&_a]:h-[28px] [&_a]:grid [&_a]:place-items-center [&_a]:rounded-sm [&_a]:cursor-pointer [&_a]:bg-surface [&_a]:hover:bg-accent-bg [&_svg]:w-3.5 [&_svg]:h-3.5" {
  a class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" title="查看" href=(detail_path.to_string()) {
  (icon::eye_icon("w-4 h-4"))

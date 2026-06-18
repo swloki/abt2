@@ -70,7 +70,7 @@ fn workflow_steps(current: PaymentStatus) -> Markup {
  }
  @if is_cancelled {
  div class="w-[48px] h-[2px] bg-border" {}
- div class="flex items-center gap-2 text-xs text-muted" style="color:var(--danger)" {
+ div class="flex items-center gap-2 text-xs text-muted" class="text-danger" {
  span class="w-[10px] h-[10px] rounded-full bg-border" {}
  "已取消"
  }
@@ -249,7 +249,7 @@ fn pay_detail_page(
  }
 
  // ── Invoice Info ──
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" style="margin-top:var(--space-6)" {
+ div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" class="mt-6" {
  div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "发票信息" }
  div class="grid gap-4" {
  div class="flex flex-col gap-1" {
@@ -277,7 +277,7 @@ fn pay_detail_page(
 
  // ── Remarks ──
  @if !pay.remark.is_empty() {
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" style="margin-top:var(--space-6)" {
+ div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" class="mt-6" {
  div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "备注" }
  p class="text-muted" { (pay.remark.as_str()) }
  }

@@ -261,349 +261,7 @@ pub async fn delete_category(
  Ok(([("HX-Redirect", CategoryListPath::PATH)], Html(String::new())))
 }
 
-// ── Inline styles for split view ──
 
-fn split_view_style() -> Markup {
- PreEscaped(
- r#"
- <style>
- /* ─── Split View Layout ─── */
- .split-view {
- display: flex;
- gap: var(--space-6);
- height: calc(100vh - var(--header-h) - var(--space-8) * 2);
- min-height: 600px;
- }
-
- /* ─── Left Panel: Tree ─── */
- .tree-panel {
- width: 320px;
- min-width: 320px;
- background: var(--bg);
- border: 1px solid var(--border-soft);
- border-radius: var(--radius-md);
- box-shadow: var(--shadow-xs);
- display: flex;
- flex-direction: column;
- overflow: hidden;
- }
- .tree-panel-header {
- padding: var(--space-4) var(--space-4) var(--space-3);
- border-bottom: 1px solid var(--border-soft);
- flex-shrink: 0;
- }
- .tree-panel-header h3 {
- font-size: var(--text-base);
- font-weight: 600;
- color: var(--fg);
- margin: 0 0 var(--space-3);
- }
- .tree-search {
- position: relative;
- }
- .tree-search svg {
- position: absolute;
- left: 10px;
- top: 50%;
- transform: translateY(-50%);
- width: 15px;
- height: 15px;
- color: var(--muted);
- }
- .tree-search input {
- width: 100%;
- padding: 7px 12px 7px 32px;
- border: 1px solid var(--border);
- border-radius: var(--radius-sm);
- background: var(--surface);
- font-size: var(--text-sm);
- color: var(--fg);
- outline: none;
- transition: all var(--motion-fast) var(--ease-standard);
- }
- .tree-search input:focus {
- border-color: var(--accent);
- box-shadow: var(--shadow-focus);
- background: var(--bg);
- }
- .tree-search input::placeholder {
- color: var(--muted);
- opacity: 0.7;
- }
-
- .tree-scroll {
- flex: 1;
- overflow-y: auto;
- padding: var(--space-2) 0;
- }
- .tree-footer {
- padding: var(--space-3) var(--space-4);
- border-top: 1px solid var(--border-soft);
- flex-shrink: 0;
- }
-
- /* ─── Tree Nodes ─── */
- .tree-node {
- user-select: none;
- }
- .tree-node-row {
- display: flex;
- align-items: center;
- gap: 4px;
- padding: 6px var(--space-4);
- cursor: pointer;
- transition: all var(--motion-fast) var(--ease-standard);
- border-radius: 0;
- position: relative;
- }
- .tree-node-row:hover {
- background: var(--accent-bg);
- }
- .tree-node-row.active {
- background: var(--accent-bg);
- }
- .tree-node-row.active::before {
- content: '';
- position: absolute;
- left: 0;
- top: 0;
- bottom: 0;
- width: 3px;
- background: var(--accent);
- border-radius: 0 3px 3px 0;
- }
- .tree-node-row.active .tree-node-name {
- color: var(--accent);
- font-weight: 600;
- }
- .tree-arrow {
- width: 20px;
- height: 20px;
- display: grid;
- place-items: center;
- flex-shrink: 0;
- cursor: pointer;
- border-radius: var(--radius-sm);
- transition: all var(--motion-fast) var(--ease-standard);
- }
- .tree-arrow:hover {
- background: rgba(0, 0, 0, 0.06);
- }
- .tree-arrow svg {
- width: 14px;
- height: 14px;
- color: var(--muted);
- transition: transform var(--motion-fast) var(--ease-standard);
- }
- .tree-node.expanded > .tree-node-row > .tree-arrow svg {
- transform: rotate(90deg);
- }
- .tree-node:not(.expanded) > .tree-children {
- display: none;
- }
- .tree-arrow.leaf {
- visibility: hidden;
- }
- .tree-node-name {
- flex: 1;
- font-size: var(--text-sm);
- color: var(--fg);
- white-space: nowrap;
- overflow: hidden;
- text-overflow: ellipsis;
- transition: color var(--motion-fast);
- }
- .tree-node-count {
- font-size: 11px;
- color: var(--muted);
- background: var(--surface);
- padding: 1px 8px;
- border-radius: var(--radius-pill);
- font-weight: 500;
- flex-shrink: 0;
- font-family: var(--font-mono);
- font-variant-numeric: tabular-nums;
- }
- .tree-node-row.active .tree-node-count {
- background: rgba(22, 119, 255, 0.12);
- color: var(--accent);
- }
- .tree-children {
- overflow: hidden;
- }
-
- /* ─── Right Panel ─── */
- .detail-panel {
- flex: 1;
- min-width: 0;
- overflow-y: auto;
- }
-
- /* ─── Empty State ─── */
- .empty-state {
- display: flex;
- flex-direction: column;
- align-items: center;
- justify-content: center;
- height: 100%;
- min-height: 400px;
- color: var(--muted);
- }
- .empty-state svg {
- width: 64px;
- height: 64px;
- color: var(--border);
- margin-bottom: var(--space-5);
- }
- .empty-state-text {
- font-size: var(--text-base);
- font-weight: 500;
- margin-bottom: var(--space-2);
- }
- .empty-state-hint {
- font-size: var(--text-sm);
- color: var(--muted);
- }
-
- /* ─── Category Info Card ─── */
- .info-card {
- background: var(--bg);
- border: 1px solid var(--border-soft);
- border-radius: var(--radius-md);
- padding: var(--space-5) var(--space-6);
- margin-bottom: var(--space-6);
- }
- .cat-info-header {
- display: flex;
- align-items: flex-start;
- justify-content: space-between;
- margin-bottom: var(--space-5);
- }
- .cat-info-title {
- font-size: var(--text-xl);
- font-weight: 700;
- color: var(--fg);
- letter-spacing: -0.01em;
- }
- .cat-info-path {
- font-size: var(--text-sm);
- color: var(--muted);
- font-family: var(--font-mono);
- font-variant-numeric: tabular-nums;
- margin-top: var(--space-1);
- }
- .cat-info-actions {
- display: flex;
- gap: var(--space-2);
- }
- .cat-meta-grid {
- display: grid;
- grid-template-columns: repeat(4, 1fr);
- gap: var(--space-5);
- }
- .cat-meta-item {
- display: flex;
- flex-direction: column;
- gap: 4px;
- }
-
- /* ─── Sub-category Cards ─── */
- .subcat-grid {
- display: grid;
- grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
- gap: var(--space-3);
- }
- .subcat-card {
- background: var(--bg);
- border: 1px solid var(--border-soft);
- border-radius: var(--radius-md);
- padding: var(--space-4);
- display: flex;
- align-items: center;
- justify-content: space-between;
- cursor: pointer;
- transition: all var(--motion-fast) var(--ease-standard);
- box-shadow: var(--shadow-xs);
- }
- .subcat-card:hover {
- border-color: var(--accent);
- box-shadow: var(--shadow-sm);
- transform: translateY(-1px);
- }
- .subcat-card-name {
- font-size: var(--text-sm);
- font-weight: 500;
- color: var(--fg);
- overflow: hidden;
- text-overflow: ellipsis;
- white-space: nowrap;
- min-width: 0;
- }
- .subcat-card-count {
- font-size: 12px;
- color: var(--muted);
- background: var(--surface);
- padding: 2px 10px;
- border-radius: var(--radius-pill);
- font-family: var(--font-mono);
- font-variant-numeric: tabular-nums;
- }
-
- /* ─── Section header in detail panel ─── */
- .detail-section {
- margin-bottom: var(--space-6);
- }
- .detail-section-header {
- display: flex;
- align-items: center;
- justify-content: space-between;
- margin-bottom: var(--space-4);
- }
- .detail-section-title {
- display: inline;
- font-size: var(--text-base);
- font-weight: 600;
- color: var(--fg);
- }
- .detail-section-count {
- display: inline;
- font-size: 12px;
- color: var(--muted);
- margin-left: var(--space-2);
- font-weight: 400;
- }
-
- /* ─── Responsive ─── */
- @media (max-width: 768px) {
- .split-view {
- flex-direction: column;
- height: auto;
- }
- .tree-panel {
- width: 100%;
- min-width: 0;
- max-height: 50vh;
- }
- .cat-meta-grid {
- grid-template-columns: 1fr 1fr;
- }
- .subcat-grid {
- grid-template-columns: 1fr 1fr;
- }
- }
- .data-card-empty {
- padding: var(--space-8);
- text-align: center;
- color: var(--muted);
- font-size: var(--text-sm);
- background: var(--surface);
- border: 1px solid var(--border-soft);
- border-radius: var(--radius-md);
- }
- </style>
- "#.to_string(),
- )
-}
 
 // ── Page Component ──
 
@@ -611,38 +269,37 @@ fn category_page(tree: &[CategoryTree], initial_panel: Option<&Markup>, first_id
 
  html! {
  div {
- (split_view_style())
  script { (category_split_view_script()) }
 
  // ── Page Header ──
  div class="flex items-center justify-between mb-6" {
  h1 class="text-xl font-bold text-fg tracking-tight" { "产品分类" }
- div class="flex gap-3" {
- button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" {
- (icon::upload_icon("w-4 h-4"))
- "导出"
- }
- }
+ (crate::components::export_button::export_dropdown(&[
+ crate::components::export_button::ExportItem {
+ label: "导出分类数据".into(),
+ export_type: "categories".into(),
+ },
+ ]))
  }
 
  // ── Split View Container ──
- div class="split-view" {
- // ── Left Panel: Tree ──
- div class="tree-panel" {
- div class="tree-panel-header" {
- h3 { "分类目录" }
-   div class="relative w-full [&_svg]:absolute [&_svg]:left-2.5 [&_svg]:top-1/2 [&_svg]:-translate-y-1/2 [&_svg]:w-3.5 [&_svg]:h-3.5 [&_svg]:text-muted border border-border-soft rounded-sm text-[12px] bg-surface text-fg" {
-   (icon::search_icon(""))
-   input class="w-full pl-8 pr-2 py-1.5 bg-transparent outline-none" type="text" placeholder="搜索分类…"
-   oninput="filterTree(this.value)";
-   }
+ div class="flex gap-6 h-[calc(100vh-180px)] min-h-[600px]" {
+ div class="w-80 min-w-80 bg-bg border border-border-soft rounded-md shadow-[var(--shadow-xs)] flex flex-col overflow-hidden" {
+ div class="p-4 pb-3 border-b border-border-soft shrink-0" {
+ h3 class="text-base font-semibold text-fg mb-3" { "分类目录" }
+ div class="relative w-full" {
+ (icon::search_icon("absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted"))
+ input class="w-full pl-8 pr-2 py-1.5 border border-border rounded-sm text-sm bg-surface text-fg outline-none focus:border-accent transition-all duration-150"
+ type="text" placeholder="搜索分类…"
+ _="on input call filterTree(my value)" {}
  }
- div class="tree-scroll" id="category-tree" {
+ }
+ div class="flex-1 overflow-y-auto py-2" id="category-tree" {
  (tree_fragment(tree, first_id))
  }
  @if can_create {
- div class="tree-footer" {
- button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" style="width: 100%; justify-content: center;"
+ div class="p-3 px-4 border-t border-border-soft shrink-0" {
+ button class="inline-flex items-center justify-center gap-2 w-full py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
  _="on click add .is-open to #create-modal" {
  (icon::plus_icon("w-4 h-4"))
  "新建分类"
@@ -650,18 +307,16 @@ fn category_page(tree: &[CategoryTree], initial_panel: Option<&Markup>, first_id
  }
  }
  }
-
- // ── Right Panel: Detail ──
- div class="detail-panel" id="detail-panel" {
+ div class="flex-1 min-w-0 overflow-y-auto" id="detail-panel" {
  @if let Some(panel) = initial_panel {
  (panel)
  } @else {
- div class="text-center p-6 text-muted text-sm" {
- svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" {
+ div class="flex flex-col items-center justify-center text-center text-muted min-h-[400px]" {
+ svg class="w-16 h-16 text-border mb-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" {
  path d="M4 20h16M8 16h8M6 12h12M10 8h4M12 4v16" {}
  }
- div class="text-center p-6 text-muted text-sm-text" { "请从左侧选择一个分类" }
- div class="text-center p-6 text-muted text-sm-hint" { "选择分类查看详情和管理关联产品" }
+ div class="text-base font-medium mb-2" { "请从左侧选择一个分类" }
+ div class="text-sm text-muted" { "选择分类查看详情和管理关联产品" }
  }
  }
  }
@@ -676,43 +331,18 @@ fn category_page(tree: &[CategoryTree], initial_panel: Option<&Markup>, first_id
 // Vanilla JS globals for tree interaction (filterTree).
 
 fn category_split_view_script() -> Markup {
- PreEscaped(
- r#"
- function filterTree(q) {
- q = (q || '').trim().toLowerCase();
- var container = document.querySelector('#category-tree');
- if (!container) return;
- var allNodes = container.querySelectorAll('.tree-node');
- if (!q) {
- for (var i = 0; i < allNodes.length; i++) {
- allNodes[i].style.display = '';
- allNodes[i].classList.add('expanded');
- }
- return;
- }
- for (var i = 0; i < allNodes.length; i++) {
- var name = (allNodes[i].getAttribute('data-name') || '').toLowerCase();
- allNodes[i]._matches = (name.indexOf(q) >= 0);
- }
- for (var i = 0; i < allNodes.length; i++) {
- if (allNodes[i]._matches) {
- var ancestor = allNodes[i].parentElement;
- while (ancestor && ancestor !== container) {
- if (ancestor.classList && ancestor.classList.contains('tree-node')) {
- ancestor._matches = true;
- }
- ancestor = ancestor.parentElement;
- }
- }
- }
- for (var i = 0; i < allNodes.length; i++) {
- allNodes[i].style.display = allNodes[i]._matches ? '' : 'none';
- if (allNodes[i]._matches) allNodes[i].classList.add('expanded');
- delete allNodes[i]._matches;
- }
- }
- "#.to_string(),
- )
+ PreEscaped(r#"<script>
+function filterTree(q) {
+  q = (q || '').trim().toLowerCase();
+  var container = document.querySelector('#category-tree');
+  if (!container) return;
+  var rows = container.querySelectorAll('[data-name]');
+  for (var i = 0; i < rows.length; i++) {
+    var name = (rows[i].getAttribute('data-name') || '').toLowerCase();
+    rows[i].style.display = (!q || name.indexOf(q) >= 0) ? '' : 'none';
+  }
+}
+</script>"#.to_string())
 }
 
 // ── Tree Fragment ──
@@ -751,48 +381,56 @@ fn tree_node(node: &CategoryTree, depth: usize, selected_id: Option<i64>, expand
  let is_active = selected_id == Some(id);
  let should_expand = is_active || expand_ids.contains(&id);
 
+ let active_cls = "bg-accent-bg before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[3px] before:bg-accent before:rounded-r-sm";
+ let row_cls = if is_active {
+ format!("cat-row flex items-center gap-1 px-4 py-1.5 cursor-pointer relative hover:bg-accent-bg transition-colors {}", active_cls)
+ } else {
+ "cat-row flex items-center gap-1 px-4 py-1.5 cursor-pointer relative hover:bg-accent-bg transition-colors".to_string()
+ };
+ let name_cls = if is_active { "flex-1 text-sm truncate transition-colors text-accent font-semibold" } else { "flex-1 text-sm truncate transition-colors text-fg" };
+ let children_style = if should_expand { "display: block" } else { "display: none" };
+
  html! {
  @if has_children {
- div.tree-node.expanded[should_expand] data-name=(name_lower) {
- div.tree-node-row.active[is_active]
+ div class="select-none" data-name=(name_lower) {
+ div class=(row_cls)
  style=(pad)
  hx-get=(detail_url)
  hx-select="#detail-panel" hx-target="#detail-panel" hx-swap="innerHTML"
  hx-push-url="true"
- _="on click take .active from .tree-node-row" {
- span.tree-arrow _="on click halt the event then toggle .expanded on closest .tree-node" {
- (icon::chevron_down_icon(""))
+ _="on click take .bg-accent-bg from .cat-row then add .bg-accent-bg to me" {
+ span class="w-5 h-5 grid place-items-center shrink-0 cursor-pointer rounded-sm hover:bg-black/6"
+ _="on click halt the event then toggle .rotate-90 on me then if next <div/>'s style's display is 'none' then show next <div/> else hide next <div/>" {
+ (icon::chevron_down_icon(&(format!("w-3.5 h-3.5 text-muted transition-transform{}", if should_expand { " rotate-90" } else { "" }))))
  }
- span class="tree-node-name" { (name) }
+ span class=(name_cls) { (name) }
  @if count > 0 {
- span class="tree-node-count" { (count) }
+ span class="text-[11px] text-muted bg-surface px-2 py-0.5 rounded-full font-medium shrink-0 font-mono tabular-nums" { (count) }
  }
  }
- div class="tree-children" {
+ div class="overflow-hidden" style=(children_style) {
  @for child in &node.children {
  (tree_node(child, depth + 1, selected_id, expand_ids))
  }
  }
  }
  } @else {
- div.tree-node data-name=(name_lower) {
- div.tree-node-row.active[is_active]
+ div class="select-none" data-name=(name_lower) {
+ div class=(row_cls)
  style=(pad)
  hx-get=(detail_url)
  hx-select="#detail-panel" hx-target="#detail-panel" hx-swap="innerHTML"
  hx-push-url="true"
- _="on click take .active from .tree-node-row" {
- span class="tree-arrow leaf" {
- (icon::chevron_down_icon(""))
- }
- span class="tree-node-name" { (name) }
+ _="on click take .bg-accent-bg from .cat-row then add .bg-accent-bg to me" {
+ span class="w-5 h-5 shrink-0" {}
+ span class=(name_cls) { (name) }
  @if count > 0 {
- span class="tree-node-count" { (count) }
+ span class="text-[11px] text-muted bg-surface px-2 py-0.5 rounded-full font-medium shrink-0 font-mono tabular-nums" { (count) }
  }
  }
  }
  }
-}
+ }
 }
 
 fn detail_panel(
@@ -813,27 +451,31 @@ fn detail_panel(
  let total_products = products.total;
  let total_pages = products.total_pages;
  let current_page = products.page;
- html! {
+
+ let subcat_cards: Vec<(String, String, i64)> = child_tree
+ .iter()
+ .map(|c| (c.category_name.clone(), format!("/admin/md/categories/{}/panel", c.category_id), c.meta.count))
+ .collect();
+
+ let info_card = html! {
+ div class="data-card" {
+ div class="flex items-start justify-between mb-5" {
  div {
- // ── Category Info Card ──
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
- div class="cat-info-header" {
- div {
- div class="cat-info-title" { (category.category_name) }
- div class="cat-info-path" {
+ div class="text-xl font-bold text-fg tracking-tight" { (category.category_name) }
+ div class="text-sm text-muted font-mono tabular-nums mt-1" {
  "路径: " (category.path) " \u{00a0}·\u{00a0} 上级: " (parent_name)
  }
  }
- div class="cat-info-actions" {
+ div class="flex gap-2" {
  @if can_update {
- button class="btn inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative [&_svg]:w-4 [&_svg]:h-4"
+ button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs [&_svg]:w-4 [&_svg]:h-4"
  _="on click add .is-open to #edit-category-modal" {
  (icon::edit_icon("w-4 h-4"))
  "编辑"
  }
  }
  @if can_delete {
- button class="btn inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative [&_svg]:w-4 [&_svg]:h-4" style="color: var(--danger); border-color: var(--border);"
+ button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-danger border border-border hover:bg-[#fff2f0] hover:border-[#ffccc7] text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs [&_svg]:w-4 [&_svg]:h-4"
  hx-post=(delete_url)
  hx-confirm="确定要删除此分类吗？此操作不可撤销。"
  hx-swap="none" {
@@ -843,61 +485,65 @@ fn detail_panel(
  }
  }
  }
- div class="cat-meta-grid" {
- div class="cat-meta-item" {
+ div class="grid grid-cols-4 gap-5" {
+ div class="flex flex-col gap-1" {
  span class="text-xs text-muted font-medium" { "分类名称" }
  span class="text-sm text-fg font-medium" { (category.category_name) }
  }
- div class="cat-meta-item" {
+ div class="flex flex-col gap-1" {
  span class="text-xs text-muted font-medium" { "分类路径" }
  span class="text-sm text-fg font-medium font-mono tabular-nums" { (category.path) }
  }
- div class="cat-meta-item" {
+ div class="flex flex-col gap-1" {
  span class="text-xs text-muted font-medium" { "上级分类" }
  span class="text-sm text-fg font-medium" { (parent_name) }
  }
- div class="cat-meta-item" {
+ div class="flex flex-col gap-1" {
  span class="text-xs text-muted font-medium" { "关联产品数" }
  span class="text-sm text-fg font-medium font-mono tabular-nums" { (category.meta.count) }
  }
  }
  }
+ };
 
- // ── Sub-categories ──
+ let subcat_section = html! {
  @if has_children {
  div class="mb-5" {
- div class="mb-5-header" {
+ div class="flex items-center justify-between mb-4" {
  div {
- span class="text-[13px] font-semibold text-fg flex items-center gap-[6px]" { "子分类" }
- span class="mb-5-count" { "(" (child_tree.len()) ")" }
+ span class="text-[13px] font-semibold text-fg" { "子分类" }
+ span class="text-xs text-muted ml-2" { "(" (child_tree.len()) ")" }
  }
  }
- div class="subcat-grid" {
- @for child in child_tree {
- div class="subcat-card"
- onclick=(format!("htmx.ajax('GET', '/admin/md/categories/{}/panel', '#detail-panel')", child.category_id)) {
- span class="subcat-card-name" { (child.category_name) }
- span class="subcat-card-count" { (child.meta.count) }
+ div class="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3" {
+ @for (name, url, count) in &subcat_cards {
+ a class="flex items-center justify-between bg-bg border border-border-soft rounded-md p-4 cursor-pointer transition-all duration-150 shadow-[var(--shadow-xs)] hover:border-accent hover:shadow-[var(--shadow-sm)] hover:-translate-y-px no-underline"
+ href=(url)
+ hx-get=(url)
+ hx-target="#detail-panel" hx-swap="innerHTML" hx-push-url="true" {
+ span class="text-sm font-medium text-fg truncate min-w-0" { (name) }
+ span class="text-xs text-muted bg-surface px-2.5 py-0.5 rounded-full font-mono tabular-nums" { (count) }
  }
  }
  }
  }
  }
+ };
 
- // ── Associated Products ──
+ let products_section = html! {
  div class="mb-5" id="products-section"
  hx-select="#products-section" hx-target="#products-section"
  hx-swap="outerHTML" hx-push-url="true" {
- div class="mb-5-header" {
+ div class="flex items-center justify-between mb-4" {
  div {
- span class="text-[13px] font-semibold text-fg flex items-center gap-[6px]" { "关联产品" }
- span class="mb-5-count" { "(" (total_products) ")" }
+ span class="text-[13px] font-semibold text-fg" { "关联产品" }
+ span class="text-xs text-muted ml-2" { "(" (total_products) ")" }
  }
  }
  @if has_products {
- div class="data-card" style="border: 1px solid var(--border-soft); border-radius: var(--radius-md);" {
+ div class="data-card" {
  div class="overflow-x-auto" {
- table class="data-table" style="min-width: 0;" {
+ table class="data-table" {
  thead {
  tr {
  th { "产品编码" }
@@ -908,18 +554,14 @@ fn detail_panel(
  tbody {
  @for p in &products.items {
  tr {
- td class="text-accent font-medium cursor-pointer font-mono tabular-nums" { (p.product_code) }
- td style="max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title=(p.pdt_name) { strong { (p.pdt_name) } }
+ td class="text-accent font-medium font-mono tabular-nums" { (p.product_code) }
+ td class="max-w-[260px] truncate" title=(p.pdt_name) { strong { (p.pdt_name) } }
  td {
  @match p.status {
- ProductStatus::Active => {
- span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-[#f0fff0] text-[#389e0d]" { "在用" }
+ ProductStatus::Active => span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-[#f0fff0] text-[#389e0d]" { "在用" }
+ ProductStatus::Inactive => span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-surface text-muted" { "停用" }
+ ProductStatus::Obsolete => span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-[#fff2f0] text-[#cf1322]" { "淘汰" }
  }
- ProductStatus::Inactive => {
- span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-surface text-muted" { "停用" }
- }
- ProductStatus::Obsolete => {
- span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-[#fff2f0] text-[#cf1322]" { "淘汰" }
  }
  }
  }
@@ -930,20 +572,19 @@ fn detail_panel(
  }
  @if total_pages > 1 {
  (htmx_pagination_inherited(
- &format!("/admin/md/categories?category_id={}", category_id),
+ "/admin/md/categories",
  total_products, current_page, total_pages,
  ))
  }
- }
- } @else {
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]-empty" {
+ @if !has_products {
+ div class="bg-surface border border-border-soft rounded-md p-8 text-center text-sm text-muted" {
  "暂无关联产品"
  }
  }
  }
+ };
 
- // ── Edit Modal ──
- (modal::modal(
+ let edit_modal = modal::modal(
  "edit-category-modal",
  "编辑分类",
  "保存",
@@ -956,8 +597,13 @@ fn detail_panel(
  value=(category.category_name) required;
  }
  },
- ))
-
+ );
+ html! {
+ div {
+ (info_card)
+ (subcat_section)
+ (products_section)
+ (edit_modal)
  }
  }
 }
@@ -979,7 +625,7 @@ fn create_category_modal(tree: &[CategoryTree], can_create: bool) -> Markup {
  html! {
  div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
  div class="form-field" {
- label { "分类名称 " span style="color:var(--danger)" { "*" } }
+ label { "分类名称 " span class="text-danger" { "*" } }
  input type="text" name="category_name"
  placeholder="请输入分类名称" required;
  }

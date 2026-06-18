@@ -86,13 +86,13 @@ fn workflow_steps(status: ArrivalStatus) -> Markup {
  }
  }
  }
- div style="display:flex;align-items:center;gap:var(--space-4);margin-top:var(--space-3);flex-wrap:wrap" {
- span style="font-size:12px;color:var(--muted)" { "检验结果分支：" }
- span style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--success)" { "● 全部接收 (Accepted)" }
- span style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--warn)" { "● 部分接收 (Partially Accepted)" }
- span style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--danger)" { "● 拒收 (Rejected)" }
+ div class="flex items-center flex-wrap" class="gap-4" class="mt-3" {
+ span class="text-xs text-muted" { "检验结果分支：" }
+ span class="items-center text-xs text-success" class="inline-flex gap-1" { "● 全部接收 (Accepted)" }
+ span class="items-center text-xs" class="text-warn" class="inline-flex gap-1" { "● 部分接收 (Partially Accepted)" }
+ span class="items-center text-xs text-danger" class="inline-flex gap-1" { "● 拒收 (Rejected)" }
  span style="color:var(--border-soft)" { "|" }
- span style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--muted)" { "仅草稿状态可取消 (Cancelled)" }
+ span class="items-center text-xs text-muted" class="inline-flex gap-1" { "仅草稿状态可取消 (Cancelled)" }
  }
  }
 }
@@ -328,7 +328,7 @@ fn arrival_detail_page(
  }
  @if items.is_empty() {
  tr {
- td colspan="9" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
+ td colspan="9" class="text-center text-muted py-8" {
  "暂无物料明细"
  }
  }
@@ -363,8 +363,8 @@ fn arrival_detail_page(
  span class="text-sm text-fg font-mono tabular-nums" { "—" }
  }
  }
- div class="rounded-sm px-4 py-3 text-sm text-fg-2" style="background:var(--surface-warm);border:1px solid var(--border)" {
- strong style="color:var(--warn)" { "⚠ IQC硬门规则：" }
+ div class="rounded-sm px-4 py-3 text-sm text-fg-2" class="border border-border" style="background:var(--surface-warm)" {
+ strong class="text-warn" { "⚠ IQC硬门规则：" }
  "质检不合格的物料将阻断入库流程。不合格批次将触发MRB（物料评审委员会）处理流程，需由质量部判定：退货 / 让步接收 / 挑选使用。"
  }
  }

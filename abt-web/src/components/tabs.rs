@@ -25,7 +25,7 @@ pub fn status_tabs_with_param(
  param_name: &str,
 ) -> Markup {
  html! {
- div id="status-tabs" class="flex gap-1 mb-6 [border-bottom:1px_solid_var(--border-soft)]" {
+ div id="status-tabs" class="flex gap-1 mb-6 border-b border-border-soft" {
  @for tab in tabs {
  (status_tab(hx_get, hx_target, hx_include, tab, active_value, param_name))
  }

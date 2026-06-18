@@ -179,11 +179,11 @@ fn transaction_filter_form(params: &TransactionLogQueryParams) -> Markup {
  option value="" { "全部仓库" }
  }
  input class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer" type="date" name="start_date"
- style="width:140px"
+ class="w-[140px]"
  value=(params.start_date.as_deref().unwrap_or(""));
  span class="text-muted leading-9" { "~" }
  input class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer" type="date" name="end_date"
- style="width:140px"
+ class="w-[140px]"
  value=(params.end_date.as_deref().unwrap_or(""));
  }
  }
@@ -220,7 +220,7 @@ fn transaction_data_card(
  }
  @if result.items.is_empty() {
  tr {
- td colspan="10" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
+ td colspan="10" class="text-center text-muted py-8" {
  "暂无事务记录"
  }
  }

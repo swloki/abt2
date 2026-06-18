@@ -209,7 +209,7 @@ fn stock_in_table_fragment(
  html! {
  div class="stockin-list-panel" {
  // ── Stat Cards ──
- div style="display:grid;grid-template-columns:repeat(4,1fr);gap:var(--space-5);margin-bottom:var(--space-6)" {
+ div class="grid" class="gap-5 mb-6" class="grid-cols-4" {
  div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
  div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 blue" {
  (icon::download_icon("w-5 h-5"))
@@ -262,7 +262,7 @@ fn stock_in_table_fragment(
  div class="relative flex-1 max-w-xs [&_svg]:absolute [&_svg]:left-3 [&_svg]:top-1/2 [&_svg]:-translate-y-1/2 [&_svg]:w-4 [&_svg]:h-4 [&_svg]:text-muted" {
  (icon::search_icon(""))
  input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="doc_number"
- style="width:180px"
+ class="w-[180px]"
  placeholder="单据编号"
  value=(params.doc_number.as_deref().unwrap_or(""));
  }
@@ -284,11 +284,11 @@ fn stock_in_table_fragment(
  }
  }
  input class="filter-input" type="date" name="date_start"
- style="width:140px"
+ class="w-[140px]"
  value=(params.date_start.as_deref().unwrap_or(""));
- span style="color:var(--muted);line-height:36px" { "~" }
+ span class="text-muted" style="line-height:36px" { "~" }
  input class="filter-input" type="date" name="date_end"
- style="width:140px"
+ class="w-[140px]"
  value=(params.date_end.as_deref().unwrap_or(""));
  }
 
@@ -296,9 +296,9 @@ fn stock_in_table_fragment(
  (stock_in_data_card(result, operator_names, wh_names, warehouses, params))
 
  // ── Info Note ──
- div style="margin-top:var(--space-6);padding:var(--space-4) var(--space-5);background:var(--accent-bg);border:1px solid rgba(22,119,255,0.15);border-radius:var(--radius-md);display:flex;align-items:flex-start;gap:var(--space-3)" {
+ div class="mt-6 flex" class="rounded-md items-start gap-3" class="px-5 py-4" style="background:var(--accent-bg);border:1px solid rgba(22,119,255,0.15)" {
  (icon::circle_alert_icon("w-4 h-4"))
- div style="font-size:var(--text-sm);color:var(--fg-2);line-height:1.6" {
+ div class="text-fg-2" class="text-sm" style="line-height:1.6" {
  strong { "入库流程说明：" }
  "入库操作通过 InventoryTransactionService.record() 执行，每次入库自动生成 InventoryTransaction 记录并更新 StockLedger 库存账，单据号格式为 RK-YYYY-MM-SEQ（如 RK-2026-06-000001）。"
  "采购入库需关联来料通知单（IQC质检通过后）；生产入库关联工单完工报工。"
@@ -344,17 +344,17 @@ fn stock_in_data_card(
  @let op_name = operator_names.get(&item.operator_id).map(|s| s.as_str()).unwrap_or("—");
  tr {
  td { input type="checkbox"; }
- td class="text-accent font-medium cursor-pointer font-mono tabular-nums" style="color:var(--accent)" { (item.doc_number.as_deref().unwrap_or("—")) }
+ td class="text-accent font-medium cursor-pointer font-mono tabular-nums" class="text-accent" { (item.doc_number.as_deref().unwrap_or("—")) }
  td {
  span style=(format!("display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{};color:{}", type_bg, type_color)) {
  (type_label)
  }
  }
- td class="font-mono tabular-nums" style="color:var(--fg-2);font-size:12px" {
+ td class="font-mono tabular-nums" class="text-fg-2 text-xs" {
  @if let Some(ref sn) = item.source_doc_number {
  (sn)
  } @else {
- span style="color:var(--muted)" { "—" }
+ span class="text-muted" { "—" }
  }
  }
  td { (wh_name) }
@@ -365,15 +365,15 @@ fn stock_in_data_card(
  span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-[#f0fff0] text-[#389e0d]" { "已入库" }
  }
  td { (op_name) }
- td style="font-size:12px;color:var(--muted)" { (item.created_at.format("%Y-%m-%d %H:%M")) }
+ td class="text-xs text-muted" { (item.created_at.format("%Y-%m-%d %H:%M")) }
  td {
- a href=(format!("/admin/wms/stock-in/{}", item.id)) style="color:var(--accent);font-size:var(--text-xs)" { "详情" }
+ a href=(format!("/admin/wms/stock-in/{}", item.id)) class="text-accent" class="text-xs" { "详情" }
  }
  }
  }
  @if result.items.is_empty() {
  tr {
- td colspan="12" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
+ td colspan="12" class="text-center text-muted py-8" {
  "暂无入库记录"
  }
  }

@@ -95,7 +95,7 @@ document.addEventListener('htmx:confirm', function (e) {
     }
     msg.innerHTML = e.detail.question;
     window._confirmIssueRequest = e.detail.issueRequest.bind(e.detail, true);
-    overlay.classList.add('open');
+    overlay.style.display = 'grid';
 });
 
 // ── UI interactions now use hyperscript _= attributes (see AGENTS.md) ──
@@ -266,4 +266,35 @@ window.mergeSelectedPOs = function() {
     form.appendChild(input);
     document.body.appendChild(form);
     form.submit();
+};
+
+// ===== Category Tree Select Filter =====
+
+window.filterCatOptions = function(searchInput) {
+    var keyword = searchInput.value.toLowerCase().trim();
+    var list = searchInput.closest('.cat-dropdown');
+    if (!list) return;
+    var options = list.querySelectorAll('.cat-option');
+    options.forEach(function(opt) {
+        var name = (opt.getAttribute('data-name') || opt.textContent || '').toLowerCase();
+        opt.style.display = name.indexOf(keyword) !== -1 ? '' : 'none';
+    });
+};
+
+window.selectCat = function(btn) {
+    var wrapper = btn.closest('.cat-select');
+    if (!wrapper) return;
+    var hidden = wrapper.querySelector('input[type=hidden]');
+    var label = wrapper.querySelector('.cat-label');
+    var dropdown = wrapper.querySelector('.cat-dropdown');
+    var backdrop = wrapper.querySelector('.cat-backdrop');
+    var id = btn.getAttribute('data-id') || '';
+    var name = btn.getAttribute('data-name') || btn.textContent.trim();
+    if (hidden) {
+        hidden.value = id;
+        hidden.dispatchEvent(new Event('change', {bubbles: true}));
+    }
+    if (label) label.textContent = name;
+    if (dropdown) dropdown.style.display = 'none';
+    if (backdrop) backdrop.style.display = 'none';
 };

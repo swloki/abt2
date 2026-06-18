@@ -174,20 +174,20 @@ fn product_create_page(source: Option<&Product>, categories: &[CategoryTree]) ->
  div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "基本信息" }
  div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
  div class="form-field" {
- label { "产品名称 " span style="color:var(--danger)" { "*" } }
+ label { "产品名称 " span class="text-danger" { "*" } }
  input type="text" name="name" required placeholder="请输入产品名称" value=(name_val) {}
  }
  div class="form-field" {
  label { "产品编码" }
  input type="text" value="自动生成" readonly
- style="background:var(--surface);color:var(--muted)" {}
+ class="bg-surface text-muted" {}
  }
  div class="form-field" {
  label { "规格型号" }
  input type="text" name="specification" placeholder="请输入规格型号" value=(spec_val) {}
  }
  div class="form-field" {
- label { "计量单位 " span style="color:var(--danger)" { "*" } }
+ label { "计量单位 " span class="text-danger" { "*" } }
  select name="unit" required {
  option value="" disabled selected[unit_val.is_empty()] { "请选择" }
  option value="个" selected[unit_val == "个"] { "个" }
@@ -230,7 +230,7 @@ fn product_create_page(source: Option<&Product>, categories: &[CategoryTree]) ->
  div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "分类与归属" }
  div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
  div class="form-field" {
- label { "所属分类 " span style="color:var(--danger)" { "*" } }
+ label { "所属分类 " span class="text-danger" { "*" } }
  input type="hidden" name="category_id" id="selected-category-id" {}
  button type="button" class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] cursor-pointer flex items-center justify-between text-left" id="category-select-btn" _="on click add .is-open to #category-modal" {
  span id="category-select-label" { "请选择分类" }
@@ -257,7 +257,7 @@ fn product_create_page(source: Option<&Product>, categories: &[CategoryTree]) ->
  div class="form-field field-full" {
  label { "备注" }
  textarea name="remark" placeholder="请输入备注信息…"
- style="width:100%;min-height:80px;resize:vertical" {}
+ class="w-full resize-y" class="min-h-[80px]" {}
  }
  }
  }
@@ -273,7 +273,7 @@ fn product_create_page(source: Option<&Product>, categories: &[CategoryTree]) ->
 
  // ── Category Select Modal ──
  div id="category-modal" class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto" _="on click[me is event.target] remove .is-open" {
- div class="bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl" onclick="event.stopPropagation()" {
+ div class="bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl" _="on click halt the event" {
  div class="px-6 py-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center shrink-0" {
  h2 { "选择分类" }
  button type="button" class="border-none cursor-pointer text-muted flex items-center justify-center" _="on click remove .is-open from #category-modal" {

@@ -233,14 +233,14 @@ fn create_page(
 ) -> Markup {
  html! {
  div {
+ // ── Back Link ──
+ a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150 mb-4" href=(format!("{}?restore=true", OmOutsourcingListPath::PATH)) {
+ (icon::chevron_left_icon("w-4 h-4"))
+ "返回委外单列表"
+ }
  // ── Page Header ──
- div class="flex items-center justify-between mb-6" {
- div class="flex items-center justify-between mb-6-left" {
- a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", OmOutsourcingListPath::PATH)) {
- "\u{2190} 返回列表"
- }
+ div class="flex items-center justify-between mb-5" {
  h1 class="text-xl font-bold text-fg tracking-tight" { "新建委外单" }
- }
  }
 
  form
@@ -250,15 +250,18 @@ fn create_page(
  {
  // ── Section 1: 基本信息 ──
  div class="form-section" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "基本信息" }
- div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
+ div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-3 border-b border-border-soft" {
+ (icon::clipboard_document_icon("w-[18px] h-[18px]"))
+ "基本信息"
+ }
+ div class="grid grid-cols-2 gap-4 gap-x-6" {
  div class="form-field" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "委外单号" }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" value="自动生成" readonly;
+ input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-surface text-muted outline-none" type="text" value="自动生成" readonly;
  }
  div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "供应商" }
- select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="supplier_id" required {
+ label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "供应商 " span class="required" { "*" } }
+ select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" name="supplier_id" required {
  option value="" { "请选择供应商" }
  @for s in suppliers {
  option value=(s.id) { (s.name) }
@@ -266,22 +269,19 @@ fn create_page(
  }
  }
  div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "产品" }
- select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="product_id" required {
+ label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "产品 " span class="required" { "*" } }
+ select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" name="product_id" required {
  option value="" { "请选择产品" }
  @for p in products {
  option value=(p.product_id) {
- (p.pdt_name)
- " ("
- (p.product_code)
- ")"
+ (p.pdt_name) " (" (p.product_code) ")"
  }
  }
  }
  }
  div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "委外类型" }
- select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="outsourcing_type" required {
+ label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "委外类型 " span class="required" { "*" } }
+ select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" name="outsourcing_type" required {
  option value="" { "请选择委外类型" }
  option value="1" { "整体委外" }
  option value="2" { "工序委外" }
@@ -294,38 +294,39 @@ fn create_page(
 
  // ── Section 2: 关联信息与数量 ──
  div class="form-section" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "关联信息与数量" }
- div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
+ div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-3 border-b border-border-soft" {
+ (icon::link_icon("w-[18px] h-[18px]"))
+ "关联信息与数量"
+ }
+ div class="grid grid-cols-2 gap-4 gap-x-6" {
  div class="form-field" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "关联工单" }
- select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="work_order_id" {
+ select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" name="work_order_id" {
  option value="" { "请选择工单" }
  @for wo in work_orders {
- option value=(wo.id) {
- (wo.doc_number)
- }
+ option value=(wo.id) { (wo.doc_number) }
  }
  }
  }
  div class="form-field" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "关联工序" }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" name="routing_id" placeholder="请输入工序ID";
+ input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="number" name="routing_id" placeholder="请输入工序ID";
  }
  div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "计划数量" }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" step="0.01" min="0" name="planned_qty" required;
+ label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "计划数量 " span class="required" { "*" } }
+ input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="number" step="0.01" min="0" name="planned_qty" required;
  }
  div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "单价" }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" step="any" min="0" name="unit_price" required;
+ label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "单价 " span class="required" { "*" } }
+ input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="number" step="any" min="0" name="unit_price" required;
  }
  div class="form-field" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "预计交期" }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="date" name="scheduled_date";
+ input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="date" name="scheduled_date";
  }
  div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "虚拟仓库" }
- select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="virtual_warehouse_id" required {
+ label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "虚拟仓库 " span class="required" { "*" } }
+ select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" name="virtual_warehouse_id" required {
  option value="" { "请选择仓库" }
  @for w in warehouses {
  @if w.is_virtual {
@@ -339,98 +340,96 @@ fn create_page(
 
  // ── Section 3: 发料明细 ──
  div class="form-section" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "发料明细" }
+ div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-3 border-b border-border-soft" {
+ (icon::box_icon("w-[18px] h-[18px]"))
+ "发料明细"
+ }
  div class="data-card" {
  div class="overflow-x-auto" {
  table class="data-table" {
- thead {
- tr {
+ thead { tr {
  th { "物料" }
  th { "应发数量" }
  th { "单位成本" }
  th { "小计" }
  th style="width:50px" { }
+ }}
+ tbody id="material-tbody" { }
  }
  }
- tbody id="material-tbody" {
- // rows added dynamically
- }
- }
- }
- // Hidden input to carry materials JSON
  input type="hidden" name="materials_json" id="materials-json" value="";
  }
- // Add row button
- div class="p-3 flex items-center gap-2" {
- button type="button" class="inline-flex items-center gap-2 rounded-sm text-accent text-sm cursor-pointer"
- onclick="omAddMaterialRow()"
- {
+ div class="p-4 flex items-center gap-2" {
+ button type="button" class="inline-flex items-center gap-2 text-accent text-sm font-medium cursor-pointer hover:text-accent-hover transition-colors duration-150"
+ _="on click call omAddMaterialRow()" {
  (icon::plus_icon("w-4 h-4"))
- " 添加物料"
+ "添加物料"
  }
  }
  }
 
  // ── Section 4: 备注 ──
  div class="form-section" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "备注" }
- div class="form-field span-2" {
- textarea class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="remark" rows="3" placeholder="请输入备注信息" {};
+ div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-3 border-b border-border-soft" {
+ (icon::comment_icon("w-[18px] h-[18px]"))
+ "备注"
+ }
+ div class="form-field col-span-2" {
+ textarea class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent resize-y" name="remark" rows="3" placeholder="请输入备注信息…" {}
  }
  }
 
  // ── Action bar ──
- div class="flex items-center justify-end gap-3 pt-4 [border-top:1px_solid_var(--border-soft)]" {
- a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{}?restore=true", OmOutsourcingListPath::PATH)) { "取消" }
- button type="submit" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" { "确认提交" }
+ div class="sticky bottom-0 flex items-center justify-between gap-3 px-6 py-4 bg-bg [border-top:1px_solid_var(--border-soft)]" {
+ div { }
+ div class="flex gap-3" {
+ a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{}?restore=true", OmOutsourcingListPath::PATH)) { "取消" }
+ button type="submit" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" {
+ (icon::check_circle_icon("w-4 h-4"))
+ "确认提交"
+ }
  }
  }
  }
 
  // ── Material row modal ──
- div id="material-modal" class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto" _="on click[me is event.target] remove .is-open" {
- div class="bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl" onclick="event.stopPropagation()" {
- div class="px-6 py-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center shrink-0" {
- h3 { "选择物料" }
- button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center" title="关闭"
- _="on click remove .is-open from #material-modal"
- {
+ div id="material-modal" class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 is-open:opacity-100 is-open:pointer-events-auto" _="on click[me is event.target] remove .is-open from #material-modal" {
+ div class="bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl" _="on click halt the event" {
+ div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
+ h3 class="text-base font-semibold text-fg" { "选择物料" }
+ button type="button" class="w-7 h-7 border-none text-muted rounded-sm cursor-pointer grid place-items-center hover:bg-surface transition-colors duration-150" title="关闭"
+ _="on click remove .is-open from #material-modal" {
  (icon::x_icon("w-4 h-4"))
  }
  }
  div class="overflow-y-auto flex-1 min-h-0 p-6" {
- div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
- div class="form-field span-2" {
+ div class="grid grid-cols-2 gap-4 gap-x-6" {
+ div class="form-field col-span-2" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "物料" }
- select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" id="modal-product-id" {
+ select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" id="modal-product-id" {
  option value="" { "请选择物料" }
  @for p in products {
  option value=(p.product_id) {
- (p.pdt_name)
- " ("
- (p.product_code)
- ")"
+ (p.pdt_name) " (" (p.product_code) ")"
  }
  }
  }
  }
  div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "应发数量" }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" step="0.01" min="0" id="modal-planned-qty" required;
+ label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "应发数量 " span class="required" { "*" } }
+ input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="number" step="0.01" min="0" id="modal-planned-qty" required;
  }
  div class="form-field" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "单位成本" }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" step="any" min="0" id="modal-unit-cost";
+ input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="number" step="any" min="0" id="modal-unit-cost";
  }
  }
  }
- div class="px-6 py-4 [border-top:1px_solid_var(--border-soft)] flex justify-end gap-3 shrink-0" {
- button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
- _="on click remove .is-open from #material-modal"
- { "取消" }
- button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
- onclick="omConfirmMaterial()"
- { "确认" }
+ div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" {
+ button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+ _="on click remove .is-open from #material-modal" { "取消" }
+ button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+ _="on click call omConfirmMaterial()" { "确认" }
  }
  }
  }
@@ -457,10 +456,10 @@ function omConfirmMaterial() {
  var tr = document.createElement('tr');
  tr.setAttribute('oninput','omUpdateMaterialJson()');
  tr.innerHTML = '<td>' + pname + '<input type="hidden" name="m_product_id" value="' + pid + '"></td>' +
- '<td><input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" step="any" min="0" name="m_planned_qty" value="' + qty + '" style="width:100px;text-align:right"></td>' +
- '<td><input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" step="any" min="0" name="m_unit_cost" value="' + cost + '" style="width:100px;text-align:right"></td>' +
- '<td class="line-subtotal font-mono tabular-nums" style="text-align:right">' + (qty * cost).toFixed(2) + '</td>' +
- '<td><button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center" title="删除" onclick="this.closest(\'tr\').remove();omUpdateMaterialJson()">' + '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></td>';
+ '<td><input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="number" step="any" min="0" name="m_planned_qty" value="' + qty + '" class="w-[100px] text-right"></td>' +
+ '<td><input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="number" step="any" min="0" name="m_unit_cost" value="' + cost + '" class="w-[100px] text-right"></td>' +
+ '<td class="line-subtotal font-mono tabular-nums text-right">' + (qty * cost).toFixed(2) + '</td>' +
+ '<td><button type="button" class="w-7 h-7 border-none text-muted rounded-sm cursor-pointer grid place-items-center hover:bg-surface transition-colors duration-150" title="删除" onclick="this.closest(\'tr\').remove();omUpdateMaterialJson()">' + '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></td>';
  tbody.appendChild(tr);
  omUpdateMaterialJson();
  document.querySelector('#material-modal').classList.remove('is-open');
@@ -490,3 +489,4 @@ function omUpdateMaterialJson() {
  }
  }
 }
+ }

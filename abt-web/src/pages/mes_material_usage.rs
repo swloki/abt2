@@ -115,16 +115,16 @@ fn material_usage_page(
  div class="flex items-center justify-between mb-6" {
  h1 class="text-xl font-bold text-fg tracking-tight" { "物料消耗追踪" }
  div class="flex gap-3" {
- button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" {
- (icon::download_icon(""))
- " 导出"
+ button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" {
+ (icon::download_icon("w-4 h-4"))
+ "导出"
  }
  }
  }
 
  // Filter bar
  div class="flex items-center gap-3 mb-5 flex-wrap" {
- select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="wo_id"
+ select class="w-60 px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer" name="wo_id"
  hx-get=(MaterialUsageDataPath::PATH)
  hx-target="#usage-content"
  hx-trigger="change"
@@ -138,14 +138,14 @@ fn material_usage_page(
  option value=(wo.id) { (label) }
  }
  }
- select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" disabled {
+ select class="w-40 px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer" disabled {
  option { "全部批次" }
  }
  }
 
  // Content area
  div id="usage-content" {
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)] text-center py-8 text-sm text-muted" { "请选择工单查看物料消耗数据" }
+ div class="data-card text-center py-8 text-sm text-muted" { "请选择工单查看物料消耗数据" }
  }
  }}
 }
@@ -174,7 +174,7 @@ fn usage_data_fragment(wo_info: &abt_core::mes::dashboard::model::WoBasicInfo, c
 
     html! {
         // ── WO header ──
-        div class="bg-bg border border-border-soft rounded-lg p-5 flex items-center justify-between flex-wrap gap-3" {
+ div class="data-card flex items-center justify-between flex-wrap gap-3 mb-5" {
             div class="flex items-center gap-3 flex-wrap" {
                 span class="text-lg font-bold font-mono tabular-nums text-fg" { (wo_info.doc_number) }
                 span class="text-sm text-fg-2" { (wo_info.product_name.as_deref().unwrap_or("—")) }
@@ -191,60 +191,60 @@ fn usage_data_fragment(wo_info: &abt_core::mes::dashboard::model::WoBasicInfo, c
 
 
         // ── Summary stats ──
-        div class="grid grid-cols-4 gap-4 mb-6" {
-            // BOM standard
-            div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
-                div class="w-[44px] h-[44px] rounded-lg grid place-items-center shrink-0 bg-[#e6f4ff] text-accent" { (icon::box_icon("")) }
-                div {
-                    div class="text-lg font-bold font-mono tabular-nums text-fg" { (crate::utils::fmt_qty(ctx.standard_qty)) }
-                    div class="text-sm text-muted" { "BOM 标准用量" }
-                    div class="text-xs text-muted mt-1" {
-                        "按完成 " (crate::utils::fmt_qty(wo_info.completed_qty)) " 件计算"
-                    }
-                }
-            }
-            // Actual picked
-            div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
-                div class="w-[44px] h-[44px] rounded-lg grid place-items-center shrink-0 bg-success-bg text-success" { (icon::clipboard_list_icon("")) }
-                div {
-                    div class="text-lg font-bold font-mono tabular-nums text-fg" { (crate::utils::fmt_qty(ctx.picked_total)) }
-                    div class="text-sm text-muted" { "实际消耗(领料)" }
-                    div class="text-xs text-muted mt-1" { "含损耗余量" }
-                }
-            }
-            // Backflush
-            div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
-                div class="w-[44px] h-[44px] rounded-lg grid place-items-center shrink-0 bg-warn-bg text-warn" { (icon::refresh_icon("")) }
-                div {
-                    div class="text-lg font-bold font-mono tabular-nums text-fg" { (crate::utils::fmt_qty(ctx.backflush_qty)) }
-                    div class="text-sm text-muted" { "倒冲消耗" }
-                }
-            }
-            // Variance
-            div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
-                div class="w-[44px] h-[44px] rounded-lg grid place-items-center shrink-0 bg-danger-bg text-danger" { (icon::circle_alert_icon("")) }
-                div {
-                    @let variance_cls = if ctx.variance > Decimal::ZERO { "text-danger" } else if ctx.variance < Decimal::ZERO { "text-success" } else { "" };
-                    div class=(format!("text-lg font-bold font-mono tabular-nums {}", variance_cls)) {
-                        @if ctx.variance > Decimal::ZERO { "+" }
-                        (crate::utils::fmt_qty(ctx.variance))
-                    }
-                    div class="text-sm text-muted" { "用量差异" }
-                    @if ctx.standard_qty > Decimal::ZERO {
-                        @let rate = ((ctx.variance / ctx.standard_qty) * Decimal::ONE_HUNDRED).abs();
-                        div class="text-xs text-muted mt-1" {
-                            "超出标准 " (crate::utils::fmt_qty(rate)) "%"
-                        }
-                    }
-                }
-            }
-        }
+ div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-5" {
+ // BOM standard
+ div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-md" {
+ div class="w-11 h-11 rounded-md grid place-items-center shrink-0 bg-[#e6f4ff] text-accent" { (icon::box_icon("w-5 h-5")) }
+ div {
+ div class="text-lg font-bold font-mono tabular-nums text-fg" { (crate::utils::fmt_qty(ctx.standard_qty)) }
+ div class="text-sm text-muted" { "BOM 标准用量" }
+ div class="text-xs text-muted mt-1" {
+ "按完成 " (crate::utils::fmt_qty(wo_info.completed_qty)) " 件计算"
+ }
+ }
+ }
+ // Actual picked
+ div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-md" {
+ div class="w-11 h-11 rounded-md grid place-items-center shrink-0 bg-[#f0fff0] text-success" { (icon::clipboard_list_icon("w-5 h-5")) }
+ div {
+ div class="text-lg font-bold font-mono tabular-nums text-fg" { (crate::utils::fmt_qty(ctx.picked_total)) }
+ div class="text-sm text-muted" { "实际消耗(领料)" }
+ div class="text-xs text-muted mt-1" { "含损耗余量" }
+ }
+ }
+ // Backflush
+ div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-md" {
+ div class="w-11 h-11 rounded-md grid place-items-center shrink-0 bg-[#fff8eb] text-warn" { (icon::refresh_icon("w-5 h-5")) }
+ div {
+ div class="text-lg font-bold font-mono tabular-nums text-fg" { (crate::utils::fmt_qty(ctx.backflush_qty)) }
+ div class="text-sm text-muted" { "倒冲消耗" }
+ }
+ }
+ // Variance
+ div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-md" {
+ div class="w-11 h-11 rounded-md grid place-items-center shrink-0 bg-[#fff2f0] text-danger" { (icon::circle_alert_icon("w-5 h-5")) }
+ div {
+ @let variance_cls = if ctx.variance > Decimal::ZERO { "text-danger" } else if ctx.variance < Decimal::ZERO { "text-success" } else { "" };
+ div class=(format!("text-lg font-bold font-mono tabular-nums {}", variance_cls)) {
+ @if ctx.variance > Decimal::ZERO { "+" }
+ (crate::utils::fmt_qty(ctx.variance))
+ }
+ div class="text-sm text-muted" { "用量差异" }
+ @if ctx.standard_qty > Decimal::ZERO {
+ @let rate = ((ctx.variance / ctx.standard_qty) * Decimal::ONE_HUNDRED).abs();
+ div class="text-xs text-muted mt-1" {
+ "超出标准 " (crate::utils::fmt_qty(rate)) "%"
+ }
+ }
+ }
+ }
+ }
 
  // ── BOM comparison table ──
  @if !ctx.bom_items.is_empty() {
- div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden" {
- div class="p-4 [border-bottom:1px_solid_var(--border-soft)] text-sm font-semibold text-fg flex items-center gap-2 bg-surface-raised" {
- (icon::box_icon(""))
+ div class="data-card mb-5" {
+ div class="flex items-center gap-2 px-5 py-4 text-sm font-semibold text-fg border-b border-border-soft" {
+ (icon::box_icon("w-5 h-5"))
  "BOM 标准用量 vs 实际消耗"
  }
  div class="overflow-x-auto" {
@@ -292,14 +292,14 @@ fn usage_data_fragment(wo_info: &abt_core::mes::dashboard::model::WoBasicInfo, c
  }
  }
  } @else {
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)] text-center py-8 text-sm text-muted" { "该工单未关联 BOM，无法显示物料对比" }
+ div class="data-card mb-5 text-center py-8 text-sm text-muted" { "该工单未关联 BOM，无法显示物料对比" }
  }
 
  // ── Backflush detail records ──
  @if !ctx.bf_records.is_empty() {
- div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden" {
- div class="p-4 [border-bottom:1px_solid_var(--border-soft)] text-sm font-semibold text-fg flex items-center gap-2 bg-surface-raised" {
- (icon::refresh_icon(""))
+ div class="data-card mb-5" {
+ div class="flex items-center gap-2 px-5 py-4 text-sm font-semibold text-fg border-b border-border-soft" {
+ (icon::refresh_icon("w-5 h-5"))
  "倒冲明细记录"
  }
  div class="overflow-x-auto" {
@@ -329,9 +329,9 @@ fn usage_data_fragment(wo_info: &abt_core::mes::dashboard::model::WoBasicInfo, c
 
  // ── Requisition records ──
  @if !ctx.requisitions.is_empty() {
- div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden" {
- div class="p-4 [border-bottom:1px_solid_var(--border-soft)] text-sm font-semibold text-fg flex items-center gap-2 bg-surface-raised" {
- (icon::clipboard_list_icon(""))
+ div class="data-card mb-5" {
+ div class="flex items-center gap-2 px-5 py-4 text-sm font-semibold text-fg border-b border-border-soft" {
+ (icon::clipboard_list_icon("w-5 h-5"))
  "领料记录"
  }
  div class="overflow-x-auto" {

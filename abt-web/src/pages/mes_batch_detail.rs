@@ -146,7 +146,7 @@ fn batch_detail_page(
  let (sl, sc) = batch_status_label(&batch.status);
 
  let current_step_display = if batch.current_step == 0 {
- html! { span style="color:var(--muted)" { "未开始" } }
+ html! { span class="text-muted" { "未开始" } }
  } else {
  let total = routings.len();
  let step_name = routings.iter()
@@ -183,15 +183,15 @@ fn batch_detail_page(
  div class="text-[24px] font-bold text-fg flex items-center gap-[14px]" {
  (batch.batch_no)
  span class=(format!("status-pill {}", crate::utils::status_color(sc))) { (sl) }
- span class="text-muted text-[13px]" style="font-weight:400;margin-left:var(--space-2)" { "流转卡: " (batch.card_sn) }
+ span class="text-muted text-[13px]" class="font-normal" class="ml-2" { "流转卡: " (batch.card_sn) }
  }
- div style="display:flex;gap:var(--space-3)" {
+ div class="flex gap-3" {
  @if batch.status == BatchStatus::InProgress {
  a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("/admin/mes/batches/{}/suspend", batch.id)) { "暂停" }
  a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(format!("/admin/mes/reports/create?batch_id={}", batch.id)) { "工序报工" }
  }
  @if batch.status == BatchStatus::Suspended {
- form hx-post=(format!("/admin/mes/batches/{}/resume", batch.id)) hx-swap="none" style="display:inline" {
+ form hx-post=(format!("/admin/mes/batches/{}/resume", batch.id)) hx-swap="none" class="inline" {
  button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" type="submit" { "恢复" }
  }
  }
@@ -210,7 +210,7 @@ fn batch_detail_page(
  div class="detail-flex flex-col gap-1" { span class="detail-text-xs text-muted font-medium" { "班组" } span class="detail-text-sm text-fg font-medium" { "—" } }
  div class="detail-flex flex-col gap-1" { span class="detail-text-xs text-muted font-medium" { "批次数量" } span class="detail-text-sm text-fg font-medium" { (crate::utils::fmt_qty(batch.batch_qty)) } }
  div class="detail-flex flex-col gap-1" { span class="detail-text-xs text-muted font-medium" { "完成/报废" } span class="detail-text-sm text-fg font-medium" { span class="text-success" { (crate::utils::fmt_qty(batch.completed_qty)) } " / " span class="text-danger" { (crate::utils::fmt_qty(batch.scrap_qty)) } } }
- div class="detail-flex flex-col gap-1" { span class="detail-text-xs text-muted font-medium" { "当前工序" } span class="detail-text-sm text-fg font-medium" style="color:var(--warn)" { (current_step_display) } }
+ div class="detail-flex flex-col gap-1" { span class="detail-text-xs text-muted font-medium" { "当前工序" } span class="detail-text-sm text-fg font-medium" class="text-warn" { (current_step_display) } }
  div class="detail-flex flex-col gap-1" { span class="detail-text-xs text-muted font-medium" { "实际开始" } span class="detail-text-sm text-fg font-medium" { (batch.actual_start.map(|t| t.format("%Y-%m-%d %H:%M").to_string()).unwrap_or_else(|| "—".to_string())) } }
  div class="detail-flex flex-col gap-1" { span class="detail-text-xs text-muted font-medium" { "实际结束" } span class="detail-text-sm text-fg font-medium text-muted" { (batch.actual_end.map(|t| t.format("%Y-%m-%d %H:%M").to_string()).unwrap_or_else(|| "—".to_string())) } }
  div class="detail-flex flex-col gap-1" { span class="detail-text-xs text-muted font-medium" { "创建人" } span class="detail-text-sm text-fg font-medium" { (creator_name) } }
@@ -236,10 +236,10 @@ fn batch_detail_page(
  // 每步完成量/不良量
  @if let Some(p) = brp {
  @if p.completed_qty > rust_decimal::Decimal::ZERO || p.defect_qty > rust_decimal::Decimal::ZERO {
- div style="font-size:var(--text-xs);color:var(--text-muted);margin-top:2px;white-space:nowrap" {
- span style="color:var(--success)" { (crate::utils::fmt_qty(p.completed_qty)) }
+ div class="whitespace-nowrap" class="text-xs" style="color:var(--text-muted);margin-top:2px" {
+ span class="text-success" { (crate::utils::fmt_qty(p.completed_qty)) }
  @if p.defect_qty > rust_decimal::Decimal::ZERO {
- " / " span style="color:var(--danger)" { (crate::utils::fmt_qty(p.defect_qty)) }
+ " / " span class="text-danger" { (crate::utils::fmt_qty(p.defect_qty)) }
  }
  }
  }
@@ -257,10 +257,10 @@ fn batch_detail_page(
  div class="bg-bg border border-border-soft rounded-xl overflow-hidden" {
  div class="sub-text-lg font-semibold text-fg" { "报工记录" }
  @if reports.is_empty() {
- div style="text-align:center;padding:var(--space-8);color:var(--muted)" { "暂无报工记录" }
+ div class="text-center text-muted py-8" { "暂无报工记录" }
  } @else {
  div class="overflow-x-auto" {
- table class="data-table" style="width:100%" {
+ table class="data-table" class="w-full" {
  thead {
  tr {
  th { "报工单号" }
@@ -297,7 +297,7 @@ fn batch_detail_page(
  // ── 状态变更记录 (matches prototype sub-section) ──
  div class="bg-bg border border-border-soft rounded-xl overflow-hidden" {
  div class="sub-text-lg font-semibold text-fg" { "状态变更记录" }
- table class="data-table" style="width:100%" {
+ table class="data-table" class="w-full" {
  thead {
  tr {
  th { "时间" }

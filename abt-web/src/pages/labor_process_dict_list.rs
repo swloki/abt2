@@ -174,7 +174,7 @@ fn process_dict_list_page(
  div class="flex gap-3" {
  (export_button::export_button("导出工序字典", "labor-process-dict"))
  @if can_create {
- a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(ProcessDictCreatePath::PATH) {
+ a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(ProcessDictCreatePath::PATH) {
  (icon::plus_icon("w-4 h-4"))
  "新建工序"
  }
@@ -203,7 +203,7 @@ fn process_dict_table_fragment(
  div class="flex items-center gap-3 mb-5 flex-wrap" {
  div class="inline-flex items-center gap-1 px-3 py-1 bg-surface rounded-full text-xs text-muted font-medium" { "全部 " span class="font-bold text-fg" { (total_count) } }
  div class="relative flex-1 max-w-xs [&_svg]:absolute [&_svg]:left-3 [&_svg]:top-1/2 [&_svg]:-translate-y-1/2 [&_svg]:w-4 [&_svg]:h-4 [&_svg]:text-muted" {
- (icon::search_icon(""))
+ (icon::search_icon("w-4 h-4"))
  input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword"
  placeholder="搜索工序编码或名称…"
  value=(params.keyword.as_deref().unwrap_or(""))
@@ -222,12 +222,12 @@ fn process_dict_table_fragment(
  table class="data-table" {
  thead {
  tr {
- th style="width:80px" { "编码" }
+ th class="w-[80px]" { "编码" }
  th { "工序名称" }
  th { "描述" }
- th style="width:80px;text-align:center" { "排序" }
- th style="width:120px" { "创建时间" }
- th style="width:80px" { "操作" }
+ th class="w-[80px] text-center" { "排序" }
+ th class="w-[120px]" { "创建时间" }
+ th class="w-[80px]" { "操作" }
  }
  }
  tbody {
@@ -236,7 +236,7 @@ fn process_dict_table_fragment(
  }
  @if result.items.is_empty() {
  tr {
- td colspan="6" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
+ td colspan="6" class="text-center text-muted text-sm py-8" {
  "暂无工序字典数据"
  }
  }
@@ -256,7 +256,7 @@ fn process_dict_row(item: &LaborProcessDict, can_delete: bool) -> Markup {
  html! {
  tr {
  td {
- code style="font-size:12px;background:var(--surface);padding:2px 6px;border-radius:var(--radius-sm)" {
+ code class="text-xs bg-surface px-1.5 py-0.5 rounded-sm font-mono" {
  (&item.code)
  }
  }
@@ -268,13 +268,13 @@ fn process_dict_row(item: &LaborProcessDict, can_delete: bool) -> Markup {
  @if !desc.is_empty() {
  (desc)
  } @else {
- span style="color:var(--muted)" { "—" }
+ span class="text-muted" { "—" }
  }
  } @else {
- span style="color:var(--muted)" { "—" }
+ span class="text-muted" { "—" }
  }
  }
- td style="text-align:center" {
+ td class="text-center" {
  (item.sort_order)
  }
  td {
@@ -284,7 +284,7 @@ fn process_dict_row(item: &LaborProcessDict, can_delete: bool) -> Markup {
  "—"
  }
  }
- td onclick="event.stopPropagation()" {
+ td {
  div class="row-actions flex items-center gap-1 justify-end opacity-0 transition-opacity duration-150 [&_a]:w-[28px] [&_a]:h-[28px] [&_a]:grid [&_a]:place-items-center [&_a]:rounded-sm [&_a]:cursor-pointer [&_a]:bg-surface [&_a]:hover:bg-accent-bg [&_svg]:w-3.5 [&_svg]:h-3.5" {
  @if can_delete {
  button type="button" class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer text-danger" title="删除"
@@ -315,17 +315,17 @@ fn process_dict_form_page(_existing: Option<&LaborProcessDict>) -> Markup {
  form hx-post=(ProcessDictCreatePath::PATH)
  hx-swap="none" {
  // ── Section: 基本信息 ──
- div class="data-card" style="margin-bottom:var(--space-4)" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "基本信息" }
+ div class="data-card" class="mb-4" {
+ div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft border-border-soft" { "基本信息" }
  div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
  div class="form-field" {
- label { "工序名称 " span style="color:var(--danger)" { "*" } }
+ label { "工序名称 " span class="text-danger" { "*" } }
  input type="text" name="name" required placeholder="请输入工序名称，如：车削、铣削" {}
  }
  div class="form-field" {
  label { "工序编码" }
  input type="text" value="自动生成" readonly
- style="background:var(--surface);color:var(--muted)" {}
+ class="bg-surface text-muted" {}
  }
  div class="form-field" {
  label { "排序" }
@@ -335,15 +335,15 @@ fn process_dict_form_page(_existing: Option<&LaborProcessDict>) -> Markup {
  div class="form-field field-full" {
  label { "描述" }
  textarea name="description" placeholder="请输入描述信息…"
- style="width:100%;min-height:80px;resize:vertical" {}
+ class="w-full resize-y" class="min-h-[80px]" {}
  }
  }
  }
 
  // ── Action Bar ──
- div class="flex items-center justify-end gap-3 pt-4 [border-top:1px_solid_var(--border-soft)]" {
- a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(ProcessDictListPath::PATH) { "取消" }
- button type="submit" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" { "保存工序" }
+ div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
+ a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(ProcessDictListPath::PATH) { "取消" }
+ button type="submit" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" { "保存工序" }
  }
  }
  }

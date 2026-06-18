@@ -229,7 +229,7 @@ fn price_history_page(rows: &[PriceHistoryRow], total: u64, page: u32, total_pag
  style="width:150px;padding-left:12px"
  value=(params.date_from.as_deref().unwrap_or(""))
  title="开始日期";
- span style="color:var(--muted);font-size:13px;line-height:36px" { "至" }
+ span class="text-muted text-[13px]" style="line-height:36px" { "至" }
  input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="date" name="date_to"
  style="width:150px;padding-left:12px"
  value=(params.date_to.as_deref().unwrap_or(""))
@@ -243,7 +243,7 @@ fn price_history_page(rows: &[PriceHistoryRow], total: u64, page: u32, total_pag
  // ── Detail Drawer Overlay ──
  div class="fixed z-[1000] opacity-0" id="detail-drawer"
  _="on click[me is event.target] remove .open" {
- div class="fixed z-[1001] w-[520px] bg-white flex flex-col" onclick="event.stopPropagation()" {
+ div class="fixed z-[1001] w-[520px] bg-white flex flex-col" _="on click halt the event" {
  div class="flex items-center justify-between [border-bottom:1px_solid_var(--border-soft)] shrink-0" {
  h2 { "变更详情" }
  button class="w-[32px] h-[32px] border-none cursor-pointer flex items-center justify-center text-muted" _="on click remove .open from #detail-drawer" {
@@ -262,17 +262,17 @@ fn data_card(rows: &[PriceHistoryRow], total: u64, page: u32, total_pages: u32) 
  html! {
  div class="data-card" {
  div class="overflow-x-auto" {
- table class="data-table" style="width:100%;table-layout:fixed" {
+ table class="data-table" class="w-full" style="table-layout:fixed" {
  thead {
  tr {
- th style="width:40px" { "#" }
- th style="width:120px" { "产品编码" }
+ th class="w-10" { "#" }
+ th class="w-[120px]" { "产品编码" }
  th style="width:22%" { "产品名称" }
- th style="width:90px" class="text-right text-[13px]" { "原价格" }
- th style="width:90px" class="text-right text-[13px]" { "新价格" }
+ th class="w-[90px]" class="text-right text-[13px]" { "原价格" }
+ th class="w-[90px]" class="text-right text-[13px]" { "新价格" }
  th style="width:70px" class="text-right text-[13px]" { "变动" }
- th style="width:60px" { "操作人" }
- th style="width:110px" { "变更时间" }
+ th class="w-[60px]" { "操作人" }
+ th class="w-[110px]" { "变更时间" }
  th { "备注" }
  th style="width:70px" { "操作" }
  }
@@ -283,7 +283,7 @@ fn data_card(rows: &[PriceHistoryRow], total: u64, page: u32, total_pages: u32) 
  }
  @if rows.is_empty() {
  tr {
- td colspan="10" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
+ td colspan="10" class="text-center text-muted py-8" {
  "暂无价格变更记录"
  }
  }
@@ -309,32 +309,32 @@ fn price_history_row(index: usize, row: &PriceHistoryRow) -> Markup {
  let tag_class = if is_up { "change-tag up" } else { "change-tag down" };
  let detail_path = PriceHistoryDetailPath { log_id: row.log_id };
  html! {
- tr style="cursor:pointer"
+ tr class="cursor-pointer"
  hx-get=(detail_path.to_string())
  hx-target="#detail-body"
  hx-swap="innerHTML"
  _="on 'htmx:afterRequest' add .open to #detail-drawer" {
- td style="color:var(--muted)" { (index + 1) }
+ td class="text-muted" { (index + 1) }
  td class="font-mono tabular-nums" { (row.product_code) }
- td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title=(row.product_name) {
+ td class="overflow-hidden whitespace-nowrap" style="text-overflow:ellipsis" title=(row.product_name) {
  a href="#" class="text-accent cursor-pointer font-medium no-underline" onclick="event.preventDefault()" { (row.product_name) }
  }
- td class="text-right text-[13px]" style="color:var(--muted)" { "¥ " (old_str) }
+ td class="text-right text-[13px]" class="text-muted" { "¥ " (old_str) }
  td class="text-right text-[13px]" { strong { "¥ " (new_str) } }
  td class="text-right text-[13px]" {
  span class=(tag_class) { (pct) }
  }
  td { (row.operator_name) }
- td style="color:var(--muted);font-size:13px" { (row.created_at.format("%Y-%m-%d %H:%M")) }
- td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title=(row.remark) {
+ td class="text-muted text-[13px]" { (row.created_at.format("%Y-%m-%d %H:%M")) }
+ td class="overflow-hidden whitespace-nowrap" style="text-overflow:ellipsis" title=(row.remark) {
  @if row.remark.is_empty() {
- span style="color:var(--muted)" { "—" }
+ span class="text-muted" { "—" }
  } @else {
  (row.remark)
  }
  }
  td {
- button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" style="padding:4px 10px;font-size:12px"
+ button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" class="text-xs" style="padding:4px 10px"
  _="on click halt the event on 'htmx:afterRequest' add .open to #detail-drawer"
  hx-get=(detail_path.to_string())
  hx-target="#detail-body"
@@ -414,7 +414,7 @@ fn detail_content(row: &PriceHistoryRow) -> Markup {
  }
  div class="detail-flex flex-col gap-1" {
  label { "产品编码" }
- span style="font-family:var(--font-mono)" { (row.product_code) }
+ span class="font-mono" { (row.product_code) }
  }
  div class="detail-flex flex-col gap-1" {
  label { "价格类型" }
@@ -444,8 +444,8 @@ fn detail_content(row: &PriceHistoryRow) -> Markup {
  div class="label" { "新价格" }
  div class="val" { (new_str) }
  }
- div style="margin-left:auto" {
- span class=(tag_class) style="font-size:14px;padding:4px 12px" { (pct) }
+ div class="ml-auto" {
+ span class=(tag_class) class="text-sm" style="padding:4px 12px" { (pct) }
  }
  }
  }
@@ -465,7 +465,7 @@ fn detail_content(row: &PriceHistoryRow) -> Markup {
  (icon::clock_icon("w-4 h-4"))
  "变更时间"
  }
- div style="font-size:15px;color:var(--fg);font-weight:500" {
+ div class="text-fg font-medium" style="font-size:15px" {
  (row.created_at.format("%Y-%m-%d %H:%M"))
  }
  }

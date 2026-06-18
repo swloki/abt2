@@ -147,11 +147,11 @@ fn supplier_create_page() -> Markup {
  hx-swap="none" {
 
  // ── Section: 基本信息 ──
- div class="data-card" style="margin-bottom:var(--space-4)" {
+ div class="data-card" class="mb-4" {
  div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "基本信息" }
  div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
  div class="form-field" {
- label { "供应商名称 " span style="color:var(--danger)" { "*" } }
+ label { "供应商名称 " span class="text-danger" { "*" } }
  input type="text" name="name" required placeholder="请输入供应商名称" {}
  }
  div class="form-field" {
@@ -161,10 +161,10 @@ fn supplier_create_page() -> Markup {
  div class="form-field" {
  label { "编码" }
  input type="text" value="自动生成" readonly
- style="background:var(--surface);color:var(--muted)" {}
+ class="bg-surface text-muted" {}
  }
  div class="form-field" {
- label { "供应类别 " span style="color:var(--danger)" { "*" } }
+ label { "供应类别 " span class="text-danger" { "*" } }
  select name="category" required {
  option value="" disabled selected { "-- 请选择 --" }
  option value="1" { "原材料" }
@@ -179,7 +179,7 @@ fn supplier_create_page() -> Markup {
  input type="text" name="tax_number" placeholder="请输入统一社会信用代码" {}
  }
  div class="form-field" {
- label { "交货天数 " span style="color:var(--danger)" { "*" } }
+ label { "交货天数 " span class="text-danger" { "*" } }
  input type="number" name="lead_time_days" required min="0" placeholder="请输入交货天数" {}
  }
  div class="form-field" {
@@ -209,11 +209,11 @@ fn supplier_create_page() -> Markup {
  }
 
  // ── Section: 联系人信息 ──
- div class="data-card" style="margin-bottom:var(--space-4)" {
+ div class="data-card" class="mb-4" {
  div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "联系人信息" }
  div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
  div class="form-field" {
- label { "联系人 " span style="color:var(--danger)" { "*" } }
+ label { "联系人 " span class="text-danger" { "*" } }
  input type="text" name="contact_name" placeholder="请输入联系人姓名" {}
  }
  div class="form-field" {
@@ -221,7 +221,7 @@ fn supplier_create_page() -> Markup {
  input type="text" name="contact_position" placeholder="请输入职位" {}
  }
  div class="form-field" {
- label { "手机号码 " span style="color:var(--danger)" { "*" } }
+ label { "手机号码 " span class="text-danger" { "*" } }
  input type="tel" name="contact_phone" placeholder="请输入手机号码" {}
  }
  div class="form-field" {
@@ -232,23 +232,23 @@ fn supplier_create_page() -> Markup {
  }
 
  // ── Section: 银行账户信息 ──
- div class="data-card" style="margin-bottom:var(--space-4)" {
+ div class="data-card" class="mb-4" {
  div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "银行账户信息" }
  div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
  div class="form-field" {
- label { "开户银行 " span style="color:var(--danger)" { "*" } }
+ label { "开户银行 " span class="text-danger" { "*" } }
  input type="text" name="bank_name" placeholder="请输入开户银行" {}
  }
  div class="form-field" {
- label { "账户名称 " span style="color:var(--danger)" { "*" } }
+ label { "账户名称 " span class="text-danger" { "*" } }
  input type="text" name="account_name" placeholder="请输入账户名称" {}
  }
  div class="form-field" {
- label { "银行账号 " span style="color:var(--danger)" { "*" } }
+ label { "银行账号 " span class="text-danger" { "*" } }
  input type="text" name="account_number" placeholder="请输入银行账号" {}
  }
- div class="form-field" style="display:flex;align-items:flex-end;padding-bottom:4px" {
- label style="display:flex;align-items:center;gap:var(--space-2);cursor:pointer;margin:0" {
+ div class="form-field" class="flex" class="items-end" style="padding-bottom:4px" {
+ label class="flex items-center cursor-pointer m-0" class="gap-2" {
  input type="checkbox" name="is_default" value="true" {}
  "默认账户"
  }
@@ -257,13 +257,13 @@ fn supplier_create_page() -> Markup {
  }
 
  // ── Section: 其他 ──
- div class="data-card" style="margin-bottom:var(--space-4)" {
+ div class="data-card" class="mb-4" {
  div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "其他" }
  div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
  div class="form-field field-full" {
  label { "备注" }
  textarea name="remark" placeholder="请输入备注信息…"
- style="width:100%;min-height:80px;resize:vertical" {}
+ class="w-full resize-y" class="min-h-[80px]" {}
  }
  }
  }

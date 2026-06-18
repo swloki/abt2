@@ -45,27 +45,27 @@ pub struct MrbQueryParams {
 
 fn disposition_label(d: &MRBDisposition) -> (&'static str, &'static str, &'static str) {
  match d {
- MRBDisposition::Scrap => ("报废", "rgba(220,38,38,0.08)", "#dc2626"),
- MRBDisposition::Return => ("退货", "rgba(234,88,12,0.08)", "#ea580c"),
- MRBDisposition::Degrade => ("降级", "rgba(124,58,237,0.08)", "#7c3aed"),
- MRBDisposition::Rework => ("返工", "rgba(37,99,235,0.08)", "var(--accent)"),
+ MRBDisposition::Scrap => ("报废", "bg-[#fee2e2]", "text-danger"),
+ MRBDisposition::Return => ("退货", "bg-[#fff8eb]", "text-[#ea580c]"),
+ MRBDisposition::Degrade => ("降级", "bg-[#f3e8ff]", "text-[#7c3aed]"),
+ MRBDisposition::Rework => ("返工", "bg-[#dbeafe]", "text-accent"),
  }
 }
 
 fn responsible_party_label(r: &ResponsibleParty) -> (&'static str, &'static str, &'static str) {
  match r {
- ResponsibleParty::Internal => ("内部", "rgba(22,163,74,0.08)", "var(--success)"),
- ResponsibleParty::Supplier => ("供应商", "rgba(37,99,235,0.08)", "var(--accent)"),
- ResponsibleParty::Customer => ("客户", "rgba(124,58,237,0.08)", "#7c3aed"),
+ ResponsibleParty::Internal => ("内部", "bg-[#dcfce7]", "text-success"),
+ ResponsibleParty::Supplier => ("供应商", "bg-[#dbeafe]", "text-accent"),
+ ResponsibleParty::Customer => ("客户", "bg-[#f3e8ff]", "text-[#7c3aed]"),
  }
 }
 
 fn mrb_status_label(s: &MRBStatus) -> (&'static str, &'static str, &'static str) {
  match s {
- MRBStatus::Draft => ("草稿", "rgba(0,0,0,0.04)", "var(--muted)"),
- MRBStatus::UnderReview => ("审批中", "rgba(217,119,6,0.08)", "#b45309"),
- MRBStatus::Approved => ("已批准", "rgba(22,119,255,0.08)", "var(--accent)"),
- MRBStatus::Completed => ("已完成", "rgba(82,196,26,0.08)", "var(--success)"),
+ MRBStatus::Draft => ("草稿", "bg-surface", "text-muted"),
+ MRBStatus::UnderReview => ("审批中", "bg-[#fff8eb]", "text-[#b45309]"),
+ MRBStatus::Approved => ("已批准", "bg-[#dbeafe]", "text-accent"),
+ MRBStatus::Completed => ("已完成", "bg-[#dcfce7]", "text-success"),
  }
 }
 
@@ -199,7 +199,7 @@ fn mrb_list_page(
  h1 class="text-xl font-bold text-fg tracking-tight" { "MRB 不良评审" }
  div class="flex gap-3" {
  @if can_create {
- a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(MrbCreatePath::PATH) {
+a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(MrbCreatePath::PATH) {
  (icon::plus_icon("w-4 h-4"))
  "新建MRB"
  }
@@ -239,34 +239,31 @@ fn mrb_table_fragment(
  hx-target="#mrb-data-card"
  hx-select="#mrb-data-card"
  hx-swap="outerHTML"
- hx-include="#filter-form"
+ hx-include="closest form"
  hx-push-url="true" {
- div class="relative flex-1 max-w-xs [&_svg]:absolute [&_svg]:left-3 [&_svg]:top-1/2 [&_svg]:-translate-y-1/2 [&_svg]:w-4 [&_svg]:h-4 [&_svg]:text-muted" {
- (icon::search_icon(""))
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword"
- style="width:180px"
+ div class="relative w-60" {
+ (icon::search_icon("absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted"))
+ input class="search-input w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword"
  placeholder="搜索单号…"
  value=(params.keyword.as_deref().unwrap_or(""));
  }
- select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="disposition" {
+ select class="w-40 px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer" name="disposition" {
  option value="" selected[params.disposition.is_none()] { "全部处置" }
  option value="1" selected[params.disposition == Some(1)] { "报废" }
  option value="2" selected[params.disposition == Some(2)] { "退货" }
  option value="3" selected[params.disposition == Some(3)] { "降级" }
  option value="4" selected[params.disposition == Some(4)] { "返工" }
  }
- select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="responsible_party" {
+ select class="w-40 px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer" name="responsible_party" {
  option value="" selected[params.responsible_party.is_none()] { "全部责任方" }
  option value="1" selected[params.responsible_party == Some(1)] { "内部" }
  option value="2" selected[params.responsible_party == Some(2)] { "供应商" }
  option value="3" selected[params.responsible_party == Some(3)] { "客户" }
  }
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="date" name="date_from"
- style="max-width:160px"
+ input class="w-40 px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer" type="date" name="date_from"
  value=(params.date_from.as_deref().unwrap_or(""));
- span style="color:var(--muted);font-size:13px" { "至" }
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="date" name="date_to"
- style="max-width:160px"
+ span class="text-sm text-muted" { "至" }
+ input class="w-40 px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer" type="date" name="date_to"
  value=(params.date_to.as_deref().unwrap_or(""));
  }
 
@@ -307,24 +304,24 @@ fn mrb_data_card(
  @let product_name = product_names.get(&item.product_id).map(|s| s.as_str()).unwrap_or("—");
  @let result_doc = result_doc_numbers.get(&item.inspection_result_id).map(|s| s.as_str()).unwrap_or("—");
  @let detail_path = MrbDetailPath { id: item.id };
- tr style="cursor:pointer" onclick=(format!("location.href='{}'", detail_path.to_string())) {
- td class="text-accent font-medium cursor-pointer font-mono tabular-nums" style="color:var(--accent)" { (item.doc_number) }
- td class="font-mono tabular-nums" style="font-size:12px" { (result_doc) }
+ tr class="cursor-pointer hover:bg-accent-bg transition-colors duration-100" _=(format!("on click go to {}", detail_path.to_string())) {
+ td { a href=(detail_path.to_string()) class="text-accent font-medium font-mono tabular-nums hover:underline" { (item.doc_number) } }
+ td class="font-mono tabular-nums text-xs" { (result_doc) }
  td { (product_name) }
- td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" { (item.defect_description) }
+ td class="max-w-[200px] overflow-hidden text-ellipsis whitespace-nowrap" { (item.defect_description) }
  td {
- span style=(format!("display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{};color:{}", disp_bg, disp_color)) {
+ span class=(format!("text-xs px-2 py-0.5 rounded-full font-medium {} {}", disp_bg, disp_color)) {
  (disp_label)
  }
  }
  td {
- span style=(format!("display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{};color:{}", rp_bg, rp_color)) {
+ span class=(format!("text-xs px-2 py-0.5 rounded-full font-medium {} {}", rp_bg, rp_color)) {
  (rp_label)
  }
  }
  td class="font-mono tabular-nums" { (format!("¥{:.2}", item.cost_impact)) }
  td {
- span style=(format!("display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{};color:{}", st_bg, st_color)) {
+ span class=(format!("text-xs px-2 py-0.5 rounded-full font-medium {} {}", st_bg, st_color)) {
  (st_label)
  }
  }
@@ -332,9 +329,7 @@ fn mrb_data_card(
  }
  @if result.items.is_empty() {
  tr {
- td colspan="8" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
- "暂无MRB记录"
- }
+ td colspan="8" class="text-center text-muted text-sm py-8" { "暂无MRB记录" }
  }
  }
  }

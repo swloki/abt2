@@ -143,24 +143,24 @@ pub(crate) fn warehouse_create_page(warehouse: Option<&Warehouse>) -> Markup {
  hx-swap="none" {
 
  // ── Section: 基本信息 ──
- div class="data-card" style="margin-bottom:var(--space-4)" {
+ div class="data-card" class="mb-4" {
  div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
  (icon::building_icon("w-4 h-4"))
  " 基本信息"
  }
  div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
  div class="form-field" {
- label { "仓库编码 " span style="color:var(--danger)" { "*" } }
+ label { "仓库编码 " span class="text-danger" { "*" } }
  input type="text" name="code" required placeholder="如 WH-007"
  value=(code_val);
  }
  div class="form-field" {
- label { "仓库名称 " span style="color:var(--danger)" { "*" } }
+ label { "仓库名称 " span class="text-danger" { "*" } }
  input type="text" name="name" required placeholder="请输入仓库名称"
  value=(name_val);
  }
  div class="form-field" {
- label { "仓库类型 " span style="color:var(--danger)" { "*" } }
+ label { "仓库类型 " span class="text-danger" { "*" } }
  select name="warehouse_type" required
  id="warehouse-type-select" {
  option value="" disabled selected[type_val == 0] { "-- 请选择 --" }
@@ -174,7 +174,7 @@ pub(crate) fn warehouse_create_page(warehouse: Option<&Warehouse>) -> Markup {
  div class="form-field" {
  label { "管理员" }
  input type="text" name="manager_display" placeholder="请选择管理员"
- style="background:var(--surface);color:var(--muted)" readonly;
+ class="bg-surface text-muted" readonly;
  input type="hidden" name="manager_id";
  }
  div class="form-field" id="address-field" {
@@ -182,8 +182,8 @@ pub(crate) fn warehouse_create_page(warehouse: Option<&Warehouse>) -> Markup {
  input type="text" name="address" placeholder="请输入仓库地址"
  value=(address_val);
  }
- div class="form-field" style="display:flex;align-items:flex-end;padding-bottom:4px" {
- label style="display:flex;align-items:center;gap:var(--space-2);cursor:pointer;margin:0" {
+ div class="form-field" class="flex" class="items-end" style="padding-bottom:4px" {
+ label class="flex items-center cursor-pointer m-0" class="gap-2" {
  input type="checkbox" name="is_virtual" value="true"
  id="is-virtual-checkbox"
  checked[is_virtual];
@@ -191,8 +191,8 @@ pub(crate) fn warehouse_create_page(warehouse: Option<&Warehouse>) -> Markup {
  }
  }
  div id="virtual-tip" style=(if is_virtual { "grid-column:1/-1;display:block" } else { "grid-column:1/-1;display:none" }) {
- div style="background:rgba(22,119,255,0.04);border:1px solid rgba(22,119,255,0.15);border-radius:var(--radius-md);padding:var(--space-4) var(--space-5);font-size:var(--text-sm);color:var(--fg-2);line-height:1.6" {
- div style="display:flex;align-items:center;gap:var(--space-2);font-weight:600;color:var(--accent);margin-bottom:var(--space-1)" {
+ div class="text-fg-2" class="rounded-md" class="px-5 py-4 text-sm" style="background:rgba(22,119,255,0.04);border:1px solid rgba(22,119,255,0.15);line-height:1.6" {
+ div class="flex items-center font-semibold text-accent" class="gap-2" class="mb-1" {
  (icon::circle_alert_icon("w-4 h-4"))
  "虚拟委外仓说明"
  }
@@ -202,7 +202,7 @@ pub(crate) fn warehouse_create_page(warehouse: Option<&Warehouse>) -> Markup {
  div class="form-field field-full" {
  label { "备注" }
  textarea name="remark" placeholder="输入仓库相关备注信息…"
- style="width:100%;min-height:80px;resize:vertical" { (remark_val) }
+ class="w-full resize-y" class="min-h-[80px]" { (remark_val) }
  }
  }
  }

@@ -249,7 +249,7 @@ fn stock_out_data_card(
  }
  @if result.items.is_empty() {
  tr {
- td colspan="13" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
+ td colspan="13" class="text-center text-muted py-8" {
  "暂无出库记录"
  }
  }
@@ -285,7 +285,7 @@ fn stock_out_table_fragment(
  // ── Stat Cards ──
  div class="grid grid-cols-4 gap-5 mb-6" {
  div class="stat-card flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-md shadow-xs" {
- div class="w-[44px] h-[44px] rounded-md grid place-items-center shrink-0" style="background:linear-gradient(135deg,#fff1f0,#ffccc7);color:#cf1322" {
+ div class="w-[44px] h-[44px] rounded-md grid place-items-center shrink-0" class="text-[#cf1322]" style="background:linear-gradient(135deg,#fff1f0,#ffccc7)" {
  (icon::upload_icon("w-[22px] h-[22px]"))
  }
  div {
@@ -294,7 +294,7 @@ fn stock_out_table_fragment(
  }
  }
  div class="stat-card flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-md shadow-xs" {
- div class="w-[44px] h-[44px] rounded-md grid place-items-center shrink-0" style="background:linear-gradient(135deg,#fff1f0,#ffccc7);color:#cf1322" {
+ div class="w-[44px] h-[44px] rounded-md grid place-items-center shrink-0" class="text-[#cf1322]" style="background:linear-gradient(135deg,#fff1f0,#ffccc7)" {
  (icon::currency_icon("w-[22px] h-[22px]"))
  }
  div {
@@ -312,7 +312,7 @@ fn stock_out_table_fragment(
  }
  }
  div class="stat-card flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-md shadow-xs" {
- div class="w-[44px] h-[44px] rounded-md grid place-items-center shrink-0" style="background:linear-gradient(135deg,#f6ffed,#d9f7be);color:#389e0d" {
+ div class="w-[44px] h-[44px] rounded-md grid place-items-center shrink-0" class="text-[#389e0d]" style="background:linear-gradient(135deg,#f6ffed,#d9f7be)" {
  (icon::check_circle_icon("w-[22px] h-[22px]"))
  }
  div {
@@ -346,11 +346,11 @@ fn stock_out_table_fragment(
  }
  }
  input class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer" type="date" name="date_start"
- style="width:140px"
+ class="w-[140px]"
  value=(params.date_start.as_deref().unwrap_or(""));
  span class="text-muted leading-9" { "~" }
  input class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer" type="date" name="date_end"
- style="width:140px"
+ class="w-[140px]"
  value=(params.date_end.as_deref().unwrap_or(""));
  }
 

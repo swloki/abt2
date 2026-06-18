@@ -256,7 +256,7 @@ fn role_list_page(
  h1 class="text-xl font-bold text-fg tracking-tight" { "角色管理" }
  div class="flex gap-3" {
  @if can_create {
- a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(RoleCreatePath::PATH) {
+ a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(RoleCreatePath::PATH) {
  (icon::plus_icon("w-4 h-4"))
  "新建角色"
  }
@@ -315,7 +315,7 @@ fn role_table_fragment(
  // ── Filter Bar ──
  div class="flex items-center gap-3 mb-5 flex-wrap" {
  div class="relative flex-1 max-w-xs [&_svg]:absolute [&_svg]:left-3 [&_svg]:top-1/2 [&_svg]:-translate-y-1/2 [&_svg]:w-4 [&_svg]:h-4 [&_svg]:text-muted" {
- (icon::search_icon(""))
+ (icon::search_icon("w-4 h-4"))
  input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword"
  placeholder="搜索角色名称、角色代码…"
  value=(params.keyword.as_deref().unwrap_or(""))
@@ -430,10 +430,10 @@ fn role_row(
  @if perm_count == total_perms {
  span class="text-[13px] text-muted" { "全部权限" }
  } @else {
- div class="text-accent font-semibold" {
- span { (perm_count) }
- div class="text-accent font-semibold-bar" {
- div class="text-accent font-semibold-fill" style=(format!("width:{}%", perm_pct)) {}
+ div class="flex items-center gap-2" {
+ span class="text-accent font-semibold text-sm" { (perm_count) }
+ div class="flex-1 h-1 bg-border rounded-full overflow-hidden" {
+ div class="h-full bg-accent rounded-full" style=(format!("width:{}%", perm_pct)) {}
  }
  }
  }

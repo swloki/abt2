@@ -6,6 +6,7 @@ use abt_core::mes::enums::{ExceptionStatus, ExceptionType};
 use abt_core::mes::production_exception::ProductionExceptionService;
 use abt_core::shared::types::PaginatedResult;
 
+use crate::components::icon;
 use crate::errors::Result;
 use crate::layout::page::admin_page;
 use crate::routes::mes_exception::ExceptionListPath;
@@ -36,35 +37,50 @@ fn exception_list_page(
  h1 class="text-xl font-bold text-fg tracking-tight" { "生产异常" }
  }
 
- // Stats row
- div class="flex gap-[12px]" {
- div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
- div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-value" { (stats.total_month) }
- div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-label" { "本月异常" }
+ // ── Stats row ──
+ div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-5" {
+ div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-md" {
+ div class="w-11 h-11 rounded-md grid place-items-center shrink-0 bg-[#e6f4ff] text-accent" { (icon::circle_alert_icon("w-5 h-5")) }
+ div {
+ div class="text-2xl font-bold font-mono tabular-nums text-fg" { (stats.total_month) }
+ div class="text-sm text-muted mt-1" { "本月异常" }
  }
- div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
- div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-value w-[60px] h-[6px] bg-[#e2e8f0] overflow-hidden" { (stats.batch_suspended) }
- div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-label" { "批次暂停" }
  }
- div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
- div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-value" style="color:var(--danger)" { (stats.batch_scrapped) }
- div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-label" { "报废批次" }
+ div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-md" {
+ div class="w-11 h-11 rounded-md grid place-items-center shrink-0 bg-[#fff8eb] text-warn" { (icon::clock_icon("w-5 h-5")) }
+ div {
+ div class="text-2xl font-bold font-mono tabular-nums text-fg" { (stats.batch_suspended) }
+ div class="text-sm text-muted mt-1" { "批次暂停" }
  }
- div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
- div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-value text-muted" { (stats.inspection_failed) }
- div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-label" { "报检不合格" }
+ }
+ div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-md" {
+ div class="w-11 h-11 rounded-md grid place-items-center shrink-0 bg-[#fff2f0] text-danger" { (icon::trash_icon("w-5 h-5")) }
+ div {
+ div class="text-2xl font-bold font-mono tabular-nums text-danger" { (stats.batch_scrapped) }
+ div class="text-sm text-muted mt-1" { "报废批次" }
+ }
+ }
+ div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-md" {
+ div class="w-11 h-11 rounded-md grid place-items-center shrink-0 bg-[#fff2f0] text-danger" { (icon::alert_triangle_icon("w-5 h-5")) }
+ div {
+ div class="text-2xl font-bold font-mono tabular-nums text-muted" { (stats.inspection_failed) }
+ div class="text-sm text-muted mt-1" { "报检不合格" }
+ }
  }
  }
 
- // Filter bar
+ // ── Filter bar ──
  div class="flex items-center gap-3 mb-5 flex-wrap" {
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="keyword" placeholder="搜索编号或描述..."
+ div class="relative w-60" {
+ (icon::search_icon("absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted"))
+ input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword" placeholder="搜索编号或描述…"
  hx-get=(ExceptionListPath::PATH)
  hx-target="#exception-table"
  hx-trigger="keyup changed delay:300ms"
  hx-sync="this:replace"
  hx-swap="innerHTML" {}
- select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="exception_type"
+ }
+ select class="w-40 px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer" name="exception_type"
  hx-get=(ExceptionListPath::PATH)
  hx-target="#exception-table"
  hx-trigger="change"
@@ -112,18 +128,18 @@ fn exception_table_fragment(
  }
  td { (exception_type_label(&item.exception_type)) }
  td {
- div class="flex flex-col gap-[2px]" {
+ div class="flex flex-col gap-1" {
  @if let Some(ref wo) = item.wo_doc_number {
- span class="sub" {
- a href=(format!("/admin/mes/orders/{}", item.work_order_id.unwrap_or(0))) class="text-accent font-medium cursor-pointer" { (wo) }
+ span class="text-sm" {
+ a href=(format!("/admin/mes/orders/{}", item.work_order_id.unwrap_or(0))) class="text-accent font-medium hover:underline" { (wo) }
  }
  }
  @if let Some(ref bn) = item.batch_no {
- a href=(format!("/admin/mes/batches/{}", item.batch_id.unwrap_or(0))) class="text-accent font-medium cursor-pointer" { (bn) }
+ a href=(format!("/admin/mes/batches/{}", item.batch_id.unwrap_or(0))) class="text-accent font-medium text-sm hover:underline" { (bn) }
  }
  }
  }
- td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" {
+ td class="max-w-[200px] truncate text-sm text-fg-2" {
  (item.description.as_deref().unwrap_or("—"))
  }
  td class="text-right text-[13px] font-mono tabular-nums" {
@@ -139,7 +155,7 @@ fn exception_table_fragment(
  }
  @if result.total_pages > 1 {
  div class="flex items-center justify-between py-4 px-5" {
- span class="flex items-center justify-between py-4-info" { "共 " (result.total) " 条" }
+ span class="text-sm text-muted" { "共 " (result.total) " 条" }
  }
  }
  }

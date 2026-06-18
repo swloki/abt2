@@ -164,11 +164,11 @@ fn transfer_create_page(
  }
  // ── Status Flow ──
  div class="flex items-center gap-2 mb-5 px-4 py-3 bg-bg border border-border-soft rounded-md" {
- span class="text-xs px-2.5 py-0.5 rounded-full font-semibold" style="background:rgba(22,119,255,0.08);color:var(--accent);border:1px solid rgba(22,119,255,0.3)" { "草稿" }
+ span class="text-xs px-2.5 py-0.5 rounded-full font-semibold" class="text-accent" style="background:rgba(22,119,255,0.08);border:1px solid rgba(22,119,255,0.3)" { "草稿" }
  span class="text-[10px] text-border" { "→" }
- span class="text-xs px-2.5 py-0.5 rounded-full text-muted border border-border" style="background:var(--surface)" { "在途" }
+ span class="text-xs px-2.5 py-0.5 rounded-full text-muted border border-border" class="bg-surface" { "在途" }
  span class="text-[10px] text-border" { "→" }
- span class="text-xs px-2.5 py-0.5 rounded-full text-muted border border-border" style="background:var(--surface)" { "完成" }
+ span class="text-xs px-2.5 py-0.5 rounded-full text-muted border border-border" class="bg-surface" { "完成" }
  }
  form hx-post=(TransferCreatePath::PATH) hx-swap="none"
  onsubmit="return transferCollectItems()" {
@@ -241,7 +241,7 @@ fn transfer_create_page(
  }
  }
  // ── 调拨明细 ──
- div class="form-section" style="padding:0;overflow:hidden" {
+ div class="form-section" class="p-0 overflow-hidden" {
  div class="px-6 pt-6 pb-4" {
  div class="flex items-center gap-2 text-sm font-semibold text-fg mb-3" {
  (icon::box_icon("w-[18px] h-[18px]"))
@@ -253,15 +253,15 @@ fn transfer_create_page(
  table class="data-table" {
  thead {
  tr {
- th style="width:40px;text-align:center" { "行号" }
+ th class="w-10 text-center" { "行号" }
  th style="min-width:140px" { "产品编码" }
  th style="min-width:180px" { "产品名称" }
- th style="min-width:160px" { "规格" }
- th style="width:64px" { "单位" }
- th style="width:90px;text-align:right" { "调出库存" }
- th style="width:100px;text-align:right" { "调拨数量 " span class="required" { "*" } }
- th style="width:130px" { "批次号" }
- th style="width:40px" { }
+ th class="min-w-[160px]" { "规格" }
+ th class="w-16" { "单位" }
+ th class="w-[90px] text-right" { "调出库存" }
+ th class="w-[100px] text-right" { "调拨数量 " span class="required" { "*" } }
+ th class="w-[130px]" { "批次号" }
+ th class="w-10" { }
  }
  }
  tbody id="transfer-item-tbody" { }

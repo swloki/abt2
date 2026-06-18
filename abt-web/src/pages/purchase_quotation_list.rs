@@ -316,7 +316,7 @@ fn pq_table_fragment(
  }
  @if result.items.is_empty() {
  tr {
- td colspan="8" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
+ td colspan="8" class="text-center text-muted py-8" {
  "暂无报价数据"
  }
  }
@@ -346,7 +346,7 @@ fn pq_row(
  let is_draft = q.status == PurchaseQuotationStatus::Draft;
  let status_allows_delete = q.status != PurchaseQuotationStatus::Active;
  html! {
- tr style="cursor:pointer" {
+ tr class="cursor-pointer" {
  td class="text-accent font-medium cursor-pointer font-mono tabular-nums" onclick=(&onclick) { (q.doc_number) }
  td onclick=(&onclick) { (supplier_name) }
  td onclick=(&onclick) { (contact) }
@@ -356,7 +356,7 @@ fn pq_row(
  td class="font-mono tabular-nums" onclick=(&onclick) { (q.quotation_date.format("%Y-%m-%d")) }
  td class="font-mono tabular-nums" onclick=(&onclick) { (q.valid_until.format("%Y-%m-%d")) }
  td onclick=(&onclick) { (currency) }
- td onclick="event.stopPropagation()" {
+ td _="on click halt the event" {
  @if is_draft || (can_delete && status_allows_delete) {
  div class="row-actions flex items-center gap-1 justify-end opacity-0 transition-opacity duration-150 [&_a]:w-[28px] [&_a]:h-[28px] [&_a]:grid [&_a]:place-items-center [&_a]:rounded-sm [&_a]:cursor-pointer [&_a]:bg-surface [&_a]:hover:bg-accent-bg [&_svg]:w-3.5 [&_svg]:h-3.5" {
  @if is_draft {

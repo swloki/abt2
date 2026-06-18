@@ -261,11 +261,11 @@ fn pr_create_page(
  input type="hidden" id="items-json" name="items_json" value="[]";
 
  // ── 关联单据 ──
- div class="data-card" style="margin-bottom:var(--space-4)" {
+ div class="data-card" class="mb-4" {
  div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "关联单据" }
  div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
  div class="form-field" {
- label { "采购订单" span style="color:var(--danger)" { "*" } }
+ label { "采购订单" span class="text-danger" { "*" } }
  select id="pr-order-select"
  name="order_id"
  hx-get=(PROrderItemsPath::PATH)
@@ -296,15 +296,15 @@ fn pr_create_page(
  }
 
  // ── 退货信息 ──
- div class="data-card" style="margin-bottom:var(--space-4)" {
+ div class="data-card" class="mb-4" {
  div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "退货信息" }
  div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
  div class="form-field" {
- label { "退货日期" span style="color:var(--danger)" { "*" } }
+ label { "退货日期" span class="text-danger" { "*" } }
  input type="date" name="return_date" value=(today) required {}
  }
  div class="form-field" {
- label { "退货原因" span style="color:var(--danger)" { "*" } }
+ label { "退货原因" span class="text-danger" { "*" } }
  select name="return_reason" required {
  option value="" { "请选择" }
  option value="质量不合格" { "质量不合格" }
@@ -350,31 +350,31 @@ fn pr_create_page(
  }
  div class="form-field span-2" {
  label { "备注" }
- textarea name="remark" placeholder="输入退货相关备注信息…" style="width:100%;min-height:80px;padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:var(--text-sm);resize:vertical;font-family:inherit" {}
+ textarea name="remark" placeholder="输入退货相关备注信息…" class="w-full resize-y" class="rounded-sm" class="min-h-[80px] border border-border text-sm" style="padding:8px 12px;font-family:inherit" {}
  }
  }
  }
 
  // ── 退货产品明细 ──
- div id="pr-items-section" class="data-card" style="display:none;padding:0;overflow:hidden;margin-bottom:var(--space-4)" {
- div style="padding:var(--space-5) var(--space-5) var(--space-3);display:flex;justify-content:space-between;align-items:center" {
- span class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" style="margin:0;padding:0;border:none" { "退货产品明细" }
+ div id="pr-items-section" class="data-card" class="p-0 overflow-hidden mb-4" style="display:none" {
+ div class="flex justify-between items-center" class="px-5 pt-5 pb-3" {
+ span class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" class="m-0 p-0 border-none" { "退货产品明细" }
  }
- div style="overflow-x:auto" {
+ div class="overflow-x-auto" {
  table class="data-table" style="min-width:1100px" {
  thead {
  tr {
- th style="width:36px;text-align:center" { "行号" }
+ th class="w-9 text-center" { "行号" }
  th { "物料编码" }
  th { "物料名称" }
  th { "规格" }
  th { "单位" }
  th class="text-right text-[13px]" { "订单数量" }
  th class="text-right text-[13px]" { "已收货" }
- th style="width:120px;text-align:right" { "退货数量" }
+ th class="w-[120px] text-right" { "退货数量" }
  th class="text-right text-[13px]" { "单价" }
  th class="text-right text-[13px]" { "退货金额" }
- th style="width:36px" { "操作" }
+ th class="w-9" { "操作" }
  }
  }
  tbody id="pr-item-tbody" { }
@@ -387,7 +387,7 @@ fn pr_create_page(
 
  div class="flex items-center justify-end gap-3 pt-4 [border-top:1px_solid_var(--border-soft)]" {
  a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{}?restore=true", PRListPath::PATH)) { "取消" }
- div style="display:flex;gap:var(--space-3)" {
+ div class="flex gap-3" {
  button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" id="pr-save-draft" {
  "保存草稿"
  }

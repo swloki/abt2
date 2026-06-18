@@ -156,45 +156,45 @@ fn routing_create_page(
  input type="hidden" name="steps_json";
 
  // ── Section: 基本信息 ──
- div class="data-card" style="margin-bottom:var(--space-4)" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "基本信息" }
+ div class="data-card" class="mb-4" {
+ div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft border-border-soft" { "基本信息" }
  div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
  div class="form-field" {
- label { "路线名称 " span style="color:var(--danger)" { "*" } }
+ label { "路线名称 " span class="text-danger" { "*" } }
  input type="text" name="name" required placeholder="请输入路线名称" {}
  }
  div class="form-field" {
  label { "路线编码" }
  input type="text" value="自动生成" readonly
- style="background:var(--surface);color:var(--muted)" {}
+ class="bg-surface text-muted" {}
  }
  div class="form-field field-full" {
  label { "描述" }
  textarea name="description" placeholder="请输入描述信息…"
- style="width:100%;min-height:80px;resize:vertical" {}
+ class="w-full resize-y" class="min-h-[80px]" {}
  }
  }
  }
 
  // ── Section: 工序步骤 ──
- div class="data-card" style="padding:0;overflow:hidden;margin-bottom:var(--space-4)" {
- div style="padding:var(--space-5) var(--space-5) var(--space-3);display:flex;justify-content:space-between;align-items:center" {
- span class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" style="margin:0;padding:0;border:none" { "工序步骤" }
+ div class="data-card" class="p-0 overflow-hidden mb-4" {
+ div class="p-5 pb-3 flex justify-between items-center" {
+ span class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft border-border-soft" class="m-0 p-0 border-none" { "工序步骤" }
  button type="button" class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] [&_svg]:w-4 [&_svg]:h-4" onclick="addStep()" {
  (icon::plus_icon("w-3.5 h-3.5"))
  "添加工序"
  }
  }
- div style="overflow-x:auto" {
- table class="data-table" style="min-width:800px" {
+ div class="overflow-x-auto" {
+ table class="data-table" class="min-w-[800px]" {
  thead {
  tr {
- th style="width:60px;text-align:center" { "排序" }
- th style="width:200px" { "工序代码" }
- th style="width:180px" { "工序名称" }
- th style="width:80px;text-align:center" { "是否必经" }
+ th class="w-[60px] text-center" { "排序" }
+ th class="w-[200px]" { "工序代码" }
+ th class="w-[180px]" { "工序名称" }
+ th class="w-[80px] text-center" { "是否必经" }
  th { "备注" }
- th style="width:50px" { }
+ th class="w-[50px]" { }
  }
  }
  tbody id="routing-steps-body" {
@@ -210,9 +210,9 @@ fn routing_create_page(
  }
 
  // ── Action Bar ──
- div class="flex items-center justify-end gap-3 pt-4 [border-top:1px_solid_var(--border-soft)]" {
- a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{}?restore=true", RoutingListPath::PATH)) { "取消" }
- button type="submit" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" { "保存路线" }
+ div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
+ a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{}?restore=true", RoutingListPath::PATH)) { "取消" }
+ button type="submit" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" { "保存路线" }
  }
  }
  }
@@ -279,10 +279,10 @@ function renderSteps() {{
  let chk = step.is_required ? ' checked' : '';
  html += '<tr>' +
  '<td class="text-muted text-xs text-center">' + (idx + 1) + '</td>' +
- '<td><select onchange="onStepChange(' + idx + ')" style="width:100%;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)">' + opts + '</select></td>' +
- '<td style="padding:5px 8px;font-size:13px">' + getProcessName(step.process_code) + '</td>' +
- '<td style="text-align:center"><input type="checkbox" onchange="onStepChange(' + idx + ')" style="width:18px;height:18px;cursor:pointer;accent-color:var(--primary)"' + chk + '></td>' +
- '<td><input type="text" onchange="onStepChange(' + idx + ')" placeholder="备注" style="width:100%;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)"></td>' +
+ '<td><select onchange="onStepChange(' + idx + ')" class="w-full text-[13px]" class="rounded-sm" class="px-2 py-[5px] border border-border">' + opts + '</select></td>' +
+ '<td class="text-[13px]" class="px-2 py-[5px]">' + getProcessName(step.process_code) + '</td>' +
+ '<td class="text-center"><input type="checkbox" onchange="onStepChange(' + idx + ')" class="cursor-pointer" style="width:18px;height:18px;accent-color:var(--primary)"' + chk + '></td>' +
+ '<td><input type="text" onchange="onStepChange(' + idx + ')" placeholder="备注" class="w-full text-[13px]" class="rounded-sm" class="px-2 py-[5px] border border-border"></td>' +
  '<td><button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center" onclick="removeStep(' + idx + ')" title="删除"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button></td>' +
  '</tr>';
  }});

@@ -202,7 +202,7 @@ fn workflow_steps(current: PurchaseQuotationStatus) -> Markup {
  }
  @if is_cancelled {
  div class="w-[48px] h-[2px] bg-border" {}
- div class="flex items-center gap-2 text-xs text-muted" style="color:var(--danger)" {
+ div class="flex items-center gap-2 text-xs text-muted" class="text-danger" {
  span class="w-[10px] h-[10px] rounded-full bg-border" {}
  "已取消"
  }
@@ -350,7 +350,7 @@ fn pq_detail_page(
  }
  @if items.is_empty() {
  tr {
- td colspan="9" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
+ td colspan="9" class="text-center text-muted py-8" {
  "暂无明细"
  }
  }
@@ -402,7 +402,7 @@ fn item_row(
  td class="text-right text-[13px]" { (format!("{:.2}", item.unit_price)) }
  td class="text-right text-[13px]" { (min_qty) }
  td { (lead_time) }
- td style="text-align:center" { (preferred) }
+ td class="text-center" { (preferred) }
  }
  }
 }

@@ -160,7 +160,7 @@ impl BackflushRepo {
         let limit_idx = param_idx + 1;
         let offset_idx = param_idx + 2;
 
-        let count_sql = format!("SELECT COUNT(*) as total FROM backflush_records WHERE {where_sql}");
+ let count_sql = format!("SELECT COUNT(*) as total FROM backflush_records br WHERE {where_sql}");
         let data_sql = format!(
             "SELECT br.id, br.doc_number, br.work_order_id, br.product_id, br.completed_qty, \
              br.backflush_date, br.status, br.variance_threshold, br.operator_id, \

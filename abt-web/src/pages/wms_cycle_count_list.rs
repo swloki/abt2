@@ -193,7 +193,7 @@ fn cycle_count_data_card(
  }
  @if result.items.is_empty() {
  tr {
- td colspan="9" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
+ td colspan="9" class="text-center text-muted py-8" {
  "暂无盘点数据"
  }
  }
@@ -212,7 +212,7 @@ fn cycle_count_row(item: &CycleCount) -> Markup {
  let sc = status_class(&item.status);
 
  html! {
- tr style="cursor:pointer" {
+ tr class="cursor-pointer" {
  td class="text-accent font-medium cursor-pointer font-mono tabular-nums" onclick=(format!("location.href='{}'", detail_path)) {
  (item.doc_number)
  }
@@ -223,7 +223,7 @@ fn cycle_count_row(item: &CycleCount) -> Markup {
  @if let Some(zid) = item.zone_id {
  "库区#" (zid)
  } @else {
- span style="color:var(--muted)" { "—" }
+ span class="text-muted" { "—" }
  }
  }
  td class="font-mono tabular-nums" onclick=(format!("location.href='{}'", detail_path)) {
@@ -236,12 +236,12 @@ fn cycle_count_row(item: &CycleCount) -> Markup {
  @if item.is_blind { "是" } @else { "否" }
  }
  td class="text-right text-[13px]" onclick=(format!("location.href='{}'", detail_path)) {
- span style="color:var(--muted)" { "—" }
+ span class="text-muted" { "—" }
  }
  td onclick=(format!("location.href='{}'", detail_path)) {
  "操作员#" (item.operator_id)
  }
- td onclick="event.stopPropagation()" {
+ td _="on click halt the event" {
  div class="row-actions flex items-center gap-1 justify-end opacity-0 transition-opacity duration-150 [&_a]:w-[28px] [&_a]:h-[28px] [&_a]:grid [&_a]:place-items-center [&_a]:rounded-sm [&_a]:cursor-pointer [&_a]:bg-surface [&_a]:hover:bg-accent-bg [&_svg]:w-3.5 [&_svg]:h-3.5" {
  a class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" title="查看" href=(detail_path) {
  (icon::eye_icon("w-4 h-4"))

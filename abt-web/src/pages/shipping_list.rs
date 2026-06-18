@@ -318,7 +318,7 @@ fn shipping_row(
  td class="text-accent font-medium cursor-pointer font-mono tabular-nums" onclick=(&onclick) { (s.doc_number) }
  td onclick=(&onclick) {
  @if let Some(odp) = order_detail_path {
- a href=(odp.to_string()) class="text-accent" onclick="event.stopPropagation()" { (order_num) }
+ a href=(odp.to_string()) class="text-accent" _="on click halt the event" { (order_num) }
  } @else {
  (order_num)
  }
@@ -331,7 +331,7 @@ fn shipping_row(
  td onclick=(&onclick) { (s.carrier.as_str()) }
  td class="font-mono tabular-nums" onclick=(&onclick) { (s.tracking_number.as_str()) }
  td onclick=(&onclick) { (created) }
- td onclick="event.stopPropagation()" {
+ td _="on click halt the event" {
  div class="row-actions flex items-center gap-1 justify-end opacity-0 transition-opacity duration-150 [&_a]:w-[28px] [&_a]:h-[28px] [&_a]:grid [&_a]:place-items-center [&_a]:rounded-sm [&_a]:cursor-pointer [&_a]:bg-surface [&_a]:hover:bg-accent-bg [&_svg]:w-3.5 [&_svg]:h-3.5" {
  @if is_draft {
  a class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" href=(ShippingEditPath { id: s.id }.to_string()) title="编辑" {

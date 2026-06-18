@@ -14,7 +14,7 @@ pub fn import_modal(config: &ImportModalConfig) -> Markup {
  html! {
  div id=(modal_id) class="fixed z-[1000] grid place-items-center opacity-0" _="on click[me is event.target] remove .is-open" {
  div class="modal bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0" {
- div class="px-6 py-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center shrink-0" {
+ div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
  h2 { (config.title) }
  button type="button" class="bg-transparent border-none cursor-pointer text-xl text-muted p-1 hover:text-fg"
  _="on click remove .is-open from closest .modal-overlay" { "×" }
@@ -43,7 +43,7 @@ fn render_import_form(config: &ImportModalConfig) -> Markup {
  html! {
  div class="flex flex-col gap-3" {
  p class="text-sm text-muted bg-[var(--slate-50)] p-2" { "列格式：" (config.template_columns) }
- a href=(template_path) class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" download {
+ a href=(template_path) class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" download {
  (crate::components::icon::download_icon("w-4 h-4"))
  " 下载模板"
  }
@@ -55,7 +55,7 @@ fn render_import_form(config: &ImportModalConfig) -> Markup {
  hx-indicator=(format!("#{} .htmx-indicator", content_id)) {
  input type="file" name="file" accept=".xlsx" required;
  div class="flex gap-2 items-center" {
- button type="submit" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" {
+ button type="submit" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" {
  "开始导入"
  }
  div class="htmx-indicator" {
@@ -128,7 +128,7 @@ pub fn render_import_result(result: &abt_core::shared::excel::ImportResult) -> M
  }
  }
  div class="mt-3 text-right" {
- button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+ button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
  _="on click remove .is-open from closest .modal-overlay" { "关闭" }
  }
  }

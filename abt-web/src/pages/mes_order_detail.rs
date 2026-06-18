@@ -394,11 +394,11 @@ fn order_detail_page(
  span class="font-mono tabular-nums" { (crate::utils::fmt_qty(order.planned_qty)) " 件" }
  @if order.completed_qty > rust_decimal::Decimal::ZERO {
  span class="sep" { "|" }
- span class="font-mono tabular-nums" style="color:var(--success)" { "完成 " (crate::utils::fmt_qty(order.completed_qty)) }
+ span class="font-mono tabular-nums" class="text-success" { "完成 " (crate::utils::fmt_qty(order.completed_qty)) }
  }
  @if order.scrap_qty > rust_decimal::Decimal::ZERO {
  span class="sep" { "|" }
- span class="font-mono tabular-nums" style="color:var(--danger)" { "报废 " (crate::utils::fmt_qty(order.scrap_qty)) }
+ span class="font-mono tabular-nums" class="text-danger" { "报废 " (crate::utils::fmt_qty(order.scrap_qty)) }
  }
  span class="sep" { "|" }
  span { "—" }
@@ -603,7 +603,7 @@ fn tab_batches(batches: &[ProductionBatch], routings: &[WorkOrderRouting], order
  html! {
  // 操作栏
  @if can_split {
- div class="flex items-center gap-3 mb-5 flex-wrap" style="justify-content:flex-end;margin-bottom:var(--space-3)" {
+ div class="flex items-center gap-3 mb-5 flex-wrap" class="justify-end" class="mb-3" {
  button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" type="button"
  _="on click add .is-open to #split-dialog" {
  (icon::plus_icon("w-4 h-4"))
@@ -633,11 +633,11 @@ fn tab_batches(batches: &[ProductionBatch], routings: &[WorkOrderRouting], order
  td class="font-mono tabular-nums" { (b.batch_no.as_str()) }
  td class="font-mono tabular-nums" { (b.card_sn.as_str()) }
  td class="font-mono tabular-nums text-right text-[13px]" { (crate::utils::fmt_qty(b.batch_qty)) }
- td class="font-mono tabular-nums text-right text-[13px]" style="color:var(--success)" { (crate::utils::fmt_qty(b.completed_qty)) }
- td class="font-mono tabular-nums text-right text-[13px]" style="color:var(--danger)" { (crate::utils::fmt_qty(b.scrap_qty)) }
+ td class="font-mono tabular-nums text-right text-[13px]" class="text-success" { (crate::utils::fmt_qty(b.completed_qty)) }
+ td class="font-mono tabular-nums text-right text-[13px]" class="text-danger" { (crate::utils::fmt_qty(b.scrap_qty)) }
  td {
  @if b.current_step == 0 {
- span style="color:var(--muted)" { "未开始" }
+ span class="text-muted" { "未开始" }
  } @else {
  @let total = routings.len();
  @let sname = routings.iter()
@@ -672,7 +672,7 @@ fn tab_batches(batches: &[ProductionBatch], routings: &[WorkOrderRouting], order
  "工单计划量 " strong { (crate::utils::fmt_qty(order.planned_qty)) }
  "，已分批 " strong { (crate::utils::fmt_qty(existing_qty)) }
  @if remaining > rust_decimal::Decimal::ZERO {
- "，可新增 " strong style="color:var(--success)" { (crate::utils::fmt_qty(remaining)) }
+ "，可新增 " strong class="text-success" { (crate::utils::fmt_qty(remaining)) }
  } @else {
  "（已全部分配，可按容差新增）"
  }
@@ -687,13 +687,13 @@ fn tab_batches(batches: &[ProductionBatch], routings: &[WorkOrderRouting], order
  @if !routings.is_empty() {
  div class="form-field" {
  label { "工艺路线（该批次将依次经过以下工序）" }
- div style="display:flex;flex-wrap:wrap;gap:6px;padding:8px;background:var(--surface);border-radius:var(--radius-sm);border:1px solid var(--border)" {
+ div class="flex flex-wrap bg-surface" class="rounded-sm" class="border border-border" style="gap:6px;padding:8px" {
  @for (i, r) in routings.iter().enumerate() {
  @if i > 0 {
- span style="color:var(--text-muted);display:flex;align-items:center" { "\u{2192}" }
+ span class="flex items-center" style="color:var(--text-muted)" { "\u{2192}" }
  }
- span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;background:var(--surface-2);border-radius:var(--radius-sm);font-size:var(--text-xs)" {
- span style="font-weight:600;color:var(--primary)" { (r.step_no) }
+ span class="items-center" class="rounded-sm" class="inline-flex gap-1 text-xs" style="padding:2px 8px;background:var(--surface-2)" {
+ span class="font-semibold" class="text-accent" { (r.step_no) }
  (r.process_name.as_str())
  @if r.is_inspection_point {
  span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium" style="font-size:10px;padding:1px 4px" { "检" }

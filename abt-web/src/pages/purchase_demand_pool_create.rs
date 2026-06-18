@@ -302,8 +302,8 @@ fn create_page_content(
  "返回需求池"
  }
  h1 class="text-xl font-bold text-fg tracking-tight" { "从需求创建采购订单" }
- div style="font-size:13px;color:var(--muted);margin-top:4px;" {
- span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-surface text-muted" style="font-size:11px;padding:2px 8px;margin-right:6px;" {
+ div class="text-[13px] text-muted" style="margin-top:4px" {
+ span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-surface text-muted" class="text-[11px]" style="padding:2px 8px;margin-right:6px" {
  "采购需求池 · 按物料聚合"
  }
  "选择待处理的需求，指定供应商后创建采购订单草稿"
@@ -318,23 +318,23 @@ fn create_page_content(
  input type="hidden" id="demand-ids-input" name="demand_ids" value=(preselected_str);
 
  // ── Section 1: Basic Info ──
- div class="data-card" style="margin-bottom:var(--space-4);" {
+ div class="data-card" class="mb-4" {
  div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "基本信息" }
  div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
  div class="form-field" {
  label { "物料名称" }
  input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" readonly
  value=(product_name)
- style="background:var(--bg-muted);" {}
+ class="bg-surface" {}
  }
  div class="form-field" {
  label { "物料编码" }
  input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" readonly
  value=(product_code)
- style="background:var(--bg-muted);" {}
+ class="bg-surface" {}
  }
  div class="form-field" {
- label { "供应商" span style="color:var(--danger)" { "*" } }
+ label { "供应商" span class="text-danger" { "*" } }
  select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="supplier_id" required
  hx-get=(PurchaseDemandSupplierDetailPath::PATH)
  hx-trigger="change"
@@ -357,26 +357,26 @@ fn create_page_content(
  label { "备注" }
  textarea class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="remark"
  placeholder="输入订单相关备注信息…"
- style="width:100%;min-height:80px;resize:vertical;font-family:inherit;" {}
+ class="w-full resize-y" class="min-h-[80px]" style="font-family:inherit" {}
  }
  }
 
  // ── Supplier Info Bar ──
- div id="supplier-detail" style="margin-top:var(--space-3);" {}
+ div id="supplier-detail" class="mt-3" {}
  }
 
  // ── Section 2: Demand Details ──
- div class="data-card" style="margin-bottom:var(--space-4);padding:0;overflow:hidden;" {
- div style="padding:var(--space-5) var(--space-5) var(--space-3);display:flex;justify-content:space-between;align-items:center;" {
- span class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" style="margin:0;padding:0;border:none;" {
+ div class="data-card" class="mb-4 p-0 overflow-hidden" {
+ div class="flex justify-between items-center" class="px-5 pt-5 pb-3" {
+ span class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" class="m-0 p-0 border-none" {
  "需求明细"
  @if let Some(pid) = product_id {
- span style="font-weight:400;color:var(--muted);margin-left:var(--space-2);" {
+ span class="font-normal text-muted" class="ml-2" {
  "(物料 ID: " (pid) ")"
  }
  }
  }
- div style="display:flex;gap:var(--space-2);align-items:center;" {
+ div class="flex items-center" class="gap-2" {
  button type="button" class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs [&_svg]:w-4 [&_svg]:h-4" id="selectAllBtn" {
  "全选"
  (PreEscaped(r#"<script>document.currentScript.parentElement.addEventListener('click',function(){
@@ -393,7 +393,7 @@ fn create_page_content(
  table class="data-table" {
  thead {
  tr {
- th style="width:40px;" { input type="checkbox" id="checkAll" title="全选"; }
+ th class="w-10" { input type="checkbox" id="checkAll" title="全选"; }
  th { "需求ID" }
  th { "来源订单" }
  th class="text-right text-[13px]" { "需求数量" }
@@ -408,7 +408,7 @@ fn create_page_content(
  }
  @if demands.is_empty() {
  tr {
- td colspan="7" style="text-align:center;padding:var(--space-8);color:var(--muted);" {
+ td colspan="7" class="text-center text-muted py-8" {
  "暂无待处理需求"
  }
  }
@@ -421,7 +421,7 @@ fn create_page_content(
  div class="flex justify-end gap-8 p-5 [border-top:1px_solid_var(--border-soft)] bg-surface-raised" {
  div class="flex gap-3" {
  span { "已选需求" }
- span class="font-mono tabular-nums" style="font-weight:600;" {
+ span class="font-mono tabular-nums" class="font-semibold" {
  span id="selectedCount" {
  @if preselected_ids.is_empty() && !demands.is_empty() {
  (demands.len())
@@ -434,7 +434,7 @@ fn create_page_content(
  }
  div class="flex gap-3" {
  span { "总数量" }
- span class="font-mono tabular-nums" style="font-weight:600;" {
+ span class="font-mono tabular-nums" class="font-semibold" {
  span id="totalQty" { (fmt_qty(total_qty)) }
  }
  }
@@ -444,7 +444,7 @@ fn create_page_content(
  // ── Action Bar ──
  div class="flex items-center justify-end gap-3 pt-4 [border-top:1px_solid_var(--border-soft)]" {
  a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{}?restore=true", PurchaseDemandPoolListPath::PATH)) { "取消" }
- div style="display:flex;gap:var(--space-3);" {
+ div class="flex gap-3" {
  button type="submit" name="action" value="draft" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" {
  (icon::save_icon("w-4 h-4"))
  "保存草稿"
@@ -524,7 +524,7 @@ fn demand_row(d: &DemandSummary, preselected_ids: &[i64]) -> Markup {
  input type="checkbox" disabled;
  }
  }
- td class="font-mono tabular-nums" style="font-size:12px;" { (d.id) }
+ td class="font-mono tabular-nums" class="text-xs" { (d.id) }
  td {
  a class="text-accent font-medium cursor-pointer" href=(OrderDetailPath { id: d.order_id }.to_string()) { (d.order_no.as_ref().map(|s| s.as_str()).unwrap_or("—")) }
  }
@@ -544,7 +544,7 @@ fn demand_row(d: &DemandSummary, preselected_ids: &[i64]) -> Markup {
 
 fn supplier_detail_fragment(contact_name: &str, contact_phone: &str, coop_years: i64) -> Markup {
  html! {
- div class="supplier-info-bar" style="display:flex;gap:var(--space-6);padding:var(--space-3) var(--space-4);background:var(--bg-muted);border-radius:var(--radius-sm);font-size:var(--text-sm);color:var(--text-secondary);" {
+ div class="supplier-info-bar" class="flex bg-surface" class="rounded-sm" class="px-4 py-3 text-sm" style="gap:var(--space-6);color:var(--text-secondary)" {
  span { "联系人: " strong { (contact_name) } }
  span { "电话: " strong { (contact_phone) } }
  span { "合作年限: " strong { (coop_years) " 年" } }

@@ -261,7 +261,7 @@ fn journal_table_fragment(result: &PaginatedResult<CashJournal>, params: &Journa
  div class="relative flex-1 max-w-xs [&_svg]:absolute [&_svg]:left-3 [&_svg]:top-1/2 [&_svg]:-translate-y-1/2 [&_svg]:w-4 [&_svg]:h-4 [&_svg]:text-muted" {
  (icon::search_icon(""))
  input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword"
- style="width:200px"
+ class="w-[200px]"
  placeholder="搜索单号、往来方名称…"
  value=(params.keyword.as_deref().unwrap_or(""));
  }
@@ -302,7 +302,7 @@ fn journal_data_card(result: &PaginatedResult<CashJournal>, params: &JournalQuer
  th { "交易日期" }
  th { "期间" }
  th { "状态" }
- th style="width:80px" { "操作" }
+ th class="w-[80px]" { "操作" }
  }
  }
  tbody {
@@ -311,8 +311,8 @@ fn journal_data_card(result: &PaginatedResult<CashJournal>, params: &JournalQuer
  @let (dir_label, dir_bg, dir_color) = direction_label(&item.direction);
  @let (status_text, status_bg, status_color) = status_label(&item.status);
  @let detail_path = JournalDetailPath { id: item.id };
- tr style="cursor:pointer" onclick=(format!("location.href='{}'", detail_path.to_string())) {
- td class="font-mono tabular-nums" style="color:var(--accent)" { (item.doc_number) }
+ tr class="cursor-pointer" onclick=(format!("location.href='{}'", detail_path.to_string())) {
+ td class="font-mono tabular-nums" class="text-accent" { (item.doc_number) }
  td {
  span style=(format!("display:inline-flex;align-items:center;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{};color:{}", type_bg, type_color)) {
  (type_label)
@@ -327,8 +327,8 @@ fn journal_data_card(result: &PaginatedResult<CashJournal>, params: &JournalQuer
  (fmt_amount(item.amount, &item.direction))
  }
  td { (counterparty_name(item, counterparty_names)) }
- td class="font-mono tabular-nums" style="color:var(--muted)" { (&item.bank_account) }
- td style="font-size:12px;color:var(--muted)" { (item.transaction_date.format("%Y-%m-%d")) }
+ td class="font-mono tabular-nums" class="text-muted" { (&item.bank_account) }
+ td class="text-xs text-muted" { (item.transaction_date.format("%Y-%m-%d")) }
  td class="font-mono tabular-nums" { (&item.period) }
  td {
  span style=(format!("display:inline-flex;align-items:center;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{};color:{}", status_bg, status_color)) {
@@ -336,13 +336,13 @@ fn journal_data_card(result: &PaginatedResult<CashJournal>, params: &JournalQuer
  }
  }
  td {
- a href=(detail_path.to_string()) style="color:var(--accent);font-size:12px" onclick="event.stopPropagation()" { "查看" }
+ a href=(detail_path.to_string()) class="text-accent text-xs" _="on click halt the event" { "查看" }
  }
  }
  }
  @if result.items.is_empty() {
  tr {
- td colspan="10" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
+ td colspan="10" class="text-center text-muted py-8" {
  "暂无日记账记录"
  }
  }

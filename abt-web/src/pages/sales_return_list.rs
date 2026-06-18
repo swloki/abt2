@@ -353,10 +353,10 @@ fn return_row(
  tr {
  td class="text-accent font-medium cursor-pointer font-mono tabular-nums" onclick=(&onclick) { (r.doc_number) }
  td onclick=(&onclick) {
- a href=(shipping_detail.to_string()) class="text-accent" onclick="event.stopPropagation()" { (shipping_num) }
+ a href=(shipping_detail.to_string()) class="text-accent" _="on click halt the event" { (shipping_num) }
  }
  td onclick=(&onclick) {
- a href=(order_detail.to_string()) class="text-accent" onclick="event.stopPropagation()" { (order_num) }
+ a href=(order_detail.to_string()) class="text-accent" _="on click halt the event" { (order_num) }
  }
  td onclick=(&onclick) { (customer_name) }
  td onclick=(&onclick) {
@@ -367,7 +367,7 @@ fn return_row(
  }
  td onclick=(&onclick) { (r.return_reason.as_str()) }
  td onclick=(&onclick) { (created) }
- td onclick="event.stopPropagation()" {
+ td _="on click halt the event" {
  div class="row-actions flex items-center gap-1 justify-end opacity-0 transition-opacity duration-150 [&_a]:w-[28px] [&_a]:h-[28px] [&_a]:grid [&_a]:place-items-center [&_a]:rounded-sm [&_a]:cursor-pointer [&_a]:bg-surface [&_a]:hover:bg-accent-bg [&_svg]:w-3.5 [&_svg]:h-3.5" {
  @if is_draft {
  a class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" href=(detail_path.to_string()) title="编辑" {

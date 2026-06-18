@@ -73,7 +73,7 @@ fn receipt_table_fragment(
  hx-target="#receipt-data-card" hx-select="#receipt-data-card" hx-swap="outerHTML" hx-include="#filter-form"
  hx-push-url="true" {
  div class="relative flex-1 max-w-xs [&_svg]:absolute [&_svg]:left-3 [&_svg]:top-1/2 [&_svg]:-translate-y-1/2 [&_svg]:w-4 [&_svg]:h-4 [&_svg]:text-muted" {(icon::search_icon(""))
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword" style="width:180px" placeholder="搜索单号…" value=(params.keyword.as_deref().unwrap_or(""));
+ input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword" class="w-[180px]" placeholder="搜索单号…" value=(params.keyword.as_deref().unwrap_or(""));
  }
  }
  (receipt_data_card(result, params))
@@ -102,19 +102,19 @@ fn receipt_data_card(
  @let wo_doc = item.work_order_doc.as_deref().unwrap_or("—");
  @let wh_name = item.warehouse_name.as_deref().unwrap_or("—");
  @let prod_name = item.product_name.as_deref().unwrap_or("—");
- tr style="cursor:pointer" onclick=(format!("location.href='{}'", dp)) {
- td class="text-accent font-medium cursor-pointer font-mono tabular-nums" style="color:var(--accent)" { (item.doc_number) }
+ tr class="cursor-pointer" onclick=(format!("location.href='{}'", dp)) {
+ td class="text-accent font-medium cursor-pointer font-mono tabular-nums" class="text-accent" { (item.doc_number) }
  td class="font-mono tabular-nums" { (wo_doc) }
  td { @if let Some(bid) = item.batch_id { (bid) } @else { "—" } }
  td { (prod_name) }
  td class="text-right text-[13px] font-mono tabular-nums" { (crate::utils::fmt_qty(item.received_qty)) }
  td { (wh_name) }
  td { span style=(format!("display:inline-flex;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{};color:{}", sb, sc)) { (sl) } }
- td { a href=(dp) style="color:var(--accent);font-size:var(--text-xs)" { "查看" } }
+ td { a href=(dp) class="text-accent" class="text-xs" { "查看" } }
  }
  }
  @if result.items.is_empty() {
- tr { td colspan="8" style="text-align:center;padding:var(--space-8);color:var(--muted)" { "暂无入库记录" } }
+ tr { td colspan="8" class="text-center text-muted py-8" { "暂无入库记录" } }
  }
  }}
  }

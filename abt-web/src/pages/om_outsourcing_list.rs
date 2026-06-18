@@ -348,7 +348,7 @@ fn table_fragment(
  div class="relative flex-1 max-w-xs [&_svg]:absolute [&_svg]:left-3 [&_svg]:top-1/2 [&_svg]:-translate-y-1/2 [&_svg]:w-4 [&_svg]:h-4 [&_svg]:text-muted" {
  (icon::search_icon(""))
  input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword"
- style="width:180px"
+ class="w-[180px]"
  placeholder="搜索委外单号…"
  value=(params.keyword.as_deref().unwrap_or(""));
  }
@@ -366,7 +366,7 @@ fn table_fragment(
  input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="date" name="date_from"
  style="max-width:160px"
  value=(params.date_from.as_deref().unwrap_or(""));
- span style="color:var(--muted);font-size:13px" { "至" }
+ span class="text-muted text-[13px]" { "至" }
  input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="date" name="date_to"
  style="max-width:160px"
  value=(params.date_to.as_deref().unwrap_or(""));
@@ -414,8 +414,8 @@ fn data_card(
  @let total_amount = format_amount(item.planned_qty * item.unit_price);
  @let detail_path = OmOutsourcingDetailPath { id: item.id };
  @let tracking_info = latest_tracking.get(&item.id);
- tr style="cursor:pointer" onclick=(format!("location.href='{}'", detail_path.to_string())) {
- td class="text-accent font-medium cursor-pointer font-mono tabular-nums" style="color:var(--accent)" { (item.doc_number) }
+ tr class="cursor-pointer" onclick=(format!("location.href='{}'", detail_path.to_string())) {
+ td class="text-accent font-medium cursor-pointer font-mono tabular-nums" class="text-accent" { (item.doc_number) }
  td { (supplier_name) }
  td { (product_name) }
  td {
@@ -423,25 +423,25 @@ fn data_card(
  (t_label)
  }
  }
- td style="text-align:center" {
- span style="font-weight:500" { (fmt_qty(item.planned_qty)) }
+ td class="text-center" {
+ span class="font-medium" { (fmt_qty(item.planned_qty)) }
  " / "
- span style="color:var(--success)" { (fmt_qty(item.completed_qty)) }
+ span class="text-success" { (fmt_qty(item.completed_qty)) }
  }
- td style="text-align:right" { (fmt_qty(item.unit_price)) }
- td style="text-align:right" { (total_amount) }
+ td class="text-right" { (fmt_qty(item.unit_price)) }
+ td class="text-right" { (total_amount) }
  td {
  @if let Some(label) = tracking_info {
- span style="font-size:var(--text-xs)" { (label) }
+ span class="text-xs" { (label) }
  } @else {
- span style="color:var(--muted);font-size:var(--text-xs)" { "—" }
+ span class="text-muted" class="text-xs" { "—" }
  }
  }
  td {
  @if let Some(date) = &item.scheduled_date {
  (date)
  } @else {
- span style="color:var(--muted)" { "—" }
+ span class="text-muted" { "—" }
  }
  }
  td {
@@ -453,7 +453,7 @@ fn data_card(
  }
  @if result.items.is_empty() {
  tr {
- td colspan="10" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
+ td colspan="10" class="text-center text-muted py-8" {
  "暂无委外单"
  }
  }

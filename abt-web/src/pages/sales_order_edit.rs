@@ -233,17 +233,17 @@ fn order_edit_page(
  table class="data-table" {
  thead {
  tr {
- th style="width:36px" { "#" }
+ th class="w-9" { "#" }
  th { "产品编码" }
  th { "产品名称" }
  th { "规格描述" }
- th style="width:56px" { "单位" }
- th style="width:90px" { "数量" }
- th style="width:110px" { "单价 (¥)" }
+ th class="w-14" { "单位" }
+ th class="w-[90px]" { "数量" }
+ th class="w-[110px]" { "单价 (¥)" }
  th style="width:76px" { "折扣%" }
- th style="width:110px" { "小计 (¥)" }
- th style="width:110px" { "交货日期" }
- th style="width:36px" { }
+ th class="w-[110px]" { "小计 (¥)" }
+ th class="w-[110px]" { "交货日期" }
+ th class="w-9" { }
  }
  }
  tbody id="order-item-tbody" {

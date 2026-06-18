@@ -1,6 +1,6 @@
 use chrono::NaiveDate;
 use super::model::*;
-use crate::shared::types::Result;
+use crate::shared::types::{DomainError, Result};
 
 pub struct DashboardRepo;
 
@@ -172,22 +172,23 @@ impl DashboardRepo {
         executor: &mut sqlx::postgres::PgConnection,
         work_order_id: i64,
     ) -> Result<WoBasicInfo> {
-        let info = sqlx::query_as::<_, WoBasicInfo>(
-            "SELECT wo.id, wo.doc_number, wo.product_id, \
-             p.pdt_name AS product_name, \
-             wo.planned_qty, \
-             COALESCE((SELECT SUM(pb.completed_qty) FROM production_batches pb WHERE pb.work_order_id = wo.id AND pb.status != 6), 0) AS completed_qty, \
-             wo.status, wo.bom_snapshot_id, \
-             b.bom_name AS bom_version \
-             FROM work_orders wo \
-             LEFT JOIN products p ON p.product_id = wo.product_id \
-             LEFT JOIN boms b ON b.bom_id = wo.bom_snapshot_id \
-             WHERE wo.id = $1"
-        )
-        .bind(work_order_id)
-        .fetch_one(&mut *executor)
-        .await?;
-        Ok(info)
+ let info = sqlx::query_as::<_, WoBasicInfo>(
+ "SELECT wo.id, wo.doc_number, wo.product_id, \
+ p.pdt_name AS product_name, \
+ wo.planned_qty, \
+ COALESCE((SELECT SUM(pb.completed_qty) FROM production_batches pb WHERE pb.work_order_id = wo.id AND pb.status != 6), 0) AS completed_qty, \
+ wo.status, wo.bom_snapshot_id, \
+ b.bom_name AS bom_version \
+ FROM work_orders wo \
+ LEFT JOIN products p ON p.product_id = wo.product_id \
+ LEFT JOIN boms b ON b.bom_id = wo.bom_snapshot_id \
+ WHERE wo.id = $1"
+ )
+ .bind(work_order_id)
+ .fetch_optional(&mut *executor)
+ .await?
+ .ok_or_else(|| DomainError::NotFound(format!("工单 #{} 不存在", work_order_id)))?;
+ Ok(info)
     }
 
     pub async fn get_bom_comparison(

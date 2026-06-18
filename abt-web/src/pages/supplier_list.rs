@@ -193,7 +193,7 @@ fn supplier_table_fragment(
  }
  @if result.items.is_empty() {
  tr {
- td colspan="8" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
+ td colspan="8" class="text-center text-muted py-8" {
  "暂无供应商数据"
  }
  }
@@ -228,29 +228,29 @@ fn supplier_row(s: &Supplier, can_delete: bool, can_edit: bool) -> Markup {
  };
 
  html! {
- tr style="cursor:pointer" {
+ tr class="cursor-pointer" {
  td class="text-accent font-medium cursor-pointer font-mono tabular-nums" onclick=(format!("location.href='{}'", detail_path)) { (s.code) }
  td onclick=(format!("location.href='{}'", detail_path)) { strong { (s.name) } }
  td onclick=(format!("location.href='{}'", detail_path)) {
  span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-surface text-[#666]" { (category_label) }
  }
  td onclick=(format!("location.href='{}'", detail_path)) {
- span style="color:var(--muted)" { "—" }
+ span class="text-muted" { "—" }
  }
  td onclick=(format!("location.href='{}'", detail_path)) {
- span style="color:var(--muted)" { "—" }
+ span class="text-muted" { "—" }
  }
  td class="font-mono tabular-nums" onclick=(format!("location.href='{}'", detail_path)) {
  @if s.lead_time_days > 0 {
  (s.lead_time_days) " 天"
  } @else {
- span style="color:var(--muted)" { "—" }
+ span class="text-muted" { "—" }
  }
  }
  td onclick=(format!("location.href='{}'", detail_path)) {
  span class=(format!("status-pill {}", crate::utils::status_color(status_class))) { (status_label) }
  }
- td onclick="event.stopPropagation()" {
+ td _="on click halt the event" {
  div class="row-actions flex items-center gap-1 justify-end opacity-0 transition-opacity duration-150 [&_a]:w-[28px] [&_a]:h-[28px] [&_a]:grid [&_a]:place-items-center [&_a]:rounded-sm [&_a]:cursor-pointer [&_a]:bg-surface [&_a]:hover:bg-accent-bg [&_svg]:w-3.5 [&_svg]:h-3.5" {
  @if can_edit {
  a class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" title="编辑"

@@ -118,20 +118,18 @@ fn format_amount(d: rust_decimal::Decimal) -> String {
 /// `current_node` is the overdue node from the query result.
 fn node_progress_dots(completed_nodes: &std::collections::HashSet<TrackingNodeType>, current_node: TrackingNodeType) -> Markup {
  html! {
- div style="display:inline-flex;align-items:center;gap:3px" {
+ div class="inline-flex items-center gap-0.5" {
  @for nt in &ALL_NODES {
  @let is_current = *nt == current_node;
  @let is_done = completed_nodes.contains(nt);
- @let (bg, title) = if is_current {
- ("var(--danger)", node_label(*nt))
+ @let (dot_cls, title) = if is_current {
+ ("bg-danger", node_label(*nt))
  } else if is_done {
- ("var(--success)", node_label(*nt))
+ ("bg-success", node_label(*nt))
  } else {
- ("var(--border)", node_label(*nt))
+ ("bg-border", node_label(*nt))
  };
- span title=(title) style=(format!(
- "width:8px;height:8px;border-radius:50%;background:{bg};display:inline-block;cursor:default"
- )) {}
+ span title=(title) class=(format!("w-2 h-2 rounded-full inline-block {}", dot_cls)) {}
  }
  }
  }
@@ -331,9 +329,8 @@ fn tracking_list_page(
  div class="flex items-center justify-between mb-6" {
  h1 class="text-xl font-bold text-fg tracking-tight" { "委外追踪" }
  div class="flex gap-3" {
- button class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative [&_svg]:w-4 [&_svg]:h-4"
- onclick="location.reload()"
- style="display:inline-flex;align-items:center;gap:6px" {
+ button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+ _="on click call location.reload()" {
  (icon::refresh_icon("w-4 h-4"))
  "刷新"
  }
@@ -341,11 +338,11 @@ fn tracking_list_page(
  }
 
  // ── Stat Cards ──
- div style="display:grid;grid-template-columns:repeat(4,1fr);gap:var(--space-4);margin-bottom:var(--space-4)" {
- (stat_card("追踪中", result.total, "var(--accent)", icon::clock_icon))
- (stat_card("超期节点", result.total, "var(--danger)", icon::circle_alert_icon))
- (stat_card("即将到期", 0, "var(--warning)", icon::bell_icon))
- (stat_card("按时完成", 0, "var(--success)", icon::check_circle_icon))
+ div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-5" {
+ (stat_card("追踪中", result.total, "accent", icon::clock_icon))
+ (stat_card("超期节点", result.total, "danger", icon::circle_alert_icon))
+ (stat_card("即将到期", 0, "warn", icon::bell_icon))
+ (stat_card("按时完成", 0, "success", icon::check_circle_icon))
  }
 
  // ── Table Fragment ──
@@ -360,14 +357,21 @@ fn stat_card(
  color: &str,
  icon_fn: fn(&str) -> Markup,
 ) -> Markup {
+ let (bg_cls, text_cls) = match color {
+ "accent" => ("bg-[#e6f4ff]", "text-accent"),
+ "danger" => ("bg-[#fff2f0]", "text-danger"),
+ "warn" => ("bg-[#fff8eb]", "text-warn"),
+ "success" => ("bg-[#f0fff0]", "text-success"),
+ _ => ("bg-surface", "text-fg"),
+ };
  html! {
- div class="data-card" style="padding:var(--space-4);display:flex;align-items:center;gap:var(--space-3)" {
- div style=(format!("width:40px;height:40px;border-radius:var(--radius-lg);background:color-mix(in srgb, {color} 10%, transparent);display:flex;align-items:center;justify-content:center;color:{color}")) {
+ div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-md" {
+ div class=(format!("w-11 h-11 rounded-md grid place-items-center shrink-0 {} {}", bg_cls, text_cls)) {
  (icon_fn("w-5 h-5"))
  }
  div {
- div style="font-size:var(--text-xs);color:var(--muted)" { (label) }
- div style="font-size:var(--text-2xl);font-weight:600;color:{color};line-height:1.2" { (count) }
+ div class="text-sm text-muted" { (label) }
+ div class=(format!("text-2xl font-bold font-mono tabular-nums leading-tight mt-0.5 {}", text_cls)) { (count) }
  }
  }
  }
@@ -381,26 +385,24 @@ fn tracking_table_fragment(
  params: &TrackingQueryParams,
 ) -> Markup {
  html! {
- div class="tracking-list-panel" {
- // ── Filter Bar ──
- form class="flex items-center gap-3 mb-5 flex-wrap filter-form"
+ div {
+ form class="flex items-center gap-3 mb-5 flex-wrap"
  hx-get=(OmTrackingListPath::PATH)
  hx-trigger="change, keyup changed delay:300ms from:.search-input"
  hx-target="#tracking-data-card"
  hx-select="#tracking-data-card"
  hx-swap="outerHTML"
  hx-include="closest form" {
- div class="relative flex-1 max-w-xs [&_svg]:absolute [&_svg]:left-3 [&_svg]:top-1/2 [&_svg]:-translate-y-1/2 [&_svg]:w-4 [&_svg]:h-4 [&_svg]:text-muted" {
- (icon::search_icon(""))
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword"
- style="width:180px"
+ div class="relative w-60" {
+ (icon::search_icon("absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted"))
+ input class="search-input w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword"
  placeholder="搜索委外单号…"
  value=(params.keyword.as_deref().unwrap_or(""));
  }
- select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="supplier_id" {
+ select class="w-40 px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer" name="supplier_id" {
  option value="" selected[params.supplier_id.is_none()] { "全部供应商" }
  }
- select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="node_type" {
+ select class="w-40 px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer" name="node_type" {
  option value="" selected[params.node_type.is_none()] { "全部节点" }
  option value="SendMaterial" selected[params.node_type.as_deref() == Some("SendMaterial")] { "发料" }
  option value="CarrierPickup" selected[params.node_type.as_deref() == Some("CarrierPickup")] { "承运取货" }
@@ -410,7 +412,7 @@ fn tracking_table_fragment(
  option value="IqcInspected" selected[params.node_type.as_deref() == Some("IqcInspected")] { "IQC检验" }
  option value="Warehoused" selected[params.node_type.as_deref() == Some("Warehoused")] { "已入库" }
  }
- select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="overdue_status" {
+ select class="w-40 px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer" name="overdue_status" {
  option value="" selected[params.overdue_status.is_none()] { "全部状态" }
  option value="overdue" selected[params.overdue_status.as_deref() == Some("overdue")] { "超期" }
  option value="due_soon" selected[params.overdue_status.as_deref() == Some("due_soon")] { "即将到期" }
@@ -479,23 +481,23 @@ fn tracking_data_card(
  // Status: overdue if planned_at < now and tracked_at is null
  @let is_overdue = tracking.planned_at.is_some_and(|p| p < chrono::Utc::now());
  @let (status_text, status_bg, status_color) = if is_overdue {
- ("超期", "rgba(245,63,63,0.08)", "var(--danger)")
+ ("超期", "bg-[#fff2f0]", "text-danger")
  } else {
- ("待完成", "rgba(250,140,22,0.08)", "var(--warning)")
+ ("待完成", "bg-[#fff8eb]", "text-warn")
  };
 
  @let detail_path = OmOutsourcingDetailPath { id: tracking.outsourcing_id };
 
- tr style="cursor:pointer" onclick=(format!("location.href='{}'", detail_path.to_string())) {
- td class="text-accent font-medium cursor-pointer font-mono tabular-nums" style="color:var(--accent)" { (doc_number) }
- td { (supplier_name) }
- td { (product_name) }
- td class="font-mono tabular-nums" style="text-align:right" { (qty_str) }
- td class="font-mono tabular-nums" style="text-align:right" { (amount_str) }
+ tr class="cursor-pointer hover:bg-accent-bg transition-colors duration-100" _=(format!("on click go to {} in a new window", detail_path.to_string())) {
+ td { a href=(detail_path.to_string()) class="text-accent font-medium font-mono tabular-nums hover:underline" { (doc_number) } }
+ td class="text-sm text-fg-2" { (supplier_name) }
+ td class="text-sm text-fg-2" { (product_name) }
+ td class="text-right font-mono tabular-nums text-sm" { (qty_str) }
+ td class="text-right font-mono tabular-nums text-sm" { (amount_str) }
  td { (node_progress_dots(&row.completed_nodes, tracking.node_type)) }
- td { (latest_label) }
- td { (next_label) }
- td style="font-size:12px" {
+ td class="text-sm text-fg-2" { (latest_label) }
+ td class="text-sm text-fg-2" { (next_label) }
+ td class="text-xs text-muted" {
  @if let Some(planned) = tracking.planned_at {
  (planned.format("%Y-%m-%d"))
  } @else {
@@ -503,18 +505,14 @@ fn tracking_data_card(
  }
  }
  td {
- span style=(format!("display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{status_bg};color:{status_color}")) {
+ span class=(format!("text-xs px-2 py-0.5 rounded-full font-medium {} {}", status_bg, status_color)) {
  (status_text)
  }
  }
  }
  }
  @if result.items.is_empty() {
- tr {
- td colspan="10" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
- "暂无追踪数据"
- }
- }
+ tr { td colspan="10" class="text-center text-muted text-sm py-8" { "暂无追踪数据" } }
  }
  }
  }

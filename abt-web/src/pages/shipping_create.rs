@@ -695,7 +695,7 @@ fn shipping_edit_page(
  // ── Order Picker Modal ──
  div class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto" id="order-modal"
  _="on click[me is event.target] remove .is-open" {
- div class="modal bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl" onclick="event.stopPropagation()" {
+ div class="modal bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl" _="on click halt the event" {
  div class="px-6 py-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center shrink-0" {
  h2 { "选择来源订单" }
  button class="bg-transparent border-none cursor-pointer text-xl text-muted p-1 hover:text-fg"
@@ -972,7 +972,7 @@ fn shipping_create_page(
  // ── Order Picker Modal ──
  div class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto" id="order-modal"
  _="on click[me is event.target] remove .is-open" {
- div class="modal bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl" onclick="event.stopPropagation()" {
+ div class="modal bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl" _="on click halt the event" {
  div class="px-6 py-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center shrink-0" {
  h2 { "选择来源订单" }
  button class="bg-transparent border-none cursor-pointer text-xl text-muted p-1 hover:text-fg"

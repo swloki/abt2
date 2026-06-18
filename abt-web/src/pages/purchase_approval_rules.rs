@@ -248,7 +248,7 @@ fn ladder_vis(rules: &[PurchaseApprovalRule]) -> Markup {
  }
  }
  // Labels below bars
- div style="display:flex;justify-content:space-between;font-size:var(--text-xs);color:var(--text-muted);padding:0" {
+ div class="flex justify-between p-0" class="text-xs" style="color:var(--text-muted)" {
  span { (crate::utils::fmt_qty(min_all)) }
  @for rule in rules {
  @if rule.is_active && rule.max_amount.is_some() {
@@ -258,10 +258,10 @@ fn ladder_vis(rules: &[PurchaseApprovalRule]) -> Markup {
  }
  }
  // Legend
- div style="display:flex;gap:var(--space-4);flex-wrap:wrap;padding:var(--space-2) var(--space-4)" {
+ div class="flex flex-wrap" class="gap-4" style="padding:var(--space-2) var(--space-4)" {
  @for (i, rule) in rules.iter().enumerate() {
  @if rule.is_active {
- div style="display:flex;align-items:center;gap:var(--space-1);font-size:var(--text-xs)" {
+ div class="flex items-center" class="text-xs" style="gap:var(--space-1)" {
  span style=(format!("display:inline-block;width:10px;height:10px;border-radius:2px;background:{}", colors[i % colors.len()])) {}
  span { (&rule.name) }
  }
@@ -293,7 +293,7 @@ fn ladder_bar(
  "position:absolute;left:{}%;width:{}%;top:4px;height:24px;background:{};border-radius:4px;opacity:0.85;display:flex;align-items:center;justify-content:center;overflow:hidden",
  left_pct, width_pct, color
  )) {
- span style="color:#fff;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 4px" {
+ span class="whitespace-nowrap overflow-hidden" style="color:#fff;font-size:10px;text-overflow:ellipsis;padding:0 4px" {
  (&rule.name)
  @if let Some(max) = rule.max_amount {
  " " (crate::utils::fmt_qty(rule.min_amount)) "–" (crate::utils::fmt_qty(max))
@@ -342,7 +342,7 @@ fn row_tr(rule: &PurchaseApprovalRule) -> Markup {
  tr {
  td { (rule.sort_order) }
  td {
- span style="font-weight:500" { (&rule.name) }
+ span class="font-medium" { (&rule.name) }
  }
  td class="font-mono tabular-nums text-right text-[13px]" { (crate::utils::fmt_qty(rule.min_amount)) }
  td class="font-mono tabular-nums text-right text-[13px]" {
@@ -382,9 +382,9 @@ fn row_tr(rule: &PurchaseApprovalRule) -> Markup {
 
 fn empty_state() -> Markup {
  html! {
- div style="text-align:center;padding:var(--space-12);color:var(--text-muted)" {
- p style="margin:0;font-size:var(--text-lg)" { "暂无审批规则" }
- p style="margin:var(--space-2) 0 0;font-size:var(--text-sm)" { "点击「+ 新建规则」添加金额阶梯审批规则" }
+ div class="text-center" class="p-12 text-muted" {
+ p class="m-0" class="text-lg" { "暂无审批规则" }
+ p class="mt-2 text-sm" { "点击「+ 新建规则」添加金额阶梯审批规则" }
  }
  }
 }
@@ -464,7 +464,7 @@ fn rule_form(action_url: &str, rule: Option<&PurchaseApprovalRule>) -> Markup {
  }
  div class="form-field" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "启用状态" }
- label style="display:flex;align-items:center;gap:var(--space-2);cursor:pointer" {
+ label class="flex items-center cursor-pointer" class="gap-2" {
  input type="checkbox" name="is_active" checked[active] {};
  " 启用"
  }

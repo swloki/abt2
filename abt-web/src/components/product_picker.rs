@@ -90,9 +90,9 @@ pub fn product_picker_modal(modal_id: &str, target_id: &str, display_id: &str) -
             id=(modal_id)
             _=(close_hs) {
             div class="bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl"
-                onclick="event.stopPropagation()" {
+                _="on click halt the event" {
                 // ── Header ──
-                div class="px-6 py-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center shrink-0" {
+                div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
                     h2 class="text-lg font-semibold m-0" { "选择产品" }
                     button class="bg-transparent border-none cursor-pointer text-xl text-muted p-1 hover:text-fg transition-colors"
                         _=(close_hs) { "×" }
@@ -100,7 +100,7 @@ pub fn product_picker_modal(modal_id: &str, target_id: &str, display_id: &str) -
                 // ── Body ──
                 div class="overflow-y-auto flex-1 min-h-0 p-6" {
                     // ── Search Bar ──
-                    div class="product-search-bar flex gap-4 mb-4 pb-4 [border-bottom:1px_solid_var(--border-soft)]" {
+                    div class="product-search-bar flex gap-4 mb-4 pb-4 border-b border-border-soft" {
                         input type="hidden" name="target_id" value=(target_id);
                         input type="hidden" name="display_id" value=(display_id);
                         input type="hidden" name="modal_id" value=(modal_id);
@@ -160,14 +160,14 @@ pub fn product_picker_modal_with_search(modal_id: &str, item_row_path: &str, tbo
             id=(modal_id)
             _=(close_hs) {
             div class="bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl"
-                onclick="event.stopPropagation()" {
-                div class="px-6 py-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center shrink-0" {
+                _="on click halt the event" {
+                div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
                     h2 class="text-lg font-semibold m-0" { "选择产品" }
                     button class="bg-transparent border-none cursor-pointer text-xl text-muted p-1 hover:text-fg transition-colors"
                         _=(close_hs) { "×" }
                 }
                 div class="overflow-y-auto flex-1 min-h-0 p-6" {
-                    div class="product-search-bar flex gap-4 mb-4 pb-4 [border-bottom:1px_solid_var(--border-soft)]" {
+                    div class="product-search-bar flex gap-4 mb-4 pb-4 border-b border-border-soft" {
                         input type="hidden" name="item_row_path" value=(item_row_path);
                         input type="hidden" name="tbody_id" value=(tbody_id);
                         input type="hidden" name="modal_id" value=(modal_id);
@@ -234,7 +234,7 @@ pub fn product_picker_results(
         } @else {
             div class="py-2" {
                 @for p in products {
-                    div class="flex items-center justify-between p-3 [border-bottom:1px_solid_var(--border-soft)] cursor-pointer hover:bg-accent-bg transition-colors"
+                    div class="flex items-center justify-between p-3 border-b border-border-soft cursor-pointer hover:bg-accent-bg transition-colors"
                         data-pid=(p.product_id)
                         data-pname=(p.pdt_name.as_str())
                         _=(click_hs) {
@@ -271,7 +271,7 @@ pub fn product_picker_results_for_table(
         } @else {
             div class="py-2" {
                 @for p in products {
-                    div class="flex items-center p-3 [border-bottom:1px_solid_var(--border-soft)] cursor-pointer hover:bg-accent-bg transition-colors"
+                    div class="flex items-center p-3 border-b border-border-soft cursor-pointer hover:bg-accent-bg transition-colors"
                         hx-get=(format!("{}?product_id={}", item_row_path, p.product_id))
                         hx-target=(format!("#{}", tbody_id))
                         hx-swap="beforeend"

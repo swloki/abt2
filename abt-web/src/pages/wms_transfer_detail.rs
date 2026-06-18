@@ -189,7 +189,7 @@ fn transfer_detail_page(
  // ── Items Table ──
  div class="data-card" {
  div style="padding:var(--space-5) var(--space-6) var(--space-3)" {
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" style="border-bottom:none;padding-bottom:0;margin-bottom:0" { "调拨明细" }
+ div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" class="mb-0" style="border-bottom:none;padding-bottom:0" { "调拨明细" }
  }
  table class="data-table" {
  thead {
@@ -223,7 +223,7 @@ fn transfer_detail_page(
  }
  @if ctx.items.is_empty() {
  tr {
- td colspan="7" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
+ td colspan="7" class="text-center text-muted py-8" {
  "暂无明细数据"
  }
  }

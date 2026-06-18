@@ -268,7 +268,7 @@ fn pr_detail_page(
  }
  @if items.is_empty() {
  tr {
- td colspan="8" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
+ td colspan="8" class="text-center text-muted py-8" {
  "暂无明细"
  }
  }

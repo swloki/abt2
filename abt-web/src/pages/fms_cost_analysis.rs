@@ -294,11 +294,11 @@ fn wo_status_label(s: i16) -> (&'static str, &'static str) {
 
 fn margin_class(rate: Decimal) -> &'static str {
  if rate > Decimal::from(25) {
- "margin-positive"
+ "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-[#f6ffed] text-[#389e0d]"
  } else if rate > Decimal::from(10) {
- "margin-warn"
+ "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-[#fff7e6] text-[#c87d0e]"
  } else {
- "margin-negative"
+ "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-[#fff1f0] text-[#cf1322]"
  }
 }
 
@@ -317,47 +317,47 @@ fn cost_analysis_page(
  div class="flex items-center justify-between mb-6" {
  h1 class="text-xl font-bold text-fg tracking-tight" { "成本核算分析" }
  div class="flex gap-3" {
- button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" {
+ button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" {
  (PreEscaped(r#"<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>"#))
  "导出报表"
  }
  }
  }
  // ── 统计概要 ──
- div class="stat-grid grid gap-5" style="margin-bottom:var(--space-6)" {
- (stat_card("本月产品成本", &format!("{}<span style=\"font-size:14px;color:var(--muted)\">万</span>", fmt_money(stats.total_product_cost).trim_start_matches('¥').replace("万", "")), "var(--accent)", "linear-gradient(135deg,#dbeafe,#bfdbfe)", "#2563eb", r#"M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"#))
- (stat_card("本月工单成本", &format!("{}<span style=\"font-size:14px;color:var(--muted)\">万</span>", fmt_money(stats.total_wo_cost).trim_start_matches('¥').replace("万", "")), "var(--warn)", "linear-gradient(135deg,#fef3c7,#fde68a)", "#d97706", r#"M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"#))
- (stat_card("综合毛利率", &format!("<span style=\"color:var(--success)\">{}%</span>", stats.avg_margin_rate), "var(--success)", "linear-gradient(135deg,#dcfce7,#bbf7d0)", "#16a34a", r#"M23 6l-9.5 9.5-5-5L1 18M17 6h6v6"#))
- (stat_card("利润中心数", &stats.pc_count.to_string(), "#7c3aed", "linear-gradient(135deg,#ede9fe,#ddd6fe)", "#7c3aed", r#"M18 20V10M12 20V4M6 20v-6"#))
+ div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6" {
+ (stat_card("本月产品成本", &format!("{} <span class=\"text-sm text-muted\">万</span>", fmt_money(stats.total_product_cost).trim_start_matches('¥').replace("万", "")), "border-accent", "bg-[#dbeafe] text-accent", r#"M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"#))
+ (stat_card("本月工单成本", &format!("{} <span class=\"text-sm text-muted\">万</span>", fmt_money(stats.total_wo_cost).trim_start_matches('¥').replace("万", "")), "border-warn", "bg-[#fef3c7] text-[#d97706]", r#"M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"#))
+ (stat_card("综合毛利率", &format!("<span class=\"text-success\">{}%</span>", stats.avg_margin_rate), "border-success", "bg-[#dcfce7] text-success", r#"M23 6l-9.5 9.5-5-5L1 18M17 6h6v6"#))
+ (stat_card("利润中心数", &stats.pc_count.to_string(), "border-[#7c3aed]", "bg-[#ede9fe] text-[#7c3aed]", r#"M18 20V10M12 20V4M6 20v-6"#))
  }
 
  // ── 分析Tab ──
- div class="flex gap-1 rounded-lg p-1" {
- button class="flex-1 p-3 rounded text-sm font-medium text-muted cursor-pointer text-center border-none active" onclick="switchTab('product')" { "产品成本" }
- button class="flex-1 p-3 rounded text-sm font-medium text-muted cursor-pointer text-center border-none" onclick="switchTab('order')" { "工单成本" }
- button class="flex-1 p-3 rounded text-sm font-medium text-muted cursor-pointer text-center border-none" onclick="switchTab('profit')" { "利润中心 P&L" }
- button class="flex-1 p-3 rounded text-sm font-medium text-muted cursor-pointer text-center border-none" onclick="switchTab('margin')" { "毛利分析" }
+ div class="flex gap-1 mb-6 border-b border-border-soft" {
+ button class="analysis-tab px-4 py-3 text-sm text-accent font-semibold cursor-pointer whitespace-nowrap relative border-b-2 border-accent -mb-px active" onclick="switchTab('product')" { "产品成本" }
+ button class="analysis-tab px-4 py-3 text-sm text-muted cursor-pointer whitespace-nowrap relative border-b-2 border-transparent -mb-px hover:text-fg transition-colors" onclick="switchTab('order')" { "工单成本" }
+ button class="analysis-tab px-4 py-3 text-sm text-muted cursor-pointer whitespace-nowrap relative border-b-2 border-transparent -mb-px hover:text-fg transition-colors" onclick="switchTab('profit')" { "利润中心 P&L" }
+ button class="analysis-tab px-4 py-3 text-sm text-muted cursor-pointer whitespace-nowrap relative border-b-2 border-transparent -mb-px hover:text-fg transition-colors" onclick="switchTab('margin')" { "毛利分析" }
  }
 
  // ── 产品成本面板 ──
- div id="panel-product" class="hidden active" {
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" style="margin-bottom:0" {
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" style="display:flex;justify-content:space-between;align-items:center" {
+ div id="panel-product" class="analysis-panel" {
+ div class="data-card mb-0" {
+ div class="px-4 py-3 border-b border-border-soft text-sm font-semibold text-fg flex items-center justify-between" {
  span { "产品成本汇总 · 2026-06" }
  }
  @if products.is_empty() {
- div style="text-align:center;padding:var(--space-8);color:var(--muted)" { "暂无产品成本数据" }
+ div class="text-center py-8 text-sm text-muted" { "暂无产品成本数据" }
  } @else {
  div class="overflow-x-auto" {
- table class="data-table" style="min-width:900px" {
+ table class="data-table min-w-[900px]" {
  thead {
  tr {
  th { "产品编码" }
  th { "产品名称" }
- th style="text-align:right" { "材料成本" }
- th style="text-align:right" { "人工成本" }
- th style="text-align:right" { "制造费用" }
- th style="text-align:right" { "总成本" }
+ th class="text-right" { "材料成本" }
+ th class="text-right" { "人工成本" }
+ th class="text-right" { "制造费用" }
+ th class="text-right" { "总成本" }
  th { "成本构成" }
  }
  }
@@ -365,12 +365,12 @@ fn cost_analysis_page(
  @for p in products {
  tr {
  td class="font-mono tabular-nums" { (p.product_code) }
- td style="font-weight:600" { (p.product_name) }
+ td class="font-semibold" { (p.product_name) }
  td class="text-right text-[13px]" { (fmt_money_full(p.material_cost)) }
  td class="text-right text-[13px]" { (fmt_money_full(p.labor_cost)) }
  td class="text-right text-[13px]" { (fmt_money_full(p.overhead_cost)) }
- td class="text-right text-[13px]" style="font-weight:700;color:var(--accent)" { (fmt_money_full(p.total_cost)) }
- td style="min-width:160px" {
+ td class="text-right text-[13px] font-bold text-accent" { (fmt_money_full(p.total_cost)) }
+ td class="min-w-[160px]" {
  (cost_breakdown_bar(p.material_cost, p.labor_cost, p.overhead_cost, p.total_cost))
  }
  }
@@ -378,17 +378,17 @@ fn cost_analysis_page(
  }
  }
  }
- div class="flex gap-5 text-[12px] text-muted" {
- span style="display:flex;align-items:center;gap:6px" {
- span class="cost-w-[10px] h-[3px]" style="background:linear-gradient(135deg,var(--accent),#60a5fa)" {}
+ div class="flex gap-5 text-xs text-muted px-4 py-3" {
+ span class="flex items-center gap-1.5" {
+ span class="w-2.5 h-0.5 rounded inline-block bg-accent" {}
  "材料成本"
  }
- span style="display:flex;align-items:center;gap:6px" {
- span class="cost-w-[10px] h-[3px]" style="background:linear-gradient(135deg,var(--warn),#fbbf24)" {}
+ span class="flex items-center gap-1.5" {
+ span class="w-2.5 h-0.5 rounded inline-block bg-warn" {}
  "人工成本"
  }
- span style="display:flex;align-items:center;gap:6px" {
- span class="cost-w-[10px] h-[3px]" style="background:linear-gradient(135deg,#7c3aed,#a78bfa)" {}
+ span class="flex items-center gap-1.5" {
+ span class="w-2.5 h-0.5 rounded inline-block bg-[#7c3aed]" {}
  "制造费用"
  }
  }
@@ -397,26 +397,26 @@ fn cost_analysis_page(
  }
 
  // ── 工单成本面板 ──
- div id="panel-order" class="hidden" {
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" style="margin-bottom:0" {
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" style="display:flex;justify-content:space-between;align-items:center" {
+ div id="panel-order" class="analysis-panel" style="display:none" {
+ div class="data-card mb-0" {
+ div class="px-4 py-3 border-b border-border-soft text-sm font-semibold text-fg flex items-center justify-between" {
  span { "工单成本归集" }
  }
  @if work_orders.is_empty() {
- div style="text-align:center;padding:var(--space-8);color:var(--muted)" { "暂无工单成本数据" }
+ div class="text-center py-8 text-sm text-muted" { "暂无工单成本数据" }
  } @else {
  div class="overflow-x-auto" {
- table class="data-table" style="min-width:950px" {
+ table class="data-table min-w-[950px]" {
  thead {
  tr {
  th { "工单号" }
  th { "产品" }
- th style="text-align:right" { "计划数量" }
- th style="text-align:right" { "完工数量" }
- th style="text-align:right" { "材料成本" }
- th style="text-align:right" { "人工成本" }
- th style="text-align:right" { "外协成本" }
- th style="text-align:right" { "总成本" }
+ th class="text-right" { "计划数量" }
+ th class="text-right" { "完工数量" }
+ th class="text-right" { "材料成本" }
+ th class="text-right" { "人工成本" }
+ th class="text-right" { "外协成本" }
+ th class="text-right" { "总成本" }
  th { "状态" }
  }
  }
@@ -430,7 +430,7 @@ fn cost_analysis_page(
  td class="text-right text-[13px]" { (fmt_money_full(w.material_cost)) }
  td class="text-right text-[13px]" { (fmt_money_full(w.labor_cost)) }
  td class="text-right text-[13px]" { (fmt_money_full(w.outsource_cost)) }
- td class="text-right text-[13px]" style="font-weight:700;color:var(--accent)" { (fmt_money_full(w.total_cost)) }
+ td class="text-right text-[13px] font-bold text-accent" { (fmt_money_full(w.total_cost)) }
  @let (label, cls) = wo_status_label(w.wo_status);
  td { span class=(format!("status-pill {}", crate::utils::status_color(cls))) { (label) } }
  }
@@ -440,41 +440,41 @@ fn cost_analysis_page(
  }
  }
  }
- }
+}
 
  // ── 利润中心 P&L 面板 ──
- div id="panel-profit" class="hidden" {
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" style="margin-bottom:0" {
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" style="display:flex;justify-content:space-between;align-items:center" {
+ div id="panel-profit" class="analysis-panel" style="display:none" {
+ div class="data-card mb-0" {
+ div class="px-4 py-3 border-b border-border-soft text-sm font-semibold text-fg flex items-center justify-between" {
  span { "利润中心 P&L · 2026-06" }
  }
  @if profit_centers.is_empty() {
- div style="text-align:center;padding:var(--space-8);color:var(--muted)" { "暂无利润中心数据" }
+ div class="text-center py-8 text-sm text-muted" { "暂无利润中心数据" }
  } @else {
  div class="overflow-x-auto" {
- table class="data-table" style="min-width:900px" {
+ table class="data-table min-w-[900px]" {
  thead {
  tr {
  th { "利润中心" }
- th style="text-align:right" { "收入" }
- th style="text-align:right" { "材料成本" }
- th style="text-align:right" { "人工成本" }
- th style="text-align:right" { "制造费用" }
- th style="text-align:right" { "管理费用" }
- th style="text-align:right" { "利润" }
+ th class="text-right" { "收入" }
+ th class="text-right" { "材料成本" }
+ th class="text-right" { "人工成本" }
+ th class="text-right" { "制造费用" }
+ th class="text-right" { "管理费用" }
+ th class="text-right" { "利润" }
  th { "利润率" }
  }
  }
  tbody {
  @for pc in profit_centers {
  tr {
- td style="font-weight:600" { (pc.label) }
- td class="text-right text-[13px]" style="font-weight:600" { (fmt_money(pc.income)) }
+ td class="font-semibold" { (pc.label) }
+ td class="text-right text-[13px] font-semibold" { (fmt_money(pc.income)) }
  td class="text-right text-[13px]" { (fmt_money(pc.material_cost)) }
  td class="text-right text-[13px]" { (fmt_money(pc.labor_cost)) }
  td class="text-right text-[13px]" { (fmt_money(pc.overhead_cost)) }
  td class="text-right text-[13px]" { (fmt_money(pc.admin_cost)) }
- td class="text-right text-[13px]" style="font-weight:700;color:var(--success)" { (fmt_money(pc.profit)) }
+ td class="text-right text-[13px] font-bold text-success" { (fmt_money(pc.profit)) }
  td { span class=(margin_class(pc.profit_rate)) { (format!("{}%", pc.profit_rate)) } }
  }
  }
@@ -483,26 +483,26 @@ fn cost_analysis_page(
  }
  }
  }
- }
+}
 
  // ── 毛利分析面板 ──
- div id="panel-margin" class="hidden" {
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" style="margin-bottom:0" {
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" style="display:flex;justify-content:space-between;align-items:center" {
+ div id="panel-margin" class="analysis-panel" style="display:none" {
+ div class="data-card mb-0" {
+ div class="px-4 py-3 border-b border-border-soft text-sm font-semibold text-fg flex items-center justify-between" {
  span { "订单毛利分析" }
  }
  @if margins.is_empty() {
- div style="text-align:center;padding:var(--space-8);color:var(--muted)" { "暂无毛利数据" }
+ div class="text-center py-8 text-sm text-muted" { "暂无毛利数据" }
  } @else {
  div class="overflow-x-auto" {
- table class="data-table" style="min-width:1000px" {
+ table class="data-table min-w-[1000px]" {
  thead {
  tr {
  th { "订单号" }
  th { "客户" }
- th style="text-align:right" { "订单金额" }
- th style="text-align:right" { "实际成本" }
- th style="text-align:right" { "毛利" }
+ th class="text-right" { "订单金额" }
+ th class="text-right" { "实际成本" }
+ th class="text-right" { "毛利" }
  th { "毛利率" }
  }
  }
@@ -511,13 +511,13 @@ fn cost_analysis_page(
  tr {
  td class="text-accent font-medium cursor-pointer" { (m.doc_number) }
  td { (m.customer_name) }
- td class="text-right text-[13px]" style="font-weight:600" { (fmt_money_full(m.order_amount)) }
+ td class="text-right text-[13px] font-semibold" { (fmt_money_full(m.order_amount)) }
  td class="text-right text-[13px]" { (fmt_money_full(m.actual_cost)) }
- td class="text-right text-[13px]" style="font-weight:700" {
+ td class="text-right text-[13px] font-bold" {
  @if m.margin_amount >= Decimal::ZERO {
- span style="color:var(--success)" { (fmt_money_full(m.margin_amount)) }
+ span class="text-success" { (fmt_money_full(m.margin_amount)) }
  } @else {
- span style="color:var(--danger)" { (fmt_money_full(m.margin_amount)) }
+ span class="text-danger" { (fmt_money_full(m.margin_amount)) }
  }
  }
  td { span class=(margin_class(m.margin_rate)) { (format!("{}%", m.margin_rate)) } }
@@ -528,19 +528,20 @@ fn cost_analysis_page(
  }
  }
  }
- }
+}
  }
  (PreEscaped(r#"<script>
- function switchTab(name) {
- var tabs = document.querySelectorAll('.analysis-tab');
- tabs.forEach(function(t) { t.classList.remove('active'); });
- var panels = document.querySelectorAll('.analysis-panel');
- panels.forEach(function(p) { p.classList.remove('active'); });
- event.target.classList.add('active');
+function switchTab(name) {
+ document.querySelectorAll('.analysis-tab').forEach(function(t) {
+ t.className = 'analysis-tab px-4 py-3 text-sm text-muted cursor-pointer whitespace-nowrap relative border-b-2 border-transparent -mb-px hover:text-fg transition-colors';
+ });
+ document.querySelectorAll('.analysis-panel').forEach(function(p) { p.style.display = 'none'; });
+ var btn = event.target;
+ btn.className = 'analysis-tab px-4 py-3 text-sm text-accent font-semibold cursor-pointer whitespace-nowrap relative border-b-2 border-accent -mb-px active';
  var panel = document.getElementById('panel-' + name);
- if (panel) panel.classList.add('active');
- }
- </script>"#))
+ if (panel) panel.style.display = '';
+}
+</script>"#))
  }
 }
 
@@ -555,9 +556,9 @@ fn cost_breakdown_bar(material: Decimal, labor: Decimal, overhead: Decimal, tota
  let ovh_pct = (overhead / total * Decimal::from(100)).round_dp(0).to_string();
  html! {
  div class="flex h-[9px] overflow-hidden gap-[2px] relative" {
- div class="cb-material" style=(format!("width:{}%", mat_pct)) {}
- div class="cb-labor" style=(format!("width:{}%", lab_pct)) {}
- div class="cb-overhead" style=(format!("width:{}%", ovh_pct)) {}
+ div class="h-full bg-accent" style=(format!("width:{}%", mat_pct)) {}
+ div class="h-full bg-warn" style=(format!("width:{}%", lab_pct)) {}
+ div class="h-full bg-[#7c3aed]" style=(format!("width:{}%", ovh_pct)) {}
  }
  }
 }
@@ -565,19 +566,18 @@ fn cost_breakdown_bar(material: Decimal, labor: Decimal, overhead: Decimal, tota
 fn stat_card(
  title: &str,
  value: &str,
- border_color: &str,
- icon_bg: &str,
- icon_color: &str,
+ border_class: &str,
+ icon_class: &str,
  icon_path: &str,
 ) -> Markup {
  html! {
- div class="mes-flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" style=(format!("border-left:3px solid {border_color}")) {
- div class="mes-w-[44px] h-[44px] rounded grid place-items-center shrink-0" style=(format!("background:{icon_bg};color:{icon_color}")) {
- (PreEscaped(format!(r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24"><path d="{icon_path}"/></svg>"#)))
+ div class=(format!("data-card flex items-center gap-4 p-5 border-l-[3px] {}", border_class)) {
+ div class=(format!("w-11 h-11 rounded-md grid place-items-center shrink-0 {}", icon_class)) {
+ (PreEscaped(format!(r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24"><path d="{}"/></svg>"#, icon_path)))
  }
- div class="mes-stat-body" {
- div class="mes-text-sm text-muted mt-1" { (title) }
- div class="mes-text-2xl font-bold font-mono tabular-nums tabular-nums text-fg" { (PreEscaped(value)) }
+ div {
+ div class="text-sm text-muted" { (title) }
+ div class="text-2xl font-bold font-mono tabular-nums text-fg mt-1" { (PreEscaped(value)) }
  }
  }
  }

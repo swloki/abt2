@@ -238,7 +238,7 @@ fn user_list_page(
  h1 class="text-xl font-bold text-fg tracking-tight" { "用户管理" }
  div class="flex gap-3" {
  @if can_create {
- a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(UserCreatePath::PATH) {
+ a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(UserCreatePath::PATH) {
  (icon::plus_icon("w-4 h-4"))
  "新建用户"
  }
@@ -341,7 +341,7 @@ fn user_table_fragment(
  }
 
  // ── Status Tabs ──
- div class="flex gap-1 [border-bottom:1px_solid_var(--border-soft)]" {
+ div class="flex gap-1 border-b border-border-soft" {
  button class=(tab_all)
  hx-get=(status_query(""))
  hx-target="closest .user-list-panel"
@@ -371,7 +371,7 @@ fn user_table_fragment(
  // ── Filter Bar ──
  div class="flex items-center gap-3 mb-5 flex-wrap" {
  div class="relative flex-1 max-w-xs [&_svg]:absolute [&_svg]:left-3 [&_svg]:top-1/2 [&_svg]:-translate-y-1/2 [&_svg]:w-4 [&_svg]:h-4 [&_svg]:text-muted" {
- (icon::search_icon(""))
+ (icon::search_icon("w-4 h-4"))
  input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword"
  placeholder="搜索用户名、显示名称…"
  value=(keyword)
@@ -554,7 +554,7 @@ fn user_row(
  }
 
  // Actions
- td onclick="event.stopPropagation()" {
+ td _="on click halt the event" {
  div class="row-actions flex items-center gap-1 justify-end opacity-0 transition-opacity duration-150 [&_a]:w-[28px] [&_a]:h-[28px] [&_a]:grid [&_a]:place-items-center [&_a]:rounded-sm [&_a]:cursor-pointer [&_a]:bg-surface [&_a]:hover:bg-accent-bg [&_svg]:w-3.5 [&_svg]:h-3.5" {
  a class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" title="编辑"
  href=(edit_path.to_string()) {

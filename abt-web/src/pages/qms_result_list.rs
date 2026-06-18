@@ -49,26 +49,26 @@ pub struct ResultQueryParams {
 
 fn status_label(s: &InspectionStatus) -> (&'static str, &'static str, &'static str) {
  match s {
- InspectionStatus::Pending => ("待检验", "rgba(250,140,22,0.08)", "#fa8c16"),
- InspectionStatus::Completed => ("已完成", "rgba(82,196,26,0.08)", "var(--success)"),
- InspectionStatus::Dispositioned => ("已处置", "rgba(114,46,209,0.08)", "#722ed1"),
+ InspectionStatus::Pending => ("待检验", "bg-[#fff8eb]", "text-warn"),
+ InspectionStatus::Completed => ("已完成", "bg-[#dcfce7]", "text-success"),
+ InspectionStatus::Dispositioned => ("已处置", "bg-[#f3e8ff]", "text-[#722ed1]"),
  }
 }
 
 fn result_type_label(r: &InspectionResultType) -> (&'static str, &'static str, &'static str) {
  match r {
- InspectionResultType::Pass => ("合格", "rgba(82,196,26,0.08)", "var(--success)"),
- InspectionResultType::Fail => ("不合格", "rgba(245,63,63,0.06)", "#f53f3f"),
- InspectionResultType::Conditional => ("让步接收", "rgba(22,119,255,0.08)", "var(--accent)"),
+ InspectionResultType::Pass => ("合格", "bg-[#dcfce7]", "text-success"),
+ InspectionResultType::Fail => ("不合格", "bg-[#fee2e2]", "text-danger"),
+ InspectionResultType::Conditional => ("让步接收", "bg-[#dbeafe]", "text-accent"),
  }
 }
 
 fn inspection_type_label(t: &InspectionType) -> (&'static str, &'static str, &'static str) {
  match t {
- InspectionType::Iqc => ("IQC", "rgba(37,99,235,0.08)", "var(--accent)"),
- InspectionType::Ipqc => ("IPQC", "rgba(22,163,74,0.08)", "var(--success)"),
- InspectionType::Fqc => ("FQC", "rgba(124,58,237,0.08)", "#7c3aed"),
- InspectionType::Oqc => ("OQC", "rgba(234,88,12,0.08)", "#ea580c"),
+ InspectionType::Iqc => ("IQC", "bg-[#dbeafe]", "text-accent"),
+ InspectionType::Ipqc => ("IPQC", "bg-[#dcfce7]", "text-success"),
+ InspectionType::Fqc => ("FQC", "bg-[#f3e8ff]", "text-[#7c3aed]"),
+ InspectionType::Oqc => ("OQC", "bg-[#fff8eb]", "text-[#ea580c]"),
  }
 }
 
@@ -240,7 +240,7 @@ fn result_list_page(
  h1 class="text-xl font-bold text-fg tracking-tight" { "检验结果" }
  div class="flex gap-3" {
  @if can_create {
- a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(ResultCreatePath::PATH) {
+a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(ResultCreatePath::PATH) {
  (icon::plus_icon("w-4 h-4"))
  "记录检验"
  }
@@ -278,41 +278,38 @@ fn result_table_fragment(
  hx-target="#result-data-card"
  hx-select="#result-data-card"
  hx-swap="outerHTML"
- hx-include="#filter-form"
+ hx-include="closest form"
  hx-push-url="true" {
- div class="relative flex-1 max-w-xs [&_svg]:absolute [&_svg]:left-3 [&_svg]:top-1/2 [&_svg]:-translate-y-1/2 [&_svg]:w-4 [&_svg]:h-4 [&_svg]:text-muted" {
- (icon::search_icon(""))
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword"
- style="width:160px"
+ div class="relative w-60" {
+ (icon::search_icon("absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted"))
+ input class="search-input w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword"
  placeholder="搜索单号…"
  value=(params.keyword.as_deref().unwrap_or(""));
  }
- select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="inspection_type" {
+ select class="w-40 px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer" name="inspection_type" {
  option value="" selected[params.inspection_type.is_none()] { "全部类型" }
  option value="Iqc" selected[params.inspection_type.as_deref() == Some("Iqc")] { "IQC" }
  option value="Ipqc" selected[params.inspection_type.as_deref() == Some("Ipqc")] { "IPQC" }
  option value="Fqc" selected[params.inspection_type.as_deref() == Some("Fqc")] { "FQC" }
  option value="Oqc" selected[params.inspection_type.as_deref() == Some("Oqc")] { "OQC" }
  }
- select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="result" {
+ select class="w-40 px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer" name="result" {
  option value="" selected[params.result.is_none()] { "全部结果" }
  option value="Pass" selected[params.result.as_deref() == Some("Pass")] { "合格" }
  option value="Fail" selected[params.result.as_deref() == Some("Fail")] { "不合格" }
  option value="Conditional" selected[params.result.as_deref() == Some("Conditional")] { "让步接收" }
  }
- select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="source_type" {
+ select class="w-40 px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer" name="source_type" {
  option value="" selected[params.source_type.is_none()] { "全部来源" }
  option value="1" selected[params.source_type == Some(1)] { "来料通知" }
  option value="2" selected[params.source_type == Some(2)] { "工单工序" }
  option value="3" selected[params.source_type == Some(3)] { "发货单" }
  option value="4" selected[params.source_type == Some(4)] { "委外单" }
  }
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="date" name="date_from"
- style="max-width:140px"
+ input class="w-40 px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer" type="date" name="date_from"
  value=(params.date_from.as_deref().unwrap_or(""));
- span style="color:var(--muted);font-size:13px" { "至" }
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="date" name="date_to"
- style="max-width:140px"
+ span class="text-sm text-muted" { "至" }
+ input class="w-40 px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer" type="date" name="date_to"
  value=(params.date_to.as_deref().unwrap_or(""));
  }
 
@@ -362,10 +359,10 @@ fn result_data_card(
  @let date_display = item.inspection_date
  .map(|d| d.format("%Y-%m-%d").to_string())
  .unwrap_or_else(|| "—".into());
- tr style="cursor:pointer" onclick=(format!("location.href='{}'", detail_path.to_string())) {
- td class="font-mono tabular-nums" style="color:var(--accent)" { (item.doc_number) }
+ tr class="cursor-pointer hover:bg-accent-bg transition-colors duration-100" _=(format!("on click go to {}", detail_path.to_string())) {
+ td { a href=(detail_path.to_string()) class="text-accent font-medium font-mono tabular-nums hover:underline" { (item.doc_number) } }
  td {
- span style=(format!("display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{};color:{}", type_bg, type_color)) {
+ span class=(format!("text-xs px-2 py-0.5 rounded-full font-medium {} {}", type_bg, type_color)) {
  (type_label)
  }
  }
@@ -374,23 +371,21 @@ fn result_data_card(
  td class="font-mono tabular-nums" { (item.batch_no) }
  td class="font-mono tabular-nums text-right text-[13px]" { (qty_display) }
  td {
- span style=(format!("display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{};color:{}", r_bg, r_color)) {
+ span class=(format!("text-xs px-2 py-0.5 rounded-full font-medium {} {}", r_bg, r_color)) {
  (r_label)
  }
  }
  td {
- span style=(format!("display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{};color:{}", s_bg, s_color)) {
+ span class=(format!("text-xs px-2 py-0.5 rounded-full font-medium {} {}", s_bg, s_color)) {
  (s_label)
  }
  }
- td style="font-size:12px;color:var(--muted)" { (date_display) }
+ td class="text-xs text-muted" { (date_display) }
  }
  }
  @if result.items.is_empty() {
  tr {
- td colspan="9" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
- "暂无检验结果"
- }
+ td colspan="9" class="text-center text-muted text-sm py-8" { "暂无检验结果" }
  }
  }
  }

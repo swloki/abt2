@@ -43,18 +43,18 @@ pub struct RmaQueryParams {
 
 fn severity_label(s: &Severity) -> (&'static str, &'static str, &'static str) {
  match s {
- Severity::Minor => ("Minor", "rgba(22,163,74,0.08)", "var(--success)"),
- Severity::Major => ("Major", "rgba(217,119,6,0.08)", "#b45309"),
- Severity::Critical => ("Critical", "rgba(220,38,38,0.08)", "#dc2626"),
+ Severity::Minor => ("Minor", "bg-[#dcfce7]", "text-success"),
+ Severity::Major => ("Major", "bg-[#fff8eb]", "text-[#b45309]"),
+ Severity::Critical => ("Critical", "bg-[#fee2e2]", "text-danger"),
  }
 }
 
 fn rma_status_label(s: &RMAStatus) -> (&'static str, &'static str, &'static str) {
  match s {
- RMAStatus::Reported => ("已报告", "rgba(22,119,255,0.08)", "var(--accent)"),
- RMAStatus::Investigating => ("调查中", "rgba(217,119,6,0.08)", "#b45309"),
- RMAStatus::ActionTaken => ("已采取措施", "rgba(82,196,26,0.08)", "var(--success)"),
- RMAStatus::Closed => ("已关闭", "rgba(0,0,0,0.04)", "var(--muted)"),
+ RMAStatus::Reported => ("已报告", "bg-[#dbeafe]", "text-accent"),
+ RMAStatus::Investigating => ("调查中", "bg-[#fff8eb]", "text-[#b45309]"),
+ RMAStatus::ActionTaken => ("已采取措施", "bg-[#dcfce7]", "text-success"),
+ RMAStatus::Closed => ("已关闭", "bg-surface", "text-muted"),
  }
 }
 
@@ -174,7 +174,7 @@ fn rma_list_page(
  h1 class="text-xl font-bold text-fg tracking-tight" { "RMA 客诉追溯" }
  div class="flex gap-3" {
  @if can_create {
- a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(RmaCreatePath::PATH) {
+a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(RmaCreatePath::PATH) {
  (icon::plus_icon("w-4 h-4"))
  "新建RMA"
  }
@@ -214,28 +214,25 @@ fn rma_table_fragment(
  hx-target="#rma-data-card"
  hx-select="#rma-data-card"
  hx-swap="outerHTML"
- hx-include="#filter-form"
+ hx-include="closest form"
  hx-push-url="true" {
  input type="hidden" name="status" value=(selected_status);
- div class="relative flex-1 max-w-xs [&_svg]:absolute [&_svg]:left-3 [&_svg]:top-1/2 [&_svg]:-translate-y-1/2 [&_svg]:w-4 [&_svg]:h-4 [&_svg]:text-muted" {
- (icon::search_icon(""))
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword"
- style="width:180px"
+ div class="relative w-60" {
+ (icon::search_icon("absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted"))
+ input class="search-input w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword"
  placeholder="搜索单号…"
  value=(params.keyword.as_deref().unwrap_or(""));
  }
- select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="severity" {
+ select class="w-40 px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer" name="severity" {
  option value="" selected[params.severity.is_none()] { "全部严重程度" }
  option value="Minor" selected[params.severity.as_deref() == Some("Minor")] { "Minor" }
  option value="Major" selected[params.severity.as_deref() == Some("Major")] { "Major" }
  option value="Critical" selected[params.severity.as_deref() == Some("Critical")] { "Critical" }
  }
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="date" name="date_from"
- style="max-width:160px"
+ input class="w-40 px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer" type="date" name="date_from"
  value=(params.date_from.as_deref().unwrap_or(""));
- span style="color:var(--muted);font-size:13px" { "至" }
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="date" name="date_to"
- style="max-width:160px"
+ span class="text-sm text-muted" { "至" }
+ input class="w-40 px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer" type="date" name="date_to"
  value=(params.date_to.as_deref().unwrap_or(""));
  }
 
@@ -274,33 +271,31 @@ fn rma_data_card(
  @let customer_name = customer_names.get(&item.customer_id).map(|s| s.as_str()).unwrap_or("—");
  @let product_name = product_names.get(&item.product_id).map(|s| s.as_str()).unwrap_or("—");
  @let detail_path = RmaDetailPath { id: item.id };
- tr style="cursor:pointer" onclick=(format!("location.href='{}'", detail_path.to_string())) {
- td class="text-accent font-medium cursor-pointer font-mono tabular-nums" style="color:var(--accent)" { (item.doc_number) }
+ tr class="cursor-pointer hover:bg-accent-bg transition-colors duration-100" _=(format!("on click go to {}", detail_path.to_string())) {
+ td { a href=(detail_path.to_string()) class="text-accent font-medium font-mono tabular-nums hover:underline" { (item.doc_number) } }
  td { (customer_name) }
  td { (product_name) }
  td {
- span style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden" {
+ span class="line-clamp-2" {
  (item.defect_description)
  }
  }
  td {
- span style=(format!("display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{};color:{}", sev_bg, sev_color)) {
+ span class=(format!("text-xs px-2 py-0.5 rounded-full font-medium {} {}", sev_bg, sev_color)) {
  (sev_label)
  }
  }
  td {
- span style=(format!("display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{};color:{}", st_bg, st_color)) {
+ span class=(format!("text-xs px-2 py-0.5 rounded-full font-medium {} {}", st_bg, st_color)) {
  (st_label)
  }
  }
- td style="font-size:12px;color:var(--muted)" { (item.created_at.format("%Y-%m-%d %H:%M")) }
+ td class="text-xs text-muted" { (item.created_at.format("%Y-%m-%d %H:%M")) }
  }
  }
  @if result.items.is_empty() {
  tr {
- td colspan="7" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
- "暂无RMA记录"
- }
+ td colspan="7" class="text-center text-muted text-sm py-8" { "暂无RMA记录" }
  }
  }
  }

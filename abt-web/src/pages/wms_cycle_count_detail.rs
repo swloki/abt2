@@ -196,7 +196,7 @@ fn cycle_count_detail_page(
  }
  }
 
- div class="summary-stats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:var(--space-4);margin-bottom:var(--space-6)" {
+ div class="summary-stats" class="grid" class="gap-4 mb-6" class="grid-cols-4" {
  (summary_card("总项数", &total_items.to_string(), "blue"))
  (summary_card("一致项", &matching_items.to_string(), "green"))
  (summary_card("差异项", &variance_items.to_string(), "orange"))
@@ -205,7 +205,7 @@ fn cycle_count_detail_page(
 
  div class="data-card" {
  div style="padding:var(--space-5) var(--space-6) var(--space-3)" {
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" style="border-bottom:none;padding-bottom:0;margin-bottom:0" { "盘点明细" }
+ div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" class="mb-0" style="border-bottom:none;padding-bottom:0" { "盘点明细" }
  }
  div class="overflow-x-auto" {
  table class="data-table" {
@@ -237,11 +237,11 @@ fn cycle_count_detail_page(
  td class="text-right text-[13px]" { (format!("{:.2}", item.counted_qty)) }
  td class="text-right text-[13px]" {
  @if item.variance_qty != rust_decimal::Decimal::ZERO {
- span style="color:var(--warning);font-weight:600" {
+ span class="font-semibold" style="color:var(--warning)" {
  (format!("{:.2}", item.variance_qty))
  }
  } @else {
- span style="color:var(--muted)" { "0.00" }
+ span class="text-muted" { "0.00" }
  }
  }
  td { (item.variance_reason.as_deref().unwrap_or("—")) }
@@ -249,14 +249,14 @@ fn cycle_count_detail_page(
  @if item.is_adjusted {
  span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-[#f0fff0] text-[#389e0d]" { "已调整" }
  } @else {
- span style="color:var(--muted)" { "—" }
+ span class="text-muted" { "—" }
  }
  }
  }
  }
  @if items.is_empty() {
  tr {
- td colspan="9" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
+ td colspan="9" class="text-center text-muted py-8" {
  "暂无盘点明细"
  }
  }
@@ -366,11 +366,11 @@ fn action_buttons(cc: &abt_core::wms::cycle_count::model::CycleCount, detail_pat
 
 fn summary_card(label: &str, value: &str, color: &str) -> Markup {
  html! {
- div class="summary-flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" style="background:var(--bg);border:1px solid var(--border-soft);border-radius:var(--radius-md);padding:var(--space-4) var(--space-5);display:flex;align-items:center;gap:var(--space-3)" {
- div class=(format!("summary-stat-icon {color}")) style="width:40px;height:40px;border-radius:var(--radius-md);display:grid;place-items:center;flex-shrink:0" {}
+ div class="summary-flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" class="flex items-center" class="rounded-md gap-3" class="border border-border-soft px-5 py-4" style="background:var(--bg)" {
+ div class=(format!("summary-stat-icon {color}")) class="w-10 grid" class="rounded-md" style="height:40px;place-items:center;flex-shrink:0" {}
  div {
- div style="font-size:var(--text-xl);font-weight:700;line-height:1.1" { (value) }
- div style="font-size:12px;color:var(--muted);margin-top:2px" { (label) }
+ div class="font-bold" class="text-xl" class="leading-tight" { (value) }
+ div class="text-xs text-muted" style="margin-top:2px" { (label) }
  }
  }
  }

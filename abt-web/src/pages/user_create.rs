@@ -174,10 +174,10 @@ fn user_create_page(roles: &[Role], departments: &[Department]) -> Markup {
  (data_scope_section())
 
  // ── Action Bar ──
- div class="flex items-center justify-end gap-3 pt-4 [border-top:1px_solid_var(--border-soft)]" {
- a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{}?restore=true", UserListPath::PATH)) { "取消" }
- div style="display:flex;gap:var(--space-3)" {
- button type="submit" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" {
+ div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
+ a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{}?restore=true", UserListPath::PATH)) { "取消" }
+ div class="flex gap-3" {
+ button type="submit" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" {
  (icon::check_circle_icon("w-4 h-4"))
  "保存"
  }
@@ -190,8 +190,8 @@ fn user_create_page(roles: &[Role], departments: &[Department]) -> Markup {
 
 fn basic_info_section() -> Markup {
  html! {
- div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
+ div class="data-card overflow-hidden" {
+ div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft border-border-soft" {
  (icon::user_icon("w-[18px] h-[18px]"))
  "基本信息"
  }
@@ -199,19 +199,19 @@ fn basic_info_section() -> Markup {
  // 登录名
  div class="form-group" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "登录名 " span class="required" { "*" } }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="username" required placeholder="登录账号，如 zhangm" autocomplete="off" {}
+ input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent" type="text" name="username" required placeholder="登录账号，如 zhangm" autocomplete="off" {}
  span class="text-xs text-muted mt-0.5" { "唯一标识，创建后不可修改" }
  }
  // 显示名称
  div class="form-group" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "显示名称 " span class="required" { "*" } }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="display_name" placeholder="中文名称，如 张明" {}
+ input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent" type="text" name="display_name" placeholder="中文名称，如 张明" {}
  }
  // 密码
  div class="form-group" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "密码 " span class="required" { "*" } }
  div class="relative" {
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="password" id="password" name="password" required placeholder="8-32位，含字母和数字" {}
+ input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent" type="password" id="password" name="password" required placeholder="8-32位，含字母和数字" {}
  button class="password-toggle" type="button" _="on click if previous <input/>'s type is 'password' set previous <input/>'s type to 'text' else set previous <input/>'s type to 'password'" {
  (icon::eye_icon("w-4 h-4"))
  }
@@ -220,7 +220,7 @@ fn basic_info_section() -> Markup {
  // 确认密码
  div class="form-group" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "确认密码 " span class="required" { "*" } }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="password" id="confirmPwd" name="confirm_password" required placeholder="再次输入密码" {}
+ input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent" type="password" id="confirmPwd" name="confirm_password" required placeholder="再次输入密码" {}
  }
  // 超级管理员
  div class="form-group" {
@@ -246,8 +246,8 @@ fn basic_info_section() -> Markup {
 
 fn role_section(roles: &[Role]) -> Markup {
  html! {
- div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
+ div class="data-card overflow-hidden" {
+ div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft border-border-soft" {
  (icon::lock_icon("w-[18px] h-[18px]"))
  "角色分配"
  }
@@ -283,8 +283,8 @@ fn role_section(roles: &[Role]) -> Markup {
 
 fn dept_section(departments: &[Department]) -> Markup {
  html! {
- div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
+ div class="data-card overflow-hidden" {
+ div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft border-border-soft" {
  (icon::building_icon("w-[18px] h-[18px]"))
  "部门分配"
  }
@@ -317,8 +317,8 @@ fn dept_section(departments: &[Department]) -> Markup {
 
 fn data_scope_section() -> Markup {
  html! {
- div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
+ div class="data-card overflow-hidden" {
+ div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft border-border-soft" {
  (shield_check_icon("w-[18px] h-[18px]"))
  "数据权限 (DataScope)"
  }

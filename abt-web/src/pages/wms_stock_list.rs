@@ -236,7 +236,7 @@ fn zone_select_fragment(
  selected: Option<i64>,
 ) -> Markup {
  html! {
- select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="zone_id" id="zone-select" style="width:140px" {
+ select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="zone_id" id="zone-select" class="w-[140px]" {
  option value="" { "全部库区" }
  @for z in zones {
  option value=(z.id) selected[selected == Some(z.id)] { (z.code) }
@@ -304,7 +304,7 @@ fn stock_list_page(
  }
 
  // ── Stat Cards ──
- div style="display:grid;grid-template-columns:repeat(4,1fr);gap:var(--space-4);margin-bottom:var(--space-6)" {
+ div class="grid" class="gap-4 mb-6" class="grid-cols-4" {
  div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
  div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 blue" {
  (icon::box_icon("w-5 h-5"))
@@ -328,7 +328,7 @@ fn stock_list_page(
  (icon::circle_alert_icon("w-5 h-5"))
  }
  div {
- div class="text-2xl font-bold font-mono tabular-nums tabular-nums text-fg" style="color:var(--danger)" { (result.items.iter().filter(|s| s.available_qty <= Decimal::ZERO).count()) }
+ div class="text-2xl font-bold font-mono tabular-nums tabular-nums text-fg" class="text-danger" { (result.items.iter().filter(|s| s.available_qty <= Decimal::ZERO).count()) }
  div class="text-sm text-muted mt-1" { "低库存项" }
  }
  }
@@ -383,7 +383,7 @@ fn stock_filter_bar(
  div class="relative flex-1 max-w-xs [&_svg]:absolute [&_svg]:left-3 [&_svg]:top-1/2 [&_svg]:-translate-y-1/2 [&_svg]:w-4 [&_svg]:h-4 [&_svg]:text-muted" {
  (icon::search_icon(""))
  input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="product_code"
- style="width:180px"
+ class="w-[180px]"
  placeholder="产品编码"
  value=(params.product_code.as_deref().unwrap_or(""));
  }
@@ -411,9 +411,9 @@ fn stock_filter_bar(
  placeholder="批次号"
  value=(params.batch_no.as_deref().unwrap_or(""));
  }
- label class="flex items-center gap-2 text-sm text-fg-2 cursor-pointer whitespace-nowrap" style="cursor:pointer;display:flex;align-items:center;gap:var(--space-2);font-size:var(--text-sm);color:var(--fg-2);white-space:nowrap" {
+ label class="flex items-center gap-2 text-sm text-fg-2 cursor-pointer whitespace-nowrap" class="cursor-pointer flex items-center text-fg-2 whitespace-nowrap" class="gap-2" class="text-sm" {
  input type="checkbox" name="low_stock" value="true"
- style="width:16px;height:16px;accent-color:var(--accent)"
+ class="accent-accent" style="width:16px;height:16px"
  checked[params.low_stock == Some(true)];
  "仅显示低库存"
  }
@@ -457,7 +457,7 @@ fn stock_data_card(
  @let avail_style = if is_low { "color:var(--danger);font-weight:600" } else { "" };
  td class="text-right text-[13px]" style=(avail_style) { (format_decimal(&item.available_qty)) }
  td {
- a style="color:var(--accent);font-size:var(--text-sm);cursor:pointer"
+ a class="text-accent cursor-pointer" class="text-sm"
  hx-get=(format!("{}?id={}", StockDetailPath::PATH, item.id))
  hx-target="#stock-drawer-content"
  hx-swap="innerHTML"
@@ -469,7 +469,7 @@ fn stock_data_card(
  }
  @if result.items.is_empty() {
  tr {
- td colspan="5" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
+ td colspan="5" class="text-center text-muted py-8" {
  "暂无库存数据"
  }
  }
@@ -560,7 +560,7 @@ fn stock_detail_content(
  }
  }
  div style="margin-top:12px" {
- div style="display:flex;justify-content:space-between;font-size:var(--text-xs);color:var(--muted);margin-bottom:4px" {
+ div class="flex justify-between text-muted" class="text-xs" style="margin-bottom:4px" {
  span { "可用量 / 安全库存" }
  span style=(format!("font-weight:600;color:{bar_color}")) { (format!("{pct}%")) }
  }

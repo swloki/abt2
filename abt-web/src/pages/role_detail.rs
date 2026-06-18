@@ -428,7 +428,7 @@ fn role_detail_page(
  @for child in ctx.child_roles {
  div.info-row {
  span.info-label {
- a href=(RoleDetailPath { id: child.role_id }.to_string()) style="color:var(--accent)" {
+ a href=(RoleDetailPath { id: child.role_id }.to_string()) class="text-accent" {
  (child.role_name)
  }
  }

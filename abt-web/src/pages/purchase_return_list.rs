@@ -260,7 +260,7 @@ fn pr_table_fragment(
  }
  @if result.items.is_empty() {
  tr {
- td colspan="9" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
+ td colspan="9" class="text-center text-muted py-8" {
  "暂无退货数据"
  }
  }
@@ -288,7 +288,7 @@ fn pr_row(
  let is_draft = r.status == PurchaseReturnStatus::Draft;
 
  html! {
- tr style="cursor:pointer" {
+ tr class="cursor-pointer" {
  td class="text-accent font-medium cursor-pointer font-mono tabular-nums" onclick=(&onclick) { (r.doc_number) }
  td onclick=(&onclick) { (supplier_name) }
  td class="font-mono tabular-nums" onclick=(&onclick) { (r.order_id) }
@@ -299,7 +299,7 @@ fn pr_row(
  td class="text-right text-[13px]" onclick=(&onclick) { (r.total_amount) }
  td class="font-mono tabular-nums" onclick=(&onclick) { (r.return_date.format("%Y-%m-%d")) }
  td onclick=(&onclick) { (created) }
- td onclick="event.stopPropagation()" {
+ td _="on click halt the event" {
  @if is_draft {
  div class="row-actions flex items-center gap-1 justify-end opacity-0 transition-opacity duration-150 [&_a]:w-[28px] [&_a]:h-[28px] [&_a]:grid [&_a]:place-items-center [&_a]:rounded-sm [&_a]:cursor-pointer [&_a]:bg-surface [&_a]:hover:bg-accent-bg [&_svg]:w-3.5 [&_svg]:h-3.5" {
  a class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" href=(detail_path.to_string()) title="编辑" {

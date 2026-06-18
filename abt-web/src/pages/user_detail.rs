@@ -717,7 +717,7 @@ fn reset_password_modal(action: &str) -> Markup {
  _="on click remove .is-open from closest .modal-overlay then reset #reset-pw-form" { "×" }
  }
  div class="overflow-y-auto flex-1 min-h-0 p-6" {
- p style="margin-bottom:16px;color:#6b7280;font-size:14px" { "为该用户设置新密码，重置后立即生效。" }
+ p class="text-muted text-sm" style="margin-bottom:16px" { "为该用户设置新密码，重置后立即生效。" }
  div class="form-group" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "新密码 " span class="required" { "*" } }
  input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="password" name="new_password" required

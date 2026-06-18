@@ -205,7 +205,7 @@ fn precon_detail_page(
  }
  @if items.is_empty() {
  tr {
- td colspan="8" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
+ td colspan="8" class="text-center text-muted py-8" {
  "暂无明细"
  }
  }
@@ -216,7 +216,7 @@ fn precon_detail_page(
  }
 
  // ── Amount Summary ──
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" style="margin-top:var(--space-6)" {
+ div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" class="mt-6" {
  div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "金额汇总" }
  div class="grid gap-4" {
  div class="flex flex-col gap-1" {
@@ -236,7 +236,7 @@ fn precon_detail_page(
 
  // ── Remarks ──
  @if !recon.remark.is_empty() {
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" style="margin-top:var(--space-6)" {
+ div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" class="mt-6" {
  div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-title" { "备注" }
  p class="text-muted" { (recon.remark.as_str()) }
  }
@@ -257,7 +257,7 @@ fn item_row(item: &PurchaseReconItem) -> Markup {
  td class="text-right text-[13px]" { (format!("{:.2}", item.returned_amount)) }
  td class="text-right text-[13px]" { (format!("{:.2}", item.unit_price)) }
  td class="text-right text-[13px]" { (format!("{:.2}", item.amount)) }
- td style="text-align:center" { (confirmed) }
+ td class="text-center" { (confirmed) }
  }
  }
 }

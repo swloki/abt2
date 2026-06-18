@@ -344,24 +344,24 @@ fn detail_page(
  div class="flex items-center gap-[10px]" {
  (status_pill(sl, sc))
  span class=(type_tag_cls) { (tl) }
- span style="font-size:12px;color:var(--muted)" { "v" (order.version) }
+ span class="text-xs text-muted" { "v" (order.version) }
  }
  }
  div class="flex gap-[8px] shrink-0" {
  button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" _="on click add .is-open to #record-node-modal" {
- (maud::PreEscaped(r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>"#))
+ (maud::PreEscaped(r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-[15px] h-[15px]"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>"#))
  "记录节点"
  }
  button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" _="on click add .is-open to #receive-modal" {
- (maud::PreEscaped(r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>"#))
+ (maud::PreEscaped(r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-[15px] h-[15px]"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>"#))
  "收货登记"
  }
  button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" _="on click add .is-open to #convert-modal" {
- (maud::PreEscaped(r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px"><path d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4"/></svg>"#))
+ (maud::PreEscaped(r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-[15px] h-[15px]"><path d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4"/></svg>"#))
  "转自制"
  }
- button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" _="on click add .is-open to #cancel-modal" style="color:var(--danger);border-color:rgba(220,38,38,0.3)" {
- (maud::PreEscaped(r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/></svg>"#))
+ button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" _="on click add .is-open to #cancel-modal" class="text-danger" style="border-color:rgba(220,38,38,0.3)" {
+ (maud::PreEscaped(r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-[15px] h-[15px]"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/></svg>"#))
  "取消"
  }
  }
@@ -405,9 +405,9 @@ fn detail_page(
  // Detail row — secondary meta
  div class="info-flex py-2 text-sm" {
  span class="flex gap-[6px] text-[12px] text-muted" { "计划数量 " strong class="font-mono tabular-nums" { (crate::utils::fmt_qty(order.planned_qty)) } }
- span class="flex gap-[6px] text-[12px] text-muted" { "完成数量 " strong class="font-mono tabular-nums" style="color:var(--success)" { (crate::utils::fmt_qty(order.completed_qty)) } }
+ span class="flex gap-[6px] text-[12px] text-muted" { "完成数量 " strong class="font-mono tabular-nums" class="text-success" { (crate::utils::fmt_qty(order.completed_qty)) } }
  span class="flex gap-[6px] text-[12px] text-muted" { "单价 " strong class="font-mono tabular-nums" { (crate::utils::fmt_qty(order.unit_price)) } }
- span class="flex gap-[6px] text-[12px] text-muted" { "总金额 " strong class="font-mono tabular-nums" style="color:var(--accent)" { (format_amount(order.planned_qty * order.unit_price)) } }
+ span class="flex gap-[6px] text-[12px] text-muted" { "总金额 " strong class="font-mono tabular-nums" class="text-accent" { (format_amount(order.planned_qty * order.unit_price)) } }
  span class="flex gap-[6px] text-[12px] text-muted" { "创建人 " strong { (operator_name) } }
  span class="flex gap-[6px] text-[12px] text-muted" { "创建 " strong class="font-mono tabular-nums" { (order.created_at.format("%Y-%m-%d %H:%M")) } }
  span class="flex gap-[6px] text-[12px] text-muted" { "更新 " strong class="font-mono tabular-nums" { (order.updated_at.format("%Y-%m-%d %H:%M")) } }
@@ -425,7 +425,7 @@ fn detail_page(
  }
  span class="w-[56px] h-[56px] relative" { (format!("{:.0}%", pct)) }
  }
- span style="font-size:12px;color:var(--muted);font-weight:500" { "完成进度" }
+ span class="text-xs text-muted font-medium" { "完成进度" }
  }
  }
  }
@@ -433,8 +433,8 @@ fn detail_page(
  // Remark inside hero
  @if !order.remark.is_empty() {
  div style="margin-top:20px;padding-top:16px;border-top:1px dashed var(--border-soft)" {
- span style="font-size:12px;color:var(--muted);font-weight:600" { "备注" }
- p style="color:var(--fg-2);font-size:13px;margin-top:6px;line-height:1.6" { (&order.remark) }
+ span class="text-xs text-muted font-semibold" { "备注" }
+ p class="text-fg-2 text-[13px]" style="margin-top:6px;line-height:1.6" { (&order.remark) }
  }
  }
  }
@@ -469,7 +469,7 @@ fn detail_page(
  div class=(if is_active || is_completed { "track-label" } else { "track-label muted" }) {
  (label)
  @if is_active {
- span style="font-size:11px;font-weight:500;padding:2px 10px;border-radius:var(--radius-pill);background:rgba(37,99,235,0.1);color:var(--accent)" { "当前" }
+ span class="text-[11px] font-medium text-accent" style="padding:2px 10px;border-radius:var(--radius-pill);background:rgba(37,99,235,0.1)" { "当前" }
  }
  }
  @if let Some(t) = tracked {
@@ -493,7 +493,7 @@ fn detail_page(
  } @else if is_active {
  (status_pill("进行中", "status-progress"))
  } @else {
- span style="font-size:11px;color:var(--muted)" { "待完成" }
+ span class="text-[11px] text-muted" { "待完成" }
  }
  }
  }
@@ -514,7 +514,7 @@ fn detail_page(
  }
  div class="bg-bg border border-border-soft rounded-xl overflow-hidden-body" {
  div class="overflow-x-auto" {
- table class="data-table" style="width:100%" {
+ table class="data-table" class="w-full" {
  thead {
  tr {
  th { "时间" }
@@ -556,7 +556,7 @@ fn detail_page(
  div id="record-node-modal" class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto" _="on click[me is event.target] remove .is-open" {
  div class="bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl" style="width:520px" {
  div class="px-6 py-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center shrink-0" {
- h2 style="display:flex;align-items:center;gap:var(--space-2)" {
+ h2 class="flex items-center" class="gap-2" {
  (maud::PreEscaped(r#"<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>"#))
  "记录追踪节点"
  }
@@ -567,9 +567,9 @@ fn detail_page(
  form hx-post=(OmRecordNodePath { id: order.id }.to_string()) hx-swap="none"
  hx-on::after-request="if(event.detail.xhr.status<400){document.querySelector('#record-node-modal').classList.remove('is-open');this.reset()}" {
  div class="overflow-y-auto flex-1 min-h-0 p-6" {
- div style="background:linear-gradient(135deg,rgba(22,163,74,0.04),rgba(22,163,74,0.08));padding:var(--space-4) var(--space-5);border-radius:var(--radius-md);margin-bottom:var(--space-6);font-size:13px;color:var(--fg-2);border:1px solid rgba(22,163,74,0.08)" {
+ div class="text-[13px] text-fg-2" class="rounded-md mb-6" class="px-5 py-4" style="background:linear-gradient(135deg,rgba(22,163,74,0.04),rgba(22,163,74,0.08));border:1px solid rgba(22,163,74,0.08)" {
  "当前已完成节点："
- strong style="color:var(--success)" {
+ strong class="text-success" {
  @if let Some(last) = tracking.last() {
  (node_type_label(&last.node_type))
  } @else {
@@ -577,7 +577,7 @@ fn detail_page(
  }
  }
  "，下一可记录节点："
- strong style="color:var(--accent)" {
+ strong class="text-accent" {
  @if let Some(last) = tracking.last() {
  @if let Some(next) = all_node_types.iter().find(|nt| nt.as_i16() > last.node_type.as_i16()) {
  (node_type_label(next))
@@ -592,7 +592,7 @@ fn detail_page(
  div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
  div class="form-field" {
  label { "节点类型" }
- select name="node_type" class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" style="width:100%" {
+ select name="node_type" class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" class="w-full" {
  @for nt in all_node_types.iter() {
  @let label = node_type_label(nt);
  option value=(nt.as_i16()) { (label) }
@@ -601,11 +601,11 @@ fn detail_page(
  }
  div class="form-field" {
  label { "实际时间" }
- input type="datetime-local" name="actual_time" class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" style="width:100%" {}
+ input type="datetime-local" name="actual_time" class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" class="w-full" {}
  }
  div class="form-field field-full" {
  label { "备注" }
- textarea name="remark" class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" rows="2" placeholder="节点备注…" style="width:100%;resize:vertical" {}
+ textarea name="remark" class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" rows="2" placeholder="节点备注…" class="w-full resize-y" {}
  }
  }
  }
@@ -623,7 +623,7 @@ fn detail_page(
  div id="receive-modal" class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto" _="on click[me is event.target] remove .is-open" {
  div class="bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl" {
  div class="px-6 py-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center shrink-0" {
- h2 style="display:flex;align-items:center;gap:var(--space-2)" {
+ h2 class="flex items-center" class="gap-2" {
  (maud::PreEscaped(r#"<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>"#))
  "收货登记"
  }
@@ -634,40 +634,40 @@ fn detail_page(
  form hx-post=(OmOutsourcingReceivePath { id: order.id }.to_string()) hx-swap="none"
  hx-on::after-request="if(event.detail.xhr.status<400){document.querySelector('#receive-modal').classList.remove('is-open');this.reset()}" {
  div class="overflow-y-auto flex-1 min-h-0 p-6" {
- div style="background:linear-gradient(135deg,var(--accent-bg),rgba(37,99,235,0.06));padding:var(--space-4) var(--space-5);border-radius:var(--radius-md);margin-bottom:var(--space-6);font-size:13px;color:var(--fg-2);border:1px solid rgba(37,99,235,0.08)" {
- div style="display:flex;align-items:center;gap:var(--space-4);flex-wrap:wrap" {
- span { "委外单 " strong style="color:var(--fg)" { (order.doc_number) } }
- span style="color:var(--border)" { "|" }
+ div class="text-[13px] text-fg-2" class="rounded-md mb-6" class="px-5 py-4" style="background:linear-gradient(135deg,var(--accent-bg),rgba(37,99,235,0.06));border:1px solid rgba(37,99,235,0.08)" {
+ div class="flex items-center flex-wrap" class="gap-4" {
+ span { "委外单 " strong class="text-fg" { (order.doc_number) } }
+ span class="text-border" { "|" }
  span { (product_name) }
- span style="color:var(--border)" { "|" }
+ span class="text-border" { "|" }
  span { (supplier_name) }
- span style="color:var(--border)" { "|" }
- span { "计划 " span class="font-mono tabular-nums" style="font-weight:700" { (order.planned_qty.to_string()) } " · 已收 " span class="font-mono tabular-nums text-success" style="font-weight:700" { (order.completed_qty.to_string()) } }
+ span class="text-border" { "|" }
+ span { "计划 " span class="font-mono tabular-nums" class="font-bold" { (order.planned_qty.to_string()) } " · 已收 " span class="font-mono tabular-nums text-success" class="font-bold" { (order.completed_qty.to_string()) } }
  }
  }
  div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
  div class="form-field" {
- label { "本次收货数量 " span style="color:var(--danger)" { "*" } }
- input type="number" name="received_qty" class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" placeholder="请输入数量" min="1" style="width:100%" required {}
+ label { "本次收货数量 " span class="text-danger" { "*" } }
+ input type="number" name="received_qty" class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" placeholder="请输入数量" min="1" class="w-full" required {}
  }
  div class="form-field" {
  label { "入库仓库" }
- select name="warehouse_id" class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" style="width:100%" {
+ select name="warehouse_id" class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" class="w-full" {
  option value="" { "成品仓（默认）" }
  option value="1" { "待检仓" }
  }
  }
  div class="form-field" {
  label { "IQC 合格数量" }
- input type="number" name="qualified_qty" class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" placeholder="自动填充" style="width:100%" {}
+ input type="number" name="qualified_qty" class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" placeholder="自动填充" class="w-full" {}
  }
  div class="form-field" {
  label { "IQC 不合格数量" }
- input type="number" name="unqualified_qty" class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" placeholder="0" style="width:100%" {}
+ input type="number" name="unqualified_qty" class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" placeholder="0" class="w-full" {}
  }
  div class="form-field field-full" {
  label { "备注" }
- textarea name="remark" class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" rows="2" placeholder="收货备注…" style="width:100%;resize:vertical" {}
+ textarea name="remark" class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" rows="2" placeholder="收货备注…" class="w-full resize-y" {}
  }
  }
  }
@@ -685,7 +685,7 @@ fn detail_page(
  div id="convert-modal" class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto" _="on click[me is event.target] remove .is-open" {
  div class="bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl" style="width:520px" {
  div class="px-6 py-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center shrink-0" {
- h2 style="display:flex;align-items:center;gap:var(--space-2)" {
+ h2 class="flex items-center" class="gap-2" {
  (maud::PreEscaped(r#"<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--warn)" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><path d="M12 9v4M12 17h.01"/></svg>"#))
  "转自制确认"
  }
@@ -695,16 +695,16 @@ fn detail_page(
  }
  form hx-post=(OmOutsourcingConvertPath { id: order.id }.to_string()) hx-swap="none"
  hx-on::after-request="if(event.detail.xhr.status<400){document.querySelector('#convert-modal').classList.remove('is-open');this.reset()}" {
- div class="overflow-y-auto flex-1 min-h-0 p-6" style="text-align:center;padding:var(--space-8)" {
- div style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,rgba(217,119,6,0.08),rgba(217,119,6,0.15));display:grid;place-items:center;margin:0 auto var(--space-5)" {
+ div class="overflow-y-auto flex-1 min-h-0 p-6" class="text-center" class="p-8" {
+ div class="grid" class="w-16" style="height:64px;border-radius:50%;background:linear-gradient(135deg,rgba(217,119,6,0.08),rgba(217,119,6,0.15));place-items:center;margin:0 auto var(--space-5)" {
  (maud::PreEscaped(r#"<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--warn)" stroke-width="2"><path d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4"/></svg>"#))
  }
- p style="font-size:var(--text-lg);font-weight:700;color:var(--fg);margin:0 0 var(--space-2)" { "将委外单转为内部生产？" }
- p style="font-size:var(--text-sm);color:var(--muted);margin:0 0 var(--space-6);line-height:1.7" { "系统将自动创建新的内部工单，" br {} "并将已发物料从委外虚拟仓调回。" }
- div style="text-align:left" {
+ p class="font-bold text-fg" class="text-lg" style="margin:0 0 var(--space-2)" { "将委外单转为内部生产？" }
+ p class="text-muted" class="text-sm" style="margin:0 0 var(--space-6);line-height:1.7" { "系统将自动创建新的内部工单，" br {} "并将已发物料从委外虚拟仓调回。" }
+ div class="text-left" {
  div class="form-field" {
  label { "备注（可选）" }
- textarea name="remark" class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" rows="2" placeholder="转自制原因…" style="width:100%;resize:vertical" {}
+ textarea name="remark" class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" rows="2" placeholder="转自制原因…" class="w-full resize-y" {}
  }
  }
  }
@@ -722,7 +722,7 @@ fn detail_page(
  div id="cancel-modal" class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto" _="on click[me is event.target] remove .is-open" {
  div class="bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl" style="width:480px" {
  div class="px-6 py-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center shrink-0" {
- h2 style="display:flex;align-items:center;gap:var(--space-2)" {
+ h2 class="flex items-center" class="gap-2" {
  (maud::PreEscaped(r#"<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/></svg>"#))
  "取消委外单"
  }
@@ -732,16 +732,16 @@ fn detail_page(
  }
  form hx-post=(OmOutsourcingCancelPath { id: order.id }.to_string()) hx-swap="none"
  hx-on::after-request="if(event.detail.xhr.status<400){document.querySelector('#cancel-modal').classList.remove('is-open');this.reset()}" {
- div class="overflow-y-auto flex-1 min-h-0 p-6" style="text-align:center;padding:var(--space-8)" {
- div style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,rgba(220,38,38,0.08),rgba(220,38,38,0.15));display:grid;place-items:center;margin:0 auto var(--space-5)" {
+ div class="overflow-y-auto flex-1 min-h-0 p-6" class="text-center" class="p-8" {
+ div class="grid" class="w-16" style="height:64px;border-radius:50%;background:linear-gradient(135deg,rgba(220,38,38,0.08),rgba(220,38,38,0.15));place-items:center;margin:0 auto var(--space-5)" {
  (maud::PreEscaped(r#"<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/></svg>"#))
  }
- p style="font-size:var(--text-lg);font-weight:700;color:var(--fg);margin:0 0 var(--space-2)" { "确认取消此委外单？" }
- p style="font-size:var(--text-sm);color:var(--muted);margin:0 0 var(--space-6);line-height:1.7" { "仅草稿状态可取消。取消后不可恢复。" }
- div style="text-align:left" {
+ p class="font-bold text-fg" class="text-lg" style="margin:0 0 var(--space-2)" { "确认取消此委外单？" }
+ p class="text-muted" class="text-sm" style="margin:0 0 var(--space-6);line-height:1.7" { "仅草稿状态可取消。取消后不可恢复。" }
+ div class="text-left" {
  div class="form-field" {
- label { "取消原因 " span style="color:var(--danger)" { "*" } }
- textarea name="remark" class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" rows="2" placeholder="请填写取消原因…" style="width:100%;resize:vertical" required {}
+ label { "取消原因 " span class="text-danger" { "*" } }
+ textarea name="remark" class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" rows="2" placeholder="请填写取消原因…" class="w-full resize-y" required {}
  }
  }
  }

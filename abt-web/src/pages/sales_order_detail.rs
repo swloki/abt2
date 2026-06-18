@@ -517,7 +517,7 @@ fn fulfill_plan_row(
  (Some(12), Some(doc_id)) => {
  // ProductionPlan
  Some(html! {
- a href=(format!("/admin/mes/plans/{}", doc_id)) class="text-accent font-medium cursor-pointer font-mono tabular-nums" style="font-size:12px;" {
+ a href=(format!("/admin/mes/plans/{}", doc_id)) class="text-accent font-medium cursor-pointer font-mono tabular-nums" class="text-xs" {
  (format!("PP-{}", doc_id))
  }
  })
@@ -525,7 +525,7 @@ fn fulfill_plan_row(
  (Some(7), Some(doc_id)) => {
  // PurchaseOrder
  Some(html! {
- a href=(format!("/admin/purchase/orders/{}", doc_id)) class="text-accent font-medium cursor-pointer font-mono tabular-nums" style="font-size:12px;" {
+ a href=(format!("/admin/purchase/orders/{}", doc_id)) class="text-accent font-medium cursor-pointer font-mono tabular-nums" class="text-xs" {
  (format!("PO-{}", doc_id))
  }
  })
@@ -533,7 +533,7 @@ fn fulfill_plan_row(
  (Some(10), Some(doc_id)) => {
  // WorkOrder
  Some(html! {
- a href=(format!("/admin/mes/orders/{}", doc_id)) class="text-accent font-medium cursor-pointer font-mono tabular-nums" style="font-size:12px;" {
+ a href=(format!("/admin/mes/orders/{}", doc_id)) class="text-accent font-medium cursor-pointer font-mono tabular-nums" class="text-xs" {
  (format!("WO-{}", doc_id))
  }
  })
@@ -541,7 +541,7 @@ fn fulfill_plan_row(
  (Some(11), Some(doc_id)) => {
  // OutsourcingOrder
  Some(html! {
- a href=(format!("/admin/om/outsourcing/{}", doc_id)) class="text-accent font-medium cursor-pointer font-mono tabular-nums" style="font-size:12px;" {
+ a href=(format!("/admin/om/outsourcing/{}", doc_id)) class="text-accent font-medium cursor-pointer font-mono tabular-nums" class="text-xs" {
  (format!("OM-{}", doc_id))
  }
  })
@@ -566,15 +566,15 @@ fn fulfill_plan_row(
  @if effective_shortage > Decimal::ZERO {
  span class="text-danger" { (fmt_qty(effective_shortage)) }
  } @else {
- span style="color:var(--success);" { "0" }
+ span class="text-success" { "0" }
  }
  }
  td {
- div style="display:flex;align-items:center;gap:8px;" {
- div style="flex:1;background:#e5e7eb;height:6px;border-radius:3px;overflow:hidden;" {
+ div class="flex items-center" class="gap-2" {
+ div class="flex-1 overflow-hidden" style="background:#e5e7eb;height:6px;border-radius:3px" {
  div style=(format!("width:{};background:{};height:100%;", fill_bar_pct, fill_color)) {}
  }
- span style="font-size:12px;color:var(--muted);" { (fill_pct_str) }
+ span class="text-xs text-muted" { (fill_pct_str) }
  }
  }
  td {
@@ -774,7 +774,7 @@ fn order_detail_page(
 
  // ── Remarks ──
  @if !o.remark.is_empty() {
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" style="margin-top:var(--space-6)" {
+ div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" class="mt-6" {
  div class="text-sm font-semibold text-fg mb-4" { "备注" }
  p class="text-muted" { (o.remark.as_str()) }
  }

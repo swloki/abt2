@@ -24,11 +24,11 @@ use abt_macros::require_permission;
 
 // ── Helpers ──
 
-/// 根据核销类型返回 (CSS class, 标签文字)
+/// 根据核销类型返回 (UnoCSS class, 标签文字)
 fn writeoff_type_class(t: &WriteOffType) -> (&'static str, &'static str) {
  match t {
- WriteOffType::SalesReceipt => ("sales", "销售回款核销"),
- WriteOffType::PurchasePayment => ("purchase", "采购付款核销"),
+ WriteOffType::SalesReceipt => ("bg-[rgba(22,163,74,0.08)] text-success border-[rgba(22,163,74,0.15)]", "销售回款核销"),
+ WriteOffType::PurchasePayment => ("bg-[rgba(220,38,38,0.08)] text-danger border-[rgba(220,38,38,0.15)]", "采购付款核销"),
  }
 }
 
@@ -151,7 +151,7 @@ fn writeoff_list_page(
  div class="flex items-center justify-between mb-6" {
  h1 class="text-xl font-bold text-fg tracking-tight" { "核销管理" }
  div class="flex gap-3" {
- button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" type="button" {
+ button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" type="button" {
  (icon::download_icon("w-4 h-4"))
  "导出"
  }
@@ -197,14 +197,13 @@ fn writeoff_table_fragment(
  hx-swap="outerHTML"
  hx-include="#writeoff-filter-form"
  hx-push-url="true" {
- div class="relative flex-1 max-w-xs [&_svg]:absolute [&_svg]:left-3 [&_svg]:top-1/2 [&_svg]:-translate-y-1/2 [&_svg]:w-4 [&_svg]:h-4 [&_svg]:text-muted" {
- (icon::search_icon(""))
+ div class="relative w-[200px]" {
+ (icon::search_icon("absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted"))
  input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword"
- style="width:200px"
- placeholder="搜索日记账号…";
+ placeholder="搜索日记账号、来源单号…";
  }
- input type="date" name="start_date" class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" style="width:150px" title="起始日期";
- input type="date" name="end_date" class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" style="width:150px" title="截止日期";
+ input type="date" name="start_date" class="w-[150px] px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer" title="起始日期";
+ input type="date" name="end_date" class="w-[150px] px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer" title="截止日期";
  }
 
  (writeoff_data_card(result, params, operator_names))
@@ -219,9 +218,9 @@ fn writeoff_data_card(
 ) -> Markup {
  let query = build_query_string(params);
  html! {
- div class="data-card" id="writeoff-data-card" {
+ div class="data-card overflow-hidden" id="writeoff-data-card" {
  div class="overflow-x-auto" {
- table class="data-table" style="min-width:1000px" {
+ table class="data-table min-w-[1000px]" {
  thead {
  tr {
  th { "核销类型" }
@@ -242,25 +241,29 @@ fn writeoff_data_card(
  @let operator_name = operator_names.get(&item.operator_id)
  .cloned()
  .unwrap_or_else(|| item.operator_id.to_string());
- tr {
+ tr class="hover:bg-accent-bg transition-colors" {
  td {
- span class=(format!("wo-type {css_class}")) { (type_label) }
+ span class=(format!("inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-xs font-semibold border {}", css_class)) {
+ (type_label)
  }
- td class="text-accent font-medium cursor-pointer" { "CJ-" (item.cash_journal_id) }
- td class="text-accent font-medium cursor-pointer" { (source_prefix) "-" (item.source_id) }
- td class="text-right text-[13px]" { "—" }
- td class="text-right text-[13px] font-bold text-accent" { "¥" (format!("{:.2}", item.amount)) }
- td class="text-right text-[13px]" style="color:var(--warn)" { "—" }
+ }
+ td { span class="text-accent font-medium font-mono tabular-nums hover:underline cursor-pointer" { "CJ-" (item.cash_journal_id) } }
+ td { span class="text-accent font-medium font-mono tabular-nums hover:underline cursor-pointer" { (source_prefix) "-" (item.source_id) } }
+ td class="text-right text-[13px] font-mono tabular-nums" { "—" }
+ td class="text-right text-[13px] font-bold text-accent font-mono tabular-nums" { "¥" (format!("{:.2}", item.amount)) }
+ td class="text-right text-[13px] font-mono tabular-nums text-warn" { "—" }
  td {
- span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap full" { "已核销完毕" }
+ span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold border bg-[rgba(22,163,74,0.08)] text-success border-[rgba(22,163,74,0.15)]" {
+ "已核销完毕"
+ }
  }
  td class="text-muted text-[13px]" { (item.write_off_date.format("%Y-%m-%d")) }
- td { (operator_name) }
+ td class="text-sm text-fg-2" { (operator_name) }
  }
  }
  @if result.items.is_empty() {
  tr {
- td colspan="9" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
+ td colspan="9" class="text-center text-muted text-sm py-8" {
  "暂无核销记录"
  }
  }

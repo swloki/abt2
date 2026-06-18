@@ -62,13 +62,13 @@ pub async fn get_inspection_detail(path: InspectionDetailPath, ctx: RequestConte
  div class="flex flex-col gap-1" { label { "检验日期" } span { (insp.inspection_date) } }
  }
  }
- div class="form-section" style="margin-top:var(--space-6)" {
+ div class="form-section" class="mt-6" {
  div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "记录检验结果" }
  form hx-post=(format!("/admin/mes/inspections/{}/record-result", insp.id)) hx-swap="none" {
- select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="result" style="width:200px;display:inline-block" {
+ select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="result" class="inline-block" class="w-[200px]" {
  option value="1" { "合格" } option value="2" { "不合格" } option value="3" { "让步接收" }
  }
- button type="submit" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" style="margin-left:var(--space-3)" { "提交" }
+ button type="submit" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" class="ml-3" { "提交" }
  }
  }
  }};

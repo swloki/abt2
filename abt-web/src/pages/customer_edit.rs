@@ -231,7 +231,7 @@ fn customer_edit_page(
  div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "基本信息" }
  div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
  div class="form-field" {
- label { "客户名称 " span style="color:var(--danger)" { "*" } }
+ label { "客户名称 " span class="text-danger" { "*" } }
  input type="text" name="customer_name" required placeholder="请输入客户全称" value=(c.name);
  }
  div class="form-field" {
@@ -242,7 +242,7 @@ fn customer_edit_page(
  div class="form-field" {
  label { "客户编码" }
  input type="text" value=(c.code) readonly
- style="background:var(--surface);color:var(--muted)" {};
+ class="bg-surface text-muted" {};
  }
  div class="form-field" {
  label { "所属行业" }
@@ -289,7 +289,7 @@ fn customer_edit_page(
  }
  div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
  div class="form-field" {
- label { "联系人 " span style="color:var(--danger)" { "*" } }
+ label { "联系人 " span class="text-danger" { "*" } }
  input type="text" name="contact_name" required placeholder="请输入联系人姓名"
  value=(pc.map(|c| c.name.as_str()).unwrap_or(""));
  }
@@ -299,7 +299,7 @@ fn customer_edit_page(
  value=(pc.and_then(|c| c.position.as_deref()).unwrap_or(""));
  }
  div class="form-field" {
- label { "手机号码 " span style="color:var(--danger)" { "*" } }
+ label { "手机号码 " span class="text-danger" { "*" } }
  input type="tel" name="contact_phone" required placeholder="请输入手机号码"
  value=(pc.and_then(|c| c.phone.as_deref()).unwrap_or(""));
  }

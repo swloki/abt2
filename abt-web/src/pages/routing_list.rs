@@ -105,14 +105,14 @@ fn routing_list_page(
  div class="flex items-center justify-between mb-6" {
  h1 class="text-xl font-bold text-fg tracking-tight" { "工艺路线管理" }
  div class="flex gap-3" {
- button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+ button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
  _=(import_modal::import_modal_onclick(&ImportModalConfig { import_type: "labor-process", title: "", template_columns: "" })) {
  (icon::upload_icon("w-4 h-4"))
  "导入"
  }
  (export_button::export_button("导出工艺路线", "labor-process"))
  @if can_create {
- a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(RoutingCreatePath::PATH) {
+ a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(RoutingCreatePath::PATH) {
  (icon::plus_icon("w-4 h-4"))
  "新建工艺路线"
  }
@@ -148,7 +148,7 @@ fn routing_table_fragment(
  div class="flex items-center gap-3 mb-5 flex-wrap" {
  div class="inline-flex items-center gap-1 px-3 py-1 bg-surface rounded-full text-xs text-muted font-medium" { "全部 " span class="font-bold text-fg" { (total_count) } }
  div class="relative flex-1 max-w-xs [&_svg]:absolute [&_svg]:left-3 [&_svg]:top-1/2 [&_svg]:-translate-y-1/2 [&_svg]:w-4 [&_svg]:h-4 [&_svg]:text-muted" {
- (icon::search_icon(""))
+ (icon::search_icon("w-4 h-4"))
  input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword"
  placeholder="搜索工艺路线名称…"
  value=(params.keyword.as_deref().unwrap_or(""))
@@ -178,7 +178,7 @@ fn routing_table_fragment(
  }
  @if result.items.is_empty() {
  tr {
- td colspan="4" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
+ td colspan="4" class="text-center text-muted text-sm py-8" {
  "暂无工艺路线数据"
  }
  }
@@ -197,7 +197,7 @@ fn routing_row(r: &Routing, can_delete: bool) -> Markup {
  let delete_path = RoutingDeletePath { id: r.id };
 
  html! {
- tr style="cursor:pointer" {
+ tr class="cursor-pointer" {
  td onclick=(format!("location.href='{}'", detail_path)) {
  strong { (r.name) }
  }
@@ -205,7 +205,7 @@ fn routing_row(r: &Routing, can_delete: bool) -> Markup {
  @if let Some(ref desc) = r.description {
  (desc)
  } @else {
- span style="color:var(--muted)" { "—" }
+ span class="text-muted" { "—" }
  }
  }
  td onclick=(format!("location.href='{}'", detail_path)) {
@@ -215,7 +215,7 @@ fn routing_row(r: &Routing, can_delete: bool) -> Markup {
  "—"
  }
  }
- td onclick="event.stopPropagation()" {
+ td {
  div class="row-actions flex items-center gap-1 justify-end opacity-0 transition-opacity duration-150 [&_a]:w-[28px] [&_a]:h-[28px] [&_a]:grid [&_a]:place-items-center [&_a]:rounded-sm [&_a]:cursor-pointer [&_a]:bg-surface [&_a]:hover:bg-accent-bg [&_svg]:w-3.5 [&_svg]:h-3.5" {
  a class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" title="查看"
  href=(detail_path) {

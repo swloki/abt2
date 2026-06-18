@@ -200,7 +200,7 @@ fn supplier_detail_page(
  }
 
  // ── Basic Info Card ──
- div class="bg-white border border-border-soft rounded p-5" style="margin-bottom:var(--space-5)" {
+ div class="bg-white border border-border-soft rounded p-5" class="mb-5" {
  div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "基本信息" }
  div class="flex py-2 text-sm" {
  span class="w-[90px] shrink-0 text-muted" { "供应商编码" }
@@ -226,7 +226,7 @@ fn supplier_detail_page(
  }
  div class="flex py-2 text-sm" {
  span class="w-[90px] shrink-0 text-muted" { "税号" }
- span class="detail-value font-mono tabular-nums" style="font-size:12px" {
+ span class="detail-value font-mono tabular-nums" class="text-xs" {
  (supplier.tax_number.as_deref().unwrap_or("—"))
  }
  }
@@ -261,14 +261,14 @@ fn supplier_detail_page(
  }
 
  // ── 2-Column Grid: Contacts + Bank Accounts ──
- div style="display:grid;grid-template-columns:1fr;gap:var(--space-5)" {
+ div class="grid" class="gap-5" style="grid-template-columns:1fr" {
  // ── Contacts Card ──
  (contacts_card(contacts, &detail_path, can_delete))
  (bank_accounts_card(bank_accounts, &detail_path, can_delete))
  }
 
  // ── Purchase History Section (placeholder) ──
- div class="bg-white border border-border-soft rounded p-5" style="margin-top:var(--space-5)" {
+ div class="bg-white border border-border-soft rounded p-5" class="mt-5" {
  div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "采购历史" }
  div class="text-center p-6 text-muted text-sm" { "暂无采购记录" }
  }
@@ -367,8 +367,8 @@ fn contacts_card(contacts: &[SupplierContact], detail_path: &SupplierDetailPath,
  th { "职位" }
  th { "电话" }
  th { "邮箱" }
- th style="width:60px" { "标记" }
- th style="width:40px" {}
+ th class="w-[60px]" { "标记" }
+ th class="w-10" {}
  }
  }
  tbody {
@@ -407,8 +407,8 @@ fn bank_accounts_card(bank_accounts: &[SupplierBankAccount], detail_path: &Suppl
  th { "开户银行" }
  th { "账户名称" }
  th { "银行账号" }
- th style="width:60px" { "标记" }
- th style="width:40px" {}
+ th class="w-[60px]" { "标记" }
+ th class="w-10" {}
  }
  }
  tbody {

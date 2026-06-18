@@ -283,7 +283,7 @@ fn po_table_fragment(
  table class="data-table" {
  thead {
  tr {
- th style="width:36px" { input type="checkbox" class="po-select-all" _="on click toggle @checked on .po-checkbox" {} }
+ th class="w-9" { input type="checkbox" class="po-select-all" _="on click toggle @checked on .po-checkbox" {} }
  th { "订单编号" }
  th { "供应商名称" }
  th { "订单日期" }
@@ -301,7 +301,7 @@ fn po_table_fragment(
  }
  @if result.items.is_empty() {
  tr {
- td colspan="10" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
+ td colspan="10" class="text-center text-muted py-8" {
  "暂无订单数据"
  }
  }
@@ -329,7 +329,7 @@ fn po_row(
  let is_draft = o.status == PurchaseOrderStatus::Draft;
 
  html! {
- tr style="cursor:pointer" {
+ tr class="cursor-pointer" {
  td style="cursor:default" {
  @if is_draft {
  input type="checkbox" class="po-checkbox" value=(o.id) {}
@@ -348,7 +348,7 @@ fn po_row(
  }
  td class="text-right text-[13px] font-mono tabular-nums" onclick=(&onclick) { (format!("{:.2}", o.total_amount)) }
  td onclick=(&onclick) { (buyer_name) }
- td onclick="event.stopPropagation()" {
+ td _="on click halt the event" {
  @if is_draft {
  div class="row-actions flex items-center gap-1 justify-end opacity-0 transition-opacity duration-150 [&_a]:w-[28px] [&_a]:h-[28px] [&_a]:grid [&_a]:place-items-center [&_a]:rounded-sm [&_a]:cursor-pointer [&_a]:bg-surface [&_a]:hover:bg-accent-bg [&_svg]:w-3.5 [&_svg]:h-3.5" {
  a class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" href=(POEditPath { id: o.id }.to_string()) title="编辑" {

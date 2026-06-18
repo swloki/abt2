@@ -12,6 +12,7 @@ use abt_core::mes::production_batch::{ProductionBatchService, WorkOrderRouting};
 use abt_core::mes::work_order::{WorkOrderFilter, WorkOrderService};
 use abt_core::shared::identity::UserService;
 
+use crate::components::icon;
 use crate::components::entity_picker::{self, EntityPickerConfig, EntityPickerItem};
 use crate::errors::Result;
 use crate::layout::page::admin_page;
@@ -335,20 +336,27 @@ fn report_create_page(
  let today = chrono::Local::now().format("%Y-%m-%d").to_string();
 
  html! { div {
- div class="flex items-center justify-between mb-6" { h1 class="text-xl font-bold text-fg tracking-tight" { "新建报工" } }
+ // ── Back Link ──
+ a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150 mb-4" href=(format!("{}?restore=true", ReportListPath::PATH)) {
+ (icon::chevron_left_icon("w-4 h-4"))
+ "返回报工记录"
+ }
+ // ── Page Header ──
+ div class="flex items-center justify-between mb-5" {
+ h1 class="text-xl font-bold text-fg tracking-tight" { "新建报工" }
+ }
  form hx-post=(ReportCreatePath::PATH) hx-swap="none" id="report-form" {
 
  // ── 基本信息 ──
  div class="form-section" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
- (maud::PreEscaped(r#"<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg>"#))
+ div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-3 border-b border-border-soft" {
+ (icon::clipboard_document_icon("w-[18px] h-[18px]"))
  "基本信息"
  }
- div class="grid grid-cols-2 gap-4 gap-x-6 mb-6 cols-2" {
+ div class="grid grid-cols-2 gap-4 gap-x-6" {
  div class="form-field" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "报工单号" }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" readonly value=(doc_number)
- style="background:var(--surface);color:var(--text-muted)";
+ input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-surface text-muted outline-none" type="text" readonly value=(doc_number);
  }
  // 工单：搜索选择框
  (entity_picker::entity_picker_field(
@@ -361,7 +369,7 @@ fn report_create_page(
  "批次", false, "选择工单后可选…",
  ))
  }
- // 工序（批次选中后级联加载）+ 班次 + 工人 + 日期
+ // 工序（批次选中后级联加载）
  div id="batch-cascade"
  hx-get=(ReportBatchSelectedPath::PATH)
  hx-trigger="batchSelected from:body"
@@ -372,24 +380,24 @@ fn report_create_page(
 
  // ── 生产数据 ──
  div class="form-section" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
- (maud::PreEscaped(r#"<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>"#))
+ div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-3 border-b border-border-soft" {
+ (icon::edit_icon("w-[18px] h-[18px]"))
  "生产数据"
  }
- div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
+ div class="grid grid-cols-2 gap-4 gap-x-6" {
  div class="form-field" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "班次 " span class="required" { "*" } }
- div class="flex border border-border rounded-sm overflow-hidden" {
- button type="button" class="text-sm border-none bg-bg text-fg-2 cursor-pointer active"
+ div class="inline-flex bg-surface border border-border-soft rounded-md p-[3px] gap-0.5" {
+ button type="button" class="shift-btn flex-1 px-4 py-1.5 text-sm cursor-pointer rounded-sm border-none bg-transparent text-muted act:bg-accent act:text-accent-on act:font-semibold active"
  _="on click take .active from .shift-btn then put '1' into #shift-input's value" { "白班" }
- button type="button" class="text-sm border-none bg-bg text-fg-2 cursor-pointer"
+ button type="button" class="shift-btn flex-1 px-4 py-1.5 text-sm cursor-pointer rounded-sm border-none bg-transparent text-muted act:bg-accent act:text-accent-on act:font-semibold"
  _="on click take .active from .shift-btn then put '2' into #shift-input's value" { "夜班" }
  input type="hidden" name="shift" id="shift-input" value="1";
  }
  }
  div class="form-field" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "工人 " span class="required" { "*" } }
- select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="worker_id" required {
+ select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" name="worker_id" required {
  option value="" { "请选择工人" }
  @for w in workers {
  option value=(w.user_id) { (w.display_name.as_deref().unwrap_or(&w.username)) }
@@ -398,20 +406,20 @@ fn report_create_page(
  }
  div class="form-field" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "报工日期 " span class="required" { "*" } }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="date" name="report_date" value=(today) required;
+ input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="date" name="report_date" value=(today) required;
  }
  div class="form-field" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "完成数量 " span class="required" { "*" } }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" placeholder="0" min="0" name="completed_qty"
+ input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="number" placeholder="0" min="0" name="completed_qty"
  id="completed-qty" required;
  }
  div class="form-field" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "不良数量" }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" placeholder="0" min="0" name="defect_qty" value="0";
+ input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="number" placeholder="0" min="0" name="defect_qty" value="0";
  }
  div class="form-field" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "不良原因" }
- select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="defect_reason" {
+ select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" name="defect_reason" {
  option value="" { "—" }
  option value="1" { "物料不良" }
  option value="2" { "设备故障" }
@@ -421,31 +429,36 @@ fn report_create_page(
  }
  div class="form-field" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "实际工时 (h)" }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" placeholder="0" step="0.5" min="0" name="work_hours";
+ input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="number" placeholder="0" step="0.5" min="0" name="work_hours";
  }
  div class="form-field" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "计件单价" }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" readonly id="unit-price" value="—"
- style="background:var(--surface);color:var(--text-muted)";
+ input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-surface text-muted outline-none" type="text" readonly id="unit-price" value="—";
  }
  div class="form-field" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "预计工资" }
- div class="flex flex-col gap-[4px] p-4 bg-surface rounded-sm border border-border-soft text-center" {
+ div class="flex flex-col gap-1 p-4 bg-surface rounded-sm border border-border-soft text-center" {
  div class="font-bold text-success" id="wage-amount" { "\u{00a5}0.00" }
- div class="text-[12px] text-muted" { "完成数量 \u{00d7} 计件单价" }
+ div class="text-xs text-muted" { "完成数量 \u{00d7} 计件单价" }
  }
  }
  }
- div style="margin-top:var(--space-4)" {
+ div class="mt-4" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "备注" }
- textarea class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] min-h-[72px] resize-y leading-1.5" name="remark" placeholder="报工备注…"
- style="margin-top:var(--space-1)" {};
+ textarea class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent resize-y" name="remark" rows="2" placeholder="报工备注…" {}
  }
  }
 
- div class="flex items-center justify-end gap-3 py-5" {
- a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{}?restore=true", ReportListPath::PATH)) { "取消" }
- button type="submit" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" { "确认报工" }
+ // ── Action Bar ──
+ div class="sticky bottom-0 flex items-center justify-between gap-3 px-6 py-4 bg-bg [border-top:1px_solid_var(--border-soft)]" {
+ div { }
+ div class="flex gap-3" {
+ a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{}?restore=true", ReportListPath::PATH)) { "取消" }
+ button type="submit" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" {
+ (icon::check_circle_icon("w-4 h-4"))
+ "确认报工"
+ }
+ }
  }
  }
 
@@ -484,8 +497,6 @@ fn report_create_page(
  }}
 }
 
-// ── HTMX fragments ──
-
 fn batch_cascade_fragment(
  work_order_id: i64,
  batch: &abt_core::mes::production_batch::ProductionBatch,
@@ -493,18 +504,17 @@ fn batch_cascade_fragment(
  completed: &HashSet<i64>,
 ) -> Markup {
  html! {
- div id="batch-cascade" style="margin-top:var(--space-5)" {
- // 隐藏的 work_order_id（报工提交时携带）
+ div id="batch-cascade" class="mt-5" {
  input type="hidden" name="work_order_id" value=(work_order_id);
- div class="grid grid-cols-2 gap-4 gap-x-6 mb-6 cols-2" {
+ div class="grid grid-cols-2 gap-4 gap-x-6" {
  div class="form-field" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "工序 " span class="required" { "*" } }
  @if routings.is_empty() {
- select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="step_no" disabled {
+ select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" name="step_no" disabled {
  option value="" { "该工单暂无工序路线" }
  }
  } @else {
- select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="step_no" required {
+ select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" name="step_no" required {
  option value="" { "请选择工序" }
  @for r in routings {
  @if !completed.contains(&r.id) {

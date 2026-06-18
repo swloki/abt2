@@ -240,16 +240,16 @@ fn quotation_edit_page(
  table class="data-table" {
  thead {
  tr {
- th style="width:36px" { "#" }
+ th class="w-9" { "#" }
  th { "产品编码" }
  th { "产品名称" }
  th { "规格描述" }
- th style="width:56px" { "单位" }
- th style="width:90px" { "数量" }
- th style="width:110px" { "单价 (¥)" }
+ th class="w-14" { "单位" }
+ th class="w-[90px]" { "数量" }
+ th class="w-[110px]" { "单价 (¥)" }
  th style="width:76px" { "折扣%" }
- th style="width:110px" { "小计 (¥)" }
- th style="width:36px" { }
+ th class="w-[110px]" { "小计 (¥)" }
+ th class="w-9" { }
  }
  }
  tbody id="quotation-item-tbody" {
@@ -261,9 +261,9 @@ fn quotation_edit_page(
  td { (name) }
  td { input class="w-full px-2 py-[5px] text-[13px] border border-border rounded-sm outline-none focus:border-accent" type="text" name="description" value=(&item.description) {} }
  td { input class="w-[56px] text-center px-2 py-[5px] text-[13px] border border-border rounded-sm bg-surface outline-none focus:border-accent" type="text" name="unit" readonly value=(&item.unit) {} }
- td { input class="w-[80px] text-right px-2 py-[5px] text-[13px] font-mono border border-border rounded-sm outline-none focus:border-accent" type="number" min="1" step="1" name="quantity" value=(item.quantity.to_string()) placeholder="0" style="width:80px" {} }
- td { input class="w-[100px] text-right px-2 py-[5px] text-[13px] font-mono border border-border rounded-sm outline-none focus:border-accent" type="number" step="any" name="unit_price" value=(item.unit_price.to_string()) placeholder="0.00" style="width:100px" {} }
- td { input class="w-[64px] text-right px-2 py-[5px] text-[13px] font-mono border border-border rounded-sm outline-none focus:border-accent" type="number" min="0" max="100" name="discount_rate" value=(item.discount_rate.to_string()) style="width:64px" {} }
+ td { input class="w-[80px] text-right px-2 py-[5px] text-[13px] font-mono border border-border rounded-sm outline-none focus:border-accent" type="number" min="1" step="1" name="quantity" value=(item.quantity.to_string()) placeholder="0" class="w-[80px]" {} }
+ td { input class="w-[100px] text-right px-2 py-[5px] text-[13px] font-mono border border-border rounded-sm outline-none focus:border-accent" type="number" step="any" name="unit_price" value=(item.unit_price.to_string()) placeholder="0.00" class="w-[100px]" {} }
+ td { input class="w-[64px] text-right px-2 py-[5px] text-[13px] font-mono border border-border rounded-sm outline-none focus:border-accent" type="number" min="0" max="100" name="discount_rate" value=(item.discount_rate.to_string()) class="w-16" {} }
  td class="text-right font-semibold text-fg whitespace-nowrap" { "—" }
  td { button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center" title="删除行"
  _="on click remove closest <tr/>" {

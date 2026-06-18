@@ -142,7 +142,7 @@ fn wms_dashboard_content(stats: &DashboardStats) -> Markup {
  }
 
  // ── Stat Cards (5 columns) ──
- div style="display:grid;grid-template-columns:repeat(5,1fr);gap:var(--space-5);margin-bottom:var(--space-8)" {
+ div class="grid" class="gap-5 mb-8" class="grid-cols-5" {
  // 仓库总数
  div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
  div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 blue" {
@@ -165,7 +165,7 @@ fn wms_dashboard_content(stats: &DashboardStats) -> Markup {
  }
  // 本月入库
  div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
- div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0" style="background:linear-gradient(135deg,#e6f7ff,#bae7ff);color:var(--accent)" {
+ div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0" class="text-accent" style="background:linear-gradient(135deg,#e6f7ff,#bae7ff)" {
  (icon::download_icon("w-[22px] h-[22px]"))
  }
  div {
@@ -175,7 +175,7 @@ fn wms_dashboard_content(stats: &DashboardStats) -> Markup {
  }
  // 本月出库
  div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
- div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0" style="background:linear-gradient(135deg,#fff1f0,#ffccc7);color:var(--danger)" {
+ div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0" class="text-danger" style="background:linear-gradient(135deg,#fff1f0,#ffccc7)" {
  (icon::upload_icon("w-[22px] h-[22px]"))
  }
  div {
@@ -196,11 +196,11 @@ fn wms_dashboard_content(stats: &DashboardStats) -> Markup {
  }
 
  // ── Quick Entry Grid (4 columns, 14 cards) ──
- div style="margin-bottom:var(--space-8)" {
- div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-4)" {
+ div class="mb-8" {
+ div class="flex items-center justify-between mb-4" {
  h2 class="text-lg font-semibold text-fg" { "快捷入口" }
  }
- div style="display:grid;grid-template-columns:repeat(4,1fr);gap:var(--space-4)" {
+ div class="grid" class="grid grid-cols-4 gap-4" {
  (quick_entry_card("/admin/wms/warehouses", "#e6f4ff", "#d6e8ff", "var(--accent)", &icon::building_icon("w-[22px] h-[22px]"), "仓库管理", "仓库主数据与分区配置"))
  (quick_entry_card("/admin/wms/bins", "#f0fff0", "#e0ffe0", "var(--success)", &icon::grid_icon("w-[22px] h-[22px]"), "库位管理", "库位规划与容量管理"))
  (quick_entry_card("/admin/wms/stock", "#e6f4ff", "#d6e8ff", "var(--accent)", &icon::search_icon("w-[22px] h-[22px]"), "库存查询", "实时库存数量与批次"))
@@ -220,9 +220,9 @@ fn wms_dashboard_content(stats: &DashboardStats) -> Markup {
 
  // ── Recent Operations ──
  div {
- h2 style="font-size:var(--text-lg);font-weight:600;margin-bottom:var(--space-4)" { "最近操作" }
- div class="data-card" style="overflow:hidden" {
- table class="data-table" style="width:100%" {
+ h2 class="font-semibold mb-4" class="text-lg" { "最近操作" }
+ div class="data-card" class="overflow-hidden" {
+ table class="data-table" class="w-full" {
  thead {
  tr {
  th { "时间" }
@@ -234,37 +234,37 @@ fn wms_dashboard_content(stats: &DashboardStats) -> Markup {
  }
  tbody {
  tr {
- td style="color:var(--muted);font-size:12px" { "—" }
+ td class="text-muted text-xs" { "—" }
  td { span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-[#e8f4ff] text-[var(--accent-active)]" { "来料接收" } }
- td { a href="/admin/wms/arrivals" style="color:var(--accent)" { "—" } }
+ td { a href="/admin/wms/arrivals" class="text-accent" { "—" } }
  td { "—" }
  td { "—" }
  }
  tr {
- td style="color:var(--muted);font-size:12px" { "—" }
+ td class="text-muted text-xs" { "—" }
  td { span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-[#fff8eb] text-[#d46b08]" { "领料出库" } }
- td { a href="/admin/wms/requisitions" style="color:var(--accent)" { "—" } }
+ td { a href="/admin/wms/requisitions" class="text-accent" { "—" } }
  td { "—" }
  td { "—" }
  }
  tr {
- td style="color:var(--muted);font-size:12px" { "—" }
+ td class="text-muted text-xs" { "—" }
  td { span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-[#f0fff0] text-[#389e0d]" { "库存调拨" } }
- td { a href="/admin/wms/transfers" style="color:var(--accent)" { "—" } }
+ td { a href="/admin/wms/transfers" class="text-accent" { "—" } }
  td { "—" }
  td { "—" }
  }
  tr {
- td style="color:var(--muted);font-size:12px" { "—" }
+ td class="text-muted text-xs" { "—" }
  td { span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-surface text-muted" { "循环盘点" } }
- td { a href="/admin/wms/cycle-counts" style="color:var(--accent)" { "—" } }
+ td { a href="/admin/wms/cycle-counts" class="text-accent" { "—" } }
  td { "—" }
  td { "—" }
  }
  tr {
- td style="color:var(--muted);font-size:12px" { "—" }
+ td class="text-muted text-xs" { "—" }
  td { span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-[#fff8eb] text-[#d46b08]" { "库存锁定" } }
- td { a href="/admin/wms/locks" style="color:var(--accent)" { "—" } }
+ td { a href="/admin/wms/locks" class="text-accent" { "—" } }
  td { "—" }
  td { "—" }
  }
@@ -298,12 +298,12 @@ fn quick_entry_card(
 ) -> Markup {
  let bg_style = format!("linear-gradient(135deg,{bg_from},{bg_to})");
  html! {
- a href=(href) style="display:flex;flex-direction:column;align-items:center;gap:var(--space-3);padding:var(--space-6) var(--space-4);background:var(--bg);border:1px solid var(--border-soft);border-radius:var(--radius-md);transition:all var(--motion-fast) var(--ease-standard);text-align:center;box-shadow:var(--shadow-xs)" {
+ a href=(href) class="flex items-center text-center" class="flex-col gap-3 rounded-md" class="border border-border-soft" class="px-4 py-6" style="background:var(--bg);transition:all var(--motion-fast) var(--ease-standard);box-shadow:var(--shadow-xs)" {
  div style=(format!("width:44px;height:44px;border-radius:var(--radius-md);background:{};display:grid;place-items:center", bg_style)) {
  span style=(format!("color:{}", icon_color)) { (svg_icon) }
  }
- span style="font-size:var(--text-sm);font-weight:600;color:var(--fg)" { (title) }
- span style="font-size:12px;color:var(--muted)" { (desc) }
+ span class="text-sm font-semibold text-fg" { (title) }
+ span class="text-xs text-muted" { (desc) }
  }
  }
 }

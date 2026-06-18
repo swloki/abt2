@@ -531,7 +531,7 @@ fn po_detail_page(
  }
  @if items.is_empty() {
  tr {
- td colspan="12" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
+ td colspan="12" class="text-center text-muted py-8" {
  "暂无明细"
  }
  }

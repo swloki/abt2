@@ -357,7 +357,7 @@ fn stat_mini_cards(stats: &DemandPoolStats) -> Markup {
  html! {
  div class="grid grid-cols-4 gap-4 mb-6" {
  div class="flex items-center gap-3 bg-bg border border-border-soft rounded-lg px-5 py-4 shadow-[var(--shadow-card)]" {
- div class="w-[38px] h-[38px] rounded-md grid place-items-center shrink-0" style="background:#fef3c7;color:var(--warn);" {
+ div class="w-[38px] h-[38px] rounded-md grid place-items-center shrink-0" class="text-warn" style="background:#fef3c7" {
  (icon::tool_icon("w-[18px] h-[18px]"))
  }
  div {
@@ -366,7 +366,7 @@ fn stat_mini_cards(stats: &DemandPoolStats) -> Markup {
  }
  }
  div class="flex items-center gap-3 bg-bg border border-border-soft rounded-lg px-5 py-4 shadow-[var(--shadow-card)]" {
- div class="w-[38px] h-[38px] rounded-md grid place-items-center shrink-0" style="background:#dbeafe;color:var(--accent);" {
+ div class="w-[38px] h-[38px] rounded-md grid place-items-center shrink-0" class="text-accent" style="background:#dbeafe" {
  (icon::cube_icon("w-[18px] h-[18px]"))
  }
  div {
@@ -375,7 +375,7 @@ fn stat_mini_cards(stats: &DemandPoolStats) -> Markup {
  }
  }
  div class="flex items-center gap-3 bg-bg border border-border-soft rounded-lg px-5 py-4 shadow-[var(--shadow-card)]" {
- div class="w-[38px] h-[38px] rounded-md grid place-items-center shrink-0" style="background:#dcfce7;color:var(--success);" {
+ div class="w-[38px] h-[38px] rounded-md grid place-items-center shrink-0" class="text-success" style="background:#dcfce7" {
  (icon::check_circle_icon("w-[18px] h-[18px]"))
  }
  div {
@@ -384,7 +384,7 @@ fn stat_mini_cards(stats: &DemandPoolStats) -> Markup {
  }
  }
  div class="flex items-center gap-3 bg-bg border border-border-soft rounded-lg px-5 py-4 shadow-[var(--shadow-card)]" {
- div class="w-[38px] h-[38px] rounded-md grid place-items-center shrink-0" style="background:#fee2e2;color:var(--danger);" {
+ div class="w-[38px] h-[38px] rounded-md grid place-items-center shrink-0" class="text-danger" style="background:#fee2e2" {
  (icon::clock_icon("w-[18px] h-[18px]"))
  }
  div {
@@ -575,7 +575,7 @@ fn material_row(item: &MaterialAggSummary) -> Markup {
  div class="flex gap-2" {
  a class="inline-flex items-center gap-1.5 py-[5px] px-3 text-[13px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
  href=(format!("{}?product_id={}", MesDemandPoolCreatePath::PATH, pid))
- onclick="event.stopPropagation()" {
+ _="on click halt the event" {
  "创建生产计划"
  }
  }
@@ -586,7 +586,7 @@ fn material_row(item: &MaterialAggSummary) -> Markup {
  div class="p-4" {
  table class="data-table" {
  thead { tr {
- th style="width:40px" {
+ th class="w-10" {
  input type="checkbox" title="全选" checked _="on change call toggleAllDemands(me, closest <table/>)";
  }
  th { "需求ID" }
@@ -632,9 +632,9 @@ fn demand_expand_row(d: &DemandSummary) -> Markup {
  input type="checkbox" class="demand-cb" value=(d.id) checked;
  }
  }
- td class="font-mono tabular-nums" style="font-size:12px;" { (d.id) }
+ td class="font-mono tabular-nums" class="text-xs" { (d.id) }
  td {
- a class="text-accent font-medium cursor-pointer" href=(format!("/admin/orders/{}", d.order_id)) style="font-size:12px;" { (d.order_no.as_deref().unwrap_or("—")) }
+ a class="text-accent font-medium cursor-pointer" href=(format!("/admin/orders/{}", d.order_id)) class="text-xs" { (d.order_no.as_deref().unwrap_or("—")) }
  }
  td class="text-right text-[13px] font-mono tabular-nums" { (fmt_qty(d.quantity)) }
  td class="font-mono tabular-nums" { (format_date(d.required_date)) }
@@ -662,7 +662,7 @@ fn detail_table_fragment(
  div class="overflow-x-auto" {
  table class="data-table" {
  thead { tr {
- th style="width:40px" {
+ th class="w-10" {
  input type="checkbox" title="全选" onchange="var cb=this;cb.closest('table').querySelectorAll('input.demand-cb:not([disabled])').forEach(function(c){c.checked=cb.checked;c.dispatchEvent(new Event('change',{bubbles:true}))})";
  }
  th { "需求ID" }

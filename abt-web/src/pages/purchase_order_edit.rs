@@ -253,11 +253,11 @@ fn po_edit_page(
  input type="hidden" id="items-json" name="items_json" value="[]";
 
  // ── Supplier Selection ──
- div class="data-card" style="margin-bottom:var(--space-4)" {
+ div class="data-card" class="mb-4" {
  div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "供应商信息" }
  div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
  div class="form-field" {
- label { "供应商" span style="color:var(--danger)" { "*" } }
+ label { "供应商" span class="text-danger" { "*" } }
  select name="supplier_id" required {
  @for s in suppliers {
  @if s.id == order.supplier_id {
@@ -272,13 +272,13 @@ fn po_edit_page(
  }
 
  // ── Order Info ──
- div class="data-card" style="margin-bottom:var(--space-4)" {
+ div class="data-card" class="mb-4" {
  div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "订单信息" }
  div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
  div class="form-field" {
  label { "订单日期" }
  input type="date" value=(order.order_date.format("%Y-%m-%d").to_string()) readonly
- style="background:var(--bg-muted)" {}
+ class="bg-surface" {}
  }
  div class="form-field" {
  label { "预期交货日期" }
@@ -304,7 +304,7 @@ fn po_edit_page(
  div class="form-field span-2" {
  label { "备注" }
  textarea name="remark" placeholder="输入订单相关备注信息…"
- style="width:100%;min-height:80px;padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:var(--text-sm);resize:vertical;font-family:inherit" {
+ class="w-full resize-y" class="rounded-sm" class="min-h-[80px] border border-border text-sm" style="padding:8px 12px;font-family:inherit" {
  (remark)
  }
  }
@@ -312,30 +312,30 @@ fn po_edit_page(
  }
 
  // ── Line Items ──
- div class="data-card" style="padding:0;overflow:hidden;margin-bottom:var(--space-4)" {
- div style="padding:var(--space-5) var(--space-5) var(--space-3);display:flex;justify-content:space-between;align-items:center" {
- span class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" style="margin:0;padding:0;border:none" { "采购产品明细" }
+ div class="data-card" class="p-0 overflow-hidden mb-4" {
+ div class="flex justify-between items-center" class="px-5 pt-5 pb-3" {
+ span class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" class="m-0 p-0 border-none" { "采购产品明细" }
  button type="button" class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] [&_svg]:w-4 [&_svg]:h-4"
  _="on click add .is-open to #product-modal" {
  (icon::plus_icon("w-3.5 h-3.5"))
  "添加产品"
  }
  }
- div style="overflow-x:auto" {
- table class="data-table" style="min-width:900px" {
+ div class="overflow-x-auto" {
+ table class="data-table" class="min-w-[900px]" {
  thead {
  tr {
- th style="width:36px;text-align:center" { "#" }
+ th class="w-9 text-center" { "#" }
  th { "产品编码" }
  th { "产品名称" }
- th style="width:200px" { "描述" }
- th style="width:100px;text-align:right" { "数量" }
- th style="width:120px;text-align:right" { "单价" }
- th style="width:110px;text-align:right" { "小计" }
- th style="width:80px;text-align:right" { "折扣%" }
- th style="width:120px" { "税率" }
- th style="width:120px" { "预期交货日期" }
- th style="width:36px" { }
+ th class="w-[200px]" { "描述" }
+ th class="w-[100px] text-right" { "数量" }
+ th class="w-[120px] text-right" { "单价" }
+ th class="w-[110px] text-right" { "小计" }
+ th class="w-[80px] text-right" { "折扣%" }
+ th class="w-[120px]" { "税率" }
+ th class="w-[120px]" { "预期交货日期" }
+ th class="w-9" { }
  }
  }
  tbody id="po-item-tbody" {
@@ -352,11 +352,11 @@ fn po_edit_page(
  "添加产品行"
  }
  }
- div style="display:flex;justify-content:flex-end;padding:var(--space-4);border-top:1px solid var(--border)" {
- div style="display:flex;gap:var(--space-6);font-size:var(--text-sm)" {
- div { "不含税: " span id="sum-untaxed" style="font-weight:600" { "0.00" } }
- div { "税额: " span id="sum-tax" style="font-weight:600" { "0.00" } }
- div { "含税总计: " span id="sum-total" style="font-weight:600;color:var(--primary)" { "0.00" } }
+ div class="flex justify-end" class="p-4" style="border-top:1px solid var(--border)" {
+ div class="flex" class="text-sm" style="gap:var(--space-6)" {
+ div { "不含税: " span id="sum-untaxed" class="font-semibold" { "0.00" } }
+ div { "税额: " span id="sum-tax" class="font-semibold" { "0.00" } }
+ div { "含税总计: " span id="sum-total" class="font-semibold" class="text-accent" { "0.00" } }
  }
  }
  }
@@ -418,16 +418,16 @@ fn existing_item_row(
  td class="font-mono tabular-nums" { (code) }
  td { (name) }
  td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="description" placeholder="—" value=(&item.description)
- style="width:190px;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
+ class="text-[13px]" class="rounded-sm" class="px-2 py-[5px] border border-border" style="width:190px" {} }
  td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] num-input" type="number" step="1" min="0.01" name="quantity" data-field="qty" placeholder="0"
  value=(item.quantity.to_string()) style=(input_style) {} }
  td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] num-input" type="number" step="any" min="0.01" name="unit_price" data-field="price" placeholder="0.00"
  value=(item.unit_price.to_string()) style=(input_style) {} }
- td class="line-subtotal font-mono tabular-nums" data-field="subtotal" style="text-align:right" { (subtotal.to_string()) }
+ td class="line-subtotal font-mono tabular-nums" data-field="subtotal" class="text-right" { (subtotal.to_string()) }
  td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] num-input" type="number" step="0.01" min="0" max="100" name="discount_pct" data-field="discount" value=(item.discount_pct.to_string()) placeholder="0" style=(input_style) {} }
  td {
  select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="tax_rate_id" data-field="tax_rate_id"
- style="width:110px;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {
+ class="w-[110px] text-[13px]" class="rounded-sm" class="px-2 py-[5px] border border-border" {
  option value="" { "—" }
  @for tr in tax_rates {
  @if item.tax_rate_id == Some(tr.id) {
@@ -439,7 +439,7 @@ fn existing_item_row(
  }
  }
  td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="date" name="item_delivery_date" value=(&delivery)
- style="width:110px;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
+ class="w-[110px] text-[13px]" class="rounded-sm" class="px-2 py-[5px] border border-border" {} }
  td { button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center" title="删除行"
  _="on click remove closest <tr/> then call updatePurchaseSummary()" {
  (icon::x_icon("w-3.5 h-3.5"))

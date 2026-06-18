@@ -125,14 +125,14 @@ fn bin_create_page(
  hx-swap="none" {
 
  // ── Section: 库位信息 ──
- div class="data-card" style="margin-bottom:var(--space-4)" {
+ div class="data-card" class="mb-4" {
  div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
  (icon::grid_icon("w-4 h-4"))
  " 库位信息"
  }
  div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
  div class="form-field" {
- label { "所属仓库 " span style="color:var(--danger)" { "*" } }
+ label { "所属仓库 " span class="text-danger" { "*" } }
  select name="warehouse_id" required id="warehouse-select"
  onchange="updateZones()" {
  option value="" disabled selected { "-- 请选择 --" }
@@ -142,7 +142,7 @@ fn bin_create_page(
  }
  }
  div class="form-field" {
- label { "所属库区 " span style="color:var(--danger)" { "*" } }
+ label { "所属库区 " span class="text-danger" { "*" } }
  select name="zone_id" required id="zone-select" {
  option value="" { "请先选择仓库" }
  @for (wh_id, zones) in all_zones {
@@ -153,11 +153,11 @@ fn bin_create_page(
  }
  }
  div class="form-field" {
- label { "库位编码 " span style="color:var(--danger)" { "*" } }
+ label { "库位编码 " span class="text-danger" { "*" } }
  input type="text" name="code" required placeholder="如 A01-R01-C01-L01";
  }
  div class="form-field" {
- label { "库位名称 " span style="color:var(--danger)" { "*" } }
+ label { "库位名称 " span class="text-danger" { "*" } }
  input type="text" name="name" required placeholder="如 A区1排1列";
  }
  div class="form-field" {
@@ -187,26 +187,26 @@ fn bin_create_page(
  }
  }
  div class="form-field" style="grid-column: span 2" {
- label style="white-space:nowrap" { "允许物料类型" }
- div style="display:flex;flex-wrap:wrap;gap:10px;padding-top:4px" {
- label style="display:flex;align-items:center;gap:4px;font-size:var(--text-sm);color:var(--fg-2);cursor:pointer" {
- input type="checkbox" name="allowed_product_types" value="raw_material" style="accent-color:var(--accent)" checked;
+ label class="whitespace-nowrap" { "允许物料类型" }
+ div class="flex flex-wrap" style="gap:10px;padding-top:4px" {
+ label class="flex items-center text-fg-2 cursor-pointer" class="gap-1 text-sm" {
+ input type="checkbox" name="allowed_product_types" value="raw_material" class="accent-accent" checked;
  "原材料"
  }
- label style="display:flex;align-items:center;gap:4px;font-size:var(--text-sm);color:var(--fg-2);cursor:pointer" {
- input type="checkbox" name="allowed_product_types" value="semi_finished" style="accent-color:var(--accent)";
+ label class="flex items-center text-fg-2 cursor-pointer" class="gap-1 text-sm" {
+ input type="checkbox" name="allowed_product_types" value="semi_finished" class="accent-accent";
  "半成品"
  }
- label style="display:flex;align-items:center;gap:4px;font-size:var(--text-sm);color:var(--fg-2);cursor:pointer" {
- input type="checkbox" name="allowed_product_types" value="finished" style="accent-color:var(--accent)";
+ label class="flex items-center text-fg-2 cursor-pointer" class="gap-1 text-sm" {
+ input type="checkbox" name="allowed_product_types" value="finished" class="accent-accent";
  "成品"
  }
- label style="display:flex;align-items:center;gap:4px;font-size:var(--text-sm);color:var(--fg-2);cursor:pointer" {
- input type="checkbox" name="allowed_product_types" value="packaging" style="accent-color:var(--accent)";
+ label class="flex items-center text-fg-2 cursor-pointer" class="gap-1 text-sm" {
+ input type="checkbox" name="allowed_product_types" value="packaging" class="accent-accent";
  "包材"
  }
- label style="display:flex;align-items:center;gap:4px;font-size:var(--text-sm);color:var(--fg-2);cursor:pointer" {
- input type="checkbox" name="allowed_product_types" value="consumable" style="accent-color:var(--accent)";
+ label class="flex items-center text-fg-2 cursor-pointer" class="gap-1 text-sm" {
+ input type="checkbox" name="allowed_product_types" value="consumable" class="accent-accent";
  "耗材"
  }
  }

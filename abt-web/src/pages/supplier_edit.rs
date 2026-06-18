@@ -116,16 +116,16 @@ fn supplier_edit_page(supplier: &abt_core::master_data::supplier::model::Supplie
  hx-swap="none" {
 
  // ── Section: 基本信息 ──
- div class="data-card" style="margin-bottom:var(--space-4)" {
+ div class="data-card" class="mb-4" {
  div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "基本信息" }
  div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
  div class="form-field" {
  label { "供应商编码" }
  input type="text" value=(supplier.code) readonly
- style="background:var(--surface);color:var(--muted)" {}
+ class="bg-surface text-muted" {}
  }
  div class="form-field" {
- label { "供应商名称 " span style="color:var(--danger)" { "*" } }
+ label { "供应商名称 " span class="text-danger" { "*" } }
  input type="text" name="name" required value=(supplier.name) {}
  }
  div class="form-field" {
@@ -134,7 +134,7 @@ fn supplier_edit_page(supplier: &abt_core::master_data::supplier::model::Supplie
  value=(supplier.short_name.as_deref().unwrap_or("")) {}
  }
  div class="form-field" {
- label { "供应类别 " span style="color:var(--danger)" { "*" } }
+ label { "供应类别 " span class="text-danger" { "*" } }
  select name="category" required {
  option value="1" selected[attr_selected(category_val, 1)] { "原材料" }
  option value="2" selected[attr_selected(category_val, 2)] { "包装材料" }
@@ -144,7 +144,7 @@ fn supplier_edit_page(supplier: &abt_core::master_data::supplier::model::Supplie
  }
  }
  div class="form-field" {
- label { "状态 " span style="color:var(--danger)" { "*" } }
+ label { "状态 " span class="text-danger" { "*" } }
  select name="status" required {
  option value="1" selected[attr_selected(status_val, 1)] { "潜在" }
  option value="2" selected[attr_selected(status_val, 2)] { "合格" }
@@ -159,7 +159,7 @@ fn supplier_edit_page(supplier: &abt_core::master_data::supplier::model::Supplie
  value=(supplier.tax_number.as_deref().unwrap_or("")) {}
  }
  div class="form-field" {
- label { "交货天数 " span style="color:var(--danger)" { "*" } }
+ label { "交货天数 " span class="text-danger" { "*" } }
  input type="number" name="lead_time_days" required min="0" placeholder="请输入交货天数"
  value=(lead_time) {}
  }
@@ -190,13 +190,13 @@ fn supplier_edit_page(supplier: &abt_core::master_data::supplier::model::Supplie
  }
 
  // ── Section: 其他 ──
- div class="data-card" style="margin-bottom:var(--space-4)" {
+ div class="data-card" class="mb-4" {
  div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "其他" }
  div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
  div class="form-field field-full" {
  label { "备注" }
  textarea name="remark" placeholder="请输入备注信息…"
- style="width:100%;min-height:80px;resize:vertical" {
+ class="w-full resize-y" class="min-h-[80px]" {
  (supplier.remark)
  }
  }

@@ -188,7 +188,7 @@ fn stock_in_detail_page(
  @if let Some(ref sn) = txn.source_doc_number {
  (sn)
  } @else {
- span style="color:var(--muted)" { "—" }
+ span class="text-muted" { "—" }
  }
  }
  }

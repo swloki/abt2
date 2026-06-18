@@ -165,7 +165,7 @@ fn customer_create_page(users: &[(i64, String)]) -> Markup {
  div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "基本信息" }
  div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
  div class="form-field" {
- label { "客户名称 " span style="color:var(--danger)" { "*" } }
+ label { "客户名称 " span class="text-danger" { "*" } }
  input type="text" name="customer_name" required placeholder="请输入客户全称" {}
  }
  div class="form-field" {
@@ -218,7 +218,7 @@ fn customer_create_page(users: &[(i64, String)]) -> Markup {
  div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "联系信息" }
  div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
  div class="form-field" {
- label { "联系人 " span style="color:var(--danger)" { "*" } }
+ label { "联系人 " span class="text-danger" { "*" } }
  input type="text" name="contact_name" required placeholder="请输入联系人姓名" {}
  }
  div class="form-field" {
@@ -226,7 +226,7 @@ fn customer_create_page(users: &[(i64, String)]) -> Markup {
  input type="text" name="contact_position" placeholder="例如：采购经理" {}
  }
  div class="form-field" {
- label { "手机号码 " span style="color:var(--danger)" { "*" } }
+ label { "手机号码 " span class="text-danger" { "*" } }
  input type="tel" name="contact_phone" required placeholder="请输入手机号码" {}
  }
  div class="form-field" {

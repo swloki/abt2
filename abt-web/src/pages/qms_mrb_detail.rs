@@ -117,13 +117,13 @@ pub async fn get_detail(path: MrbDetailPath, ctx: RequestContext) -> Result<Html
  // ── 缺陷描述 ──
  div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
  h3 { "缺陷描述" }
- p style="white-space: pre-wrap;" { (&mrb.defect_description) }
+ p class="whitespace-pre-wrap" { (&mrb.defect_description) }
  }
 
  // ── 备注 ──
  div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
  h3 { "备注" }
- p style="white-space: pre-wrap;" { (if mrb.remark.is_empty() { "—" } else { &mrb.remark }) }
+ p class="whitespace-pre-wrap" { (if mrb.remark.is_empty() { "—" } else { &mrb.remark }) }
  }
 
  // ── 其他信息 ──

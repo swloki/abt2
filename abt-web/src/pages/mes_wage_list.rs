@@ -9,6 +9,7 @@ use abt_core::mes::work_order::WorkOrderService;
 use abt_core::mes::work_report::WorkReportService;
 use abt_core::shared::identity::UserService;
 
+use crate::components::icon;
 use crate::errors::Result;
 use crate::layout::page::admin_page;
 use crate::routes::mes_report::WageListPath;
@@ -129,98 +130,103 @@ fn wage_list_page(
  };
 
  html! { div {
+ // ── Page Header ──
  div class="flex items-center justify-between mb-6" {
  h1 class="text-xl font-bold text-fg tracking-tight" { "计件工资汇总" }
  div class="flex gap-3" {
- button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" {
- (maud::PreEscaped(r#"<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>"#))
- " 导出"
+ button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" {
+ (icon::download_icon("w-4 h-4"))
+ "导出"
  }
  }
  }
 
- // 筛选栏
+ // ── 筛选栏 ──
  div class="flex items-center gap-3 mb-5 flex-wrap" {
- div class="relative flex-1 max-w-xs" {
- (maud::PreEscaped(r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>"#))
+ div class="relative w-60" {
+ (icon::search_icon("absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted"))
  input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" placeholder="搜索工人姓名、工号…";
  }
- input type="date" class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" value=(date_from_str) style="max-width:160px";
- span style="color:var(--muted);font-size:var(--text-sm);line-height:36px" { "至" }
- input type="date" class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" value=(date_to_str) style="max-width:160px";
+ input type="date" class="w-40 px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" value=(date_from_str);
+ span class="text-sm text-muted" { "至" }
+ input type="date" class="w-40 px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" value=(date_to_str);
  }
 
- // 汇总统计卡片
- div class="grid gap-5" {
- div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
- div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0" style="background:linear-gradient(135deg,#e6f4ff,#d6e8ff);color:var(--accent)" {
- (maud::PreEscaped(r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>"#))
+ // ── 汇总统计卡片 ──
+ div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-5" {
+ // 工资总额
+ div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-md" {
+ div class="w-11 h-11 rounded-md grid place-items-center shrink-0 bg-[#e6f4ff] text-accent" {
+ (icon::dollar_icon("w-5 h-5"))
  }
  div {
- div class="text-2xl font-bold font-mono tabular-nums tabular-nums text-fg" { "¥" (crate::utils::fmt_qty(ctx.total_wage)) }
+ div class="text-2xl font-bold font-mono tabular-nums text-fg" { "¥" (crate::utils::fmt_qty(ctx.total_wage)) }
  div class="text-sm text-muted mt-1" { "本月工资总额" }
  }
  }
- div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
- div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0" style="background:linear-gradient(135deg,#f0fff0,#e0ffe0);color:var(--success)" {
- (maud::PreEscaped(r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>"#))
+ // 计件工人数
+ div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-md" {
+ div class="w-11 h-11 rounded-md grid place-items-center shrink-0 bg-[#f0fff0] text-success" {
+ (icon::users_icon("w-5 h-5"))
  }
  div {
- div class="text-2xl font-bold font-mono tabular-nums tabular-nums text-fg" { (ctx.worker_count) }
+ div class="text-2xl font-bold font-mono tabular-nums text-fg" { (ctx.worker_count) }
  div class="text-sm text-muted mt-1" { "计件工人数" }
  }
  }
- div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
- div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0" style="background:linear-gradient(135deg,#fff8eb,#fff0d6);color:var(--warn)" {
- (maud::PreEscaped(r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>"#))
+ // 完成数量
+ div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-md" {
+ div class="w-11 h-11 rounded-md grid place-items-center shrink-0 bg-[#fff8eb] text-warn" {
+ (icon::package_icon("w-5 h-5"))
  }
  div {
- div class="text-2xl font-bold font-mono tabular-nums tabular-nums text-fg" { (total_completed_fmt) }
+ div class="text-2xl font-bold font-mono tabular-nums text-fg" { (total_completed_fmt) }
  div class="text-sm text-muted mt-1" { "总完成数量" }
- div style="font-size:var(--text-xs);color:var(--muted);margin-top:2px" { "不良品 " (total_defect_fmt) " (" (defect_rate) ")" }
+ div class="text-xs text-muted mt-0.5" { "不良品 " (total_defect_fmt) " (" (defect_rate) ")" }
  }
  }
- div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
- div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0" style="background:linear-gradient(135deg,#fff2f0,#ffe8e6);color:var(--danger)" {
- (maud::PreEscaped(r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>"#))
+ // 扣减金额
+ div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-md" {
+ div class="w-11 h-11 rounded-md grid place-items-center shrink-0 bg-[#fff2f0] text-danger" {
+ (icon::alert_triangle_icon("w-5 h-5"))
  }
  div {
- div class="text-2xl font-bold font-mono tabular-nums tabular-nums text-fg" { "—" }
+ div class="text-2xl font-bold font-mono tabular-nums text-fg" { "—" }
  div class="text-sm text-muted mt-1" { "扣减金额(操作失误)" }
- div style="font-size:var(--text-xs);color:var(--muted);margin-top:2px" { "操作失误不良: " (crate::utils::fmt_qty(ctx.total_operator_defect)) "件" }
+ div class="text-xs text-muted mt-0.5" { "操作失误不良: " (crate::utils::fmt_qty(ctx.total_operator_defect)) "件" }
  }
  }
  }
 
- // 工资公式提示
- div class="flex items-start gap-2 p-3 bg-surface border border-border-soft rounded-sm text-sm text-fg-2" {
- (maud::PreEscaped(r#"<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>"#))
- " 计算公式："
- code { "(完成数 + 非操作失误不良数) × 计件单价" }
+ // ── 工资公式提示 ──
+ div class="flex items-start gap-2 p-3 bg-surface border border-border-soft rounded-sm text-sm text-fg-2 mb-5" {
+ (icon::info_icon("w-3.5 h-3.5 mt-0.5 shrink-0"))
+ span {
+ "计算公式："
+ code class="px-1 py-0.5 bg-bg rounded text-xs" { "(完成数 + 非操作失误不良数) × 计件单价" }
  "，其中物料不良/设备故障/工艺问题照常计工资，操作失误不计工资"
  }
+ }
 
- // 工人工资明细卡片
- div class="wage-bg-white border border-border-soft rounded p-5" {
- div class="p-4 [border-bottom:1px_solid_var(--border-soft)]" {
- div class="flex items-center gap-2 font-semibold text-base" {
- (maud::PreEscaped(r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>"#))
- " 工人工资明细"
+ // ── 工人工资明细 ──
+ div class="data-card" {
+ div class="flex items-center gap-2 font-semibold text-fg px-5 py-4 border-b border-border-soft" {
+ (icon::users_icon("w-5 h-5"))
+ "工人工资明细"
  }
- }
- div class="wage-flex-1 overflow-y-auto" {
+
  // Header row
- div class="worker-row grid items-center gap-3 p-3 border-b-header" {
+ div class="grid grid-cols-[1fr_80px_80px_80px_100px_40px] items-center gap-3 px-5 py-2 text-xs text-muted font-semibold uppercase tracking-wide border-b border-border-soft" {
  span { "工人" }
- span { "完成数" }
- span { "不良品数" }
- span { "有效计件数" }
- span { "应发工资" }
+ span class="text-right" { "完成数" }
+ span class="text-right" { "不良品" }
+ span class="text-right" { "有效数" }
+ span class="text-right" { "应发工资" }
  span {}
  }
 
  @if summaries.is_empty() {
- div style="text-align:center;padding:var(--space-8);color:var(--muted)" { "暂无工资数据" }
+ div class="text-center text-muted text-sm py-8" { "暂无工资数据" }
  }
 
  @for (idx, summary) in summaries.iter().enumerate() {
@@ -238,29 +244,31 @@ fn wage_list_page(
  @let toggle_id = format!("w{}", idx);
 
  // Worker summary row
- div class="grid items-center gap-3 p-3 [border-bottom:1px_solid_var(--border-soft)]" style="cursor:pointer" _=(format!("on click if #{0}'s *display is 'none' then show #{0} else hide #{0}", toggle_id)) {
+ div class="grid grid-cols-[1fr_80px_80px_80px_100px_40px] items-center gap-3 px-5 py-3 border-b border-border-soft cursor-pointer hover:bg-accent-bg transition-colors duration-100"
+ _=(format!("on click toggle .expanded on #{0} then toggle .rotate-180 on #{0}-icon", toggle_id)) {
  div class="flex items-center gap-3" {
- div class="worker-inline-grid place-items-center rounded-full text-white font-semibold shrink-0 select-none" style="background:var(--accent)" { (initial) }
- div class="flex flex-col" {
- span class="font-medium" { (worker_name) }
+ div class="w-8 h-8 rounded-full grid place-items-center text-white font-semibold shrink-0 bg-accent" { (initial) }
+ span class="font-medium text-fg" { (worker_name) }
  }
+ span class="text-right font-mono tabular-nums text-fg" { (crate::utils::fmt_qty(wc)) }
+ span class="text-right font-mono tabular-nums text-danger" { (crate::utils::fmt_qty(wd)) }
+ span class="text-right font-mono tabular-nums text-fg" { (crate::utils::fmt_qty(we)) }
+ span class="text-right font-mono tabular-nums text-success font-bold" { "¥" (crate::utils::fmt_qty(summary.total_amount)) }
+ span class="text-muted" {
+ svg id=(format!("{}-icon", toggle_id)) viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 transition-transform duration-200 rotate-180" {
+ polyline points="6 9 12 15 18 9" {}
  }
- span class="wage-font-mono tabular-nums" { (crate::utils::fmt_qty(wc)) }
- span class="wage-font-mono tabular-nums text-danger" { (crate::utils::fmt_qty(wd)) }
- span class="wage-font-mono tabular-nums" { (crate::utils::fmt_qty(we)) }
- span class="wage-font-mono tabular-nums text-success" style="font-weight:700" { "¥" (crate::utils::fmt_qty(summary.total_amount)) }
- span {
- (maud::PreEscaped(r#"<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 9l-7 7-7-7"/></svg>"#))
  }
  }
 
- // Expandable detail table
- div class="[border-bottom:1px_solid_var(--border-soft)] bg-surface" id=(toggle_id) style="display:none" {
- table class="[border-bottom:1px_solid_var(--border-soft)] bg-surface-table" {
+ // Expandable detail table — animated grid-rows expansion
+ div class="bg-surface grid transition-all duration-200 ease-in-out grid-rows-[0fr] expanded:grid-rows-[1fr] overflow-hidden" id=(toggle_id) {
+ div class="overflow-hidden" {
+ table class="w-full data-table" {
  thead { tr {
- th { "工单" } th { "工序" } th { "完成" }
- th { "不良(原因)" } th { "有效数" } th { "单价" }
- th { "工资" }
+ th { "工单" } th { "工序" } th class="text-right" { "完成" }
+ th class="text-right" { "不良(原因)" } th class="text-right" { "有效数" } th class="text-right" { "单价" }
+ th class="text-right" { "工资" }
  }}
  tbody {
  @for detail in &summary.details {
@@ -281,12 +289,11 @@ fn wage_list_page(
  tr {
  td class="font-mono tabular-nums" { (wo_doc) }
  td { (detail.process_name) }
- td class="font-mono tabular-nums" { (crate::utils::fmt_qty(detail.completed_qty)) }
- td class="font-mono tabular-nums text-danger" { (defect_label) }
- td class="font-mono tabular-nums" { (crate::utils::fmt_qty(effective)) }
- td class="font-mono tabular-nums" { "¥" (detail.unit_price) }
- td class="font-mono tabular-nums text-success" { "¥" (crate::utils::fmt_qty(detail.wage_amount)) }
- }
+ td class="text-right font-mono tabular-nums" { (crate::utils::fmt_qty(detail.completed_qty)) }
+ td class="text-right font-mono tabular-nums text-danger" { (defect_label) }
+ td class="text-right font-mono tabular-nums" { (crate::utils::fmt_qty(effective)) }
+ td class="text-right font-mono tabular-nums" { "¥" (detail.unit_price) }
+ td class="text-right font-mono tabular-nums text-success" { "¥" (crate::utils::fmt_qty(detail.wage_amount)) }
  }
  }
  }
@@ -296,8 +303,9 @@ fn wage_list_page(
  }
 
  // 分页
- div class="flex items-center justify-between py-4 px-5" {
- span { "共 " (ctx.worker_count) " 名工人" }
+ div class="flex items-center justify-between px-5 py-4" {
+ span class="text-sm text-muted" { "共 " (ctx.worker_count) " 名工人" }
+ }
  }
  }}
 }

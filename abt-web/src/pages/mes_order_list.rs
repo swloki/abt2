@@ -105,7 +105,7 @@ fn order_table_fragment(
  hx-target="#order-data-card" hx-select="#order-data-card" hx-swap="outerHTML" hx-include="#filter-form"
  hx-push-url="true" {
  div class="relative flex-1 max-w-xs [&_svg]:absolute [&_svg]:left-3 [&_svg]:top-1/2 [&_svg]:-translate-y-1/2 [&_svg]:w-4 [&_svg]:h-4 [&_svg]:text-muted" {(icon::search_icon(""))
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword" style="width:180px" placeholder="搜索工单编号…" value=(params.keyword.as_deref().unwrap_or(""));
+ input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword" class="w-[180px]" placeholder="搜索工单编号…" value=(params.keyword.as_deref().unwrap_or(""));
  }
  }
  (order_data_card(result, product_names, params))
@@ -133,36 +133,36 @@ fn order_data_card(
  @let dp = format!("/admin/mes/orders/{}", item.id);
  @let total = item.total_steps.unwrap_or(0);
  @let done = item.completed_steps.unwrap_or(0);
- tr style="cursor:pointer" onclick=(format!("location.href='{}'", dp)) {
- td class="text-accent font-medium cursor-pointer font-mono tabular-nums" style="color:var(--accent)" { (item.doc_number) }
+ tr class="cursor-pointer" onclick=(format!("location.href='{}'", dp)) {
+ td class="text-accent font-medium cursor-pointer font-mono tabular-nums" class="text-accent" { (item.doc_number) }
  td { (pn) }
  td class="text-right text-[13px] font-mono tabular-nums" { (crate::utils::fmt_qty(item.planned_qty)) }
  td {
  @if total == 0 && item.completed_qty == rust_decimal::Decimal::ZERO {
- span class="w-[80px] h-[6px] bg-border-soft overflow-hidden" style="color:var(--muted)" { "尚未开始" }
+ span class="w-[80px] h-[6px] bg-border-soft overflow-hidden" class="text-muted" { "尚未开始" }
  } @else {
  // 工序进度
  @if total > 0 {
  @if done >= total {
- span style="color:var(--success)" { "✓ 工序完成" }
+ span class="text-success" { "✓ 工序完成" }
  } @else {
  @let pct = done * 100 / total;
  div class="w-[80px] h-[6px] bg-border-soft overflow-hidden" {
  div class="wo-flex items-center gap-[2px]" {
  div class="w-[80px] h-[6px] bg-border-soft overflow-hidden-fill" style=(format!("width:{}%", pct)) {}
  }
- span style="font-size:var(--text-xs)" { (format!("工序 {}/{}", done, total)) }
+ span class="text-xs" { (format!("工序 {}/{}", done, total)) }
  }
  }
  }
  // 完成数量
  @if item.completed_qty > rust_decimal::Decimal::ZERO {
- div style="margin-top:2px;font-size:var(--text-xs)" {
- span style="color:var(--success)" { (crate::utils::fmt_qty(item.completed_qty)) }
+ div class="text-xs" style="margin-top:2px" {
+ span class="text-success" { (crate::utils::fmt_qty(item.completed_qty)) }
  " / "
  span class="text-muted" { (crate::utils::fmt_qty(item.planned_qty)) " 件" }
  @if item.scrap_qty > rust_decimal::Decimal::ZERO {
- span style="color:var(--danger);margin-left:4px" { "废 " (crate::utils::fmt_qty(item.scrap_qty)) }
+ span class="text-danger" style="margin-left:4px" { "废 " (crate::utils::fmt_qty(item.scrap_qty)) }
  }
  }
  }
@@ -181,12 +181,12 @@ fn order_data_card(
  } @else {
  div class="text-[11px] text-muted" {
  @if let (Some(pid), Some(pdoc)) = (item.source_plan_id, item.source_plan_doc.as_deref()) {
- a class="text-[11px] text-muted-sub" href=(format!("/admin/mes/plans/{}", pid)) onclick="event.stopPropagation()" { (pdoc) }
+ a class="text-[11px] text-muted-sub" href=(format!("/admin/mes/plans/{}", pid)) _="on click halt the event" { (pdoc) }
  span class="text-[11px] text-muted-sub" { " → " }
  }
  @if let Some(soid) = item.sales_order_id {
  @if let Some(sodoc) = item.source_so_doc.as_deref() {
- a class="text-[11px] text-muted-sub" href=(format!("/admin/orders/{}", soid)) onclick="event.stopPropagation()" { (sodoc) }
+ a class="text-[11px] text-muted-sub" href=(format!("/admin/orders/{}", soid)) _="on click halt the event" { (sodoc) }
  }
  @if let Some(cust) = item.source_customer.as_deref() {
  span class="text-[11px] text-muted-sub" { " (" (cust) ")" }
@@ -196,11 +196,11 @@ fn order_data_card(
  }
  }
  td { span style=(format!("display:inline-flex;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{};color:{}", sb, sc)) { (sl) } }
- td { a href=(dp) style="color:var(--accent);font-size:var(--text-xs)" { "查看" } }
+ td { a href=(dp) class="text-accent" class="text-xs" { "查看" } }
  }
  }
  @if result.items.is_empty() {
- tr { td colspan="9" style="text-align:center;padding:var(--space-8);color:var(--muted)" { "暂无工单" } }
+ tr { td colspan="9" class="text-center text-muted py-8" { "暂无工单" } }
  }
  }}
  }

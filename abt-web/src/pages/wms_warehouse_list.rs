@@ -210,7 +210,7 @@ fn warehouse_table_fragment(
  div class="relative flex-1 max-w-xs [&_svg]:absolute [&_svg]:left-3 [&_svg]:top-1/2 [&_svg]:-translate-y-1/2 [&_svg]:w-4 [&_svg]:h-4 [&_svg]:text-muted" {
  (icon::search_icon(""))
  input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="code"
- style="width:180px"
+ class="w-[180px]"
  placeholder="仓库编码"
  value=(params.code.as_deref().unwrap_or(""));
  }
@@ -264,7 +264,7 @@ fn warehouse_data_card(
  }
  @if result.items.is_empty() {
  tr {
- td colspan="9" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
+ td colspan="9" class="text-center text-muted py-8" {
  "暂无仓库数据"
  }
  }
@@ -287,7 +287,7 @@ fn warehouse_row(w: &Warehouse, manager_map: &std::collections::HashMap<i64, Str
  let status_class = warehouse_status_class(&w.status);
 
  html! {
- tr style="cursor:pointer" {
+ tr class="cursor-pointer" {
  td class="text-accent font-medium cursor-pointer font-mono tabular-nums" onclick=(format!("location.href='{}'", detail_path)) { (w.code) }
  td onclick=(format!("location.href='{}'", detail_path)) { strong { (w.name) } }
  td onclick=(format!("location.href='{}'", detail_path)) {
@@ -298,11 +298,11 @@ fn warehouse_row(w: &Warehouse, manager_map: &std::collections::HashMap<i64, Str
  }
  td onclick=(format!("location.href='{}'", detail_path)) {
  @if w.is_virtual {
- span style="color:var(--muted)" { "—" }
+ span class="text-muted" { "—" }
  } @else if let Some(ref addr) = w.address {
  (addr)
  } @else {
- span style="color:var(--muted)" { "—" }
+ span class="text-muted" { "—" }
  }
  }
  td onclick=(format!("location.href='{}'", detail_path)) {
@@ -310,27 +310,27 @@ fn warehouse_row(w: &Warehouse, manager_map: &std::collections::HashMap<i64, Str
  @if let Some(name) = manager_map.get(&mid) {
  (name)
  } @else {
- span style="color:var(--muted)" { "—" }
+ span class="text-muted" { "—" }
  }
  } @else {
- span style="color:var(--muted)" { "—" }
+ span class="text-muted" { "—" }
  }
  }
  td class="font-mono tabular-nums" onclick=(format!("location.href='{}'", detail_path)) {
  @if w.zone_count > 0 {
  (w.zone_count)
  } @else {
- span style="color:var(--muted)" { "0" }
+ span class="text-muted" { "0" }
  }
  }
  td class="font-mono tabular-nums" onclick=(format!("location.href='{}'", detail_path)) {
  @if w.bin_count > 0 {
  (w.bin_count)
  } @else {
- span style="color:var(--muted)" { "0" }
+ span class="text-muted" { "0" }
  }
  }
- td onclick="event.stopPropagation()" {
+ td _="on click halt the event" {
  div class="row-actions flex items-center gap-1 justify-end opacity-0 transition-opacity duration-150 [&_a]:w-[28px] [&_a]:h-[28px] [&_a]:grid [&_a]:place-items-center [&_a]:rounded-sm [&_a]:cursor-pointer [&_a]:bg-surface [&_a]:hover:bg-accent-bg [&_svg]:w-3.5 [&_svg]:h-3.5" {
  a class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" title="编辑" href=(edit_path) {
  (icon::edit_icon("w-4 h-4"))

@@ -55,7 +55,7 @@ fn work_calendar_list_page(calendars: &[WorkCalendar]) -> Markup {
  h1 class="text-xl font-bold text-fg tracking-tight" { "工作日历管理" }
  }
  div class="flex gap-3" {
- a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(WorkCalendarCreatePath::PATH) {
+ a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(WorkCalendarCreatePath::PATH) {
  (icon::plus_icon("w-4 h-4"))
  "新建日历"
  }

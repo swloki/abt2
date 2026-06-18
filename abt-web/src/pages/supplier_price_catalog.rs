@@ -449,12 +449,12 @@ fn row_tr(price: &PriceView) -> Markup {
  html! {
  tr {
  td {
- div style="font-weight:500" { (&price.supplier_name) }
- div class="text-muted" style="font-size:var(--text-xs)" { (&price.supplier_code) }
+ div class="font-medium" { (&price.supplier_name) }
+ div class="text-muted" class="text-xs" { (&price.supplier_code) }
  }
  td {
  div { (&price.product_name) }
- div class="text-muted" style="font-size:var(--text-xs)" { (&price.product_code) }
+ div class="text-muted" class="text-xs" { (&price.product_code) }
  }
  td { (price.supplier_item_code.as_deref().unwrap_or("—")) }
  td class="font-mono tabular-nums text-right text-[13px]" { (crate::utils::fmt_qty(price.price)) }
@@ -462,7 +462,7 @@ fn row_tr(price: &PriceView) -> Markup {
  td class="text-right text-[13px]" { (crate::utils::fmt_qty(price.discount_pct)) }
  td class="text-right text-[13px]" { (crate::utils::fmt_qty(price.min_order_qty)) }
  td class="text-right text-[13px]" { (price.lead_time_days) }
- td class="text-muted" style="font-size:var(--text-xs)" { (valid_text) }
+ td class="text-muted" class="text-xs" { (valid_text) }
  td {
  @if price.is_active {
  span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-[#f0fff0] text-[#389e0d]" { "启用" }
@@ -495,9 +495,9 @@ fn row_tr(price: &PriceView) -> Markup {
 
 fn empty_state() -> Markup {
  html! {
- div style="text-align:center;padding:var(--space-12);color:var(--text-muted)" {
- p style="margin:0;font-size:var(--text-lg)" { "暂无价格记录" }
- p style="margin:var(--space-2) 0 0;font-size:var(--text-sm)" { "点击「+ 新建价格」添加供应商价格" }
+ div class="text-center" class="p-12 text-muted" {
+ p class="m-0" class="text-lg" { "暂无价格记录" }
+ p class="mt-2 text-sm" { "点击「+ 新建价格」添加供应商价格" }
  }
  }
 }
@@ -660,7 +660,7 @@ fn price_form(action_url: &str, price: Option<&PriceView>) -> Markup {
  }
  div class="form-field" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "启用状态" }
- label style="display:flex;align-items:center;gap:var(--space-2);cursor:pointer" {
+ label class="flex items-center cursor-pointer" class="gap-2" {
  input type="checkbox" name="is_active"
  checked[active_checked] {};
  " 启用"

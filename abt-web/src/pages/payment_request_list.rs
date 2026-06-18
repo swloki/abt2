@@ -306,7 +306,7 @@ fn pay_table_fragment(
  }
  @if result.items.is_empty() {
  tr {
- td colspan="10" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
+ td colspan="10" class="text-center text-muted py-8" {
  "暂无付款申请数据"
  }
  }
@@ -337,7 +337,7 @@ fn pay_row(
  let onclick = format!("location.href='{}'", detail_path);
  let is_draft = r.status == PaymentStatus::Draft;
  html! {
- tr style="cursor:pointer" {
+ tr class="cursor-pointer" {
  td class="text-accent font-medium cursor-pointer font-mono tabular-nums" onclick=(&onclick) { (r.doc_number) }
  td onclick=(&onclick) { (supplier_name) }
  td class="font-mono tabular-nums" onclick=(&onclick) { (recon_doc_number) }
@@ -349,7 +349,7 @@ fn pay_row(
  td onclick=(&onclick) { (payment_method_label(r.payment_method)) }
  td class="font-mono tabular-nums" onclick=(&onclick) { (r.invoice_number.as_deref().unwrap_or("—")) }
  td onclick=(&onclick) { (created) }
- td onclick="event.stopPropagation()" {
+ td _="on click halt the event" {
  @if is_draft {
  div class="row-actions flex items-center gap-1 justify-end opacity-0 transition-opacity duration-150 [&_a]:w-[28px] [&_a]:h-[28px] [&_a]:grid [&_a]:place-items-center [&_a]:rounded-sm [&_a]:cursor-pointer [&_a]:bg-surface [&_a]:hover:bg-accent-bg [&_svg]:w-3.5 [&_svg]:h-3.5" {
  a class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" href=(detail_path.to_string()) title="编辑" {

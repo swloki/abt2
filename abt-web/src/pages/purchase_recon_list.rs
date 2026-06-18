@@ -257,7 +257,7 @@ fn precon_table_fragment(
  }
  @if result.items.is_empty() {
  tr {
- td colspan="9" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
+ td colspan="9" class="text-center text-muted py-8" {
  "暂无对账数据"
  }
  }
@@ -283,7 +283,7 @@ fn precon_row(
  let return_amount = r.total_amount - r.confirmed_amount;
  let onclick = format!("location.href='{}'", detail_path);
  html! {
- tr style="cursor:pointer" {
+ tr class="cursor-pointer" {
  td class="text-accent font-medium cursor-pointer font-mono tabular-nums" onclick=(&onclick) { (r.doc_number) }
  td onclick=(&onclick) { (supplier_name) }
  td class="font-mono tabular-nums" onclick=(&onclick) { (&r.period) }
@@ -294,7 +294,7 @@ fn precon_row(
  td class="text-right text-[13px]" onclick=(&onclick) { (format_amount(r.total_amount)) }
  td class="text-right text-[13px]" onclick=(&onclick) { (format_amount(return_amount)) }
  td class="text-right text-[13px]" onclick=(&onclick) { (format_amount(r.confirmed_amount)) }
- td onclick="event.stopPropagation()" {
+ td _="on click halt the event" {
  a class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" href=(detail_path.to_string()) title="查看详情" {
  (icon::edit_icon("w-4 h-4"))
  }

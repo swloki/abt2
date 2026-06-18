@@ -209,7 +209,7 @@ fn cycle_count_create_page(
  }
  }
  // ── 盘点物料 ──
- div class="form-section" style="padding:0;overflow:hidden" {
+ div class="form-section" class="p-0 overflow-hidden" {
  div class="px-6 pt-6 pb-4" {
  div class="flex items-center gap-2 text-sm font-semibold text-fg mb-3" {
  (icon::box_icon("w-[18px] h-[18px]"))
@@ -221,14 +221,14 @@ fn cycle_count_create_page(
  table class="data-table" {
  thead {
  tr {
- th style="width:40px;text-align:center" { "行号" }
+ th class="w-10 text-center" { "行号" }
  th { "产品编码" }
  th { "产品名称" }
  th { "规格" }
- th style="width:100px" { "库位" }
- th style="width:120px" { "批次号" }
- th style="width:100px;text-align:right" { "系统数量" }
- th style="width:40px" { }
+ th class="w-[100px]" { "库位" }
+ th class="w-[120px]" { "批次号" }
+ th class="w-[100px] text-right" { "系统数量" }
+ th class="w-10" { }
  }
  }
  tbody id="cc-item-tbody" { }

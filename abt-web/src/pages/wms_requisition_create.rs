@@ -190,12 +190,12 @@ fn requisition_create_page(
  }
  div class="form-field" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "操作员" }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm text-fg outline-none transition-all duration-150 focus:border-accent" type="text" readonly style="background:var(--surface)" value="admin";
+ input class="w-full px-3 py-2 border border-border rounded-sm text-sm text-fg outline-none transition-all duration-150 focus:border-accent" type="text" readonly class="bg-surface" value="admin";
  }
  }
  }
  // ── 领料明细 ──
- div class="form-section" style="padding:0;overflow:hidden" {
+ div class="form-section" class="p-0 overflow-hidden" {
  div class="px-6 pt-6 pb-4" {
  div class="flex items-center gap-2 text-sm font-semibold text-fg mb-3" {
  (icon::box_icon("w-[18px] h-[18px]"))
@@ -207,13 +207,13 @@ fn requisition_create_page(
  table class="data-table" {
  thead {
  tr {
- th style="width:40px;text-align:center" { "行号" }
+ th class="w-10 text-center" { "行号" }
  th style="min-width:130px" { "产品编码" }
  th style="min-width:180px" { "产品名称" }
- th style="min-width:160px" { "规格" }
- th style="width:64px" { "单位" }
- th style="width:110px;text-align:right" { "请求数量 " span class="required" { "*" } }
- th style="width:40px" { }
+ th class="min-w-[160px]" { "规格" }
+ th class="w-16" { "单位" }
+ th class="w-[110px] text-right" { "请求数量 " span class="required" { "*" } }
+ th class="w-10" { }
  }
  }
  tbody id="req-item-tbody" { }

@@ -181,27 +181,27 @@ fn stock_out_create_content(
  html! {
  div {
  // ── Back Link ──
- a href="/admin/wms/stock-out" class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" style="display:inline-flex;align-items:center;gap:var(--space-2);color:var(--fg-2);font-size:var(--text-sm);margin-bottom:var(--space-4);text-decoration:none" {
+ a href="/admin/wms/stock-out" class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" class="items-center text-fg-2 mb-4" class="gap-2" class="inline-flex text-sm" style="text-decoration:none" {
  (icon::chevron_left_icon("w-4 h-4"))
  "返回出库列表"
  }
 
  // ── Page Header ──
- div class="flex items-center justify-between mb-6" style="margin-bottom:var(--space-6)" {
+ div class="flex items-center justify-between mb-6" class="mb-6" {
  h1 class="text-xl font-bold text-fg tracking-tight" { "新建出库单" }
  }
 
  // ── Type Switch ──
- div style="display:flex;gap:var(--space-3);margin-bottom:var(--space-6)" {
- div id="type-card-sales" onclick="wmsStockOutSelectType('sales')" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:var(--space-2);padding:var(--space-5) var(--space-4);border:2px solid var(--danger);border-radius:var(--radius-lg);background:var(--danger-bg);cursor:pointer" {
+ div class="flex" class="gap-3 mb-6" {
+ div id="type-card-sales" onclick="wmsStockOutSelectType('sales')" class="flex-1 flex items-center cursor-pointer" class="flex-col gap-2 rounded-lg" style="padding:var(--space-5) var(--space-4);border:2px solid var(--danger);background:var(--danger-bg)" {
  (icon::upload_icon("w-7 h-7"))
- span style="font-weight:600;font-size:var(--text-base);color:var(--fg)" { "销售出库" }
- span style="font-size:var(--text-xs);color:var(--muted);text-align:center" { "SALES_SHIPMENT\n关联发货申请 / 销售订单\n消耗 SOFT 预留" }
+ span class="font-semibold text-fg" class="text-base" { "销售出库" }
+ span class="text-muted text-center" class="text-xs" { "SALES_SHIPMENT\n关联发货申请 / 销售订单\n消耗 SOFT 预留" }
  }
- div id="type-card-material" onclick="wmsStockOutSelectType('material')" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:var(--space-2);padding:var(--space-5) var(--space-4);border:2px solid var(--border);border-radius:var(--radius-lg);background:var(--bg);cursor:pointer" {
+ div id="type-card-material" onclick="wmsStockOutSelectType('material')" class="flex-1 flex items-center cursor-pointer" class="flex-col gap-2 rounded-lg" style="padding:var(--space-5) var(--space-4);border:2px solid var(--border);background:var(--bg)" {
  (icon::clipboard_document_icon("w-7 h-7"))
- span style="font-weight:600;font-size:var(--text-base);color:var(--fg)" { "生产领料" }
- span style="font-size:var(--text-xs);color:var(--muted);text-align:center" { "MATERIAL_ISSUE\n关联工单 / 领料单\n消耗 HARD 预留" }
+ span class="font-semibold text-fg" class="text-base" { "生产领料" }
+ span class="text-muted text-center" class="text-xs" { "MATERIAL_ISSUE\n关联工单 / 领料单\n消耗 HARD 预留" }
  }
  }
 
@@ -223,16 +223,16 @@ fn stock_out_create_content(
  }
  }
  div class="form-group" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "来源单号 " span style="color:var(--danger)" { "*" } }
+ label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "来源单号 " span class="text-danger" { "*" } }
  input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="source_ref" placeholder="选择来源单号" readonly;
  }
  div class="form-group" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "客户/工单" }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" placeholder="选择来源后自动填充" readonly style="background:var(--surface)";
+ input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" placeholder="选择来源后自动填充" readonly class="bg-surface";
  }
  div class="form-group" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "预留类型" }
- input id="reservation-type-input" class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" value="SOFT 预留（发货消耗）" readonly style="background:var(--surface);color:var(--danger)";
+ input id="reservation-type-input" class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" value="SOFT 预留（发货消耗）" readonly class="bg-surface text-danger";
  }
  }
  }
@@ -245,7 +245,7 @@ fn stock_out_create_content(
  }
  div class="wms-grid grid-cols-2 gap-4 gap-x-6 mb-6" {
  div class="form-group" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "来源仓库 " span style="color:var(--danger)" { "*" } }
+ label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "来源仓库 " span class="text-danger" { "*" } }
  select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="warehouse_id" {
  option value="" { "请选择仓库" }
  @for wh in warehouses {
@@ -270,15 +270,15 @@ fn stock_out_create_content(
  }
  div class="form-group" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "操作员" }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" value=(operator_name) readonly style="background:var(--surface)";
+ input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" value=(operator_name) readonly class="bg-surface";
  }
  }
  }
 
  // ── Pick Strategy Tip ──
- div style="padding:var(--space-3) var(--space-4);background:rgba(250,173,20,0.05);border:1px solid rgba(250,173,20,0.15);border-radius:var(--radius-md);margin-bottom:var(--space-6);display:flex;align-items:center;gap:var(--space-3)" {
+ div class="flex items-center" class="rounded-md mb-6 gap-3" class="px-4 py-3" style="background:rgba(250,173,20,0.05);border:1px solid rgba(250,173,20,0.15)" {
  (icon::circle_alert_icon("w-4 h-4"))
- span style="font-size:var(--text-sm);color:var(--fg-2)" {
+ span class="text-fg-2" class="text-sm" {
  "拣货策略："
  strong { "FIFO 先进先出" }
  " — 系统优先拣选最早入库批次的物料，确保库存周转。对于有效期管理物料建议使用 FEFO。"
@@ -290,27 +290,27 @@ fn stock_out_create_content(
  div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
  (icon::box_icon("w-4 h-4"))
  "出库物料明细"
- span id="stockout-item-count" style="margin-left:auto;font-size:var(--text-xs);font-weight:400;color:var(--muted)" { "共 0 项" }
+ span id="stockout-item-count" class="font-normal text-muted" class="ml-auto text-xs" { "共 0 项" }
  }
  table class="data-table" {
  thead {
  tr {
- th style="width:40px" { "序号" }
+ th class="w-10" { "序号" }
  th { "产品编码" }
  th { "产品名称" }
  th { "规格型号" }
- th style="width:100px" { "出库数量 " span style="color:var(--danger)" { "*" } }
- th style="width:90px" { "单位" }
- th style="width:110px" { "单位成本" }
- th style="width:110px" { "小计" }
- th style="width:40px" { }
+ th class="w-[100px]" { "出库数量 " span class="text-danger" { "*" } }
+ th class="w-[90px]" { "单位" }
+ th class="w-[110px]" { "单位成本" }
+ th class="w-[110px]" { "小计" }
+ th class="w-10" { }
  }
  }
  tbody id="stockout-item-tbody" {
  // JS-managed dynamic rows
  }
  }
- div style="margin-top:var(--space-4)" {
+ div class="mt-4" {
  button type="button" class="flex items-center justify-center gap-2 w-full text-[#2563eb] text-sm font-medium cursor-pointer"
  _="on click add .is-open to #stockout-product-modal" {
  (icon::plus_icon("w-3.5 h-3.5"))
@@ -320,23 +320,23 @@ fn stock_out_create_content(
  }
 
  // ── Reservation Info ──
- div style="margin-top:var(--space-4);padding:var(--space-4);background:linear-gradient(135deg,rgba(250,173,20,0.04),rgba(255,77,79,0.04));border:1px solid var(--border-soft);border-radius:var(--radius-md)" {
- h4 style="font-size:var(--text-sm);font-weight:600;color:var(--fg-2);margin-bottom:var(--space-3);display:flex;align-items:center;gap:var(--space-2)" {
+ div class="mt-4" class="p-4 rounded-md" class="border border-border-soft" style="background:linear-gradient(135deg,rgba(250,173,20,0.04),rgba(255,77,79,0.04))" {
+ h4 class="font-semibold text-fg-2 flex items-center" class="gap-2" class="text-sm mb-3" {
  (icon::lock_icon("w-4 h-4"))
  "库存预留 & 可用性检查"
  }
- div style="display:grid;grid-template-columns:repeat(3,1fr);gap:var(--space-4)" {
- div style="text-align:center;padding:var(--space-3);background:var(--bg);border-radius:var(--radius-md)" {
- div style="font-size:11px;color:var(--muted);margin-bottom:2px" { "预留类型" }
- div id="reservation-type-badge" style="font-size:var(--text-base);font-weight:600;font-family:var(--font-mono);color:var(--danger)" { "SOFT" }
+ div class="grid" class="grid grid-cols-3 gap-4" {
+ div class="text-center" class="p-3 rounded-md" style="background:var(--bg)" {
+ div class="text-[11px] text-muted" style="margin-bottom:2px" { "预留类型" }
+ div id="reservation-type-badge" class="font-semibold font-mono text-danger" class="text-base" { "SOFT" }
  }
- div style="text-align:center;padding:var(--space-3);background:var(--bg);border-radius:var(--radius-md)" {
- div style="font-size:11px;color:var(--muted);margin-bottom:2px" { "已预留量" }
- div style="font-size:var(--text-lg);font-weight:600;font-family:var(--font-mono);color:var(--warn)" { "—" }
+ div class="text-center" class="p-3 rounded-md" style="background:var(--bg)" {
+ div class="text-[11px] text-muted" style="margin-bottom:2px" { "已预留量" }
+ div class="font-semibold font-mono" class="text-lg text-warn" { "—" }
  }
- div style="text-align:center;padding:var(--space-3);background:var(--bg);border-radius:var(--radius-md)" {
- div style="font-size:11px;color:var(--muted);margin-bottom:2px" { "出库后释放" }
- div style="font-size:var(--text-base);font-weight:600;font-family:var(--font-mono);color:var(--success)" { "→ available_qty" }
+ div class="text-center" class="p-3 rounded-md" style="background:var(--bg)" {
+ div class="text-[11px] text-muted" style="margin-bottom:2px" { "出库后释放" }
+ div class="font-semibold font-mono text-success" class="text-base" { "→ available_qty" }
  }
  }
  }
@@ -347,22 +347,22 @@ fn stock_out_create_content(
  (icon::clipboard_list_icon("w-4 h-4"))
  "出库汇总"
  }
- div style="display:grid;grid-template-columns:repeat(4,1fr);gap:var(--space-6)" {
- div style="text-align:center;padding:var(--space-4);background:var(--surface);border-radius:var(--radius-md)" {
- div style="font-size:11px;color:var(--muted);margin-bottom:var(--space-1)" { "物料种类" }
- div id="stockout-summary-kinds" style="font-size:var(--text-xl);font-weight:600;font-family:var(--font-mono)" { "0" }
+ div class="grid" class="grid-cols-4" style="gap:var(--space-6)" {
+ div class="text-center bg-surface" class="p-4 rounded-md" {
+ div class="text-[11px] text-muted" class="mb-1" { "物料种类" }
+ div id="stockout-summary-kinds" class="font-semibold font-mono" class="text-xl" { "0" }
  }
- div style="text-align:center;padding:var(--space-4);background:var(--surface);border-radius:var(--radius-md)" {
- div style="font-size:11px;color:var(--muted);margin-bottom:var(--space-1)" { "出库总量" }
- div id="stockout-summary-qty" style="font-size:var(--text-xl);font-weight:600;font-family:var(--font-mono)" { "0" }
+ div class="text-center bg-surface" class="p-4 rounded-md" {
+ div class="text-[11px] text-muted" class="mb-1" { "出库总量" }
+ div id="stockout-summary-qty" class="font-semibold font-mono" class="text-xl" { "0" }
  }
- div style="text-align:center;padding:var(--space-4);background:var(--danger-bg);border-radius:var(--radius-md);border:1px solid rgba(255,77,79,0.15)" {
- div style="font-size:11px;color:var(--danger);margin-bottom:var(--space-1)" { "出库总金额" }
- div id="stockout-summary-amount" style="font-size:var(--text-xl);font-weight:600;font-family:var(--font-mono);color:var(--danger)" { "¥0.00" }
+ div class="text-center" class="p-4 rounded-md" style="background:var(--danger-bg);border:1px solid rgba(255,77,79,0.15)" {
+ div class="text-[11px] text-danger" class="mb-1" { "出库总金额" }
+ div id="stockout-summary-amount" class="font-semibold font-mono text-danger" class="text-xl" { "¥0.00" }
  }
- div style="text-align:center;padding:var(--space-4);background:var(--surface);border-radius:var(--radius-md)" {
- div style="font-size:11px;color:var(--muted);margin-bottom:var(--space-1)" { "拣货策略" }
- div style="font-size:var(--text-sm);font-weight:600;color:var(--fg)" { "FIFO" }
+ div class="text-center bg-surface" class="p-4 rounded-md" {
+ div class="text-[11px] text-muted" class="mb-1" { "拣货策略" }
+ div class="text-sm font-semibold text-fg" { "FIFO" }
  }
  }
  }
@@ -373,7 +373,7 @@ fn stock_out_create_content(
  (icon::edit_icon("w-4 h-4"))
  "备注"
  }
- textarea class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="remark" placeholder="输入备注信息…" rows="3" style="width:100%;min-height:80px;padding:var(--space-2) var(--space-3);resize:vertical" { }
+ textarea class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="remark" placeholder="输入备注信息…" rows="3" class="w-full resize-y" class="min-h-[80px]" style="padding:var(--space-2) var(--space-3)" { }
  }
 
  // hidden input for items JSON
@@ -381,7 +381,7 @@ fn stock_out_create_content(
  // ── Action Bar ──
  div class="flex items-center justify-end gap-3 pt-4 [border-top:1px_solid_var(--border-soft)]" {
  a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href="/admin/wms/stock-out" { "取消" }
- div style="display:flex;gap:var(--space-3)" {
+ div class="flex gap-3" {
  button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" { "保存草稿" }
  button type="submit" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" style="background:var(--danger);border-color:var(--danger)" {
  (icon::upload_icon("w-4 h-4"))
@@ -492,11 +492,11 @@ fn item_row_fragment(product: &abt_core::master_data::product::model::Product) -
  td class="text-muted text-xs text-center" { }
  td class="font-mono tabular-nums" { (product.product_code) }
  td { (product.pdt_name) }
- td style="color:var(--fg-2);font-size:var(--text-sm)" { (product.meta.specification) }
- td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] num-input" type="number" min="0.01" step="any" name="quantity" placeholder="0" style="width:90px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
- td style="text-align:center;font-size:var(--text-sm);color:var(--fg-2)" { (product.unit) }
- td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] num-input" type="number" step="any" name="unit_cost" placeholder="0.00" style="width:100px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
- td class="line-subtotal" style="text-align:right;font-family:var(--font-mono);font-weight:600;white-space:nowrap" { "—" }
+ td class="text-fg-2" class="text-sm" { (product.meta.specification) }
+ td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] num-input" type="number" min="0.01" step="any" name="quantity" placeholder="0" class="w-[90px] text-right text-[13px] font-mono" class="rounded-sm" class="px-2 py-[5px] border border-border" {} }
+ td class="text-center text-fg-2" class="text-sm" { (product.unit) }
+ td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] num-input" type="number" step="any" name="unit_cost" placeholder="0.00" class="w-[100px] text-right text-[13px] font-mono" class="rounded-sm" class="px-2 py-[5px] border border-border" {} }
+ td class="line-subtotal" class="text-right font-mono font-semibold whitespace-nowrap" { "—" }
  td { button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center" title="删除行"
  _="on click remove closest <tr/> then call wmsStockOutRenumber()" {
  (icon::x_icon("w-3.5 h-3.5"))

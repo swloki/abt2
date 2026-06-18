@@ -106,7 +106,7 @@ pub async fn get_detail(path: ExpenseDetailPath, ctx: RequestContext) -> Result<
  }
  div.info-item {
  span.info-label { "申请人" }
- span.info-value style="font-weight:600" { (applicant_name) }
+ span.info-value class="font-semibold" { (applicant_name) }
  }
  div.info-item {
  span.info-label { "所属部门" }
@@ -118,7 +118,7 @@ pub async fn get_detail(path: ExpenseDetailPath, ctx: RequestContext) -> Result<
  }
  div.info-item {
  span.info-label { "报销金额" }
- span.info-value.mono style="font-size:var(--text-lg);color:var(--accent);font-weight:700" {
+ span.info-value.mono class="text-accent font-bold" class="text-lg" {
  "¥" (format!("{:.2}", expense.total_amount))
  }
  }
@@ -134,7 +134,7 @@ pub async fn get_detail(path: ExpenseDetailPath, ctx: RequestContext) -> Result<
  }
  div.info-item {
  span.info-label { "创建时间" }
- span.info-value.mono style="font-size:13px" { (expense.created_at.format("%Y-%m-%d %H:%M:%S")) }
+ span.info-value.mono class="text-[13px]" { (expense.created_at.format("%Y-%m-%d %H:%M:%S")) }
  }
  div.info-item {
  span.info-label { "版本号" }
@@ -171,7 +171,7 @@ fn items_card(items: &[ExpenseReimbursementItem], total: Decimal) -> Markup {
  div.info-card {
  div.info-card-title { "费用明细" }
  @if items.is_empty() {
- p style="text-align:center;padding:var(--space-6);color:var(--muted)" {
+ p class="text-center text-muted" class="p-6" {
  "暂无费用明细"
  }
  } @else {
@@ -180,7 +180,7 @@ fn items_card(items: &[ExpenseReimbursementItem], total: Decimal) -> Markup {
  thead {
  tr {
  th { "费用类型" }
- th style="text-align:right" { "金额" }
+ th class="text-right" { "金额" }
  th { "说明" }
  th { "发票号" }
  th { "成本中心" }
@@ -216,9 +216,9 @@ fn item_row(item: &ExpenseReimbursementItem) -> Markup {
  td {
  span.tag-chip.tag-key { (type_label) }
  }
- td.num-right style="font-weight:600" { "¥" (format!("{:.2}", item.amount)) }
+ td.num-right class="font-semibold" { "¥" (format!("{:.2}", item.amount)) }
  td { (item.description) }
- td.mono style="font-size:12px" { (receipt) }
+ td.mono class="text-xs" { (receipt) }
  td { (cost) }
  td { (profit) }
  }

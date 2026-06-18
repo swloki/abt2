@@ -281,7 +281,7 @@ fn customer_row(c: &Customer, can_delete: bool) -> Markup {
  }
  td onclick=(format!("location.href='{}'", detail_path)) { span class=(format!("status-pill {}", crate::utils::status_color(status_class))) { (status_label) } }
  td onclick=(format!("location.href='{}'", detail_path)) { (c.created_at.format("%Y-%m-%d")) }
- td onclick="event.stopPropagation()" {
+ td _="on click halt the event" {
  div class="row-actions flex items-center gap-1 justify-end opacity-0 transition-opacity duration-150 [&_a]:w-[28px] [&_a]:h-[28px] [&_a]:grid [&_a]:place-items-center [&_a]:rounded-sm [&_a]:cursor-pointer [&_a]:bg-surface [&_a]:hover:bg-accent-bg [&_svg]:w-3.5 [&_svg]:h-3.5" {
  a class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" title="编辑" href=(edit_path) {
  (icon::edit_icon("w-4 h-4"))

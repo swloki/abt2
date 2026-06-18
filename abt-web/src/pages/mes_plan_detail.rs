@@ -602,7 +602,7 @@ fn tab_planning(
  // ── 上方区块：待规划明细 ──
  @if can_plan {
  div class="planning-section" {
- h3 class="planning-text-lg font-semibold text-fg" style="font-size:var(--text-base);font-weight:600;margin-bottom:var(--space-3)" {
+ h3 class="planning-text-lg font-semibold text-fg" class="font-semibold" class="text-base" class="mb-3" {
  "待规划明细 " span class="text-muted" { "(" (pending_items.len()) ")" }
  }
 
@@ -639,10 +639,10 @@ fn tab_planning(
  }
  td { (pname) }
  td class="text-right text-[13px] font-mono tabular-nums wo-qty" { (crate::utils::fmt_qty(item.planned_qty)) }
- td style="white-space:nowrap" {
- input type="date" class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] wo-start" value=(item.scheduled_start) style="width:130px;display:inline-block";
+ td class="whitespace-nowrap" {
+ input type="date" class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] wo-start" value=(item.scheduled_start) class="inline-block" class="w-[130px]";
  " → "
- input type="date" class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] wo-end" value=(item.scheduled_end) style="width:130px;display:inline-block";
+ input type="date" class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] wo-end" value=(item.scheduled_end) class="inline-block" class="w-[130px]";
  }
  td {
  @match val {
@@ -664,7 +664,7 @@ fn tab_planning(
 
  input type="hidden" name="items_json" id="items_json" {};
 
- div style="margin-top:var(--space-4);display:flex;gap:var(--space-3)" {
+ div class="mt-4 flex" class="gap-3" {
  button type="submit" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
  onclick="document.getElementById('items_json').value=collectPlanItems()" {
  (icon::rocket_icon("w-4 h-4"))
@@ -684,7 +684,7 @@ fn tab_planning(
  // ── 下方区块：Draft 工单列表 ──
  @if !draft_orders.is_empty() {
  div class="planning-section" style=@if can_plan { "margin-top:var(--space-6)" } @else { "" } {
- h3 class="planning-text-lg font-semibold text-fg" style="font-size:var(--text-base);font-weight:600;margin-bottom:var(--space-3)" {
+ h3 class="planning-text-lg font-semibold text-fg" class="font-semibold" class="text-base" class="mb-3" {
  "草稿工单 " span class="text-muted" { "(" (draft_orders.len()) ")" }
  }
 
@@ -708,9 +708,9 @@ fn tab_planning(
  td class="font-mono tabular-nums" { (wo.doc_number) }
  td { (pname) }
  td class="text-right text-[13px] font-mono tabular-nums" { (crate::utils::fmt_qty(wo.planned_qty)) }
- td style="white-space:nowrap" { (wo.scheduled_start.format("%m-%d")) " → " (wo.scheduled_end.format("%m-%d")) }
+ td class="whitespace-nowrap" { (wo.scheduled_start.format("%m-%d")) " → " (wo.scheduled_end.format("%m-%d")) }
  td { (status_pill("草稿", "rgba(250,140,22,0.08)", "#fa8c16")) }
- td style="white-space:nowrap" {
+ td class="whitespace-nowrap" {
  button class="btn inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative [&_svg]:w-4 [&_svg]:h-4"
  hx-post=(OrderReleasePath { order_id: wo.id }.to_string())
  hx-confirm="确认下达此工单？"
@@ -730,7 +730,7 @@ fn tab_planning(
  }
  }
 
- div style="margin-top:var(--space-4)" {
+ div class="mt-4" {
  button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
  hx-post=(PlanReleaseAllPath { plan_id: plan.id }.to_string())
  hx-confirm="确认全部下达？"
@@ -744,8 +744,8 @@ fn tab_planning(
 
  // ── 已下达工单区（Released/InProduction/Closed）──
  @if !released_orders.is_empty() {
- div class="planning-section" style="margin-top:var(--space-6)" {
- h3 class="planning-text-lg font-semibold text-fg" style="font-size:var(--text-base);font-weight:600;margin-bottom:var(--space-3)" {
+ div class="planning-section" class="mt-6" {
+ h3 class="planning-text-lg font-semibold text-fg" class="font-semibold" class="text-base" class="mb-3" {
  "已下达工单 " span class="text-muted" { "(" (released_orders.len()) ")" }
  }
 
@@ -799,7 +799,7 @@ fn tab_planning(
 
  // ── 空状态 ──
  @if pending_items.is_empty() && draft_orders.is_empty() && released_orders.is_empty() {
- div class="text-center text-muted text-sm" style="padding:var(--space-8);text-align:center" {
+ div class="text-center text-muted text-sm" class="text-center" class="p-8" {
  "暂无工单数据"
  }
  }

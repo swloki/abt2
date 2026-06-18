@@ -689,20 +689,20 @@ fn product_edit_page(product: &Product) -> Markup {
  div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "基本信息" }
  div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
  div class="form-field" {
- label { "产品名称 " span style="color:var(--danger)" { "*" } }
+ label { "产品名称 " span class="text-danger" { "*" } }
  input type="text" name="name" required placeholder="请输入产品名称" value=(product.pdt_name) {}
  }
  div class="form-field" {
  label { "产品编码" }
  input type="text" value=(product.product_code) readonly
- style="background:var(--surface);color:var(--muted)" {}
+ class="bg-surface text-muted" {}
  }
  div class="form-field" {
  label { "规格型号" }
  input type="text" name="specification" placeholder="请输入规格型号" value=(product.meta.specification) {}
  }
  div class="form-field" {
- label { "计量单位 " span style="color:var(--danger)" { "*" } }
+ label { "计量单位 " span class="text-danger" { "*" } }
  select name="unit" required {
  option value="个" selected[product.unit == "个"] { "个" }
  option value="件" selected[product.unit == "件"] { "件" }
@@ -770,7 +770,7 @@ fn product_edit_page(product: &Product) -> Markup {
  div class="form-field field-full" {
  label { "备注" }
  textarea name="remark" placeholder="请输入备注信息…"
- style="width:100%;min-height:80px;resize:vertical" {
+ class="w-full resize-y" class="min-h-[80px]" {
  (remark_val)
  }
  }

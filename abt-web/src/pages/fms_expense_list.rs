@@ -26,21 +26,21 @@ use abt_macros::require_permission;
 #[allow(dead_code)]
 fn expense_type_label(t: &ExpenseType) -> (&'static str, &'static str, &'static str) {
  match t {
- ExpenseType::Travel => ("差旅", "rgba(37,99,235,0.08)", "#2563eb"),
- ExpenseType::Office => ("办公", "rgba(124,58,237,0.08)", "#7c3aed"),
- ExpenseType::Transport => ("交通", "rgba(22,163,74,0.08)", "#16a34a"),
- ExpenseType::Meal => ("餐饮", "rgba(217,119,6,0.08)", "#b45309"),
- ExpenseType::Other => ("其他", "rgba(0,0,0,0.04)", "var(--muted)"),
+ ExpenseType::Travel => ("差旅", "bg-[#e6f4ff]", "text-accent"),
+ ExpenseType::Office => ("办公", "bg-[#f3e8ff]", "text-[#7c3aed]"),
+ ExpenseType::Transport => ("交通", "bg-[#dcfce7]", "text-success"),
+ ExpenseType::Meal => ("餐饮", "bg-[#fff8eb]", "text-[#b45309]"),
+ ExpenseType::Other => ("其他", "bg-accent-bg", "text-muted"),
  }
 }
 
 fn expense_status_label(s: &ExpenseStatus) -> (&'static str, &'static str, &'static str) {
  match s {
- ExpenseStatus::Draft => ("草稿", "rgba(0,0,0,0.04)", "var(--muted)"),
- ExpenseStatus::Submitted => ("已提交", "rgba(37,99,235,0.08)", "#2563eb"),
- ExpenseStatus::Approved => ("已审批", "rgba(22,163,74,0.08)", "#16a34a"),
- ExpenseStatus::Paid => ("已付款", "rgba(5,150,105,0.08)", "#059669"),
- ExpenseStatus::Cancelled => ("已取消", "rgba(220,38,38,0.08)", "#dc2626"),
+ ExpenseStatus::Draft => ("草稿", "bg-accent-bg", "text-muted"),
+ ExpenseStatus::Submitted => ("已提交", "bg-[#e6f4ff]", "text-accent"),
+ ExpenseStatus::Approved => ("已审批", "bg-[#dcfce7]", "text-success"),
+ ExpenseStatus::Paid => ("已付款", "bg-[#ecfdf5]", "text-[#059669]"),
+ ExpenseStatus::Cancelled => ("已取消", "bg-[#fee2e2]", "text-danger"),
  }
 }
 
@@ -193,9 +193,9 @@ fn expense_list_page(
  div class="flex items-center justify-between mb-6" {
  h1 class="text-xl font-bold text-fg tracking-tight" { "费用报销" }
  div class="flex gap-3" {
- button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" type="button" { (icon::download_icon("w-4 h-4")) "导出" }
+ button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" type="button" { (icon::download_icon("w-4 h-4")) "导出" }
  @if can_create {
- a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(ExpenseCreatePath::PATH) {
+ a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(ExpenseCreatePath::PATH) {
  (icon::plus_icon("w-4 h-4"))
  "新建报销"
  }
@@ -239,7 +239,7 @@ fn expense_table_fragment(
  hx-swap="outerHTML"
  hx-include="#expense-filter-form"
  hx-push-url="true" {
- select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="status" {
+ select class="w-40 px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer" name="status" {
  option value="" selected[params.status.is_none()] { "全部状态" }
  option value="1" selected[params.status == Some(1)] { "草稿" }
  option value="2" selected[params.status == Some(2)] { "已提交" }
@@ -247,7 +247,7 @@ fn expense_table_fragment(
  option value="4" selected[params.status == Some(4)] { "已付款" }
  option value="5" selected[params.status == Some(5)] { "已取消" }
  }
- select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="applicant_id" {
+ select class="w-40 px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer" name="applicant_id" {
  option value="" selected[params.applicant_id.is_none()] { "全部申请人" }
  @for u in all_users {
  option value=(u.user.user_id) selected[params.applicant_id == Some(u.user.user_id)] {
@@ -255,7 +255,7 @@ fn expense_table_fragment(
  }
  }
  }
- select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="department_id" {
+ select class="w-40 px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer" name="department_id" {
  option value="" selected[params.department_id.is_none()] { "全部部门" }
  @for d in all_depts {
  option value=(d.department_id) selected[params.department_id == Some(d.department_id)] {
@@ -263,12 +263,10 @@ fn expense_table_fragment(
  }
  }
  }
- input class="filter-input" type="date" name="expense_date_from"
- style="width:140px"
+ input class="w-35 px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer" type="date" name="expense_date_from"
  value=(params.expense_date_from.as_deref().unwrap_or(""));
- span style="color:var(--muted);font-size:12px" { "至" }
- input class="filter-input" type="date" name="expense_date_to"
- style="width:140px"
+ span class="text-xs text-muted" { "至" }
+ input class="w-35 px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer" type="date" name="expense_date_to"
  value=(params.expense_date_to.as_deref().unwrap_or(""));
  }
 
@@ -298,7 +296,7 @@ fn expense_data_card(
  th { "金额" }
  th { "状态" }
  th { "提交时间" }
- th style="width:80px" { "操作" }
+ th class="w-20" { "操作" }
  }
  }
  tbody {
@@ -307,30 +305,26 @@ fn expense_data_card(
  @let detail_path = ExpenseDetailPath { id: item.id };
  @let applicant_name = applicant_names.get(&item.applicant_id).map(|s| s.as_str()).unwrap_or("—");
  @let dept_name = item.department_id.and_then(|did| dept_names.get(&did).map(|s| s.as_str())).unwrap_or("—");
- tr style="cursor:pointer" onclick=(format!("location.href='{}'", detail_path.to_string())) {
- td class="font-mono tabular-nums" style="color:var(--accent)" { (item.doc_number) }
- td { (applicant_name) }
- td style="color:var(--muted)" { (dept_name) }
- td style="font-size:12px;color:var(--muted)" { (item.expense_date.format("%Y-%m-%d")) }
- td style="color:var(--muted)" { "—" }
- td class="font-mono tabular-nums text-right text-[13px]" style="font-weight:600" { "¥" (format!("{:.2}", item.total_amount)) }
+ tr class="hover:bg-accent-bg transition-colors" {
+ td { a href=(detail_path.to_string()) class="text-accent font-medium font-mono tabular-nums hover:underline" { (item.doc_number) } }
+ td class="text-sm text-fg-2" { (applicant_name) }
+ td class="text-sm text-muted" { (dept_name) }
+ td class="text-xs text-muted" { (item.expense_date.format("%Y-%m-%d")) }
+ td class="text-sm text-muted" { "—" }
+ td class="text-right font-mono tabular-nums text-sm font-semibold" { "¥" (format!("{:.2}", item.total_amount)) }
  td {
- span style=(format!("display:inline-flex;align-items:center;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{};color:{}", status_bg, status_color)) {
+ span class=(format!("text-xs px-2 py-0.5 rounded-full font-medium {} {}", status_bg, status_color)) {
  (status_text)
  }
  }
- td style="font-size:12px;color:var(--muted)" { (item.created_at.format("%Y-%m-%d %H:%M")) }
+ td class="text-xs text-muted" { (item.created_at.format("%Y-%m-%d %H:%M")) }
  td {
- a href=(detail_path.to_string()) style="color:var(--accent);font-size:12px" onclick="event.stopPropagation()" { "查看" }
+ a href=(detail_path.to_string()) class="text-accent text-xs hover:underline" { "查看" }
  }
  }
  }
  @if result.items.is_empty() {
- tr {
- td colspan="9" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
- "暂无报销记录"
- }
- }
+ tr { td colspan="9" class="text-center text-muted text-sm py-8" { "暂无报销记录" } }
  }
  }
  }

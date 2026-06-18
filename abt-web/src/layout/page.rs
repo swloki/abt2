@@ -101,8 +101,8 @@ fn global_confirm_dialog() -> Markup {
     let icon = r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-7 h-7"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>"#;
     html! {
         div id="global-confirm-dialog" {
-            div class="dialog-overlay hidden fixed inset-0 z-[1100] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-md" _="on click remove .open from .dialog-overlay" {
-                div class="bg-bg rounded-lg w-[480px] max-w-[92vw] shadow-[0_25px_60px_rgba(15,23,42,0.18)]" onclick="event.stopPropagation()" {
+ div class="dialog-overlay fixed inset-0 z-[1100] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-md" style="display:none" _="on click hide me" {
+                div class="bg-bg rounded-lg w-[480px] max-w-[92vw] shadow-[0_25px_60px_rgba(15,23,42,0.18)]" _="on click halt the event" {
                     div class="p-8 pb-6 flex flex-col items-center" {
                         div class="w-14 h-14 rounded-full bg-danger/10 flex items-center justify-center mb-5 [&_svg]:w-7 [&_svg]:h-7 [&_svg]:text-danger" { (PreEscaped(icon)) }
                         p class="text-sm text-muted text-center leading-relaxed" id="global-confirm-message" {}
@@ -111,12 +111,12 @@ fn global_confirm_dialog() -> Markup {
                         button
                             type="button"
                             class="inline-flex items-center gap-2 px-5 py-2 rounded-sm text-sm font-medium cursor-pointer bg-white text-fg border border-border hover:bg-surface transition-all duration-150"
-                            _="on click remove .open from .dialog-overlay"
+ _="on click hide closest .dialog-overlay"
                         { "取消" }
                         button
                             type="button"
                             class="inline-flex items-center gap-2 px-5 py-2 rounded-sm text-sm font-medium cursor-pointer bg-danger text-white border-none hover:opacity-90 transition-opacity min-w-[100px] justify-center"
-                            _="on click call window._confirmIssueRequest() then remove .open from .dialog-overlay"
+ _="on click call window._confirmIssueRequest() then hide closest .dialog-overlay"
                         { "确认" }
                     }
                 }

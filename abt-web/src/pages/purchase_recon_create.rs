@@ -124,11 +124,11 @@ fn precon_create_page(
  input type="hidden" id="items-json" name="items_json" value="[]";
 
  // ── 对账基本信息 ──
- div class="data-card" style="margin-bottom:var(--space-4)" {
+ div class="data-card" class="mb-4" {
  div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "对账基本信息" }
  div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
  div class="form-field" {
- label { "供应商" span style="color:var(--danger)" { "*" } }
+ label { "供应商" span class="text-danger" { "*" } }
  select name="supplier_id" id="precon-supplier" required {
  option value="" disabled selected { "请选择供应商" }
  @for s in suppliers {
@@ -137,7 +137,7 @@ fn precon_create_page(
  }
  }
  div class="form-field" {
- label { "对账期间" span style="color:var(--danger)" { "*" } }
+ label { "对账期间" span class="text-danger" { "*" } }
  input type="month" name="period" value=(current_month) required {}
  }
  div class="form-field" {
@@ -150,22 +150,22 @@ fn precon_create_page(
  }
  div class="form-field field-full" {
  label { "联系人 / 电话" }
- div style="display:flex;gap:var(--space-2)" {
- input type="text" id="precon-contact" placeholder="联系人" readonly style="flex:1" {}
- input type="text" id="precon-phone" placeholder="电话" readonly style="flex:1" {}
+ div class="flex gap-2" {
+ input type="text" id="precon-contact" placeholder="联系人" readonly class="flex-1" {}
+ input type="text" id="precon-phone" placeholder="电话" readonly class="flex-1" {}
  }
  }
  div class="form-field field-full" {
  label { "备注" }
- textarea name="remark" placeholder="输入对账单相关备注信息…" style="width:100%;min-height:60px;padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:var(--text-sm);resize:vertical;font-family:inherit" {}
+ textarea name="remark" placeholder="输入对账单相关备注信息…" class="w-full resize-y" class="rounded-sm" class="border border-border text-sm" style="min-height:60px;padding:8px 12px;font-family:inherit" {}
  }
  }
  }
 
  // ── 对账明细 ──
- div class="data-card" style="padding:0;overflow:hidden;margin-bottom:var(--space-4)" {
- div style="padding:var(--space-5) var(--space-5) var(--space-3);display:flex;justify-content:space-between;align-items:center" {
- span class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" style="margin:0;padding:0;border:none" { "对账明细" }
+ div class="data-card" class="p-0 overflow-hidden mb-4" {
+ div class="flex justify-between items-center" class="px-5 pt-5 pb-3" {
+ span class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" class="m-0 p-0 border-none" { "对账明细" }
  button type="button" class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] [&_svg]:w-4 [&_svg]:h-4"
  id="btn-add-orders"
  _="on click add .is-open to #order-modal" {
@@ -175,8 +175,8 @@ fn precon_create_page(
  }
 
  // Empty state
- div id="precon-items-empty" style="padding:var(--space-10) var(--space-5);text-align:center" {
- div style="color:var(--muted);margin-bottom:var(--space-4)" {
+ div id="precon-items-empty" class="text-center" style="padding:var(--space-10) var(--space-5)" {
+ div class="text-muted mb-4" {
  "暂无对账明细"
  }
  button type="button" class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] [&_svg]:w-4 [&_svg]:h-4"
@@ -188,11 +188,11 @@ fn precon_create_page(
 
  // Line items table (hidden when empty)
  div id="precon-items-table-wrap" style="display:none" {
- div style="overflow-x:auto" {
+ div class="overflow-x-auto" {
  table class="data-table" style="min-width:1100px" {
  thead {
  tr {
- th style="width:36px;text-align:center" { "#" }
+ th class="w-9 text-center" { "#" }
  th { "关联订单" }
  th { "物料编码" }
  th { "物料名称" }
@@ -201,7 +201,7 @@ fn precon_create_page(
  th class="text-right text-[13px]" { "退货冲减金额" }
  th class="text-right text-[13px]" { "单价" }
  th class="text-right text-[13px]" { "应付金额" }
- th style="width:36px" { }
+ th class="w-9" { }
  }
  }
  tbody id="precon-item-tbody" { }
@@ -214,7 +214,7 @@ fn precon_create_page(
  // ── Action Bar ──
  div class="flex items-center justify-end gap-3 pt-4 [border-top:1px_solid_var(--border-soft)]" {
  a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{}?restore=true", PreconListPath::PATH)) { "取消" }
- div style="display:flex;gap:var(--space-3)" {
+ div class="flex gap-3" {
  button type="submit" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" name="action" value="draft" {
  "保存草稿"
  }
@@ -228,33 +228,33 @@ fn precon_create_page(
  // ── Order Picker Modal ──
  div class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto" id="order-modal"
  _="on click[me is event.target] remove .is-open" {
- div class="modal bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl" onclick="event.stopPropagation()" {
+ div class="modal bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl" _="on click halt the event" {
  div class="px-6 py-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center shrink-0" {
  h2 { "选择待对账订单" }
- button style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
+ button class="bg-transparent border-none cursor-pointer text-xl text-muted p-1"
  _="on click remove .is-open from #order-modal" {
  (icon::x_icon("w-5 h-5"))
  }
  }
- div class="overflow-y-auto flex-1 min-h-0 p-6" style="padding:var(--space-4)" {
- div style="margin-bottom:var(--space-3)" {
+ div class="overflow-y-auto flex-1 min-h-0 p-6" class="p-4" {
+ div class="mb-3" {
  input type="text" id="order-search-input"
  placeholder="搜索订单号…"
- style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:var(--text-sm)" {}
+ class="w-full" class="rounded-sm" class="border border-border text-sm" style="padding:8px 12px" {}
  }
- div id="order-list-body" style="max-height:360px;overflow-y:auto" {
- div style="display:flex;align-items:center;justify-content:center;padding:var(--space-8);color:var(--muted)" {
+ div id="order-list-body" class="overflow-y-auto" style="max-height:360px" {
+ div class="flex items-center justify-center text-muted" class="p-8" {
  "请先选择供应商"
  }
  }
  }
- div class="px-6 py-4 [border-top:1px_solid_var(--border-soft)] flex justify-end gap-3 shrink-0" style="display:flex;justify-content:space-between;align-items:center;padding:var(--space-3) var(--space-4);border-top:1px solid var(--border)" {
- span style="font-size:var(--text-sm);color:var(--muted)" {
+ div class="px-6 py-4 [border-top:1px_solid_var(--border-soft)] flex justify-end gap-3 shrink-0" class="flex justify-between items-center" class="px-4 py-3" style="border-top:1px solid var(--border)" {
+ span class="text-muted" class="text-sm" {
  "已选择 "
  span id="order-selected-count" { "0" }
  " 个订单"
  }
- div style="display:flex;gap:var(--space-2)" {
+ div class="flex gap-2" {
  button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
  _="on click remove .is-open from #order-modal" { "取消" }
  button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" id="btn-confirm-orders"

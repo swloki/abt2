@@ -238,7 +238,7 @@ fn pay_create_page(
  (supplier_section(suppliers, None, &[], &[]))
 
  // ── 付款信息 ──
- div class="data-card" style="margin-bottom:var(--space-4)" {
+ div class="data-card" class="mb-4" {
  div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "付款信息" }
  div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
  div class="form-field" {
@@ -251,15 +251,15 @@ fn pay_create_page(
  }
  }
  div class="form-field" {
- label { "付款日期" span style="color:var(--danger)" { "*" } }
+ label { "付款日期" span class="text-danger" { "*" } }
  input type="date" name="payment_date" value=(today) required {}
  }
  div class="form-field" {
- label { "付款金额" span style="color:var(--danger)" { "*" } }
+ label { "付款金额" span class="text-danger" { "*" } }
  input type="number" id="pay-amount" name="amount" step="any" min="0" placeholder="0.00" required {}
  }
  div class="form-field" {
- label { "付款方式" span style="color:var(--danger)" { "*" } }
+ label { "付款方式" span class="text-danger" { "*" } }
  select name="payment_method" required {
  option value="1" selected { "银行转账" }
  option value="2" { "现金" }
@@ -280,43 +280,43 @@ fn pay_create_page(
  }
  div class="form-field span-2" {
  label { "备注" }
- textarea name="remark" placeholder="输入付款申请相关备注信息…" style="width:100%;min-height:80px;padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:var(--text-sm);resize:vertical;font-family:inherit" {}
+ textarea name="remark" placeholder="输入付款申请相关备注信息…" class="w-full resize-y" class="rounded-sm" class="min-h-[80px] border border-border text-sm" style="padding:8px 12px;font-family:inherit" {}
  }
  }
  }
 
  // ── 三单匹配校验 ──
- div class="data-card" style="margin-bottom:var(--space-4)" {
- div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-4)" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" style="margin:0;padding:0;border:none" { "三单匹配校验" }
- span style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:var(--radius-sm);font-size:var(--text-xs);font-weight:600;background:#fef9c3;color:#a16207;border:1px solid #fde68a" {
+ div class="data-card" class="mb-4" {
+ div class="flex items-center justify-between mb-4" {
+ div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" class="m-0 p-0 border-none" { "三单匹配校验" }
+ span class="items-center font-semibold" class="rounded-sm" class="inline-flex text-xs" style="gap:6px;padding:4px 12px;background:#fef9c3;color:#a16207;border:1px solid #fde68a" {
  (icon::clock_icon("w-3.5 h-3.5"))
  "待验证"
  }
  }
- div style="display:grid;grid-template-columns:repeat(3,1fr);gap:var(--space-4)" {
+ div class="grid" class="grid grid-cols-3 gap-4" {
  // 验收单
- div style="display:flex;align-items:center;gap:var(--space-3);padding:var(--space-3) var(--space-4);border:1px solid var(--border-soft);border-radius:var(--radius-sm);background:var(--surface)" {
+ div class="flex items-center bg-surface" class="gap-3 rounded-sm" class="px-4 py-3 border border-border-soft" {
  (icon::check_circle_icon("w-5 h-5"))
  div {
- div style="font-size:var(--text-sm);font-weight:600;color:var(--fg)" { "验收单" }
- div style="font-size:var(--text-xs);color:var(--success)" { "已匹配" }
+ div class="text-sm font-semibold text-fg" { "验收单" }
+ div class="text-success" class="text-xs" { "已匹配" }
  }
  }
  // 发票
- div style="display:flex;align-items:center;gap:var(--space-3);padding:var(--space-3) var(--space-4);border:1px solid var(--border-soft);border-radius:var(--radius-sm);background:var(--surface)" {
+ div class="flex items-center bg-surface" class="gap-3 rounded-sm" class="px-4 py-3 border border-border-soft" {
  (icon::clock_icon("w-5 h-5"))
  div {
- div style="font-size:var(--text-sm);font-weight:600;color:var(--fg)" { "发票" }
- div style="font-size:var(--text-xs);color:#d97706" { "待验证" }
+ div class="text-sm font-semibold text-fg" { "发票" }
+ div class="text-xs" style="color:#d97706" { "待验证" }
  }
  }
  // 对账单
- div style="display:flex;align-items:center;gap:var(--space-3);padding:var(--space-3) var(--space-4);border:1px solid var(--border-soft);border-radius:var(--radius-sm);background:var(--surface)" {
+ div class="flex items-center bg-surface" class="gap-3 rounded-sm" class="px-4 py-3 border border-border-soft" {
  (icon::check_circle_icon("w-5 h-5"))
  div {
- div style="font-size:var(--text-sm);font-weight:600;color:var(--fg)" { "对账单" }
- div style="font-size:var(--text-xs);color:var(--success)" { "已匹配" }
+ div class="text-sm font-semibold text-fg" { "对账单" }
+ div class="text-success" class="text-xs" { "已匹配" }
  }
  }
  }
@@ -325,7 +325,7 @@ fn pay_create_page(
  // ── Action Bar ──
  div class="flex items-center justify-end gap-3 pt-4 [border-top:1px_solid_var(--border-soft)]" {
  a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{}?restore=true", PayListPath::PATH)) { "取消" }
- div style="display:flex;gap:var(--space-3)" {
+ div class="flex gap-3" {
  button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" { "保存草稿" }
  button type="submit" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" { "提交付款申请" }
  }
@@ -350,11 +350,11 @@ fn supplier_section(
  let default_account = bank_accounts.first();
 
  html! {
- div class="data-card" style="margin-bottom:var(--space-4)" {
+ div class="data-card" class="mb-4" {
  div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "供应商信息" }
  div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
  div class="form-field" {
- label { "供应商" span style="color:var(--danger)" { "*" } }
+ label { "供应商" span class="text-danger" { "*" } }
  select name="supplier_id" required
  hx-get=(PaySupplierInfoPath::PATH)
  hx-trigger="change"
@@ -378,24 +378,24 @@ fn supplier_section(
  }
  }
  // 收款账户 info
- div style="margin-top:var(--space-4)" {
+ div class="mt-4" {
  div class="form-field" {
  label { "收款账户" }
  @if let Some(acct) = default_account {
  input type="text" value=(format!("{} — {} {}", acct.bank_name, acct.account_name, acct.account_number)) readonly {}
  input type="hidden" name="bank_account_id" value=(acct.id) {}
- div style="margin-top:var(--space-2);padding:var(--space-3);background:var(--surface);border:1px solid var(--border-soft);border-radius:var(--radius-sm);font-size:var(--text-xs);color:var(--muted);display:grid;grid-template-columns:1fr 1fr 1fr;gap:var(--space-4)" {
+ div class="bg-surface text-muted grid" class="p-3 rounded-sm gap-4" class="mt-2 border border-border-soft text-xs" style="grid-template-columns:1fr 1fr 1fr" {
  div {
- span style="display:block;font-weight:500;color:var(--fg)" { "户名" }
+ span class="block font-medium text-fg" { "户名" }
  span { (acct.account_name) }
  }
  div {
- span style="display:block;font-weight:500;color:var(--fg)" { "开户行" }
+ span class="block font-medium text-fg" { "开户行" }
  span { (acct.bank_name) }
  }
  div {
- span style="display:block;font-weight:500;color:var(--fg)" { "账号" }
- span style="font-family:var(--font-mono)" { (acct.account_number) }
+ span class="block font-medium text-fg" { "账号" }
+ span class="font-mono" { (acct.account_number) }
  }
  }
  } @else if selected_supplier_id.is_some() {

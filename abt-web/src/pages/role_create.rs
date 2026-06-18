@@ -304,10 +304,10 @@ fn role_create_page(roles: &[Role], groups: &[GroupData], total: usize) -> Marku
  }
 
  // ── Action Bar ──
- div class="flex items-center justify-end gap-3 pt-4 [border-top:1px_solid_var(--border-soft)]" {
- a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{}?restore=true", RoleListPath::PATH)) { "取消" }
- div style="display:flex;gap:var(--space-3)" {
- button type="submit" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" {
+ div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
+ a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{}?restore=true", RoleListPath::PATH)) { "取消" }
+ div class="flex gap-3" {
+ button type="submit" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" {
  (icon::check_circle_icon("w-4 h-4"))
  "保存"
  }
@@ -337,7 +337,7 @@ fn perm_group(gi: usize, group: &GroupData) -> Markup {
  div.perm-group-actions {
  @for (ai, action) in ACTIONS.iter().enumerate() {
  span.perm-group-toggle {
- label onclick="event.stopPropagation()" {
+ label {
  input type="checkbox"
  data-group-action=(action)
  data-group-idx=(gi)

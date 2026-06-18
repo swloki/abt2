@@ -123,19 +123,14 @@ pub async fn create(
 
 fn spec_create_page(products: &[abt_core::master_data::product::model::Product]) -> Markup {
  html! {
- // ── Inline styles for radio group ──
- style { (PreEscaped(r#"
- .radio-group{display:flex;gap:var(--space-2);flex-wrap:wrap}
- .radio-option{display:flex;align-items:center;gap:6px;padding:8px 16px;border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;font-size:var(--text-sm);color:var(--fg-2);transition:all var(--motion-fast);background:var(--bg)}
- .radio-option:hover{border-color:var(--accent);color:var(--accent)}
- .radio-option.active{border-color:var(--accent);background:rgba(37,99,235,0.06);color:var(--accent);font-weight:600}
- .add-row-btn{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:10px;border:2px dashed var(--border);border-radius:var(--radius-sm);background:transparent;color:var(--fg-muted);font-size:var(--text-sm);cursor:pointer;transition:all var(--motion-fast)}
- .add-row-btn:hover{border-color:var(--accent);color:var(--accent)}
- "#)) }
-
  div {
+ // ── Back Link ──
+ a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150 mb-4" href=(format!("{}?restore=true", SpecListPath::PATH)) {
+ (icon::chevron_left_icon("w-4 h-4"))
+ "返回检验规格列表"
+ }
  // ── Page Header ──
- div class="flex items-center justify-between mb-6" style="margin-bottom:var(--space-6)" {
+ div class="flex items-center justify-between mb-5" {
  h1 class="text-xl font-bold text-fg tracking-tight" { "新建检验规格" }
  }
 
@@ -143,18 +138,18 @@ fn spec_create_page(products: &[abt_core::master_data::product::model::Product])
 
  // ── Section 1: 基本信息 ──
  div class="form-section" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
+ div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-3 border-b border-border-soft" {
  (icon::file_text_icon("w-[18px] h-[18px]"))
  "基本信息"
  }
- div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
+ div class="grid grid-cols-2 gap-4 gap-x-6" {
  // 产品
  div class="form-field" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
  "产品"
  span class="required" { "*" }
  }
- select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="product_id" required {
+ select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" name="product_id" required {
  option value="" disabled selected { "请选择产品" }
  @for p in products {
  option value=(p.product_id) { (p.product_code) " — " (p.pdt_name) }
@@ -163,27 +158,31 @@ fn spec_create_page(products: &[abt_core::master_data::product::model::Product])
  }
 
  // 检验类型 — radio group spanning 2 cols
- div class="form-field" style="grid-column:span 2" {
+ div class="form-field field-full" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
  "检验类型"
  span class="required" { "*" }
  }
  input type="hidden" name="inspection_type" id="inspection-type-input" value="1";
- div class="radio-group" {
- label class="radio-option active" data-value="1" onclick="specSelectInspectionType(this)" {
- input type="radio" name="inspection_type_radio" value="1" checked style="display:none";
+ div class="flex items-center gap-2 flex-wrap" {
+ label class="radio-option inline-flex items-center gap-1.5 px-4 py-2 border border-border rounded-sm text-sm text-fg-2 cursor-pointer transition-all duration-150 hover:border-accent hover:text-accent act:border-accent act:bg-accent-bg act:text-accent act:font-semibold active"
+ _="on click take .active from .radio-option then put '1' into #inspection-type-input's value" {
+ input type="radio" name="inspection_type_radio" value="1" checked class="hidden";
  "IQC 来料检验"
  }
- label class="radio-option" data-value="2" onclick="specSelectInspectionType(this)" {
- input type="radio" name="inspection_type_radio" value="2" style="display:none";
+ label class="radio-option inline-flex items-center gap-1.5 px-4 py-2 border border-border rounded-sm text-sm text-fg-2 cursor-pointer transition-all duration-150 hover:border-accent hover:text-accent act:border-accent act:bg-accent-bg act:text-accent act:font-semibold"
+ _="on click take .active from .radio-option then put '2' into #inspection-type-input's value" {
+ input type="radio" name="inspection_type_radio" value="2" class="hidden";
  "IPQC 过程检验"
  }
- label class="radio-option" data-value="3" onclick="specSelectInspectionType(this)" {
- input type="radio" name="inspection_type_radio" value="3" style="display:none";
+ label class="radio-option inline-flex items-center gap-1.5 px-4 py-2 border border-border rounded-sm text-sm text-fg-2 cursor-pointer transition-all duration-150 hover:border-accent hover:text-accent act:border-accent act:bg-accent-bg act:text-accent act:font-semibold"
+ _="on click take .active from .radio-option then put '3' into #inspection-type-input's value" {
+ input type="radio" name="inspection_type_radio" value="3" class="hidden";
  "FQC 终检"
  }
- label class="radio-option" data-value="4" onclick="specSelectInspectionType(this)" {
- input type="radio" name="inspection_type_radio" value="4" style="display:none";
+ label class="radio-option inline-flex items-center gap-1.5 px-4 py-2 border border-border rounded-sm text-sm text-fg-2 cursor-pointer transition-all duration-150 hover:border-accent hover:text-accent act:border-accent act:bg-accent-bg act:text-accent act:font-semibold"
+ _="on click take .active from .radio-option then put '4' into #inspection-type-input's value" {
+ input type="radio" name="inspection_type_radio" value="4" class="hidden";
  "OQC 出货检"
  }
  }
@@ -193,7 +192,7 @@ fn spec_create_page(products: &[abt_core::master_data::product::model::Product])
 
  // ── Section 2: 检验项目 ──
  div class="form-section" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
+ div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-3 border-b border-border-soft" {
  (icon::clipboard_list_icon("w-[18px] h-[18px]"))
  "检验项目"
  }
@@ -201,46 +200,46 @@ fn spec_create_page(products: &[abt_core::master_data::product::model::Product])
  table class="data-table" id="check-items-table" {
  thead {
  tr {
- th style="width:40px" { "#" }
+ th class="w-10 text-center" { "#" }
  th { "检验项目 " span class="required" { "*" } }
  th { "检验标准 " span class="required" { "*" } }
  th { "公差范围" }
  th { "检验方法 " span class="required" { "*" } }
- th style="width:40px" {}
+ th class="w-10" {}
  }
  }
  tbody id="check-items-body" {
  // Row 1: 外观检查
  tr class="check-item-row" {
  td class="row-num" { "1" }
- td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="ci_item" value="外观检查"; }
- td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="ci_standard" value="目视无划痕"; }
- td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="ci_tolerance" value="无明显缺陷"; }
- td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="ci_method" value="目视检查"; }
- td { button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center" title="删除行" { (icon::trash_icon("w-4 h-4")) } }
+ td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="ci_item" value="外观检查"; }
+ td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="ci_standard" value="目视无划痕"; }
+ td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="ci_tolerance" value="无明显缺陷"; }
+ td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="ci_method" value="目视检查"; }
+ td { button type="button" class="w-7 h-7 border-none text-muted rounded-sm cursor-pointer grid place-items-center hover:text-danger transition-colors duration-150" title="删除行" { (icon::trash_icon("w-4 h-4")) } }
  }
  // Row 2: 尺寸测量
  tr class="check-item-row" {
  td class="row-num" { "2" }
- td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="ci_item" value="尺寸测量"; }
- td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="ci_standard" value="图纸公差要求"; }
- td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="ci_tolerance" value="±0.05mm"; }
- td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="ci_method" value="游标卡尺"; }
- td { button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center" title="删除行" { (icon::trash_icon("w-4 h-4")) } }
+ td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="ci_item" value="尺寸测量"; }
+ td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="ci_standard" value="图纸公差要求"; }
+ td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="ci_tolerance" value="±0.05mm"; }
+ td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="ci_method" value="游标卡尺"; }
+ td { button type="button" class="w-7 h-7 border-none text-muted rounded-sm cursor-pointer grid place-items-center hover:text-danger transition-colors duration-150" title="删除行" { (icon::trash_icon("w-4 h-4")) } }
  }
  // Row 3: 电气性能
  tr class="check-item-row" {
  td class="row-num" { "3" }
- td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="ci_item" value="电气性能"; }
- td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="ci_standard" value="额定电压电流"; }
- td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="ci_tolerance" value="±5%"; }
- td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="ci_method" value="万用表"; }
- td { button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center" title="删除行" { (icon::trash_icon("w-4 h-4")) } }
+ td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="ci_item" value="电气性能"; }
+ td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="ci_standard" value="额定电压电流"; }
+ td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="ci_tolerance" value="±5%"; }
+ td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="ci_method" value="万用表"; }
+ td { button type="button" class="w-7 h-7 border-none text-muted rounded-sm cursor-pointer grid place-items-center hover:text-danger transition-colors duration-150" title="删除行" { (icon::trash_icon("w-4 h-4")) } }
  }
  }
  }
  }
- button type="button" class="flex items-center justify-center gap-2 w-full text-[#2563eb] text-sm font-medium cursor-pointer" id="add-check-item-btn" {
+ button type="button" class="flex items-center justify-center gap-2 w-full py-2.5 border-2 border-dashed border-border-soft text-sm font-medium text-muted cursor-pointer transition-all duration-150 hover:border-accent hover:text-accent" id="add-check-item-btn" {
  (icon::plus_icon("w-4 h-4"))
  "添加检验项目"
  }
@@ -248,14 +247,14 @@ fn spec_create_page(products: &[abt_core::master_data::product::model::Product])
 
  // ── Section 3: 抽样方案 ──
  div class="form-section" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
+ div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-3 border-b border-border-soft" {
  (icon::sliders_icon("w-[18px] h-[18px]"))
  "抽样方案"
  }
- div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
+ div class="grid grid-cols-2 gap-4 gap-x-6" {
  div class="form-field" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "检验水平" }
- select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="sample_level" {
+ select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" name="sample_level" {
  option value="I" { "Level I" }
  option value="II" selected { "Level II" }
  option value="III" { "Level III" }
@@ -263,7 +262,7 @@ fn spec_create_page(products: &[abt_core::master_data::product::model::Product])
  }
  div class="form-field" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "AQL值" }
- select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="sample_aql" {
+ select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" name="sample_aql" {
  option value="0.25" { "0.25" }
  option value="0.65" { "0.65" }
  option value="1.0" selected { "1.0" }
@@ -274,7 +273,7 @@ fn spec_create_page(products: &[abt_core::master_data::product::model::Product])
  }
  div class="form-field" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "抽样模式" }
- select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="sample_mode" {
+ select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" name="sample_mode" {
  option value="normal" selected { "正常" }
  option value="tightened" { "加严" }
  option value="reduced" { "放宽" }
@@ -287,12 +286,15 @@ fn spec_create_page(products: &[abt_core::master_data::product::model::Product])
  input type="hidden" name="check_items_json" id="check-items-json";
 
  // ── Action Bar ──
- div class="flex items-center justify-end gap-3 pt-4 [border-top:1px_solid_var(--border-soft)]" {
- a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{}?restore=true", SpecListPath::PATH)) { "取消" }
- button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" id="save-draft-btn" { "保存草稿" }
- button type="submit" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" {
+ div class="sticky bottom-0 flex items-center justify-between gap-3 px-6 py-4 bg-bg border-t border-border-soft" {
+ div { }
+ div class="flex gap-3" {
+ a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{}?restore=true", SpecListPath::PATH)) { "取消" }
+ button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" id="save-draft-btn" { "保存草稿" }
+ button type="submit" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" {
  (icon::check_circle_icon("w-4 h-4"))
  "提交审核"
+ }
  }
  }
  }
@@ -328,11 +330,11 @@ fn spec_create_page(products: &[abt_core::master_data::product::model::Product])
  var num = tbody.querySelectorAll('.check-item-row').length + 1;
  tr.innerHTML =
  '<td class="row-num">' + num + '</td>' +
- '<td><input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="ci_item" placeholder="检验项目"></td>' +
- '<td><input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="ci_standard" placeholder="检验标准"></td>' +
- '<td><input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="ci_tolerance" placeholder="公差范围"></td>' +
- '<td><input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="ci_method" placeholder="检验方法"></td>' +
- '<td><button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center" title="删除行"><svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></button></td>';
+ '<td><input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="ci_item" placeholder="检验项目"></td>' +
+ '<td><input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="ci_standard" placeholder="检验标准"></td>' +
+ '<td><input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="ci_tolerance" placeholder="公差范围"></td>' +
+ '<td><input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="ci_method" placeholder="检验方法"></td>' +
+ '<td><button type="button" class="w-7 h-7 border-none text-muted rounded-sm cursor-pointer grid place-items-center hover:text-danger transition-colors duration-150" title="删除行"><svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></button></td>';
  return tr;
  }
 
@@ -370,15 +372,6 @@ fn spec_create_page(products: &[abt_core::master_data::product::model::Product])
  hiddenJson.value = JSON.stringify(items);
  });
 })();
-
-// Radio group for inspection type
-function specSelectInspectionType(el) {
- var group = el.closest('.radio-group');
- var options = group.querySelectorAll('.radio-option');
- options.forEach(function(opt) { opt.classList.remove('active'); });
- el.classList.add('active');
- document.getElementById('inspection-type-input').value = el.getAttribute('data-value');
-}
 "#)) }
  }
 }

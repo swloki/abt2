@@ -316,47 +316,47 @@ fn om_dashboard_page(total: u64, ctx: &OmDashboardContext) -> Markup {
  div class="flex items-center justify-between mb-6" {
  h1 class="text-xl font-bold text-fg tracking-tight" { "委外管理总览" }
  div class="flex gap-3" {
- a href=(OmOutsourcingCreatePath::PATH) class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" {
+ a href=(OmOutsourcingCreatePath::PATH) class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" {
  (icon::plus_icon("w-4 h-4"))
- " 新建委外单"
+ "新建委外单"
  }
  }
  }
 
  // ── Stat Cards ──
- div style="display:grid;grid-template-columns:repeat(5,1fr);gap:var(--space-5);margin-bottom:var(--space-6)" {
- div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
- div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 blue" { (icon::file_text_icon("w-5 h-5")) }
+ div class="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6" {
+ div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-md" {
+ div class="w-11 h-11 rounded-md grid place-items-center shrink-0 bg-[#e6f4ff] text-accent" { (icon::file_text_icon("w-5 h-5")) }
  div {
- div class="text-2xl font-bold font-mono tabular-nums tabular-nums text-fg" { (total) }
+ div class="text-2xl font-bold font-mono tabular-nums text-fg" { (total) }
  div class="text-sm text-muted mt-1" { "委外单总数" }
  }
  }
- div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
- div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 green" { (icon::tool_icon("w-5 h-5")) }
+ div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-md" {
+ div class="w-11 h-11 rounded-md grid place-items-center shrink-0 bg-[#f0fff0] text-success" { (icon::tool_icon("w-5 h-5")) }
  div {
- div class="text-2xl font-bold font-mono tabular-nums tabular-nums text-fg" { (ctx.in_production) }
+ div class="text-2xl font-bold font-mono tabular-nums text-fg" { (ctx.in_production) }
  div class="text-sm text-muted mt-1" { "生产中" }
  }
  }
- div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
- div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 orange" { (icon::package_icon("w-5 h-5")) }
+ div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-md" {
+ div class="w-11 h-11 rounded-md grid place-items-center shrink-0 bg-[#fff8eb] text-warn" { (icon::package_icon("w-5 h-5")) }
  div {
- div class="text-2xl font-bold font-mono tabular-nums tabular-nums text-fg" { (ctx.delivered) }
+ div class="text-2xl font-bold font-mono tabular-nums text-fg" { (ctx.delivered) }
  div class="text-sm text-muted mt-1" { "待收货" }
  }
  }
- div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
- div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 red" { (icon::alert_triangle_icon("w-5 h-5")) }
+ div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-md" {
+ div class="w-11 h-11 rounded-md grid place-items-center shrink-0 bg-[#fff2f0] text-danger" { (icon::alert_triangle_icon("w-5 h-5")) }
  div {
- div class="text-2xl font-bold font-mono tabular-nums tabular-nums text-fg" { (ctx.overdue) }
+ div class="text-2xl font-bold font-mono tabular-nums text-fg" { (ctx.overdue) }
  div class="text-sm text-muted mt-1" { "超期预警" }
  }
  }
- div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
- div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 purple" { (icon::currency_icon("w-5 h-5")) }
+ div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-md" {
+ div class="w-11 h-11 rounded-md grid place-items-center shrink-0 bg-[rgba(124,58,237,0.1)] text-[#7c3aed]" { (icon::currency_icon("w-5 h-5")) }
  div {
- div class="text-2xl font-bold font-mono tabular-nums tabular-nums text-fg" { (format_amount(ctx.monthly_amount)) }
+ div class="text-2xl font-bold font-mono tabular-nums text-fg" { (format_amount(ctx.monthly_amount)) }
  div class="text-sm text-muted mt-1" { "本月委外金额" }
  }
  }
@@ -364,8 +364,8 @@ fn om_dashboard_page(total: u64, ctx: &OmDashboardContext) -> Markup {
 
  // ── Quick Entry Grid ──
  div class="mb-8" {
- h2 class="text-lg font-semibold text-fg flex items-center gap-2" { "快捷入口" }
- div style="display:grid;grid-template-columns:repeat(4,1fr);gap:var(--space-4)" {
+ h2 class="text-lg font-semibold text-fg flex items-center gap-2 mb-4" { "快捷入口" }
+ div class="grid grid-cols-2 lg:grid-cols-4 gap-4" {
  (quick_entry_card(OmOutsourcingCreatePath::PATH, "新建委外单", "创建委外生产订单", "blue", "plus", None))
  (quick_entry_card(OmOutsourcingListPath::PATH, "委外单管理", "查看和管理所有委外单", "green", "list", Some(total)))
  (quick_entry_card(OmTrackingListPath::PATH, "追踪管理", "物流节点与进度跟踪", "orange", "track", if ctx.overdue > 0 { Some(ctx.overdue) } else { None }))
@@ -375,14 +375,13 @@ fn om_dashboard_page(total: u64, ctx: &OmDashboardContext) -> Markup {
 
  // ── Recent Outsourcing Orders ──
  div class="mb-8" {
- h2 class="text-lg font-semibold text-fg flex items-center gap-2" {
+ h2 class="text-lg font-semibold text-fg flex items-center gap-2 mb-4" {
  (icon::clock_icon("w-4 h-4"))
- " 最近委外单"
+ "最近委外单"
  }
- div class="data-card" style="overflow:hidden" {
- table class="data-table" style="width:100%;min-width:auto" {
- thead {
- tr {
+ div class="data-card overflow-hidden" {
+ table class="data-table w-full" {
+ thead { tr {
  th { "委外单号" }
  th { "供应商" }
  th { "产品" }
@@ -391,13 +390,10 @@ fn om_dashboard_page(total: u64, ctx: &OmDashboardContext) -> Markup {
  th { "金额" }
  th { "最新追踪" }
  th { "状态" }
- }
- }
+ }}
  tbody {
  @if ctx.recent.is_empty() {
- tr {
- td colspan="8" style="text-align:center;color:var(--muted);padding:var(--space-8)" { "暂无委外单" }
- }
+ tr { td colspan="8" class="text-center text-muted text-sm py-8" { "暂无委外单" } }
  } @else {
  @for order in ctx.recent {
  @let supplier_name = ctx.supplier_names.get(&order.supplier_id).map(|s| s.as_str()).unwrap_or("—");
@@ -408,31 +404,22 @@ fn om_dashboard_page(total: u64, ctx: &OmDashboardContext) -> Markup {
  @let (t_label, t_bg, t_color) = type_label(&order.outsourcing_type);
  tr {
  td {
- a href=(format!("/admin/om/outsourcing/{}", order.id)) style="color:var(--accent)" {
- (order.doc_number.as_str())
+ a href=(format!("/admin/om/outsourcing/{}", order.id)) class="text-accent font-medium font-mono tabular-nums hover:underline" { (order.doc_number.as_str()) }
  }
- }
- td { (supplier_name) }
- td { (product_name) }
+ td class="text-sm text-fg-2" { (supplier_name) }
+ td class="text-sm text-fg-2" { (product_name) }
  td {
- span style=(format!("display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{};color:{}", t_bg, t_color)) {
- (t_label)
+ span class=(format!("text-xs px-2 py-0.5 rounded-full font-medium {} {}", t_bg, t_color)) { (t_label) }
  }
- }
- td style="text-align:center" {
- span style="font-weight:500" { (fmt_qty(order.planned_qty)) }
+ td class="text-center text-sm font-mono tabular-nums" {
+ span class="font-medium text-fg" { (fmt_qty(order.planned_qty)) }
  " / "
- span style="color:var(--success)" { (fmt_qty(order.completed_qty)) }
+ span class="text-success" { (fmt_qty(order.completed_qty)) }
  }
- td style="text-align:right" { (format_amount(amount)) }
+ td class="text-right text-sm font-mono tabular-nums text-fg" { (format_amount(amount)) }
+ td class="text-xs text-muted" { (tracking) }
  td {
- span style="font-size:var(--text-xs)" { (tracking) }
- }
- td {
- span style=(format!("display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{};color:{}", s_bg, s_color)) {
- (s_label)
- }
- }
+ span class=(format!("text-xs px-2 py-0.5 rounded-full font-medium {} {}", s_bg, s_color)) { (s_label) }
  }
  }
  }
@@ -441,74 +428,75 @@ fn om_dashboard_page(total: u64, ctx: &OmDashboardContext) -> Markup {
  }
  }
 
- // ── Analytics Row: Type Distribution + Supplier Ranking ──
- div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-5);margin-top:var(--space-5)" {
+ // ── Analytics Row ──
+ div class="grid grid-cols-1 lg:grid-cols-2 gap-5" {
  // ── 委外类型分布 ──
- div class="mb-8" style="margin-bottom:0" {
- h2 class="text-lg font-semibold text-fg flex items-center gap-2" {
+ div {
+ h2 class="text-lg font-semibold text-fg flex items-center gap-2 mb-4" {
  (icon::grid_icon("w-4 h-4"))
- " 委外类型分布"
+ "委外类型分布"
  }
- div class="data-card" style="padding:var(--space-5)" {
+ div class="data-card p-5" {
  @for entry in ctx.type_dist {
- div style="margin-bottom:var(--space-4)" {
- div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--space-2)" {
- span style="font-size:13px;font-weight:500" { (entry.label) }
- span style="font-size:13px;color:var(--muted)" {
+ div class="mb-4" {
+ div class="flex justify-between items-center mb-2" {
+ span class="text-[13px] font-medium text-fg-2" { (entry.label) }
+ span class="text-[13px] text-muted" {
  (entry.count) " 单"
  " ("
  (format!("{:.1}%", entry.pct))
  ")"
  }
  }
- div style="height:8px;background:var(--bg-secondary);border-radius:4px;overflow:hidden" {
- div style=(format!("height:100%;width:{}%;background:{};border-radius:4px;transition:width .3s", entry.pct, entry.fg)) {}
+ div class="h-2 bg-surface rounded overflow-hidden" {
+ div class="h-full rounded transition-all duration-300" style=(format!("width:{}%;background:{}", entry.pct, entry.fg)) {}
  }
  }
  }
  @if ctx.type_dist.iter().all(|e| e.count == 0) {
- div style="text-align:center;color:var(--muted);padding:var(--space-6);font-size:13px" { "暂无数据" }
+ div class="text-center text-muted text-sm py-6" { "暂无数据" }
  }
  }
  }
 
  // ── 供应商委外金额排名 ──
- div class="mb-8" style="margin-bottom:0" {
- h2 class="text-lg font-semibold text-fg flex items-center gap-2" {
+ div {
+ h2 class="text-lg font-semibold text-fg flex items-center gap-2 mb-4" {
  (icon::trending_up_icon("w-4 h-4"))
- " 供应商委外金额排名"
+ "供应商委外金额排名"
  }
- div class="data-card" style="padding:var(--space-5)" {
+ div class="data-card p-5" {
  @for (i, entry) in ctx.supplier_ranking.iter().enumerate() {
  @let medal = match i {
- 0 => "🥇",
- 1 => "🥈",
- 2 => "🥉",
+ 0 => "\u{1f947}",
+ 1 => "\u{1f948}",
+ 2 => "\u{1f949}",
  _ => "",
  };
- div style="margin-bottom:var(--space-4)" {
- div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--space-2)" {
- span style="font-size:13px;font-weight:500" {
- span style="margin-right:6px" { (medal) }
+ div class="mb-4" {
+ div class="flex justify-between items-center mb-2" {
+ span class="text-[13px] font-medium text-fg-2" {
+ span class="mr-1.5" { (medal) }
  (entry.name)
  }
- span style="font-size:13px;color:var(--muted)" {
+ span class="text-[13px] text-muted" {
  (format_amount(entry.amount))
  }
  }
- div style="height:8px;background:var(--bg-secondary);border-radius:4px;overflow:hidden" {
- div style=(format!("height:100%;width:{}%;background:linear-gradient(90deg,var(--accent),#7c3aed);border-radius:4px;transition:width .3s", entry.pct)) {}
+ div class="h-2 bg-surface rounded overflow-hidden" {
+ div class="h-full rounded transition-all duration-300 bg-[linear-gradient(90deg,var(--accent),#7c3aed)]" style=(format!("width:{}%", entry.pct)) {}
  }
  }
  }
  @if ctx.supplier_ranking.is_empty() {
- div style="text-align:center;color:var(--muted);padding:var(--space-6);font-size:13px" { "暂无数据" }
+ div class="text-center text-muted text-sm py-6" { "暂无数据" }
  }
  }
  }
  }
  }
  }
+}
 }
 
 // ── Helpers ──
@@ -552,23 +540,21 @@ fn quick_entry_card(
  _ => ("rgba(0,0,0,0.04)", "var(--muted)"),
  };
  let icon_svg = match icon_key {
- "plus" => icon::plus_icon("w-full h-full"),
- "list" => icon::clipboard_list_icon("w-full h-full"),
- "track" => icon::truck_icon("w-full h-full"),
- "receive" => icon::download_icon("w-full h-full"),
- _ => icon::grid_icon("w-full h-full"),
+ "plus" => icon::plus_icon("w-5 h-5"),
+ "list" => icon::clipboard_list_icon("w-5 h-5"),
+ "track" => icon::truck_icon("w-5 h-5"),
+ "receive" => icon::download_icon("w-5 h-5"),
+ _ => icon::grid_icon("w-5 h-5"),
  };
  html! {
- a href=(href) class="block p-5 rounded-lg bg-bg border border-border-soft no-underline relative overflow-hidden" style="text-decoration:none;position:relative" {
- div class="block p-5 rounded-lg bg-bg border border-border-soft no-underline relative overflow-hidden-icon" style=(format!("background:{}", bg)) {
- div style=(format!("width:22px;height:22px;color:{}", fg)) {
+ a href=(href) class="block p-5 rounded-md bg-bg border border-border-soft no-underline relative overflow-hidden hover:border-accent transition-colors duration-150" {
+ div class="w-8 h-8 mb-3" style=(format!("color:{}", fg)) {
  (icon_svg)
  }
- }
- span class="block p-5 rounded-lg bg-bg border border-border-soft no-underline relative overflow-hidden-title" { (title) }
- span class="block p-5 rounded-lg bg-bg border border-border-soft no-underline relative overflow-hidden-desc" { (desc) }
+ span class="block text-sm font-semibold text-fg" { (title) }
+ span class="block text-xs text-muted mt-1" { (desc) }
  @if let Some(count) = badge {
- span style="position:absolute;top:8px;right:8px;display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;border-radius:10px;font-size:11px;font-weight:600;background:var(--danger);color:#fff;line-height:1" {
+ span class="absolute top-2 right-2 inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[11px] font-semibold bg-danger text-white leading-none" {
  (count)
  }
  }

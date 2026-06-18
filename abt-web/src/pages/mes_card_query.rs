@@ -56,7 +56,7 @@ pub async fn search_card(
  Some(ref q) if !q.trim().is_empty() => q.trim().to_string(),
  _ => {
  return Ok(Html(html! {
- div style="text-align:center;padding:var(--space-6);color:var(--muted)" {
+ div class="text-center text-muted" class="p-6" {
  "请输入流转卡序列号进行查询"
  }
  }.into_string()));
@@ -71,7 +71,7 @@ pub async fn search_card(
  Some(b) => b,
  None => {
  return Ok(Html(html! {
- div style="text-align:center;padding:var(--space-6);color:var(--danger)" {
+ div class="text-center text-danger" class="p-6" {
  "未找到流转卡 \"" (query) "\" 对应的批次"
  }
  }.into_string()));
@@ -334,12 +334,12 @@ fn card_search_result(
 
  // 报工明细
  @if !reports.is_empty() {
- div class="bg-bg border border-border-soft rounded-lg mb-5 shadow-[var(--shadow-card)] overflow-hidden" style="margin-bottom:0" {
+ div class="bg-bg border border-border-soft rounded-lg mb-5 shadow-[var(--shadow-card)] overflow-hidden" class="mb-0" {
  div class="p-4 [border-bottom:1px_solid_var(--border-soft)] text-sm font-semibold text-fg flex items-center gap-2 bg-surface-raised" {
  (PreEscaped(r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>"#))
  "报工明细"
  }
- div style="padding:0" {
+ div class="p-0" {
  div class="overflow-x-auto" {
  table class="data-table" {
  thead { tr {
@@ -374,7 +374,7 @@ fn card_search_result(
  };
  tr {
  td {
- a href=(format!("/admin/mes/reports/{}", report.id)) style="color:var(--accent)" class="font-mono tabular-nums" { (report.doc_number) }
+ a href=(format!("/admin/mes/reports/{}", report.id)) class="text-accent" class="font-mono tabular-nums" { (report.doc_number) }
  }
  td { (process_name) }
  td {
@@ -382,17 +382,17 @@ fn card_search_result(
  @else { "夜班" }
  }
  td { (worker_name) }
- td class="text-right text-[13px] font-mono tabular-nums" style="color:var(--success)" { (crate::utils::fmt_qty(report.completed_qty)) }
+ td class="text-right text-[13px] font-mono tabular-nums" class="text-success" { (crate::utils::fmt_qty(report.completed_qty)) }
  td class="text-right text-[13px] font-mono tabular-nums" {
  @if report.defect_qty > rust_decimal::Decimal::ZERO {
- span style="color:var(--danger)" { (crate::utils::fmt_qty(report.defect_qty)) }
+ span class="text-danger" { (crate::utils::fmt_qty(report.defect_qty)) }
  } @else {
  "0"
  }
  }
  td { (defect_reason_str) }
  td class="text-right text-[13px] font-mono tabular-nums" { (crate::utils::fmt_qty(report.work_hours)) "h" }
- td class="text-right text-[13px] font-mono tabular-nums" style="color:var(--success)" { "¥" (crate::utils::fmt_qty(wage)) }
+ td class="text-right text-[13px] font-mono tabular-nums" class="text-success" { "¥" (crate::utils::fmt_qty(wage)) }
  }
  }
  }
@@ -401,7 +401,7 @@ fn card_search_result(
  }
  }
  } @else {
- div style="text-align:center;padding:var(--space-4);color:var(--muted)" {
+ div class="text-center text-muted" class="p-4" {
  "暂无报工记录"
  }
  }

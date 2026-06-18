@@ -1,6 +1,7 @@
 use axum::response::{Html, IntoResponse};
 use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
+use crate::components::icon;
 use serde::Deserialize;
 
 use abt_core::fms::cash_journal::model::CreateCashJournalReq;
@@ -105,28 +106,29 @@ pub async fn create(
 fn journal_create_page() -> Markup {
  html! {
  div {
- // 页面头部
- div class="flex items-center justify-between mb-6" {
- div class="flex items-center justify-between mb-6-left" {
- a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", JournalListPath::PATH)) {
- "\u{2190} 返回列表"
+ // 返回链接
+ a href=(format!("{}?restore=true", JournalListPath::PATH)) class="inline-flex items-center gap-1 text-sm text-muted hover:text-fg mb-4" {
+ (icon::chevron_left_icon("w-4 h-4"))
+ "返回列表"
  }
- h1 class="text-xl font-bold text-fg tracking-tight" { "新建出纳日记账" }
- }
- }
+ // 标题
+ h1 class="text-xl font-bold text-fg tracking-tight mb-6" { "新建出纳日记账" }
 
- form hx-post=(JournalCreatePath::PATH) hx-swap="none" {
+ form id="journal-create-form" hx-post=(JournalCreatePath::PATH) hx-swap="none" {
  // ── 基本信息 ──
  div class="form-section" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "基本信息" }
+ div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
+ (icon::clipboard_document_icon("w-4 h-4"))
+ " 基本信息"
+ }
  div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
  // 日记账类型
  div class="form-field" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
  "日记账类型 "
- span style="color:var(--danger)" { "*" }
+ span class="text-danger" { "*" }
  }
- select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="journal_type" required {
+ select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent" name="journal_type" required {
  option value="" disabled selected { "请选择类型" }
  option value="1" { "销售回款" }
  option value="2" { "采购付款" }
@@ -139,9 +141,9 @@ fn journal_create_page() -> Markup {
  div class="form-field" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
  "收付方向 "
- span style="color:var(--danger)" { "*" }
+ span class="text-danger" { "*" }
  }
- select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="direction" required {
+ select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent" name="direction" required {
  option value="1" { "流入 (Inflow)" }
  option value="2" { "流出 (Outflow)" }
  }
@@ -150,25 +152,25 @@ fn journal_create_page() -> Markup {
  div class="form-field" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
  "金额 "
- span style="color:var(--danger)" { "*" }
+ span class="text-danger" { "*" }
  }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" name="amount" step="any" min="0" required placeholder="0.00" style="font-family:var(--font-mono);text-align:right";
+ input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent font-mono text-right" type="number" name="amount" step="any" min="0" required placeholder="0.00";
  }
  // 银行账户
  div class="form-field" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
  "银行账户 "
- span style="color:var(--danger)" { "*" }
+ span class="text-danger" { "*" }
  }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="bank_account" required placeholder="银行账号";
+ input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent" type="text" name="bank_account" required placeholder="银行账号";
  }
  // 往来方类型
  div class="form-field" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
  "往来方类型 "
- span style="color:var(--danger)" { "*" }
+ span class="text-danger" { "*" }
  }
- select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="counterparty_type" required {
+ select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent" name="counterparty_type" required {
  option value="1" { "客户" }
  option value="2" { "供应商" }
  option value="3" { "员工" }
@@ -179,48 +181,50 @@ fn journal_create_page() -> Markup {
  div class="form-field" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
  "往来方 "
- span style="color:var(--danger)" { "*" }
+ span class="text-danger" { "*" }
  }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="counterparty_name" placeholder="搜索选择往来方…";
+ input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent" type="text" name="counterparty_name" placeholder="搜索选择往来方…";
  }
  // 来源单据
  div class="form-field" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "来源单据" }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="source_no" placeholder="关联来源单号（可选）";
+ input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent" type="text" name="source_no" placeholder="关联来源单号（可选）";
  }
  // 交易日期
  div class="form-field" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
  "交易日期 "
- span style="color:var(--danger)" { "*" }
+ span class="text-danger" { "*" }
  }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="date" name="transaction_date" required;
+ input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent" type="date" name="transaction_date" required;
  }
  // 期间
  div class="form-field" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
  "期间 "
- span style="color:var(--danger)" { "*" }
+ span class="text-danger" { "*" }
  }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="month" name="period" required;
+ input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent" type="month" name="period" required;
  }
  // 备注（占满整行）
  div class="form-field field-full" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "备注" }
- textarea class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="remark" placeholder="填写备注信息…" rows="3" {}
- }
- }
- }
-
- // ── 操作栏 ──
- div class="flex items-center justify-end gap-3 pt-4 [border-top:1px_solid_var(--border-soft)]" {
- a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{}?restore=true", JournalListPath::PATH)) { "取消" }
- div style="display:flex;gap:var(--space-3)" {
- button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" { "保存草稿" }
- button type="submit" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" { "提交" }
- }
- }
+ textarea class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent" name="remark" placeholder="填写备注信息…" rows="3" {}
  }
  }
  }
 }
+ // ── Action Bar ──
+ div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg border-t border-border-soft" {
+ a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{}?restore=true", JournalListPath::PATH)) { "取消" }
+ div class="flex gap-3" {
+ button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" { "保存草稿" }
+ button type="submit" form="journal-create-form" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" {
+ (icon::check_circle_icon("w-4 h-4"))
+ "提交"
+ }
+ }
+ }
+ }
+ }
+ }

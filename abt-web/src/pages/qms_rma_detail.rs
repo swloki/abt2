@@ -106,7 +106,7 @@ pub async fn get_detail(path: RmaDetailPath, ctx: RequestContext) -> Result<Html
  // ── 缺陷描述 ──
  div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
  h3 { "缺陷描述" }
- p style="white-space: pre-wrap;" { (&rma.defect_description) }
+ p class="whitespace-pre-wrap" { (&rma.defect_description) }
  }
 
  // ── 根因分析 ──

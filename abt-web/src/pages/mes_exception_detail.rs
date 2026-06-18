@@ -79,7 +79,7 @@ fn exception_detail_page(
 
  // Status + severity
  div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
- div style="display:flex;align-items:center;gap:var(--space-3);margin-bottom:var(--space-4)" {
+ div class="flex items-center mb-4" class="gap-3" {
  span class=(format!("status-pill {}", crate::utils::status_color(type_cls))) { (type_label) }
  span class=(format!("status-pill {}", crate::utils::status_color(status_cls))) { (status_label) }
  span class=(format!("status-pill {}", crate::utils::status_color(severity_cls))) { (severity_label) }
@@ -111,7 +111,7 @@ fn exception_detail_page(
  // Description
  @if let Some(ref desc) = exc.description {
  div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
- div style="font-weight:600;margin-bottom:var(--space-2)" { "异常描述" }
+ div class="font-semibold" class="mb-2" { "异常描述" }
  div style="white-space:pre-wrap;line-height:1.6" { (desc) }
  }
  }
@@ -119,7 +119,7 @@ fn exception_detail_page(
  // Timeline
  @if !events.is_empty() {
  div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
- div style="font-weight:600;margin-bottom:var(--space-4)" { "处理时间线" }
+ div class="font-semibold mb-4" { "处理时间线" }
  div class="flex flex-col gap-0" {
  @for event in events {
  div class="flex flex-col gap-0-item" {

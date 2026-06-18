@@ -206,7 +206,7 @@ fn conversion_create_page(
  }
  }
  // ── 消耗物料 ──
- div class="form-section" style="padding:0;overflow:hidden" {
+ div class="form-section" class="p-0 overflow-hidden" {
  div class="px-6 pt-6 pb-4 flex items-center gap-2" {
  span class="text-sm font-semibold text-fg" { "消耗物料" }
  span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#fff2f0] text-danger" { "消耗" }
@@ -216,14 +216,14 @@ fn conversion_create_page(
  table class="data-table" {
  thead {
  tr {
- th style="width:40px;text-align:center" { "行号" }
+ th class="w-10 text-center" { "行号" }
  th { "产品编码" }
  th { "产品名称" }
  th { "规格" }
- th style="width:100px;text-align:right" { "数量 " span class="required" { "*" } }
- th style="width:110px;text-align:right" { "单位成本" }
- th style="width:120px" { "批次号" }
- th style="width:40px" { }
+ th class="w-[100px] text-right" { "数量 " span class="required" { "*" } }
+ th class="w-[110px] text-right" { "单位成本" }
+ th class="w-[120px]" { "批次号" }
+ th class="w-10" { }
  }
  }
  tbody id="consume-item-tbody" { }
@@ -238,7 +238,7 @@ fn conversion_create_page(
  }
  }
  // ── 产出物料 ──
- div class="form-section" style="padding:0;overflow:hidden" {
+ div class="form-section" class="p-0 overflow-hidden" {
  div class="px-6 pt-6 pb-4 flex items-center gap-2" {
  span class="text-sm font-semibold text-fg" { "产出物料" }
  span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#f0fff0] text-success" { "产出" }
@@ -248,14 +248,14 @@ fn conversion_create_page(
  table class="data-table" {
  thead {
  tr {
- th style="width:40px;text-align:center" { "行号" }
+ th class="w-10 text-center" { "行号" }
  th { "产品编码" }
  th { "产品名称" }
  th { "规格" }
- th style="width:100px;text-align:right" { "数量 " span class="required" { "*" } }
- th style="width:110px;text-align:right" { "单位成本" }
- th style="width:120px" { "批次号" }
- th style="width:40px" { }
+ th class="w-[100px] text-right" { "数量 " span class="required" { "*" } }
+ th class="w-[110px] text-right" { "单位成本" }
+ th class="w-[120px]" { "批次号" }
+ th class="w-10" { }
  }
  }
  tbody id="produce-item-tbody" { }

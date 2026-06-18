@@ -138,7 +138,7 @@ fn routing_detail_page(
  // ── 基本信息 ──
  div class="bg-white border border-border-soft rounded p-5" {
  div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "基本信息" }
- div class="grid gap-5" style="grid-template-columns:repeat(3,1fr)" {
+ div class="grid gap-5" class="grid-cols-3" {
  (detail_row("编码", html! { span class="font-mono tabular-nums" { (routing.id) } }))
  (detail_row("名称", html! { (routing.name) }))
  (detail_row("描述", html! { (routing.description.as_deref().unwrap_or("—")) }))
@@ -163,10 +163,10 @@ fn routing_detail_page(
  }
 
  // ── 工序流程 ──
- div class="bg-white border border-border-soft rounded p-5" style="margin-top:var(--space-5)" {
+ div class="bg-white border border-border-soft rounded p-5" class="mt-5" {
  div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
  span { "工序流程" }
- span style="color:var(--text-tertiary);font-weight:400;font-size:12px" {
+ span class="font-normal text-xs" style="color:var(--text-tertiary)" {
  "（共 " (step_count) " 道工序）"
  }
  }
@@ -176,10 +176,10 @@ fn routing_detail_page(
  table class="data-table" {
  thead {
  tr {
- th style="width:60px" { "序号" }
- th style="width:120px" { "工序代码" }
+ th class="w-[60px]" { "序号" }
+ th class="w-[120px]" { "工序代码" }
  th { "工序名称" }
- th style="width:80px" { "是否必经" }
+ th class="w-[80px]" { "是否必经" }
  th { "备注" }
  }
  }
@@ -205,7 +205,7 @@ fn routing_detail_page(
  }
 
  // ── 关联BOM ──
- div class="bg-white border border-border-soft rounded p-5 routing-bom-card" style="margin-top:var(--space-5)"
+ div class="bg-white border border-border-soft rounded p-5 routing-bom-card" class="mt-5"
  hx-select=".routing-bom-card" hx-target=".routing-bom-card" hx-swap="outerHTML"
  hx-push-url="true" {
  div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "关联BOM" }
@@ -223,7 +223,7 @@ fn bom_table_fragment(routing_id: i64, boms: &abt_core::shared::types::Paginated
  table class="data-table" {
  thead {
  tr {
- th style="width:60px" { "ID" }
+ th class="w-[60px]" { "ID" }
  th { "产品编码" }
  th style="width:160px" { "关联时间" }
  }

@@ -38,7 +38,7 @@ fn dashboard_content(claims: &abt_core::shared::identity::model::Claims) -> Mark
  }
 
  // ── Stat Cards (4 columns) ──
- div style="display:grid;grid-template-columns:repeat(4,1fr);gap:var(--space-4);margin-bottom:var(--space-8)" {
+ div class="grid" class="gap-4 mb-8" class="grid-cols-4" {
  (stat_card("本月报价", "8", "份", "+3 vs 上月", "text-success"))
  (stat_card("进行中订单", "17", "笔", "¥ 1.2M 待发货", "text-warn"))
  (stat_card_with_color("待处理退货", "3", "笔", "¥ 11,020 待处理", "text-danger"))
@@ -46,10 +46,10 @@ fn dashboard_content(claims: &abt_core::shared::identity::model::Claims) -> Mark
  }
 
  // ── 2-column: 待办事项 + 快捷入口 ──
- div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-6);margin-bottom:var(--space-8)" {
+ div class="grid" class="mb-8" style="grid-template-columns:1fr 1fr;gap:var(--space-6)" {
  // 待办事项
  div {
- div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-4)" {
+ div class="flex items-center justify-between mb-4" {
  h2 class="text-lg font-semibold text-fg" { "待办事项" }
  }
  div class="data-card" {
@@ -61,10 +61,10 @@ fn dashboard_content(claims: &abt_core::shared::identity::model::Claims) -> Mark
  }
  // 快捷入口
  div {
- div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-4)" {
+ div class="flex items-center justify-between mb-4" {
  h2 class="text-lg font-semibold text-fg" { "快捷入口" }
  }
- div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3)" {
+ div class="grid" class="gap-3" style="grid-template-columns:1fr 1fr" {
  (quick_link_card("/admin/quotations", &icon::file_text_icon("w-[28px] h-[28px]"), "报价单", "24 份"))
  (quick_link_card("/admin/orders", &icon::box_icon("w-[28px] h-[28px]"), "销售订单", "31 笔"))
  (quick_link_card("/admin/shipping", &icon::truck_icon("w-[28px] h-[28px]"), "发货申请", "18 单"))
@@ -74,9 +74,9 @@ fn dashboard_content(claims: &abt_core::shared::identity::model::Claims) -> Mark
  }
 
  // ── 销售流程 ──
- div style="margin-bottom:var(--space-8)" {
- h2 class="text-lg font-semibold text-fg" style="margin-bottom:var(--space-4)" { "销售流程" }
- div style="display:flex;align-items:center;gap:0;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-md);padding:var(--space-6) var(--space-8);overflow-x:auto" {
+ div class="mb-8" {
+ h2 class="text-lg font-semibold text-fg" class="mb-4" { "销售流程" }
+ div class="flex items-center overflow-x-auto" class="rounded-md" class="border border-border" style="gap:0;background:var(--bg);padding:var(--space-6) var(--space-8)" {
  (flow_step(&icon::file_text_icon("w-5 h-5"), "报价单", "客户报价", "bg-[color-mix(in_srgb,var(--info)_10%,transparent)]", "text-info"))
  (arrow_right_svg())
  (flow_step(&icon::box_icon("w-5 h-5"), "销售订单", "确认订单", "bg-[color-mix(in_srgb,var(--success)_10%,transparent)]", "text-success"))
@@ -91,7 +91,7 @@ fn dashboard_content(claims: &abt_core::shared::identity::model::Claims) -> Mark
 
  // ── 最近活动 ──
  div {
- h2 class="text-lg font-semibold text-fg" style="margin-bottom:var(--space-4)" { "最近活动" }
+ h2 class="text-lg font-semibold text-fg" class="mb-4" { "最近活动" }
  div class="data-card" {
  (activity_item("status-progress", "订单", "SO-2026-0038 状态变更为 ", "生产中", "10 分钟前"))
  (activity_item("status-picking", "发货", "发货申请 SR-2026-0018 开始拣货", "", "2 小时前"))
@@ -109,11 +109,11 @@ fn stat_card(label: &str, value: &str, unit: &str, trend: &str, trend_color: &st
  html! {
  div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-flat" {
  span class="text-xs text-muted font-medium" { (label) }
- div style="display:flex;align-items:baseline;gap:var(--space-2);margin-top:var(--space-2)" {
+ div class="flex" class="gap-2" class="items-baseline mt-2" {
  span class="text-[20px] font-bold text-fg text-2xl" { (value) }
  span class="text-muted text-xs" { (unit) }
  }
- div style="margin-top:var(--space-2);font-size:12px" class=(trend_color) { (trend) }
+ div class="text-xs" class="mt-2" class=(trend_color) { (trend) }
  }
  }
 }
@@ -128,11 +128,11 @@ fn stat_card_with_color(
  html! {
  div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-flat" {
  span class="text-xs text-muted font-medium" { (label) }
- div style="display:flex;align-items:baseline;gap:var(--space-2);margin-top:var(--space-2)" {
+ div class="flex" class="gap-2" class="items-baseline mt-2" {
  span class="text-[20px] font-bold text-fg text-2xl text-danger" { (value) }
  span class="text-muted text-xs" { (unit) }
  }
- div style="margin-top:var(--space-2);font-size:12px" class=(trend_color) { (trend) }
+ div class="text-xs" class="mt-2" class=(trend_color) { (trend) }
  }
  }
 }
@@ -141,10 +141,10 @@ fn stat_card_accent(label: &str, value: &str, trend: &str, trend_color: &str) ->
  html! {
  div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]-flat" {
  span class="text-xs text-muted font-medium" { (label) }
- div style="display:flex;align-items:baseline;gap:var(--space-2);margin-top:var(--space-2)" {
+ div class="flex" class="gap-2" class="items-baseline mt-2" {
  span class="text-[20px] font-bold text-fg-accent text-2xl" { (value) }
  }
- div style="margin-top:var(--space-2);font-size:12px" class=(trend_color) { (trend) }
+ div class="text-xs" class="mt-2" class=(trend_color) { (trend) }
  }
  }
 }
@@ -152,19 +152,19 @@ fn stat_card_accent(label: &str, value: &str, trend: &str, trend_color: &str) ->
 fn todo_item(status_class: &str, status_text: &str, desc: &str, time: &str) -> Markup {
  html! {
  div class="flex items-center gap-3 px-5 py-4 [border-bottom:1px_solid_var(--border-soft)] cursor-pointer hover:bg-accent-bg" {
- span class={(format!("status-pill {}", crate::utils::status_color(status_class)))} style="font-size:11px" { (status_text) }
- span style="flex:1" { (desc) }
- span class="text-muted" style="font-size:12px" { (time) }
+ span class={(format!("status-pill {}", crate::utils::status_color(status_class)))} class="text-[11px]" { (status_text) }
+ span class="flex-1" { (desc) }
+ span class="text-muted" class="text-xs" { (time) }
  }
  }
 }
 
 fn todo_item_last(status_class: &str, status_text: &str, desc: &str, time: &str) -> Markup {
  html! {
- div style="padding:var(--space-4) var(--space-5);display:flex;align-items:center;gap:var(--space-3);cursor:pointer" {
- span class={(format!("status-pill {}", crate::utils::status_color(status_class)))} style="font-size:11px" { (status_text) }
- span style="flex:1" { (desc) }
- span class="text-muted" style="font-size:12px" { (time) }
+ div class="flex items-center cursor-pointer" class="gap-3" class="px-5 py-4" {
+ span class={(format!("status-pill {}", crate::utils::status_color(status_class)))} class="text-[11px]" { (status_text) }
+ span class="flex-1" { (desc) }
+ span class="text-muted" class="text-xs" { (time) }
  }
  }
 }
@@ -172,7 +172,7 @@ fn todo_item_last(status_class: &str, status_text: &str, desc: &str, time: &str)
 fn quick_link_card(href: &str, icon: &Markup, title: &str, count: &str) -> Markup {
  html! {
  a href=(href) class="flex flex-col gap-1 p-4 bg-bg border border-border-soft rounded cursor-pointer no-underline" {
- span style="color:var(--accent)" { (icon) }
+ span class="text-accent" { (icon) }
  span class="text-sm font-semibold text-fg" { (title) }
  span class="text-xs text-muted" { (count) }
  }
@@ -207,15 +207,15 @@ fn activity_item(
  time: &str,
 ) -> Markup {
  html! {
- div style="padding:var(--space-4) var(--space-5);border-bottom:1px solid var(--border-soft);display:flex;align-items:center;gap:var(--space-4)" {
- span class={(format!("status-pill {}", crate::utils::status_color(status_class)))} style="font-size:11px;min-width:56px;justify-content:center" { (status_text) }
- span style="flex:1" {
+ div class="flex items-center" class="gap-4" class="px-5 py-4" style="border-bottom:1px solid var(--border-soft)" {
+ span class={(format!("status-pill {}", crate::utils::status_color(status_class)))} class="text-[11px] justify-center" class="min-w-[56px]" { (status_text) }
+ span class="flex-1" {
  (desc)
  @if !highlight.is_empty() {
- span style="font-weight:600" { " " (highlight) }
+ span class="font-semibold" { " " (highlight) }
  }
  }
- span class="text-muted" style="font-size:12px" { (time) }
+ span class="text-muted" class="text-xs" { (time) }
  }
  }
 }
@@ -228,15 +228,15 @@ fn activity_item_last(
  time: &str,
 ) -> Markup {
  html! {
- div style="padding:var(--space-4) var(--space-5);display:flex;align-items:center;gap:var(--space-4)" {
- span class={(format!("status-pill {}", crate::utils::status_color(status_class)))} style="font-size:11px;min-width:56px;justify-content:center" { (status_text) }
- span style="flex:1" {
+ div class="flex items-center" class="gap-4" class="px-5 py-4" {
+ span class={(format!("status-pill {}", crate::utils::status_color(status_class)))} class="text-[11px] justify-center" class="min-w-[56px]" { (status_text) }
+ span class="flex-1" {
  (desc)
  @if !highlight.is_empty() {
- span style="font-weight:600" { " " (highlight) }
+ span class="font-semibold" { " " (highlight) }
  }
  }
- span class="text-muted" style="font-size:12px" { (time) }
+ span class="text-muted" class="text-xs" { (time) }
  }
  }
 }

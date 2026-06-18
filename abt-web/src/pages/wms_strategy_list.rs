@@ -116,7 +116,7 @@ fn strategy_list_page(
  }
  @if putaway_strategies.is_empty() {
  tr {
- td colspan="7" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
+ td colspan="7" class="text-center text-muted py-8" {
  "暂无上架策略"
  }
  }
@@ -152,7 +152,7 @@ fn strategy_list_page(
  }
  @if pick_strategies.is_empty() {
  tr {
- td colspan="7" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
+ td colspan="7" class="text-center text-muted py-8" {
  "暂无拣货策略"
  }
  }
@@ -219,7 +219,7 @@ fn pick_row(s: &PickStrategy) -> Markup {
  tr {
  td { strong class="font-medium" { (s.name) } }
  td {
- span class="inline-flex items-center rounded-full text-[11px] font-medium px-2.5 py-0.5 font-mono" style="background:#f0fff0;color:#389e0d" { (tag) }
+ span class="inline-flex items-center rounded-full text-[11px] font-medium px-2.5 py-0.5 font-mono" class="text-[#389e0d]" style="background:#f0fff0" { (tag) }
  }
  td {
  @if let Some(wid) = s.warehouse_id {

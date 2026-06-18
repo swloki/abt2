@@ -96,19 +96,19 @@ pub fn entity_picker_modal(cfg: &EntityPickerConfig) -> Markup {
  html! {
  div class="modal-overlay fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto" id=(cfg.modal_id) _=(open_hs) {
  div class="modal bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl" _="on click halt" {
- div class="px-6 py-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center shrink-0" {
+ div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
  h2 { (cfg.title) }
- button style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text-muted);padding:4px"
+ button class="text-2xl text-muted hover:text-fg cursor-pointer bg-transparent border-none p-1 leading-none"
  _=(format!("on click remove .is-open from #{}", cfg.modal_id)) { "×" }
  }
- div class="overflow-y-auto flex-1 min-h-0 p-6" style="padding:0" {
+ div class="overflow-y-auto flex-1 min-h-0" {
  // Hidden context for results fragment
  input type="hidden" name="target_id" value=(cfg.target_id);
  input type="hidden" name="display_id" value=(cfg.display_id);
  input type="hidden" name="modal_id" value=(cfg.modal_id);
  input type="hidden" name="event_name" value=(cfg.event_name);
 
- div class="flex gap-4 p-4 [border-bottom:1px_solid_var(--border-soft)]" {
+ div class="flex gap-4 p-4 border-b border-border-soft" {
  div class="flex-1 flex flex-col gap-[4px]" {
  label class="text-[12px] font-medium text-fg-2" { (cfg.search_label) }
  input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text"
@@ -124,12 +124,12 @@ pub fn entity_picker_modal(cfg: &EntityPickerConfig) -> Markup {
  }
  }
  div id=(format!("{}-results", cfg.modal_id))
- style="max-height:360px;overflow-y:auto"
+ class="overflow-y-auto" style="max-height:360px"
  hx-get=(cfg.search_path)
  hx-trigger="openModal"
  hx-swap="innerHTML"
  hx-include=(hx_include_expr(cfg)) {
- div style="display:flex;align-items:center;justify-content:center;padding:var(--space-8);color:var(--text-muted)" {
+ div class="flex items-center justify-center" class="p-8" style="color:var(--text-muted)" {
  "加载中…"
  }
  }
@@ -161,15 +161,14 @@ fn hx_include_expr(cfg: &EntityPickerConfig) -> String {
 pub fn entity_picker_results(items: &[EntityPickerItem]) -> Markup {
  html! {
  @if items.is_empty() {
- div style="text-align:center;padding:var(--space-12);color:var(--text-muted)" {
- p style="margin:0;font-size:var(--text-sm)" { "未找到匹配结果" }
+ div class="text-center" class="p-12 text-muted" {
+ p class="m-0" class="text-sm" { "未找到匹配结果" }
  }
  } @else {
  div class="py-2" {
  @for item in items {
  @if item.disabled {
- div class="flex items-center justify-between p-3 [border-bottom:1px_solid_var(--border-soft)]"
- style="opacity:0.45;cursor:not-allowed"
+ div class="flex items-center justify-between p-3 border-b border-border-soft opacity-45 cursor-not-allowed"
  data-id=(item.id)
  data-label=(item.label.as_str()) {
  div class="product-select-info" {
@@ -180,7 +179,7 @@ pub fn entity_picker_results(items: &[EntityPickerItem]) -> Markup {
  }
  }
  } @else {
- div class="flex items-center justify-between p-3 [border-bottom:1px_solid_var(--border-soft)]"
+ div class="flex items-center justify-between p-3 border-b border-border-soft"
  data-id=(item.id)
  data-label=(item.label.as_str())
  _=(selection_hs()) {

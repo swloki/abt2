@@ -44,7 +44,6 @@ impl CashJournalServiceImpl {
         journal: &CashJournal,
     ) -> Result<()> {
         let map = new_gl_mapping_service(self.pool.clone());
-        let bank_acct = map.resolve(ctx, db, "default_bank", None).await?;
 
         // 取第一条明细的辅助核算维度（收付款单边凭证通常一致）
         let lines_db = CashJournalLineRepo::get_by_journal_id(db, journal.id).await?;
@@ -55,10 +54,12 @@ impl CashJournalServiceImpl {
 
         let (debit_acct, credit_acct) = match journal.journal_type {
             JournalType::SalesReceipt => {
+                let bank_acct = map.resolve(ctx, db, "default_bank", None).await?;
                 let ar = map.resolve(ctx, db, "default_ar", None).await?;
                 (bank_acct, ar) // 借银行 / 贷应收
             }
             JournalType::PurchasePayment => {
+                let bank_acct = map.resolve(ctx, db, "default_bank", None).await?;
                 let ap = map.resolve(ctx, db, "default_ap", None).await?;
                 (ap, bank_acct) // 借应付 / 贷银行
             }

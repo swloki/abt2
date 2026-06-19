@@ -253,7 +253,7 @@ impl StockLedgerRepo {
             r#"SELECT COALESCE(
                 (SELECT unit_cost FROM stock_ledger
                  WHERE product_id = $1 AND unit_cost IS NOT NULL AND unit_cost > 0
-                 ORDER BY created_at DESC LIMIT 1),
+                 ORDER BY id DESC LIMIT 1),
                 0::numeric
             )"#,
         )

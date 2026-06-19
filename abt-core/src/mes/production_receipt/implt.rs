@@ -193,8 +193,9 @@ impl ProductionReceiptService for ProductionReceiptServiceImpl {
         }
 
         // 4. Backflush — 纳入同一事务（修复：原来用独立连接，倒冲成功但后续失败无法回滚）
+        // 传入完工入库单的仓库，倒冲从此仓扣减原料（修复：原 execute 取"系统第一个仓库"且 SQL 列名错误）
         new_backflush_service(self.pool.clone())
-            .execute(ctx, db, receipt.work_order_id, receipt.received_qty)
+            .execute(ctx, db, receipt.work_order_id, receipt.received_qty, receipt.warehouse_id)
             .await
             .map_err(|e| {
                 DomainError::BusinessRule(format!("倒冲失败，入库已回滚: {e:?}"))

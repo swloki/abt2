@@ -9,13 +9,14 @@ use crate::shared::types::pagination::PaginatedResult;
 
 #[async_trait]
 pub trait BackflushService: Send + Sync {
-    /// 执行冲扣（设计签名：execute(ctx, work_order_id, completed_qty)）
+    /// 执行冲扣（warehouse_id：完工入库单的仓库，原料从此仓倒冲扣减）
     /// 内部通过 WorkOrderStub 获取 BOM 并自动计算差异
     async fn execute(
         &self,
         ctx: &ServiceContext, db: PgExecutor<'_>,
         work_order_id: i64,
         completed_qty: Decimal,
+        warehouse_id: i64,
     ) -> Result<i64>;
 
     /// 查询单条冲扣记录

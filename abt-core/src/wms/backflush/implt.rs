@@ -39,6 +39,7 @@ impl BackflushService for BackflushServiceImpl {
         ctx: &ServiceContext, db: PgExecutor<'_>,
         work_order_id: i64,
         completed_qty: Decimal,
+        warehouse_id: i64,
     ) -> Result<i64> {
         let backflush_date = chrono::Local::now().date_naive();
         let variance_threshold = DEFAULT_VARIANCE_THRESHOLD;
@@ -68,9 +69,10 @@ impl BackflushService for BackflushServiceImpl {
         .await
         .map_err(|e| DomainError::Internal(e.into()))?;
 
-        // 2. 从 BOM 获取组件，计算差异并插入明细
+        // 2. 从 BOM 获取组件，计算差异并插入明细。
+        // 倒冲仓库：用完工入库单的仓库（修复：原 resolve_warehouse_id 取"系统第一个仓库"且
+        // 引用了不存在的 warehouse_id 列，导致倒冲 100% 崩溃且扣错仓）。
         let bom_components = get_bom_components(&self.pool, ctx, db, &wo).await?;
-        let warehouse_id = resolve_warehouse_id(db).await?;
 
         for component in &bom_components {
             let theoretical_qty = component.required_qty * completed_qty;
@@ -202,12 +204,12 @@ impl BackflushService for BackflushServiceImpl {
 }
 
 /// 4 级仓库策略：确定倒冲仓库
-/// V1 简化实现：查找系统中第一个活跃仓库
+/// 兜底实现：查找系统中第一个活跃仓库（warehouses 主键为 id，原 SQL 误用 warehouse_id 列导致永远报错）
 pub async fn resolve_warehouse_id(
     db: PgExecutor<'_>,
 ) -> Result<i64> {
     let warehouse_id: Option<i64> = sqlx::query_scalar(
-        "SELECT warehouse_id FROM warehouses WHERE deleted_at IS NULL ORDER BY warehouse_id LIMIT 1",
+        "SELECT id FROM warehouses WHERE deleted_at IS NULL ORDER BY id LIMIT 1",
     )
     .fetch_optional(&mut *db)
     .await

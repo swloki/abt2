@@ -327,7 +327,8 @@ impl BomRepo {
             SELECT b.bom_id
             FROM boms b
             JOIN bom_nodes bn ON bn.bom_id = b.bom_id
-            WHERE bn.product_code = $1
+            JOIN products p ON p.product_id = bn.product_id
+            WHERE COALESCE(bn.product_code, p.product_code) = $1
               AND bn.parent_id = 0
               AND b.status = 2
               AND b.deleted_at IS NULL

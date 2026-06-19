@@ -455,12 +455,12 @@ async fn set_consumption_mode(app: &TestApp, product: i64, mode: &str) {
 }
 
 #[tokio::test]
-#[ignore = "dev 数据缺口：无正确链接的 Picking 自制产品。8665 的 BOM 是遗留格式（节点 id vs \
-期望 node_id）；13457 的 BOM 虽 root=13457 但 bom_nodes.product_code 为空、未链接到产品，\
-release 取不到 bom_snapshot_id → Picking 分支不建领料单。需先用 BOM 编辑器维护一个 \
-Picking 模式 + 已链接发布 BOM + 快照的自制产品后再启用本用例（覆盖 release 建领料单/预留 → \
-领料消耗 → 退料，及 return_materials 不恢复预留的 P1 bug）。"]
-async fn k2_picking_chain_and_return_exposes_reservation_bug() {
+#[ignore = "dev BOM 数据多重不一致：13457 有两个发布 BOM（1000882/1000883），find_published \
+取 bom_id 更大的 1000883，其快照是自引用错误内容（13457→13457）；正确的 1000882（含组件 \
+13456）被遮蔽。另有 stale 快照、live bom_detail 为空、8665 节点 id vs node_id 等问题。\
+已修 find_published_by_product_code 用 COALESCE 回退 + 迁移回填 bom_nodes.product_code；\
+但需用 BOM 编辑器重建一个内容正确、单一、已快照的 Picking 自制产品后才能稳定跑本用例。"]
+async fn k2_picking_chain_and_return() {
     let app = TestApp::new().await;
 
     // 13457 设为 Picking 模式（dev 库无 Picking 产品；测试后还原）

@@ -809,7 +809,7 @@ impl SalesOrderService for SalesOrderServiceImpl {
         }
         if req.cancelled_qty > item.open_qty() {
             return Err(DomainError::business_rule(
-                &format!("Cancelled qty {} exceeds open qty {}", req.cancelled_qty, item.open_qty())
+                format!("Cancelled qty {} exceeds open qty {}", req.cancelled_qty, item.open_qty())
             ));
         }
 

@@ -34,6 +34,33 @@ pub struct GlEntryDetailPath {
     pub id: i64,
 }
 
+// 销售发票（Sales Invoices）
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/gl/sales-invoices")]
+pub struct SalesInvoiceListPath;
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/gl/sales-invoices/create")]
+pub struct SalesInvoiceCreatePath;
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/gl/sales-invoices/{id}")]
+pub struct SalesInvoiceDetailPath {
+    pub id: i64,
+}
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/gl/sales-invoices/{id}/post")]
+pub struct SalesInvoicePostPath {
+    pub id: i64,
+}
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/gl/sales-invoices/{id}/cancel")]
+pub struct SalesInvoiceCancelPath {
+    pub id: i64,
+}
+
 // 试算 / 期间
 #[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/gl/trial-balance")]
@@ -76,5 +103,27 @@ pub fn router() -> Router<AppState> {
             GlEntryDetailPath::PATH,
             get(crate::pages::gl_entry_detail::get_detail),
         )
-        // 试算/期间/发票 等路由在后续 task（D3/D4/D5）补
+        // 销售发票
+        .route(
+            SalesInvoiceListPath::PATH,
+            get(crate::pages::sales_invoice_list::get_list),
+        )
+        .route(
+            SalesInvoiceCreatePath::PATH,
+            get(crate::pages::sales_invoice_create::get_create)
+                .post(crate::pages::sales_invoice_create::create),
+        )
+        .route(
+            SalesInvoiceDetailPath::PATH,
+            get(crate::pages::sales_invoice_detail::get_detail),
+        )
+        .route(
+            SalesInvoicePostPath::PATH,
+            axum::routing::post(crate::pages::sales_invoice_detail::post),
+        )
+        .route(
+            SalesInvoiceCancelPath::PATH,
+            axum::routing::post(crate::pages::sales_invoice_detail::cancel),
+        )
+        // 试算/期间 等路由在后续 task（D4/D5）补
 }

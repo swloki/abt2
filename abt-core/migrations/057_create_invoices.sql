@@ -91,7 +91,9 @@ INSERT INTO state_transition_defs (entity_type, from_state, to_state, sort_order
     ('SalesInvoiceStatus', '',          'Draft',     1),
     ('SalesInvoiceStatus', 'Draft',     'Posted',    2),
     ('SalesInvoiceStatus', 'Draft',     'Cancelled', 3),
+    ('SalesInvoiceStatus', 'Posted',    'Cancelled', 4),
     ('PurchaseInvoiceStatus', '',          'Draft',     1),
     ('PurchaseInvoiceStatus', 'Draft',     'Posted',    2),
-    ('PurchaseInvoiceStatus', 'Draft',     'Cancelled', 3)
+    ('PurchaseInvoiceStatus', 'Draft',     'Cancelled', 3),
+    ('PurchaseInvoiceStatus', 'Posted',    'Cancelled', 4)
 ON CONFLICT (entity_type, from_state, to_state) DO NOTHING;

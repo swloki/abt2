@@ -269,11 +269,14 @@ impl GlEntryRepo {
                    COALESCE(SUM(l.credit), 0) AS period_credit,
                    0.0 AS end_balance  -- 将在 service 层计算（Decimal 类型）
             FROM gl_accounts a
-            LEFT JOIN gl_entry_lines l ON l.account_id = a.id
-            LEFT JOIN gl_entries e ON e.id = l.entry_id
-                AND e.period = $1
-                AND e.status = 2  -- Posted
-                AND e.deleted_at IS NULL
+            LEFT JOIN (
+                gl_entry_lines l
+                INNER JOIN gl_entries e
+                    ON e.id = l.entry_id
+                    AND e.period = $1
+                    AND e.status = 2  -- Posted
+                    AND e.deleted_at IS NULL
+            ) ON l.account_id = a.id
             WHERE a.deleted_at IS NULL
             GROUP BY a.id, a.code, a.name, a.account_type, a.balance_direction
             ORDER BY a.code

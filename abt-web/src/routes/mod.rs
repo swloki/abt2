@@ -47,6 +47,8 @@ pub mod wms_inventory_lock;
 pub mod wms_strategy;
 pub mod wms_transaction_log;
 pub mod wms_cascade;
+pub mod wms_settings;
+pub mod wms_low_stock;
 pub mod mes_dashboard;
 pub mod mes_demand_pool;
 pub mod mes_plan;
@@ -118,6 +120,8 @@ pub fn router(state: AppState) -> Router {
                 .merge(wms_strategy::router())
                 .merge(wms_transaction_log::router())
                 .merge(wms_cascade::router())
+                .merge(wms_settings::router())
+                .merge(wms_low_stock::router())
                 // ── MES (Production) ──
                 .merge(mes_dashboard::router())
                 .merge(mes_demand_pool::router())

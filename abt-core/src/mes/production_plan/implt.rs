@@ -187,16 +187,16 @@ impl ProductionPlanService for ProductionPlanServiceImpl {
 
                     for node in &leaf_nodes {
                         let required_qty = node.quantity * item.planned_qty;
-                        // 查询可用库存：stock_ledger SUM(available_qty)
-                        let available_qty: Decimal = sqlx::query_scalar(
-                            r#"SELECT COALESCE(SUM(available_qty), 0)
-                               FROM stock_ledger
-                               WHERE product_id = $1"#,
-                        )
-                        .bind(node.product_id)
-                        .fetch_one(&mut *db)
-                        .await
-                        .map_err(|e| DomainError::Internal(e.into()))?;
+                        // 查询可用库存（真实 ATP）：quantity − Lock 预留 − InventoryReservation。
+                        // 注意：不能用 stock_ledger.available_qty 反范式字段——它只含 Lock，
+                        // 不含 InventoryReservation，会高估可用量、漏算缺料。
+                        let available_qty: Decimal =
+                            crate::wms::stock_ledger::repo::StockLedgerRepo::total_available(
+                                &mut *db,
+                                node.product_id,
+                                None,
+                            )
+                            .await?;
 
                         if available_qty < required_qty {
                             material_shortages.push(MaterialShortage {

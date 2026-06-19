@@ -232,6 +232,7 @@ fn modules() -> Vec<NavModule> {
                 NavItem { name: "仓库管理", path: "/admin/wms/warehouses", icon: NavIcon::Building, permission: Some(("WAREHOUSE", "read")) },
                 NavItem { name: "库位管理", path: "/admin/wms/bins", icon: NavIcon::Database, permission: Some(("LOCATION", "read")) },
                 NavItem { name: "库存查询", path: "/admin/wms/stock", icon: NavIcon::Search, permission: Some(("INVENTORY", "read")) },
+                NavItem { name: "低库存预警", path: "/admin/wms/low-stock", icon: NavIcon::AlertTriangle, permission: Some(("INVENTORY", "read")) },
                 NavItem { name: "入库管理", path: "/admin/wms/stock-in", icon: NavIcon::ArrowDown, permission: Some(("INVENTORY", "read")) },
                 NavItem { name: "出库管理", path: "/admin/wms/stock-out", icon: NavIcon::ArrowUp, permission: Some(("INVENTORY", "read")) },
                 NavItem { name: "来料通知", path: "/admin/wms/arrivals", icon: NavIcon::Truck, permission: Some(("INVENTORY", "read")) },
@@ -244,6 +245,7 @@ fn modules() -> Vec<NavModule> {
                 NavItem { name: "策略管理", path: "/admin/wms/strategies", icon: NavIcon::Sliders, permission: Some(("WAREHOUSE", "read")) },
                 NavItem { name: "事务日志", path: "/admin/wms/transactions", icon: NavIcon::File, permission: Some(("INVENTORY", "read")) },
                 NavItem { name: "级联查询", path: "/admin/wms/cascade", icon: NavIcon::Search, permission: Some(("INVENTORY", "read")) },
+                NavItem { name: "WMS 设置", path: "/admin/wms/settings", icon: NavIcon::Sliders, permission: Some(("INVENTORY", "read")) },
             ],
         },
         NavModule {

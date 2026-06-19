@@ -126,6 +126,7 @@ classDiagram
     Draft
     Counting
     Completed
+    PendingReview
     Adjusted
     Cancelled
   }
@@ -346,6 +347,9 @@ classDiagram
     +is_blind: bool
     +remark: Option~String~
     +operator_id: i64
+    +variance_amount: Decimal
+    +reviewer_id: Option~i64~
+    +reviewed_at: Option~Timestamp~
     +created_at: Timestamp
     +updated_at: Timestamp
   }
@@ -503,8 +507,12 @@ classDiagram
     &lt;&lt;interface&gt;&gt;
     +create(ctx: &ServiceContext, db: PgExecutor, req) Result~i64~
     +get(ctx: &ServiceContext, db: PgExecutor, id) Result~CycleCount~
+    +start_count(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
     +count(ctx: &ServiceContext, db: PgExecutor, req: CountCycleCountReq) Result~Unit~
+    +complete(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
     +adjust(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
+    +approve(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
+    +reject(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
     +cancel(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
   }
   class InventoryTransferService {
@@ -531,7 +539,7 @@ classDiagram
 
   note for ArrivalNoticeService "StateMachine: Draft->Received->Inspecting->Accepted/PartiallyAccepted/Rejected/CANCELLED(Draft only) confirm requires QMS.InspectionResultService.is_passed(IQC) hard gate IQC fail -> block putaway, trigger QMS.MRBService confirm -> CostEntry(material cost: debit inventory / credit AP) [IndependentTx] confirm -> InvRes(release safety stock)"
 
-  note for InventoryTransactionService "Append-only, never modify record -> auto update StockLedger query_available MUST use StockLedger.quantity - InvRes.total_reserved() (not the denormalized available_qty field) FMS: StockLedger.unit_cost is core data source for CostAccountingService"
+  note for InventoryTransactionService "Append-only, never modify record -> auto update StockLedger query_available MUST use StockLedger.quantity - InvRes.total_reserved() (not the denormalized available_qty field) FMS: StockLedger.unit_cost is core data source for CostAccountingService P0-2 负库存前置预检: 消耗型事务(SalesShipment/MaterialIssue/Scrap) 负数量时先校验 query_available >= |qty|，不足返回 InsufficientStock(422)；upsert 后置硬阻断作并发兜底；Adjustment 不预检 P0-4 安全库存预警: 消耗型扣减后 best-effort 触发 LowStockAlertService.check_and_record"
 
   note for InventoryService "High-level facade wrapping InventoryTransactionRepo + StockLedgerRepo Write ops: read before -> insert txn + update ledger -> read after -> return StockOperationResult Read ops: stock_ledger JOIN products/bins/zones/warehouses Log ops: inventory_transactions JOIN products/bins/zones/warehouses location_id in proto maps to bin_id in abt-core (resolved via InventoryRepo.resolve_bin)"
 
@@ -541,7 +549,7 @@ classDiagram
 
   note for InventoryTransferService "StateMachine: Draft->InTransit->Completed/Cancelled(Draft only) Called by MES.OutsourcingOrderService send -> create(to virtual warehouse) receive -> create(from virtual warehouse) OM: OutsourcingOrderService.send/receive -> transfer OM: convert_to_internal -> transfer materials back to internal"
 
-  note for CycleCountService "StateMachine: Draft->Counting->Completed->Adjusted/Cancelled(Draft/Counting)"
+  note for CycleCountService "StateMachine: Draft->Counting->Completed->(adjust 分流)->Adjusted/PendingReview/Cancelled(Draft/Counting/Completed) complete() 计算并持久化 variance_amount = Σ|variance_qty|*unit_cost adjust(): variance_amount > wms_settings.cycle_count_variance_threshold 则 -> PendingReview + 发布 CycleCountReviewRequested 事件；否则直接调账 -> Adjusted approve(): PendingReview -> 调账 -> Adjusted reject(): PendingReview -> Completed(打回重盘) 调账=对 variance_qty!=0 的明细调 InventoryTransaction.record(Adjustment)（修复"盘点不调账"bug）"
 
   note for FormConversionService "StateMachine: Draft->Completed/Cancelled(Draft only)"
 
@@ -983,6 +991,7 @@ classDiagram
           }<br><br>
           <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">CycleCountStatus</span> {<br>
           &nbsp;&nbsp;DRAFT, COUNTING, COMPLETED<br>
+          &nbsp;&nbsp;PENDING_REVIEW <span style="color:#888;">// 差异超阈值待审批</span><br>
           &nbsp;&nbsp;ADJUSTED, CANCELLED<br>
           &nbsp;&nbsp;}
         </div>

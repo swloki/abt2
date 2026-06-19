@@ -11,11 +11,19 @@ pub struct StockLedger {
     pub bin_id: i64,
     pub batch_no: Option<String>,
     pub quantity: Decimal,
+    /// 反范式预留量：**仅含 InventoryLock**（质量冻结/客户质押），不含 InventoryReservation。
+    /// 业务预留（订单/工单）记录在独立的 inventory_reservations 表。
     pub reserved_qty: Decimal,
+    /// 反范式可用量 = quantity − reserved_qty（仅扣 Lock）。**不要把它当作对外可用量展示或决策依据**——
+    /// 对外可用量（ATP）必须用 InventoryTransactionService::query_available()，
+    /// 它 = quantity − Lock − InventoryReservation。
     pub available_qty: Decimal,
     pub unit_cost: Option<Decimal>,
     pub received_date: Option<NaiveDate>,
     pub expiry_date: Option<NaiveDate>,
+    /// 安全库存（DB 已有此列；list_low_stock 用 quantity < safety_stock 判定低库存）
+    #[sqlx(default)]
+    pub safety_stock: Option<Decimal>,
     pub updated_at: DateTime<Utc>,
 }
 

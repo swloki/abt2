@@ -415,6 +415,9 @@ impl StockLedgerRepo {
         warehouse_id: i64,
         delta: rust_decimal::Decimal,
     ) -> Result<u64> {
+        // 修复：原实现把 delta 加到 product×warehouse 的【每一行】，多库位时锁 N 会预留 N×行数。
+        // query_available 用 SUM(quantity − reserved_qty)，故只需让 SUM 变化 delta 即正确。
+        // 这里只更新 FIFO 首行（最早入库且有余量的库位），release 用同一行 −delta 对称回滚。
         let result = sqlx::query(
             r#"
             UPDATE stock_ledger
@@ -422,6 +425,12 @@ impl StockLedgerRepo {
                 available_qty = available_qty - $3,
                 updated_at = NOW()
             WHERE product_id = $1 AND warehouse_id = $2
+              AND id = (
+                  SELECT id FROM stock_ledger
+                  WHERE product_id = $1 AND warehouse_id = $2
+                  ORDER BY received_date ASC NULLS LAST, id ASC
+                  LIMIT 1
+              )
             "#,
         )
         .bind(product_id)
@@ -431,6 +440,45 @@ impl StockLedgerRepo {
         .await?;
 
         Ok(result.rows_affected())
+    }
+
+    /// 解析默认库位（zone_id, bin_id）：优先取该产品在本仓有库存的 FIFO 首库位；
+    /// 无库存则取本仓任一库位。用于 record() 在 zone/bin 缺失时仍能更新台账。
+    pub async fn resolve_default_bin(
+        executor: &mut sqlx::postgres::PgConnection,
+        product_id: i64,
+        warehouse_id: i64,
+    ) -> Result<Option<(i64, i64)>> {
+        let row = sqlx::query(
+            r#"
+            SELECT zone_id, bin_id FROM (
+                (SELECT zone_id, bin_id, 1 AS prio
+                 FROM stock_ledger
+                 WHERE product_id = $1 AND warehouse_id = $2 AND quantity > 0
+                 ORDER BY received_date ASC NULLS LAST, id ASC
+                 LIMIT 1)
+                UNION ALL
+                (SELECT b.zone_id AS zone_id, b.id AS bin_id, 2 AS prio
+                 FROM bins b JOIN zones z ON b.zone_id = z.id
+                 WHERE z.warehouse_id = $2
+                 ORDER BY b.id ASC
+                 LIMIT 1)
+            ) combined
+            ORDER BY prio ASC, bin_id ASC
+            LIMIT 1
+            "#,
+        )
+        .bind(product_id)
+        .bind(warehouse_id)
+        .fetch_optional(&mut *executor)
+        .await?;
+
+        use sqlx::Row;
+        Ok(row.map(|r| {
+            let z: i64 = r.get("zone_id");
+            let b: i64 = r.get("bin_id");
+            (z, b)
+        }))
     }
 
     // ---- Excel 导出辅助方法 ----

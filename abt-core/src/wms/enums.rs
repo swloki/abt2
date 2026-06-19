@@ -177,12 +177,14 @@ define_wms_enum!(BackflushStatus {
 });
 
 // -- Cycle Count --
+// PendingReview = 6: 差异超阈值待审批（Completed → PendingReview → Adjusted）
 define_wms_enum!(CycleCountStatus {
     Draft = 1,
     Counting = 2,
     Completed = 3,
     Adjusted = 4,
     Cancelled = 5,
+    PendingReview = 6,
 });
 
 // -- Transfer --
@@ -225,4 +227,10 @@ define_wms_enum!(PickType {
     Fefo = 2,
     ShortestPath = 3,
     FullPallet = 4,
+});
+
+// -- Low Stock Alert --
+define_wms_enum!(LowStockAlertStatus {
+    Active = 1,
+    Acknowledged = 2,
 });

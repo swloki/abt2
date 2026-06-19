@@ -15,6 +15,15 @@ pub struct CycleCount {
     pub is_blind: bool,
     pub remark: Option<String>,
     pub operator_id: i64,
+    /// 盘点差异金额 = Σ |variance_qty| × unit_cost（complete 时计算）
+    #[sqlx(default)]
+    pub variance_amount: Decimal,
+    /// 审批人（差异超阈值进入 PendingReview 后）
+    #[sqlx(default)]
+    pub reviewer_id: Option<i64>,
+    /// 审批时间
+    #[sqlx(default)]
+    pub reviewed_at: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     /// 列表查询时通过子查询填充的物料项数

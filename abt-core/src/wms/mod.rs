@@ -13,5 +13,7 @@ pub mod form_conversion;
 pub mod inventory_lock;
 pub mod inventory_cascade;
 pub mod inventory;
+pub mod settings;
+pub mod low_stock_alert;
 
 pub use enums::*;

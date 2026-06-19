@@ -95,6 +95,10 @@ pub enum DomainEventType {
     WOUnreleased = 67,
     // WMS — Arrival notice inspection passed
     ArrivalInspected = 68,
+    // WMS — 盘点差异超阈值，请求审批
+    CycleCountReviewRequested = 69,
+    // WMS — 安全库存预警
+    LowStockAlert = 70,
 }
 
 impl DomainEventType {
@@ -144,6 +148,8 @@ impl DomainEventType {
             66 => Some(Self::DemandRejected),
             67 => Some(Self::WOUnreleased),
             68 => Some(Self::ArrivalInspected),
+            69 => Some(Self::CycleCountReviewRequested),
+            70 => Some(Self::LowStockAlert),
             _ => None,
         }
     }

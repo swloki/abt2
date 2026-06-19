@@ -151,6 +151,19 @@ struct BatchResult {
 - `reserve`: **ContinueOnError**（部分行库存不足不影响其他行；单行 qty>ATP 时部分预留 min(qty,ATP)，仅 ATP<=0 整行失败）
 - `create_entries`（CostEntry）: **Atomic**（双层记账必须完整）
 
+#### ATP 可用量口径与 Reservation / Lock 边界
+
+> **铁律**：对外可用量（ATP）必须用 `InventoryTransactionService.query_available()`，
+> 即 `StockLedger.quantity − InventoryLock − InventoryReservation`。
+> **禁止**把 `stock_ledger.available_qty` / `reserved_qty` 反范式字段当作对外可用量读取——
+> 这两个字段**仅含 InventoryLock**（质量冻结/客户质押），不含 `InventoryReservation`。
+
+- `InventoryReservationService`（shared 域）：业务软/硬预留，订单确认/工单下达/领料时占用，记 `inventory_reservations` 表。
+- `InventoryLockService`（wms 域）：物理整批冻结，记 `stock_ledger.reserved_qty`。
+- 两者 **disjoint**：ATP 计算同时扣两者，无重复扣减。扣减顺序：`quantity − Lock(ledger.reserved_qty) − Reservation(inventory_reservations)`。
+- 负库存：消耗型事务（`SalesShipment`/`MaterialIssue`/`Scrap`）扣减前在 `InventoryTransactionService.record()` 前置预检 `available >= |qty|`，不足返回 `InsufficientStock`（HTTP 422）；`Adjustment`（盘点调账）不预检，由 `stock_ledger.upsert` 后置硬阻断兜底。
+- 安全库存预警：消耗型扣减后 best-effort 触发 `LowStockAlertService.check_and_record`（`SUM(quantity) < SUM(safety_stock)` 时记录 + 发 `LowStockAlert` 事件）。
+
 #### DeadLetterService — 死信队列
 
 ```rust

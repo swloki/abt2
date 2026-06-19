@@ -81,6 +81,7 @@ fn status_label(s: &CycleCountStatus) -> &'static str {
  CycleCountStatus::Completed => "已完成",
  CycleCountStatus::Adjusted => "已调整",
  CycleCountStatus::Cancelled => "已取消",
+ CycleCountStatus::PendingReview => "待审批",
  }
 }
 
@@ -91,6 +92,7 @@ fn status_class(s: &CycleCountStatus) -> &'static str {
  CycleCountStatus::Completed => "status-completed",
  CycleCountStatus::Adjusted => "status-settled",
  CycleCountStatus::Cancelled => "status-cancelled",
+ CycleCountStatus::PendingReview => "status-progress",
  }
 }
 

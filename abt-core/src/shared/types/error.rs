@@ -1,5 +1,7 @@
 use std::fmt;
 
+use rust_decimal::Decimal;
+
 /// 统一错误模型 — 所有 abt-core 服务使用此类型
 #[derive(Debug, thiserror::Error)]
 pub enum DomainError {
@@ -17,6 +19,16 @@ pub enum DomainError {
 
     #[error("Business rule: {0}")]
     BusinessRule(String),
+
+    #[error(
+        "Insufficient stock for product {product_id} at warehouse {warehouse_id}: available {available}, required {required}"
+    )]
+    InsufficientStock {
+        product_id: i64,
+        warehouse_id: i64,
+        available: Decimal,
+        required: Decimal,
+    },
 
     #[error("Validation: {0}")]
     Validation(String),
@@ -69,5 +81,19 @@ impl DomainError {
 
     pub fn validation(msg: impl fmt::Display) -> Self {
         Self::Validation(msg.to_string())
+    }
+
+    pub fn insufficient_stock(
+        product_id: i64,
+        warehouse_id: i64,
+        available: Decimal,
+        required: Decimal,
+    ) -> Self {
+        Self::InsufficientStock {
+            product_id,
+            warehouse_id,
+            available,
+            required,
+        }
     }
 }

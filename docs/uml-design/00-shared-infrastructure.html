@@ -106,6 +106,9 @@ classDiagram
         SalesReturnReceived
         PurchaseOrderConfirmed
         ArrivalNoticeReceived
+        ...
+        CycleCountReviewRequested
+        LowStockAlert
     }
 
     class EventStatus {
@@ -124,6 +127,7 @@ classDiagram
         PermissionDenied
         BusinessRule
         Validation
+        InsufficientStock
         ConcurrentConflict
         InvalidStateTransition
         InternalError

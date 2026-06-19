@@ -253,6 +253,18 @@ impl AppState {
         abt_core::wms::inventory_cascade::new_inventory_cascade_service()
     }
 
+    pub fn wms_settings_service(
+        &self,
+    ) -> impl abt_core::wms::settings::WmsSettingsService {
+        abt_core::wms::settings::new_wms_settings_service(self.pool.clone())
+    }
+
+    pub fn low_stock_alert_service(
+        &self,
+    ) -> impl abt_core::wms::low_stock_alert::LowStockAlertService {
+        abt_core::wms::low_stock_alert::new_low_stock_alert_service(self.pool.clone())
+    }
+
     pub fn bom_query_service(&self) -> impl abt_core::master_data::bom::BomQueryService {
         abt_core::master_data::bom::new_bom_query_service(self.pool.clone())
     }

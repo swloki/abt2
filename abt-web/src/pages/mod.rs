@@ -120,6 +120,8 @@ pub mod wms_lock_detail;
 pub mod wms_strategy_list;
 pub mod wms_transaction_log_list;
 pub mod wms_cascade_list;
+pub mod wms_settings;
+pub mod wms_low_stock_list;
 
 // ── MES (Production) ──
 pub mod mes_dashboard;

@@ -48,11 +48,17 @@ pub trait CycleCountService: Send + Sync {
     /// 录入盘点数量（Counting 状态下）
     async fn count(&self, ctx: &ServiceContext, db: PgExecutor<'_>, req: CountCycleCountReq) -> Result<()>;
 
-    /// 完成盘点：Counting -> Completed
+    /// 完成盘点：Counting -> Completed（计算并记录差异金额 variance_amount）
     async fn complete(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()>;
 
-    /// 执行调整：Completed -> Adjusted
+    /// 执行调整：Completed ->（差异金额超阈值则 PendingReview 待审批；否则直接调账 -> Adjusted）
     async fn adjust(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()>;
+
+    /// 审批通过：PendingReview -> 调账 -> Adjusted
+    async fn approve(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()>;
+
+    /// 审批驳回：PendingReview -> Completed（打回重盘，不调账）
+    async fn reject(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()>;
 
     /// 取消盘点：Draft|Counting -> Cancelled
     async fn cancel(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()>;

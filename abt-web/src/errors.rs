@@ -37,6 +37,17 @@ impl IntoResponse for WebError {
             DomainError::Duplicate(msg)
             | DomainError::Validation(msg)
             | DomainError::BusinessRule(msg) => (StatusCode::BAD_REQUEST, msg.clone()),
+            DomainError::InsufficientStock {
+                product_id,
+                warehouse_id,
+                available,
+                required,
+            } => (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                format!(
+                    "库存不足：产品#{product_id} 在仓库#{warehouse_id} 可用量 {available}，本次需 {required}"
+                ),
+            ),
             DomainError::InvalidStateTransition { from, to } => {
                 (StatusCode::BAD_REQUEST, format!("状态转换无效: {from} -> {to}"))
             }

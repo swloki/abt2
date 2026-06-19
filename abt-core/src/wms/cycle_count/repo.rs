@@ -21,7 +21,8 @@ impl CycleCountRepo {
                 (doc_number, warehouse_id, zone_id, count_date, status, is_blind, remark, operator_id)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
             RETURNING id, doc_number, warehouse_id, zone_id, count_date, status, is_blind,
-                      remark, operator_id, created_at, updated_at
+                      remark, operator_id, variance_amount, reviewer_id, reviewed_at,
+                      created_at, updated_at
             "#,
         )
         .bind(doc_number)
@@ -69,7 +70,8 @@ impl CycleCountRepo {
         let row = sqlx::query(
             r#"
             SELECT id, doc_number, warehouse_id, zone_id, count_date, status, is_blind,
-                   remark, operator_id, created_at, updated_at
+                   remark, operator_id, variance_amount, reviewer_id, reviewed_at,
+                   created_at, updated_at
             FROM cycle_counts
             WHERE id = $1
             "#,
@@ -187,7 +189,8 @@ impl CycleCountRepo {
         let count_sql = format!("SELECT COUNT(*) as total FROM cycle_counts cc WHERE {where_sql}");
         let data_sql = format!(
             "SELECT cc.id, cc.doc_number, cc.warehouse_id, cc.zone_id, cc.count_date, cc.status, cc.is_blind, \
-             cc.remark, cc.operator_id, cc.created_at, cc.updated_at, \
+             cc.remark, cc.operator_id, cc.variance_amount, cc.reviewer_id, cc.reviewed_at, \
+             cc.created_at, cc.updated_at, \
              (SELECT COUNT(*) FROM cycle_count_items cci WHERE cci.count_id = cc.id) AS item_count \
              FROM cycle_counts cc WHERE {where_sql} \
              ORDER BY cc.created_at DESC LIMIT ${limit_idx} OFFSET ${offset_idx}"
@@ -223,5 +226,75 @@ impl CycleCountRepo {
             page_size,
             total_pages,
         })
+    }
+
+    /// 记录差异金额（complete 时计算后写入）
+    pub async fn update_variance_amount(
+        executor: &mut sqlx::postgres::PgConnection,
+        id: i64,
+        variance_amount: rust_decimal::Decimal,
+    ) -> Result<u64> {
+        let result = sqlx::query(
+            "UPDATE cycle_counts SET variance_amount = $1, updated_at = NOW() WHERE id = $2",
+        )
+        .bind(variance_amount)
+        .bind(id)
+        .execute(&mut *executor)
+        .await?;
+        Ok(result.rows_affected())
+    }
+
+    /// 标记审批通过（记录审批人 + 时间）
+    pub async fn mark_reviewed(
+        executor: &mut sqlx::postgres::PgConnection,
+        id: i64,
+        reviewer_id: i64,
+    ) -> Result<u64> {
+        let result = sqlx::query(
+            "UPDATE cycle_counts SET reviewer_id = $1, reviewed_at = NOW(), updated_at = NOW() WHERE id = $2",
+        )
+        .bind(reviewer_id)
+        .bind(id)
+        .execute(&mut *executor)
+        .await?;
+        Ok(result.rows_affected())
+    }
+
+    /// 取库位所属库区 ID（adjust 时回写台账需要 zone_id）
+    pub async fn bin_zone_id(
+        executor: &mut sqlx::postgres::PgConnection,
+        bin_id: i64,
+    ) -> Result<Option<i64>> {
+        let zone_id: Option<i64> = sqlx::query_scalar(
+            "SELECT zone_id FROM bins WHERE id = $1",
+        )
+        .bind(bin_id)
+        .fetch_optional(&mut *executor)
+        .await?;
+        Ok(zone_id)
+    }
+
+    /// 取台账行的单位成本（计算差异金额 variance_amount 用）
+    pub async fn ledger_unit_cost(
+        executor: &mut sqlx::postgres::PgConnection,
+        product_id: i64,
+        warehouse_id: i64,
+        bin_id: i64,
+        batch_no: Option<&str>,
+    ) -> Result<Option<rust_decimal::Decimal>> {
+        let unit_cost: Option<rust_decimal::Decimal> = sqlx::query_scalar(
+            r#"
+            SELECT unit_cost FROM stock_ledger
+            WHERE product_id = $1 AND warehouse_id = $2 AND bin_id = $3
+              AND batch_no IS NOT DISTINCT FROM $4
+            "#,
+        )
+        .bind(product_id)
+        .bind(warehouse_id)
+        .bind(bin_id)
+        .bind(batch_no)
+        .fetch_optional(&mut *executor)
+        .await?;
+        Ok(unit_cost)
     }
 }

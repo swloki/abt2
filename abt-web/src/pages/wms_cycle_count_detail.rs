@@ -88,6 +88,8 @@ pub async fn post_cycle_count_action(
  "start" => svc.start_count(&service_ctx, &mut conn, path.id).await?,
  "complete" => svc.complete(&service_ctx, &mut conn, path.id).await?,
  "adjust" => svc.adjust(&service_ctx, &mut conn, path.id).await?,
+ "approve" => svc.approve(&service_ctx, &mut conn, path.id).await?,
+ "reject" => svc.reject(&service_ctx, &mut conn, path.id).await?,
  "cancel" => svc.cancel(&service_ctx, &mut conn, path.id).await?,
  _ => {}
  }
@@ -111,6 +113,7 @@ fn status_label(s: &CycleCountStatus) -> &'static str {
  CycleCountStatus::Completed => "已完成",
  CycleCountStatus::Adjusted => "已调整",
  CycleCountStatus::Cancelled => "已取消",
+ CycleCountStatus::PendingReview => "待审批",
  }
 }
 
@@ -121,6 +124,7 @@ fn status_class(s: &CycleCountStatus) -> &'static str {
  CycleCountStatus::Completed => "status-completed",
  CycleCountStatus::Adjusted => "status-settled",
  CycleCountStatus::Cancelled => "status-cancelled",
+ CycleCountStatus::PendingReview => "status-progress",
  }
 }
 
@@ -281,6 +285,7 @@ fn workflow_steps(status: &CycleCountStatus) -> Markup {
  CycleCountStatus::Draft => 0,
  CycleCountStatus::Counting => 1,
  CycleCountStatus::Completed => 2,
+ CycleCountStatus::PendingReview => 2,
  CycleCountStatus::Adjusted => 3,
  CycleCountStatus::Cancelled => 0,
  };
@@ -354,9 +359,27 @@ fn action_buttons(cc: &abt_core::wms::cycle_count::model::CycleCount, detail_pat
  button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
  hx-post=(detail_path)
  hx-vals=r#"{"action":"adjust"}"#
- hx-confirm="确定要确认调整库存吗？此操作不可撤销。"
+ hx-confirm="确定要确认调整库存吗？差异超阈值将进入审批。"
  hx-redirect=(detail_path) {
  "确认调整"
+ }
+ }
+ }
+ CycleCountStatus::PendingReview => {
+ html! {
+ button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+ hx-post=(detail_path)
+ hx-vals=r#"{"action":"reject"}"#
+ hx-confirm="驳回后回到已完成状态，需重新盘点。确认驳回？"
+ hx-redirect=(detail_path) {
+ "驳回重盘"
+ }
+ button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-success text-white border-none hover:opacity-90 text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(34,197,94,0.2)]"
+ hx-post=(detail_path)
+ hx-vals=r#"{"action":"approve"}"#
+ hx-confirm="审批通过将按差异调整库存，不可撤销。确认？"
+ hx-redirect=(detail_path) {
+ "审批通过"
  }
  }
  }

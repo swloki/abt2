@@ -83,6 +83,7 @@ pub async fn get_list(
 pub async fn toggle_disabled(
     path: GlAccountTogglePath,
     ctx: RequestContext,
+    Query(params): Query<AccountQueryParams>,
 ) -> Result<Html<String>> {
     let RequestContext {
         mut conn,
@@ -107,18 +108,17 @@ pub async fn toggle_disabled(
     .await?;
 
     // 重新查询当前筛选条件下的列表（保持 tab/筛选状态），返回 data-card 片段
-    // 由于 toggle 是行操作，无 query 参数，重新拉默认列表即可
-    let filter = GlAccountFilter::default();
+    let filter = build_filter(&params);
+    let page_num = params.page.unwrap_or(1);
     let result = svc
         .list(
             &service_ctx,
             &mut conn,
             filter,
-            abt_core::shared::types::PageParams::new(1, 20),
+            abt_core::shared::types::PageParams::new(page_num, 20),
         )
         .await?;
     let can_update = true;
-    let params = AccountQueryParams::default();
     let fragment = account_data_card(&result, &params, can_update);
     Ok(Html(fragment.into_string()))
 }
@@ -295,7 +295,8 @@ fn account_data_card(
                                             hx-post=(toggle_path.to_string())
                                             hx-target="#gl-account-data-card"
                                             hx-select="#gl-account-data-card"
-                                            hx-swap="outerHTML" {
+                                            hx-swap="outerHTML"
+                                            hx-include="#gl-account-filter-form" {
                                             @if item.disabled { "启用" } @else { "停用" }
                                         }
                                     } @else {

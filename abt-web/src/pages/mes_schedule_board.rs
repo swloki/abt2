@@ -151,21 +151,26 @@ fn schedule_board_content(
 
 fn stats_row(stats: &ScheduleStats) -> Markup {
     html! {
-        div class="flex gap-3 mb-6" {
-            (stat_card(&stats.active_orders.to_string(), "活跃工单", "bg-[#e6f4ff] text-[#1677ff]"))
-            (stat_card(&stats.pending_batches.to_string(), "待排产", "bg-[#fff7e6] text-[#fa8c16]"))
-            (stat_card(&stats.in_progress_batches.to_string(), "进行中", "bg-[#e6fffb] text-[#13c2c2]"))
-            (stat_card(&stats.pending_receipt_batches.to_string(), "待入库", "bg-[#f9f0ff] text-[#722ed1]"))
-            (stat_card(&stats.completed_batches.to_string(), "已完成", "bg-[#f6ffed] text-[#52c41a]"))
+        div class="grid grid-cols-5 gap-3 mb-6" {
+            (stat_card(&stats.active_orders.to_string(), "活跃工单",
+                "bg-accent/10 [border-left:4px_solid_var(--accent)]", "text-accent"))
+            (stat_card(&stats.pending_batches.to_string(), "待排产",
+                "bg-warn/10 [border-left:4px_solid_var(--warn)]", "text-warn"))
+            (stat_card(&stats.in_progress_batches.to_string(), "进行中",
+                "bg-[#4f46e5]/10 [border-left:4px_solid_#4f46e5]", "text-[#4f46e5]"))
+            (stat_card(&stats.pending_receipt_batches.to_string(), "待入库",
+                "bg-[#7c3aed]/10 [border-left:4px_solid_#7c3aed]", "text-[#7c3aed]"))
+            (stat_card(&stats.completed_batches.to_string(), "已完成",
+                "bg-success/10 [border-left:4px_solid_var(--success)]", "text-success"))
         }
     }
 }
 
-fn stat_card(value: &str, label: &str, cls: &str) -> Markup {
+fn stat_card(value: &str, label: &str, card_cls: &str, num_cls: &str) -> Markup {
     html! {
-        div class=(format!("flex-1 rounded-md p-4 min-w-[120px] {}", cls)) {
-            span class="block text-2xl font-bold font-mono tabular-nums" { (value) }
-            span class="block text-[13px] mt-1 opacity-80" { (label) }
+        div class=(format!("rounded-md p-4 text-center shadow-xs transition-all duration-150 hover:shadow-sm hover:-translate-y-px {}", card_cls)) {
+            div class=(format!("text-xl font-bold font-mono tabular-nums tracking-tight {}", num_cls)) { (value) }
+            div class="text-[11px] text-fg-2 mt-[3px] font-medium" { (label) }
         }
     }
 }
@@ -202,12 +207,17 @@ fn toolbar(from: NaiveDate, to: NaiveDate, active_view: &str) -> Markup {
     let tab_btn = |label: &str, view: &str| -> Markup {
         let is_active = active_view == view;
         let class = if is_active {
-            "px-4 py-3 text-sm text-accent font-semibold cursor-pointer whitespace-nowrap relative [border-bottom:2px_solid_var(--accent)] -mb-px"
+            "px-4 py-[7px] text-sm bg-accent text-white font-semibold cursor-pointer whitespace-nowrap transition-colors"
         } else {
-            "px-4 py-3 text-sm text-muted cursor-pointer whitespace-nowrap relative [border-bottom:2px_solid_transparent] -mb-px hover:text-fg transition-colors"
+            "px-4 py-[7px] text-sm bg-bg text-muted font-medium cursor-pointer whitespace-nowrap transition-colors hover:bg-accent-bg hover:text-accent"
+        };
+        let sep = if view != "kanban" {
+            " [border-right:1px_solid_var(--border)]"
+        } else {
+            ""
         };
         html! {
-            a class=(class)
+            a class=(format!("{class}{sep}"))
                 hx-get=(url_for(view))
                 hx-target="#schedule-content"
                 hx-swap="outerHTML"
@@ -217,24 +227,24 @@ fn toolbar(from: NaiveDate, to: NaiveDate, active_view: &str) -> Markup {
     };
 
     html! {
-        div class="flex justify-between items-end gap-3 flex-wrap mb-6" {
-            div class="flex gap-1 [border-bottom:1px_solid_var(--border-soft)]" {
+        div class="flex items-center gap-3 flex-wrap mb-6" {
+            div class="flex border border-border rounded-md overflow-hidden shadow-xs" {
                 (tab_btn("甘特图", "gantt"))
                 (tab_btn("负荷分析", "load"))
                 (tab_btn("状态看板", "kanban"))
             }
-            div class="flex items-center gap-2 pb-2" {
+            div class="flex items-center gap-2 ml-auto" {
                 button
-                    class="inline-flex items-center justify-center w-7 h-7 rounded-sm text-sm font-medium cursor-pointer border border-border-soft bg-white text-fg-2 hover:bg-surface hover:border-accent transition-colors"
+                    class="w-[30px] h-[30px] inline-grid place-items-center border border-border rounded-sm bg-bg text-fg cursor-pointer transition-colors hover:border-accent hover:text-accent hover:bg-accent-bg"
                     hx-get=(prev_url)
                     hx-target="#schedule-content"
                     hx-swap="outerHTML"
                     { "‹" }
-                span class="text-[14px] font-medium text-[#595959] text-center min-w-[120px]" {
+                span class="font-mono text-[13px] font-semibold text-fg text-center min-w-[110px]" {
                     (from.format("%m/%d").to_string()) " - " (to.format("%m/%d").to_string())
                 }
                 button
-                    class="inline-flex items-center justify-center w-7 h-7 rounded-sm text-sm font-medium cursor-pointer border border-border-soft bg-white text-fg-2 hover:bg-surface hover:border-accent transition-colors"
+                    class="w-[30px] h-[30px] inline-grid place-items-center border border-border rounded-sm bg-bg text-fg cursor-pointer transition-colors hover:border-accent hover:text-accent hover:bg-accent-bg"
                     hx-get=(next_url)
                     hx-target="#schedule-content"
                     hx-swap="outerHTML"
@@ -254,111 +264,156 @@ fn gantt_view(data: &GanttData, today: NaiveDate) -> Markup {
     }
 
     html! {
-        div class="overflow-x-auto bg-white rounded-md border border-border-soft min-w-0" {
-            table class="border-collapse w-full" {
-                // ── Header row: dates ──
-                thead {
-                    tr {
-                        th class="sticky left-0 z-10 bg-[#fafafa] w-[140px] min-w-[140px] border-r border-border-soft border-b border-border-soft" {}
-                        @for date in &data.date_range {
-                            (gantt_date_header(*date, today))
-                        }
-                    }
-                }
-                // ── Body rows: work centers ──
-                tbody {
-                    @for (wi, wc) in data.work_centers.iter().enumerate() {
-                        tr {
-                            td class="border-b border-border-soft bg-[#fafafa] text-center sticky left-0 z-[1] p-2 border-r border-border-soft" {
-                                span class=(format!("inline-block w-2 h-2 rounded-full mr-1.5 align-middle {}", gantt_block_bg(wi))) {}
-                                span class="text-[13px] font-medium text-[#262626]" { (wc.name) }
-                                span class="block text-[11px] text-[#bfbfbf]" { (work_center_type_label(wc.work_center_type)) }
-                            }
-                            @for date in &data.date_range {
-                                (gantt_cell(data, wc.id, *date, today))
-                            }
-                        }
-                    }
+        div class="bg-bg border border-border-soft rounded-md p-5 shadow-[var(--shadow-card)] min-w-0" {
+            // ── Legend ──
+            div class="flex gap-4 mb-4 text-xs text-muted" {
+                (legend_dot("bg-accent/25 [border:1px_solid_var(--accent)]", "计划"))
+                (legend_dot("bg-accent", "进行中"))
+                (legend_dot("bg-warn", "待入库"))
+                (legend_dot("bg-success", "已完成"))
+            }
+            // ── Header: label + date ticks ──
+            (gantt_header(&data.date_range, today))
+            // ── Rows: one track per work center ──
+            div class="flex flex-col" {
+                @for wc in &data.work_centers {
+                    (gantt_row(data, wc, today))
                 }
             }
         }
     }
 }
 
-fn gantt_date_header(date: NaiveDate, today: NaiveDate) -> Markup {
-    let is_today = date == today;
-    let is_weekend = matches!(date.weekday(), Weekday::Sat | Weekday::Sun);
-    let bg = if is_today {
-        " bg-[#e6f4ff]"
-    } else if is_weekend {
-        " bg-[#fafafa]"
-    } else {
-        ""
-    };
+fn legend_dot(dot_cls: &str, label: &str) -> Markup {
     html! {
-        th class=(format!("text-center px-1 py-2 min-w-[72px] w-[72px] border-b border-border-soft border-l border-border-soft{}", bg)) {
-            span class="block text-[13px] font-semibold text-[#262626]" { (date.format("%m/%d").to_string()) }
-            span class="block text-[11px] text-[#8c8c8c]" { (weekday_cn(date.weekday())) }
+        span class="flex items-center gap-1" {
+            span class=(format!("inline-block w-3 h-3 {}", dot_cls)) {}
+            (label)
         }
     }
 }
 
-fn gantt_cell(data: &GanttData, wc_id: i64, date: NaiveDate, today: NaiveDate) -> Markup {
-    let bookings: Vec<&GanttBooking> = data
-        .bookings
-        .iter()
-        .filter(|b| {
-            b.work_center_id == wc_id
-                && date_in_range(date, b.date_from.date_naive(), b.date_to.date_naive())
-        })
-        .collect();
-
-    let is_today = date == today;
-    let is_weekend = matches!(date.weekday(), Weekday::Sat | Weekday::Sun);
-    let bg = if is_today {
-        " bg-[#e6f4ff]/30"
-    } else if is_weekend {
-        " bg-[#fafafa]/50"
-    } else {
-        ""
-    };
-
+fn gantt_header(date_range: &[NaiveDate], today: NaiveDate) -> Markup {
     html! {
-        td class=(format!("relative border-b border-border-soft border-l h-[48px] min-w-[72px] w-[72px] align-top p-0.5{}", bg)) {
-            @for b in &bookings {
-                (gantt_block(b))
+        div class="flex items-stretch pb-2 mb-2 [border-bottom:1px_solid_var(--border-soft)]" {
+            div class="w-[160px] shrink-0 pr-3 flex items-center text-[11px] text-muted font-semibold" {
+                "工作中心"
             }
-            @if bookings.is_empty() {
-                span class="block h-full" {}
+            div class="flex-1 flex" {
+                @for date in date_range {
+                    (gantt_header_tick(*date, today))
+                }
             }
         }
     }
 }
 
-fn gantt_block(b: &GanttBooking) -> Markup {
-    let bg = gantt_block_bg((b.work_order_id as usize) % 8);
-    let spans_days = b.date_to.date_naive() > b.date_from.date_naive();
+fn gantt_header_tick(date: NaiveDate, today: NaiveDate) -> Markup {
+    let is_today = date == today;
+    let is_weekend = matches!(date.weekday(), Weekday::Sat | Weekday::Sun);
+    let date_cls = if is_today {
+        "block text-[11px] font-semibold text-accent"
+    } else if is_weekend {
+        "block text-[11px] font-medium text-muted"
+    } else {
+        "block text-[11px] font-semibold text-fg-2"
+    };
+    html! {
+        div class="flex-1 text-center" {
+            span class=(date_cls) { (date.format("%m/%d").to_string()) }
+            span class="block text-[10px] text-muted" { (weekday_cn(date.weekday())) }
+        }
+    }
+}
 
+fn gantt_row(
+    data: &GanttData,
+    wc: &abt_core::mes::dashboard::model::WorkCenterInfo,
+    today: NaiveDate,
+) -> Markup {
+    let range_start = *data.date_range.first().unwrap_or(&today);
+    let range_end = *data.date_range.last().unwrap_or(&today);
+    let total = data.date_range.len().max(1) as f64;
+
+    // Today vertical marker position (only when today falls inside the range)
+    let today_marker = if date_in_range(today, range_start, range_end) {
+        let idx = (today - range_start).num_days() as f64;
+        let left_pct = (idx / total) * 100.0;
+        Some(format!(
+            "<div class=\"absolute top-0 bottom-0 w-px bg-accent/30\" style=\"left:{}%\"></div>",
+            left_pct
+        ))
+    } else {
+        None
+    };
+
+    html! {
+        div class="flex items-stretch py-1.5 [&:not(:last-child)]:[border-bottom:1px_solid_var(--border-soft)]" {
+            // ── Work center label ──
+            div class="w-[160px] shrink-0 pr-3" {
+                div class="text-sm font-medium text-fg truncate" { (wc.name) }
+                div class="text-[11px] text-muted mt-0.5" { (work_center_type_label(wc.work_center_type)) }
+            }
+            // ── Track ──
+            div class="flex-1 relative h-7 bg-surface rounded-sm" {
+                @if let Some(html) = today_marker {
+                    (maud::PreEscaped(html))
+                }
+                @for b in data.bookings.iter().filter(|b| b.work_center_id == wc.id) {
+                    (gantt_bar(b, range_start, range_end, total))
+                }
+            }
+        }
+    }
+}
+
+fn gantt_bar(
+    b: &GanttBooking,
+    range_start: NaiveDate,
+    range_end: NaiveDate,
+    total: f64,
+) -> Markup {
+    // Clip the booking to the visible range and compute left%/width%
+    let raw_start = b.date_from.date_naive();
+    let raw_end = b.date_to.date_naive();
+    let vis_start = raw_start.max(range_start);
+    let vis_end = raw_end.min(range_end);
+    if vis_end < range_start || vis_start > range_end || vis_end < vis_start {
+        return html! {};
+    }
+    let start_idx = (vis_start - range_start).num_days() as f64;
+    let span = (vis_end - vis_start).num_days() as f64 + 1.0;
+    let left_pct = (start_idx / total) * 100.0;
+    let width_pct = (span / total) * 100.0;
+
+    let color_cls = booking_color(b.batch_status);
     let title = b.wo_doc_number.as_deref().unwrap_or("—");
     let process = b.process_name.as_deref().unwrap_or("");
     let product = b.product_name.as_deref().unwrap_or("");
-    let hours = {
-        let mins = b.duration_minutes;
-        let h = mins / Decimal::from(60);
-        h.round_dp(1).to_string()
-    };
+    let hours = format_hours(b.duration_minutes);
 
+    // Pure colored block (no label, no rounded corners) — reads like a
+    // timeline/progress-bar segment. Full info stays available on hover.
     html! {
         div
-            class=(format!("rounded-sm px-1 py-0.5 mb-0.5 text-[11px] leading-tight truncate text-white cursor-pointer {}", bg))
-            title=(format!("{title} · {process} · {product} · {hours}h"))
-        {
-            span class="block" { (title) }
-            span class="block opacity-80" { (process) }
-            @if spans_days {
-                span class="block opacity-60" { "→" }
-            }
-        }
+            class=(format!("absolute top-0 bottom-0 cursor-pointer {}", color_cls))
+            style=(format!("left:{}%;width:{}%", left_pct, width_pct))
+            title=(format!("{title} · {process} · {product} · {hours}"))
+            {}
+    }
+}
+
+/// Semantic bar background (+ optional border) by batch status.
+/// Pending=1, InProgress=2, Suspended=3, PendingReceipt=4, Completed=5, Cancelled=6
+fn booking_color(status: Option<i16>) -> &'static str {
+    match status {
+        Some(1) => "bg-accent/25 [border:1px_solid_var(--accent)]",
+        Some(2) => "bg-accent",
+        Some(3) => "bg-surface-raised [border:1px_solid_var(--border)]",
+        Some(4) => "bg-warn",
+        Some(5) => "bg-success",
+        Some(6) => "bg-danger",
+        _ => "bg-accent",
     }
 }
 
@@ -377,46 +432,40 @@ fn load_view(
     }
 
     html! {
-        div class="overflow-x-auto bg-white rounded-md border border-border-soft min-w-0" {
-            table class="border-collapse w-full" {
-                thead {
-                    tr {
-                        th class="sticky left-0 z-10 bg-[#fafafa] w-[140px] min-w-[140px] border-r border-border-soft border-b border-border-soft" {}
-                        @for date in date_range {
-                            (load_date_header(*date, today))
-                        }
-                    }
-                }
-                tbody {
-                    @for wc in work_centers {
+        div class="bg-bg border border-border-soft rounded-md p-5 shadow-[var(--shadow-card)] min-w-0" {
+            // ── Legend ──
+            div class="flex gap-4 mb-4 text-xs text-muted" {
+                (legend_dot("bg-surface [border:1px_solid_var(--border)]", "无排程"))
+                (legend_dot("bg-success-bg [border:1px_solid_var(--success)]", "<70%"))
+                (legend_dot("bg-warn-bg [border:1px_solid_var(--warn)]", "70-90%"))
+                (legend_dot("bg-danger-bg [border:1px_solid_var(--danger)]", ">90%"))
+            }
+            // ── Heatmap table ──
+            div class="overflow-x-auto" {
+                table class="border-collapse w-full" {
+                    thead {
                         tr {
-                            td class="border-b border-border-soft bg-[#fafafa] sticky left-0 z-[1] p-2 border-r border-border-soft" {
-                                span class="text-[13px] font-medium text-[#262626]" { (wc.name) }
-                                span class="block text-[11px] text-[#bfbfbf]" { (work_center_type_label(wc.work_center_type)) }
+                            th class="sticky left-0 z-10 bg-surface-raised w-[140px] min-w-[140px] px-3 py-2 text-left [border-right:1px_solid_var(--border-soft)] [border-bottom:1px_solid_var(--border-soft)]" {
+                                span class="text-[11px] text-muted font-semibold" { "工作中心" }
                             }
                             @for date in date_range {
-                                (load_cell(loads, wc.id, *date))
+                                (load_date_header(*date, today))
                             }
                         }
                     }
-                }
-            }
-            div class="flex gap-4 justify-end mt-4 text-[12px]" {
-                span class="flex items-center gap-1.5" {
-                    span class="w-3 h-3 rounded-sm bg-[#f5f5f5]" {}
-                    "无排程"
-                }
-                span class="flex items-center gap-1.5" {
-                    span class="w-3 h-3 rounded-sm bg-[rgba(82,196,26,0.12)]" {}
-                    "<70%"
-                }
-                span class="flex items-center gap-1.5" {
-                    span class="w-3 h-3 rounded-sm bg-[rgba(250,140,22,0.15)]" {}
-                    "70-90%"
-                }
-                span class="flex items-center gap-1.5" {
-                    span class="w-3 h-3 rounded-sm bg-[rgba(245,34,45,0.12)]" {}
-                    ">90%"
+                    tbody {
+                        @for wc in work_centers {
+                            tr {
+                                td class="sticky left-0 z-[1] px-3 py-2 bg-surface-raised [border-right:1px_solid_var(--border-soft)] [border-bottom:1px_solid_var(--border-soft)]" {
+                                    div class="text-sm font-medium text-fg truncate" { (wc.name) }
+                                    div class="text-[11px] text-muted mt-0.5" { (work_center_type_label(wc.work_center_type)) }
+                                }
+                                @for date in date_range {
+                                    (load_cell(loads, wc.id, *date))
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -426,59 +475,54 @@ fn load_view(
 fn load_date_header(date: NaiveDate, today: NaiveDate) -> Markup {
     let is_today = date == today;
     let is_weekend = matches!(date.weekday(), Weekday::Sat | Weekday::Sun);
-    let bg = if is_today {
-        " bg-[#e6f4ff]"
+    let date_cls = if is_today {
+        "block text-[11px] font-semibold text-accent"
     } else if is_weekend {
-        " bg-[#fafafa]"
+        "block text-[11px] font-medium text-muted"
     } else {
-        ""
+        "block text-[11px] font-semibold text-fg-2"
     };
     html! {
-        th class=(format!("text-center px-1 py-2 min-w-[72px] w-[72px] border-b border-border-soft border-l border-border-soft{}", bg)) {
-            span class="block text-[13px] font-semibold text-[#262626]" { (date.format("%m/%d").to_string()) }
-            span class="block text-[11px] text-[#8c8c8c]" { (weekday_cn(date.weekday())) }
+        th class="text-center px-1 py-2 min-w-[64px] w-[64px] [border-bottom:1px_solid_var(--border-soft)] [border-left:1px_solid_var(--border-soft)]" {
+            span class=(date_cls) { (date.format("%m/%d").to_string()) }
+            span class="block text-[10px] text-muted" { (weekday_cn(date.weekday())) }
         }
     }
 }
 
 fn load_cell(loads: &[WcDailyLoad], wc_id: i64, date: NaiveDate) -> Markup {
     let load = loads.iter().find(|l| l.work_center_id == wc_id && l.date == date);
-    let (pct, booked, avail, level_cls) = match load {
+    let (display, level_cls, booked, avail) = match load {
         Some(l) => {
             let pct_val = l.load_pct.to_f64().unwrap_or(0.0);
-            let level = if l.available_minutes.is_zero() {
-                "bg-[#f5f5f5] text-[#bfbfbf]"
+            let level_cls = if l.available_minutes.is_zero() {
+                "bg-surface text-muted"
             } else if pct_val > 90.0 {
-                "bg-[rgba(245,34,45,0.12)] text-[#cf1322]"
+                "bg-danger-bg text-danger"
             } else if pct_val > 70.0 {
-                "bg-[rgba(250,140,22,0.15)] text-[#d46b08]"
+                "bg-warn-bg text-warn"
             } else if pct_val > 0.0 {
-                "bg-[rgba(82,196,26,0.12)] text-[#389e0d]"
+                "bg-success-bg text-success"
             } else {
-                "bg-[#f5f5f5] text-[#bfbfbf]"
+                "bg-surface text-muted"
             };
-            (
-                l.load_pct.to_string(),
-                format_hours(l.booked_minutes),
-                format_hours(l.available_minutes),
-                level,
-            )
+            let display = if l.available_minutes.is_zero() || pct_val == 0.0 {
+                "—".to_string()
+            } else {
+                format!("{}%", l.load_pct)
+            };
+            (display, level_cls, format_hours(l.booked_minutes), format_hours(l.available_minutes))
         }
-        None => (
-            "0".to_string(),
-            "0h".to_string(),
-            "0h".to_string(),
-            "bg-[#f5f5f5] text-[#bfbfbf]",
-        ),
+        None => ("—".to_string(), "bg-surface text-muted", "0h".to_string(), "0h".to_string()),
     };
 
     html! {
-        td class="border-b border-border-soft border-l text-center h-[48px]" {
+        td class="text-center h-[44px] [border-bottom:1px_solid_var(--border-soft)] [border-left:1px_solid_var(--border-soft)]" {
             div
-                class=(format!("h-full flex items-center justify-center text-[13px] font-semibold font-mono {}", level_cls))
+                class=(format!("h-full flex items-center justify-center text-[12px] font-semibold font-mono {}", level_cls))
                 title=(format!("已排 {booked} / 可用 {avail}"))
             {
-                (pct) "%"
+                (display)
             }
         }
     }
@@ -591,21 +635,6 @@ fn kanban_card(card: &ScheduleCard) -> Markup {
 // ============================================================================
 // Helpers
 // ============================================================================
-
-/// Returns a Tailwind bg utility for a gantt block color (0-7 rotation).
-fn gantt_block_bg(idx: usize) -> &'static str {
-    const COLORS: [&str; 8] = [
-        "bg-[#1677ff]",
-        "bg-[#52c41a]",
-        "bg-[#fa8c16]",
-        "bg-[#722ed1]",
-        "bg-[#eb2f96]",
-        "bg-[#13c2c2]",
-        "bg-[#f59e0b]",
-        "bg-[#ef4444]",
-    ];
-    COLORS[idx % 8]
-}
 
 fn empty_state(msg: &str) -> Markup {
     html! {

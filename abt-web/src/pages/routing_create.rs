@@ -157,7 +157,7 @@ fn routing_create_page(
 
  // ── Section: 基本信息 ──
  div class="data-card" class="mb-4" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft border-border-soft" { "基本信息" }
+ div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "基本信息" }
  div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
  div class="form-field" {
  label { "路线名称 " span class="text-danger" { "*" } }

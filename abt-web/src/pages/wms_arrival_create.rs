@@ -264,7 +264,7 @@ fn arrival_create_page(
  onsubmit="return arrivalCollectItems()" {
  // ── 供应商信息 ──
  div class="bg-bg border border-border rounded p-6" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
+ div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
  (icon::building_icon("w-4 h-4"))
  "供应商信息"
  }
@@ -297,7 +297,7 @@ fn arrival_create_page(
 
  // ── 到货信息 ──
  div class="bg-bg border border-border rounded p-6" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
+ div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
  (icon::truck_icon("w-4 h-4"))
  "到货信息"
  }
@@ -331,7 +331,7 @@ fn arrival_create_page(
  // ── 物料明细 ──
  div class="bg-bg border border-border rounded-md overflow-hidden" {
  div class="px-6 pt-6 pb-4" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg pb-2 [border-bottom:1px_solid_var(--border-soft)]" {
+ div class="flex items-center gap-2 text-sm font-semibold text-fg pb-2 border-b border-border-soft" {
  (icon::box_icon("w-4 h-4"))
  "物料明细"
  span id="arrival-item-count" class="ml-auto text-xs font-normal text-muted" { "共 0 项" }
@@ -371,7 +371,7 @@ fn arrival_create_page(
 
  // ── 备注 ──
  div class="bg-bg border border-border rounded p-6" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
+ div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
  (icon::edit_icon("w-4 h-4"))
  "备注"
  }
@@ -382,7 +382,7 @@ fn arrival_create_page(
  input type="hidden" name="items_json" id="arrival-items-json" value="[]" {}
 
  // ── Action Bar ──
- div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg [border-top:1px_solid_var(--border-soft)]" {
+ div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg border-t border-border-soft" {
  a href=(format!("{}?restore=true", ArrivalListPath::PATH)) class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" { "取消" }
  button type="submit" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" {
  (icon::check_circle_icon("w-4 h-4"))
@@ -398,15 +398,15 @@ fn arrival_create_page(
  div id="po-modal" class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto"
  _="on click[me is event.target] remove .is-open" {
  div class="modal bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl" _="on click halt the event" {
- div class="px-6 py-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center shrink-0" {
+ div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
  h2 { "从采购订单导入" }
  button type="button" class="bg-transparent border-none cursor-pointer text-xl text-muted p-1"
  _="on click remove .is-open from #po-modal" { "×" }
  }
  div class="overflow-y-auto flex-1 min-h-0 p-4" hx-disinherit="hx-select" {
- div class="flex gap-4 p-4 [border-bottom:1px_solid_var(--border-soft)]" {
+ div class="flex gap-4 p-4 border-b border-border-soft" {
  div class="flex-1 flex flex-col gap-[4px]" {
- label class="text-[12px] font-medium text-fg-2" { "采购订单号" }
+ label class="text-xs font-medium text-fg-2" { "采购订单号" }
  input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" id="po-search-input" name="keyword" placeholder="输入PO编号搜索…"
  hx-get=(ArrivalPoPickPath::PATH)
  hx-trigger="keyup changed delay:300ms"
@@ -533,10 +533,10 @@ fn po_list_fragment(
  } @else {
  div class="py-2" {
  @for o in orders {
-div class="flex items-center justify-between p-3 [border-bottom:1px_solid_var(--border-soft)]" {
+div class="flex items-center justify-between p-3 border-b border-border-soft" {
  div class="flex-1 min-w-0" {
  div class="text-sm font-medium text-fg" { (o.doc_number) }
- div class="text-[12px] text-muted flex items-center gap-[6px] flex-wrap" {
+ div class="text-xs text-muted flex items-center gap-[6px] flex-wrap" {
  span class="bg-surface rounded-sm" { (supplier_map.get(&o.supplier_id).cloned().unwrap_or_else(|| "-".into())) }
  span class="text-border" { "·" }
  span { (o.order_date.format("%Y-%m-%d")) }

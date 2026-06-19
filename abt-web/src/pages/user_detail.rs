@@ -709,7 +709,7 @@ fn dept_assign_modal(action: &str, all_depts: &[Department], current_ids: &[i64]
  span class="text-sm text-fg" { (dept.department_name) }
  span class="text-xs text-muted font-mono" { (dept.department_code) }
  @if !dept.is_active {
- span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-[#fff2f0] text-[#cf1322]" { "停用" }
+ span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-[#fff2f0] text-[#cf1322]" { "停用" }
  }
  }
  }

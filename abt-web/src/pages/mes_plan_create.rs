@@ -203,7 +203,7 @@ fn plan_create_page() -> Markup {
  }
  input type="hidden" name="items_json" id="items-json-input";
  // ── Action Bar ──
- div class="sticky bottom-0 flex items-center justify-between gap-3 px-6 py-4 bg-bg [border-top:1px_solid_var(--border-soft)]" {
+ div class="sticky bottom-0 flex items-center justify-between gap-3 px-6 py-4 bg-bg border-t border-border-soft" {
  div { }
  div class="flex gap-3" {
  a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{}?restore=true", PlanListPath::PATH)) { "取消" }
@@ -224,7 +224,7 @@ fn plan_create_page() -> Markup {
  put window._selectedProduct.name into (t's querySelector('[data-field=\"product_name\"]'))
  set (t's querySelector('[data-field=\"product_id\"]'))'s value to window._selectedProduct.id" {
  div class="modal bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl" _="on click halt" {
- div class="px-6 py-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center shrink-0" {
+ div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
  h2 { "选择产品" }
  button type="button" class="bg-transparent border-none cursor-pointer text-xl text-muted p-1"
  _="on click remove .is-open from #product-picker" { "×" }

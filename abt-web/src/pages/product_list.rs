@@ -567,7 +567,7 @@ fn bom_drawer_content(product: &Product, entries: &[UsageEntry], total: u64) -> 
  }
  div class="flex-1 min-w-0" {
  div class="text-[15px] font-semibold text-fg" { (product.pdt_name) }
- div class="text-[12px] text-muted" {
+ div class="text-xs text-muted" {
  (product.product_code) " \u{00b7} "
  @if spec.is_empty() {
  (product.unit)
@@ -644,7 +644,7 @@ fn bom_ref_card(entry: &UsageEntry) -> Markup {
  "BOM-" (entry.source_id)
  }
  }
- div class="flex items-center gap-[12px] text-[12px] text-muted" {
+ div class="flex items-center gap-[12px] text-xs text-muted" {
  span { "版本 " (version) }
  @if !parent_name.is_empty() && parent_name != "—" {
  span { "父件: " (parent_name) }
@@ -669,7 +669,7 @@ fn bom_ref_card(entry: &UsageEntry) -> Markup {
 
  }
  @if has_detail {
- div class="border-t bg-surface p-3 grid grid-cols-2 gap-x-6 gap-y-2 text-[12px] hidden" {
+ div class="border-t bg-surface p-3 grid grid-cols-2 gap-x-6 gap-y-2 text-xs hidden" {
  div class="flex gap-2" {
  span class="text-muted" { "BOM 编码:" }
  span class="text-fg font-medium font-mono" { "BOM-" (entry.source_id) }
@@ -787,7 +787,7 @@ fn price_drawer_content(product: &Product, current_price: &Decimal, history: &[P
  }
  div class="flex-1 min-w-0" {
  div class="text-[15px] font-semibold text-fg" { (product.pdt_name) }
- div class="text-[12px] text-muted" {
+ div class="text-xs text-muted" {
  (product.product_code) " \u{00b7} "
  @if spec.is_empty() {
  (product.unit)
@@ -835,7 +835,7 @@ fn price_drawer_content(product: &Product, current_price: &Decimal, history: &[P
  (price_history_diff_item(entry))
  }
  @if has_more {
- a class="text-center text-[12px] text-accent cursor-pointer" href="/admin/md/price-history" {
+ a class="text-center text-xs text-accent cursor-pointer" href="/admin/md/price-history" {
  (icon::chevron_down_icon("w-3 h-3"))
  "查看全部 " (total_count) " 条变更记录"
  }

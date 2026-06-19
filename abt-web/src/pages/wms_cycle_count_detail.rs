@@ -205,7 +205,7 @@ fn cycle_count_detail_page(
 
  div class="data-card" {
  div class="pt-5 px-6 pb-3" {
- div class="text-base font-semibold text-fg pb-3 mb-0 [border-bottom:1px_solid_var(--border-soft)]" { "盘点明细" }
+ div class="text-base font-semibold text-fg pb-3 mb-0 border-b border-border-soft" { "盘点明细" }
  }
  div class="overflow-x-auto" {
  table class="data-table" {
@@ -247,7 +247,7 @@ fn cycle_count_detail_page(
  td { (item.variance_reason.as_deref().unwrap_or("—")) }
  td {
  @if item.is_adjusted {
- span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-[#f0fff0] text-[#389e0d]" { "已调整" }
+ span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-[#f0fff0] text-[#389e0d]" { "已调整" }
  } @else {
  span class="text-muted" { "—" }
  }
@@ -297,7 +297,7 @@ fn workflow_steps(status: &CycleCountStatus) -> Markup {
  } else if i < idx {
  ("bg-[#10b981]", "text-[#10b981]", "")
  } else if i == idx {
- ("bg-[#2563eb]", "text-[#2563eb] font-semibold", "shadow-[0_0_0_3px_rgba(37,99,235,0.1)]")
+ ("bg-accent", "text-[#2563eb] font-semibold", "shadow-[0_0_0_3px_rgba(37,99,235,0.1)]")
  } else {
  ("bg-[#d1d5db]", "text-[#9ca3af]", "")
  };

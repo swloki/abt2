@@ -307,7 +307,7 @@ a href=(BomListPath::PATH) class="inline-flex items-center justify-center gap-1.
  _="on click[me is event.target] remove .open from me" {
  div id="costpanel" class="drawer-panel bg-white h-full w-[1000px] max-w-[100vw] flex flex-col shadow-[-8px_0_30px_rgba(0,0,0,0.1)]"
  _="on click halt the event on htmx:afterSettle add .open to #cost-drawer" {
- div class="flex items-center justify-between px-6 py-4 [border-bottom:1px_solid_var(--border-soft)] sticky top-0 bg-white z-10" {
+ div class="flex items-center justify-between px-6 py-4 border-b border-border-soft sticky top-0 bg-white z-10" {
  h2 class="flex items-center gap-2 text-base font-semibold text-fg m-0" { "BOM成本报告" }
  button type="button" class="w-8 h-8 border-none bg-transparent cursor-pointer text-muted rounded-md grid place-items-center hover:bg-surface hover:text-fg transition-colors"
  _="on click remove .open from closest .drawer-overlay" { "×" }
@@ -315,7 +315,7 @@ a href=(BomListPath::PATH) class="inline-flex items-center justify-center gap-1.
  div class="flex-1 overflow-y-auto p-6" {
  div id="cost-drawer-body" {}
  }
- div class="px-6 py-4 [border-top:1px_solid_var(--border-soft)] flex justify-end gap-3" {
+ div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3" {
  button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
  _="on click remove .open from closest .drawer-overlay" { "关闭" }
  }

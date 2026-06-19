@@ -617,18 +617,18 @@ span class=(format!("status-pill {}", crate::utils::status_color(status_class)))
  table class="w-full text-[13px]" class="min-w-[900px]" {
 thead {
 tr {
-th class="w-[32px] px-2 py-3 bg-[#2563eb]" { }
-th class="w-[40px] px-2 py-3 text-center text-xs font-semibold text-white whitespace-nowrap bg-[#2563eb]" { "编号" }
-th class="w-[40px] px-2 py-3 text-center text-xs font-semibold text-white whitespace-nowrap bg-[#2563eb]" { "层级" }
-th class="w-[120px] px-3 py-3 text-xs font-semibold text-white whitespace-nowrap bg-[#2563eb]" { "产品编码" }
-th class="px-3 py-3 text-xs font-semibold text-white whitespace-nowrap bg-[#2563eb]" { "产品" }
-th class="w-[100px] px-3 py-3 text-xs font-semibold text-white whitespace-nowrap bg-[#2563eb]" { "工作中心" }
-th class="w-[80px] px-3 py-3 text-right text-xs font-semibold text-white whitespace-nowrap bg-[#2563eb]" { "数量" }
-th class="w-[60px] px-3 py-3 text-center text-xs font-semibold text-white whitespace-nowrap bg-[#2563eb]" { "单位" }
-th class="w-[50px] px-3 py-3 text-right text-xs font-semibold text-white whitespace-nowrap bg-[#2563eb]" { "损耗率" }
-th class="w-[100px] px-3 py-3 text-xs font-semibold text-white whitespace-nowrap bg-[#2563eb]" { "位置" }
-th class="w-[90px] px-3 py-3 text-xs font-semibold text-white whitespace-nowrap bg-[#2563eb]" { "备注" }
-th class="w-[120px] px-3 py-3 text-center text-xs font-semibold text-white whitespace-nowrap bg-[#2563eb]" { "操作" }
+th class="w-[32px] px-2 py-3 bg-accent" { }
+th class="w-[40px] px-2 py-3 text-center text-xs font-semibold text-white whitespace-nowrap bg-accent" { "编号" }
+th class="w-[40px] px-2 py-3 text-center text-xs font-semibold text-white whitespace-nowrap bg-accent" { "层级" }
+th class="w-[120px] px-3 py-3 text-xs font-semibold text-white whitespace-nowrap bg-accent" { "产品编码" }
+th class="px-3 py-3 text-xs font-semibold text-white whitespace-nowrap bg-accent" { "产品" }
+th class="w-[100px] px-3 py-3 text-xs font-semibold text-white whitespace-nowrap bg-accent" { "工作中心" }
+th class="w-[80px] px-3 py-3 text-right text-xs font-semibold text-white whitespace-nowrap bg-accent" { "数量" }
+th class="w-[60px] px-3 py-3 text-center text-xs font-semibold text-white whitespace-nowrap bg-accent" { "单位" }
+th class="w-[50px] px-3 py-3 text-right text-xs font-semibold text-white whitespace-nowrap bg-accent" { "损耗率" }
+th class="w-[100px] px-3 py-3 text-xs font-semibold text-white whitespace-nowrap bg-accent" { "位置" }
+th class="w-[90px] px-3 py-3 text-xs font-semibold text-white whitespace-nowrap bg-accent" { "备注" }
+th class="w-[120px] px-3 py-3 text-center text-xs font-semibold text-white whitespace-nowrap bg-accent" { "操作" }
 }
 }
  tbody id="bom-sortable-tbody" {
@@ -660,7 +660,7 @@ div class="modal bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-
  div class="flex gap-4 p-4 border-b border-border-soft product-search-bar" {
  input type="hidden" name="bom_id" value=(bom.bom_id) {}
  div class="flex-1 flex flex-col gap-[4px]" {
- label class="text-[12px] font-medium text-fg-2" { "产品名称" }
+ label class="text-xs font-medium text-fg-2" { "产品名称" }
  input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent product-search-input" type="text" name="name" placeholder="输入产品名称…" autocomplete="off"
  hx-get=(BomProductsPath::PATH)
  hx-trigger="keyup changed delay:300ms"
@@ -670,7 +670,7 @@ div class="modal bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-
  hx-include=".product-search-bar" {}
  }
  div class="flex-1 flex flex-col gap-[4px]" {
- label class="text-[12px] font-medium text-fg-2" { "产品编码" }
+ label class="text-xs font-medium text-fg-2" { "产品编码" }
  input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent product-search-input" type="text" name="code" placeholder="输入产品编码…" autocomplete="off"
  hx-get=(BomProductsPath::PATH)
  hx-trigger="keyup changed delay:300ms"
@@ -821,7 +821,7 @@ fn bom_node_row(
  html! {
  tr class=(row_class) draggable="true"
 data-node-id=(node.id) data-parent-id=(node.parent_id) data-level=(level) data-ancestors=(ancestors_str) {
-td class="text-center px-2 py-2.5 [border-bottom:1px_solid_var(--border-soft)]" {
+td class="text-center px-2 py-2.5 border-b border-border-soft" {
 @if has_children {
 button type="button" class="inline-flex items-center justify-center w-[20px] h-[20px] border-none rounded-sm cursor-pointer shrink-0"
 onclick=(format!("bomToggleCollapse({})", node.id)) {
@@ -829,17 +829,17 @@ onclick=(format!("bomToggleCollapse({})", node.id)) {
 }
 }
 }
-td class="text-center px-2 py-2.5 text-xs [border-bottom:1px_solid_var(--border-soft)]" { (index + 1) }
-td class="text-center px-2 py-2.5 text-xs [border-bottom:1px_solid_var(--border-soft)]" { (level) }
-td class="font-mono tabular-nums px-3 py-2.5 text-xs [border-bottom:1px_solid_var(--border-soft)]" { (code) }
-td class="px-3 py-2.5 text-xs [border-bottom:1px_solid_var(--border-soft)]" style=(format!("padding-left:{}px", indent_px)) { (name) }
-td class="px-3 py-2.5 text-xs [border-bottom:1px_solid_var(--border-soft)]" { (work_center) }
-td class="font-mono tabular-nums text-right px-3 py-2.5 text-xs [border-bottom:1px_solid_var(--border-soft)]" { (node.quantity) }
-td class="text-center px-3 py-2.5 text-xs [border-bottom:1px_solid_var(--border-soft)]" { (unit) }
-td class="text-right px-3 py-2.5 text-xs [border-bottom:1px_solid_var(--border-soft)]" { (loss_rate) }
-td class="px-3 py-2.5 text-xs [border-bottom:1px_solid_var(--border-soft)]" { (position) }
-td class="text-muted px-3 py-2.5 text-xs [border-bottom:1px_solid_var(--border-soft)]" { (remark) }
-td class="px-3 py-2.5 text-center [border-bottom:1px_solid_var(--border-soft)]" {
+td class="text-center px-2 py-2.5 text-xs border-b border-border-soft" { (index + 1) }
+td class="text-center px-2 py-2.5 text-xs border-b border-border-soft" { (level) }
+td class="font-mono tabular-nums px-3 py-2.5 text-xs border-b border-border-soft" { (code) }
+td class="px-3 py-2.5 text-xs border-b border-border-soft" style=(format!("padding-left:{}px", indent_px)) { (name) }
+td class="px-3 py-2.5 text-xs border-b border-border-soft" { (work_center) }
+td class="font-mono tabular-nums text-right px-3 py-2.5 text-xs border-b border-border-soft" { (node.quantity) }
+td class="text-center px-3 py-2.5 text-xs border-b border-border-soft" { (unit) }
+td class="text-right px-3 py-2.5 text-xs border-b border-border-soft" { (loss_rate) }
+td class="px-3 py-2.5 text-xs border-b border-border-soft" { (position) }
+td class="text-muted px-3 py-2.5 text-xs border-b border-border-soft" { (remark) }
+td class="px-3 py-2.5 text-center border-b border-border-soft" {
 div class="flex gap-1 justify-center" {
 button type="button" class=(btn_class) title="添加子节点"
 _=(format!("on click put '{}' into <input[name='parent_id']/>'s value then add .is-open to #bom-add-modal then call bomLoadProducts()", node.id)) {
@@ -914,7 +914,7 @@ p class="mt-2 text-sm" { "未找到匹配的产品" }
  div class="flex items-center justify-between p-3 border-b border-border-soft" {
  div class="product-select-info" {
  div class="text-sm font-medium text-fg" { (p.pdt_name) }
- div class="text-[12px] text-muted flex items-center gap-[6px] flex-wrap" {
+ div class="text-xs text-muted flex items-center gap-[6px] flex-wrap" {
  span class="bg-surface rounded-sm" { (p.product_code) }
  span class="text-border" { "·" }
  span { (p.meta.specification) }

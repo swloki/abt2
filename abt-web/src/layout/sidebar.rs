@@ -614,7 +614,7 @@ fn sidebar_body_fragment_inner(active_mod: &NavModule, current_path: &str, filte
     let visible_items = filter.visible_items(active_mod);
     let active_path = find_active_path(&visible_items, current_path);
     html! {
-        div class="p-4 text-sm font-bold [border-bottom:1px_solid_var(--border-soft)] flex items-center gap-2 shrink-0" {
+        div class="p-4 text-sm font-bold border-b border-border-soft flex items-center gap-2 shrink-0" {
             span class="w-[18px] h-[18px] grid place-items-center" { (render_module_icon(active_mod.id)) }
             span class="whitespace-nowrap overflow-hidden" { (active_mod.name) }
         }

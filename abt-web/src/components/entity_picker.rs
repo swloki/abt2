@@ -110,7 +110,7 @@ pub fn entity_picker_modal(cfg: &EntityPickerConfig) -> Markup {
 
  div class="flex gap-4 p-4 border-b border-border-soft" {
  div class="flex-1 flex flex-col gap-[4px]" {
- label class="text-[12px] font-medium text-fg-2" { (cfg.search_label) }
+ label class="text-xs font-medium text-fg-2" { (cfg.search_label) }
  input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text"
  name=(cfg.search_param)
  placeholder=(cfg.search_placeholder)
@@ -174,7 +174,7 @@ pub fn entity_picker_results(items: &[EntityPickerItem]) -> Markup {
  div class="product-select-info" {
  div class="text-sm font-medium text-fg" { (item.label.as_str()) }
  @if let Some(ref sub) = item.sub_label {
- div class="text-[12px] text-muted flex items-center gap-[6px] flex-wrap" { (sub.as_str()) }
+ div class="text-xs text-muted flex items-center gap-[6px] flex-wrap" { (sub.as_str()) }
  }
  }
  }
@@ -186,7 +186,7 @@ pub fn entity_picker_results(items: &[EntityPickerItem]) -> Markup {
  div class="product-select-info" {
  div class="text-sm font-medium text-fg" { (item.label.as_str()) }
  @if let Some(ref sub) = item.sub_label {
- div class="text-[12px] text-muted flex items-center gap-[6px] flex-wrap" { (sub.as_str()) }
+ div class="text-xs text-muted flex items-center gap-[6px] flex-wrap" { (sub.as_str()) }
  }
  }
  }

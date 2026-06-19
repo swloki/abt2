@@ -209,7 +209,7 @@ fn stock_out_create_content(
  onsubmit="return wmsStockOutCollectItems()" {
  // ── Source Section ──
  div class="bg-bg border border-border rounded p-6" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
+ div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
  (icon::link_icon("w-4 h-4"))
  "来源关联"
  }
@@ -239,7 +239,7 @@ fn stock_out_create_content(
 
  // ── Warehouse Section ──
  div class="bg-bg border border-border rounded p-6" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
+ div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
  (icon::building_icon("w-4 h-4"))
  "出库信息"
  }
@@ -287,7 +287,7 @@ fn stock_out_create_content(
 
  // ── Line Items ──
  div class="bg-bg border border-border rounded p-6" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
+ div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
  (icon::box_icon("w-4 h-4"))
  "出库物料明细"
  span id="stockout-item-count" class="ml-auto text-xs font-normal text-muted" { "共 0 项" }
@@ -343,7 +343,7 @@ fn stock_out_create_content(
 
  // ── Summary ──
  div class="bg-bg border border-border rounded p-6" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
+ div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
  (icon::clipboard_list_icon("w-4 h-4"))
  "出库汇总"
  }
@@ -369,7 +369,7 @@ fn stock_out_create_content(
 
  // ── Remark ──
  div class="bg-bg border border-border rounded p-6" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
+ div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
  (icon::edit_icon("w-4 h-4"))
  "备注"
  }
@@ -379,7 +379,7 @@ fn stock_out_create_content(
  // hidden input for items JSON
  input type="hidden" name="items_json" id="stockout-items-json" value="[]" {}
  // ── Action Bar ──
- div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg [border-top:1px_solid_var(--border-soft)]" {
+ div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg border-t border-border-soft" {
  a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href="/admin/wms/stock-out" { "取消" }
  div class="flex gap-3" {
  button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" { "保存草稿" }

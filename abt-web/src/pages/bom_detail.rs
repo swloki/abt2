@@ -338,7 +338,7 @@ fn bom_detail_page(
  _="on click[me is event.target] remove .open from me" {
  div id="costpanel" class="drawer-panel bg-white h-full w-[1000px] max-w-[100vw] flex flex-col shadow-[-8px_0_30px_rgba(0,0,0,0.1)]"
  _="on click halt the event on htmx:afterSettle add .open to #cost-drawer" {
- div class="flex items-center justify-between px-6 py-4 [border-bottom:1px_solid_var(--border-soft)] sticky top-0 bg-white z-10" {
+ div class="flex items-center justify-between px-6 py-4 border-b border-border-soft sticky top-0 bg-white z-10" {
  h2 class="flex items-center gap-2 text-base font-semibold text-fg m-0" {
  (icon::currency_icon("w-5 h-5 text-muted"))
  " BOM成本报告"
@@ -362,7 +362,7 @@ fn bom_detail_page(
  div id="cost-drawer-body" {}
  }
  }
- div class="px-6 py-4 [border-top:1px_solid_var(--border-soft)] flex justify-end gap-3" {
+ div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3" {
  button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
  _="on click remove .open from closest .drawer-overlay" { "关闭" }
  }
@@ -375,7 +375,7 @@ fn bom_detail_page(
  _="on click[me is event.target] remove .open from me" {
  div class="drawer-panel bg-white h-full w-[800px] max-w-[100vw] flex flex-col shadow-[-8px_0_30px_rgba(0,0,0,0.1)]"
  _="on click halt the event on htmx:afterSettle add .open to #labor-drawer" {
- div class="flex items-center justify-between px-6 py-4 [border-bottom:1px_solid_var(--border-soft)] sticky top-0 bg-white z-10" {
+ div class="flex items-center justify-between px-6 py-4 border-b border-border-soft sticky top-0 bg-white z-10" {
  h2 class="flex items-center gap-2 text-base font-semibold text-fg m-0" {
  (icon::bolt_icon("w-5 h-5 text-muted"))
  " BOM 人工成本"
@@ -399,7 +399,7 @@ fn bom_detail_page(
  div id="labor-drawer-body" {}
  }
  }
- div class="px-6 py-4 [border-top:1px_solid_var(--border-soft)] flex justify-end gap-3" {
+ div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3" {
  button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
  _="on click remove .open from closest .drawer-overlay" { "关闭" }
  }
@@ -463,17 +463,17 @@ fn bom_node_row(
 
  html! {
  tr class={(row_class)} {
- td class="px-3 py-2.5 text-center text-xs font-mono opacity-60 [border-bottom:1px_solid_var(--border-soft)]" { (index + 1) }
- td class="px-3 py-2.5 text-center [border-bottom:1px_solid_var(--border-soft)]" { (level) }
- td class="px-3 py-2.5 font-mono tabular-nums text-sm whitespace-nowrap [border-bottom:1px_solid_var(--border-soft)]" { (code) }
- td class="px-3 py-2.5 text-sm [border-bottom:1px_solid_var(--border-soft)]" style=(format!("padding-left:{}px", (level - 1) * 24 + 12)) {
+ td class="px-3 py-2.5 text-center text-xs font-mono opacity-60 border-b border-border-soft" { (index + 1) }
+ td class="px-3 py-2.5 text-center border-b border-border-soft" { (level) }
+ td class="px-3 py-2.5 font-mono tabular-nums text-sm whitespace-nowrap border-b border-border-soft" { (code) }
+ td class="px-3 py-2.5 text-sm border-b border-border-soft" style=(format!("padding-left:{}px", (level - 1) * 24 + 12)) {
  span class="block max-w-[250px] truncate" title=(name) { (name) }
  }
- td class="px-3 py-2.5 text-sm truncate [border-bottom:1px_solid_var(--border-soft)]" { (work_center) }
- td class="px-3 py-2.5 font-mono tabular-nums text-sm text-right [border-bottom:1px_solid_var(--border-soft)]" { (node.quantity) }
- td class="px-3 py-2.5 text-sm text-center truncate [border-bottom:1px_solid_var(--border-soft)]" { (unit) }
- td class="px-3 py-2.5 text-sm text-right [border-bottom:1px_solid_var(--border-soft)]" { (loss_rate) }
- td class="px-3 py-2.5 text-sm truncate [border-bottom:1px_solid_var(--border-soft)]" { (remark) }
+ td class="px-3 py-2.5 text-sm truncate border-b border-border-soft" { (work_center) }
+ td class="px-3 py-2.5 font-mono tabular-nums text-sm text-right border-b border-border-soft" { (node.quantity) }
+ td class="px-3 py-2.5 text-sm text-center truncate border-b border-border-soft" { (unit) }
+ td class="px-3 py-2.5 text-sm text-right border-b border-border-soft" { (loss_rate) }
+ td class="px-3 py-2.5 text-sm truncate border-b border-border-soft" { (remark) }
  }
  }
 }
@@ -644,7 +644,7 @@ fn cost_drawer_content(report: &BomCostReport, temp_prices: &HashMap<i64, String
  input type="text" class="w-[100px] text-xs bg-white outline-none text-right border border-[#e5e7eb] rounded px-2 py-1" name="temp_price"
  placeholder="输入单价"
  _="on click halt the event on focus halt the event" {}
- button type="submit" class="border-none bg-[#2563eb] text-white w-6 h-6 text-xs cursor-pointer grid place-items-center rounded" title="确认"
+ button type="submit" class="border-none bg-accent text-white w-6 h-6 text-xs cursor-pointer grid place-items-center rounded" title="确认"
  _="on click halt the event" {
  "✓"
  }
@@ -777,11 +777,11 @@ fn labor_cost_drawer_content(bom_name: &str, report: &BomLaborCostReport) -> Mar
  table class="w-full border-collapse" {
  thead {
  tr {
- th class="text-left text-xs font-semibold text-muted py-2 px-3 [border-bottom:1px_solid_var(--border-soft)]" { "工序名称" }
- th class="text-right text-xs font-semibold text-muted py-2 px-3 [border-bottom:1px_solid_var(--border-soft)]" { "单价" }
- th class="text-right text-xs font-semibold text-muted py-2 px-3 [border-bottom:1px_solid_var(--border-soft)]" { "数量" }
- th class="text-right text-xs font-semibold text-muted py-2 px-3 [border-bottom:1px_solid_var(--border-soft)]" { "小计" }
- th class="text-left text-xs font-semibold text-muted py-2 px-3 [border-bottom:1px_solid_var(--border-soft)]" { "备注" }
+ th class="text-left text-xs font-semibold text-muted py-2 px-3 border-b border-border-soft" { "工序名称" }
+ th class="text-right text-xs font-semibold text-muted py-2 px-3 border-b border-border-soft" { "单价" }
+ th class="text-right text-xs font-semibold text-muted py-2 px-3 border-b border-border-soft" { "数量" }
+ th class="text-right text-xs font-semibold text-muted py-2 px-3 border-b border-border-soft" { "小计" }
+ th class="text-left text-xs font-semibold text-muted py-2 px-3 border-b border-border-soft" { "备注" }
  }
  }
  tbody {
@@ -793,16 +793,16 @@ fn labor_cost_drawer_content(bom_name: &str, report: &BomLaborCostReport) -> Mar
  @for item in &report.items {
  @let is_zero = item.unit_price == Decimal::ZERO;
  tr class=(if is_zero { "bg-[#fff2f0]" } else { "" }) {
- td class="py-2 px-3 font-medium text-fg [border-bottom:1px_solid_var(--border-soft)]" { (item.name) }
- td class="py-2 px-3 text-right [border-bottom:1px_solid_var(--border-soft)]" {
+ td class="py-2 px-3 font-medium text-fg border-b border-border-soft" { (item.name) }
+ td class="py-2 px-3 text-right border-b border-border-soft" {
  @if is_zero {
  span class="text-[#ef4444] font-medium" { "¥0.000000" }
  } @else {
  span class="font-mono tabular-nums text-fg-2" { (format_currency(item.unit_price)) }
  }
  }
- td class="py-2 px-3 text-right font-mono tabular-nums text-fg-2 [border-bottom:1px_solid_var(--border-soft)]" { (item.quantity) }
- td class="py-2 px-3 text-right font-medium [border-bottom:1px_solid_var(--border-soft)]" {
+ td class="py-2 px-3 text-right font-mono tabular-nums text-fg-2 border-b border-border-soft" { (item.quantity) }
+ td class="py-2 px-3 text-right font-medium border-b border-border-soft" {
  @if is_zero {
  span class="text-[#ef4444]" { (format_amount(item.unit_price, item.quantity)) }
  } @else {
@@ -811,7 +811,7 @@ fn labor_cost_drawer_content(bom_name: &str, report: &BomLaborCostReport) -> Mar
  }
  }
  }
- td class="py-2 px-3 text-muted text-sm [border-bottom:1px_solid_var(--border-soft)]" {
+ td class="py-2 px-3 text-muted text-sm border-b border-border-soft" {
  @if item.remark.is_empty() { "—" } @else { (item.remark) }
  }
  }

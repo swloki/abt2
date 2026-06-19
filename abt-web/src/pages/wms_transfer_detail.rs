@@ -299,7 +299,7 @@ fn transfer_workflow_steps(status: TransferStatus) -> Markup {
  } else if i < current_idx {
  ("bg-[#10b981]", "text-[#10b981]", "")
  } else if i == current_idx {
- ("bg-[#2563eb]", "text-[#2563eb] font-semibold", "shadow-[0_0_0_3px_rgba(37,99,235,0.1)]")
+ ("bg-accent", "text-[#2563eb] font-semibold", "shadow-[0_0_0_3px_rgba(37,99,235,0.1)]")
  } else {
  ("bg-[#d1d5db]", "text-[#9ca3af]", "")
  };

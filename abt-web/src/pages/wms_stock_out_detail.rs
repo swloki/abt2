@@ -127,7 +127,7 @@ fn stock_out_detail_page(
  div class="flex items-start justify-between mb-6" {
  div class="flex items-center gap-4" {
  h1 class="text-xl font-bold font-mono tabular-nums" { (txn.doc_number.as_deref().unwrap_or("—")) }
- span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-[#f0fff0] text-[#389e0d]" { "已出库" }
+ span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-[#f0fff0] text-[#389e0d]" { "已出库" }
  }
  }
  // ── Basic Info（info-card 样式）──

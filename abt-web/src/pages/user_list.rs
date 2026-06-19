@@ -482,7 +482,7 @@ span class="flex items-center gap-[6px] text-[13px] font-semibold text-fg" {
  span class="text-[10px] font-semibold px-[6px] py-[2px] rounded-[3px] bg-[#f3e8ff] text-[#7c3aed] border border-[#e8d5ff] tracking-[0.02em]" { "超管" }
  }
  }
-span class="text-[12px] text-muted" {
+span class="text-xs text-muted" {
  "ID: " (u.user.user_id)
  }
  }
@@ -519,7 +519,7 @@ span class="text-[12px] text-muted" {
 
  // Data scope
  td {
- span class="text-[12px] text-muted" { (scope) }
+ span class="text-xs text-muted" { (scope) }
  }
 
  // Status

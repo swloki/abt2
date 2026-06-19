@@ -464,9 +464,9 @@ fn row_tr(price: &PriceView) -> Markup {
  td class="text-muted" class="text-xs" { (valid_text) }
  td {
  @if price.is_active {
- span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-[#f0fff0] text-[#389e0d]" { "启用" }
+ span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-[#f0fff0] text-[#389e0d]" { "启用" }
  } @else {
- span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-[#fff2f0] text-[#cf1322]" { "停用" }
+ span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-[#fff2f0] text-[#cf1322]" { "停用" }
  }
  }
  td {
@@ -564,7 +564,7 @@ fn price_form(action_url: &str, price: Option<&PriceView>) -> Markup {
 
  html! {
  div class="modal bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl" _="on click halt" {
- div class="px-6 py-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center shrink-0" {
+ div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
  h2 { (title) }
  button class="bg-transparent border-none cursor-pointer text-xl text-muted p-1 hover:text-fg"
  _="on click remove .is-open from #price-modal" { "×" }
@@ -575,7 +575,7 @@ fn price_form(action_url: &str, price: Option<&PriceView>) -> Markup {
  div class="overflow-y-auto flex-1 min-h-0 p-6" {
  // Section: Basic info
  div class="form-section" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "基本信息" }
+ div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "基本信息" }
  @if is_edit {
  div class="supplier-info-bar" {
  span { "供应商: " (supplier_display) }
@@ -633,7 +633,7 @@ fn price_form(action_url: &str, price: Option<&PriceView>) -> Markup {
 
  // Section: Supplier item info
  div class="form-section" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "供应商物料信息" }
+ div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "供应商物料信息" }
  div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
  div class="form-field" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "供应商料号" }
@@ -650,7 +650,7 @@ fn price_form(action_url: &str, price: Option<&PriceView>) -> Markup {
 
  // Section: Tax & validity
  div class="form-section" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "税率与有效期" }
+ div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "税率与有效期" }
  div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
  div class="form-field" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "税率ID" }
@@ -677,7 +677,7 @@ fn price_form(action_url: &str, price: Option<&PriceView>) -> Markup {
  }
  }
 
- div class="px-6 py-4 [border-top:1px_solid_var(--border-soft)] flex justify-end gap-3 shrink-0" {
+ div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" {
  button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
  _="on click remove .is-open from #price-modal" { "取消" }
  button type="submit" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" { "保存" }

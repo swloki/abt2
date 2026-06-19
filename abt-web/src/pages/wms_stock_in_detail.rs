@@ -127,7 +127,7 @@ fn stock_in_detail_page(
  div {
  div class="flex items-center justify-between" {
  h1 class="text-2xl font-extrabold font-mono tabular-nums" { (txn.doc_number.as_deref().unwrap_or("—")) }
- span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-[#f0fff0] text-[#389e0d]" { "已入库" }
+ span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-[#f0fff0] text-[#389e0d]" { "已入库" }
  }
  }
  }

@@ -294,7 +294,7 @@ fn create_page_content(
 
  // ── Section 1: Plan Info ──
  div class="form-section" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
+ div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
  (icon::sliders_icon("w-[18px] h-[18px]"))
  "计划信息"
  }
@@ -326,7 +326,7 @@ fn create_page_content(
 
  // ── Section 2: Default Scheduling Parameters ──
  div class="form-section" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
+ div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
  (icon::clock_icon("w-[18px] h-[18px]"))
  "默认排程参数"
  }
@@ -427,7 +427,7 @@ fn create_page_content(
  }
 
  // ── Summary Bar ──
- div class="flex justify-end gap-8 p-5 [border-top:1px_solid_var(--border-soft)] bg-surface-raised" {
+ div class="flex justify-end gap-8 p-5 border-t border-border-soft bg-surface-raised" {
  div class="flex gap-3" {
  span { "已选需求" }
  span class="font-mono tabular-nums font-semibold" {
@@ -449,7 +449,7 @@ fn create_page_content(
  }
 
  // ── Action Bar ──
- div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg [border-top:1px_solid_var(--border-soft)]" {
+ div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg border-t border-border-soft" {
  a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{}?restore=true", MesDemandPoolListPath::PATH)) { "取消" }
  div class="flex gap-3" {
  button type="submit" name="action" value="draft" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" {

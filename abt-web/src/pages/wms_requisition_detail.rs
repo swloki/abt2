@@ -63,7 +63,7 @@ fn workflow_steps(status: RequisitionStatus) -> Markup {
  div class=(format!("w-[48px] h-[2px] {}", if completed[i] { "bg-[#10b981]" } else { "bg-border" })) {}
  }
  @let (dot_cls, text_cls, ring_cls) = match current_idx {
- Some(ci) if ci == i => ("bg-[#2563eb]", "text-[#2563eb] font-semibold", "shadow-[0_0_0_3px_rgba(37,99,235,0.1)]"),
+ Some(ci) if ci == i => ("bg-accent", "text-[#2563eb] font-semibold", "shadow-[0_0_0_3px_rgba(37,99,235,0.1)]"),
  _ if completed[i] => ("bg-[#10b981]", "text-[#10b981]", ""),
  _ => ("bg-[#d1d5db]", "text-[#9ca3af]", ""),
  };

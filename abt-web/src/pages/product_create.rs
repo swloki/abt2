@@ -171,7 +171,7 @@ fn product_create_page(source: Option<&Product>, categories: &[CategoryTree]) ->
 
  // ── Section: 基本信息 ──
  div class="form-section" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "基本信息" }
+ div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "基本信息" }
  div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
  div class="form-field" {
  label { "产品名称 " span class="text-danger" { "*" } }
@@ -227,7 +227,7 @@ fn product_create_page(source: Option<&Product>, categories: &[CategoryTree]) ->
 
  // ── Section: 分类与归属 ──
  div class="form-section" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "分类与归属" }
+ div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "分类与归属" }
  div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
  div class="form-field" {
  label { "所属分类 " span class="text-danger" { "*" } }
@@ -252,7 +252,7 @@ fn product_create_page(source: Option<&Product>, categories: &[CategoryTree]) ->
 
  // ── Section: 其他信息 ──
  div class="form-section" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "其他信息" }
+ div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "其他信息" }
  div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
  div class="form-field field-full" {
  label { "备注" }
@@ -263,7 +263,7 @@ fn product_create_page(source: Option<&Product>, categories: &[CategoryTree]) ->
  }
 
  // ── Action Bar ──
- div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg [border-top:1px_solid_var(--border-soft)]" {
+ div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg border-t border-border-soft" {
  a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{}?restore=true", ProductListPath::PATH)) { "取消" }
  button type="submit" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" {
  (btn_label)
@@ -274,14 +274,14 @@ fn product_create_page(source: Option<&Product>, categories: &[CategoryTree]) ->
  // ── Category Select Modal ──
  div id="category-modal" class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto" _="on click[me is event.target] remove .is-open" {
  div class="bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl" _="on click halt the event" {
- div class="px-6 py-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center shrink-0" {
+ div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
  h2 { "选择分类" }
  button type="button" class="border-none cursor-pointer text-muted flex items-center justify-center" _="on click remove .is-open from #category-modal" {
  (icon::x_icon("w-4 h-4"))
  }
  }
  div class="overflow-y-auto flex-1 min-h-0 p-6" {
- div class="flex items-center gap-2 p-3 [border-bottom:1px_solid_var(--border-soft)]" {
+ div class="flex items-center gap-2 p-3 border-b border-border-soft" {
  (icon::search_icon("w-4 h-4"))
  input type="text" id="category-search-input" class="category-w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" placeholder="搜索分类…" {}
  }
@@ -357,7 +357,7 @@ fn category_tree_node(node: &CategoryTree, depth: usize) -> Markup {
 
  html! {
  div.category-select-item data-name=(name_lower) {
- div class="flex items-center gap-2 [border-bottom:1px_solid_var(--border-soft)]" style=(pad) {
+ div class="flex items-center gap-2 border-b border-border-soft" style=(pad) {
  @if has_children {
  span class="inline-flex items-center justify-center w-[20px] h-[20px] shrink-0 cursor-pointer text-muted rounded-sm" _="on click halt the event then toggle .expanded on closest .category-select-item" {
  (icon::chevron_right_icon("w-3.5 h-3.5"))

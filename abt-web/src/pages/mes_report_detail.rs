@@ -35,7 +35,7 @@ pub async fn get_report_detail(path: ReportDetailPath, ctx: RequestContext) -> R
  let content = html! { div {
  div class="block bg-bg border border-border rounded p-6" {
  div class="flex items-center justify-between" {
- div class="text-xl font-bold text-fg flex items-center gap-[14px]" { (report.doc_number) " " span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-[#f0fff0] text-[#389e0d]" { "已确认" } }
+ div class="text-xl font-bold text-fg flex items-center gap-[14px]" { (report.doc_number) " " span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-[#f0fff0] text-[#389e0d]" { "已确认" } }
  }
  div class="grid gap-5" {
  div class="flex flex-col gap-1" { span class="text-xs text-muted font-medium" { "工单" } span class="text-sm text-fg font-medium" { (wo) } }
@@ -56,7 +56,7 @@ pub async fn get_report_detail(path: ReportDetailPath, ctx: RequestContext) -> R
 
  // 工资计算明细
  div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
- div class="text-sm font-semibold text-fg mb-3 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "工资计算" }
+ div class="text-sm font-semibold text-fg mb-3 pb-2 border-b border-border-soft" { "工资计算" }
  div class="grid gap-4" {
  div class="flex flex-col gap-1" {
  label { "完成数量" }
@@ -71,7 +71,7 @@ pub async fn get_report_detail(path: ReportDetailPath, ctx: RequestContext) -> R
  span class="font-mono tabular-nums" { (crate::utils::fmt_qty(report.completed_qty - report.defect_qty)) }
  }
  }
- div class="mt-4 pt-4 [border-top:1px_solid_var(--border-soft)] flex flex-col gap-2" {
+ div class="mt-4 pt-4 border-t border-border-soft flex flex-col gap-2" {
  div class="flex gap-[12px]" {
  span class="w-[80px] text-[#999] text-[13px]" { "工序" }
  span class="text-[#333] text-[13px]" { (process) }

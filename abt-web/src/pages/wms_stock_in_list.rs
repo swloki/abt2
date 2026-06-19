@@ -325,7 +325,7 @@ fn stock_in_data_card(
  td { input type="checkbox" class="cursor-pointer"; }
  td class="text-accent font-medium cursor-pointer font-mono tabular-nums" { (item.doc_number.as_deref().unwrap_or("—")) }
  td {
- span class=(format!("inline-flex items-center gap-1 rounded-full text-[12px] font-medium px-2 py-0.5 {}", type_cls)) {
+ span class=(format!("inline-flex items-center gap-1 rounded-full text-xs font-medium px-2 py-0.5 {}", type_cls)) {
  (type_label)
  }
  }
@@ -341,7 +341,7 @@ fn stock_in_data_card(
  td class="text-right text-[13px] font-mono tabular-nums" { (format!("{:.2}", item.quantity)) }
  td class="text-right text-[13px] font-mono tabular-nums" { (item.unit_cost.map(|c| format!("¥{:.2}", c)).unwrap_or_else(|| "—".into())) }
  td {
- span class="inline-flex items-center gap-1 rounded-full text-[12px] font-medium px-2 py-0.5 bg-[#f0fff0] text-[#389e0d]" { "已入库" }
+ span class="inline-flex items-center gap-1 rounded-full text-xs font-medium px-2 py-0.5 bg-[#f0fff0] text-[#389e0d]" { "已入库" }
  }
  td class="text-sm text-fg" { (op_name) }
  td class="text-xs text-muted" { (item.created_at.format("%Y-%m-%d %H:%M")) }

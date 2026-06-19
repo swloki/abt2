@@ -237,7 +237,7 @@ fn workflow_steps(current: SalesOrderStatus) -> Markup {
  } else if i < current_idx {
  ("bg-[#10b981]", "text-[#10b981]", "")
  } else if i == current_idx {
- ("bg-[#2563eb]", "text-[#2563eb] font-semibold", "shadow-[0_0_0_3px_rgba(37,99,235,0.1)]")
+ ("bg-accent", "text-[#2563eb] font-semibold", "shadow-[0_0_0_3px_rgba(37,99,235,0.1)]")
  } else {
  ("bg-[#d1d5db]", "text-[#9ca3af]", "")
  };
@@ -400,7 +400,7 @@ fn fulfillment_workbench(
  html! {
  div class="bg-bg border border-border rounded-md mt-5 overflow-hidden" {
  // ── Header: 标题+badge 在左，操作按钮在右 ──
- div class="flex items-center justify-between p-4 px-5 [border-bottom:1px_solid_var(--border-soft)] bg-bg" {
+ div class="flex items-center justify-between p-4 px-5 border-b border-border-soft bg-bg" {
  div class="flex items-center gap-3" {
  span class="text-sm font-semibold text-fg" { "履约工作台" }
  span class="bg-[#dbeafe] text-[#2563eb] rounded-full text-[11px] font-medium px-2 py-0.5" { (format!("{} 行", demand_total)) }
@@ -686,7 +686,7 @@ fn order_detail_page(
 
  // ── Order Info ──
  div class="bg-bg border border-border-soft rounded-lg p-6 mb-5 shadow-[var(--shadow-card)]" {
- div class="text-sm font-semibold text-fg mb-4 pb-3 [border-bottom:1px_solid_var(--border-soft)]" { "订单信息" }
+ div class="text-sm font-semibold text-fg mb-4 pb-3 border-b border-border-soft" { "订单信息" }
  div class="grid grid-cols-2 md:grid-cols-3 gap-4" {
  div class="flex flex-col gap-1" {
  span class="text-xs text-muted font-medium" { "客户名称" }
@@ -757,7 +757,7 @@ fn order_detail_page(
  }
  }
  }
- div class="flex justify-end gap-8 p-5 [border-top:1px_solid_var(--border-soft)] bg-surface-raised" {
+ div class="flex justify-end gap-8 p-5 border-t border-border-soft bg-surface-raised" {
  div class="flex gap-3" {
  span class="text-[11px] text-muted font-medium uppercase" { "成本合计" }
  span class="text-[20px] font-bold text-fg" { (crate::utils::fmt_amount(o.total_cost)) }

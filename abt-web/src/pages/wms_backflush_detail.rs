@@ -297,7 +297,7 @@ fn backflush_status_flow(status: BackflushStatus) -> Markup {
  span class="text-border text-sm" { "→" }
  }
  @let dot_cls = if i < current_idx { "bg-[#10b981]" }
- else if i == current_idx { "bg-[#2563eb] ring-[3px] ring-[rgba(37,99,235,0.1)]" }
+ else if i == current_idx { "bg-accent ring-[3px] ring-[rgba(37,99,235,0.1)]" }
  else { "bg-[#d1d5db]" };
  @let text_cls = if i <= current_idx { "text-fg" } else { "text-muted" };
  div class="flex items-center gap-2 shrink-0" {

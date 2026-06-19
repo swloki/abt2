@@ -273,7 +273,7 @@ fn conversion_create_page(
  input type="hidden" name="produce_json" id="produce-json" value="[]" {}
  div id="conversion-item-target" class="hidden" { }
  // ── Action Bar ──
- div class="sticky bottom-0 flex items-center justify-between gap-3 px-6 py-4 bg-bg [border-top:1px_solid_var(--border-soft)]" {
+ div class="sticky bottom-0 flex items-center justify-between gap-3 px-6 py-4 bg-bg border-t border-border-soft" {
  div { }
  div class="flex gap-3" {
  a href=(format!("{}?restore=true", ConversionListPath::PATH)) class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" { "取消" }

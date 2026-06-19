@@ -6,7 +6,7 @@ use crate::components::icon;
 pub fn header(claims: &Claims, module_name: &str, page_name: Option<&str>) -> Markup {
     let initials = crate::layout::sidebar::avatar_initials(&claims.display_name);
     html! {
-        header class="h-[var(--header-h)] bg-white/82 backdrop-blur-md [border-bottom:1px_solid_var(--border-soft)] flex items-center justify-between px-8 sticky top-0 z-10" {
+        header class="h-[var(--header-h)] bg-white/82 backdrop-blur-md border-b border-border-soft flex items-center justify-between px-8 sticky top-0 z-10" {
             // ── Left: mobile menu + breadcrumb ──
             div class="flex items-center gap-4" {
                 button class="hidden md:grid w-[38px] h-[38px] border-none rounded-sm place-items-center cursor-pointer shrink-0 hover:bg-surface transition-colors [&_svg]:w-[22px] [&_svg]:h-[22px] [&_svg]:text-fg"
@@ -46,7 +46,7 @@ pub fn header(claims: &Claims, module_name: &str, page_name: Option<&str>) -> Ma
                         }
                     }
                     div class="absolute top-[calc(100%+10px)] right-0 min-w-[252px] bg-surface border border-border rounded-md shadow-lg p-2 opacity-0 invisible -translate-y-2 transition-all duration-150 group-[.is-open]:opacity-100 group-[.is-open]:visible group-[.is-open]:translate-y-0 z-[60]" {
-                        div class="flex items-center gap-3 py-2 px-2 pb-3 [border-bottom:1px_solid_var(--border-soft)] mb-2" {
+                        div class="flex items-center gap-3 py-2 px-2 pb-3 border-b border-border-soft mb-2" {
                             div class="w-[42px] h-[42px] rounded-full bg-accent grid place-items-center text-sm font-bold text-white shrink-0" { (initials) }
                             div class="flex flex-col min-w-0" {
                                 span class="font-semibold text-fg text-sm whitespace-nowrap" { (claims.display_name.as_str()) }

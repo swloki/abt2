@@ -197,7 +197,7 @@ fn conversion_detail_page(
  div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
  div class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" {
  "消耗物料 "
- span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-[rgba(220,38,38,0.08)] text-danger" { "消耗" }
+ span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-[rgba(220,38,38,0.08)] text-danger" { "消耗" }
  }
  table class="data-table" {
  thead {
@@ -246,7 +246,7 @@ fn conversion_detail_page(
  div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
  div class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" {
  "产出物料 "
- span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-[#f0fff0] text-[#389e0d]" { "产出" }
+ span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-[#f0fff0] text-[#389e0d]" { "产出" }
  }
  table class="data-table" {
  thead {
@@ -344,7 +344,7 @@ fn conversion_workflow_steps(status: ConversionStatus) -> Markup {
  } else if i < current_idx {
  ("bg-[#10b981]", "text-[#10b981]", "")
  } else if i == current_idx {
- ("bg-[#2563eb]", "text-[#2563eb] font-semibold", "shadow-[0_0_0_3px_rgba(37,99,235,0.1)]")
+ ("bg-accent", "text-[#2563eb] font-semibold", "shadow-[0_0_0_3px_rgba(37,99,235,0.1)]")
  } else {
  ("bg-[#d1d5db]", "text-[#9ca3af]", "")
  };

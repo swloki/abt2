@@ -158,7 +158,7 @@ const SECTION: &str =
 
 const SECTION_HEAD: &str =
  "flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 \
-  [border-bottom:1px_solid_var(--border-soft)]";
+  border-b border-border-soft";
 
 const FIELD_INPUT: &str =
  "w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg \
@@ -195,7 +195,7 @@ fn user_create_page(roles: &[Role], departments: &[Department]) -> Markup {
  (data_scope_section())
 
  // ── Action Bar ──
- div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg [border-top:1px_solid_var(--border-soft)]" {
+ div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg border-t border-border-soft" {
  a class=(BTN_DEFAULT) href=(format!("{}?restore=true", UserListPath::PATH)) { "取消" }
  button type="submit" class=(BTN_PRIMARY) {
  (icon::check_circle_icon("w-4 h-4"))

@@ -137,7 +137,7 @@ fn routing_detail_page(
 
  // ── 基本信息 ──
  div class="bg-white border border-border-soft rounded p-5" {
- div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "基本信息" }
+ div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 border-b border-border-soft" { "基本信息" }
  div class="grid gap-5" class="grid-cols-3" {
  (detail_row("编码", html! { span class="font-mono tabular-nums" { (routing.id) } }))
  (detail_row("名称", html! { (routing.name) }))
@@ -164,7 +164,7 @@ fn routing_detail_page(
 
  // ── 工序流程 ──
  div class="bg-white border border-border-soft rounded p-5" class="mt-5" {
- div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
+ div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 border-b border-border-soft" {
  span { "工序流程" }
  span class="text-muted font-normal text-xs" {
  "（共 " (step_count) " 道工序）"
@@ -191,9 +191,9 @@ fn routing_detail_page(
  td { (step.process_name.as_deref().unwrap_or(&step.process_code)) }
  td {
  @if step.is_required {
- span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-[#fff8eb] text-[#d46b08]" { "必经" }
+ span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-[#fff8eb] text-[#d46b08]" { "必经" }
  } @else {
- span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-surface text-muted" { "选检" }
+ span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-surface text-muted" { "选检" }
  }
  }
  td { (step.remark.as_deref().unwrap_or("—")) }
@@ -208,7 +208,7 @@ fn routing_detail_page(
  div class="bg-white border border-border-soft rounded p-5 routing-bom-card" class="mt-5"
  hx-select=".routing-bom-card" hx-target=".routing-bom-card" hx-swap="outerHTML"
  hx-push-url="true" {
- div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "关联BOM" }
+ div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 border-b border-border-soft" { "关联BOM" }
  (bom_table_fragment(routing.id, boms))
  }
  }

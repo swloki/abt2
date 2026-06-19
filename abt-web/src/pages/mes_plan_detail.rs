@@ -68,7 +68,7 @@ fn wo_status_label(s: &WorkOrderStatus) -> (&'static str, &'static str, &'static
 
 fn status_pill(label: &str, bg: &str, color: &str) -> Markup {
  html! {
- span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap" style=(format!("background:{bg};color:{color}")) {
+ span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap" style=(format!("background:{bg};color:{color}")) {
  (label)
  }
  }
@@ -552,13 +552,13 @@ fn tab_log(logs: &[AuditLog]) -> Markup {
  div class="relative pb-5 last:pb-0" {
  div class="absolute w-[14px] h-[14px] rounded-full bg-accent" {}
  div class="font-semibold text-sm text-fg" { (audit_action_label(&log.action)) }
- div class="flex gap-2 text-[12px] text-muted items-center" {
+ div class="flex gap-2 text-xs text-muted items-center" {
  span class="font-mono tabular-nums" { (fmt_dt(log.created_at)) }
  span class="sep" { "|" }
  span { "操作人 #" (log.operator_id) }
  }
  @if let Some(changes) = log.changes.as_ref() {
- div class="text-[12px] text-muted" { (changes) }
+ div class="text-xs text-muted" { (changes) }
  }
  }
  }
@@ -759,7 +759,7 @@ fn tab_planning(
  WorkOrderStatus::Closed => "closed",
  _ => "released",
  };
- li class="flex items-center p-4 [border-bottom:1px_solid_var(--border-soft)] relative" {
+ li class="flex items-center p-4 border-b border-border-soft relative" {
  div class={"wo-status-bar " (status_cls)} {}
  div class="flex-1 grid gap-5 items-center" {
  // 工单号
@@ -767,7 +767,7 @@ fn tab_planning(
  // 产品信息
  div class="flex flex-col gap-1" {
  div class="text-[14px] font-medium text-fg whitespace-nowrap overflow-hidden" { (pname) }
- div class="flex items-center gap-3 text-[12px] text-fg-2" {
+ div class="flex items-center gap-3 text-xs text-fg-2" {
  span { span class="wo-meta-label" { "数量 " } (crate::utils::fmt_qty(wo.planned_qty)) "件" }
  span { span class="wo-meta-label" { "排程 " } (wo.scheduled_start.format("%m-%d")) " → " (wo.scheduled_end.format("%m-%d")) }
  }
@@ -776,9 +776,9 @@ fn tab_planning(
  div class="flex items-center gap-4" {
  (status_pill(wo_label, _wo_bg, _wo_color))
  @if let (Some(done), Some(total)) = (wo.completed_steps, wo.total_steps) {
- div class="flex items-center gap-2 text-[12px] text-fg-2 whitespace-nowrap" {
- span class="flex items-center gap-2 text-[12px] text-fg-2 whitespace-nowrap-text" { (done) "/" (total) "步" }
- div class="flex items-center gap-2 text-[12px] text-fg-2 whitespace-nowrap-bar" {
+ div class="flex items-center gap-2 text-xs text-fg-2 whitespace-nowrap" {
+ span class="flex items-center gap-2 text-xs text-fg-2 whitespace-nowrap-text" { (done) "/" (total) "步" }
+ div class="flex items-center gap-2 text-xs text-fg-2 whitespace-nowrap-bar" {
  div class={"wo-step-fill " (status_cls)}
  style=(format!("width: {}%", if total > 0 { done * 100 / total } else { 0 })) {}
  }

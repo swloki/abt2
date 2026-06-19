@@ -149,7 +149,7 @@ fn render_single_toast(msg: &str, toast_type: ToastType) -> Markup {
         ToastType::Error => ("bg-[#dc2626]", "border-[rgba(220,38,38,0.12)]"),
         ToastType::Success => ("bg-[#16a34a]", "border-[rgba(22,163,74,0.12)]"),
         ToastType::Warning => ("bg-[#d97706]", "border-[rgba(217,119,6,0.12)]"),
-        ToastType::Info => ("bg-[#2563eb]", "border-[rgba(37,99,235,0.12)]"),
+        ToastType::Info => ("bg-accent", "border-[rgba(37,99,235,0.12)]"),
     };
     let icon = toast_type.icon_svg();
     html! {

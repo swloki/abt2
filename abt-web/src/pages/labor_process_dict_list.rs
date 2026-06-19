@@ -316,7 +316,7 @@ fn process_dict_form_page(_existing: Option<&LaborProcessDict>) -> Markup {
  hx-swap="none" {
  // ── Section: 基本信息 ──
  div class="data-card" class="mb-4" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft border-border-soft" { "基本信息" }
+ div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "基本信息" }
  div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
  div class="form-field" {
  label { "工序名称 " span class="text-danger" { "*" } }

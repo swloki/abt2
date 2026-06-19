@@ -439,7 +439,7 @@ fn role_row(
  }
  }
  // Description
- td class="text-[12px] text-muted overflow-hidden whitespace-nowrap" {
+ td class="text-xs text-muted overflow-hidden whitespace-nowrap" {
  @if let Some(desc) = &role.description {
  (desc)
  } @else {

@@ -30,7 +30,7 @@ pub fn confirm_dialog(
                     div class="text-lg font-semibold text-fg text-center mb-2" { (title) }
                     p class="text-sm text-muted text-center leading-relaxed" { (maud::PreEscaped(desc)) }
                 }
-                div class="py-4 [border-top:1px_solid_var(--border-soft)] flex justify-center gap-3" {
+                div class="py-4 border-t border-border-soft flex justify-center gap-3" {
                     button type="button" class="inline-flex items-center gap-2 px-5 py-2 rounded-sm text-sm font-medium cursor-pointer bg-white text-fg border border-border hover:bg-surface transition-all duration-150"
                         _="on click hide closest .dialog-overlay" { "取消" }
                     button type="button" class="inline-flex items-center gap-2 px-5 py-2 rounded-sm text-sm font-medium cursor-pointer bg-danger text-white border-none hover:opacity-90 transition-opacity min-w-[100px] justify-center"

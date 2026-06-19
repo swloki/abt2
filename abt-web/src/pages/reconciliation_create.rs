@@ -194,7 +194,7 @@ fn reconciliation_create_page(
 
  // ── 对账基本信息 ──
  div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
+ div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
  (icon::clipboard_document_icon("w-[18px] h-[18px]"))
  "对账基本信息"
  }
@@ -243,7 +243,7 @@ fn reconciliation_create_page(
  hx-include="#rec-customer-select,#rec-period-select"
  hx-target="this"
  hx-swap="outerHTML" {
- div class="flex items-center justify-between p-5 [border-bottom:1px_solid_var(--border-soft)]" {
+ div class="flex items-center justify-between p-5 border-b border-border-soft" {
  h3 {
  (icon::package_icon("w-[18px] h-[18px]"))
  "对账明细"
@@ -265,7 +265,7 @@ fn reconciliation_create_page(
 
  // ── Remark ──
  div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
+ div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
  (icon::file_text_icon("w-[18px] h-[18px]"))
  "备注"
  }
@@ -274,7 +274,7 @@ fn reconciliation_create_page(
 
  // ── Attachment ──
  div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
+ div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
  (icon::upload_icon("w-[18px] h-[18px]"))
  "附件"
  }
@@ -286,7 +286,7 @@ fn reconciliation_create_page(
  }
 
  // ── Action Bar ──
- div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg [border-top:1px_solid_var(--border-soft)]" {
+ div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg border-t border-border-soft" {
  a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{}?restore=true", ReconciliationListPath::PATH)) { "取消" }
  div class="action-bar-right" {
  button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" onclick="show_info_toast('草稿功能开发中')" {
@@ -318,7 +318,7 @@ fn preview_empty(message: &str) -> Markup {
  hx-include="#rec-customer-select,#rec-period-select"
  hx-target="this"
  hx-swap="outerHTML" {
- div class="flex items-center justify-between p-5 [border-bottom:1px_solid_var(--border-soft)]" {
+ div class="flex items-center justify-between p-5 border-b border-border-soft" {
  h3 {
  (icon::package_icon("w-[18px] h-[18px]"))
  "对账明细"
@@ -353,7 +353,7 @@ fn preview_table(
  hx-include="#rec-customer-select,#rec-period-select"
  hx-target="this"
  hx-swap="outerHTML" {
- div class="flex items-center justify-between p-5 [border-bottom:1px_solid_var(--border-soft)]" {
+ div class="flex items-center justify-between p-5 border-b border-border-soft" {
  h3 {
  (icon::package_icon("w-[18px] h-[18px]"))
  "对账明细"

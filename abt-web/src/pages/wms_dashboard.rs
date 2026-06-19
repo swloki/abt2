@@ -205,35 +205,35 @@ fn wms_dashboard_content(stats: &DashboardStats) -> Markup {
  tbody {
  tr {
  td class="text-muted text-xs" { "—" }
- td { span class="inline-flex items-center gap-1 rounded-full text-[12px] font-medium whitespace-nowrap bg-[#e8f4ff] text-accent" { "来料接收" } }
+ td { span class="inline-flex items-center gap-1 rounded-full text-xs font-medium whitespace-nowrap bg-[#e8f4ff] text-accent" { "来料接收" } }
  td { a href="/admin/wms/arrivals" class="text-accent" { "—" } }
  td { "—" }
  td { "—" }
  }
  tr {
  td class="text-muted text-xs" { "—" }
- td { span class="inline-flex items-center gap-1 rounded-full text-[12px] font-medium whitespace-nowrap bg-[#fff8eb] text-warn" { "领料出库" } }
+ td { span class="inline-flex items-center gap-1 rounded-full text-xs font-medium whitespace-nowrap bg-[#fff8eb] text-warn" { "领料出库" } }
  td { a href="/admin/wms/requisitions" class="text-accent" { "—" } }
  td { "—" }
  td { "—" }
  }
  tr {
  td class="text-muted text-xs" { "—" }
- td { span class="inline-flex items-center gap-1 rounded-full text-[12px] font-medium whitespace-nowrap bg-[#f0fff0] text-success" { "库存调拨" } }
+ td { span class="inline-flex items-center gap-1 rounded-full text-xs font-medium whitespace-nowrap bg-[#f0fff0] text-success" { "库存调拨" } }
  td { a href="/admin/wms/transfers" class="text-accent" { "—" } }
  td { "—" }
  td { "—" }
  }
  tr {
  td class="text-muted text-xs" { "—" }
- td { span class="inline-flex items-center gap-1 rounded-full text-[12px] font-medium whitespace-nowrap bg-surface text-muted" { "循环盘点" } }
+ td { span class="inline-flex items-center gap-1 rounded-full text-xs font-medium whitespace-nowrap bg-surface text-muted" { "循环盘点" } }
  td { a href="/admin/wms/cycle-counts" class="text-accent" { "—" } }
  td { "—" }
  td { "—" }
  }
  tr {
  td class="text-muted text-xs" { "—" }
- td { span class="inline-flex items-center gap-1 rounded-full text-[12px] font-medium whitespace-nowrap bg-[#fff8eb] text-warn" { "库存锁定" } }
+ td { span class="inline-flex items-center gap-1 rounded-full text-xs font-medium whitespace-nowrap bg-[#fff8eb] text-warn" { "库存锁定" } }
  td { a href="/admin/wms/locks" class="text-accent" { "—" } }
  td { "—" }
  td { "—" }

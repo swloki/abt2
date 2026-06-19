@@ -91,7 +91,7 @@ pub async fn get_receipt_detail(path: ReceiptDetailPath, ctx: RequestContext) ->
 
  // 基本信息
  div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
- div class="text-sm font-semibold text-fg mb-3 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "基本信息" }
+ div class="text-sm font-semibold text-fg mb-3 pb-2 border-b border-border-soft" { "基本信息" }
  div class="grid gap-4" {
  div class="flex flex-col gap-1" { label { "单号" } span class="font-mono tabular-nums" { (receipt.doc_number) } }
  div class="flex flex-col gap-1" { label { "工单" } span { (wo) } }
@@ -110,7 +110,7 @@ pub async fn get_receipt_detail(path: ReceiptDetailPath, ctx: RequestContext) ->
 
  // FQC 质检卡片
  div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
- div class="text-sm font-semibold text-fg mb-3 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "FQC 质检状态" }
+ div class="text-sm font-semibold text-fg mb-3 pb-2 border-b border-border-soft" { "FQC 质检状态" }
  div { (fqc_badge(&fqc_status)) }
  @if matches!(fqc_status, FqcGate::PendingInspection) {
  p class="text-muted" { "⚠ 尚无 FQC 检验记录，需完成 FQC 后才能确认入库" }
@@ -119,7 +119,7 @@ pub async fn get_receipt_detail(path: ReceiptDetailPath, ctx: RequestContext) ->
 
  // 成本明细
  div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
- div class="text-sm font-semibold text-fg mb-3 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "成本明细" }
+ div class="text-sm font-semibold text-fg mb-3 pb-2 border-b border-border-soft" { "成本明细" }
  div class="grid gap-4" {
  div class="flex flex-col gap-1" {
  label { "入库数量" }

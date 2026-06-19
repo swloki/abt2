@@ -282,7 +282,7 @@ fn order_create_page(work_centers: &[abt_core::master_data::work_center::WorkCen
  }
  }
  // ── Action Bar ──
- div class="sticky bottom-0 flex items-center justify-between gap-3 px-6 py-4 bg-bg [border-top:1px_solid_var(--border-soft)]" {
+ div class="sticky bottom-0 flex items-center justify-between gap-3 px-6 py-4 bg-bg border-t border-border-soft" {
  div { }
  div class="flex gap-3" {
  a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{}?restore=true", OrderListPath::PATH)) { "取消" }
@@ -308,15 +308,15 @@ fn source_order_modal() -> Markup {
  div class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto" id="so-modal"
  _="on click remove .is-open from #so-modal" {
  div class="modal bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl" _="on click halt" {
- div class="px-6 py-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center shrink-0" {
+ div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
  h2 { "选择销售订单" }
  button class="bg-transparent border-none cursor-pointer text-xl text-muted p-1"
  _="on click remove .is-open from #so-modal" { "\u{00d7}" }
  }
  div class="overflow-y-auto flex-1 min-h-0 p-0" {
- div class="flex gap-4 p-4 [border-bottom:1px_solid_var(--border-soft)]" {
+ div class="flex gap-4 p-4 border-b border-border-soft" {
  div class="flex-1 flex flex-col gap-[4px]" {
- label class="text-[12px] font-medium text-fg-2" { "订单编号 / 关键词" }
+ label class="text-xs font-medium text-fg-2" { "订单编号 / 关键词" }
  input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword" placeholder="输入订单编号搜索…"
  hx-get=(SourceOrderSearchPath::PATH)
  hx-trigger="keyup changed delay:300ms"
@@ -344,15 +344,15 @@ fn source_plan_modal() -> Markup {
  div class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto" id="pp-modal"
  _="on click remove .is-open from #pp-modal" {
  div class="modal bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl" _="on click halt" {
- div class="px-6 py-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center shrink-0" {
+ div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
  h2 { "选择生产计划" }
  button class="bg-transparent border-none cursor-pointer text-xl text-muted p-1"
  _="on click remove .is-open from #pp-modal" { "\u{00d7}" }
  }
  div class="overflow-y-auto flex-1 min-h-0 p-0" {
- div class="flex gap-4 p-4 [border-bottom:1px_solid_var(--border-soft)]" {
+ div class="flex gap-4 p-4 border-b border-border-soft" {
  div class="flex-1 flex flex-col gap-[4px]" {
- label class="text-[12px] font-medium text-fg-2" { "计划编号 / 关键词" }
+ label class="text-xs font-medium text-fg-2" { "计划编号 / 关键词" }
  input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword" placeholder="输入计划编号搜索…"
  hx-get=(SourcePlanSearchPath::PATH)
  hx-trigger="keyup changed delay:300ms"
@@ -387,13 +387,13 @@ fn source_order_results(orders: &[abt_core::sales::sales_order::model::SalesOrde
  } @else {
  div class="py-2" {
  @for o in orders {
- div class="flex items-center justify-between p-3 [border-bottom:1px_solid_var(--border-soft)]"
+ div class="flex items-center justify-between p-3 border-b border-border-soft"
  data-oid=(o.id)
  data-label=(format!("{} ({})", o.doc_number, o.order_date.format("%Y-%m-%d")))
  _=(click_hs) {
  div class="product-select-info" {
  div class="text-sm font-medium text-fg" { (o.doc_number) }
- div class="text-[12px] text-muted flex items-center gap-[6px] flex-wrap" {
+ div class="text-xs text-muted flex items-center gap-[6px] flex-wrap" {
  span { (o.order_date.format("%Y-%m-%d")) }
  span class="text-border" { "\u{00b7}" }
  span { (format!("{:?}", o.status)) }
@@ -416,13 +416,13 @@ fn source_plan_results(plans: &[abt_core::mes::production_plan::model::Productio
  } @else {
  div class="py-2" {
  @for p in plans {
- div class="flex items-center justify-between p-3 [border-bottom:1px_solid_var(--border-soft)]"
+ div class="flex items-center justify-between p-3 border-b border-border-soft"
  data-pid=(p.id)
  data-label=(format!("{} ({})", p.doc_number, p.plan_date.format("%Y-%m-%d")))
  _=(click_hs) {
  div class="product-select-info" {
  div class="text-sm font-medium text-fg" { (p.doc_number) }
- div class="text-[12px] text-muted flex items-center gap-[6px] flex-wrap" {
+ div class="text-xs text-muted flex items-center gap-[6px] flex-wrap" {
  span { (p.plan_date.format("%Y-%m-%d")) }
  span class="text-border" { "\u{00b7}" }
  span { (format!("{:?}", p.status)) }

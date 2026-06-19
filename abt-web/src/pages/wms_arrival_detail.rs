@@ -77,7 +77,7 @@ fn workflow_steps(status: ArrivalStatus) -> Markup {
  div class=(format!("w-[48px] h-[2px] {}", if completed[i] { "bg-[#10b981]" } else { "bg-border" })) {}
  }
  @let (dot_cls, text_cls, ring_cls) = match current_idx {
- Some(ci) if ci == i => ("bg-[#2563eb]", "text-[#2563eb] font-semibold", "shadow-[0_0_0_3px_rgba(37,99,235,0.1)]"),
+ Some(ci) if ci == i => ("bg-accent", "text-[#2563eb] font-semibold", "shadow-[0_0_0_3px_rgba(37,99,235,0.1)]"),
  _ if completed[i] => ("bg-[#10b981]", "text-[#10b981]", ""),
  _ => ("bg-[#d1d5db]", "text-[#9ca3af]", ""),
  };
@@ -362,7 +362,7 @@ fn arrival_detail_page(
  div class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft flex items-center gap-2" {
  (icon::clipboard_list_icon("w-[18px] h-[18px]"))
  "IQC质检结果"
- span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-[#fff8eb] text-[#d46b08] ml-2" { "检验中" }
+ span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-[#fff8eb] text-[#d46b08] ml-2" { "检验中" }
  }
  div class="grid gap-5 [grid-template-columns:repeat(auto-fill,minmax(200px,1fr))] mb-4" {
  div class="flex flex-col gap-1" {

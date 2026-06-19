@@ -267,7 +267,7 @@ fn gantt_view(data: &GanttData, today: NaiveDate) -> Markup {
         div class="bg-bg border border-border-soft rounded-md p-5 shadow-[var(--shadow-card)] min-w-0" {
             // ── Legend ──
             div class="flex gap-4 mb-4 text-xs text-muted" {
-                (legend_dot("bg-accent/25 [border:1px_solid_var(--accent)]", "计划"))
+                (legend_dot("bg-accent/25 border border-accent", "计划"))
                 (legend_dot("bg-accent", "进行中"))
                 (legend_dot("bg-warn", "待入库"))
                 (legend_dot("bg-success", "已完成"))
@@ -295,7 +295,7 @@ fn legend_dot(dot_cls: &str, label: &str) -> Markup {
 
 fn gantt_header(date_range: &[NaiveDate], today: NaiveDate) -> Markup {
     html! {
-        div class="flex items-stretch pb-2 mb-2 [border-bottom:1px_solid_var(--border-soft)]" {
+        div class="flex items-stretch pb-2 mb-2 border-b border-border-soft" {
             div class="w-[160px] shrink-0 pr-3 flex items-center text-[11px] text-muted font-semibold" {
                 "工作中心"
             }
@@ -348,7 +348,7 @@ fn gantt_row(
     };
 
     html! {
-        div class="flex items-stretch py-1.5 [&:not(:last-child)]:[border-bottom:1px_solid_var(--border-soft)]" {
+        div class="flex items-stretch py-1.5 [&:not(:last-child)]:border-b [&:not(:last-child)]:border-border-soft" {
             // ── Work center label ──
             div class="w-[160px] shrink-0 pr-3" {
                 div class="text-sm font-medium text-fg truncate" { (wc.name) }
@@ -407,9 +407,9 @@ fn gantt_bar(
 /// Pending=1, InProgress=2, Suspended=3, PendingReceipt=4, Completed=5, Cancelled=6
 fn booking_color(status: Option<i16>) -> &'static str {
     match status {
-        Some(1) => "bg-accent/25 [border:1px_solid_var(--accent)]",
+        Some(1) => "bg-accent/25 border border-accent",
         Some(2) => "bg-accent",
-        Some(3) => "bg-surface-raised [border:1px_solid_var(--border)]",
+        Some(3) => "bg-surface-raised border border-border",
         Some(4) => "bg-warn",
         Some(5) => "bg-success",
         Some(6) => "bg-danger",
@@ -435,7 +435,7 @@ fn load_view(
         div class="bg-bg border border-border-soft rounded-md p-5 shadow-[var(--shadow-card)] min-w-0" {
             // ── Legend ──
             div class="flex gap-4 mb-4 text-xs text-muted" {
-                (legend_dot("bg-surface [border:1px_solid_var(--border)]", "无排程"))
+                (legend_dot("bg-surface border border-border", "无排程"))
                 (legend_dot("bg-success-bg [border:1px_solid_var(--success)]", "<70%"))
                 (legend_dot("bg-warn-bg [border:1px_solid_var(--warn)]", "70-90%"))
                 (legend_dot("bg-danger-bg [border:1px_solid_var(--danger)]", ">90%"))
@@ -445,7 +445,7 @@ fn load_view(
                 table class="border-collapse w-full" {
                     thead {
                         tr {
-                            th class="sticky left-0 z-10 bg-surface-raised w-[140px] min-w-[140px] px-3 py-2 text-left [border-right:1px_solid_var(--border-soft)] [border-bottom:1px_solid_var(--border-soft)]" {
+                            th class="sticky left-0 z-10 bg-surface-raised w-[140px] min-w-[140px] px-3 py-2 text-left [border-right:1px_solid_var(--border-soft)] border-b border-border-soft" {
                                 span class="text-[11px] text-muted font-semibold" { "工作中心" }
                             }
                             @for date in date_range {
@@ -456,7 +456,7 @@ fn load_view(
                     tbody {
                         @for wc in work_centers {
                             tr {
-                                td class="sticky left-0 z-[1] px-3 py-2 bg-surface-raised [border-right:1px_solid_var(--border-soft)] [border-bottom:1px_solid_var(--border-soft)]" {
+                                td class="sticky left-0 z-[1] px-3 py-2 bg-surface-raised [border-right:1px_solid_var(--border-soft)] border-b border-border-soft" {
                                     div class="text-sm font-medium text-fg truncate" { (wc.name) }
                                     div class="text-[11px] text-muted mt-0.5" { (work_center_type_label(wc.work_center_type)) }
                                 }
@@ -483,7 +483,7 @@ fn load_date_header(date: NaiveDate, today: NaiveDate) -> Markup {
         "block text-[11px] font-semibold text-fg-2"
     };
     html! {
-        th class="text-center px-1 py-2 min-w-[64px] w-[64px] [border-bottom:1px_solid_var(--border-soft)] [border-left:1px_solid_var(--border-soft)]" {
+        th class="text-center px-1 py-2 min-w-[64px] w-[64px] border-b border-border-soft [border-left:1px_solid_var(--border-soft)]" {
             span class=(date_cls) { (date.format("%m/%d").to_string()) }
             span class="block text-[10px] text-muted" { (weekday_cn(date.weekday())) }
         }
@@ -517,9 +517,9 @@ fn load_cell(loads: &[WcDailyLoad], wc_id: i64, date: NaiveDate) -> Markup {
     };
 
     html! {
-        td class="text-center h-[44px] [border-bottom:1px_solid_var(--border-soft)] [border-left:1px_solid_var(--border-soft)]" {
+        td class="text-center h-[44px] border-b border-border-soft [border-left:1px_solid_var(--border-soft)]" {
             div
-                class=(format!("h-full flex items-center justify-center text-[12px] font-semibold font-mono {}", level_cls))
+                class=(format!("h-full flex items-center justify-center text-xs font-semibold font-mono {}", level_cls))
                 title=(format!("已排 {booked} / 可用 {avail}"))
             {
                 (display)

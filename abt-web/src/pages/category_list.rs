@@ -558,9 +558,9 @@ fn detail_panel(
  td class="max-w-[260px] truncate" title=(p.pdt_name) { strong { (p.pdt_name) } }
  td {
  @match p.status {
- ProductStatus::Active => span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-[#f0fff0] text-[#389e0d]" { "在用" }
- ProductStatus::Inactive => span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-surface text-muted" { "停用" }
- ProductStatus::Obsolete => span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-[#fff2f0] text-[#cf1322]" { "淘汰" }
+ ProductStatus::Active => span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-[#f0fff0] text-[#389e0d]" { "在用" }
+ ProductStatus::Inactive => span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-surface text-muted" { "停用" }
+ ProductStatus::Obsolete => span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-[#fff2f0] text-[#cf1322]" { "淘汰" }
  }
  }
  }

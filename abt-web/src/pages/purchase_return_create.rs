@@ -262,7 +262,7 @@ fn pr_create_page(
 
  // ── 关联单据 ──
  div class="data-card" class="mb-4" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "关联单据" }
+ div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "关联单据" }
  div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
  div class="form-field" {
  label { "采购订单" span class="text-danger" { "*" } }
@@ -297,7 +297,7 @@ fn pr_create_page(
 
  // ── 退货信息 ──
  div class="data-card" class="mb-4" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "退货信息" }
+ div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "退货信息" }
  div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
  div class="form-field" {
  label { "退货日期" span class="text-danger" { "*" } }
@@ -358,7 +358,7 @@ fn pr_create_page(
  // ── 退货产品明细 ──
  div id="pr-items-section" class="data-card" class="p-0 overflow-hidden mb-4" style="display:none" {
  div class="flex justify-between items-center" class="px-5 pt-5 pb-3" {
- span class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" class="m-0 p-0 border-none" { "退货产品明细" }
+ span class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" class="m-0 p-0 border-none" { "退货产品明细" }
  }
  div class="overflow-x-auto" {
  table class="data-table" style="min-width:1100px" {
@@ -385,7 +385,7 @@ fn pr_create_page(
  // Hidden container for HTMX swap of order data
  div id="pr-order-data" style="display:none" { }
 
- div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg [border-top:1px_solid_var(--border-soft)]" {
+ div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg border-t border-border-soft" {
  a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{}?restore=true", PRListPath::PATH)) { "取消" }
  div class="flex gap-3" {
  button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" id="pr-save-draft" {

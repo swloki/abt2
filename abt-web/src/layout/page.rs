@@ -107,7 +107,7 @@ fn global_confirm_dialog() -> Markup {
                         div class="w-14 h-14 rounded-full bg-danger/10 flex items-center justify-center mb-5 [&_svg]:w-7 [&_svg]:h-7 [&_svg]:text-danger" { (PreEscaped(icon)) }
                         p class="text-sm text-muted text-center leading-relaxed" id="global-confirm-message" {}
                     }
-                    div class="py-4 [border-top:1px_solid_var(--border-soft)] flex justify-center gap-3" {
+                    div class="py-4 border-t border-border-soft flex justify-center gap-3" {
                         button
                             type="button"
                             class="inline-flex items-center gap-2 px-5 py-2 rounded-sm text-sm font-medium cursor-pointer bg-white text-fg border border-border hover:bg-surface transition-all duration-150"

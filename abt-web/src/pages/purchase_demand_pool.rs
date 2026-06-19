@@ -597,7 +597,7 @@ fn material_table_fragment(
 
 fn material_table_header() -> Markup {
  html! {
- div class="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-6 px-6 py-3 bg-surface-raised text-xs font-semibold uppercase tracking-wide text-muted [border-bottom:1px_solid_var(--border-soft)]" {
+ div class="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-6 px-6 py-3 bg-surface-raised text-xs font-semibold uppercase tracking-wide text-muted border-b border-border-soft" {
  div { "物料信息" }
  div class="text-center w-[100px]" { "总需求量" }
  div class="text-center w-[80px]" { "涉及订单" }
@@ -622,7 +622,7 @@ fn material_row(m: &MaterialAggSummary) -> Markup {
  let (icon_bg, icon_color, icon_svg) = material_icon(pid);
 
  html! {
- div class="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-6 px-6 py-4 [border-bottom:1px_solid_var(--border-soft)]" {
+ div class="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-6 px-6 py-4 border-b border-border-soft" {
 
  div class="flex items-center gap-4 cursor-pointer"
  hx-get=(format!("/admin/purchase/demand-pool/demand-rows?product_id={pid}"))
@@ -635,7 +635,7 @@ fn material_row(m: &MaterialAggSummary) -> Markup {
  }
  div {
  div class="font-semibold text-fg text-sm" { (m.product_name) }
- div class="text-[12px] text-muted" { (m.product_code) }
+ div class="text-xs text-muted" { (m.product_code) }
  }
  }
 
@@ -666,7 +666,7 @@ fn material_row(m: &MaterialAggSummary) -> Markup {
  }
 
  // ── Expandable demand detail ──
- div class="hidden expanded:block bg-surface-raised [border-bottom:1px_solid_var(--border-soft)]" id=(format!("expand-mat-{pid}")) {
+ div class="hidden expanded:block bg-surface-raised border-b border-border-soft" id=(format!("expand-mat-{pid}")) {
  div class="px-6 py-4" {
  table class="data-table" class="text-[13px]" {
  thead {

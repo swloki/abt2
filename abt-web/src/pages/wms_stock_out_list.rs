@@ -242,21 +242,21 @@ fn stock_out_data_card(
  a class="font-mono tabular-nums text-accent hover:underline" href=(detail_url) { (item.doc_number.as_deref().unwrap_or("—")) }
  }
  td {
- span class=(format!("inline-flex items-center gap-1 rounded-full text-[12px] font-medium px-2 py-0.5 {}", type_cls)) {
+ span class=(format!("inline-flex items-center gap-1 rounded-full text-xs font-medium px-2 py-0.5 {}", type_cls)) {
  (type_label)
  }
  }
- td class="font-mono tabular-nums text-[12px] text-fg-2" { (format!("{}-{}", item.source_type, item.source_id)) }
+ td class="font-mono tabular-nums text-xs text-fg-2" { (format!("{}-{}", item.source_type, item.source_id)) }
  td class="text-sm text-fg" { (wh_name) }
  td class="text-sm text-muted" { "1 种" }
  td class="text-right text-[13px] font-mono tabular-nums" { (format!("{:.2}", item.quantity)) }
  td class="text-right text-[13px] font-mono tabular-nums" { (item.unit_cost.map(|c| format!("¥{:.2}", c)).unwrap_or_else(|| "—".into())) }
- td class="text-[12px] text-fg-2" { "FIFO" }
+ td class="text-xs text-fg-2" { "FIFO" }
  td {
  span class="status-pill bg-[#f0fff0] text-[#389e0d]" { "已出库" }
  }
  td class="text-sm text-fg" { (op_name) }
- td class="text-[12px] text-muted" { (item.created_at.format("%Y-%m-%d %H:%M")) }
+ td class="text-xs text-muted" { (item.created_at.format("%Y-%m-%d %H:%M")) }
  td {
  a href=(detail_url) class="text-accent text-xs hover:underline" { "详情" }
  }

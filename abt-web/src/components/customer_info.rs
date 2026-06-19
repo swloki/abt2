@@ -21,7 +21,7 @@ pub fn customer_info_panel(
 
  html! {
  div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft border-border-soft" {
+ div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
  (crate::components::icon::users_icon("w-[18px] h-[18px]"))
  "客户信息"
  }

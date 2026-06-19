@@ -335,7 +335,7 @@ fn card_search_result(
  // 报工明细
  @if !reports.is_empty() {
  div class="bg-bg border border-border-soft rounded-lg mb-0 shadow-[var(--shadow-card)] overflow-hidden" {
- div class="p-4 [border-bottom:1px_solid_var(--border-soft)] text-sm font-semibold text-fg flex items-center gap-2 bg-surface-raised" {
+ div class="p-4 border-b border-border-soft text-sm font-semibold text-fg flex items-center gap-2 bg-surface-raised" {
  (PreEscaped(r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>"#))
  "报工明细"
  }

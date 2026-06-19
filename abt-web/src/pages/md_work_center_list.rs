@@ -169,9 +169,9 @@ a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent 
  td class="font-mono tabular-nums text-right text-[13px]" { (crate::utils::fmt_amount(wc.costs_hour)) }
  td {
  @if wc.is_active {
- span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-[#f0fff0] text-[#389e0d]" { "启用" }
+ span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-[#f0fff0] text-[#389e0d]" { "启用" }
  } @else {
- span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-[#fff2f0] text-[#cf1322]" { "停用" }
+ span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-[#fff2f0] text-[#cf1322]" { "停用" }
  }
  }
  td class="text-center whitespace-nowrap" {

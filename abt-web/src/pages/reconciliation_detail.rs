@@ -212,7 +212,7 @@ fn workflow_steps(current: ReconciliationStatus) -> Markup {
  } else if i < current_idx {
  ("bg-[#10b981]", "text-[#10b981]", "")
  } else if i == current_idx {
- ("bg-[#2563eb]", "text-[#2563eb] font-semibold", "shadow-[0_0_0_3px_rgba(37,99,235,0.1)]")
+ ("bg-accent", "text-[#2563eb] font-semibold", "shadow-[0_0_0_3px_rgba(37,99,235,0.1)]")
  } else {
  ("bg-[#d1d5db]", "text-[#9ca3af]", "")
  };
@@ -368,7 +368,7 @@ fn reconciliation_detail_page(
  }
 
  // ── Amount Summary ──
- div class="flex justify-end gap-8 p-5 [border-top:1px_solid_var(--border-soft)] bg-surface-raised" {
+ div class="flex justify-end gap-8 p-5 border-t border-border-soft bg-surface-raised" {
  div class="flex gap-3" {
  span class="text-[11px] text-muted font-medium uppercase" { "确认金额" }
  span class="text-[20px] font-bold text-fg text-success" {

@@ -283,7 +283,7 @@ fn batch_detail_page(
  tr {
  td { a href=(format!("/admin/mes/reports/{}", r.id)) class="text-accent font-medium cursor-pointer font-mono tabular-nums" { (r.doc_number) } }
  td { (routing_map.get(&r.routing_id).copied().unwrap_or("—")) }
- td { span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-surface text-fg-2" { (shift_label(&r.shift)) } }
+ td { span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-surface text-fg-2" { (shift_label(&r.shift)) } }
  td { (user_map.get(&r.worker_id).map(|s| s.as_str()).unwrap_or("—")) }
  td class="font-mono tabular-nums text-success" { (crate::utils::fmt_qty(r.completed_qty)) }
  td class="font-mono tabular-nums text-danger" { (crate::utils::fmt_qty(r.defect_qty)) }
@@ -315,7 +315,7 @@ fn batch_detail_page(
  // 创建记录
  tr {
  td class="text-muted text-[13px]" { (batch.created_at.format("%Y-%m-%d %H:%M").to_string()) }
- td { span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-surface text-muted" { "创建" } }
+ td { span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-surface text-muted" { "创建" } }
  td { "批次创建" }
  td { (creator_name) }
  td class="text-muted" { "工单下达自动生成" }
@@ -324,7 +324,7 @@ fn batch_detail_page(
  @if let Some(start) = batch.actual_start {
  tr {
  td class="text-muted text-[13px]" { (start.format("%Y-%m-%d %H:%M").to_string()) }
- td { span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-[#e8f4ff] text-[var(--accent-active)]" { "开始生产" } }
+ td { span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-[#e8f4ff] text-[var(--accent-active)]" { "开始生产" } }
  td { "待生产 → 进行中" }
  td { (creator_name) }
  td class="text-muted" { "首道工序开始" }

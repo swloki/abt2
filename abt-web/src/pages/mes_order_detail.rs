@@ -437,7 +437,7 @@ fn order_detail_page(
  @if matches!(order.status, WorkOrderStatus::Released) {
  div class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto" id="unrelease-dialog" {
  div class="bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl" {
- div class="px-6 py-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center shrink-0" {
+ div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
  h2 { "确认反下达？" }
  }
  div class="overflow-y-auto flex-1 min-h-0 p-6" {
@@ -447,7 +447,7 @@ fn order_detail_page(
  " 状态，同时取消领料单、释放库存预留、软删除生产批次（若有报工记录则无法反下达）。此操作不可撤销。"
  }
  }
- div class="px-6 py-4 [border-top:1px_solid_var(--border-soft)] flex justify-end gap-3 shrink-0" {
+ div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" {
  button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" type="button" _="on click remove .is-open from #unrelease-dialog" {
  "取消"
  }
@@ -515,7 +515,7 @@ fn tab_info(order: &WorkOrder, product_name: &str, routing_count: usize, complet
  // 基础信息 + 生产配置
  div class="grid gap-5 bg-bg border border-border-soft rounded-lg p-6 lg:grid-cols-2" {
  div class="flex flex-col gap-4" {
- div class="text-sm font-semibold text-fg mb-3 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "基础信息" }
+ div class="text-sm font-semibold text-fg mb-3 pb-2 border-b border-border-soft" { "基础信息" }
  div class="grid grid-cols-2 gap-4" {
  div class="flex flex-col gap-1" { span class="text-xs text-muted font-medium" { "工单编号" } span class="text-sm text-fg font-medium font-mono tabular-nums" { (order.doc_number) } }
  div class="flex flex-col gap-1" { span class="text-xs text-muted font-medium" { "产品" } span class="text-sm text-fg font-medium" { (product_name) } }
@@ -528,7 +528,7 @@ fn tab_info(order: &WorkOrder, product_name: &str, routing_count: usize, complet
  }
  }
  div class="flex flex-col gap-4" {
- div class="text-sm font-semibold text-fg mb-3 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "生产配置" }
+ div class="text-sm font-semibold text-fg mb-3 pb-2 border-b border-border-soft" { "生产配置" }
  div class="grid grid-cols-2 gap-4" {
  div class="flex flex-col gap-1" {
  span class="text-xs text-muted font-medium" { "BOM 快照" }
@@ -547,7 +547,7 @@ fn tab_info(order: &WorkOrder, product_name: &str, routing_count: usize, complet
  }
  @if !order.remark.is_empty() {
  div class="bg-bg border border-border-soft rounded-lg p-6" {
- div class="text-sm font-semibold text-fg mb-3 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "备注" }
+ div class="text-sm font-semibold text-fg mb-3 pb-2 border-b border-border-soft" { "备注" }
  p class="text-sm text-muted" { (order.remark.as_str()) }
  }
  }
@@ -682,7 +682,7 @@ fn tab_batches(batches: &[ProductionBatch], routings: &[WorkOrderRouting], order
  @if can_split {
  div class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto" id="split-dialog" {
  div class="bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl" {
- div class="px-6 py-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center shrink-0" {
+ div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
  h2 { "新增生产批次" }
  }
  form {
@@ -726,7 +726,7 @@ fn tab_batches(batches: &[ProductionBatch], routings: &[WorkOrderRouting], order
  }
  }
  }
- div class="px-6 py-4 [border-top:1px_solid_var(--border-soft)] flex justify-end gap-3 shrink-0" {
+ div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" {
  button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" type="button"
  _="on click remove .is-open from #split-dialog" {
  "取消"
@@ -792,13 +792,13 @@ fn tab_log(logs: &[AuditLog]) -> Markup {
  div class="absolute left-0 top-1 w-3 h-3 rounded-full bg-accent ring-4 ring-bg" {}
  div {
  div class="font-semibold text-sm text-fg" { (audit_action_label(log.action)) }
- div class="flex gap-2 text-[12px] text-muted items-center mt-1" {
+ div class="flex gap-2 text-xs text-muted items-center mt-1" {
  span { (fmt_dt(log.created_at)) }
  span class="text-border" { "·" }
  span { "操作人 #" (log.operator_id) }
  }
  @if let Some(changes) = log.changes.as_ref() {
- div class="text-[12px] text-muted mt-1" { (changes) }
+ div class="text-xs text-muted mt-1" { (changes) }
  }
  }
  }

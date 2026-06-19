@@ -307,7 +307,7 @@ fn return_create_page(customers: &[abt_core::master_data::customer::model::Custo
 
  // ── 关联单据 ──
  div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
+ div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
  (icon::clipboard_document_icon("w-[18px] h-[18px]"))
  "关联单据"
  }
@@ -339,7 +339,7 @@ fn return_create_page(customers: &[abt_core::master_data::customer::model::Custo
 
  // ── 退货信息 ──
  div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
+ div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
  (icon::clipboard_document_icon("w-[18px] h-[18px]"))
  "退货信息"
  }
@@ -370,7 +370,7 @@ fn return_create_page(customers: &[abt_core::master_data::customer::model::Custo
  // ── 退货产品明细 ──
  div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden flush hidden" id="items-section" {
  div class="flush-header" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
+ div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
  (icon::package_icon("w-[18px] h-[18px]"))
  "退货产品明细"
  }
@@ -401,7 +401,7 @@ fn return_create_page(customers: &[abt_core::master_data::customer::model::Custo
  "添加产品行"
  }
  }
- div class="flex justify-end p-4 bg-surface [border-top:1px_solid_var(--border-soft)] gap-8" {
+ div class="flex justify-end p-4 bg-surface border-t border-border-soft gap-8" {
  div class="flex gap-3" {
  span class="text-sm text-muted" { "退货总数量" }
  span class="text-lg font-bold text-fg" id="total-qty" { "0" }
@@ -415,7 +415,7 @@ fn return_create_page(customers: &[abt_core::master_data::customer::model::Custo
 
  // ── 备注 ──
  div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
+ div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
  (icon::file_text_icon("w-[18px] h-[18px]"))
  "备注"
  }
@@ -424,7 +424,7 @@ fn return_create_page(customers: &[abt_core::master_data::customer::model::Custo
 
  // ── 附件 ──
  div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
+ div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
  (icon::upload_icon("w-[18px] h-[18px]"))
  "附件"
  }
@@ -439,7 +439,7 @@ fn return_create_page(customers: &[abt_core::master_data::customer::model::Custo
  }
 
  // ── Action Bar ──
- div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg [border-top:1px_solid_var(--border-soft)]" {
+ div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg border-t border-border-soft" {
  a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{}?restore=true", ReturnListPath::PATH)) { "取消" }
  div class="flex gap-3" {
  button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" onclick="handleSaveDraft()" {
@@ -681,10 +681,10 @@ fn order_search_results(
  }).collect::<Vec<_>>()).unwrap_or_default()
  }).to_string();
 
- div class="flex items-center justify-between p-3 [border-bottom:1px_solid_var(--border-soft)]" {
+ div class="flex items-center justify-between p-3 border-b border-border-soft" {
  div class="product-select-info" {
  div class="text-sm font-medium text-fg" { (order.doc_number) }
- div class="text-[12px] text-muted flex items-center gap-[6px] flex-wrap" {
+ div class="text-xs text-muted flex items-center gap-[6px] flex-wrap" {
  span { (order_date) }
  span class="text-border" { "·" }
  span { (status_text) }

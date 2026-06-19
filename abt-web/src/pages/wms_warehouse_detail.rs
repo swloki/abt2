@@ -405,7 +405,7 @@ fn warehouse_detail_page(
 
  // ── Zones Table ──
  div class="bg-bg border border-border-soft rounded-md overflow-hidden mb-6 p-6" {
- div class="flex items-center justify-between mb-4 pb-3 [border-bottom:1px_solid_var(--border-soft)]" {
+ div class="flex items-center justify-between mb-4 pb-3 border-b border-border-soft" {
  div class="font-semibold text-fg text-base" {
  "库区列表 "
  span class="font-normal text-xs text-muted ml-2" {
@@ -424,7 +424,7 @@ fn warehouse_detail_page(
 
  // ── Zone Bins Table (placeholder, populated on zone click) ──
  div id="bins-section" class="bg-bg border border-border-soft rounded-md overflow-hidden mb-6 p-6" {
- div class="font-semibold text-fg mb-4 pb-3 text-base [border-bottom:1px_solid_var(--border-soft)]" {
+ div class="font-semibold text-fg mb-4 pb-3 text-base border-b border-border-soft" {
  "库位明细 "
  span class="font-normal text-xs text-muted ml-2" {
  "请点击库区查看库位"
@@ -505,7 +505,7 @@ fn zone_edit_form_fragment(zone: &Zone) -> Markup {
 
  html! {
  form class="bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl" hx-put=(put_path) hx-swap="none" {
- div class="px-6 py-5 [border-bottom:1px_solid_var(--border-soft)] flex justify-between items-center shrink-0" {
+ div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
  h2 { "编辑库区" }
  button type="button" class="bg-transparent border-none cursor-pointer text-xl text-muted p-1" _="on click remove .is-open from #zone-edit-modal" {
  "×"
@@ -545,7 +545,7 @@ fn zone_edit_form_fragment(zone: &Zone) -> Markup {
  }
  }
  }
- div class="px-6 py-4 [border-top:1px_solid_var(--border-soft)] flex justify-end gap-3 shrink-0" {
+ div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" {
  button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" _="on click remove .is-open from #zone-edit-modal" {
  "取消"
  }
@@ -599,7 +599,7 @@ fn zone_row(z: &Zone, _warehouse_id: i64) -> Markup {
  td class="font-mono tabular-nums" { (z.code) }
  td { (z.name) }
  td {
- span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-[rgba(22,119,255,0.06)] text-[#1677ff]" { (type_label) }
+ span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-[rgba(22,119,255,0.06)] text-[#1677ff]" { (type_label) }
  }
  td class="text-right text-[13px] text-muted" { "—" }
  td class="font-mono tabular-nums" { (z.sort_order) }
@@ -711,7 +711,7 @@ fn stats_section(stats: Option<&WarehouseInventoryStats>) -> Markup {
 
  html! {
  div class="bg-bg border border-border-soft rounded-md overflow-hidden mb-6 p-6" {
- div class="font-semibold text-fg mb-4 pb-3 text-base [border-bottom:1px_solid_var(--border-soft)]" {
+ div class="font-semibold text-fg mb-4 pb-3 text-base border-b border-border-soft" {
  "库存统计"
  }
  div class="grid gap-5 grid-cols-4" {

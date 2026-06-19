@@ -270,7 +270,7 @@ fn quotation_create_page(customers: &[abt_core::master_data::customer::model::Cu
 
  // ── Quote Info ──
  div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
+ div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
  (icon::clipboard_document_icon("w-[18px] h-[18px]"))
  "报价信息"
  }
@@ -317,7 +317,7 @@ fn quotation_create_page(customers: &[abt_core::master_data::customer::model::Cu
 
  // ── Line Items ──
  div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
+ div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
  (icon::package_icon("w-[18px] h-[18px]"))
  "产品明细"
  }
@@ -347,7 +347,7 @@ fn quotation_create_page(customers: &[abt_core::master_data::customer::model::Cu
  "添加产品行"
  }
  }
- div class="flex justify-end p-4 bg-surface [border-top:1px_solid_var(--border-soft)] gap-8" {
+ div class="flex justify-end p-4 bg-surface border-t border-border-soft gap-8" {
  div class="flex gap-3" {
  span class="text-sm text-muted" { "合计金额" }
  span class="text-lg font-bold text-fg" id="subtotal-value" { "¥ 0.00" }
@@ -365,7 +365,7 @@ fn quotation_create_page(customers: &[abt_core::master_data::customer::model::Cu
 
  // ── Remark ──
  div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
+ div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
  (icon::file_text_icon("w-[18px] h-[18px]"))
  "备注"
  }
@@ -374,7 +374,7 @@ fn quotation_create_page(customers: &[abt_core::master_data::customer::model::Cu
 
  // ── Attachment ──
  div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" {
+ div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
  (icon::upload_icon("w-[18px] h-[18px]"))
  "附件"
  }
@@ -386,7 +386,7 @@ fn quotation_create_page(customers: &[abt_core::master_data::customer::model::Cu
  }
 
  // ── Action Bar ──
- div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg [border-top:1px_solid_var(--border-soft)]" {
+ div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg border-t border-border-soft" {
  a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{}?restore=true", QuotationListPath::PATH)) { "取消" }
  div class="flex gap-3" {
  button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" {

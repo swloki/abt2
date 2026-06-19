@@ -210,7 +210,7 @@ fn bin_detail_page(
  @if let Some(types) = &bin.allowed_product_types {
  @for t in types {
  @let (bg, fg) = product_type_color(t);
- span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap mr-1" style=(format!("background:{bg};color:{fg}")) {
+ span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap mr-1" style=(format!("background:{bg};color:{fg}")) {
  (product_type_label(t))
  }
  }

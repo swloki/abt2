@@ -303,7 +303,7 @@ fn create_page_content(
  }
  h1 class="text-xl font-bold text-fg tracking-tight" { "从需求创建采购订单" }
  div class="text-[13px] text-muted" style="margin-top:4px" {
- span class="inline-flex items-center gap-[5px] rounded-full text-[12px] font-medium whitespace-nowrap bg-surface text-muted" class="text-[11px]" style="padding:2px 8px;margin-right:6px" {
+ span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-surface text-muted" class="text-[11px]" style="padding:2px 8px;margin-right:6px" {
  "采购需求池 · 按物料聚合"
  }
  "选择待处理的需求，指定供应商后创建采购订单草稿"
@@ -319,7 +319,7 @@ fn create_page_content(
 
  // ── Section 1: Basic Info ──
  div class="data-card" class="mb-4" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" { "基本信息" }
+ div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "基本信息" }
  div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
  div class="form-field" {
  label { "物料名称" }
@@ -368,7 +368,7 @@ fn create_page_content(
  // ── Section 2: Demand Details ──
  div class="data-card" class="mb-4 p-0 overflow-hidden" {
  div class="flex justify-between items-center" class="px-5 pt-5 pb-3" {
- span class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 [border-bottom:1px_solid_var(--border-soft)] border-border-soft" class="m-0 p-0 border-none" {
+ span class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" class="m-0 p-0 border-none" {
  "需求明细"
  @if let Some(pid) = product_id {
  span class="font-normal text-muted" class="ml-2" {
@@ -418,7 +418,7 @@ fn create_page_content(
  }
 
  // ── Summary Bar ──
- div class="flex justify-end gap-8 p-5 [border-top:1px_solid_var(--border-soft)] bg-surface-raised" {
+ div class="flex justify-end gap-8 p-5 border-t border-border-soft bg-surface-raised" {
  div class="flex gap-3" {
  span { "已选需求" }
  span class="font-mono tabular-nums" class="font-semibold" {
@@ -442,7 +442,7 @@ fn create_page_content(
  }
 
  // ── Action Bar ──
- div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg [border-top:1px_solid_var(--border-soft)]" {
+ div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg border-t border-border-soft" {
  a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{}?restore=true", PurchaseDemandPoolListPath::PATH)) { "取消" }
  div class="flex gap-3" {
  button type="submit" name="action" value="draft" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" {

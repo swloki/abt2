@@ -501,7 +501,7 @@ fn detail_content_fragment(dept: &Department, members: &[UserWithRoles], can_cre
  }
  }
  @if member_count > 4 {
- div class="text-[12px] text-muted text-center py-1" {
+ div class="text-xs text-muted text-center py-1" {
  "还有 " (member_count - 4) " 人…"
  }
  }

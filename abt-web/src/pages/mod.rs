@@ -183,3 +183,5 @@ pub mod fms_cost_analysis;
 // ── GL (General Ledger) ──
 pub mod gl_account_list;
 pub mod gl_account_create;
+pub mod gl_entry_list;
+pub mod gl_entry_detail;

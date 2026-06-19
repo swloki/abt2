@@ -67,5 +67,14 @@ pub fn router() -> Router<AppState> {
             GlAccountTogglePath::PATH,
             axum::routing::post(crate::pages::gl_account_list::toggle_disabled),
         )
-        // 凭证/试算/期间/发票 等路由在后续 task（D2/D3/D4/D5）补
+        // 凭证（Journal Entries）
+        .route(
+            GlEntryListPath::PATH,
+            get(crate::pages::gl_entry_list::get_list),
+        )
+        .route(
+            GlEntryDetailPath::PATH,
+            get(crate::pages::gl_entry_detail::get_detail),
+        )
+        // 试算/期间/发票 等路由在后续 task（D3/D4/D5）补
 }

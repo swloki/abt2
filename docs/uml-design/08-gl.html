@@ -196,8 +196,12 @@
     <h3 style="color: #e06c75; margin: 20px 0 10px 0;">6. 业财一体衔接说明</h3>
     <div style="background: rgba(224,108,117,0.08); padding: 12px; border-radius: 6px; margin-bottom: 20px;">
       <div style="font-family: monospace; font-size: 12px; color: #e0e0e0; line-height: 1.8;">
-        <span style="color:#e5a655;">Plan B (发票过账)</span> → 销售发票/采购发票过账 → 自动生成 GlEntry(voucher_type=Receipt/Payment)<br>
-        <span style="color:#6bc76b;">Plan C (现金日记账)</span> → CashJournal.confirm → 写 GlEntry + 明细账对账<br>
+        <span style="color:#e5a655;">Plan B (发票过账)</span> → 销售发票/采购发票 post → 自动生成 GlEntry(借应收/贷收入、借库存/贷应付)<br>
+        <span style="color:#6bc76b;">Plan C1 (收付款过账)</span> → CashJournal.confirm → 同事务 post_from_source 一张 posted GlEntry：<br>
+        &nbsp;&nbsp;· SalesReceipt(收款)：借 default_bank / 贷 default_ar（应收减少）<br>
+        &nbsp;&nbsp;· PurchasePayment(付款)：借 default_ap / 贷 default_bank（应付+银行双减）<br>
+        &nbsp;&nbsp;· Expense：跳过（由 C2 统一过账）· Payroll/Other：跳过（无对方科目映射）<br>
+        <span style="color:#56b6c2;">Plan C2 (报销付款过账)</span> → ExpenseReimbursement.generate_payment_journal → 同事务 post_from_source：借 default_expense / 贷 default_bank<br>
         <span style="color:#c678dd;">MES/WMS/QMS/OM</span> → 完工入库/报工/不良处置 → 成本事件 → GlEntry(voucher_type=Opening/Contra)<br>
         <span style="color:#56b6c2;">自动分录</span> → 折旧/摊销/汇兑损益 → 定时任务 → GlEntry(source_type=System)<br>
         <span style="color:#888;">凭证来源</span> → source_type + source_id 记录原始单据，支持追溯和反查

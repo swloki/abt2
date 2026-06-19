@@ -269,6 +269,11 @@ pub static RESOURCE_ACTION_DEFS: &[ResourceActionDef] = &[
     ResourceActionDef { resource_code: "FMS", resource_name: "财务管理", description: "财务管理", action: "read", action_name: "查看" },
     ResourceActionDef { resource_code: "FMS", resource_name: "财务管理", description: "财务管理", action: "update", action_name: "编辑" },
     ResourceActionDef { resource_code: "FMS", resource_name: "财务管理", description: "财务管理", action: "delete", action_name: "删除" },
+    // ── 总账（GL）──
+    ResourceActionDef { resource_code: "GL", resource_name: "总账管理", description: "总账管理", action: "create", action_name: "创建" },
+    ResourceActionDef { resource_code: "GL", resource_name: "总账管理", description: "总账管理", action: "read", action_name: "查看" },
+    ResourceActionDef { resource_code: "GL", resource_name: "总账管理", description: "总账管理", action: "update", action_name: "编辑" },
+    ResourceActionDef { resource_code: "GL", resource_name: "总账管理", description: "总账管理", action: "delete", action_name: "删除" },
     ResourceActionDef { resource_code: "MISC_REQUEST", resource_name: "杂项申请", description: "杂项申请管理", action: "create", action_name: "创建" },
     ResourceActionDef { resource_code: "MISC_REQUEST", resource_name: "杂项申请", description: "杂项申请管理", action: "read", action_name: "查看" },
     ResourceActionDef { resource_code: "MISC_REQUEST", resource_name: "杂项申请", description: "杂项申请管理", action: "update", action_name: "编辑" },

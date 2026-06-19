@@ -180,3 +180,6 @@ pub mod fms_expense_detail;
 pub mod fms_expense_create;
 pub mod fms_writeoff_list;
 pub mod fms_cost_analysis;
+// ── GL (General Ledger) ──
+pub mod gl_account_list;
+pub mod gl_account_create;

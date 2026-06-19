@@ -298,6 +298,16 @@ fn modules() -> Vec<NavModule> {
             ],
         },
         NavModule {
+            id: "gl",
+            name: "总账管理",
+            items: vec![
+                NavItem { name: "科目表", path: "/admin/gl/accounts", icon: NavIcon::Grid, permission: Some(("GL", "read")) },
+                NavItem { name: "凭证管理", path: "/admin/gl/entries", icon: NavIcon::ClipboardDoc, permission: Some(("GL", "read")) },
+                NavItem { name: "试算平衡表", path: "/admin/gl/trial-balance", icon: NavIcon::DollarSign, permission: Some(("GL", "read")) },
+                NavItem { name: "会计期间", path: "/admin/gl/periods", icon: NavIcon::Calendar, permission: Some(("GL", "read")) },
+            ],
+        },
+        NavModule {
             id: "md",
             name: "工程",
             items: vec![
@@ -444,6 +454,7 @@ fn render_module_icon(module_id: &str) -> Markup {
         "md" => icon::grid_icon(""),
         "quality" => icon::check_circle_icon(""),
         "finance" => icon::currency_icon(""),
+        "gl" => icon::grid_icon(""),
         "system" => icon::lock_icon(""),
         _ => html! {},
     }

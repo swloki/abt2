@@ -290,7 +290,7 @@ fn role_section(roles: &[Role], selected_ids: &[i64]) -> Markup {
  div class="grid gap-2" {
  @for role in roles {
  @let is_sel = selected_ids.contains(&role.role_id);
- label class="pick-item flex items-center gap-3 p-3 border rounded-md cursor-pointer transition-colors border-border-soft hover:border-border [&.selected]:border-accent [&.selected]:bg-accent-bg" {
+ label class="pick-item flex items-center gap-3 border rounded-md cursor-pointer transition-colors border-border-soft hover:border-border [&.selected]:border-accent [&.selected]:bg-accent-bg" {
  input type="checkbox" name="role" value=(role.role_id) class="w-4 h-4 accent-[var(--accent)] cursor-pointer"
  checked[is_sel] {}
  span class=(format!("w-7 h-7 rounded-lg flex items-center justify-center text-[9px] font-bold text-white shrink-0 bg-[{}] ", role_color(&role.role_code))) {
@@ -331,7 +331,7 @@ fn dept_section(departments: &[Department], selected_ids: &[i64]) -> Markup {
  div class="grid gap-2" {
  @for dept in departments {
  @let is_sel = selected_ids.contains(&dept.department_id);
- label class="pick-item flex items-center gap-3 p-3 border rounded-md cursor-pointer transition-colors border-border-soft hover:border-border [&.selected]:border-accent [&.selected]:bg-accent-bg" {
+ label class="pick-item flex items-center gap-3 border rounded-md cursor-pointer transition-colors border-border-soft hover:border-border [&.selected]:border-accent [&.selected]:bg-accent-bg" {
  input type="checkbox" name="dept" value=(dept.department_id) class="w-4 h-4 accent-[var(--accent)] cursor-pointer"
  checked[is_sel] {}
  span class=(format!("w-7 h-7 rounded-lg flex items-center justify-center text-[9px] font-bold text-white shrink-0 bg-[{}] ", dept_color(&dept.department_code))) {

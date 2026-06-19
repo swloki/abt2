@@ -544,7 +544,7 @@ fn demand_row(d: &DemandSummary, preselected_ids: &[i64]) -> Markup {
 
 fn supplier_detail_fragment(contact_name: &str, contact_phone: &str, coop_years: i64) -> Markup {
  html! {
- div class="supplier-info-bar" class="flex bg-surface" class="rounded-sm" class="px-4 py-3 text-sm" style="gap:var(--space-6);color:var(--text-secondary)" {
+ div class="supplier-info-bar" class="flex bg-surface" class="rounded-sm" class="px-4 py-3 text-sm" class="gap-6 text-fg-2" {
  span { "联系人: " strong { (contact_name) } }
  span { "电话: " strong { (contact_phone) } }
  span { "合作年限: " strong { (coop_years) " 年" } }

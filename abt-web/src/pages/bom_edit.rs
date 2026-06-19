@@ -657,7 +657,7 @@ div class="modal bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-
  }
  div class="overflow-y-auto flex-1 min-h-0" {
  input type="hidden" name="parent_id" value="0" {}
- div class="flex gap-4 p-4 border-b border-border-soft product-search-bar" {
+ div class="flex gap-4 border-b border-border-soft product-search-bar" {
  input type="hidden" name="bom_id" value=(bom.bom_id) {}
  div class="flex-1 flex flex-col gap-[4px]" {
  label class="text-xs font-medium text-fg-2" { "产品名称" }

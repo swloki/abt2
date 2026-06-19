@@ -404,7 +404,7 @@ fn arrival_create_page(
  _="on click remove .is-open from #po-modal" { "×" }
  }
  div class="overflow-y-auto flex-1 min-h-0 p-4" hx-disinherit="hx-select" {
- div class="flex gap-4 p-4 border-b border-border-soft" {
+ div class="flex gap-4 border-b border-border-soft" {
  div class="flex-1 flex flex-col gap-[4px]" {
  label class="text-xs font-medium text-fg-2" { "采购订单号" }
  input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" id="po-search-input" name="keyword" placeholder="输入PO编号搜索…"

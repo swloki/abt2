@@ -261,7 +261,7 @@ fn ladder_vis(rules: &[PurchaseApprovalRule]) -> Markup {
  div class="flex flex-wrap" class="gap-4" style="padding:var(--space-2) var(--space-4)" {
  @for (i, rule) in rules.iter().enumerate() {
  @if rule.is_active {
- div class="flex items-center" class="text-xs" style="gap:var(--space-1)" {
+ div class="flex items-center" class="text-xs" class="gap-1" {
  span style=(format!("display:inline-block;width:10px;height:10px;border-radius:2px;background:{}", colors[i % colors.len()])) {}
  span { (&rule.name) }
  }

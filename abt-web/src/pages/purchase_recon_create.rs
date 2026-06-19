@@ -248,7 +248,7 @@ fn precon_create_page(
  }
  }
  }
- div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" class="flex justify-between items-center" class="px-4 py-3" style="border-top:1px solid var(--border)" {
+ div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" class="flex justify-between items-center" class="px-4 py-3" class="border-t border-border" {
  span class="text-muted" class="text-sm" {
  "已选择 "
  span id="order-selected-count" { "0" }

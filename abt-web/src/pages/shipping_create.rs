@@ -704,7 +704,7 @@ fn shipping_edit_page(
  }
  }
  div class="overflow-y-auto flex-1 min-h-0 p-6 p-0" {
- div class="flex gap-4 p-4 border-b border-border-soft" {
+ div class="flex gap-4 border-b border-border-soft" {
  input type="hidden" name="customer_id" {}
  div class="flex-1 flex flex-col gap-[4px]" {
  label class="text-xs font-medium text-fg-2" { "搜索订单" }
@@ -981,7 +981,7 @@ fn shipping_create_page(
  }
  }
  div class="overflow-y-auto flex-1 min-h-0 p-6 p-0" {
- div class="flex gap-4 p-4 border-b border-border-soft" {
+ div class="flex gap-4 border-b border-border-soft" {
  input type="hidden" name="customer_id" {}
  div class="flex-1 flex flex-col gap-[4px]" {
  label class="text-xs font-medium text-fg-2" { "搜索订单" }

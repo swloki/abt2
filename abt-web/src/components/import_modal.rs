@@ -93,11 +93,11 @@ pub fn render_import_result(result: &abt_core::shared::excel::ImportResult) -> M
  div class="import-result" {
  div class="flex gap-4" {
  div class="flex flex-col items-center" {
- span class="import-text-2xl font-bold font-mono tabular-nums tabular-nums text-fg success" { (result.success_count) }
+ span class="import-text-2xl font-bold font-mono tabular-nums text-fg success" { (result.success_count) }
  span class="import-text-sm text-muted mt-1" { "成功" }
  }
  div class="flex flex-col items-center" {
- span class="import-text-2xl font-bold font-mono tabular-nums tabular-nums text-fg failed" { (result.failed_count) }
+ span class="import-text-2xl font-bold font-mono tabular-nums text-fg failed" { (result.failed_count) }
  span class="import-text-sm text-muted mt-1" { "失败" }
  }
  }

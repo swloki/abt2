@@ -182,28 +182,28 @@ fn price_history_page(rows: &[PriceHistoryRow], total: u64, page: u32, total_pag
  div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
  div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 blue" { (icon::currency_icon("w-5 h-5")) }
  div {
- div class="text-2xl font-bold font-mono tabular-nums tabular-nums text-fg" { (total) }
+ div class="text-2xl font-bold font-mono tabular-nums text-fg" { (total) }
  div class="text-sm text-muted mt-1" { "总变更次数" }
  }
  }
  div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
  div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 green" { (icon::trending_up_icon("w-5 h-5")) }
  div {
- div class="text-2xl font-bold font-mono tabular-nums tabular-nums text-fg" { "—" }
+ div class="text-2xl font-bold font-mono tabular-nums text-fg" { "—" }
  div class="text-sm text-muted mt-1" { "平均涨幅" }
  }
  }
  div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
  div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 orange" { (icon::clock_icon("w-5 h-5")) }
  div {
- div class="text-2xl font-bold font-mono tabular-nums tabular-nums text-fg" { "—" }
+ div class="text-2xl font-bold font-mono tabular-nums text-fg" { "—" }
  div class="text-sm text-muted mt-1" { "本月变更" }
  }
  }
  div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
  div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 red" { (icon::lock_icon("w-5 h-5")) }
  div {
- div class="text-2xl font-bold font-mono tabular-nums tabular-nums text-fg" { "—" }
+ div class="text-2xl font-bold font-mono tabular-nums text-fg" { "—" }
  div class="text-sm text-muted mt-1" { "涉及产品数" }
  }
  }
@@ -432,7 +432,7 @@ fn detail_content(row: &PriceHistoryRow) -> Markup {
  (icon::currency_icon("w-4 h-4"))
  "价格变动"
  }
- div class="bg-[#f8faff] flex items-center gap-4 p-4 rounded-md" {
+ div class="bg-[#f8faff] flex items-center gap-4 rounded-md" {
  div class="text-center" {
  div class="text-xs text-muted mb-1" { "原价格" }
  div class="text-lg font-bold font-mono tabular-nums text-fg" { (old_str) }

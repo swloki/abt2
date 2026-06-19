@@ -597,7 +597,7 @@ fn stock_in_create_content(
  }
  div class="overflow-y-auto flex-1 min-h-0 p-4" hx-disinherit="hx-select" {
  input type="hidden" id="source-pick-type" name="source_type" value="arrival" {}
- div class="flex gap-4 p-4 border-b border-border-soft" {
+ div class="flex gap-4 border-b border-border-soft" {
  div class="flex-1 flex flex-col gap-[4px]" {
  label class="text-xs font-medium text-fg-2" { "来源单号" }
  input id="source-search-input" class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword" placeholder="输入单号关键词…"

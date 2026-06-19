@@ -314,7 +314,7 @@ fn source_order_modal() -> Markup {
  _="on click remove .is-open from #so-modal" { "\u{00d7}" }
  }
  div class="overflow-y-auto flex-1 min-h-0 p-0" {
- div class="flex gap-4 p-4 border-b border-border-soft" {
+ div class="flex gap-4 border-b border-border-soft" {
  div class="flex-1 flex flex-col gap-[4px]" {
  label class="text-xs font-medium text-fg-2" { "订单编号 / 关键词" }
  input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword" placeholder="输入订单编号搜索…"
@@ -350,7 +350,7 @@ fn source_plan_modal() -> Markup {
  _="on click remove .is-open from #pp-modal" { "\u{00d7}" }
  }
  div class="overflow-y-auto flex-1 min-h-0 p-0" {
- div class="flex gap-4 p-4 border-b border-border-soft" {
+ div class="flex gap-4 border-b border-border-soft" {
  div class="flex-1 flex flex-col gap-[4px]" {
  label class="text-xs font-medium text-fg-2" { "计划编号 / 关键词" }
  input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword" placeholder="输入计划编号搜索…"

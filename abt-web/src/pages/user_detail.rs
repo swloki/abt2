@@ -506,7 +506,7 @@ fn user_detail_page(
  p class="text-sm text-muted" { "暂未分配部门" }
  } @else {
  @for dept in user_depts {
- div class="flex items-center gap-3 p-3 border border-border-soft rounded-md mb-2 transition-colors last:mb-0 hover:border-accent" {
+ div class="flex items-center gap-3 border border-border-soft rounded-md mb-2 transition-colors last:mb-0 hover:border-accent" {
  span class="w-7 h-7 rounded-lg flex items-center justify-center text-[9px] font-bold text-white shrink-0 bg-[linear-gradient(135deg,#1677ff,#4096ff)]" {
  (get_initials(&dept.department_code))
  }
@@ -546,7 +546,7 @@ fn user_detail_page(
  p class="text-sm text-muted" { "暂未分配角色" }
  } @else {
  @for role in &user.roles {
- div class="flex items-center gap-3 p-3 border border-border-soft rounded-md mb-2 transition-colors last:mb-0 hover:border-accent" {
+ div class="flex items-center gap-3 border border-border-soft rounded-md mb-2 transition-colors last:mb-0 hover:border-accent" {
  span class="w-7 h-7 rounded-lg flex items-center justify-center text-[9px] font-bold text-white shrink-0 bg-[linear-gradient(135deg,#1677ff,#4096ff)]" {
  (get_initials(&role.role_code))
  }

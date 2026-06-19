@@ -74,7 +74,7 @@ pub fn entity_picker_field(
  }
  div class="flex gap-2 items-stretch" {
  input type="hidden" name=(name) id=(target_id);
- div class="flex-1 flex items-center px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg cursor-pointer transition-all duration-150 hover:border-accent truncate placeholder" id=(display_id)
+ div class="flex-1 flex items-center px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg cursor-pointer transition-all duration-150 hover:border-accent truncate text-muted" id=(display_id)
  _=(open_hs.as_str()) {
  (placeholder)
  }
@@ -108,7 +108,7 @@ pub fn entity_picker_modal(cfg: &EntityPickerConfig) -> Markup {
  input type="hidden" name="modal_id" value=(cfg.modal_id);
  input type="hidden" name="event_name" value=(cfg.event_name);
 
- div class="flex gap-4 p-4 border-b border-border-soft" {
+ div class="flex gap-4 border-b border-border-soft" {
  div class="flex-1 flex flex-col gap-[4px]" {
  label class="text-xs font-medium text-fg-2" { (cfg.search_label) }
  input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text"

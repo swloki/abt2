@@ -352,8 +352,8 @@ fn po_edit_page(
  "添加产品行"
  }
  }
- div class="flex justify-end" class="p-4" style="border-top:1px solid var(--border)" {
- div class="flex" class="text-sm" style="gap:var(--space-6)" {
+ div class="flex justify-end" class="p-4" class="border-t border-border" {
+ div class="flex" class="text-sm" class="gap-6" {
  div { "不含税: " span id="sum-untaxed" class="font-semibold" { "0.00" } }
  div { "税额: " span id="sum-tax" class="font-semibold" { "0.00" } }
  div { "含税总计: " span id="sum-total" class="font-semibold" class="text-accent" { "0.00" } }

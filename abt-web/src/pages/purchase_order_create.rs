@@ -471,8 +471,8 @@ fn po_create_page(
  "添加产品行"
  }
  }
- div class="flex justify-end" class="p-4" style="border-top:1px solid var(--border)" {
- div class="flex" class="text-sm" style="gap:var(--space-6)" {
+ div class="flex justify-end" class="p-4" class="border-t border-border" {
+ div class="flex" class="text-sm" class="gap-6" {
  div { "不含税: " span id="sum-untaxed" class="font-semibold" { "0.00" } }
  div { "税额: " span id="sum-tax" class="font-semibold" { "0.00" } }
  div { "含税总计: " span id="sum-total" class="font-semibold" class="text-accent" { "0.00" } }
@@ -522,7 +522,7 @@ fn po_create_page(
 /// Supplier detail fragment returned by HTMX on supplier select change
 fn supplier_detail_fragment(contact_name: &str, contact_phone: &str, coop_years: i64) -> Markup {
  html! {
- div class="supplier-info-bar" class="flex bg-surface" class="rounded-sm" class="px-4 py-3 text-sm" style="gap:var(--space-6);color:var(--text-secondary)" {
+ div class="supplier-info-bar" class="flex bg-surface" class="rounded-sm" class="px-4 py-3 text-sm" class="gap-6 text-fg-2" {
  span { "联系人: " strong { (contact_name) } }
  span { "电话: " strong { (contact_phone) } }
  span { "地址: " strong { "—" } }

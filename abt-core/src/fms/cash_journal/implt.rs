@@ -4,6 +4,9 @@ use rust_decimal::Decimal;
 use crate::fms::cash_journal::model::*;
 use crate::fms::cash_journal::repo::{CashJournalLineRepo, CashJournalRepo};
 use crate::fms::cash_journal::service::CashJournalService;
+use crate::fms::enums::JournalType;
+use crate::gl::entry::{model::GlEntryLineInput, new_gl_entry_service, service::GlEntryService};
+use crate::gl::mapping::{new_gl_mapping_service, service::GlMappingService};
 use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService, RecordAuditLogReq};
 use crate::shared::document_sequence::service::DocumentSequenceService;
 use crate::shared::document_sequence::new_document_sequence_service;
@@ -27,6 +30,83 @@ pub struct CashJournalServiceImpl {
 impl CashJournalServiceImpl {
     pub fn new(pool: PgPool) -> Self {
         Self { pool }
+    }
+
+    /// 收付款确认后按 JournalType 推导借贷分录，过账到 GL。
+    /// - SalesReceipt (Inflow):    借 default_bank / 贷 default_ar
+    /// - PurchasePayment (Outflow): 借 default_ap / 贷 default_bank
+    /// - Expense:    跳过（由 expense.generate_payment_journal 过账）
+    /// - Payroll/Other: 跳过（无对方科目映射）
+    async fn post_cash_journal_gl(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        journal: &CashJournal,
+    ) -> Result<()> {
+        let map = new_gl_mapping_service(self.pool.clone());
+        let bank_acct = map.resolve(ctx, db, "default_bank", None).await?;
+
+        // 取第一条明细的辅助核算维度（收付款单边凭证通常一致）
+        let lines_db = CashJournalLineRepo::get_by_journal_id(db, journal.id).await?;
+        let (cc, pc) = lines_db
+            .first()
+            .map(|l| (l.cost_center, l.profit_center))
+            .unwrap_or((None, None));
+
+        let (debit_acct, credit_acct) = match journal.journal_type {
+            JournalType::SalesReceipt => {
+                let ar = map.resolve(ctx, db, "default_ar", None).await?;
+                (bank_acct, ar) // 借银行 / 贷应收
+            }
+            JournalType::PurchasePayment => {
+                let ap = map.resolve(ctx, db, "default_ap", None).await?;
+                (ap, bank_acct) // 借应付 / 贷银行
+            }
+            JournalType::Expense | JournalType::Payroll | JournalType::Other => {
+                // Expense 由 generate_payment_journal 过账；Payroll/Other 无对方科目映射
+                tracing::info!(
+                    journal_id = journal.id,
+                    jt = ?journal.journal_type,
+                    "跳过 GL 过账"
+                );
+                return Ok(());
+            }
+        };
+
+        let amt = journal.amount;
+        let gl_lines = vec![
+            GlEntryLineInput {
+                account_id: debit_acct,
+                debit: amt,
+                credit: Decimal::ZERO,
+                cost_center: cc,
+                profit_center: pc,
+                project_id: None,
+                memo: format!("收付款 {}", journal.doc_number),
+            },
+            GlEntryLineInput {
+                account_id: credit_acct,
+                debit: Decimal::ZERO,
+                credit: amt,
+                cost_center: cc,
+                profit_center: pc,
+                project_id: None,
+                memo: format!("收付款 {}", journal.doc_number),
+            },
+        ];
+
+        new_gl_entry_service(self.pool.clone())
+            .post_from_source(
+                ctx,
+                db,
+                DocumentType::CashJournal,
+                journal.id,
+                journal.transaction_date,
+                format!("收付款确认 {}", journal.doc_number),
+                gl_lines,
+            )
+            .await?;
+        Ok(())
     }
 }
 
@@ -149,6 +229,12 @@ impl CashJournalService for CashJournalServiceImpl {
                     },
                 )
             .await?;
+
+        // 业财一体：收付款确认后同事务过账到 GL（硬错误，? 传播 → 过账失败整 confirm 回滚）
+        // - SalesReceipt/PurchasePayment：单边凭证（借/贷 default_bank + 对方往来科目）
+        // - Expense：由 expense.generate_payment_journal 统一过账，此处跳过
+        // - Payroll/Other：暂无对方科目映射，跳过（留后续里程碑）
+        self.post_cash_journal_gl(ctx, db, &journal).await?;
 
         new_domain_event_bus(self.pool.clone())
             .publish(

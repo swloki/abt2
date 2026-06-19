@@ -391,7 +391,7 @@ classDiagram
       <!-- ExpenseReimbursement -->
       <div style="border: 2px solid #c678dd; border-radius: 8px; padding: 14px; background: rgba(198,120,221,0.05);">
         <h4 style="color: #c678dd; margin: 0 0 6px 0;">ExpenseReimbursement 费用报销</h4>
-        <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">员工费用报销申请，审批通过后由 WorkflowEngine AutoAction 触发 generate_payment_journal 内部创建付款日记账</p>
+        <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">员工费用报销申请，审批通过后由 WorkflowEngine AutoAction 触发 generate_payment_journal 内部创建付款日记账。前端入口：expense 详情页按状态提供「提交审批」「审批通过」「付款」按钮（ExpenseSubmitPath / ExpenseApprovePath / ExpensePayPath）；journal 详情页提供「确认」按钮（JournalConfirmPath）。</p>
         <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11.5px;">
           <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">ExpenseReimbursement</span> {<br>
           &nbsp;&nbsp;id: i64 <span style="color:#888;">PK</span><br>
@@ -426,7 +426,7 @@ classDiagram
           &nbsp;&nbsp;}
         </div>
         <p style="color:#aaa; font-size:11px; margin: 8px 0 0 0;">
-          <strong>工作流解耦：</strong>submit/approve 由 StateMachineService.transition() 驱动，FMS 只负责领域操作（create/get/list + generate_payment_journal）
+          <strong>工作流解耦：</strong>submit/approve 由 ExpenseReimbursementService 封装 —— 内部 StateMachineService.transition() 校验转换合法性 + 写 state_logs，紧接 ExpenseReimbursementRepo.update_status() 更新业务表 status 列（双写）。原因：StateMachineService 为通用审计服务，SideEffect::UpdateField 未实现，不直接更新业务表；故 status 列必须由领域 service 显式更新（参照 cash_journal.confirm 模式）。
         </p>
         <p style="color:#e5c07b; font-size:11px; margin: 4px 0 0 0;">
           <strong>AutoAction：</strong>generate_payment_journal 由 WorkflowEngine Hook 调用（禁止前端直调），内部创建 CashJournal，失败返回 Result 由 Hook 重试/死信
@@ -435,7 +435,7 @@ classDiagram
           <strong>Saga 补偿：</strong>失败回滚已创建 CashJournal · Expense 保持 Approved 等待重试 · 超过重试上限进死信队列人工介入
         </p>
         <p style="color:#aaa; font-size:11px; margin: 4px 0 0 0;">
-          <strong>状态推进：</strong>Draft→Submitted→Approved 由 StateMachineService 驱动 · Approved→Paid 由 generate_payment_journal 内部更新 · 禁止外部直接修改 status · 乐观锁 version 防并发冲突
+          <strong>状态推进：</strong>Draft→Submitted→Approved 由 submit/approve 双写驱动；Approved→Paid 由 generate_payment_journal 内部 update_status 完成（不进状态机表）；乐观锁 version 防并发冲突。状态机定义：由 migration 055 seed ExpenseStatus/JournalStatus 到 state_definitions / state_transition_defs。
         </p>
       </div>
     </div>

@@ -1,4 +1,5 @@
 use abt_web::{config, routes, state::AppState};
+use axum::routing::get;
 use time::Duration;
 use tower_http::services::ServeDir;
 use tower_sessions::{Expiry, SessionManagerLayer};
@@ -22,7 +23,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         )));
 
     let app = routes::router(state)
-        .fallback_service(ServeDir::new("static"))
+        .fallback_service(
+            ServeDir::new("static").fallback(get(abt_web::pages::not_found::not_found_handler)),
+        )
         .layer(session_layer);
 
     tracing::info!("HTTP listening on http://{addr}");

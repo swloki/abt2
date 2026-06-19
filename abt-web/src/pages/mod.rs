@@ -8,6 +8,7 @@ pub mod login;
 pub mod misc_request_create;
 pub mod misc_request_detail;
 pub mod misc_request_list;
+pub mod not_found;
 pub mod payment_request_create;
 pub mod payment_request_detail;
 pub mod payment_request_list;

@@ -423,7 +423,7 @@ fn scope_card(selected: bool, icon_cls: &str, paths: &str, title: &str, desc: &s
  @if let Some(depts) = dept_tags {
  div class="flex flex-wrap gap-1 justify-center mt-2" {
  @for dept in depts {
- span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-surface text-[#666]" { (&dept.department_name) }
+ span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-surface text-slate-500" { (&dept.department_name) }
  }
  }
  }

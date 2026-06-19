@@ -134,7 +134,7 @@ fn customer_list_page(
  }
  }
  div class="flex items-center gap-4 p-5 px-6 bg-bg border border-border-soft rounded-lg shadow-[var(--shadow-card)]" {
- div class="w-12 h-12 rounded-lg grid place-items-center shrink-0 bg-[#fef3c7] text-warn" {
+ div class="w-12 h-12 rounded-lg grid place-items-center shrink-0 bg-warn-100 text-warn" {
  (icon::trending_up_icon("w-6 h-6"))
  }
  div {
@@ -143,7 +143,7 @@ fn customer_list_page(
  }
  }
  div class="flex items-center gap-4 p-5 px-6 bg-bg border border-border-soft rounded-lg shadow-[var(--shadow-card)]" {
- div class="w-12 h-12 rounded-lg grid place-items-center shrink-0 bg-[#fee2e2] text-danger" {
+ div class="w-12 h-12 rounded-lg grid place-items-center shrink-0 bg-danger-100 text-danger" {
  (icon::circle_alert_icon("w-6 h-6"))
  }
  div {

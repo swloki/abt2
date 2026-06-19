@@ -185,12 +185,12 @@ fn role_detail_page(
  }
  div class="flex gap-[4px] mt-[4px]" {
  @if role.is_system_role {
- span class=(format!("{TAG_PILL} bg-success-bg text-success border border-[#d1f5e0]")) { "内置角色" }
+ span class=(format!("{TAG_PILL} bg-success-bg text-success border border-success-100")) { "内置角色" }
  } @else {
- span class=(format!("{TAG_PILL} bg-[#e8f4ff] text-accent border border-[#d6e4ff]")) { "自定义角色" }
+ span class=(format!("{TAG_PILL} bg-accent-50 text-accent border border-accent-100")) { "自定义角色" }
  }
  @if let Some(pname) = parent_role_name {
- span class=(format!("{TAG_PILL} bg-purple-bg text-purple border border-[#e8d5ff]")) { "上级: " (pname) }
+ span class=(format!("{TAG_PILL} bg-purple-bg text-purple border border-purple-100")) { "上级: " (pname) }
  }
  }
  }
@@ -206,7 +206,7 @@ fn role_detail_page(
  // ── Stats Row ──
  div class="flex gap-3" {
  (stat_item("bg-accent", &direct_count.to_string(), "项直属权限"))
- (stat_item("bg-[#52c41a]", &user_count.to_string(), "个用户"))
+ (stat_item("bg-success-500", &user_count.to_string(), "个用户"))
  (stat_item("bg-purple", &inherited_count.to_string(), "项继承权限"))
  }
 

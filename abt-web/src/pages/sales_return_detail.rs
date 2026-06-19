@@ -303,9 +303,9 @@ fn workflow_steps(current: ReturnStatus) -> Markup {
  } else if i < current_idx {
  ("bg-success", "text-success", "")
  } else if i == current_idx {
- ("bg-accent", "text-[#2563eb] font-semibold", "shadow-[0_0_0_3px_rgba(37,99,235,0.1)]")
+ ("bg-accent", "text-accent font-semibold", "shadow-[0_0_0_3px_rgba(37,99,235,0.1)]")
  } else {
- ("bg-[#d1d5db]", "text-[#9ca3af]", "")
+ ("bg-slate-300", "text-slate-400", "")
  };
  div class="flex items-center gap-2 shrink-0" {
  span class=(format!("w-2.5 h-2.5 rounded-full shrink-0 {} {}", dot_cls, ring_cls)) {}
@@ -315,15 +315,15 @@ fn workflow_steps(current: ReturnStatus) -> Markup {
  @if is_cancelled {
  div class="w-[48px] h-[2px] bg-border" {}
  div class="flex items-center gap-2 shrink-0" {
- span class="w-2.5 h-2.5 rounded-full shrink-0 bg-[#ef4444]" {}
- span class="text-xs text-[#ef4444] font-semibold whitespace-nowrap" { "已取消" }
+ span class="w-2.5 h-2.5 rounded-full shrink-0 bg-danger-500" {}
+ span class="text-xs text-danger-500 font-semibold whitespace-nowrap" { "已取消" }
  }
  }
  @if is_rejected {
  div class="w-[48px] h-[2px] bg-border" {}
  div class="flex items-center gap-2 shrink-0" {
- span class="w-2.5 h-2.5 rounded-full shrink-0 bg-[#ef4444]" {}
- span class="text-xs text-[#ef4444] font-semibold whitespace-nowrap" { "已驳回" }
+ span class="w-2.5 h-2.5 rounded-full shrink-0 bg-danger-500" {}
+ span class="text-xs text-danger-500 font-semibold whitespace-nowrap" { "已驳回" }
  }
  }
  }
@@ -395,7 +395,7 @@ fn return_detail_page(
  }
  @if r.status == ReturnStatus::Inspecting {
  button
- class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-success text-[#fff]"
+ class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-success text-white"
  hx-post=(CompleteReturnPath { id: r.id }.to_string())
  hx-confirm="确认完成退货？"
  { "完成退货" }

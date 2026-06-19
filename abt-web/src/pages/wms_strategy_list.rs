@@ -175,7 +175,7 @@ fn putaway_row(s: &PutawayStrategy) -> Markup {
  tr {
  td { strong class="font-medium" { (s.name) } }
  td {
- span class="inline-flex items-center rounded-full text-[11px] font-medium px-2.5 py-0.5 font-mono bg-[#e8f4ff] text-accent" { (tag) }
+ span class="inline-flex items-center rounded-full text-[11px] font-medium px-2.5 py-0.5 font-mono bg-accent-50 text-accent" { (tag) }
  }
  td {
  @if let Some(wid) = s.warehouse_id {

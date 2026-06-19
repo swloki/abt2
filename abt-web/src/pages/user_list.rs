@@ -326,7 +326,7 @@ div class="text-2xl font-bold font-mono tabular-nums text-fg" { (active_count) }
  }
  }
  div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
-div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 bg-[#fef3c7] text-[#d97706]" {
+div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 bg-warn-100 text-warn" {
  (icon::clock_icon("w-6 h-6"))
  }
  div {
@@ -479,7 +479,7 @@ div class="flex flex-col gap-[2px]" {
 span class="flex items-center gap-[6px] text-[13px] font-semibold text-fg" {
  (display_name)
  @if u.user.is_super_admin {
- span class="text-[10px] font-semibold px-[6px] py-[2px] rounded-[3px] bg-purple-bg text-purple border border-[#e8d5ff] tracking-[0.02em]" { "超管" }
+ span class="text-[10px] font-semibold px-[6px] py-[2px] rounded-[3px] bg-purple-bg text-purple border border-purple-100 tracking-[0.02em]" { "超管" }
  }
  }
 span class="text-xs text-muted" {
@@ -498,7 +498,7 @@ span class="text-xs text-muted" {
  td {
  div class="flex flex-wrap gap-[4px]" {
  @for role in &u.roles {
- span class="text-[10px] font-medium px-[7px] py-[2px] rounded-[3px] bg-[#e8f4ff] text-accent border border-[#d6e4ff]" { (role.role_name) }
+ span class="text-[10px] font-medium px-[7px] py-[2px] rounded-[3px] bg-accent-50 text-accent border border-accent-100" { (role.role_name) }
  }
  @if u.roles.is_empty() {
  span class="text-muted" { "—" }
@@ -512,7 +512,7 @@ span class="text-xs text-muted" {
  span class="text-muted" { "—" }
  } @else {
  @for dept in depts {
- span class="text-[10px] font-medium px-[7px] py-[2px] rounded-[3px] bg-success-bg text-success border border-[#d1f5e0]" { (dept.department_name) }
+ span class="text-[10px] font-medium px-[7px] py-[2px] rounded-[3px] bg-success-bg text-success border border-success-100" { (dept.department_name) }
  }
  }
  }

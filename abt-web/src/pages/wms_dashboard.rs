@@ -205,7 +205,7 @@ fn wms_dashboard_content(stats: &DashboardStats) -> Markup {
  tbody {
  tr {
  td class="text-muted text-xs" { "—" }
- td { span class="inline-flex items-center gap-1 rounded-full text-xs font-medium whitespace-nowrap bg-[#e8f4ff] text-accent" { "来料接收" } }
+ td { span class="inline-flex items-center gap-1 rounded-full text-xs font-medium whitespace-nowrap bg-accent-50 text-accent" { "来料接收" } }
  td { a href="/admin/wms/arrivals" class="text-accent" { "—" } }
  td { "—" }
  td { "—" }

@@ -146,9 +146,9 @@ fn render_single_toast(msg: &str, toast_type: ToastType) -> Markup {
     let type_str = toast_type.as_str();
     // (icon_bg, border) per type — progress bar color via .toast-{type}::after in preflights
     let (icon_bg, border) = match toast_type {
-        ToastType::Error => ("bg-[#dc2626]", "border-[rgba(220,38,38,0.12)]"),
-        ToastType::Success => ("bg-[#16a34a]", "border-[rgba(22,163,74,0.12)]"),
-        ToastType::Warning => ("bg-[#d97706]", "border-[rgba(217,119,6,0.12)]"),
+        ToastType::Error => ("bg-danger", "border-[rgba(220,38,38,0.12)]"),
+        ToastType::Success => ("bg-success", "border-[rgba(22,163,74,0.12)]"),
+        ToastType::Warning => ("bg-warn", "border-[rgba(217,119,6,0.12)]"),
         ToastType::Info => ("bg-accent", "border-[rgba(37,99,235,0.12)]"),
     };
     let icon = toast_type.icon_svg();

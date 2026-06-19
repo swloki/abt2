@@ -115,6 +115,29 @@ export default defineConfig({
   --glass-bg: rgba(255, 255, 255, 0.72);
   --glass-border: rgba(255, 255, 255, 0.18);
   --glass-blur: 12px;
+
+  /* ─── 色阶（Tailwind 标准色板，主色 = 现有 600 档）─── */
+  /* danger (red): 600 = --danger */
+  --danger-50: #fef2f2; --danger-100: #fee2e2; --danger-200: #fecaca; --danger-300: #fca5a5;
+  --danger-400: #f87171; --danger-500: #ef4444; --danger-700: #b91c1c; --danger-800: #991b1b; --danger-900: #7f1d1d;
+  /* success (green): 600 = --success */
+  --success-50: #f0fdf4; --success-100: #dcfce7; --success-200: #bbf7d0; --success-300: #86efac;
+  --success-400: #4ade80; --success-500: #22c55e; --success-700: #15803d; --success-800: #166534; --success-900: #14532d;
+  /* warn (amber): 600 = --warn */
+  --warn-50: #fffbeb; --warn-100: #fef3c7; --warn-200: #fde68a; --warn-300: #fcd34d;
+  --warn-400: #fbbf24; --warn-500: #f59e0b; --warn-700: #b45309; --warn-800: #92400e; --warn-900: #78350f;
+  /* accent (blue): 600 = --accent */
+  --accent-50: #eff6ff; --accent-100: #dbeafe; --accent-200: #bfdbfe; --accent-300: #93c5fd;
+  --accent-400: #60a5fa; --accent-500: #3b82f6; --accent-700: #1d4ed8; --accent-800: #1e40af; --accent-900: #1e3a8a;
+  /* purple (violet): 600 = --purple */
+  --purple-50: #f5f3ff; --purple-100: #ede9fe; --purple-200: #ddd6fe; --purple-300: #c4b5fd;
+  --purple-400: #a78bfa; --purple-500: #8b5cf6; --purple-700: #6d28d9; --purple-800: #5b21b6; --purple-900: #4c1d95;
+  /* slate (中性): fg=900, muted=500, border=200 */
+  --slate-50: #f8fafc; --slate-100: #f1f5f9; --slate-200: #e2e8f0; --slate-300: #cbd5e1;
+  --slate-400: #94a3b8; --slate-500: #64748b; --slate-600: #475569; --slate-700: #334155;
+  --slate-800: #1e293b; --slate-900: #0f172a;
+  /* sidebar 专用深色（特化视觉） */
+  --sidebar-bg: #0b1829; --sidebar-rail: #070f1e;
 }
 
 html { font-size: var(--text-sm); scroll-behavior: smooth; }
@@ -215,28 +238,46 @@ select:disabled {
     colors: {
       bg: "var(--bg)",
       accent: {
-        DEFAULT: "var(--accent)",
-        on: "var(--accent-on)",
-        hover: "var(--accent-hover)",
-        active: "var(--accent-active)",
-        bg: "var(--accent-bg)",
+        50: "var(--accent-50)", 100: "var(--accent-100)", 200: "var(--accent-200)", 300: "var(--accent-300)",
+        400: "var(--accent-400)", 500: "var(--accent-500)", DEFAULT: "var(--accent)",
+        700: "var(--accent-700)", 800: "var(--accent-800)", 900: "var(--accent-900)",
+        on: "var(--accent-on)", hover: "var(--accent-hover)", active: "var(--accent-active)", bg: "var(--accent-bg)",
       },
       fg: { DEFAULT: "var(--fg)", 2: "var(--fg-2)" },
       muted: "var(--muted)",
       surface: {
-        DEFAULT: "var(--surface)",
-        raised: "var(--surface-raised)",
-        warm: "var(--surface-warm)",
+        DEFAULT: "var(--surface)", raised: "var(--surface-raised)", warm: "var(--surface-warm)",
       },
       border: {
-        DEFAULT: "var(--border)",
-        soft: "var(--border-soft)",
+        DEFAULT: "var(--border)", soft: "var(--border-soft)",
       },
-      success: { DEFAULT: "var(--success)", bg: "var(--success-bg)" },
-      warn: { DEFAULT: "var(--warn)", bg: "var(--warn-bg)" },
-      danger: { DEFAULT: "var(--danger)", bg: "var(--danger-bg)" },
+      success: {
+        50: "var(--success-50)", 100: "var(--success-100)", 200: "var(--success-200)", 300: "var(--success-300)",
+        400: "var(--success-400)", 500: "var(--success-500)", DEFAULT: "var(--success)",
+        700: "var(--success-700)", 800: "var(--success-800)", 900: "var(--success-900)", bg: "var(--success-bg)",
+      },
+      warn: {
+        50: "var(--warn-50)", 100: "var(--warn-100)", 200: "var(--warn-200)", 300: "var(--warn-300)",
+        400: "var(--warn-400)", 500: "var(--warn-500)", DEFAULT: "var(--warn)",
+        700: "var(--warn-700)", 800: "var(--warn-800)", 900: "var(--warn-900)", bg: "var(--warn-bg)",
+      },
+      danger: {
+        50: "var(--danger-50)", 100: "var(--danger-100)", 200: "var(--danger-200)", 300: "var(--danger-300)",
+        400: "var(--danger-400)", 500: "var(--danger-500)", DEFAULT: "var(--danger)",
+        700: "var(--danger-700)", 800: "var(--danger-800)", 900: "var(--danger-900)", bg: "var(--danger-bg)",
+      },
       info: "var(--info)",
-      purple: { DEFAULT: "var(--purple)", bg: "var(--purple-bg)" },
+      purple: {
+        50: "var(--purple-50)", 100: "var(--purple-100)", 200: "var(--purple-200)", 300: "var(--purple-300)",
+        400: "var(--purple-400)", 500: "var(--purple-500)", DEFAULT: "var(--purple)",
+        700: "var(--purple-700)", 800: "var(--purple-800)", 900: "var(--purple-900)", bg: "var(--purple-bg)",
+      },
+      slate: {
+        50: "var(--slate-50)", 100: "var(--slate-100)", 200: "var(--slate-200)", 300: "var(--slate-300)",
+        400: "var(--slate-400)", 500: "var(--slate-500)", 600: "var(--slate-600)", 700: "var(--slate-700)",
+        800: "var(--slate-800)", 900: "var(--slate-900)",
+      },
+      sidebar: { bg: "var(--sidebar-bg)", rail: "var(--sidebar-rail)" },
     },
     fontSize: {
       xs: ["var(--text-xs)", "1.4"],

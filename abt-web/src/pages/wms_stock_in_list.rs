@@ -44,7 +44,7 @@ pub struct StockInQueryParams {
 fn transaction_type_label(t: &TransactionType) -> (&'static str, &'static str) {
  // (label, pill_class)
  match t {
- TransactionType::PurchaseReceipt => ("采购入库", "bg-[#e8f4ff] text-accent"),
+ TransactionType::PurchaseReceipt => ("采购入库", "bg-accent-50 text-accent"),
  TransactionType::ProductionReceipt => ("生产入库", "bg-success-bg text-success"),
  _ => ("其他", "bg-surface text-muted"),
  }

@@ -81,7 +81,7 @@ pub async fn get_receipt_detail(path: ReceiptDetailPath, ctx: RequestContext) ->
  }
 
  // 状态条
- div class="flex items-center gap-[16px] bg-[#fafafa]" {
+ div class="flex items-center gap-[16px] bg-slate-50" {
  span class="receipt-status-label" {
  "状态: "
  span class=(format!("status-pill {}", crate::utils::status_color(sc))) { (sl) }

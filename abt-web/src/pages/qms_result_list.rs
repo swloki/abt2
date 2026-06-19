@@ -51,14 +51,14 @@ fn status_label(s: &InspectionStatus) -> (&'static str, &'static str, &'static s
  match s {
  InspectionStatus::Pending => ("待检验", "bg-warn-bg", "text-warn"),
  InspectionStatus::Completed => ("已完成", "bg-success-bg", "text-success"),
- InspectionStatus::Dispositioned => ("已处置", "bg-purple-bg", "text-[#722ed1]"),
+ InspectionStatus::Dispositioned => ("已处置", "bg-purple-bg", "text-purple-600"),
  }
 }
 
 fn result_type_label(r: &InspectionResultType) -> (&'static str, &'static str, &'static str) {
  match r {
  InspectionResultType::Pass => ("合格", "bg-success-bg", "text-success"),
- InspectionResultType::Fail => ("不合格", "bg-[#fee2e2]", "text-danger"),
+ InspectionResultType::Fail => ("不合格", "bg-danger-100", "text-danger"),
  InspectionResultType::Conditional => ("让步接收", "bg-accent-bg", "text-accent"),
  }
 }
@@ -68,7 +68,7 @@ fn inspection_type_label(t: &InspectionType) -> (&'static str, &'static str, &'s
  InspectionType::Iqc => ("IQC", "bg-accent-bg", "text-accent"),
  InspectionType::Ipqc => ("IPQC", "bg-success-bg", "text-success"),
  InspectionType::Fqc => ("FQC", "bg-purple-bg", "text-purple"),
- InspectionType::Oqc => ("OQC", "bg-warn-bg", "text-[#ea580c]"),
+ InspectionType::Oqc => ("OQC", "bg-warn-bg", "text-warn"),
  }
 }
 

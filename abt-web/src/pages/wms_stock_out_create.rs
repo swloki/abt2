@@ -311,7 +311,7 @@ fn stock_out_create_content(
  }
  }
  div class="mt-4" {
- button type="button" class="flex items-center justify-center gap-2 w-full text-[#2563eb] text-sm font-medium cursor-pointer"
+ button type="button" class="flex items-center justify-center gap-2 w-full text-accent text-sm font-medium cursor-pointer"
  _="on click add .is-open to #stockout-product-modal" {
  (icon::plus_icon("w-3.5 h-3.5"))
  "添加物料"
@@ -383,7 +383,7 @@ fn stock_out_create_content(
  a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href="/admin/wms/stock-out" { "取消" }
  div class="flex gap-3" {
  button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" { "保存草稿" }
- button type="submit" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-danger text-accent-on border-none hover:bg-[#b91c1c] text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(220,38,38,0.2)]" {
+ button type="submit" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-danger text-accent-on border-none hover:bg-danger-700 text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(220,38,38,0.2)]" {
  (icon::upload_icon("w-4 h-4"))
  "确认出库"
  }

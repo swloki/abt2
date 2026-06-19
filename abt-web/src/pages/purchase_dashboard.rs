@@ -386,13 +386,13 @@ fn purchase_dashboard_content(stats: &DashboardStats) -> Markup {
  div class="bg-bg border border-border-soft rounded-md p-5 mb-8 shadow-sm" {
  h2 class="text-lg font-semibold text-fg mb-2" { "采购业务流程" }
  div class="flex items-center justify-center flex-wrap gap-3 py-6" {
- (flow_circle(&icon::building_icon("w-5 h-5"), "供应商", "主数据", "bg-[#e8f4ff]", "text-accent"))
+ (flow_circle(&icon::building_icon("w-5 h-5"), "供应商", "主数据", "bg-accent-50", "text-accent"))
  (arrow_right_svg())
  (flow_circle(&icon::clipboard_list_icon("w-5 h-5"), "采购报价", "阳光比价", "bg-warn-bg", "text-warn"))
  (arrow_right_svg())
  (flow_circle(&icon::clipboard_document_icon("w-5 h-5"), "采购订单", "下达采购", "bg-success-bg", "text-success"))
  (arrow_right_svg())
- (flow_circle(&icon::clipboard_list_icon("w-5 h-5"), "采购对账", "月度结算", "bg-[#e8f4ff]", "text-info"))
+ (flow_circle(&icon::clipboard_list_icon("w-5 h-5"), "采购对账", "月度结算", "bg-accent-50", "text-info"))
  (arrow_right_svg())
  (flow_circle(&icon::payment_icon("w-5 h-5"), "付款申请", "三单匹配", "bg-danger-bg", "text-danger"))
  }

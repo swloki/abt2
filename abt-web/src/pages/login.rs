@@ -96,7 +96,7 @@ pub async fn post_refresh_token(
 fn login_page(error: Option<&str>, username: &str) -> Markup {
  html! {
  div class="grid grid-cols-2 min-h-screen max-[920px]:grid-cols-1" {
- div class="flex flex-col justify-center items-center relative overflow-hidden bg-gradient-to-br from-[#0f172a] via-[#1e3a8a] to-[#1d4ed8] px-12 py-16 max-[920px]:px-7 max-[480px]:px-5" {
+ div class="flex flex-col justify-center items-center relative overflow-hidden bg-gradient-to-br from-fg via-accent-900 to-accent-700 px-12 py-16 max-[920px]:px-7 max-[480px]:px-5" {
  div class="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.08),transparent_60%)] pointer-events-none" {}
  div class="relative z-10 max-w-[420px]" {
  div class="flex items-center gap-[14px] mb-12" {
@@ -106,7 +106,7 @@ fn login_page(error: Option<&str>, username: &str) -> Markup {
  div class="text-[22px] font-extrabold text-white tracking-tight" { "ABT ERP" }
  }
 
- h1 class="text-3xl font-extrabold text-[#fff] leading-tight mb-5" {
+ h1 class="text-3xl font-extrabold text-white leading-tight mb-5" {
  "智能化"
  br;
  span { "企业管理平台" }
@@ -175,7 +175,7 @@ fn login_form_area(error: Option<&str>, username: &str) -> Markup {
  }
  div class="relative" {
  input type="text" name="username" id="username" required
- class="w-full py-[11px] px-[14px] pl-[42px] border border-border rounded-md bg-white text-sm text-fg outline-none transition-all duration-150 hover:border-[#c4cdd5] focus:border-accent focus:shadow-[0_0_0_3px_rgba(22,119,255,0.15)]"
+ class="w-full py-[11px] px-[14px] pl-[42px] border border-border rounded-md bg-white text-sm text-fg outline-none transition-all duration-150 hover:border-slate-300 focus:border-accent focus:shadow-[0_0_0_3px_rgba(22,119,255,0.15)]"
  placeholder="请输入用户名或手机号" autocomplete="username"
  value=(username);
  (user_icon("w-[18px] h-[18px] absolute left-[14px] top-1/2 -translate-y-1/2 text-muted pointer-events-none"))
@@ -189,7 +189,7 @@ fn login_form_area(error: Option<&str>, username: &str) -> Markup {
  }
  div class="relative" {
  input type="password" name="password" id="password" required
- class="w-full py-[11px] pl-[42px] pr-11 border border-border rounded-md bg-white text-sm text-fg outline-none transition-all duration-150 hover:border-[#c4cdd5] focus:border-accent focus:shadow-[0_0_0_3px_rgba(22,119,255,0.15)]"
+ class="w-full py-[11px] pl-[42px] pr-11 border border-border rounded-md bg-white text-sm text-fg outline-none transition-all duration-150 hover:border-slate-300 focus:border-accent focus:shadow-[0_0_0_3px_rgba(22,119,255,0.15)]"
  placeholder="请输入密码" autocomplete="current-password";
  (lock_icon("w-[18px] h-[18px] absolute left-[14px] top-1/2 -translate-y-1/2 text-muted pointer-events-none"))
  button type="button" class="absolute right-1 top-1/2 -translate-y-1/2 w-[34px] h-[34px] border-none grid place-items-center cursor-pointer text-muted rounded-sm hover:text-accent transition-colors duration-150" aria-label="显示密码" _="on click toggle .pw-visible on closest <div/> then if (closest <div/>) matches .pw-visible set #password's type to 'text' else set #password's type to 'password'" {

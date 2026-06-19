@@ -432,7 +432,7 @@ fn detail_content(row: &PriceHistoryRow) -> Markup {
  (icon::currency_icon("w-4 h-4"))
  "价格变动"
  }
- div class="bg-[#f8faff] flex items-center gap-4 rounded-md" {
+ div class="bg-accent-50 flex items-center gap-4 rounded-md" {
  div class="text-center" {
  div class="text-xs text-muted mb-1" { "原价格" }
  div class="text-lg font-bold font-mono tabular-nums text-fg" { (old_str) }

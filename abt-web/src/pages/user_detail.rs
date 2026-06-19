@@ -398,17 +398,17 @@ fn user_detail_page(
  }
  div class="flex gap-[4px] mt-[4px]" {
  @if user.user.is_active {
- span class=(format!("{TAG_PILL_BASE} bg-success-bg text-success border border-[#d1f5e0]")) { "已激活" }
+ span class=(format!("{TAG_PILL_BASE} bg-success-bg text-success border border-success-100")) { "已激活" }
  } @else {
- span class=(format!("{TAG_PILL_BASE} bg-surface text-[#8c8c8c] border border-border")) { "未激活" }
+ span class=(format!("{TAG_PILL_BASE} bg-surface text-slate-400 border border-border")) { "未激活" }
  }
  @if user.user.is_super_admin {
- span class=(format!("{TAG_PILL_BASE} bg-purple-bg text-purple border border-[#e8d5ff]")) { "超级管理员" }
+ span class=(format!("{TAG_PILL_BASE} bg-purple-bg text-purple border border-purple-100")) { "超级管理员" }
  }
  @for dept in user_depts {
- span class=(format!("{TAG_PILL_BASE} bg-[#e8f4ff] text-accent border border-[#d6e4ff]")) { (&dept.department_name) }
+ span class=(format!("{TAG_PILL_BASE} bg-accent-50 text-accent border border-accent-100")) { (&dept.department_name) }
  }
- span class=(format!("{TAG_PILL_BASE} bg-[#e8f4ff] text-accent border border-[#d6e4ff]")) { (data_scope) }
+ span class=(format!("{TAG_PILL_BASE} bg-accent-50 text-accent border border-accent-100")) { (data_scope) }
  }
  }
  }
@@ -428,9 +428,9 @@ fn user_detail_page(
  // ── Stats Row ──
  div class="flex gap-3" {
  (stat_item("bg-accent", &user.roles.len().to_string(), "个角色", false))
- (stat_item("bg-[#52c41a]", &user_depts.len().to_string(), "个部门", false))
+ (stat_item("bg-success-500", &user_depts.len().to_string(), "个部门", false))
  (stat_item("bg-purple", &total_perms.to_string(), "项权限", false))
- (stat_item("bg-[#faad14]", data_scope, "数据范围", true))
+ (stat_item("bg-warn-500", data_scope, "数据范围", true))
  }
 
  // ── Two-Column Grid ──
@@ -549,7 +549,7 @@ fn user_detail_page(
  div class="text-[11px] text-muted font-mono" { (&role.role_code) }
  }
  @if is_role_system(&role.role_code, all_roles) {
- span class="text-[10px] px-[6px] py-[1px] rounded-[3px] font-medium bg-warn-bg text-warn border border-[#ffe7ba]" { "内置" }
+ span class="text-[10px] px-[6px] py-[1px] rounded-[3px] font-medium bg-warn-bg text-warn border border-warn-200" { "内置" }
  }
  }
  }
@@ -625,10 +625,10 @@ fn info_row(label: &str, value: Markup) -> Markup {
 
 fn perm_chip(action: &str) -> Markup {
  let cls = match action.to_lowercase().as_str() {
- "read" => "bg-[#e8f4ff] text-accent border border-[#d6e4ff]",
- "create" => "bg-success-bg text-success border border-[#d1f5e0]",
- "update" | "write" => "bg-warn-bg text-warn border border-[#ffe7ba]",
- "delete" => "bg-danger-bg text-danger border border-[#ffccc7]",
+ "read" => "bg-accent-50 text-accent border border-accent-100",
+ "create" => "bg-success-bg text-success border border-success-100",
+ "update" | "write" => "bg-warn-bg text-warn border border-warn-200",
+ "delete" => "bg-danger-bg text-danger border border-danger-200",
  _ => "text-muted border border-border-soft",
  };
  html! {

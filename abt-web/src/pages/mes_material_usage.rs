@@ -375,7 +375,7 @@ fn requisition_status_label(s: &abt_core::wms::enums::RequisitionStatus) -> Mark
         RequisitionStatus::Draft => ("待确认", "bg-warn-bg text-warn"),
         RequisitionStatus::Confirmed => ("已确认", "bg-accent-bg text-accent"),
         RequisitionStatus::Issued => ("已发料", "bg-success-bg text-success"),
-        RequisitionStatus::Cancelled => ("已取消", "bg-[#f5f5f5] text-muted"),
+        RequisitionStatus::Cancelled => ("已取消", "bg-slate-50 text-muted"),
         RequisitionStatus::PartiallyIssued => ("部分发料", "bg-accent-bg text-accent"),
     };
     html! { span class=(format!("text-[11px] px-2 py-0.5 rounded-full font-medium {}", cls)) { (label) } }
@@ -388,7 +388,7 @@ fn wo_status_pill_class(status: i16) -> &'static str {
         2 => "bg-accent-bg text-accent",   // 已计划
         3 => "bg-[rgba(124,58,237,0.1)] text-purple", // 已下达
         4 => "bg-success-bg text-success", // 已关闭
-        5 => "bg-[#f5f5f5] text-muted",   // 已取消
-        _ => "bg-[#f5f5f5] text-muted",
+        5 => "bg-slate-50 text-muted",   // 已取消
+        _ => "bg-slate-50 text-muted",
     }
 }

@@ -277,7 +277,7 @@ fn create_page_content(
  }
  h1 class="text-xl font-bold text-fg tracking-tight" { "从需求创建生产计划" }
  div class="text-[13px] text-muted mt-1" {
- span class="inline-flex items-center gap-[5px] rounded-full text-[11px] font-medium whitespace-nowrap bg-surface text-muted px-2 py-0.5 mr-1.5 bg-[#fef3c7] text-[#d97706]" {
+ span class="inline-flex items-center gap-[5px] rounded-full text-[11px] font-medium whitespace-nowrap bg-surface text-muted px-2 py-0.5 mr-1.5 bg-warn-100 text-warn" {
  "生产需求池 · 按物料聚合"
  }
  "将生产需求池中的自制需求聚合为生产计划草稿"

@@ -454,8 +454,8 @@ fn detail_content_fragment(dept: &Department, members: &[UserWithRoles], can_cre
  // ── Stats ──
  div class="flex gap-3 p-4 border-b border-border-soft bg-surface" {
  (stat_pill("bg-accent", &member_count.to_string(), "名成员", None))
- (stat_pill("bg-[#52c41a]", status_text, "", Some(status_class)))
- (stat_pill("bg-[#faad14]", default_text, "部门", None))
+ (stat_pill("bg-success-500", status_text, "", Some(status_class)))
+ (stat_pill("bg-warn-500", default_text, "部门", None))
  }
 
  // ── Body ──
@@ -682,17 +682,17 @@ fn dept_drawer_fragment(is_edit: bool, dept: Option<&Department>) -> Markup {
 fn dept_code_color_class(code: &str) -> &'static str {
  match code.to_uppercase().as_str() {
  "GO" | "GM" => "bg-purple-bg text-purple",
- "SA" | "SL" => "bg-[#e8f4ff] text-accent",
- "PU" | "PC" => "bg-accent-bg text-[#13c2c2]",
+ "SA" | "SL" => "bg-accent-50 text-accent",
+ "PU" | "PC" => "bg-accent-bg text-accent-400",
  "WH" | "WM" => "bg-warn-bg text-warn",
  "FI" | "FN" => "bg-success-bg text-success",
  "QC" | "QA" => "bg-danger-bg text-danger",
  _ => {
  let first = code.chars().next().unwrap_or('A');
  match first.to_ascii_uppercase() {
- 'A'..='D' => "bg-[#e8f4ff] text-accent",
+ 'A'..='D' => "bg-accent-50 text-accent",
  'E'..='H' => "bg-success-bg text-success",
- 'I'..='L' => "bg-accent-bg text-[#13c2c2]",
+ 'I'..='L' => "bg-accent-bg text-accent-400",
  'M'..='P' => "bg-warn-bg text-warn",
  'Q'..='T' => "bg-purple-bg text-purple",
  _ => "bg-danger-bg text-danger",

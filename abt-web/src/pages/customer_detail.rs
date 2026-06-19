@@ -661,7 +661,7 @@ fn contact_card(contact: &CustomerContact, detail_path: &CustomerDetailPath, can
  span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-accent-bg text-accent" { "主要" }
  }
  @if let Some(ref pos) = contact.position {
- span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-surface text-[#666]" { (pos) }
+ span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-surface text-slate-500" { (pos) }
  }
  }
  div class="p-3" {
@@ -713,7 +713,7 @@ fn address_card(addr: &CustomerAddress, detail_path: &CustomerDetailPath, can_de
  html! {
  div class="p-3 border border-border-soft rounded-sm" {
  div class="flex items-center gap-2 p-3 border border-border-soft rounded-sm" {
- span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-surface text-[#666]" { (type_label) }
+ span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-surface text-slate-500" { (type_label) }
  @if addr.is_default {
  span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-accent-bg text-accent" { "默认" }
  }

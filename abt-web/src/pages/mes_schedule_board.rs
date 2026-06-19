@@ -157,7 +157,7 @@ fn stats_row(stats: &ScheduleStats) -> Markup {
             (stat_card(&stats.pending_batches.to_string(), "待排产",
                 "bg-warn/10 border-l-4 border-l-warn", "text-warn"))
             (stat_card(&stats.in_progress_batches.to_string(), "进行中",
-                "bg-[#4f46e5]/10 border-l-4 border-l-[#4f46e5]", "text-[#4f46e5]"))
+                "bg-purple-600/10 border-l-4 border-l-purple-600", "text-purple-600"))
             (stat_card(&stats.pending_receipt_batches.to_string(), "待入库",
                 "bg-purple/10 border-l-4 border-l-purple", "text-purple"))
             (stat_card(&stats.completed_batches.to_string(), "已完成",
@@ -589,7 +589,7 @@ fn kanban_card(card: &ScheduleCard) -> Markup {
     let (status_label, status_cls) = match card.status {
         BatchStatus::Pending => ("待排产", "bg-warn-bg text-warn"),
         BatchStatus::InProgress => ("进行中", "bg-accent-bg text-accent"),
-        BatchStatus::Suspended => ("已暂停", "bg-[#f5f5f5] text-muted"),
+        BatchStatus::Suspended => ("已暂停", "bg-slate-50 text-muted"),
         BatchStatus::PendingReceipt => ("待入库", "bg-[rgba(124,58,237,0.1)] text-purple"),
         BatchStatus::Completed => ("已完成", "bg-success-bg text-success"),
         _ => ("", ""),

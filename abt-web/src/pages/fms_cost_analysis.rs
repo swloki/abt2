@@ -339,9 +339,9 @@ fn cost_analysis_page(
  // ── 统计概要 ──
  div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6" {
  (stat_card("本月产品成本", &fmt_money_wan_html(stats.total_product_cost), "border-accent", "bg-accent-bg text-accent", r#"M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"#))
- (stat_card("本月工单成本", &fmt_money_wan_html(stats.total_wo_cost), "border-warn", "bg-[#fef3c7] text-[#d97706]", r#"M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"#))
+ (stat_card("本月工单成本", &fmt_money_wan_html(stats.total_wo_cost), "border-warn", "bg-warn-100 text-warn", r#"M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"#))
  (stat_card("综合毛利率", &format!("<span class=\"text-success\">{}%</span>", stats.avg_margin_rate), "border-success", "bg-success-bg text-success", r#"M23 6l-9.5 9.5-5-5L1 18M17 6h6v6"#))
- (stat_card("利润中心数", &stats.pc_count.to_string(), "border-purple", "bg-[#ede9fe] text-purple", r#"M18 20V10M12 20V4M6 20v-6"#))
+ (stat_card("利润中心数", &stats.pc_count.to_string(), "border-purple", "bg-purple-100 text-purple", r#"M18 20V10M12 20V4M6 20v-6"#))
  }
 
  // ── 分析Tab ──

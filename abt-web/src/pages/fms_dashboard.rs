@@ -384,7 +384,7 @@ fn quick_entry_card(href: &str, title: &str, desc: &str, badge: &str, color: &st
         "blue" => (icon::dollar_icon("w-5 h-5"), "text-accent", "bg-accent-bg text-accent"),
         "purple" => (icon::alert_triangle_icon("w-5 h-5"), "text-purple", "bg-purple-bg text-purple"),
         "green" => (icon::check_circle_icon("w-5 h-5"), "text-success", "bg-success-bg text-success"),
-        "orange" => (icon::trending_up_icon("w-5 h-5"), "text-[#d97706]", "bg-[#fef3c7] text-[#d97706]"),
+        "orange" => (icon::trending_up_icon("w-5 h-5"), "text-warn", "bg-warn-100 text-warn"),
         _ => (icon::grid_icon("w-5 h-5"), "text-fg", "bg-accent-bg text-muted"),
     };
     html! {

@@ -230,7 +230,7 @@ fn conversion_create_page(
  }
  }
  div class="p-4" {
- button type="button" class="flex items-center justify-center gap-2 w-full text-[#2563eb] text-sm font-medium cursor-pointer"
+ button type="button" class="flex items-center justify-center gap-2 w-full text-accent text-sm font-medium cursor-pointer"
  onclick="conversionOpenModal('consume')" {
  (icon::plus_icon("w-3.5 h-3.5"))
  "添加消耗行"
@@ -262,7 +262,7 @@ fn conversion_create_page(
  }
  }
  div class="p-4" {
- button type="button" class="flex items-center justify-center gap-2 w-full text-[#2563eb] text-sm font-medium cursor-pointer"
+ button type="button" class="flex items-center justify-center gap-2 w-full text-accent text-sm font-medium cursor-pointer"
  onclick="conversionOpenModal('produce')" {
  (icon::plus_icon("w-3.5 h-3.5"))
  "添加产出行"

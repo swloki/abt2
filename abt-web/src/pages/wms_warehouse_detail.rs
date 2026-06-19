@@ -329,7 +329,7 @@ fn warehouse_detail_page(
  h1 class="text-xl font-bold m-0 font-mono" { (warehouse.code) }
  span class=(format!("status-pill {}", crate::utils::status_color(status_class))) { (status_label) }
  @if warehouse.is_virtual {
- span class="inline-flex items-center gap-[5px] rounded-full text-[11px] font-medium whitespace-nowrap bg-[rgba(114,46,209,0.08)] text-[#722ed1] px-2 py-0.5" { "虚拟仓" }
+ span class="inline-flex items-center gap-[5px] rounded-full text-[11px] font-medium whitespace-nowrap bg-[rgba(114,46,209,0.08)] text-purple-600 px-2 py-0.5" { "虚拟仓" }
  }
  }
  div class="text-[13px] text-muted mt-2" { (warehouse.name) }

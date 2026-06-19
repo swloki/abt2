@@ -357,7 +357,7 @@ fn stat_mini_cards(stats: &DemandPoolStats) -> Markup {
  html! {
  div class="grid grid-cols-4 gap-4 mb-6" {
  div class="flex items-center gap-3 bg-bg border border-border-soft rounded-lg px-5 py-4 shadow-[var(--shadow-card)]" {
- div class="w-[38px] h-[38px] rounded-md grid place-items-center shrink-0 text-warn bg-[#fef3c7]" {
+ div class="w-[38px] h-[38px] rounded-md grid place-items-center shrink-0 text-warn bg-warn-100" {
  (icon::tool_icon("w-[18px] h-[18px]"))
  }
  div {
@@ -384,7 +384,7 @@ fn stat_mini_cards(stats: &DemandPoolStats) -> Markup {
  }
  }
  div class="flex items-center gap-3 bg-bg border border-border-soft rounded-lg px-5 py-4 shadow-[var(--shadow-card)]" {
- div class="w-[38px] h-[38px] rounded-md grid place-items-center shrink-0 text-danger bg-[#fee2e2]" {
+ div class="w-[38px] h-[38px] rounded-md grid place-items-center shrink-0 text-danger bg-danger-100" {
  (icon::clock_icon("w-[18px] h-[18px]"))
  }
  div {
@@ -763,7 +763,7 @@ fn detail_row(item: &DemandSummary) -> Markup {
 
 fn batch_action_bar() -> Markup {
  html! {
- div class="fixed bottom-6 left-1/2 -translate-x-1/2 hidden show:flex bg-[var(--fg)] text-[#fff] rounded-lg p-3 px-6 z-[100] items-center gap-5 text-sm shadow-[0_12px_40px_rgba(15,23,42,0.25)]" id="batchBar" {
+ div class="fixed bottom-6 left-1/2 -translate-x-1/2 hidden show:flex bg-[var(--fg)] text-white rounded-lg p-3 px-6 z-[100] items-center gap-5 text-sm shadow-[0_12px_40px_rgba(15,23,42,0.25)]" id="batchBar" {
  span { "已选择 " span class="batch-count" id="batchCount" { "0" } " 条需求" }
  a class="inline-flex items-center gap-2 py-[5px] px-3 text-[13px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover font-medium cursor-pointer transition-all duration-150 shadow-[0_2px_8px_rgba(37,99,235,0.3)]" type="button" id="batchCreateBtn"
  href=(MesDemandPoolCreatePath::PATH)
@@ -979,7 +979,7 @@ fn priority_label(priority: i32) -> Markup {
  p if p >= 4 => ("紧急", "bg-danger-bg text-danger"),
  3 => ("高", "bg-warn-bg text-warn"),
  2 => ("中", "bg-accent-bg text-accent"),
- _ => ("低", "bg-[#f5f5f5] text-[#8c8c8c]"),
+ _ => ("低", "bg-slate-50 text-slate-400"),
  };
  html! {
  span class=(format!("inline-flex items-center text-[11px] px-2 py-0.5 rounded-full font-medium {}", cls)) { (label) }

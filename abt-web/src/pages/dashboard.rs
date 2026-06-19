@@ -71,7 +71,7 @@ fn dashboard_content(claims: &abt_core::shared::identity::model::Claims) -> Mark
  div class="mb-8" {
  h2 class="text-lg font-semibold text-fg mb-4" { "销售流程" }
  div class="flex items-center overflow-x-auto rounded-md border border-border bg-bg px-8 py-6" {
- (flow_step(&icon::file_text_icon("w-5 h-5"), "报价单", "客户报价", "bg-[#e8f4ff]", "text-info"))
+ (flow_step(&icon::file_text_icon("w-5 h-5"), "报价单", "客户报价", "bg-accent-50", "text-info"))
  (arrow_right_svg())
  (flow_step(&icon::box_icon("w-5 h-5"), "销售订单", "确认订单", "bg-success-bg", "text-success"))
  (arrow_right_svg())
@@ -79,7 +79,7 @@ fn dashboard_content(claims: &abt_core::shared::identity::model::Claims) -> Mark
  (arrow_right_svg())
  (flow_step(&icon::return_arrow_icon("w-5 h-5"), "销售退货", "退货处理", "bg-danger-bg", "text-danger"))
  (arrow_right_svg())
- (flow_step(&icon::clipboard_list_icon("w-5 h-5"), "月对账单", "月度结算", "bg-[#eff6ff]", "text-accent"))
+ (flow_step(&icon::clipboard_list_icon("w-5 h-5"), "月对账单", "月度结算", "bg-accent-50", "text-accent"))
  }
  }
 

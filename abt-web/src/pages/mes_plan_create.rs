@@ -195,7 +195,7 @@ fn plan_create_page() -> Markup {
  }
  }
  div class="p-4" {
- button type="button" class="flex items-center justify-center gap-2 w-full text-[#2563eb] text-sm font-medium cursor-pointer" id="add-plan-item-btn" {
+ button type="button" class="flex items-center justify-center gap-2 w-full text-accent text-sm font-medium cursor-pointer" id="add-plan-item-btn" {
  (icon::plus_icon("w-3.5 h-3.5"))
  "添加计划行"
  }

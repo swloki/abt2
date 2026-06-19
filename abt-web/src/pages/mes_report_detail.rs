@@ -73,12 +73,12 @@ pub async fn get_report_detail(path: ReportDetailPath, ctx: RequestContext) -> R
  }
  div class="mt-4 pt-4 border-t border-border-soft flex flex-col gap-2" {
  div class="flex gap-[12px]" {
- span class="w-[80px] text-[#999] text-[13px]" { "工序" }
- span class="text-[#333] text-[13px]" { (process) }
+ span class="w-[80px] text-slate-400 text-[13px]" { "工序" }
+ span class="text-slate-700 text-[13px]" { (process) }
  }
  div class="flex gap-[12px]" {
- span class="w-[80px] text-[#999] text-[13px]" { "实际工时" }
- span class="text-[#333] text-[13px] font-mono tabular-nums" { (crate::utils::fmt_qty(report.work_hours)) " h" }
+ span class="w-[80px] text-slate-400 text-[13px]" { "实际工时" }
+ span class="text-slate-700 text-[13px] font-mono tabular-nums" { (crate::utils::fmt_qty(report.work_hours)) " h" }
  }
  div class="bg-white text-[13px]" {
  "合格量 = 完成量(" (crate::utils::fmt_qty(report.completed_qty)) ")"

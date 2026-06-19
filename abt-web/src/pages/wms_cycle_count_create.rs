@@ -235,7 +235,7 @@ fn cycle_count_create_page(
  }
  }
  div class="p-4" {
- button type="button" class="flex items-center justify-center gap-2 w-full text-[#2563eb] text-sm font-medium cursor-pointer"
+ button type="button" class="flex items-center justify-center gap-2 w-full text-accent text-sm font-medium cursor-pointer"
  _="on click add .is-open to #product-modal" {
  (icon::plus_icon("w-3.5 h-3.5"))
  "添加物料"

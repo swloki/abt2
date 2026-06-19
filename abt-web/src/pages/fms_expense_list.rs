@@ -29,7 +29,7 @@ fn expense_type_label(t: &ExpenseType) -> (&'static str, &'static str, &'static 
  ExpenseType::Travel => ("差旅", "bg-accent-bg", "text-accent"),
  ExpenseType::Office => ("办公", "bg-purple-bg", "text-purple"),
  ExpenseType::Transport => ("交通", "bg-success-bg", "text-success"),
- ExpenseType::Meal => ("餐饮", "bg-warn-bg", "text-[#b45309]"),
+ ExpenseType::Meal => ("餐饮", "bg-warn-bg", "text-warn-700"),
  ExpenseType::Other => ("其他", "bg-accent-bg", "text-muted"),
  }
 }
@@ -39,8 +39,8 @@ fn expense_status_label(s: &ExpenseStatus) -> (&'static str, &'static str, &'sta
  ExpenseStatus::Draft => ("草稿", "bg-accent-bg", "text-muted"),
  ExpenseStatus::Submitted => ("已提交", "bg-accent-bg", "text-accent"),
  ExpenseStatus::Approved => ("已审批", "bg-success-bg", "text-success"),
- ExpenseStatus::Paid => ("已付款", "bg-[#ecfdf5]", "text-[#059669]"),
- ExpenseStatus::Cancelled => ("已取消", "bg-[#fee2e2]", "text-danger"),
+ ExpenseStatus::Paid => ("已付款", "bg-success-50", "text-success-600"),
+ ExpenseStatus::Cancelled => ("已取消", "bg-danger-100", "text-danger"),
  }
 }
 

@@ -303,7 +303,7 @@ fn card_search_result(
  } else if is_inspection {
  ("bg-warn text-white", step_str.clone())
  } else {
- ("bg-[#f0f0f0] text-muted", step_str)
+ ("bg-slate-50 text-muted", step_str)
  };
 
  div class="flex flex-col items-center text-center shrink-0 min-w-[80px]" {

@@ -242,7 +242,7 @@ fn quick_entry_card(href: &str, title: &str, desc: &str, color: &str, badge: &st
     let (icon_svg, badge_cls) = match badge {
         "spec" => (icon::file_text_icon("w-5 h-5"), "bg-accent-bg text-accent"),
         "result" => (icon::check_circle_icon("w-5 h-5"), "bg-success-bg text-success"),
-        "mrb" => (icon::alert_triangle_icon("w-5 h-5"), "bg-[#fee2e2] text-danger"),
+        "mrb" => (icon::alert_triangle_icon("w-5 h-5"), "bg-danger-100 text-danger"),
         "rma" => (icon::return_arrow_icon("w-5 h-5"), "bg-purple-bg text-purple"),
         _ => (icon::grid_icon("w-5 h-5"), "bg-accent-bg text-muted"),
     };
@@ -297,7 +297,7 @@ fn mrb_flow_row(doc: &str, desc: &str, status: &str) -> Markup {
                 div class="text-sm font-medium text-fg truncate font-mono" { (doc) }
                 div class="text-xs text-muted mt-0.5 truncate" { (desc) }
             }
-            span class="inline-flex items-center gap-1 rounded-full text-xs font-medium whitespace-nowrap px-2 py-0.5 bg-warn-bg text-[#b45309]" {
+            span class="inline-flex items-center gap-1 rounded-full text-xs font-medium whitespace-nowrap px-2 py-0.5 bg-warn-bg text-warn-700" {
                 (status)
             }
         }

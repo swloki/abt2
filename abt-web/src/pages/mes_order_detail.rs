@@ -498,8 +498,8 @@ fn tab_info(order: &WorkOrder, product_name: &str, routing_count: usize, complet
  }
  }
  div class="relative" {
- div class="h-2.5 bg-[#f5f5f5] rounded-full overflow-hidden" {
- div class=(format!("h-full rounded-full transition-all duration-500 {}", if completion_pct >= rust_decimal::Decimal::ONE_HUNDRED { "bg-gradient-to-r from-success to-[#16a34a]" } else { "bg-gradient-to-r from-accent to-accent-hover" }))
+ div class="h-2.5 bg-slate-50 rounded-full overflow-hidden" {
+ div class=(format!("h-full rounded-full transition-all duration-500 {}", if completion_pct >= rust_decimal::Decimal::ONE_HUNDRED { "bg-gradient-to-r from-success to-success" } else { "bg-gradient-to-r from-accent to-accent-hover" }))
  style=(format!("width: {}%", completion_pct.round_dp(1)))
  {}
  }

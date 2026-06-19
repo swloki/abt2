@@ -324,7 +324,7 @@ fn batch_detail_page(
  @if let Some(start) = batch.actual_start {
  tr {
  td class="text-muted text-[13px]" { (start.format("%Y-%m-%d %H:%M").to_string()) }
- td { span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-[#e8f4ff] text-[var(--accent-active)]" { "开始生产" } }
+ td { span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-accent-50 text-[var(--accent-active)]" { "开始生产" } }
  td { "待生产 → 进行中" }
  td { (creator_name) }
  td class="text-muted" { "首道工序开始" }

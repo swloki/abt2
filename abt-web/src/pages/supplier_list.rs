@@ -232,7 +232,7 @@ fn supplier_row(s: &Supplier, can_delete: bool, can_edit: bool) -> Markup {
  td class="text-accent font-medium cursor-pointer font-mono tabular-nums" onclick=(format!("location.href='{}'", detail_path)) { (s.code) }
  td onclick=(format!("location.href='{}'", detail_path)) { strong { (s.name) } }
  td onclick=(format!("location.href='{}'", detail_path)) {
- span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-surface text-[#666]" { (category_label) }
+ span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-surface text-slate-500" { (category_label) }
  }
  td onclick=(format!("location.href='{}'", detail_path)) {
  span class="text-muted" { "—" }

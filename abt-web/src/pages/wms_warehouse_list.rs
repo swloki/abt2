@@ -291,7 +291,7 @@ fn warehouse_row(w: &Warehouse, manager_map: &std::collections::HashMap<i64, Str
  td class="text-accent font-medium cursor-pointer font-mono tabular-nums" onclick=(format!("location.href='{}'", detail_path)) { (w.code) }
  td onclick=(format!("location.href='{}'", detail_path)) { strong { (w.name) } }
  td onclick=(format!("location.href='{}'", detail_path)) {
- span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-surface text-[#666]" { (type_label) }
+ span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-surface text-slate-500" { (type_label) }
  }
  td onclick=(format!("location.href='{}'", detail_path)) {
  span class=(format!("status-pill {}", crate::utils::status_color(status_class))) { (status_label) }

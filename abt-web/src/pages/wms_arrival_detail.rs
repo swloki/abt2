@@ -77,9 +77,9 @@ fn workflow_steps(status: ArrivalStatus) -> Markup {
  div class=(format!("w-[48px] h-[2px] {}", if completed[i] { "bg-success" } else { "bg-border" })) {}
  }
  @let (dot_cls, text_cls, ring_cls) = match current_idx {
- Some(ci) if ci == i => ("bg-accent", "text-[#2563eb] font-semibold", "shadow-[0_0_0_3px_rgba(37,99,235,0.1)]"),
+ Some(ci) if ci == i => ("bg-accent", "text-accent font-semibold", "shadow-[0_0_0_3px_rgba(37,99,235,0.1)]"),
  _ if completed[i] => ("bg-success", "text-success", ""),
- _ => ("bg-[#d1d5db]", "text-[#9ca3af]", ""),
+ _ => ("bg-slate-300", "text-slate-400", ""),
  };
  div class="flex items-center gap-2 shrink-0" {
  span class=(format!("w-2.5 h-2.5 rounded-full shrink-0 {} {}", dot_cls, ring_cls)) {}

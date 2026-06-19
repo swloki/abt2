@@ -558,7 +558,7 @@ fn permission_panel(
  hx-vals=(hx_vals) {
 
  // ── Role header ──
- div class="flex items-center gap-3 px-5 py-4 border-b border-border-soft bg-[#eff6ff]" {
+ div class="flex items-center gap-3 px-5 py-4 border-b border-border-soft bg-accent-50" {
  div class="w-10 h-10 rounded-md grid place-items-center text-sm font-bold text-white shrink-0 select-none"
  style=(format!("background:{}", gradient)) {
  (first_char.to_uppercase())
@@ -589,7 +589,7 @@ fn permission_panel(
 
  // ── System role read-only hint ──
  @if is_read_only {
- div class="flex items-center gap-2 px-5 py-2.5 bg-[#fffbeb] text-[13px] text-[#92400e] border-b border-border-soft" {
+ div class="flex items-center gap-2 px-5 py-2.5 bg-warn-50 text-[13px] text-warn-800 border-b border-border-soft" {
  (icon::info_icon("w-4 h-4 shrink-0"))
  span { "内置角色的权限由系统预设，不可修改。如需自定义权限，请新建角色。" }
  }
@@ -597,7 +597,7 @@ fn permission_panel(
 
  // ── Inherited permission hint ──
  @if inherited_count > 0 && !is_read_only {
- div class="flex items-center gap-2 px-5 py-2.5 bg-[#f0f9ff] text-[13px] text-[#0369a1] border-b border-border-soft" {
+ div class="flex items-center gap-2 px-5 py-2.5 bg-accent-50 text-[13px] text-accent-800 border-b border-border-soft" {
  (icon::info_icon("w-4 h-4 shrink-0"))
  span {
  "以下灰色标记的权限继承自上级角色「"

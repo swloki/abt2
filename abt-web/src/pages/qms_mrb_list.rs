@@ -45,8 +45,8 @@ pub struct MrbQueryParams {
 
 fn disposition_label(d: &MRBDisposition) -> (&'static str, &'static str, &'static str) {
  match d {
- MRBDisposition::Scrap => ("报废", "bg-[#fee2e2]", "text-danger"),
- MRBDisposition::Return => ("退货", "bg-warn-bg", "text-[#ea580c]"),
+ MRBDisposition::Scrap => ("报废", "bg-danger-100", "text-danger"),
+ MRBDisposition::Return => ("退货", "bg-warn-bg", "text-warn"),
  MRBDisposition::Degrade => ("降级", "bg-purple-bg", "text-purple"),
  MRBDisposition::Rework => ("返工", "bg-accent-bg", "text-accent"),
  }
@@ -63,7 +63,7 @@ fn responsible_party_label(r: &ResponsibleParty) -> (&'static str, &'static str,
 fn mrb_status_label(s: &MRBStatus) -> (&'static str, &'static str, &'static str) {
  match s {
  MRBStatus::Draft => ("草稿", "bg-surface", "text-muted"),
- MRBStatus::UnderReview => ("审批中", "bg-warn-bg", "text-[#b45309]"),
+ MRBStatus::UnderReview => ("审批中", "bg-warn-bg", "text-warn-700"),
  MRBStatus::Approved => ("已批准", "bg-accent-bg", "text-accent"),
  MRBStatus::Completed => ("已完成", "bg-success-bg", "text-success"),
  }

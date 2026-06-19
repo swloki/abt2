@@ -487,7 +487,7 @@ fn stat_mini_cards(stats: &Stats) -> Markup {
 fn batch_action_bar() -> Markup {
  html! {
  // ── Batch Action Bar ──
- div class="fixed bottom-6 left-1/2 -translate-x-1/2 hidden show:flex bg-[var(--fg)] text-[#fff] rounded-lg p-3 px-6 z-[100] items-center gap-5 text-sm shadow-[0_12px_40px_rgba(15,23,42,0.25)]" id="batchBar" {
+ div class="fixed bottom-6 left-1/2 -translate-x-1/2 hidden show:flex bg-[var(--fg)] text-white rounded-lg p-3 px-6 z-[100] items-center gap-5 text-sm shadow-[0_12px_40px_rgba(15,23,42,0.25)]" id="batchBar" {
  span { "已选择 " span class="batch-count" id="batchCount" { "0" } " 条需求" }
  a class="inline-flex items-center gap-2 py-[5px] px-3 text-[13px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover font-medium cursor-pointer transition-all duration-150 shadow-[0_2px_8px_rgba(37,99,235,0.3)]" id="batchCreateBtn"
  href=(PurchaseDemandPoolCreatePath::PATH)

@@ -42,7 +42,7 @@ fn spec_status_label(s: &SpecStatus) -> (&'static str, &'static str, &'static st
  match s {
  SpecStatus::Draft => ("草稿", "bg-surface", "text-muted"),
  SpecStatus::Active => ("生效", "bg-success-bg", "text-success"),
- SpecStatus::Inactive => ("停用", "bg-[#fee2e2]", "text-danger"),
+ SpecStatus::Inactive => ("停用", "bg-danger-100", "text-danger"),
  }
 }
 
@@ -51,7 +51,7 @@ fn inspection_type_label(t: &InspectionType) -> (&'static str, &'static str, &'s
  InspectionType::Iqc => ("IQC", "bg-accent-bg", "text-accent"),
  InspectionType::Ipqc => ("IPQC", "bg-success-bg", "text-success"),
  InspectionType::Fqc => ("FQC", "bg-purple-bg", "text-purple"),
- InspectionType::Oqc => ("OQC", "bg-warn-bg", "text-[#ea580c]"),
+ InspectionType::Oqc => ("OQC", "bg-warn-bg", "text-warn"),
  }
 }
 

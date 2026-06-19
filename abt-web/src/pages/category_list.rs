@@ -475,7 +475,7 @@ fn detail_panel(
  }
  }
  @if can_delete {
- button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-danger border border-border hover:bg-danger-bg hover:border-[#ffccc7] text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs icon:w-4 icon:h-4"
+ button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-danger border border-border hover:bg-danger-bg hover:border-danger-200 text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs icon:w-4 icon:h-4"
  hx-post=(delete_url)
  hx-confirm="确定要删除此分类吗？此操作不可撤销。"
  hx-swap="none" {

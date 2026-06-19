@@ -237,9 +237,9 @@ fn workflow_steps(current: SalesOrderStatus) -> Markup {
  } else if i < current_idx {
  ("bg-success", "text-success", "")
  } else if i == current_idx {
- ("bg-accent", "text-[#2563eb] font-semibold", "shadow-[0_0_0_3px_rgba(37,99,235,0.1)]")
+ ("bg-accent", "text-accent font-semibold", "shadow-[0_0_0_3px_rgba(37,99,235,0.1)]")
  } else {
- ("bg-[#d1d5db]", "text-[#9ca3af]", "")
+ ("bg-slate-300", "text-slate-400", "")
  };
         div class="flex items-center gap-2 shrink-0" {
             span class=(format!("w-2.5 h-2.5 rounded-full shrink-0 {} {}", dot_cls, ring_cls)) {}
@@ -249,8 +249,8 @@ fn workflow_steps(current: SalesOrderStatus) -> Markup {
  @if is_cancelled {
  div class="w-[48px] h-[2px] bg-border" {}
  div class="flex items-center gap-2 shrink-0" {
- span class="w-2.5 h-2.5 rounded-full shrink-0 bg-[#ef4444]" {}
- span class="text-xs text-[#ef4444] font-semibold whitespace-nowrap" { "已取消" }
+ span class="w-2.5 h-2.5 rounded-full shrink-0 bg-danger-500" {}
+ span class="text-xs text-danger-500 font-semibold whitespace-nowrap" { "已取消" }
  }
  }
  }
@@ -339,7 +339,7 @@ fn fulfillment_progress(items: &[SalesOrderItem], plan_lines: &[FulfillmentPlanL
                     div class="bg-warn [transition:width_600ms_cubic-bezier(0.2,0,0,1)]" style=(pct_style(producing_qty)) {}
                 }
                 @if purchasing_qty > Decimal::ZERO {
-                    div class="bg-[#8b5cf6] [transition:width_600ms_cubic-bezier(0.2,0,0,1)]" style=(pct_style(purchasing_qty)) {}
+                    div class="bg-purple-500 [transition:width_600ms_cubic-bezier(0.2,0,0,1)]" style=(pct_style(purchasing_qty)) {}
                 }
                 @if pending_qty > Decimal::ZERO {
                     div class="bg-border [transition:width_600ms_cubic-bezier(0.2,0,0,1)]" style=(pct_style(pending_qty)) {}
@@ -360,7 +360,7 @@ fn fulfillment_progress(items: &[SalesOrderItem], plan_lines: &[FulfillmentPlanL
                     (format!("生产中 {}", pct_str(producing_qty)))
                 }
                 span class="flex items-center gap-1.5 text-[11px] text-muted" {
-                    span class="w-2 h-2 rounded-full shrink-0 bg-[#8b5cf6]" {}
+                    span class="w-2 h-2 rounded-full shrink-0 bg-purple-500" {}
                     (format!("采购中 {}", pct_str(purchasing_qty)))
                 }
                 span class="flex items-center gap-1.5 text-[11px] text-muted" {
@@ -403,7 +403,7 @@ fn fulfillment_workbench(
  div class="flex items-center justify-between p-4 px-5 border-b border-border-soft bg-bg" {
  div class="flex items-center gap-3" {
  span class="text-sm font-semibold text-fg" { "履约工作台" }
- span class="bg-accent-bg text-[#2563eb] rounded-full text-[11px] font-medium px-2 py-0.5" { (format!("{} 行", demand_total)) }
+ span class="bg-accent-bg text-accent rounded-full text-[11px] font-medium px-2 py-0.5" { (format!("{} 行", demand_total)) }
  }
  div class="flex gap-2" {
  button class="inline-flex items-center gap-1 py-[5px] px-3 text-xs rounded-sm bg-white text-fg-2 border border-border hover:border-accent hover:text-accent font-medium cursor-pointer transition-all duration-150" {
@@ -644,7 +644,7 @@ fn order_detail_page(
  hx-confirm="确认审核此订单？" { "确认订单" }
  }
  @if matches!(o.status, SalesOrderStatus::Draft | SalesOrderStatus::Confirmed) {
- button class="inline-flex items-center gap-2 py-[6px] px-3 text-[13px] rounded-sm bg-danger-bg text-danger border border-[rgba(207,19,34,0.2)] hover:bg-[#ffe0e0] font-medium cursor-pointer transition-all duration-150"
+ button class="inline-flex items-center gap-2 py-[6px] px-3 text-[13px] rounded-sm bg-danger-bg text-danger border border-[rgba(207,19,34,0.2)] hover:bg-danger-100 font-medium cursor-pointer transition-all duration-150"
  hx-post=(CancelOrderPath { id: o.id }.to_string())
  hx-confirm="确认取消此订单？取消后不可恢复。" { "取消订单" }
  }

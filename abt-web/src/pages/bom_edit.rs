@@ -587,7 +587,7 @@ button type="button" class="inline-flex items-center gap-1.5 py-1.5 px-3 text-xs
  "另存为"
  }
  }
-a class="inline-flex items-center gap-1.5 py-1.5 px-3 text-xs font-medium rounded-sm bg-[#f97316] text-white border border-transparent hover:opacity-90 cursor-pointer transition-all duration-150 no-underline icon:w-3.5 icon:h-3.5" href=(format!("/admin/labor/bom-cost/{}", bom.bom_id)) {
+a class="inline-flex items-center gap-1.5 py-1.5 px-3 text-xs font-medium rounded-sm bg-warn-500 text-white border border-transparent hover:opacity-90 cursor-pointer transition-all duration-150 no-underline icon:w-3.5 icon:h-3.5" href=(format!("/admin/labor/bom-cost/{}", bom.bom_id)) {
  (icon::currency_icon("w-3.5 h-3.5"))
  "人工成本"
  }
@@ -600,7 +600,7 @@ div class="flex-1 min-w-0" {
 h1 class="text-2xl font-bold text-fg tracking-tight flex items-center flex-wrap gap-x-3 gap-y-1" {
 span class="font-mono text-sm font-normal text-muted" { (bom.product_code.as_deref().unwrap_or("—")) }
 span { (bom.bom_name) }
-span class="text-xs font-normal bg-[#f0f0f0] text-fg-2 rounded-sm px-2 py-[2px] whitespace-nowrap" { "v" (bom.version) }
+span class="text-xs font-normal bg-slate-50 text-fg-2 rounded-sm px-2 py-[2px] whitespace-nowrap" { "v" (bom.version) }
 span class=(format!("status-pill {}", crate::utils::status_color(status_class))) { (status_label) }
 }
 }
@@ -762,7 +762,7 @@ div id="bom-edit-modal" class="fixed inset-0 z-[1000] grid place-items-center bg
  }
  div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" class="pt-4 border-t border-border-soft" {
  button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" _="on click remove .is-open from #bom-save-as-modal" { "取消" }
- button type="submit" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-success text-[#fff]" { "确认另存为" }
+ button type="submit" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-success text-white" { "确认另存为" }
  }
  }
  }
@@ -800,9 +800,9 @@ fn bom_node_row(
  format!("{}%", node.loss_rate)
  };
     let row_class = if level == 1 {
-        "bg-[#7030a0] text-white font-medium"
+        "bg-purple-700 text-white font-medium"
     } else if has_children {
-        "bg-[#ff0] text-[#1a1a1a]"
+        "bg-[#ff0] text-slate-900"
     } else {
         "hover:bg-slate-50"
     };
@@ -814,7 +814,7 @@ fn bom_node_row(
     let delete_btn_class = if level == 1 {
         "w-[28px] h-[28px] border-none bg-white/30 text-danger rounded-sm grid place-items-center cursor-pointer hover:bg-white/40 transition-colors"
     } else {
-        "w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer text-danger hover:bg-[#fef2f2] transition-colors"
+        "w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer text-danger hover:bg-danger-50 transition-colors"
     };
  let ancestors_str = ancestors.iter().map(|id| id.to_string()).collect::<Vec<_>>().join(",");
  let indent_px = (level - 1) * 24 + 12;

@@ -62,6 +62,10 @@ pub enum DocumentType {
     StockShipment = 44,
     // FMS — GL 总账凭证
     GlEntry = 45,
+    // FMS — 销售发票
+    SalesInvoice = 46,
+    // FMS — 采购发票
+    PurchaseInvoice = 47,
 }
 
 impl DocumentType {
@@ -112,6 +116,8 @@ impl DocumentType {
             43 => Some(Self::StockReceipt),
             44 => Some(Self::StockShipment),
             45 => Some(Self::GlEntry),
+            46 => Some(Self::SalesInvoice),
+            47 => Some(Self::PurchaseInvoice),
             _ => None,
         }
     }
@@ -181,6 +187,10 @@ impl DocumentType {
             Self::StockShipment => "CK",
             // FMS — GL 总账凭证
             Self::GlEntry => "GL",
+            // FMS — 销售发票
+            Self::SalesInvoice => "SI",
+            // FMS — 采购发票
+            Self::PurchaseInvoice => "PI",
         }
     }
 }

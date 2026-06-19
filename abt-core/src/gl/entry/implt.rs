@@ -425,4 +425,112 @@ impl GlEntryService for GlEntryServiceImpl {
 
         Ok(balance)
     }
+
+    async fn post_from_source(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        source_type: DocumentType,
+        source_id: i64,
+        entry_date: NaiveDate,
+        description: String,
+        lines: Vec<GlEntryLineInput>,
+    ) -> Result<i64> {
+        // 至少两行
+        if lines.len() < 2 {
+            return Err(DomainError::validation("at least 2 lines required"));
+        }
+
+        // 校验每行金额
+        for line in &lines {
+            if line.debit < Decimal::ZERO || line.credit < Decimal::ZERO {
+                return Err(DomainError::validation("negative amount"));
+            }
+            // 每行必须 借贷互斥（不能同时有金额，不能同时为0）
+            let has_debit = line.debit > Decimal::ZERO;
+            let has_credit = line.credit > Decimal::ZERO;
+            if has_debit == has_credit {
+                return Err(DomainError::validation(
+                    "each line must be debit XOR credit",
+                ));
+            }
+
+            // 校验科目存在且是末级
+            let acct = new_gl_account_service(self.pool.clone())
+                .get(ctx, db, line.account_id)
+                .await?;
+            if !acct.is_detail {
+                return Err(DomainError::business_rule(
+                    "Only detail accounts can be posted",
+                ));
+            }
+        }
+
+        // 校验借贷平衡
+        let total_debit: Decimal = lines.iter().map(|l| l.debit).sum();
+        let total_credit: Decimal = lines.iter().map(|l| l.credit).sum();
+        if total_debit != total_credit {
+            return Err(DomainError::business_rule("UnbalancedEntry"));
+        }
+        if total_debit == Decimal::ZERO {
+            return Err(DomainError::business_rule("ZeroEntry"));
+        }
+
+        // 期间必须 open
+        let period = new_gl_period_service(self.pool.clone())
+            .resolve_open(ctx, db, entry_date)
+            .await?
+            .name;
+
+        // 生成凭证号
+        let doc_number = new_document_sequence_service(self.pool.clone())
+            .next_number(ctx, db, DocumentType::GlEntry)
+            .await?;
+
+        // 推导 voucher_type（按 source_type）
+        let voucher_type = match source_type {
+            DocumentType::SalesInvoice => "Sales Invoice",
+            DocumentType::PurchaseInvoice => "Purchase Invoice",
+            _ => "Journal Entry",
+        };
+
+        // 插入凭证头（status=Posted）
+        let id = GlEntryRepo::create_entry_from_source(
+            db,
+            &doc_number,
+            &period,
+            source_type,
+            source_id,
+            entry_date,
+            &description,
+            voucher_type,
+            total_debit,
+            total_credit,
+            ctx.operator_id,
+        )
+        .await?;
+
+        // 批量插入行
+        GlEntryRepo::batch_lines(db, id, &lines).await?;
+
+        // 审计日志
+        new_audit_log_service(self.pool.clone())
+            .record(
+                ctx,
+                db,
+                RecordAuditLogReq {
+                    entity_type: "GlEntry",
+                    entity_id: id,
+                    action: AuditAction::Create,
+                    changes: None,
+                    context: Some(serde_json::json!({
+                        "source_type": source_type as i16,
+                        "source_id": source_id
+                    })),
+                },
+            )
+            .await?;
+
+        Ok(id)
+    }
 }

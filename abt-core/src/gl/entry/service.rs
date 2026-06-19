@@ -3,6 +3,7 @@ use chrono::NaiveDate;
 use rust_decimal::Decimal;
 
 use super::model::*;
+use crate::shared::enums::document_type::DocumentType;
 use crate::shared::types::{PageParams, PaginatedResult, PgExecutor, Result, ServiceContext};
 
 #[async_trait]
@@ -65,4 +66,17 @@ pub trait GlEntryService: Send + Sync {
         period: Option<String>,
         as_of_date: Option<NaiveDate>,
     ) -> Result<Decimal>;
+
+    /// 业务单据过账入口：一步建 posted 凭证（status=Posted），同事务
+    /// 校验借贷平衡 + 期间 open + 科目末级；source_type/source_id 反查来源
+    async fn post_from_source(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        source_type: DocumentType,
+        source_id: i64,
+        entry_date: NaiveDate,
+        description: String,
+        lines: Vec<GlEntryLineInput>,
+    ) -> Result<i64>;
 }

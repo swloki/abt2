@@ -46,6 +46,40 @@ impl GlEntryRepo {
         Ok(id)
     }
 
+    /// 创建凭证头（来源单据过账，status=Posted）
+    pub async fn create_entry_from_source(
+        executor: PgExecutor<'_>,
+        doc_number: &str,
+        period: &str,
+        source_type: crate::shared::enums::document_type::DocumentType,
+        source_id: i64,
+        entry_date: NaiveDate,
+        description: &str,
+        voucher_type: &str,
+        total_debit: Decimal,
+        total_credit: Decimal,
+        operator_id: i64,
+    ) -> Result<i64> {
+        let id: i64 = sqlx::query_scalar::<sqlx::Postgres, i64>(
+            r#"INSERT INTO gl_entries (doc_number, period, entry_date, source_type, source_id, description, voucher_type, is_opening, status, total_debit, total_credit, operator_id)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, FALSE, 2, $8, $9, $10)
+               RETURNING id"#
+        )
+        .bind(doc_number)
+        .bind(period)
+        .bind(entry_date)
+        .bind(source_type)
+        .bind(source_id)
+        .bind(description)
+        .bind(voucher_type)
+        .bind(total_debit)
+        .bind(total_credit)
+        .bind(operator_id)
+        .fetch_one(executor)
+        .await?;
+        Ok(id)
+    }
+
     /// 批量插入分录行
     pub async fn batch_lines(
         executor: PgExecutor<'_>,

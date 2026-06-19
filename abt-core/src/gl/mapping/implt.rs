@@ -8,12 +8,12 @@ use super::repo::GlMappingRepo;
 use super::service::GlMappingService;
 
 pub struct GlMappingServiceImpl {
-    pool: PgPool,
+    _pool: PgPool,
 }
 
 impl GlMappingServiceImpl {
     pub fn new(pool: PgPool) -> Self {
-        Self { pool }
+        Self { _pool: pool }
     }
 }
 

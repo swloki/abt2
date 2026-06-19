@@ -1121,7 +1121,7 @@ impl DemandService for DemandServiceImpl {
 
     async fn list(
         &self,
-        _ctx: &ServiceContext, db: PgExecutor<'_>,
+        _ctx: &ServiceContext, _db: PgExecutor<'_>,
         _query: DemandQuery,
         _page: PageParams,
     ) -> Result<PaginatedResult<Demand>> {

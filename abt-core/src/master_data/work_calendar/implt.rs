@@ -13,12 +13,12 @@ use crate::shared::types::error::DomainError;
 use crate::shared::types::{PgExecutor, Result};
 
 pub struct WorkCalendarServiceImpl {
-    pool: PgPool,
+    _pool: PgPool,
 }
 
 impl WorkCalendarServiceImpl {
     pub fn new(pool: PgPool) -> Self {
-        Self { pool }
+        Self { _pool: pool }
     }
 }
 

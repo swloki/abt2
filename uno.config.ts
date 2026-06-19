@@ -39,7 +39,6 @@ export default defineConfig({
   --fg: #0f172a;
   --fg-2: #3b4a63;
   --muted: #64748b;
-  --meta: var(--accent);
   --border: #e2e8f0;
   --border-soft: #eef1f6;
   --accent: #2563eb;
@@ -47,7 +46,6 @@ export default defineConfig({
   --accent-hover: #3b82f6;
   --accent-active: #1d4ed8;
   --accent-bg: rgba(37, 99, 235, 0.05);
-  --accent-glow: rgba(37, 99, 235, 0.12);
   --success: #16a34a;
   --success-bg: rgba(22, 163, 74, 0.06);
   --warn: #d97706;
@@ -106,15 +104,8 @@ export default defineConfig({
   --shadow-focus: 0 0 0 3px rgba(37, 99, 235, 0.12);
   --shadow-accent: 0 4px 14px rgba(37, 99, 235, 0.25);
 
-  --motion-fast: 150ms;
   --motion-base: 240ms;
-  --motion-slow: 360ms;
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
-  --ease-decelerate: cubic-bezier(0, 0, 0.2, 1);
-  --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
-  --glass-bg: rgba(255, 255, 255, 0.72);
-  --glass-border: rgba(255, 255, 255, 0.18);
-  --glass-blur: 12px;
 
   /* ─── 色阶（Tailwind 标准色板，主色 = 现有 600 档）─── */
   /* danger (red): 600 = --danger */

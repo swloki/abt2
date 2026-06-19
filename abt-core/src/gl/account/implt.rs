@@ -39,10 +39,9 @@ impl GlAccountService for GlAccountServiceImpl {
         }
 
         // Validate parent exists if provided
-        if let Some(parent_id) = req.parent_id {
-            if GlAccountRepo::get_by_id(db, parent_id).await?.is_none() {
-                return Err(DomainError::not_found("GlAccount parent"));
-            }
+        if let Some(parent_id) = req.parent_id
+            && GlAccountRepo::get_by_id(db, parent_id).await?.is_none() {
+            return Err(DomainError::not_found("GlAccount parent"));
         }
 
         // Validate opening_balance and currency

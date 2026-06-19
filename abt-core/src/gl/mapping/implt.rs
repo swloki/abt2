@@ -27,10 +27,9 @@ impl GlMappingService for GlMappingServiceImpl {
         product_id: Option<i64>,
     ) -> Result<i64> {
         // 先查产品级映射
-        if let Some(pid) = product_id {
-            if let Some(mapping) = GlMappingRepo::find_by_key_and_product(db, mapping_key, pid).await? {
-                return Ok(mapping.account_id);
-            }
+        if let Some(pid) = product_id
+            && let Some(mapping) = GlMappingRepo::find_by_key_and_product(db, mapping_key, pid).await? {
+            return Ok(mapping.account_id);
         }
 
         // 再查全局默认

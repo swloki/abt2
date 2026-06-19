@@ -327,7 +327,7 @@ impl GlEntryService for GlEntryServiceImpl {
         for (entry, line) in &posted_lines {
             entry_map
                 .entry(entry.id)
-                .or_insert_with(Vec::new)
+                .or_default()
                 .push(line);
             entry_details.insert(entry.id, (entry, line));
         }
@@ -344,7 +344,7 @@ impl GlEntryService for GlEntryServiceImpl {
                         break;
                     }
                 }
-                if counterpart_map.get(&entry_id).is_none() {
+                if !counterpart_map.contains_key(&entry_id) {
                     counterpart_map.insert(entry_id, None);
                 }
             } else {

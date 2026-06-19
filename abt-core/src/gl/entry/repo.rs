@@ -233,7 +233,7 @@ impl GlEntryRepo {
                    a.balance_direction,
                    COALESCE(SUM(l.debit), 0) AS period_debit,
                    COALESCE(SUM(l.credit), 0) AS period_credit,
-                   0 AS end_balance  -- 将在 service 层计算
+                   0.0 AS end_balance  -- 将在 service 层计算（Decimal 类型）
             FROM gl_accounts a
             LEFT JOIN gl_entry_lines l ON l.account_id = a.id
             LEFT JOIN gl_entries e ON e.id = l.entry_id
@@ -277,8 +277,10 @@ impl GlEntryRepo {
 
         let where_clause = conditions.join(" AND ");
 
+        // 使用表前缀避免 id 列歧义
         let sql = format!(
-            r#"SELECT {ENTRY_COLUMNS}, {LINE_COLUMNS}
+            r#"SELECT e.id, e.doc_number, e.period, e.entry_date, e.source_type, e.source_id, e.description, e.voucher_type, e.is_opening, e.status, e.total_debit, e.total_credit, e.operator_id, e.version, e.created_at, e.updated_at, e.deleted_at,
+                      l.id AS line_id, l.entry_id, l.account_id, l.debit, l.credit, l.amount_currency, l.currency, l.exchange_rate, l.cost_center, l.profit_center, l.project_id, l.memo AS line_memo
                FROM gl_entries e
                JOIN gl_entry_lines l ON l.entry_id = e.id
                WHERE {}
@@ -323,7 +325,7 @@ impl GlEntryRepo {
             };
 
             let line: GlEntryLine = GlEntryLine {
-                id: row.try_get("id_1")?,
+                id: row.try_get("line_id")?,
                 entry_id: row.try_get("entry_id")?,
                 account_id: row.try_get("account_id")?,
                 debit: row.try_get("debit")?,
@@ -334,7 +336,7 @@ impl GlEntryRepo {
                 cost_center: row.try_get("cost_center")?,
                 profit_center: row.try_get("profit_center")?,
                 project_id: row.try_get("project_id")?,
-                memo: row.try_get("memo_1")?,
+                memo: row.try_get("line_memo")?,
             };
 
             results.push((entry, line));

@@ -7,6 +7,7 @@
 
 mod common;
 use common::TestApp;
+use serial_test::serial;
 
 use rust_decimal::Decimal;
 use abt_core::shared::types::ServiceContext;
@@ -30,6 +31,7 @@ async fn product_id() -> i64 { 565 }
 // ════════════════════════════════════════════════════════════════════════════
 
 #[tokio::test]
+#[serial]
 async fn k1_sales_invoice_posts_ar_entry() {
     let app = TestApp::new().await;
     let ctx = ServiceContext::new(1);
@@ -80,6 +82,7 @@ async fn k1_sales_invoice_posts_ar_entry() {
 // ════════════════════════════════════════════════════════════════════════════
 
 #[tokio::test]
+#[serial]
 async fn k2_purchase_invoice_posts_ap_entry() {
     let app = TestApp::new().await;
     let ctx = ServiceContext::new(1);
@@ -130,6 +133,7 @@ async fn k2_purchase_invoice_posts_ap_entry() {
 // ════════════════════════════════════════════════════════════════════════════
 
 #[tokio::test]
+#[serial]
 async fn k3_invoice_cancel_cancels_gl() {
     let app = TestApp::new().await;
     let ctx = ServiceContext::new(1);
@@ -164,16 +168,8 @@ async fn k3_invoice_cancel_cancels_gl() {
     let ar_balance_post = entry_svc.get_account_balance(&ctx, &mut conn, ar_account_id, None, None).await.unwrap();
     assert_eq!(ar_balance_post - ar_balance_initial, Decimal::from(1000));
 
-    // cancel 发票（NOTE: requires Posted -> Cancelled state transition to be added to database）
-    // See: E:\work\abt\.superpowers\sdd\fix-state-transitions.sql
-    let cancel_result = svc.cancel(&ctx, &mut conn, id).await;
-
-    // 如果 state transition 未配置，skip 后续验证
-    if cancel_result.is_err() {
-        println!("WARNING: Posted -> Cancelled state transition not configured. Skipping cancel test.");
-        println!("To fix: Apply SQL from E:\\work\\abt\\.superpowers\\sdd\\fix-state-transitions.sql");
-        return;
-    }
+    // cancel 发票并验证失败（必须配置 Posted -> Cancelled 状态机）
+    svc.cancel(&ctx, &mut conn, id).await.unwrap();
 
     // 验证发票状态 = Cancelled
     let (inv_cancelled, _) = svc.get(&ctx, &mut conn, id).await.unwrap();

@@ -116,7 +116,7 @@ fn customer_list_page(
  // ── Stat Cards ──
  div class="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-5 mb-8" {
  div class="flex items-center gap-4 p-5 px-6 bg-bg border border-border-soft rounded-lg shadow-[var(--shadow-card)]" {
- div class="w-12 h-12 rounded-lg grid place-items-center shrink-0 bg-[#dbeafe] text-accent" {
+ div class="w-12 h-12 rounded-lg grid place-items-center shrink-0 bg-accent-bg text-accent" {
  (icon::users_icon("w-6 h-6"))
  }
  div {
@@ -125,7 +125,7 @@ fn customer_list_page(
  }
  }
  div class="flex items-center gap-4 p-5 px-6 bg-bg border border-border-soft rounded-lg shadow-[var(--shadow-card)]" {
- div class="w-12 h-12 rounded-lg grid place-items-center shrink-0 bg-[#dcfce7] text-success" {
+ div class="w-12 h-12 rounded-lg grid place-items-center shrink-0 bg-success-bg text-success" {
  (icon::check_circle_icon("w-6 h-6"))
  }
  div {

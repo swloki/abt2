@@ -246,7 +246,7 @@ fn conversion_detail_page(
  div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
  div class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" {
  "产出物料 "
- span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-[#f0fff0] text-[#389e0d]" { "产出" }
+ span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-success-bg text-success" { "产出" }
  }
  table class="data-table" {
  thead {
@@ -337,12 +337,12 @@ fn conversion_workflow_steps(status: ConversionStatus) -> Markup {
  div class="flex items-center" {
  @for (i, (label, _)) in steps.iter().enumerate() {
  @if i > 0 {
- div class=(format!("w-[48px] h-[2px] {}", if i <= current_idx && !is_cancelled { "bg-[#10b981]" } else { "bg-border" })) {}
+ div class=(format!("w-[48px] h-[2px] {}", if i <= current_idx && !is_cancelled { "bg-success" } else { "bg-border" })) {}
  }
  @let (dot_cls, text_cls, ring_cls) = if is_cancelled {
  ("bg-border-soft", "text-muted", "")
  } else if i < current_idx {
- ("bg-[#10b981]", "text-[#10b981]", "")
+ ("bg-success", "text-success", "")
  } else if i == current_idx {
  ("bg-accent", "text-[#2563eb] font-semibold", "shadow-[0_0_0_3px_rgba(37,99,235,0.1)]")
  } else {

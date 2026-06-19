@@ -392,7 +392,7 @@ fn tab_production_config(
  span class="text-xs text-muted font-medium" { "当前 BOM" }
  span class="text-sm text-fg font-medium flex items-center gap-2" {
  @if let Some(b) = bom {
- span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-[#fff8eb] text-[#d46b08]" { (b.bom_name) " V"(b.version) }
+ span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-warn-bg text-warn" { (b.bom_name) " V"(b.version) }
  } @else {
  span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-surface text-muted" { "未关联" }
  }
@@ -404,7 +404,7 @@ fn tab_production_config(
  @if let Some(rd) = routing {
  (rd.routing.name)
  " "
- span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-[#fff8eb] text-[#d46b08]" { (rd.steps.len()) " 工序" }
+ span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-warn-bg text-warn" { (rd.steps.len()) " 工序" }
  } @else {
  span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-surface text-muted" { "未关联" }
  }
@@ -511,7 +511,7 @@ fn tab_production_config(
  }
  td {
  @if entry.bom_status == Some(2) {
- span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-[#fff8eb] text-[#d46b08]" { "已发布" }
+ span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-warn-bg text-warn" { "已发布" }
  } @else if entry.bom_status == Some(1) {
  span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-surface text-muted" { "草稿" }
  } @else {
@@ -538,7 +538,7 @@ fn tab_bom(bom: Option<&Bom>, bom_nodes: &[BomNode], node_names: &HashMap<i64, S
  div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 border-b border-border-soft" {
  span { "BOM 组件清单" }
  @if let Some(b) = bom {
- span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-[#fff8eb] text-[#d46b08]" { "已发布 V"(b.version) }
+ span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-warn-bg text-warn" { "已发布 V"(b.version) }
  }
  }
  @if bom_nodes.is_empty() {

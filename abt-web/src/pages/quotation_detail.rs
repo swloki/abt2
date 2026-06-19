@@ -162,7 +162,7 @@ fn quotation_detail_page(
  hx-confirm="确认提交报价单？" { "提交报价" }
  }
  @if is_sent {
- button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-[#10b981] text-[#fff]"
+ button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-success text-[#fff]"
  hx-post=(AcceptQuotationPath { id: q.id }.to_string())
  hx-confirm="确认接受该报价？" { "接受" }
  button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-danger text-white border-none hover:opacity-90"

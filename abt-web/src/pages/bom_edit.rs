@@ -565,7 +565,7 @@ div class="flex items-center justify-between gap-3 mb-4 flex-wrap" {
  "取消发布"
  }
  } @else if is_draft {
-button class="inline-flex items-center gap-1.5 py-1.5 px-3 text-xs font-medium rounded-sm bg-[#10b981] text-white border border-transparent hover:opacity-90 cursor-pointer transition-all duration-150 [&_svg]:w-3.5 [&_svg]:h-3.5" id="bom-publish-btn"
+button class="inline-flex items-center gap-1.5 py-1.5 px-3 text-xs font-medium rounded-sm bg-success text-white border border-transparent hover:opacity-90 cursor-pointer transition-all duration-150 [&_svg]:w-3.5 [&_svg]:h-3.5" id="bom-publish-btn"
  _="on click show #bom-publish-dialog"
  disabled[node_count == 0]
  title="请先添加物料" {
@@ -580,7 +580,7 @@ button class="inline-flex items-center gap-1.5 py-1.5 px-3 text-xs font-medium r
  "添加根节点"
  }
  } @else {
-button type="button" class="inline-flex items-center gap-1.5 py-1.5 px-3 text-xs font-medium rounded-sm bg-[#10b981] text-white border border-transparent hover:opacity-90 cursor-pointer transition-all duration-150 [&_svg]:w-3.5 [&_svg]:h-3.5" id="bom-save-as-btn"
+button type="button" class="inline-flex items-center gap-1.5 py-1.5 px-3 text-xs font-medium rounded-sm bg-success text-white border border-transparent hover:opacity-90 cursor-pointer transition-all duration-150 [&_svg]:w-3.5 [&_svg]:h-3.5" id="bom-save-as-btn"
  data-name=(bom.bom_name)
  _="on click put (my @data-name + '_副本') into <input[name='new_name']/>'s value then add .is-open to #bom-save-as-modal" {
  (icon::copy_icon("w-3.5 h-3.5"))
@@ -762,7 +762,7 @@ div id="bom-edit-modal" class="fixed inset-0 z-[1000] grid place-items-center bg
  }
  div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" class="pt-4 border-t border-border-soft" {
  button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" _="on click remove .is-open from #bom-save-as-modal" { "取消" }
- button type="submit" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-[#10b981] text-[#fff]" { "确认另存为" }
+ button type="submit" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-success text-[#fff]" { "确认另存为" }
  }
  }
  }

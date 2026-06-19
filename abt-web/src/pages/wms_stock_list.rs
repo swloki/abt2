@@ -320,10 +320,10 @@ fn stock_list_page(
 
  // ── Stat Cards ──
  div class="grid grid-cols-4 gap-4 mb-6" {
- (stat_card(&icon::box_icon("w-5 h-5"), "bg-[#dbeafe] text-accent", &result.items.iter().map(|s| s.product_id).collect::<HashSet<_>>().len().to_string(), "总品种", false))
- (stat_card(&icon::package_icon("w-5 h-5"), "bg-[#f0fff0] text-success", &format_decimal(&result.items.iter().map(|s| s.quantity).sum::<Decimal>()), "总库存量", false))
- (stat_card(&icon::circle_alert_icon("w-5 h-5"), "bg-[#fff7e6] text-warn", &result.items.iter().filter(|s| s.available_qty <= Decimal::ZERO).count().to_string(), "低库存项", true))
- (stat_card(&icon::lock_icon("w-5 h-5"), "bg-[#fff2f0] text-danger", &format_decimal(&result.items.iter().map(|s| s.reserved_qty).sum::<Decimal>()), "已预留量", false))
+ (stat_card(&icon::box_icon("w-5 h-5"), "bg-accent-bg text-accent", &result.items.iter().map(|s| s.product_id).collect::<HashSet<_>>().len().to_string(), "总品种", false))
+ (stat_card(&icon::package_icon("w-5 h-5"), "bg-success-bg text-success", &format_decimal(&result.items.iter().map(|s| s.quantity).sum::<Decimal>()), "总库存量", false))
+ (stat_card(&icon::circle_alert_icon("w-5 h-5"), "bg-warn-bg text-warn", &result.items.iter().filter(|s| s.available_qty <= Decimal::ZERO).count().to_string(), "低库存项", true))
+ (stat_card(&icon::lock_icon("w-5 h-5"), "bg-danger-bg text-danger", &format_decimal(&result.items.iter().map(|s| s.reserved_qty).sum::<Decimal>()), "已预留量", false))
  }
 
  // ── Filter Bar (outside data-card, always visible) ──

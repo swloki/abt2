@@ -258,7 +258,7 @@ const BTN_DEFAULT_SM: &str =
 
 const BTN_DANGER_SM: &str =
  "inline-flex items-center gap-1.5 py-1.5 px-3 rounded-sm bg-white text-danger border border-border \
-  hover:bg-[#fff2f0] hover:border-[rgba(220,38,38,0.3)] text-sm font-medium \
+  hover:bg-danger-bg hover:border-[rgba(220,38,38,0.3)] text-sm font-medium \
   cursor-pointer transition-all duration-150 shadow-xs";
 
 const FIELD_INPUT: &str =
@@ -387,7 +387,7 @@ fn tree_item(dept: &Department, is_selected: bool) -> Markup {
  (dept.department_name)
  }
  @if dept.is_default {
- span class="text-[10px] shrink-0 font-medium px-1.5 py-0.5 rounded bg-[#fff7e6] text-[#fa8c16]" { "默认" }
+ span class="text-[10px] shrink-0 font-medium px-1.5 py-0.5 rounded bg-warn-bg text-warn" { "默认" }
  }
  @if !dept.is_active {
  span class="text-[10px] shrink-0 font-medium px-1.5 py-0.5 rounded bg-surface text-muted" { "停用" }
@@ -453,7 +453,7 @@ fn detail_content_fragment(dept: &Department, members: &[UserWithRoles], can_cre
 
  // ── Stats ──
  div class="flex gap-3 p-4 border-b border-border-soft bg-surface" {
- (stat_pill("bg-[#1677ff]", &member_count.to_string(), "名成员", None))
+ (stat_pill("bg-accent", &member_count.to_string(), "名成员", None))
  (stat_pill("bg-[#52c41a]", status_text, "", Some(status_class)))
  (stat_pill("bg-[#faad14]", default_text, "部门", None))
  }
@@ -681,21 +681,21 @@ fn dept_drawer_fragment(is_edit: bool, dept: Option<&Department>) -> Markup {
 /// Map department code to atomic bg+text color classes for badges/icons.
 fn dept_code_color_class(code: &str) -> &'static str {
  match code.to_uppercase().as_str() {
- "GO" | "GM" => "bg-[#f3e8ff] text-[#7c3aed]",
- "SA" | "SL" => "bg-[#e8f4ff] text-[#1677ff]",
- "PU" | "PC" => "bg-[#e6fffb] text-[#13c2c2]",
- "WH" | "WM" => "bg-[#fff7e6] text-[#fa8c16]",
- "FI" | "FN" => "bg-[#f0fff0] text-[#389e0d]",
- "QC" | "QA" => "bg-[#fff2f0] text-[#cf1322]",
+ "GO" | "GM" => "bg-purple-bg text-purple",
+ "SA" | "SL" => "bg-[#e8f4ff] text-accent",
+ "PU" | "PC" => "bg-accent-bg text-[#13c2c2]",
+ "WH" | "WM" => "bg-warn-bg text-warn",
+ "FI" | "FN" => "bg-success-bg text-success",
+ "QC" | "QA" => "bg-danger-bg text-danger",
  _ => {
  let first = code.chars().next().unwrap_or('A');
  match first.to_ascii_uppercase() {
- 'A'..='D' => "bg-[#e8f4ff] text-[#1677ff]",
- 'E'..='H' => "bg-[#f0fff0] text-[#389e0d]",
- 'I'..='L' => "bg-[#e6fffb] text-[#13c2c2]",
- 'M'..='P' => "bg-[#fff7e6] text-[#fa8c16]",
- 'Q'..='T' => "bg-[#f3e8ff] text-[#7c3aed]",
- _ => "bg-[#fff2f0] text-[#cf1322]",
+ 'A'..='D' => "bg-[#e8f4ff] text-accent",
+ 'E'..='H' => "bg-success-bg text-success",
+ 'I'..='L' => "bg-accent-bg text-[#13c2c2]",
+ 'M'..='P' => "bg-warn-bg text-warn",
+ 'Q'..='T' => "bg-purple-bg text-purple",
+ _ => "bg-danger-bg text-danger",
  }
  }
  }

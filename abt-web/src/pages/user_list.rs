@@ -308,7 +308,7 @@ div class="user-list-panel" id="user-list-panel" {
  // ── Stats ──
 div id="user-stats" class="grid grid-cols-4 gap-5" {
  div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
-div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 bg-[#dbeafe] text-accent" {
+div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 bg-accent-bg text-accent" {
  (icon::users_icon("w-6 h-6"))
  }
  div {
@@ -317,7 +317,7 @@ div class="text-2xl font-bold font-mono tabular-nums text-fg" { (total_count) }
  }
  }
  div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
-div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 bg-[#dcfce7] text-success" {
+div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 bg-success-bg text-success" {
  (icon::check_circle_icon("w-6 h-6"))
  }
  div {
@@ -335,7 +335,7 @@ div class="text-2xl font-bold font-mono tabular-nums text-fg" { (inactive_count)
  }
  }
  div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
-div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 bg-[#f3e8ff] text-[#7c3aed]" {
+div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 bg-purple-bg text-purple" {
  svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-6 h-6" {
  path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" {}
  }
@@ -479,7 +479,7 @@ div class="flex flex-col gap-[2px]" {
 span class="flex items-center gap-[6px] text-[13px] font-semibold text-fg" {
  (display_name)
  @if u.user.is_super_admin {
- span class="text-[10px] font-semibold px-[6px] py-[2px] rounded-[3px] bg-[#f3e8ff] text-[#7c3aed] border border-[#e8d5ff] tracking-[0.02em]" { "超管" }
+ span class="text-[10px] font-semibold px-[6px] py-[2px] rounded-[3px] bg-purple-bg text-purple border border-[#e8d5ff] tracking-[0.02em]" { "超管" }
  }
  }
 span class="text-xs text-muted" {
@@ -498,7 +498,7 @@ span class="text-xs text-muted" {
  td {
  div class="flex flex-wrap gap-[4px]" {
  @for role in &u.roles {
- span class="text-[10px] font-medium px-[7px] py-[2px] rounded-[3px] bg-[#e8f4ff] text-[#1677ff] border border-[#d6e4ff]" { (role.role_name) }
+ span class="text-[10px] font-medium px-[7px] py-[2px] rounded-[3px] bg-[#e8f4ff] text-accent border border-[#d6e4ff]" { (role.role_name) }
  }
  @if u.roles.is_empty() {
  span class="text-muted" { "—" }
@@ -512,7 +512,7 @@ span class="text-xs text-muted" {
  span class="text-muted" { "—" }
  } @else {
  @for dept in depts {
- span class="text-[10px] font-medium px-[7px] py-[2px] rounded-[3px] bg-[#f0fff0] text-[#389e0d] border border-[#d1f5e0]" { (dept.department_name) }
+ span class="text-[10px] font-medium px-[7px] py-[2px] rounded-[3px] bg-success-bg text-success border border-[#d1f5e0]" { (dept.department_name) }
  }
  }
  }

@@ -240,17 +240,17 @@ fn stat_card(label: &str, value: &str, icon_svg: Markup, bg_hex: &str, fg_hex: &
 
 fn quick_entry_card(href: &str, title: &str, desc: &str, color: &str, badge: &str) -> Markup {
     let (icon_svg, badge_cls) = match badge {
-        "spec" => (icon::file_text_icon("w-5 h-5"), "bg-[#e6f4ff] text-accent"),
-        "result" => (icon::check_circle_icon("w-5 h-5"), "bg-[#dcfce7] text-success"),
+        "spec" => (icon::file_text_icon("w-5 h-5"), "bg-accent-bg text-accent"),
+        "result" => (icon::check_circle_icon("w-5 h-5"), "bg-success-bg text-success"),
         "mrb" => (icon::alert_triangle_icon("w-5 h-5"), "bg-[#fee2e2] text-danger"),
-        "rma" => (icon::return_arrow_icon("w-5 h-5"), "bg-[#f3e8ff] text-[#7c3aed]"),
+        "rma" => (icon::return_arrow_icon("w-5 h-5"), "bg-purple-bg text-purple"),
         _ => (icon::grid_icon("w-5 h-5"), "bg-accent-bg text-muted"),
     };
     let title_cls = match color {
         "blue" => "text-accent",
         "green" => "text-success",
         "red" => "text-danger",
-        "purple" => "text-[#7c3aed]",
+        "purple" => "text-purple",
         _ => "text-fg",
     };
     html! {
@@ -297,7 +297,7 @@ fn mrb_flow_row(doc: &str, desc: &str, status: &str) -> Markup {
                 div class="text-sm font-medium text-fg truncate font-mono" { (doc) }
                 div class="text-xs text-muted mt-0.5 truncate" { (desc) }
             }
-            span class="inline-flex items-center gap-1 rounded-full text-xs font-medium whitespace-nowrap px-2 py-0.5 bg-[#fff8eb] text-[#b45309]" {
+            span class="inline-flex items-center gap-1 rounded-full text-xs font-medium whitespace-nowrap px-2 py-0.5 bg-warn-bg text-[#b45309]" {
                 (status)
             }
         }

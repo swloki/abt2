@@ -78,9 +78,9 @@ fn work_center_detail_page(wc: &WorkCenter) -> Markup {
  div class="flex flex-col gap-1" {
  label { "状态" }
  @if wc.is_active {
- span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-[#f0fff0] text-[#389e0d]" { "启用" }
+ span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-success-bg text-success" { "启用" }
  } @else {
- span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-[#fff2f0] text-[#cf1322]" { "停用" }
+ span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-danger-bg text-danger" { "停用" }
  }
  }
  div class="flex flex-col gap-1" {

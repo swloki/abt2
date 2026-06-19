@@ -331,11 +331,11 @@ fn purchase_dashboard_content(stats: &DashboardStats) -> Markup {
 
  // ── Stat Cards ──
  div class="grid grid-cols-5 gap-4 mb-8" {
- (stat_card(&icon::building_icon("w-[22px] h-[22px]"), "bg-[#dbeafe] text-accent", &stats.active_suppliers.to_string(), "活跃供应商"))
- (stat_card(&icon::clipboard_list_icon("w-[22px] h-[22px]"), "bg-[#fff7e6] text-warn", &stats.pending_quotations.to_string(), "待比价报价"))
- (stat_card(&icon::clipboard_document_icon("w-[22px] h-[22px]"), "bg-[#dbeafe] text-accent", &stats.in_progress_orders.to_string(), "进行中订单"))
- (stat_card(&icon::payment_icon("w-[22px] h-[22px]"), "bg-[#fff2f0] text-danger", &pending_pay, "待付款金额"))
- (stat_card(&icon::return_arrow_icon("w-[22px] h-[22px]"), "bg-[#f0fff0] text-success", &stats.returns_in_progress.to_string(), "退货处理中"))
+ (stat_card(&icon::building_icon("w-[22px] h-[22px]"), "bg-accent-bg text-accent", &stats.active_suppliers.to_string(), "活跃供应商"))
+ (stat_card(&icon::clipboard_list_icon("w-[22px] h-[22px]"), "bg-warn-bg text-warn", &stats.pending_quotations.to_string(), "待比价报价"))
+ (stat_card(&icon::clipboard_document_icon("w-[22px] h-[22px]"), "bg-accent-bg text-accent", &stats.in_progress_orders.to_string(), "进行中订单"))
+ (stat_card(&icon::payment_icon("w-[22px] h-[22px]"), "bg-danger-bg text-danger", &pending_pay, "待付款金额"))
+ (stat_card(&icon::return_arrow_icon("w-[22px] h-[22px]"), "bg-success-bg text-success", &stats.returns_in_progress.to_string(), "退货处理中"))
  }
 
  // ── 2-column: 待办事项 + 快捷入口 ──
@@ -388,17 +388,17 @@ fn purchase_dashboard_content(stats: &DashboardStats) -> Markup {
  div class="flex items-center justify-center flex-wrap gap-3 py-6" {
  (flow_circle(&icon::building_icon("w-5 h-5"), "供应商", "主数据", "bg-[#e8f4ff]", "text-accent"))
  (arrow_right_svg())
- (flow_circle(&icon::clipboard_list_icon("w-5 h-5"), "采购报价", "阳光比价", "bg-[#fff7e6]", "text-warn"))
+ (flow_circle(&icon::clipboard_list_icon("w-5 h-5"), "采购报价", "阳光比价", "bg-warn-bg", "text-warn"))
  (arrow_right_svg())
- (flow_circle(&icon::clipboard_document_icon("w-5 h-5"), "采购订单", "下达采购", "bg-[#f0fff0]", "text-success"))
+ (flow_circle(&icon::clipboard_document_icon("w-5 h-5"), "采购订单", "下达采购", "bg-success-bg", "text-success"))
  (arrow_right_svg())
  (flow_circle(&icon::clipboard_list_icon("w-5 h-5"), "采购对账", "月度结算", "bg-[#e8f4ff]", "text-info"))
  (arrow_right_svg())
- (flow_circle(&icon::payment_icon("w-5 h-5"), "付款申请", "三单匹配", "bg-[#fff2f0]", "text-danger"))
+ (flow_circle(&icon::payment_icon("w-5 h-5"), "付款申请", "三单匹配", "bg-danger-bg", "text-danger"))
  }
  // Branch links
  div class="flex flex-wrap mt-4 justify-center gap-6" {
- a href="/admin/purchase/demand-pool" class="flex items-center gap-2 text-xs font-medium text-[#7c3aed] no-underline hover:underline" {
+ a href="/admin/purchase/demand-pool" class="flex items-center gap-2 text-xs font-medium text-purple no-underline hover:underline" {
  svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" { path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" {} }
  "采购需求池（销售订单驱动）"
  }

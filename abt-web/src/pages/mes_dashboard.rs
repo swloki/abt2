@@ -63,7 +63,7 @@ fn mes_dashboard_page(stats: &abt_core::mes::dashboard::model::DashboardStats, d
  }
  }
  div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-md" {
- div class="w-11 h-11 rounded-md grid place-items-center shrink-0 bg-[linear-gradient(135deg,#fff8eb,#fff0d6)] text-[#fa8c16]" { (icon::briefcase_icon("w-5 h-5")) }
+ div class="w-11 h-11 rounded-md grid place-items-center shrink-0 bg-[linear-gradient(135deg,#fff8eb,#fff0d6)] text-warn" { (icon::briefcase_icon("w-5 h-5")) }
  div {
  div class="text-2xl font-bold font-mono tabular-nums text-fg" { (stats.active_batch_count) }
  div class="text-sm text-muted mt-1" { "活跃批次" }

@@ -46,26 +46,26 @@ pub struct MrbQueryParams {
 fn disposition_label(d: &MRBDisposition) -> (&'static str, &'static str, &'static str) {
  match d {
  MRBDisposition::Scrap => ("报废", "bg-[#fee2e2]", "text-danger"),
- MRBDisposition::Return => ("退货", "bg-[#fff8eb]", "text-[#ea580c]"),
- MRBDisposition::Degrade => ("降级", "bg-[#f3e8ff]", "text-[#7c3aed]"),
- MRBDisposition::Rework => ("返工", "bg-[#dbeafe]", "text-accent"),
+ MRBDisposition::Return => ("退货", "bg-warn-bg", "text-[#ea580c]"),
+ MRBDisposition::Degrade => ("降级", "bg-purple-bg", "text-purple"),
+ MRBDisposition::Rework => ("返工", "bg-accent-bg", "text-accent"),
  }
 }
 
 fn responsible_party_label(r: &ResponsibleParty) -> (&'static str, &'static str, &'static str) {
  match r {
- ResponsibleParty::Internal => ("内部", "bg-[#dcfce7]", "text-success"),
- ResponsibleParty::Supplier => ("供应商", "bg-[#dbeafe]", "text-accent"),
- ResponsibleParty::Customer => ("客户", "bg-[#f3e8ff]", "text-[#7c3aed]"),
+ ResponsibleParty::Internal => ("内部", "bg-success-bg", "text-success"),
+ ResponsibleParty::Supplier => ("供应商", "bg-accent-bg", "text-accent"),
+ ResponsibleParty::Customer => ("客户", "bg-purple-bg", "text-purple"),
  }
 }
 
 fn mrb_status_label(s: &MRBStatus) -> (&'static str, &'static str, &'static str) {
  match s {
  MRBStatus::Draft => ("草稿", "bg-surface", "text-muted"),
- MRBStatus::UnderReview => ("审批中", "bg-[#fff8eb]", "text-[#b45309]"),
- MRBStatus::Approved => ("已批准", "bg-[#dbeafe]", "text-accent"),
- MRBStatus::Completed => ("已完成", "bg-[#dcfce7]", "text-success"),
+ MRBStatus::UnderReview => ("审批中", "bg-warn-bg", "text-[#b45309]"),
+ MRBStatus::Approved => ("已批准", "bg-accent-bg", "text-accent"),
+ MRBStatus::Completed => ("已完成", "bg-success-bg", "text-success"),
  }
 }
 

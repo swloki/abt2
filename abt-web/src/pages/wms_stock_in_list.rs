@@ -45,7 +45,7 @@ fn transaction_type_label(t: &TransactionType) -> (&'static str, &'static str) {
  // (label, pill_class)
  match t {
  TransactionType::PurchaseReceipt => ("采购入库", "bg-[#e8f4ff] text-accent"),
- TransactionType::ProductionReceipt => ("生产入库", "bg-[#f0fff0] text-success"),
+ TransactionType::ProductionReceipt => ("生产入库", "bg-success-bg text-success"),
  _ => ("其他", "bg-surface text-muted"),
  }
 }
@@ -224,10 +224,10 @@ fn stock_in_table_fragment(
  div class="stockin-list-panel" {
  // ── Stat Cards ──
  div class="grid grid-cols-4 gap-5 mb-6" {
- (stat_card(&icon::download_icon("w-5 h-5"), "bg-[#dbeafe] text-accent", &total_count.to_string(), "本月入库单"))
- (stat_card(&icon::currency_icon("w-5 h-5"), "bg-[#f0fff0] text-success", "—", "入库总金额"))
- (stat_card(&icon::clock_icon("w-5 h-5"), "bg-[#fff7e6] text-warn", "—", "待审核"))
- (stat_card(&icon::check_circle_icon("w-5 h-5"), "bg-[#f3e8ff] text-[#7c3aed]", &total_count.to_string(), "已完成"))
+ (stat_card(&icon::download_icon("w-5 h-5"), "bg-accent-bg text-accent", &total_count.to_string(), "本月入库单"))
+ (stat_card(&icon::currency_icon("w-5 h-5"), "bg-success-bg text-success", "—", "入库总金额"))
+ (stat_card(&icon::clock_icon("w-5 h-5"), "bg-warn-bg text-warn", "—", "待审核"))
+ (stat_card(&icon::check_circle_icon("w-5 h-5"), "bg-purple-bg text-purple", &total_count.to_string(), "已完成"))
  }
 
  (status_tabs_with_param(StockInListPath::PATH, "#stock-in-data-card", "#stock-in-filter-form", tabs, selected_type, "transaction_type"))
@@ -341,7 +341,7 @@ fn stock_in_data_card(
  td class="text-right text-[13px] font-mono tabular-nums" { (format!("{:.2}", item.quantity)) }
  td class="text-right text-[13px] font-mono tabular-nums" { (item.unit_cost.map(|c| format!("¥{:.2}", c)).unwrap_or_else(|| "—".into())) }
  td {
- span class="inline-flex items-center gap-1 rounded-full text-xs font-medium px-2 py-0.5 bg-[#f0fff0] text-[#389e0d]" { "已入库" }
+ span class="inline-flex items-center gap-1 rounded-full text-xs font-medium px-2 py-0.5 bg-success-bg text-success" { "已入库" }
  }
  td class="text-sm text-fg" { (op_name) }
  td class="text-xs text-muted" { (item.created_at.format("%Y-%m-%d %H:%M")) }

@@ -33,6 +33,8 @@ export default defineConfig({
   --danger: #dc2626;
   --danger-bg: rgba(220, 38, 38, 0.05);
   --info: #2563eb;
+  --purple: #7c3aed;
+  --purple-bg: rgba(124, 58, 237, 0.06);
 
   --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", "Helvetica Neue", sans-serif;
   --font-mono: "JetBrains Mono", "SF Mono", ui-monospace, Menlo, monospace;
@@ -203,6 +205,7 @@ select:disabled {
       warn: { DEFAULT: "var(--warn)", bg: "var(--warn-bg)" },
       danger: { DEFAULT: "var(--danger)", bg: "var(--danger-bg)" },
       info: "var(--info)",
+      purple: { DEFAULT: "var(--purple)", bg: "var(--purple-bg)" },
     },
     fontSize: {
       xs: ["var(--text-xs)", "1.4"],

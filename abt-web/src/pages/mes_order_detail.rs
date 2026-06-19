@@ -593,11 +593,11 @@ fn tab_routing(routings: &[WorkOrderRouting]) -> Markup {
  @if let Some(p) = r.unit_price { "¥" (crate::utils::fmt_qty(p)) } @else { "—" }
  }
  td {
- @if r.is_outsourced { span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-[#fff7e6] text-[#d46b08]" { "委外" } } @else { "—" }
+ @if r.is_outsourced { span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-warn-bg text-warn" { "委外" } } @else { "—" }
  }
  td {
  @if r.is_inspection_point {
- span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-[#e6f4ff] text-[#1677ff]" { "报检" }
+ span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-accent-bg text-accent" { "报检" }
  } @else { "—" }
  }
  }
@@ -715,10 +715,10 @@ fn tab_batches(batches: &[ProductionBatch], routings: &[WorkOrderRouting], order
  span class="font-semibold text-accent" { (r.step_no) }
  (r.process_name.as_str())
  @if r.is_inspection_point {
- span class="inline-flex items-center rounded-full font-medium py-0.5 px-1 text-[10px] bg-[#e6f4ff] text-[#1677ff]" { "检" }
+ span class="inline-flex items-center rounded-full font-medium py-0.5 px-1 text-[10px] bg-accent-bg text-accent" { "检" }
  }
  @if r.is_outsourced {
- span class="inline-flex items-center rounded-full font-medium py-0.5 px-1 text-[10px] bg-[#fff7e6] text-[#d46b08]" { "外" }
+ span class="inline-flex items-center rounded-full font-medium py-0.5 px-1 text-[10px] bg-warn-bg text-warn" { "外" }
  }
  }
  }

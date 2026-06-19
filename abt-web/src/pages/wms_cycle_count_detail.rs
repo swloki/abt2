@@ -247,7 +247,7 @@ fn cycle_count_detail_page(
  td { (item.variance_reason.as_deref().unwrap_or("—")) }
  td {
  @if item.is_adjusted {
- span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-[#f0fff0] text-[#389e0d]" { "已调整" }
+ span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-success-bg text-success" { "已调整" }
  } @else {
  span class="text-muted" { "—" }
  }
@@ -290,12 +290,12 @@ fn workflow_steps(status: &CycleCountStatus) -> Markup {
  div class="flex items-center" {
  @for (i, (label, _)) in steps.iter().enumerate() {
  @if i > 0 {
- div class=(format!("w-[48px] h-[2px] {}", if i <= idx && !is_cancelled { "bg-[#10b981]" } else { "bg-border" })) {}
+ div class=(format!("w-[48px] h-[2px] {}", if i <= idx && !is_cancelled { "bg-success" } else { "bg-border" })) {}
  }
  @let (dot_cls, text_cls, ring_cls) = if is_cancelled {
  ("bg-border-soft", "text-muted", "")
  } else if i < idx {
- ("bg-[#10b981]", "text-[#10b981]", "")
+ ("bg-success", "text-success", "")
  } else if i == idx {
  ("bg-accent", "text-[#2563eb] font-semibold", "shadow-[0_0_0_3px_rgba(37,99,235,0.1)]")
  } else {

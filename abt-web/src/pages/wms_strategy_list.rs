@@ -175,7 +175,7 @@ fn putaway_row(s: &PutawayStrategy) -> Markup {
  tr {
  td { strong class="font-medium" { (s.name) } }
  td {
- span class="inline-flex items-center rounded-full text-[11px] font-medium px-2.5 py-0.5 font-mono bg-[#e8f4ff] text-[#0958d9]" { (tag) }
+ span class="inline-flex items-center rounded-full text-[11px] font-medium px-2.5 py-0.5 font-mono bg-[#e8f4ff] text-accent" { (tag) }
  }
  td {
  @if let Some(wid) = s.warehouse_id {
@@ -219,7 +219,7 @@ fn pick_row(s: &PickStrategy) -> Markup {
  tr {
  td { strong class="font-medium" { (s.name) } }
  td {
- span class="inline-flex items-center rounded-full text-[11px] font-medium px-2.5 py-0.5 font-mono text-[#389e0d] bg-[#f0fff0]" { (tag) }
+ span class="inline-flex items-center rounded-full text-[11px] font-medium px-2.5 py-0.5 font-mono text-success bg-success-bg" { (tag) }
  }
  td {
  @if let Some(wid) = s.warehouse_id {

@@ -650,7 +650,7 @@ fn perm_group(
  button type="button" class="px-2 py-0.5 rounded-sm text-fg-2 hover:text-accent hover:bg-accent-bg cursor-pointer transition-colors"
  hx-post=(PERM_BATCH_PATH) hx-vals=(add_vals) hx-swap="none" { "全选" }
  span class="text-border" { "|" }
- button type="button" class="px-2 py-0.5 rounded-sm text-danger hover:bg-[#fff2f0] cursor-pointer transition-colors"
+ button type="button" class="px-2 py-0.5 rounded-sm text-danger hover:bg-danger-bg cursor-pointer transition-colors"
  hx-post=(PERM_BATCH_PATH) hx-vals=(rm_vals) hx-swap="none" { "清空" }
  }
  }

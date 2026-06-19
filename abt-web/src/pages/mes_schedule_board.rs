@@ -153,15 +153,15 @@ fn stats_row(stats: &ScheduleStats) -> Markup {
     html! {
         div class="grid grid-cols-5 gap-3 mb-6" {
             (stat_card(&stats.active_orders.to_string(), "活跃工单",
-                "bg-accent/10 [border-left:4px_solid_var(--accent)]", "text-accent"))
+                "bg-accent/10 border-l-4 border-l-accent", "text-accent"))
             (stat_card(&stats.pending_batches.to_string(), "待排产",
-                "bg-warn/10 [border-left:4px_solid_var(--warn)]", "text-warn"))
+                "bg-warn/10 border-l-4 border-l-warn", "text-warn"))
             (stat_card(&stats.in_progress_batches.to_string(), "进行中",
-                "bg-[#4f46e5]/10 [border-left:4px_solid_#4f46e5]", "text-[#4f46e5]"))
+                "bg-[#4f46e5]/10 border-l-4 border-l-[#4f46e5]", "text-[#4f46e5]"))
             (stat_card(&stats.pending_receipt_batches.to_string(), "待入库",
-                "bg-[#7c3aed]/10 [border-left:4px_solid_#7c3aed]", "text-[#7c3aed]"))
+                "bg-purple/10 border-l-4 border-l-purple", "text-purple"))
             (stat_card(&stats.completed_batches.to_string(), "已完成",
-                "bg-success/10 [border-left:4px_solid_var(--success)]", "text-success"))
+                "bg-success/10 border-l-4 border-l-success", "text-success"))
         }
     }
 }
@@ -548,7 +548,7 @@ fn kanban_view(cards: &[ScheduleCard]) -> Markup {
         div class="grid grid-cols-4 gap-4" {
             (kanban_column("待排产", &pending, "border-t-warn"))
             (kanban_column("进行中", &in_progress, "border-t-info"))
-            (kanban_column("待入库", &pending_receipt, "border-t-[#7c3aed]"))
+            (kanban_column("待入库", &pending_receipt, "border-t-purple"))
             (kanban_column("已完成", &completed, "border-t-success"))
         }
     }
@@ -590,7 +590,7 @@ fn kanban_card(card: &ScheduleCard) -> Markup {
         BatchStatus::Pending => ("待排产", "bg-warn-bg text-warn"),
         BatchStatus::InProgress => ("进行中", "bg-accent-bg text-accent"),
         BatchStatus::Suspended => ("已暂停", "bg-[#f5f5f5] text-muted"),
-        BatchStatus::PendingReceipt => ("待入库", "bg-[rgba(124,58,237,0.1)] text-[#7c3aed]"),
+        BatchStatus::PendingReceipt => ("待入库", "bg-[rgba(124,58,237,0.1)] text-purple"),
         BatchStatus::Completed => ("已完成", "bg-success-bg text-success"),
         _ => ("", ""),
     };

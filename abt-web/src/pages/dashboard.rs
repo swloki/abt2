@@ -73,11 +73,11 @@ fn dashboard_content(claims: &abt_core::shared::identity::model::Claims) -> Mark
  div class="flex items-center overflow-x-auto rounded-md border border-border bg-bg px-8 py-6" {
  (flow_step(&icon::file_text_icon("w-5 h-5"), "报价单", "客户报价", "bg-[#e8f4ff]", "text-info"))
  (arrow_right_svg())
- (flow_step(&icon::box_icon("w-5 h-5"), "销售订单", "确认订单", "bg-[#f0fff0]", "text-success"))
+ (flow_step(&icon::box_icon("w-5 h-5"), "销售订单", "确认订单", "bg-success-bg", "text-success"))
  (arrow_right_svg())
- (flow_step(&icon::truck_icon("w-5 h-5"), "发货申请", "拣货发货", "bg-[#fff7e6]", "text-warn"))
+ (flow_step(&icon::truck_icon("w-5 h-5"), "发货申请", "拣货发货", "bg-warn-bg", "text-warn"))
  (arrow_right_svg())
- (flow_step(&icon::return_arrow_icon("w-5 h-5"), "销售退货", "退货处理", "bg-[#fff2f0]", "text-danger"))
+ (flow_step(&icon::return_arrow_icon("w-5 h-5"), "销售退货", "退货处理", "bg-danger-bg", "text-danger"))
  (arrow_right_svg())
  (flow_step(&icon::clipboard_list_icon("w-5 h-5"), "月对账单", "月度结算", "bg-[#eff6ff]", "text-accent"))
  }

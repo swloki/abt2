@@ -131,9 +131,9 @@ fn work_calendar_detail_page(
  td class="font-mono tabular-nums" { (ex.exception_date.format("%Y-%m-%d")) }
  td {
  @if ex.is_workday {
- span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-[#f0fff0] text-[#389e0d]" { "特殊工作日" }
+ span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-success-bg text-success" { "特殊工作日" }
  } @else {
- span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-[#fff2f0] text-[#cf1322]" { "休息日" }
+ span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-danger-bg text-danger" { "休息日" }
  }
  }
  td class="font-mono tabular-nums" {

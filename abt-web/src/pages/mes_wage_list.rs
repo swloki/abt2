@@ -156,7 +156,7 @@ fn wage_list_page(
  div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-5" {
  // 工资总额
  div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-md" {
- div class="w-11 h-11 rounded-md grid place-items-center shrink-0 bg-[#e6f4ff] text-accent" {
+ div class="w-11 h-11 rounded-md grid place-items-center shrink-0 bg-accent-bg text-accent" {
  (icon::dollar_icon("w-5 h-5"))
  }
  div {
@@ -166,7 +166,7 @@ fn wage_list_page(
  }
  // 计件工人数
  div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-md" {
- div class="w-11 h-11 rounded-md grid place-items-center shrink-0 bg-[#f0fff0] text-success" {
+ div class="w-11 h-11 rounded-md grid place-items-center shrink-0 bg-success-bg text-success" {
  (icon::users_icon("w-5 h-5"))
  }
  div {
@@ -176,7 +176,7 @@ fn wage_list_page(
  }
  // 完成数量
  div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-md" {
- div class="w-11 h-11 rounded-md grid place-items-center shrink-0 bg-[#fff8eb] text-warn" {
+ div class="w-11 h-11 rounded-md grid place-items-center shrink-0 bg-warn-bg text-warn" {
  (icon::package_icon("w-5 h-5"))
  }
  div {
@@ -187,7 +187,7 @@ fn wage_list_page(
  }
  // 扣减金额
  div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-md" {
- div class="w-11 h-11 rounded-md grid place-items-center shrink-0 bg-[#fff2f0] text-danger" {
+ div class="w-11 h-11 rounded-md grid place-items-center shrink-0 bg-danger-bg text-danger" {
  (icon::alert_triangle_icon("w-5 h-5"))
  }
  div {

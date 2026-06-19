@@ -43,17 +43,17 @@ pub struct RmaQueryParams {
 
 fn severity_label(s: &Severity) -> (&'static str, &'static str, &'static str) {
  match s {
- Severity::Minor => ("Minor", "bg-[#dcfce7]", "text-success"),
- Severity::Major => ("Major", "bg-[#fff8eb]", "text-[#b45309]"),
+ Severity::Minor => ("Minor", "bg-success-bg", "text-success"),
+ Severity::Major => ("Major", "bg-warn-bg", "text-[#b45309]"),
  Severity::Critical => ("Critical", "bg-[#fee2e2]", "text-danger"),
  }
 }
 
 fn rma_status_label(s: &RMAStatus) -> (&'static str, &'static str, &'static str) {
  match s {
- RMAStatus::Reported => ("已报告", "bg-[#dbeafe]", "text-accent"),
- RMAStatus::Investigating => ("调查中", "bg-[#fff8eb]", "text-[#b45309]"),
- RMAStatus::ActionTaken => ("已采取措施", "bg-[#dcfce7]", "text-success"),
+ RMAStatus::Reported => ("已报告", "bg-accent-bg", "text-accent"),
+ RMAStatus::Investigating => ("调查中", "bg-warn-bg", "text-[#b45309]"),
+ RMAStatus::ActionTaken => ("已采取措施", "bg-success-bg", "text-success"),
  RMAStatus::Closed => ("已关闭", "bg-surface", "text-muted"),
  }
 }

@@ -285,7 +285,7 @@ fn role_section(roles: &[Role]) -> Markup {
  }
  span class="text-sm font-medium text-fg" { (role.role_name) }
  @if role.is_system_role {
- span class="text-[10px] font-medium px-[6px] py-[1px] rounded-[3px] bg-[#fff7e6] text-[#fa8c16]" { "内置" }
+ span class="text-[10px] font-medium px-[6px] py-[1px] rounded-[3px] bg-warn-bg text-warn" { "内置" }
  }
  }
  }
@@ -323,7 +323,7 @@ fn dept_section(departments: &[Department]) -> Markup {
  }
  span class="text-sm font-medium text-fg" { (dept.department_name) }
  @if !dept.is_active {
- span class="text-[10px] font-medium px-[6px] py-[1px] rounded-[3px] bg-[#fff2f0] text-[#cf1322]" { "停用" }
+ span class="text-[10px] font-medium px-[6px] py-[1px] rounded-[3px] bg-danger-bg text-danger" { "停用" }
  }
  }
  }
@@ -355,14 +355,14 @@ fn data_scope_section() -> Markup {
  div class="grid grid-cols-3 gap-3" {
  (scope_card(
  false,
- "bg-[#dbeafe] text-accent",
+ "bg-accent-bg text-accent",
  r#"<path d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064" /><circle cx="12" cy="12" r="10" />"#,
  "All — 全部数据",
  "可查看系统中所有数据，通常授予管理层",
  ))
  (scope_card(
  true,
- "bg-[#dcfce7] text-success",
+ "bg-success-bg text-success",
  r#"<path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5" />"#,
  "Department — 本部门",
  "仅可查看所属部门的数据",

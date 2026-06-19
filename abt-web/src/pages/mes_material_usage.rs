@@ -194,7 +194,7 @@ fn usage_data_fragment(wo_info: &abt_core::mes::dashboard::model::WoBasicInfo, c
  div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-5" {
  // BOM standard
  div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-md" {
- div class="w-11 h-11 rounded-md grid place-items-center shrink-0 bg-[#e6f4ff] text-accent" { (icon::box_icon("w-5 h-5")) }
+ div class="w-11 h-11 rounded-md grid place-items-center shrink-0 bg-accent-bg text-accent" { (icon::box_icon("w-5 h-5")) }
  div {
  div class="text-lg font-bold font-mono tabular-nums text-fg" { (crate::utils::fmt_qty(ctx.standard_qty)) }
  div class="text-sm text-muted" { "BOM 标准用量" }
@@ -205,7 +205,7 @@ fn usage_data_fragment(wo_info: &abt_core::mes::dashboard::model::WoBasicInfo, c
  }
  // Actual picked
  div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-md" {
- div class="w-11 h-11 rounded-md grid place-items-center shrink-0 bg-[#f0fff0] text-success" { (icon::clipboard_list_icon("w-5 h-5")) }
+ div class="w-11 h-11 rounded-md grid place-items-center shrink-0 bg-success-bg text-success" { (icon::clipboard_list_icon("w-5 h-5")) }
  div {
  div class="text-lg font-bold font-mono tabular-nums text-fg" { (crate::utils::fmt_qty(ctx.picked_total)) }
  div class="text-sm text-muted" { "实际消耗(领料)" }
@@ -214,7 +214,7 @@ fn usage_data_fragment(wo_info: &abt_core::mes::dashboard::model::WoBasicInfo, c
  }
  // Backflush
  div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-md" {
- div class="w-11 h-11 rounded-md grid place-items-center shrink-0 bg-[#fff8eb] text-warn" { (icon::refresh_icon("w-5 h-5")) }
+ div class="w-11 h-11 rounded-md grid place-items-center shrink-0 bg-warn-bg text-warn" { (icon::refresh_icon("w-5 h-5")) }
  div {
  div class="text-lg font-bold font-mono tabular-nums text-fg" { (crate::utils::fmt_qty(ctx.backflush_qty)) }
  div class="text-sm text-muted" { "倒冲消耗" }
@@ -222,7 +222,7 @@ fn usage_data_fragment(wo_info: &abt_core::mes::dashboard::model::WoBasicInfo, c
  }
  // Variance
  div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-md" {
- div class="w-11 h-11 rounded-md grid place-items-center shrink-0 bg-[#fff2f0] text-danger" { (icon::circle_alert_icon("w-5 h-5")) }
+ div class="w-11 h-11 rounded-md grid place-items-center shrink-0 bg-danger-bg text-danger" { (icon::circle_alert_icon("w-5 h-5")) }
  div {
  @let variance_cls = if ctx.variance > Decimal::ZERO { "text-danger" } else if ctx.variance < Decimal::ZERO { "text-success" } else { "" };
  div class=(format!("text-lg font-bold font-mono tabular-nums {}", variance_cls)) {
@@ -386,7 +386,7 @@ fn wo_status_pill_class(status: i16) -> &'static str {
     match status {
         1 => "bg-warn-bg text-warn",       // 待计划
         2 => "bg-accent-bg text-accent",   // 已计划
-        3 => "bg-[rgba(124,58,237,0.1)] text-[#7c3aed]", // 已下达
+        3 => "bg-[rgba(124,58,237,0.1)] text-purple", // 已下达
         4 => "bg-success-bg text-success", // 已关闭
         5 => "bg-[#f5f5f5] text-muted",   // 已取消
         _ => "bg-[#f5f5f5] text-muted",

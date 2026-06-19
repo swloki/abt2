@@ -366,7 +366,7 @@ fn stat_mini_cards(stats: &DemandPoolStats) -> Markup {
  }
  }
  div class="flex items-center gap-3 bg-bg border border-border-soft rounded-lg px-5 py-4 shadow-[var(--shadow-card)]" {
- div class="w-[38px] h-[38px] rounded-md grid place-items-center shrink-0 text-accent bg-[#dbeafe]" {
+ div class="w-[38px] h-[38px] rounded-md grid place-items-center shrink-0 text-accent bg-accent-bg" {
  (icon::cube_icon("w-[18px] h-[18px]"))
  }
  div {
@@ -375,7 +375,7 @@ fn stat_mini_cards(stats: &DemandPoolStats) -> Markup {
  }
  }
  div class="flex items-center gap-3 bg-bg border border-border-soft rounded-lg px-5 py-4 shadow-[var(--shadow-card)]" {
- div class="w-[38px] h-[38px] rounded-md grid place-items-center shrink-0 text-success bg-[#dcfce7]" {
+ div class="w-[38px] h-[38px] rounded-md grid place-items-center shrink-0 text-success bg-success-bg" {
  (icon::check_circle_icon("w-[18px] h-[18px]"))
  }
  div {
@@ -976,9 +976,9 @@ fn demand_status_label(status: i16) -> Markup {
 
 fn priority_label(priority: i32) -> Markup {
  let (label, cls) = match priority {
- p if p >= 4 => ("紧急", "bg-[#fff1f0] text-[#cf1322]"),
- 3 => ("高", "bg-[#fff7e6] text-[#c87d0e]"),
- 2 => ("中", "bg-[#e6f4ff] text-[#0958d9]"),
+ p if p >= 4 => ("紧急", "bg-danger-bg text-danger"),
+ 3 => ("高", "bg-warn-bg text-warn"),
+ 2 => ("中", "bg-accent-bg text-accent"),
  _ => ("低", "bg-[#f5f5f5] text-[#8c8c8c]"),
  };
  html! {

@@ -269,7 +269,7 @@ fn role_list_page(
  // ── Stats ──
  div class="grid grid-cols-3 gap-5" {
  div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
- div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 bg-[#f3e8ff] text-[#7c3aed]" {
+ div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 bg-purple-bg text-purple" {
  (icon::lock_icon("w-6 h-6"))
  }
  div {
@@ -278,7 +278,7 @@ fn role_list_page(
  }
  }
  div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
- div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 bg-[#fff7e6] text-[#fa8c16]" {
+ div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 bg-warn-bg text-warn" {
  (icon::check_circle_icon("w-6 h-6"))
  }
  div {
@@ -399,7 +399,7 @@ fn role_row(
  // Type
  td {
  @if role.is_system_role {
- span class="inline-block text-[11px] px-2 py-0.5 rounded-full bg-[#fff7e6] text-[#fa8c16] font-medium" { "内置" }
+ span class="inline-block text-[11px] px-2 py-0.5 rounded-full bg-warn-bg text-warn font-medium" { "内置" }
  } @else {
  span class="inline-block text-[11px] px-2 py-0.5 rounded-full bg-[#f0f5ff] text-accent font-medium" { "自定义" }
  }

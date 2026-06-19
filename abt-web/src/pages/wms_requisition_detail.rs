@@ -60,11 +60,11 @@ fn workflow_steps(status: RequisitionStatus) -> Markup {
  div class="flex items-center mt-6 mb-6" {
  @for (i, label) in steps.iter().enumerate() {
  @if i > 0 {
- div class=(format!("w-[48px] h-[2px] {}", if completed[i] { "bg-[#10b981]" } else { "bg-border" })) {}
+ div class=(format!("w-[48px] h-[2px] {}", if completed[i] { "bg-success" } else { "bg-border" })) {}
  }
  @let (dot_cls, text_cls, ring_cls) = match current_idx {
  Some(ci) if ci == i => ("bg-accent", "text-[#2563eb] font-semibold", "shadow-[0_0_0_3px_rgba(37,99,235,0.1)]"),
- _ if completed[i] => ("bg-[#10b981]", "text-[#10b981]", ""),
+ _ if completed[i] => ("bg-success", "text-success", ""),
  _ => ("bg-[#d1d5db]", "text-[#9ca3af]", ""),
  };
  div class="flex items-center gap-2 shrink-0" {

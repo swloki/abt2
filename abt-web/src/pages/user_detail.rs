@@ -404,17 +404,17 @@ fn user_detail_page(
  }
  div class="flex gap-[4px] mt-[4px]" {
  @if user.user.is_active {
- span class=(format!("{TAG_PILL_BASE} bg-[#f0fff0] text-[#389e0d] border border-[#d1f5e0]")) { "已激活" }
+ span class=(format!("{TAG_PILL_BASE} bg-success-bg text-success border border-[#d1f5e0]")) { "已激活" }
  } @else {
  span class=(format!("{TAG_PILL_BASE} bg-surface text-[#8c8c8c] border border-border")) { "未激活" }
  }
  @if user.user.is_super_admin {
- span class=(format!("{TAG_PILL_BASE} bg-[#f3e8ff] text-[#7c3aed] border border-[#e8d5ff]")) { "超级管理员" }
+ span class=(format!("{TAG_PILL_BASE} bg-purple-bg text-purple border border-[#e8d5ff]")) { "超级管理员" }
  }
  @for dept in user_depts {
- span class=(format!("{TAG_PILL_BASE} bg-[#e8f4ff] text-[#1677ff] border border-[#d6e4ff]")) { (&dept.department_name) }
+ span class=(format!("{TAG_PILL_BASE} bg-[#e8f4ff] text-accent border border-[#d6e4ff]")) { (&dept.department_name) }
  }
- span class=(format!("{TAG_PILL_BASE} bg-[#e8f4ff] text-[#1677ff] border border-[#d6e4ff]")) { (data_scope) }
+ span class=(format!("{TAG_PILL_BASE} bg-[#e8f4ff] text-accent border border-[#d6e4ff]")) { (data_scope) }
  }
  }
  }
@@ -433,9 +433,9 @@ fn user_detail_page(
 
  // ── Stats Row ──
  div class="flex gap-3" {
- (stat_item("bg-[#1677ff]", &user.roles.len().to_string(), "个角色", false))
+ (stat_item("bg-accent", &user.roles.len().to_string(), "个角色", false))
  (stat_item("bg-[#52c41a]", &user_depts.len().to_string(), "个部门", false))
- (stat_item("bg-[#7c3aed]", &total_perms.to_string(), "项权限", false))
+ (stat_item("bg-purple", &total_perms.to_string(), "项权限", false))
  (stat_item("bg-[#faad14]", data_scope, "数据范围", true))
  }
 
@@ -465,7 +465,7 @@ fn user_detail_page(
  }))
  (info_row("激活状态", html! {
  @if user.user.is_active {
- span class="text-[#389e0d] font-medium" { "已激活" }
+ span class="text-success font-medium" { "已激活" }
  } @else {
  span class="text-muted font-medium" { "未激活" }
  }
@@ -555,7 +555,7 @@ fn user_detail_page(
  div class="text-[11px] text-muted font-mono" { (&role.role_code) }
  }
  @if is_role_system(&role.role_code, all_roles) {
- span class="text-[10px] px-[6px] py-[1px] rounded-[3px] font-medium bg-[#fff7e6] text-[#d46b08] border border-[#ffe7ba]" { "内置" }
+ span class="text-[10px] px-[6px] py-[1px] rounded-[3px] font-medium bg-warn-bg text-warn border border-[#ffe7ba]" { "内置" }
  }
  }
  }
@@ -631,10 +631,10 @@ fn info_row(label: &str, value: Markup) -> Markup {
 
 fn perm_chip(action: &str) -> Markup {
  let cls = match action.to_lowercase().as_str() {
- "read" => "bg-[#e8f4ff] text-[#1677ff] border border-[#d6e4ff]",
- "create" => "bg-[#f0fff0] text-[#389e0d] border border-[#d1f5e0]",
- "update" | "write" => "bg-[#fff8eb] text-[#d46b08] border border-[#ffe7ba]",
- "delete" => "bg-[#fff2f0] text-[#cf1322] border border-[#ffccc7]",
+ "read" => "bg-[#e8f4ff] text-accent border border-[#d6e4ff]",
+ "create" => "bg-success-bg text-success border border-[#d1f5e0]",
+ "update" | "write" => "bg-warn-bg text-warn border border-[#ffe7ba]",
+ "delete" => "bg-danger-bg text-danger border border-[#ffccc7]",
  _ => "text-muted border border-border-soft",
  };
  html! {
@@ -666,7 +666,7 @@ fn role_assign_modal(action: &str, all_roles: &[Role], current_ids: &[i64]) -> M
  value=(role.role_id) checked[current_ids.contains(&role.role_id)];
  span class="text-sm text-fg" { (role.role_name) }
  @if role.is_system_role {
- span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-[#e6f4ff] text-accent" { "系统" }
+ span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-accent-bg text-accent" { "系统" }
  }
  @if let Some(desc) = &role.description {
  span class="ml-auto text-xs text-muted" { (desc) }
@@ -709,7 +709,7 @@ fn dept_assign_modal(action: &str, all_depts: &[Department], current_ids: &[i64]
  span class="text-sm text-fg" { (dept.department_name) }
  span class="text-xs text-muted font-mono" { (dept.department_code) }
  @if !dept.is_active {
- span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-[#fff2f0] text-[#cf1322]" { "停用" }
+ span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-danger-bg text-danger" { "停用" }
  }
  }
  }

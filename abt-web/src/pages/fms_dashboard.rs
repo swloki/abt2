@@ -212,7 +212,7 @@ fn fms_dashboard_page(
             (stat_card(
                 "待审报销",
                 &pending_count.to_string(),
-                html! { "金额合计 " span class="font-semibold text-[#7c3aed]" { (format!("¥{}万", fmt_wan(pending_amount))) } },
+                html! { "金额合计 " span class="font-semibold text-purple" { (format!("¥{}万", fmt_wan(pending_amount))) } },
                 icon::dollar_icon("w-5 h-5"),
                 "#ede9fe", "#7c3aed",
             ))
@@ -294,7 +294,7 @@ fn fms_dashboard_page(
                                     div class="text-sm font-bold font-mono text-fg" {
                                         (format!("¥{:.2}", e.total_amount))
                                     }
-                                    span class="inline-flex items-center rounded-full text-xs font-medium px-2 py-0.5 bg-[#fff8eb] text-[#d46b08]" { "待审批" }
+                                    span class="inline-flex items-center rounded-full text-xs font-medium px-2 py-0.5 bg-warn-bg text-warn" { "待审批" }
                                 }
                             }
                         }
@@ -381,9 +381,9 @@ fn fms_dashboard_page(
 
 fn quick_entry_card(href: &str, title: &str, desc: &str, badge: &str, color: &str) -> Markup {
     let (icon_svg, title_cls, badge_cls) = match color {
-        "blue" => (icon::dollar_icon("w-5 h-5"), "text-accent", "bg-[#e6f4ff] text-accent"),
-        "purple" => (icon::alert_triangle_icon("w-5 h-5"), "text-[#7c3aed]", "bg-[#f3e8ff] text-[#7c3aed]"),
-        "green" => (icon::check_circle_icon("w-5 h-5"), "text-success", "bg-[#dcfce7] text-success"),
+        "blue" => (icon::dollar_icon("w-5 h-5"), "text-accent", "bg-accent-bg text-accent"),
+        "purple" => (icon::alert_triangle_icon("w-5 h-5"), "text-purple", "bg-purple-bg text-purple"),
+        "green" => (icon::check_circle_icon("w-5 h-5"), "text-success", "bg-success-bg text-success"),
         "orange" => (icon::trending_up_icon("w-5 h-5"), "text-[#d97706]", "bg-[#fef3c7] text-[#d97706]"),
         _ => (icon::grid_icon("w-5 h-5"), "text-fg", "bg-accent-bg text-muted"),
     };

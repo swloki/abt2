@@ -599,7 +599,7 @@ fn zone_row(z: &Zone, _warehouse_id: i64) -> Markup {
  td class="font-mono tabular-nums" { (z.code) }
  td { (z.name) }
  td {
- span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-[rgba(22,119,255,0.06)] text-[#1677ff]" { (type_label) }
+ span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-[rgba(22,119,255,0.06)] text-accent" { (type_label) }
  }
  td class="text-right text-[13px] text-muted" { "—" }
  td class="font-mono tabular-nums" { (z.sort_order) }

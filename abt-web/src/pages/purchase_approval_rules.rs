@@ -352,9 +352,9 @@ fn row_tr(rule: &PurchaseApprovalRule) -> Markup {
  td { (rule.approver_id.map(|id| id.to_string()).unwrap_or_else(|| "—".into())) }
  td {
  @if rule.is_active {
- span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-[#f0fff0] text-[#389e0d]" { "启用" }
+ span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-success-bg text-success" { "启用" }
  } @else {
- span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-[#fff2f0] text-[#cf1322]" { "停用" }
+ span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-danger-bg text-danger" { "停用" }
  }
  }
  td {

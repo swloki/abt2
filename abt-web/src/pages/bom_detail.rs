@@ -214,7 +214,7 @@ fn bom_detail_page(
  h1 class="text-xl font-bold" {
  (bom.bom_name)
  " "
- span class="bg-[#e6f4ff] text-accent rounded-full text-[11px] font-medium" { "v" (bom.version) }
+ span class="bg-accent-bg text-accent rounded-full text-[11px] font-medium" { "v" (bom.version) }
  " "
  span class=(format!("status-pill {}", crate::utils::status_color(status_class))) { (status_label) }
  }
@@ -792,7 +792,7 @@ fn labor_cost_drawer_content(bom_name: &str, report: &BomLaborCostReport) -> Mar
  } @else {
  @for item in &report.items {
  @let is_zero = item.unit_price == Decimal::ZERO;
- tr class=(if is_zero { "bg-[#fff2f0]" } else { "" }) {
+ tr class=(if is_zero { "bg-danger-bg" } else { "" }) {
  td class="py-2 px-3 font-medium text-fg border-b border-border-soft" { (item.name) }
  td class="py-2 px-3 text-right border-b border-border-soft" {
  @if is_zero {
@@ -820,7 +820,7 @@ fn labor_cost_drawer_content(bom_name: &str, report: &BomLaborCostReport) -> Mar
  }
  }
  }
- div class={(format!("flex items-center justify-between px-4 py-3 rounded-md {}", if has_issue { "bg-[#fff2f0]" } else { "bg-[#e6f4ff]" }))} {
+ div class={(format!("flex items-center justify-between px-4 py-3 rounded-md {}", if has_issue { "bg-danger-bg" } else { "bg-accent-bg" }))} {
  span class="text-sm text-fg-2" { "人工成本合计:" }
  span class={(format!("text-base font-bold {}", if has_issue { "text-[#ef4444]" } else { "text-accent" }))} {
  (format_currency(report.total_cost))

@@ -209,7 +209,7 @@ fn conversion_create_page(
  div class="form-section p-0 overflow-hidden" {
  div class="px-6 pt-6 pb-4 flex items-center gap-2" {
  span class="text-sm font-semibold text-fg" { "消耗物料" }
- span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#fff2f0] text-danger" { "消耗" }
+ span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-danger-bg text-danger" { "消耗" }
  span id="consume-item-count" class="ml-auto text-xs font-normal text-muted" { "共 0 项" }
  }
  div class="overflow-x-auto" {
@@ -241,7 +241,7 @@ fn conversion_create_page(
  div class="form-section p-0 overflow-hidden" {
  div class="px-6 pt-6 pb-4 flex items-center gap-2" {
  span class="text-sm font-semibold text-fg" { "产出物料" }
- span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#f0fff0] text-success" { "产出" }
+ span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-success-bg text-success" { "产出" }
  span id="produce-item-count" class="ml-auto text-xs font-normal text-muted" { "共 0 项" }
  }
  div class="overflow-x-auto" {

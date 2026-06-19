@@ -307,11 +307,11 @@ fn wo_status_label(s: i16) -> (&'static str, &'static str) {
 
 fn margin_class(rate: Decimal) -> &'static str {
  if rate > Decimal::from(25) {
- "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-[#f6ffed] text-[#389e0d]"
+ "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-success-bg text-success"
  } else if rate > Decimal::from(10) {
- "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-[#fff7e6] text-[#c87d0e]"
+ "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-warn-bg text-warn"
  } else {
- "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-[#fff1f0] text-[#cf1322]"
+ "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-danger-bg text-danger"
  }
 }
 
@@ -338,10 +338,10 @@ fn cost_analysis_page(
  }
  // ── 统计概要 ──
  div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6" {
- (stat_card("本月产品成本", &fmt_money_wan_html(stats.total_product_cost), "border-accent", "bg-[#dbeafe] text-accent", r#"M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"#))
+ (stat_card("本月产品成本", &fmt_money_wan_html(stats.total_product_cost), "border-accent", "bg-accent-bg text-accent", r#"M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"#))
  (stat_card("本月工单成本", &fmt_money_wan_html(stats.total_wo_cost), "border-warn", "bg-[#fef3c7] text-[#d97706]", r#"M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"#))
- (stat_card("综合毛利率", &format!("<span class=\"text-success\">{}%</span>", stats.avg_margin_rate), "border-success", "bg-[#dcfce7] text-success", r#"M23 6l-9.5 9.5-5-5L1 18M17 6h6v6"#))
- (stat_card("利润中心数", &stats.pc_count.to_string(), "border-[#7c3aed]", "bg-[#ede9fe] text-[#7c3aed]", r#"M18 20V10M12 20V4M6 20v-6"#))
+ (stat_card("综合毛利率", &format!("<span class=\"text-success\">{}%</span>", stats.avg_margin_rate), "border-success", "bg-success-bg text-success", r#"M23 6l-9.5 9.5-5-5L1 18M17 6h6v6"#))
+ (stat_card("利润中心数", &stats.pc_count.to_string(), "border-purple", "bg-[#ede9fe] text-purple", r#"M18 20V10M12 20V4M6 20v-6"#))
  }
 
  // ── 分析Tab ──
@@ -401,7 +401,7 @@ fn cost_analysis_page(
  "人工成本"
  }
  span class="flex items-center gap-1.5" {
- span class="w-2.5 h-0.5 rounded inline-block bg-[#7c3aed]" {}
+ span class="w-2.5 h-0.5 rounded inline-block bg-purple" {}
  "制造费用"
  }
  }
@@ -571,7 +571,7 @@ fn cost_breakdown_bar(material: Decimal, labor: Decimal, overhead: Decimal, tota
  div class="flex h-[9px] overflow-hidden gap-[2px] relative" {
  div class="h-full bg-accent" style=(format!("width:{}%", mat_pct)) {}
  div class="h-full bg-warn" style=(format!("width:{}%", lab_pct)) {}
- div class="h-full bg-[#7c3aed]" style=(format!("width:{}%", ovh_pct)) {}
+ div class="h-full bg-purple" style=(format!("width:{}%", ovh_pct)) {}
  }
  }
 }

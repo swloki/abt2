@@ -230,12 +230,12 @@ fn workflow_steps(current: SalesOrderStatus) -> Markup {
  div class="flex items-center mb-6" {
  @for (i, (label, _)) in steps.iter().enumerate() {
  @if i > 0 {
-            div class=(format!("w-[48px] h-[2px] {}", if i <= current_idx && !is_cancelled { "bg-[#10b981]" } else { "bg-border" })) {}
+            div class=(format!("w-[48px] h-[2px] {}", if i <= current_idx && !is_cancelled { "bg-success" } else { "bg-border" })) {}
  }
  @let (dot_cls, text_cls, ring_cls) = if is_cancelled {
  ("bg-border-soft", "text-muted", "")
  } else if i < current_idx {
- ("bg-[#10b981]", "text-[#10b981]", "")
+ ("bg-success", "text-success", "")
  } else if i == current_idx {
  ("bg-accent", "text-[#2563eb] font-semibold", "shadow-[0_0_0_3px_rgba(37,99,235,0.1)]")
  } else {
@@ -403,7 +403,7 @@ fn fulfillment_workbench(
  div class="flex items-center justify-between p-4 px-5 border-b border-border-soft bg-bg" {
  div class="flex items-center gap-3" {
  span class="text-sm font-semibold text-fg" { "履约工作台" }
- span class="bg-[#dbeafe] text-[#2563eb] rounded-full text-[11px] font-medium px-2 py-0.5" { (format!("{} 行", demand_total)) }
+ span class="bg-accent-bg text-[#2563eb] rounded-full text-[11px] font-medium px-2 py-0.5" { (format!("{} 行", demand_total)) }
  }
  div class="flex gap-2" {
  button class="inline-flex items-center gap-1 py-[5px] px-3 text-xs rounded-sm bg-white text-fg-2 border border-border hover:border-accent hover:text-accent font-medium cursor-pointer transition-all duration-150" {
@@ -644,7 +644,7 @@ fn order_detail_page(
  hx-confirm="确认审核此订单？" { "确认订单" }
  }
  @if matches!(o.status, SalesOrderStatus::Draft | SalesOrderStatus::Confirmed) {
- button class="inline-flex items-center gap-2 py-[6px] px-3 text-[13px] rounded-sm bg-[#fff1f0] text-[#cf1322] border border-[rgba(207,19,34,0.2)] hover:bg-[#ffe0e0] font-medium cursor-pointer transition-all duration-150"
+ button class="inline-flex items-center gap-2 py-[6px] px-3 text-[13px] rounded-sm bg-danger-bg text-danger border border-[rgba(207,19,34,0.2)] hover:bg-[#ffe0e0] font-medium cursor-pointer transition-all duration-150"
  hx-post=(CancelOrderPath { id: o.id }.to_string())
  hx-confirm="确认取消此订单？取消后不可恢复。" { "取消订单" }
  }
@@ -672,7 +672,7 @@ fn order_detail_page(
  }
  @if cascade_count > 0 {
  div class="inline-flex items-center gap-2 px-4 py-2 rounded-md border border-border-soft bg-bg shadow-xs text-sm" {
- span class="text-lg font-bold text-[#7c3aed] font-mono tabular-nums" { (cascade_count) }
+ span class="text-lg font-bold text-purple font-mono tabular-nums" { (cascade_count) }
  span class="text-muted" { "BOM展开需求" }
  }
  }

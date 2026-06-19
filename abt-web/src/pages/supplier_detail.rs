@@ -437,7 +437,7 @@ fn contact_row(contact: &SupplierContact, detail_path: &SupplierDetailPath, can_
  td { (contact.email.as_deref().unwrap_or("—")) }
  td {
  @if contact.is_primary {
- span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-[#e6f4ff] text-accent" { "主要" }
+ span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-accent-bg text-accent" { "主要" }
  }
  }
  td {
@@ -468,7 +468,7 @@ fn bank_account_row(account: &SupplierBankAccount, detail_path: &SupplierDetailP
  td class="font-mono tabular-nums" { (account.account_number) }
  td {
  @if account.is_default {
- span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-[#e6f4ff] text-accent" { "默认" }
+ span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-accent-bg text-accent" { "默认" }
  }
  }
  td {

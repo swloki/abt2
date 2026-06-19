@@ -185,12 +185,12 @@ fn role_detail_page(
  }
  div class="flex gap-[4px] mt-[4px]" {
  @if role.is_system_role {
- span class=(format!("{TAG_PILL} bg-[#f0fff0] text-[#389e0d] border border-[#d1f5e0]")) { "内置角色" }
+ span class=(format!("{TAG_PILL} bg-success-bg text-success border border-[#d1f5e0]")) { "内置角色" }
  } @else {
- span class=(format!("{TAG_PILL} bg-[#e8f4ff] text-[#1677ff] border border-[#d6e4ff]")) { "自定义角色" }
+ span class=(format!("{TAG_PILL} bg-[#e8f4ff] text-accent border border-[#d6e4ff]")) { "自定义角色" }
  }
  @if let Some(pname) = parent_role_name {
- span class=(format!("{TAG_PILL} bg-[#f3e8ff] text-[#7c3aed] border border-[#e8d5ff]")) { "上级: " (pname) }
+ span class=(format!("{TAG_PILL} bg-purple-bg text-purple border border-[#e8d5ff]")) { "上级: " (pname) }
  }
  }
  }
@@ -205,9 +205,9 @@ fn role_detail_page(
 
  // ── Stats Row ──
  div class="flex gap-3" {
- (stat_item("bg-[#1677ff]", &direct_count.to_string(), "项直属权限"))
+ (stat_item("bg-accent", &direct_count.to_string(), "项直属权限"))
  (stat_item("bg-[#52c41a]", &user_count.to_string(), "个用户"))
- (stat_item("bg-[#7c3aed]", &inherited_count.to_string(), "项继承权限"))
+ (stat_item("bg-purple", &inherited_count.to_string(), "项继承权限"))
  }
 
  // ── Role Info Card ──
@@ -221,7 +221,7 @@ fn role_detail_page(
  (info_row("角色编码", html! { span class="text-fg font-medium font-mono text-xs text-accent" { (&role.role_code) } }))
  (info_row("角色类型", html! {
  @if role.is_system_role {
- span class="text-[#389e0d] font-medium" { "内置角色" }
+ span class="text-success font-medium" { "内置角色" }
  } @else {
  span class="text-fg font-medium" { "自定义角色" }
  }

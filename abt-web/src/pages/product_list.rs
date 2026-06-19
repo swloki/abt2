@@ -862,9 +862,9 @@ fn price_history_diff_item(entry: &PriceLogEntry) -> Markup {
  };
  let is_up = entry.old_price.is_some_and(|old| entry.new_price >= old);
  let badge_class = if is_up {
- "inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold bg-[#f6ffed] text-[#389e0d]"
+ "inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold bg-success-bg text-success"
  } else {
- "inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold bg-[#fff2f0] text-[#cf1322]"
+ "inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold bg-danger-bg text-danger"
  };
 
  html! {

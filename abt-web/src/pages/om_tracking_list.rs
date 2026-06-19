@@ -358,10 +358,10 @@ fn stat_card(
  icon_fn: fn(&str) -> Markup,
 ) -> Markup {
  let (bg_cls, text_cls) = match color {
- "accent" => ("bg-[#e6f4ff]", "text-accent"),
- "danger" => ("bg-[#fff2f0]", "text-danger"),
- "warn" => ("bg-[#fff8eb]", "text-warn"),
- "success" => ("bg-[#f0fff0]", "text-success"),
+ "accent" => ("bg-accent-bg", "text-accent"),
+ "danger" => ("bg-danger-bg", "text-danger"),
+ "warn" => ("bg-warn-bg", "text-warn"),
+ "success" => ("bg-success-bg", "text-success"),
  _ => ("bg-surface", "text-fg"),
  };
  html! {
@@ -481,9 +481,9 @@ fn tracking_data_card(
  // Status: overdue if planned_at < now and tracked_at is null
  @let is_overdue = tracking.planned_at.is_some_and(|p| p < chrono::Utc::now());
  @let (status_text, status_bg, status_color) = if is_overdue {
- ("超期", "bg-[#fff2f0]", "text-danger")
+ ("超期", "bg-danger-bg", "text-danger")
  } else {
- ("待完成", "bg-[#fff8eb]", "text-warn")
+ ("待完成", "bg-warn-bg", "text-warn")
  };
 
  @let detail_path = OmOutsourcingDetailPath { id: tracking.outsourcing_id };

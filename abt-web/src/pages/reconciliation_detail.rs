@@ -205,12 +205,12 @@ fn workflow_steps(current: ReconciliationStatus) -> Markup {
  div class="flex items-center mt-6 mb-6" {
  @for (i, (label, _)) in steps.iter().enumerate() {
  @if i > 0 {
- div class=(format!("w-[48px] h-[2px] {}", if i <= current_idx && !is_disputed { "bg-[#10b981]" } else { "bg-border" })) {}
+ div class=(format!("w-[48px] h-[2px] {}", if i <= current_idx && !is_disputed { "bg-success" } else { "bg-border" })) {}
  }
  @let (dot_cls, text_cls, ring_cls) = if is_disputed {
  ("bg-border-soft", "text-muted", "")
  } else if i < current_idx {
- ("bg-[#10b981]", "text-[#10b981]", "")
+ ("bg-success", "text-success", "")
  } else if i == current_idx {
  ("bg-accent", "text-[#2563eb] font-semibold", "shadow-[0_0_0_3px_rgba(37,99,235,0.1)]")
  } else {
@@ -272,7 +272,7 @@ fn reconciliation_detail_page(
  hx-confirm="确认发送此对账单？" { "发送对账" }
  }
  @if rec.status == ReconciliationStatus::Sent {
- button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-[#10b981] text-[#fff]"
+ button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-success text-[#fff]"
  hx-post=(ConfirmReconciliationPath { id: rec.id }.to_string())
  hx-confirm="确认此对账单？" { "确认" }
  button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-danger text-white border-none hover:opacity-90"
@@ -280,7 +280,7 @@ fn reconciliation_detail_page(
  hx-confirm="确认提出异议？" { "异议" }
  }
  @if rec.status == ReconciliationStatus::Confirmed {
- button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-[#10b981] text-[#fff]"
+ button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-success text-[#fff]"
  hx-post=(SettleReconciliationPath { id: rec.id }.to_string())
  hx-confirm="确认结算？" { "结算" }
  }

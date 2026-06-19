@@ -35,7 +35,7 @@ pub async fn get_report_detail(path: ReportDetailPath, ctx: RequestContext) -> R
  let content = html! { div {
  div class="block bg-bg border border-border rounded p-6" {
  div class="flex items-center justify-between" {
- div class="text-xl font-bold text-fg flex items-center gap-[14px]" { (report.doc_number) " " span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-[#f0fff0] text-[#389e0d]" { "已确认" } }
+ div class="text-xl font-bold text-fg flex items-center gap-[14px]" { (report.doc_number) " " span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-success-bg text-success" { "已确认" } }
  }
  div class="grid gap-5" {
  div class="flex flex-col gap-1" { span class="text-xs text-muted font-medium" { "工单" } span class="text-sm text-fg font-medium" { (wo) } }

@@ -40,28 +40,28 @@ fn exception_list_page(
  // ── Stats row ──
  div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-5" {
  div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-md" {
- div class="w-11 h-11 rounded-md grid place-items-center shrink-0 bg-[#e6f4ff] text-accent" { (icon::circle_alert_icon("w-5 h-5")) }
+ div class="w-11 h-11 rounded-md grid place-items-center shrink-0 bg-accent-bg text-accent" { (icon::circle_alert_icon("w-5 h-5")) }
  div {
  div class="text-2xl font-bold font-mono tabular-nums text-fg" { (stats.total_month) }
  div class="text-sm text-muted mt-1" { "本月异常" }
  }
  }
  div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-md" {
- div class="w-11 h-11 rounded-md grid place-items-center shrink-0 bg-[#fff8eb] text-warn" { (icon::clock_icon("w-5 h-5")) }
+ div class="w-11 h-11 rounded-md grid place-items-center shrink-0 bg-warn-bg text-warn" { (icon::clock_icon("w-5 h-5")) }
  div {
  div class="text-2xl font-bold font-mono tabular-nums text-fg" { (stats.batch_suspended) }
  div class="text-sm text-muted mt-1" { "批次暂停" }
  }
  }
  div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-md" {
- div class="w-11 h-11 rounded-md grid place-items-center shrink-0 bg-[#fff2f0] text-danger" { (icon::trash_icon("w-5 h-5")) }
+ div class="w-11 h-11 rounded-md grid place-items-center shrink-0 bg-danger-bg text-danger" { (icon::trash_icon("w-5 h-5")) }
  div {
  div class="text-2xl font-bold font-mono tabular-nums text-danger" { (stats.batch_scrapped) }
  div class="text-sm text-muted mt-1" { "报废批次" }
  }
  }
  div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-md" {
- div class="w-11 h-11 rounded-md grid place-items-center shrink-0 bg-[#fff2f0] text-danger" { (icon::alert_triangle_icon("w-5 h-5")) }
+ div class="w-11 h-11 rounded-md grid place-items-center shrink-0 bg-danger-bg text-danger" { (icon::alert_triangle_icon("w-5 h-5")) }
  div {
  div class="text-2xl font-bold font-mono tabular-nums text-muted" { (stats.inspection_failed) }
  div class="text-sm text-muted mt-1" { "报检不合格" }

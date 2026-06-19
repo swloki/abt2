@@ -326,35 +326,35 @@ fn om_dashboard_page(total: u64, ctx: &OmDashboardContext) -> Markup {
  // ── Stat Cards ──
  div class="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6" {
  div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-md" {
- div class="w-11 h-11 rounded-md grid place-items-center shrink-0 bg-[#e6f4ff] text-accent" { (icon::file_text_icon("w-5 h-5")) }
+ div class="w-11 h-11 rounded-md grid place-items-center shrink-0 bg-accent-bg text-accent" { (icon::file_text_icon("w-5 h-5")) }
  div {
  div class="text-2xl font-bold font-mono tabular-nums text-fg" { (total) }
  div class="text-sm text-muted mt-1" { "委外单总数" }
  }
  }
  div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-md" {
- div class="w-11 h-11 rounded-md grid place-items-center shrink-0 bg-[#f0fff0] text-success" { (icon::tool_icon("w-5 h-5")) }
+ div class="w-11 h-11 rounded-md grid place-items-center shrink-0 bg-success-bg text-success" { (icon::tool_icon("w-5 h-5")) }
  div {
  div class="text-2xl font-bold font-mono tabular-nums text-fg" { (ctx.in_production) }
  div class="text-sm text-muted mt-1" { "生产中" }
  }
  }
  div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-md" {
- div class="w-11 h-11 rounded-md grid place-items-center shrink-0 bg-[#fff8eb] text-warn" { (icon::package_icon("w-5 h-5")) }
+ div class="w-11 h-11 rounded-md grid place-items-center shrink-0 bg-warn-bg text-warn" { (icon::package_icon("w-5 h-5")) }
  div {
  div class="text-2xl font-bold font-mono tabular-nums text-fg" { (ctx.delivered) }
  div class="text-sm text-muted mt-1" { "待收货" }
  }
  }
  div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-md" {
- div class="w-11 h-11 rounded-md grid place-items-center shrink-0 bg-[#fff2f0] text-danger" { (icon::alert_triangle_icon("w-5 h-5")) }
+ div class="w-11 h-11 rounded-md grid place-items-center shrink-0 bg-danger-bg text-danger" { (icon::alert_triangle_icon("w-5 h-5")) }
  div {
  div class="text-2xl font-bold font-mono tabular-nums text-fg" { (ctx.overdue) }
  div class="text-sm text-muted mt-1" { "超期预警" }
  }
  }
  div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-md" {
- div class="w-11 h-11 rounded-md grid place-items-center shrink-0 bg-[rgba(124,58,237,0.1)] text-[#7c3aed]" { (icon::currency_icon("w-5 h-5")) }
+ div class="w-11 h-11 rounded-md grid place-items-center shrink-0 bg-[rgba(124,58,237,0.1)] text-purple" { (icon::currency_icon("w-5 h-5")) }
  div {
  div class="text-2xl font-bold font-mono tabular-nums text-fg" { (format_amount(ctx.monthly_amount)) }
  div class="text-sm text-muted mt-1" { "本月委外金额" }

@@ -268,7 +268,7 @@ fn backflush_item_row(
  }
  td class="text-right text-[13px]" {
  @if item.is_over_threshold {
- span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-[#fff2f0] text-danger text-xs font-bold" { "✓" }
+ span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-danger-bg text-danger text-xs font-bold" { "✓" }
  } @else {
  span class="text-muted" { "✗" }
  }
@@ -296,7 +296,7 @@ fn backflush_status_flow(status: BackflushStatus) -> Markup {
  @if i > 0 {
  span class="text-border text-sm" { "→" }
  }
- @let dot_cls = if i < current_idx { "bg-[#10b981]" }
+ @let dot_cls = if i < current_idx { "bg-success" }
  else if i == current_idx { "bg-accent ring-[3px] ring-[rgba(37,99,235,0.1)]" }
  else { "bg-[#d1d5db]" };
  @let text_cls = if i <= current_idx { "text-fg" } else { "text-muted" };

@@ -49,26 +49,26 @@ pub struct ResultQueryParams {
 
 fn status_label(s: &InspectionStatus) -> (&'static str, &'static str, &'static str) {
  match s {
- InspectionStatus::Pending => ("待检验", "bg-[#fff8eb]", "text-warn"),
- InspectionStatus::Completed => ("已完成", "bg-[#dcfce7]", "text-success"),
- InspectionStatus::Dispositioned => ("已处置", "bg-[#f3e8ff]", "text-[#722ed1]"),
+ InspectionStatus::Pending => ("待检验", "bg-warn-bg", "text-warn"),
+ InspectionStatus::Completed => ("已完成", "bg-success-bg", "text-success"),
+ InspectionStatus::Dispositioned => ("已处置", "bg-purple-bg", "text-[#722ed1]"),
  }
 }
 
 fn result_type_label(r: &InspectionResultType) -> (&'static str, &'static str, &'static str) {
  match r {
- InspectionResultType::Pass => ("合格", "bg-[#dcfce7]", "text-success"),
+ InspectionResultType::Pass => ("合格", "bg-success-bg", "text-success"),
  InspectionResultType::Fail => ("不合格", "bg-[#fee2e2]", "text-danger"),
- InspectionResultType::Conditional => ("让步接收", "bg-[#dbeafe]", "text-accent"),
+ InspectionResultType::Conditional => ("让步接收", "bg-accent-bg", "text-accent"),
  }
 }
 
 fn inspection_type_label(t: &InspectionType) -> (&'static str, &'static str, &'static str) {
  match t {
- InspectionType::Iqc => ("IQC", "bg-[#dbeafe]", "text-accent"),
- InspectionType::Ipqc => ("IPQC", "bg-[#dcfce7]", "text-success"),
- InspectionType::Fqc => ("FQC", "bg-[#f3e8ff]", "text-[#7c3aed]"),
- InspectionType::Oqc => ("OQC", "bg-[#fff8eb]", "text-[#ea580c]"),
+ InspectionType::Iqc => ("IQC", "bg-accent-bg", "text-accent"),
+ InspectionType::Ipqc => ("IPQC", "bg-success-bg", "text-success"),
+ InspectionType::Fqc => ("FQC", "bg-purple-bg", "text-purple"),
+ InspectionType::Oqc => ("OQC", "bg-warn-bg", "text-[#ea580c]"),
  }
 }
 

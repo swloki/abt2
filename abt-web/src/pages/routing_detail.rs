@@ -191,7 +191,7 @@ fn routing_detail_page(
  td { (step.process_name.as_deref().unwrap_or(&step.process_code)) }
  td {
  @if step.is_required {
- span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-[#fff8eb] text-[#d46b08]" { "必经" }
+ span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-warn-bg text-warn" { "必经" }
  } @else {
  span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-surface text-muted" { "选检" }
  }

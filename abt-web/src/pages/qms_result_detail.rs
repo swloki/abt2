@@ -148,9 +148,9 @@ pub async fn get_detail(path: ResultDetailPath, ctx: RequestContext) -> Result<H
  td class="font-mono tabular-nums" { (&cr.measured) }
  td {
  @if cr.pass {
- span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-[#f0fff0] text-[#389e0d]" { "合格" }
+ span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-success-bg text-success" { "合格" }
  } @else {
- span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-[#fff2f0] text-[#cf1322]" { "不合格" }
+ span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-danger-bg text-danger" { "不合格" }
  }
  }
  td { (cr.remark.as_deref().unwrap_or("—")) }

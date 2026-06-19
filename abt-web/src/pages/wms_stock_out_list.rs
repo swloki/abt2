@@ -45,8 +45,8 @@ pub struct StockOutQueryParams {
 fn out_type_label(t: &TransactionType) -> (&'static str, &'static str) {
  // (label, pill_class)
  match t {
- TransactionType::SalesShipment => ("销售出库", "bg-[#fff1f0] text-danger"),
- TransactionType::MaterialIssue => ("生产领料", "bg-[#fff7e6] text-warn"),
+ TransactionType::SalesShipment => ("销售出库", "bg-danger-bg text-danger"),
+ TransactionType::MaterialIssue => ("生产领料", "bg-warn-bg text-warn"),
  _ => ("其他", "bg-surface text-muted"),
  }
 }
@@ -253,7 +253,7 @@ fn stock_out_data_card(
  td class="text-right text-[13px] font-mono tabular-nums" { (item.unit_cost.map(|c| format!("¥{:.2}", c)).unwrap_or_else(|| "—".into())) }
  td class="text-xs text-fg-2" { "FIFO" }
  td {
- span class="status-pill bg-[#f0fff0] text-[#389e0d]" { "已出库" }
+ span class="status-pill bg-success-bg text-success" { "已出库" }
  }
  td class="text-sm text-fg" { (op_name) }
  td class="text-xs text-muted" { (item.created_at.format("%Y-%m-%d %H:%M")) }
@@ -299,10 +299,10 @@ fn stock_out_table_fragment(
  div class="stockout-list-panel" {
  // ── Stat Cards ──
  div class="grid grid-cols-4 gap-5 mb-6" {
- (stat_card(&icon::upload_icon("w-[22px] h-[22px]"), "bg-[#fff1f0] text-danger", &total_count.to_string(), "本月出库单"))
- (stat_card(&icon::currency_icon("w-[22px] h-[22px]"), "bg-[#fff1f0] text-danger", "—", "出库总金额"))
- (stat_card(&icon::clock_icon("w-[22px] h-[22px]"), "bg-[#fff7e6] text-warn", "—", "待拣货"))
- (stat_card(&icon::check_circle_icon("w-[22px] h-[22px]"), "bg-[#f0fff0] text-success", &total_count.to_string(), "已完成"))
+ (stat_card(&icon::upload_icon("w-[22px] h-[22px]"), "bg-danger-bg text-danger", &total_count.to_string(), "本月出库单"))
+ (stat_card(&icon::currency_icon("w-[22px] h-[22px]"), "bg-danger-bg text-danger", "—", "出库总金额"))
+ (stat_card(&icon::clock_icon("w-[22px] h-[22px]"), "bg-warn-bg text-warn", "—", "待拣货"))
+ (stat_card(&icon::check_circle_icon("w-[22px] h-[22px]"), "bg-success-bg text-success", &total_count.to_string(), "已完成"))
  }
 
  (status_tabs_with_param(StockOutListPath::PATH, "#stockout-data-card", "#stockout-filter-form", tabs, selected_type, "transaction_type"))

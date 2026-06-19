@@ -306,7 +306,7 @@ fn price_history_row(index: usize, row: &PriceHistoryRow) -> Markup {
  }
  _ => ("—".into(), true),
  };
- let tag_class = if is_up { "inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold bg-[#f6ffed] text-[#389e0d]" } else { "inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold bg-[#fff2f0] text-[#cf1322]" };
+ let tag_class = if is_up { "inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold bg-success-bg text-success" } else { "inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold bg-danger-bg text-danger" };
  let detail_path = PriceHistoryDetailPath { log_id: row.log_id };
  html! {
  tr class="cursor-pointer"
@@ -399,7 +399,7 @@ fn detail_content(row: &PriceHistoryRow) -> Markup {
  }
  _ => ("—".into(), true),
  };
- let tag_class = if is_up { "inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold bg-[#f6ffed] text-[#389e0d]" } else { "inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold bg-[#fff2f0] text-[#cf1322]" };
+ let tag_class = if is_up { "inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold bg-success-bg text-success" } else { "inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold bg-danger-bg text-danger" };
  html! {
  // ── 产品信息 ──
  div class="mb-5" {

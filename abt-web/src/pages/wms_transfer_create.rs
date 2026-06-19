@@ -7,8 +7,7 @@ use chrono::NaiveDate;
 use rust_decimal::Decimal;
 
 use abt_core::master_data::product::ProductService;
-use abt_core::master_data::product::model::ProductQuery;
-use abt_core::shared::types::{DomainError, PageParams};
+use abt_core::shared::types::DomainError;
 use abt_core::wms::transfer::TransferService;
 use abt_core::wms::transfer::model::{CreateTransferReq, CreateTransferItemReq};
 use abt_core::wms::warehouse::WarehouseService;
@@ -16,7 +15,7 @@ use abt_core::wms::warehouse::WarehouseService;
 use crate::components::icon;
 use crate::errors::Result;
 use crate::layout::page::admin_page;
-use crate::routes::wms_transfer::{TransferCreatePath, TransferListPath, TransferProductsPath, TransferItemRowPath};
+use crate::routes::wms_transfer::{TransferCreatePath, TransferListPath, TransferItemRowPath};
 use crate::utils::{RequestContext, empty_as_none};
 use abt_macros::require_permission;
 

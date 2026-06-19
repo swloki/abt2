@@ -9,10 +9,10 @@ use common::TestApp;
 use rust_decimal::Decimal;
 use abt_core::{
     purchase::{
-        enums::{PurchaseOrderStatus, PurchaseReturnStatus, PaymentStatus, PurchaseQuotationStatus},
+        enums::{PurchaseOrderStatus, PurchaseReturnStatus, PurchaseQuotationStatus},
         order::{PurchaseOrderService, model::{PurchaseOrder, PurchaseOrderItem}},
         return_order::{PurchaseReturnService, model::PurchaseReturn},
-        payment::{PaymentRequestService, model::PaymentRequest},
+        payment::model::PaymentRequest,
         quotation::{PurchaseQuotationService, model::PurchaseQuotation},
     },
     shared::types::ServiceContext,

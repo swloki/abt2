@@ -6,8 +6,7 @@ use serde::Deserialize;
 use rust_decimal::Decimal;
 
 use abt_core::master_data::product::ProductService;
-use abt_core::master_data::product::model::ProductQuery;
-use abt_core::shared::types::{DomainError, PageParams};
+use abt_core::shared::types::DomainError;
 use abt_core::shared::enums::DocumentType;
 use abt_core::shared::document_sequence::DocumentSequenceService;
 use abt_core::wms::warehouse::WarehouseService;
@@ -18,7 +17,7 @@ use abt_core::wms::enums::TransactionType;
 use crate::components::icon;
 use crate::errors::Result;
 use crate::layout::page::admin_page;
-use crate::routes::wms_stock_out::{StockOutCreatePath, StockOutListPath, StockOutProductsPath, StockOutItemRowPath};
+use crate::routes::wms_stock_out::{StockOutCreatePath, StockOutListPath, StockOutItemRowPath};
 use crate::utils::{RequestContext, empty_as_none};
 use abt_macros::require_permission;
 

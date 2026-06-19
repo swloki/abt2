@@ -10,7 +10,6 @@ use abt_core::gl::enums::EntryStatus;
 use abt_core::shared::enums::document_type::DocumentType;
 use abt_core::shared::types::PaginatedResult;
 
-use crate::components::icon;
 use crate::components::pagination::pagination;
 use crate::components::tabs::{status_tabs_with_param, TabItem};
 use crate::errors::Result;

@@ -7,7 +7,6 @@ use serde::Deserialize;
 use rust_decimal::Decimal;
 
 use abt_core::master_data::product::ProductService;
-use abt_core::master_data::product::model::ProductQuery;
 use abt_core::master_data::supplier::model::SupplierQuery;
 use abt_core::master_data::supplier::SupplierService;
 use abt_core::purchase::order::PurchaseOrderService;

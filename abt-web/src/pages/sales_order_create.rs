@@ -6,7 +6,6 @@ use serde::Deserialize;
 
 use abt_core::master_data::customer::model::{CustomerContact, CustomerQuery};
 use abt_core::master_data::customer::CustomerService;
-use abt_core::master_data::product::model::ProductQuery;
 use abt_core::master_data::product::ProductService;
 use abt_core::sales::quotation::QuotationService;
 use abt_core::sales::quotation::model::QuotationItem;

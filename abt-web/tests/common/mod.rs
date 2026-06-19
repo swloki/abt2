@@ -5,8 +5,6 @@
 
 use std::sync::{Arc, Once};
 
-use tracing_subscriber::EnvFilter;
-
 use abt_core::shared::identity::model::Claims;
 use abt_web::state::AppState;
 use axum::body::Body;

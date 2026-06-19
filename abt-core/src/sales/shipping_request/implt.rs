@@ -26,6 +26,10 @@ use crate::shared::event_bus::model::EventPublishRequest;
 use crate::shared::inventory_reservation::{new_inventory_reservation_service, service::InventoryReservationService};
 use crate::shared::state_machine::{new_state_machine_service, service::StateMachineService};
 use crate::shared::types::{PgExecutor, DomainError, PageParams, PaginatedResult, ServiceContext, Result};
+use crate::wms::enums::TransactionType;
+use crate::wms::inventory_transaction::{
+    model::RecordTransactionReq, new_inventory_transaction_service, service::InventoryTransactionService,
+};
 
 pub struct ShippingRequestServiceImpl {
     repo: ShippingRequestRepo,
@@ -484,6 +488,32 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
                     db,
                     DocumentType::SalesOrder,
                     item.order_item_id,
+                )
+                .await?;
+
+            // 销售出库：记 SalesShipment 库存事务（负向扣减实物库存）。
+            // 修复：原 ship() 只履行预留 + 记 COGS，未扣实物库存 → 销售发货后台账无变化。
+            // 先 fulfill 释放预留（ATP 回升），再出库扣减，避免与预检冲突。
+            new_inventory_transaction_service(self.pool.clone())
+                .record(
+                    ctx,
+                    db,
+                    RecordTransactionReq {
+                        doc_number: None,
+                        delivery_no: None,
+                        source_doc_number: Some(existing.doc_number.clone()),
+                        transaction_type: TransactionType::SalesShipment,
+                        product_id: item.product_id,
+                        warehouse_id: item.warehouse_id,
+                        zone_id: None,
+                        bin_id: None,
+                        batch_no: None,
+                        quantity: -item.requested_qty,
+                        unit_cost: None,
+                        source_type: "shipping".to_string(),
+                        source_id: id,
+                        remark: None,
+                    },
                 )
                 .await?;
         }

@@ -12,6 +12,8 @@ use common::TestApp;
 use rust_decimal::Decimal;
 
 use abt_core::shared::types::ServiceContext;
+use abt_core::shared::enums::document_type::DocumentType;
+use abt_core::shared::inventory_reservation::{new_inventory_reservation_service, service::InventoryReservationService};
 use abt_core::purchase::order::PurchaseOrderService;
 use abt_core::sales::sales_order::{model::SalesOrderItem, SalesOrderService};
 use abt_core::mes::work_order::{model::WorkOrderFilter, WorkOrderService};
@@ -101,6 +103,14 @@ async fn available_anywh(app: &TestApp, product_id: i64) -> Decimal {
     svc.query_available(&ctx, &mut conn, product_id, None)
         .await
         .unwrap()
+}
+
+/// 清理某 SO 的预留（两条链确认 SO 但不发货，避免 Active 预留在共享库累积污染）。
+async fn cancel_so_reservations(app: &TestApp, so_id: i64) {
+    let svc = new_inventory_reservation_service(app.state.pool.clone());
+    let ctx = ServiceContext::new(1);
+    let mut conn = app.state.pool.acquire().await.unwrap();
+    let _ = svc.cancel_by_source(&ctx, &mut conn, DocumentType::SalesOrder, so_id).await;
 }
 
 /// 从 HX-Redirect 路径提取末尾 id（如 /admin/orders/123 → 123）
@@ -249,6 +259,7 @@ async fn purchased_chain_sales_to_purchase_to_warehouse() {
         after > base,
         "外购链终点：565 库存应入库增加 (base={base}, after={after})"
     );
+    cancel_so_reservations(&app, so_id).await; // 清理 SO 预留，避免共享库累积污染
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -334,6 +345,7 @@ async fn made_chain_sales_to_production_to_warehouse() {
         after_made > base_made,
         "自制链终点：成品 8665 库存应完工入库增加 (base={base_made}, after={after_made})"
     );
+    cancel_so_reservations(&app, so_id).await; // 清理 SO 预留，避免共享库累积污染
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -358,6 +370,7 @@ async fn k1_so_confirm_reserve_then_ship_deducts_stock() {
     // 先入库 565，确保 SO 确认时能全额预留
     stock_in_service(&app, PRODUCT_PURCHASED, 50).await;
     let base = available_anywh(&app, PRODUCT_PURCHASED).await;
+    let base_wh = available(&app, PRODUCT_PURCHASED).await; // 单仓实物库存基线
 
     // 销售订单 + 确认（触发预留）
     let so_body = format!(
@@ -411,6 +424,12 @@ async fn k1_so_confirm_reserve_then_ship_deducts_stock() {
         .unwrap()
     };
     assert!(fulfilled >= 1, "发货应履行本 SO({so_id}) 的预留，实际 fulfilled={fulfilled}");
+    // 修复验证：ship 现在记 SalesShipment，565 单仓实物库存应扣减 10
+    assert_eq!(
+        available(&app, PRODUCT_PURCHASED).await,
+        base_wh - Decimal::from(10),
+        "发货应扣减 565 实物库存 10（base_wh={base_wh}）"
+    );
     let _ = base; // base 仅用于确认入库后基线，预留为跨仓、不影响单仓断言
 }
 

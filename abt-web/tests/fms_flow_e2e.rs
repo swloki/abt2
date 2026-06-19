@@ -9,6 +9,18 @@
 mod common;
 use common::TestApp;
 
+/// 生成唯一的 source_id（基于时间戳和测试名称，避免跨进程/跨进程重复）
+/// 确保测试可重复运行且并发安全（source_id < 2^31 以适配 pg_advisory_xact_lock）
+fn unique_source_id(prefix: &str) -> i64 {
+    // 使用纳秒级时间戳后 6 位 + prefix 哈希，确保唯一性且 < 2^31
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .subsec_nanos() as i64;
+    let hash = prefix.chars().map(|c| c as i64).sum::<i64>() % 1_000_000;
+    9_000_000 + (nanos % 10_000) * 100 + hash
+}
+
 use rust_decimal::Decimal;
 
 use abt_core::shared::types::ServiceContext;
@@ -108,7 +120,7 @@ async fn k2_cash_receipt_confirm_and_writeoff() {
     let today = chrono::Utc::now().date_naive();
     let period = format!("{}", today.format("%Y-%m"));
     let amount = Decimal::from(500);
-    let source_id = 9_999_999_i64; // 测试隔离 source_id，避免污染真实 SO
+    let source_id = unique_source_id("k2"); // 唯一 source_id，避免跨进程冲突
 
     let cj_svc = app.state.cash_journal_service();
     let journal_id = cj_svc
@@ -196,7 +208,7 @@ async fn k3_over_writeoff_rejected() {
     let today = chrono::Utc::now().date_naive();
     let period = format!("{}", today.format("%Y-%m"));
     let amount = Decimal::from(500);
-    let source_id = 9_999_998_i64;
+    let source_id = unique_source_id("k3"); // 唯一 source_id，避免跨进程冲突
 
     let cj_svc = app.state.cash_journal_service();
     let journal_id = cj_svc

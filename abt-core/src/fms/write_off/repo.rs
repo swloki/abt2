@@ -180,16 +180,16 @@ impl WriteOffRepo {
         Ok(total)
     }
 
-    /// Acquire a session-level advisory lock keyed on (source_type, source_id),
+    /// Acquire a transaction-scoped advisory lock keyed on (source_type, source_id),
     /// then sum all write-off amounts for that source.
-    /// Uses pg_advisory_lock (session-level) which works regardless of transaction context.
-    /// Caller MUST call release_advisory_lock after the operation completes.
+    /// Uses pg_advisory_xact_lock which auto-releases at transaction commit/rollback,
+    /// eliminating lock leaks on error paths (no manual release needed).
     pub async fn lock_and_sum_written_off(
         executor: PgExecutor<'_>,
         source_type: DocumentType,
         source_id: i64,
     ) -> Result<Decimal> {
-        sqlx::query("SELECT pg_advisory_lock($1, $2)")
+        sqlx::query("SELECT pg_advisory_xact_lock($1, $2)")
             .bind(source_type.as_i16() as i32)
             .bind(source_id as i32)
             .execute(&mut *executor)
@@ -205,17 +205,15 @@ impl WriteOffRepo {
         Ok(total)
     }
 
-    /// Release the session-level advisory lock acquired by lock_and_sum_written_off.
+    /// Release the advisory lock acquired by lock_and_sum_written_off.
+    /// Now a documented no-op because we use pg_advisory_xact_lock (transaction-scoped),
+    /// which auto-releases at commit/rollback. Signature preserved for compatibility.
     pub async fn release_advisory_lock(
-        executor: PgExecutor<'_>,
-        source_type: DocumentType,
-        source_id: i64,
+        _executor: PgExecutor<'_>,
+        _source_type: DocumentType,
+        _source_id: i64,
     ) -> Result<()> {
-        sqlx::query("SELECT pg_advisory_unlock($1, $2)")
-            .bind(source_type.as_i16() as i32)
-            .bind(source_id as i32)
-            .execute(&mut *executor)
-            .await?;
+        // No-op: pg_advisory_xact_lock auto-releases at transaction end
         Ok(())
     }
 

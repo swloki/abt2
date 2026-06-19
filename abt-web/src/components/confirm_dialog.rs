@@ -24,7 +24,7 @@ pub fn confirm_dialog(
             _="on click[me is event.target] hide me" {
             div class="bg-bg rounded-lg w-[480px] max-w-[92vw] shadow-[0_25px_60px_rgba(15,23,42,0.18)]" _="on click halt the event" {
                 div class="p-8 pb-6 flex flex-col items-center" {
-                    div class="w-14 h-14 rounded-full bg-danger/10 flex items-center justify-center mb-5 [&_svg]:w-7 [&_svg]:h-7 [&_svg]:text-danger" {
+                    div class="w-14 h-14 rounded-full bg-danger/10 flex items-center justify-center mb-5 [&_[class*=i-lucide]]:w-7 [&_[class*=i-lucide]]:h-7 [&_[class*=i-lucide]]:text-danger" {
                         (icon::circle_alert_icon("w-7 h-7"))
                     }
                     div class="text-lg font-semibold text-fg text-center mb-2" { (title) }

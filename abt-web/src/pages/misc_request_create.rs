@@ -185,7 +185,7 @@ fn misc_create_page() -> Markup {
  div class="data-card p-0 overflow-hidden mb-4" {
  div class="flex justify-between items-center px-5 pt-5 pb-3" {
  span class="flex items-center gap-2 text-sm font-semibold text-fg m-0 p-0 border-none" { "请购明细" }
- button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] [&_svg]:w-4 [&_svg]:h-4"
+ button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] [&_[class*=i-lucide]]:w-4 [&_[class*=i-lucide]]:h-4"
  hx-get=(MiscItemRowPath::PATH)
  hx-target="#misc-item-tbody"
  hx-swap="beforeend" {

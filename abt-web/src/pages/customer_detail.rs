@@ -461,7 +461,7 @@ fn customer_detail_page(
  div class="bg-white border border-border-soft rounded p-5" {
  div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 border-b border-border-soft" {
  span { "联系人" }
- button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] [&_svg]:w-4 [&_svg]:h-4"
+ button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] [&_[class*=i-lucide]]:w-4 [&_[class*=i-lucide]]:h-4"
  _="on click add .is-open to #contact-create-modal" {
  (icon::plus_icon("w-3.5 h-3.5"))
  "添加"
@@ -499,7 +499,7 @@ fn customer_detail_page(
  div class="bg-white border border-border-soft rounded p-5 mt-5" {
  div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 border-b border-border-soft" {
  span { "地址信息" }
- button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] [&_svg]:w-4 [&_svg]:h-4"
+ button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] [&_[class*=i-lucide]]:w-4 [&_[class*=i-lucide]]:h-4"
  _="on click add .is-open to #address-create-modal" {
  (icon::plus_icon("w-3.5 h-3.5"))
  "添加"

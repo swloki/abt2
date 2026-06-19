@@ -526,7 +526,7 @@ fn bom_edit_page(
  // ── Toolbar ──
 div class="flex items-center justify-between gap-3 mb-4 flex-wrap" {
  div class="flex items-center gap-2 flex-wrap" {
- a class="inline-flex items-center gap-1.5 py-1.5 px-3 text-xs font-medium rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent cursor-pointer transition-all duration-150 no-underline [&_svg]:w-3.5 [&_svg]:h-3.5" href=(format!("{list_path}?restore=true")) {
+ a class="inline-flex items-center gap-1.5 py-1.5 px-3 text-xs font-medium rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent cursor-pointer transition-all duration-150 no-underline [&_[class*=i-lucide]]:w-3.5 [&_[class*=i-lucide]]:h-3.5" href=(format!("{list_path}?restore=true")) {
  (icon::arrow_left_icon("w-3.5 h-3.5"))
  "返回列表"
  }
@@ -559,13 +559,13 @@ div class="flex items-center justify-between gap-3 mb-4 flex-wrap" {
  }
  div class="flex items-center gap-2 flex-wrap" {
  @if !is_draft && is_owner {
- button class="inline-flex items-center gap-1.5 py-1.5 px-3 text-xs font-medium rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent cursor-pointer transition-all duration-150 [&_svg]:w-3.5 [&_svg]:h-3.5" id="bom-publish-btn"
+ button class="inline-flex items-center gap-1.5 py-1.5 px-3 text-xs font-medium rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent cursor-pointer transition-all duration-150 [&_[class*=i-lucide]]:w-3.5 [&_[class*=i-lucide]]:h-3.5" id="bom-publish-btn"
  _="on click show #bom-publish-dialog" {
  (icon::return_arrow_icon("w-3.5 h-3.5"))
  "取消发布"
  }
  } @else if is_draft {
-button class="inline-flex items-center gap-1.5 py-1.5 px-3 text-xs font-medium rounded-sm bg-success text-white border border-transparent hover:opacity-90 cursor-pointer transition-all duration-150 [&_svg]:w-3.5 [&_svg]:h-3.5" id="bom-publish-btn"
+button class="inline-flex items-center gap-1.5 py-1.5 px-3 text-xs font-medium rounded-sm bg-success text-white border border-transparent hover:opacity-90 cursor-pointer transition-all duration-150 [&_[class*=i-lucide]]:w-3.5 [&_[class*=i-lucide]]:h-3.5" id="bom-publish-btn"
  _="on click show #bom-publish-dialog"
  disabled[node_count == 0]
  title="请先添加物料" {
@@ -574,20 +574,20 @@ button class="inline-flex items-center gap-1.5 py-1.5 px-3 text-xs font-medium r
  }
  }
  @if node_count == 0 {
- button type="button" class="inline-flex items-center gap-1.5 py-1.5 px-3 text-xs font-medium rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover cursor-pointer transition-all duration-150 [&_svg]:w-3.5 [&_svg]:h-3.5" id="bom-add-root-btn"
+ button type="button" class="inline-flex items-center gap-1.5 py-1.5 px-3 text-xs font-medium rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover cursor-pointer transition-all duration-150 [&_[class*=i-lucide]]:w-3.5 [&_[class*=i-lucide]]:h-3.5" id="bom-add-root-btn"
  _="on click put '0' into <input[name='parent_id']/>'s value then add .is-open to #bom-add-modal then call bomLoadProducts()" {
  (icon::plus_icon("w-3.5 h-3.5"))
  "添加根节点"
  }
  } @else {
-button type="button" class="inline-flex items-center gap-1.5 py-1.5 px-3 text-xs font-medium rounded-sm bg-success text-white border border-transparent hover:opacity-90 cursor-pointer transition-all duration-150 [&_svg]:w-3.5 [&_svg]:h-3.5" id="bom-save-as-btn"
+button type="button" class="inline-flex items-center gap-1.5 py-1.5 px-3 text-xs font-medium rounded-sm bg-success text-white border border-transparent hover:opacity-90 cursor-pointer transition-all duration-150 [&_[class*=i-lucide]]:w-3.5 [&_[class*=i-lucide]]:h-3.5" id="bom-save-as-btn"
  data-name=(bom.bom_name)
  _="on click put (my @data-name + '_副本') into <input[name='new_name']/>'s value then add .is-open to #bom-save-as-modal" {
  (icon::copy_icon("w-3.5 h-3.5"))
  "另存为"
  }
  }
-a class="inline-flex items-center gap-1.5 py-1.5 px-3 text-xs font-medium rounded-sm bg-[#f97316] text-white border border-transparent hover:opacity-90 cursor-pointer transition-all duration-150 no-underline [&_svg]:w-3.5 [&_svg]:h-3.5" href=(format!("/admin/labor/bom-cost/{}", bom.bom_id)) {
+a class="inline-flex items-center gap-1.5 py-1.5 px-3 text-xs font-medium rounded-sm bg-[#f97316] text-white border border-transparent hover:opacity-90 cursor-pointer transition-all duration-150 no-underline [&_[class*=i-lucide]]:w-3.5 [&_[class*=i-lucide]]:h-3.5" href=(format!("/admin/labor/bom-cost/{}", bom.bom_id)) {
  (icon::currency_icon("w-3.5 h-3.5"))
  "人工成本"
  }
@@ -928,7 +928,7 @@ p class="mt-2 text-sm" { "未找到匹配的产品" }
  input type="hidden" name="product_id" value=(p.product_id) {}
  input type="hidden" name="quantity" value="1" {}
  input type="hidden" name="unit" value=(p.unit) {}
- button type="submit" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] [&_svg]:w-4 [&_svg]:h-4" { "选择" }
+ button type="submit" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] [&_[class*=i-lucide]]:w-4 [&_[class*=i-lucide]]:h-4" { "选择" }
  }
  }
  }

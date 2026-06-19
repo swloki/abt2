@@ -1,8 +1,25 @@
+import presetIcons from "@unocss/preset-icons";
 import { defineConfig, presetWind4 } from "unocss";
 
 export default defineConfig({
-  presets: [presetWind4()],
+  presets: [
+    presetWind4(),
+    // 纯 CSS 图标：i-lucide-* 由 @iconify-json/lucide 提供，编译期按需生成 mask 模式 CSS。
+    // mask 模式下 background-color: currentColor，颜色跟随 text-* 继承；尺寸默认 em 跟随 font-size。
+    presetIcons({
+      warn: true,
+      extraProperties: {
+        display: "inline-block",
+        "vertical-align": "middle",
+      },
+    }),
+  ],
 
+  // rules: UnoCSS 规则引擎——项目高频任意值模式原子化（tailwindcss 没有的 UnoCSS 灵魂能力）
+  rules: [
+    // 财务/数量列等宽数字（替代手写 [font-variant-numeric:tabular-nums]）
+    ["tabular", { "font-variant-numeric": "tabular-nums" }],
+  ],
 
   // preflights: 全局样式（:root 变量 + reset + scrollbar + [x-cloak]）
   // 从 base.css 行 1-104 迁移
@@ -113,6 +130,9 @@ p { margin: 0; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+/* 隐藏滚动条但保留滚动（横向滚动区等）——伪元素不可原子化，归 preflights */
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
 [x-cloak] { display: none !important; }
 .font-mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 

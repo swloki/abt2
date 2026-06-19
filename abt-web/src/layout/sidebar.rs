@@ -449,17 +449,17 @@ fn render_module_icon(module_id: &str) -> Markup {
 
 fn item_class(active: bool) -> &'static str {
     if active {
-        "flex items-center gap-3 py-[9px] px-5 text-sm text-white transition-all duration-150 rounded-sm mx-3 cursor-pointer relative whitespace-nowrap font-semibold bg-[rgba(37,99,235,0.15)] before:content-[''] before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2 before:w-[3px] before:h-5 before:bg-accent before:rounded-r-sm [&_svg]:w-4.5 [&_svg]:h-4.5 [&_svg]:shrink-0 [&_svg]:opacity-100 [&_svg]:text-accent"
+        "flex items-center gap-3 py-[9px] px-5 text-sm text-white transition-all duration-150 rounded-sm mx-3 cursor-pointer relative whitespace-nowrap font-semibold bg-[rgba(37,99,235,0.15)] before:content-[''] before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2 before:w-[3px] before:h-5 before:bg-accent before:rounded-r-sm [&_[class*=i-lucide]]:w-4.5 [&_[class*=i-lucide]]:h-4.5 [&_[class*=i-lucide]]:shrink-0 [&_[class*=i-lucide]]:opacity-100 [&_[class*=i-lucide]]:text-accent"
     } else {
-        "flex items-center gap-3 py-[9px] px-5 text-sm text-white/60 transition-all duration-150 rounded-sm mx-3 cursor-pointer relative whitespace-nowrap hover:bg-white/[0.06] hover:text-white/95 hover:[&_svg]:opacity-80 [&_svg]:w-4.5 [&_svg]:h-4.5 [&_svg]:shrink-0 [&_svg]:opacity-55 [&_svg]:transition-opacity"
+        "flex items-center gap-3 py-[9px] px-5 text-sm text-white/60 transition-all duration-150 rounded-sm mx-3 cursor-pointer relative whitespace-nowrap hover:bg-white/[0.06] hover:text-white/95 hover:[&_[class*=i-lucide]]:opacity-80 [&_[class*=i-lucide]]:w-4.5 [&_[class*=i-lucide]]:h-4.5 [&_[class*=i-lucide]]:shrink-0 [&_[class*=i-lucide]]:opacity-55 [&_[class*=i-lucide]]:transition-opacity"
     }
 }
 
 fn mobile_class(active: bool) -> &'static str {
     if active {
-        "mobile-nav-item active [&_svg]:w-5 [&_svg]:h-5 text-accent font-semibold"
+        "mobile-nav-item active [&_[class*=i-lucide]]:w-5 [&_[class*=i-lucide]]:h-5 text-accent font-semibold"
     } else {
-        "mobile-nav-item [&_svg]:w-5 [&_svg]:h-5"
+        "mobile-nav-item [&_[class*=i-lucide]]:w-5 [&_[class*=i-lucide]]:h-5"
     }
 }
 
@@ -490,7 +490,7 @@ pub fn sidebar_body_fragment(claims: &Claims, active_module: &str, filter: &NavF
 
     html! {
         div class="p-4 text-sm font-bold [border-bottom:1px_solid_rgba(255,255,255,0.06)] flex items-center gap-2 shrink-0 text-white/90" {
-            span class="w-[18px] h-[18px] grid place-items-center [&_svg]:w-4 [&_svg]:h-4 [&_svg]:text-accent" { (render_module_icon(active_mod.id)) }
+            span class="w-[18px] h-[18px] grid place-items-center [&_[class*=i-lucide]]:w-4 [&_[class*=i-lucide]]:h-4 [&_[class*=i-lucide]]:text-accent" { (render_module_icon(active_mod.id)) }
             span class="whitespace-nowrap overflow-hidden" { (active_mod.name) }
         }
         div class="flex-1 overflow-y-auto p-2" {
@@ -522,7 +522,7 @@ pub fn sidebar(claims: &Claims, active_module: &str, current_path: &str, filter:
             // ── Icon Rail ──
             div class="sidebar-rail w-[56px] min-w-[56px] bg-[#070f1e] flex flex-col items-center py-3 [border-right:1px_solid_rgba(255,255,255,0.04)] shrink-0" {
                 div class="w-[36px] h-[36px] rounded-md bg-accent grid place-items-center mb-5 shadow-[var(--shadow-accent)]" title="ABT ERP" {
-                    span class="[&_svg]:w-4.5 [&_svg]:h-4.5 [&_svg]:text-white" { (icon::box_icon("")) }
+                    span class="[&_[class*=i-lucide]]:w-4.5 [&_[class*=i-lucide]]:h-4.5 [&_[class*=i-lucide]]:text-white" { (icon::box_icon("")) }
                 }
                 div class="rail-modules flex-1 flex flex-col items-center gap-[2px] w-full overflow-y-auto" {
                     @for m in &mods {
@@ -530,7 +530,7 @@ pub fn sidebar(claims: &Claims, active_module: &str, current_path: &str, filter:
                             @let is_initial_active = active_mod.is_some_and(|am| m.id == am.id);
                             @let hx_url = format!("/sidebar/body/{}", m.id);
                             button class=(if is_initial_active {
-                                "rail-item active w-[44px] flex flex-col items-center gap-[3px] py-2 px-0 pb-[6px] border-none bg-transparent rounded-sm text-white cursor-pointer transition-all duration-150 relative act:bg-[rgba(37,99,235,0.15)] act:before:content-[''] act:before:absolute act:before:left-[-4px] act:before:top-1/2 act:before:-translate-y-1/2 act:before:w-[3px] act:before:h-5 act:before:bg-accent act:before:rounded-r-sm [&_svg]:text-accent"
+                                "rail-item active w-[44px] flex flex-col items-center gap-[3px] py-2 px-0 pb-[6px] border-none bg-transparent rounded-sm text-white cursor-pointer transition-all duration-150 relative act:bg-[rgba(37,99,235,0.15)] act:before:content-[''] act:before:absolute act:before:left-[-4px] act:before:top-1/2 act:before:-translate-y-1/2 act:before:w-[3px] act:before:h-5 act:before:bg-accent act:before:rounded-r-sm [&_[class*=i-lucide]]:text-accent"
                             } else {
                                 "rail-item w-[44px] flex flex-col items-center gap-[3px] py-2 px-0 pb-[6px] border-none bg-transparent rounded-sm text-white/40 cursor-pointer transition-all duration-150 relative hover:text-white/85 hover:bg-white/[0.06]"
                             })
@@ -539,14 +539,14 @@ pub fn sidebar(claims: &Claims, active_module: &str, current_path: &str, filter:
                                hx-swap="innerHTML"
                                _="on click take .active from .rail-item"
                                title=(m.name) {
-                                span class="w-[20px] h-[20px] grid place-items-center [&_svg]:w-4.5 [&_svg]:h-4.5" { (render_module_icon(m.id)) }
+                                span class="w-[20px] h-[20px] grid place-items-center [&_[class*=i-lucide]]:w-4.5 [&_[class*=i-lucide]]:h-4.5" { (render_module_icon(m.id)) }
                                 span class="text-[10px] leading-none whitespace-nowrap" { (m.name.replace("管理", "")) }
                             }
                         }
                     }
                 }
                 div class="rail-bottom flex flex-col items-center w-full pt-3 [border-top:1px_solid_rgba(255,255,255,0.06)] mt-2" {
-                    button class="w-[44px] flex flex-col items-center gap-[3px] border-none bg-transparent rounded-sm cursor-pointer relative text-white/25 hover:text-white/60 transition-colors [&_svg]:w-4 [&_svg]:h-4 [&_svg]:opacity-70 hover:[&_svg]:opacity-100"
+                    button class="w-[44px] flex flex-col items-center gap-[3px] border-none bg-transparent rounded-sm cursor-pointer relative text-white/25 hover:text-white/60 transition-colors [&_[class*=i-lucide]]:w-4 [&_[class*=i-lucide]]:h-4 [&_[class*=i-lucide]]:opacity-70 hover:[&_[class*=i-lucide]]:opacity-100"
                             _="on click toggle .sidebar-collapsed on .app-shell then if .app-shell matches .sidebar-collapsed call localStorage.setItem('sidebar-collapsed','true') else call localStorage.removeItem('sidebar-collapsed')"
                             title="收起侧栏" {
                         (icon::sidebar_toggle_icon(""))

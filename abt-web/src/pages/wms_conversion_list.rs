@@ -163,7 +163,7 @@ fn conversion_table_fragment(
  hx-swap="outerHTML"
  hx-include="#conversion-filter-form"
  hx-push-url="true" {
- div class="relative flex-1 max-w-xs [&_svg]:absolute [&_svg]:left-3 [&_svg]:top-1/2 [&_svg]:-translate-y-1/2 [&_svg]:w-4 [&_svg]:h-4 [&_svg]:text-muted" {
+ div class="relative flex-1 max-w-xs [&_[class*=i-lucide]]:absolute [&_[class*=i-lucide]]:left-3 [&_[class*=i-lucide]]:top-1/2 [&_[class*=i-lucide]]:-translate-y-1/2 [&_[class*=i-lucide]]:w-4 [&_[class*=i-lucide]]:h-4 [&_[class*=i-lucide]]:text-muted" {
  (icon::search_icon(""))
  input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input" type="text" name="doc_number"
  placeholder="转换单号";
@@ -196,7 +196,7 @@ fn conversion_row(c: &FormConversion) -> Markup {
  td onclick=(format!("location.href='{}'", detail_path)) { "—" }
  td onclick=(format!("location.href='{}'", detail_path)) { "—" }
  td _="on click halt the event" {
- div class="row-actions flex items-center gap-1 justify-end opacity-0 transition-opacity duration-150 [&_a]:w-[28px] [&_a]:h-[28px] [&_a]:grid [&_a]:place-items-center [&_a]:rounded-sm [&_a]:cursor-pointer [&_a]:bg-surface [&_a]:hover:bg-accent-bg [&_svg]:w-3.5 [&_svg]:h-3.5" {
+ div class="row-actions flex items-center gap-1 justify-end opacity-0 transition-opacity duration-150 [&_a]:w-[28px] [&_a]:h-[28px] [&_a]:grid [&_a]:place-items-center [&_a]:rounded-sm [&_a]:cursor-pointer [&_a]:bg-surface [&_a]:hover:bg-accent-bg [&_[class*=i-lucide]]:w-3.5 [&_[class*=i-lucide]]:h-3.5" {
  a class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" title="查看" href=(detail_path.to_string()) {
  (icon::eye_icon("w-4 h-4"))
  }

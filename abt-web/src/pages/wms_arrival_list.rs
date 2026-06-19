@@ -248,7 +248,7 @@ fn arrival_table_fragment(
  hx-swap="outerHTML"
  hx-include="#arrival-filter-form"
  hx-push-url="true" {
- div class="relative w-60 [&_svg]:absolute [&_svg]:left-3 [&_svg]:top-1/2 [&_svg]:-translate-y-1/2 [&_svg]:w-4 [&_svg]:h-4 [&_svg]:text-muted" {
+ div class="relative w-60 [&_[class*=i-lucide]]:absolute [&_[class*=i-lucide]]:left-3 [&_[class*=i-lucide]]:top-1/2 [&_[class*=i-lucide]]:-translate-y-1/2 [&_[class*=i-lucide]]:w-4 [&_[class*=i-lucide]]:h-4 [&_[class*=i-lucide]]:text-muted" {
  (icon::search_icon(""))
  input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input" type="text" name="doc_number"
  placeholder="搜索单号/供应商…"

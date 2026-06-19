@@ -358,15 +358,15 @@ fn row_tr(rule: &PurchaseApprovalRule) -> Markup {
  }
  }
  td {
- div class="row-actions flex items-center gap-1 justify-end opacity-0 transition-opacity duration-150 [&_a]:w-[28px] [&_a]:h-[28px] [&_a]:grid [&_a]:place-items-center [&_a]:rounded-sm [&_a]:cursor-pointer [&_a]:bg-surface [&_a]:hover:bg-accent-bg [&_svg]:w-3.5 [&_svg]:h-3.5" {
- button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs [&_svg]:w-4 [&_svg]:h-4"
+ div class="row-actions flex items-center gap-1 justify-end opacity-0 transition-opacity duration-150 [&_a]:w-[28px] [&_a]:h-[28px] [&_a]:grid [&_a]:place-items-center [&_a]:rounded-sm [&_a]:cursor-pointer [&_a]:bg-surface [&_a]:hover:bg-accent-bg [&_[class*=i-lucide]]:w-3.5 [&_[class*=i-lucide]]:h-3.5" {
+ button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs [&_[class*=i-lucide]]:w-4 [&_[class*=i-lucide]]:h-4"
  hx-get=(RuleEditPath { id: rule.id }.to_string())
  hx-target="#rule-modal"
  hx-swap="innerHTML"
  _="on 'htmx:afterRequest' add .is-open to #rule-modal" {
  "编辑"
  }
- button class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-danger text-white border-none hover:opacity-90 [&_svg]:w-4 [&_svg]:h-4"
+ button class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-danger text-white border-none hover:opacity-90 [&_[class*=i-lucide]]:w-4 [&_[class*=i-lucide]]:h-4"
  hx-post=(RuleDeletePath { id: rule.id }.to_string())
  hx-confirm="确认删除此审批规则？"
  hx-target="#rules-data-card"

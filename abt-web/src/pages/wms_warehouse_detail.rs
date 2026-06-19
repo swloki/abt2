@@ -607,7 +607,7 @@ fn zone_row(z: &Zone, _warehouse_id: i64) -> Markup {
  @if let Some(ref r) = z.remark { (r) } @else { "—" }
  }
  td {
- div class="row-actions flex items-center gap-1 justify-end opacity-0 transition-opacity duration-150 [&_a]:w-[28px] [&_a]:h-[28px] [&_a]:grid [&_a]:place-items-center [&_a]:rounded-sm [&_a]:cursor-pointer [&_a]:bg-surface [&_a]:hover:bg-accent-bg [&_svg]:w-3.5 [&_svg]:h-3.5" {
+ div class="row-actions flex items-center gap-1 justify-end opacity-0 transition-opacity duration-150 [&_a]:w-[28px] [&_a]:h-[28px] [&_a]:grid [&_a]:place-items-center [&_a]:rounded-sm [&_a]:cursor-pointer [&_a]:bg-surface [&_a]:hover:bg-accent-bg [&_[class*=i-lucide]]:w-3.5 [&_[class*=i-lucide]]:h-3.5" {
  button type="button" class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" title="查看库位"
  hx-get=(bins_path)
  hx-target="#bins-table-container"

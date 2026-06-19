@@ -48,7 +48,7 @@ fn cascade_page(result: Option<&CascadeInventoryResult>) -> Markup {
 
  // ── Search bar ──
  div class="flex items-center gap-3 bg-bg border border-border-soft rounded-md py-5 px-6 mb-6" {
- div class="relative flex-1 [&_svg]:absolute [&_svg]:left-3 [&_svg]:top-1/2 [&_svg]:-translate-y-1/2 [&_svg]:w-4 [&_svg]:h-4 [&_svg]:text-muted" {
+ div class="relative flex-1 [&_[class*=i-lucide]]:absolute [&_[class*=i-lucide]]:left-3 [&_[class*=i-lucide]]:top-1/2 [&_[class*=i-lucide]]:-translate-y-1/2 [&_[class*=i-lucide]]:w-4 [&_[class*=i-lucide]]:h-4 [&_[class*=i-lucide]]:text-muted" {
  (icon::search_icon(""))
  input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input" type="text" name="product_code"
  placeholder="输入产品编码或产品名称"

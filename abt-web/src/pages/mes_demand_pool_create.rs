@@ -385,7 +385,7 @@ fn create_page_content(
  }
  }
  }
- button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs [&_svg]:w-4 [&_svg]:h-4" id="applyDefaultBtn" { "应用默认排程" }
+ button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs [&_[class*=i-lucide]]:w-4 [&_[class*=i-lucide]]:h-4" id="applyDefaultBtn" { "应用默认排程" }
  (PreEscaped(r#"<script>document.getElementById('applyDefaultBtn').addEventListener('click',function(){
  var start=document.getElementById('defaultStart').value;
  var end=document.getElementById('defaultEnd').value;

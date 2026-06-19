@@ -452,7 +452,7 @@ fn view_toggle_and_filter(view_mode: &str, params: &DemandPoolQueryParams) -> Ma
  hx-swap="outerHTML"
  hx-push-url="true" {
  input type="hidden" name="view" value=(view_mode);
- div class="relative flex-1 max-w-xs [&_svg]:absolute [&_svg]:left-3 [&_svg]:top-1/2 [&_svg]:-translate-y-1/2 [&_svg]:w-4 [&_svg]:h-4 [&_svg]:text-muted" {
+ div class="relative flex-1 max-w-xs [&_[class*=i-lucide]]:absolute [&_[class*=i-lucide]]:left-3 [&_[class*=i-lucide]]:top-1/2 [&_[class*=i-lucide]]:-translate-y-1/2 [&_[class*=i-lucide]]:w-4 [&_[class*=i-lucide]]:h-4 [&_[class*=i-lucide]]:text-muted" {
  (icon::search_icon(""))
  input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input" type="text" name="keyword"
  placeholder="搜索物料名称、编码…"
@@ -739,7 +739,7 @@ fn detail_row(item: &DemandSummary) -> Markup {
  @if is_pending {
  form method="get" action=(MesDemandPoolCreatePath::PATH) {
  input type="hidden" name="product_id" value=(item.product_id) {}
- button type="submit" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative [&_svg]:w-4 [&_svg]:h-4" { "创建" }
+ button type="submit" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative [&_[class*=i-lucide]]:w-4 [&_[class*=i-lucide]]:h-4" { "创建" }
  }
  } @else {
  @if let (Some(doc_type), Some(doc_id)) = (item.target_doc_type, item.target_doc_id) {

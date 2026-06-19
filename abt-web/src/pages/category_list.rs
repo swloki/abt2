@@ -468,14 +468,14 @@ fn detail_panel(
  }
  div class="flex gap-2" {
  @if can_update {
- button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs [&_svg]:w-4 [&_svg]:h-4"
+ button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs [&_[class*=i-lucide]]:w-4 [&_[class*=i-lucide]]:h-4"
  _="on click add .is-open to #edit-category-modal" {
  (icon::edit_icon("w-4 h-4"))
  "编辑"
  }
  }
  @if can_delete {
- button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-danger border border-border hover:bg-danger-bg hover:border-[#ffccc7] text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs [&_svg]:w-4 [&_svg]:h-4"
+ button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-danger border border-border hover:bg-danger-bg hover:border-[#ffccc7] text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs [&_[class*=i-lucide]]:w-4 [&_[class*=i-lucide]]:h-4"
  hx-post=(delete_url)
  hx-confirm="确定要删除此分类吗？此操作不可撤销。"
  hx-swap="none" {

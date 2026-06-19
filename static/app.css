@@ -803,25 +803,25 @@ select:disabled {
 .text-sm{font-size:var(--text-sm-fontSize);line-height:var(--un-leading, var(--text-sm-lineHeight));}
 .text-xl{font-size:var(--text-xl-fontSize);line-height:var(--un-leading, var(--text-xl-lineHeight));}
 .text-xs{font-size:var(--text-xs-fontSize);line-height:var(--un-leading, var(--text-xs-lineHeight));}
-.\[\&_\[class\*\=i-lucide\]\]\:text-accent [class*=i-lucide],
 .\[\&_svg\]\:text-accent svg,
 .\[\&\.active\]\:text-accent.active,
 .act\:text-accent.active,
+.icon\:text-accent [class*=i-lucide],
 .text-accent{color:color-mix(in srgb, var(--accent) var(--un-text-opacity), transparent) /* var(--accent) */;}
-.\[\&_\[class\*\=i-lucide\]\]\:text-danger [class*=i-lucide],
 .\[\&_svg\]\:text-danger svg,
+.icon\:text-danger [class*=i-lucide],
 .text-danger{color:color-mix(in srgb, var(--danger) var(--un-text-opacity), transparent) /* var(--danger) */;}
-.\[\&_\[class\*\=i-lucide\]\]\:text-fg [class*=i-lucide],
-.text-fg{color:color-mix(in srgb, var(--fg) var(--un-text-opacity), transparent) /* var(--fg) */;}
-.\[\&_\[class\*\=i-lucide\]\]\:text-muted [class*=i-lucide],
-.text-muted{color:color-mix(in srgb, var(--muted) var(--un-text-opacity), transparent) /* var(--muted) */;}
-.\[\&_\[class\*\=i-lucide\]\]\:text-white [class*=i-lucide],
-.\[\&_svg\]\:text-white svg,
-.text-white{color:color-mix(in srgb, var(--colors-white) var(--un-text-opacity), transparent) /* #fff */;}
 .\[\&_svg\]\:text-success svg,
 .text-success{color:color-mix(in srgb, var(--success) var(--un-text-opacity), transparent) /* var(--success) */;}
+.\[\&_svg\]\:text-white svg,
+.icon\:text-white [class*=i-lucide],
+.text-white{color:color-mix(in srgb, var(--colors-white) var(--un-text-opacity), transparent) /* #fff */;}
 .act\:text-accent-on.active,
 .text-accent-on{color:color-mix(in srgb, var(--accent-on) var(--un-text-opacity), transparent) /* var(--accent-on) */;}
+.icon\:text-fg [class*=i-lucide],
+.text-fg{color:color-mix(in srgb, var(--fg) var(--un-text-opacity), transparent) /* var(--fg) */;}
+.icon\:text-muted [class*=i-lucide],
+.text-muted{color:color-mix(in srgb, var(--muted) var(--un-text-opacity), transparent) /* var(--muted) */;}
 .text-\[\#0369a1\]{color:color-mix(in oklab, #0369a1 var(--un-text-opacity), transparent) /* #0369a1 */;}
 .text-\[\#059669\]{color:color-mix(in oklab, #059669 var(--un-text-opacity), transparent) /* #059669 */;}
 .text-\[\#0f172a\]{color:color-mix(in oklab, #0f172a var(--un-text-opacity), transparent) /* #0f172a */;}
@@ -865,7 +865,7 @@ select:disabled {
 .text-white\/60{color:color-mix(in srgb, var(--colors-white) 60%, transparent) /* #fff */;}
 .text-white\/85{color:color-mix(in srgb, var(--colors-white) 85%, transparent) /* #fff */;}
 .text-white\/90{color:color-mix(in srgb, var(--colors-white) 90%, transparent) /* #fff */;}
-.hover\:\[\&_\[class\*\=i-lucide\]\]\:text-accent [class*=i-lucide]:hover{color:color-mix(in srgb, var(--accent) var(--un-text-opacity), transparent) /* var(--accent) */;}
+.hover\:icon\:text-accent [class*=i-lucide]:hover{color:color-mix(in srgb, var(--accent) var(--un-text-opacity), transparent) /* var(--accent) */;}
 .hover\:text-accent-hover:hover{color:color-mix(in srgb, var(--accent-hover) var(--un-text-opacity), transparent) /* var(--accent-hover) */;}
 .hover\:text-accent:hover{color:color-mix(in srgb, var(--accent) var(--un-text-opacity), transparent) /* var(--accent) */;}
 .hover\:text-danger:hover{color:color-mix(in srgb, var(--danger) var(--un-text-opacity), transparent) /* var(--danger) */;}
@@ -1265,19 +1265,19 @@ select:disabled {
 .before\:bg-border-soft::before{background-color:color-mix(in srgb, var(--border-soft) var(--un-bg-opacity), transparent) /* var(--border-soft) */;}
 .after\:bg-white::after{background-color:color-mix(in srgb, var(--colors-white) var(--un-bg-opacity), transparent) /* #fff */;}
 .group.is-open .group-\[\.is-open\]\:opacity-100,
-.\[\&_\[class\*\=i-lucide\]\]\:opacity-100 [class*=i-lucide],
 .\[\&\.is-open\]\:opacity-100.is-open,
+.icon\:opacity-100 [class*=i-lucide],
 .is-open\:opacity-100:is([open]),
 .group:hover .group-hover\:opacity-100{opacity:100%;}
-.\[\&_\[class\*\=i-lucide\]\]\:opacity-55 [class*=i-lucide]{opacity:55%;}
-.\[\&_\[class\*\=i-lucide\]\]\:opacity-70 [class*=i-lucide],
+.icon\:opacity-55 [class*=i-lucide]{opacity:55%;}
+.icon\:opacity-70 [class*=i-lucide],
 .opacity-70{opacity:70%;}
 .opacity-0{opacity:0%;}
 .opacity-40{opacity:40%;}
 .opacity-45{opacity:45%;}
 .opacity-60{opacity:60%;}
-.hover\:\[\&_\[class\*\=i-lucide\]\]\:opacity-100 [class*=i-lucide]:hover{opacity:100%;}
-.hover\:\[\&_\[class\*\=i-lucide\]\]\:opacity-80 [class*=i-lucide]:hover{opacity:80%;}
+.hover\:icon\:opacity-100 [class*=i-lucide]:hover{opacity:100%;}
+.hover\:icon\:opacity-80 [class*=i-lucide]:hover{opacity:80%;}
 .hover\:opacity-90:hover{opacity:90%;}
 .line-through{text-decoration-line:line-through;}
 .hover\:underline:hover{text-decoration-line:underline;}
@@ -1287,7 +1287,7 @@ select:disabled {
 .show\:flex.show{display:flex;}
 .inline-flex{display:inline-flex;}
 .flex-1{flex:1 1 0%;}
-.\[\&_\[class\*\=i-lucide\]\]\:shrink-0 [class*=i-lucide],
+.icon\:shrink-0 [class*=i-lucide],
 .shrink-0{flex-shrink:0;}
 .flex-row{flex-direction:row;}
 .flex-col{flex-direction:column;}
@@ -1341,43 +1341,6 @@ select:disabled {
 .grid-cols-4{grid-template-columns:repeat(4,minmax(0,1fr));}
 .grid-cols-5{grid-template-columns:repeat(5,minmax(0,1fr));}
 .grid-cols-6{grid-template-columns:repeat(6,minmax(0,1fr));}
-.\[\&_\[class\*\=i-lucide\]\]\:h-\[17px\] [class*=i-lucide]{height:17px;}
-.\[\&_\[class\*\=i-lucide\]\]\:h-\[22px\] [class*=i-lucide],
-.\[\&_svg\]\:h-\[22px\] svg,
-.h-\[22px\]{height:22px;}
-.\[\&_\[class\*\=i-lucide\]\]\:h-3\.5 [class*=i-lucide],
-.h-3\.5{height:calc(var(--spacing) * 3.5);}
-.\[\&_\[class\*\=i-lucide\]\]\:h-4 [class*=i-lucide],
-.\[\&_svg\]\:h-4 svg,
-.h-4,
-.h4{height:var(--spacing-4);}
-.\[\&_\[class\*\=i-lucide\]\]\:h-4\.5 [class*=i-lucide],
-.\[\&_svg\]\:h-4\.5 svg,
-.h-4\.5{height:calc(var(--spacing) * 4.5);}
-.\[\&_\[class\*\=i-lucide\]\]\:h-5 [class*=i-lucide],
-.\[\&_svg\]\:h-5 svg,
-.h-5{height:var(--spacing-5);}
-.\[\&_\[class\*\=i-lucide\]\]\:h-7 [class*=i-lucide],
-.\[\&_svg\]\:h-7 svg,
-.h-7{height:calc(var(--spacing) * 7);}
-.\[\&_\[class\*\=i-lucide\]\]\:w-\[17px\] [class*=i-lucide]{width:17px;}
-.\[\&_\[class\*\=i-lucide\]\]\:w-\[22px\] [class*=i-lucide],
-.\[\&_svg\]\:w-\[22px\] svg,
-.w-\[22px\]{width:22px;}
-.\[\&_\[class\*\=i-lucide\]\]\:w-3\.5 [class*=i-lucide],
-.w-3\.5{width:calc(var(--spacing) * 3.5);}
-.\[\&_\[class\*\=i-lucide\]\]\:w-4 [class*=i-lucide],
-.\[\&_svg\]\:w-4 svg,
-.w-4{width:var(--spacing-4);}
-.\[\&_\[class\*\=i-lucide\]\]\:w-4\.5 [class*=i-lucide],
-.\[\&_svg\]\:w-4\.5 svg,
-.w-4\.5{width:calc(var(--spacing) * 4.5);}
-.\[\&_\[class\*\=i-lucide\]\]\:w-5 [class*=i-lucide],
-.\[\&_svg\]\:w-5 svg,
-.w-5{width:var(--spacing-5);}
-.\[\&_\[class\*\=i-lucide\]\]\:w-7 [class*=i-lucide],
-.\[\&_svg\]\:w-7 svg,
-.w-7{width:calc(var(--spacing) * 7);}
 .\[\&_a\]\:h-\[28px\] a,
 .\[\&_button\]\:h-\[28px\] button,
 .h-\[28px\]{height:28px;}
@@ -1386,8 +1349,39 @@ select:disabled {
 .w-\[28px\]{width:28px;}
 .\[\&_svg\]\:h-\[18px\] svg,
 .h-\[18px\]{height:18px;}
+.\[\&_svg\]\:h-\[22px\] svg,
+.h-\[22px\],
+.icon\:h-\[22px\] [class*=i-lucide]{height:22px;}
+.\[\&_svg\]\:h-4 svg,
+.h-4,
+.h4,
+.icon\:h-4 [class*=i-lucide]{height:var(--spacing-4);}
+.\[\&_svg\]\:h-4\.5 svg,
+.h-4\.5,
+.icon\:h-4\.5 [class*=i-lucide]{height:calc(var(--spacing) * 4.5);}
+.\[\&_svg\]\:h-5 svg,
+.h-5,
+.icon\:h-5 [class*=i-lucide]{height:var(--spacing-5);}
+.\[\&_svg\]\:h-7 svg,
+.h-7,
+.icon\:h-7 [class*=i-lucide]{height:calc(var(--spacing) * 7);}
 .\[\&_svg\]\:w-\[18px\] svg,
 .w-\[18px\]{width:18px;}
+.\[\&_svg\]\:w-\[22px\] svg,
+.icon\:w-\[22px\] [class*=i-lucide],
+.w-\[22px\]{width:22px;}
+.\[\&_svg\]\:w-4 svg,
+.icon\:w-4 [class*=i-lucide],
+.w-4{width:var(--spacing-4);}
+.\[\&_svg\]\:w-4\.5 svg,
+.icon\:w-4\.5 [class*=i-lucide],
+.w-4\.5{width:calc(var(--spacing) * 4.5);}
+.\[\&_svg\]\:w-5 svg,
+.icon\:w-5 [class*=i-lucide],
+.w-5{width:var(--spacing-5);}
+.\[\&_svg\]\:w-7 svg,
+.icon\:w-7 [class*=i-lucide],
+.w-7{width:calc(var(--spacing) * 7);}
 .h-\[120px\]{height:120px;}
 .h-\[13px\]{height:13px;}
 .h-\[140px\]{height:140px;}
@@ -1429,12 +1423,18 @@ select:disabled {
 .h-2\.5{height:calc(var(--spacing) * 2.5);}
 .h-3,
 .h3{height:var(--spacing-3);}
+.h-3\.5,
+.icon\:h-3\.5 [class*=i-lucide]{height:calc(var(--spacing) * 3.5);}
 .h-6{height:var(--spacing-6);}
 .h-8{height:var(--spacing-8);}
 .h-9{height:calc(var(--spacing) * 9);}
 .h-full{height:100%;}
 .h-px{height:1px;}
 .h-screen{height:100vh;}
+.icon\:h-\[17px\] [class*=i-lucide]{height:17px;}
+.icon\:w-\[17px\] [class*=i-lucide]{width:17px;}
+.icon\:w-3\.5 [class*=i-lucide],
+.w-3\.5{width:calc(var(--spacing) * 3.5);}
 .max-h-\[280px\]{max-height:280px;}
 .max-h-\[320px\]{max-height:320px;}
 .max-h-\[360px\]{max-height:360px;}
@@ -1622,7 +1622,7 @@ select:disabled {
 .group.is-open .group-\[\.is-open\]\:translate-y-0{--un-translate-y:calc(var(--spacing) * 0);translate:var(--un-translate-x) var(--un-translate-y);}
 .-translate-x-1\/2{--un-translate-x:-50%;translate:var(--un-translate-x) var(--un-translate-y);}
 .-translate-y-1\/2,
-.\[\&_\[class\*\=i-lucide\]\]\:-translate-y-1\/2 [class*=i-lucide]{--un-translate-y:-50%;translate:var(--un-translate-x) var(--un-translate-y);}
+.icon\:-translate-y-1\/2 [class*=i-lucide]{--un-translate-y:-50%;translate:var(--un-translate-x) var(--un-translate-y);}
 .-translate-y-2{--un-translate-y:calc(var(--spacing) * -2);translate:var(--un-translate-x) var(--un-translate-y);}
 .hover\:-translate-y-px:hover{--un-translate-y:-1px;translate:var(--un-translate-x) var(--un-translate-y);}
 .act\:before\:-translate-y-1\/2.active::before{--un-translate-y:-50%;translate:var(--un-translate-x) var(--un-translate-y);}
@@ -1631,7 +1631,7 @@ select:disabled {
 .-rotate-90{rotate:-90deg;}
 .rotate-180{rotate:180deg;}
 .rotate-90{rotate:90deg;}
-.\[\&_\[class\*\=i-lucide\]\]\:transition-opacity [class*=i-lucide],
+.icon\:transition-opacity [class*=i-lucide],
 .transition-opacity{transition-property:opacity;transition-timing-function:var(--un-ease, var(--default-transition-timingFunction));transition-duration:var(--un-duration, var(--default-transition-duration));}
 .transition{transition-property:color,background-color,border-color,text-decoration-color,fill,stroke,--un-gradient-from,--un-gradient-via,--un-gradient-to,opacity,box-shadow,transform,translate,scale,rotate,filter,-webkit-backdrop-filter,backdrop-filter;transition-timing-function:var(--un-ease, var(--default-transition-timingFunction));transition-duration:var(--un-duration, var(--default-transition-duration));}
 .transition-all{transition-property:all;transition-timing-function:var(--un-ease, var(--default-transition-timingFunction));transition-duration:var(--un-duration, var(--default-transition-duration));}
@@ -1671,13 +1671,13 @@ select:disabled {
 .self-end{align-self:flex-end;}
 .box-border{box-sizing:border-box;}
 .inset-0{inset:calc(var(--spacing) * 0);}
-.\[\&_\[class\*\=i-lucide\]\]\:left-3 [class*=i-lucide],
-.left-3{left:calc(var(--spacing) * 3);}
-.\[\&_\[class\*\=i-lucide\]\]\:top-1\/2 [class*=i-lucide],
-.top-1\/2{top:50%;}
 .bottom-0{bottom:calc(var(--spacing) * 0);}
 .bottom-2{bottom:calc(var(--spacing) * 2);}
 .bottom-6{bottom:calc(var(--spacing) * 6);}
+.icon\:left-3 [class*=i-lucide],
+.left-3{left:calc(var(--spacing) * 3);}
+.icon\:top-1\/2 [class*=i-lucide],
+.top-1\/2{top:50%;}
 .left-\[14px\]{left:14px;}
 .left-\[5px\]{left:5px;}
 .left-0{left:calc(var(--spacing) * 0);}
@@ -1715,8 +1715,8 @@ select:disabled {
 .\[\&_a\]\:place-items-center a,
 .\[\&_button\]\:place-items-center button,
 .place-items-center{place-items:center;}
-.\[\&_\[class\*\=i-lucide\]\]\:absolute [class*=i-lucide],
-.absolute{position:absolute;}
+.absolute,
+.icon\:absolute [class*=i-lucide]{position:absolute;}
 .fixed{position:fixed;}
 .relative{position:relative;}
 .sticky{position:sticky;}
@@ -1781,8 +1781,8 @@ select:disabled {
 .max-\[920px\]\:grid-cols-1{grid-template-columns:repeat(1,minmax(0,1fr));}
 }
 @supports (color: color-mix(in lab, red, red)){
-.\[\&_\[class\*\=i-lucide\]\]\:text-white [class*=i-lucide]{color:color-mix(in oklab, var(--colors-white) var(--un-text-opacity), transparent) /* #fff */;}
 .\[\&_svg\]\:text-white svg{color:color-mix(in oklab, var(--colors-white) var(--un-text-opacity), transparent) /* #fff */;}
+.icon\:text-white [class*=i-lucide]{color:color-mix(in oklab, var(--colors-white) var(--un-text-opacity), transparent) /* #fff */;}
 .text-white{color:color-mix(in oklab, var(--colors-white) var(--un-text-opacity), transparent) /* #fff */;}
 .text-white\/25{color:color-mix(in oklab, var(--colors-white) 25%, transparent) /* #fff */;}
 .text-white\/40{color:color-mix(in oklab, var(--colors-white) 40%, transparent) /* #fff */;}

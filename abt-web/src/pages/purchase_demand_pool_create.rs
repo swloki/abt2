@@ -377,7 +377,7 @@ fn create_page_content(
  }
  }
  div class="flex items-center" class="gap-2" {
- button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs [&_[class*=i-lucide]]:w-4 [&_[class*=i-lucide]]:h-4" id="selectAllBtn" {
+ button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs icon:w-4 icon:h-4" id="selectAllBtn" {
  "全选"
  (PreEscaped(r#"<script>document.currentScript.parentElement.addEventListener('click',function(){
  var cbs = Array.from(document.querySelectorAll('#demand-tbody input[type=checkbox]'));

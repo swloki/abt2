@@ -652,7 +652,7 @@ fn tab_planning(
  }
  td { (completeness_dots(val)) }
  td {
- button type="button" class="btn inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative [&_[class*=i-lucide]]:w-4 [&_[class*=i-lucide]]:h-4"
+ button type="button" class="btn inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative icon:w-4 icon:h-4"
  _="on click call openSplitDialog(me)" { "拆分" }
  }
  }
@@ -711,13 +711,13 @@ fn tab_planning(
  td class="whitespace-nowrap" { (wo.scheduled_start.format("%m-%d")) " → " (wo.scheduled_end.format("%m-%d")) }
  td { (status_pill("草稿", "rgba(250,140,22,0.08)", "#fa8c16")) }
  td class="whitespace-nowrap" {
- button class="btn inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative [&_[class*=i-lucide]]:w-4 [&_[class*=i-lucide]]:h-4"
+ button class="btn inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative icon:w-4 icon:h-4"
  hx-post=(OrderReleasePath { order_id: wo.id }.to_string())
  hx-confirm="确认下达此工单？"
  hx-disabled-elt="this" {
  "下达"
  }
- button class="btn bg-danger text-white border-none hover:opacity-90 inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative [&_[class*=i-lucide]]:w-4 [&_[class*=i-lucide]]:h-4"
+ button class="btn bg-danger text-white border-none hover:opacity-90 inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative icon:w-4 icon:h-4"
  hx-post=(OrderCancelPath { order_id: wo.id }.to_string())
  hx-confirm="确认取消此草稿工单？" {
  "取消"

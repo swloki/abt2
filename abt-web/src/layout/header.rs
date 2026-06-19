@@ -9,7 +9,7 @@ pub fn header(claims: &Claims, module_name: &str, page_name: Option<&str>) -> Ma
         header class="h-[var(--header-h)] bg-white/82 backdrop-blur-md border-b border-border-soft flex items-center justify-between px-8 sticky top-0 z-10" {
             // ── Left: mobile menu + breadcrumb ──
             div class="flex items-center gap-4" {
-                button class="hidden md:grid w-[38px] h-[38px] border-none rounded-sm place-items-center cursor-pointer shrink-0 hover:bg-surface transition-colors [&_[class*=i-lucide]]:w-[22px] [&_[class*=i-lucide]]:h-[22px] [&_[class*=i-lucide]]:text-fg"
+                button class="hidden md:grid w-[38px] h-[38px] border-none rounded-sm place-items-center cursor-pointer shrink-0 hover:bg-surface transition-colors icon:w-[22px] icon:h-[22px] icon:text-fg"
                         _="on click add .mobile-open to #sidebar then add .is-open to .mobile-sidebar-overlay"
                         aria-label="菜单" {
                     (icon::menu_icon(""))
@@ -26,12 +26,12 @@ pub fn header(claims: &Claims, module_name: &str, page_name: Option<&str>) -> Ma
             }
             // ── Right: icon buttons + user menu ──
             div class="flex items-center gap-4" {
-                button class="w-9 h-9 rounded-md border border-border-soft bg-white/60 grid place-items-center relative cursor-pointer transition-all duration-150 hover:bg-bg hover:border-border hover:shadow-sm [&_[class*=i-lucide]]:w-4.5 [&_[class*=i-lucide]]:h-4.5 [&_[class*=i-lucide]]:text-muted"
+                button class="w-9 h-9 rounded-md border border-border-soft bg-white/60 grid place-items-center relative cursor-pointer transition-all duration-150 hover:bg-bg hover:border-border hover:shadow-sm icon:w-4.5 icon:h-4.5 icon:text-muted"
                         title="通知" {
                     (icon::bell_icon(""))
                     div class="absolute top-[7px] right-[7px] w-[7px] h-[7px] rounded-full bg-danger border-2 border-bg" {}
                 }
-                button class="w-9 h-9 rounded-md border border-border-soft bg-white/60 grid place-items-center relative cursor-pointer transition-all duration-150 hover:bg-bg hover:border-border hover:shadow-sm [&_[class*=i-lucide]]:w-4.5 [&_[class*=i-lucide]]:h-4.5 [&_[class*=i-lucide]]:text-muted"
+                button class="w-9 h-9 rounded-md border border-border-soft bg-white/60 grid place-items-center relative cursor-pointer transition-all duration-150 hover:bg-bg hover:border-border hover:shadow-sm icon:w-4.5 icon:h-4.5 icon:text-muted"
                         title="帮助" {
                     (icon::question_icon(""))
                 }
@@ -53,21 +53,21 @@ pub fn header(claims: &Claims, module_name: &str, page_name: Option<&str>) -> Ma
                                 span class="text-xs text-muted whitespace-nowrap overflow-hidden text-ellipsis" { (claims.username.as_str()) }
                             }
                         }
-                        a class="flex items-center gap-3 w-full py-2 px-3 border-none bg-transparent rounded-sm text-sm text-fg-2 cursor-pointer text-left transition-colors hover:bg-bg hover:text-fg [&_[class*=i-lucide]]:w-[17px] [&_[class*=i-lucide]]:h-[17px] [&_[class*=i-lucide]]:text-muted [&_[class*=i-lucide]]:shrink-0 hover:[&_[class*=i-lucide]]:text-accent" href="/admin/users" {
+                        a class="flex items-center gap-3 w-full py-2 px-3 border-none bg-transparent rounded-sm text-sm text-fg-2 cursor-pointer text-left transition-colors hover:bg-bg hover:text-fg icon:w-[17px] icon:h-[17px] icon:text-muted icon:shrink-0 hover:icon:text-accent" href="/admin/users" {
                             (icon::user_icon(""))
                             "个人中心"
                         }
-                        a class="flex items-center gap-3 w-full py-2 px-3 border-none bg-transparent rounded-sm text-sm text-fg-2 cursor-pointer text-left transition-colors hover:bg-bg hover:text-fg [&_[class*=i-lucide]]:w-[17px] [&_[class*=i-lucide]]:h-[17px] [&_[class*=i-lucide]]:text-muted [&_[class*=i-lucide]]:shrink-0 hover:[&_[class*=i-lucide]]:text-accent" href="/admin/users" {
+                        a class="flex items-center gap-3 w-full py-2 px-3 border-none bg-transparent rounded-sm text-sm text-fg-2 cursor-pointer text-left transition-colors hover:bg-bg hover:text-fg icon:w-[17px] icon:h-[17px] icon:text-muted icon:shrink-0 hover:icon:text-accent" href="/admin/users" {
                             (icon::tool_icon(""))
                             "账号设置"
                         }
-                        a class="flex items-center gap-3 w-full py-2 px-3 border-none bg-transparent rounded-sm text-sm text-fg-2 cursor-pointer text-left transition-colors hover:bg-bg hover:text-fg [&_[class*=i-lucide]]:w-[17px] [&_[class*=i-lucide]]:h-[17px] [&_[class*=i-lucide]]:text-muted [&_[class*=i-lucide]]:shrink-0 hover:[&_[class*=i-lucide]]:text-accent" href="/admin/notifications" {
+                        a class="flex items-center gap-3 w-full py-2 px-3 border-none bg-transparent rounded-sm text-sm text-fg-2 cursor-pointer text-left transition-colors hover:bg-bg hover:text-fg icon:w-[17px] icon:h-[17px] icon:text-muted icon:shrink-0 hover:icon:text-accent" href="/admin/notifications" {
                             (icon::bell_icon(""))
                             "通知中心"
                         }
                         div class="h-px bg-border-soft mx-2 my-1" {}
                         form class="m-0" hx-post="/logout" hx-swap="none" {
-                            button class="flex items-center gap-3 w-full py-2 px-3 border-none bg-transparent rounded-sm text-sm text-danger cursor-pointer text-left transition-colors hover:bg-danger/9 [&_[class*=i-lucide]]:w-[17px] [&_[class*=i-lucide]]:h-[17px] [&_[class*=i-lucide]]:text-danger [&_[class*=i-lucide]]:shrink-0" type="submit" {
+                            button class="flex items-center gap-3 w-full py-2 px-3 border-none bg-transparent rounded-sm text-sm text-danger cursor-pointer text-left transition-colors hover:bg-danger/9 icon:w-[17px] icon:h-[17px] icon:text-danger icon:shrink-0" type="submit" {
                                 (icon::log_out_icon(""))
                                 "退出登录"
                             }

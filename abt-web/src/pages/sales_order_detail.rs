@@ -616,7 +616,7 @@ fn order_detail_page(
  html! {
  div {
  // ── Back Link ──
- a class="inline-flex items-center gap-1 text-sm text-muted hover:text-accent transition-colors mb-4 [&_[class*=i-lucide]]:w-4 [&_[class*=i-lucide]]:h-4" href=(format!("{}?restore=true", OrderListPath::PATH)) {
+ a class="inline-flex items-center gap-1 text-sm text-muted hover:text-accent transition-colors mb-4 icon:w-4 icon:h-4" href=(format!("{}?restore=true", OrderListPath::PATH)) {
  (icon::chevron_left_icon("w-4 h-4"))
  "返回销售订单列表"
  }

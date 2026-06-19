@@ -198,6 +198,13 @@ select:disabled {
         }
       }
     },
+    // 图标后代选择器：icon:w-4 等价于 [&_[class*=i-lucide]]:w-4，
+    // 作用域到当前元素内部的 lucide 图标（presetIcons 生成的 <i>）。大幅缩短 539 处调用。
+    (matcher) => {
+      if (matcher.startsWith("icon:")) {
+        return { matcher: matcher.slice(5), selector: (s) => `${s} [class*=i-lucide]` };
+      }
+    },
   ],
   theme: {
     colors: {

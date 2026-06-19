@@ -351,7 +351,7 @@ fn contacts_card(contacts: &[SupplierContact], detail_path: &SupplierDetailPath,
  hx-trigger="contactChanged from:body" {
  div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 border-b border-border-soft" {
  span { "联系人" }
- button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] [&_[class*=i-lucide]]:w-4 [&_[class*=i-lucide]]:h-4"
+ button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] icon:w-4 icon:h-4"
  _="on click add .is-open to #contact-create-modal" {
  (icon::plus_icon("w-3.5 h-3.5"))
  "添加联系人"
@@ -392,7 +392,7 @@ fn bank_accounts_card(bank_accounts: &[SupplierBankAccount], detail_path: &Suppl
  hx-trigger="bankAccountChanged from:body" {
  div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 border-b border-border-soft" {
  span { "银行账户" }
- button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] [&_[class*=i-lucide]]:w-4 [&_[class*=i-lucide]]:h-4"
+ button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] icon:w-4 icon:h-4"
  _="on click add .is-open to #bank-account-create-modal" {
  (icon::plus_icon("w-3.5 h-3.5"))
  "添加账户"

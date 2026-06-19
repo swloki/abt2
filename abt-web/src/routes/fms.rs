@@ -27,6 +27,12 @@ pub struct JournalDetailPath {
     pub id: i64,
 }
 
+#[derive(TypedPath, Deserialize, Serialize, Clone)]
+#[typed_path("/admin/fms/journals/{id}/confirm")]
+pub struct JournalConfirmPath {
+    pub id: i64,
+}
+
 // Expense Reimbursement
 #[derive(TypedPath, Deserialize, Serialize, Clone)]
 #[typed_path("/admin/fms/expenses")]
@@ -39,6 +45,24 @@ pub struct ExpenseCreatePath;
 #[derive(TypedPath, Deserialize, Serialize, Clone)]
 #[typed_path("/admin/fms/expenses/{id}")]
 pub struct ExpenseDetailPath {
+    pub id: i64,
+}
+
+#[derive(TypedPath, Deserialize, Serialize, Clone)]
+#[typed_path("/admin/fms/expenses/{id}/submit")]
+pub struct ExpenseSubmitPath {
+    pub id: i64,
+}
+
+#[derive(TypedPath, Deserialize, Serialize, Clone)]
+#[typed_path("/admin/fms/expenses/{id}/approve")]
+pub struct ExpenseApprovePath {
+    pub id: i64,
+}
+
+#[derive(TypedPath, Deserialize, Serialize, Clone)]
+#[typed_path("/admin/fms/expenses/{id}/pay")]
+pub struct ExpensePayPath {
     pub id: i64,
 }
 
@@ -62,10 +86,14 @@ pub fn router() -> Router<AppState> {
         .route(JournalListPath::PATH, get(crate::pages::fms_journal_list::get_list))
 .route(JournalCreatePath::PATH, get(crate::pages::fms_journal_create::get_create).post(crate::pages::fms_journal_create::create))
         .route(JournalDetailPath::PATH, get(crate::pages::fms_journal_detail::get_detail))
+        .route(JournalConfirmPath::PATH, axum::routing::post(crate::pages::fms_journal_detail::confirm))
         // Expense
         .route(ExpenseListPath::PATH, get(crate::pages::fms_expense_list::get_list))
 .route(ExpenseCreatePath::PATH, get(crate::pages::fms_expense_create::get_create).post(crate::pages::fms_expense_create::create))
         .route(ExpenseDetailPath::PATH, get(crate::pages::fms_expense_detail::get_detail))
+        .route(ExpenseSubmitPath::PATH, axum::routing::post(crate::pages::fms_expense_detail::submit))
+        .route(ExpenseApprovePath::PATH, axum::routing::post(crate::pages::fms_expense_detail::approve))
+        .route(ExpensePayPath::PATH, axum::routing::post(crate::pages::fms_expense_detail::pay))
         // Write-Off
         .route(WriteoffListPath::PATH, get(crate::pages::fms_writeoff_list::get_list))
 // Cost Analysis

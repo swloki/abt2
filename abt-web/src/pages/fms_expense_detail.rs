@@ -1,4 +1,4 @@
-use axum::response::Html;
+use axum::response::{Html, IntoResponse};
 use axum_extra::routing::TypedPath;
 use maud::{html, PreEscaped, Markup};
 use rust_decimal::Decimal;
@@ -9,7 +9,7 @@ use abt_core::shared::identity::{DepartmentService, UserService};
 
 use crate::errors::Result;
 use crate::layout::page::admin_page;
-use crate::routes::fms::{ExpenseDetailPath, ExpenseListPath};
+use crate::routes::fms::{ExpenseDetailPath, ExpenseListPath, ExpenseApprovePath, ExpensePayPath, ExpenseSubmitPath};
 use crate::utils::RequestContext;
 use abt_macros::require_permission;
 
@@ -145,6 +145,23 @@ pub async fn get_detail(path: ExpenseDetailPath, ctx: RequestContext) -> Result<
  }
  }
 
+ // 状态流转按钮（按当前 status 条件渲染）
+ div class="flex gap-3 mb-6" {
+ @if expense.status == ExpenseStatus::Draft {
+ a class="inline-flex items-center gap-2 px-4 py-2 rounded-sm bg-accent text-white text-sm font-medium hover:opacity-90 cursor-pointer transition-all duration-150"
+   hx-post=(ExpenseSubmitPath { id: path.id }.to_string())
+   { "提交审批" }
+ } @else if expense.status == ExpenseStatus::Submitted {
+ a class="inline-flex items-center gap-2 px-4 py-2 rounded-sm bg-success text-white text-sm font-medium hover:opacity-90 cursor-pointer transition-all duration-150"
+   hx-post=(ExpenseApprovePath { id: path.id }.to_string())
+   { "审批通过" }
+ } @else if expense.status == ExpenseStatus::Approved {
+ a class="inline-flex items-center gap-2 px-4 py-2 rounded-sm bg-warning text-white text-sm font-medium hover:opacity-90 cursor-pointer transition-all duration-150"
+   hx-post=(ExpensePayPath { id: path.id }.to_string())
+   { "付款" }
+ }
+ }
+
  // 费用明细卡片
  (items_card(&items, expense.total_amount))
  };
@@ -160,6 +177,33 @@ pub async fn get_detail(path: ExpenseDetailPath, ctx: RequestContext) -> Result<
  Some(ExpenseListPath::PATH),
  content, &nav_filter, );
  Ok(Html(html.into_string()))
+}
+
+#[require_permission("FMS", "update")]
+pub async fn submit(path: ExpenseSubmitPath, ctx: RequestContext) -> Result<impl IntoResponse> {
+ let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let svc = state.expense_service();
+ svc.submit(&service_ctx, &mut conn, path.id).await?;
+ let redirect = ExpenseDetailPath { id: path.id }.to_string();
+ Ok(([("HX-Redirect", redirect)], Html(String::new())))
+}
+
+#[require_permission("FMS", "update")]
+pub async fn approve(path: ExpenseApprovePath, ctx: RequestContext) -> Result<impl IntoResponse> {
+ let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let svc = state.expense_service();
+ svc.approve(&service_ctx, &mut conn, path.id).await?;
+ let redirect = ExpenseDetailPath { id: path.id }.to_string();
+ Ok(([("HX-Redirect", redirect)], Html(String::new())))
+}
+
+#[require_permission("FMS", "update")]
+pub async fn pay(path: ExpensePayPath, ctx: RequestContext) -> Result<impl IntoResponse> {
+ let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let svc = state.expense_service();
+ svc.generate_payment_journal(&service_ctx, &mut conn, path.id).await?;
+ let redirect = ExpenseDetailPath { id: path.id }.to_string();
+ Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }
 
 // ── Components ──

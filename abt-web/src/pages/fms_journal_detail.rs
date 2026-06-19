@@ -1,4 +1,4 @@
-use axum::response::Html;
+use axum::response::{Html, IntoResponse};
 use axum_extra::routing::TypedPath;
 use maud::html;
 
@@ -7,7 +7,7 @@ use abt_core::fms::enums::{CashDirection, JournalStatus, JournalType};
 
 use crate::errors::Result;
 use crate::layout::page::admin_page;
-use crate::routes::fms::{JournalDetailPath, JournalListPath};
+use crate::routes::fms::{JournalDetailPath, JournalListPath, JournalConfirmPath};
 use crate::utils::RequestContext;
 use abt_macros::require_permission;
 
@@ -97,6 +97,14 @@ pub async fn get_detail(path: JournalDetailPath, ctx: RequestContext) -> Result<
  div class="flex flex-col gap-1 col-span-2" { label { "备注" } span { (if journal.remark.is_empty() { "—".into() } else { journal.remark.clone() }) } }
  }
  }
+
+ @if journal.status == JournalStatus::Draft {
+ div class="flex gap-3 mt-5" {
+ a class="inline-flex items-center gap-2 px-4 py-2 rounded-sm bg-accent text-white text-sm font-medium hover:opacity-90 cursor-pointer transition-all duration-150"
+   hx-post=(JournalConfirmPath { id: path.id }.to_string())
+   { "确认" }
+ }
+ }
  }};
 
  let current_path = JournalDetailPath { id: path.id }.to_string();
@@ -110,4 +118,13 @@ pub async fn get_detail(path: JournalDetailPath, ctx: RequestContext) -> Result<
  Some(JournalListPath::PATH),
  content, &nav_filter, );
  Ok(Html(html.into_string()))
+}
+
+#[require_permission("FMS", "update")]
+pub async fn confirm(path: JournalConfirmPath, ctx: RequestContext) -> Result<impl IntoResponse> {
+ let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let svc = state.cash_journal_service();
+ svc.confirm(&service_ctx, &mut conn, path.id, None).await?;
+ let redirect = JournalDetailPath { id: path.id }.to_string();
+ Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }

@@ -2,5 +2,7 @@
 pub mod account;
 pub mod entry;
 pub mod enums;
+pub mod invoice;
 pub mod mapping;
 pub mod period;
+pub mod sales_invoice;

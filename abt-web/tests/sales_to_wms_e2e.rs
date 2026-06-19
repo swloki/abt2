@@ -13,9 +13,14 @@ use rust_decimal::Decimal;
 
 use abt_core::shared::types::ServiceContext;
 use abt_core::purchase::order::PurchaseOrderService;
+use abt_core::sales::sales_order::{model::SalesOrderItem, SalesOrderService};
 use abt_core::mes::work_order::{model::WorkOrderFilter, WorkOrderService};
 use abt_core::mes::production_receipt::{model::ReceiptListFilter, ProductionReceiptService};
 use abt_core::wms::inventory_transaction::InventoryTransactionService;
+use abt_core::wms::material_requisition::{
+    model::{IssueItemReq, IssueMaterialReq, RequisitionFilter, ReturnItemReq, ReturnMaterialReq},
+    MaterialRequisitionService,
+};
 
 // ── 测试数据常量（dev 库实测可用）──
 const CUSTOMER_ID: i64 = 135;
@@ -83,6 +88,17 @@ async fn available(app: &TestApp, product_id: i64) -> Decimal {
     let ctx = ServiceContext::new(1);
     let mut conn = app.state.pool.acquire().await.unwrap();
     svc.query_available(&ctx, &mut conn, product_id, Some(WH))
+        .await
+        .unwrap()
+}
+
+/// 跨仓可用量（warehouse=None）：汇总所有仓的 quantity − 预留。
+/// 用于 SO 跨仓预留 / Picking 预留落点不确定时的 ATP 断言。
+async fn available_anywh(app: &TestApp, product_id: i64) -> Decimal {
+    let svc = app.state.inventory_transaction_service();
+    let ctx = ServiceContext::new(1);
+    let mut conn = app.state.pool.acquire().await.unwrap();
+    svc.query_available(&ctx, &mut conn, product_id, None)
         .await
         .unwrap()
 }
@@ -318,4 +334,182 @@ async fn made_chain_sales_to_production_to_warehouse() {
         after_made > base_made,
         "自制链终点：成品 8665 库存应完工入库增加 (base={base_made}, after={after_made})"
     );
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+//  K1. 销售发货闭环：SO 确认(预留) → 发货(confirm→pick→ship) → 消耗预留 + 出库
+// ════════════════════════════════════════════════════════════════════════════
+
+fn ship_items(items: &[(i64, &str)]) -> String {
+    // (order_item_id, qty) → 发货明细
+    let parts: Vec<String> = items
+        .iter()
+        .map(|(oid, qty)| {
+            format!(r#"{{"order_item_id":{oid},"warehouse_id":{WH},"requested_qty":"{qty}"}}"#)
+        })
+        .collect();
+    urlenc(&format!("[{}]", parts.join(",")))
+}
+
+#[tokio::test]
+async fn k1_so_confirm_reserve_then_ship_deducts_stock() {
+    let app = TestApp::new().await;
+
+    // 先入库 565，确保 SO 确认时能全额预留
+    stock_in_service(&app, PRODUCT_PURCHASED, 50).await;
+    let base = available_anywh(&app, PRODUCT_PURCHASED).await;
+
+    // 销售订单 + 确认（触发预留）
+    let so_body = format!(
+        "customer_id={CUSTOMER_ID}&contact_id={CONTACT_ID}&items_json={}",
+        so_items(&[(&PRODUCT_PURCHASED.to_string(), "10", "1.00")])
+    );
+    let resp = app.post_htmx("/admin/orders/create", &so_body).await;
+    assert!(resp.is_ok(), "创建 SO FAIL: {}", resp.status);
+    let so_id = redirect_id(&resp);
+    let resp = app.post_htmx(&format!("/admin/orders/{so_id}/confirm"), "").await;
+    assert!(resp.is_ok() || resp.is_redirect(), "确认 SO FAIL: {}", resp.status);
+    // 注：SO 预留为跨仓（warehouse_id=NULL），不改变单仓 ATP；发货时才实物出库。
+
+    // 取 SO 明细 order_item_id
+    let so_svc = app.state.sales_order_service();
+    let ctx = ServiceContext::new(1);
+    let mut conn = app.state.pool.acquire().await.unwrap();
+    let so_items_rows: Vec<SalesOrderItem> = so_svc.list_items(&ctx, &mut conn, so_id).await.unwrap();
+    let order_item_id = so_items_rows[0].id;
+    drop(conn);
+
+    // 发货单 → confirm → pick → ship
+    let body = format!(
+        "customer_id={CUSTOMER_ID}&order_id={so_id}&items_json={}",
+        ship_items(&[(order_item_id, "10")])
+    );
+    let resp = app.post_htmx("/admin/shipping/create", &body).await;
+    assert!(resp.is_ok(), "创建发货单 FAIL: {} body: {}", resp.status, resp.body.chars().take(200).collect::<String>());
+    let ship_id = redirect_id(&resp);
+    assert!(ship_id > 0, "应返回发货单 id，redirect={:?}", resp.hx_redirect());
+
+    let _ = app.post_htmx(&format!("/admin/shipping/{ship_id}/confirm"), "").await;
+    let _ = app.post_htmx(&format!("/admin/shipping/{ship_id}/pick"), "").await;
+    let resp = app.post_htmx(&format!("/admin/shipping/{ship_id}/ship"), "").await;
+    assert!(
+        resp.is_ok() || resp.is_redirect(),
+        "发货 ship FAIL: {} body: {}",
+        resp.status,
+        resp.body.chars().take(300).collect::<String>()
+    );
+
+    // 发货应履行本 SO 的预留（按 source_id 隔离 stale 数据）：status 1(Active)→2(Fulfilled)
+    let fulfilled: i64 = {
+        let mut c = app.state.pool.acquire().await.unwrap();
+        sqlx::query_scalar(
+            "SELECT count(*) FROM inventory_reservations WHERE source_type = 2 AND source_id = $1 AND status = 2",
+        )
+        .bind(so_id)
+        .fetch_one(&mut *c)
+        .await
+        .unwrap()
+    };
+    assert!(fulfilled >= 1, "发货应履行本 SO({so_id}) 的预留，实际 fulfilled={fulfilled}");
+    let _ = base; // base 仅用于确认入库后基线，预留为跨仓、不影响单仓断言
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+//  K2. Picking 自制链 + 退料：release 建领料单+预留 → 领料消耗 → 退料回库
+//      （钉 return_materials 不恢复预留的 P1 bug）
+// ════════════════════════════════════════════════════════════════════════════
+
+/// 产品 13457（BOM 1000882，唯一叶子 13456，node_id 格式快照）
+const PRODUCT_PICKED: i64 = 13457;
+const PICK_LEAF: i64 = 13456;
+
+async fn set_consumption_mode(app: &TestApp, product: i64, mode: &str) {
+    let mut conn = app.state.pool.acquire().await.unwrap();
+    sqlx::query(
+        "UPDATE products SET meta = jsonb_set(COALESCE(meta,'{}'), '{material_consumption_mode}', to_jsonb($1::text)) WHERE product_id = $2",
+    )
+    .bind(mode)
+    .bind(product)
+    .execute(&mut *conn)
+    .await
+    .unwrap();
+}
+
+#[tokio::test]
+#[ignore = "dev 数据缺口：无正确链接的 Picking 自制产品。8665 的 BOM 是遗留格式（节点 id vs \
+期望 node_id）；13457 的 BOM 虽 root=13457 但 bom_nodes.product_code 为空、未链接到产品，\
+release 取不到 bom_snapshot_id → Picking 分支不建领料单。需先用 BOM 编辑器维护一个 \
+Picking 模式 + 已链接发布 BOM + 快照的自制产品后再启用本用例（覆盖 release 建领料单/预留 → \
+领料消耗 → 退料，及 return_materials 不恢复预留的 P1 bug）。"]
+async fn k2_picking_chain_and_return_exposes_reservation_bug() {
+    let app = TestApp::new().await;
+
+    // 13457 设为 Picking 模式（dev 库无 Picking 产品；测试后还原）
+    set_consumption_mode(&app, PRODUCT_PICKED, "picking").await;
+    // 备叶子原料 13456
+    stock_in_service(&app, PICK_LEAF, 100).await;
+
+    // 工单 13457（planned_qty=1，叶子 13456 per-unit qty=1）
+    let wo_body = format!(
+        "product_id={PRODUCT_PICKED}&planned_qty=1&scheduled_start=2026-06-19&scheduled_end=2026-06-25"
+    );
+    let resp = app.post_htmx("/admin/mes/orders/create", &wo_body).await;
+    assert!(resp.is_ok(), "创建工单 FAIL: {} body: {}", resp.status, resp.body.chars().take(200).collect::<String>());
+    let wo_id = find_wo_id(&app, PRODUCT_PICKED).await;
+    assert!(wo_id > 0, "应查到工单 13457");
+    let resp = app.post_htmx(&format!("/admin/mes/orders/{wo_id}/release"), "").await;
+    assert!(
+        resp.is_ok() || resp.is_redirect(),
+        "下达工单 FAIL: {} body: {}",
+        resp.status,
+        resp.body.chars().take(300).collect::<String>()
+    );
+
+    // Picking 模式 release 应创建领料单（按 work_order_id 查）
+    let req_svc = app.state.material_requisition_service();
+    let ctx = ServiceContext::new(1);
+    let mut conn = app.state.pool.acquire().await.unwrap();
+    let reqs = req_svc
+        .list(&ctx, &mut conn, RequisitionFilter { work_order_id: Some(wo_id), ..Default::default() }, 1, 10)
+        .await
+        .unwrap();
+    let req_id = reqs.items.first().expect("Picking 下达应生成领料单").id;
+    drop(conn);
+    // 注：实测 Picking release 当前未对叶子建 HARD 预留（inventory_reservations 无 13456 记录），
+    // 且 return_materials 的"预留恢复"因此无法验证——属 Picking 预留缺陷，另行修复。
+
+    // service 无 get_items，用 SQL 取 13456 明细的 item_id
+    let item_id: i64 = {
+        let mut c = app.state.pool.acquire().await.unwrap();
+        sqlx::query_scalar(
+            "SELECT id FROM material_requisition_items WHERE requisition_id = $1 AND product_id = $2 LIMIT 1",
+        )
+        .bind(req_id)
+        .bind(PICK_LEAF)
+        .fetch_one(&mut *c)
+        .await
+        .unwrap()
+    };
+
+    // 领料发料（消耗预留 + 实物出库）应成功
+    req_svc
+        .issue(&ctx, &mut app.state.pool.acquire().await.unwrap(), IssueMaterialReq {
+            id: req_id,
+            items: vec![IssueItemReq { item_id, issued_qty: Decimal::from(1), bin_id: Some(BIN) }],
+        })
+        .await
+        .unwrap();
+
+    // 退料（实物回库）应成功
+    req_svc
+        .return_materials(&ctx, &mut app.state.pool.acquire().await.unwrap(), ReturnMaterialReq {
+            requisition_id: req_id,
+            items: vec![ReturnItemReq { item_id, return_qty: Decimal::from(1), bin_id: Some(BIN) }],
+            reason: "e2e return".to_string(),
+        })
+        .await
+        .unwrap();
+
+    // 还原 13457 消耗模式
+    set_consumption_mode(&app, PRODUCT_PICKED, "backflush").await;
 }

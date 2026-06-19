@@ -556,6 +556,12 @@ impl AppState {
     pub fn gl_mapping_service(&self) -> impl abt_core::gl::mapping::GlMappingService {
         abt_core::gl::mapping::new_gl_mapping_service(self.pool.clone())
     }
+    pub fn sales_invoice_service(&self) -> impl abt_core::gl::sales_invoice::SalesInvoiceService {
+        abt_core::gl::sales_invoice::new_sales_invoice_service(self.pool.clone())
+    }
+    pub fn purchase_invoice_service(&self) -> impl abt_core::gl::purchase_invoice::PurchaseInvoiceService {
+        abt_core::gl::purchase_invoice::new_purchase_invoice_service(self.pool.clone())
+    }
 
     /// 生成下一个 task_id
     pub fn next_task_id(&self) -> i64 {

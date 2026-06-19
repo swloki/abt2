@@ -94,3 +94,184 @@ async fn k1_expense_submit_approve_pay_chain() {
     assert_eq!(journal.amount, Decimal::from(120));
     assert_eq!(journal.source_id, id);
 }
+
+// ════════════════════════════════════════════════════════════════════════════
+//  k2 收款核销链：cash_journal.create(SalesReceipt) → confirm → write_off
+// ════════════════════════════════════════════════════════════════════════════
+
+#[tokio::test]
+async fn k2_cash_receipt_confirm_and_writeoff() {
+    let app = TestApp::new().await;
+    let ctx = ServiceContext::new(1);
+    let mut conn = app.state.pool.acquire().await.unwrap();
+
+    let today = chrono::Utc::now().date_naive();
+    let period = format!("{}", today.format("%Y-%m"));
+    let amount = Decimal::from(500);
+    let source_id = 9_999_999_i64; // 测试隔离 source_id，避免污染真实 SO
+
+    let cj_svc = app.state.cash_journal_service();
+    let journal_id = cj_svc
+        .create(
+            &ctx,
+            &mut conn,
+            CreateCashJournalReq {
+                journal_type: JournalType::SalesReceipt,
+                direction: CashDirection::Inflow,
+                amount,
+                counterparty: CounterpartyRef::Customer(135),
+                source_type: DocumentType::SalesOrder,
+                source_id,
+                bank_account: "TEST".into(),
+                transaction_date: today,
+                period,
+                remark: "e2e k2".into(),
+                lines: vec![
+                    CashJournalLineInput {
+                        account_code: "银行存款".into(),
+                        debit_amount: amount,
+                        credit_amount: Decimal::ZERO,
+                        cost_center: None,
+                        profit_center: None,
+                        remark: "借".into(),
+                    },
+                    CashJournalLineInput {
+                        account_code: "应收账款".into(),
+                        debit_amount: Decimal::ZERO,
+                        credit_amount: amount,
+                        cost_center: None,
+                        profit_center: None,
+                        remark: "贷".into(),
+                    },
+                ],
+            },
+        )
+        .await
+        .expect("create cash journal");
+
+    cj_svc
+        .confirm(&ctx, &mut conn, journal_id, None)
+        .await
+        .expect("confirm");
+    let journal = cj_svc.get(&ctx, &mut conn, journal_id).await.unwrap();
+    assert_eq!(journal.status, JournalStatus::Confirmed);
+
+    // 核销：source_total=500，本次核销 300
+    let wo_svc = app.state.write_off_service();
+    let write_amount = Decimal::from(300);
+    let wo_id = wo_svc
+        .write_off(
+            &ctx,
+            &mut conn,
+            WriteOffReq {
+                cash_journal_id: journal_id,
+                source_type: DocumentType::SalesOrder,
+                source_id,
+                source_total: amount,
+                amount: write_amount,
+                idempotency_key: Some(format!("e2e-k2-{journal_id}")),
+            },
+        )
+        .await
+        .expect("write_off");
+    assert!(wo_id > 0);
+
+    let unreconciled = wo_svc
+        .get_unreconciled_amount(&ctx, &mut conn, DocumentType::SalesOrder, source_id, amount)
+        .await
+        .unwrap();
+    assert_eq!(unreconciled, amount - write_amount);
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+//  k3 过度核销防护：累计核销 > source_total 应被拒
+// ════════════════════════════════════════════════════════════════════════════
+
+#[tokio::test]
+async fn k3_over_writeoff_rejected() {
+    let app = TestApp::new().await;
+    let ctx = ServiceContext::new(1);
+    let mut conn = app.state.pool.acquire().await.unwrap();
+
+    let today = chrono::Utc::now().date_naive();
+    let period = format!("{}", today.format("%Y-%m"));
+    let amount = Decimal::from(500);
+    let source_id = 9_999_998_i64;
+
+    let cj_svc = app.state.cash_journal_service();
+    let journal_id = cj_svc
+        .create(
+            &ctx,
+            &mut conn,
+            CreateCashJournalReq {
+                journal_type: JournalType::SalesReceipt,
+                direction: CashDirection::Inflow,
+                amount,
+                counterparty: CounterpartyRef::Customer(135),
+                source_type: DocumentType::SalesOrder,
+                source_id,
+                bank_account: "TEST".into(),
+                transaction_date: today,
+                period,
+                remark: "e2e k3".into(),
+                lines: vec![
+                    CashJournalLineInput {
+                        account_code: "银行存款".into(),
+                        debit_amount: amount,
+                        credit_amount: Decimal::ZERO,
+                        cost_center: None,
+                        profit_center: None,
+                        remark: "借".into(),
+                    },
+                    CashJournalLineInput {
+                        account_code: "应收账款".into(),
+                        debit_amount: Decimal::ZERO,
+                        credit_amount: amount,
+                        cost_center: None,
+                        profit_center: None,
+                        remark: "贷".into(),
+                    },
+                ],
+            },
+        )
+        .await
+        .unwrap();
+    cj_svc.confirm(&ctx, &mut conn, journal_id, None).await.unwrap();
+
+    let wo_svc = app.state.write_off_service();
+    // 先核销 300（合法）
+    wo_svc
+        .write_off(
+            &ctx,
+            &mut conn,
+            WriteOffReq {
+                cash_journal_id: journal_id,
+                source_type: DocumentType::SalesOrder,
+                source_id,
+                source_total: amount,
+                amount: Decimal::from(300),
+                idempotency_key: Some(format!("e2e-k3a-{journal_id}")),
+            },
+        )
+        .await
+        .unwrap();
+
+    // 再核销 300（累计 600 > source_total 500）→ 应报 OverWriteOff
+    let err = wo_svc
+        .write_off(
+            &ctx,
+            &mut conn,
+            WriteOffReq {
+                cash_journal_id: journal_id,
+                source_type: DocumentType::SalesOrder,
+                source_id,
+                source_total: amount,
+                amount: Decimal::from(300),
+                idempotency_key: Some(format!("e2e-k3b-{journal_id}")),
+            },
+        )
+        .await
+        .expect_err("过度核销应被拒");
+    let msg = format!("{err:?}");
+    assert!(msg.contains("OverWriteOff"), "应为 OverWriteOff，实际: {msg}");
+}

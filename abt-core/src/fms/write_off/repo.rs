@@ -190,8 +190,8 @@ impl WriteOffRepo {
         source_id: i64,
     ) -> Result<Decimal> {
         sqlx::query("SELECT pg_advisory_lock($1, $2)")
-            .bind(source_type.as_i16() as i64)
-            .bind(source_id)
+            .bind(source_type.as_i16() as i32)
+            .bind(source_id as i32)
             .execute(&mut *executor)
             .await?;
 
@@ -212,8 +212,8 @@ impl WriteOffRepo {
         source_id: i64,
     ) -> Result<()> {
         sqlx::query("SELECT pg_advisory_unlock($1, $2)")
-            .bind(source_type.as_i16() as i64)
-            .bind(source_id)
+            .bind(source_type.as_i16() as i32)
+            .bind(source_id as i32)
             .execute(&mut *executor)
             .await?;
         Ok(())

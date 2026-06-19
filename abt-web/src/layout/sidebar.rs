@@ -303,6 +303,8 @@ fn modules() -> Vec<NavModule> {
             items: vec![
                 NavItem { name: "科目表", path: "/admin/gl/accounts", icon: NavIcon::Grid, permission: Some(("GL", "read")) },
                 NavItem { name: "凭证管理", path: "/admin/gl/entries", icon: NavIcon::ClipboardDoc, permission: Some(("GL", "read")) },
+                NavItem { name: "销售发票", path: "/admin/gl/sales-invoices", icon: NavIcon::File, permission: Some(("GL", "read")) },
+                NavItem { name: "采购发票", path: "/admin/gl/purchase-invoices", icon: NavIcon::File, permission: Some(("GL", "read")) },
                 NavItem { name: "试算平衡表", path: "/admin/gl/trial-balance", icon: NavIcon::DollarSign, permission: Some(("GL", "read")) },
                 NavItem { name: "会计期间", path: "/admin/gl/periods", icon: NavIcon::Calendar, permission: Some(("GL", "read")) },
             ],

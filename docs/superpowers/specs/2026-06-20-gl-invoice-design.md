@@ -203,3 +203,49 @@ ABT 的 fms 当前是"资金出纳 + 报销 + 成本归集"，缺会计核算内
 - **业财一体事务边界**：过账与单据同事务，若过账失败整个单据 post 回滚——这是期望行为（单据未过账不算 posted）。缓解：service 层用 `?` 传播，调用方事务回滚。
 - **现有 cash_journal.confirm 改动**：追加过账可能影响现有 fms_flow_e2e（k2 收款核销）。缓解：过账追加在现有逻辑之后，不改变 cash_journal 自身断言；fms 测试若因新增 gl_entry 受影响则相应调整。
 - **范围膨胀**：M1+M2 合并体量大。缓解：spec 已明确边界（不含损益结转/报表/账龄），按 e2e 用例驱动增量实现。
+
+## 13. GL 内核补强（基于 ERPNext/Odoo/OFBiz 对照 · 修订前文简化）
+
+> 本节经对照三大 ERP 的 GL 内核精细设计（凭证生命周期/科目模型/辅助核算/期初/明细账/币种），修订前文的过度简化。**覆盖**：3.1 科目字段、3.3 凭证行字段、3.2 凭证状态、第 4 节"posted 不可逆"、第 5 节试算范围、默认设定"单币种"。以下为最终设计。
+
+### A. 凭证三态 + 作废（覆盖第 4 节"posted 不可逆"）
+- `gl_entries.status`：`1draft / 2posted / 3cancelled`（三态）
+- 新增 `GlEntryService::cancel(ctx, db, id)`：`posted→cancelled`，记审计；余额实时计算时 `status!=posted` 的凭证不计入（等价反向冲销效果，参照 Odoo `button_cancel` 模式）
+- **不做** unpost（回 draft）、不做自动生成红字反向凭证（cancel 标记 + 余额排除已足够会计正确）
+
+### B. 期初余额
+- `gl_accounts` 加 `opening_balance DECIMAL(18,6)`（本位币期初，默认 0）
+- `gl_entries` 加 `is_opening BOOLEAN` 标志；期初通过一张 `is_opening=true` 的手工凭证录入（参照 ERPNext）
+- 余额公式：`科目余额 = opening_balance + Σ(本明细行所属凭证 status=posted 的 debit/credit，按 balance_direction 定向)`
+
+### C. 辅助核算加 project 维度（覆盖 3.3）
+- `gl_entry_lines` 维度字段：`cost_center i64?` / `profit_center i64?` / **`project_id i64?`**（三维，均裸 id 无主数据表，同 CashJournalLine 既有模式）
+- **不做** 可配置维度系统（ERPNext AccountingDimension 太重，固定三维够用）
+
+### D. 明细账查询（覆盖第 5 节"只有试算平衡"）
+- 新增 `GlEntryService::general_ledger(ctx, db, account_id, from_date?, to_date?) -> Vec<GlDetailRow>`：按科目查明细分录流水（日期/凭证号/摘要/对方/借/贷/累计余额）
+- `get_account_balance(ctx, db, account_id, as_of_date?) -> Decimal`：支持按日期切片（原仅按 period，补 as_of_date）
+- 余额实时计算（参照 ERPNext 实时 gl_entry 累加），**不做**物化余额表（OFBiz GlAccountHistory 模式增加一致性成本，实时计算 + 索引够用）
+
+### E. 科目模型补字段（覆盖 3.1）
+- `gl_accounts` 补：`reconcile BOOLEAN`（是否需对账——AR/AP 类科目置 true，供 M3 AR/AP 核销用）、`disabled BOOLEAN`（停用，替代原 `status` 字段语义，更贴 ERP）、`currency VARCHAR(10) DEFAULT 'CNY'`（科目币种）
+- 原 `status` 字段移除（用 `disabled` 取代）
+
+### F. 多币种基础字段（覆盖默认设定"单币种"）
+- `gl_entry_lines` 补：`amount_currency DECIMAL(18,6)`（原币金额）、`currency VARCHAR(10)`、`exchange_rate DECIMAL(18,6)`
+- **本期本位币记账**：`debit/credit` 即本位币（CNY），原币字段预留录入；**完整多币种逻辑**（汇率主数据、自动汇兑损益重估）放 M8
+- 默认设定修订：原"单币种"→"本位币记账 + 多币种字段预留"
+
+### G. 凭证类型
+- `gl_entries` 补 `voucher_type VARCHAR(20)`：`Journal Entry / Receipt / Payment / Contra / Opening`（统计与分类用）
+- `source_type/source_id`（DocumentType + id）保留用于业务单据追溯（覆盖第 6 节，不变）
+
+### 留后续 milestone 的边缘项（agent 对照认同，本期不做）
+- 多账簿 / 多公司合并（FinanceBook）→ 后续
+- 可配置会计维度（ERPNext AccountingDimension）→ 固定三维够用
+- 自动损益结转（PeriodClosingVoucher，收入/费用→本年利润）→ **M4 三大报表期**做（依赖成熟科目分类体系）
+- 物化余额表（GlAccountHistory）→ 实时计算够用
+- 自动汇兑损益重估 → M8
+
+### 对 Plan A 的影响
+Plan A（`docs/superpowers/plans/2026-06-20-gl-core.md`）A1-A5 task 对应扩展：A1 migration 补字段（reconcile/disabled/opening_balance/currency/is_opening/voucher_type/project_id/amount_currency/currency/exchange_rate）+ EntryStatus 加 Cancelled；A2 科目 CRUD 补字段；A4 凭证补 `cancel`/`general_ledger`/`get_balance(as_of_date)` + 期初凭证；A5 e2e 补 cancel/明细账/期初用例。

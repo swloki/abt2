@@ -18,6 +18,10 @@ use abt_core::purchase::order::PurchaseOrderService;
 use abt_core::sales::sales_order::{model::SalesOrderItem, SalesOrderService};
 use abt_core::mes::work_order::{model::WorkOrderFilter, WorkOrderService};
 use abt_core::mes::production_receipt::{model::ReceiptListFilter, ProductionReceiptService};
+use abt_core::master_data::bom::{
+    model::{CreateBomReq, NewBomNode},
+    BomCommandService, BomNodeService,
+};
 use abt_core::wms::inventory_transaction::InventoryTransactionService;
 use abt_core::wms::material_requisition::{
     model::{IssueItemReq, IssueMaterialReq, RequisitionFilter, ReturnItemReq, ReturnMaterialReq},
@@ -111,6 +115,38 @@ async fn cancel_so_reservations(app: &TestApp, so_id: i64) {
     let ctx = ServiceContext::new(1);
     let mut conn = app.state.pool.acquire().await.unwrap();
     let _ = svc.cancel_by_source(&ctx, &mut conn, DocumentType::SalesOrder, so_id).await;
+}
+
+/// 自建一个干净、正确、已快照的 BOM（绕开 dev 库遗留脏数据）：
+/// create → add_node(根=成品) → add_node(叶=组件) → publish（从 bom_nodes 建正确快照）。
+/// 返回 bom_id。该 BOM 的 bom_id 最大，find_published_by_product_code 会优先命中它。
+async fn create_clean_bom(app: &TestApp, root_product: i64, leaf_product: i64, leaf_qty: i64) -> i64 {
+    let bom_svc = app.state.bom_command_service();
+    let node_svc = app.state.bom_node_service();
+    let ctx = ServiceContext::new(1);
+    let mut conn = app.state.pool.acquire().await.unwrap();
+    let bom_id = bom_svc
+        .create(&ctx, &mut conn, CreateBomReq { name: format!("e2e-bom-{root_product}-{leaf_product}-{}", chrono::Local::now().format("%H%M%S%3f")), bom_category_id: Some(1) })
+        .await
+        .unwrap();
+    let root = node_svc
+        .add_node(&ctx, &mut conn, bom_id, NewBomNode {
+            product_id: root_product, quantity: Decimal::from(1), parent_id: 0,
+            loss_rate: Decimal::ZERO, order: 0, unit: None, remark: None,
+            position: None, work_center: None, properties: None,
+        })
+        .await
+        .unwrap();
+    let _ = node_svc
+        .add_node(&ctx, &mut conn, bom_id, NewBomNode {
+            product_id: leaf_product, quantity: Decimal::from(leaf_qty), parent_id: root,
+            loss_rate: Decimal::ZERO, order: 1, unit: None, remark: None,
+            position: None, work_center: None, properties: None,
+        })
+        .await
+        .unwrap();
+    bom_svc.publish(&ctx, &mut conn, bom_id).await.unwrap();
+    bom_id
 }
 
 /// 从 HX-Redirect 路径提取末尾 id（如 /admin/orders/123 → 123）
@@ -455,20 +491,19 @@ async fn set_consumption_mode(app: &TestApp, product: i64, mode: &str) {
 }
 
 #[tokio::test]
-#[ignore = "dev BOM 数据多重不一致：13457 有两个发布 BOM（1000882/1000883），find_published \
-取 bom_id 更大的 1000883，其快照是自引用错误内容（13457→13457）；正确的 1000882（含组件 \
-13456）被遮蔽。另有 stale 快照、live bom_detail 为空、8665 节点 id vs node_id 等问题。\
-已修 find_published_by_product_code 用 COALESCE 回退 + 迁移回填 bom_nodes.product_code；\
-但需用 BOM 编辑器重建一个内容正确、单一、已快照的 Picking 自制产品后才能稳定跑本用例。"]
 async fn k2_picking_chain_and_return() {
     let app = TestApp::new().await;
 
-    // 13457 设为 Picking 模式（dev 库无 Picking 产品；测试后还原）
+    // 自建干净 BOM（根=13457 成品，叶=13456 组件 qty1）→ publish 建正确快照，
+    // 绕开 dev 库遗留脏 BOM（重复/stale 快照/格式不一致）。
+    create_clean_bom(&app, PRODUCT_PICKED, PICK_LEAF, 1).await;
+    // 13457 设为 Picking 模式（测试后还原）
     set_consumption_mode(&app, PRODUCT_PICKED, "picking").await;
-    // 备叶子原料 13456
+    // 备叶子原料 13456（落 WH=23320，即第一仓库，Picking 预留/出库都走此仓）
     stock_in_service(&app, PICK_LEAF, 100).await;
+    let base = available(&app, PICK_LEAF).await;
 
-    // 工单 13457（planned_qty=1，叶子 13456 per-unit qty=1）
+    // 工单 13457（planned_qty=1）
     let wo_body = format!(
         "product_id={PRODUCT_PICKED}&planned_qty=1&scheduled_start=2026-06-19&scheduled_end=2026-06-25"
     );
@@ -484,7 +519,14 @@ async fn k2_picking_chain_and_return() {
         resp.body.chars().take(300).collect::<String>()
     );
 
-    // Picking 模式 release 应创建领料单（按 work_order_id 查）
+    // Picking release 应建领料单 + HARD 预留 13456 共 1 → ATP@WH 降 1
+    assert_eq!(
+        available(&app, PICK_LEAF).await,
+        base - Decimal::from(1),
+        "Picking 下达应预留 13456 共 1，ATP 降 1"
+    );
+
+    // 查 release 生成的领料单 + 13456 明细 item_id
     let req_svc = app.state.material_requisition_service();
     let ctx = ServiceContext::new(1);
     let mut conn = app.state.pool.acquire().await.unwrap();
@@ -494,10 +536,6 @@ async fn k2_picking_chain_and_return() {
         .unwrap();
     let req_id = reqs.items.first().expect("Picking 下达应生成领料单").id;
     drop(conn);
-    // 注：实测 Picking release 当前未对叶子建 HARD 预留（inventory_reservations 无 13456 记录），
-    // 且 return_materials 的"预留恢复"因此无法验证——属 Picking 预留缺陷，另行修复。
-
-    // service 无 get_items，用 SQL 取 13456 明细的 item_id
     let item_id: i64 = {
         let mut c = app.state.pool.acquire().await.unwrap();
         sqlx::query_scalar(
@@ -510,7 +548,13 @@ async fn k2_picking_chain_and_return() {
         .unwrap()
     };
 
-    // 领料发料（消耗预留 + 实物出库）应成功
+    // 领料单 confirm（Draft→Confirmed）后再发料
+    req_svc
+        .confirm(&ctx, &mut app.state.pool.acquire().await.unwrap(), req_id)
+        .await
+        .unwrap();
+
+    // 领料发料：消耗预留 + 实物出库 1（ATP 不变：预留释放与出库抵消）
     req_svc
         .issue(&ctx, &mut app.state.pool.acquire().await.unwrap(), IssueMaterialReq {
             id: req_id,
@@ -519,7 +563,8 @@ async fn k2_picking_chain_and_return() {
         .await
         .unwrap();
 
-    // 退料（实物回库）应成功
+    // 退料 1：实物回库。return_materials 不恢复预留（P1 bug）→ ATP 错误回到 base
+    // （正确行为应恢复预留 → ATP = base − 1）。断言钉死该 bug。
     req_svc
         .return_materials(&ctx, &mut app.state.pool.acquire().await.unwrap(), ReturnMaterialReq {
             requisition_id: req_id,
@@ -528,6 +573,11 @@ async fn k2_picking_chain_and_return() {
         })
         .await
         .unwrap();
+    assert_eq!(
+        available(&app, PICK_LEAF).await,
+        base - Decimal::from(1),
+        "退料应恢复预留：ATP 保持 base−1（实物回库且预留恢复，修复 return_materials 的 P1 bug）"
+    );
 
     // 还原 13457 消耗模式
     set_consumption_mode(&app, PRODUCT_PICKED, "backflush").await;

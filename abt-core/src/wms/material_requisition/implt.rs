@@ -12,7 +12,7 @@ use crate::shared::document_link::model::LinkRequest;
 use crate::shared::types::PgExecutor;
 use crate::shared::document_link::{new_document_link_service, service::DocumentLinkService};
 use crate::shared::document_sequence::{new_document_sequence_service, service::DocumentSequenceService};
-use crate::shared::enums::{AuditAction, CostEntityType, CostType, DocumentType, LinkType};
+use crate::shared::enums::{AuditAction, CostEntityType, CostType, DocumentType, LinkType, ReservationType};
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
 use crate::shared::types::Result;
@@ -22,7 +22,7 @@ use crate::wms::inventory_transaction::model::RecordTransactionReq;
 use crate::wms::inventory_transaction::{new_inventory_transaction_service, service::InventoryTransactionService};
 use crate::shared::cost_entry::{new_cost_entry_service, model::EntryRequest, service::CostEntryService};
 use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService, RecordAuditLogReq};
-use crate::shared::inventory_reservation::{new_inventory_reservation_service, service::InventoryReservationService};
+use crate::shared::inventory_reservation::{new_inventory_reservation_service, service::InventoryReservationService, ReserveRequest};
 use crate::wms::stock_ledger::repo::StockLedgerRepo;
 
 pub struct MaterialRequisitionServiceImpl {
@@ -445,6 +445,28 @@ impl MaterialRequisitionService for MaterialRequisitionServiceImpl {
             )
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
+
+            // 修复（P1）：工单驱动的领料在 issue 时 consume 了 HARD 预留；退料应恢复等量预留，
+            // 否则退回的物料 ATP 虚高（实物回库但预留未恢复）。原实现漏了这一步。
+            if requisition.work_order_id > 0 {
+                new_inventory_reservation_service(self.pool.clone())
+                    .reserve(
+                        ctx,
+                        db,
+                        vec![ReserveRequest {
+                            product_id: found_item.product_id,
+                            warehouse_id: Some(requisition.warehouse_id),
+                            reserved_qty: item.return_qty,
+                            reservation_type: ReservationType::Hard,
+                            source_type: DocumentType::WorkOrder,
+                            source_id: requisition.work_order_id,
+                            source_line_id: None,
+                            priority: 0,
+                            expires_at: None,
+                        }],
+                    )
+                    .await?;
+            }
         }
 
         new_audit_log_service(self.pool.clone())

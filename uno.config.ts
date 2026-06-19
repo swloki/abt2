@@ -1,5 +1,6 @@
 import presetIcons from "@unocss/preset-icons";
 import { defineConfig, presetWind4 } from "unocss";
+import transformerVariantGroup from "@unocss/transformer-variant-group";
 
 export default defineConfig({
   presets: [
@@ -14,6 +15,10 @@ export default defineConfig({
       },
     }),
   ],
+
+  // transformer-variant-group: 分组写法 prefix:(a b c) → prefix:a prefix:b prefix:c，
+  // 用于收编 shortcut 和高频重复前缀。
+  transformers: [transformerVariantGroup()],
 
   // rules: UnoCSS 规则引擎——项目高频任意值模式原子化（tailwindcss 没有的 UnoCSS 灵魂能力）
   rules: [
@@ -297,14 +302,14 @@ select:disabled {
 
   shortcuts: {
     // ─── Data Table ─── (107+ files use this pattern)
-    "data-table": "w-full border-collapse [&_th]:py-2.5 [&_th]:px-4 [&_th]:text-left [&_th]:font-semibold [&_th]:text-muted [&_th]:text-xs [&_th]:uppercase [&_th]:tracking-wide [&_th]:bg-surface-raised [&_th]:[border-bottom:1px_solid_var(--border-soft)] [&_th]:whitespace-nowrap [&_td]:py-3 [&_td]:px-4 [&_td]:[border-bottom:1px_solid_var(--border-soft)] [&_td]:whitespace-nowrap [&_td]:align-middle [&_tbody_tr]:transition-colors [&_tbody_tr]:cursor-pointer [&_tbody_tr:hover]:bg-accent-bg [&_tbody_tr:last-child_td]:[border-bottom:none] [&_tbody_tr:hover_.row-actions]:opacity-100",
+    "data-table": "w-full border-collapse [&_th]:(py-2.5 px-4 text-left font-semibold text-muted text-xs uppercase tracking-wide bg-surface-raised [border-bottom:1px_solid_var(--border-soft)] whitespace-nowrap) [&_td]:(py-3 px-4 [border-bottom:1px_solid_var(--border-soft)] whitespace-nowrap align-middle) [&_tbody_tr]:(transition-colors cursor-pointer) [&_tbody_tr:hover]:bg-accent-bg [&_tbody_tr:last-child_td]:[border-bottom:none] [&_tbody_tr:hover_.row-actions]:opacity-100",
     // ─── Data Card ─── (container for tables, info sections)
     "data-card": "bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)]",
     // ─── Form Section ─── (22+ files: customer/supplier/product/reconciliation create pages)
     "form-section": "bg-bg border border-border rounded-md p-6 mb-6",
     // ─── Form Field ─── (59+ files: label + input/select/textarea container)
     // label: block, xs, medium, fg-2, mb-1, nowrap; controls: w-full, px-3 py-2, border-border, rounded-sm, sm, bg-white, fg, focus→accent+shadow; textarea: resize-y, min-h-72px
-    "form-field": "[&_label]:block [&_label]:text-xs [&_label]:font-medium [&_label]:text-fg-2 [&_label]:mb-1 [&_label]:whitespace-nowrap [&_input,&_select,&_textarea]:w-full [&_input,&_select,&_textarea]:px-3 [&_input,&_select,&_textarea]:py-2 [&_input,&_select,&_textarea]:border [&_input,&_select,&_textarea]:border-border [&_input,&_select,&_textarea]:rounded-sm [&_input,&_select,&_textarea]:text-sm [&_input,&_select,&_textarea]:bg-white [&_input,&_select,&_textarea]:text-fg [&_input,&_select,&_textarea]:outline-none [&_input,&_select,&_textarea]:transition-all [&_input,&_select,&_textarea]:duration-150 [&_input:focus,&_select:focus,&_textarea:focus]:border-accent [&_input:focus,&_select:focus,&_textarea:focus]:[box-shadow:var(--shadow-focus)] [&_textarea]:resize-y [&_textarea]:min-h-[72px]",
+    "form-field": "[&_label]:(block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap) [&_input,&_select,&_textarea]:(w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150) [&_input:focus,&_select:focus,&_textarea:focus]:(border-accent [box-shadow:var(--shadow-focus)]) [&_textarea]:(resize-y min-h-[72px])",
     // ─── Field Full ─── (18+ files: grid-column 1/-1, spans all columns)
     "field-full": "col-span-full",
     // ─── Status Pill ─── (65+ files: inline status badge shape; color resolved at call site via crate::utils::status_color())

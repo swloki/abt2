@@ -188,3 +188,6 @@ pub mod gl_entry_detail;
 pub mod sales_invoice_list;
 pub mod sales_invoice_create;
 pub mod sales_invoice_detail;
+pub mod purchase_invoice_list;
+pub mod purchase_invoice_create;
+pub mod purchase_invoice_detail;

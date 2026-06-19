@@ -93,9 +93,6 @@ fn build_filter(params: &EntryQueryParams) -> GlEntryFilter {
 
 fn build_query_string(params: &EntryQueryParams) -> String {
     let mut parts = Vec::new();
-    if let Some(ref v) = params.keyword {
-        parts.push(format!("keyword={v}"));
-    }
     if let Some(ref v) = params.period {
         parts.push(format!("period={v}"));
     }
@@ -182,12 +179,6 @@ fn entry_table_fragment(result: &PaginatedResult<GlEntry>, params: &EntryQueryPa
                 hx-swap="outerHTML"
                 hx-include="#gl-entry-filter-form"
                 hx-push-url="true" {
-                div class="relative flex-1 max-w-xs icon:absolute icon:left-3 icon:top-1/2 icon:-translate-y-1/2 icon:w-4 icon:h-4 icon:text-muted" {
-                    (icon::search_icon(""))
-                    input class="w-[200px] pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input" type="text" name="keyword"
-                        placeholder="搜索凭证号…"
-                        value=(params.keyword.as_deref().unwrap_or(""));
-                }
                 input class="w-[120px] px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent font-mono tabular-nums" type="text" name="period"
                     placeholder="期间 YYYY-MM"
                     value=(params.period.as_deref().unwrap_or(""));

@@ -9,6 +9,7 @@ pub mod h3yun;
 
 // 未来模块占位
 pub mod fms;
+pub mod gl;
 pub mod mes;
 pub mod om;
 pub mod purchase;

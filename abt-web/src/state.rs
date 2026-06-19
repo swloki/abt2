@@ -543,6 +543,10 @@ impl AppState {
     ) -> impl abt_core::fms::cost_accounting::CostAccountingService {
         abt_core::fms::cost_accounting::new_cost_accounting_service()
     }
+    // ── GL (General Ledger) Services ──
+    pub fn gl_account_service(&self) -> impl abt_core::gl::account::GlAccountService {
+        abt_core::gl::account::new_gl_account_service(self.pool.clone())
+    }
 
     /// 生成下一个 task_id
     pub fn next_task_id(&self) -> i64 {

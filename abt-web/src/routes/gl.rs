@@ -174,5 +174,18 @@ pub fn router() -> Router<AppState> {
             PurchaseInvoiceCancelPath::PATH,
             axum::routing::post(crate::pages::purchase_invoice_detail::cancel),
         )
-        // 试算/期间 等路由在后续 task（D4/D5）补
+        // 试算平衡表
+        .route(
+            GlTrialBalancePath::PATH,
+            get(crate::pages::gl_trial_balance::get_trial_balance),
+        )
+        // 会计期间
+        .route(
+            GlPeriodListPath::PATH,
+            get(crate::pages::gl_period_list::get_list),
+        )
+        .route(
+            GlPeriodClosePath::PATH,
+            axum::routing::post(crate::pages::gl_period_list::close),
+        )
 }

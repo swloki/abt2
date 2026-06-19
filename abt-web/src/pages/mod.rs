@@ -191,3 +191,5 @@ pub mod sales_invoice_detail;
 pub mod purchase_invoice_list;
 pub mod purchase_invoice_create;
 pub mod purchase_invoice_detail;
+pub mod gl_trial_balance;
+pub mod gl_period_list;

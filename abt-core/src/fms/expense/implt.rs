@@ -95,6 +95,98 @@ impl ExpenseReimbursementService for ExpenseReimbursementServiceImpl {
         Ok(id)
     }
 
+    async fn submit(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        id: i64,
+    ) -> Result<()> {
+        let expense = ExpenseReimbursementRepo::get_by_id(db, id)
+            .await?
+            .ok_or_else(|| DomainError::not_found("ExpenseReimbursement"))?;
+
+        if expense.status != ExpenseStatus::Draft {
+            return Err(DomainError::business_rule("Only Draft expenses can be submitted"));
+        }
+
+        new_state_machine_service(self.pool.clone())
+            .transition(ctx, db, "ExpenseStatus", id, "Submitted", None)
+            .await?;
+
+        let rows = ExpenseReimbursementRepo::update_status(
+            db,
+            id,
+            ExpenseStatus::Submitted,
+            expense.version,
+        )
+        .await?;
+        if rows == 0 {
+            return Err(DomainError::ConcurrentConflict);
+        }
+
+        new_audit_log_service(self.pool.clone())
+            .record(
+                ctx,
+                db,
+                RecordAuditLogReq {
+                    entity_type: "ExpenseReimbursement",
+                    entity_id: id,
+                    action: AuditAction::Transition,
+                    changes: Some(serde_json::json!({ "from": "Draft", "to": "Submitted" })),
+                    context: None,
+                },
+            )
+            .await?;
+
+        Ok(())
+    }
+
+    async fn approve(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        id: i64,
+    ) -> Result<()> {
+        let expense = ExpenseReimbursementRepo::get_by_id(db, id)
+            .await?
+            .ok_or_else(|| DomainError::not_found("ExpenseReimbursement"))?;
+
+        if expense.status != ExpenseStatus::Submitted {
+            return Err(DomainError::business_rule("Only Submitted expenses can be approved"));
+        }
+
+        new_state_machine_service(self.pool.clone())
+            .transition(ctx, db, "ExpenseStatus", id, "Approved", None)
+            .await?;
+
+        let rows = ExpenseReimbursementRepo::update_status(
+            db,
+            id,
+            ExpenseStatus::Approved,
+            expense.version,
+        )
+        .await?;
+        if rows == 0 {
+            return Err(DomainError::ConcurrentConflict);
+        }
+
+        new_audit_log_service(self.pool.clone())
+            .record(
+                ctx,
+                db,
+                RecordAuditLogReq {
+                    entity_type: "ExpenseReimbursement",
+                    entity_id: id,
+                    action: AuditAction::Transition,
+                    changes: Some(serde_json::json!({ "from": "Submitted", "to": "Approved" })),
+                    context: None,
+                },
+            )
+            .await?;
+
+        Ok(())
+    }
+
     async fn get(&self, _ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<ExpenseReimbursement> {
         ExpenseReimbursementRepo::get_by_id(db, id)
             .await

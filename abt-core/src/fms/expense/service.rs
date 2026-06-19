@@ -12,6 +12,22 @@ pub trait ExpenseReimbursementService: Send + Sync {
         req: CreateExpenseReq,
     ) -> Result<i64>;
 
+    /// Draft → Submitted（提交审批）
+    async fn submit(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        id: i64,
+    ) -> Result<()>;
+
+    /// Submitted → Approved（审批通过）
+    async fn approve(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        id: i64,
+    ) -> Result<()>;
+
     async fn get(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<ExpenseReimbursement>;
 
     async fn list(

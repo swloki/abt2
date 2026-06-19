@@ -177,7 +177,7 @@ impl TransferRepo {
         let limit_idx = param_idx + 1;
         let offset_idx = param_idx + 2;
 
-        let count_sql = format!("SELECT COUNT(*) as total FROM inventory_transfers WHERE {where_sql}");
+        let count_sql = format!("SELECT COUNT(*) as total FROM inventory_transfers t WHERE {where_sql}");
         let data_sql = format!(
             "SELECT t.id, t.doc_number, t.from_warehouse_id, t.from_zone_id, t.from_bin_id, \
              t.to_warehouse_id, t.to_zone_id, t.to_bin_id, \

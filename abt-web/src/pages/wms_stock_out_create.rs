@@ -158,7 +158,9 @@ pub async fn create_stock_out(
  zone_id: form.zone_id,
  bin_id: form.bin_id,
  batch_no: None,
- quantity,
+ // record() 的 quantity 是有符号 delta（入库正 / 出库负，参考 transfer 调用方取负）。
+ // 出库必须传负数，否则台账会反向增加（历史 bug）。
+ quantity: -quantity,
  unit_cost,
  source_type: source_type.to_string(),
  source_id: 0,

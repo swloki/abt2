@@ -91,6 +91,47 @@ impl FormConversionService for FormConversionServiceImpl {
             });
         }
 
+        // 修复：原先 complete 仅改状态、不动账。现在按明细生成 FormConversion 事务——
+        // Consume 负向（消耗源物料）、Produce 正向（产出目标物料），库位由 record() 自动解析。
+        let items = FormConversionRepo::get_items(&mut *db, id)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?;
+        let txn_svc = crate::wms::inventory_transaction::new_inventory_transaction_service(self.pool.clone());
+        use crate::wms::enums::{ConversionDir, TransactionType};
+        use crate::wms::inventory_transaction::model::RecordTransactionReq;
+        use crate::wms::inventory_transaction::service::InventoryTransactionService;
+        for item in items {
+            let signed_qty = match item.direction {
+                ConversionDir::Consume => -item.quantity,
+                ConversionDir::Produce => item.quantity,
+            };
+            if signed_qty == rust_decimal::Decimal::ZERO {
+                continue;
+            }
+            txn_svc
+                .record(
+                    ctx,
+                    db,
+                    RecordTransactionReq {
+                        doc_number: None,
+                        delivery_no: None,
+                        source_doc_number: Some(conversion.doc_number.clone()),
+                        transaction_type: TransactionType::FormConversion,
+                        product_id: item.product_id,
+                        warehouse_id: conversion.warehouse_id,
+                        zone_id: None,
+                        bin_id: None,
+                        batch_no: item.batch_no.clone(),
+                        quantity: signed_qty,
+                        unit_cost: Some(item.unit_cost),
+                        source_type: "form_conversion".to_string(),
+                        source_id: conversion.id,
+                        remark: None,
+                    },
+                )
+                .await?;
+        }
+
         FormConversionRepo::update_status(&mut *db, id, ConversionStatus::Completed)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;

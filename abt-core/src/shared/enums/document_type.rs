@@ -60,6 +60,8 @@ pub enum DocumentType {
     StockReceipt = 43,
     // WMS — 出库单
     StockShipment = 44,
+    // FMS — GL 总账凭证
+    GlEntry = 45,
 }
 
 impl DocumentType {
@@ -109,6 +111,7 @@ impl DocumentType {
             42 => Some(Self::FlowCard),
             43 => Some(Self::StockReceipt),
             44 => Some(Self::StockShipment),
+            45 => Some(Self::GlEntry),
             _ => None,
         }
     }
@@ -176,6 +179,8 @@ impl DocumentType {
             Self::StockReceipt => "RK",
             // WMS — 出库单
             Self::StockShipment => "CK",
+            // FMS — GL 总账凭证
+            Self::GlEntry => "GL",
         }
     }
 }

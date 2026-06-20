@@ -307,6 +307,7 @@ pub struct ActionForm {
 #[derive(Debug, Deserialize)]
 pub struct ReceiveForm {
  pub received_qty: String,
+ #[serde(default, deserialize_with = "crate::utils::empty_as_none")]
  pub warehouse_id: Option<i64>,
  pub remark: Option<String>,
 }
@@ -587,7 +588,7 @@ fn detail_page(
  }
  }
  // Detail row — secondary meta
- div class="info-flex py-2 text-sm" {
+ div class="flex flex-wrap gap-x-6 gap-y-1 py-2 text-sm" {
  span class="flex gap-[6px] text-xs text-muted" { "计划数量 " strong class="font-mono tabular-nums" { (crate::utils::fmt_qty(order.planned_qty)) } }
  span class="flex gap-[6px] text-xs text-muted" { "完成数量 " strong class="font-mono tabular-nums" class="text-success" { (crate::utils::fmt_qty(order.completed_qty)) } }
  span class="flex gap-[6px] text-xs text-muted" { "单价 " strong class="font-mono tabular-nums" { (crate::utils::fmt_qty(order.unit_price)) } }
@@ -875,8 +876,7 @@ fn detail_page(
  div class="form-field" {
  label { "入库仓库" }
  select name="warehouse_id" class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" class="w-full" {
- option value="" { "成品仓（默认）" }
- option value="1" { "待检仓" }
+ option value="23332" selected { "成品仓（默认）" }
  }
  }
  div class="form-field" {

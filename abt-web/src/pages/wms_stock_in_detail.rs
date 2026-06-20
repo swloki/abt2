@@ -117,7 +117,7 @@ fn stock_in_detail_page(
  let type_label = transaction_type_label(&txn.transaction_type);
 
  html! {
- div {
+ div class="space-y-5" {
  a href=(format!("{}?restore=true", StockInListPath::PATH)) class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" {
  (icon::chevron_left_icon("w-4 h-4"))
  "返回入库列表"
@@ -133,9 +133,9 @@ fn stock_in_detail_page(
  }
 
  // ── 基本信息 ──
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
+ div class="bg-bg border border-border-soft rounded-md p-5 shadow-[var(--shadow-sm)]" {
  div class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" { "基本信息" }
- div class="grid gap-4" {
+ div class="grid grid-cols-2 gap-x-8 gap-y-3" {
  div class="flex flex-col gap-1" {
  span class="text-xs text-muted font-medium" { "单据编号" }
  span class="text-sm text-fg font-medium font-mono tabular-nums" { (txn.doc_number.as_deref().unwrap_or("—")) }

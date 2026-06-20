@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>总账模块 (GL) — 类图设计 v1</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, 'Segoe UI', sans-serif; background: #1e1e2e; color: #cdd6f4; padding: 24px; }
+    h2 { color: #e0e0e0; margin-bottom: 4px; }
+    .subtitle { color: #888; font-size: 14px; margin-bottom: 20px; }
+    .mockup { background: #282a36; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.3); }
+    .mockup-header { background: linear-gradient(135deg, #98c379, #e5c07b); color: #fff; padding: 12px 20px; font-weight: bold; font-size: 15px; }
+    .mockup-body { padding: 20px; font-size: 13px; line-height: 1.5; }
+  </style>
+</head>
+<body>
+<h2>总账模块 (GL) — 类图设计 v1</h2>
+<p class="subtitle">科目表 + 凭证三态 + 借贷平衡 + 期间锁定 + 明细账 + 试算平衡 + 期初余额 · 业财一体内核</p>
+
+<div class="mockup">
+  <div class="mockup-header">General Ledger (GL) — UML Class Diagram v1</div>
+  <div class="mockup-body">
+
+    <!-- 核心流程 -->
+    <div style="background: rgba(152,195,121,0.1); padding: 12px; border-radius: 6px; margin-bottom: 20px;">
+      <h3 style="margin: 0 0 8px 0; color: #98c379;">GL 核心流转</h3>
+      <div style="font-family: monospace; font-size: 12px; color: #e0e0e0; line-height: 2;">
+        <span style="color:#e5a655;">手工凭证</span> create_manual(Draft) → post(Posted, 借贷平衡校验) → cancel(Cancelled, 余额排除)
+        <br>
+        <span style="color:#6bc76b;">期间锁定</span> period.close(Open→Closed) → 该期 create_manual 失败(PeriodClosed)
+        <br>
+        <span style="color:#c678dd;">试算平衡</span> trial_balance(period) → 总借=总贷 + 期末余额
+        <br>
+        <span style="color:#56b6c2;">明细账</span> general_ledger(account, from, to) → 分录流水 + running_balance
+        <br>
+        <span style="color:#e06c75;">科目余额</span> get_account_balance(period, as_of_date) → opening_balance + Σ( posted 分录, 按方向定向累加)
+        <br>
+        <span style="color:#888;">架构方向：科目表(GlAccount) + 期间(GlPeriod) + 凭证(GlEntry/GlEntryLine) 三张核心表，支持期初余额、多币种、辅助核算</span>
+      </div>
+    </div>
+
+    <!-- 模块说明 -->
+    <h3 style="color: #e5c07b; margin: 20px 0 10px 0;">1. 科目表模型 (GlAccount)</h3>
+    <div style="background: rgba(229,192,123,0.08); padding: 12px; border-radius: 6px; margin-bottom: 16px; font-family: monospace; font-size: 12px;">
+      entity GlAccount {<br>
+      &nbsp;&nbsp;id: i64 PK<br>
+      &nbsp;&nbsp;code: String UNIQUE -- 科目编码<br>
+      &nbsp;&nbsp;name: String<br>
+      &nbsp;&nbsp;account_type: AccountType -- 资产/负债/权益/收入/费用<br>
+      &nbsp;&nbsp;parent_id: i64? FK -- 父科目<br>
+      &nbsp;&nbsp;is_detail: BOOLEAN -- 是否末级(可用于凭证)<br>
+      &nbsp;&nbsp;balance_direction: BalanceDirection -- 借方/贷方<br>
+      &nbsp;&nbsp;company_id: i64<br>
+      &nbsp;&nbsp;reconcile: BOOLEAN -- 是否对账(应收/应付/税金)<br>
+      &nbsp;&nbsp;disabled: BOOLEAN -- 是否禁用(替代 status)<br>
+      &nbsp;&nbsp;opening_balance: DECIMAL(18,6) -- 期初余额<br>
+      &nbsp;&nbsp;currency: VARCHAR(10) -- 币种(默认 CNY)<br>
+      &nbsp;&nbsp;version: i32<br>
+      &nbsp;&nbsp;created_at: Timestamp<br>
+      &nbsp;&nbsp;updated_at: Timestamp<br>
+      &nbsp;&nbsp;deleted_at: Timestamp?<br>
+      }<br><br>
+      enum AccountType { ASSET, LIABILITY, EQUITY, REVENUE, EXPENSE }<br>
+      enum BalanceDirection { DEBIT, CREDIT }
+    </div>
+    <p style="color: #aaa; font-size: 11px; margin: 0 0 16px 0;">
+      <strong>设计要点：</strong>树形结构(parent_id)，只有末级科目(is_detail=TRUE)可用于凭证。balance_direction 决定余额计算公式：借方科目余额=期初+借-贷，贷方科目余额=期初+贷-借。reconcile 标记需要往来对账的科目。
+    </p>
+
+    <h3 style="color: #e5c07b; margin: 20px 0 10px 0;">2. 会计期间 (GlPeriod)</h3>
+    <div style="background: rgba(229,192,123,0.08); padding: 12px; border-radius: 6px; margin-bottom: 16px; font-family: monospace; font-size: 12px;">
+      entity GlPeriod {<br>
+      &nbsp;&nbsp;id: i64 PK<br>
+      &nbsp;&nbsp;period: VARCHAR(7) UNIQUE -- "2026-06"<br>
+      &nbsp;&nbsp;start_date: DATE<br>
+      &nbsp;&nbsp;end_date: DATE<br>
+      &nbsp;&nbsp;status: PeriodStatus -- Open/Closed<br>
+      &nbsp;&nbsp;company_id: i64<br>
+      &nbsp;&nbsp;version: i32<br>
+      &nbsp;&nbsp;created_at: Timestamp<br>
+      &nbsp;&nbsp;updated_at: Timestamp<br>
+      &nbsp;&nbsp;deleted_at: Timestamp?<br>
+      }<br><br>
+      enum PeriodStatus { OPEN, CLOSED }
+    </div>
+    <p style="color: #aaa; font-size: 11px; margin: 0 0 16px 0;">
+      <strong>期间锁定规则：</strong>close 要求期间无 draft 凭证(status=1)。已关闭期间不允许新建凭证(create_manual 自动 resolve_open 期间，失败则报 PeriodClosed)。
+    </p>
+
+    <h3 style="color: #e5c07b; margin: 20px 0 10px 0;">3. 凭证模型 (GlEntry/GlEntryLine)</h3>
+    <div style="background: rgba(229,192,123,0.08); padding: 12px; border-radius: 6px; margin-bottom: 16px; font-family: monospace; font-size: 12px;">
+      entity GlEntry {<br>
+      &nbsp;&nbsp;id: i64 PK<br>
+      &nbsp;&nbsp;doc_number: String UNIQUE -- "GE-2026-06-xxxxx"<br>
+      &nbsp;&nbsp;period: VARCHAR(7) -- "2026-06"<br>
+      &nbsp;&nbsp;entry_date: DATE<br>
+      &nbsp;&nbsp;source_type: DocumentType -- 业务来源<br>
+      &nbsp;&nbsp;source_id: i64<br>
+      &nbsp;&nbsp;description: String<br>
+      &nbsp;&nbsp;voucher_type: VARCHAR(20) -- Journal Entry/Receipt/Payment/Contra/Opening<br>
+      &nbsp;&nbsp;is_opening: BOOLEAN -- 是否期初凭证<br>
+      &nbsp;&nbsp;status: EntryStatus -- 1draft/2posted/3cancelled<br>
+      &nbsp;&nbsp;total_debit: DECIMAL(18,6)<br>
+      &nbsp;&nbsp;total_credit: DECIMAL(18,6)<br>
+      &nbsp;&nbsp;operator_id: i64<br>
+      &nbsp;&nbsp;version: i32 -- 乐观锁<br>
+      &nbsp;&nbsp;created_at: Timestamp<br>
+      &nbsp;&nbsp;updated_at: Timestamp<br>
+      &nbsp;&nbsp;deleted_at: Timestamp?<br>
+      }<br><br>
+      entity GlEntryLine {<br>
+      &nbsp;&nbsp;id: i64 PK<br>
+      &nbsp;&nbsp;entry_id: i64 FK<br>
+      &nbsp;&nbsp;account_id: i64 FK → gl_accounts<br>
+      &nbsp;&nbsp;debit: DECIMAL(18,6)<br>
+      &nbsp;&nbsp;credit: DECIMAL(18,6)<br>
+      &nbsp;&nbsp;amount_currency: DECIMAL(18,6) -- 原币金额<br>
+      &nbsp;&nbsp;currency: VARCHAR(10) -- 原币币种<br>
+      &nbsp;&nbsp;exchange_rate: DECIMAL(18,6) -- 汇率<br>
+      &nbsp;&nbsp;cost_center: i64? -- 成本中心<br>
+      &nbsp;&nbsp;profit_center: i64? -- 利润中心<br>
+      &nbsp;&nbsp;project_id: i64? -- 项目<br>
+      &nbsp;&nbsp;memo: String<br>
+      }<br><br>
+      enum EntryStatus { DRAFT(1), POSTED(2), CANCELLED(3) }
+    </div>
+    <p style="color: #e06c75; font-size: 11px; margin: 4px 0 0 0;">
+      <strong>凭证三态流转：</strong>Draft → Posted(post 校验借贷平衡 + 期间 open + 科目末级) → Cancelled(cancel 作废，余额查询自动排除 cancelled 凭证，无需红字反向分录)。
+    </p>
+    <p style="color: #aaa; font-size: 11px; margin: 4px 0 0 0;">
+      <strong>借贷平衡强制校验：</strong>post 时检查 total_debit == total_credit，不相等抛 DomainError::BusinessRule("UnbalancedEntry")。create 不校验，允许 draft 凭证暂不平衡。
+    </p>
+
+    <h3 style="color: #98c379; margin: 20px 0 10px 0;">4. GlEntryService trait</h3>
+    <div style="background: rgba(152,195,121,0.05); border: 2px solid #98c379; border-radius: 8px; padding: 14px; margin-bottom: 20px; font-family: monospace; font-size: 11px;">
+      <span style="color:#c678dd;">interface</span> <span style="color:#e5c07b;">GlEntryService</span> {<br>
+      &nbsp;&nbsp;create_manual(ctx, db, req): Result&lt;i64&gt; <span style="color:#56b6c2;">[InCallerTx]</span><br>
+      &nbsp;&nbsp;post(ctx, db, id): Result&lt;()&gt; <span style="color:#56b6c2;">[InCallerTx]</span> -- 校验平衡+期间+末级，乐观锁更新 status=Posted<br>
+      &nbsp;&nbsp;cancel(ctx, db, id): Result&lt;()&gt; <span style="color:#56b6c2;">[InCallerTx]</span> -- posted→cancelled，乐观锁，记审计<br>
+      &nbsp;&nbsp;get(ctx, db, id): Result&lt;(GlEntry, Vec&lt;GlEntryLine&gt;)&gt;<br>
+      &nbsp;&nbsp;list(ctx, db, filter: GlEntryFilter, page): PaginatedResult<br>
+      &nbsp;&nbsp;trial_balance(ctx, db, period): Result&lt;TrialBalance&gt; -- 只统计 posted 凭证，含 opening_balance<br>
+      &nbsp;&nbsp;general_ledger(ctx, db, account_id, from?, to?): Result&lt;Vec&lt;GlDetailRow&gt;&gt; -- 分录流水 + running_balance<br>
+      &nbsp;&nbsp;get_account_balance(ctx, db, account_id, period?, as_of_date?): Result&lt;Decimal&gt; -- 期初 + Σ(posted 分录，按方向定向)<br>
+      }<br><br>
+      <span style="color:#888;">// TransactionMode: InCallerTx (写操作与调用方同一事务)</span><br>
+      <span style="color:#888;">// create/post/cancel 都有 AuditLog 同步记录</span>
+    </div>
+
+    <h3 style="color: #56b6c2; margin: 20px 0 10px 0;">5. 核心算法说明</h3>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
+      <!-- trial_balance -->
+      <div style="border: 2px solid #56b6c2; border-radius: 8px; padding: 14px; background: rgba(86,182,194,0.05);">
+        <h4 style="color: #56b6c2; margin: 0 0 6px 0;">试算平衡 (trial_balance)</h4>
+        <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11.5px;">
+          <span style="color:#888;">// 1. 按期间汇总所有科目的借/贷发生额</span><br>
+          SELECT a.id, SUM(l.debit), SUM(l.credit)<br>
+          FROM gl_accounts a<br>
+          LEFT JOIN gl_entry_lines l ON l.account_id = a.id<br>
+          LEFT JOIN gl_entries e ON e.id = l.entry_id<br>
+            AND e.period = $1<br>
+            AND e.status = 2 <span style="color:#888;">-- Posted</span><br>
+          GROUP BY a.id<br><br>
+          <span style="color:#888;">// 2. 计算期末余额</span><br>
+          IF (balance_direction = DEBIT) {<br>
+          &nbsp;&nbsp;end_balance = opening_balance + period_debit - period_credit<br>
+          } ELSE {<br>
+          &nbsp;&nbsp;end_balance = opening_balance + period_credit - period_debit<br>
+          }
+        </div>
+      </div>
+
+      <!-- general_ledger -->
+      <div style="border: 2px solid #c678dd; border-radius: 8px; padding: 14px; background: rgba(198,120,221,0.05);">
+        <h4 style="color: #c678dd; margin: 0 0 6px 0;">明细账 (general_ledger)</h4>
+        <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11.5px;">
+          <span style="color:#888;">// 返回分录流水 + 累计余额</span><br>
+          SELECT e.id, e.doc_number, e.entry_date, e.description,<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;l.debit, l.credit,<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#e5a655;">counterpart_account_id</span>,<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#6bc76b;">running_balance</span><br>
+          FROM gl_entries e<br>
+          JOIN gl_entry_lines l ON l.entry_id = e.id<br>
+          WHERE l.account_id = $1<br>
+            AND e.status = 2 <span style="color:#888;">-- Posted</span><br>
+            AND e.deleted_at IS NULL<br>
+          ORDER BY e.entry_date ASC<br><br>
+          <span style="color:#888;">// counterpart: 同凭证其他行第一行的 account_id</span><br>
+          <span style="color:#888;">// running_balance: 按 balance_direction 累加</span>
+        </div>
+      </div>
+    </div>
+
+    <h3 style="color: #e06c75; margin: 20px 0 10px 0;">6. 业财一体衔接说明</h3>
+    <div style="background: rgba(224,108,117,0.08); padding: 12px; border-radius: 6px; margin-bottom: 20px;">
+      <div style="font-family: monospace; font-size: 12px; color: #e0e0e0; line-height: 1.8;">
+        <span style="color:#e5a655;">Plan B (发票过账)</span> → 销售发票/采购发票 post → 自动生成 GlEntry(借应收/贷收入、借库存/贷应付)<br>
+        <span style="color:#6bc76b;">Plan C1 (收付款过账)</span> → CashJournal.confirm → 同事务 post_from_source 一张 posted GlEntry：<br>
+        &nbsp;&nbsp;· SalesReceipt(收款)：借 default_bank / 贷 default_ar（应收减少）<br>
+        &nbsp;&nbsp;· PurchasePayment(付款)：借 default_ap / 贷 default_bank（应付+银行双减）<br>
+        &nbsp;&nbsp;· Expense：跳过（由 C2 统一过账）· Payroll/Other：跳过（无对方科目映射）<br>
+        <span style="color:#56b6c2;">Plan C2 (报销付款过账)</span> → ExpenseReimbursement.generate_payment_journal → 同事务 post_from_source：借 default_expense / 贷 default_bank<br>
+        <span style="color:#c678dd;">MES/WMS/QMS/OM</span> → 完工入库/报工/不良处置 → 成本事件 → GlEntry(voucher_type=Opening/Contra)<br>
+        <span style="color:#56b6c2;">自动分录</span> → 折旧/摊销/汇兑损益 → 定时任务 → GlEntry(source_type=System)<br>
+        <span style="color:#888;">凭证来源</span> → source_type + source_id 记录原始单据，支持追溯和反查
+      </div>
+    </div>
+
+    <h3 style="color: #7c3aed; margin: 20px 0 10px 0;">7. 多币种 & 辅助核算字段</h3>
+    <div style="background: rgba(124,58,237,0.08); padding: 12px; border-radius: 6px; margin-bottom: 20px;">
+      <div style="font-family: monospace; font-size: 12px; color: #e0e0e0; line-height: 1.8;">
+        <span style="color:#e5a655;">多币种支持</span> → GlEntryLine.amount_currency(原币) + currency + exchange_rate，本位币= debit/credit<br>
+        <span style="color:#6bc76b;">辅助核算</span> → cost_center(成本中心) + profit_center(利润中心) + project_id(项目) 支持多维分析<br>
+        <span style="color:#c678dd;">期初凭证</span> → is_opening=TRUE 标识期初调整凭证，与 opening_balance 配合<br>
+        <span style="color:#888;">凭证类型</span> → voucher_type 区分业务类型：Journal Entry(手工)/Receipt(收款)/Payment(付款)/Contra(冲销)/Opening(期初)
+      </div>
+    </div>
+
+    <h3 style="color: #61afef; margin: 20px 0 10px 0;">8. 数据一致性保障</h3>
+    <div style="background: rgba(97,175,239,0.08); padding: 12px; border-radius: 6px;">
+      <div style="font-family: monospace; font-size: 12px; color: #e0e0e0; line-height: 1.8;">
+        <span style="color:#e5a655;">乐观锁</span> → GlEntry.version + GlAccount.version 防并发冲突<br>
+        <span style="color:#6bc76b;">软删除</span> → deleted_at 时间戳，查询自动过滤<br>
+        <span style="color:#c678dd;">审计</span> → AuditLog 记录关键操作(post/cancel)，status 变更有 Transition 日志<br>
+        <span style="color:#56b6c2;">事务一致性</span> → create/post/cancel 都用 InCallerTx，与业务操作同事务提交/回滚
+      </div>
+    </div>
+
+  </div>
+</div>
+</body>
+</html>

@@ -10,12 +10,12 @@ use crate::shared::types::pagination::{PageParams, PaginatedResult};
 use crate::shared::types::{PgExecutor, Result};
 
 pub struct WorkCenterServiceImpl {
-    pool: PgPool,
+    _pool: PgPool,
 }
 
 impl WorkCenterServiceImpl {
     pub fn new(pool: PgPool) -> Self {
-        Self { pool }
+        Self { _pool: pool }
     }
 }
 

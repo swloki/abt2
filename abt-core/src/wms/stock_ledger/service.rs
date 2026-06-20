@@ -6,7 +6,7 @@ use crate::shared::types::PgExecutor;
 use crate::shared::types::Result;
 use crate::shared::types::pagination::PaginatedResult;
 
-use super::model::{ProductWithoutPriceRow, StockFilter, StockLedger, UpsertStockReq};
+use super::model::{StockFilter, StockLedger, UpsertStockReq};
 
 /// 预计可用量分解（参考 ERPNext bin.projected_qty 公式）
 /// projected = actual + on_order_po + in_progress_wo - reserved

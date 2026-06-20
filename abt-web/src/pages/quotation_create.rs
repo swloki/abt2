@@ -7,7 +7,6 @@ use serde::Deserialize;
 use abt_core::master_data::customer::CustomerService;
 use abt_core::master_data::customer::model::CustomerQuery;
 use abt_core::master_data::product::ProductService;
-use abt_core::master_data::product::model::ProductQuery;
 use abt_core::sales::quotation::QuotationService;
 use abt_core::sales::quotation::model::*;
 use abt_core::shared::types::PageParams;
@@ -18,7 +17,7 @@ use crate::errors::Result;
 use crate::layout::page::admin_page;
 use crate::routes::quotation::{
  QuotationCreatePath, QuotationCustomerContactsPath, QuotationDetailPath, QuotationItemRowPath,
- QuotationListPath, QuotationProductsPath,
+ QuotationListPath,
 };
 use crate::utils::RequestContext;
 use abt_core::shared::types::DomainError;

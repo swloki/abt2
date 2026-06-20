@@ -7,8 +7,7 @@ use serde::Deserialize;
 use rust_decimal::Decimal;
 
 use abt_core::master_data::product::ProductService;
-use abt_core::master_data::product::model::ProductQuery;
-use abt_core::shared::types::{DomainError, PageParams};
+use abt_core::shared::types::DomainError;
 use abt_core::wms::material_requisition::{CreateManualReq, CreateManualItemReq, MaterialRequisitionService};
 use abt_core::wms::warehouse::model::WarehouseFilter;
 use abt_core::wms::warehouse::WarehouseService;

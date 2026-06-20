@@ -60,6 +60,12 @@ pub enum DocumentType {
     StockReceipt = 43,
     // WMS — 出库单
     StockShipment = 44,
+    // FMS — GL 总账凭证
+    GlEntry = 45,
+    // FMS — 销售发票
+    SalesInvoice = 46,
+    // FMS — 采购发票
+    PurchaseInvoice = 47,
 }
 
 impl DocumentType {
@@ -109,6 +115,9 @@ impl DocumentType {
             42 => Some(Self::FlowCard),
             43 => Some(Self::StockReceipt),
             44 => Some(Self::StockShipment),
+            45 => Some(Self::GlEntry),
+            46 => Some(Self::SalesInvoice),
+            47 => Some(Self::PurchaseInvoice),
             _ => None,
         }
     }
@@ -176,6 +185,12 @@ impl DocumentType {
             Self::StockReceipt => "RK",
             // WMS — 出库单
             Self::StockShipment => "CK",
+            // FMS — GL 总账凭证
+            Self::GlEntry => "GL",
+            // FMS — 销售发票
+            Self::SalesInvoice => "SI",
+            // FMS — 采购发票
+            Self::PurchaseInvoice => "PI",
         }
     }
 }

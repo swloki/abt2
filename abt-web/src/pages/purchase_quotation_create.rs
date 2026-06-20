@@ -5,7 +5,6 @@ use maud::{Markup, html};
 use serde::Deserialize;
 
 use abt_core::master_data::product::ProductService;
-use abt_core::master_data::product::model::ProductQuery;
 use abt_core::master_data::supplier::SupplierService;
 use abt_core::master_data::supplier::model::SupplierQuery;
 use abt_core::purchase::quotation::PurchaseQuotationService;
@@ -17,7 +16,7 @@ use crate::components::icon;
 use crate::errors::Result;
 use crate::layout::page::admin_page;
 use crate::routes::purchase_quotation::{
- PQCreatePath, PQDetailPath, PQItemRowPath, PQListPath, PQProductsPath,
+ PQCreatePath, PQDetailPath, PQItemRowPath, PQListPath,
  PQSupplierContactsPath,
 };
 use crate::utils::RequestContext;

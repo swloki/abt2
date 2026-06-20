@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 
 use axum::response::{Html, IntoResponse};

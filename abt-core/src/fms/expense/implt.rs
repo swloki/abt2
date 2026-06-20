@@ -8,6 +8,8 @@ use crate::fms::enums::{
 };
 use crate::fms::expense::model::*;
 use crate::fms::expense::repo::{ExpenseReimbursementItemRepo, ExpenseReimbursementRepo};
+use crate::gl::entry::{model::GlEntryLineInput, new_gl_entry_service, service::GlEntryService};
+use crate::gl::mapping::{new_gl_mapping_service, service::GlMappingService};
 use crate::fms::expense::service::ExpenseReimbursementService;
 use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService, RecordAuditLogReq};
 use crate::shared::document_sequence::service::DocumentSequenceService;
@@ -30,6 +32,60 @@ pub struct ExpenseReimbursementServiceImpl {
 impl ExpenseReimbursementServiceImpl {
     pub fn new(pool: PgPool) -> Self {
         Self { pool }
+    }
+
+    /// 报销付款过账：借 default_expense / 贷 default_bank，金额 = expense.total_amount。
+    /// 辅助核算取第一条报销明细的 cost_center/profit_center。
+    async fn post_expense_gl(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        expense: &ExpenseReimbursement,
+    ) -> Result<()> {
+        let map = new_gl_mapping_service(self.pool.clone());
+        let expense_acct = map.resolve(ctx, db, "default_expense", None).await?;
+        let bank_acct = map.resolve(ctx, db, "default_bank", None).await?;
+
+        let items = ExpenseReimbursementItemRepo::get_by_reimbursement_id(db, expense.id).await?;
+        let (cc, pc) = items
+            .first()
+            .map(|i| (i.cost_center, i.profit_center))
+            .unwrap_or((None, None));
+
+        let amt = expense.total_amount;
+        let gl_lines = vec![
+            GlEntryLineInput {
+                account_id: expense_acct,
+                debit: amt,
+                credit: Decimal::ZERO,
+                cost_center: cc,
+                profit_center: pc,
+                project_id: None,
+                memo: format!("报销付款 {}", expense.doc_number),
+            },
+            GlEntryLineInput {
+                account_id: bank_acct,
+                debit: Decimal::ZERO,
+                credit: amt,
+                cost_center: cc,
+                profit_center: pc,
+                project_id: None,
+                memo: format!("报销付款 {}", expense.doc_number),
+            },
+        ];
+
+        new_gl_entry_service(self.pool.clone())
+            .post_from_source(
+                ctx,
+                db,
+                DocumentType::ExpenseReimbursement,
+                expense.id,
+                expense.expense_date,
+                format!("报销付款 {}", expense.doc_number),
+                gl_lines,
+            )
+            .await?;
+        Ok(())
     }
 }
 
@@ -226,7 +282,7 @@ impl ExpenseReimbursementService for ExpenseReimbursementServiceImpl {
     /// Called by WorkflowEngine Hook with ServiceContext for interface alignment.
     async fn generate_payment_journal(
         &self,
-        _ctx: &ServiceContext, _db: PgExecutor<'_>,
+        ctx: &ServiceContext, _db: PgExecutor<'_>,
         expense_id: i64,
     ) -> Result<i64> {
         // Step 1: Begin independent transaction
@@ -339,6 +395,10 @@ impl ExpenseReimbursementService for ExpenseReimbursementServiceImpl {
         if rows == 0 {
             return Err(DomainError::ConcurrentConflict);
         }
+
+        // 业财一体：报销付款同事务过账到 GL（硬错误，? 传播 → 过账失败整 generate_payment_journal 回滚）
+        // 借 default_expense / 贷 default_bank，source_type=ExpenseReimbursement
+        self.post_expense_gl(ctx, &mut *tx, &expense).await?;
 
         // Step 7: Commit transaction
         tx.commit().await.map_err(|e| DomainError::Internal(anyhow::anyhow!(e)))?;

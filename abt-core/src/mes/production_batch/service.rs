@@ -78,4 +78,12 @@ pub trait ProductionBatchService: Send + Sync {
         page: u32,
         page_size: u32,
     ) -> Result<crate::shared::types::PaginatedResult<BatchListItem>>;
+
+    /// 工单是否已有任意报工记录（删除工序的全局守卫 + UI 删除按钮可见性）
+    async fn order_has_any_report(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        work_order_id: i64,
+    ) -> Result<bool>;
 }

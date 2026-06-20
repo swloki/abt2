@@ -637,6 +637,15 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
         Ok(())
     }
 
+    async fn order_has_any_report(
+        &self,
+        _ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        work_order_id: i64,
+    ) -> Result<bool> {
+        WorkOrderRoutingRepo::has_any_report(&mut *db, work_order_id).await
+    }
+
     /// 推进到待入库状态
     async fn advance_to_receipt(
         &self,

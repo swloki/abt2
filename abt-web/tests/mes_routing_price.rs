@@ -184,3 +184,18 @@ async fn service_delete_renumbers_and_blocks_last() {
     let err = svc.delete_routing(&ctx, &mut conn, wo_id, rs[0].id).await.unwrap_err();
     assert!(matches!(err, DomainError::BusinessRule { .. }), "删最后一道应拒绝，got {err:?}");
 }
+
+#[tokio::test]
+async fn detail_page_shows_editable_price_and_delete_when_unreported() {
+    let app = common::TestApp::new().await;
+    let wo_id = seed_released_work_order(&app, MULTI_STEP_PRODUCT_ID, "200").await;
+    let resp = app.get(&format!("/admin/mes/orders/{wo_id}")).await;
+    assert!(
+        resp.is_ok(),
+        "detail GET FAIL: {} body: {}",
+        resp.status,
+        resp.body.chars().take(300).collect::<String>()
+    );
+    assert!(resp.body_contains(r#"name="unit_price""#), "未报工工单应渲染可编辑单价 input");
+    assert!(resp.body_contains("/delete"), "未报工工单应渲染删除端点");
+}

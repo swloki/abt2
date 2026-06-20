@@ -139,16 +139,12 @@ impl PurchaseOrderService for PurchaseOrderServiceImpl {
         let (total_amount, amount_untaxed, amount_tax, amount_total) =
             Self::compute_amounts(&mut *db, &req.items, req.discount_amount).await?;
 
-        // 2.5 校验明细：quantity > 0 且 unit_price > 0
+        // 2.5 校验明细：quantity > 0。单价允许为 0（草稿待采购员补充，例如从需求池
+        // 创建采购单时单价未知）；单价 > 0 的强校验在 confirm 时执行（见 confirm 步骤 3）。
         for (i, item) in req.items.iter().enumerate() {
             if item.quantity <= Decimal::ZERO {
                 return Err(DomainError::validation(
                     format!("订单明细第 {} 行数量必须大于 0", i + 1)
-                ));
-            }
-            if item.unit_price <= Decimal::ZERO {
-                return Err(DomainError::validation(
-                    format!("订单明细第 {} 行单价必须大于 0", i + 1)
                 ));
             }
         }

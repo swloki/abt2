@@ -98,6 +98,16 @@ impl SupplierService for SupplierServiceImpl {
             .await?
             .ok_or_else(|| DomainError::not_found("Supplier"))
     }
+
+    async fn get_by_ids(
+        &self,
+        _ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        ids: &[i64],
+    ) -> Result<Vec<Supplier>> {
+        SupplierRepo.find_by_ids(db, ids).await
+    }
+
     async fn delete(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()> {
         let existing = SupplierRepo.find_by_id(db, id)
             .await?

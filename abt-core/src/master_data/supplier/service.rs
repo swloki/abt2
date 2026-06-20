@@ -14,6 +14,13 @@ pub trait SupplierService: Send + Sync {
 
     async fn get(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<Supplier>;
 
+    async fn get_by_ids(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        ids: &[i64],
+    ) -> Result<Vec<Supplier>>;
+
     async fn update(
         &self,
         ctx: &ServiceContext, db: PgExecutor<'_>,

@@ -62,7 +62,7 @@ pub async fn get_list(
         )
         .await?;
 
-    // 供应商名解析（SupplierService 无 get_by_ids，逐个 get）
+    // 供应商名解析（批量查询，消 N+1）
     let supplier_ids: Vec<i64> = result
         .items
         .iter()
@@ -70,14 +70,16 @@ pub async fn get_list(
         .collect::<std::collections::HashSet<_>>()
         .into_iter()
         .collect();
-    let supplier_svc = state.supplier_service();
+    let suppliers = state
+        .supplier_service()
+        .get_by_ids(&service_ctx, &mut conn, &supplier_ids)
+        .await
+        .unwrap_or_default();
     use std::collections::HashMap;
-    let mut supplier_map: HashMap<i64, String> = HashMap::new();
-    for sid in &supplier_ids {
-        if let Ok(s) = supplier_svc.get(&service_ctx, &mut conn, *sid).await {
-            supplier_map.insert(*sid, s.name);
-        }
-    }
+    let supplier_map: HashMap<i64, String> = suppliers
+        .iter()
+        .map(|s| (s.id, s.name.clone()))
+        .collect();
 
     let content = invoice_list_page(&result, &params, &supplier_map);
     let page_html = admin_page(

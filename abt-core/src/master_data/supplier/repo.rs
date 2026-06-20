@@ -100,6 +100,25 @@ impl SupplierRepo {
         Ok(supplier)
     }
 
+    pub async fn find_by_ids(
+        &self,
+        executor: PgExecutor<'_>,
+        ids: &[i64],
+    ) -> Result<Vec<Supplier>> {
+        if ids.is_empty() {
+            return Ok(vec![]);
+        }
+        let suppliers = sqlx::query_as::<sqlx::Postgres, Supplier>(
+            sqlx::AssertSqlSafe(format!(
+                "SELECT {SUPPLIER_COLUMNS} FROM suppliers WHERE supplier_id = ANY($1) AND deleted_at IS NULL"
+            )),
+        )
+        .bind(ids)
+        .fetch_all(executor)
+        .await?;
+        Ok(suppliers)
+    }
+
     #[allow(unused_assignments)]
     pub async fn query(
         &self,

@@ -115,7 +115,7 @@ fn settings_page(
  div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
  div class="form-field" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "超收容差百分比 (%)" }
- input type="number"
+ input type="number" step="any"
  name="over_delivery_allowance_pct"
  value=(s.over_delivery_allowance_pct)
  class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]";
@@ -125,7 +125,7 @@ fn settings_page(
  }
  div class="form-field" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "超欠容差百分比 (%)" }
- input type="number"
+ input type="number" step="any"
  name="over_shortage_allowance_pct"
  value=(s.over_shortage_allowance_pct)
  class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]";

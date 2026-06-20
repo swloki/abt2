@@ -545,10 +545,10 @@ fn item_row_fragment(
  td class="font-mono tabular-nums" { (product.product_code) }
  td { (product.pdt_name) }
  td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="description" placeholder="—" class="text-[13px]" class="rounded-sm" class="px-2 py-[5px] border border-border" style="width:190px" {} }
- td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] num-input" type="number" name="quantity" data-field="qty" placeholder="0" style=(input_style) {} }
- td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] num-input" type="number" name="unit_price" data-field="price" placeholder="0.00" style=(input_style) {} }
+ td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] num-input" type="number" step="any" name="quantity" data-field="qty" placeholder="0" style=(input_style) {} }
+ td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] num-input" type="number" step="any" name="unit_price" data-field="price" placeholder="0.00" style=(input_style) {} }
  td class="line-subtotal font-mono tabular-nums" data-field="subtotal" class="text-right" { "0.00" }
- td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] num-input" type="number" name="discount_pct" data-field="discount" value="0" placeholder="0" style=(input_style) {} }
+ td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] num-input" type="number" step="any" name="discount_pct" data-field="discount" value="0" placeholder="0" style=(input_style) {} }
  td {
  select class="min-w-[150px] w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="tax_rate_id" data-field="tax_rate_id"
  class="text-[13px]" class="rounded-sm" class="px-2 py-[5px] border border-border" {

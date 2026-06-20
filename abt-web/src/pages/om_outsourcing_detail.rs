@@ -871,7 +871,7 @@ fn detail_page(
  div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
  div class="form-field" {
  label { "本次收货数量 " span class="text-danger" { "*" } }
- input type="number" name="received_qty" class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" placeholder="请输入数量" class="w-full" required {}
+ input type="number" step="any" name="received_qty" class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" placeholder="请输入数量" class="w-full" required {}
  }
  div class="form-field" {
  label { "入库仓库" }
@@ -881,11 +881,11 @@ fn detail_page(
  }
  div class="form-field" {
  label { "IQC 合格数量" }
- input type="number" name="qualified_qty" class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" placeholder="自动填充" class="w-full" {}
+ input type="number" step="any" name="qualified_qty" class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" placeholder="自动填充" class="w-full" {}
  }
  div class="form-field" {
  label { "IQC 不合格数量" }
- input type="number" name="unqualified_qty" class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" placeholder="0" class="w-full" {}
+ input type="number" step="any" name="unqualified_qty" class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" placeholder="0" class="w-full" {}
  }
  div class="form-field field-full" {
  label { "备注" }

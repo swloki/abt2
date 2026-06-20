@@ -802,7 +802,7 @@ fn line_item_row(product: &abt_core::master_data::product::model::Product, qty: 
  td class="text-sm text-fg" { (product.pdt_name) }
  td class="text-sm text-fg-2" { (product.meta.specification) }
  td { input class=(CELL_INPUT) type="text" name="batch_no" placeholder="批次号" {} }
- td { input class=(format!("{CELL_INPUT} w-[90px] text-right font-mono")) type="number" name="quantity" placeholder="0" value=(qty) {} }
+ td { input class=(format!("{CELL_INPUT} w-[90px] text-right font-mono")) type="number" step="any" name="quantity" placeholder="0" value=(qty) {} }
  td { input class=(format!("{CELL_INPUT} w-[80px] bg-surface")) type="text" name="item_bin_id" placeholder="自动" {} }
  td { button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center hover:text-danger" title="删除行"
  _="on click remove closest <tr/> then call wmsStockInRenumber()" {

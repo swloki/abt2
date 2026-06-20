@@ -254,7 +254,7 @@ fn customer_create_page(users: &[(i64, String)]) -> Markup {
  div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
  div class="form-field" {
  label { "信用额度 (元)" }
- input type="number" name="credit_limit" placeholder="请输入信用额度" {}
+ input type="number" step="any" name="credit_limit" placeholder="请输入信用额度" {}
  }
  div class="form-field" {
  label { "付款条款" }

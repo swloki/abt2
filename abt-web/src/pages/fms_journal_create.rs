@@ -154,7 +154,7 @@ fn journal_create_page() -> Markup {
  "金额 "
  span class="text-danger" { "*" }
  }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent font-mono text-right" type="number" name="amount" required placeholder="0.00";
+ input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent font-mono text-right" type="number" step="any" name="amount" required placeholder="0.00";
  }
  // 银行账户
  div class="form-field" {

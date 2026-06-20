@@ -82,7 +82,7 @@ fn settings_page(threshold: &rust_decimal::Decimal) -> Markup {
                         label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
                             "盘点差异金额阈值"
                         }
-                        input type="number"
+                        input type="number" step="any"
                             name="cycle_count_variance_threshold"
                             value=(threshold)
                             class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]";

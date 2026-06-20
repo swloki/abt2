@@ -469,7 +469,7 @@ fn warehouse_detail_page(
  }
  div class="form-field" {
  label { "排序" }
- input type="number" name="sort_order" placeholder="排序号";
+ input type="number" step="any" name="sort_order" placeholder="排序号";
  }
  div class="form-field field-full" {
  label { "备注" }
@@ -535,7 +535,7 @@ fn zone_edit_form_fragment(zone: &Zone) -> Markup {
  }
  div class="form-field" {
  label { "排序" }
- input type="number" name="sort_order" value=(zone.sort_order);
+ input type="number" step="any" name="sort_order" value=(zone.sort_order);
  }
  div class="form-field field-full" {
  label { "备注" }

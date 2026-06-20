@@ -205,27 +205,27 @@ fn work_center_form_page(wc: Option<&WorkCenter>) -> Markup {
  div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
  div class="form-field" {
  label { "产能/小时" }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent" type="number" name="default_capacity"
+ input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent" type="number" step="any" name="default_capacity"
  value=(wc.map(|w| crate::utils::fmt_qty(w.default_capacity)).unwrap_or_else(|| "0".into()));
  }
  div class="form-field" {
  label { "成本费率/小时 (¥)" }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent" type="number" name="costs_hour"
+ input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent" type="number" step="any" name="costs_hour"
  value=(wc.map(|w| crate::utils::fmt_qty(w.costs_hour)).unwrap_or_else(|| "0".into()));
  }
  div class="form-field" {
  label { "效率系数" }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent" type="number" name="time_efficiency"
+ input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent" type="number" step="any" name="time_efficiency"
  value=(wc.map(|w| crate::utils::fmt_qty(w.time_efficiency)).unwrap_or_else(|| "1".into()));
  }
  div class="form-field" {
  label { "准备时间 (分钟)" }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent" type="number" name="setup_time"
+ input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent" type="number" step="any" name="setup_time"
  value=(wc.map(|w| crate::utils::fmt_qty(w.setup_time)).unwrap_or_else(|| "0".into()));
  }
  div class="form-field" {
  label { "清理时间 (分钟)" }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent" type="number" name="cleanup_time"
+ input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent" type="number" step="any" name="cleanup_time"
  value=(wc.map(|w| crate::utils::fmt_qty(w.cleanup_time)).unwrap_or_else(|| "0".into()));
  }
  }

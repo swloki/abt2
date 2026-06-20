@@ -33,11 +33,11 @@ pub async fn get_report_detail(path: ReportDetailPath, ctx: RequestContext) -> R
  let worker = lookups.worker_name.as_deref().unwrap_or("—");
 
  let content = html! { div {
- div class="block bg-bg border border-border rounded p-6" {
+ div class="data-card" {
  div class="flex items-center justify-between" {
  div class="text-xl font-bold text-fg flex items-center gap-[14px]" { (report.doc_number) " " span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-success-bg text-success" { "已确认" } }
  }
- div class="grid gap-5" {
+ div class="grid grid-cols-3 gap-x-6 gap-y-4" {
  div class="flex flex-col gap-1" { span class="text-xs text-muted font-medium" { "工单" } span class="text-sm text-fg font-medium" { (wo) } }
  div class="flex flex-col gap-1" { span class="text-xs text-muted font-medium" { "批次" } span class="text-sm text-fg font-medium" { (batch) } }
  div class="flex flex-col gap-1" { span class="text-xs text-muted font-medium" { "工序" } span class="text-sm text-fg font-medium" { (process) } }
@@ -50,14 +50,14 @@ pub async fn get_report_detail(path: ReportDetailPath, ctx: RequestContext) -> R
  div class="flex flex-col gap-1" { span class="text-xs text-muted font-medium" { "报工日期" } span class="text-sm text-fg font-medium" { (report.report_date) } }
  div class="flex flex-col gap-1" { span class="text-xs text-muted font-medium" { "创建人" } span class="text-sm text-fg font-medium" { (worker) } }
  div class="flex flex-col gap-1" { span class="text-xs text-muted font-medium" { "创建时间" } span class="text-sm text-fg font-medium" { (report.created_at.format("%Y-%m-%d %H:%M")) } }
- div class="flex flex-col gap-1" { span class="text-xs text-muted font-medium" { "备注" } span class="text-sm text-fg font-medium" { (if report.remark.is_empty() { "—".to_string() } else { report.remark.clone() }) } }
+ div class="col-span-full flex flex-col gap-1" { span class="text-xs text-muted font-medium" { "备注" } span class="text-sm text-fg font-medium" { (if report.remark.is_empty() { "—".to_string() } else { report.remark.clone() }) } }
  }
  }
 
  // 工资计算明细
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
+ div class="data-card" {
  div class="text-sm font-semibold text-fg mb-3 pb-2 border-b border-border-soft" { "工资计算" }
- div class="grid gap-4" {
+ div class="grid grid-cols-3 gap-4" {
  div class="flex flex-col gap-1" {
  label { "完成数量" }
  span class="font-mono tabular-nums" { (crate::utils::fmt_qty(report.completed_qty)) }

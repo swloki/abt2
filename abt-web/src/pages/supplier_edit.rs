@@ -160,7 +160,7 @@ fn supplier_edit_page(supplier: &abt_core::master_data::supplier::model::Supplie
  }
  div class="form-field" {
  label { "交货天数 " span class="text-danger" { "*" } }
- input type="number" name="lead_time_days" required placeholder="请输入交货天数"
+ input type="number" step="any" name="lead_time_days" required placeholder="请输入交货天数"
  value=(lead_time) {}
  }
  div class="form-field" {

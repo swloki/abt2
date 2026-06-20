@@ -189,7 +189,7 @@ fn invoice_table_fragment(
                 input class="w-[120px] px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent font-mono tabular-nums" type="text" name="period"
                     placeholder="期间 YYYY-MM"
                     value=(params.period.as_deref().unwrap_or(""));
-                input class="w-[140px] px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent" type="number" name="supplier_id"
+                input class="w-[140px] px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent" type="number" step="any" name="supplier_id"
                     placeholder="供应商 ID"
                     value=(params.supplier_id.map(|v| v.to_string()).unwrap_or_default());
             }

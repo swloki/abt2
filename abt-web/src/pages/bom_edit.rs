@@ -457,11 +457,11 @@ fn node_edit_form_fragment(bom_id: i64, node_id: i64, bom_version: i32, node: &B
  div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
  div class="form-field" {
  label { "数量 " span class="text-danger" { "*" } }
- input type="number" name="quantity" required value=(node.quantity) {}
+ input type="number" step="any" name="quantity" required value=(node.quantity) {}
  }
  div class="form-field" {
  label { "损耗率%" }
- input type="number" name="loss_rate" value=(node.loss_rate) {}
+ input type="number" step="any" name="loss_rate" value=(node.loss_rate) {}
  }
  div class="form-field" {
  label { "单位" }

@@ -172,7 +172,7 @@ fn requisition_create_page(
  div class="grid grid-cols-2 gap-4 gap-x-6" {
  div class="form-field" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "关联工单" }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="number" name="work_order_id" placeholder="输入工单号（留空为手动创建）";
+ input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="number" step="any" name="work_order_id" placeholder="输入工单号（留空为手动创建）";
  }
  div class="form-field" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "领料仓库 " span class="required" { "*" } }
@@ -287,7 +287,7 @@ fn item_row_fragment(product: &abt_core::master_data::product::model::Product) -
  td class="text-sm text-fg-2" { (product.meta.specification) }
  td class="text-sm text-fg-2 text-center" { (product.unit) }
  td {
- input class="num-input w-full text-right px-2 py-[5px] text-[13px] font-mono tabular-nums border border-border rounded-sm bg-white text-fg outline-none focus:border-accent" type="number" name="requested_qty" placeholder="0" {}
+ input class="num-input w-full text-right px-2 py-[5px] text-[13px] font-mono tabular-nums border border-border rounded-sm bg-white text-fg outline-none focus:border-accent" type="number" step="any" name="requested_qty" placeholder="0" {}
  }
  td {
  button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center hover:text-danger" title="删除行"

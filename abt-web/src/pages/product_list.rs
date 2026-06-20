@@ -466,9 +466,9 @@ fn product_row(p: &Product, watched_ids: &[i64], can_delete: bool, can_edit: boo
  @let (status_label, status_cls) = product_status_badge(&p.status);
  td { span class=(format!("status-pill {}", status_cls)) { (status_label) } }
  td {
- div class="row-actions flex items-center gap-1 justify-end opacity-0 transition-opacity duration-150 [&_a]:w-[28px] [&_a]:h-[28px] [&_a]:grid [&_a]:place-items-center [&_a]:rounded-sm [&_a]:cursor-pointer [&_a]:bg-surface [&_a]:hover:bg-accent-bg icon:w-3.5 icon:h-3.5" {
+ div class="row-actions flex items-center gap-1 justify-end opacity-0 transition-opacity duration-150 icon:w-3.5 icon:h-3.5" {
  // View detail
- a class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" title="查看"
+ a class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer hover:bg-accent-bg" title="查看"
  href=(detail_path) {
  (icon::eye_icon("w-4 h-4"))
  }
@@ -490,7 +490,7 @@ fn product_row(p: &Product, watched_ids: &[i64], can_delete: bool, can_edit: boo
  }
  div class="row-actions-menu-backdrop fixed inset-0 z-[999] cursor-default" style="display:none"
  _="on click remove .is-open from next .row-actions-menu then hide next .row-actions-menu then hide me" {}
- div class="row-actions-menu fixed z-[50] bg-bg border border-border rounded shadow-[var(--shadow-card)] min-w-[140px] py-1" style="display:none" {
+ div class="row-actions-menu fixed z-[1000] bg-bg border border-border rounded shadow-[var(--shadow-card)] min-w-[140px] py-1" style="display:none" {
  @if can_edit {
  a href=(edit_path) class="flex items-center gap-2 w-full text-left px-4 py-2 text-sm text-fg-2 hover:bg-accent-bg hover:text-accent transition-colors no-underline" {
  (icon::edit_icon("w-4 h-4"))

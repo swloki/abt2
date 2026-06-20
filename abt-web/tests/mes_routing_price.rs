@@ -264,3 +264,41 @@ async fn wage_is_frozen_at_report_time() {
         .unwrap_err();
     assert!(matches!(err, DomainError::BusinessRule { .. }), "报工后改价应拒绝");
 }
+
+#[tokio::test]
+async fn delete_blocked_after_any_report() {
+    let app = common::TestApp::new().await;
+    let batch_svc = app.state.production_batch_service();
+    let wo_svc = app.state.work_order_service();
+    let ctx = ServiceContext::new(1);
+    let mut conn = app.state.pool.acquire().await.unwrap();
+
+    let wo_id = seed_released_work_order(&app, MULTI_STEP_PRODUCT_ID, "400").await;
+    let wo = wo_svc.find_by_id(&ctx, &mut conn, wo_id).await.unwrap();
+    let batch_id = batch_svc
+        .create(
+            &ctx, &mut conn,
+            CreateBatchReq { work_order_id: wo_id, product_id: wo.product_id, batch_qty: Decimal::new(100, 0), team_id: None },
+        )
+        .await
+        .unwrap();
+    // 报工第 1 道
+    batch_svc
+        .confirm_routing_step(
+            &ctx, &mut conn, batch_id, 1,
+            StepConfirmationReq {
+                step_no: 1, worker_id: 1, shift: ShiftType::Day,
+                completed_qty: Decimal::new(5, 0), defect_qty: Decimal::ZERO,
+                defect_reason: None, work_hours: Decimal::new(1, 0),
+                report_date: NaiveDate::from_ymd_opt(2026, 6, 21).unwrap(), remark: None,
+            },
+        )
+        .await
+        .unwrap();
+
+    // 工单已有报工 → 删除任意工序应被全局守卫拒绝
+    let rs = batch_svc.list_routings(&ctx, &mut conn, wo_id).await.unwrap();
+    let target = rs.iter().find(|r| r.step_no == 2).unwrap();
+    let err = batch_svc.delete_routing(&ctx, &mut conn, wo_id, target.id).await.unwrap_err();
+    assert!(matches!(err, DomainError::BusinessRule { .. }), "有报工后删工序应拒绝，got {err:?}");
+}

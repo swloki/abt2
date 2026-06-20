@@ -461,11 +461,25 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
                 batch_status = BatchStatus::Suspended;
             }
         } else if was_inserted {
-            let updated_batch = ProductionBatchRepo::get_by_id(&mut *db, batch_id)
+            // 非最后工序：首次报工（批次原为 Pending）需把批次推进到 InProgress。
+            // 否则 current_step 已前进但 status 仍为 Pending，后续工序报工时
+            // 步骤 a 的状态校验会拒绝（Pending 仅允许 step_no==1）。
+            if batch.status == BatchStatus::Pending {
+                ProductionBatchRepo::update_status(
+                    &mut *db,
+                    batch_id,
+                    BatchStatus::InProgress,
+                )
                 .await
-                .map_err(|e| DomainError::Internal(e.into()))?
-                .ok_or_else(|| DomainError::not_found("ProductionBatch"))?;
-            batch_status = updated_batch.status;
+                .map_err(|e| DomainError::Internal(e.into()))?;
+                batch_status = BatchStatus::InProgress;
+            } else {
+                let updated_batch = ProductionBatchRepo::get_by_id(&mut *db, batch_id)
+                    .await
+                    .map_err(|e| DomainError::Internal(e.into()))?
+                    .ok_or_else(|| DomainError::not_found("ProductionBatch"))?;
+                batch_status = updated_batch.status;
+            }
         }
 
         // --- k2. 状态传播：首次报工时推进上游工单和计划行状态 ---

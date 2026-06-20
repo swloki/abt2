@@ -27,8 +27,8 @@ impl OutsourcingOrderRepo {
             INSERT INTO outsourcing_orders
                 (doc_number, work_order_id, routing_id, supplier_id, product_id,
                  outsourcing_type, planned_qty, completed_qty, unit_price,
-                 scheduled_date, status, virtual_warehouse_id, remark, operator_id)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+                 scheduled_date, status, virtual_warehouse_id, source_warehouse_id, remark, operator_id)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
             RETURNING id
             "#,
         )
@@ -44,6 +44,7 @@ impl OutsourcingOrderRepo {
         .bind(req.scheduled_date)
         .bind(OutsourcingStatus::Draft)
         .bind(req.virtual_warehouse_id)
+        .bind(req.source_warehouse_id)
         .bind(req.remark.as_deref().unwrap_or(""))
         .bind(operator_id)
         .fetch_one(executor)
@@ -60,7 +61,7 @@ impl OutsourcingOrderRepo {
             r#"
             SELECT id, doc_number, work_order_id, routing_id, supplier_id, product_id,
                    outsourcing_type, planned_qty, completed_qty, unit_price,
-                   scheduled_date, status, virtual_warehouse_id, version,
+                   scheduled_date, status, virtual_warehouse_id, source_warehouse_id, version,
                    remark, operator_id, created_at, updated_at, deleted_at
             FROM outsourcing_orders
             WHERE id = $1 AND deleted_at IS NULL
@@ -195,7 +196,7 @@ impl OutsourcingOrderRepo {
         let data_sql = format!(
             "SELECT id, doc_number, work_order_id, routing_id, supplier_id, product_id,
                     outsourcing_type, planned_qty, completed_qty, unit_price,
-                    scheduled_date, status, virtual_warehouse_id, version,
+                    scheduled_date, status, virtual_warehouse_id, source_warehouse_id, version,
                     remark, operator_id, created_at, updated_at, deleted_at
              FROM outsourcing_orders {where_clause}
              ORDER BY created_at DESC

@@ -488,7 +488,7 @@ fn tracking_data_card(
 
  @let detail_path = OmOutsourcingDetailPath { id: tracking.outsourcing_id };
 
- tr class="cursor-pointer hover:bg-accent-bg transition-colors duration-100" _=(format!("on click go to {} in a new window", detail_path.to_string())) {
+ tr class="cursor-pointer hover:bg-accent-bg transition-colors duration-100" _=(format!("on click call window.open('{}', '_blank')", detail_path.to_string())) {
  td { a href=(detail_path.to_string()) class="text-accent font-medium font-mono tabular-nums hover:underline" { (doc_number) } }
  td class="text-sm text-fg-2" { (supplier_name) }
  td class="text-sm text-fg-2" { (product_name) }

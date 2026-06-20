@@ -8,6 +8,7 @@ use serde::Deserialize;
 
 use abt_core::master_data::product::ProductService;
 use abt_core::master_data::supplier::SupplierService;
+use abt_core::master_data::supplier::model::{Supplier, SupplierQuery};
 use abt_core::om::enums::{OutsourcingStatus, OutsourcingType, TrackingNodeType};
 use abt_core::om::outsourcing_order::{OutsourcingOrderQuery, OutsourcingOrderService};
 use abt_core::om::outsourcing_tracking::OutsourcingTrackingService;
@@ -60,7 +61,7 @@ fn status_label(s: &OutsourcingStatus) -> (&'static str, &'static str, &'static 
 
 fn type_label(t: &OutsourcingType) -> (&'static str, &'static str, &'static str) {
  match t {
- OutsourcingType::Full => ("产品全委外", "rgba(22,119,255,0.08)", "var(--accent)"),
+ OutsourcingType::Full => ("整体委外", "rgba(22,119,255,0.08)", "var(--accent)"),
  OutsourcingType::Process => ("工序委外", "rgba(250,140,22,0.08)", "#fa8c16"),
  OutsourcingType::Material => ("材料委外", "rgba(114,46,209,0.08)", "#722ed1"),
  OutsourcingType::Rework => ("委外返工", "rgba(245,63,63,0.06)", "#f53f3f"),
@@ -262,11 +263,22 @@ pub async fn get_list(
  let latest_tracking =
  resolve_latest_tracking(&tracking_svc, &service_ctx, &mut conn, &result.items).await;
 
+ let suppliers = supplier_svc
+ .list(
+ &service_ctx,
+ &mut conn,
+ SupplierQuery { name: None, status: None, category: None },
+ PageParams::new(1, 200),
+ )
+ .await?
+ .items;
+
  let content = list_page(
  &result,
  &supplier_names,
  &product_names,
  &latest_tracking,
+ &suppliers,
  &params,
  can_create,
  );
@@ -289,6 +301,7 @@ fn list_page(
  supplier_names: &HashMap<i64, String>,
  product_names: &HashMap<i64, String>,
  latest_tracking: &HashMap<i64, String>,
+ suppliers: &[Supplier],
  params: &OutsourcingQueryParams,
  can_create: bool,
 ) -> Markup {
@@ -305,7 +318,7 @@ fn list_page(
  }
  }
  }
- (table_fragment(result, supplier_names, product_names, latest_tracking, params))
+ (table_fragment(result, supplier_names, product_names, latest_tracking, suppliers, params))
  }
  }
 }
@@ -315,6 +328,7 @@ fn table_fragment(
  supplier_names: &HashMap<i64, String>,
  product_names: &HashMap<i64, String>,
  latest_tracking: &HashMap<i64, String>,
+ suppliers: &[Supplier],
  params: &OutsourcingQueryParams,
 ) -> Markup {
  let total_count = result.total;
@@ -353,14 +367,17 @@ fn table_fragment(
  }
  select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="outsourcing_type" {
  option value="" selected[params.outsourcing_type.is_none()] { "全部类型" }
- option value="Full" selected[params.outsourcing_type.as_deref() == Some("Full")] { "产品全委外" }
+ option value="Full" selected[params.outsourcing_type.as_deref() == Some("Full")] { "整体委外" }
  option value="Process" selected[params.outsourcing_type.as_deref() == Some("Process")] { "工序委外" }
  option value="Material" selected[params.outsourcing_type.as_deref() == Some("Material")] { "材料委外" }
  option value="Rework" selected[params.outsourcing_type.as_deref() == Some("Rework")] { "委外返工" }
  }
- input class="max-w-[120px] w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input" type="text" name="supplier_id"
- placeholder="供应商ID"
- value=(params.supplier_id.as_deref().unwrap_or(""));
+ select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="supplier_id" {
+ option value="" selected[params.supplier_id.is_none()] { "全部供应商" }
+ @for s in suppliers {
+ option value=(s.id) selected[params.supplier_id.as_deref() == Some(&s.id.to_string())] { (s.name) }
+ }
+ }
  input class="max-w-[160px] w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="date" name="date_from"
  value=(params.date_from.as_deref().unwrap_or(""));
  span class="text-muted text-[13px]" { "至" }

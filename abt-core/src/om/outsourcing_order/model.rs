@@ -22,6 +22,7 @@ pub struct OutsourcingOrder {
     pub scheduled_date: Option<NaiveDate>,
     pub status: OutsourcingStatus,
     pub virtual_warehouse_id: i64,
+    pub source_warehouse_id: Option<i64>,
     pub version: i32,
     pub remark: String,
     pub operator_id: i64,
@@ -82,6 +83,7 @@ pub struct CreateOutsourcingOrderReq {
     pub unit_price: Decimal,
     pub scheduled_date: Option<NaiveDate>,
     pub virtual_warehouse_id: i64,
+    pub source_warehouse_id: i64,
     pub remark: Option<String>,
     pub materials: Vec<OutsourcingMaterialItem>,
 }

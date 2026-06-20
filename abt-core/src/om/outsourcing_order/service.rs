@@ -1,13 +1,15 @@
 ﻿use async_trait::async_trait;
 
 use super::model::{
-    CancelOutsourcingReq, ConvertToInternalReq, CreateOutsourcingOrderReq, OutsourcingOrder,
-    OutsourcingOrderQuery, ReceiveOutsourcingReq, SendOutsourcingReq, UpdateOutsourcingOrderReq,
+    CancelOutsourcingReq, ConvertToInternalReq, CreateOutsourcingOrderReq, OutsourcingMaterial,
+    OutsourcingOrder, OutsourcingOrderQuery, ReceiveOutsourcingReq, SendOutsourcingReq,
+    UpdateOutsourcingOrderReq,
 };
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::PgExecutor;
 use crate::shared::types::Result;
 use crate::shared::types::pagination::PaginatedResult;
+use crate::wms::inventory_transaction::model::InventoryTransaction;
 
 #[async_trait]
 pub trait OutsourcingOrderService: Send + Sync {
@@ -48,4 +50,20 @@ pub trait OutsourcingOrderService: Send + Sync {
         filter: OutsourcingOrderQuery,
         page: crate::shared::types::pagination::PageParams,
     ) -> Result<PaginatedResult<OutsourcingOrder>>;
+
+    /// 查询委外单的发料明细列表
+    async fn list_materials(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        outsourcing_id: i64,
+    ) -> Result<Vec<OutsourcingMaterial>>;
+
+    /// 查询委外单关联的库存收发记录（发料/收货流水，来自关联的 WMS 调拨单）
+    async fn list_inventory_records(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        outsourcing_id: i64,
+    ) -> Result<Vec<InventoryTransaction>>;
 }

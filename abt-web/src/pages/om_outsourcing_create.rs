@@ -29,12 +29,15 @@ pub struct CreateForm {
  pub supplier_id: i64,
  pub product_id: i64,
  pub outsourcing_type: i16,
+ #[serde(default, deserialize_with = "crate::utils::empty_as_none")]
  pub work_order_id: Option<i64>,
+ #[serde(default, deserialize_with = "crate::utils::empty_as_none")]
  pub routing_id: Option<i64>,
  pub planned_qty: String,
  pub unit_price: String,
  pub scheduled_date: Option<String>,
  pub virtual_warehouse_id: i64,
+ pub source_warehouse_id: i64,
  pub remark: Option<String>,
  pub materials_json: Option<String>,
 }
@@ -213,6 +216,7 @@ pub async fn create(
  .map_err(|_| abt_core::shared::types::DomainError::validation("无效单价"))?,
  scheduled_date,
  virtual_warehouse_id: form.virtual_warehouse_id,
+ source_warehouse_id: form.source_warehouse_id,
  remark: form.remark,
  materials,
  };
@@ -330,6 +334,17 @@ fn create_page(
  option value="" { "请选择仓库" }
  @for w in warehouses {
  @if w.is_virtual {
+ option value=(w.id) { (w.name) }
+ }
+ }
+ }
+ }
+ div class="form-field" {
+ label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "发料源仓库 " span class="required" { "*" } }
+ select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" name="source_warehouse_id" required {
+ option value="" { "请选择仓库" }
+ @for w in warehouses {
+ @if !w.is_virtual {
  option value=(w.id) { (w.name) }
  }
  }

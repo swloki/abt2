@@ -9,6 +9,7 @@ use abt_core::master_data::product::ProductService;
 use abt_core::master_data::supplier::SupplierService;
 use abt_core::om::enums::{OutsourcingStatus, OutsourcingType, TrackingNodeType};
 use abt_core::om::outsourcing_order::OutsourcingOrderService;
+use abt_core::mes::work_order::WorkOrderService;
 use abt_core::om::outsourcing_tracking::OutsourcingTrackingService;
 use abt_core::shared::identity::UserService;
 use abt_core::wms::warehouse::WarehouseService;
@@ -127,6 +128,17 @@ pub async fn get_detail(
  .map(|w| w.name)
  .unwrap_or_else(|_| "—".into());
 
+ // 关联工单：解析为工单号（而非原始 ID）
+ let work_order_name = match order.work_order_id {
+ Some(wid) => state
+ .work_order_service()
+ .find_by_id(&service_ctx, &mut conn, wid)
+ .await
+ .map(|wo| wo.doc_number)
+ .unwrap_or_else(|_| "—".into()),
+ None => "—".into(),
+ };
+
  // Tracking nodes
  let tracking = tracking_svc
  .list_by_outsourcing(&service_ctx, &mut conn, path.id, PageParams::new(1, 100))
@@ -134,10 +146,40 @@ pub async fn get_detail(
  .map(|r| r.items)
  .unwrap_or_default();
 
- // Note: materials not loaded — OutsourcingOrderService trait doesn't expose materials listing
+ // 发料明细
+ let materials = svc
+ .list_materials(&service_ctx, &mut conn, path.id)
+ .await
+ .unwrap_or_default();
+
+ // 收发记录（WMS 库存流水，来自关联的调拨单）
+ let inventory_records = svc
+ .list_inventory_records(&service_ctx, &mut conn, path.id)
+ .await
+ .unwrap_or_default();
+
+ // 发料源仓名称
+ let source_warehouse_name = match order.source_warehouse_id {
+ Some(wid) => state
+ .warehouse_service()
+ .get(&service_ctx, &mut conn, wid)
+ .await
+ .map(|w| w.name)
+ .unwrap_or_else(|_| "—".into()),
+ None => "—".into(),
+ };
+
+ // 金额计算：在途物料金额 = Σ(已发−已收回)×成本；加工费 = 计划数量×单价
+ let in_transit_amount: rust_decimal::Decimal = materials
+ .iter()
+ .map(|m| (m.sent_qty - m.returned_qty) * m.unit_cost)
+ .sum();
+ let processing_fee = order.planned_qty * order.unit_price;
 
  let content = detail_page(
- &order, &supplier_name, &product_name, &operator_name, &warehouse_name, &tracking,
+ &order, &supplier_name, &product_name, &operator_name, &warehouse_name,
+ &work_order_name, &source_warehouse_name, &tracking,
+ &materials, &inventory_records, in_transit_amount, processing_fee,
  );
 
  let page_html = admin_page(
@@ -277,13 +319,132 @@ pub struct RecordNodeForm {
 
 // ── Components ──
 
+fn materials_section(
+ materials: &[abt_core::om::outsourcing_order::model::OutsourcingMaterial],
+ in_transit_amount: rust_decimal::Decimal,
+ processing_fee: rust_decimal::Decimal,
+) -> Markup {
+ html! {
+ div class="bg-bg border border-border-soft rounded-xl relative overflow-hidden mb-7 shadow-[var(--shadow-card)]" {
+ div class="h-[3px] bg-[linear-gradient(90deg,var(--warn),var(--accent),#60a5fa)]" {}
+ div class="flex items-center justify-between px-8 py-5 border-b border-border-soft" {
+ div class="flex items-center gap-3" {
+ div class="w-10 h-10 rounded-xl grid place-items-center bg-[linear-gradient(135deg,rgba(217,119,6,0.08),rgba(37,99,235,0.08))]" {
+ (maud::PreEscaped(r#"<svg class="w-5 h-5 text-warn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>"#))
+ }
+ span class="text-[18px] font-bold text-fg" { "发料明细" }
+ span class="text-xs text-muted bg-surface px-2 py-0.5 rounded-full" { (format!("{} 项物料", materials.len())) }
+ }
+ }
+ div class="overflow-x-auto px-8 pb-5" {
+ table class="data-table" {
+ thead { tr {
+ th { "物料" }
+ th class="text-right" { "应发数量" }
+ th class="text-right" { "已发数量" }
+ th class="text-right" { "已收回" }
+ th class="text-right" { "在途数量" }
+ th class="text-right" { "单位成本" }
+ th class="text-right" { "小计" }
+ }}
+ tbody {
+ @if materials.is_empty() {
+ tr { td colspan="7" class="text-center text-muted py-8" { "暂无发料明细" } }
+ } @else {
+ @for m in materials {
+ tr {
+ td { span class="font-semibold text-fg" { "产品 #" (m.product_id) } }
+ td class="text-right font-mono tabular-nums" { (crate::utils::fmt_qty(m.planned_qty)) }
+ td class="text-right font-mono tabular-nums text-success" { (crate::utils::fmt_qty(m.sent_qty)) }
+ td class="text-right font-mono tabular-nums" { (crate::utils::fmt_qty(m.returned_qty)) }
+ td class="text-right font-mono tabular-nums text-warn font-semibold" { (crate::utils::fmt_qty(m.sent_qty - m.returned_qty)) }
+ td class="text-right font-mono tabular-nums" { (crate::utils::fmt_qty(m.unit_cost)) }
+ td class="text-right font-mono tabular-nums font-bold" { (crate::utils::fmt_qty(m.sent_qty * m.unit_cost)) }
+ }
+ }
+ }
+ }
+ }
+ }
+ div class="flex items-center justify-end gap-8 px-8 py-4 border-t border-border-soft bg-surface" {
+ div class="flex flex-col items-end gap-0.5" {
+ span class="text-xs text-muted font-semibold" { "在途物料金额" }
+ span class="text-lg font-bold font-mono tabular-nums text-warn" { (crate::utils::fmt_qty(in_transit_amount)) }
+ }
+ div class="flex flex-col items-end gap-0.5" {
+ span class="text-xs text-muted font-semibold" { "加工费" }
+ span class="text-lg font-bold font-mono tabular-nums text-accent" { (crate::utils::fmt_qty(processing_fee)) }
+ }
+ }
+ }
+ }
+}
+
+fn transactions_section(
+ records: &[abt_core::wms::inventory_transaction::model::InventoryTransaction],
+) -> Markup {
+ use abt_core::wms::enums::TransactionType;
+ html! {
+ div class="bg-bg border border-border-soft rounded-xl relative overflow-hidden mb-7 shadow-[var(--shadow-card)]" {
+ div class="h-[3px] bg-[linear-gradient(90deg,var(--success),var(--accent),#60a5fa)]" {}
+ div class="flex items-center justify-between px-8 py-5 border-b border-border-soft" {
+ div class="flex items-center gap-3" {
+ div class="w-10 h-10 rounded-xl grid place-items-center bg-[linear-gradient(135deg,rgba(22,163,74,0.08),rgba(37,99,235,0.08))]" {
+ (maud::PreEscaped(r#"<svg class="w-5 h-5 text-success" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 7h12M8 12h12M8 17h12M4 7h.01M4 12h.01M4 17h.01"/></svg>"#))
+ }
+ span class="text-[18px] font-bold text-fg" { "收发记录" }
+ span class="text-xs text-muted bg-surface px-2 py-0.5 rounded-full" { (format!("{} 条记录", records.len())) }
+ }
+ }
+ div class="overflow-x-auto px-8 pb-5" {
+ table class="data-table" {
+ thead { tr {
+ th { "时间" }
+ th { "类型" }
+ th { "物料" }
+ th class="text-right" { "数量" }
+ th { "仓库" }
+ }}
+ tbody {
+ @if records.is_empty() {
+ tr { td colspan="5" class="text-center text-muted py-8" { "暂无收发记录" } }
+ } @else {
+ @for r in records {
+ @let (type_label, type_cls) = match r.transaction_type {
+ TransactionType::Transfer => ("调拨", "status-sent"),
+ _ => ("流水", "status-progress"),
+ };
+ tr {
+ td class="font-mono tabular-nums text-muted text-[13px]" { (r.created_at.format("%Y-%m-%d %H:%M")) }
+ td { span class={ "inline-flex items-center px-2 py-0.5 rounded-full text-[11px] " (type_cls) } { (type_label) } }
+ td class="font-medium" { "产品 #" (r.product_id) }
+ td class={ "text-right font-mono tabular-nums " (if r.quantity.is_zero() { "" } else if r.quantity > rust_decimal::Decimal::ZERO { "text-success" } else { "text-danger" }) } {
+ (crate::utils::fmt_qty(r.quantity))
+ }
+ td class="text-muted text-[13px]" { "仓库 #" (r.warehouse_id) }
+ }
+ }
+ }
+ }
+ }
+ }
+ }
+ }
+}
+
 fn detail_page(
  order: &abt_core::om::outsourcing_order::OutsourcingOrder,
  supplier_name: &str,
  product_name: &str,
  operator_name: &str,
  warehouse_name: &str,
+ work_order_name: &str,
+ source_warehouse_name: &str,
  tracking: &[abt_core::om::outsourcing_tracking::OutsourcingTracking],
+ materials: &[abt_core::om::outsourcing_order::model::OutsourcingMaterial],
+ inventory_records: &[abt_core::wms::inventory_transaction::model::InventoryTransaction],
+ in_transit_amount: rust_decimal::Decimal,
+ processing_fee: rust_decimal::Decimal,
 ) -> Markup {
  let (sl, sc) = status_label(&order.status);
  let tl = type_label(&order.outsourcing_type);
@@ -328,9 +489,9 @@ fn detail_page(
  }
 
  // ═══ Detail Hero Card ═══
- div class="bg-bg border border-border-soft rounded-xl relative overflow-hidden" {
- div class="bg-bg border border-border-soft rounded-xl relative overflow-hidden-accent" {}
- div class="bg-bg border border-border-soft rounded-xl relative overflow-hidden-body" {
+ div class="bg-bg border border-border-soft rounded-xl relative overflow-hidden mb-7 shadow-[var(--shadow-card)]" {
+ div class="h-1 bg-[linear-gradient(90deg,var(--accent),#60a5fa,var(--accent))] bg-[length:200%_100%] animate-shimmer-bar" {}
+ div class="px-10 py-8" {
 
  // Title + Actions
  div class="flex items-center justify-between" {
@@ -348,29 +509,48 @@ fn detail_page(
  }
  }
  div class="flex gap-[8px] shrink-0" {
+ // 发料发送（Draft → Sent）— 主操作
+ @if order.status == OutsourcingStatus::Draft {
+ button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" _="on click add .is-open to #send-modal" {
+ (maud::PreEscaped(r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-[15px] h-[15px]"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>"#))
+ "发料"
+ }
+ }
+ // 记录节点：非终态可见
+ @if !matches!(order.status, OutsourcingStatus::Closed | OutsourcingStatus::ConvertedToInternal | OutsourcingStatus::Cancelled) {
  button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" _="on click add .is-open to #record-node-modal" {
  (maud::PreEscaped(r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-[15px] h-[15px]"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>"#))
  "记录节点"
  }
+ }
+ // 收货登记：仅 Sent
+ @if order.status == OutsourcingStatus::Sent {
  button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" _="on click add .is-open to #receive-modal" {
  (maud::PreEscaped(r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-[15px] h-[15px]"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>"#))
  "收货登记"
  }
+ }
+ // 转自制：Draft / Sent
+ @if matches!(order.status, OutsourcingStatus::Draft | OutsourcingStatus::Sent) {
  button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" _="on click add .is-open to #convert-modal" {
  (maud::PreEscaped(r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-[15px] h-[15px]"><path d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4"/></svg>"#))
  "转自制"
  }
- button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" _="on click add .is-open to #cancel-modal" class="text-danger" style="border-color:rgba(220,38,38,0.3)" {
+ }
+ // 取消：仅 Draft
+ @if order.status == OutsourcingStatus::Draft {
+ button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs text-danger border-[rgba(220,38,38,0.3)]" _="on click add .is-open to #cancel-modal" {
  (maud::PreEscaped(r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-[15px] h-[15px]"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/></svg>"#))
  "取消"
  }
  }
  }
+ }
 
  // Info Split: Key fields + Progress ring
- div class="grid border-t border-border-soft" {
+ div class="grid border-t border-border-soft mt-7 pt-6" {
  div {
- div class="grid gap-[20px 48px]" {
+ div class="grid grid-cols-3 gap-[20px 48px]" {
  div class="flex flex-col gap-[6px]" {
  span class="text-xs text-muted font-semibold" { "供应商" }
  span class="text-[15px] text-fg font-semibold" { (supplier_name) }
@@ -382,7 +562,7 @@ fn detail_page(
  div class="flex flex-col gap-[6px]" {
  span class="text-xs text-muted font-semibold" { "关联工单" }
  span class="text-[15px] text-fg font-semibold" {
- (order.work_order_id.map(|id| id.to_string()).unwrap_or_else(|| "—".into()))
+ (work_order_name)
  }
  }
  div class="flex flex-col gap-[6px]" {
@@ -394,6 +574,10 @@ fn detail_page(
  div class="flex flex-col gap-[6px]" {
  span class="text-xs text-muted font-semibold" { "虚拟仓库" }
  span class="text-[15px] text-fg font-semibold" { (warehouse_name) }
+ }
+ div class="flex flex-col gap-[6px]" {
+ span class="text-xs text-muted font-semibold" { "发料源仓库" }
+ span class="text-[15px] text-fg font-semibold" { (source_warehouse_name) }
  }
  div class="flex flex-col gap-[6px]" {
  span class="text-xs text-muted font-semibold" { "预计交期" }
@@ -418,12 +602,12 @@ fn detail_page(
  div class="flex flex-col items-center gap-[8px]" {
  div class="w-[56px] h-[56px] relative" {
  svg viewBox="0 0 56 56" {
- circle class="w-[56px] h-[56px] relative" cx="28" cy="28" r="22";
- circle class="w-[56px] h-[56px] relative" cx="28" cy="28" r="22"
+ circle fill="none" stroke="var(--border-soft)" stroke-width="4" cx="28" cy="28" r="22";
+ circle fill="none" stroke="var(--accent)" stroke-width="4" stroke-linecap="round" cx="28" cy="28" r="22"
  stroke-dasharray=(format!("{circumference:.1}"))
  stroke-dashoffset=(format!("{offset:.1}"));
  }
- span class="w-[56px] h-[56px] relative" { (format!("{:.0}%", pct)) }
+ span class="absolute inset-0 grid place-items-center text-[14px] font-bold text-accent font-mono" { (format!("{:.0}%", pct)) }
  }
  span class="text-xs text-muted font-medium" { "完成进度" }
  }
@@ -441,8 +625,9 @@ fn detail_page(
  }
 
  // ═══ Tracking Timeline ═══
- div class="bg-bg border border-border-soft rounded-xl relative overflow-hidden" {
- div class="flex items-center justify-between" {
+ div class="bg-bg border border-border-soft rounded-xl relative overflow-hidden mb-7 shadow-[var(--shadow-card)]" {
+ div class="h-[3px] bg-[linear-gradient(90deg,var(--success),var(--accent),#60a5fa)]" {}
+ div class="flex items-center justify-between px-10 pt-8 pb-4" {
  div class="text-[18px] font-bold text-fg flex items-center gap-[14px]" {
  div class="tracking-icon-wrap [&_svg]:w-5 [&_svg]:h-5 [&_svg]:text-success" {
  (maud::PreEscaped(r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>"#))
@@ -454,7 +639,7 @@ fn detail_page(
  (format!("实时追踪 · 7 个节点 · 当前第 {} 步", active_index + 1))
  }
  }
- div class="relative pl-11 before:content-[''] before:absolute before:left-[17px] before:top-[18px] before:bottom-[18px] before:w-0.5 before:rounded-sm before:bg-[linear-gradient(180deg,var(--success)_0%,var(--success)_38%,var(--accent)_50%,var(--border)_55%,var(--border-soft)_100%)]" {
+ div class="relative pl-11 before:content-[''] before:absolute before:left-[17px] before:top-[18px] before:bottom-[18px] before:w-0.5 before:rounded-sm before:bg-[linear-gradient(180deg,var(--success)_0%,var(--success)_38%,var(--accent)_50%,var(--border)_55%,var(--border-soft)_100%)] pb-8" {
  @for (i, nt) in all_node_types.iter().enumerate() {
  @let tracked = tracked_nodes.get(nt);
  @let is_completed = tracked.is_some();
@@ -469,7 +654,7 @@ fn detail_page(
  div class=(if is_active || is_completed { "track-label" } else { "track-label muted" }) {
  (label)
  @if is_active {
- span class="text-[11px] font-medium text-accent" style="padding:2px 10px;border-radius:var(--radius-pill);background:rgba(37,99,235,0.1)" { "当前" }
+ span class="ml-2 text-[11px] font-medium text-accent px-2.5 py-0.5 rounded-full bg-[rgba(37,99,235,0.1)]" { "当前" }
  }
  }
  @if let Some(t) = tracked {
@@ -504,16 +689,16 @@ fn detail_page(
 
  // ═══ Transaction Records ═══
  @if !tracking.is_empty() {
- div class="bg-bg border border-border-soft rounded-xl overflow-hidden" {
- div class="text-base font-semibold text-fg" {
+ div class="bg-bg border border-border-soft rounded-xl overflow-hidden mb-7 shadow-[var(--shadow-card)]" {
+ div class="text-base font-semibold text-fg px-8 py-5 border-b border-border-soft" {
  div class="section-icon-wrap [&_svg]:w-4.5 [&_svg]:h-4.5 [&_svg]:text-accent" {
  (maud::PreEscaped(r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 7h12M8 12h12M8 17h12M4 7h.01M4 12h.01M4 17h.01"/></svg>"#))
  }
  "收发记录"
  span class="section-count" { (tracking.len()) " 条记录" }
  }
- div class="bg-bg border border-border-soft rounded-xl overflow-hidden-body" {
- div class="overflow-x-auto" {
+ div class="overflow-hidden" {
+ div class="overflow-x-auto px-8 pb-5" {
  table class="data-table" class="w-full" {
  thead {
  tr {
@@ -553,6 +738,43 @@ fn detail_page(
  // Close buttons: `_="on click remove .is-open from #X-modal"` on the button.
 
  // ── Record Node Modal ──
+ // ═══ 发料明细 ═══
+ (materials_section(materials, in_transit_amount, processing_fee))
+
+ // ═══ 收发记录 ═══
+ (transactions_section(inventory_records))
+
+ // ── Send Modal（发料 Draft → Sent）──
+ div id="send-modal" class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto" _="on click[me is event.target] remove .is-open" {
+ div class="bg-bg rounded-xl flex flex-col overflow-hidden shadow-xl" style="width:520px" {
+ div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
+ h2 class="flex items-center gap-2" {
+ (maud::PreEscaped(r#"<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>"#))
+ "确认发料"
+ }
+ button class="btn btn-text inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative [&_svg]:w-4 [&_svg]:h-4" type="button" _="on click remove .is-open from #send-modal" { "✕" }
+ }
+ form hx-post=(OmOutsourcingSendPath { id: order.id }.to_string()) hx-swap="none"
+ hx-on::after-request="if(event.detail.xhr.status<400){document.querySelector('#send-modal').classList.remove('is-open');this.reset()}" {
+ div class="overflow-y-auto flex-1 min-h-0 p-6" {
+ div class="text-[13px] text-fg-2 rounded-md mb-6 px-5 py-4" style="background:linear-gradient(135deg,var(--accent-bg),rgba(37,99,235,0.06));border:1px solid rgba(37,99,235,0.08)" {
+ "发料后系统将创建 WMS 库存调拨单，将发料明细从源仓调拨到委外虚拟仓（"
+ strong class="text-fg" { (warehouse_name) }
+ "），并记录 " strong class="text-accent" { "发料" } " 追踪节点，状态变为「已发出」。"
+ }
+ div class="form-field field-full" {
+ label { "备注（可选）" }
+ textarea name="remark" class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] resize-y" rows="2" placeholder="发料备注…" {}
+ }
+ }
+ div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" {
+ button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" _="on click remove .is-open from #send-modal" { "取消" }
+ button type="submit" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" { "确认发料" }
+ }
+ }
+ }
+ }
+
  div id="record-node-modal" class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto" _="on click[me is event.target] remove .is-open" {
  div class="bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl" style="width:520px" {
  div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {

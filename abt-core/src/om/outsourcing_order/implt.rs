@@ -4,9 +4,9 @@ use serde_json::json;
 use sqlx::postgres::PgPool;
 
 use super::model::{
-    CancelOutsourcingReq, ConvertToInternalReq, CreateOutsourcingOrderReq, OutsourcingOrder,
-    OutsourcingOrderQuery, ReceiveOutsourcingReq, SendOutsourcingReq, UpdateOutsourcingOrderReq,
-    UpdateOutsourcingParams,
+    CancelOutsourcingReq, ConvertToInternalReq, CreateOutsourcingOrderReq, OutsourcingMaterial,
+    OutsourcingOrder, OutsourcingOrderQuery, ReceiveOutsourcingReq, SendOutsourcingReq,
+    UpdateOutsourcingOrderReq, UpdateOutsourcingParams,
 };
 use super::repo::{OutsourcingMaterialRepo, OutsourcingOrderRepo};
 use super::service::OutsourcingOrderService;
@@ -46,6 +46,7 @@ use crate::shared::types::error::DomainError;
 use crate::shared::types::pagination::{PageParams, PaginatedResult};
 use crate::wms::transfer::model::{CreateTransferItemReq, CreateTransferReq};
 use crate::wms::transfer::{new_transfer_service, service::TransferService};
+use crate::wms::inventory_transaction::{new_inventory_transaction_service, service::InventoryTransactionService};
 
 const ENTITY_TYPE: &str = "OutsourcingOrder";
 
@@ -117,6 +118,11 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
 
         new_audit_log_service(self.pool.clone())
             .record(ctx, db, RecordAuditLogReq { entity_type: ENTITY_TYPE, entity_id: id, action: AuditAction::Create, changes: None, context: None })
+            .await?;
+
+        // 登记状态机初始 Draft 状态——缺失则后续 send/receive/cancel/convert 的 transition() 全部失败
+        new_state_machine_service(self.pool.clone())
+            .transition(ctx, db, ENTITY_TYPE, id, "Draft", None)
             .await?;
 
         Ok(id)
@@ -222,7 +228,8 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
                     ctx,
                     db,
                     CreateTransferReq {
-                        from_warehouse_id: 0,
+                        from_warehouse_id: order.source_warehouse_id
+                            .ok_or_else(|| DomainError::validation("委外单未设置发料源仓库，无法发料"))?,
                         from_zone_id: None,
                         from_bin_id: None,
                         to_warehouse_id: order.virtual_warehouse_id,
@@ -872,5 +879,56 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
             page.page,
             page.page_size,
         ))
+    }
+
+    async fn list_materials(
+        &self,
+        _ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        outsourcing_id: i64,
+    ) -> Result<Vec<OutsourcingMaterial>> {
+        OutsourcingMaterialRepo::list_by_outsourcing_id(db, outsourcing_id).await
+    }
+
+    async fn list_inventory_records(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        outsourcing_id: i64,
+    ) -> Result<Vec<crate::wms::inventory_transaction::model::InventoryTransaction>> {
+        use std::collections::HashSet;
+
+        // 委外单 → 关联的调拨单 ids（send/receive 已建立 OutsourcingOrder→InventoryTransfer link）
+        let links = new_document_link_service(self.pool.clone())
+            .find_linked(
+                ctx,
+                db,
+                DocumentType::OutsourcingOrder,
+                outsourcing_id,
+                1,
+                200,
+            )
+            .await?;
+        let transfer_ids: HashSet<i64> = links
+            .items
+            .into_iter()
+            .filter(|l| l.target_type == DocumentType::InventoryTransfer)
+            .map(|l| l.target_id)
+            .collect();
+
+        // 每个调拨单 → 库存流水
+        let tx_svc = new_inventory_transaction_service(self.pool.clone());
+        let mut records = Vec::new();
+        for tid in transfer_ids {
+            let txns = tx_svc
+                .find_by_source(ctx, db, "inventory_transfer", tid)
+                .await?;
+            records.extend(txns);
+        }
+
+        // 按时间升序 + 去重
+        records.sort_by_key(|r| r.created_at);
+        let mut seen = HashSet::new();
+        Ok(records.into_iter().filter(|r| seen.insert(r.id)).collect())
     }
 }

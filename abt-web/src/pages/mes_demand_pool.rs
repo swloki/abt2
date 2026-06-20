@@ -574,8 +574,7 @@ fn material_row(item: &MaterialAggSummary) -> Markup {
  // Actions (visible on hover)
  div class="flex gap-2" {
  a class="inline-flex items-center gap-1.5 py-[5px] px-3 text-[13px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
- href=(format!("{}?product_id={}", MesDemandPoolCreatePath::PATH, pid))
- _="on click halt the event" {
+ href=(format!("{}?product_id={}", MesDemandPoolCreatePath::PATH, pid)) {
  "创建生产计划"
  }
  }
@@ -707,7 +706,10 @@ fn detail_row(item: &DemandSummary) -> Markup {
  tr class=(row_cls) {
  td {
  @if is_pending {
- input type="checkbox" class="demand-cb" value=(item.id);
+ input type="checkbox" class="demand-cb" value=(item.id)
+       data-product-id=(item.product_id)
+       data-product-name=(item.product_name)
+       data-product-code=(item.product_code);
  } @else {
  input type="checkbox" class="demand-cb" disabled;
  }
@@ -814,10 +816,14 @@ fn batch_action_bar() -> Markup {
  if (productIds.size > 1) {
  btn.onclick = function(e) { e.preventDefault(); alert('请选择同一物料的需求进行批量创建生产计划。'); };
  } else {
- btn.href = basePath + '?demand_ids=' + ids.join(',') +
- '&product_id=' + [...productIds][0] +
+ var pid = [...productIds][0];
+ var href = basePath + '?demand_ids=' + ids.join(',');
+ if (pid && pid !== 'null' && pid !== 'undefined') {
+ href += '&product_id=' + pid +
  '&product_name=' + encodeURIComponent(productName) +
  '&product_code=' + encodeURIComponent(productCode);
+ }
+ btn.href = href;
  btn.onclick = null;
  }
  } else {

@@ -242,7 +242,7 @@ fn entry_data_card(result: &PaginatedResult<GlEntry>, params: &EntryQueryParams)
                                 td class="font-mono tabular-nums text-right text-fg" { (crate::utils::fmt_amount(item.total_debit)) }
                                 td class="font-mono tabular-nums text-right text-fg" { (crate::utils::fmt_amount(item.total_credit)) }
                                 td {
-                                    a href=(detail_path.to_string()) class="text-accent text-xs" _="on click halt the event" { "查看" }
+                                    a href=(detail_path.to_string()) class="text-accent text-xs" { "查看" }
                                 }
                             }
                         }

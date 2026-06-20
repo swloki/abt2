@@ -353,10 +353,10 @@ fn return_row(
  tr {
  td class="text-accent font-medium cursor-pointer font-mono tabular-nums" onclick=(&onclick) { (r.doc_number) }
  td onclick=(&onclick) {
- a href=(shipping_detail.to_string()) class="text-accent" _="on click halt the event" { (shipping_num) }
+ a href=(shipping_detail.to_string()) class="text-accent" _="on click js(event) event.stopPropagation() end" { (shipping_num) }
  }
  td onclick=(&onclick) {
- a href=(order_detail.to_string()) class="text-accent" _="on click halt the event" { (order_num) }
+ a href=(order_detail.to_string()) class="text-accent" _="on click js(event) event.stopPropagation() end" { (order_num) }
  }
  td onclick=(&onclick) { (customer_name) }
  td onclick=(&onclick) {

@@ -318,7 +318,7 @@ fn shipping_row(
  td class="text-accent font-medium cursor-pointer font-mono tabular-nums" onclick=(&onclick) { (s.doc_number) }
  td onclick=(&onclick) {
  @if let Some(odp) = order_detail_path {
- a href=(odp.to_string()) class="text-accent" _="on click halt the event" { (order_num) }
+ a href=(odp.to_string()) class="text-accent" _="on click js(event) event.stopPropagation() end" { (order_num) }
  } @else {
  (order_num)
  }

@@ -237,7 +237,7 @@ fn invoice_data_card(
                                     }
                                 }
                                 td {
-                                    a href=(detail_path.to_string()) class="text-accent text-xs" _="on click halt the event" { "查看" }
+                                    a href=(detail_path.to_string()) class="text-accent text-xs" { "查看" }
                                 }
                             }
                         }

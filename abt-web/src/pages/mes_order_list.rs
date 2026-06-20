@@ -181,12 +181,12 @@ fn order_data_card(
  } @else {
  div class="text-[11px] text-muted" {
  @if let (Some(pid), Some(pdoc)) = (item.source_plan_id, item.source_plan_doc.as_deref()) {
- a class="text-[11px] text-muted-sub" href=(format!("/admin/mes/plans/{}", pid)) _="on click halt the event" { (pdoc) }
+ a class="text-[11px] text-muted-sub" href=(format!("/admin/mes/plans/{}", pid)) { (pdoc) }
  span class="text-[11px] text-muted-sub" { " → " }
  }
  @if let Some(soid) = item.sales_order_id {
  @if let Some(sodoc) = item.source_so_doc.as_deref() {
- a class="text-[11px] text-muted-sub" href=(format!("/admin/orders/{}", soid)) _="on click halt the event" { (sodoc) }
+ a class="text-[11px] text-muted-sub" href=(format!("/admin/orders/{}", soid)) { (sodoc) }
  }
  @if let Some(cust) = item.source_customer.as_deref() {
  span class="text-[11px] text-muted-sub" { " (" (cust) ")" }

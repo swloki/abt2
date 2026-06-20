@@ -269,7 +269,7 @@ fn category_page(tree: &[CategoryTree], initial_panel: Option<&Markup>, first_id
 
  html! {
  div {
- script { (category_split_view_script()) }
+ (category_split_view_script())
 
  // ── Page Header ──
  div class="flex items-center justify-between mb-6" {

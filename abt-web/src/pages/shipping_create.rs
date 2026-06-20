@@ -1046,7 +1046,7 @@ fn customer_info_card(
  let selected = selected_customer_id.map(|id| id.to_string()).unwrap_or_default();
 
  html! {
- div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden mb-4" {
+ div id="customer-info-card" class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden mb-4" {
  div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
  (icon::clipboard_document_icon("w-[18px] h-[18px]"))
  "客户信息"
@@ -1057,7 +1057,7 @@ fn customer_info_card(
  select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="customer_id"
  hx-get=(ShippingCustomerContactsPath::PATH)
  hx-trigger="change"
- hx-target="closest .form-section-card"
+ hx-target="#customer-info-card"
  hx-swap="outerHTML"
  hx-include="this" {
  option value="" { "请选择客户" }

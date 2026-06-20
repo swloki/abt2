@@ -10,7 +10,9 @@ git checkout -f .
 git reset --hard origin/master
 
 echo ">>> 构建项目..."
-export DATABASE_URL="postgres://postgres:123456@172.17.0.1:5432/abt_v2"
+# DATABASE_URL 从仓库 .env 读取（远程库 119.29.23.115，schema 最新）。
+# 原硬编码 172.17.0.1 宿主库 schema 旧（无 GL 表），导致 sqlx::query! 编译期验证 GL 报 E0282。
+export DATABASE_URL="$(grep '^DATABASE_URL=' .env | sed 's/^DATABASE_URL=//; s/^"//; s/"$//')"
 cargo build --release
 
 echo ">>> 构建完成！"

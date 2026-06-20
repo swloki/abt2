@@ -191,7 +191,7 @@ impl WorkReportRepo {
         let data_sql = format!(
             r#"
             SELECT wr.id, wr.doc_number,
-                   wr.work_order_id, wr.batch_id,
+                   wr.work_order_id, wr.batch_id, wr.routing_id,
                    wo.product_id,
                    p.pdt_name AS product_name,
                    wor.process_name,

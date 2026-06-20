@@ -75,6 +75,7 @@ pub struct ReportListItem {
     pub doc_number: String,
     pub work_order_id: i64,
     pub batch_id: i64,
+    pub routing_id: i64,
     pub product_id: i64,
     pub product_name: Option<String>,
     pub process_name: String,

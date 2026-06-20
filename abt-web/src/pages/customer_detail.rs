@@ -174,6 +174,7 @@ fn transaction_table_fragment(
  }
  (htmx_pagination(
  txn_path.to_string().as_str(),
+ "",
  total,
  page,
  total_pages,

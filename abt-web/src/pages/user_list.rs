@@ -425,9 +425,8 @@ hx-trigger="change, keyup changed delay:300ms from:input[name=keyword], userTogg
  }
  }
  }
- }
 
- // ── Pagination ──
+ // ── Pagination（必须在 .data-card 内：搜索刷新 .data-card 时一并更新分页，保留筛选 query）──
  (pagination::pagination(
  UserListPath::PATH,
  &build_query_string(params),
@@ -435,6 +434,7 @@ hx-trigger="change, keyup changed delay:300ms from:input[name=keyword], userTogg
  page,
  total_pages,
  ))
+ }
  }
  }
 }

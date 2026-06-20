@@ -36,9 +36,11 @@ pub fn pagination(
 }
 
 /// HTMX-aware pagination: page links use hx-get with the given hx-target/hx-swap.
-/// Inherited variant: omits hx-target/hx-swap on links, relying on the ancestor container.
+/// `query` carries filter params (e.g. `category_id=3`) so page links preserve the active filter;
+/// pass "" when the filter is encoded in the path itself (e.g. `/customers/{id}/transactions`).
 pub fn htmx_pagination(
  base_path: &str,
+ query: &str,
  total: u64,
  current_page: u32,
  total_pages: u32,
@@ -54,7 +56,7 @@ pub fn htmx_pagination(
  span class="text-[13px] text-muted" { "共 " (total) " 条记录，第 " (current_page) "/" (total_pages) " 页" }
  div class="flex gap-1" {
  @if current_page > 1 {
- (htmx_page_link(base_path, current_page - 1, "«", Some((hx_target, hx_swap))))
+ (htmx_page_link(base_path, query, current_page - 1, "«", Some((hx_target, hx_swap))))
  }
  @for p in page_range(current_page, total_pages) {
  @if p == 0 {
@@ -62,11 +64,11 @@ pub fn htmx_pagination(
  } @else if p == current_page {
  button class="w-[34px] h-[34px] grid place-items-center border border-border-soft rounded-sm bg-accent text-white text-sm font-semibold cursor-pointer" disabled { (p) }
  } @else {
- (htmx_page_link(base_path, p, &p.to_string(), Some((hx_target, hx_swap))))
+ (htmx_page_link(base_path, query, p, &p.to_string(), Some((hx_target, hx_swap))))
  }
  }
  @if current_page < total_pages {
- (htmx_page_link(base_path, current_page + 1, "»", Some((hx_target, hx_swap))))
+ (htmx_page_link(base_path, query, current_page + 1, "»", Some((hx_target, hx_swap))))
  }
  }
  }
@@ -75,8 +77,11 @@ pub fn htmx_pagination(
 
 /// Lightweight HTMX pagination: links only have `hx-get`, inheriting hx-target/hx-swap/hx-push-url
 /// from an ancestor container that declares them.
+/// `query` carries filter params (e.g. `category_id=3`) so page links preserve the active filter;
+/// pass "" when the filter is encoded in the path itself.
 pub fn htmx_pagination_inherited(
  base_path: &str,
+ query: &str,
  total: u64,
  current_page: u32,
  total_pages: u32,
@@ -90,7 +95,7 @@ pub fn htmx_pagination_inherited(
  span class="text-[13px] text-muted" { "共 " (total) " 条记录，第 " (current_page) "/" (total_pages) " 页" }
  div class="flex gap-1" {
  @if current_page > 1 {
- (htmx_page_link(base_path, current_page - 1, "«", None))
+ (htmx_page_link(base_path, query, current_page - 1, "«", None))
  }
  @for p in page_range(current_page, total_pages) {
  @if p == 0 {
@@ -98,20 +103,28 @@ pub fn htmx_pagination_inherited(
  } @else if p == current_page {
  button class="w-[34px] h-[34px] grid place-items-center border border-border-soft rounded-sm bg-accent text-white text-sm font-semibold cursor-pointer" disabled { (p) }
  } @else {
- (htmx_page_link(base_path, p, &p.to_string(), None))
+ (htmx_page_link(base_path, query, p, &p.to_string(), None))
  }
  }
  @if current_page < total_pages {
- (htmx_page_link(base_path, current_page + 1, "»", None))
+ (htmx_page_link(base_path, query, current_page + 1, "»", None))
  }
  }
  }
  }
 }
 
-fn htmx_page_link(base_path: &str, page: u32, label: &str, target_swap: Option<(&str, &str)>) -> Markup {
+fn htmx_page_link(base_path: &str, query: &str, page: u32, label: &str, target_swap: Option<(&str, &str)>) -> Markup {
+ // Combine the filter `query` (e.g. "category_id=3") with page=N so paginated
+ // requests preserve the active filter. When `query` is empty the filter is
+ // assumed to be encoded in the path itself.
+ let qs = if query.is_empty() {
+ format!("page={page}")
+ } else {
+ format!("{query}&page={page}")
+ };
  let sep = if base_path.contains('?') { '&' } else { '?' };
- let url = format!("{base_path}{sep}page={page}");
+ let url = format!("{base_path}{sep}{qs}");
  match target_swap {
  Some((t, s)) => html! {
  a class="w-[34px] h-[34px] grid place-items-center border border-border-soft rounded-sm bg-white text-fg-2 text-sm cursor-pointer hover:bg-surface hover:text-fg border border-border-soft transition-colors" href=(url) hx-get=(url) hx-target=(t) hx-swap=(s) { (label) }

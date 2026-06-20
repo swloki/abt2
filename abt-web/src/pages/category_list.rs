@@ -573,6 +573,7 @@ fn detail_panel(
  @if total_pages > 1 {
  (htmx_pagination_inherited(
  "/admin/md/categories",
+ &format!("category_id={}", category_id),
  total_products, current_page, total_pages,
  ))
  }

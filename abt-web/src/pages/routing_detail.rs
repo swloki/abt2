@@ -244,7 +244,7 @@ fn bom_table_fragment(routing_id: i64, boms: &abt_core::shared::types::Paginated
  }
  }
  }
- (htmx_pagination(&base_path, boms.total, boms.page, boms.total_pages, ".routing-bom-card", "outerHTML"))
+ (htmx_pagination(&base_path, "", boms.total, boms.page, boms.total_pages, ".routing-bom-card", "outerHTML"))
  }
  }
 }

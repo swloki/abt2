@@ -333,7 +333,7 @@ fn po_edit_page(
  th class="w-[120px] text-right" { "单价" }
  th class="w-[110px] text-right" { "小计" }
  th class="w-[80px] text-right" { "折扣%" }
- th class="w-[120px]" { "税率" }
+ th class="w-[150px]" { "税率" }
  th class="w-[120px]" { "预期交货日期" }
  th class="w-9" { }
  }
@@ -426,8 +426,8 @@ fn existing_item_row(
  td class="line-subtotal font-mono tabular-nums" data-field="subtotal" class="text-right" { (subtotal.to_string()) }
  td { input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] num-input" type="number" name="discount_pct" data-field="discount" value=(item.discount_pct.to_string()) placeholder="0" style=(input_style) {} }
  td {
- select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="tax_rate_id" data-field="tax_rate_id"
- class="w-[110px] text-[13px]" class="rounded-sm" class="px-2 py-[5px] border border-border" {
+ select class="min-w-[150px] w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="tax_rate_id" data-field="tax_rate_id"
+ class="text-[13px]" class="rounded-sm" class="px-2 py-[5px] border border-border" {
  option value="" { "—" }
  @for tr in tax_rates {
  @if item.tax_rate_id == Some(tr.id) {

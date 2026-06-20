@@ -47,7 +47,7 @@
       &nbsp;&nbsp;id: i64 PK<br>
       &nbsp;&nbsp;code: String UNIQUE -- 科目编码<br>
       &nbsp;&nbsp;name: String<br>
-      &nbsp;&nbsp;account_type: AccountType -- 资产/负债/权益/收入/费用<br>
+      &nbsp;&nbsp;account_type: AccountType -- 资产/负债/权益/收入/成本/费用<br>
       &nbsp;&nbsp;parent_id: i64? FK -- 父科目<br>
       &nbsp;&nbsp;is_detail: BOOLEAN -- 是否末级(可用于凭证)<br>
       &nbsp;&nbsp;balance_direction: BalanceDirection -- 借方/贷方<br>
@@ -61,7 +61,7 @@
       &nbsp;&nbsp;updated_at: Timestamp<br>
       &nbsp;&nbsp;deleted_at: Timestamp?<br>
       }<br><br>
-      enum AccountType { ASSET, LIABILITY, EQUITY, REVENUE, EXPENSE }<br>
+      enum AccountType { ASSET, LIABILITY, EQUITY, REVENUE, COST, EXPENSE }<br>
       enum BalanceDirection { DEBIT, CREDIT }
     </div>
     <p style="color: #aaa; font-size: 11px; margin: 0 0 16px 0;">
@@ -72,15 +72,16 @@
     <div style="background: rgba(229,192,123,0.08); padding: 12px; border-radius: 6px; margin-bottom: 16px; font-family: monospace; font-size: 12px;">
       entity GlPeriod {<br>
       &nbsp;&nbsp;id: i64 PK<br>
-      &nbsp;&nbsp;period: VARCHAR(7) UNIQUE -- "2026-06"<br>
+      &nbsp;&nbsp;name: VARCHAR(7) UNIQUE -- "2026-06"<br>
       &nbsp;&nbsp;start_date: DATE<br>
       &nbsp;&nbsp;end_date: DATE<br>
       &nbsp;&nbsp;status: PeriodStatus -- Open/Closed<br>
-      &nbsp;&nbsp;company_id: i64<br>
+      &nbsp;&nbsp;fiscal_year: VARCHAR -- 所属会计年度（如 "2026"）<br>
+      &nbsp;&nbsp;closed_at: Timestamp? -- 关闭时间<br>
+      &nbsp;&nbsp;closed_by: i64? -- 关闭操作人 operator_id<br>
       &nbsp;&nbsp;version: i32<br>
       &nbsp;&nbsp;created_at: Timestamp<br>
       &nbsp;&nbsp;updated_at: Timestamp<br>
-      &nbsp;&nbsp;deleted_at: Timestamp?<br>
       }<br><br>
       enum PeriodStatus { OPEN, CLOSED }
     </div>
@@ -143,6 +144,7 @@
       &nbsp;&nbsp;trial_balance(ctx, db, period): Result&lt;TrialBalance&gt; -- 只统计 posted 凭证，含 opening_balance<br>
       &nbsp;&nbsp;general_ledger(ctx, db, account_id, from?, to?): Result&lt;Vec&lt;GlDetailRow&gt;&gt; -- 分录流水 + running_balance<br>
       &nbsp;&nbsp;get_account_balance(ctx, db, account_id, period?, as_of_date?): Result&lt;Decimal&gt; -- 期初 + Σ(posted 分录，按方向定向)<br>
+      &nbsp;&nbsp;post_from_source(ctx, db, source_type, source_id, entry_date, description, lines): Result&lt;i64&gt; <span style="color:#56b6c2;">[InCallerTx]</span> -- 业务单据过账入口：一步建 posted 凭证(同事务)，校验平衡+期间open+末级<br>
       }<br><br>
       <span style="color:#888;">// TransactionMode: InCallerTx (写操作与调用方同一事务)</span><br>
       <span style="color:#888;">// create/post/cancel 都有 AuditLog 同步记录</span>
@@ -155,14 +157,23 @@
       <div style="border: 2px solid #56b6c2; border-radius: 8px; padding: 14px; background: rgba(86,182,194,0.05);">
         <h4 style="color: #56b6c2; margin: 0 0 6px 0;">试算平衡 (trial_balance)</h4>
         <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11.5px;">
-          <span style="color:#888;">// 1. 按期间汇总所有科目的借/贷发生额</span><br>
-          SELECT a.id, SUM(l.debit), SUM(l.credit)<br>
+          <span style="color:#888;">// 1. 按期间汇总所有科目的借/贷发生额 + 算期初</span><br>
+          SELECT a.id,<br>
+          &nbsp;&nbsp;a.opening_balance + COALESCE((<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;SELECT CASE WHEN a.balance_direction = 1<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;THEN SUM(l.debit - l.credit) ELSE SUM(l.credit - l.debit) END<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;FROM gl_entry_lines l JOIN gl_entries e ON e.id = l.entry_id<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;AND e.entry_date &lt; (SELECT start_date FROM accounting_periods WHERE name = $1)<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;AND e.status = 2 AND e.deleted_at IS NULL<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;WHERE l.account_id = a.id<br>
+          &nbsp;&nbsp;), 0) AS opening_balance,<br>
+          &nbsp;&nbsp;SUM(l.debit) AS period_debit, SUM(l.credit) AS period_credit<br>
           FROM gl_accounts a<br>
           LEFT JOIN gl_entry_lines l ON l.account_id = a.id<br>
           LEFT JOIN gl_entries e ON e.id = l.entry_id<br>
-            AND e.period = $1<br>
-            AND e.status = 2 <span style="color:#888;">-- Posted</span><br>
+            AND e.period = $1 AND e.status = 2 <span style="color:#888;">-- Posted</span><br>
           GROUP BY a.id<br><br>
+          <span style="color:#888;">// 期初 = gl_accounts.opening_balance(静态) + 本期之前 posted 累计(按方向)</span><br>
           <span style="color:#888;">// 2. 计算期末余额</span><br>
           IF (balance_direction = DEBIT) {<br>
           &nbsp;&nbsp;end_balance = opening_balance + period_debit - period_credit<br>

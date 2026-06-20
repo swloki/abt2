@@ -257,6 +257,12 @@ impl GlEntryRepo {
     }
 
     /// 按期间汇总分录（用于试算平衡）- 只统计 posted 凭证
+    ///
+    /// opening_balance = gl_accounts.opening_balance（静态期初）
+    ///                  + 本期之前（entry_date < period.start_date）的 posted 凭证累计
+    ///                  （借方科目 +debit-credit，贷方科目 +credit-debit）
+    /// period_debit / period_credit = 本期发生额
+    /// end_balance = 0（占位，将在 service 层 = opening_balance + 本期发生）
     pub async fn sum_lines_by_period(executor: PgExecutor<'_>, period: &str) -> Result<Vec<TrialBalanceRow>> {
         let rows = sqlx::query_as::<sqlx::Postgres, TrialBalanceRow>(
             r#"
@@ -265,6 +271,19 @@ impl GlEntryRepo {
                    a.name,
                    a.account_type,
                    a.balance_direction,
+                   a.opening_balance + COALESCE((
+                       SELECT CASE WHEN a.balance_direction = 1
+                                   THEN SUM(l.debit - l.credit)
+                                   ELSE SUM(l.credit - l.debit)
+                              END
+                       FROM gl_entry_lines l
+                       INNER JOIN gl_entries e
+                           ON e.id = l.entry_id
+                           AND e.entry_date < (SELECT start_date FROM accounting_periods WHERE name = $1)
+                           AND e.status = 2  -- Posted
+                           AND e.deleted_at IS NULL
+                       WHERE l.account_id = a.id
+                   ), 0) AS opening_balance,
                    COALESCE(SUM(l.debit), 0) AS period_debit,
                    COALESCE(SUM(l.credit), 0) AS period_credit,
                    0.0 AS end_balance  -- 将在 service 层计算（Decimal 类型）
@@ -278,7 +297,7 @@ impl GlEntryRepo {
                     AND e.deleted_at IS NULL
             ) ON l.account_id = a.id
             WHERE a.deleted_at IS NULL
-            GROUP BY a.id, a.code, a.name, a.account_type, a.balance_direction
+            GROUP BY a.id, a.code, a.name, a.account_type, a.balance_direction, a.opening_balance
             ORDER BY a.code
             "#
         )

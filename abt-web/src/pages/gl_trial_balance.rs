@@ -90,22 +90,9 @@ pub async fn get_trial_balance(
 
 // ── Helpers ──
 
-/// 根据余额方向 + 本期借贷 + 期末倒推期初余额
-/// 借方科目：期末 = 期初 + 借 - 贷 → 期初 = 期末 - 借 + 贷
-/// 贷方科目：期末 = 期初 + 贷 - 借 → 期初 = 期末 - 贷 + 借
-fn opening_balance(
-    end_balance: Decimal,
-    period_debit: Decimal,
-    period_credit: Decimal,
-    balance_direction: i16,
-) -> Decimal {
-    // 1 = Debit, 2 = Credit
-    if balance_direction == 2 {
-        end_balance - period_credit + period_debit
-    } else {
-        end_balance - period_debit + period_credit
-    }
-}
+// 期初余额由后端 TrialBalanceRow.opening_balance 直接提供
+// （= gl_accounts.opening_balance 静态期初 + 本期之前 posted 累计），
+// 前端无需按 balance_direction 倒推。
 
 // ── Components ──
 
@@ -155,10 +142,8 @@ fn period_selector(all_periods: &[AccountingPeriod], selected: &str) -> Markup {
 
 fn trial_card(trial: &TrialBalance) -> Markup {
     let balanced = trial.total_debit == trial.total_credit;
-    // 期初合计：所有行的 opening 之和（理论上 借方期初 = 贷方期初，这里只看本期是否平衡）
-    let total_opening: Decimal = trial.rows.iter().map(|r| {
-        opening_balance(r.end_balance, r.period_debit, r.period_credit, r.balance_direction)
-    }).sum();
+    // 期初合计：所有行的 opening_balance 之和
+    let total_opening: Decimal = trial.rows.iter().map(|r| r.opening_balance).sum();
     let total_end: Decimal = trial.rows.iter().map(|r| r.end_balance).sum();
 
     html! {
@@ -177,16 +162,10 @@ fn trial_card(trial: &TrialBalance) -> Markup {
                     }
                     tbody {
                         @for row in &trial.rows {
-                            @let opening = opening_balance(
-                                row.end_balance,
-                                row.period_debit,
-                                row.period_credit,
-                                row.balance_direction,
-                            );
                             tr {
                                 td class="font-mono tabular-nums text-accent" { (&row.code) }
                                 td { (&row.name) }
-                                td class="font-mono tabular-nums text-right text-fg-2" { (fmt_amount(opening)) }
+                                td class="font-mono tabular-nums text-right text-fg-2" { (fmt_amount(row.opening_balance)) }
                                 td class="font-mono tabular-nums text-right text-fg" { (fmt_amount(row.period_debit)) }
                                 td class="font-mono tabular-nums text-right text-fg" { (fmt_amount(row.period_credit)) }
                                 td class="font-mono tabular-nums text-right text-fg font-medium" { (fmt_amount(row.end_balance)) }

@@ -93,6 +93,8 @@ pub struct TrialBalanceRow {
     pub name: String,
     pub account_type: i16,
     pub balance_direction: i16,
+    /// 本期期初余额（静态 opening_balance + 本期之前 posted 累计）
+    pub opening_balance: Decimal,
     pub period_debit: Decimal,
     pub period_credit: Decimal,
     pub end_balance: Decimal,

@@ -265,29 +265,31 @@ impl GlEntryService for GlEntryServiceImpl {
 
     async fn trial_balance(
         &self,
-        ctx: &ServiceContext,
+        _ctx: &ServiceContext,
         db: PgExecutor<'_>,
         period: String,
     ) -> Result<TrialBalance> {
         let mut rows = GlEntryRepo::sum_lines_by_period(db, &period).await?;
 
         // 计算每个科目的期末余额
-        // 借方科目：余额 = 期初 + 借 - 贷
-        // 贷方科目：余额 = 期初 + 贷 - 借
+        // 借方科目：期末 = 期初 + 借 - 贷
+        // 贷方科目：期末 = 期初 + 贷 - 借
+        // 期初（row.opening_balance）已在 repo 层算好：
+        //   = gl_accounts.opening_balance（静态）+ 本期之前 posted 累计
+        // （repo 已通过 WHERE deleted_at IS NULL 过滤已删科目，无需逐个 get account）
         for row in &mut rows {
-            let account = new_gl_account_service(self.pool.clone())
-                .get(ctx, db, row.account_id)
-                .await?;
-
-            // 使用 BalanceDirection 枚举判断
-            match account.balance_direction {
-                crate::gl::enums::BalanceDirection::Debit => {
-                    // 借方科目
-                    row.end_balance = account.opening_balance + row.period_debit - row.period_credit;
+            match row.balance_direction {
+                1 => {
+                    // 借方科目（BalanceDirection::Debit）
+                    row.end_balance = row.opening_balance + row.period_debit - row.period_credit;
                 }
-                crate::gl::enums::BalanceDirection::Credit => {
-                    // 贷方科目
-                    row.end_balance = account.opening_balance + row.period_credit - row.period_debit;
+                2 => {
+                    // 贷方科目（BalanceDirection::Credit）
+                    row.end_balance = row.opening_balance + row.period_credit - row.period_debit;
+                }
+                _ => {
+                    // 未知方向：保守置为期初
+                    row.end_balance = row.opening_balance;
                 }
             }
         }

@@ -1151,6 +1151,8 @@ select:disabled {
 .bg-\[linear-gradient\(135deg\,rgba\(250\,173\,20\,0\.04\)\,rgba\(255\,77\,79\,0\.04\)\)\]{background-image:linear-gradient(135deg,rgba(250,173,20,0.04),rgba(255,77,79,0.04));}
 .bg-\[linear-gradient\(135deg\,var\(--accent\)_0\%\,\#4096ff_100\%\)\]{background-image:linear-gradient(135deg,var(--accent) 0%,#4096ff 100%);}
 .bg-\[linear-gradient\(135deg\,var\(--accent\)\,\#6366f1\)\]{background-image:linear-gradient(135deg,var(--accent),#6366f1);}
+.bg-\[linear-gradient\(180deg\,rgba\(220\,38\,38\,0\.15\)\,rgba\(220\,38\,38\,0\.03\)\)\]{background-image:linear-gradient(180deg,rgba(220,38,38,0.15),rgba(220,38,38,0.03));}
+.bg-\[linear-gradient\(180deg\,rgba\(37\,99\,235\,0\.2\)\,rgba\(37\,99\,235\,0\.04\)\)\]{background-image:linear-gradient(180deg,rgba(37,99,235,0.2),rgba(37,99,235,0.04));}
 .bg-\[linear-gradient\(90deg\,var\(--accent\)\,\#7c3aed\)\]{background-image:linear-gradient(90deg,var(--accent),#7c3aed);}
 .bg-\[radial-gradient\(circle_at_top_left\,rgba\(255\,255\,255\,0\.08\)\,transparent_60\%\)\]{background-image:radial-gradient(circle at top left,rgba(255,255,255,0.08),transparent 60%);}
 .bg-\[rgba\(0\,0\,0\,0\.04\)\]{background-color:color-mix(in oklab, rgba(0,0,0,0.04) var(--un-bg-opacity), transparent) /* rgba(0,0,0,0.04) */;}
@@ -1173,6 +1175,7 @@ select:disabled {
 .bg-\[var\(--red-50\)\]{background-color:color-mix(in oklab, var(--red-50) var(--un-bg-opacity), transparent) /* var(--red-50) */;}
 .bg-\[var\(--slate-100\)\]{background-color:color-mix(in oklab, var(--slate-100) var(--un-bg-opacity), transparent) /* var(--slate-100) */;}
 .bg-\[var\(--slate-50\)\]{background-color:color-mix(in oklab, var(--slate-50) var(--un-bg-opacity), transparent) /* var(--slate-50) */;}
+.bg-accent-100{background-color:color-mix(in srgb, var(--accent-100) var(--un-bg-opacity), transparent) /* var(--accent-100) */;}
 .bg-accent-50{background-color:color-mix(in srgb, var(--accent-50) var(--un-bg-opacity), transparent) /* var(--accent-50) */;}
 .bg-accent\/10{background-color:color-mix(in srgb, var(--accent) 10%, transparent) /* var(--accent) */;}
 .bg-accent\/25{background-color:color-mix(in srgb, var(--accent) 25%, transparent) /* var(--accent) */;}
@@ -1205,6 +1208,7 @@ select:disabled {
 .bg-slate-300{background-color:color-mix(in srgb, var(--slate-300) var(--un-bg-opacity), transparent) /* var(--slate-300) */;}
 .bg-slate-400{background-color:color-mix(in srgb, var(--slate-400) var(--un-bg-opacity), transparent) /* var(--slate-400) */;}
 .bg-slate-50{background-color:color-mix(in srgb, var(--slate-50) var(--un-bg-opacity), transparent) /* var(--slate-50) */;}
+.bg-success-100{background-color:color-mix(in srgb, var(--success-100) var(--un-bg-opacity), transparent) /* var(--success-100) */;}
 .bg-success-50{background-color:color-mix(in srgb, var(--success-50) var(--un-bg-opacity), transparent) /* var(--success-50) */;}
 .bg-success-500{background-color:color-mix(in srgb, var(--success-500) var(--un-bg-opacity), transparent) /* var(--success-500) */;}
 .bg-success-bg{background-color:color-mix(in srgb, var(--success-bg) var(--un-bg-opacity), transparent) /* var(--success-bg) */;}

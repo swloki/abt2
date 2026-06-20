@@ -784,6 +784,26 @@ impl PurchaseOrderService for PurchaseOrderServiceImpl {
             return Err(DomainError::business_rule("仅草稿状态的订单可以提交"));
         }
 
+        // 提交前校验明细：quantity > 0 且 unit_price > 0。
+        // create 时允许 unit_price=0（草稿待补充），但提交审批/确认时必须完整。
+        let items = PurchaseOrderItemRepo::list_by_order_id(&mut *db, id)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?;
+        for item in &items {
+            if item.quantity <= Decimal::ZERO {
+                return Err(DomainError::validation(format!(
+                    "订单明细第 {} 行数量必须大于 0",
+                    item.line_no
+                )));
+            }
+            if item.unit_price <= Decimal::ZERO {
+                return Err(DomainError::validation(format!(
+                    "订单明细第 {} 行单价必须大于 0，请先编辑补全",
+                    item.line_no
+                )));
+            }
+        }
+
         // 查找匹配的审批规则
         let approval_rule = new_approval_service(self.pool.clone())
             .find_rule_by_amount(ctx, db, order.amount_total)

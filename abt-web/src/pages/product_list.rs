@@ -322,7 +322,7 @@ fn product_list_page(
  "保存价格",
  "price-drawer-form",
  html! {
- div id="price-drawer-body" {
+ div id="price-drawer-body" _="on htmx:afterSettle add .open to #price-drawer" {
  // Content loaded via HTMX
  }
  },
@@ -448,6 +448,12 @@ fn product_row(p: &Product, watched_ids: &[i64], can_delete: bool, can_edit: boo
  let edit_path = ProductEditPath { id: p.product_id };
  let is_watched = watched_ids.contains(&p.product_id);
  let spec = &p.meta.specification;
+ // 行内菜单/遮罩用唯一 id 定位，避免 hyperscript closest 跨兄弟失效（backdrop 是 menu 的兄弟非祖先）
+ let menu_id = format!("row-actions-menu-{}", p.product_id);
+ let backdrop_id = format!("row-actions-backdrop-{}", p.product_id);
+ let close_menu_hs = format!(
+  "on click hide #{menu_id} then hide #{backdrop_id} then remove .is-open from #{menu_id}"
+ );
 
  html! {
  tr id=(format!("product-row-{}", p.product_id)) class="hover:bg-accent-bg transition-colors" {
@@ -488,9 +494,9 @@ fn product_row(p: &Product, watched_ids: &[i64], can_delete: bool, can_edit: boo
  else hide next .row-actions-menu then hide next .row-actions-menu-backdrop" {
  (icon::dots_vertical_icon("w-4 h-4"))
  }
- div class="row-actions-menu-backdrop fixed inset-0 z-[999] cursor-default" style="display:none"
+ div id=(backdrop_id) class="row-actions-menu-backdrop fixed inset-0 z-[999] cursor-default" style="display:none"
  _="on click remove .is-open from next .row-actions-menu then hide next .row-actions-menu then hide me" {}
- div class="row-actions-menu fixed z-[1000] bg-bg border border-border rounded shadow-[var(--shadow-card)] min-w-[140px] py-1" style="display:none" {
+ div id=(menu_id) class="row-actions-menu fixed z-[1000] bg-bg border border-border rounded shadow-[var(--shadow-card)] min-w-[140px] py-1" style="display:none" {
  @if can_edit {
  a href=(edit_path) class="flex items-center gap-2 w-full text-left px-4 py-2 text-sm text-fg-2 hover:bg-accent-bg hover:text-accent transition-colors no-underline" {
  (icon::edit_icon("w-4 h-4"))
@@ -505,7 +511,7 @@ fn product_row(p: &Product, watched_ids: &[i64], can_delete: bool, can_edit: boo
  hx-get=(drawer_path)
  hx-target="#price-drawer-body"
  hx-swap="innerHTML"
- _="on click hide closest .row-actions-menu then hide closest .row-actions-menu-backdrop then remove .is-open from closest .row-actions-menu on 'htmx:afterRequest' add .open to #price-drawer" {
+ _=(close_menu_hs) {
  (icon::currency_icon("w-4 h-4"))
  "设置价格"
  }
@@ -513,7 +519,7 @@ fn product_row(p: &Product, watched_ids: &[i64], can_delete: bool, can_edit: boo
  button type="button" class="flex items-center gap-2 w-full text-left px-4 py-2 text-sm text-fg-2 hover:bg-accent-bg hover:text-accent transition-colors border-none bg-transparent cursor-pointer"
  hx-post=(unwatch_path)
  hx-swap="none"
- _="on click hide closest .row-actions-menu then hide closest .row-actions-menu-backdrop then remove .is-open from closest .row-actions-menu" {
+ _=(close_menu_hs) {
  (icon::bell_icon("w-4 h-4"))
  "取消关注"
  }
@@ -521,7 +527,7 @@ fn product_row(p: &Product, watched_ids: &[i64], can_delete: bool, can_edit: boo
  button type="button" class="flex items-center gap-2 w-full text-left px-4 py-2 text-sm text-fg-2 hover:bg-accent-bg hover:text-accent transition-colors border-none bg-transparent cursor-pointer"
  hx-post=(watch_path)
  hx-swap="none"
- _="on click hide closest .row-actions-menu then hide closest .row-actions-menu-backdrop then remove .is-open from closest .row-actions-menu" {
+ _=(close_menu_hs) {
  (icon::bell_icon("w-4 h-4"))
  "关注"
  }
@@ -532,7 +538,7 @@ fn product_row(p: &Product, watched_ids: &[i64], can_delete: bool, can_edit: boo
  hx-confirm=(format!("删除后无法恢复，确定要删除产品「{}」吗？", p.pdt_name))
  hx-target=(format!("#product-row-{}", p.product_id))
  hx-swap="outerHTML swap:0.5s"
- _="on click hide closest .row-actions-menu then hide closest .row-actions-menu-backdrop then remove .is-open from closest .row-actions-menu" {
+ _=(close_menu_hs) {
  (icon::trash_icon("w-4 h-4"))
  "删除"
  }

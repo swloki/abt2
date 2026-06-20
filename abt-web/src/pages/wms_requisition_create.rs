@@ -287,7 +287,7 @@ fn item_row_fragment(product: &abt_core::master_data::product::model::Product) -
  td class="text-sm text-fg-2" { (product.meta.specification) }
  td class="text-sm text-fg-2 text-center" { (product.unit) }
  td {
- input class="num-input w-full text-right px-2 py-[5px] text-[13px] font-mono tabular-nums border border-border rounded-sm bg-white text-fg outline-none focus:border-accent" type="number" min="0.01" step="any" name="requested_qty" placeholder="0" {}
+ input class="num-input w-full text-right px-2 py-[5px] text-[13px] font-mono tabular-nums border border-border rounded-sm bg-white text-fg outline-none focus:border-accent" type="number" name="requested_qty" placeholder="0" {}
  }
  td {
  button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center hover:text-danger" title="删除行"

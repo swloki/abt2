@@ -244,9 +244,9 @@ fn empty_row_fragment() -> Markup {
  td class="text-muted text-xs text-center" { }
  td { input class="w-full text-[13px] px-2 py-[5px] border border-border rounded-sm bg-white text-fg outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="item_name" required placeholder="物品名称" {} }
  td { input class="w-full text-[13px] px-2 py-[5px] border border-border rounded-sm bg-white text-fg outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="specification" placeholder="规格型号" {} }
- td { input class="num-input w-[90px] text-right text-[13px] font-mono px-2 py-[5px] border border-border rounded-sm bg-white text-fg outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" step="any" min="0" name="quantity" placeholder="0" {} }
+ td { input class="num-input w-[90px] text-right text-[13px] font-mono px-2 py-[5px] border border-border rounded-sm bg-white text-fg outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" name="quantity" placeholder="0" {} }
  td { input class="w-[70px] text-center text-[13px] px-2 py-[5px] border border-border rounded-sm bg-white text-fg outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="unit" placeholder="单位" {} }
- td { input class="num-input w-[110px] text-right text-[13px] font-mono px-2 py-[5px] border border-border rounded-sm bg-white text-fg outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" step="any" min="0" name="estimated_price" placeholder="0.00" {} }
+ td { input class="num-input w-[110px] text-right text-[13px] font-mono px-2 py-[5px] border border-border rounded-sm bg-white text-fg outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" name="estimated_price" placeholder="0.00" {} }
  td class="line-subtotal font-mono tabular-nums text-right" { "0.00" }
  td { input class="w-full text-[13px] px-2 py-[5px] border border-border rounded-sm bg-white text-fg outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="item_remark" placeholder="备注" {} }
  td { button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center" title="删除行"

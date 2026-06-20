@@ -206,7 +206,7 @@ fn mrb_create_page(products: &[Product], failed_results: &[InspectionResult]) ->
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "成本影响" }
  div class="relative" {
  span class="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted pointer-events-none" { "¥" }
- input class="w-full pl-7 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent" type="number" name="cost_impact" step="any"
+ input class="w-full pl-7 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent" type="number" name="cost_impact"
  placeholder="0.00";
  }
  }

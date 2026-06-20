@@ -414,9 +414,9 @@ fn item_row_fragment(product: &abt_core::master_data::product::model::Product) -
  td { (product.pdt_name) }
  td { input class="w-full px-2 py-[5px] text-[13px] border border-border rounded-sm outline-none focus:border-accent" type="text" name="description" {} }
  td { input class="w-[56px] text-center px-2 py-[5px] text-[13px] border border-border rounded-sm bg-surface outline-none focus:border-accent" type="text" name="unit" readonly value=(product.unit) {} }
- td { input class="w-[80px] text-right px-2 py-[5px] text-[13px] font-mono border border-border rounded-sm outline-none focus:border-accent" type="number" min="1" step="1" name="quantity" placeholder="0" class="w-[80px]" {} }
- td { input class="w-[100px] text-right px-2 py-[5px] text-[13px] font-mono border border-border rounded-sm outline-none focus:border-accent" type="number" step="any" name="unit_price" placeholder="0.00" class="w-[100px]" {} }
- td { input class="w-[64px] text-right px-2 py-[5px] text-[13px] font-mono border border-border rounded-sm outline-none focus:border-accent" type="number" min="0" max="100" name="discount_rate" class="w-16" {} }
+ td { input class="w-[80px] text-right px-2 py-[5px] text-[13px] font-mono border border-border rounded-sm outline-none focus:border-accent" type="number" name="quantity" placeholder="0" class="w-[80px]" {} }
+ td { input class="w-[100px] text-right px-2 py-[5px] text-[13px] font-mono border border-border rounded-sm outline-none focus:border-accent" type="number" name="unit_price" placeholder="0.00" class="w-[100px]" {} }
+ td { input class="w-[64px] text-right px-2 py-[5px] text-[13px] font-mono border border-border rounded-sm outline-none focus:border-accent" type="number" name="discount_rate" class="w-16" {} }
  td class="text-right font-semibold text-fg whitespace-nowrap" { "—" }
  td { button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center" title="删除行"
  _="on click remove closest <tr/>" {

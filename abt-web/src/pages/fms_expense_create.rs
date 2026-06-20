@@ -214,7 +214,7 @@ function addExpenseLine() {
         + '<option value="1">差旅</option><option value="2">办公</option>'
         + '<option value="3">交通</option><option value="4">餐饮</option>'
         + '<option value="5">招待</option><option value="6">其他</option></select></td>'
-        + '<td class="px-3 py-2 border-b border-border-soft"><input type="number" class="w-full px-2.5 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent font-mono text-right" data-field="amount" placeholder="0.00" step="any" oninput="calcTotal()"></td>'
+        + '<td class="px-3 py-2 border-b border-border-soft"><input type="number" class="w-full px-2.5 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent font-mono text-right" data-field="amount" placeholder="0.00" oninput="calcTotal()"></td>'
         + '<td class="px-3 py-2 border-b border-border-soft"><input type="text" class="w-full px-2.5 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent" data-field="description" placeholder="费用说明"></td>'
         + '<td class="px-3 py-2 border-b border-border-soft"><input type="text" class="w-full px-2.5 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent" data-field="receipt_no" placeholder="发票号"></td>'
         + '<td class="px-3 py-2 border-b border-border-soft"><select class="w-full px-2.5 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent" data-field="cost_center"><option value="">选择</option><option value="1">CC-001 生产部</option><option value="2">CC-002 销售部</option><option value="3">CC-003 管理部</option></select></td>'

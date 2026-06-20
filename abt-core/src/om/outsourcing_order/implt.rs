@@ -17,10 +17,13 @@ use crate::om::outsourcing_tracking::model::RecordNodeReq;
 use crate::om::outsourcing_tracking::{
     new_outsourcing_tracking_service, service::OutsourcingTrackingService,
 };
-use crate::qms::enums::{InspectionResultType, InspectionSourceType, InspectionStatus};
+use crate::qms::enums::{InspectionResultType, InspectionSourceType, InspectionStatus, InspectionType};
 use crate::qms::inspection_result::model::{CreateInspectionResultReq, InspectionResultFilter};
 use crate::qms::inspection_result::{
     new_inspection_result_service, service::InspectionResultService,
+};
+use crate::qms::inspection_specification::{
+    new_inspection_specification_service, service::InspectionSpecificationService,
 };
 use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService, RecordAuditLogReq};
 use crate::shared::cost_entry::model::EntryRequest;
@@ -46,7 +49,9 @@ use crate::shared::types::error::DomainError;
 use crate::shared::types::pagination::{PageParams, PaginatedResult};
 use crate::wms::transfer::model::{CreateTransferItemReq, CreateTransferReq};
 use crate::wms::transfer::{new_transfer_service, service::TransferService};
+use crate::wms::inventory_transaction::model::RecordTransactionReq;
 use crate::wms::inventory_transaction::{new_inventory_transaction_service, service::InventoryTransactionService};
+use crate::wms::enums::TransactionType;
 
 const ENTITY_TYPE: &str = "OutsourcingOrder";
 
@@ -243,6 +248,11 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
             new_transfer_service(self.pool.clone())
                 .dispatch(ctx, db, tid)
                 .await?;
+            // complete 让虚拟仓实际收到库存（dispatch 仅扣源仓，complete 才入目标仓），
+            // 否则后续 receive 从虚拟仓调回时会报"库存数量不能为负"
+            new_transfer_service(self.pool.clone())
+                .complete(ctx, db, tid)
+                .await?;
             transfer_ids.push(tid);
         }
 
@@ -376,21 +386,26 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
             )
             .await?;
 
-        // QMS: 创建 IQC 检验结果
+        // QMS: 查产品 IQC 规范，有则创建检验结果（无规范时跳过，质量门禁按无结果判定通过）
         let iqc_qty = req.iqc_passed_qty.unwrap_or(req.received_qty);
-        new_inspection_result_service(self.pool.clone())
-            .create(
-                ctx,
-                db,
-                CreateInspectionResultReq {
-                    spec_id: 0,
-                    source_type: InspectionSourceType::OutsourcingOrder,
-                    source_id: req.id,
-                    batch_no: String::new(),
-                    sample_qty: req.received_qty,
-                },
-            )
+        let iqc_spec = new_inspection_specification_service(self.pool.clone())
+            .find_by_product_and_type(ctx, db, order.product_id, InspectionType::Iqc)
             .await?;
+        if let Some(spec) = iqc_spec {
+            new_inspection_result_service(self.pool.clone())
+                .create(
+                    ctx,
+                    db,
+                    CreateInspectionResultReq {
+                        spec_id: spec.id,
+                        source_type: InspectionSourceType::OutsourcingOrder,
+                        source_id: req.id,
+                        batch_no: String::new(),
+                        sample_qty: req.received_qty,
+                    },
+                )
+                .await?;
+        }
 
         // QMS: 质量门禁检查 — 查询检验结果
         let qms_results = new_inspection_result_service(self.pool.clone())
@@ -430,37 +445,64 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
             return Err(DomainError::ConcurrentConflict);
         }
 
-        // WMS: 从虚拟库位调回 — 创建调拨单、发货、完成
-        let transfer_date = chrono::Utc::now().date_naive();
+        // WMS 收货库存：委外产品入库到收货仓 + 发料物料从虚拟仓消耗（供应商已加工用掉）
         let warehouse_id = req
             .warehouse_id
             .ok_or_else(|| DomainError::validation("收货仓库 ID 不能为空"))?;
-        let transfer_id = new_transfer_service(self.pool.clone())
-            .create(
+        let materials = OutsourcingMaterialRepo::list_by_outsourcing_id(db, req.id).await?;
+        let tx_svc = new_inventory_transaction_service(self.pool.clone());
+
+        // 1. 委外产品入库（+received_qty 到收货仓）
+        tx_svc
+            .record(
                 ctx,
                 db,
-                CreateTransferReq {
-                    from_warehouse_id: order.virtual_warehouse_id,
-                    from_zone_id: None,
-                    from_bin_id: None,
-                    to_warehouse_id: warehouse_id,
-                    to_zone_id: None,
-                    to_bin_id: None,
-                    transfer_date,
-                    items: vec![CreateTransferItemReq {
-                        product_id: order.product_id,
-                        quantity: iqc_qty,
-                        batch_no: None,
-                    }],
+                RecordTransactionReq {
+                    doc_number: Some(order.doc_number.clone()),
+                    delivery_no: None,
+                    source_doc_number: None,
+                    transaction_type: TransactionType::ProductionReceipt,
+                    product_id: order.product_id,
+                    warehouse_id,
+                    zone_id: None,
+                    bin_id: None,
+                    batch_no: None,
+                    quantity: iqc_qty,
+                    unit_cost: Some(order.unit_price),
+                    source_type: "outsourcing_order".to_string(),
+                    source_id: req.id,
+                    remark: Some("委外收货-产品入库".to_string()),
                 },
             )
             .await?;
-        new_transfer_service(self.pool.clone())
-            .dispatch(ctx, db, transfer_id)
-            .await?;
-        new_transfer_service(self.pool.clone())
-            .complete(ctx, db, transfer_id)
-            .await?;
+
+        // 2. 发料物料从虚拟仓消耗（-sent_qty，供应商已用掉）
+        for mat in &materials {
+            if mat.sent_qty > Decimal::ZERO {
+                tx_svc
+                    .record(
+                        ctx,
+                        db,
+                        RecordTransactionReq {
+                            doc_number: Some(order.doc_number.clone()),
+                            delivery_no: None,
+                            source_doc_number: None,
+                            transaction_type: TransactionType::MaterialIssue,
+                            product_id: mat.product_id,
+                            warehouse_id: order.virtual_warehouse_id,
+                            zone_id: None,
+                            bin_id: None,
+                            batch_no: None,
+                            quantity: -mat.sent_qty,
+                            unit_cost: Some(mat.unit_cost),
+                            source_type: "outsourcing_order".to_string(),
+                            source_id: req.id,
+                            remark: Some("委外收货-发料物料消耗".to_string()),
+                        },
+                    )
+                    .await?;
+            }
+        }
 
         // 追踪节点: IqcInspected → Warehoused
         new_outsourcing_tracking_service()
@@ -493,22 +535,13 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
             .create_links(
                 ctx,
                 db,
-                vec![
-                    LinkRequest {
-                        source_type: DocumentType::OutsourcingOrder,
-                        source_id: req.id,
-                        target_type: DocumentType::OutsourcingTracking,
-                        target_id: tracking_id,
-                        link_type: LinkType::References,
-                    },
-                    LinkRequest {
-                        source_type: DocumentType::OutsourcingOrder,
-                        source_id: req.id,
-                        target_type: DocumentType::InventoryTransfer,
-                        target_id: transfer_id,
-                        link_type: LinkType::References,
-                    },
-                ],
+                vec![LinkRequest {
+                    source_type: DocumentType::OutsourcingOrder,
+                    source_id: req.id,
+                    target_type: DocumentType::OutsourcingTracking,
+                    target_id: tracking_id,
+                    link_type: LinkType::References,
+                }],
             )
             .await?;
 
@@ -918,7 +951,10 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
 
         // 每个调拨单 → 库存流水
         let tx_svc = new_inventory_transaction_service(self.pool.clone());
-        let mut records = Vec::new();
+        // 委外单直接关联的流水（receive 产品入库/物料消耗，source_type=outsourcing_order）
+        let mut records = tx_svc
+            .find_by_source(ctx, db, "outsourcing_order", outsourcing_id)
+            .await?;
         for tid in transfer_ids {
             let txns = tx_svc
                 .find_by_source(ctx, db, "inventory_transfer", tid)

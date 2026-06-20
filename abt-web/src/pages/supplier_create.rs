@@ -180,7 +180,7 @@ fn supplier_create_page() -> Markup {
  }
  div class="form-field" {
  label { "交货天数 " span class="text-danger" { "*" } }
- input type="number" name="lead_time_days" required min="0" placeholder="请输入交货天数" {}
+ input type="number" name="lead_time_days" required placeholder="请输入交货天数" {}
  }
  div class="form-field" {
  label { "付款条件" }

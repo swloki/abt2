@@ -381,13 +381,12 @@ fn tree_node(node: &CategoryTree, depth: usize, selected_id: Option<i64>, expand
  let is_active = selected_id == Some(id);
  let should_expand = is_active || expand_ids.contains(&id);
 
- let active_cls = "bg-accent-bg before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[3px] before:bg-accent before:rounded-r-sm";
  let row_cls = if is_active {
- format!("cat-row flex items-center gap-1 px-4 py-1.5 cursor-pointer relative hover:bg-accent-bg transition-colors {}", active_cls)
+ "cat-row flex items-center gap-1 px-4 py-1.5 cursor-pointer relative hover:bg-accent-bg transition-colors cat-active".to_string()
  } else {
  "cat-row flex items-center gap-1 px-4 py-1.5 cursor-pointer relative hover:bg-accent-bg transition-colors".to_string()
  };
- let name_cls = if is_active { "flex-1 text-sm truncate transition-colors text-accent font-semibold" } else { "flex-1 text-sm truncate transition-colors text-fg" };
+ let name_cls = "flex-1 text-sm truncate transition-colors text-fg cat-name";
  let children_style = if should_expand { "display: block" } else { "display: none" };
 
  html! {
@@ -398,7 +397,7 @@ fn tree_node(node: &CategoryTree, depth: usize, selected_id: Option<i64>, expand
  hx-get=(detail_url)
  hx-select="#detail-panel" hx-target="#detail-panel" hx-swap="innerHTML"
  hx-push-url="true"
- _="on click take .bg-accent-bg from .cat-row then add .bg-accent-bg to me" {
+ _="on click take .cat-active from .cat-row" {
  span class="w-5 h-5 grid place-items-center shrink-0 cursor-pointer rounded-sm hover:bg-black/6"
  _="on click halt the event then toggle .rotate-90 on me then if next <div/>'s style's display is 'none' then show next <div/> else hide next <div/>" {
  (icon::chevron_down_icon(&(format!("w-3.5 h-3.5 text-muted transition-transform{}", if should_expand { " rotate-90" } else { "" }))))
@@ -421,7 +420,7 @@ fn tree_node(node: &CategoryTree, depth: usize, selected_id: Option<i64>, expand
  hx-get=(detail_url)
  hx-select="#detail-panel" hx-target="#detail-panel" hx-swap="innerHTML"
  hx-push-url="true"
- _="on click take .bg-accent-bg from .cat-row then add .bg-accent-bg to me" {
+ _="on click take .cat-active from .cat-row" {
  span class="w-5 h-5 shrink-0" {}
  span class=(name_cls) { (name) }
  @if count > 0 {

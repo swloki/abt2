@@ -101,14 +101,14 @@ pub fn entity_picker_modal(cfg: &EntityPickerConfig) -> Markup {
  button class="text-2xl text-muted hover:text-fg cursor-pointer bg-transparent border-none p-1 leading-none"
  _=(format!("on click remove .is-open from #{}", cfg.modal_id)) { "×" }
  }
- div class="overflow-y-auto flex-1 min-h-0" {
+ div class="flex flex-col flex-1 min-h-0" {
  // Hidden context for results fragment
  input type="hidden" name="target_id" value=(cfg.target_id);
  input type="hidden" name="display_id" value=(cfg.display_id);
  input type="hidden" name="modal_id" value=(cfg.modal_id);
  input type="hidden" name="event_name" value=(cfg.event_name);
 
- div class="flex gap-4 border-b border-border-soft" {
+ div class="flex gap-4 px-6 py-4 border-b border-border-soft shrink-0" {
  div class="flex-1 flex flex-col gap-[4px]" {
  label class="text-xs font-medium text-fg-2" { (cfg.search_label) }
  input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text"
@@ -124,12 +124,12 @@ pub fn entity_picker_modal(cfg: &EntityPickerConfig) -> Markup {
  }
  }
  div id=(format!("{}-results", cfg.modal_id))
- class="overflow-y-auto" style="max-height:360px"
+ class="overflow-y-auto flex-1 min-h-0"
  hx-get=(cfg.search_path)
  hx-trigger="openModal"
  hx-swap="innerHTML"
  hx-include=(hx_include_expr(cfg)) {
- div class="flex items-center justify-center" class="p-8" style="color:var(--text-muted)" {
+ div class="flex items-center justify-center p-8" style="color:var(--text-muted)" {
  "加载中…"
  }
  }

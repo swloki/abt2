@@ -331,7 +331,7 @@ fn customer_edit_page(
  div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
  div class="form-field" {
  label { "信用额度 (元)" }
- input type="number" name="credit_limit" placeholder="请输入信用额度" step="0.01"
+ input type="number" name="credit_limit" placeholder="请输入信用额度"
  value=(credit_val);
  }
  div class="form-field" {

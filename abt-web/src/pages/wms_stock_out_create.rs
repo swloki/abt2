@@ -497,9 +497,9 @@ fn item_row_fragment(product: &abt_core::master_data::product::model::Product) -
  td class="font-mono tabular-nums text-sm text-fg" { (product.product_code) }
  td class="text-sm text-fg" { (product.pdt_name) }
  td class="text-sm text-fg-2" { (product.meta.specification) }
- td { input class=(format!("{CELL_INPUT} w-[90px] text-right font-mono")) type="number" min="0.01" step="any" name="quantity" placeholder="0" {} }
+ td { input class=(format!("{CELL_INPUT} w-[90px] text-right font-mono")) type="number" name="quantity" placeholder="0" {} }
  td class="text-center text-sm text-fg-2" { (product.unit) }
- td { input class=(format!("{CELL_INPUT} w-[100px] text-right font-mono")) type="number" step="any" name="unit_cost" placeholder="0.00" {} }
+ td { input class=(format!("{CELL_INPUT} w-[100px] text-right font-mono")) type="number" name="unit_cost" placeholder="0.00" {} }
  td class="line-subtotal text-right font-mono font-semibold whitespace-nowrap text-sm" { "—" }
  td { button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center hover:text-danger" title="删除行"
  _="on click remove closest <tr/> then call wmsStockOutRenumber()" {

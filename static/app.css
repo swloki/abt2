@@ -655,6 +655,10 @@ p { margin: 0; }
 .perm-cell input:checked { background: #22c55e; border-color: #22c55e; }
 .perm-cell input:checked::after { content: ''; position: absolute; left: 4px; top: 1px; width: 5px; height: 9px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg); }
 .perm-cell input.perm-readonly { cursor: default; pointer-events: none; }
+/* cat-active: 分类树节点激活态（背景 + 左竖条 + 名称色联动），单 class 便于 hyperscript take 整体切换 */
+.cat-row.cat-active { background-color: var(--accent-bg); }
+.cat-row.cat-active::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--accent); border-top-right-radius: 0.125rem; }
+.cat-row.cat-active > .cat-name { color: var(--accent); font-weight: 600; }
 /* Global select: custom chevron (matches prototype .filter-select) */
 select {
   appearance: none;
@@ -1321,8 +1325,10 @@ select:disabled {
 .gap-x-3{column-gap:calc(var(--spacing) * 3);}
 .gap-x-4{column-gap:calc(var(--spacing) * 4);}
 .gap-x-6{column-gap:calc(var(--spacing) * 6);}
+.gap-x-8{column-gap:calc(var(--spacing) * 8);}
 .gap-y-1{row-gap:calc(var(--spacing) * 1);}
 .gap-y-2{row-gap:calc(var(--spacing) * 2);}
+.gap-y-3{row-gap:calc(var(--spacing) * 3);}
 .\[\&_a\]\:grid a,
 .\[\&_button\]\:grid button,
 .grid{display:grid;}
@@ -1703,13 +1709,11 @@ select:disabled {
 .act\:before\:left-\[-4px\].active::before{left:-4px;}
 .act\:before\:top-1\/2.active::before{top:50%;}
 .before\:bottom-\[18px\]::before{bottom:18px;}
-.before\:bottom-0::before{bottom:calc(var(--spacing) * 0);}
 .before\:bottom-1::before{bottom:calc(var(--spacing) * 1);}
 .before\:left-\[17px\]::before{left:17px;}
 .before\:left-\[7px\]::before{left:7px;}
 .before\:left-0::before{left:calc(var(--spacing) * 0);}
 .before\:top-\[18px\]::before{top:18px;}
-.before\:top-0::before{top:calc(var(--spacing) * 0);}
 .before\:top-1::before{top:calc(var(--spacing) * 1);}
 .before\:top-1\/2::before{top:50%;}
 .after\:left-0\.5::after{left:calc(var(--spacing) * 0.5);}

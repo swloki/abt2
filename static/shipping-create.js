@@ -110,7 +110,7 @@ function fillItemsTable(items) {
       '<td>' + (item.unit || '') + '</td>' +
       '<td class="num-right">' + (item.ordered_qty || '0') + '</td>' +
       '<td class="num-right">' + (item.shipped_qty || '0') + '</td>' +
-      '<td><input class="form-input num-input" type="number" name="requested_qty" min="1" placeholder="0" data-idx="' + idx + '" oninput="updateTotals()"></td>' +
+      '<td><input class="form-input num-input" type="number" name="requested_qty" placeholder="0" data-idx="' + idx + '" oninput="updateTotals()"></td>' +
       '<td><select class="form-select" name="warehouse_id" style="width:120px;padding:5px 8px;font-size:13px">' + getWarehouseOptions(defaultWarehouse) + '</select></td>' +
       '<td><button type="button" class="btn-remove-row" title="删除行" onclick="this.closest(\'tr\').remove();updateTotals()">' +
         '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>' +
@@ -183,7 +183,7 @@ function addRow() {
     '<td></td>' +
     '<td class="num-right">0</td>' +
     '<td class="num-right">0</td>' +
-    '<td><input class="form-input num-input" type="number" name="requested_qty" min="1" placeholder="0" oninput="updateTotals()"></td>' +
+    '<td><input class="form-input num-input" type="number" name="requested_qty" placeholder="0" oninput="updateTotals()"></td>' +
     '<td><select class="form-select" name="warehouse_id" style="width:120px;padding:5px 8px;font-size:13px">' + getWarehouseOptions(defaultWarehouse) + '</select></td>' +
     '<td><button type="button" class="btn-remove-row" title="删除行" onclick="this.closest(\'tr\').remove();updateTotals()">' +
       '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>' +
@@ -273,7 +273,7 @@ function fillItemsFromDraft(items) {
       '<td></td>' +
       '<td class="num-right">0</td>' +
       '<td class="num-right">0</td>' +
-      '<td><input class="form-input num-input" type="number" name="requested_qty" min="1" value="' + (item.requested_qty || '') + '" placeholder="0" oninput="updateTotals()"></td>' +
+      '<td><input class="form-input num-input" type="number" name="requested_qty" value="' + (item.requested_qty || '') + '" placeholder="0" oninput="updateTotals()"></td>' +
       '<td><select class="form-select" name="warehouse_id" style="width:120px;padding:5px 8px;font-size:13px">' + getWarehouseOptions(item.warehouse_id || defaultWarehouse) + '</select></td>' +
       '<td><button type="button" class="btn-remove-row" title="删除行" onclick="this.closest(\'tr\').remove();updateTotals()">' +
         '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>' +

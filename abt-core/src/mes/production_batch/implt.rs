@@ -184,9 +184,12 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
             .map_err(|e| DomainError::Internal(e.into()))?
             .ok_or_else(|| DomainError::not_found("ProductionBatch"))?;
 
+        // 状态校验：Pending / InProgress 均允许报工。工序顺序由下方防跳序 Guard 保证，
+        // 此处不再用 step_no==1 限制 Pending —— 否则历史脏数据批次（status=Pending 但
+        // current_step>0，由旧版首道报工未同步状态导致）报后续工序会在此被拒，
+        // 到不了 k 段的自愈逻辑。
         match batch.status {
-            BatchStatus::Pending if step_no == 1 => {}
-            BatchStatus::InProgress => {}
+            BatchStatus::Pending | BatchStatus::InProgress => {}
             other => {
                 return Err(DomainError::InvalidStateTransition {
                     from: other.to_string(),

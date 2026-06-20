@@ -308,7 +308,7 @@ fn item_row_fragment(product: &abt_core::master_data::product::model::Product) -
  input class="w-full px-2 py-[5px] text-[13px] border border-border rounded-sm bg-white text-fg outline-none focus:border-accent" type="text" name="batch_no" placeholder="批次号" {}
  }
  td {
- input class="num-input w-full text-right px-2 py-[5px] text-[13px] font-mono tabular-nums border border-border rounded-sm bg-white text-fg outline-none focus:border-accent" type="number" min="0" step="any" name="system_qty" placeholder="0" {}
+ input class="num-input w-full text-right px-2 py-[5px] text-[13px] font-mono tabular-nums border border-border rounded-sm bg-white text-fg outline-none focus:border-accent" type="number" name="system_qty" placeholder="0" {}
  }
  td {
  button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center hover:text-danger" title="删除行"

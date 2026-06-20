@@ -329,7 +329,7 @@ fn process_dict_form_page(_existing: Option<&LaborProcessDict>) -> Markup {
  }
  div class="form-field" {
  label { "排序" }
- input type="number" name="sort_order" value="0" min="0"
+ input type="number" name="sort_order" value="0"
  placeholder="数字越小排越前" {}
  }
  div class="form-field field-full" {

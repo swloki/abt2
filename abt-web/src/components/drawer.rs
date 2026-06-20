@@ -12,7 +12,7 @@ use maud::{Markup, html};
 /// `body` — content slot (rendered inside drawer-body).
 pub fn drawer(drawer_id: &str, title: &str, submit_label: &str, form_id: &str, body: Markup) -> Markup {
  html! {
- div id=(drawer_id) class="drawer-overlay fixed z-[1000] flex justify-end bg-[rgba(0,0,0,0.35)]"
+ div id=(drawer_id) class="drawer-overlay fixed inset-0 z-[1000] flex justify-end bg-[rgba(0,0,0,0.35)]"
  _="on click[me is event.target] remove .open from me" {
  div class="drawer-panel bg-white h-full w-[420px] flex flex-col" _="on click halt the event" {
  div class="flex items-center justify-between px-6 py-4 border-b border-border-soft" {
@@ -41,7 +41,7 @@ pub fn drawer(drawer_id: &str, title: &str, submit_label: &str, form_id: &str, b
 /// `footer` — custom footer content.
 pub fn drawer_with_footer(drawer_id: &str, title: &str, body: Markup, footer: Markup) -> Markup {
  html! {
- div id=(drawer_id) class="drawer-overlay fixed z-[1000] flex justify-end bg-[rgba(0,0,0,0.35)]"
+ div id=(drawer_id) class="drawer-overlay fixed inset-0 z-[1000] flex justify-end bg-[rgba(0,0,0,0.35)]"
  _="on click[me is event.target] remove .open from me" {
  div class="drawer-panel bg-white h-full w-[420px] flex flex-col" _="on click halt the event" {
  div class="flex items-center justify-between px-6 py-4 border-b border-border-soft" {

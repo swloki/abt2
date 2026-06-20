@@ -134,7 +134,7 @@ fn lock_create_form(warehouses: &[abt_core::wms::warehouse::model::Warehouse]) -
  }
  div class="form-field" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "锁定数量 " span class="required" { "*" } }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="number" name="locked_qty" step="0.01" required placeholder="输入数量";
+ input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="number" name="locked_qty" required placeholder="输入数量";
  }
  div class="form-field" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "锁定原因 " span class="required" { "*" } }

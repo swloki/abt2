@@ -504,7 +504,7 @@ fn arrival_line_row(product: &abt_core::master_data::product::model::Product, qt
  td class="font-mono tabular-nums text-sm text-fg" { (product.product_code) }
  td class="text-sm text-fg" { (product.pdt_name) }
  td class="text-sm text-fg-2" { (product.meta.specification) }
- td { input class=(format!("{CELL_INPUT} w-[90px] text-right font-mono")) type="number" min="0.01" step="any" name="declared_qty" placeholder="0" value=(qty) {} }
+ td { input class=(format!("{CELL_INPUT} w-[90px] text-right font-mono")) type="number" name="declared_qty" placeholder="0" value=(qty) {} }
  td { input class=(format!("{CELL_INPUT} w-[120px]")) type="text" name="batch_no" placeholder="批次号" {} }
  td { button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center hover:text-danger" title="删除行"
  _="on click remove closest <tr/> then call arrivalRenumber()" {

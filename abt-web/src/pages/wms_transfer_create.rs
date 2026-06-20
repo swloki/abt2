@@ -330,7 +330,7 @@ fn item_row_fragment(product: &abt_core::master_data::product::model::Product) -
  td class="text-sm text-fg-2 text-center" { (product.unit) }
  td class="text-right text-[13px] font-mono tabular-nums text-muted" { "—" }
  td {
- input class="num-input w-full text-right px-2 py-[5px] text-[13px] font-mono tabular-nums border border-border rounded-sm bg-white text-fg outline-none focus:border-accent" type="number" min="0.01" step="any" name="quantity" placeholder="0" {}
+ input class="num-input w-full text-right px-2 py-[5px] text-[13px] font-mono tabular-nums border border-border rounded-sm bg-white text-fg outline-none focus:border-accent" type="number" name="quantity" placeholder="0" {}
  }
  td {
  input class="w-full px-2 py-[5px] text-[13px] border border-border rounded-sm bg-white text-fg outline-none focus:border-accent" type="text" name="batch_no" placeholder="批次号" {}

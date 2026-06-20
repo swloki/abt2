@@ -162,19 +162,19 @@ fn bin_create_page(
  }
  div class="form-field" {
  label { "行号" }
- input type="number" name="row_no" placeholder="1" min="1";
+ input type="number" name="row_no" placeholder="1";
  }
  div class="form-field" {
  label { "列号" }
- input type="number" name="column_no" placeholder="1" min="1";
+ input type="number" name="column_no" placeholder="1";
  }
  div class="form-field" {
  label { "层号" }
- input type="number" name="layer_no" placeholder="1" min="1";
+ input type="number" name="layer_no" placeholder="1";
  }
  div class="form-field" {
  label { "容量上限" }
- input type="number" name="capacity_limit" placeholder="请输入容量上限" min="1";
+ input type="number" name="capacity_limit" placeholder="请输入容量上限";
  }
  div class="form-field" {
  label { "温控要求" }

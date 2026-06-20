@@ -46,7 +46,7 @@
         "<td>" + esc(data.unit) + "</td>" +
         '<td class="num-right">' + fmtNum(data.order_qty) + "</td>" +
         '<td class="num-right">' + fmtNum(data.received_qty) + "</td>" +
-        '<td><input class="form-input num-input" type="number" step="0.01" min="0" ' +
+        '<td><input class="form-input num-input" type="number" ' +
           'style="width:110px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" ' +
           'name="returned_qty" value="' + returnedQty + '" data-idx="' + idx + '"></td>' +
         '<td class="num-right mono">' + fmtNum(unitPrice) + "</td>" +

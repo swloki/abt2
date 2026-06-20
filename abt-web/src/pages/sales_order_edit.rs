@@ -255,9 +255,9 @@ fn order_edit_page(
  td { (name) }
  td { input class="w-full px-2 py-[5px] text-[13px] border border-border rounded-sm outline-none focus:border-accent" type="text" name="description" value=(&item.description) {} }
  td { input class="w-[56px] text-center px-2 py-[5px] text-[13px] border border-border rounded-sm bg-surface outline-none focus:border-accent" type="text" name="unit" readonly value=(&item.unit) {} }
- td { input class="w-[80px] text-right px-2 py-[5px] text-[13px] font-mono border border-border rounded-sm outline-none focus:border-accent" type="number" min="1" step="1" name="quantity" value=(item.quantity.to_string()) placeholder="0" {} }
- td { input class="w-[100px] text-right px-2 py-[5px] text-[13px] font-mono border border-border rounded-sm outline-none focus:border-accent" type="number" step="any" name="unit_price" value=(item.unit_price.to_string()) placeholder="0.00" {} }
- td { input class="w-[64px] text-right px-2 py-[5px] text-[13px] font-mono border border-border rounded-sm outline-none focus:border-accent" type="number" min="0" max="100" name="discount_rate" value=(item.discount_rate.to_string()) {} }
+ td { input class="w-[80px] text-right px-2 py-[5px] text-[13px] font-mono border border-border rounded-sm outline-none focus:border-accent" type="number" name="quantity" value=(item.quantity.to_string()) placeholder="0" {} }
+ td { input class="w-[100px] text-right px-2 py-[5px] text-[13px] font-mono border border-border rounded-sm outline-none focus:border-accent" type="number" name="unit_price" value=(item.unit_price.to_string()) placeholder="0.00" {} }
+ td { input class="w-[64px] text-right px-2 py-[5px] text-[13px] font-mono border border-border rounded-sm outline-none focus:border-accent" type="number" name="discount_rate" value=(item.discount_rate.to_string()) {} }
  td class="text-right font-semibold text-fg whitespace-nowrap" { "—" }
  td { input class="w-[110px] px-1.5 py-[5px] text-xs border border-border rounded-sm outline-none focus:border-accent" type="date" name="item_delivery_date" value=(item.delivery_date.map(|d| d.format("%Y-%m-%d").to_string()).unwrap_or_default()) {} }
  td { button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center" title="删除行"

@@ -163,6 +163,10 @@ p { margin: 0; }
 .perm-cell input:checked { background: #22c55e; border-color: #22c55e; }
 .perm-cell input:checked::after { content: ''; position: absolute; left: 4px; top: 1px; width: 5px; height: 9px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg); }
 .perm-cell input.perm-readonly { cursor: default; pointer-events: none; }
+/* cat-active: 分类树节点激活态（背景 + 左竖条 + 名称色联动），单 class 便于 hyperscript take 整体切换 */
+.cat-row.cat-active { background-color: var(--accent-bg); }
+.cat-row.cat-active::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--accent); border-top-right-radius: 0.125rem; }
+.cat-row.cat-active > .cat-name { color: var(--accent); font-weight: 600; }
 /* Global select: custom chevron (matches prototype .filter-select) */
 select {
   appearance: none;

@@ -285,7 +285,7 @@ fn plan_create_page() -> Markup {
  <input type="hidden" data-field="product_id">
  </div>
  </td>
- <td><input class="w-full px-2 py-[5px] text-right text-[13px] font-mono tabular-nums border border-border rounded-sm bg-white text-fg outline-none focus:border-accent" type="number" step="0.01" data-field="planned_qty" placeholder="0" required></td>
+ <td><input class="w-full px-2 py-[5px] text-right text-[13px] font-mono tabular-nums border border-border rounded-sm bg-white text-fg outline-none focus:border-accent" type="number" data-field="planned_qty" placeholder="0" required></td>
  <td><input class="w-full px-2 py-[5px] text-[13px] border border-border rounded-sm bg-white text-fg outline-none focus:border-accent" type="date" data-field="scheduled_start" required></td>
  <td><input class="w-full px-2 py-[5px] text-[13px] border border-border rounded-sm bg-white text-fg outline-none focus:border-accent" type="date" data-field="scheduled_end" required></td>
  <td><input class="w-full px-2 py-[5px] text-[13px] font-mono tabular-nums border border-border rounded-sm bg-white text-fg outline-none focus:border-accent" type="number" data-field="priority" value="1" class="w-[60px]"></td>
@@ -325,7 +325,7 @@ fn plan_item_row_html(index: usize) -> Markup {
  input type="hidden" data-field="product_id";
  }
  }
- td { input class="w-full px-2 py-[5px] text-right text-[13px] font-mono tabular-nums border border-border rounded-sm bg-white text-fg outline-none focus:border-accent" type="number" step="0.01" name=(format!("items[{index}].planned_qty")); }
+ td { input class="w-full px-2 py-[5px] text-right text-[13px] font-mono tabular-nums border border-border rounded-sm bg-white text-fg outline-none focus:border-accent" type="number" name=(format!("items[{index}].planned_qty")); }
  td { input class="w-full px-2 py-[5px] text-[13px] border border-border rounded-sm bg-white text-fg outline-none focus:border-accent" type="date" name=(format!("items[{index}].scheduled_start")); }
  td { input class="w-full px-2 py-[5px] text-[13px] border border-border rounded-sm bg-white text-fg outline-none focus:border-accent" type="date" name=(format!("items[{index}].scheduled_end")); }
  td { input class="w-full px-2 py-[5px] text-[13px] font-mono tabular-nums border border-border rounded-sm bg-white text-fg outline-none focus:border-accent" type="number" name=(format!("items[{index}].priority")) value="1" class="w-[60px]"; }

@@ -1,0 +1,7 @@
+target
+.git
+node_modules
+.worktrees
+tmp
+*.log
+.env

@@ -328,6 +328,114 @@ impl WorkOrderRoutingRepo {
         row.map(|r| Ok(WorkOrderRouting::from_row(&r)?)).transpose()
     }
 
+    /// 按 id 查找工序（带 work_order_id 用于越权校验）
+    pub async fn get_by_id(
+        executor: &mut sqlx::postgres::PgConnection,
+        routing_id: i64,
+    ) -> Result<Option<WorkOrderRouting>> {
+        let row = sqlx::query(
+            r#"
+            SELECT id, work_order_id, step_no, process_name, work_center_id,
+                   standard_time, standard_cost, unit_price, allowed_loss_rate,
+                   planned_qty, is_outsourced, is_inspection_point
+            FROM work_order_routings
+            WHERE id = $1
+            "#,
+        )
+        .bind(routing_id)
+        .fetch_optional(&mut *executor)
+        .await?;
+        row.map(|r| Ok(WorkOrderRouting::from_row(&r)?)).transpose()
+    }
+
+    /// 更新单条工序计件单价
+    pub async fn update_unit_price(
+        executor: &mut sqlx::postgres::PgConnection,
+        routing_id: i64,
+        unit_price: Decimal,
+    ) -> Result<()> {
+        sqlx::query(
+            r#"
+            UPDATE work_order_routings SET unit_price = $2 WHERE id = $1
+            "#,
+        )
+        .bind(routing_id)
+        .bind(unit_price)
+        .execute(&mut *executor)
+        .await?;
+        Ok(())
+    }
+
+    /// 删除单条工序
+    pub async fn delete(
+        executor: &mut sqlx::postgres::PgConnection,
+        routing_id: i64,
+    ) -> Result<()> {
+        sqlx::query(r#"DELETE FROM work_order_routings WHERE id = $1"#)
+            .bind(routing_id)
+            .execute(&mut *executor)
+            .await?;
+        Ok(())
+    }
+
+    /// 删除后重排：剩余工序 step_no 压成 1..N 连续
+    pub async fn renumber_steps(
+        executor: &mut sqlx::postgres::PgConnection,
+        work_order_id: i64,
+    ) -> Result<()> {
+        sqlx::query(
+            r#"
+            WITH ordered AS (
+                SELECT id, ROW_NUMBER() OVER (ORDER BY step_no) AS new_no
+                FROM work_order_routings
+                WHERE work_order_id = $1
+            )
+            UPDATE work_order_routings wor
+            SET step_no = ordered.new_no::int
+            FROM ordered
+            WHERE wor.id = ordered.id
+            "#,
+        )
+        .bind(work_order_id)
+        .execute(&mut *executor)
+        .await?;
+        Ok(())
+    }
+
+    /// 该工序是否已有报工记录（改价逐行守卫）
+    pub async fn has_report(
+        executor: &mut sqlx::postgres::PgConnection,
+        routing_id: i64,
+    ) -> Result<bool> {
+        let exists: (bool,) = sqlx::query_as(
+            r#"SELECT EXISTS(SELECT 1 FROM work_reports WHERE routing_id = $1)"#,
+        )
+        .bind(routing_id)
+        .fetch_one(&mut *executor)
+        .await?;
+        Ok(exists.0)
+    }
+
+    /// 该工单是否有任意报工记录（删除全局守卫）
+    pub async fn has_any_report(
+        executor: &mut sqlx::postgres::PgConnection,
+        work_order_id: i64,
+    ) -> Result<bool> {
+        let exists: (bool,) = sqlx::query_as(
+            r#"
+            SELECT EXISTS(
+                SELECT 1 FROM work_reports wr
+                JOIN work_order_routings wor ON wor.id = wr.routing_id
+                WHERE wor.work_order_id = $1
+            )
+            "#,
+        )
+        .bind(work_order_id)
+        .fetch_one(&mut *executor)
+        .await?;
+        Ok(exists.0)
+    }
+
     /// 按工单 ID 查找所有工序（按 step_no 排序）
     pub async fn get_by_work_order_id(
         executor: &mut sqlx::postgres::PgConnection,

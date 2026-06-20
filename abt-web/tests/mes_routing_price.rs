@@ -11,10 +11,10 @@
 mod common;
 
 use abt_core::mes::production_batch::repo::WorkOrderRoutingRepo;
-use abt_core::mes::production_batch::{ProductionBatchService, new_production_batch_service};
+use abt_core::mes::production_batch::ProductionBatchService;
+use abt_core::mes::work_order::WorkOrderService;
 use abt_core::shared::types::context::ServiceContext;
 use rust_decimal::Decimal;
-use sqlx::postgres::PgConnection;
 
 const PRODUCT_ID: i64 = 565; // 2835/冷白0.5W（与 mes_flow_e2e.rs 一致）
 

@@ -9,19 +9,65 @@
 mod common;
 use common::TestApp;
 
-/// 生成唯一的 source_id（基于时间戳和测试名称，避免跨进程/跨进程重复）
-/// 确保测试可重复运行且并发安全（source_id < 2^31 以适配 pg_advisory_xact_lock）
+/// 生成唯一的 source_id（基于毫秒级时间戳 + 进程 id + prefix 哈希）
+/// 确保测试可重复运行且跨多次运行不冲突（write_off 表按 source_id 聚合，
+/// 若跨次跑 source_id 撞同一值会误判 OverWriteOff）。
+/// source_id < 2^31 以适配 pg_advisory_xact_lock。
 fn unique_source_id(prefix: &str) -> i64 {
-    // 使用纳秒级时间戳后 6 位 + prefix 哈希，确保唯一性且 < 2^31
-    let nanos = std::time::SystemTime::now()
+    let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .subsec_nanos() as i64;
-    let hash = prefix.chars().map(|c| c as i64).sum::<i64>() % 1_000_000;
-    9_000_000 + (nanos % 10_000) * 100 + hash
+        .unwrap();
+    // 毫秒时间戳取低 28 位（约 2.48 亿 ms ≈ 3 天循环，配合 pid + prefix 区分测试，
+    // 跨多次跑冲突概率极低）
+    let millis = (now.as_millis() as i64) & 0x0FFFFFFF;
+    let pid = std::process::id() as i64 & 0xFFFF; // 16 位进程 id
+    let prefix_hash = (prefix.chars().map(|c| c as i64).sum::<i64>() & 0xFF) << 4;
+    // 组合：millis(28) | pid(16) | prefix(8+4) ≈ 48 位，仍 < 2^31
+    // 实际取 millis 低 23 位 + pid 低 5 位 + prefix 哈希低 3 位 = 31 位
+    let millis_low = millis & 0x7FFFFF; // 23 位
+    let pid_low = (pid >> 3) & 0x1F; // 5 位
+    let prefix_low = prefix_hash & 0x7; // 3 位
+    // 保证为正：最高位 0
+    millis_low | (pid_low << 23) | (prefix_low << 28)
 }
 
 use rust_decimal::Decimal;
+
+/// 为 fms writeoff 测试创建独立客户，避免与 gl_invoice/gl_integration 测试共用客户 135
+/// 导致的应收余额耦合（get_unreconciled_amount 虽按 source_id 聚合，但共用客户会让
+/// 现金流/应收断言在 4-file 串行跑时偶发受 gl 测试数据污染）。
+async fn create_isolated_customer(app: &TestApp, ctx: &ServiceContext, tag: &str) -> i64 {
+    let mut conn = app.state.pool.acquire().await.unwrap();
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .subsec_nanos();
+    app.state
+        .customer_service()
+        .create(
+            ctx,
+            &mut conn,
+            CreateCustomerReq {
+                customer_name: format!("fms-writeoff-test-{tag}-{nanos}"),
+                short_name: Some(tag.into()),
+                category: CustomerCategory::DirectCustomer,
+                industry: None,
+                customer_level: None,
+                region: None,
+                tax_number: None,
+                invoice_title: None,
+                credit_limit: None,
+                payment_terms: None,
+                currency: Some("CNY".into()),
+                receivable_account: Some("应收账款".into()),
+                source: Some("e2e-test".into()),
+                owner_id: None,
+                remark: Some("fms writeoff e2e 隔离客户".into()),
+            },
+        )
+        .await
+        .expect("create isolated customer for fms writeoff e2e")
+}
 
 use abt_core::shared::types::ServiceContext;
 use abt_core::shared::enums::document_type::DocumentType;
@@ -38,6 +84,10 @@ use abt_core::fms::cash_journal::{
 };
 use abt_core::fms::write_off::{model::WriteOffReq, WriteOffService};
 use abt_core::fms::cost_accounting::CostAccountingService;
+use abt_core::master_data::customer::{
+    model::{CreateCustomerReq, CustomerCategory},
+    CustomerService,
+};
 
 // ════════════════════════════════════════════════════════════════════════════
 //  k1 报销付款链：create → submit → approve → generate_payment_journal
@@ -122,6 +172,8 @@ async fn k2_cash_receipt_confirm_and_writeoff() {
     let period = format!("{}", today.format("%Y-%m"));
     let amount = Decimal::from(500);
     let source_id = unique_source_id("k2"); // 唯一 source_id，避免跨进程冲突
+    // 用独立客户，不与 gl_invoice/gl_integration 共用客户 135
+    let customer_id = create_isolated_customer(&app, &ctx, "k2").await;
 
     let cj_svc = app.state.cash_journal_service();
     let journal_id = cj_svc
@@ -132,7 +184,7 @@ async fn k2_cash_receipt_confirm_and_writeoff() {
                 journal_type: JournalType::SalesReceipt,
                 direction: CashDirection::Inflow,
                 amount,
-                counterparty: CounterpartyRef::Customer(135),
+                counterparty: CounterpartyRef::Customer(customer_id),
                 source_type: DocumentType::SalesOrder,
                 source_id,
                 bank_account: "TEST".into(),
@@ -210,6 +262,8 @@ async fn k3_over_writeoff_rejected() {
     let period = format!("{}", today.format("%Y-%m"));
     let amount = Decimal::from(500);
     let source_id = unique_source_id("k3"); // 唯一 source_id，避免跨进程冲突
+    // 用独立客户，不与 gl_invoice/gl_integration 共用客户 135
+    let customer_id = create_isolated_customer(&app, &ctx, "k3").await;
 
     let cj_svc = app.state.cash_journal_service();
     let journal_id = cj_svc
@@ -220,7 +274,7 @@ async fn k3_over_writeoff_rejected() {
                 journal_type: JournalType::SalesReceipt,
                 direction: CashDirection::Inflow,
                 amount,
-                counterparty: CounterpartyRef::Customer(135),
+                counterparty: CounterpartyRef::Customer(customer_id),
                 source_type: DocumentType::SalesOrder,
                 source_id,
                 bank_account: "TEST".into(),

@@ -11,6 +11,7 @@ use abt_core::master_data::customer::model::CustomerQuery;
 use abt_core::master_data::customer::CustomerService;
 use abt_core::master_data::product::model::ProductQuery;
 use abt_core::master_data::product::ProductService;
+use abt_core::purchase::tax::TaxRateService;
 use abt_core::shared::types::PageParams;
 
 use crate::components::icon;
@@ -30,7 +31,7 @@ pub struct InvoiceCreateForm {
 }
 
 /// 行项目 JSON（前端 lineItemCalc.collectItems 产出）
-/// 字段：product_id / quantity / unit_price / discount_rate（发票忽略折扣）
+/// 字段：product_id / quantity / unit_price / discount_rate（发票忽略折扣）/ tax_rate_id
 #[derive(Debug, Deserialize)]
 struct ItemJson {
     product_id: i64,
@@ -38,6 +39,7 @@ struct ItemJson {
     unit_price: String,
     #[allow(dead_code)]
     discount_rate: Option<String>,
+    tax_rate_id: Option<String>,
 }
 
 // ── Handlers ──
@@ -88,7 +90,12 @@ pub async fn get_create(
         )
         .await?;
 
-    let content = invoice_create_page(&customers.items, &products.items);
+    let tax_rates = state
+        .tax_rate_service()
+        .list_active(&service_ctx, &mut conn)
+        .await?;
+
+    let content = invoice_create_page(&customers.items, &products.items, &tax_rates);
     let page_html = admin_page(
         is_htmx,
         "新建销售发票",
@@ -130,7 +137,10 @@ pub async fn create(
             product_id: i.product_id,
             qty: parse_decimal(&i.quantity),
             unit_price: parse_decimal(&i.unit_price),
-            tax_rate_id: None,
+            tax_rate_id: i.tax_rate_id.as_deref().and_then(|s| {
+                let t = s.trim();
+                if t.is_empty() { None } else { t.parse::<i64>().ok() }
+            }),
         })
         .collect();
 
@@ -172,6 +182,7 @@ fn parse_decimal(s: &str) -> rust_decimal::Decimal {
 fn invoice_create_page(
     customers: &[abt_core::master_data::customer::model::Customer],
     products: &[abt_core::master_data::product::model::Product],
+    tax_rates: &[abt_core::purchase::tax::TaxRate],
 ) -> Markup {
     let today = chrono::Utc::now().date_naive().format("%Y-%m-%d").to_string();
     html! {
@@ -232,7 +243,7 @@ fn invoice_create_page(
                         }
                     }
                     div class="overflow-x-auto" {
-                        table class="w-full border-separate border-spacing-0 min-w-[760px]" {
+                        table class="w-full border-separate border-spacing-0 min-w-[870px]" {
                             thead {
                                 tr {
                                     th class="w-[140px] text-left text-xs font-semibold text-fg-2 px-3 py-2 border-b border-border-soft uppercase tracking-wide" { "产品 " span class="text-danger" { "*" } }
@@ -240,6 +251,7 @@ fn invoice_create_page(
                                     th class="w-[100px] text-left text-xs font-semibold text-fg-2 px-3 py-2 border-b border-border-soft uppercase tracking-wide" { "单位" }
                                     th class="w-[100px] text-left text-xs font-semibold text-fg-2 px-3 py-2 border-b border-border-soft uppercase tracking-wide" { "数量 " span class="text-danger" { "*" } }
                                     th class="w-[120px] text-left text-xs font-semibold text-fg-2 px-3 py-2 border-b border-border-soft uppercase tracking-wide" { "单价 " span class="text-danger" { "*" } }
+                                    th class="w-[110px] text-left text-xs font-semibold text-fg-2 px-3 py-2 border-b border-border-soft uppercase tracking-wide" { "税率" }
                                     th class="w-[120px] text-right text-xs font-semibold text-fg-2 px-3 py-2 border-b border-border-soft uppercase tracking-wide" { "小计 (¥)" }
                                     th class="w-[44px] px-3 py-2 border-b border-border-soft" {}
                                 }
@@ -278,7 +290,18 @@ fn invoice_create_page(
 
         (PreEscaped(format!(r#"<script>
 // 产品下拉数据（注入给 addInvoiceLine）
-window.__INVOICE_PRODUCTS__ = {};
+window.__INVOICE_PRODUCTS__ = [{}];
+// 税率下拉数据（注入给 addInvoiceLine）
+window.__INVOICE_TAX_RATES__ = [{}];
+function invoiceTaxOptions() {{
+    var html = '<option value="">不征税</option>';
+    (window.__INVOICE_TAX_RATES__ || []).forEach(function(t) {{
+        // 默认预选 VAT13
+        var sel = t.code === 'VAT13' ? ' selected' : '';
+        html += '<option value="' + t.id + '"' + sel + '>' + t.name + ' (' + t.rate + '%)</option>';
+    }});
+    return html;
+}}
 function addInvoiceLine() {{
     var tbody = document.getElementById('sales-invoice-item-tbody');
     var row = document.createElement('tr');
@@ -292,6 +315,7 @@ function addInvoiceLine() {{
         + '<td class="px-3 py-2 border-b border-border-soft text-xs text-fg-2 prod-unit">—</td>'
         + '<td class="px-3 py-2 border-b border-border-soft"><input class="w-[80px] text-right px-2.5 py-1.5 border border-border rounded-sm text-sm font-mono outline-none focus:border-accent" type="number" min="0" step="any" name="quantity" placeholder="0" oninput="lineItemCalc(\'#sales-invoice-item-tbody\').calcRow(this.closest(\'tr\'))"></td>'
         + '<td class="px-3 py-2 border-b border-border-soft"><input class="w-[100px] text-right px-2.5 py-1.5 border border-border rounded-sm text-sm font-mono outline-none focus:border-accent" type="number" min="0" step="any" name="unit_price" placeholder="0.00" oninput="lineItemCalc(\'#sales-invoice-item-tbody\').calcRow(this.closest(\'tr\'))"></td>'
+        + '<td class="px-3 py-2 border-b border-border-soft"><select class="w-full px-2 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent" name="tax_rate_id">' + invoiceTaxOptions() + '</select></td>'
         // discount_rate 隐藏为 0，满足 lineItemCalc.collectItems 字段约定
         + '<input type="hidden" name="discount_rate" value="0">'
         + '<td class="px-3 py-2 border-b border-border-soft text-right font-mono text-sm line-total">0.00</td>'
@@ -315,6 +339,14 @@ document.addEventListener('DOMContentLoaded', function() {{
                 .map(|p| format!(
                     "{{\"id\":{},\"code\":{:?},\"name\":{:?},\"unit\":{:?}}}",
                     p.product_id, p.product_code, p.pdt_name, p.unit
+                ))
+                .collect::<Vec<_>>()
+                .join(","),
+            tax_rates
+                .iter()
+                .map(|t| format!(
+                    "{{\"id\":{},\"code\":{:?},\"name\":{:?},\"rate\":{}}}",
+                    t.id, t.code, t.name, t.rate
                 ))
                 .collect::<Vec<_>>()
                 .join(",")

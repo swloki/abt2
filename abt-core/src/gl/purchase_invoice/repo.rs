@@ -52,6 +52,7 @@ impl PurchaseInvoiceRepo {
         executor: PgExecutor<'_>,
         invoice_id: i64,
         items: &[PurchaseInvoiceItemInput],
+        line_taxes: &[Decimal],
     ) -> Result<u64> {
         if items.is_empty() {
             return Ok(0);
@@ -68,8 +69,8 @@ impl PurchaseInvoiceRepo {
                 query_builder.push(", ");
             }
             let line_subtotal = item.qty * item.unit_price;
-            // TODO: 根据税率计算税额（暂时为0）
-            let line_tax = Decimal::ZERO;
+            // line_tax 由 create 方法按 tax_rate_id 预先算好传入（价外税）
+            let line_tax = line_taxes[i];
             let line_total = line_subtotal + line_tax;
 
             query_builder.push("(");

@@ -15,6 +15,7 @@ use super::service::PurchaseInvoiceService;
 use super::super::entry::{new_gl_entry_service, service::GlEntryService, model::GlEntryLineInput};
 use super::super::mapping::{new_gl_mapping_service, service::GlMappingService};
 use super::super::invoice::InvoiceStatus;
+use crate::purchase::tax::service::TaxRateService;
 
 pub struct PurchaseInvoiceServiceImpl {
     pool: PgPool,
@@ -49,13 +50,27 @@ impl PurchaseInvoiceService for PurchaseInvoiceServiceImpl {
             }
         }
 
-        // Calculate totals
-        let subtotal: Decimal = req.items.iter()
-            .map(|i| i.qty * i.unit_price)
-            .sum();
-
-        // TODO: Calculate tax based on tax_rate_id (暂时为0)
-        let tax_amount = Decimal::ZERO;
+        // Calculate per-item line_tax based on tax_rate_id, then aggregate totals.
+        // 价外税：line_tax = qty * unit_price * rate / 100，四舍五入到 2 位小数。
+        let tax_svc = crate::purchase::tax::new_tax_rate_service(self.pool.clone());
+        let mut line_taxes: Vec<Decimal> = Vec::with_capacity(req.items.len());
+        let mut subtotal = Decimal::ZERO;
+        let mut tax_amount = Decimal::ZERO;
+        for item in &req.items {
+            let line_subtotal = item.qty * item.unit_price;
+            let rate = match item.tax_rate_id {
+                Some(tid) => tax_svc
+                    .get_by_id(ctx, db, tid)
+                    .await?
+                    .map(|t| t.rate)
+                    .unwrap_or(Decimal::ZERO),
+                None => Decimal::ZERO,
+            };
+            let line_tax = (line_subtotal * rate / Decimal::from(100)).round_dp(2);
+            line_taxes.push(line_tax);
+            subtotal += line_subtotal;
+            tax_amount += line_tax;
+        }
         let total = subtotal + tax_amount;
 
         // Generate doc number
@@ -75,8 +90,8 @@ impl PurchaseInvoiceService for PurchaseInvoiceServiceImpl {
         )
         .await?;
 
-        // Batch insert items
-        PurchaseInvoiceRepo::batch_items(db, id, &req.items).await?;
+        // Batch insert items (with precomputed line_tax)
+        PurchaseInvoiceRepo::batch_items(db, id, &req.items, &line_taxes).await?;
 
         // State machine transition to Draft
         new_state_machine_service(self.pool.clone())

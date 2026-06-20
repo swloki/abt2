@@ -691,6 +691,7 @@ pub struct WorkReportRow {
     pub work_hours: Decimal,
     pub remark: String,
     pub operator_id: i64,
+    pub wage_amount: Decimal,
     pub created_at: chrono::DateTime<chrono::Utc>,
     pub updated_at: chrono::DateTime<chrono::Utc>,
 }
@@ -706,13 +707,13 @@ impl WorkReportRepo {
             INSERT INTO work_reports
                 (doc_number, work_order_id, batch_id, routing_id, report_date,
                  shift, worker_id, completed_qty, defect_qty, defect_reason,
-                 work_hours, remark, operator_id)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+                 work_hours, remark, operator_id, wage_amount)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
             ON CONFLICT (batch_id, routing_id, worker_id, shift, report_date)
             DO NOTHING
             RETURNING id, doc_number, work_order_id, batch_id, routing_id, report_date,
                       shift, worker_id, completed_qty, defect_qty, defect_reason,
-                      work_hours, remark, operator_id, created_at, updated_at
+                      work_hours, remark, operator_id, wage_amount, created_at, updated_at
             "#,
         )
         .bind(params.doc_number)
@@ -728,6 +729,7 @@ impl WorkReportRepo {
         .bind(params.work_hours)
         .bind(params.remark)
         .bind(params.operator_id)
+        .bind(params.wage_amount)
         .fetch_optional(&mut *executor)
         .await?;
 
@@ -741,7 +743,7 @@ impl WorkReportRepo {
                     r#"
                     SELECT id, doc_number, work_order_id, batch_id, routing_id, report_date,
                            shift, worker_id, completed_qty, defect_qty, defect_reason,
-                           work_hours, remark, operator_id, created_at, updated_at
+                           work_hours, remark, operator_id, wage_amount, created_at, updated_at
                     FROM work_reports
                     WHERE batch_id = $1 AND routing_id = $2 AND worker_id = $3
                           AND shift = $4 AND report_date = $5

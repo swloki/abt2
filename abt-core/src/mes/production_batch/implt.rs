@@ -253,6 +253,7 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
                 work_hours: req.work_hours,
                 remark: remark_str,
                 operator_id: ctx.operator_id,
+                wage_amount,
             },
         )
         .await

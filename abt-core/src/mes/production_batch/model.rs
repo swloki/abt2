@@ -99,6 +99,7 @@ pub struct InsertWorkReportParams<'a> {
     pub work_hours: Decimal,
     pub remark: &'a str,
     pub operator_id: i64,
+    pub wage_amount: Decimal,
 }
 
 #[derive(Debug, Clone)]

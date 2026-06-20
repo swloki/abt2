@@ -19,6 +19,7 @@ pub struct WorkReport {
     pub work_hours: Decimal,
     pub remark: String,
     pub operator_id: i64,
+    pub wage_amount: rust_decimal::Decimal,
     pub created_at: chrono::DateTime<chrono::Utc>,
     pub updated_at: chrono::DateTime<chrono::Utc>,
 }

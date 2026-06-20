@@ -11,9 +11,14 @@
 mod common;
 
 use abt_core::mes::production_batch::repo::WorkOrderRoutingRepo;
-use abt_core::mes::production_batch::ProductionBatchService;
+use abt_core::mes::production_batch::{
+    CreateBatchReq, ProductionBatchService, StepConfirmationReq,
+};
+use abt_core::mes::enums::ShiftType;
 use abt_core::mes::work_order::WorkOrderService;
+use abt_core::mes::work_report::repo::WorkReportRepo;
 use abt_core::shared::types::context::ServiceContext;
+use chrono::NaiveDate;
 use rust_decimal::Decimal;
 
 const PRODUCT_ID: i64 = 565; // 2835/冷白0.5W（与 mes_flow_e2e.rs 一致；release 时生成默认 1 道工序）
@@ -198,4 +203,64 @@ async fn detail_page_shows_editable_price_and_delete_when_unreported() {
     );
     assert!(resp.body_contains(r#"name="unit_price""#), "未报工工单应渲染可编辑单价 input");
     assert!(resp.body_contains("/delete"), "未报工工单应渲染删除端点");
+}
+
+#[tokio::test]
+async fn wage_is_frozen_at_report_time() {
+    let app = common::TestApp::new().await;
+    let batch_svc = app.state.production_batch_service();
+    let wo_svc = app.state.work_order_service();
+    let ctx = ServiceContext::new(1);
+    let mut conn = app.state.pool.acquire().await.unwrap();
+
+    // 建多工序工单 + 下达 + 建批次
+    let wo_id = seed_released_work_order(&app, MULTI_STEP_PRODUCT_ID, "300").await;
+    let wo = wo_svc.find_by_id(&ctx, &mut conn, wo_id).await.unwrap();
+    let batch_id = batch_svc
+        .create(
+            &ctx, &mut conn,
+            CreateBatchReq { work_order_id: wo_id, product_id: wo.product_id, batch_qty: Decimal::new(100, 0), team_id: None },
+        )
+        .await
+        .unwrap();
+
+    // 设第 1 道工序单价 = 5
+    let rs = batch_svc.list_routings(&ctx, &mut conn, wo_id).await.unwrap();
+    let step1 = rs.iter().find(|r| r.step_no == 1).unwrap();
+    batch_svc
+        .update_routing_unit_price(&ctx, &mut conn, wo_id, step1.id, Decimal::new(5, 0))
+        .await
+        .unwrap();
+
+    // 报工：完成 10 件 → 工资应冻结为 50
+    let result = batch_svc
+        .confirm_routing_step(
+            &ctx, &mut conn, batch_id, 1,
+            StepConfirmationReq {
+                step_no: 1,
+                worker_id: 1,
+                shift: ShiftType::Day,
+                completed_qty: Decimal::new(10, 0),
+                defect_qty: Decimal::ZERO,
+                defect_reason: None,
+                work_hours: Decimal::new(1, 0),
+                report_date: NaiveDate::from_ymd_opt(2026, 6, 21).unwrap(),
+                remark: None,
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(result.wage_amount, Decimal::new(50, 0), "报工应按当时单价冻结工资");
+
+    // 落库验证：work_reports.wage_amount 冻结为 50
+    let reports = WorkReportRepo::list_by_batch(&mut conn, batch_id).await.unwrap();
+    let wr = reports.iter().find(|r| r.routing_id == step1.id).unwrap();
+    assert_eq!(wr.wage_amount, Decimal::new(50, 0), "wage_amount 应已冻结落库");
+
+    // 报工后改该工序单价 → 应被守卫拒绝（不会污染历史工资）
+    let err = batch_svc
+        .update_routing_unit_price(&ctx, &mut conn, wo_id, step1.id, Decimal::new(9, 0))
+        .await
+        .unwrap_err();
+    assert!(matches!(err, DomainError::BusinessRule { .. }), "报工后改价应拒绝");
 }

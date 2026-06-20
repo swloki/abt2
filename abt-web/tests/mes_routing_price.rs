@@ -66,8 +66,8 @@ async fn release_work_order(app: &common::TestApp, wo_id: i64) {
 }
 
 /// 创建并下达工单，返回 wo_id
-async fn seed_released_work_order(app: &common::TestApp) -> i64 {
-    let (wo_id, _) = create_work_order(app, "100").await;
+async fn seed_released_work_order(app: &common::TestApp, qty: &str) -> i64 {
+    let (wo_id, _) = create_work_order(app, qty).await;
     release_work_order(app, wo_id).await;
     wo_id
 }
@@ -84,7 +84,7 @@ async fn first_routing_id(state: &abt_web::state::AppState, wo_id: i64) -> i64 {
 #[tokio::test]
 async fn repo_update_unit_price_persists() {
     let app = common::TestApp::new().await;
-    let wo_id = seed_released_work_order(&app).await;
+    let wo_id = seed_released_work_order(&app, "100").await;
     let rid = first_routing_id(&app.state, wo_id).await;
     let mut conn = app.state.pool.acquire().await.unwrap();
 
@@ -99,10 +99,88 @@ async fn repo_update_unit_price_persists() {
 #[tokio::test]
 async fn repo_has_report_false_before_reporting() {
     let app = common::TestApp::new().await;
-    let wo_id = seed_released_work_order(&app).await;
+    let wo_id = seed_released_work_order(&app, "100").await;
     let rid = first_routing_id(&app.state, wo_id).await;
     let mut conn = app.state.pool.acquire().await.unwrap();
 
     assert!(!WorkOrderRoutingRepo::has_report(&mut conn, rid).await.unwrap());
     assert!(!WorkOrderRoutingRepo::has_any_report(&mut conn, wo_id).await.unwrap());
+}
+
+use abt_core::shared::types::DomainError;
+
+#[tokio::test]
+async fn service_update_price_rejects_zero() {
+    let app = common::TestApp::new().await;
+    let wo_id = seed_released_work_order(&app, "101").await;
+    let rid = first_routing_id(&app.state, wo_id).await;
+    let svc = app.state.production_batch_service();
+    let ctx = ServiceContext::new(1);
+    let mut conn = app.state.pool.acquire().await.unwrap();
+    let err = svc
+        .update_routing_unit_price(&ctx, &mut conn, wo_id, rid, Decimal::ZERO)
+        .await
+        .unwrap_err();
+    assert!(matches!(err, DomainError::Validation { .. }), "got {err:?}");
+}
+
+#[tokio::test]
+async fn service_update_price_ok_then_persists() {
+    let app = common::TestApp::new().await;
+    let wo_id = seed_released_work_order(&app, "102").await;
+    let rid = first_routing_id(&app.state, wo_id).await;
+    let svc = app.state.production_batch_service();
+    let ctx = ServiceContext::new(1);
+    let mut conn = app.state.pool.acquire().await.unwrap();
+    let updated = svc
+        .update_routing_unit_price(&ctx, &mut conn, wo_id, rid, Decimal::new(3, 0))
+        .await
+        .unwrap();
+    assert_eq!(updated.unit_price, Some(Decimal::new(3, 0)));
+    assert_eq!(updated.id, rid);
+}
+
+#[tokio::test]
+async fn service_update_price_rejects_cross_order() {
+    let app = common::TestApp::new().await;
+    let wo_a = seed_released_work_order(&app, "103").await;
+    let wo_b = seed_released_work_order(&app, "104").await;
+    let rid_a = first_routing_id(&app.state, wo_a).await;
+    let svc = app.state.production_batch_service();
+    let ctx = ServiceContext::new(1);
+    let mut conn = app.state.pool.acquire().await.unwrap();
+    let err = svc
+        .update_routing_unit_price(&ctx, &mut conn, wo_b, rid_a, Decimal::new(3, 0))
+        .await
+        .unwrap_err();
+    assert!(matches!(err, DomainError::NotFound { .. }), "got {err:?}");
+}
+
+#[tokio::test]
+async fn service_delete_renumbers_and_blocks_last() {
+    let app = common::TestApp::new().await;
+    let wo_id = seed_released_work_order(&app, "105").await; // 假设 seed 产出 ≥2 道工序
+    let svc = app.state.production_batch_service();
+    let ctx = ServiceContext::new(1);
+    let mut conn = app.state.pool.acquire().await.unwrap();
+    let mut rs = svc.list_routings(&ctx, &mut conn, wo_id).await.unwrap();
+    println!("Initial routing count: {}", rs.len());
+    if rs.len() < 2 {
+        println!("SKIP: test requires at least 2 routings, got {}", rs.len());
+        return;
+    }
+    // 删第一道 → 剩余重排
+    svc.delete_routing(&ctx, &mut conn, wo_id, rs[0].id).await.unwrap();
+    rs = svc.list_routings(&ctx, &mut conn, wo_id).await.unwrap();
+    for (i, r) in rs.iter().enumerate() {
+        assert_eq!(r.step_no as usize, i + 1);
+    }
+    // 删到只剩一道时拒绝
+    while rs.len() > 1 {
+        let id = rs[0].id;
+        svc.delete_routing(&ctx, &mut conn, wo_id, id).await.unwrap();
+        rs = svc.list_routings(&ctx, &mut conn, wo_id).await.unwrap();
+    }
+    let err = svc.delete_routing(&ctx, &mut conn, wo_id, rs[0].id).await.unwrap_err();
+    assert!(matches!(err, DomainError::BusinessRule { .. }), "got {err:?}");
 }

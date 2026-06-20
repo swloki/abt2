@@ -431,8 +431,8 @@ fn product_table_fragment(
  }
  }
  }
- }
  (pagination(ProductListPath::PATH, &query, result.total, result.page, result.total_pages))
+ }
  }
  }
  }

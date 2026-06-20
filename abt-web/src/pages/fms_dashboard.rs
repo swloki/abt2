@@ -117,11 +117,10 @@ fn amount_color_cls(direction: &CashDirection) -> &'static str {
 
 // ── Stat Card ──
 
-fn stat_card(title: &str, value: &str, sub: Markup, icon_svg: Markup, icon_bg: &str, icon_fg: &str) -> Markup {
+fn stat_card(title: &str, value: &str, sub: Markup, icon_svg: Markup, icon_cls: &str) -> Markup {
     html! {
         div class="data-card flex items-center gap-4 p-5" {
-            div class="w-11 h-11 rounded-md grid place-items-center shrink-0"
-                style=(format!("background:{};color:{}", icon_bg, icon_fg)) {
+            div class=(format!("w-11 h-11 rounded-md grid place-items-center shrink-0 {}", icon_cls)) {
                 (icon_svg)
             }
             div class="flex-1 min-w-0" {
@@ -158,11 +157,11 @@ fn fms_dashboard_page(
         .unwrap_or(Decimal::ONE);
     let trend_max = if trend_max == Decimal::ZERO { Decimal::ONE } else { trend_max };
 
-    let dist_types = [
-        (JournalType::SalesReceipt as i16, "销售回款", "#16a34a"),
-        (JournalType::PurchasePayment as i16, "采购付款", "#dc2626"),
-        (JournalType::Expense as i16, "费用报销", "#d97706"),
-        (JournalType::Payroll as i16, "工资支付", "#7c3aed"),
+    let dist_types: [(i16, &str, &str); 4] = [
+        (JournalType::SalesReceipt as i16, "销售回款", "success"),
+        (JournalType::PurchasePayment as i16, "采购付款", "danger"),
+        (JournalType::Expense as i16, "费用报销", "warn"),
+        (JournalType::Payroll as i16, "工资支付", "purple"),
     ];
 
     html! {
@@ -184,14 +183,14 @@ fn fms_dashboard_page(
                 &format!("¥{} <span class=\"text-sm text-muted\">万</span>", fmt_wan(balance.total_inflow)),
                 html! { "已确认流入" },
                 icon::dollar_icon("w-5 h-5"),
-                "#dcfce7", "#16a34a",
+                "bg-success-100 text-success",
             ))
             (stat_card(
                 "本月流出",
                 &format!("¥{} <span class=\"text-sm text-muted\">万</span>", fmt_wan(balance.total_outflow)),
                 html! { "已确认流出" },
                 icon::dollar_icon("w-5 h-5"),
-                "#fee2e2", "#dc2626",
+                "bg-danger-100 text-danger",
             ))
             @let net = balance.net_balance;
             @let net_sign = if net >= Decimal::ZERO { "+" } else { "" };
@@ -200,21 +199,21 @@ fn fms_dashboard_page(
                 &format!("{}¥{} <span class=\"text-sm text-muted\">万</span>", net_sign, fmt_wan(net.abs())),
                 html! { "期间 " span class="font-semibold" { (current_period) } },
                 icon::dollar_icon("w-5 h-5"),
-                "#dbeafe", "#2563eb",
+                "bg-accent-100 text-accent",
             ))
             (stat_card(
                 "待核销金额",
                 &format!("¥{} <span class=\"text-sm text-muted\">万</span>", fmt_wan(Decimal::ZERO)),
                 html! { "暂无核销数据" },
                 icon::dollar_icon("w-5 h-5"),
-                "#fef3c7", "#d97706",
+                "bg-warn-100 text-warn",
             ))
             (stat_card(
                 "待审报销",
                 &pending_count.to_string(),
                 html! { "金额合计 " span class="font-semibold text-purple" { (format!("¥{}万", fmt_wan(pending_amount))) } },
                 icon::dollar_icon("w-5 h-5"),
-                "#ede9fe", "#7c3aed",
+                "bg-purple-100 text-purple",
             ))
         }
 
@@ -312,14 +311,14 @@ fn fms_dashboard_page(
                     " 本月日记账分布"
                 }
                 div class="p-5 flex flex-col gap-5" {
-                    @for (type_id, label, color) in dist_types {
+                    @for (type_id, label, color_token) in dist_types {
                         @let amount = distribution.iter().find(|(t, _)| *t == type_id).map(|(_, v)| *v).unwrap_or(Decimal::ZERO);
                         @let pct = if dist_max > Decimal::ZERO {
                             (amount / dist_max * Decimal::from(100)).round_dp(0)
                         } else {
                             Decimal::ZERO
                         };
-                        (distribution_bar(label, &format!("¥{}万", fmt_wan(amount)), color, &format!("{}%", pct)))
+                        (distribution_bar(label, &format!("¥{}万", fmt_wan(amount)), color_token, &format!("{}%", pct)))
                     }
                 }
             }
@@ -403,15 +402,19 @@ fn quick_entry_card(href: &str, title: &str, desc: &str, badge: &str, color: &st
 
 // ── Distribution Bar ──
 
-fn distribution_bar(label: &str, value: &str, color: &str, width: &str) -> Markup {
+fn distribution_bar(label: &str, value: &str, color_token: &str, width: &str) -> Markup {
+    // 文字色 + 进度条背景色用 UnoCSS 原子类（token → success/danger/warn/purple），
+    // 仅 width 是数据驱动的动态百分比，按 <col> 例外保留 inline（无法原子化）。
+    let text_cls = format!("text-{}", color_token);
+    let bar_cls = format!("bg-{}", color_token);
     html! {
         div {
             div class="flex items-center justify-between mb-2" {
                 span class="text-sm font-medium text-fg" { (label) }
-                span class="text-sm font-bold font-mono" style=(format!("color:{}", color)) { (value) }
+                span class=(format!("text-sm font-bold font-mono {}", text_cls)) { (value) }
             }
             div class="h-1.5 bg-[rgba(0,0,0,0.06)] rounded-full overflow-hidden" {
-                div class="h-full rounded-full" style=(format!("width:{};background:{}", width, color)) {}
+                div class=(format!("h-full rounded-full {}", bar_cls)) style=(format!("width:{}", width)) {}
             }
         }
     }
@@ -422,13 +425,19 @@ fn distribution_bar(label: &str, value: &str, color: &str, width: &str) -> Marku
 fn trend_bar(month: &str, inflow_h: Decimal, outflow_h: Decimal, net: &str, net_cls: &str, is_current: bool) -> Markup {
     let month_cls = if is_current { "text-xs font-bold mt-2" } else { "text-xs text-muted mt-2 font-medium" };
     let net_weight = if is_current { "font-extrabold" } else { "font-bold" };
+    // height 是数据驱动的动态像素值，按 <col> 例外保留 inline；
+    // background 渐变 + border-top 改为 UnoCSS arbitrary 原子类（颜色对应 accent/danger CSS 变量）。
+    let inflow_bar_cls = "relative overflow-hidden w-full max-w-[48px] rounded-sm \
+        bg-[linear-gradient(180deg,rgba(37,99,235,0.2),rgba(37,99,235,0.04))] \
+        border-t-[2.5px] border-accent";
+    let outflow_bar_cls = "relative overflow-hidden w-full max-w-[48px] rounded-sm \
+        bg-[linear-gradient(180deg,rgba(220,38,38,0.15),rgba(220,38,38,0.03))] \
+        border-t-[2.5px] border-danger";
     html! {
         div class="text-center" {
             div class="flex flex-col items-center gap-1 h-[140px] justify-end" {
-                div class="relative overflow-hidden w-full max-w-[48px] rounded-sm"
-                    style=(format!("height:{}px;background:linear-gradient(180deg,rgba(37,99,235,0.2),rgba(37,99,235,0.04));border-top:2.5px solid var(--accent)", inflow_h)) {}
-                div class="relative overflow-hidden w-full max-w-[48px] rounded-sm"
-                    style=(format!("height:{}px;background:linear-gradient(180deg,rgba(220,38,38,0.15),rgba(220,38,38,0.03));border-top:2.5px solid var(--danger)", outflow_h)) {}
+                div class=(inflow_bar_cls) style=(format!("height:{}px", inflow_h)) {}
+                div class=(outflow_bar_cls) style=(format!("height:{}px", outflow_h)) {}
             }
             div class=(month_cls) { (month) }
  div class=(format!("text-xs font-mono {} {}", net_cls, net_weight)) { (net) }

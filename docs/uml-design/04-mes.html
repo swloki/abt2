@@ -198,6 +198,7 @@ classDiagram
     +planned_qty: Decimal
     +is_outsourced: bool
     +is_inspection_point: bool
+    +product_id: Option~i64~ // Issue#67 工序产出半成品（下达从 routing_steps 快照；实例可编辑）
   }
   class BatchRoutingProgress {
     +id: i64

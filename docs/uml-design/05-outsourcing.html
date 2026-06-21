@@ -129,6 +129,7 @@ classDiagram
     +cancel(ctx: &ServiceContext, db: PgExecutor, req: CancelOutsourcingReq) Result~Unit~
     +find_by_id(ctx: &ServiceContext, db: PgExecutor, id: i64) Result~OutsourcingOrder~
     +list(ctx: &ServiceContext, db: PgExecutor, filter: OutsourcingOrderQuery, page: PageParams) Result~PaginatedResult~
+    +outsourcing_summary(ctx: &ServiceContext, db: PgExecutor, work_order_id) Result~WorkOrderOutsourcingSummary~ // Issue#67 工单联动
   }
 
   class OutsourcingTrackingService {

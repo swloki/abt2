@@ -12,3 +12,4 @@ pub mod export_button;
 pub mod import_modal;
 pub mod entity_picker;
 pub mod product_picker;
+pub mod routing_picker;

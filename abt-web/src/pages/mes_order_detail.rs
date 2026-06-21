@@ -850,14 +850,20 @@ fn tab_routing(
  // 批量加载产出品（仅整单未报工时可用）
  @if !order_has_report {
  div class="flex justify-end gap-3 mb-3" {
- button type="button" class="text-sm text-accent hover:text-accent-hover cursor-pointer"
+ button type="button" class="inline-flex items-center gap-1 py-1.5 px-3 rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
      hx-post=(OrderRoutingLoadTemplatePath { order_id }.to_string())
      hx-target="#routing-tbody-wrap" hx-swap="outerHTML" hx-disabled-elt="this"
-     title="从工单引用的工艺路径模板加载产出品" { "从工艺路线加载" }
- button type="button" class="text-sm text-accent hover:text-accent-hover cursor-pointer"
+     title="从该工单当前引用的工艺路径模板加载产出品（需模板已绑定产出品）" {
+     (icon::download_icon("w-3.5 h-3.5"))
+     "从工艺路径加载"
+ }
+ button type="button" class="inline-flex items-center gap-1 py-1.5 px-3 rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
      hx-post=(OrderRoutingLoadRecentPath { order_id }.to_string())
      hx-target="#routing-tbody-wrap" hx-swap="outerHTML" hx-disabled-elt="this"
-     title="从最近一个同工艺路径工单复制产出品" { "从最近工单加载" }
+     title="从最近一个同工艺路径、已设产出品的工单复制" {
+     (icon::copy_icon("w-3.5 h-3.5"))
+     "从最近工单加载"
+ }
  }
  }
  // 工序定义表（执行进度已迁移至 batch_routing_progress，由批次维度页面展示）

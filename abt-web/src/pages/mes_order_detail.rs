@@ -15,7 +15,8 @@ use crate::errors::Result;
 use crate::layout::page::admin_page;
 use crate::routes::mes_order::{
  OrderCancelPath, OrderClosePath, OrderDetailPath, OrderListPath, OrderReleasePath,
- OrderRoutingDeletePath, OrderRoutingPricePath, OrderSplitPath, OrderUnreleasePath,
+ OrderRoutingDeletePath, OrderRoutingPricePath, OrderRoutingProductPath, OrderSplitPath,
+ OrderUnreleasePath,
 };
 use crate::utils::RequestContext;
 use abt_macros::require_permission;
@@ -339,6 +340,31 @@ pub async fn update_routing_price(
     Ok(Html(routing_row_fragment(&updated, false, order_has_report).into_string()))
 }
 
+#[derive(Debug, serde::Deserialize)]
+pub struct RoutingProductForm {
+    #[serde(default, deserialize_with = "crate::utils::empty_as_none")]
+    pub product_id: Option<i64>,
+}
+
+/// 行内修改工序产出品（关联半成品），返回更新后的该行 <tr>
+#[require_permission("WORK_ORDER", "update")]
+pub async fn update_routing_product(
+    path: OrderRoutingProductPath,
+    ctx: RequestContext,
+    axum::Form(form): axum::Form<RoutingProductForm>,
+) -> Result<Html<String>> {
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let svc = state.production_batch_service();
+    let updated = svc
+        .update_routing_product(
+            &service_ctx, &mut conn,
+            path.order_id, path.routing_id, form.product_id,
+        )
+        .await?;
+    let order_has_report = svc.order_has_any_report(&service_ctx, &mut conn, path.order_id).await?;
+    Ok(Html(routing_row_fragment(&updated, false, order_has_report).into_string()))
+}
+
 /// 删除工序，返回重排后的整个 <tbody>
 #[require_permission("WORK_ORDER", "update")]
 pub async fn delete_routing(
@@ -362,6 +388,21 @@ fn routing_row_fragment(
         tr {
             td class="font-mono tabular-nums" { (r.step_no) }
             td { strong { (r.process_name.as_str()) } }
+            td class="font-mono tabular-nums text-[13px]" {
+                @if is_reported_step {
+                    @if let Some(p) = r.product_id { "#" (p) } @else { "—" }
+                } @else {
+                    input class="w-[80px] px-2 py-[5px] text-[13px] font-mono border border-border rounded-sm bg-white outline-none focus:border-accent"
+                        type="number" name="product_id"
+                        value=(r.product_id.map(|p| p.to_string()).unwrap_or_default())
+                        placeholder="产出品ID"
+                        hx-post=(OrderRoutingProductPath { order_id: r.work_order_id, routing_id: r.id }.to_string())
+                        hx-trigger="change"
+                        hx-target="closest tr"
+                        hx-swap="outerHTML"
+                        hx-disabled-elt="this";
+                }
+            }
             td class="font-mono tabular-nums" {
                 @if let Some(wc) = r.work_center_id { "#" (wc) } @else { "—" }
             }
@@ -423,7 +464,7 @@ fn routing_tbody_fragment(
                 (routing_row_fragment(r, reported_routing_ids.contains(&r.id), order_has_report))
             }
             @if routings.is_empty() {
-                tr { td colspan="10" class="text-center text-muted text-sm" { "暂无工序明细（工单未下达或无工艺路线）" } }
+                tr { td colspan="11" class="text-center text-muted text-sm" { "暂无工序明细（工单未下达或无工艺路线）" } }
             }
         }
     }
@@ -691,6 +732,7 @@ fn tab_routing(
  tr {
  th { "序号" }
  th { "工序名称" }
+ th { "产出品" }
  th { "工作中心" }
  th class="text-right text-[13px]" { "计划量" }
  th class="text-right text-[13px]" { "标准工时" }

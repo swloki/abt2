@@ -302,3 +302,18 @@ async fn delete_blocked_after_any_report() {
     let err = batch_svc.delete_routing(&ctx, &mut conn, wo_id, target.id).await.unwrap_err();
     assert!(matches!(err, DomainError::BusinessRule { .. }), "有报工后删工序应拒绝，got {err:?}");
 }
+
+#[tokio::test]
+async fn service_update_routing_product_ok_and_clear() {
+    let app = common::TestApp::new().await;
+    let wo_id = seed_released_work_order(&app, MULTI_STEP_PRODUCT_ID, "700").await;
+    let svc = app.state.production_batch_service();
+    let ctx = ServiceContext::new(1);
+    let mut conn = app.state.pool.acquire().await.unwrap();
+    let rs = svc.list_routings(&ctx, &mut conn, wo_id).await.unwrap();
+    let rid = rs[0].id;
+    let updated = svc.update_routing_product(&ctx, &mut conn, wo_id, rid, Some(565)).await.unwrap();
+    assert_eq!(updated.product_id, Some(565));
+    let updated = svc.update_routing_product(&ctx, &mut conn, wo_id, rid, None).await.unwrap();
+    assert_eq!(updated.product_id, None);
+}

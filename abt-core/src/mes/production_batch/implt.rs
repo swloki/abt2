@@ -578,6 +578,43 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
         Ok(updated)
     }
 
+    async fn update_routing_product(
+        &self,
+        ctx: &ServiceContext,
+        _db: PgExecutor<'_>,
+        work_order_id: i64,
+        routing_id: i64,
+        product_id: Option<i64>,
+    ) -> Result<WorkOrderRouting> {
+        let mut tx = self.pool.begin().await
+            .map_err(|e| DomainError::Internal(e.into()))?;
+        let routing = WorkOrderRoutingRepo::get_by_id(&mut *tx, routing_id)
+            .await?
+            .ok_or_else(|| DomainError::not_found("WorkOrderRouting"))?;
+        if routing.work_order_id != work_order_id {
+            return Err(DomainError::not_found("WorkOrderRouting"));
+        }
+        let wo = new_work_order_service(self.pool.clone())
+            .find_by_id(ctx, &mut *tx, work_order_id)
+            .await?;
+        if !matches!(wo.status, WorkOrderStatus::Released | WorkOrderStatus::InProduction) {
+            return Err(DomainError::business_rule("工单当前状态不允许修改工序产出品"));
+        }
+        if WorkOrderRoutingRepo::has_report(&mut *tx, routing_id).await? {
+            return Err(DomainError::business_rule("该工序已报工，产出品不可修改"));
+        }
+        sqlx::query(r#"UPDATE work_order_routings SET product_id = $2 WHERE id = $1"#)
+            .bind(routing_id)
+            .bind(product_id)
+            .execute(&mut *tx)
+            .await?;
+        let updated = WorkOrderRoutingRepo::get_by_id(&mut *tx, routing_id)
+            .await?
+            .ok_or_else(|| DomainError::not_found("WorkOrderRouting"))?;
+        tx.commit().await.map_err(|e| DomainError::Internal(e.into()))?;
+        Ok(updated)
+    }
+
     async fn delete_routing(
         &self,
         ctx: &ServiceContext,

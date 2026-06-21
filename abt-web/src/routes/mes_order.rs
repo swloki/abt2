@@ -67,6 +67,13 @@ pub struct OrderRoutingDeletePath {
 }
 
 #[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/mes/orders/{order_id}/routings/{routing_id}/product")]
+pub struct OrderRoutingProductPath {
+    pub order_id: i64,
+    pub routing_id: i64,
+}
+
+#[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/api/mes/source-orders/search")]
 pub struct SourceOrderSearchPath;
 
@@ -92,6 +99,7 @@ pub fn router() -> Router<AppState> {
         .route(OrderSplitPath::PATH, post(mes_order_detail::split_order))
         .route(OrderRoutingPricePath::PATH, post(mes_order_detail::update_routing_price))
         .route(OrderRoutingDeletePath::PATH, post(mes_order_detail::delete_routing))
+        .route(OrderRoutingProductPath::PATH, post(mes_order_detail::update_routing_product))
         .route(SourceOrderSearchPath::PATH, get(mes_order_create::search_source_orders))
         .route(SourcePlanSearchPath::PATH, get(mes_order_create::search_source_plans))
 }

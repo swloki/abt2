@@ -7,6 +7,7 @@ use serde::Deserialize;
 
 use abt_core::master_data::labor_process_dict::LaborProcessDictService;
 use abt_core::master_data::labor_process_dict::model::LaborProcessDictQuery;
+use abt_core::master_data::product::ProductService;
 use abt_core::master_data::routing::RoutingService;
 use abt_core::master_data::routing::model::{CreateRoutingReq, RoutingStepInput};
 use abt_core::shared::types::{DomainError, PageParams};
@@ -35,6 +36,8 @@ struct StepWeb {
  step_order: i32,
  is_required: bool,
  remark: Option<String>,
+ #[serde(default, deserialize_with = "crate::utils::empty_as_none")]
+ product_id: Option<i64>,
 }
 
 // ── Handlers ──
@@ -63,7 +66,12 @@ pub async fn get_routing_create(
  PageParams::new(1, 500),
  )
  .await?;
- let content = routing_create_page(&processes.items);
+ let products = state.product_service()
+ .list(&service_ctx, &mut conn,
+ abt_core::master_data::product::model::ProductQuery { name: None, code: None, status: None, owner_department_id: None, category_id: None },
+ PageParams::new(1, 500))
+ .await?;
+ let content = routing_create_page(&processes.items, &products.items);
  let page_html = admin_page(
  is_htmx,
  "新建工艺路线",
@@ -109,6 +117,7 @@ pub async fn post_routing_create(
  step_order: (i + 1) as i32,
  is_required: s.is_required,
  remark: s.remark.filter(|r| !r.trim().is_empty()),
+ product_id: s.product_id,
  ..Default::default()
  })
  .collect();
@@ -130,6 +139,7 @@ pub async fn post_routing_create(
 
 fn routing_create_page(
  processes: &[abt_core::master_data::labor_process_dict::model::LaborProcessDict],
+ products: &[abt_core::master_data::product::model::Product],
 ) -> Markup {
  let process_map: HashMap<&str, &str> = processes
  .iter()
@@ -137,6 +147,13 @@ fn routing_create_page(
  .collect();
 
  let process_map_json = serde_json::to_string(&process_map).unwrap_or_else(|_| "{}".into());
+
+ // 产出品映射（product_id → name，注入 JS 渲染下拉）
+ let product_map: HashMap<String, String> = products
+ .iter()
+ .map(|p| (p.product_id.to_string(), p.pdt_name.clone()))
+ .collect();
+ let product_map_json = serde_json::to_string(&product_map).unwrap_or_else(|_| "{}".into());
 
  html! {
  div id="routing-app" {
@@ -192,6 +209,7 @@ fn routing_create_page(
  th class="w-[60px] text-center" { "排序" }
  th class="w-[200px]" { "工序代码" }
  th class="w-[180px]" { "工序名称" }
+ th class="w-[200px]" { "产出品" }
  th class="w-[80px] text-center" { "是否必经" }
  th { "备注" }
  th class="w-[50px]" { }
@@ -221,8 +239,9 @@ fn routing_create_page(
  script {
  (PreEscaped(format!(r#"
 const processMap = {process_map_json};
+const productMap = {product_map_json};
 let steps = [
- {{ process_code: '', is_required: true, remark: '' }}
+ {{ process_code: '', is_required: true, remark: '', product_id: '' }}
 ];
 
 function getStepsJson() {{
@@ -234,12 +253,13 @@ function getStepsJson() {{
  step_order: i + 1,
  is_required: s.is_required,
  remark: s.remark || null,
+ product_id: s.product_id && s.product_id !== '' ? Number(s.product_id) : null,
  }}))
  );
 }}
 
 function addStep() {{
- steps.push({{ process_code: '', is_required: true, remark: '' }});
+ steps.push({{ process_code: '', is_required: true, remark: '', product_id: '' }});
  syncFromDom();
  renderSteps();
 }}
@@ -259,10 +279,11 @@ function syncFromDom() {{
  const rows = document.querySelectorAll('#routing-steps-body tr');
  rows.forEach((row, idx) => {{
  if (!steps[idx]) return;
- const select = row.querySelector('select');
+ const selects = row.querySelectorAll('select');
  const checkbox = row.querySelector('input[type="checkbox"]');
  const textInput = row.querySelector('input[type="text"]');
- if (select) steps[idx].process_code = select.value;
+ if (selects[0]) steps[idx].process_code = selects[0].value;
+ if (selects[1]) steps[idx].product_id = selects[1].value;
  if (checkbox) steps[idx].is_required = checkbox.checked;
  if (textInput) steps[idx].remark = textInput.value;
  }});
@@ -276,11 +297,17 @@ function renderSteps() {{
  let sel = step.process_code === code ? ' selected' : '';
  opts += '<option value="' + code + '"' + sel + '>' + code + ' - ' + processMap[code] + '</option>';
  }}
+ let popts = '<option value="">-- 无 --</option>';
+ for (let pid in productMap) {{
+ let sel = String(step.product_id) === pid ? ' selected' : '';
+ popts += '<option value="' + pid + '"' + sel + '>' + productMap[pid] + '</option>';
+ }}
  let chk = step.is_required ? ' checked' : '';
  html += '<tr>' +
  '<td class="text-muted text-xs text-center">' + (idx + 1) + '</td>' +
  '<td><select onchange="onStepChange(' + idx + ')" class="w-full text-[13px] rounded-sm px-2 py-[5px] border border-border">' + opts + '</select></td>' +
  '<td class="text-[13px] px-2 py-[5px]">' + getProcessName(step.process_code) + '</td>' +
+ '<td><select onchange="onStepChange(' + idx + ')" class="w-full text-[13px] rounded-sm px-2 py-[5px] border border-border">' + popts + '</select></td>' +
  '<td class="text-center"><input type="checkbox" onchange="onStepChange(' + idx + ')" class="cursor-pointer w-[18px] h-[18px] accent-accent"' + chk + '></td>' +
  '<td><input type="text" onchange="onStepChange(' + idx + ')" placeholder="备注" class="w-full text-[13px] rounded-sm px-2 py-[5px] border border-border"></td>' +
  '<td><button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center" onclick="removeStep(' + idx + ')" title="删除"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button></td>' +

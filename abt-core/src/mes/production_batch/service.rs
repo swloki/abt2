@@ -53,7 +53,7 @@ pub trait ProductionBatchService: Send + Sync {
         work_order_id: i64,
     ) -> Result<Vec<WorkOrderRouting>>;
 
-    /// 修改工序产出品 + 计件单价（单事务，首次报工前可改）
+    /// 修改工序产出品、计件单价、工作中心、标准工时、委外（单事务，首次报工前可改）
     async fn update_routing(
         &self,
         ctx: &ServiceContext,
@@ -62,11 +62,15 @@ pub trait ProductionBatchService: Send + Sync {
         routing_id: i64,
         product_id: Option<i64>,
         unit_price: rust_decimal::Decimal,
+        work_center_id: Option<i64>,
+        standard_time: Option<rust_decimal::Decimal>,
+        is_outsourced: bool,
     ) -> Result<WorkOrderRouting>;
 
-    /// 从工艺路径模板按 step_no 填充产出品（仅未报工 + 原空行）。返回填充行数
+    /// 从工艺路径模板加载工序步骤到工单（删除未报工旧行 → 插入模板步骤）。返回插入行数
     async fn load_routings_from_template(
-        &self, ctx: &ServiceContext, db: PgExecutor<'_>, work_order_id: i64,
+        &self, ctx: &ServiceContext, db: PgExecutor<'_>,
+        work_order_id: i64, routing_id: i64,
     ) -> Result<usize>;
 
     /// 从最近同 routing_id 且有产出品的工单按 step_no 复制（仅未报工 + 原空行）。返回填充行数

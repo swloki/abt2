@@ -975,14 +975,21 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
         db: PgExecutor<'_>,
         work_order_id: i64,
     ) -> Result<WorkOrderOutsourcingSummary> {
+        use crate::master_data::product::{new_product_service, ProductService};
         let wo = new_work_order_service(self.pool.clone())
             .find_by_id(ctx, db, work_order_id)
             .await?;
+        let product_name = new_product_service(self.pool.clone())
+            .get(ctx, db, wo.product_id)
+            .await
+            .map(|p| p.pdt_name)
+            .unwrap_or_default();
         let routings = new_production_batch_service(self.pool.clone())
             .list_routings(ctx, db, work_order_id)
             .await?;
         Ok(WorkOrderOutsourcingSummary {
             product_id: wo.product_id,
+            product_name,
             planned_qty: wo.planned_qty,
             scheduled_end: wo.scheduled_end,
             customer_name: wo.source_customer,

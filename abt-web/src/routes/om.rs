@@ -65,6 +65,10 @@ pub struct OmOutsourcingWoSummaryPath;
 pub struct OmOutsourcingSuggestMaterialsPath;
 
 #[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/om/outsourcing/search-work-orders")]
+pub struct OmOutsourcingSearchWoPath;
+
+#[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/om/tracking")]
 pub struct OmTrackingListPath;
 
@@ -88,6 +92,7 @@ pub fn router() -> Router<AppState> {
         .route(OmRecordNodePath::PATH, post(om_outsourcing_detail::record_node))
         .route(OmOutsourcingWoSummaryPath::PATH, get(om_outsourcing_create::wo_summary))
         .route(OmOutsourcingSuggestMaterialsPath::PATH, get(om_outsourcing_create::suggest_materials))
+        .route(OmOutsourcingSearchWoPath::PATH, get(om_outsourcing_create::search_work_orders))
         // Tracking
         .route(OmTrackingListPath::PATH, get(om_tracking_list::get_list))
 }

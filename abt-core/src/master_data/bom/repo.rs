@@ -330,7 +330,7 @@ impl BomRepo {
             JOIN products p ON p.product_id = bn.product_id
             WHERE COALESCE(bn.product_code, p.product_code) = $1
               AND bn.parent_id = 0
-              AND b.status = 2
+              AND b.status IN (1, 2)
               AND b.deleted_at IS NULL
             ORDER BY b.bom_id DESC
             LIMIT 1

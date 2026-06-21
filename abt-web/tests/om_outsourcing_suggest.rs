@@ -20,7 +20,7 @@ async fn create_work_order(app: &common::TestApp, product_id: i64, qty: &str) ->
  .list(
  &ServiceContext::new(1), &mut conn,
  abt_core::mes::work_order::WorkOrderFilter {
- status: None, product_id: None, keyword: None, date_from: None, date_to: None,
+ status: None, product_id: None, keyword: None, date_from: None, date_to: None, product_code: None,
  },
  1, 1,
  )

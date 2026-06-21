@@ -31,7 +31,7 @@ pub async fn get_material_usage(_path: MaterialUsagePath, ctx: RequestContext) -
  product_id: None,
  keyword: None,
  date_from: None,
- date_to: None,
+ date_to: None, product_code: None,
  };
  let wo_result = wo_svc.list(&service_ctx, &mut conn, filter, 1, 100).await?;
  let work_orders = wo_result.items;

@@ -49,10 +49,13 @@ pub struct CreateWorkOrderReq {
 }
 
 #[derive(Debug, Clone)]
+#[derive(Default)]
 pub struct WorkOrderFilter {
     pub status: Option<WorkOrderStatus>,
     pub product_id: Option<i64>,
     pub keyword: Option<String>,
     pub date_from: Option<NaiveDate>,
     pub date_to: Option<NaiveDate>,
+    /// 按产品编码模糊筛选（ILIKE）
+    pub product_code: Option<String>,
 }

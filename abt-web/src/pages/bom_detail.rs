@@ -676,43 +676,55 @@ fn cost_drawer_content(report: &BomCostReport, temp_prices: &HashMap<i64, String
  // Labor cost table
  div class="mb-4" {
  div class="text-[13px] font-semibold text-slate-700 mb-2" { "【人工成本】" }
- div class="overflow-hidden border border-slate-200 rounded-md" {
- table class="w-full border-collapse" {
+ div class="overflow-x-auto border border-slate-200 rounded-md" {
+ table class="w-full border-collapse min-w-[800px]" {
  thead {
  tr {
- th class="text-left text-xs font-medium text-slate-500 bg-slate-50 px-3 py-2 whitespace-nowrap [border-bottom:1px_solid_#e5e7eb]" { "工序名称" }
- th class="text-right text-xs font-medium text-slate-500 bg-slate-50 px-3 py-2 whitespace-nowrap [border-bottom:1px_solid_#e5e7eb]" { "单价" }
- th class="text-right text-xs font-medium text-slate-500 bg-slate-50 px-3 py-2 whitespace-nowrap [border-bottom:1px_solid_#e5e7eb]" { "数量" }
- th class="text-right text-xs font-medium text-slate-500 bg-slate-50 px-3 py-2 whitespace-nowrap [border-bottom:1px_solid_#e5e7eb]" { "小计" }
- th class="text-left text-xs font-medium text-slate-500 bg-slate-50 px-3 py-2 whitespace-nowrap [border-bottom:1px_solid_#e5e7eb]" { "备注" }
+ th class="text-left text-xs font-medium text-slate-500 bg-slate-50 px-2 py-2 whitespace-nowrap [border-bottom:1px_solid_#e5e7eb]" { "工序名称" }
+ th class="text-left text-xs font-medium text-slate-500 bg-slate-50 px-2 py-2 whitespace-nowrap [border-bottom:1px_solid_#e5e7eb] w-[80px]" { "工作中心" }
+ th class="text-right text-xs font-medium text-slate-500 bg-slate-50 px-2 py-2 whitespace-nowrap [border-bottom:1px_solid_#e5e7eb] w-[70px]" { "标准工时" }
+ th class="text-center text-xs font-medium text-slate-500 bg-slate-50 px-2 py-2 whitespace-nowrap [border-bottom:1px_solid_#e5e7eb] w-[48px]" { "委外" }
+ th class="text-right text-xs font-medium text-slate-500 bg-slate-50 px-2 py-2 whitespace-nowrap [border-bottom:1px_solid_#e5e7eb] w-[80px]" { "单价" }
+ th class="text-right text-xs font-medium text-slate-500 bg-slate-50 px-2 py-2 whitespace-nowrap [border-bottom:1px_solid_#e5e7eb] w-[60px]" { "数量" }
+ th class="text-right text-xs font-medium text-slate-500 bg-slate-50 px-2 py-2 whitespace-nowrap [border-bottom:1px_solid_#e5e7eb] w-[80px]" { "小计" }
+ th class="text-left text-xs font-medium text-slate-500 bg-slate-50 px-2 py-2 whitespace-nowrap [border-bottom:1px_solid_#e5e7eb]" { "备注" }
  }
  }
  tbody {
  @if report.labor_costs.is_empty() {
  tr {
- td colspan="5" class="text-center text-muted text-sm py-6" { "暂无人工成本数据" }
+ td colspan="8" class="text-center text-muted text-sm py-6" { "暂无人工成本数据" }
  }
  } @else {
  @for item in &report.labor_costs {
  @let is_zero = item.unit_price == Decimal::ZERO;
  tr class=(if is_zero { "bg-danger-100 text-danger-800" } else { "" }) {
- td class="px-3 py-2 text-sm font-medium" { (item.name) }
- td class="px-3 py-2 text-sm text-right whitespace-nowrap" {
+ td class="px-2 py-2 text-sm font-medium truncate max-w-[120px]" title=(item.name) { (item.name) }
+ td class="px-2 py-2 text-sm text-slate-500 whitespace-nowrap" {
+ @if let Some(ref name) = item.work_center_name { (name) } @else { span class="text-muted" { "—" } }
+ }
+ td class="px-2 py-2 text-sm text-right font-mono tabular-nums whitespace-nowrap" {
+ @if let Some(st) = item.standard_time { (st) " min" } @else { span class="text-muted" { "—" } }
+ }
+ td class="px-2 py-2 text-sm text-center whitespace-nowrap" {
+ @if item.is_outsourced { span class="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium bg-purple-100 text-purple-700" { "委外" } } @else { span class="text-muted" { "—" } }
+ }
+ td class="px-2 py-2 text-sm text-right whitespace-nowrap" {
  @if is_zero {
  span class="text-danger-500 font-medium" { "¥0.000000" }
  } @else {
  span class="font-mono tabular-nums" { (format_currency(item.unit_price)) }
  }
  }
- td class="px-3 py-2 text-sm text-right font-mono tabular-nums whitespace-nowrap" { (item.quantity) }
- td class="px-3 py-2 text-sm text-right whitespace-nowrap" {
+ td class="px-2 py-2 text-sm text-right font-mono tabular-nums whitespace-nowrap" { (item.quantity) }
+ td class="px-2 py-2 text-sm text-right whitespace-nowrap" {
  @if is_zero {
  span class="text-danger-500 font-medium" { (format_amount(item.unit_price, item.quantity)) }
  } @else {
  span class="font-mono tabular-nums text-accent font-medium" { (format_amount(item.unit_price, item.quantity)) }
  }
  }
- td class="px-3 py-2 text-sm text-slate-500" {
+ td class="px-2 py-2 text-sm text-slate-500 max-w-[100px] truncate" {
  @if item.remark.is_empty() { "—" } @else { (item.remark) }
  }
  }
@@ -774,35 +786,47 @@ fn labor_cost_drawer_content(bom_name: &str, report: &BomLaborCostReport) -> Mar
  div class="mb-6" {
  div class="text-[13px] font-semibold text-fg mb-2" { "【人工成本明细】" }
  div class="overflow-x-auto" {
- table class="w-full border-collapse" {
+ table class="w-full border-collapse min-w-[800px]" {
  thead {
  tr {
- th class="text-left text-xs font-semibold text-muted py-2 px-3 border-b border-border-soft" { "工序名称" }
- th class="text-right text-xs font-semibold text-muted py-2 px-3 border-b border-border-soft" { "单价" }
- th class="text-right text-xs font-semibold text-muted py-2 px-3 border-b border-border-soft" { "数量" }
- th class="text-right text-xs font-semibold text-muted py-2 px-3 border-b border-border-soft" { "小计" }
- th class="text-left text-xs font-semibold text-muted py-2 px-3 border-b border-border-soft" { "备注" }
+ th class="text-left text-xs font-semibold text-muted py-2 px-2 border-b border-border-soft" { "工序名称" }
+ th class="text-left text-xs font-semibold text-muted py-2 px-2 border-b border-border-soft w-[80px]" { "工作中心" }
+ th class="text-right text-xs font-semibold text-muted py-2 px-2 border-b border-border-soft w-[70px]" { "标准工时" }
+ th class="text-center text-xs font-semibold text-muted py-2 px-2 border-b border-border-soft w-[48px]" { "委外" }
+ th class="text-right text-xs font-semibold text-muted py-2 px-2 border-b border-border-soft w-[80px]" { "单价" }
+ th class="text-right text-xs font-semibold text-muted py-2 px-2 border-b border-border-soft w-[60px]" { "数量" }
+ th class="text-right text-xs font-semibold text-muted py-2 px-2 border-b border-border-soft w-[80px]" { "小计" }
+ th class="text-left text-xs font-semibold text-muted py-2 px-2 border-b border-border-soft" { "备注" }
  }
  }
  tbody {
  @if report.items.is_empty() {
  tr {
- td colspan="5" class="text-center text-muted text-sm py-8" { "暂无人工成本数据" }
+ td colspan="8" class="text-center text-muted text-sm py-8" { "暂无人工成本数据" }
  }
  } @else {
  @for item in &report.items {
  @let is_zero = item.unit_price == Decimal::ZERO;
  tr class=(if is_zero { "bg-danger-bg" } else { "" }) {
- td class="py-2 px-3 font-medium text-fg border-b border-border-soft" { (item.name) }
- td class="py-2 px-3 text-right border-b border-border-soft" {
+ td class="py-2 px-2 font-medium text-fg border-b border-border-soft truncate max-w-[120px]" title=(item.name) { (item.name) }
+ td class="py-2 px-2 text-muted text-sm border-b border-border-soft whitespace-nowrap" {
+ @if let Some(ref name) = item.work_center_name { (name) } @else { "—" }
+ }
+ td class="py-2 px-2 text-right font-mono tabular-nums text-fg-2 border-b border-border-soft whitespace-nowrap" {
+ @if let Some(st) = item.standard_time { (st) " min" } @else { "—" }
+ }
+ td class="py-2 px-2 text-center border-b border-border-soft whitespace-nowrap" {
+ @if item.is_outsourced { span class="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium bg-purple-100 text-purple-700" { "委外" } } @else { "—" }
+ }
+ td class="py-2 px-2 text-right border-b border-border-soft" {
  @if is_zero {
  span class="text-danger-500 font-medium" { "¥0.000000" }
  } @else {
  span class="font-mono tabular-nums text-fg-2" { (format_currency(item.unit_price)) }
  }
  }
- td class="py-2 px-3 text-right font-mono tabular-nums text-fg-2 border-b border-border-soft" { (item.quantity) }
- td class="py-2 px-3 text-right font-medium border-b border-border-soft" {
+ td class="py-2 px-2 text-right font-mono tabular-nums text-fg-2 border-b border-border-soft" { (item.quantity) }
+ td class="py-2 px-2 text-right font-medium border-b border-border-soft" {
  @if is_zero {
  span class="text-danger-500" { (format_amount(item.unit_price, item.quantity)) }
  } @else {
@@ -811,7 +835,7 @@ fn labor_cost_drawer_content(bom_name: &str, report: &BomLaborCostReport) -> Mar
  }
  }
  }
- td class="py-2 px-3 text-muted text-sm border-b border-border-soft" {
+ td class="py-2 px-2 text-muted text-sm border-b border-border-soft max-w-[100px] truncate" {
  @if item.remark.is_empty() { "—" } @else { (item.remark) }
  }
  }

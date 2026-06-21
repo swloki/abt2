@@ -325,7 +325,7 @@ classDiagram
     +list_by_work_order(work_order_id) Result~Vec~ProductionBatch~~
     +confirm_routing_step(ctx: &ServiceContext, db: PgExecutor, batch_id, step_no, req) Result~StepConfirmationResult~
     +update_routing(ctx: &ServiceContext, db: PgExecutor, work_order_id, routing_id, product_id, unit_price) Result~WorkOrderRouting~
-    +load_routings_from_template(ctx: &ServiceContext, db: PgExecutor, work_order_id) Result~usize~
+    +load_routings_from_template(ctx: &ServiceContext, db: PgExecutor, work_order_id, routing_id) Result~usize~
     +load_routings_from_recent(ctx: &ServiceContext, db: PgExecutor, work_order_id) Result~usize~
     +delete_routing(ctx: &ServiceContext, db: PgExecutor, work_order_id, routing_id) Result~Unit~
     +order_has_any_report(ctx: &ServiceContext, db: PgExecutor, work_order_id) Result~bool~

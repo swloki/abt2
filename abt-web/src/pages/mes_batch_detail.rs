@@ -172,14 +172,14 @@ fn batch_detail_page(
  }
  };
 
- html! { div {
+ html! { div class="space-y-5" {
  // 工单上下文条
  a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("/admin/mes/orders/{}", wo.id)) {
  (crate::components::icon::chevron_left_icon("w-4 h-4"))
  "返回工单 " span class="font-mono tabular-nums" { (wo.doc_number.as_str()) }
  }
- div class="block bg-bg border border-border rounded p-6" {
- div class="flex items-center justify-between" {
+ div class="bg-bg border border-border-soft rounded-xl p-5" {
+ div class="flex items-center justify-between mb-4" {
  div class="text-xl font-bold text-fg flex items-center gap-[14px]" {
  (batch.batch_no)
  span class=(format!("status-pill {}", crate::utils::status_color(sc))) { (sl) }
@@ -200,21 +200,21 @@ fn batch_detail_page(
  }
  }
  }
- // 10 fields matching prototype order
- div class="grid gap-5" {
- div class="flex flex-col gap-1" { span class="text-xs text-muted font-medium" { "工单" } span class="text-sm text-fg font-medium" { a href=(format!("/admin/mes/orders/{}", wo.id)) class="text-accent font-medium cursor-pointer" { (wo.doc_number) } } }
+ // 信息字段 — 多列紧凑布局
+ div class="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-3" {
+ div class="flex flex-col gap-0.5" { span class="text-xs text-muted" { "工单" } span class="text-sm text-fg font-medium" { a href=(format!("/admin/mes/orders/{}", wo.id)) class="text-accent font-medium cursor-pointer" { (wo.doc_number) } } }
  @if let (Some(pid), Some(pdoc)) = (wo.source_plan_id, wo.source_plan_doc.as_ref()) {
- div class="flex flex-col gap-1" { span class="text-xs text-muted font-medium" { "计划" } span class="text-sm text-fg font-medium" { a href=(format!("/admin/mes/plans/{}", pid)) class="text-accent font-medium cursor-pointer" { (pdoc) } } }
+ div class="flex flex-col gap-0.5" { span class="text-xs text-muted" { "计划" } span class="text-sm text-fg font-medium" { a href=(format!("/admin/mes/plans/{}", pid)) class="text-accent font-medium cursor-pointer" { (pdoc) } } }
  }
- div class="flex flex-col gap-1" { span class="text-xs text-muted font-medium" { "产品" } span class="text-sm text-fg font-medium" { (product_name) } }
- div class="flex flex-col gap-1" { span class="text-xs text-muted font-medium" { "班组" } span class="text-sm text-fg font-medium" { "—" } }
- div class="flex flex-col gap-1" { span class="text-xs text-muted font-medium" { "批次数量" } span class="text-sm text-fg font-medium" { (crate::utils::fmt_qty(batch.batch_qty)) } }
- div class="flex flex-col gap-1" { span class="text-xs text-muted font-medium" { "完成/报废" } span class="text-sm text-fg font-medium" { span class="text-success" { (crate::utils::fmt_qty(batch.completed_qty)) } " / " span class="text-danger" { (crate::utils::fmt_qty(batch.scrap_qty)) } } }
- div class="flex flex-col gap-1" { span class="text-xs text-muted font-medium" { "当前工序" } span class="text-sm text-fg font-medium text-warn" { (current_step_display) } }
- div class="flex flex-col gap-1" { span class="text-xs text-muted font-medium" { "实际开始" } span class="text-sm text-fg font-medium" { (batch.actual_start.map(|t| t.format("%Y-%m-%d %H:%M").to_string()).unwrap_or_else(|| "—".to_string())) } }
- div class="flex flex-col gap-1" { span class="text-xs text-muted font-medium" { "实际结束" } span class="text-sm text-fg font-medium text-muted" { (batch.actual_end.map(|t| t.format("%Y-%m-%d %H:%M").to_string()).unwrap_or_else(|| "—".to_string())) } }
- div class="flex flex-col gap-1" { span class="text-xs text-muted font-medium" { "创建人" } span class="text-sm text-fg font-medium" { (creator_name) } }
- div class="flex flex-col gap-1" { span class="text-xs text-muted font-medium" { "创建时间" } span class="text-sm text-fg font-medium" { (batch.created_at.format("%Y-%m-%d %H:%M").to_string()) } }
+ div class="flex flex-col gap-0.5" { span class="text-xs text-muted" { "产品" } span class="text-sm text-fg font-medium truncate" title=(product_name) { (product_name) } }
+ div class="flex flex-col gap-0.5" { span class="text-xs text-muted" { "班组" } span class="text-sm text-fg font-medium" { "—" } }
+ div class="flex flex-col gap-0.5" { span class="text-xs text-muted" { "批次数量" } span class="text-sm text-fg font-medium" { (crate::utils::fmt_qty(batch.batch_qty)) } }
+ div class="flex flex-col gap-0.5" { span class="text-xs text-muted" { "完成/报废" } span class="text-sm text-fg font-medium" { span class="text-success" { (crate::utils::fmt_qty(batch.completed_qty)) } " / " span class="text-danger" { (crate::utils::fmt_qty(batch.scrap_qty)) } } }
+ div class="flex flex-col gap-0.5" { span class="text-xs text-muted" { "当前工序" } span class="text-sm text-fg font-medium text-warn" { (current_step_display) } }
+ div class="flex flex-col gap-0.5" { span class="text-xs text-muted" { "实际开始" } span class="text-sm text-fg font-medium" { (batch.actual_start.map(|t| t.format("%Y-%m-%d %H:%M").to_string()).unwrap_or_else(|| "—".to_string())) } }
+ div class="flex flex-col gap-0.5" { span class="text-xs text-muted" { "实际结束" } span class="text-sm text-fg font-medium text-muted" { (batch.actual_end.map(|t| t.format("%Y-%m-%d %H:%M").to_string()).unwrap_or_else(|| "—".to_string())) } }
+ div class="flex flex-col gap-0.5" { span class="text-xs text-muted" { "创建人" } span class="text-sm text-fg font-medium" { (creator_name) } }
+ div class="flex flex-col gap-0.5" { span class="text-xs text-muted" { "创建时间" } span class="text-sm text-fg font-medium" { (batch.created_at.format("%Y-%m-%d %H:%M").to_string()) } }
  }
  }
 

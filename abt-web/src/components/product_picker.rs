@@ -34,6 +34,8 @@ pub struct ProductSearchParams {
     pub item_row_path: Option<String>,
     pub tbody_id: Option<String>,
     pub modal_id: Option<String>,
+    // BOM 物料过滤（逗号分隔的 product_id 列表）
+    pub bom_product_ids: Option<String>,
 }
 
 // ── Router ──
@@ -57,16 +59,35 @@ pub async fn search_products(
         owner_department_id: None,
         category_id: None,
     };
-    let result = svc.list(&service_ctx, &mut conn, filter, PageParams::new(1, 20)).await?;
+    // BOM 物料过滤：有 bom_product_ids 时直接通过 ID 列表 + 本地筛选，避免分页遗漏
+    let items: Vec<Product> = if let Some(ref ids_str) = params.bom_product_ids {
+        let allowed: std::collections::HashSet<i64> = ids_str
+            .split(',')
+            .filter_map(|s| s.trim().parse::<i64>().ok())
+            .collect();
+        if allowed.is_empty() {
+            svc.list(&service_ctx, &mut conn, filter, PageParams::new(1, 20)).await?.items
+        } else {
+            let bom_products = svc.get_by_ids(&service_ctx, &mut conn, allowed.iter().copied().collect()).await?;
+            // 本地按 name/code 过滤（不做分页限制，BOM 物料应全部展示）
+            bom_products.into_iter().filter(|p| {
+                let name_match = filter.name.as_ref().map_or(true, |n| p.pdt_name.contains(n));
+                let code_match = filter.code.as_ref().map_or(true, |c| p.product_code.contains(c));
+                name_match && code_match
+            }).collect()
+        }
+    } else {
+        svc.list(&service_ctx, &mut conn, filter, PageParams::new(1, 20)).await?.items
+    };
     let modal = params.modal_id.as_deref().unwrap_or("product-modal");
     // 如果有 item_row_path 参数 → add-row 模式，否则 fill-input 模式
     if let Some(row_path) = &params.item_row_path {
         let tbody = params.tbody_id.as_deref().unwrap_or("item-tbody");
-        Ok(Html(product_picker_results_for_table(&result.items, row_path, tbody, modal).into_string()))
+        Ok(Html(product_picker_results_for_table(&items, row_path, tbody, modal).into_string()))
     } else {
         let target = params.target_id.as_deref().unwrap_or("product_id");
         let display = params.display_id.as_deref().unwrap_or("product-display");
-        Ok(Html(product_picker_results(&result.items, target, display, modal).into_string()))
+        Ok(Html(product_picker_results(&items, target, display, modal).into_string()))
     }
 }
 
@@ -84,7 +105,26 @@ pub async fn search_products(
 ///
 /// 调用方可选监听：`hx-trigger="productSelected from:body"` 做额外处理（加载价格等）
 pub fn product_picker_modal(modal_id: &str, target_id: &str, display_id: &str) -> Markup {
+    product_picker_modal_with_bom_filter(modal_id, target_id, display_id, None)
+}
+
+/// 产品选择弹窗（带 BOM 物料过滤）
+///
+/// `bom_product_ids` — 可选，逗号分隔的 product_id 列表，限制搜索结果仅在该集合内
+pub fn product_picker_modal_with_bom_filter(
+    modal_id: &str,
+    target_id: &str,
+    display_id: &str,
+    bom_product_ids: Option<&str>,
+) -> Markup {
     let close_hs = format!("on click remove .is-open from #{}", modal_id);
+    let bom_inputs = if let Some(ids) = bom_product_ids {
+        html! {
+            input type="hidden" name="bom_product_ids" value=(ids);
+        }
+    } else {
+        Markup::default()
+    };
     html! {
         div class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto"
             id=(modal_id)
@@ -104,6 +144,7 @@ pub fn product_picker_modal(modal_id: &str, target_id: &str, display_id: &str) -
                         input type="hidden" name="target_id" value=(target_id);
                         input type="hidden" name="display_id" value=(display_id);
                         input type="hidden" name="modal_id" value=(modal_id);
+                        (bom_inputs)
                         div class="flex-1 flex flex-col gap-1" {
                             label class="text-xs font-medium text-fg-2" { "产品名称" }
                             input class="product-search-input w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
@@ -139,7 +180,16 @@ pub fn product_picker_modal(modal_id: &str, target_id: &str, display_id: &str) -
                         hx-get=(ProductSearchPath::PATH)
                         hx-trigger="intersect once"
                         hx-swap="innerHTML"
-                        hx-vals=(format!("{{\"target_id\":\"{}\",\"display_id\":\"{}\",\"modal_id\":\"{}\"}}", target_id, display_id, modal_id)) {
+                        hx-include=".product-search-bar"
+                        hx-vals=({
+                            let mut vals = format!("{{\"target_id\":\"{}\",\"display_id\":\"{}\",\"modal_id\":\"{}\"", target_id, display_id, modal_id);
+                            if let Some(ids) = bom_product_ids {
+                                use std::fmt::Write;
+                                write!(&mut vals, ",\"bom_product_ids\":\"{}\"", ids).unwrap();
+                            }
+                            vals.push_str("}");
+                            vals
+                        }) {
                         div class="flex items-center justify-center py-8 text-muted text-sm" { "加载中…" }
                     }
                 }

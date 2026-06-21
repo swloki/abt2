@@ -384,15 +384,23 @@ impl WorkOrderRoutingRepo {
         executor: &mut sqlx::postgres::PgConnection,
         work_order_id: i64,
     ) -> Result<()> {
+        // 两步法：先移到负数安全区避免 step_no UNIQUE 约束在 UPDATE 时瞬时冲突
+        sqlx::query(
+            "UPDATE work_order_routings SET step_no = -(step_no + 1) WHERE work_order_id = $1",
+        )
+        .bind(work_order_id)
+        .execute(&mut *executor)
+        .await?;
+        // 再按当前（负值）顺序赋 0-based 连续号
         sqlx::query(
             r#"
             WITH ordered AS (
-                SELECT id, ROW_NUMBER() OVER (ORDER BY step_no) AS new_no
+                SELECT id, ROW_NUMBER() OVER (ORDER BY -step_no) - 1 AS new_no
                 FROM work_order_routings
                 WHERE work_order_id = $1
             )
             UPDATE work_order_routings wor
-            SET step_no = ordered.new_no::int
+            SET step_no = ordered.new_no
             FROM ordered
             WHERE wor.id = ordered.id
             "#,

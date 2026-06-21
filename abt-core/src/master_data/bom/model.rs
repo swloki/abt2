@@ -190,6 +190,14 @@ pub struct LaborCostItem {
     pub quantity: Decimal,
     pub sort_order: i32,
     pub remark: String,
+    /// 工作中心 ID（来自 routing 模板；legacy 数据为 None）
+    pub work_center_id: Option<i64>,
+    /// 工作中心名称（来自 routing 模板；legacy 数据为 None）
+    pub work_center_name: Option<String>,
+    /// 标准工时（分钟，来自 routing 模板；legacy 数据为 None）
+    pub standard_time: Option<Decimal>,
+    /// 是否委外工序
+    pub is_outsourced: bool,
 }
 
 #[derive(Debug, Clone)]

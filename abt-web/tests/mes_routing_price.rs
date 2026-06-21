@@ -47,7 +47,7 @@ async fn create_work_order(app: &common::TestApp, product_id: i64, qty: &str) ->
                 product_id: None,
                 keyword: None,
                 date_from: None,
-                date_to: None,
+                date_to: None, product_code: None,
             },
             1,
             1,
@@ -127,19 +127,19 @@ async fn service_update_routing_saves_both_and_guards() {
 
     // 正常：一次保存 product_id + unit_price
     let updated = svc
-        .update_routing(&ctx, &mut conn, wo_id, rid, Some(565), Decimal::new(7, 0))
+        .update_routing(&ctx, &mut conn, wo_id, rid, Some(565), Decimal::new(7, 0), None, None, false)
         .await
         .unwrap();
     assert_eq!(updated.product_id, Some(565));
     assert_eq!(updated.unit_price, Some(Decimal::new(7, 0)));
 
     // 守卫：单价 ≤ 0
-    let err = svc.update_routing(&ctx, &mut conn, wo_id, rid, None, Decimal::ZERO).await.unwrap_err();
+    let err = svc.update_routing(&ctx, &mut conn, wo_id, rid, None, Decimal::ZERO, None, None, false).await.unwrap_err();
     assert!(matches!(err, DomainError::Validation { .. }), "got {err:?}");
 
     // 守卫：跨工单
     let wo_b = seed_released_work_order(&app, MULTI_STEP_PRODUCT_ID, "801").await;
-    let err = svc.update_routing(&ctx, &mut conn, wo_b, rid, None, Decimal::new(3, 0)).await.unwrap_err();
+    let err = svc.update_routing(&ctx, &mut conn, wo_b, rid, None, Decimal::new(3, 0), None, None, false).await.unwrap_err();
     assert!(matches!(err, DomainError::NotFound { .. }), "got {err:?}");
 }
 
@@ -154,11 +154,11 @@ async fn service_delete_renumbers_and_blocks_last() {
     let mut rs = svc.list_routings(&ctx, &mut conn, wo_id).await.unwrap();
     assert!(rs.len() >= 2, "多工序产品应 ≥2 道，实际 {}", rs.len());
 
-    // 删第一道 → 剩余 step_no 应重排为连续 1..N
+    // 删第一道 → 剩余 step_no 应重排为连续 0..N-1（与模板 step_order 一致的 0-based）
     svc.delete_routing(&ctx, &mut conn, wo_id, rs[0].id).await.unwrap();
     rs = svc.list_routings(&ctx, &mut conn, wo_id).await.unwrap();
     for (i, r) in rs.iter().enumerate() {
-        assert_eq!(r.step_no as usize, i + 1, "重排后 step_no 应连续");
+        assert_eq!(r.step_no as usize, i, "重排后 step_no 应 0-based 连续");
     }
 
     // 逐道删，直到只剩一道 → 再删应被守卫拒绝
@@ -210,7 +210,7 @@ async fn wage_is_frozen_at_report_time() {
     let rs = batch_svc.list_routings(&ctx, &mut conn, wo_id).await.unwrap();
     let step1 = rs.iter().find(|r| r.step_no == 1).unwrap();
     batch_svc
-        .update_routing(&ctx, &mut conn, wo_id, step1.id, None, Decimal::new(5, 0))
+        .update_routing(&ctx, &mut conn, wo_id, step1.id, None, Decimal::new(5, 0), None, None, false)
         .await
         .unwrap();
 
@@ -241,7 +241,7 @@ async fn wage_is_frozen_at_report_time() {
 
     // 报工后改该工序单价 → 应被守卫拒绝（不会污染历史工资）
     let err = batch_svc
-        .update_routing(&ctx, &mut conn, wo_id, step1.id, None, Decimal::new(9, 0))
+        .update_routing(&ctx, &mut conn, wo_id, step1.id, None, Decimal::new(9, 0), None, None, false)
         .await
         .unwrap_err();
     assert!(matches!(err, DomainError::BusinessRule { .. }), "报工后改价应拒绝");
@@ -287,13 +287,31 @@ async fn delete_blocked_after_any_report() {
 
 
 #[tokio::test]
-async fn load_routings_from_template_no_panic() {
+async fn load_routings_from_template_replaces_steps() {
+    use abt_core::master_data::routing::RoutingService;
     let app = common::TestApp::new().await;
-    let wo_id = seed_released_work_order(&app, MULTI_STEP_PRODUCT_ID, "900").await;
+    let wo_id = seed_released_work_order(&app, MULTI_STEP_PRODUCT_ID, "950").await;
     let svc = app.state.production_batch_service();
     let ctx = ServiceContext::new(1);
     let mut conn = app.state.pool.acquire().await.unwrap();
-    let _ = svc.load_routings_from_template(&ctx, &mut conn, wo_id).await.unwrap();
+    // 工单 release 时应该有 routing_id
+    let wo = app.state.work_order_service().find_by_id(&ctx, &mut conn, wo_id).await.unwrap();
+    let routing_id = wo.routing_id.expect("工单应有关联的工艺路径");
+    // 加载模板步骤
+    let n = svc.load_routings_from_template(&ctx, &mut conn, wo_id, routing_id).await.unwrap();
+    assert!(n > 0, "应至少插入 1 行，实际 {n}");
+    // 验证加载后的工序行
+    let rs = svc.list_routings(&ctx, &mut conn, wo_id).await.unwrap();
+    assert_eq!(rs.len(), n, "加载后的行数应与插入数一致");
+    // 验证模板步骤结构与工单工序对应
+    let detail = app.state.routing_service().get_detail(&ctx, &mut conn, routing_id).await.unwrap();
+    assert_eq!(rs.len(), detail.steps.len(), "工单工序行数应与模板步骤数一致");
+    for (r, s) in rs.iter().zip(detail.steps.iter()) {
+        assert_eq!(r.step_no, s.step_order, "step_no 应对齐");
+        assert!(!r.process_name.is_empty(), "工序名不应为空");
+        assert_eq!(r.is_outsourced, s.is_outsourced);
+        assert_eq!(r.is_inspection_point, s.is_inspection_point);
+    }
 }
 
 #[tokio::test]
@@ -305,7 +323,7 @@ async fn load_routings_from_recent_copies_sibling() {
     let wo_a = seed_released_work_order(&app, MULTI_STEP_PRODUCT_ID, "910").await;
     let wo_b = seed_released_work_order(&app, MULTI_STEP_PRODUCT_ID, "911").await;
     let rs_a = batch_svc.list_routings(&ctx, &mut conn, wo_a).await.unwrap();
-    batch_svc.update_routing(&ctx, &mut conn, wo_a, rs_a[0].id, Some(565), Decimal::new(5,0)).await.unwrap();
+    batch_svc.update_routing(&ctx, &mut conn, wo_a, rs_a[0].id, Some(565), Decimal::new(5,0), None, None, false).await.unwrap();
     let n = batch_svc.load_routings_from_recent(&ctx, &mut conn, wo_b).await.unwrap();
     assert!(n >= 1, "应至少复制 1 行，实际 {n}");
     let rs_b = batch_svc.list_routings(&ctx, &mut conn, wo_b).await.unwrap();

@@ -526,6 +526,9 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
         routing_id: i64,
         product_id: Option<i64>,
         unit_price: Decimal,
+        work_center_id: Option<i64>,
+        standard_time: Option<Decimal>,
+        is_outsourced: bool,
     ) -> Result<WorkOrderRouting> {
         // 守卫 1：单价 > 0
         if unit_price <= Decimal::ZERO {
@@ -557,12 +560,17 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
 
         let old_pid = routing.product_id;
         let old_price = routing.unit_price;
+        let old_wc = routing.work_center_id;
+        let old_time = routing.standard_time;
         sqlx::query(
-            r#"UPDATE work_order_routings SET product_id = $2, unit_price = $3 WHERE id = $1"#,
+            r#"UPDATE work_order_routings SET product_id = $2, unit_price = $3, work_center_id = $4, standard_time = $5, is_outsourced = $6 WHERE id = $1"#,
         )
         .bind(routing_id)
         .bind(product_id)
         .bind(unit_price)
+        .bind(work_center_id)
+        .bind(standard_time)
+        .bind(is_outsourced)
         .execute(&mut *tx)
         .await?;
 
@@ -572,8 +580,8 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
                 entity_id: routing_id,
                 action: AuditAction::Update,
                 changes: Some(json!(format!(
-                    "product_id: {:?} → {:?}; unit_price: {:?} → {:?}",
-                    old_pid, product_id, old_price, unit_price
+                    "product_id: {:?} → {:?}; unit_price: {:?} → {:?}; work_center_id: {:?} → {:?}; standard_time: {:?} → {:?}",
+                    old_pid, product_id, old_price, unit_price, old_wc, work_center_id, old_time, standard_time
                 ))),
                 context: Some(json!(format!("work_order_id={}", work_order_id))),
             })
@@ -588,42 +596,65 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
     }
 
     async fn load_routings_from_template(
-        &self, ctx: &ServiceContext, _db: PgExecutor<'_>, work_order_id: i64,
+        &self, ctx: &ServiceContext, _db: PgExecutor<'_>,
+        work_order_id: i64, routing_id: i64,
     ) -> Result<usize> {
+        use crate::master_data::routing::{new_routing_service, service::RoutingService};
         let mut conn = self.pool.acquire().await.map_err(|e| DomainError::Internal(e.into()))?;
         let wo = new_work_order_service(self.pool.clone()).find_by_id(ctx, &mut *conn, work_order_id).await?;
-        let routing_id = wo.routing_id.ok_or_else(|| DomainError::business_rule("工单未关联工艺路线"))?;
         if !matches!(wo.status, WorkOrderStatus::Released | WorkOrderStatus::InProduction) {
-            return Err(DomainError::business_rule("工单当前状态不允许加载产出品"));
+            return Err(DomainError::business_rule("工单当前状态不允许加载工艺路径"));
         }
+        let planned_qty = wo.planned_qty;
         drop(conn);
         let mut tx = self.pool.begin().await.map_err(|e| DomainError::Internal(e.into()))?;
-        let steps = crate::master_data::routing::repo::RoutingRepo
-            .find_steps(&mut *tx, routing_id).await?;
-        let tpl: std::collections::HashMap<i32, i64> = steps.into_iter()
-            .filter_map(|s| s.product_id.map(|pid| (s.step_order, pid))).collect();
+        // 1) 获取工艺路径模板步骤
+        let detail = new_routing_service(self.pool.clone())
+            .get_detail(ctx, &mut *tx, routing_id).await?;
+        // 2) 删除已有工序（跳过已报工的），同时记录被锁定的 step_no
         let mine = WorkOrderRoutingRepo::get_by_work_order_id(&mut *tx, work_order_id).await?;
-        let mut filled = 0usize;
+        let mut deleted = 0usize;
+        let mut locked_step_nos: std::collections::HashSet<i32> = std::collections::HashSet::new();
         for r in &mine {
-            if r.product_id.is_some() { continue; }
-            if WorkOrderRoutingRepo::has_report(&mut *tx, r.id).await? { continue; }
-            if let Some(pid) = tpl.get(&r.step_no) {
-                sqlx::query(r#"UPDATE work_order_routings SET product_id = $2 WHERE id = $1"#)
-                    .bind(r.id).bind(pid).execute(&mut *tx).await?;
-                filled += 1;
+            if WorkOrderRoutingRepo::has_report(&mut *tx, r.id).await? {
+                locked_step_nos.insert(r.step_no);
+            } else {
+                sqlx::query("DELETE FROM work_order_routings WHERE id = $1")
+                    .bind(r.id).execute(&mut *tx).await?;
+                deleted += 1;
             }
         }
-        if filled > 0 {
+        // 3) 插入模板步骤（跳过与被锁定 step_no 冲突的）
+        let mut inserted = 0usize;
+        for step in &detail.steps {
+            if locked_step_nos.contains(&step.step_order) { continue; }
+            let process_name = step.process_name.as_deref().unwrap_or(&step.process_code);
+            sqlx::query(
+                r#"INSERT INTO work_order_routings
+                   (work_order_id, step_no, process_name, work_center_id, standard_time, standard_cost,
+                    unit_price, allowed_loss_rate, planned_qty, is_outsourced, is_inspection_point, product_id)
+                   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)"#,
+            )
+            .bind(work_order_id).bind(step.step_order).bind(process_name)
+            .bind(step.work_center_id).bind(step.standard_time).bind(step.standard_cost)
+            .bind(step.unit_price).bind(step.allowed_loss_rate)
+            .bind(planned_qty).bind(step.is_outsourced).bind(step.is_inspection_point)
+            .bind(step.product_id)
+            .execute(&mut *tx).await?;
+            inserted += 1;
+        }
+        // 4) 审计日志
+        if inserted > 0 || deleted > 0 {
             new_audit_log_service(self.pool.clone())
                 .record(ctx, &mut *tx, RecordAuditLogReq {
                     entity_type: "WorkOrder", entity_id: work_order_id,
                     action: AuditAction::Update,
-                    changes: Some(json!(format!("批量加载产出品自模板 routing#{routing_id}，{filled}行"))),
+                    changes: Some(json!(format!("从工艺路径加载工序（删除{deleted}行，插入{inserted}行，跳过{}行已报工）", locked_step_nos.len()))),
                     context: None,
                 }).await?;
         }
         tx.commit().await.map_err(|e| DomainError::Internal(e.into()))?;
-        Ok(filled)
+        Ok(inserted)
     }
 
     async fn load_routings_from_recent(

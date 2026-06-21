@@ -111,7 +111,7 @@ pub async fn search_wo(
  product_id: None,
  keyword: None,
  date_from: None,
- date_to: None,
+ date_to: None, product_code: None,
  };
  let mk_filter = |status: WorkOrderStatus, keyword: String| WorkOrderFilter {
  status: Some(status),

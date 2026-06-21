@@ -210,6 +210,10 @@ classDiagram
     +quantity: Decimal
     +sort_order: i32
     +remark: String
+    +work_center_id: Option~i64~
+    +work_center_name: Option~String~
+    +standard_time: Option~Decimal~
+    +is_outsourced: bool
   }
 
   class BomLaborCostReport {

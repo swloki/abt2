@@ -198,7 +198,7 @@ async fn find_wo_id(app: &TestApp, product: i64) -> i64 {
     let ctx = ServiceContext::new(1);
     let mut conn = app.state.pool.acquire().await.unwrap();
     let res = svc
-        .list(&ctx, &mut conn, WorkOrderFilter { status: None, product_id: Some(product), keyword: None, date_from: None, date_to: None }, 1, 10)
+        .list(&ctx, &mut conn, WorkOrderFilter { status: None, product_id: Some(product), keyword: None, date_from: None, date_to: None, product_code: None }, 1, 10)
         .await
         .unwrap();
     res.items.first().map(|w| w.id).unwrap_or(0)

@@ -56,7 +56,7 @@ pub async fn get_order_list(
  let product_svc = state.product_service();
  let filter = WorkOrderFilter {
  status: params.status.as_deref().and_then(parse_wo_status),
- product_id: None, keyword: params.keyword.clone(), date_from: None, date_to: None,
+ product_id: None, keyword: params.keyword.clone(), date_from: None, date_to: None, product_code: None,
  };
  let result = svc.list(&service_ctx, &mut conn, filter, params.page.unwrap_or(1), 20).await?;
  let product_names: HashMap<i64, String> = {

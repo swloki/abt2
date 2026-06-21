@@ -130,6 +130,10 @@ impl WorkOrderRepo {
             param_idx += 1;
             where_clauses.push(format!("wo.doc_number ILIKE ${param_idx}"));
         }
+        if filter.product_code.is_some() {
+            param_idx += 1;
+            where_clauses.push(format!("p.product_code ILIKE ${param_idx}"));
+        }
         if filter.date_from.is_some() {
             param_idx += 1;
             where_clauses.push(format!("wo.scheduled_start >= ${param_idx}"));
@@ -143,7 +147,7 @@ impl WorkOrderRepo {
         let limit_idx = param_idx + 1;
         let offset_idx = param_idx + 2;
 
-        let count_sql = format!("SELECT COUNT(*) as total FROM work_orders wo WHERE {where_sql}");
+        let count_sql = format!("SELECT COUNT(*) as total FROM work_orders wo LEFT JOIN products p ON p.product_id = wo.product_id WHERE {where_sql}");
         let data_sql = format!(
             "SELECT wo.id, wo.doc_number, wo.plan_item_id, wo.product_id, wo.bom_snapshot_id, wo.routing_id, \
              wo.planned_qty, wo.scheduled_start, wo.scheduled_end, wo.status, wo.work_center_id, \
@@ -156,6 +160,7 @@ impl WorkOrderRepo {
              pp.id AS source_plan_id, pp.doc_number AS source_plan_doc, \
              so.doc_number AS source_so_doc, c.customer_name AS source_customer \
              FROM work_orders wo \
+             LEFT JOIN products p ON p.product_id = wo.product_id \
              LEFT JOIN production_plan_items ppi ON ppi.id = wo.plan_item_id \
              LEFT JOIN production_plans pp ON pp.id = ppi.plan_id \
              LEFT JOIN sales_orders so ON so.id = wo.sales_order_id \
@@ -187,6 +192,11 @@ impl WorkOrderRepo {
         if let Some(v) = filter.date_to {
             count_q = count_q.bind(v);
             data_q = data_q.bind(v);
+        }
+        if let Some(ref v) = filter.product_code {
+            let pattern = format!("%{v}%");
+            count_q = count_q.bind(pattern.clone());
+            data_q = data_q.bind(pattern);
         }
 
         data_q = data_q.bind(page_size as i64).bind(offset as i64);

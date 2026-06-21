@@ -150,7 +150,7 @@ async fn create_work_order(app: &TestApp, qty: &str) -> (i64, i32) {
                 product_id: None,
                 keyword: None,
                 date_from: None,
-                date_to: None,
+                date_to: None, product_code: None,
             },
             1,
             1,

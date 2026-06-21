@@ -749,6 +749,76 @@ impl BomCostServiceImpl {
     pub fn new(pool: PgPool) -> Self {
         Self { pool, repo: BomRepo, node_repo: BomNodeRepo, price_repo: PriceRepo }
     }
+
+    /// 尝试从 routing 模板构建人工成本项。返回 `Ok(None)` 表示无绑定或无工序。
+    async fn try_build_labor_from_routing(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        product_code: &str,
+    ) -> Result<Option<Vec<LaborCostItem>>> {
+        use crate::master_data::routing::{new_routing_service, RoutingService};
+        use crate::master_data::work_center::{new_work_center_service, WorkCenterService};
+
+        let routing_svc = new_routing_service(self.pool.clone());
+        let detail = match routing_svc.get_bom_routing(ctx, db, product_code.to_string()).await? {
+            Some(d) => d,
+            None => return Ok(None),
+        };
+
+        if detail.steps.is_empty() {
+            return Ok(None);
+        }
+
+        let wc_svc = new_work_center_service(self.pool.clone());
+        let mut items = Vec::with_capacity(detail.steps.len());
+
+        for step in &detail.steps {
+            let work_center_name = if let Some(wc_id) = step.work_center_id {
+                wc_svc.get(ctx, db, wc_id).await.ok().map(|wc| wc.name)
+            } else {
+                None
+            };
+
+            items.push(LaborCostItem {
+                id: step.id,
+                name: step.process_name.clone().unwrap_or_else(|| step.process_code.clone()),
+                unit_price: step.unit_price.unwrap_or(rust_decimal::Decimal::ZERO),
+                quantity: rust_decimal::Decimal::ONE,
+                sort_order: step.step_order,
+                remark: step.remark.clone().unwrap_or_default(),
+                work_center_id: step.work_center_id,
+                work_center_name,
+                standard_time: step.standard_time,
+                is_outsourced: step.is_outsourced,
+            });
+        }
+
+        Ok(Some(items))
+    }
+
+    /// 从 bom_labor_processes 表构建人工成本项（legacy 兜底）。
+    async fn build_labor_from_legacy(
+        &self,
+        db: PgExecutor<'_>,
+        product_code: &str,
+    ) -> Result<Vec<LaborCostItem>> {
+        use crate::master_data::bom_labor_process::repo::BomLaborProcessRepo;
+
+        let rows = BomLaborProcessRepo.find_all_by_product_code(db, product_code).await?;
+        Ok(rows.iter().map(|r| LaborCostItem {
+            id: r.id,
+            name: r.name.clone(),
+            unit_price: r.unit_price,
+            quantity: r.quantity,
+            sort_order: r.sort_order,
+            remark: r.remark.clone().unwrap_or_default(),
+            work_center_id: None,
+            work_center_name: None,
+            standard_time: None,
+            is_outsourced: false,
+        }).collect())
+    }
 }
 
 #[async_trait::async_trait]
@@ -760,7 +830,6 @@ impl BomCostService for BomCostServiceImpl {
         as_of_date: Option<chrono::DateTime<chrono::Utc>>,
     ) -> Result<BomCostReport> {
         use crate::master_data::product::{new_product_service, service::ProductService};
-        use crate::master_data::bom_labor_process::repo::BomLaborProcessRepo;
 
         let bom = self.repo.find_by_id(db, bom_id)
             .await?
@@ -835,21 +904,14 @@ impl BomCostService for BomCostServiceImpl {
             });
         }
 
-        // Labor costs
-        let labor_repo = BomLaborProcessRepo;
-        let labor_rows: Vec<crate::master_data::bom_labor_process::BomLaborProcess> = if root_product_code.is_empty() {
+        // Labor costs: 优先从 routing 模板获取，找不到再回退 bom_labor_processes
+        let labor_costs: Vec<LaborCostItem> = if root_product_code.is_empty() {
             Vec::new()
+        } else if let Some(routing_items) = self.try_build_labor_from_routing(_ctx, db, &root_product_code).await? {
+            routing_items
         } else {
-            labor_repo.find_all_by_product_code(db, &root_product_code).await.unwrap_or_default()
+            self.build_labor_from_legacy(db, &root_product_code).await.unwrap_or_default()
         };
-        let labor_costs: Vec<LaborCostItem> = labor_rows.iter().map(|r| LaborCostItem {
-            id: r.id,
-            name: r.name.clone(),
-            unit_price: r.unit_price,
-            quantity: r.quantity,
-            sort_order: r.sort_order,
-            remark: r.remark.clone().unwrap_or_default(),
-        }).collect();
 
         Ok(BomCostReport {
             bom_id,
@@ -867,7 +929,6 @@ impl BomCostService for BomCostServiceImpl {
         _ctx: &ServiceContext, db: PgExecutor<'_>,
         bom_id: i64,
     ) -> Result<BomLaborCostReport> {
-        use crate::master_data::bom_labor_process::repo::BomLaborProcessRepo;
         use crate::master_data::product::{new_product_service, service::ProductService};
 
         let root_node = self.node_repo.find_root_node(db, bom_id).await?
@@ -883,17 +944,12 @@ impl BomCostService for BomCostServiceImpl {
             }
         };
 
-        let labor_repo = BomLaborProcessRepo;
-        let rows: Vec<crate::master_data::bom_labor_process::BomLaborProcess> = labor_repo.find_all_by_product_code(db, &product_code).await?;
-
-        let items: Vec<LaborCostItem> = rows.iter().map(|r| LaborCostItem {
-            id: r.id,
-            name: r.name.clone(),
-            unit_price: r.unit_price,
-            quantity: r.quantity,
-            sort_order: r.sort_order,
-            remark: r.remark.clone().unwrap_or_default(),
-        }).collect();
+        // 优先从 routing 模板获取人工成本，找不到再回退 bom_labor_processes
+        let items = if let Some(routing_items) = self.try_build_labor_from_routing(_ctx, db, &product_code).await? {
+            routing_items
+        } else {
+            self.build_labor_from_legacy(db, &product_code).await?
+        };
 
         let total_cost = items.iter()
             .fold(rust_decimal::Decimal::ZERO, |acc, item| acc + item.unit_price * item.quantity);

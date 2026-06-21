@@ -284,8 +284,8 @@ impl WorkOrderRoutingRepo {
                 INSERT INTO work_order_routings
                     (work_order_id, step_no, process_name, work_center_id,
                      standard_time, standard_cost, unit_price, allowed_loss_rate,
-                     planned_qty, is_outsourced, is_inspection_point)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                     planned_qty, is_outsourced, is_inspection_point, product_id)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
                 "#,
             )
             .bind(step.work_order_id)
@@ -299,6 +299,7 @@ impl WorkOrderRoutingRepo {
             .bind(step.planned_qty)
             .bind(step.is_outsourced)
             .bind(step.is_inspection_point)
+            .bind(step.product_id)
             .execute(&mut *executor)
             .await?;
         }
@@ -315,7 +316,7 @@ impl WorkOrderRoutingRepo {
             r#"
             SELECT id, work_order_id, step_no, process_name, work_center_id,
                    standard_time, standard_cost, unit_price, allowed_loss_rate,
-                   planned_qty, is_outsourced, is_inspection_point
+                   planned_qty, is_outsourced, is_inspection_point, product_id
             FROM work_order_routings
             WHERE work_order_id = $1 AND step_no = $2
             "#,
@@ -328,6 +329,114 @@ impl WorkOrderRoutingRepo {
         row.map(|r| Ok(WorkOrderRouting::from_row(&r)?)).transpose()
     }
 
+    /// 按 id 查找工序（带 work_order_id 用于越权校验）
+    pub async fn get_by_id(
+        executor: &mut sqlx::postgres::PgConnection,
+        routing_id: i64,
+    ) -> Result<Option<WorkOrderRouting>> {
+        let row = sqlx::query(
+            r#"
+            SELECT id, work_order_id, step_no, process_name, work_center_id,
+                   standard_time, standard_cost, unit_price, allowed_loss_rate,
+                   planned_qty, is_outsourced, is_inspection_point, product_id
+            FROM work_order_routings
+            WHERE id = $1
+            "#,
+        )
+        .bind(routing_id)
+        .fetch_optional(&mut *executor)
+        .await?;
+        row.map(|r| Ok(WorkOrderRouting::from_row(&r)?)).transpose()
+    }
+
+    /// 更新单条工序计件单价
+    pub async fn update_unit_price(
+        executor: &mut sqlx::postgres::PgConnection,
+        routing_id: i64,
+        unit_price: Decimal,
+    ) -> Result<()> {
+        sqlx::query(
+            r#"
+            UPDATE work_order_routings SET unit_price = $2 WHERE id = $1
+            "#,
+        )
+        .bind(routing_id)
+        .bind(unit_price)
+        .execute(&mut *executor)
+        .await?;
+        Ok(())
+    }
+
+    /// 删除单条工序
+    pub async fn delete(
+        executor: &mut sqlx::postgres::PgConnection,
+        routing_id: i64,
+    ) -> Result<()> {
+        sqlx::query(r#"DELETE FROM work_order_routings WHERE id = $1"#)
+            .bind(routing_id)
+            .execute(&mut *executor)
+            .await?;
+        Ok(())
+    }
+
+    /// 删除后重排：剩余工序 step_no 压成 1..N 连续
+    pub async fn renumber_steps(
+        executor: &mut sqlx::postgres::PgConnection,
+        work_order_id: i64,
+    ) -> Result<()> {
+        sqlx::query(
+            r#"
+            WITH ordered AS (
+                SELECT id, ROW_NUMBER() OVER (ORDER BY step_no) AS new_no
+                FROM work_order_routings
+                WHERE work_order_id = $1
+            )
+            UPDATE work_order_routings wor
+            SET step_no = ordered.new_no::int
+            FROM ordered
+            WHERE wor.id = ordered.id
+            "#,
+        )
+        .bind(work_order_id)
+        .execute(&mut *executor)
+        .await?;
+        Ok(())
+    }
+
+    /// 该工序是否已有报工记录（改价逐行守卫）
+    pub async fn has_report(
+        executor: &mut sqlx::postgres::PgConnection,
+        routing_id: i64,
+    ) -> Result<bool> {
+        let exists: (bool,) = sqlx::query_as(
+            r#"SELECT EXISTS(SELECT 1 FROM work_reports WHERE routing_id = $1)"#,
+        )
+        .bind(routing_id)
+        .fetch_one(&mut *executor)
+        .await?;
+        Ok(exists.0)
+    }
+
+    /// 该工单是否有任意报工记录（删除全局守卫）
+    pub async fn has_any_report(
+        executor: &mut sqlx::postgres::PgConnection,
+        work_order_id: i64,
+    ) -> Result<bool> {
+        let exists: (bool,) = sqlx::query_as(
+            r#"
+            SELECT EXISTS(
+                SELECT 1 FROM work_reports wr
+                JOIN work_order_routings wor ON wor.id = wr.routing_id
+                WHERE wor.work_order_id = $1
+            )
+            "#,
+        )
+        .bind(work_order_id)
+        .fetch_one(&mut *executor)
+        .await?;
+        Ok(exists.0)
+    }
+
     /// 按工单 ID 查找所有工序（按 step_no 排序）
     pub async fn get_by_work_order_id(
         executor: &mut sqlx::postgres::PgConnection,
@@ -337,7 +446,7 @@ impl WorkOrderRoutingRepo {
             r#"
             SELECT id, work_order_id, step_no, process_name, work_center_id,
                    standard_time, standard_cost, unit_price, allowed_loss_rate,
-                   planned_qty, is_outsourced, is_inspection_point
+                   planned_qty, is_outsourced, is_inspection_point, product_id
             FROM work_order_routings
             WHERE work_order_id = $1
             ORDER BY step_no
@@ -365,7 +474,7 @@ impl WorkOrderRoutingRepo {
             r#"
             SELECT id, work_order_id, step_no, process_name, work_center_id,
                    standard_time, standard_cost, unit_price, allowed_loss_rate,
-                   planned_qty, is_outsourced, is_inspection_point
+                   planned_qty, is_outsourced, is_inspection_point, product_id
             FROM work_order_routings
             WHERE work_order_id = ANY($1)
             ORDER BY step_no
@@ -583,6 +692,7 @@ pub struct WorkReportRow {
     pub work_hours: Decimal,
     pub remark: String,
     pub operator_id: i64,
+    pub wage_amount: Decimal,
     pub created_at: chrono::DateTime<chrono::Utc>,
     pub updated_at: chrono::DateTime<chrono::Utc>,
 }
@@ -598,13 +708,13 @@ impl WorkReportRepo {
             INSERT INTO work_reports
                 (doc_number, work_order_id, batch_id, routing_id, report_date,
                  shift, worker_id, completed_qty, defect_qty, defect_reason,
-                 work_hours, remark, operator_id)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+                 work_hours, remark, operator_id, wage_amount)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
             ON CONFLICT (batch_id, routing_id, worker_id, shift, report_date)
             DO NOTHING
             RETURNING id, doc_number, work_order_id, batch_id, routing_id, report_date,
                       shift, worker_id, completed_qty, defect_qty, defect_reason,
-                      work_hours, remark, operator_id, created_at, updated_at
+                      work_hours, remark, operator_id, wage_amount, created_at, updated_at
             "#,
         )
         .bind(params.doc_number)
@@ -620,6 +730,7 @@ impl WorkReportRepo {
         .bind(params.work_hours)
         .bind(params.remark)
         .bind(params.operator_id)
+        .bind(params.wage_amount)
         .fetch_optional(&mut *executor)
         .await?;
 
@@ -633,7 +744,7 @@ impl WorkReportRepo {
                     r#"
                     SELECT id, doc_number, work_order_id, batch_id, routing_id, report_date,
                            shift, worker_id, completed_qty, defect_qty, defect_reason,
-                           work_hours, remark, operator_id, created_at, updated_at
+                           work_hours, remark, operator_id, wage_amount, created_at, updated_at
                     FROM work_reports
                     WHERE batch_id = $1 AND routing_id = $2 AND worker_id = $3
                           AND shift = $4 AND report_date = $5

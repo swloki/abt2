@@ -19,6 +19,7 @@ pub struct WorkReport {
     pub work_hours: Decimal,
     pub remark: String,
     pub operator_id: i64,
+    pub wage_amount: rust_decimal::Decimal,
     pub created_at: chrono::DateTime<chrono::Utc>,
     pub updated_at: chrono::DateTime<chrono::Utc>,
 }
@@ -75,6 +76,7 @@ pub struct ReportListItem {
     pub doc_number: String,
     pub work_order_id: i64,
     pub batch_id: i64,
+    pub routing_id: i64,
     pub product_id: i64,
     pub product_name: Option<String>,
     pub process_name: String,

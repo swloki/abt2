@@ -24,6 +24,9 @@ use crate::shared::inventory_reservation::{new_inventory_reservation_service, se
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
 use crate::shared::types::Result;
+use crate::shared::audit_log::{new_audit_log_service, RecordAuditLogReq, service::AuditLogService};
+use crate::shared::enums::audit::AuditAction;
+use serde_json::json;
 
 pub struct ProductionBatchServiceImpl {
     #[allow(dead_code)]
@@ -250,6 +253,7 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
                 work_hours: req.work_hours,
                 remark: remark_str,
                 operator_id: ctx.operator_id,
+                wage_amount,
             },
         )
         .await
@@ -512,6 +516,172 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
             inspection_triggered,
             wage_amount,
         })
+    }
+
+    async fn update_routing_unit_price(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        work_order_id: i64,
+        routing_id: i64,
+        unit_price: Decimal,
+    ) -> Result<WorkOrderRouting> {
+        // 守卫 1：单价 > 0
+        if unit_price <= Decimal::ZERO {
+            return Err(DomainError::validation("计件单价必须大于 0"));
+        }
+        let mut tx = self.pool.begin().await
+            .map_err(|e| DomainError::Internal(e.into()))?;
+
+        // 守卫 2/3：routing 存在且属于该工单
+        let routing = WorkOrderRoutingRepo::get_by_id(&mut *tx, routing_id)
+            .await?
+            .ok_or_else(|| DomainError::not_found("WorkOrderRouting"))?;
+        if routing.work_order_id != work_order_id {
+            return Err(DomainError::not_found("WorkOrderRouting"));
+        }
+
+        // 守卫 2：工单状态 ∈ {Released, InProduction}
+        let wo = new_work_order_service(self.pool.clone())
+            .find_by_id(ctx, &mut *tx, work_order_id)
+            .await?;
+        if !matches!(wo.status, WorkOrderStatus::Released | WorkOrderStatus::InProduction) {
+            return Err(DomainError::business_rule("工单当前状态不允许修改工序单价"));
+        }
+
+        // 守卫 4：该工序未报工（事务内复查防并发）
+        if WorkOrderRoutingRepo::has_report(&mut *tx, routing_id).await? {
+            return Err(DomainError::business_rule("该工序已报工，单价不可修改"));
+        }
+
+        let old_price = routing.unit_price;
+        WorkOrderRoutingRepo::update_unit_price(&mut *tx, routing_id, unit_price).await?;
+
+        new_audit_log_service(self.pool.clone())
+            .record(ctx, &mut *tx, RecordAuditLogReq {
+                entity_type: "WorkOrderRouting",
+                entity_id: routing_id,
+                action: AuditAction::Update,
+                changes: Some(json!(format!(
+                    "unit_price: {:?} → {:?}",
+                    old_price, unit_price
+                ))),
+                context: Some(json!(format!("work_order_id={}", work_order_id))),
+            })
+            .await?;
+
+        let updated = WorkOrderRoutingRepo::get_by_id(&mut *tx, routing_id)
+            .await?
+            .ok_or_else(|| DomainError::not_found("WorkOrderRouting"))?;
+
+        tx.commit().await.map_err(|e| DomainError::Internal(e.into()))?;
+        Ok(updated)
+    }
+
+    async fn update_routing_product(
+        &self,
+        ctx: &ServiceContext,
+        _db: PgExecutor<'_>,
+        work_order_id: i64,
+        routing_id: i64,
+        product_id: Option<i64>,
+    ) -> Result<WorkOrderRouting> {
+        let mut tx = self.pool.begin().await
+            .map_err(|e| DomainError::Internal(e.into()))?;
+        let routing = WorkOrderRoutingRepo::get_by_id(&mut *tx, routing_id)
+            .await?
+            .ok_or_else(|| DomainError::not_found("WorkOrderRouting"))?;
+        if routing.work_order_id != work_order_id {
+            return Err(DomainError::not_found("WorkOrderRouting"));
+        }
+        let wo = new_work_order_service(self.pool.clone())
+            .find_by_id(ctx, &mut *tx, work_order_id)
+            .await?;
+        if !matches!(wo.status, WorkOrderStatus::Released | WorkOrderStatus::InProduction) {
+            return Err(DomainError::business_rule("工单当前状态不允许修改工序产出品"));
+        }
+        if WorkOrderRoutingRepo::has_report(&mut *tx, routing_id).await? {
+            return Err(DomainError::business_rule("该工序已报工，产出品不可修改"));
+        }
+        sqlx::query(r#"UPDATE work_order_routings SET product_id = $2 WHERE id = $1"#)
+            .bind(routing_id)
+            .bind(product_id)
+            .execute(&mut *tx)
+            .await?;
+        let updated = WorkOrderRoutingRepo::get_by_id(&mut *tx, routing_id)
+            .await?
+            .ok_or_else(|| DomainError::not_found("WorkOrderRouting"))?;
+        tx.commit().await.map_err(|e| DomainError::Internal(e.into()))?;
+        Ok(updated)
+    }
+
+    async fn delete_routing(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        work_order_id: i64,
+        routing_id: i64,
+    ) -> Result<()> {
+        let mut tx = self.pool.begin().await
+            .map_err(|e| DomainError::Internal(e.into()))?;
+
+        let routing = WorkOrderRoutingRepo::get_by_id(&mut *tx, routing_id)
+            .await?
+            .ok_or_else(|| DomainError::not_found("WorkOrderRouting"))?;
+        if routing.work_order_id != work_order_id {
+            return Err(DomainError::not_found("WorkOrderRouting"));
+        }
+
+        let wo = new_work_order_service(self.pool.clone())
+            .find_by_id(ctx, &mut *tx, work_order_id)
+            .await?;
+        if !matches!(wo.status, WorkOrderStatus::Released | WorkOrderStatus::InProduction) {
+            return Err(DomainError::business_rule("工单当前状态不允许删除工序"));
+        }
+
+        // 守卫：整单零报工
+        if WorkOrderRoutingRepo::has_any_report(&mut *tx, work_order_id).await? {
+            return Err(DomainError::business_rule("工单已有报工记录，不可删除工序"));
+        }
+        // 守卫：至少保留一道
+        let remaining: i64 = sqlx::query_scalar(
+            r#"SELECT COUNT(*)::bigint FROM work_order_routings WHERE work_order_id = $1"#,
+        )
+        .bind(work_order_id)
+        .fetch_one(&mut *tx)
+        .await
+        .map_err(|e| DomainError::Internal(e.into()))?;
+        if remaining <= 1 {
+            return Err(DomainError::business_rule("至少保留一道工序"));
+        }
+
+        WorkOrderRoutingRepo::delete(&mut *tx, routing_id).await?;
+        WorkOrderRoutingRepo::renumber_steps(&mut *tx, work_order_id).await?;
+
+        new_audit_log_service(self.pool.clone())
+            .record(ctx, &mut *tx, RecordAuditLogReq {
+                entity_type: "WorkOrderRouting",
+                entity_id: routing_id,
+                action: AuditAction::Delete,
+                changes: Some(json!(format!(
+                    "删除工序 {} {}",
+                    routing.step_no, routing.process_name
+                ))),
+                context: Some(json!(format!("work_order_id={}", work_order_id))),
+            })
+            .await?;
+
+        tx.commit().await.map_err(|e| DomainError::Internal(e.into()))?;
+        Ok(())
+    }
+
+    async fn order_has_any_report(
+        &self,
+        _ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        work_order_id: i64,
+    ) -> Result<bool> {
+        WorkOrderRoutingRepo::has_any_report(&mut *db, work_order_id).await
     }
 
     /// 推进到待入库状态

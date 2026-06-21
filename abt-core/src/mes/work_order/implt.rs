@@ -173,6 +173,7 @@ impl WorkOrderService for WorkOrderServiceImpl {
                     planned_qty: work_order.planned_qty,
                     is_outsourced: step.is_outsourced,
                     is_inspection_point: step.is_inspection_point,
+                    product_id: step.product_id,
                 })
                 .collect(),
             _ => vec![WorkOrderRouting {
@@ -188,6 +189,7 @@ impl WorkOrderService for WorkOrderServiceImpl {
                 planned_qty: work_order.planned_qty,
                 is_outsourced: false,
                 is_inspection_point: false,
+                product_id: None,
             }],
         };
 

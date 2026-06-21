@@ -16,7 +16,7 @@ impl WorkReportRepo {
             r#"
             SELECT id, doc_number, work_order_id, batch_id, routing_id,
                    report_date, shift, worker_id, completed_qty, defect_qty,
-                   defect_reason, work_hours, remark, operator_id, created_at, updated_at
+                   defect_reason, work_hours, remark, operator_id, wage_amount, created_at, updated_at
             FROM work_reports
             WHERE id = $1
             "#,
@@ -37,7 +37,7 @@ impl WorkReportRepo {
             r#"
             SELECT id, doc_number, work_order_id, batch_id, routing_id,
                    report_date, shift, worker_id, completed_qty, defect_qty,
-                   defect_reason, work_hours, remark, operator_id, created_at, updated_at
+                   defect_reason, work_hours, remark, operator_id, wage_amount, created_at, updated_at
             FROM work_reports
             WHERE work_order_id = $1
             ORDER BY created_at DESC
@@ -63,7 +63,7 @@ impl WorkReportRepo {
             r#"
             SELECT id, doc_number, work_order_id, batch_id, routing_id,
                    report_date, shift, worker_id, completed_qty, defect_qty,
-                   defect_reason, work_hours, remark, operator_id, created_at, updated_at
+                   defect_reason, work_hours, remark, operator_id, wage_amount, created_at, updated_at
             FROM work_reports
             WHERE batch_id = $1
             ORDER BY created_at DESC
@@ -91,7 +91,7 @@ impl WorkReportRepo {
             r#"
             SELECT id, doc_number, work_order_id, batch_id, routing_id,
                    report_date, shift, worker_id, completed_qty, defect_qty,
-                   defect_reason, work_hours, remark, operator_id, created_at, updated_at
+                   defect_reason, work_hours, remark, operator_id, wage_amount, created_at, updated_at
             FROM work_reports
             WHERE worker_id = $1 AND report_date >= $2 AND report_date <= $3
             ORDER BY report_date, created_at
@@ -116,7 +116,7 @@ impl WorkReportRepo {
             r#"
             SELECT id, doc_number, work_order_id, batch_id, routing_id,
                    report_date, shift, worker_id, completed_qty, defect_qty,
-                   defect_reason, work_hours, remark, operator_id, created_at, updated_at
+                   defect_reason, work_hours, remark, operator_id, wage_amount, created_at, updated_at
             FROM work_reports
             WHERE report_date >= $1 AND report_date <= $2
             ORDER BY worker_id, report_date, created_at
@@ -191,7 +191,7 @@ impl WorkReportRepo {
         let data_sql = format!(
             r#"
             SELECT wr.id, wr.doc_number,
-                   wr.work_order_id, wr.batch_id,
+                   wr.work_order_id, wr.batch_id, wr.routing_id,
                    wo.product_id,
                    p.pdt_name AS product_name,
                    wor.process_name,

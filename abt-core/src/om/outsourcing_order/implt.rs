@@ -6,10 +6,11 @@ use sqlx::postgres::PgPool;
 use super::model::{
     CancelOutsourcingReq, ConvertToInternalReq, CreateOutsourcingOrderReq, OutsourcingMaterial,
     OutsourcingOrder, OutsourcingOrderQuery, ReceiveOutsourcingReq, SendOutsourcingReq,
-    UpdateOutsourcingOrderReq, UpdateOutsourcingParams,
+    UpdateOutsourcingOrderReq, UpdateOutsourcingParams, WorkOrderOutsourcingSummary,
 };
 use super::repo::{OutsourcingMaterialRepo, OutsourcingOrderRepo};
 use super::service::OutsourcingOrderService;
+use crate::mes::production_batch::{new_production_batch_service, ProductionBatchService};
 use crate::mes::work_order::model::CreateWorkOrderReq;
 use crate::mes::work_order::{new_work_order_service, service::WorkOrderService};
 use crate::om::enums::{OutsourcingStatus, OutsourcingType};
@@ -966,5 +967,26 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
         records.sort_by_key(|r| r.created_at);
         let mut seen = HashSet::new();
         Ok(records.into_iter().filter(|r| seen.insert(r.id)).collect())
+    }
+
+    async fn outsourcing_summary(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        work_order_id: i64,
+    ) -> Result<WorkOrderOutsourcingSummary> {
+        let wo = new_work_order_service(self.pool.clone())
+            .find_by_id(ctx, db, work_order_id)
+            .await?;
+        let routings = new_production_batch_service(self.pool.clone())
+            .list_routings(ctx, db, work_order_id)
+            .await?;
+        Ok(WorkOrderOutsourcingSummary {
+            product_id: wo.product_id,
+            planned_qty: wo.planned_qty,
+            scheduled_end: wo.scheduled_end,
+            customer_name: wo.source_customer,
+            routings,
+        })
     }
 }

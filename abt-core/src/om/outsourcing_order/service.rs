@@ -3,7 +3,7 @@
 use super::model::{
     CancelOutsourcingReq, ConvertToInternalReq, CreateOutsourcingOrderReq, OutsourcingMaterial,
     OutsourcingOrder, OutsourcingOrderQuery, ReceiveOutsourcingReq, SendOutsourcingReq,
-    UpdateOutsourcingOrderReq,
+    UpdateOutsourcingOrderReq, WorkOrderOutsourcingSummary,
 };
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::PgExecutor;
@@ -66,4 +66,12 @@ pub trait OutsourcingOrderService: Send + Sync {
         db: PgExecutor<'_>,
         outsourcing_id: i64,
     ) -> Result<Vec<InventoryTransaction>>;
+
+    /// 工单委外摘要（关联工单联动：产品/数量/交期/客户 + 工序列表）
+    async fn outsourcing_summary(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        work_order_id: i64,
+    ) -> Result<WorkOrderOutsourcingSummary>;
 }

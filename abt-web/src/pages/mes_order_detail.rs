@@ -15,7 +15,8 @@ use crate::errors::Result;
 use crate::layout::page::admin_page;
 use crate::routes::mes_order::{
  OrderCancelPath, OrderClosePath, OrderDetailPath, OrderListPath, OrderReleasePath,
- OrderSplitPath, OrderUnreleasePath,
+ OrderRoutingDeletePath, OrderRoutingPricePath, OrderRoutingProductPath, OrderSplitPath,
+ OrderUnreleasePath,
 };
 use crate::utils::RequestContext;
 use abt_macros::require_permission;
@@ -160,9 +161,14 @@ pub async fn get_order_detail(
  // 是否有入库记录
  let has_receipts = order.completed_qty > rust_decimal::Decimal::ZERO;
 
+ // 已报工 routing_id 集合 + 整单是否有报工（决定工序行的改价/删除可编辑态）
+ let reported_routing_ids: std::collections::HashSet<i64> =
+ reports.iter().map(|r| r.routing_id).collect();
+ let order_has_report = !reports.is_empty();
+
  let content = order_detail_page(
  &order, &product_name, &routings, &batches, &reports, &audit_logs,
- completion_pct, has_receipts,
+ completion_pct, has_receipts, &reported_routing_ids, order_has_report,
  );
  let page_html = admin_page(
  is_htmx,
@@ -309,6 +315,161 @@ pub async fn split_order(
  Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }
 
+#[derive(Debug, serde::Deserialize)]
+pub struct RoutingPriceForm {
+    pub unit_price: rust_decimal::Decimal,
+}
+
+/// 行内修改工序计件单价，返回更新后的该行 <tr>
+#[require_permission("WORK_ORDER", "update")]
+pub async fn update_routing_price(
+    path: OrderRoutingPricePath,
+    ctx: RequestContext,
+    axum::Form(form): axum::Form<RoutingPriceForm>,
+) -> Result<Html<String>> {
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let svc = state.production_batch_service();
+    let updated = svc
+        .update_routing_unit_price(
+            &service_ctx, &mut conn,
+            path.order_id, path.routing_id, form.unit_price,
+        )
+        .await?;
+    // 守卫已保证该工序未报工 → 可编辑行；order_has_report 决定删除按钮可见性
+    let order_has_report = svc.order_has_any_report(&service_ctx, &mut conn, path.order_id).await?;
+    Ok(Html(routing_row_fragment(&updated, false, order_has_report).into_string()))
+}
+
+#[derive(Debug, serde::Deserialize)]
+pub struct RoutingProductForm {
+    #[serde(default, deserialize_with = "crate::utils::empty_as_none")]
+    pub product_id: Option<i64>,
+}
+
+/// 行内修改工序产出品（关联半成品），返回更新后的该行 <tr>
+#[require_permission("WORK_ORDER", "update")]
+pub async fn update_routing_product(
+    path: OrderRoutingProductPath,
+    ctx: RequestContext,
+    axum::Form(form): axum::Form<RoutingProductForm>,
+) -> Result<Html<String>> {
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let svc = state.production_batch_service();
+    let updated = svc
+        .update_routing_product(
+            &service_ctx, &mut conn,
+            path.order_id, path.routing_id, form.product_id,
+        )
+        .await?;
+    let order_has_report = svc.order_has_any_report(&service_ctx, &mut conn, path.order_id).await?;
+    Ok(Html(routing_row_fragment(&updated, false, order_has_report).into_string()))
+}
+
+/// 删除工序，返回重排后的整个 <tbody>
+#[require_permission("WORK_ORDER", "update")]
+pub async fn delete_routing(
+    path: OrderRoutingDeletePath,
+    ctx: RequestContext,
+) -> Result<Html<String>> {
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let svc = state.production_batch_service();
+    svc.delete_routing(&service_ctx, &mut conn, path.order_id, path.routing_id).await?;
+    let routings = svc.list_routings(&service_ctx, &mut conn, path.order_id).await?;
+    // 删除只在整单零报工时允许 → 删除后仍零报工
+    let empty = std::collections::HashSet::new();
+    Ok(Html(routing_tbody_fragment(&routings, &empty, false).into_string()))
+}
+
+/// 渲染单行 <tr>。is_reported_step=true → 单价只读；order_has_report=false → 显示删除按钮
+fn routing_row_fragment(
+    r: &WorkOrderRouting, is_reported_step: bool, order_has_report: bool,
+) -> Markup {
+    html! {
+        tr {
+            td class="font-mono tabular-nums" { (r.step_no) }
+            td { strong { (r.process_name.as_str()) } }
+            td class="font-mono tabular-nums text-[13px]" {
+                @if is_reported_step {
+                    @if let Some(p) = r.product_id { "#" (p) } @else { "—" }
+                } @else {
+                    input class="w-[80px] px-2 py-[5px] text-[13px] font-mono border border-border rounded-sm bg-white outline-none focus:border-accent"
+                        type="number" name="product_id"
+                        value=(r.product_id.map(|p| p.to_string()).unwrap_or_default())
+                        placeholder="产出品ID"
+                        hx-post=(OrderRoutingProductPath { order_id: r.work_order_id, routing_id: r.id }.to_string())
+                        hx-trigger="change"
+                        hx-target="closest tr"
+                        hx-swap="outerHTML"
+                        hx-disabled-elt="this";
+                }
+            }
+            td class="font-mono tabular-nums" {
+                @if let Some(wc) = r.work_center_id { "#" (wc) } @else { "—" }
+            }
+            td class="font-mono tabular-nums text-right text-[13px]" { (crate::utils::fmt_qty(r.planned_qty)) }
+            td class="font-mono tabular-nums text-right text-[13px]" {
+                @if let Some(t) = r.standard_time { (crate::utils::fmt_qty(t)) } @else { "—" }
+            }
+            td class="font-mono tabular-nums text-right text-[13px]" {
+                @if let Some(c) = r.standard_cost { "¥" (crate::utils::fmt_qty(c)) } @else { "—" }
+            }
+            td class="font-mono tabular-nums text-right text-[13px]" {
+                @if is_reported_step {
+                    @if let Some(p) = r.unit_price { "¥" (crate::utils::fmt_qty(p)) } @else { "—" }
+                } @else {
+                    input class="w-[88px] text-right px-2 py-[5px] text-[13px] font-mono border border-border rounded-sm bg-white outline-none focus:border-accent"
+                        type="number" step="any" min="0.000001" name="unit_price"
+                        value=(r.unit_price.map(|p| p.to_string()).unwrap_or_default())
+                        hx-post=(OrderRoutingPricePath { order_id: r.work_order_id, routing_id: r.id }.to_string())
+                        hx-trigger="change"
+                        hx-target="closest tr"
+                        hx-swap="outerHTML"
+                        hx-disabled-elt="this";
+                }
+            }
+            td {
+                @if r.is_outsourced { span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-warn-bg text-warn" { "委外" } } @else { "—" }
+            }
+            td {
+                @if r.is_inspection_point {
+                    span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-accent-bg text-accent" { "报检" }
+                } @else { "—" }
+            }
+            td class="text-center" {
+                @if !order_has_report {
+                    button class="text-muted hover:text-danger cursor-pointer border-none bg-transparent p-1"
+                        title="删除该工序"
+                        hx-post=(OrderRoutingDeletePath { order_id: r.work_order_id, routing_id: r.id }.to_string())
+                        hx-confirm="删除该工序并重排后续工序号？"
+                        hx-target="closest tbody"
+                        hx-swap="outerHTML"
+                        hx-disabled-elt="this" {
+                        (icon::trash_icon("w-4 h-4"))
+                    }
+                } @else { "—" }
+            }
+        }
+    }
+}
+
+/// 渲染整个 <tbody>
+fn routing_tbody_fragment(
+    routings: &[WorkOrderRouting],
+    reported_routing_ids: &std::collections::HashSet<i64>,
+    order_has_report: bool,
+) -> Markup {
+    html! {
+        tbody {
+            @for r in routings {
+                (routing_row_fragment(r, reported_routing_ids.contains(&r.id), order_has_report))
+            }
+            @if routings.is_empty() {
+                tr { td colspan="11" class="text-center text-muted text-sm" { "暂无工序明细（工单未下达或无工艺路线）" } }
+            }
+        }
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 fn order_detail_page(
  order: &WorkOrder,
@@ -319,6 +480,8 @@ fn order_detail_page(
  audit_logs: &[AuditLog],
  completion_pct: rust_decimal::Decimal,
  has_receipts: bool,
+ reported_routing_ids: &std::collections::HashSet<i64>,
+ order_has_report: bool,
 ) -> Markup {
  let (status_label, status_bg, status_color) = wo_status_label(&order.status);
  let routing_tab_label = format!("工序明细 {}", routings.len());
@@ -428,7 +591,7 @@ fn order_detail_page(
  ]))
 
  (tab_panel("info", true, tab_info(order, product_name, routings.len(), completion_pct)))
- (tab_panel("routing", false, tab_routing(routings)))
+ (tab_panel("routing", false, tab_routing(routings, reported_routing_ids, order_has_report)))
  (tab_panel("batches", false, tab_batches(batches, routings, order)))
  (tab_panel("reports", false, tab_reports(reports)))
  (tab_panel("log", false, tab_log(audit_logs)))
@@ -555,7 +718,11 @@ fn tab_info(order: &WorkOrder, product_name: &str, routing_count: usize, complet
  }
 }
 
-fn tab_routing(routings: &[WorkOrderRouting]) -> Markup {
+fn tab_routing(
+ routings: &[WorkOrderRouting],
+ reported_routing_ids: &std::collections::HashSet<i64>,
+ order_has_report: bool,
+) -> Markup {
  html! {
  // 工序定义表（执行进度已迁移至 batch_routing_progress，由批次维度页面展示）
  div class="data-card" {
@@ -565,6 +732,7 @@ fn tab_routing(routings: &[WorkOrderRouting]) -> Markup {
  tr {
  th { "序号" }
  th { "工序名称" }
+ th { "产出品" }
  th { "工作中心" }
  th class="text-right text-[13px]" { "计划量" }
  th class="text-right text-[13px]" { "标准工时" }
@@ -572,40 +740,10 @@ fn tab_routing(routings: &[WorkOrderRouting]) -> Markup {
  th class="text-right text-[13px]" { "计件单价" }
  th { "委外" }
  th { "标记" }
+ th { "操作" }
  }
  }
- tbody {
- @for r in routings {
- tr {
- td class="font-mono tabular-nums" { (r.step_no) }
- td { strong { (r.process_name.as_str()) } }
- td class="font-mono tabular-nums" {
- @if let Some(wc) = r.work_center_id { "#" (wc) } @else { "—" }
- }
- td class="font-mono tabular-nums text-right text-[13px]" { (crate::utils::fmt_qty(r.planned_qty)) }
- td class="font-mono tabular-nums text-right text-[13px]" {
- @if let Some(t) = r.standard_time { (crate::utils::fmt_qty(t)) } @else { "—" }
- }
- td class="font-mono tabular-nums text-right text-[13px]" {
- @if let Some(c) = r.standard_cost { "¥" (crate::utils::fmt_qty(c)) } @else { "—" }
- }
- td class="font-mono tabular-nums text-right text-[13px]" {
- @if let Some(p) = r.unit_price { "¥" (crate::utils::fmt_qty(p)) } @else { "—" }
- }
- td {
- @if r.is_outsourced { span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-warn-bg text-warn" { "委外" } } @else { "—" }
- }
- td {
- @if r.is_inspection_point {
- span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-accent-bg text-accent" { "报检" }
- } @else { "—" }
- }
- }
- }
- @if routings.is_empty() {
- tr { td colspan="9" class="text-center text-muted text-sm" { "暂无工序明细（工单未下达或无工艺路线）" } }
- }
- }
+ (routing_tbody_fragment(routings, reported_routing_ids, order_has_report))
  }
  }
  }

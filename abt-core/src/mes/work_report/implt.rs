@@ -107,12 +107,9 @@ impl WorkReportService for WorkReportServiceImpl {
                 .map(|r| (r.process_name.clone(), r.unit_price.unwrap_or(Decimal::ZERO)))
                 .unwrap_or_else(|| (String::new(), Decimal::ZERO));
 
-            // 工资公式：(completed_qty + non_operator_defect_qty) * unit_price
-            let non_operator_defect_qty = match report.defect_reason {
-                Some(reason) if reason.affect_wage() => report.defect_qty,
-                _ => Decimal::ZERO,
-            };
-            let wage_amount = (report.completed_qty + non_operator_defect_qty) * unit_price;
+            // 工资取报工时冻结的 wage_amount（migration 062 起，报工落库即冻结，
+            // 后续改工序单价不影响历史工资）
+            let wage_amount = report.wage_amount;
             total_amount += wage_amount;
 
             details.push(WageDetail {

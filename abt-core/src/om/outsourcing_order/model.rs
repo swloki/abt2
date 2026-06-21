@@ -13,6 +13,7 @@ pub struct OutsourcingOrder {
     pub doc_number: String,
     pub work_order_id: Option<i64>,
     pub routing_id: Option<i64>,
+    pub process_name: Option<String>,
     pub supplier_id: i64,
     pub product_id: i64,
     pub outsourcing_type: OutsourcingType,
@@ -76,6 +77,7 @@ pub struct OutsourcingMaterialItem {
 pub struct CreateOutsourcingOrderReq {
     pub work_order_id: Option<i64>,
     pub routing_id: Option<i64>,
+    pub process_name: Option<String>,
     pub supplier_id: i64,
     pub product_id: i64,
     pub outsourcing_type: OutsourcingType,
@@ -86,6 +88,15 @@ pub struct CreateOutsourcingOrderReq {
     pub source_warehouse_id: i64,
     pub remark: Option<String>,
     pub materials: Vec<OutsourcingMaterialItem>,
+}
+
+/// 工单委外摘要（关联工单联动用：回填产品/数量/交期/客户 + 工序列表）
+pub struct WorkOrderOutsourcingSummary {
+    pub product_id: i64,
+    pub planned_qty: Decimal,
+    pub scheduled_end: NaiveDate,
+    pub customer_name: Option<String>,
+    pub routings: Vec<crate::mes::production_batch::WorkOrderRouting>,
 }
 
 /// 委外单更新参数（不含 id 和 version）

@@ -71,6 +71,10 @@ pub struct PurchaseOrderQuery {
     pub status: Option<PurchaseOrderStatus>,
     pub order_date_start: Option<NaiveDate>,
     pub order_date_end: Option<NaiveDate>,
+    /// 单号模糊匹配（ILIKE '%kw%'）
+    pub doc_number: Option<String>,
+    /// 产品编码反查：匹配明细中含该编码产品的订单（EXISTS join items+products）
+    pub product_code: Option<String>,
 }
 
 // ---------------------------------------------------------------------------

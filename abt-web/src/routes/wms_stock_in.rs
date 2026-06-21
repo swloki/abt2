@@ -32,6 +32,10 @@ pub struct StockInSourcePickPath;
 pub struct StockInSourceItemsPath;
 
 #[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/wms/stock-in/create/search-po")]
+pub struct StockInPoSearchPath;
+
+#[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/wms/stock-in/{id}")]
 pub struct StockInDetailPath {
     pub id: i64,
@@ -44,6 +48,7 @@ pub fn router() -> Router<AppState> {
         .route(StockInListPath::PATH, get(wms_stock_in_list::get_stock_in_list))
         .route(StockInSourcePickPath::PATH, get(wms_stock_in_create::get_source_pick))
         .route(StockInSourceItemsPath::PATH, get(wms_stock_in_create::get_source_items))
+        .route(StockInPoSearchPath::PATH, get(wms_stock_in_create::search_purchase_orders))
         .route(StockInItemRowPath::PATH, get(wms_stock_in_create::get_item_row))
         .route(StockInCreatePath::PATH, get(wms_stock_in_create::get_stock_in_create).post(wms_stock_in_create::create_stock_in))
         .route(StockInDetailPath::PATH, get(wms_stock_in_detail::get_stock_in_detail))

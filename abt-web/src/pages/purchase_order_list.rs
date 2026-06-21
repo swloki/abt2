@@ -61,6 +61,7 @@ fn build_filter(params: &POQueryParams) -> PurchaseOrderQuery {
  status: params.status.and_then(PurchaseOrderStatus::from_i16),
  order_date_start,
  order_date_end,
+ ..Default::default()
  }
 }
 

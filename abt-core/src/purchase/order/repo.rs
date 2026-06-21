@@ -112,9 +112,18 @@ impl PurchaseOrderRepo {
     ) -> Result<(Vec<PurchaseOrder>, u64)> {
         let (data_scope, operator_id, _department_id) = scope;
         // purchase_orders 无 department_id，Department 降级为 SelfOnly
-        let scope_clause = match data_scope {
-            DataScope::All => "",
-            _ => "AND operator_id = $7",
+        // 占位符布局：$1 supplier_id, $2 status, $3 order_date_start, $4 order_date_end,
+        //             $5 doc_number, $6 product_code
+        // count 追加 scope $7；data 追加 LIMIT $7 OFFSET $8 + scope $9
+        let count_scope = if matches!(data_scope, DataScope::All) {
+            ""
+        } else {
+            "AND operator_id = $7"
+        };
+        let data_scope_clause = if matches!(data_scope, DataScope::All) {
+            ""
+        } else {
+            "AND operator_id = $9"
         };
         let where_clause = format!(
             "WHERE deleted_at IS NULL
@@ -122,16 +131,24 @@ impl PurchaseOrderRepo {
               AND ($2::smallint IS NULL OR status = $2)
               AND ($3::date IS NULL OR order_date >= $3)
               AND ($4::date IS NULL OR order_date <= $4)
-              {scope_clause}"
+              AND ($5::text IS NULL OR doc_number ILIKE '%' || $5 || '%')
+              AND ($6::text IS NULL OR EXISTS (
+                    SELECT 1 FROM purchase_order_items poi
+                    JOIN products p ON p.product_id = poi.product_id AND p.deleted_at IS NULL
+                    WHERE poi.order_id = purchase_orders.id
+                      AND p.product_code ILIKE '%' || $6 || '%'))"
         );
 
         // Count
-        let count_sql = format!("SELECT COUNT(*) AS cnt FROM purchase_orders {where_clause}");
+        let count_sql =
+            format!("SELECT COUNT(*) AS cnt FROM purchase_orders {where_clause} {count_scope}");
         let mut count_query = sqlx::query(sqlx::AssertSqlSafe(count_sql))
             .bind(q.supplier_id)
             .bind(q.status)
             .bind(q.order_date_start)
-            .bind(q.order_date_end);
+            .bind(q.order_date_end)
+            .bind(q.doc_number.as_deref())
+            .bind(q.product_code.as_deref());
         if !matches!(data_scope, DataScope::All) {
             count_query = count_query.bind(operator_id);
         }
@@ -149,15 +166,17 @@ impl PurchaseOrderRepo {
                     payment_schedule_generated,
                     invoice_status, per_billed,
                     operator_id, created_at, updated_at, deleted_at
-             FROM purchase_orders {where_clause}
+             FROM purchase_orders {where_clause} {data_scope_clause}
              ORDER BY created_at DESC
-             LIMIT $5 OFFSET $6"
+             LIMIT $7 OFFSET $8"
         );
         let mut data_query = sqlx::query_as::<_, PurchaseOrder>(sqlx::AssertSqlSafe(data_sql))
             .bind(q.supplier_id)
             .bind(q.status)
             .bind(q.order_date_start)
             .bind(q.order_date_end)
+            .bind(q.doc_number.as_deref())
+            .bind(q.product_code.as_deref())
             .bind(limit)
             .bind(offset);
         if !matches!(data_scope, DataScope::All) {

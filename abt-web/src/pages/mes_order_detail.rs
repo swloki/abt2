@@ -15,7 +15,8 @@ use crate::errors::Result;
 use crate::layout::page::admin_page;
 use crate::routes::mes_order::{
  OrderCancelPath, OrderClosePath, OrderDetailPath, OrderListPath, OrderReleasePath,
- OrderRoutingDeletePath, OrderRoutingEditPath, OrderSplitPath, OrderUnreleasePath,
+ OrderRoutingDeletePath, OrderRoutingEditPath, OrderRoutingLoadRecentPath,
+ OrderRoutingLoadTemplatePath, OrderSplitPath, OrderUnreleasePath,
 };
 use crate::utils::RequestContext;
 use abt_macros::require_permission;
@@ -401,18 +402,56 @@ pub async fn delete_routing(
     let RequestContext { mut conn, state, service_ctx, .. } = ctx;
     let svc = state.production_batch_service();
     svc.delete_routing(&service_ctx, &mut conn, path.order_id, path.routing_id).await?;
-    let routings = svc.list_routings(&service_ctx, &mut conn, path.order_id).await?;
-    // 删除只在整单零报工时允许 → 删除后仍零报工
-    let empty = std::collections::HashSet::new();
+    let body = refresh_routing_tbody(&state, &svc, &service_ctx, &mut conn, path.order_id).await?;
+    Ok(Html(body.into_string()))
+}
+
+/// 从工艺路线模板批量加载产出品
+#[require_permission("WORK_ORDER", "update")]
+pub async fn load_routings_from_template(
+    path: OrderRoutingLoadTemplatePath,
+    ctx: RequestContext,
+) -> Result<Html<String>> {
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let svc = state.production_batch_service();
+    svc.load_routings_from_template(&service_ctx, &mut conn, path.order_id).await?;
+    let body = refresh_routing_tbody(&state, &svc, &service_ctx, &mut conn, path.order_id).await?;
+    Ok(Html(body.into_string()))
+}
+
+/// 从最近同路径工单批量加载产出品
+#[require_permission("WORK_ORDER", "update")]
+pub async fn load_routings_from_recent(
+    path: OrderRoutingLoadRecentPath,
+    ctx: RequestContext,
+) -> Result<Html<String>> {
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let svc = state.production_batch_service();
+    svc.load_routings_from_recent(&service_ctx, &mut conn, path.order_id).await?;
+    let body = refresh_routing_tbody(&state, &svc, &service_ctx, &mut conn, path.order_id).await?;
+    Ok(Html(body.into_string()))
+}
+
+/// 重新取工序列表 + 解析产品名 → 返回 tab_routing（含加载按钮，替换 #routing-tbody-wrap）
+async fn refresh_routing_tbody<T: abt_core::mes::production_batch::ProductionBatchService>(
+    state: &crate::state::AppState,
+    svc: &T,
+    ctx: &abt_core::shared::types::context::ServiceContext,
+    db: abt_core::shared::types::PgExecutor<'_>,
+    work_order_id: i64,
+) -> Result<Markup> {
+    use abt_core::master_data::product::ProductService;
+    let routings = svc.list_routings(ctx, db, work_order_id).await?;
     let pids: Vec<i64> = routings.iter().filter_map(|r| r.product_id).collect();
     let product_names: std::collections::HashMap<i64, String> = if pids.is_empty() {
         std::collections::HashMap::new()
     } else {
-        use abt_core::master_data::product::ProductService;
-        state.product_service().get_by_ids(&service_ctx, &mut conn, pids).await
+        state.product_service().get_by_ids(ctx, db, pids).await
             .unwrap_or_default().into_iter().map(|p| (p.product_id, p.pdt_name)).collect()
     };
-    Ok(Html(routing_tbody_fragment(&routings, &empty, false, &product_names).into_string()))
+    let empty = std::collections::HashSet::new();
+    // 删除/加载只在整单零报工时触发 → order_has_report=false 近似准确
+    Ok(tab_routing(&routings, &empty, false, &product_names, work_order_id))
 }
 
 /// 渲染单行 <tr>（只读展示）。reported_step → 编辑按钮隐藏；order_has_report=false → 显示删除按钮
@@ -663,7 +702,7 @@ fn order_detail_page(
  ]))
 
  (tab_panel("info", true, tab_info(order, product_name, routings.len(), completion_pct)))
- (tab_panel("routing", false, tab_routing(routings, reported_routing_ids, order_has_report, product_names)))
+ (tab_panel("routing", false, tab_routing(routings, reported_routing_ids, order_has_report, product_names, order.id)))
  (tab_panel("batches", false, tab_batches(batches, routings, order)))
  (tab_panel("reports", false, tab_reports(reports)))
  (tab_panel("log", false, tab_log(audit_logs)))
@@ -804,8 +843,23 @@ fn tab_routing(
  reported_routing_ids: &std::collections::HashSet<i64>,
  order_has_report: bool,
  product_names: &std::collections::HashMap<i64, String>,
+ order_id: i64,
 ) -> Markup {
  html! {
+ div id="routing-tbody-wrap" {
+ // 批量加载产出品（仅整单未报工时可用）
+ @if !order_has_report {
+ div class="flex justify-end gap-3 mb-3" {
+ button type="button" class="text-sm text-accent hover:text-accent-hover cursor-pointer"
+     hx-post=(OrderRoutingLoadTemplatePath { order_id }.to_string())
+     hx-target="#routing-tbody-wrap" hx-swap="outerHTML" hx-disabled-elt="this"
+     title="从工单引用的工艺路径模板加载产出品" { "从工艺路线加载" }
+ button type="button" class="text-sm text-accent hover:text-accent-hover cursor-pointer"
+     hx-post=(OrderRoutingLoadRecentPath { order_id }.to_string())
+     hx-target="#routing-tbody-wrap" hx-swap="outerHTML" hx-disabled-elt="this"
+     title="从最近一个同工艺路径工单复制产出品" { "从最近工单加载" }
+ }
+ }
  // 工序定义表（执行进度已迁移至 batch_routing_progress，由批次维度页面展示）
  div class="data-card" {
  div class="overflow-x-auto" {
@@ -826,6 +880,7 @@ fn tab_routing(
  }
  }
  (routing_tbody_fragment(routings, reported_routing_ids, order_has_report, product_names))
+ }
  }
  }
  }

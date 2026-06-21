@@ -53,23 +53,15 @@ pub trait ProductionBatchService: Send + Sync {
         work_order_id: i64,
     ) -> Result<Vec<WorkOrderRouting>>;
 
-    async fn update_routing_unit_price(
-        &self,
-        ctx: &ServiceContext,
-        db: PgExecutor<'_>,
-        work_order_id: i64,
-        routing_id: i64,
-        unit_price: rust_decimal::Decimal,
-    ) -> Result<WorkOrderRouting>;
-
-    /// 修改工序产出品（关联半成品），守卫同 update_routing_unit_price（首次报工前可改）
-    async fn update_routing_product(
+    /// 修改工序产出品 + 计件单价（单事务，首次报工前可改）
+    async fn update_routing(
         &self,
         ctx: &ServiceContext,
         db: PgExecutor<'_>,
         work_order_id: i64,
         routing_id: i64,
         product_id: Option<i64>,
+        unit_price: rust_decimal::Decimal,
     ) -> Result<WorkOrderRouting>;
 
     async fn delete_routing(

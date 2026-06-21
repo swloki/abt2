@@ -116,49 +116,30 @@ async fn repo_has_report_false_before_reporting() {
 use abt_core::shared::types::DomainError;
 
 #[tokio::test]
-async fn service_update_price_rejects_zero() {
+async fn service_update_routing_saves_both_and_guards() {
     let app = common::TestApp::new().await;
-    let wo_id = seed_released_work_order(&app, PRODUCT_ID, "101").await;
-    let rid = first_routing_id(&app.state, wo_id).await;
+    let wo_id = seed_released_work_order(&app, MULTI_STEP_PRODUCT_ID, "800").await;
     let svc = app.state.production_batch_service();
     let ctx = ServiceContext::new(1);
     let mut conn = app.state.pool.acquire().await.unwrap();
-    let err = svc
-        .update_routing_unit_price(&ctx, &mut conn, wo_id, rid, Decimal::ZERO)
-        .await
-        .unwrap_err();
-    assert!(matches!(err, DomainError::Validation { .. }), "got {err:?}");
-}
+    let rs = svc.list_routings(&ctx, &mut conn, wo_id).await.unwrap();
+    let rid = rs[0].id;
 
-#[tokio::test]
-async fn service_update_price_ok_then_persists() {
-    let app = common::TestApp::new().await;
-    let wo_id = seed_released_work_order(&app, PRODUCT_ID, "102").await;
-    let rid = first_routing_id(&app.state, wo_id).await;
-    let svc = app.state.production_batch_service();
-    let ctx = ServiceContext::new(1);
-    let mut conn = app.state.pool.acquire().await.unwrap();
+    // 正常：一次保存 product_id + unit_price
     let updated = svc
-        .update_routing_unit_price(&ctx, &mut conn, wo_id, rid, Decimal::new(3, 0))
+        .update_routing(&ctx, &mut conn, wo_id, rid, Some(565), Decimal::new(7, 0))
         .await
         .unwrap();
-    assert_eq!(updated.unit_price, Some(Decimal::new(3, 0)));
-    assert_eq!(updated.id, rid);
-}
+    assert_eq!(updated.product_id, Some(565));
+    assert_eq!(updated.unit_price, Some(Decimal::new(7, 0)));
 
-#[tokio::test]
-async fn service_update_price_rejects_cross_order() {
-    let app = common::TestApp::new().await;
-    let wo_a = seed_released_work_order(&app, PRODUCT_ID, "103").await;
-    let wo_b = seed_released_work_order(&app, PRODUCT_ID, "104").await;
-    let rid_a = first_routing_id(&app.state, wo_a).await;
-    let svc = app.state.production_batch_service();
-    let ctx = ServiceContext::new(1);
-    let mut conn = app.state.pool.acquire().await.unwrap();
-    let err = svc
-        .update_routing_unit_price(&ctx, &mut conn, wo_b, rid_a, Decimal::new(3, 0))
-        .await
-        .unwrap_err();
+    // 守卫：单价 ≤ 0
+    let err = svc.update_routing(&ctx, &mut conn, wo_id, rid, None, Decimal::ZERO).await.unwrap_err();
+    assert!(matches!(err, DomainError::Validation { .. }), "got {err:?}");
+
+    // 守卫：跨工单
+    let wo_b = seed_released_work_order(&app, MULTI_STEP_PRODUCT_ID, "801").await;
+    let err = svc.update_routing(&ctx, &mut conn, wo_b, rid, None, Decimal::new(3, 0)).await.unwrap_err();
     assert!(matches!(err, DomainError::NotFound { .. }), "got {err:?}");
 }
 
@@ -201,8 +182,9 @@ async fn detail_page_shows_editable_price_and_delete_when_unreported() {
         resp.status,
         resp.body.chars().take(300).collect::<String>()
     );
-    assert!(resp.body_contains(r#"name="unit_price""#), "未报工工单应渲染可编辑单价 input");
+    assert!(resp.body_contains("/edit"), "未报工工单应渲染编辑按钮");
     assert!(resp.body_contains("/delete"), "未报工工单应渲染删除端点");
+    assert!(resp.body_contains("#routing-edit-drawer"), "应渲染编辑抽屉壳");
 }
 
 #[tokio::test]
@@ -228,7 +210,7 @@ async fn wage_is_frozen_at_report_time() {
     let rs = batch_svc.list_routings(&ctx, &mut conn, wo_id).await.unwrap();
     let step1 = rs.iter().find(|r| r.step_no == 1).unwrap();
     batch_svc
-        .update_routing_unit_price(&ctx, &mut conn, wo_id, step1.id, Decimal::new(5, 0))
+        .update_routing(&ctx, &mut conn, wo_id, step1.id, None, Decimal::new(5, 0))
         .await
         .unwrap();
 
@@ -259,7 +241,7 @@ async fn wage_is_frozen_at_report_time() {
 
     // 报工后改该工序单价 → 应被守卫拒绝（不会污染历史工资）
     let err = batch_svc
-        .update_routing_unit_price(&ctx, &mut conn, wo_id, step1.id, Decimal::new(9, 0))
+        .update_routing(&ctx, &mut conn, wo_id, step1.id, None, Decimal::new(9, 0))
         .await
         .unwrap_err();
     assert!(matches!(err, DomainError::BusinessRule { .. }), "报工后改价应拒绝");
@@ -303,17 +285,3 @@ async fn delete_blocked_after_any_report() {
     assert!(matches!(err, DomainError::BusinessRule { .. }), "有报工后删工序应拒绝，got {err:?}");
 }
 
-#[tokio::test]
-async fn service_update_routing_product_ok_and_clear() {
-    let app = common::TestApp::new().await;
-    let wo_id = seed_released_work_order(&app, MULTI_STEP_PRODUCT_ID, "700").await;
-    let svc = app.state.production_batch_service();
-    let ctx = ServiceContext::new(1);
-    let mut conn = app.state.pool.acquire().await.unwrap();
-    let rs = svc.list_routings(&ctx, &mut conn, wo_id).await.unwrap();
-    let rid = rs[0].id;
-    let updated = svc.update_routing_product(&ctx, &mut conn, wo_id, rid, Some(565)).await.unwrap();
-    assert_eq!(updated.product_id, Some(565));
-    let updated = svc.update_routing_product(&ctx, &mut conn, wo_id, rid, None).await.unwrap();
-    assert_eq!(updated.product_id, None);
-}

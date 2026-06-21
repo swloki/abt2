@@ -518,12 +518,13 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
         })
     }
 
-    async fn update_routing_unit_price(
+    async fn update_routing(
         &self,
         ctx: &ServiceContext,
-        db: PgExecutor<'_>,
+        _db: PgExecutor<'_>,
         work_order_id: i64,
         routing_id: i64,
+        product_id: Option<i64>,
         unit_price: Decimal,
     ) -> Result<WorkOrderRouting> {
         // 守卫 1：单价 > 0
@@ -546,16 +547,24 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
             .find_by_id(ctx, &mut *tx, work_order_id)
             .await?;
         if !matches!(wo.status, WorkOrderStatus::Released | WorkOrderStatus::InProduction) {
-            return Err(DomainError::business_rule("工单当前状态不允许修改工序单价"));
+            return Err(DomainError::business_rule("工单当前状态不允许修改工序"));
         }
 
         // 守卫 4：该工序未报工（事务内复查防并发）
         if WorkOrderRoutingRepo::has_report(&mut *tx, routing_id).await? {
-            return Err(DomainError::business_rule("该工序已报工，单价不可修改"));
+            return Err(DomainError::business_rule("该工序已报工，不可修改"));
         }
 
+        let old_pid = routing.product_id;
         let old_price = routing.unit_price;
-        WorkOrderRoutingRepo::update_unit_price(&mut *tx, routing_id, unit_price).await?;
+        sqlx::query(
+            r#"UPDATE work_order_routings SET product_id = $2, unit_price = $3 WHERE id = $1"#,
+        )
+        .bind(routing_id)
+        .bind(product_id)
+        .bind(unit_price)
+        .execute(&mut *tx)
+        .await?;
 
         new_audit_log_service(self.pool.clone())
             .record(ctx, &mut *tx, RecordAuditLogReq {
@@ -563,8 +572,8 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
                 entity_id: routing_id,
                 action: AuditAction::Update,
                 changes: Some(json!(format!(
-                    "unit_price: {:?} → {:?}",
-                    old_price, unit_price
+                    "product_id: {:?} → {:?}; unit_price: {:?} → {:?}",
+                    old_pid, product_id, old_price, unit_price
                 ))),
                 context: Some(json!(format!("work_order_id={}", work_order_id))),
             })
@@ -574,43 +583,6 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
             .await?
             .ok_or_else(|| DomainError::not_found("WorkOrderRouting"))?;
 
-        tx.commit().await.map_err(|e| DomainError::Internal(e.into()))?;
-        Ok(updated)
-    }
-
-    async fn update_routing_product(
-        &self,
-        ctx: &ServiceContext,
-        _db: PgExecutor<'_>,
-        work_order_id: i64,
-        routing_id: i64,
-        product_id: Option<i64>,
-    ) -> Result<WorkOrderRouting> {
-        let mut tx = self.pool.begin().await
-            .map_err(|e| DomainError::Internal(e.into()))?;
-        let routing = WorkOrderRoutingRepo::get_by_id(&mut *tx, routing_id)
-            .await?
-            .ok_or_else(|| DomainError::not_found("WorkOrderRouting"))?;
-        if routing.work_order_id != work_order_id {
-            return Err(DomainError::not_found("WorkOrderRouting"));
-        }
-        let wo = new_work_order_service(self.pool.clone())
-            .find_by_id(ctx, &mut *tx, work_order_id)
-            .await?;
-        if !matches!(wo.status, WorkOrderStatus::Released | WorkOrderStatus::InProduction) {
-            return Err(DomainError::business_rule("工单当前状态不允许修改工序产出品"));
-        }
-        if WorkOrderRoutingRepo::has_report(&mut *tx, routing_id).await? {
-            return Err(DomainError::business_rule("该工序已报工，产出品不可修改"));
-        }
-        sqlx::query(r#"UPDATE work_order_routings SET product_id = $2 WHERE id = $1"#)
-            .bind(routing_id)
-            .bind(product_id)
-            .execute(&mut *tx)
-            .await?;
-        let updated = WorkOrderRoutingRepo::get_by_id(&mut *tx, routing_id)
-            .await?
-            .ok_or_else(|| DomainError::not_found("WorkOrderRouting"))?;
         tx.commit().await.map_err(|e| DomainError::Internal(e.into()))?;
         Ok(updated)
     }

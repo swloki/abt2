@@ -203,6 +203,7 @@ pub async fn create(
  let req = CreateOutsourcingOrderReq {
  work_order_id: form.work_order_id,
  routing_id: form.routing_id,
+ process_name: None, // B2 从选定工序填入
  supplier_id: form.supplier_id,
  product_id: form.product_id,
  outsourcing_type,

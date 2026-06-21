@@ -179,6 +179,7 @@ fn routing_detail_page(
  th class="w-[60px]" { "序号" }
  th class="w-[120px]" { "工序代码" }
  th { "工序名称" }
+ th class="w-[100px]" { "产出品" }
  th class="w-[80px]" { "是否必经" }
  th { "备注" }
  }
@@ -189,6 +190,9 @@ fn routing_detail_page(
  td class="font-mono tabular-nums" { (step.step_order) }
  td class="font-mono tabular-nums" { (step.process_code) }
  td { (step.process_name.as_deref().unwrap_or(&step.process_code)) }
+ td class="font-mono tabular-nums" {
+ @if let Some(pid) = step.product_id { "#" (pid) } @else { "—" }
+ }
  td {
  @if step.is_required {
  span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-warn-bg text-warn" { "必经" }

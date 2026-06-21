@@ -587,6 +587,85 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
         Ok(updated)
     }
 
+    async fn load_routings_from_template(
+        &self, ctx: &ServiceContext, _db: PgExecutor<'_>, work_order_id: i64,
+    ) -> Result<usize> {
+        let mut conn = self.pool.acquire().await.map_err(|e| DomainError::Internal(e.into()))?;
+        let wo = new_work_order_service(self.pool.clone()).find_by_id(ctx, &mut *conn, work_order_id).await?;
+        let routing_id = wo.routing_id.ok_or_else(|| DomainError::business_rule("工单未关联工艺路线"))?;
+        if !matches!(wo.status, WorkOrderStatus::Released | WorkOrderStatus::InProduction) {
+            return Err(DomainError::business_rule("工单当前状态不允许加载产出品"));
+        }
+        drop(conn);
+        let mut tx = self.pool.begin().await.map_err(|e| DomainError::Internal(e.into()))?;
+        let steps = crate::master_data::routing::repo::RoutingRepo
+            .find_steps(&mut *tx, routing_id).await?;
+        let tpl: std::collections::HashMap<i32, i64> = steps.into_iter()
+            .filter_map(|s| s.product_id.map(|pid| (s.step_order, pid))).collect();
+        let mine = WorkOrderRoutingRepo::get_by_work_order_id(&mut *tx, work_order_id).await?;
+        let mut filled = 0usize;
+        for r in &mine {
+            if r.product_id.is_some() { continue; }
+            if WorkOrderRoutingRepo::has_report(&mut *tx, r.id).await? { continue; }
+            if let Some(pid) = tpl.get(&r.step_no) {
+                sqlx::query(r#"UPDATE work_order_routings SET product_id = $2 WHERE id = $1"#)
+                    .bind(r.id).bind(pid).execute(&mut *tx).await?;
+                filled += 1;
+            }
+        }
+        if filled > 0 {
+            new_audit_log_service(self.pool.clone())
+                .record(ctx, &mut *tx, RecordAuditLogReq {
+                    entity_type: "WorkOrder", entity_id: work_order_id,
+                    action: AuditAction::Update,
+                    changes: Some(json!(format!("批量加载产出品自模板 routing#{routing_id}，{filled}行"))),
+                    context: None,
+                }).await?;
+        }
+        tx.commit().await.map_err(|e| DomainError::Internal(e.into()))?;
+        Ok(filled)
+    }
+
+    async fn load_routings_from_recent(
+        &self, ctx: &ServiceContext, _db: PgExecutor<'_>, work_order_id: i64,
+    ) -> Result<usize> {
+        let mut conn = self.pool.acquire().await.map_err(|e| DomainError::Internal(e.into()))?;
+        let wo = new_work_order_service(self.pool.clone()).find_by_id(ctx, &mut *conn, work_order_id).await?;
+        let routing_id = wo.routing_id.ok_or_else(|| DomainError::business_rule("工单未关联工艺路线"))?;
+        if !matches!(wo.status, WorkOrderStatus::Released | WorkOrderStatus::InProduction) {
+            return Err(DomainError::business_rule("工单当前状态不允许加载产出品"));
+        }
+        drop(conn);
+        let mut tx = self.pool.begin().await.map_err(|e| DomainError::Internal(e.into()))?;
+        let src_wo = WorkOrderRoutingRepo::find_recent_source_work_order(&mut *tx, routing_id, work_order_id).await?;
+        let Some(src_id) = src_wo else { return Ok(0); };
+        let src_rows = WorkOrderRoutingRepo::get_by_work_order_id(&mut *tx, src_id).await?;
+        let src: std::collections::HashMap<i32, i64> = src_rows.into_iter()
+            .filter_map(|r| r.product_id.map(|pid| (r.step_no, pid))).collect();
+        let mine = WorkOrderRoutingRepo::get_by_work_order_id(&mut *tx, work_order_id).await?;
+        let mut filled = 0usize;
+        for r in &mine {
+            if r.product_id.is_some() { continue; }
+            if WorkOrderRoutingRepo::has_report(&mut *tx, r.id).await? { continue; }
+            if let Some(pid) = src.get(&r.step_no) {
+                sqlx::query(r#"UPDATE work_order_routings SET product_id = $2 WHERE id = $1"#)
+                    .bind(r.id).bind(pid).execute(&mut *tx).await?;
+                filled += 1;
+            }
+        }
+        if filled > 0 {
+            new_audit_log_service(self.pool.clone())
+                .record(ctx, &mut *tx, RecordAuditLogReq {
+                    entity_type: "WorkOrder", entity_id: work_order_id,
+                    action: AuditAction::Update,
+                    changes: Some(json!(format!("批量加载产出品自工单#{src_id}，{filled}行"))),
+                    context: None,
+                }).await?;
+        }
+        tx.commit().await.map_err(|e| DomainError::Internal(e.into()))?;
+        Ok(filled)
+    }
+
     async fn delete_routing(
         &self,
         ctx: &ServiceContext,

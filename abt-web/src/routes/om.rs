@@ -57,6 +57,14 @@ pub struct OmRecordNodePath {
 }
 
 #[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/om/outsourcing/wo-summary")]
+pub struct OmOutsourcingWoSummaryPath;
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/om/outsourcing/suggest-materials")]
+pub struct OmOutsourcingSuggestMaterialsPath;
+
+#[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/om/tracking")]
 pub struct OmTrackingListPath;
 
@@ -78,6 +86,8 @@ pub fn router() -> Router<AppState> {
         .route(OmOutsourcingConvertPath::PATH, post(om_outsourcing_detail::convert_to_internal))
         .route(OmOutsourcingCancelPath::PATH, post(om_outsourcing_detail::cancel_order))
         .route(OmRecordNodePath::PATH, post(om_outsourcing_detail::record_node))
+        .route(OmOutsourcingWoSummaryPath::PATH, get(om_outsourcing_create::wo_summary))
+        .route(OmOutsourcingSuggestMaterialsPath::PATH, get(om_outsourcing_create::suggest_materials))
         // Tracking
         .route(OmTrackingListPath::PATH, get(om_tracking_list::get_list))
 }

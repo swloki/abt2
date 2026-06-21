@@ -40,6 +40,8 @@ pub struct RoutingStep {
     pub is_outsourced: bool,
     #[sqlx(default)]
     pub is_inspection_point: bool,
+    #[sqlx(default)]
+    pub product_id: Option<i64>,
 }
 
 /// BOM-工艺路线关联
@@ -84,6 +86,7 @@ pub struct RoutingStepInput {
     pub allowed_loss_rate: Option<Decimal>,
     pub is_outsourced: bool,
     pub is_inspection_point: bool,
+    pub product_id: Option<i64>,
 }
 
 /// 工艺路线查询

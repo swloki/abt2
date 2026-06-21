@@ -284,8 +284,8 @@ impl WorkOrderRoutingRepo {
                 INSERT INTO work_order_routings
                     (work_order_id, step_no, process_name, work_center_id,
                      standard_time, standard_cost, unit_price, allowed_loss_rate,
-                     planned_qty, is_outsourced, is_inspection_point)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                     planned_qty, is_outsourced, is_inspection_point, product_id)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
                 "#,
             )
             .bind(step.work_order_id)
@@ -299,6 +299,7 @@ impl WorkOrderRoutingRepo {
             .bind(step.planned_qty)
             .bind(step.is_outsourced)
             .bind(step.is_inspection_point)
+            .bind(step.product_id)
             .execute(&mut *executor)
             .await?;
         }
@@ -315,7 +316,7 @@ impl WorkOrderRoutingRepo {
             r#"
             SELECT id, work_order_id, step_no, process_name, work_center_id,
                    standard_time, standard_cost, unit_price, allowed_loss_rate,
-                   planned_qty, is_outsourced, is_inspection_point
+                   planned_qty, is_outsourced, is_inspection_point, product_id
             FROM work_order_routings
             WHERE work_order_id = $1 AND step_no = $2
             "#,
@@ -337,7 +338,7 @@ impl WorkOrderRoutingRepo {
             r#"
             SELECT id, work_order_id, step_no, process_name, work_center_id,
                    standard_time, standard_cost, unit_price, allowed_loss_rate,
-                   planned_qty, is_outsourced, is_inspection_point
+                   planned_qty, is_outsourced, is_inspection_point, product_id
             FROM work_order_routings
             WHERE id = $1
             "#,
@@ -445,7 +446,7 @@ impl WorkOrderRoutingRepo {
             r#"
             SELECT id, work_order_id, step_no, process_name, work_center_id,
                    standard_time, standard_cost, unit_price, allowed_loss_rate,
-                   planned_qty, is_outsourced, is_inspection_point
+                   planned_qty, is_outsourced, is_inspection_point, product_id
             FROM work_order_routings
             WHERE work_order_id = $1
             ORDER BY step_no
@@ -473,7 +474,7 @@ impl WorkOrderRoutingRepo {
             r#"
             SELECT id, work_order_id, step_no, process_name, work_center_id,
                    standard_time, standard_cost, unit_price, allowed_loss_rate,
-                   planned_qty, is_outsourced, is_inspection_point
+                   planned_qty, is_outsourced, is_inspection_point, product_id
             FROM work_order_routings
             WHERE work_order_id = ANY($1)
             ORDER BY step_no

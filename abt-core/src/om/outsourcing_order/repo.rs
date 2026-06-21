@@ -25,16 +25,17 @@ impl OutsourcingOrderRepo {
         let row = sqlx::query(
             r#"
             INSERT INTO outsourcing_orders
-                (doc_number, work_order_id, routing_id, supplier_id, product_id,
+                (doc_number, work_order_id, routing_id, process_name, supplier_id, product_id,
                  outsourcing_type, planned_qty, completed_qty, unit_price,
                  scheduled_date, status, virtual_warehouse_id, source_warehouse_id, remark, operator_id)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
             RETURNING id
             "#,
         )
         .bind(doc_number)
         .bind(req.work_order_id)
         .bind(req.routing_id)
+        .bind(req.process_name.as_deref())
         .bind(req.supplier_id)
         .bind(req.product_id)
         .bind(req.outsourcing_type)
@@ -59,7 +60,7 @@ impl OutsourcingOrderRepo {
     ) -> Result<Option<OutsourcingOrder>> {
         sqlx::query_as::<_, OutsourcingOrder>(
             r#"
-            SELECT id, doc_number, work_order_id, routing_id, supplier_id, product_id,
+            SELECT id, doc_number, work_order_id, routing_id, process_name, supplier_id, product_id,
                    outsourcing_type, planned_qty, completed_qty, unit_price,
                    scheduled_date, status, virtual_warehouse_id, source_warehouse_id, version,
                    remark, operator_id, created_at, updated_at, deleted_at
@@ -194,7 +195,7 @@ impl OutsourcingOrderRepo {
 
         // Data
         let data_sql = format!(
-            "SELECT id, doc_number, work_order_id, routing_id, supplier_id, product_id,
+            "SELECT id, doc_number, work_order_id, routing_id, process_name, supplier_id, product_id,
                     outsourcing_type, planned_qty, completed_qty, unit_price,
                     scheduled_date, status, virtual_warehouse_id, source_warehouse_id, version,
                     remark, operator_id, created_at, updated_at, deleted_at

@@ -13,6 +13,7 @@ pub struct OutsourcingOrder {
     pub doc_number: String,
     pub work_order_id: Option<i64>,
     pub routing_id: Option<i64>,
+    pub process_name: Option<String>,
     pub supplier_id: i64,
     pub product_id: i64,
     pub outsourcing_type: OutsourcingType,
@@ -76,6 +77,7 @@ pub struct OutsourcingMaterialItem {
 pub struct CreateOutsourcingOrderReq {
     pub work_order_id: Option<i64>,
     pub routing_id: Option<i64>,
+    pub process_name: Option<String>,
     pub supplier_id: i64,
     pub product_id: i64,
     pub outsourcing_type: OutsourcingType,

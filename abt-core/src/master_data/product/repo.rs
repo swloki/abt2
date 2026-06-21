@@ -81,7 +81,7 @@ impl ProductRepo {
 
     pub async fn find_by_id(&self, executor: PgExecutor<'_>, id: i64) -> Result<Option<Product>> {
         let product = sqlx::query_as::<sqlx::Postgres, Product>(
-            "SELECT product_id, pdt_name, product_code, unit, status, acquire_channel, external_code, owner_department_id, meta, created_at, updated_at, deleted_at FROM products WHERE product_id = $1 AND deleted_at IS NULL",
+            "SELECT product_id, pdt_name, product_code, unit, status, acquire_channel, external_code, owner_department_id, meta, min_pack_qty, created_at, updated_at, deleted_at FROM products WHERE product_id = $1 AND deleted_at IS NULL",
         )
         .bind(id)
         .fetch_optional(executor)
@@ -94,7 +94,7 @@ impl ProductRepo {
             return Ok(vec![]);
         }
         let products = sqlx::query_as::<sqlx::Postgres, Product>(
-            "SELECT product_id, pdt_name, product_code, unit, status, acquire_channel, external_code, owner_department_id, meta, created_at, updated_at, deleted_at FROM products WHERE product_id = ANY($1) AND deleted_at IS NULL",
+            "SELECT product_id, pdt_name, product_code, unit, status, acquire_channel, external_code, owner_department_id, meta, min_pack_qty, created_at, updated_at, deleted_at FROM products WHERE product_id = ANY($1) AND deleted_at IS NULL",
         )
         .bind(&ids)
         .fetch_all(executor)
@@ -164,7 +164,7 @@ impl ProductRepo {
         param_idx += 1;
         let offset_idx = param_idx;
         let data_sql = format!(
-            "SELECT product_id, pdt_name, product_code, unit, status, acquire_channel, external_code, owner_department_id, meta, created_at, updated_at, deleted_at FROM products WHERE {where_clause} ORDER BY product_id DESC LIMIT ${limit_idx} OFFSET ${offset_idx}",
+            "SELECT product_id, pdt_name, product_code, unit, status, acquire_channel, external_code, owner_department_id, meta, min_pack_qty, created_at, updated_at, deleted_at FROM products WHERE {where_clause} ORDER BY product_id DESC LIMIT ${limit_idx} OFFSET ${offset_idx}",
         );
         let mut data_q = sqlx::query_as::<sqlx::Postgres, Product>(sqlx::AssertSqlSafe(data_sql));
         for v in &name_params { data_q = data_q.bind(v); }
@@ -194,7 +194,7 @@ impl ProductRepo {
             return Ok(vec![]);
         }
         let products = sqlx::query_as::<sqlx::Postgres, Product>(
-            "SELECT product_id, pdt_name, product_code, unit, status, acquire_channel, external_code, owner_department_id, meta, created_at, updated_at, deleted_at FROM products WHERE product_code = ANY($1) AND deleted_at IS NULL",
+            "SELECT product_id, pdt_name, product_code, unit, status, acquire_channel, external_code, owner_department_id, meta, min_pack_qty, created_at, updated_at, deleted_at FROM products WHERE product_code = ANY($1) AND deleted_at IS NULL",
         )
         .bind(codes)
         .fetch_all(executor)

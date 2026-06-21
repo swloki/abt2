@@ -206,6 +206,8 @@ pub struct Product {
     pub external_code: Option<String>,
     pub owner_department_id: Option<i64>,
     pub meta: ProductMeta,
+    #[sqlx(default)]
+    pub min_pack_qty: Option<rust_decimal::Decimal>,
     pub created_at: Option<DateTime<Utc>>,
     pub updated_at: Option<DateTime<Utc>>,
     pub deleted_at: Option<DateTime<Utc>>,

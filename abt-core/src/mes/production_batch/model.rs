@@ -37,6 +37,7 @@ pub struct WorkOrderRouting {
     pub planned_qty: Decimal,
     pub is_outsourced: bool,
     pub is_inspection_point: bool,
+    pub product_id: Option<i64>,
 }
 
 /// 批次工序执行进度（写真相源）

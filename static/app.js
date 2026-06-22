@@ -61,6 +61,23 @@ document.addEventListener('htmx:afterRequest', function (e) {
     window.show_error_toast(msg);
 });
 
+// ── HTMX 表单校验失败兜底 ──
+// HTMX 在提交前调用 form.checkValidity()，必填字段未填会触发 htmx:validation:halted
+// 并静默中止请求（checkValidity 不弹气泡）。当提交按钮在 <form> 外（hyperscript
+// trigger submit 派发非可信事件）时，浏览器原生校验气泡也不显示，用户只见“点击无响应”。
+// 这里主动找到第一个无效字段，聚焦 + 滚动 + toast，给出明确反馈。
+document.addEventListener('htmx:validation:halted', function (e) {
+    var elt = (e.detail && e.detail.elt) ? e.detail.elt : e.target;
+    var form = elt && elt.tagName === 'FORM' ? elt : (elt && elt.closest ? elt.closest('form') : null);
+    var invalid = form ? form.querySelector(':invalid') : null;
+    if (invalid) {
+        invalid.focus();
+        invalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    var msg = invalid && invalid.validationMessage ? invalid.validationMessage : '请填写所有必填字段';
+    window.show_error_toast(msg);
+});
+
 // ── Export download handler ──
 document.addEventListener('exportDone', function (e) {
     window.location.href = e.detail.url;

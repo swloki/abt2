@@ -5,6 +5,7 @@ use crate::components::icon;
 use serde::Deserialize;
 
 use abt_core::fms::expense::ExpenseReimbursementService;
+use abt_core::shared::types::DomainError;
 
 use crate::errors::Result;
 use crate::layout::page::admin_page;
@@ -56,10 +57,19 @@ pub async fn create(
 ) -> Result<impl IntoResponse> {
     let RequestContext { mut conn, state, service_ctx, .. } = ctx;
 
-    let items: Vec<ItemJson> = match serde_json::from_str(&form.items_json) {
-        Ok(v) => v,
-        Err(_) => return Ok(([("HX-Redirect", ExpenseCreatePath::PATH.to_string())], axum::response::Html(String::new())).into_response()),
-    };
+    // 解析费用明细 JSON：格式错误给明确提示，而非静默跳转回创建页（issue #70）
+    let items: Vec<ItemJson> = serde_json::from_str(&form.items_json)
+        .map_err(|_| DomainError::validation("费用明细数据格式错误，请刷新页面重试"))?;
+
+    // 前置 UX 校验：svc.create 的 DomainError 为英文，这里转中文友好提示。
+    // 校验失败经 errors.rs 映射为 400 + 消息体，前端全局 htmx:afterRequest 弹 toast，
+    // 不跳转、保留用户已填数据。
+    if items.is_empty() {
+        return Err(DomainError::validation("请至少添加一条费用明细并填写金额").into());
+    }
+    if items.iter().any(|i| i.amount <= 0.0) {
+        return Err(DomainError::validation("费用金额必须大于零").into());
+    }
 
     let req = abt_core::fms::expense::model::CreateExpenseReq {
         applicant_id: service_ctx.operator_id,
@@ -84,10 +94,10 @@ pub async fn create(
     };
 
     let svc = state.expense_service();
-    match svc.create(&service_ctx, &mut conn, req).await {
-        Ok(_) => Ok(([("HX-Redirect", ExpenseListPath::PATH.to_string())], axum::response::Html(String::new())).into_response()),
-        Err(_) => Ok(([("HX-Redirect", ExpenseCreatePath::PATH.to_string())], axum::response::Html(String::new())).into_response()),
-    }
+    // 不再用 Err(_) => 静默丢弃：领域错误经 errors.rs → 400 → 前端 toast（issue #70）
+    svc.create(&service_ctx, &mut conn, req).await
+        .map_err(|e| { tracing::warn!("expense create failed: {e:?}"); e })?;
+    Ok(([("HX-Redirect", ExpenseListPath::PATH.to_string())], axum::response::Html(String::new())).into_response())
 }
 
 // ── Page ──

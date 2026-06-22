@@ -313,6 +313,9 @@ async fn k3_expense_payment_posts_gl() {
                 department_id: None,
                 expense_date: today,
                 remark: "e2e k3 报销付款过账".into(),
+                sheet_count: 1,
+                has_invoice: true,
+                attachments: vec![],
                 items: vec![ExpenseItemInput {
                     expense_type: ExpenseType::Office,
                     amount,
@@ -320,6 +323,8 @@ async fn k3_expense_payment_posts_gl() {
                     receipt_no: None,
                     cost_center: None,
                     profit_center: None,
+                    occurrence_date: None,
+                    has_invoice: true,
                 }],
             },
         )
@@ -331,14 +336,30 @@ async fn k3_expense_payment_posts_gl() {
         .await
         .expect("submit");
     expense_svc
+        .supervisor_approve(&ctx, &mut conn, id,
+            abt_core::fms::expense::model::SupervisorApproveReq { remark: None },
+        )
+        .await
+        .expect("supervisor_approve");
+    expense_svc
+        .finance_approve(&ctx, &mut conn, id,
+            abt_core::fms::expense::model::FinanceApproveReq { remark: None },
+        )
+        .await
+        .expect("finance_approve");
+    expense_svc
         .approve(&ctx, &mut conn, id)
         .await
         .expect("approve");
 
-    let _journal_id = expense_svc
-        .generate_payment_journal(&ctx, &mut conn, id)
+    expense_svc
+        .pay(&ctx, &mut conn, id, abt_core::fms::expense::model::PayReq {
+            payment_bank: "工商银行".into(),
+            payment_remark: "e2e gl test".into(),
+            payment_date: chrono::Utc::now().date_naive(),
+        })
         .await
-        .expect("generate_payment_journal posts GL");
+        .expect("pay posts GL");
 
     // 费用（借方科目）：debit+150 → 余额 +150
     let expense_after = entry

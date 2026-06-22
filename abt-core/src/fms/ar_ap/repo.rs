@@ -132,6 +132,24 @@ impl ArApLedgerRepo {
             conditions.push("l.amount - l.amount_applied > 0".to_string());
         }
 
+        // keyword filter（往来方名称模糊搜，用 EXISTS 子查询避免依赖外层 JOIN — count 查询无 JOIN）
+        let kw_param: Option<String> = if let Some(ref kw) = filter.keyword {
+            let trimmed = kw.trim();
+            if trimmed.is_empty() {
+                None
+            } else {
+                param_idx += 1;
+                conditions.push(format!(
+                    "(EXISTS(SELECT 1 FROM customers c WHERE c.customer_id = l.party_id AND c.customer_name ILIKE ${p}) \
+                      OR EXISTS(SELECT 1 FROM suppliers s WHERE s.supplier_id = l.party_id AND s.supplier_name ILIKE ${p}))",
+                    p = param_idx
+                ));
+                Some(format!("%{trimmed}%"))
+            }
+        } else {
+            None
+        };
+
         // period filter
         let per_param: Option<String> = if let Some(ref p) = filter.period {
             if !p.trim().is_empty() {
@@ -180,6 +198,9 @@ impl ArApLedgerRepo {
         if let Some(pid) = pid_param {
             count_q = count_q.bind(pid);
         }
+        if let Some(ref k) = kw_param {
+            count_q = count_q.bind(k);
+        }
         if let Some(ref p) = per_param {
             count_q = count_q.bind(p);
         }
@@ -222,6 +243,9 @@ impl ArApLedgerRepo {
         if let Some(pid) = pid_param {
             data_q = data_q.bind(pid);
         }
+        if let Some(ref k) = kw_param {
+            data_q = data_q.bind(k);
+        }
         if let Some(ref p) = per_param {
             data_q = data_q.bind(p);
         }
@@ -237,6 +261,126 @@ impl ArApLedgerRepo {
 
         let items = data_q.fetch_all(executor).await?;
         Ok((items, total))
+    }
+
+    /// 台账汇总（按 filter 聚合：总额/未清/逾期/7天内到期，逾期基准=due_date）
+    pub async fn summary(
+        executor: PgExecutor<'_>,
+        filter: &ArApLedgerFilter,
+        today: chrono::NaiveDate,
+    ) -> Result<LedgerSummary> {
+        let mut conditions: Vec<String> = Vec::new();
+        let mut param_idx = 0u32;
+
+        let pt_param: Option<CounterpartyType> = if let Some(pt) = filter.party_type {
+            param_idx += 1;
+            conditions.push(format!("l.party_type = ${}", param_idx));
+            Some(pt)
+        } else {
+            None
+        };
+        let pid_param: Option<i64> = if let Some(pid) = filter.party_id {
+            param_idx += 1;
+            conditions.push(format!("l.party_id = ${}", param_idx));
+            Some(pid)
+        } else {
+            None
+        };
+        if filter.outstanding_only {
+            conditions.push("l.amount - l.amount_applied > 0".to_string());
+        }
+        let kw_param: Option<String> = if let Some(ref kw) = filter.keyword {
+            let trimmed = kw.trim();
+            if trimmed.is_empty() {
+                None
+            } else {
+                param_idx += 1;
+                conditions.push(format!(
+                    "(EXISTS(SELECT 1 FROM customers c WHERE c.customer_id = l.party_id AND c.customer_name ILIKE ${p}) \
+                      OR EXISTS(SELECT 1 FROM suppliers s WHERE s.supplier_id = l.party_id AND s.supplier_name ILIKE ${p}))",
+                    p = param_idx
+                ));
+                Some(format!("%{trimmed}%"))
+            }
+        } else {
+            None
+        };
+        let per_param: Option<String> = if let Some(ref p) = filter.period {
+            if !p.trim().is_empty() {
+                param_idx += 1;
+                conditions.push(format!("l.period = ${}", param_idx));
+                Some(p.clone())
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+        let start_param: Option<chrono::NaiveDate> = if let Some(d) = filter.start_date {
+            param_idx += 1;
+            conditions.push(format!("l.transaction_date >= ${}", param_idx));
+            Some(d)
+        } else {
+            None
+        };
+        let end_param: Option<chrono::NaiveDate> = if let Some(d) = filter.end_date {
+            param_idx += 1;
+            conditions.push(format!("l.transaction_date <= ${}", param_idx));
+            Some(d)
+        } else {
+            None
+        };
+
+        // today / today+7 用于 SELECT 里的逾期与 7 天内到期 CASE
+        param_idx += 1;
+        let today_idx = param_idx;
+        param_idx += 1;
+        let today7_idx = param_idx;
+        let today7 = today + chrono::Duration::days(7);
+
+        let where_clause = if conditions.is_empty() {
+            String::new()
+        } else {
+            format!("WHERE {}", conditions.join(" AND "))
+        };
+
+        let sql = format!(
+            r#"SELECT
+                COALESCE(SUM(l.amount), 0) AS total_amount,
+                COALESCE(SUM(l.amount - l.amount_applied), 0) AS total_outstanding,
+                COALESCE(SUM(CASE WHEN l.due_date IS NOT NULL AND l.due_date < ${today_idx}
+                                  AND l.amount - l.amount_applied > 0
+                             THEN l.amount - l.amount_applied ELSE 0 END), 0) AS total_overdue,
+                COALESCE(SUM(CASE WHEN l.due_date IS NOT NULL AND l.due_date BETWEEN ${today_idx} AND ${today7_idx}
+                                  AND l.amount - l.amount_applied > 0
+                             THEN l.amount - l.amount_applied ELSE 0 END), 0) AS due_within_7d
+               FROM ar_ap_ledger l {where_clause}"#
+        );
+
+        let mut q = sqlx::query_as::<sqlx::Postgres, LedgerSummary>(sqlx::AssertSqlSafe(sql));
+        if let Some(pt) = pt_param {
+            q = q.bind(pt);
+        }
+        if let Some(pid) = pid_param {
+            q = q.bind(pid);
+        }
+        if let Some(ref k) = kw_param {
+            q = q.bind(k);
+        }
+        if let Some(ref p) = per_param {
+            q = q.bind(p);
+        }
+        if let Some(d) = start_param {
+            q = q.bind(d);
+        }
+        if let Some(d) = end_param {
+            q = q.bind(d);
+        }
+        q = q.bind(today);
+        q = q.bind(today7);
+
+        let summary = q.fetch_one(executor).await?;
+        Ok(summary)
     }
 
     /// 查询某往来方的未清发票（用于核销选择）

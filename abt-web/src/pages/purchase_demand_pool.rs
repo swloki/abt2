@@ -28,6 +28,7 @@ pub struct DemandPoolQueryParams {
  pub view: Option<String>,
  pub keyword: Option<String>,
  pub date_filter: Option<String>,
+ pub order_id: Option<i64>,
  #[serde(default)]
  pub page: Option<u32>,
 }
@@ -118,8 +119,11 @@ fn material_query_string(keyword: Option<&str>, date_filter: Option<&str>) -> St
  q.join("&")
 }
 
-fn detail_query_string(keyword: Option<&str>, date_filter: Option<&str>) -> String {
+fn detail_query_string(keyword: Option<&str>, date_filter: Option<&str>, order_id: Option<i64>) -> String {
  let mut q = vec!["view=detail".to_string()];
+ if let Some(oid) = order_id {
+ q.push(format!("order_id={oid}"));
+ }
  if let Some(kw) = keyword
  && !kw.is_empty()
  {
@@ -155,7 +159,12 @@ pub async fn get_demand_pool_list(
 
  let page_num = params.page.unwrap_or(1);
  let page_size = 20;
- let view_mode = params.view.as_deref().unwrap_or("material");
+ // 无 view 参数时：从订单详情带 order_id 跳转 → 默认 detail 视图（material 不支持 order_id 筛选）
+ let view_mode = match params.view.as_deref() {
+ Some("detail") => "detail",
+ Some("material") => "material",
+ _ => if params.order_id.is_some() { "detail" } else { "material" },
+ };
 
  // Parse date_filter into date range
  let (date_start, date_end) = match params.date_filter.as_deref() {
@@ -226,7 +235,7 @@ pub async fn get_demand_pool_list(
  DemandPoolQuery {
  status: None,
  product_id: None,
- order_id: None,
+ order_id: params.order_id,
  keyword: params.keyword.clone(),
  required_date_start: date_start,
  required_date_end: date_end,
@@ -408,6 +417,14 @@ fn view_toggle_and_filter(active: &str, params: &DemandPoolQueryParams) -> Marku
  }
  }
 
+ @if let Some(oid) = params.order_id {
+ div class="inline-flex items-center gap-1.5 py-1 px-2.5 bg-accent-bg text-accent rounded-sm text-xs font-medium" {
+ (icon::clipboard_document_icon("w-3.5 h-3.5"))
+ "订单 #" (oid)
+ a class="ml-0.5 text-accent/70 hover:text-accent font-bold leading-none" href=(PurchaseDemandPoolListPath::PATH) title="清除订单筛选" { "×" }
+ }
+ }
+
  form class="flex items-center gap-3 mb-5 flex-wrap"
  hx-get=(PurchaseDemandPoolListPath::PATH)
  hx-trigger="change, keyup changed delay:300ms from:.search-input"
@@ -416,6 +433,9 @@ fn view_toggle_and_filter(active: &str, params: &DemandPoolQueryParams) -> Marku
  hx-swap="outerHTML"
  hx-push-url="true" {
  input type="hidden" name="view" value=(active);
+ @if let Some(oid) = params.order_id {
+ input type="hidden" name="order_id" value=(oid);
+ }
  div class="relative flex-1 max-w-xs icon:absolute icon:left-3 icon:top-1/2 icon:-translate-y-1/2 icon:w-4 icon:h-4 icon:text-muted" {
  (icon::search_icon(""))
  input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input" type="text" name="keyword"
@@ -750,7 +770,7 @@ fn detail_table_fragment(
  result: &abt_core::shared::types::PaginatedResult<DemandSummary>,
  params: &DemandPoolQueryParams,
 ) -> Markup {
- let qs = detail_query_string(params.keyword.as_deref(), params.date_filter.as_deref());
+ let qs = detail_query_string(params.keyword.as_deref(), params.date_filter.as_deref(), params.order_id);
 
  html! {
  div class="data-card" id="detailView" {

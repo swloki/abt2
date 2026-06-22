@@ -379,6 +379,7 @@ fn fulfillment_workbench(
  product_codes: &HashMap<i64, String>,
  atp_map: &HashMap<i64, Decimal>,
  demand_map: &HashMap<i64, DemandStatus>,
+ order_id: i64,
 ) -> Markup {
  if plan_lines.is_empty() {
  return html! {};
@@ -414,7 +415,7 @@ fn fulfillment_workbench(
  (icon::grid_icon("w-3.5 h-3.5"))
  "生产需求池"
  }
- a class="inline-flex items-center gap-1 py-[5px] px-3 text-xs rounded-sm bg-white text-fg-2 border border-border hover:border-accent hover:text-accent font-medium cursor-pointer transition-all duration-150" href="/admin/purchase/demand-pool" title="采购需求池" {
+ a class="inline-flex items-center gap-1 py-[5px] px-3 text-xs rounded-sm bg-white text-fg-2 border border-border hover:border-accent hover:text-accent font-medium cursor-pointer transition-all duration-150" href=(format!("/admin/purchase/demand-pool?order_id={}", order_id)) title="查看本订单的采购需求" {
  (icon::clipboard_document_icon("w-3.5 h-3.5"))
  "采购需求池"
  }
@@ -770,7 +771,7 @@ fn order_detail_page(
  }
 
  // ── Fulfillment Workbench ──
- (fulfillment_workbench(plan_lines, product_names, product_codes, atp_map, demand_map))
+ (fulfillment_workbench(plan_lines, product_names, product_codes, atp_map, demand_map, order_id))
 
  // ── Remarks ──
  @if !o.remark.is_empty() {

@@ -49,3 +49,39 @@ async fn demand_pool_demand_rows() {
     let resp = app.get_htmx("/admin/purchase/demand-pool/demand-rows?product_id=13439").await;
     assert!(resp.is_ok(), "status {}", resp.status);
 }
+
+// ── issue #72: 从订单详情带 order_id 跳转 → 强制 detail 视图 + 订单筛选 chip ──
+
+#[tokio::test]
+async fn demand_pool_list_with_order_id_filter() {
+    // order_id 存在时应渲染「订单 #X」筛选 chip（强制 detail 视图）
+    let app = TestApp::new().await;
+    let resp = app.get("/admin/purchase/demand-pool?order_id=128").await;
+    assert!(resp.is_ok(), "status {}", resp.status);
+    assert!(
+        resp.body_contains("订单 #128"),
+        "order_id 存在时应显示「订单 #128」筛选 chip"
+    );
+}
+
+#[tokio::test]
+async fn demand_pool_list_without_order_id_no_chip() {
+    // 无 order_id 时不应渲染订单筛选 chip（chip 的清除链接 title）
+    let app = TestApp::new().await;
+    let resp = app.get("/admin/purchase/demand-pool").await;
+    assert!(resp.is_ok());
+    assert!(
+        !resp.body_contains("清除订单筛选"),
+        "无 order_id 时不应显示订单筛选 chip"
+    );
+}
+
+#[tokio::test]
+async fn demand_pool_order_id_htmx_fragment() {
+    // HTMX 请求带 order_id → 返回片段（无 <html>）且含订单 chip
+    let app = TestApp::new().await;
+    let resp = app.get_htmx("/admin/purchase/demand-pool?order_id=128").await;
+    assert!(resp.is_ok());
+    assert!(!resp.body_contains("<html"), "HTMX 应返回片段");
+    assert!(resp.body_contains("订单 #128"));
+}

@@ -120,6 +120,16 @@ impl ArApService for ArApServiceImpl {
         Ok(PaginatedResult::new(items, total, page.page, page.page_size))
     }
 
+    async fn ledger_summary(
+        &self,
+        _ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        filter: ArApLedgerFilter,
+    ) -> Result<LedgerSummary> {
+        let today = chrono::Utc::now().date_naive();
+        ArApLedgerRepo::summary(db, &filter, today).await
+    }
+
     async fn get_party_balance(
         &self,
         _ctx: &ServiceContext,

@@ -17,6 +17,14 @@ pub trait ArApService: Send + Sync {
         page: PageParams,
     ) -> Result<PaginatedResult<ArApLedgerRow>>;
 
+    /// 台账汇总（按 filter 聚合：总额/未清/逾期/7天内到期，逾期基准=due_date）
+    async fn ledger_summary(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        filter: ArApLedgerFilter,
+    ) -> Result<LedgerSummary>;
+
     /// 获取单个往来方当前余额
     async fn get_party_balance(
         &self,

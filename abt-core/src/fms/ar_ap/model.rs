@@ -93,6 +93,8 @@ pub struct ArApLedgerFilter {
     pub period: Option<String>,
     pub start_date: Option<NaiveDate>,
     pub end_date: Option<NaiveDate>,
+    /// 往来方名称模糊搜（customer_name / supplier_name）
+    pub keyword: Option<String>,
 }
 
 /// 核销记录查询筛选条件
@@ -206,4 +208,17 @@ pub struct SettleResult {
     pub settlement_id: i64,
     pub payment_ledger_id: i64,
     pub invoice_ledger_id: i64,
+}
+
+/// 台账汇总（顶部统计卡片用）
+#[derive(Debug, Clone, Default, serde::Serialize, sqlx::FromRow)]
+pub struct LedgerSummary {
+    /// 应收/应付总额 SUM(amount)
+    pub total_amount: Decimal,
+    /// 未清余额 SUM(amount - amount_applied)
+    pub total_outstanding: Decimal,
+    /// 逾期金额（due_date < today 且未清）
+    pub total_overdue: Decimal,
+    /// 7 天内到期金额（due_date ∈ [today, today+7] 且未清）
+    pub due_within_7d: Decimal,
 }

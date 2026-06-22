@@ -124,7 +124,7 @@ fn wo_picker_results(
  }
  };
  let click_hs = format!(
- "on click set #{}'s value to my @data-wid then put my @data-wnum into #{} then trigger change on #{} then remove .is-open from closest .is-open",
+ "on click set #{}'s value to my @data-wid then set #{}'s value to my @data-wnum then trigger change on #{} then remove .is-open from closest .is-open",
  target_id, display_id, target_id
  );
  html! {

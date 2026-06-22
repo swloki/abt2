@@ -552,15 +552,7 @@ pub struct StockInCreateForm {
  pub transaction_type: String,
  pub source_type: String,
  pub source_ref: Option<String>,
- #[serde(default, deserialize_with = "empty_as_none")]
- pub source_id: Option<i64>,
  pub delivery_no: Option<String>,
- #[serde(default, deserialize_with = "empty_as_none")]
- pub warehouse_id: Option<i64>,
- #[serde(default, deserialize_with = "empty_as_none")]
- pub zone_id: Option<i64>,
- #[serde(default, deserialize_with = "empty_as_none")]
- pub bin_id: Option<i64>,
  pub remark: Option<String>,
  pub items_json: String,
 }
@@ -609,7 +601,8 @@ pub async fn create_stock_in(
  };
 
  let remark = form.remark.filter(|s| !s.is_empty());
- let source_id: i64 = form.source_id.unwrap_or(0);
+ // 手动物料无来源单 → 0；有来源的明细行自带 per-item source_id（PO/工单）
+ let source_id: i64 = 0;
  // 入库单号：通过 DocumentSequenceService 生成规范编号（RK-YYYY-MM-SEQ）
  let doc_number = state.document_sequence_service()
  .next_number(&service_ctx, &mut conn, DocumentType::StockReceipt)
@@ -759,9 +752,8 @@ fn stock_in_create_content(
  }
  }
  div class="mt-3 text-xs text-muted" id="po-selected-hint" { "未选择采购订单；也可在下方手动添加物料（如生产入库）" }
- // 全局来源回退（per-item 未带 source_id 时使用，如手动物料）
+ // 全局来源：source_type 固定采购；source_ref 为来源单号全局兜底（多 PO 场景每行自带 source_id/source_doc_number）
  input type="hidden" name="source_type" value="purchase" {};
- input type="hidden" name="source_id" value="0" {};
  input type="hidden" name="source_ref" value="" {};
  }
  // 分隔线

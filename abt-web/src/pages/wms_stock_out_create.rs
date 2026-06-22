@@ -252,14 +252,6 @@ pub async fn suggest_bins(
 #[derive(Debug, Deserialize)]
 pub struct StockOutCreateForm {
     pub transaction_type: String,
-    /// 全局回退 source_type（手动物料无 per-item 时使用）
-    pub source_type: Option<String>,
-    #[serde(default, deserialize_with = "empty_as_none")]
-    pub warehouse_id: Option<i64>,
-    #[serde(default, deserialize_with = "empty_as_none")]
-    pub zone_id: Option<i64>,
-    #[serde(default, deserialize_with = "empty_as_none")]
-    pub bin_id: Option<i64>,
     pub remark: Option<String>,
     pub items_json: String,
 }
@@ -305,7 +297,8 @@ pub async fn create_stock_out(
         "MaterialIssue" => TransactionType::MaterialIssue,
         _ => TransactionType::SalesShipment,
     };
-    let global_source_type = form.source_type.as_deref().unwrap_or("manual");
+    // 手动物料无 per-item source_type 时回退；行内明细自带 source_type
+    let global_source_type = "manual";
     let remark = form.remark.filter(|s| !s.is_empty());
 
     // 出库单号：通过 DocumentSequenceService 生成规范编号（CK-YYYY-MM-SEQ）
@@ -327,18 +320,16 @@ pub async fn create_stock_out(
         // 每行来源仓库（必填）
         let warehouse_id: i64 = item.warehouse_id.as_deref()
             .and_then(|s| s.parse().ok())
-            .or(form.warehouse_id)
             .ok_or_else(|| DomainError::validation("请为每行物料选择来源仓库"))?;
 
         let bin_id: Option<i64> = item.bin_id.as_ref()
-            .and_then(|s| s.parse().ok())
-            .or(form.bin_id);
+            .and_then(|s| s.parse().ok());
 
         let zone_id = match warehouse_svc
             .get_or_create_default_zone(&service_ctx, &mut conn, warehouse_id).await.ok().map(|z| z.id)
         {
             Some(zid) => Some(zid),
-            None => form.zone_id,
+            None => None,
         };
 
         let unit_cost: Option<Decimal> = item.unit_cost.as_ref().and_then(|s| s.parse().ok());
@@ -456,8 +447,6 @@ fn stock_out_create_content(
                         hx-post=(StockOutConfirmReqPath::PATH) hx-trigger="change" hx-target="#source-cards" hx-swap="innerHTML" {};
                         input type="hidden" id="mr-display" value="" {};
                         div class="mt-3 text-xs text-muted" id="source-selected-hint" { "未选择来源单据；也可在下方手动添加物料" }
-                        // 全局来源回退
-                        input type="hidden" name="source_type" value="manual" {};
                     }
                     // 分隔线
                     div class="border-t border-border-soft my-5" { }

@@ -116,7 +116,7 @@ fn mr_picker_results(
         }
     };
     let click_hs = format!(
-        "on click set #{}'s value to my @data-mid then put my @data-mnum into #{} then trigger change on #{} then remove .is-open from closest .is-open",
+        "on click set #{}'s value to my @data-mid then set #{}'s value to my @data-mnum then trigger change on #{} then remove .is-open from closest .is-open",
         target_id, display_id, target_id
     );
     html! {

@@ -44,6 +44,35 @@ impl StockLedgerRepo {
         Ok(StockLedger::from_row(&row)?)
     }
 
+    /// 查询库位下当前被占用(quantity > 0)的「其他」产品（一库位一产品校验用）。
+    /// 返回第一个冲突产品的 (product_id, product_name, quantity)；无冲突返回 None。
+    pub async fn find_other_occupant_in_bin(
+        executor: &mut sqlx::postgres::PgConnection,
+        bin_id: i64,
+        exclude_product_id: i64,
+    ) -> Result<Option<(i64, String, Decimal)>> {
+        let row = sqlx::query(
+            r#"
+            SELECT sl.product_id, p.pdt_name, sl.quantity
+            FROM stock_ledger sl
+            JOIN products p ON p.product_id = sl.product_id
+            WHERE sl.bin_id = $1 AND sl.quantity > 0 AND sl.product_id <> $2
+            LIMIT 1
+            "#,
+        )
+        .bind(bin_id)
+        .bind(exclude_product_id)
+        .fetch_optional(executor)
+        .await?;
+
+        Ok(row.map(|r| {
+            let pid: i64 = r.get("product_id");
+            let name: String = r.get("pdt_name");
+            let qty: Decimal = r.get("quantity");
+            (pid, name, qty)
+        }))
+    }
+
     pub async fn find_by_location(
         executor: &mut sqlx::postgres::PgConnection,
         product_id: i64,

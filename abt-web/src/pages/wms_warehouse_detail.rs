@@ -361,7 +361,7 @@ fn warehouse_detail_page(
  // ── Info Card ──
  div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-sm" {
  div class="text-base font-semibold text-fg mb-4" { "仓库信息" }
- div class="grid gap-4" {
+ div class="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-4" {
  div class="flex flex-col gap-1" {
  span class="text-xs text-muted font-medium" { "仓库编码" }
  span class="text-sm text-fg font-medium font-mono tabular-nums" { (warehouse.code) }

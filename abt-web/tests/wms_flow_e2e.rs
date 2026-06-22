@@ -828,6 +828,82 @@ async fn i2_core_record_rejects_insufficient_consumption() {
     );
 }
 
+/// 核心层「一库位一产品」规则：空 bin 入 PRODUCT_ID 通过；同 bin 再入另一个产品应被
+/// record() 前置校验拦为 BusinessRule；同产品续入通过。
+/// 用独立临时 bin（强唯一 code）避免共享 dev DB 的 BIN_A/B 状态耦合。
+#[tokio::test]
+async fn i4_record_enforces_one_product_per_bin() {
+    let app = TestApp::new().await;
+    let (wh_a, _) = pick_two_warehouses();
+    let svc = app.state.inventory_transaction_service();
+    let ctx = ServiceContext::new(1);
+    let mut conn = app.state.pool.acquire().await.unwrap();
+
+    // 独立测试 bin（status=1 Empty；唯一 code 防重跑冲突）
+    use std::time::{SystemTime, UNIX_EPOCH};
+    let suffix = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+    let bin_id: i64 = sqlx::query_scalar(
+        "INSERT INTO bins (zone_id, code, name, row_no, column_no, layer_no, \
+         capacity_limit, allowed_product_types, temperature_req, status) \
+         VALUES ($1, $2, $3, NULL, NULL, NULL, NULL, NULL, NULL, 1) RETURNING id",
+    )
+    .bind(ZONE_A)
+    .bind(format!("T-OCC-{suffix}"))
+    .bind(format!("测试占用{suffix}"))
+    .fetch_one(&mut *conn)
+    .await
+    .unwrap();
+
+    // 取一个真实存在、不同于 PRODUCT_ID 的产品（record 会写 inventory_transactions，受 products FK 约束）
+    let other_pid: i64 = sqlx::query_scalar(
+        "SELECT product_id FROM products WHERE deleted_at IS NULL AND product_id <> $1 \
+         ORDER BY product_id LIMIT 1",
+    )
+    .bind(PRODUCT_ID)
+    .fetch_one(&mut *conn)
+    .await
+    .unwrap();
+
+    use abt_core::wms::enums::TransactionType;
+    use abt_core::wms::inventory_transaction::model::RecordTransactionReq;
+    let mk_req = |product_id: i64, qty: i64| RecordTransactionReq {
+        doc_number: None,
+        delivery_no: None,
+        source_doc_number: None,
+        transaction_type: TransactionType::PurchaseReceipt,
+        product_id,
+        warehouse_id: wh_a,
+        zone_id: Some(ZONE_A),
+        bin_id: Some(bin_id),
+        batch_no: None,
+        quantity: Decimal::from(qty),
+        unit_cost: None,
+        source_type: "manual".to_string(),
+        source_id: 0,
+        remark: None,
+    };
+
+    // 1) 空 bin 入 PRODUCT_ID → 通过
+    svc.record(&ctx, &mut conn, mk_req(PRODUCT_ID, 10))
+        .await
+        .expect("空 bin 入库应通过");
+
+    // 2) 同 bin 入另一个产品 → 应被前置校验拦为 BusinessRule（且不留孤立流水）
+    let err = svc
+        .record(&ctx, &mut conn, mk_req(other_pid, 5))
+        .await
+        .unwrap_err();
+    assert!(
+        matches!(err, abt_core::shared::types::DomainError::BusinessRule(_)),
+        "被占用 bin 入其他产品应返回 BusinessRule，实际 {err:?}"
+    );
+
+    // 3) 同产品续入 → 通过
+    svc.record(&ctx, &mut conn, mk_req(PRODUCT_ID, 5))
+        .await
+        .expect("同产品续入应通过");
+}
+
 #[tokio::test]
 async fn i3_backflush_pages_accessible_and_detail_404() {
     let app = TestApp::new().await;

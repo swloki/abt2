@@ -162,6 +162,7 @@ struct BatchResult {
 - `InventoryLockService`（wms 域）：物理整批冻结，记 `stock_ledger.reserved_qty`。
 - 两者 **disjoint**：ATP 计算同时扣两者，无重复扣减。扣减顺序：`quantity − Lock(ledger.reserved_qty) − Reservation(inventory_reservations)`。
 - 负库存：消耗型事务（`SalesShipment`/`MaterialIssue`/`Scrap`）扣减前在 `InventoryTransactionService.record()` 前置预检 `available >= |qty|`，不足返回 `InsufficientStock`（HTTP 422）；`Adjustment`（盘点调账）不预检，由 `stock_ledger.upsert` 后置硬阻断兜底。
+- 一库位一产品：`InventoryTransactionService.record()` 入库（qty>0）前置校验——目标 bin 若已有**其他产品** quantity>0 的台账（`StockLedgerRepo.find_other_occupant_in_bin`），返回 `BusinessRule`（HTTP 422）；目标产品自身或库位为空/归零时放行。覆盖所有入库路径（采购/生产/委外/调拨入库侧/形态转换/盘点/退料），出库类不受影响。
 - 安全库存预警：消耗型扣减后 best-effort 触发 `LowStockAlertService.check_and_record`（`SUM(quantity) < SUM(safety_stock)` 时记录 + 发 `LowStockAlert` 事件）。
 
 #### DeadLetterService — 死信队列

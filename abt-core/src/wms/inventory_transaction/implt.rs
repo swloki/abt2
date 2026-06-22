@@ -60,6 +60,28 @@ impl InventoryTransactionService for InventoryTransactionServiceImpl {
             }
         }
 
+        // 一库位一产品规则：入库(增量)前校验目标 bin 是否已被其他产品占用。
+        // 仅对显式指定 bin_id 的入库校验——resolve_default_bin 自动解析的库位是该产品
+        // 自己的 FIFO 库位，天然不冲突。放在 insert 之前，校验失败时不留孤立流水。
+        if req.quantity > Decimal::ZERO {
+            if let Some(bin_id) = req.bin_id {
+                if let Some((_occ_pid, occ_name, occ_qty)) =
+                    crate::wms::stock_ledger::repo::StockLedgerRepo::find_other_occupant_in_bin(
+                        &mut *db,
+                        bin_id,
+                        req.product_id,
+                    )
+                    .await
+                    .map_err(|e| DomainError::Internal(e.into()))?
+                {
+                    return Err(DomainError::BusinessRule(format!(
+                        "库位已被其他产品占用（「{}」现有 {}），不能入库该产品；规则：一个库位只能存放一个产品，归零后方可更换",
+                        occ_name, occ_qty
+                    )));
+                }
+            }
+        }
+
         let txn = InventoryTransactionRepo::insert(&mut *db, &req, ctx.operator_id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;

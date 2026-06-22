@@ -1,9 +1,9 @@
-use axum::routing::get;
 use axum::Router;
+use axum::routing::get;
 use axum_extra::routing::TypedPath;
 use serde::Deserialize;
 
-use crate::pages::{wms_lock_list, wms_lock_create, wms_lock_detail};
+use crate::pages::{wms_lock_create, wms_lock_detail, wms_lock_list};
 use crate::state::AppState;
 
 // ── Typed Paths ──
@@ -27,6 +27,12 @@ pub struct LockDetailPath {
 pub fn router() -> Router<AppState> {
     Router::new()
         .route(LockListPath::PATH, get(wms_lock_list::get_lock_list))
-        .route(LockCreatePath::PATH, get(wms_lock_create::get_lock_create).post(wms_lock_create::create_lock))
-        .route(LockDetailPath::PATH, get(wms_lock_detail::get_lock_detail).post(wms_lock_detail::post_lock_action))
+        .route(
+            LockCreatePath::PATH,
+            get(wms_lock_create::get_lock_create).post(wms_lock_create::create_lock),
+        )
+        .route(
+            LockDetailPath::PATH,
+            get(wms_lock_detail::get_lock_detail).post(wms_lock_detail::post_lock_action),
+        )
 }

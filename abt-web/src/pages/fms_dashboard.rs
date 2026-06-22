@@ -68,8 +68,19 @@ pub async fn get_dashboard(
         .unwrap_or_default();
 
     let pending_expenses = expense_svc
-        .list_pending(&service_ctx, &mut conn, 5)
+        .list(&service_ctx, &mut conn,
+            abt_core::fms::expense::model::ExpenseFilter {
+                status: vec![
+                    abt_core::fms::enums::ExpenseStatus::Submitted,
+                    abt_core::fms::enums::ExpenseStatus::SupervisorApproved,
+                    abt_core::fms::enums::ExpenseStatus::FinanceApproved,
+                ],
+                ..Default::default()
+            },
+            abt_core::shared::types::PageParams::new(1, 5),
+        )
         .await
+        .map(|r| r.items)
         .unwrap_or_default();
 
     let content = fms_dashboard_page(

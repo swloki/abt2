@@ -67,6 +67,9 @@ pub async fn create(
         expense_date: chrono::NaiveDate::parse_from_str(&form.expense_date, "%Y-%m-%d")
             .unwrap_or(chrono::Utc::now().date_naive()),
         remark: form.remark,
+        sheet_count: 1,
+        has_invoice: true,
+        attachments: vec![],
         items: items.into_iter().map(|i| abt_core::fms::expense::model::ExpenseItemInput {
             expense_type: abt_core::fms::enums::ExpenseType::from_i16(i.expense_type)
                 .unwrap_or(abt_core::fms::enums::ExpenseType::Other),
@@ -75,6 +78,8 @@ pub async fn create(
             receipt_no: i.receipt_no,
             cost_center: None,
             profit_center: None,
+            occurrence_date: None,
+            has_invoice: true,
         }).collect(),
     };
 

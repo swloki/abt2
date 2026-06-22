@@ -126,8 +126,10 @@ impl CashJournalService for CashJournalServiceImpl {
         }
 
         // Header amount must equal sum of line debit (and credit) totals
-        let total_debit: rust_decimal::Decimal = req.lines.iter().map(|l| l.debit_amount).sum();
-        let total_credit: rust_decimal::Decimal = req.lines.iter().map(|l| l.credit_amount).sum();
+        let (total_debit, total_credit) = req.lines.iter().fold(
+            (rust_decimal::Decimal::ZERO, rust_decimal::Decimal::ZERO),
+            |(d, c), l| (d + l.debit_amount, c + l.credit_amount),
+        );
         if total_debit != req.amount || total_credit != req.amount {
             return Err(DomainError::validation(
                 "header amount must equal line debit and credit totals",
@@ -336,5 +338,88 @@ impl CashJournalService for CashJournalServiceImpl {
         months_back: i32,
     ) -> Result<Vec<(String, Decimal, Decimal)>> {
         CashJournalRepo::monthly_trend(db, months_back).await
+    }
+
+    async fn search_counterparties(
+        &self,
+        _ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        counterparty_type: crate::fms::enums::CounterpartyType,
+        keyword: &str,
+        limit: i64,
+    ) -> Result<Vec<CounterpartyResult>> {
+        let like = format!("%{}%", keyword);
+        match counterparty_type {
+            crate::fms::enums::CounterpartyType::Customer => {
+                let rows = sqlx::query_as::<sqlx::Postgres, (i64, String, String)>(
+                    "SELECT customer_id, customer_name, customer_code FROM customers \
+                     WHERE deleted_at IS NULL AND (customer_name ILIKE $1 OR customer_code ILIKE $1) \
+                     ORDER BY customer_name LIMIT $2",
+                )
+                .bind(&like)
+                .bind(limit)
+                .fetch_all(db)
+                .await?;
+                Ok(rows
+                    .into_iter()
+                    .map(|(id, name, code)| CounterpartyResult { id, name, code })
+                    .collect())
+            }
+            crate::fms::enums::CounterpartyType::Supplier => {
+                let rows = sqlx::query_as::<sqlx::Postgres, (i64, String, String)>(
+                    "SELECT supplier_id, supplier_name, supplier_code FROM suppliers \
+                     WHERE deleted_at IS NULL AND (supplier_name ILIKE $1 OR supplier_code ILIKE $1) \
+                     ORDER BY supplier_name LIMIT $2",
+                )
+                .bind(&like)
+                .bind(limit)
+                .fetch_all(db)
+                .await?;
+                Ok(rows
+                    .into_iter()
+                    .map(|(id, name, code)| CounterpartyResult { id, name, code })
+                    .collect())
+            }
+            crate::fms::enums::CounterpartyType::Employee => {
+                let rows = sqlx::query_as::<sqlx::Postgres, (i64, String, String)>(
+                    "SELECT user_id, COALESCE(display_name, username), username FROM users \
+                     WHERE is_active = TRUE AND (COALESCE(display_name, username) ILIKE $1 OR username ILIKE $1) \
+                     ORDER BY COALESCE(display_name, username) LIMIT $2",
+                )
+                .bind(&like)
+                .bind(limit)
+                .fetch_all(db)
+                .await?;
+                Ok(rows
+                    .into_iter()
+                    .map(|(id, name, code)| CounterpartyResult { id, name, code })
+                    .collect())
+            }
+            crate::fms::enums::CounterpartyType::Other => Ok(vec![]),
+        }
+    }
+
+    async fn search_accounts(
+        &self,
+        _ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        keyword: &str,
+        limit: i64,
+    ) -> Result<Vec<AccountResult>> {
+        let like = format!("%{}%", keyword);
+        let rows = sqlx::query_as::<sqlx::Postgres, (i64, String, String)>(
+            "SELECT id, code, name FROM gl_accounts \
+             WHERE deleted_at IS NULL AND is_detail = TRUE \
+             AND (code ILIKE $1 OR name ILIKE $1) \
+             ORDER BY code LIMIT $2",
+        )
+        .bind(&like)
+        .bind(limit)
+        .fetch_all(db)
+        .await?;
+        Ok(rows
+            .into_iter()
+            .map(|(id, code, name)| AccountResult { id, code, name })
+            .collect())
     }
 }

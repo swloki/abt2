@@ -55,4 +55,23 @@ pub trait CashJournalService: Send + Sync {
         db: PgExecutor<'_>,
         months_back: i32,
     ) -> Result<Vec<(String, Decimal, Decimal)>>;
+
+    /// 按类型搜索往来方（客户/供应商/员工）
+    async fn search_counterparties(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        counterparty_type: crate::fms::enums::CounterpartyType,
+        keyword: &str,
+        limit: i64,
+    ) -> Result<Vec<CounterpartyResult>>;
+
+    /// 搜索会计科目（用于分录行科目选择）
+    async fn search_accounts(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        keyword: &str,
+        limit: i64,
+    ) -> Result<Vec<AccountResult>>;
 }

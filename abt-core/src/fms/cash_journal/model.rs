@@ -112,3 +112,23 @@ pub struct BalanceSummary {
     pub net_balance: Decimal,
     pub currency: String,
 }
+
+// ---------------------------------------------------------------------------
+// Search / Picker types
+// ---------------------------------------------------------------------------
+
+/// 往来方搜索结果（用于 Entity Picker）
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct CounterpartyResult {
+    pub id: i64,
+    pub name: String,
+    pub code: String,
+}
+
+/// 会计科目搜索结果（用于分录行科目选择）
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct AccountResult {
+    pub id: i64,
+    pub code: String,
+    pub name: String,
+}

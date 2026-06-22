@@ -38,9 +38,11 @@ fn expense_status_label(s: &ExpenseStatus) -> (&'static str, &'static str, &'sta
  match s {
  ExpenseStatus::Draft => ("草稿", "bg-accent-bg", "text-muted"),
  ExpenseStatus::Submitted => ("已提交", "bg-accent-bg", "text-accent"),
- ExpenseStatus::Approved => ("已审批", "bg-success-bg", "text-success"),
+ ExpenseStatus::Approved => ("已通过", "bg-success-bg", "text-success"),
  ExpenseStatus::Paid => ("已付款", "bg-success-50", "text-success-600"),
  ExpenseStatus::Cancelled => ("已取消", "bg-danger-100", "text-danger"),
+ ExpenseStatus::SupervisorApproved => ("直属上级已批", "bg-accent-bg", "text-accent"),
+ ExpenseStatus::FinanceApproved => ("财务已审", "bg-purple-bg", "text-purple"),
  }
 }
 
@@ -160,11 +162,12 @@ pub async fn get_list(
 }
 
 fn build_filter(params: &ExpenseQueryParams) -> ExpenseFilter {
- let status_vec = match &params.status {
- Some(1) => vec![ExpenseStatus::Draft],
- Some(2) => vec![ExpenseStatus::Submitted],
- Some(3) => vec![ExpenseStatus::Approved],
- Some(4) => vec![ExpenseStatus::Paid],
+ let status_vec = match params.status {
+ // 新 Tab 映射: 1=待审批(Submitted+SupervisorApproved+FinanceApproved), 2=已通过(Approved), 3=已付款(Paid)
+ Some(1) => vec![ExpenseStatus::Submitted, ExpenseStatus::SupervisorApproved, ExpenseStatus::FinanceApproved],
+ Some(2) => vec![ExpenseStatus::Approved],
+ Some(3) => vec![ExpenseStatus::Paid],
+ Some(4) => vec![ExpenseStatus::Draft],
  Some(5) => vec![ExpenseStatus::Cancelled],
  _ => vec![],
  };
@@ -221,10 +224,9 @@ fn expense_table_fragment(
 
  let tabs = &[
  TabItem { value: String::new(), label: "全部", count: Some(total_count) },
- TabItem { value: "1".into(), label: "草稿", count: None },
- TabItem { value: "2".into(), label: "已提交", count: None },
- TabItem { value: "3".into(), label: "已审批", count: None },
- TabItem { value: "4".into(), label: "已付款", count: None },
+ TabItem { value: "1".into(), label: "待审批", count: None },
+ TabItem { value: "2".into(), label: "已通过", count: None },
+ TabItem { value: "3".into(), label: "已付款", count: None },
  ];
 
  html! {
@@ -241,10 +243,10 @@ fn expense_table_fragment(
  hx-push-url="true" {
  select class="w-40 px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer" name="status" {
  option value="" selected[params.status.is_none()] { "全部状态" }
- option value="1" selected[params.status == Some(1)] { "草稿" }
- option value="2" selected[params.status == Some(2)] { "已提交" }
- option value="3" selected[params.status == Some(3)] { "已审批" }
- option value="4" selected[params.status == Some(4)] { "已付款" }
+ option value="1" selected[params.status == Some(1)] { "待审批" }
+ option value="2" selected[params.status == Some(2)] { "已通过" }
+ option value="3" selected[params.status == Some(3)] { "已付款" }
+ option value="4" selected[params.status == Some(4)] { "草稿" }
  option value="5" selected[params.status == Some(5)] { "已取消" }
  }
  select class="w-40 px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer" name="applicant_id" {
@@ -292,8 +294,8 @@ fn expense_data_card(
  th { "申请人" }
  th { "部门" }
  th { "报销日期" }
- th { "费用类型" }
  th { "金额" }
+ th { "单据张数" }
  th { "状态" }
  th { "提交时间" }
  th class="w-20" { "操作" }
@@ -310,8 +312,8 @@ fn expense_data_card(
  td class="text-sm text-fg-2" { (applicant_name) }
  td class="text-sm text-muted" { (dept_name) }
  td class="text-xs text-muted" { (item.expense_date.format("%Y-%m-%d")) }
- td class="text-sm text-muted" { "—" }
  td class="text-right font-mono tabular-nums text-sm font-semibold" { "¥" (format!("{:.2}", item.total_amount)) }
+ td class="text-center text-sm text-muted" { (item.sheet_count) }
  td {
  span class=(format!("text-xs px-2 py-0.5 rounded-full font-medium {} {}", status_bg, status_color)) {
  (status_text)

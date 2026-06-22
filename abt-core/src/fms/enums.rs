@@ -278,6 +278,8 @@ pub enum ExpenseStatus {
     Approved = 3,
     Paid = 4,
     Cancelled = 5,
+    SupervisorApproved = 6,
+    FinanceApproved = 7,
 }
 
 impl ExpenseStatus {
@@ -288,6 +290,8 @@ impl ExpenseStatus {
             3 => Some(Self::Approved),
             4 => Some(Self::Paid),
             5 => Some(Self::Cancelled),
+            6 => Some(Self::SupervisorApproved),
+            7 => Some(Self::FinanceApproved),
             _ => None,
         }
     }
@@ -301,7 +305,27 @@ impl ExpenseStatus {
             Self::Approved => "Approved",
             Self::Paid => "Paid",
             Self::Cancelled => "Cancelled",
+            Self::SupervisorApproved => "SupervisorApproved",
+            Self::FinanceApproved => "FinanceApproved",
         }
+    }
+
+    /// 中文标签
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Draft => "草稿",
+            Self::Submitted => "已提交",
+            Self::Approved => "已通过",
+            Self::Paid => "已付款",
+            Self::Cancelled => "已取消",
+            Self::SupervisorApproved => "直属上级已批",
+            Self::FinanceApproved => "财务已审",
+        }
+    }
+
+    /// 是否处于待审批状态（Submitted | SupervisorApproved | FinanceApproved）
+    pub fn is_pending_approval(self) -> bool {
+        matches!(self, Self::Submitted | Self::SupervisorApproved | Self::FinanceApproved)
     }
 }
 

@@ -5,9 +5,11 @@ use super::model::*;
 use super::super::enums::ExpenseStatus;
 use crate::shared::types::{DataScope, PageParams};
 
-const EXPENSE_COLUMNS: &str = "id, doc_number, applicant_id, department_id, expense_date, total_amount, status, remark, operator_id, version, created_at, updated_at, deleted_at";
+const EXPENSE_COLUMNS: &str = "id, doc_number, applicant_id, department_id, expense_date, total_amount, status, remark, operator_id, version, created_at, updated_at, deleted_at, sheet_count, has_invoice, payment_remark, payment_bank, payment_date, supervisor_id";
 
-const ITEM_COLUMNS: &str = "id, reimbursement_id, expense_type, amount, description, receipt_no, cost_center, profit_center";
+const ITEM_COLUMNS: &str = "id, reimbursement_id, expense_type, amount, description, receipt_no, cost_center, profit_center, occurrence_date, has_invoice";
+
+const ATTACHMENT_COLUMNS: &str = "id, expense_id, file_name, file_path, mime_type, file_size, sort_order, created_at";
 
 // ---------------------------------------------------------------------------
 // ExpenseReimbursementRepo
@@ -25,8 +27,8 @@ impl ExpenseReimbursementRepo {
     ) -> Result<i64> {
         let row = sqlx::query_scalar::<sqlx::Postgres, i64>(
             r#"INSERT INTO expense_reimbursements
-               (doc_number, applicant_id, department_id, expense_date, total_amount, status, remark, operator_id)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+               (doc_number, applicant_id, department_id, expense_date, total_amount, status, remark, operator_id, sheet_count, has_invoice)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
                RETURNING id"#,
         )
         .bind(doc_number)
@@ -37,6 +39,8 @@ impl ExpenseReimbursementRepo {
         .bind(ExpenseStatus::Draft)
         .bind(&req.remark)
         .bind(operator_id)
+        .bind(req.sheet_count)
+        .bind(req.has_invoice)
         .fetch_one(executor)
         .await?;
         Ok(row)
@@ -68,6 +72,44 @@ impl ExpenseReimbursementRepo {
         .bind(id)
         .bind(status)
         .bind(version)
+        .execute(executor)
+        .await?;
+        Ok(result.rows_affected())
+    }
+
+    /// Update supervisor_id (called during submit)
+    pub async fn update_supervisor(
+        executor: PgExecutor<'_>,
+        id: i64,
+        supervisor_id: i64,
+    ) -> Result<u64> {
+        let result = sqlx::query(
+            "UPDATE expense_reimbursements SET supervisor_id = $2, updated_at = NOW() \
+             WHERE id = $1 AND deleted_at IS NULL",
+        )
+        .bind(id)
+        .bind(supervisor_id)
+        .execute(executor)
+        .await?;
+        Ok(result.rows_affected())
+    }
+
+    /// Update payment info (called during pay)
+    pub async fn update_payment_info(
+        executor: PgExecutor<'_>,
+        id: i64,
+        payment_bank: &str,
+        payment_remark: &str,
+        payment_date: chrono::NaiveDate,
+    ) -> Result<u64> {
+        let result = sqlx::query(
+            "UPDATE expense_reimbursements SET payment_bank = $2, payment_remark = $3, payment_date = $4, updated_at = NOW() \
+             WHERE id = $1 AND deleted_at IS NULL",
+        )
+        .bind(id)
+        .bind(payment_bank)
+        .bind(payment_remark)
+        .bind(payment_date)
         .execute(executor)
         .await?;
         Ok(result.rows_affected())
@@ -221,16 +263,28 @@ impl ExpenseReimbursementRepo {
         Ok((items, total))
     }
 
-    /// Count and sum of pending (submitted, status=2) expense reimbursements.
+    /// Count and sum of pending (submitted + supervisor_approved + finance_approved) expense reimbursements.
     pub async fn pending_summary(executor: PgExecutor<'_>) -> Result<(i64, rust_decimal::Decimal)> {
         let row: (i64, rust_decimal::Decimal) = sqlx::query_as(
             r#"SELECT COUNT(*), COALESCE(SUM(total_amount), 0)
                FROM expense_reimbursements
-               WHERE status = 2 AND deleted_at IS NULL"#,
+               WHERE status IN (2, 6, 7) AND deleted_at IS NULL"#,
         )
         .fetch_one(executor)
         .await?;
         Ok(row)
+    }
+
+    /// Check if department has a leader
+    pub async fn get_department_leader(executor: PgExecutor<'_>, department_id: i64) -> Result<Option<i64>> {
+        let leader: Option<i64> = sqlx::query_scalar(
+            "SELECT leader_id FROM departments WHERE department_id = $1 AND is_active = TRUE"
+        )
+        .bind(department_id)
+        .fetch_optional(executor)
+        .await?
+        .flatten();
+        Ok(leader)
     }
 }
 
@@ -249,8 +303,8 @@ impl ExpenseReimbursementItemRepo {
         for item in items {
             sqlx::query(
                 r#"INSERT INTO expense_reimbursement_items
-                   (reimbursement_id, expense_type, amount, description, receipt_no, cost_center, profit_center)
-                   VALUES ($1, $2, $3, $4, $5, $6, $7)"#,
+                   (reimbursement_id, expense_type, amount, description, receipt_no, cost_center, profit_center, occurrence_date, has_invoice)
+                   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)"#,
             )
             .bind(reimbursement_id)
             .bind(item.expense_type)
@@ -259,6 +313,8 @@ impl ExpenseReimbursementItemRepo {
             .bind(&item.receipt_no)
             .bind(item.cost_center)
             .bind(item.profit_center)
+            .bind(item.occurrence_date)
+            .bind(item.has_invoice)
             .execute(&mut *executor)
             .await?;
         }
@@ -276,5 +332,69 @@ impl ExpenseReimbursementItemRepo {
         .fetch_all(executor)
         .await?;
         Ok(items)
+    }
+}
+
+// ---------------------------------------------------------------------------
+// ExpenseAttachmentRepo
+// ---------------------------------------------------------------------------
+
+pub struct ExpenseAttachmentRepo;
+
+impl ExpenseAttachmentRepo {
+    pub async fn insert(
+        executor: PgExecutor<'_>,
+        expense_id: i64,
+        req: &CreateAttachmentReq,
+    ) -> Result<i64> {
+        let id = sqlx::query_scalar::<sqlx::Postgres, i64>(
+            r#"INSERT INTO expense_attachments
+               (expense_id, file_name, file_path, mime_type, file_size, sort_order)
+               VALUES ($1, $2, $3, $4, $5, $6)
+               RETURNING id"#,
+        )
+        .bind(expense_id)
+        .bind(&req.file_name)
+        .bind(&req.file_path)
+        .bind(&req.mime_type)
+        .bind(req.file_size)
+        .bind(req.sort_order)
+        .fetch_one(executor)
+        .await?;
+        Ok(id)
+    }
+
+    pub async fn list_by_expense_id(
+        executor: PgExecutor<'_>,
+        expense_id: i64,
+    ) -> Result<Vec<ExpenseAttachment>> {
+        let items = sqlx::query_as::<sqlx::Postgres, ExpenseAttachment>(
+            sqlx::AssertSqlSafe(format!(
+                "SELECT {ATTACHMENT_COLUMNS} FROM expense_attachments WHERE expense_id = $1 ORDER BY sort_order ASC"
+            )),
+        )
+        .bind(expense_id)
+        .fetch_all(executor)
+        .await?;
+        Ok(items)
+    }
+
+    pub async fn delete(executor: PgExecutor<'_>, attachment_id: i64) -> Result<u64> {
+        let result = sqlx::query("DELETE FROM expense_attachments WHERE id = $1")
+            .bind(attachment_id)
+            .execute(executor)
+            .await?;
+        Ok(result.rows_affected())
+    }
+
+    pub async fn batch_insert(
+        executor: PgExecutor<'_>,
+        expense_id: i64,
+        attachments: &[CreateAttachmentReq],
+    ) -> Result<()> {
+        for att in attachments {
+            Self::insert(executor, expense_id, att).await?;
+        }
+        Ok(())
     }
 }

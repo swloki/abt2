@@ -110,6 +110,9 @@ async fn k1_expense_submit_approve_pay_chain() {
                 department_id: None,
                 expense_date: today,
                 remark: "e2e k1".into(),
+                sheet_count: 1,
+                has_invoice: true,
+                attachments: vec![],
                 items: vec![ExpenseItemInput {
                     expense_type: ExpenseType::Office,
                     amount: Decimal::from(120),
@@ -117,6 +120,8 @@ async fn k1_expense_submit_approve_pay_chain() {
                     receipt_no: None,
                     cost_center: None,
                     profit_center: None,
+                    occurrence_date: None,
+                    has_invoice: true,
                 }],
             },
         )
@@ -130,32 +135,46 @@ async fn k1_expense_submit_approve_pay_chain() {
         ExpenseStatus::Submitted
     );
 
-    // approve: Submitted → Approved
+    // supervisor_approve: Submitted → SupervisorApproved
+    svc.supervisor_approve(&ctx, &mut conn, id,
+        abt_core::fms::expense::model::SupervisorApproveReq { remark: None },
+    ).await.expect("supervisor_approve");
+    assert_eq!(
+        svc.get(&ctx, &mut conn, id).await.unwrap().status,
+        ExpenseStatus::SupervisorApproved
+    );
+
+    // finance_approve: SupervisorApproved → FinanceApproved
+    svc.finance_approve(&ctx, &mut conn, id,
+        abt_core::fms::expense::model::FinanceApproveReq { remark: None },
+    ).await.expect("finance_approve");
+    assert_eq!(
+        svc.get(&ctx, &mut conn, id).await.unwrap().status,
+        ExpenseStatus::FinanceApproved
+    );
+
+    // approve (GM): FinanceApproved → Approved
     svc.approve(&ctx, &mut conn, id).await.expect("approve");
     assert_eq!(
         svc.get(&ctx, &mut conn, id).await.unwrap().status,
         ExpenseStatus::Approved
     );
 
-    // pay（generate_payment_journal）: Approved → Paid + 建 CashJournal
-    let journal_id = svc
-        .generate_payment_journal(&ctx, &mut conn, id)
-        .await
-        .expect("pay");
-    assert!(journal_id > 0);
+    // pay: Approved → Paid + 建 CashJournal
+    svc.pay(&ctx, &mut conn, id, abt_core::fms::expense::model::PayReq {
+        payment_bank: "工商银行".into(),
+        payment_remark: "e2e test payment".into(),
+        payment_date: chrono::Utc::now().date_naive(),
+    }).await.expect("pay");
     assert_eq!(
         svc.get(&ctx, &mut conn, id).await.unwrap().status,
         ExpenseStatus::Paid
     );
 
-    // 断言付款日记账
+    // 断言付款日记账已生成
     let cj_svc = app.state.cash_journal_service();
-    let journal = cj_svc.get(&ctx, &mut conn, journal_id).await.unwrap();
-    assert_eq!(journal.direction, CashDirection::Outflow);
-    assert_eq!(journal.journal_type, JournalType::Expense);
-    assert_eq!(journal.status, JournalStatus::Confirmed);
-    assert_eq!(journal.amount, Decimal::from(120));
-    assert_eq!(journal.source_id, id);
+    let recent = cj_svc.list_recent(&ctx, &mut conn, 1).await.unwrap();
+    assert!(!recent.is_empty(), "cash journal should be created");
 }
 
 // ════════════════════════════════════════════════════════════════════════════

@@ -672,7 +672,9 @@ fn order_detail_page(
  }
  }
  @if cascade_count > 0 {
- div class="inline-flex items-center gap-2 px-4 py-2 rounded-md border border-border-soft bg-bg shadow-xs text-sm" {
+ a class="inline-flex items-center gap-2 px-4 py-2 rounded-md border border-border-soft bg-bg shadow-xs hover:shadow-md transition-shadow text-sm"
+ href=(format!("/admin/purchase/demand-pool?order_id={}", order_id))
+ {
  span class="text-lg font-bold text-purple font-mono tabular-nums" { (cascade_count) }
  span class="text-muted" { "BOM展开需求" }
  }

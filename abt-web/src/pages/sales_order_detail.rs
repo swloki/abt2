@@ -116,7 +116,6 @@ pub async fn get_order_detail(
  // Smart Button 统计（参考 Odoo oe_button_box）
  let producing_count = demands.iter().filter(|d| d.acquire_channel == 1).count();
  let purchasing_count = demands.iter().filter(|d| d.acquire_channel == 2).count();
- let cascade_count = demands.iter().filter(|d| d.demand_type == 2).count();
 
  let demand_map: HashMap<i64, DemandStatus> = demands
  .into_iter()
@@ -160,7 +159,7 @@ pub async fn get_order_detail(
  &order, &items, &plan_lines,
  &customer_name, &contact, &sales_rep,
  &product_names, &product_codes, &atp_map, &demand_map,
- producing_count, purchasing_count, cascade_count, path.id,
+ producing_count, purchasing_count, path.id,
  );
  let page_html = admin_page(
  is_htmx, "订单详情", &claims, "sales",
@@ -608,7 +607,6 @@ fn order_detail_page(
  demand_map: &HashMap<i64, DemandStatus>,
  producing_count: usize,
  purchasing_count: usize,
- cascade_count: usize,
  order_id: i64,
 ) -> Markup {
  let (status_text, status_class) = status_label(o.status);
@@ -653,7 +651,7 @@ fn order_detail_page(
  }
 
  // ── Smart Buttons ──
- @if producing_count > 0 || purchasing_count > 0 || cascade_count > 0 {
+ @if producing_count > 0 || purchasing_count > 0 {
  div class="flex gap-3 mb-6" {
  @if producing_count > 0 {
  a class="inline-flex items-center gap-2 px-4 py-2 rounded-md border border-border-soft bg-bg shadow-xs hover:shadow-md transition-shadow text-sm"
@@ -669,14 +667,6 @@ fn order_detail_page(
  {
  span class="text-lg font-bold text-warn font-mono tabular-nums" { (purchasing_count) }
  span class="text-muted" { "采购需求" }
- }
- }
- @if cascade_count > 0 {
- a class="inline-flex items-center gap-2 px-4 py-2 rounded-md border border-border-soft bg-bg shadow-xs hover:shadow-md transition-shadow text-sm"
- href=(format!("/admin/purchase/demand-pool?order_id={}", order_id))
- {
- span class="text-lg font-bold text-purple font-mono tabular-nums" { (cascade_count) }
- span class="text-muted" { "BOM展开需求" }
  }
  }
  }

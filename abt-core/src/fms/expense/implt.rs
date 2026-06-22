@@ -91,7 +91,17 @@ impl ExpenseReimbursementServiceImpl {
         Ok(())
     }
 
-    /// 发送通知给单个用户
+    /// 构建费用报销通知请求（title/content/related_id 为变动部分）
+    fn build_notification_req(title: &str, content: &str, related_id: i64) -> BatchNotificationReq {
+        BatchNotificationReq {
+            notification_type: NotificationType::Business,
+            title: title.to_string(),
+            content: Some(content.to_string()),
+            related_type: Some("ExpenseReimbursement".to_string()),
+            related_id: Some(related_id),
+        }
+    }
+
     async fn notify_user(
         &self,
         ctx: &ServiceContext,
@@ -101,13 +111,7 @@ impl ExpenseReimbursementServiceImpl {
         content: &str,
         related_id: i64,
     ) {
-        let req = BatchNotificationReq {
-            notification_type: NotificationType::Business,
-            title: title.to_string(),
-            content: Some(content.to_string()),
-            related_type: Some("ExpenseReimbursement".to_string()),
-            related_id: Some(related_id),
-        };
+        let req = Self::build_notification_req(title, content, related_id);
         let _ = new_notification_service(self.pool.clone())
             .batch_create_notifications(ctx, db, &[user_id], req)
             .await;
@@ -133,13 +137,7 @@ impl ExpenseReimbursementServiceImpl {
         .flatten();
 
         if let Some(rid) = role_id {
-            let req = BatchNotificationReq {
-                notification_type: NotificationType::Business,
-                title: title.to_string(),
-                content: Some(content.to_string()),
-                related_type: Some("ExpenseReimbursement".to_string()),
-                related_id: Some(related_id),
-            };
+            let req = Self::build_notification_req(title, content, related_id);
             let _ = new_notification_service(self.pool.clone())
                 .notify_by_role(ctx, db, rid, req)
                 .await;
@@ -233,28 +231,25 @@ impl ExpenseReimbursementServiceImpl {
         let mut nodes = Vec::new();
         for (i, stage_name) in stages.iter().enumerate() {
             let stage = *stage_name; // &&str → &str
-            let (status_str, op_name, op_at) = if Some(stage) == current_stage {
-                let (n, t) = operator_map
-                    .get(stage)
-                    .map(|(id, ts)| (user_names.get(id).cloned(), Some(ts.clone())))
-                    .unwrap_or((None, None));
-                ("current", n, t)
+            // Look up operator info once; then determine status
+            let op_info = operator_map
+                .get(stage)
+                .map(|(id, ts)| (user_names.get(id).cloned(), Some(ts.clone())))
+                .unwrap_or((None, None));
+            let status_str = if Some(stage) == current_stage {
+                "current"
             } else if completed_stages.contains(&stage) {
-                let (n, t) = operator_map
-                    .get(stage)
-                    .map(|(id, ts)| (user_names.get(id).cloned(), Some(ts.clone())))
-                    .unwrap_or((None, None));
-                ("completed", n, t)
+                "completed"
             } else {
-                ("pending", None, None)
+                "pending"
             };
 
             nodes.push(ApprovalProgressNode {
                 stage: stage_name.to_string(),
                 label: labels[i].to_string(),
                 status: status_str.to_string(),
-                operator_name: op_name,
-                operated_at: op_at,
+                operator_name: op_info.0,
+                operated_at: op_info.1,
                 remark: None,
             });
         }
@@ -263,7 +258,7 @@ impl ExpenseReimbursementServiceImpl {
     }
 
     /// IndependentTx — 保存付款信息 + 生成付款日记账 + 更新状态为 Paid（由 pay() 调用）
-    pub async fn generate_payment_journal_with_info(
+    pub async fn execute_payment(
         &self,
         ctx: &ServiceContext,
         _db: PgExecutor<'_>,
@@ -338,10 +333,10 @@ impl ExpenseReimbursementServiceImpl {
             ],
         };
 
-        let total_debit: rust_decimal::Decimal =
-            journal_req.lines.iter().map(|l| l.debit_amount).sum();
-        let total_credit: rust_decimal::Decimal =
-            journal_req.lines.iter().map(|l| l.credit_amount).sum();
+        let (total_debit, total_credit) = journal_req.lines.iter().fold(
+            (rust_decimal::Decimal::ZERO, rust_decimal::Decimal::ZERO),
+            |(d, c), l| (d + l.debit_amount, c + l.credit_amount),
+        );
         if total_debit != total_credit {
             return Err(DomainError::business_rule("UnbalancedEntry"));
         }
@@ -489,11 +484,14 @@ impl ExpenseReimbursementService for ExpenseReimbursementServiceImpl {
             return Err(DomainError::business_rule("Only Draft expenses can be submitted"));
         }
 
-        // Auto-fetch direct supervisor from department leader
-        if let Some(dept_id) = expense.department_id {
-            if let Some(leader_id) = ExpenseReimbursementRepo::get_department_leader(db, dept_id).await? {
-                ExpenseReimbursementRepo::update_supervisor(db, id, leader_id).await?;
-            }
+        // Auto-fetch direct supervisor from department leader (once for both update + notify)
+        let leader_id = if let Some(dept_id) = expense.department_id {
+            ExpenseReimbursementRepo::get_department_leader(db, dept_id).await?
+        } else {
+            None
+        };
+        if let Some(lid) = leader_id {
+            ExpenseReimbursementRepo::update_supervisor(db, id, lid).await?;
         }
 
         new_state_machine_service(self.pool.clone())
@@ -505,13 +503,7 @@ impl ExpenseReimbursementService for ExpenseReimbursementServiceImpl {
             return Err(DomainError::ConcurrentConflict);
         }
 
-        // Notify supervisor — use the supervisor_id we just set, or re-fetch from department
-        let supervisor_id = if let Some(dept_id) = expense.department_id {
-            ExpenseReimbursementRepo::get_department_leader(db, dept_id).await?
-        } else {
-            None
-        };
-        if let Some(sid) = supervisor_id {
+        if let Some(sid) = leader_id {
             self.notify_user(
                 ctx,
                 db,
@@ -749,7 +741,7 @@ impl ExpenseReimbursementService for ExpenseReimbursementServiceImpl {
 
         // Persist payment info + generate journal in one transaction
         let payment_bank = req.payment_bank.clone();
-        self.generate_payment_journal_with_info(ctx, db, id, &req).await?;
+        self.execute_payment(ctx, db, id, &req).await?;
 
         // Notify applicant
         self.notify_user(

@@ -83,6 +83,14 @@ pub async fn get_detail(path: ExpenseDetailPath, ctx: RequestContext) -> Result<
 
     let (s_text, s_class) = status_text(&expense.status);
 
+    // Pre-compute approve button label
+    let approve_text = match expense.status {
+        ExpenseStatus::Submitted => "直属上级审批通过",
+        ExpenseStatus::SupervisorApproved => "财务审批通过",
+        ExpenseStatus::FinanceApproved => "总经理审批通过",
+        _ => "",
+    };
+
     let content = html! {
         // 返回链接
         a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150 mb-4"
@@ -109,26 +117,12 @@ pub async fn get_detail(path: ExpenseDetailPath, ctx: RequestContext) -> Result<
                   _="on 'htmx:afterRequest'[detail.xhr.status < 400] location.reload()" {
                     "提交审批"
                 }
-            } @else if expense.status == ExpenseStatus::Submitted {
+            } @else if matches!(expense.status, ExpenseStatus::Submitted | ExpenseStatus::SupervisorApproved | ExpenseStatus::FinanceApproved) {
                 a class="inline-flex items-center gap-2 px-4 py-2 rounded-sm bg-success text-white text-sm font-medium hover:opacity-90 cursor-pointer transition-all duration-150"
                   hx-post=(ExpenseApprovePath { id: path.id }.to_string())
                   hx-swap="none"
                   _="on 'htmx:afterRequest'[detail.xhr.status < 400] location.reload()" {
-                    "直属上级审批通过"
-                }
-            } @else if expense.status == ExpenseStatus::SupervisorApproved {
-                a class="inline-flex items-center gap-2 px-4 py-2 rounded-sm bg-success text-white text-sm font-medium hover:opacity-90 cursor-pointer transition-all duration-150"
-                  hx-post=(ExpenseApprovePath { id: path.id }.to_string())
-                  hx-swap="none"
-                  _="on 'htmx:afterRequest'[detail.xhr.status < 400] location.reload()" {
-                    "财务审批通过"
-                }
-            } @else if expense.status == ExpenseStatus::FinanceApproved {
-                a class="inline-flex items-center gap-2 px-4 py-2 rounded-sm bg-success text-white text-sm font-medium hover:opacity-90 cursor-pointer transition-all duration-150"
-                  hx-post=(ExpenseApprovePath { id: path.id }.to_string())
-                  hx-swap="none"
-                  _="on 'htmx:afterRequest'[detail.xhr.status < 400] location.reload()" {
-                    "总经理审批通过"
+                    (approve_text)
                 }
             } @else if expense.status == ExpenseStatus::Approved {
                 button type="button"

@@ -126,8 +126,10 @@ impl CashJournalService for CashJournalServiceImpl {
         }
 
         // Header amount must equal sum of line debit (and credit) totals
-        let total_debit: rust_decimal::Decimal = req.lines.iter().map(|l| l.debit_amount).sum();
-        let total_credit: rust_decimal::Decimal = req.lines.iter().map(|l| l.credit_amount).sum();
+        let (total_debit, total_credit) = req.lines.iter().fold(
+            (rust_decimal::Decimal::ZERO, rust_decimal::Decimal::ZERO),
+            |(d, c), l| (d + l.debit_amount, c + l.credit_amount),
+        );
         if total_debit != req.amount || total_credit != req.amount {
             return Err(DomainError::validation(
                 "header amount must equal line debit and credit totals",

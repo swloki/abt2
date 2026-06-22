@@ -631,7 +631,7 @@ fn cost_drawer_content(report: &BomCostReport, temp_prices: &HashMap<i64, String
  input type="hidden" name="product_id" value=(item.product_id) {}
  input type="hidden" name="temp_price" value="" {}
  button type="submit" class="border-none bg-danger-50 text-danger-500 w-[22px] h-[22px] text-sm cursor-pointer grid place-items-center rounded" title="回退"
- _="on click halt the event" {
+ _="on click halt the event then trigger submit on closest <form/>" {
  "×"
  }
  }
@@ -645,7 +645,7 @@ fn cost_drawer_content(report: &BomCostReport, temp_prices: &HashMap<i64, String
  placeholder="输入单价"
  _="on click halt the event on focus halt the event" {}
  button type="submit" class="border-none bg-accent text-white w-6 h-6 text-xs cursor-pointer grid place-items-center rounded" title="确认"
- _="on click halt the event" {
+ _="on click halt the event then trigger submit on closest <form/>" {
  "✓"
  }
  }

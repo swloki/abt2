@@ -454,8 +454,10 @@ fn pay_modal(expense_id: i64) -> Markup {
           class="modal-overlay fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto"
           _="on click[me is event.target] remove .is-open" {
 
-            div class="bg-bg border border-border rounded-lg p-6 w-full max-w-md mx-4 shadow-xl"
-              _="on click halt" {
+            div class="bg-bg border border-border rounded-lg p-6 w-full max-w-md mx-4 shadow-xl" {
+                // 注：不加 _="on click halt"——halt 的 preventDefault 会阻止「确认付款」submit
+                // 按钮的默认 form submit 行为，导致点击无响应。背景关闭已由上方 overlay 的
+                // [me is event.target] 过滤实现，点内容不会误关，无需内层 halt。
                 h2 class="text-lg font-bold text-fg mb-4" { "确认付款" }
 
                 form hx-post=(ExpensePayPath { id: expense_id }.to_string())

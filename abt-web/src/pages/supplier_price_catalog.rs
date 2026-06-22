@@ -563,7 +563,9 @@ fn price_form(action_url: &str, price: Option<&PriceView>) -> Markup {
  .unwrap_or_default();
 
  html! {
- div class="modal bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl" _="on click halt" {
+ // 不加 _="on click halt"——halt 的 preventDefault 会阻止「保存」submit 按钮提交；
+ // 背景关闭已由 #price-modal overlay 的 [me is event.target] 过滤实现。
+ div class="modal bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl" {
  div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
  h2 { (title) }
  button class="bg-transparent border-none cursor-pointer text-xl text-muted p-1 hover:text-fg"

@@ -49,17 +49,17 @@ impl MesDemandRepo {
             order_param = -1;
         }
 
-        // keyword 模糊搜索（两个独立参数，分别用于 product_name 和 product_code）
+        // keyword 模糊搜索（ILIKE 绑三次：product_name、product_code、order_no 各一次）
         let keyword_param;
         if let Some(ref kw) = query.keyword {
             let trimmed = kw.trim();
             if !trimmed.is_empty() {
                 keyword_param = format!("%{}%", trimmed);
                 where_clauses.push(format!(
-                    "(product_name ILIKE ${p1} OR product_code ILIKE ${p2})",
-                    p1 = param_idx, p2 = param_idx + 1
+                    "(product_name ILIKE ${p1} OR product_code ILIKE ${p2} OR order_no ILIKE ${p3})",
+                    p1 = param_idx, p2 = param_idx + 1, p3 = param_idx + 2
                 ));
-                param_idx += 2;
+                param_idx += 3;
             } else {
                 keyword_param = String::new();
             }
@@ -95,7 +95,7 @@ impl MesDemandRepo {
         if query.status.is_some() { count_q = count_q.bind(status_param); }
         if query.product_id.is_some() { count_q = count_q.bind(product_param); }
         if query.order_id.is_some() { count_q = count_q.bind(order_param); }
-        if !keyword_param.is_empty() { count_q = count_q.bind(&keyword_param).bind(&keyword_param); }
+        if !keyword_param.is_empty() { count_q = count_q.bind(&keyword_param).bind(&keyword_param).bind(&keyword_param); }
         if query.required_date_start.is_some() { count_q = count_q.bind(date_start_param); }
         if query.required_date_end.is_some() { count_q = count_q.bind(date_end_param); }
         let count_row = count_q.fetch_one(&mut *db).await?;
@@ -114,7 +114,7 @@ impl MesDemandRepo {
         if query.status.is_some() { data_q = data_q.bind(status_param); }
         if query.product_id.is_some() { data_q = data_q.bind(product_param); }
         if query.order_id.is_some() { data_q = data_q.bind(order_param); }
-        if !keyword_param.is_empty() { data_q = data_q.bind(&keyword_param).bind(&keyword_param); }
+        if !keyword_param.is_empty() { data_q = data_q.bind(&keyword_param).bind(&keyword_param).bind(&keyword_param); }
         if query.required_date_start.is_some() { data_q = data_q.bind(date_start_param); }
         if query.required_date_end.is_some() { data_q = data_q.bind(date_end_param); }
         data_q = data_q.bind(limit).bind(offset);
@@ -141,17 +141,17 @@ impl MesDemandRepo {
             product_param = -1;
         }
 
-        // keyword 模糊搜索（两个独立参数，分别用于 product_name 和 product_code）
+        // keyword 模糊搜索（ILIKE 绑三次：product_name、product_code、order_no 各一次）
         let keyword_param;
         if let Some(ref kw) = query.keyword {
             let trimmed = kw.trim();
             if !trimmed.is_empty() {
                 keyword_param = format!("%{}%", trimmed);
                 where_clauses.push(format!(
-                    "(product_name ILIKE ${p1} OR product_code ILIKE ${p2})",
-                    p1 = param_idx, p2 = param_idx + 1
+                    "(product_name ILIKE ${p1} OR product_code ILIKE ${p2} OR order_no ILIKE ${p3})",
+                    p1 = param_idx, p2 = param_idx + 1, p3 = param_idx + 2
                 ));
-                param_idx += 2;
+                param_idx += 3;
             } else {
                 keyword_param = String::new();
             }
@@ -189,7 +189,7 @@ impl MesDemandRepo {
         );
         let mut count_q = sqlx::query(sqlx::AssertSqlSafe(count_sql));
         if query.product_id.is_some() { count_q = count_q.bind(product_param); }
-        if !keyword_param.is_empty() { count_q = count_q.bind(&keyword_param).bind(&keyword_param); }
+        if !keyword_param.is_empty() { count_q = count_q.bind(&keyword_param).bind(&keyword_param).bind(&keyword_param); }
         if query.required_date_start.is_some() { count_q = count_q.bind(date_start_param); }
         if query.required_date_end.is_some() { count_q = count_q.bind(date_end_param); }
         let count_row = count_q.fetch_one(&mut *db).await?;
@@ -212,7 +212,7 @@ impl MesDemandRepo {
         );
         let mut data_q = sqlx::query_as::<_, MaterialAggSummary>(sqlx::AssertSqlSafe(data_sql));
         if query.product_id.is_some() { data_q = data_q.bind(product_param); }
-        if !keyword_param.is_empty() { data_q = data_q.bind(&keyword_param).bind(&keyword_param); }
+        if !keyword_param.is_empty() { data_q = data_q.bind(&keyword_param).bind(&keyword_param).bind(&keyword_param); }
         if query.required_date_start.is_some() { data_q = data_q.bind(date_start_param); }
         if query.required_date_end.is_some() { data_q = data_q.bind(date_end_param); }
         data_q = data_q.bind(limit).bind(offset);

@@ -455,7 +455,7 @@ fn view_toggle_and_filter(view_mode: &str, params: &DemandPoolQueryParams) -> Ma
  div class="relative flex-1 max-w-xs icon:absolute icon:left-3 icon:top-1/2 icon:-translate-y-1/2 icon:w-4 icon:h-4 icon:text-muted" {
  (icon::search_icon(""))
  input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input" type="text" name="keyword"
- placeholder="搜索物料名称、编码…"
+ placeholder="搜索物料名称、编码、订单号…"
  value=(kw);
  }
  select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="date_filter" {

@@ -5,7 +5,7 @@ use crate::shared::types::PgExecutor;
 use crate::shared::types::Result;
 use crate::shared::types::pagination::PaginatedResult;
 
-use super::model::{MaterialRequisition, RequisitionFilter, IssueMaterialReq, CreateManualReq, ReturnMaterialReq};
+use super::model::{MaterialRequisition, MaterialReqItem, RequisitionFilter, IssueMaterialReq, CreateManualReq, ReturnMaterialReq};
 
 #[async_trait]
 pub trait MaterialRequisitionService: Send + Sync {
@@ -35,6 +35,14 @@ pub trait MaterialRequisitionService: Send + Sync {
         page: u32,
         page_size: u32,
     ) -> Result<PaginatedResult<MaterialRequisition>>;
+
+    /// 读取领料单明细行（只读查询，供前端带出待领料明细）
+    async fn list_items(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        requisition_id: i64,
+    ) -> Result<Vec<MaterialReqItem>>;
 
     async fn confirm(
         &self,

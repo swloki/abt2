@@ -936,6 +936,7 @@ select:disabled {
 .ml-2{margin-left:calc(var(--spacing) * 2);}
 .ml-3{margin-left:calc(var(--spacing) * 3);}
 .ml-auto{margin-left:auto;}
+.mr{margin-right:calc(var(--spacing) * 4);}
 .mr-1{margin-right:calc(var(--spacing) * 1);}
 .mr-1\.5{margin-right:calc(var(--spacing) * 1.5);}
 .ms{margin-inline-start:calc(var(--spacing) * 4);}
@@ -1165,7 +1166,6 @@ select:disabled {
 .bg-\[linear-gradient\(135deg\,\#fff8eb\,\#fff0d6\)\]{background-image:linear-gradient(135deg,#fff8eb,#fff0d6);}
 .bg-\[linear-gradient\(135deg\,rgba\(217\,119\,6\,0\.08\)\,rgba\(37\,99\,235\,0\.08\)\)\]{background-image:linear-gradient(135deg,rgba(217,119,6,0.08),rgba(37,99,235,0.08));}
 .bg-\[linear-gradient\(135deg\,rgba\(22\,163\,74\,0\.08\)\,rgba\(37\,99\,235\,0\.08\)\)\]{background-image:linear-gradient(135deg,rgba(22,163,74,0.08),rgba(37,99,235,0.08));}
-.bg-\[linear-gradient\(135deg\,rgba\(250\,173\,20\,0\.04\)\,rgba\(255\,77\,79\,0\.04\)\)\]{background-image:linear-gradient(135deg,rgba(250,173,20,0.04),rgba(255,77,79,0.04));}
 .bg-\[linear-gradient\(135deg\,var\(--accent\)_0\%\,\#4096ff_100\%\)\]{background-image:linear-gradient(135deg,var(--accent) 0%,#4096ff 100%);}
 .bg-\[linear-gradient\(135deg\,var\(--accent\)\,\#6366f1\)\]{background-image:linear-gradient(135deg,var(--accent),#6366f1);}
 .bg-\[linear-gradient\(180deg\,rgba\(220\,38\,38\,0\.15\)\,rgba\(220\,38\,38\,0\.03\)\)\]{background-image:linear-gradient(180deg,rgba(220,38,38,0.15),rgba(220,38,38,0.03));}
@@ -1586,6 +1586,7 @@ select:disabled {
 .expanded\:block.expanded{display:block;}
 .inline-block{display:inline-block;}
 .\[\&\.is-collapsed_\.po-card-body\]\:hidden.is-collapsed .po-card-body,
+.\[\&\.is-collapsed_\.source-card-body\]\:hidden.is-collapsed .source-card-body,
 .hidden{display:none;}
 .group.is-open .group-\[\.is-open\]\:visible,
 .visible{visibility:visible;}
@@ -1654,7 +1655,8 @@ select:disabled {
 .before\:-translate-y-1\/2::before{--un-translate-y:-50%;translate:var(--un-translate-x) var(--un-translate-y);}
 .act\:after\:translate-x-4.active::after{--un-translate-x:calc(var(--spacing) * 4);translate:var(--un-translate-x) var(--un-translate-y);}
 .-rotate-90,
-.\[\&\.is-collapsed_\.po-toggle\]\:-rotate-90.is-collapsed .po-toggle{rotate:-90deg;}
+.\[\&\.is-collapsed_\.po-toggle\]\:-rotate-90.is-collapsed .po-toggle,
+.\[\&\.is-collapsed_\.source-toggle\]\:-rotate-90.is-collapsed .source-toggle{rotate:-90deg;}
 .rotate-180{rotate:180deg;}
 .rotate-90{rotate:90deg;}
 .icon\:transition-opacity [class*=i-lucide],

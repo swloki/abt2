@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use rust_decimal::Decimal;
 use sqlx::postgres::PgPool;
 
-use super::model::{CreateManualReq, IssueMaterialReq, MaterialRequisition, RequisitionFilter, ReturnMaterialReq};
+use super::model::{CreateManualReq, IssueMaterialReq, MaterialRequisition, MaterialReqItem, RequisitionFilter, ReturnMaterialReq};
 use super::repo::MaterialRequisitionRepo;
 use super::service::MaterialRequisitionService;
 use crate::mes::work_order::{new_work_order_service, service::WorkOrderService};
@@ -128,6 +128,17 @@ impl MaterialRequisitionService for MaterialRequisitionServiceImpl {
         page_size: u32,
     ) -> Result<PaginatedResult<MaterialRequisition>> {
         MaterialRequisitionRepo::list(&mut *db, &filter, page, page_size)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))
+    }
+
+    /// 读取领料单明细行（只读查询，委托 repo::get_items）
+    async fn list_items(
+        &self,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
+        requisition_id: i64,
+    ) -> Result<Vec<MaterialReqItem>> {
+        MaterialRequisitionRepo::get_items(&mut *db, requisition_id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))
     }

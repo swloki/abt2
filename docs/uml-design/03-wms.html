@@ -543,7 +543,7 @@ classDiagram
 
   note for InventoryService "High-level facade wrapping InventoryTransactionRepo + StockLedgerRepo Write ops: read before -> insert txn + update ledger -> read after -> return StockOperationResult Read ops: stock_ledger JOIN products/bins/zones/warehouses Log ops: inventory_transactions JOIN products/bins/zones/warehouses location_id in proto maps to bin_id in abt-core (resolved via InventoryRepo.resolve_bin)"
 
-  note for MaterialRequisitionService "StateMachine: Draft->Confirmed->Issued/Cancelled(Draft/Confirmed) Called by MES.WorkOrderService.release() issue -> InvRes.fulfill(Hard) issue -> InventoryTransaction.record(MaterialIssue)"
+  note for MaterialRequisitionService "StateMachine: Draft->Confirmed->Issued/Cancelled(Draft/Confirmed) Called by MES.WorkOrderService.release() issue -> InvRes.fulfill(Hard) issue -> InventoryTransaction.record(MaterialIssue) list_items -> read MaterialReqItem (readonly, for stock-out source picker)"
 
   note for BackflushService "StateMachine: Draft->Executed->Adjusted Called by MES.ProductionReceiptService.confirm() execute -> InventoryTransaction.record(Backflush) over threshold -> CostEntry(loss cost) [IndependentTx]"
 

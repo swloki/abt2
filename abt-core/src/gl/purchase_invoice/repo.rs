@@ -5,7 +5,7 @@ use super::model::*;
 use super::super::invoice::InvoiceStatus;
 use crate::shared::types::{DataScope, PageParams, PgExecutor, Result};
 
-const INVOICE_COLUMNS: &str = "id, doc_number, supplier_id, issue_date, period, subtotal, tax_amount, total, status, source_arrival_id, gl_entry_id, operator_id, version, created_at, updated_at, deleted_at";
+const INVOICE_COLUMNS: &str = "id, doc_number, supplier_id, issue_date, period, subtotal, tax_amount, total, status, source_arrival_id, gl_entry_id, due_date, outstanding_amount, paid_amount, is_return, return_against, operator_id, version, created_at, updated_at, deleted_at";
 
 const ITEM_COLUMNS: &str = "id, invoice_id, product_id, qty, unit_price, tax_rate_id, line_subtotal, line_tax, line_total";
 
@@ -42,6 +42,38 @@ impl PurchaseInvoiceRepo {
         .bind(total)
         .bind(InvoiceStatus::Draft)
         .bind(req.source_arrival_id)
+        .bind(operator_id)
+        .fetch_one(executor)
+        .await?;
+        Ok(id)
+    }
+
+    /// 创建红字采购发票记录
+    pub async fn create_red(
+        executor: PgExecutor<'_>,
+        doc_number: &str,
+        original: &PurchaseInvoice,
+        operator_id: i64,
+    ) -> Result<i64> {
+        let period = format!("{}-{:02}", original.issue_date.year(), original.issue_date.month());
+
+        let id: i64 = sqlx::query_scalar::<sqlx::Postgres, i64>(
+            r#"INSERT INTO purchase_invoices
+               (doc_number, supplier_id, issue_date, period, subtotal, tax_amount, total, status,
+                source_arrival_id, is_return, return_against, operator_id)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, TRUE, $10, $11)
+               RETURNING id"#,
+        )
+        .bind(doc_number)
+        .bind(original.supplier_id)
+        .bind(original.issue_date)
+        .bind(&period)
+        .bind(original.subtotal)
+        .bind(original.tax_amount)
+        .bind(original.total)
+        .bind(InvoiceStatus::Draft)
+        .bind(original.source_arrival_id)
+        .bind(original.id)
         .bind(operator_id)
         .fetch_one(executor)
         .await?;
@@ -240,6 +272,27 @@ impl PurchaseInvoiceRepo {
                WHERE id = $2 AND deleted_at IS NULL"#,
         )
         .bind(gl_entry_id)
+        .bind(id)
+        .execute(executor)
+        .await?;
+
+        Ok(result.rows_affected())
+    }
+
+    /// Update financial fields after posting (due_date, outstanding_amount)
+    pub async fn update_financial_fields(
+        executor: PgExecutor<'_>,
+        id: i64,
+        due_date: chrono::NaiveDate,
+        outstanding_amount: Decimal,
+    ) -> Result<u64> {
+        let result = sqlx::query::<sqlx::Postgres>(
+            r#"UPDATE purchase_invoices
+               SET due_date = $1, outstanding_amount = $2, updated_at = NOW()
+               WHERE id = $3 AND deleted_at IS NULL"#,
+        )
+        .bind(due_date)
+        .bind(outstanding_amount)
         .bind(id)
         .execute(executor)
         .await?;

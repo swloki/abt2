@@ -1,10 +1,15 @@
 use sqlx::PgPool;
 use rust_decimal::Decimal;
 
+use crate::fms::ar_ap::enums::LedgerDirection;
+use crate::fms::ar_ap::repo::{ArApLedgerInsert, ArApLedgerRepo};
+use crate::fms::ar_ap::model::SettleReq;
+use crate::fms::ar_ap::new_ar_ap_service;
+use crate::fms::ar_ap::service::ArApService;
 use crate::fms::cash_journal::model::*;
 use crate::fms::cash_journal::repo::{CashJournalLineRepo, CashJournalRepo};
 use crate::fms::cash_journal::service::CashJournalService;
-use crate::fms::enums::JournalType;
+use crate::fms::enums::{CounterpartyType, JournalType};
 use crate::gl::entry::{model::GlEntryLineInput, new_gl_entry_service, service::GlEntryService};
 use crate::gl::mapping::{new_gl_mapping_service, service::GlMappingService};
 use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService, RecordAuditLogReq};
@@ -238,6 +243,131 @@ impl CashJournalService for CashJournalServiceImpl {
         // - Expense：由 expense.generate_payment_journal 统一过账，此处跳过
         // - Payroll/Other：暂无对方科目映射，跳过（留后续里程碑）
         self.post_cash_journal_gl(ctx, db, &journal).await?;
+
+        // 业财一体：生成 AR/AP 台账记录 + 自动核销（同事务）
+        match journal.journal_type {
+            JournalType::SalesReceipt => {
+                let is_invoice_source = journal.source_type == DocumentType::SalesInvoice
+                    || journal.source_type == DocumentType::PurchaseInvoice;
+                let party_type = CounterpartyType::Customer;
+                let party_id = journal.counterparty_id;
+
+                // 查询客户币种
+                let currency: String = sqlx::query_scalar::<sqlx::Postgres, Option<String>>(
+                    "SELECT currency FROM customers WHERE customer_id = $1 AND deleted_at IS NULL",
+                )
+                .bind(party_id)
+                .fetch_optional(&mut *db)
+                .await?
+                .flatten()
+                .filter(|c| !c.is_empty())
+                .unwrap_or_else(|| "CNY".to_string());
+
+                let map = new_gl_mapping_service(self.pool.clone());
+                let ar_account = map.resolve(ctx, db, "default_ar", None).await?;
+
+                // 台账：AR 减少（Credit）
+                ArApLedgerRepo::insert(
+                    db,
+                    &ArApLedgerInsert {
+                        party_type,
+                        party_id,
+                        account_id: ar_account,
+                        source_type: DocumentType::CashJournal,
+                        source_id: journal.id,
+                        source_doc_no: &journal.doc_number,
+                        against_type: if is_invoice_source { Some(journal.source_type) } else { None },
+                        against_id: if is_invoice_source { Some(journal.source_id) } else { None },
+                        direction: LedgerDirection::Credit,  // AR 减少
+                        amount: journal.amount,
+                        currency: &currency,
+                        exchange_rate: Decimal::ONE,
+                        transaction_date: journal.transaction_date,
+                        due_date: None,
+                        period: &journal.period,
+                        gl_entry_id: None,
+                        description: &format!("收款确认 {}", journal.doc_number),
+                        operator_id: ctx.operator_id,
+                    },
+                )
+                .await?;
+
+                // 自动核销：如果源单据是发票
+                if is_invoice_source {
+                    new_ar_ap_service(self.pool.clone())
+                        .settle(ctx, db, SettleReq {
+                            payment_source_type: DocumentType::CashJournal,
+                            payment_source_id: journal.id,
+                            invoice_source_type: journal.source_type,
+                            invoice_source_id: journal.source_id,
+                            amount: journal.amount,
+                        })
+                        .await?;
+                }
+            }
+            JournalType::PurchasePayment => {
+                let is_invoice_source = journal.source_type == DocumentType::SalesInvoice
+                    || journal.source_type == DocumentType::PurchaseInvoice;
+                let party_type = CounterpartyType::Supplier;
+                let party_id = journal.counterparty_id;
+
+                // 查询供应商币种
+                let currency: String = sqlx::query_scalar::<sqlx::Postgres, Option<String>>(
+                    "SELECT currency FROM suppliers WHERE supplier_id = $1 AND deleted_at IS NULL",
+                )
+                .bind(party_id)
+                .fetch_optional(&mut *db)
+                .await?
+                .flatten()
+                .filter(|c| !c.is_empty())
+                .unwrap_or_else(|| "CNY".to_string());
+
+                let map = new_gl_mapping_service(self.pool.clone());
+                let ap_account = map.resolve(ctx, db, "default_ap", None).await?;
+
+                // 台账：AP 减少（Debit）
+                ArApLedgerRepo::insert(
+                    db,
+                    &ArApLedgerInsert {
+                        party_type,
+                        party_id,
+                        account_id: ap_account,
+                        source_type: DocumentType::CashJournal,
+                        source_id: journal.id,
+                        source_doc_no: &journal.doc_number,
+                        against_type: if is_invoice_source { Some(journal.source_type) } else { None },
+                        against_id: if is_invoice_source { Some(journal.source_id) } else { None },
+                        direction: LedgerDirection::Debit,  // AP 减少
+                        amount: journal.amount,
+                        currency: &currency,
+                        exchange_rate: Decimal::ONE,
+                        transaction_date: journal.transaction_date,
+                        due_date: None,
+                        period: &journal.period,
+                        gl_entry_id: None,
+                        description: &format!("付款确认 {}", journal.doc_number),
+                        operator_id: ctx.operator_id,
+                    },
+                )
+                .await?;
+
+                // 自动核销
+                if is_invoice_source {
+                    new_ar_ap_service(self.pool.clone())
+                        .settle(ctx, db, SettleReq {
+                            payment_source_type: DocumentType::CashJournal,
+                            payment_source_id: journal.id,
+                            invoice_source_type: journal.source_type,
+                            invoice_source_id: journal.source_id,
+                            amount: journal.amount,
+                        })
+                        .await?;
+                }
+            }
+            _ => {
+                // Expense/Payroll/Other 无需 AR/AP 台账
+            }
+        }
 
         new_domain_event_bus(self.pool.clone())
             .publish(

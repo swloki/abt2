@@ -538,6 +538,9 @@ impl AppState {
     pub fn write_off_service(&self) -> impl abt_core::fms::write_off::WriteOffService {
         abt_core::fms::write_off::new_write_off_service(self.pool.clone())
     }
+    pub fn ar_ap_service(&self) -> impl abt_core::fms::ar_ap::ArApService {
+        abt_core::fms::ar_ap::new_ar_ap_service(self.pool.clone())
+    }
     pub fn cost_accounting_service(
         &self,
     ) -> impl abt_core::fms::cost_accounting::CostAccountingService {

@@ -22,6 +22,14 @@ pub trait PurchaseInvoiceService: Send + Sync {
         id: i64,
     ) -> Result<()>;
 
+    /// 创建红字采购发票
+    async fn create_return(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        original_invoice_id: i64,
+    ) -> Result<i64>;
+
     /// 取消采购发票（Posted → Cancelled）
     /// 同步取消对应的 GL 凭证
     async fn cancel(

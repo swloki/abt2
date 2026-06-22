@@ -22,6 +22,15 @@ pub trait SalesInvoiceService: Send + Sync {
         id: i64,
     ) -> Result<()>;
 
+    /// 创建红字发票（退货冲销）
+    /// 自动生成反向 GL 分录和反向 AR 台账，并与原发票自动核销
+    async fn create_return(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        original_invoice_id: i64,
+    ) -> Result<i64>;
+
     /// 取消销售发票（Posted → Cancelled）
     /// 同步取消对应的 GL 凭证
     async fn cancel(

@@ -260,7 +260,7 @@ fn journal_table_fragment(result: &PaginatedResult<CashJournal>, params: &Journa
  hx-push-url="true" {
  div class="relative flex-1 max-w-xs icon:absolute icon:left-3 icon:top-1/2 icon:-translate-y-1/2 icon:w-4 icon:h-4 icon:text-muted" {
  (icon::search_icon(""))
- input class="w-[200px] pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input" type="text" name="keyword"
+ input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input" type="text" name="keyword"
  placeholder="搜索单号、往来方名称…"
  value=(params.keyword.as_deref().unwrap_or(""));
  }

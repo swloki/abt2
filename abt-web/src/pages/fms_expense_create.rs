@@ -110,13 +110,6 @@ fn expense_create_page() -> Markup {
                         " 报销信息"
                     }
                     div class="grid grid-cols-2 gap-4 gap-x-6" {
-                        // 申请人
-                        div class="form-field" {
-                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
-                                "申请人 " span class="text-danger" { "*" }
-                            }
-                            input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-surface text-fg-2 cursor-not-allowed" type="text" value="Admin" readonly;
-                        }
                         // 所属部门
                         div class="form-field" {
                             label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "所属部门" }
@@ -164,8 +157,6 @@ fn expense_create_page() -> Markup {
                                     th class="w-[140px] text-left text-xs font-semibold text-fg-2 px-3 py-2 border-b border-border-soft uppercase tracking-wide" { "金额 " span class="text-danger" { "*" } }
                                     th class="text-left text-xs font-semibold text-fg-2 px-3 py-2 border-b border-border-soft uppercase tracking-wide" { "说明" }
                                     th class="w-[160px] text-left text-xs font-semibold text-fg-2 px-3 py-2 border-b border-border-soft uppercase tracking-wide" { "发票号" }
-                                    th class="w-[120px] text-left text-xs font-semibold text-fg-2 px-3 py-2 border-b border-border-soft uppercase tracking-wide" { "成本中心" }
-                                    th class="w-[120px] text-left text-xs font-semibold text-fg-2 px-3 py-2 border-b border-border-soft uppercase tracking-wide" { "利润中心" }
                                     th class="w-[44px] px-3 py-2 border-b border-border-soft" {}
                                 }
                             }
@@ -218,8 +209,6 @@ function addExpenseLine() {
         + '<td class="px-3 py-2 border-b border-border-soft"><input type="number" step="any" class="w-full px-2.5 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent font-mono text-right" data-field="amount" placeholder="0.00" oninput="calcTotal()"></td>'
         + '<td class="px-3 py-2 border-b border-border-soft"><input type="text" class="w-full px-2.5 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent" data-field="description" placeholder="费用说明"></td>'
         + '<td class="px-3 py-2 border-b border-border-soft"><input type="text" class="w-full px-2.5 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent" data-field="receipt_no" placeholder="发票号"></td>'
-        + '<td class="px-3 py-2 border-b border-border-soft"><select class="w-full px-2.5 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent" data-field="cost_center"><option value="">选择</option><option value="1">CC-001 生产部</option><option value="2">CC-002 销售部</option><option value="3">CC-003 管理部</option></select></td>'
-        + '<td class="px-3 py-2 border-b border-border-soft"><select class="w-full px-2.5 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent" data-field="profit_center"><option value="">选择</option><option value="1">PC-001 华南</option><option value="2">PC-002 华东</option><option value="3">PC-003 华北</option></select></td>'
         + '<td class="px-3 py-2 border-b border-border-soft"><button type="button" class="w-7 h-7 border-none text-muted rounded-sm cursor-pointer grid place-items-center hover:bg-[rgba(220,38,38,0.08)] hover:text-danger transition-all" title="删除行" onclick="this.closest(\'tr\').remove();calcTotal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M18 6L6 18M6 6l12 12"/></svg></button></td>';
     tbody.appendChild(row);
 }

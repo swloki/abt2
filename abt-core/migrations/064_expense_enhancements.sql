@@ -131,4 +131,11 @@ WHERE NOT EXISTS (
     SELECT 1 FROM state_transition_defs WHERE entity_type = 'ExpenseStatus' AND from_state = 'FinanceApproved' AND to_state = 'Cancelled'
 );
 
+-- Approved → Cancelled (允许总经理审批后取消)
+INSERT INTO state_transition_defs (entity_type, from_state, to_state, trigger_event, guard_condition, side_effects, sort_order)
+SELECT 'ExpenseStatus', 'Approved', 'Cancelled', NULL, NULL, '[]'::jsonb, 34
+WHERE NOT EXISTS (
+    SELECT 1 FROM state_transition_defs WHERE entity_type = 'ExpenseStatus' AND from_state = 'Approved' AND to_state = 'Cancelled'
+);
+
 COMMIT;

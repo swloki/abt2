@@ -262,12 +262,13 @@ impl ExpenseReimbursementServiceImpl {
         Ok(nodes)
     }
 
-    /// IndependentTx — 生成付款日记账并完成付款（由 pay() 调用）
-    pub async fn generate_payment_journal(
+    /// IndependentTx — 保存付款信息 + 生成付款日记账 + 更新状态为 Paid（由 pay() 调用）
+    pub async fn generate_payment_journal_with_info(
         &self,
         ctx: &ServiceContext,
         _db: PgExecutor<'_>,
         expense_id: i64,
+        pay_req: &PayReq,
     ) -> Result<i64> {
         let mut tx = self
             .pool
@@ -284,6 +285,16 @@ impl ExpenseReimbursementServiceImpl {
                 "Expense must be Approved before payment",
             ));
         }
+
+        // Save payment info inside the transaction (atomic with journal creation)
+        ExpenseReimbursementRepo::update_payment_info(
+            &mut *tx,
+            expense_id,
+            &pay_req.payment_bank,
+            &pay_req.payment_remark,
+            pay_req.payment_date,
+        )
+        .await?;
 
         let cj_doc_number = {
             let cj_ctx = ServiceContext::new(expense.operator_id);
@@ -494,17 +505,17 @@ impl ExpenseReimbursementService for ExpenseReimbursementServiceImpl {
             return Err(DomainError::ConcurrentConflict);
         }
 
-        // Notify supervisor
-        if let Some(supervisor_id) = ExpenseReimbursementRepo::get_department_leader(
-            db,
-            expense.department_id.unwrap_or(0),
-        )
-        .await?
-        {
+        // Notify supervisor — use the supervisor_id we just set, or re-fetch from department
+        let supervisor_id = if let Some(dept_id) = expense.department_id {
+            ExpenseReimbursementRepo::get_department_leader(db, dept_id).await?
+        } else {
+            None
+        };
+        if let Some(sid) = supervisor_id {
             self.notify_user(
                 ctx,
                 db,
-                supervisor_id,
+                sid,
                 "新的报销审批",
                 &format!(
                     "{} 提交了报销申请 {}，金额 ¥{:.2}，请审批",
@@ -727,24 +738,20 @@ impl ExpenseReimbursementService for ExpenseReimbursementServiceImpl {
         id: i64,
         req: PayReq,
     ) -> Result<()> {
-        // Save payment info first
-        ExpenseReimbursementRepo::update_payment_info(
-            db,
-            id,
-            &req.payment_bank,
-            &req.payment_remark,
-            req.payment_date,
-        )
-        .await?;
-
-        // Delegate to payment journal generation (IndependentTx)
-        self.generate_payment_journal(ctx, db, id).await?;
-
-        // Notify applicant
+        // Guard: expense must be Approved
         let expense = ExpenseReimbursementRepo::get_by_id(db, id)
             .await?
             .ok_or_else(|| DomainError::not_found("ExpenseReimbursement"))?;
 
+        if expense.status != ExpenseStatus::Approved {
+            return Err(DomainError::business_rule("Only Approved expenses can be paid"));
+        }
+
+        // Persist payment info + generate journal in one transaction
+        let payment_bank = req.payment_bank.clone();
+        self.generate_payment_journal_with_info(ctx, db, id, &req).await?;
+
+        // Notify applicant
         self.notify_user(
             ctx,
             db,
@@ -752,11 +759,31 @@ impl ExpenseReimbursementService for ExpenseReimbursementServiceImpl {
             "报销已付款",
             &format!(
                 "您的报销单 {}（金额 ¥{:.2}）已付款，银行：{}",
-                expense.doc_number, expense.total_amount, req.payment_bank
+                expense.doc_number, expense.total_amount, payment_bank
             ),
             expense.id,
         )
         .await;
+
+        // Audit log
+        new_audit_log_service(self.pool.clone())
+            .record(
+                ctx,
+                db,
+                RecordAuditLogReq {
+                    entity_type: "ExpenseReimbursement",
+                    entity_id: id,
+                    action: AuditAction::Transition,
+                    changes: Some(serde_json::json!({
+                        "from": "Approved",
+                        "to": "Paid",
+                        "payment_bank": payment_bank,
+                        "payment_remark": req.payment_remark,
+                    })),
+                    context: None,
+                },
+            )
+            .await?;
 
         Ok(())
     }

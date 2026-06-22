@@ -45,8 +45,7 @@ struct LineJson {
 #[derive(Debug, Deserialize)]
 pub(crate) struct SearchQuery {
     pub q: Option<String>,
-    #[serde(rename = "type")]
-    pub cp_type: Option<i16>,
+    pub counterparty_type: Option<i16>,
 }
 
 // ── Search Handlers (for entity_picker) ──
@@ -61,7 +60,7 @@ pub async fn search_counterparty(
     let svc = state.cash_journal_service();
     let keyword = query.q.as_deref().unwrap_or("");
 
-    let cp_type = match query.cp_type {
+    let cp_type = match query.counterparty_type {
         Some(1) => CounterpartyType::Customer,
         Some(2) => CounterpartyType::Supplier,
         Some(3) => CounterpartyType::Employee,
@@ -351,11 +350,11 @@ fn journal_create_page() -> Markup {
                                 option value="3" { "费用报销" }
                             }
                         }
-                        // 来源单据ID
+                        // 来源单据ID（可选）
                         div class="form-field" {
                             label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "来源单号" }
                             input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent"
-                              type="text" name="source_no" id="source-no" placeholder="关联来源单号（可选）";
+                              type="text" name="source_id" id="source-id" placeholder="输入来源单号（可选）";
                         }
                     }
                     // 备注（跨列）
@@ -519,14 +518,6 @@ document.getElementById('journal-create-form').addEventListener('htmx:configRequ
     var json = JSON.stringify(lines);
     document.getElementById('lines-json-input').value = json;
     if (e && e.detail && e.detail.parameters) e.detail.parameters['lines_json'] = json;
-});
-
-// Counterparty picker event: fill cp-id hidden input
-document.addEventListener('counterpartySelected', function(e) {
-    if (e.detail && e.detail.id) {
-        var cpIdInput = document.getElementById('cp-id');
-        if (cpIdInput) cpIdInput.value = e.detail.id;
-    }
 });
 
 // Add 2 default lines (debit + credit)

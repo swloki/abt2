@@ -11,7 +11,6 @@ use abt_core::om::enums::OutsourcingType;
 use abt_core::om::outsourcing_order::{CreateOutsourcingOrderReq, OutsourcingMaterialItem, OutsourcingOrderService};
 use abt_core::shared::types::PageParams;
 use abt_core::mes::work_order::WorkOrderService;
-use abt_core::mes::work_order::model::WorkOrderFilter;
 
 use crate::components::icon;
 use crate::errors::Result;
@@ -19,7 +18,6 @@ use crate::layout::page::admin_page;
 use crate::routes::om::{
     OmOutsourcingCreatePath, OmOutsourcingDetailPath, OmOutsourcingListPath,
     OmOutsourcingSuggestMaterialsPath, OmOutsourcingWoSummaryPath,
-    OmOutsourcingSearchWoPath,
 };
 use crate::utils::RequestContext;
 use abt_macros::require_permission;
@@ -362,73 +360,6 @@ pub async fn wo_summary(
  Ok(Html(html))
 }
 
-// ── 工单搜索选择器 ──
-
-#[derive(Debug, Deserialize)]
-pub struct SearchWoParams {
- pub doc_number: Option<String>,
- pub product_code: Option<String>,
- #[serde(default, deserialize_with = "crate::utils::empty_as_none")]
- pub status: Option<i16>,
-}
-
-#[require_permission("OUTSOURCING", "read")]
-pub async fn search_work_orders(
- _path: OmOutsourcingSearchWoPath,
- ctx: RequestContext,
- axum::extract::Query(p): axum::extract::Query<SearchWoParams>,
-) -> Result<Html<String>> {
- use abt_core::mes::WorkOrderStatus;
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
- let svc = state.work_order_service();
- let status = p.status.and_then(|s| {
-     if s == -1 { None }
-     else { WorkOrderStatus::from_i16(s) }
- });
- let result = svc.list(
-     &service_ctx, &mut conn,
-     WorkOrderFilter {
-         status,
-         keyword: p.doc_number.filter(|s| !s.is_empty()),
-         product_code: p.product_code.filter(|s| !s.is_empty()),
-         ..Default::default()
-     },
-     1, 30,
- ).await?;
- Ok(Html(work_order_search_results(&result.items).into_string()))
-}
-
-fn work_order_search_results(items: &[abt_core::mes::work_order::WorkOrder]) -> Markup {
- use abt_core::mes::WorkOrderStatus;
- let status_label = |s: &WorkOrderStatus| -> (&str, &str) {
-     match s {
-         WorkOrderStatus::Draft => ("草稿", "status-draft"),
-         WorkOrderStatus::Planned => ("已计划", "status-neutral"),
-         WorkOrderStatus::Released => ("已下达", "status-progress"),
-         WorkOrderStatus::InProduction => ("进行中", "status-progress"),
-         WorkOrderStatus::Closed => ("已关闭", "status-completed"),
-         WorkOrderStatus::Cancelled => ("已取消", "status-neutral"),
-     }
- };
- html! {
- @if items.is_empty() {
- div class="text-center text-muted text-sm py-4" { "无匹配工单" }
- } @else {
- @for wo in items {
- @let (sl, sc) = status_label(&wo.status);
- div class="flex items-center gap-3 px-3 py-2 hover:bg-surface cursor-pointer border-b border-border-soft last:border-b-0 transition-colors duration-100"
-     _=(format!("on click put '{}' into #wo-id-hidden's value then put '{}' into #wo-display's value then trigger change on #wo-id-hidden", wo.id, wo.doc_number)) {
- div class="flex-1 min-w-0" {
-     div class="text-sm font-medium text-fg truncate" { (wo.doc_number) }
-     div class="text-xs text-muted" { "计划 " (wo.planned_qty) " · " (wo.scheduled_end.format("%Y-%m-%d").to_string()) }
- }
- span class=(format!("status-pill {}", crate::utils::status_color(sc))) { (sl) }
- }
- }
- }
- }
-}
-
 /// 渲染关联工序下拉 + 回填脚本。默认只列 is_outsourced=true，checkbox 切换全部。
 /// 选工单后自动回填：产品名/ID、计划数量、交期、委外类型。
 /// 选工序后自动回填：单价（从工序的 unit_price）。
@@ -556,48 +487,14 @@ fn create_page(
  "关联信息"
  }
  div class="grid grid-cols-2 gap-4 gap-x-6" {
- div class="form-field relative" {
+ div class="form-field" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "关联工单" }
  input type="hidden" name="work_order_id" id="wo-id-hidden" value=""
      hx-get=(OmOutsourcingWoSummaryPath::PATH) hx-trigger="change" hx-target="#routing-zone" hx-swap="innerHTML";
  input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer transition-all duration-150 focus:border-accent"
      type="text" id="wo-display" value="" readonly
      placeholder="点击搜索工单…"
-     _="on click toggle .is-open on #wo-picker then if #wo-picker matches .is-open trigger focus on #wo-doc-search";
- div id="wo-picker" class="absolute top-full left-0 right-0 z-[100] mt-1 bg-bg border border-border rounded-lg shadow-lg hidden [&.is-open]:block" {
-     div class="grid grid-cols-3 gap-2 p-2 border-b border-border-soft" {
-         input id="wo-doc-search" name="doc_number"
-             class="px-2 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
-             type="text" placeholder="工单号…"
-             hx-get=(OmOutsourcingSearchWoPath::PATH) hx-trigger="keyup changed delay:250ms"
-             hx-target="#wo-search-results" hx-swap="innerHTML"
-             hx-include="#wo-code-search, #wo-status-filter";
-         input id="wo-code-search" name="product_code"
-             class="px-2 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
-             type="text" placeholder="产品编码…"
-             hx-get=(OmOutsourcingSearchWoPath::PATH) hx-trigger="keyup changed delay:250ms"
-             hx-target="#wo-search-results" hx-swap="innerHTML"
-             hx-include="#wo-doc-search, #wo-status-filter";
-         select id="wo-status-filter" name="status"
-             class="px-2 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
-             hx-get=(OmOutsourcingSearchWoPath::PATH) hx-trigger="change"
-             hx-target="#wo-search-results" hx-swap="innerHTML"
-             hx-include="#wo-doc-search, #wo-code-search" {
-             option value="-1" { "全部状态" }
-             option value="1" { "草稿" }
-             option value="2" { "已计划" }
-             option value="3" { "已下达" }
-             option value="6" { "进行中" }
-             option value="4" { "已关闭" }
-             option value="5" { "已取消" }
-         }
-     }
-     div id="wo-search-results" class="max-h-[280px] overflow-y-auto"
-         hx-get=(OmOutsourcingSearchWoPath::PATH) hx-trigger="intersect once"
-         hx-swap="innerHTML" {
-         div class="flex items-center justify-center text-muted p-6 text-sm" { "输入关键词搜索…" }
-     }
- }
+     _="on click add .is-open to #wo-picker-modal";
  }
  div class="form-field" {
  label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "关联工序" }
@@ -742,6 +639,8 @@ fn create_page(
  }
 
  // ── Page-specific JS ──
+ (crate::components::work_order_picker::work_order_picker_modal("wo-picker-modal", "wo-id-hidden", "wo-display"))
+
  script src="/om-outsourcing-create.js" {}
  }
 }

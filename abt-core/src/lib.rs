@@ -5,7 +5,6 @@
 pub mod shared;
 pub mod sales;
 pub mod master_data;
-pub mod h3yun;
 
 // 未来模块占位
 pub mod fms;

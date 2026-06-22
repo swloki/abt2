@@ -1,1 +1,0 @@
-{"id":-73503503285437056689774545524133084495,"data":{"auth.current_user":{"department_ids":[],"display_name":"测试-继承链","exp":1781181701,"iat":1781095301,"iss":"abt-core","role_codes":["derived_role"],"role_ids":[19],"sub":21,"system_role":"user","username":"test_inherit"}},"expiry_date":[2026,164,12,41,41,622214300,0,0,0]}

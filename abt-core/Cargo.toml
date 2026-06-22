@@ -37,9 +37,6 @@ rust_decimal = { workspace = true }
 # UUID
 uuid = { version = "1", features = ["v4", "serde"] }
 
-# HTTP client (H3Yun sync)
-reqwest = { version = "0.12", features = ["json"] }
-
 # Excel
 calamine = { workspace = true }
 rust_xlsxwriter = { workspace = true }

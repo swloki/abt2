@@ -149,6 +149,8 @@ pub fn router(state: AppState) -> Router {
                 .merge(excel::router())
                 .merge(crate::components::product_picker::router())
                 .merge(crate::components::routing_picker::router())
+                .merge(crate::components::work_order_picker::router())
+                .merge(crate::components::purchase_order_picker::router())
                 .layer(middleware::from_fn(list_state_middleware))
                 .layer(middleware::from_fn_with_state(
                     state.clone(),

@@ -1,1 +1,0 @@
-{"id":-64083377987265959580718813388433532591,"data":{"auth.current_user":{"department_ids":[],"display_name":"测试-生产主管","exp":1781183746,"iat":1781097346,"iss":"abt-core","role_codes":["production_supervisor"],"role_ids":[15],"sub":17,"system_role":"user","username":"test_production"}},"expiry_date":[2026,164,13,15,46,494515300,0,0,0]}

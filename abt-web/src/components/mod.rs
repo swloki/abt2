@@ -13,3 +13,5 @@ pub mod import_modal;
 pub mod entity_picker;
 pub mod product_picker;
 pub mod routing_picker;
+pub mod work_order_picker;
+pub mod purchase_order_picker;

@@ -1,4 +1,4 @@
-use axum::routing::get;
+use axum::routing::{get, post};
 use axum::Router;
 use axum_extra::routing::TypedPath;
 use serde::Deserialize;
@@ -32,8 +32,16 @@ pub struct StockInSourcePickPath;
 pub struct StockInSourceItemsPath;
 
 #[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/wms/stock-in/create/search-po")]
-pub struct StockInPoSearchPath;
+#[typed_path("/admin/wms/stock-in/create/confirm-pos")]
+pub struct StockInConfirmPosPath;
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/wms/stock-in/create/suggest-bins")]
+pub struct StockInSuggestBinsPath;
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/wms/stock-in/create/confirm-wo")]
+pub struct StockInConfirmWoPath;
 
 #[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/wms/stock-in/{id}")]
@@ -48,7 +56,9 @@ pub fn router() -> Router<AppState> {
         .route(StockInListPath::PATH, get(wms_stock_in_list::get_stock_in_list))
         .route(StockInSourcePickPath::PATH, get(wms_stock_in_create::get_source_pick))
         .route(StockInSourceItemsPath::PATH, get(wms_stock_in_create::get_source_items))
-        .route(StockInPoSearchPath::PATH, get(wms_stock_in_create::search_purchase_orders))
+        .route(StockInConfirmPosPath::PATH, post(wms_stock_in_create::confirm_purchase_orders))
+        .route(StockInSuggestBinsPath::PATH, get(wms_stock_in_create::suggest_bins))
+        .route(StockInConfirmWoPath::PATH, post(wms_stock_in_create::confirm_work_order))
         .route(StockInItemRowPath::PATH, get(wms_stock_in_create::get_item_row))
         .route(StockInCreatePath::PATH, get(wms_stock_in_create::get_stock_in_create).post(wms_stock_in_create::create_stock_in))
         .route(StockInDetailPath::PATH, get(wms_stock_in_detail::get_stock_in_detail))

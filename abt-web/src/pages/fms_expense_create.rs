@@ -58,7 +58,7 @@ pub async fn create(
 
     let items: Vec<ItemJson> = match serde_json::from_str(&form.items_json) {
         Ok(v) => v,
-        Err(_) => return Ok(axum::response::Redirect::to(ExpenseCreatePath::PATH).into_response()),
+        Err(_) => return Ok(([("HX-Redirect", ExpenseCreatePath::PATH.to_string())], axum::response::Html(String::new())).into_response()),
     };
 
     let req = abt_core::fms::expense::model::CreateExpenseReq {
@@ -80,8 +80,8 @@ pub async fn create(
 
     let svc = state.expense_service();
     match svc.create(&service_ctx, &mut conn, req).await {
-        Ok(_) => Ok(axum::response::Redirect::to(ExpenseListPath::PATH).into_response()),
-        Err(_) => Ok(axum::response::Redirect::to(ExpenseCreatePath::PATH).into_response()),
+        Ok(_) => Ok(([("HX-Redirect", ExpenseListPath::PATH.to_string())], axum::response::Html(String::new())).into_response()),
+        Err(_) => Ok(([("HX-Redirect", ExpenseCreatePath::PATH.to_string())], axum::response::Html(String::new())).into_response()),
     }
 }
 
@@ -198,8 +198,9 @@ fn expense_create_page() -> Markup {
                     (PreEscaped(r#"<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>"#))
                     "保存草稿"
                 }
-                button type="submit" form="expense-form"
-                    class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" {
+                button type="button"
+                    class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                    _="on click trigger submit on #expense-form" {
                     (icon::check_circle_icon("w-4 h-4"))
                     "提交审批"
                 }
@@ -232,7 +233,7 @@ function calcTotal() {
     if (display) display.textContent = '¥' + total.toFixed(2);
 }
 
-document.getElementById('expense-form').addEventListener('htmx:configRequest', function() {
+document.getElementById('expense-form').addEventListener('htmx:configRequest', function(e) {
     var rows = document.querySelectorAll('#expenseLines tr');
     var items = [];
     rows.forEach(function(row) {
@@ -245,13 +246,17 @@ document.getElementById('expense-form').addEventListener('htmx:configRequest', f
                 expense_type: parseInt(typeVal ? typeVal.value : '6'),
                 amount: parseFloat(amountVal.value),
                 description: descVal ? descVal.value : '',
-                receipt_no: receiptVal ? receiptVal.value : null,
+                receipt_no: (receiptVal && receiptVal.value) ? receiptVal.value : null,
                 cost_center: null,
                 profit_center: null
             });
         }
     });
-    document.getElementById('items_json_input').value = JSON.stringify(items);
+    var json = JSON.stringify(items);
+    document.getElementById('items_json_input').value = json;
+    // HTMX 在触发 configRequest 前已收集 form parameters（此时 items_json 为空），
+    // 必须显式改写 parameters 才能让请求带上正确 items_json
+    if (e && e.detail && e.detail.parameters) e.detail.parameters['items_json'] = json;
 });
 
 // 初始添加一行

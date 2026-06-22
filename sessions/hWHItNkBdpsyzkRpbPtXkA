@@ -1,1 +1,0 @@
-{"id":-148416706227186872923709521717880135291,"data":{"auth.current_user":{"department_ids":[],"display_name":"测试-多角色","exp":1781181524,"iat":1781095124,"iss":"abt-core","role_codes":["sales_manager","warehouse_keeper"],"role_ids":[13,14],"sub":20,"system_role":"user","username":"test_multi"}},"expiry_date":[2026,164,12,38,44,470032600,0,0,0]}

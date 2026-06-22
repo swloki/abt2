@@ -76,6 +76,30 @@ pub async fn create(
  let transaction_date = chrono::NaiveDate::parse_from_str(&form.transaction_date, "%Y-%m-%d")
  .map_err(|_| abt_core::shared::types::DomainError::Validation("无效交易日期".into()))?;
 
+ // 生成借贷平衡的日记账分录（前端未提供明细行，按收/付方向推导借贷科目）
+ let (debit_account, credit_account) = match direction {
+ CashDirection::Inflow => ("银行存款", "其他业务收入"),
+ CashDirection::Outflow => ("其他应收款", "银行存款"),
+ };
+ let lines = vec![
+ abt_core::fms::cash_journal::model::CashJournalLineInput {
+ account_code: debit_account.to_string(),
+ debit_amount: amount,
+ credit_amount: rust_decimal::Decimal::ZERO,
+ cost_center: None,
+ profit_center: None,
+ remark: "借方".to_string(),
+ },
+ abt_core::fms::cash_journal::model::CashJournalLineInput {
+ account_code: credit_account.to_string(),
+ debit_amount: rust_decimal::Decimal::ZERO,
+ credit_amount: amount,
+ cost_center: None,
+ profit_center: None,
+ remark: "贷方".to_string(),
+ },
+ ];
+
  let req = CreateCashJournalReq {
  journal_type,
  direction,
@@ -87,7 +111,7 @@ pub async fn create(
  transaction_date,
  period: form.period,
  remark: form.remark,
- lines: vec![],
+ lines,
  };
 
  let svc = state.cash_journal_service();

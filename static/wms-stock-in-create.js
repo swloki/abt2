@@ -1,54 +1,19 @@
-/* 入库单创建页 — PO 多选弹窗 + 折叠卡片明细 + 库位级联 + 收集提交 */
-/* 采购入库：选多个 PO → 每个 PO 一张折叠卡片带出明细(含待入库余量) → 逐条填入库数量/库位 → 提交。
+/* 入库单创建页 — PO 多选弹窗 + 折叠卡片明细 + 库位选择弹窗 + 收集提交 */
+/* 采购入库：选多个 PO → 每个 PO 一张折叠卡片带出明细(含待入库余量) → 逐条填入库数量/选库位 → 提交。
    生产入库/无 PO：下方「手动添加物料」(product_picker) 直接添加行。 */
 
-// ── 库位级联（Warehouse → Zone → Bin）──
-function wmsUpdateZones() {
-  var whId = document.getElementById('warehouse-select').value;
-  var zoneSelect = document.getElementById('zone-select');
-  var options = zoneSelect.querySelectorAll('option[data-wh]');
-  var firstOpt = zoneSelect.querySelector('option:not([data-wh])');
-  options.forEach(function (opt) {
-    opt.style.display = (!whId || opt.dataset.wh === whId) ? '' : 'none';
-  });
-  zoneSelect.value = '';
-  if (firstOpt) firstOpt.textContent = whId ? '请选择库区' : '请先选择仓库';
-  wmsUpdateBins();
+// ── 入库类型联动：采购入库→选择采购订单 / 生产入库→选择生产工单（两按钮切换显隐）──
+function wmsStockInToggleSourceBtn() {
+  var v = document.getElementById('txn-type').value;
+  var isProduction = v === 'ProductionReceipt';
+  var poBtn = document.getElementById('po-btn');
+  var woBtn = document.getElementById('wo-btn');
+  if (poBtn) poBtn.classList.toggle('hidden', isProduction);
+  if (woBtn) woBtn.classList.toggle('hidden', !isProduction);
+  // 生产入库无送货单号（无供应商送货），隐藏送货单号字段
+  var delivery = document.getElementById('delivery-no-field');
+  if (delivery) delivery.classList.toggle('hidden', isProduction);
 }
-
-function wmsUpdateBins() {
-  var zoneId = document.getElementById('zone-select').value;
-  var binSelect = document.getElementById('bin-select');
-  var options = binSelect.querySelectorAll('option[data-zone]');
-  var firstOpt = binSelect.querySelector('option:not([data-zone])');
-  options.forEach(function (opt) {
-    opt.style.display = (!zoneId || opt.dataset.zone === zoneId) ? '' : 'none';
-  });
-  binSelect.value = '';
-  if (firstOpt) firstOpt.textContent = zoneId ? '按上架策略分配' : '请先选择库区';
-}
-
-// 给所有空的 .row-bin-select 填充库位选项（从 #bin-select 的 option 读取）
-function wmsFillBinSelects() {
-  var binSelect = document.getElementById('bin-select');
-  if (!binSelect) return;
-  var opts = [];
-  binSelect.querySelectorAll('option[data-zone]').forEach(function (o) {
-    opts.push({ id: o.value, label: (o.textContent || '').trim() });
-  });
-  document.querySelectorAll('.row-bin-select').forEach(function (sel) {
-    if (sel.options.length > 0) return; // 已填充则跳过
-    sel.innerHTML = '<option value="">自动</option>';
-    opts.forEach(function (o) {
-      var op = document.createElement('option');
-      op.value = o.id;
-      op.textContent = o.label;
-      sel.appendChild(op);
-    });
-  });
-}
-
-// ── PO 多选弹窗 ──
 
 function wmsStockInOpenPoPicker() {
   // 弹窗由 hyperscript 打开；这里只同步已选计数
@@ -67,7 +32,7 @@ function wmsStockInUpdatePoHint() {
   if (!hint) return;
   hint.textContent = n > 0
     ? ('已选择 ' + n + ' 个采购订单')
-    : '未选择采购订单；也可在下方「入库物料明细」手动添加物料（如生产入库）';
+    : '未选择采购订单；也可在下方手动添加物料（如生产入库）';
 }
 
 // 监听结果区 checkbox 勾选 → 更新计数（结果区是 HTMX 动态替换的，用事件委托）
@@ -77,77 +42,43 @@ document.addEventListener('change', function (e) {
   }
 });
 
-// 确认多选 → 为每个新选的 PO 渲染折叠卡片并加载明细
-function wmsStockInConfirmPoPicker() {
-  var checked = document.querySelectorAll('#po-search-results .po-pick-cb:checked');
-  var cards = document.getElementById('po-cards');
-  if (!cards) return;
-  var added = 0;
-  checked.forEach(function (cb) {
-    var poId = cb.dataset.id;
-    if (!poId) return;
-    if (cards.querySelector('.po-card[data-po-id="' + poId + '"]')) return; // 去重
-    var card = document.createElement('div');
-    card.className = 'po-card bg-surface border border-border-soft rounded-md';
-    card.setAttribute('data-po-id', poId);
-    var doc = cb.dataset.doc || poId;
-    var supplier = cb.dataset.supplier || '-';
-    var status = cb.dataset.status || '';
-    card.innerHTML =
-      '<div class="po-card-header flex items-center gap-3 px-4 py-3 border-b border-border-soft cursor-pointer hover:bg-surface/60">' +
-        '<span class="po-toggle text-muted text-xs">▼</span>' +
-        '<span class="text-sm font-semibold text-fg">' + doc + '</span>' +
-        '<span class="text-xs text-muted">' + supplier + ' · ' + status + '</span>' +
-        '<button type="button" class="ml-auto text-xs text-muted hover:text-danger" data-po-id="' + poId + '">删除</button>' +
-      '</div>' +
-      '<div class="po-card-body p-3 overflow-x-auto">' +
-        '<table class="data-table"><thead><tr>' +
-          '<th class="w-10">序号</th><th>产品</th><th class="w-[120px]">批次号</th>' +
-          '<th class="w-[110px]">入库数量 <span class="text-danger">*</span></th><th class="w-[150px]">目标库位</th><th class="w-10"></th>' +
-        '</tr></thead>' +
-        '<tbody id="po-card-tbody-' + poId + '">' +
-          '<tr><td colspan="6" class="text-center text-muted py-3 text-sm">加载明细中…</td></tr>' +
-        '</tbody></table>' +
-      '</div>';
-    cards.appendChild(card);
-    // header 点击折叠/展开（点删除按钮除外）
-    card.querySelector('.po-card-header').addEventListener('click', function (e) {
-      if (e.target.tagName === 'BUTTON') return;
-      var body = card.querySelector('.po-card-body');
-      if (!body) return;
-      body.style.display = (body.style.display === 'none') ? '' : 'none';
-      var toggle = card.querySelector('.po-toggle');
-      if (toggle) toggle.textContent = (body.style.display === 'none') ? '▶' : '▼';
-    });
-    // 删除按钮
-    card.querySelector('.po-card-header button').addEventListener('click', function () {
-      wmsStockInRemovePoCard(poId);
-    });
-    // 加载该 PO 的物料明细（get_source_items 返回带待入库余量的行）
-    htmx.ajax('GET', '/admin/wms/stock-in/create/source-items', {
-      target: '#po-card-tbody-' + poId,
-      swap: 'innerHTML',
-      values: { source_type: 'purchase', source_id: poId }
-    }).then(function () {
-      setTimeout(function () { wmsFillBinSelects(); wmsStockInRenumber(); }, 50);
-    });
-    added++;
-  });
-  // 关闭弹窗、清空勾选
-  document.querySelector('#po-picker').classList.remove('is-open');
-  document.querySelectorAll('#po-search-results .po-pick-cb').forEach(function (cb) { cb.checked = false; });
-  wmsStockInUpdateSelectedCount();
+// confirm 端点 swap #po-cards 后（poCardsUpdated 事件）/ 删除 PO 卡片后触发：填库位 + 重编号 + 汇总 + 更新提示
+function wmsStockInOnCardsUpdated() {
+  wmsStockInRenumber();
+  wmsStockInCalcSummary();
   wmsStockInUpdatePoHint();
-  if (added === 0 && checked.length > 0) {
-    // 全部是已存在的 PO
-  }
 }
 
-function wmsStockInRemovePoCard(poId) {
-  var card = document.querySelector('.po-card[data-po-id="' + poId + '"]');
-  if (card) card.remove();
-  wmsStockInRenumber();
-  wmsStockInUpdatePoHint();
+// ── 库位选择弹窗（按产品+上架策略 SameMerge 推荐）──
+// 打开：记录当前行 + htmx 加载该产品在本仓库的库位建议（有库存的排前）
+function wmsStockInOpenBinPicker(btn) {
+  var row = btn.closest('tr');
+  if (!row) return;
+  var pidEl = row.querySelector('input[name="product_id"]');
+  var productId = pidEl ? pidEl.value : '';
+  var whEl = row.querySelector('select[name="warehouse_id"]');
+  var warehouseId = whEl ? whEl.value : '';
+  if (!warehouseId) { alert('请先为本行选择目标仓库'); return; }
+  if (!productId) { alert('该行缺少产品信息'); return; }
+  window.__binPickerRow = row;
+  htmx.ajax('GET', '/admin/wms/stock-in/create/suggest-bins', {
+    target: '#bin-picker-results',
+    swap: 'innerHTML',
+    values: { product_id: productId, warehouse_id: warehouseId }
+  });
+  document.getElementById('bin-picker').classList.add('is-open');
+}
+
+// 选定库位：填回当前行的 hidden bin_id + 显示标签
+function wmsStockInPickBin(binId, label) {
+  var row = window.__binPickerRow;
+  if (row) {
+    var input = row.querySelector('input[name="bin_id"]');
+    var labelEl = row.querySelector('.bin-label');
+    if (input) input.value = binId;
+    if (labelEl) labelEl.textContent = label;
+  }
+  document.getElementById('bin-picker').classList.remove('is-open');
 }
 
 // ── 明细行校验 / 汇总 / 收集 ──
@@ -213,25 +144,31 @@ function wmsStockInCollectItems() {
   }
   var rows = document.querySelectorAll('.item-row');
   var items = [];
+  var missingDoc = false;
   rows.forEach(function (row) {
     var pid = row.querySelector('input[name="product_id"]');
     if (!pid) return;
     var qtyEl = row.querySelector('input[name="quantity"]');
-    var batchEl = row.querySelector('input[name="batch_no"]');
-    var binEl = row.querySelector('select[name="bin_id"]') || row.querySelector('input[name="bin_id"]');
+    var whEl = row.querySelector('select[name="warehouse_id"]');
+    var binEl = row.querySelector('input[name="bin_id"]');
     var srcId = row.querySelector('input[name="source_id"]');
     var srcDoc = row.querySelector('input[name="source_doc_number"]');
     var qty = qtyEl ? qtyEl.value : '0';
     if (!qty || parseFloat(qty) <= 0) return; // 跳过未填数量的行
+    if (!srcDoc || !srcDoc.value) { missingDoc = true; return; } // 关联单号必填
     items.push({
       product_id: pid.value,
-      batch_no: batchEl ? (batchEl.value || null) : null,
       quantity: qty,
+      warehouse_id: (whEl && whEl.value) ? whEl.value : null,
       bin_id: (binEl && binEl.value) ? binEl.value : null,
       source_id: (srcId && srcId.value) ? srcId.value : null,
-      source_doc_number: (srcDoc && srcDoc.value) ? srcDoc.value : null
+      source_doc_number: srcDoc.value
     });
   });
+  if (missingDoc) {
+    alert('每行物料必须填写关联单号（PO/工单明细自带，手动物料需手填）');
+    return false;
+  }
   var json = document.getElementById('stockin-items-json');
   if (json) json.value = JSON.stringify(items);
   if (items.length === 0) {
@@ -247,7 +184,16 @@ function wmsStockInCollectItems() {
   if (manualTbody) {
     new MutationObserver(function () {
       wmsStockInRenumber();
-      wmsFillBinSelects();
     }).observe(manualTbody, { childList: true });
   }
 })();
+
+// ── confirm 端点 HX-Trigger 事件监听 ──
+// HTMX 将 HX-Trigger 事件 dispatch 到触发元素（确认按钮）后冒泡至 body；
+// hyperscript "from body" 仅匹配 target===body 的事件、捕获不到冒泡事件，故用原生监听
+document.body.addEventListener('closePoPicker', function () {
+  var picker = document.getElementById('po-picker');
+  if (picker) picker.classList.remove('is-open');
+  document.querySelectorAll('#po-search-results input:checked').forEach(function (cb) { cb.checked = false; });
+});
+document.body.addEventListener('poCardsUpdated', wmsStockInOnCardsUpdated);

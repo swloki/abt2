@@ -100,9 +100,9 @@ fn low_stock_page(
             div class="flex items-center justify-between mb-5" {
                 h1 class="text-xl font-bold text-fg tracking-tight" { "低库存预警" }
                 @if active_count > 0 {
-                    span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold text-danger bg-danger-bg" {
-                        (active_count) " 项待处理"
-                    }
+                    span
+                        class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold text-danger bg-danger-bg"
+                    { (active_count) " 项待处理" }
                 }
             }
 
@@ -122,26 +122,49 @@ fn low_stock_page(
                     tbody {
                         @for a in alerts {
                             tr {
-                                td { (product_names.get(&a.product_id).cloned().unwrap_or_else(|| format!("产品#{}", a.product_id))) }
-                                td { (wh_names.get(&a.warehouse_id).cloned().unwrap_or_else(|| format!("仓库#{}", a.warehouse_id))) }
-                                td class="text-right text-[13px] font-mono tabular-nums text-danger font-semibold" { (format!("{:.2}", a.current_qty)) }
-                                td class="text-right text-[13px] font-mono tabular-nums" { (format!("{:.2}", a.safety_stock)) }
+                                td {
+                                    ({
+                                        product_names
+                                            .get(&a.product_id)
+                                            .cloned()
+                                            .unwrap_or_else(|| format!("产品#{}", a.product_id))
+                                    })
+                                }
+                                td {
+                                    ({
+                                        wh_names
+                                            .get(&a.warehouse_id)
+                                            .cloned()
+                                            .unwrap_or_else(|| format!("仓库#{}", a.warehouse_id))
+                                    })
+                                }
+                                td  class="text-right text-[13px] font-mono tabular-nums text-danger font-semibold"
+                                { (format!("{:.2}", a.current_qty)) }
+                                td class="text-right text-[13px] font-mono tabular-nums" {
+                                    (format!("{:.2}", a.safety_stock))
+                                }
                                 td {
                                     @if matches!(a.status, LowStockAlertStatus::Active) {
-                                        span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-danger-bg text-danger" { (status_label(&a.status)) }
+                                        span
+                                            class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-danger-bg text-danger"
+                                        { (status_label(&a.status)) }
                                     } @else {
-                                        span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-success-bg text-success" { (status_label(&a.status)) }
+                                        span
+                                            class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-success-bg text-success"
+                                        { (status_label(&a.status)) }
                                     }
                                 }
-                                td class="text-muted text-[13px]" { (a.created_at.format("%Y-%m-%d %H:%M").to_string()) }
+                                td class="text-muted text-[13px]" {
+                                    (a.created_at.format("%Y-%m-%d %H:%M").to_string())
+                                }
                                 td {
                                     @if matches!(a.status, LowStockAlertStatus::Active) {
-                                        button class="inline-flex items-center gap-1.5 py-1.5 px-3 rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:text-accent text-xs font-medium cursor-pointer transition-all duration-150"
+                                        button
+                                            class="inline-flex items-center gap-1.5 py-1.5 px-3 rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:text-accent text-xs font-medium cursor-pointer transition-all duration-150"
                                             hx-post=(LowStockAckPath { id: a.id }.to_string())
                                             hx-confirm="确认此低库存预警已处理？"
-                                            hx-redirect=(LowStockListPath::PATH) {
-                                            "确认"
-                                        }
+                                            hx-redirect=(LowStockListPath::PATH)
+                                        { "确认" }
                                     } @else {
                                         span class="text-muted text-[13px]" { "—" }
                                     }
@@ -150,9 +173,7 @@ fn low_stock_page(
                         }
                         @if alerts.is_empty() {
                             tr {
-                                td colspan="7" class="text-center text-muted py-10" {
-                                    "暂无低库存预警"
-                                }
+                                td colspan="7" class="text-center text-muted py-10" { "暂无低库存预警" }
                             }
                         }
                     }

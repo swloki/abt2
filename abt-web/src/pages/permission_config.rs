@@ -413,79 +413,86 @@ fn perm_page_content(
  };
 
  html! {
- // Root swap target for role switching
- div.perm-page class="flex flex-col bg-surface" {
- // ── Stats Header ──
- div class="bg-bg border-b border-border-soft" {
- div class="flex items-center gap-3 px-5 py-4" {
- div class="w-10 h-10 rounded-md bg-accent text-white flex items-center justify-center shrink-0" {
- (icon::lock_icon("w-5 h-5"))
- }
- div {
- div class="text-lg font-bold text-fg" { "权限配置" }
- div class="text-[13px] text-muted" { "管理角色与资源的访问权限" }
- }
- }
- div class="flex items-center border-t border-border-soft" id="stats-bar" {
- (stat_cell("资源", &total_resources.to_string(), None))
- (stat_cell("角色", &total_roles.to_string(), None))
- (stat_cell("已配置", &configured.to_string(), None))
- (stat_cell("配置率", &format!("{:.0}%", coverage_pct), Some(coverage_pct)))
- }
- }
-
- // ── Main Split ──
- div class="grid grid-cols-[200px_1fr] gap-3 flex-1 overflow-hidden p-3" {
- // ── Left: Role List ──
- div class="bg-bg rounded-lg border border-border-soft flex flex-col overflow-hidden min-w-0" id="role-list" {
- div class="px-4 py-3 border-b border-border-soft flex items-center gap-1.5 text-sm font-semibold text-fg" {
- (icon::users_icon("w-3.5 h-3.5 text-muted"))
- "角色列表"
- span class="ml-auto text-[11px] text-muted bg-surface px-1.5 py-0.5 rounded-full" { (roles.len()) }
- }
- div class="flex-1 overflow-y-auto p-2 space-y-1" {
- @for role in roles {
- (role_item(role, perm_data_by_role, selected_id))
- }
- @if roles.is_empty() {
- div class="flex flex-col items-center justify-center h-full text-muted gap-2 p-5" {
- (icon::users_icon("w-7 h-7 opacity-40"))
- p class="text-sm" { "暂无可配置角色" }
- }
- }
- }
- }
-
- // ── Right: Permission Config ──
- @if let Some(sid) = selected_id {
- @if let Some(role) = roles.iter().find(|r| r.role_id == sid) {
- @let pd = perm_data_by_role.get(&sid).unwrap();
- @let parent_name = role.parent_role_id.and_then(|pid| role_name_map.get(&pid)).map(|s| s.as_str());
- (permission_panel(sid, role, pd, parent_name, groups, scroll_top))
- } @else {
- (empty_right_panel())
- }
- } @else {
- (empty_right_panel())
- }
- }
- }
- }
+    // Root swap target for role switching
+    div.perm-page class="flex flex-col bg-surface" {
+        // ── Stats Header ──
+        div class="bg-bg border-b border-border-soft" {
+            div class="flex items-center gap-3 px-5 py-4" {
+                div class="w-10 h-10 rounded-md bg-accent text-white flex items-center justify-center shrink-0"
+                { (icon::lock_icon("w-5 h-5")) }
+                div {
+                    div class="text-lg font-bold text-fg" { "权限配置" }
+                    div class="text-[13px] text-muted" { "管理角色与资源的访问权限" }
+                }
+            }
+            div class="flex items-center border-t border-border-soft" id="stats-bar" {
+                (stat_cell("资源", &total_resources.to_string(), None))
+                (stat_cell("角色", &total_roles.to_string(), None))
+                (stat_cell("已配置", &configured.to_string(), None))
+                ({
+                    stat_cell(
+                        "配置率",
+                        &format!("{:.0}%", coverage_pct),
+                        Some(coverage_pct),
+                    )
+                })
+            }
+        }
+        // ── Main Split ──
+        div class="grid grid-cols-[200px_1fr] gap-3 flex-1 overflow-hidden p-3" {
+            // ── Left: Role List ──
+            div class="bg-bg rounded-lg border border-border-soft flex flex-col overflow-hidden min-w-0"
+                id="role-list"
+            {
+                div class="px-4 py-3 border-b border-border-soft flex items-center gap-1.5 text-sm font-semibold text-fg"
+                {
+                    (icon::users_icon("w-3.5 h-3.5 text-muted"))
+                    "角色列表"
+                    span
+                        class="ml-auto text-[11px] text-muted bg-surface px-1.5 py-0.5 rounded-full"
+                    { (roles.len()) }
+                }
+                div class="flex-1 overflow-y-auto p-2 space-y-1" {
+                    @for role in roles { (role_item(role, perm_data_by_role, selected_id)) }
+                    @if roles.is_empty() {
+                        div class="flex flex-col items-center justify-center h-full text-muted gap-2 p-5"
+                        {
+                            (icon::users_icon("w-7 h-7 opacity-40"))
+                            p class="text-sm" { "暂无可配置角色" }
+                        }
+                    }
+                }
+            }
+            // ── Right: Permission Config ──
+            @if let Some(sid) = selected_id {
+                @if let Some(role) = roles.iter().find(|r| r.role_id == sid) {
+                    @let pd = perm_data_by_role.get(&sid).unwrap();
+                    @let parent_name = role
+                        .parent_role_id
+                        .and_then(|pid| role_name_map.get(&pid))
+                        .map(|s| s.as_str());
+                    (permission_panel(sid, role, pd, parent_name, groups, scroll_top))
+                } @else { (empty_right_panel()) }
+            } @else { (empty_right_panel()) }
+        }
+    }
+}
 }
 
 fn stat_cell(label: &str, value: &str, coverage: Option<f64>) -> Markup {
  let val_cls = if coverage.is_some() { "text-accent" } else { "text-fg" };
  html! {
- div class="flex items-center gap-1.5 px-5 py-3 border-r border-border-soft last:border-r-0" {
- span class="text-sm text-muted" { (label) }
- span class=(format!("text-xl font-bold font-mono tabular-nums {}", val_cls)) { (value) }
- @if let Some(pct) = coverage {
- div class="w-14 h-1.5 bg-border rounded-full overflow-hidden" {
- div class="h-full bg-accent rounded-full" style=(format!("width:{}%", pct.min(100.0))) {}
- }
- }
- }
- }
+    div class="flex items-center gap-1.5 px-5 py-3 border-r border-border-soft last:border-r-0" {
+        span class="text-sm text-muted" { (label) }
+        span class=(format!("text-xl font-bold font-mono tabular-nums {}", val_cls)) { (value) }
+        @if let Some(pct) = coverage {
+            div class="w-14 h-1.5 bg-border rounded-full overflow-hidden" {
+                div class="h-full bg-accent rounded-full"
+                    style=(format!("width:{}%", pct.min(100.0))) {}
+            }
+        }
+    }
+}
 }
 
 fn role_item(
@@ -504,31 +511,38 @@ fn role_item(
  let active = if is_selected { " active" } else { "" };
 
  html! {
- button type="button"
- class=(format!("role-item w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-left cursor-pointer transition-colors hover:bg-surface border border-transparent [&.active]:bg-accent-bg [&.active]:border-accent [&.active]:text-accent{active}"))
- hx-get=(target_url)
- hx-target=".perm-page"
- hx-swap="outerHTML" {
- span class="w-8 h-8 rounded-md grid place-items-center text-xs font-bold text-white shrink-0 select-none"
- style=(format!("background:{}", gradient)) {
- (first_char.to_uppercase())
- }
- div class="flex-1 min-w-0" {
- div class="text-[13px] font-medium text-fg truncate" { (role.role_name) }
- div class="text-[11px] text-muted" { "已授权 " (count) " 项" }
- }
- }
- }
+    button
+        type="button"
+        class=({
+            format!(
+                "role-item w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-left cursor-pointer transition-colors hover:bg-surface border border-transparent [&.active]:bg-accent-bg [&.active]:border-accent [&.active]:text-accent{active}",
+            )
+        })
+        hx-get=(target_url)
+        hx-target=".perm-page"
+        hx-swap="outerHTML"
+    {
+        span
+            class="w-8 h-8 rounded-md grid place-items-center text-xs font-bold text-white shrink-0 select-none"
+            style=(format!("background:{}", gradient))
+        { (first_char.to_uppercase()) }
+        div class="flex-1 min-w-0" {
+            div class="text-[13px] font-medium text-fg truncate" { (role.role_name) }
+            div class="text-[11px] text-muted" { "已授权 " (count) " 项" }
+        }
+    }
+}
 }
 
 fn empty_right_panel() -> Markup {
  html! {
- div class="flex-1 bg-bg rounded-lg border border-border-soft flex flex-col items-center justify-center text-muted gap-2" {
- (icon::users_icon("w-8 h-8 opacity-40"))
- h4 class="text-sm font-medium text-fg-2" { "选择一个角色" }
- p class="text-xs" { "在左侧角色列表中选择一个角色，查看并配置其权限" }
- }
- }
+    div class="flex-1 bg-bg rounded-lg border border-border-soft flex flex-col items-center justify-center text-muted gap-2"
+    {
+        (icon::users_icon("w-8 h-8 opacity-40"))
+        h4 class="text-sm font-medium text-fg-2" { "选择一个角色" }
+        p class="text-xs" { "在左侧角色列表中选择一个角色，查看并配置其权限" }
+    }
+}
 }
 
 fn permission_panel(
@@ -548,77 +562,91 @@ fn permission_panel(
  let hx_vals = "js:{scroll_top: Math.round(document.querySelector('.perm-body')?.scrollTop || 0)}".to_string();
 
  html! {
- // .perm-panel = refresh target on `permUpdated`; refreshes itself + stats-bar + role-list
- div.perm-panel class="flex-1 bg-bg rounded-lg border border-border-soft flex flex-col overflow-hidden min-w-0"
- hx-trigger="permUpdated from:body"
- hx-get=(refresh_url)
- hx-select=".perm-panel"
- hx-swap="outerHTML"
- hx-select-oob="#stats-bar,#role-list"
- hx-vals=(hx_vals) {
-
- // ── Role header ──
- div class="flex items-center gap-3 px-5 py-4 border-b border-border-soft bg-accent-50" {
- div class="w-10 h-10 rounded-md grid place-items-center text-sm font-bold text-white shrink-0 select-none"
- style=(format!("background:{}", gradient)) {
- (first_char.to_uppercase())
- }
- div class="min-w-0 flex-1" {
- div class="text-sm font-bold text-fg" { (role.role_name) }
- div class="text-[11px] text-muted mt-0.5" {
- @if inherited_count > 0 {
- "已授权 "
- span class="font-semibold text-accent" { (effective_count) }
- " 项（含 "
- span class="font-semibold text-accent" { (inherited_count) }
- " 项继承）"
- } @else {
- "已授权 "
- span class="font-semibold text-accent" { (effective_count) }
- " 项权限"
- }
- }
- }
- // Legend
- div class="flex items-center gap-3 text-[11px] text-muted shrink-0" {
- span class="flex items-center gap-1" { span class="w-2 h-2 rounded-sm bg-accent" {} "已授权" }
- span class="flex items-center gap-1" { span class="w-2 h-2 rounded-sm bg-border" {} "继承" }
- span class="flex items-center gap-1" { span class="w-2 h-2 rounded-sm bg-surface border border-border-soft" {} "未授权" }
- }
- }
-
- // ── System role read-only hint ──
- @if is_read_only {
- div class="flex items-center gap-2 px-5 py-2.5 bg-warn-50 text-[13px] text-warn-800 border-b border-border-soft" {
- (icon::info_icon("w-4 h-4 shrink-0"))
- span { "内置角色的权限由系统预设，不可修改。如需自定义权限，请新建角色。" }
- }
- }
-
- // ── Inherited permission hint ──
- @if inherited_count > 0 && !is_read_only {
- div class="flex items-center gap-2 px-5 py-2.5 bg-accent-50 text-[13px] text-accent-800 border-b border-border-soft" {
- (icon::info_icon("w-4 h-4 shrink-0"))
- span {
- "以下灰色标记的权限继承自上级角色「"
- @if let Some(pn) = parent_name { (pn) }
- "」，不可在当前角色中修改。"
- }
- }
- }
-
- // ── Permission body (.perm-body = scroll container for position restore) ──
- div.perm-body class="flex-1 overflow-y-auto p-4 space-y-3" {
- @for (gi, group) in groups.iter().enumerate() {
- (perm_group(gi, group, pd, is_read_only, role_id))
- }
- // Restore scroll position immediately during swap (no flicker)
- @if let Some(st) = scroll_top {
- (maud::PreEscaped(format!("<script>document.querySelector('.perm-body').scrollTop={st};</script>")))
- }
- }
- }
- }
+    // .perm-panel = refresh target on `permUpdated`; refreshes itself + stats-bar + role-list
+    div .perm-panel
+        class="flex-1 bg-bg rounded-lg border border-border-soft flex flex-col overflow-hidden min-w-0"
+        hx-trigger="permUpdated from:body"
+        hx-get=(refresh_url)
+        hx-select=".perm-panel"
+        hx-swap="outerHTML"
+        hx-select-oob="#stats-bar,#role-list"
+        hx-vals=(hx_vals)
+    {
+        // ── Role header ──
+        div class="flex items-center gap-3 px-5 py-4 border-b border-border-soft bg-accent-50" {
+            div class="w-10 h-10 rounded-md grid place-items-center text-sm font-bold text-white shrink-0 select-none"
+                style=(format!("background:{}", gradient))
+            { (first_char.to_uppercase()) }
+            div class="min-w-0 flex-1" {
+                div class="text-sm font-bold text-fg" { (role.role_name) }
+                div class="text-[11px] text-muted mt-0.5" {
+                    @if inherited_count > 0 {
+                        "已授权 "
+                        span class="font-semibold text-accent" { (effective_count) }
+                        " 项（含 "
+                        span class="font-semibold text-accent" { (inherited_count) }
+                        " 项继承）"
+                    } @else {
+                        "已授权 "
+                        span class="font-semibold text-accent" { (effective_count) }
+                        " 项权限"
+                    }
+                }
+            }
+            // Legend
+            div class="flex items-center gap-3 text-[11px] text-muted shrink-0" {
+                span class="flex items-center gap-1" {
+                    span class="w-2 h-2 rounded-sm bg-accent" {}
+                    "已授权"
+                }
+                span class="flex items-center gap-1" {
+                    span class="w-2 h-2 rounded-sm bg-border" {}
+                    "继承"
+                }
+                span class="flex items-center gap-1" {
+                    span class="w-2 h-2 rounded-sm bg-surface border border-border-soft" {}
+                    "未授权"
+                }
+            }
+        }
+        // ── System role read-only hint ──
+        @if is_read_only {
+            div class="flex items-center gap-2 px-5 py-2.5 bg-warn-50 text-[13px] text-warn-800 border-b border-border-soft"
+            {
+                (icon::info_icon("w-4 h-4 shrink-0"))
+                span { "内置角色的权限由系统预设，不可修改。如需自定义权限，请新建角色。" }
+            }
+        }
+        // ── Inherited permission hint ──
+        @if inherited_count > 0 && !is_read_only {
+            div class="flex items-center gap-2 px-5 py-2.5 bg-accent-50 text-[13px] text-accent-800 border-b border-border-soft"
+            {
+                (icon::info_icon("w-4 h-4 shrink-0"))
+                span {
+                    "以下灰色标记的权限继承自上级角色「"
+                    @if let Some(pn) = parent_name { (pn) }
+                    "」，不可在当前角色中修改。"
+                }
+            }
+        }
+        // ── Permission body (.perm-body = scroll container for position restore) ──
+        div.perm-body class="flex-1 overflow-y-auto p-4 space-y-3" {
+            @for (gi, group) in groups.iter().enumerate() {
+                (perm_group(gi, group, pd, is_read_only, role_id))
+            }
+            // Restore scroll position immediately during swap (no flicker)
+            @if let Some(st) = scroll_top {
+                ({
+                    maud::PreEscaped(
+                        format!(
+                            "<script>document.querySelector('.perm-body').scrollTop={st};</script>",
+                        ),
+                    )
+                })
+            }
+        }
+    }
+}
 }
 
 fn perm_group(
@@ -631,37 +659,62 @@ fn perm_group(
  let resource_count = group.resources.len();
 
  html! {
- div class="bg-bg border border-border rounded-lg shadow-xs overflow-hidden" {
- div class="flex items-center justify-between px-4 py-3 bg-surface border-b border-border" {
- div class="flex items-center gap-2" {
- span class="w-6 h-6 rounded-md bg-accent-bg text-accent grid place-items-center" {
- svg class="w-3.5 h-3.5" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" {
- path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9z" {}
- polyline points="13 2 13 9 20 9" {}
- }
- }
- span class="text-sm font-semibold text-fg" { (group.name) }
- span class="text-[11px] text-muted bg-bg px-1.5 py-0.5 rounded-full border border-border-soft" { (resource_count) }
- }
- @if !is_read_only {
- @let add_vals = format!("{{\"role_id\":\"{}\",\"mode\":\"add\",\"group_idx\":\"{}\"}}", role_id, gi);
- @let rm_vals = format!("{{\"role_id\":\"{}\",\"mode\":\"remove\",\"group_idx\":\"{}\"}}", role_id, gi);
- div class="flex items-center gap-1.5 text-[11px]" {
- button type="button" class="px-2 py-0.5 rounded-sm text-fg-2 hover:text-accent hover:bg-accent-bg cursor-pointer transition-colors"
- hx-post=(PERM_BATCH_PATH) hx-vals=(add_vals) hx-swap="none" { "全选" }
- span class="text-border" { "|" }
- button type="button" class="px-2 py-0.5 rounded-sm text-danger hover:bg-danger-bg cursor-pointer transition-colors"
- hx-post=(PERM_BATCH_PATH) hx-vals=(rm_vals) hx-swap="none" { "清空" }
- }
- }
- }
- div class="p-3 flex flex-col gap-1" {
- @for res in &group.resources {
- (perm_resource_row(res, pd, is_read_only, role_id))
- }
- }
- }
- }
+    div class="bg-bg border border-border rounded-lg shadow-xs overflow-hidden" {
+        div class="flex items-center justify-between px-4 py-3 bg-surface border-b border-border" {
+            div class="flex items-center gap-2" {
+                span class="w-6 h-6 rounded-md bg-accent-bg text-accent grid place-items-center" {
+                    svg class="w-3.5 h-3.5"
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.8"
+                    {
+                        path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9z" {}
+                        polyline points="13 2 13 9 20 9" {}
+                    }
+                }
+                span class="text-sm font-semibold text-fg" { (group.name) }
+                span
+                    class="text-[11px] text-muted bg-bg px-1.5 py-0.5 rounded-full border border-border-soft"
+                { (resource_count) }
+            }
+            @if !is_read_only {
+                @let add_vals = format!(
+                    "{{\"role_id\":\"{}\",\"mode\":\"add\",\"group_idx\":\"{}\"}}",
+                    role_id,
+                    gi,
+                );
+                @let rm_vals = format!(
+                    "{{\"role_id\":\"{}\",\"mode\":\"remove\",\"group_idx\":\"{}\"}}",
+                    role_id,
+                    gi,
+                );
+                div class="flex items-center gap-1.5 text-[11px]" {
+                    button
+                        type="button"
+                        class="px-2 py-0.5 rounded-sm text-fg-2 hover:text-accent hover:bg-accent-bg cursor-pointer transition-colors"
+                        hx-post=(PERM_BATCH_PATH)
+                        hx-vals=(add_vals)
+                        hx-swap="none"
+                    { "全选" }
+                    span class="text-border" { "|" }
+                    button
+                        type="button"
+                        class="px-2 py-0.5 rounded-sm text-danger hover:bg-danger-bg cursor-pointer transition-colors"
+                        hx-post=(PERM_BATCH_PATH)
+                        hx-vals=(rm_vals)
+                        hx-swap="none"
+                    { "清空" }
+                }
+            }
+        }
+        div class="p-3 flex flex-col gap-1" {
+            @for res in &group.resources { (perm_resource_row(res, pd, is_read_only, role_id)) }
+        }
+    }
+}
 }
 
 fn perm_resource_row(
@@ -686,43 +739,48 @@ fn perm_resource_row(
  };
 
  html! {
- div class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-surface transition-colors" {
- span class="text-[13px] font-medium text-fg-2 w-24 shrink-0 truncate" title=(res.resource_name) { (res.resource_name) }
- div class="flex items-center gap-1.5 flex-1 flex-wrap" {
- @for (ai, action) in ACTIONS.iter().enumerate() {
- @if let Some(_def) = res.defs.iter().find(|d| d.action == *action) {
- @let key = format!("{}:{}", res.resource_code, action);
- @let is_inherited = pd.inherited.contains(&key);
- @let is_direct = pd.direct.contains(&key);
- @let btn_cls = if is_inherited {
- "inline-flex items-center px-2.5 py-1 rounded-sm text-[11px] font-medium bg-surface text-muted border border-border cursor-not-allowed opacity-70"
- } else if is_direct {
- "inline-flex items-center px-2.5 py-1 rounded-sm text-[11px] font-medium bg-accent text-white border border-accent cursor-pointer hover:bg-accent-hover transition-colors shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
- } else {
- "inline-flex items-center px-2.5 py-1 rounded-sm text-[11px] font-medium bg-surface text-fg-2 border border-border cursor-pointer hover:bg-accent-bg hover:text-accent hover:border-accent transition-colors"
- };
- @let hx_vals = format!(
- "{{\"role_id\":\"{}\",\"resource_code\":\"{}\",\"action\":\"{}\"}}",
- role_id, res.resource_code, action
- );
- button type="button"
- class=(btn_cls)
- hx-post=(PERM_TOGGLE_PATH)
- hx-vals=(hx_vals)
- hx-swap="none"
- data-role-id=(role_id)
- data-resource=(res.resource_code)
- data-action=(action)
- disabled[is_read_only || is_inherited] {
- (ACTION_LABELS[ai])
- }
- }
- }
- }
- span class=(format!("text-[11px] font-mono tabular-nums w-8 text-right {}", count_cls)) {
- (format!("{}/{}", effective_count, total))
- }
- }
- }
+    div class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-surface transition-colors" {
+        span
+            class="text-[13px] font-medium text-fg-2 w-24 shrink-0 truncate"
+            title=(res.resource_name)
+        { (res.resource_name) }
+        div class="flex items-center gap-1.5 flex-1 flex-wrap" {
+            @for (ai, action) in ACTIONS.iter().enumerate() {
+                @if let Some(_def) = res.defs.iter().find(|d| d.action == *action) {
+                    @let key = format!("{}:{}", res.resource_code, action);
+                    @let is_inherited = pd.inherited.contains(&key);
+                    @let is_direct = pd.direct.contains(&key);
+                    @let btn_cls = if is_inherited {
+                        "inline-flex items-center px-2.5 py-1 rounded-sm text-[11px] font-medium bg-surface text-muted border border-border cursor-not-allowed opacity-70"
+                    } else if is_direct {
+                        "inline-flex items-center px-2.5 py-1 rounded-sm text-[11px] font-medium bg-accent text-white border border-accent cursor-pointer hover:bg-accent-hover transition-colors shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                    } else {
+                        "inline-flex items-center px-2.5 py-1 rounded-sm text-[11px] font-medium bg-surface text-fg-2 border border-border cursor-pointer hover:bg-accent-bg hover:text-accent hover:border-accent transition-colors"
+                    };
+                    @let hx_vals = format!(
+                        "{{\"role_id\":\"{}\",\"resource_code\":\"{}\",\"action\":\"{}\"}}",
+                        role_id,
+                        res.resource_code,
+                        action,
+                    );
+                    button
+                        type="button"
+                        class=(btn_cls)
+                        hx-post=(PERM_TOGGLE_PATH)
+                        hx-vals=(hx_vals)
+                        hx-swap="none"
+                        data-role-id=(role_id)
+                        data-resource=(res.resource_code)
+                        data-action=(action)
+                        disabled[is_read_only || is_inherited]
+                    { (ACTION_LABELS[ai]) }
+                }
+            }
+        }
+        span class=(format!("text-[11px] font-mono tabular-nums w-8 text-right {}", count_cls)) {
+            (format!("{}/{}", effective_count, total))
+        }
+    }
+}
 }
 

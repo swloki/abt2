@@ -57,30 +57,41 @@ fn workflow_steps(status: RequisitionStatus) -> Markup {
  };
 
  html! {
- div class="flex items-center mt-6 mb-6" {
- @for (i, label) in steps.iter().enumerate() {
- @if i > 0 {
- div class=(format!("w-[48px] h-[2px] {}", if completed[i] { "bg-success" } else { "bg-border" })) {}
- }
- @let (dot_cls, text_cls, ring_cls) = match current_idx {
- Some(ci) if ci == i => ("bg-accent", "text-accent font-semibold", "shadow-[0_0_0_3px_rgba(37,99,235,0.1)]"),
- _ if completed[i] => ("bg-success", "text-success", ""),
- _ => ("bg-slate-300", "text-slate-400", ""),
- };
- div class="flex items-center gap-2 shrink-0" {
- span class=(format!("w-2.5 h-2.5 rounded-full shrink-0 {} {}", dot_cls, ring_cls)) {}
- span class=(format!("text-xs whitespace-nowrap font-medium {}", text_cls)) { (label) }
- }
- }
- @if status == RequisitionStatus::Cancelled {
- div class="w-[48px] h-[2px] bg-border" {}
- div class="flex items-center gap-2 shrink-0" {
- span class="w-2.5 h-2.5 rounded-full shrink-0 bg-danger-500" {}
- span class="text-xs text-danger-500 font-semibold whitespace-nowrap" { "已取消" }
- }
- }
- }
- }
+    div class="flex items-center mt-6 mb-6" {
+        @for (i, label) in steps.iter().enumerate() {
+            @if i > 0 {
+                div class=({
+                        format!(
+                            "w-[48px] h-[2px] {}",
+                            if completed[i] { "bg-success" } else { "bg-border" },
+                        )
+                    }) {}
+            }
+            @let (dot_cls, text_cls, ring_cls) = match current_idx {
+                Some(ci) if ci == i => {
+                    (
+                        "bg-accent",
+                        "text-accent font-semibold",
+                        "shadow-[0_0_0_3px_rgba(37,99,235,0.1)]",
+                    )
+                }
+                _ if completed[i] => ("bg-success", "text-success", ""),
+                _ => ("bg-slate-300", "text-slate-400", ""),
+            };
+            div class="flex items-center gap-2 shrink-0" {
+                span class=(format!("w-2.5 h-2.5 rounded-full shrink-0 {} {}", dot_cls, ring_cls)) {}
+                span class=(format!("text-xs whitespace-nowrap font-medium {}", text_cls)) { (label) }
+            }
+        }
+        @if status == RequisitionStatus::Cancelled {
+            div class="w-[48px] h-[2px] bg-border" {}
+            div class="flex items-center gap-2 shrink-0" {
+                span class="w-2.5 h-2.5 rounded-full shrink-0 bg-danger-500" {}
+                span class="text-xs text-danger-500 font-semibold whitespace-nowrap" { "已取消" }
+            }
+        }
+    }
+}
 }
 
 // ── Variance Color ──
@@ -202,145 +213,183 @@ fn requisition_detail_page(
 ) -> Markup {
 let (status_text, status_class) = status_label(requisition.status);
 html! {
- div {
- // ── Back Link ──
- a href=(format!("{}?restore=true", RequisitionListPath::PATH)) class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150 mb-4" {
- (icon::chevron_left_icon("w-4 h-4"))
- "返回领料单列表"
- }
- // ── Detail Header（裸 flex，非 card）──
- div class="flex items-start justify-between mb-6" {
- div class="flex items-center gap-4" {
- h1 class="text-xl font-bold font-mono tabular-nums" { (requisition.doc_number) }
- span class=(format!("status-pill {}", crate::utils::status_color(status_class))) { (status_text) }
- }
- div class="flex gap-3" {
- (requisition_action_buttons(requisition.status, detail_path))
- }
- }
- // ── Workflow Steps ──
- (workflow_steps(requisition.status))
- // ── 领料信息（info-card 样式）──
- div class="bg-bg border border-border-soft rounded-lg p-6 mb-6 shadow-[var(--shadow-card)]" {
- div class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" { "领料信息" }
- div class="grid gap-5 [grid-template-columns:repeat(auto-fill,minmax(200px,1fr))]" {
- div class="flex flex-col gap-1" {
- span class="text-xs text-muted font-medium" { "单据编号" }
- span class="text-sm text-fg font-mono tabular-nums" { (requisition.doc_number) }
- }
- div class="flex flex-col gap-1" {
- span class="text-xs text-muted font-medium" { "关联工单" }
- span class="text-sm text-fg font-mono tabular-nums" { "WO-" (requisition.work_order_id) }
- }
- div class="flex flex-col gap-1" {
- span class="text-xs text-muted font-medium" { "领料仓库" }
- span class="text-sm text-fg" { (wh_name) }
- }
- div class="flex flex-col gap-1" {
- span class="text-xs text-muted font-medium" { "领料日期" }
- span class="text-sm text-fg font-mono tabular-nums" { (requisition.requisition_date.format("%Y-%m-%d")) }
- }
- div class="flex flex-col gap-1" {
- span class="text-xs text-muted font-medium" { "操作员" }
- span class="text-sm text-fg" { (operator_name) }
- }
- }
- }
- // ── 行项明细（data-card）──
- div class="data-card" {
- div class="overflow-x-auto" {
- table class="data-table" {
- thead {
- tr {
- th { "行号" }
- th { "产品" }
- th class="text-right text-[13px]" { "需求数量" }
- th class="text-right text-[13px]" { "实领数量" }
- th class="text-right text-[13px]" { "差异量" }
- th { "工序" }
- th { "批次" }
- th { "库位" }
- }
- }
- tbody {
- @for (i, item) in items.iter().enumerate() {
- @let (variance_text, variance_class) = variance_color_class(item.variance_qty);
- tr {
- td class="font-mono tabular-nums" { (i + 1) }
- td { (product_names.get(&item.product_id).map(|n| n.as_str()).unwrap_or("—")) }
- td class="text-right text-[13px] font-mono tabular-nums" { (format!("{:.2}", item.requested_qty)) }
- td class="text-right text-[13px] font-mono tabular-nums" { (format!("{:.2}", item.issued_qty)) }
- td class=(format!("text-right text-[13px] font-mono tabular-nums {}", variance_class)) { (variance_text) }
- td class="font-mono tabular-nums" { (item.operation_id.map(|id| format!("#{}", id)).unwrap_or_else(|| "—".into())) }
- td class="font-mono tabular-nums" { (item.batch_id.map(|id| format!("#{}", id)).unwrap_or_else(|| "—".into())) }
- td { (item.bin_id.map(|id| id.to_string()).unwrap_or_else(|| "—".into())) }
- }
- }
- @if items.is_empty() {
- tr {
- td colspan="8" class="text-center text-muted py-8" {
- "暂无领料明细"
- }
- }
- }
- }
- }
- }
- }
- }
- }
+    div {
+        // ── Back Link ──
+        a   href=(format!("{}?restore=true", RequisitionListPath::PATH))
+            class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150 mb-4"
+        { (icon::chevron_left_icon("w-4 h-4")) "返回领料单列表" }
+        // ── Detail Header（裸 flex，非 card）──
+        div class="flex items-start justify-between mb-6" {
+            div class="flex items-center gap-4" {
+                h1 class="text-xl font-bold font-mono tabular-nums" { (requisition.doc_number) }
+                span class=(format!("status-pill {}", crate::utils::status_color(status_class))) {
+                    (status_text)
+                }
+            }
+            div class="flex gap-3" { (requisition_action_buttons(requisition.status, detail_path)) }
+        }
+        // ── Workflow Steps ──
+        (workflow_steps(requisition.status))
+        // ── 领料信息（info-card 样式）──
+        div class="bg-bg border border-border-soft rounded-lg p-6 mb-6 shadow-[var(--shadow-card)]"
+        {
+            div class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" {
+                "领料信息"
+            }
+            div class="grid gap-5 [grid-template-columns:repeat(auto-fill,minmax(200px,1fr))]" {
+                div class="flex flex-col gap-1" {
+                    span class="text-xs text-muted font-medium" { "单据编号" }
+                    span class="text-sm text-fg font-mono tabular-nums" { (requisition.doc_number) }
+                }
+                div class="flex flex-col gap-1" {
+                    span class="text-xs text-muted font-medium" { "关联工单" }
+                    span class="text-sm text-fg font-mono tabular-nums" {
+                        "WO-"
+                        (requisition.work_order_id)
+                    }
+                }
+                div class="flex flex-col gap-1" {
+                    span class="text-xs text-muted font-medium" { "领料仓库" }
+                    span class="text-sm text-fg" { (wh_name) }
+                }
+                div class="flex flex-col gap-1" {
+                    span class="text-xs text-muted font-medium" { "领料日期" }
+                    span class="text-sm text-fg font-mono tabular-nums" {
+                        (requisition.requisition_date.format("%Y-%m-%d"))
+                    }
+                }
+                div class="flex flex-col gap-1" {
+                    span class="text-xs text-muted font-medium" { "操作员" }
+                    span class="text-sm text-fg" { (operator_name) }
+                }
+            }
+        }
+        // ── 行项明细（data-card）──
+        div class="data-card" {
+            div class="overflow-x-auto" {
+                table class="data-table" {
+                    thead {
+                        tr {
+                            th { "行号" }
+                            th { "产品" }
+                            th class="text-right text-[13px]" { "需求数量" }
+                            th class="text-right text-[13px]" { "实领数量" }
+                            th class="text-right text-[13px]" { "差异量" }
+                            th { "工序" }
+                            th { "批次" }
+                            th { "库位" }
+                        }
+                    }
+                    tbody {
+                        @for (i, item) in items.iter().enumerate() {
+                            @let (variance_text, variance_class) = variance_color_class(
+                                item.variance_qty,
+                            );
+                            tr {
+                                td class="font-mono tabular-nums" { (i + 1) }
+                                td {
+                                    ({
+                                        product_names
+                                            .get(&item.product_id)
+                                            .map(|n| n.as_str())
+                                            .unwrap_or("—")
+                                    })
+                                }
+                                td class="text-right text-[13px] font-mono tabular-nums" {
+                                    (format!("{:.2}", item.requested_qty))
+                                }
+                                td class="text-right text-[13px] font-mono tabular-nums" {
+                                    (format!("{:.2}", item.issued_qty))
+                                }
+                                td  class=({
+                                        format!(
+                                            "text-right text-[13px] font-mono tabular-nums {}",
+                                            variance_class,
+                                        )
+                                    })
+                                { (variance_text) }
+                                td class="font-mono tabular-nums" {
+                                    ({
+                                        item.operation_id
+                                            .map(|id| format!("#{}", id))
+                                            .unwrap_or_else(|| "—".into())
+                                    })
+                                }
+                                td class="font-mono tabular-nums" {
+                                    ({
+                                        item.batch_id
+                                            .map(|id| format!("#{}", id))
+                                            .unwrap_or_else(|| "—".into())
+                                    })
+                                }
+                                td {
+                                    ({
+                                        item.bin_id
+                                            .map(|id| id.to_string())
+                                            .unwrap_or_else(|| "—".into())
+                                    })
+                                }
+                            }
+                        }
+                        @if items.is_empty() {
+                            tr {
+                                td colspan="8" class="text-center text-muted py-8" { "暂无领料明细" }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
 }
 
 fn requisition_action_buttons(status: RequisitionStatus, detail_path: &str) -> Markup {
  match status {
  RequisitionStatus::Draft => {
  html! {
- button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
- hx-post=(detail_path)
- hx-vals=r#"{"action":"cancel"}"#
- hx-confirm="确定要取消此领料单吗？"
- hx-redirect=(detail_path) {
- (icon::x_icon("w-4 h-4"))
- "取消"
- }
- button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
- hx-post=(detail_path)
- hx-vals=r#"{"action":"confirm"}"#
- hx-confirm="确定要确认此领料单吗？"
- hx-redirect=(detail_path) {
- (icon::check_circle_icon("w-4 h-4"))
- "确认"
- }
- }
+    button
+        class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+        hx-post=(detail_path)
+        hx-vals=r#"{"action":"cancel"}"#
+        hx-confirm="确定要取消此领料单吗？"
+        hx-redirect=(detail_path)
+    { (icon::x_icon("w-4 h-4")) "取消" }
+    button
+        class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+        hx-post=(detail_path)
+        hx-vals=r#"{"action":"confirm"}"#
+        hx-confirm="确定要确认此领料单吗？"
+        hx-redirect=(detail_path)
+    { (icon::check_circle_icon("w-4 h-4")) "确认" }
+}
  }
  RequisitionStatus::Confirmed => {
  html! {
- button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
- hx-post=(detail_path)
- hx-vals=r#"{"action":"cancel"}"#
- hx-confirm="确定要取消此领料单吗？"
- hx-redirect=(detail_path) {
- (icon::x_icon("w-4 h-4"))
- "取消"
- }
- button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
- hx-post=(detail_path)
- hx-vals=r#"{"action":"issue"}"#
- hx-confirm="确定要确认发料吗？实发数量将按需求数量自动填写。"
- hx-redirect=(detail_path) {
- (icon::bolt_icon("w-4 h-4"))
- "确认发料"
- }
- }
+    button
+        class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+        hx-post=(detail_path)
+        hx-vals=r#"{"action":"cancel"}"#
+        hx-confirm="确定要取消此领料单吗？"
+        hx-redirect=(detail_path)
+    { (icon::x_icon("w-4 h-4")) "取消" }
+    button
+        class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+        hx-post=(detail_path)
+        hx-vals=r#"{"action":"issue"}"#
+        hx-confirm="确定要确认发料吗？实发数量将按需求数量自动填写。"
+        hx-redirect=(detail_path)
+    { (icon::bolt_icon("w-4 h-4")) "确认发料" }
+}
  }
  RequisitionStatus::Issued | RequisitionStatus::PartiallyIssued => {
  html! {
- button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" type="button"
- _="on click add .is-open to #return-modal" {
- (icon::return_arrow_icon("w-4 h-4"))
- "退料"
- }
- }
+    button
+        class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+        type="button"
+        _="on click add .is-open to #return-modal"
+    { (icon::return_arrow_icon("w-4 h-4")) "退料" }
+}
  }
  _ => html! {},
  }

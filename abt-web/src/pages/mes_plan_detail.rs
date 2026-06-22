@@ -68,10 +68,11 @@ fn wo_status_label(s: &WorkOrderStatus) -> (&'static str, &'static str, &'static
 
 fn status_pill(label: &str, bg: &str, color: &str) -> Markup {
  html! {
- span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap" style=(format!("background:{bg};color:{color}")) {
- (label)
- }
- }
+    span
+        class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap"
+        style=(format!("background:{bg};color:{color}"))
+    { (label) }
+}
 }
 
 fn audit_action_label(a: &AuditAction) -> &'static str {
@@ -94,15 +95,18 @@ fn completeness_dots(val: Option<&ReleaseValidation>) -> Markup {
  None => (false, false, false),
  };
  html! {
- div class="inline-flex gap-[3px] items-center" {
- span class=(if bom { "comp-dot filled" } else { "comp-dot empty" })
- title=(if bom { "BOM ✓" } else { "BOM ✗" }) {}
- span class=(if routing { "comp-dot filled" } else { "comp-dot empty" })
- title=(if routing { "Routing ✓" } else { "Routing ✗" }) {}
- span class=(if material { "comp-dot filled" } else { "comp-dot warn" })
- title=(if material { "物料 ✓" } else { "物料 ⚠" }) {}
- }
- }
+    div class="inline-flex gap-[3px] items-center" {
+        span
+            class=(if bom { "comp-dot filled" } else { "comp-dot empty" })
+            title=(if bom { "BOM ✓" } else { "BOM ✗" }) {}
+        span
+            class=(if routing { "comp-dot filled" } else { "comp-dot empty" })
+            title=(if routing { "Routing ✓" } else { "Routing ✗" }) {}
+        span
+            class=(if material { "comp-dot filled" } else { "comp-dot warn" })
+            title=(if material { "物料 ✓" } else { "物料 ⚠" }) {}
+    }
+}
 }
 
 fn priority_label(p: i32) -> (&'static str, &'static str) {
@@ -380,93 +384,118 @@ fn plan_detail_page(
  let val_map: HashMap<i64, &ReleaseValidation> = validations.iter().map(|v| (v.plan_item_id, v)).collect();
 
  html! {
- div {
- // 返回
- a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150 mb-4" href=(format!("{}?restore=true", PlanListPath::PATH)) {
- (icon::chevron_left_icon("w-4 h-4"))
- "返回计划列表"
- }
+    div {
+        // 返回
+        a   class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150 mb-4"
+            href=(format!("{}?restore=true", PlanListPath::PATH))
+        { (icon::chevron_left_icon("w-4 h-4")) "返回计划列表" }
+        // ═══ Detail Header (card-style per prototype) ═══
+        div class="bg-bg border border-border-soft rounded-lg p-6 mb-6 shadow-[var(--shadow-card)]"
+        {
+            // 标题行
+            div class="flex items-center justify-between mb-4" {
+                div class="flex items-center gap-3" {
+                    h1 class="text-xl font-bold font-mono tabular-nums" { (plan.doc_number) }
+                    (status_pill(status_label, status_bg, status_color))
+                }
+                div class="flex gap-3" {
+                    @if plan.status == PlanStatus::Confirmed {
+                        a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                            href=(format!("/admin/mes/plans/{}?tab=planning", plan.id))
+                        { (icon::rocket_icon("w-4 h-4")) "工单规划" }
+                    }
+                    @if {
+                        plan.status == PlanStatus::Confirmed
+                            || plan.status == PlanStatus::InProgress
+                    } {
+                        button
+                            class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                            hx-post=({
+                                PlanSchedulePath {
+                                    plan_id: plan.id,
+                                }
+                                    .to_string()
+                            })
+                            hx-confirm="执行工序级排程？将根据工作日历和工作中心产能自动分配时段。"
+                        { (icon::calendar_icon("w-4 h-4")) "工序排程" }
+                    }
+                    @if plan.status == PlanStatus::Draft {
+                        button
+                            class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                            hx-post=({
+                                PlanConfirmPath {
+                                    plan_id: plan.id,
+                                }
+                                    .to_string()
+                            })
+                            hx-confirm="确认此生产计划？确认后进入已确认状态。"
+                        { (icon::check_circle_icon("w-4 h-4")) "确认计划" }
+                    }
+                }
+            }
+            // 副标题行：来源追溯
+            div class="flex items-center flex-wrap gap-x-4 gap-y-1 mb-4 text-sm text-fg-2" {
+                span { "创建人：" (op_name) }
+                span class="text-border" { "|" }
+                span class="font-mono" { (fmt_dt(plan.created_at)) }
+                @if !plan.remark.is_empty() {
+                    span class="text-border" { "|" }
+                    span class="text-muted" { (plan.remark.as_str()) }
+                }
+            }
+            // 计划概览 Bento Grid（4 列）
+            div class="grid grid-cols-4 gap-5" {
+                div class="flex flex-col gap-[3px]" {
+                    span class="text-xs text-muted font-medium" { "计划日期" }
+                    span class="text-sm text-fg font-medium font-mono tabular-nums" {
+                        (plan.plan_date)
+                    }
+                }
+                div class="flex flex-col gap-[3px]" {
+                    span class="text-xs text-muted font-medium" { "排产类型" }
+                    span class="text-sm text-fg font-medium" { (type_label) }
+                }
+                div class="flex flex-col gap-[3px]" {
+                    span class="text-xs text-muted font-medium" { "计划数量" }
+                    span class="text-sm text-fg font-medium font-mono tabular-nums" {
+                        ({
+                            format!(
+                                "{} 项 · {} 件",
+                                items.len(),
+                                crate::utils::fmt_qty(total_qty),
+                            )
+                        })
+                    }
+                }
+                div class="flex flex-col gap-[3px]" {
+                    span class="text-xs text-muted font-medium" { "创建人" }
+                    span class="text-sm text-fg font-medium" { (op_name) }
+                }
+            }
+        }
+        // Tabs
+        ({
+            detail_tabs(
+                "detail",
+                &[
+                    ("detail", &format!("计划明细 {}", items.len())),
+                    ("planning", "工单管理"),
+                    ("log", "操作日志"),
+                ],
+            )
+        })
 
- // ═══ Detail Header (card-style per prototype) ═══
- div class="bg-bg border border-border-soft rounded-lg p-6 mb-6 shadow-[var(--shadow-card)]" {
- // 标题行
- div class="flex items-center justify-between mb-4" {
- div class="flex items-center gap-3" {
- h1 class="text-xl font-bold font-mono tabular-nums" { (plan.doc_number) }
- (status_pill(status_label, status_bg, status_color))
- }
- div class="flex gap-3" {
- @if plan.status == PlanStatus::Confirmed {
- a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(format!("/admin/mes/plans/{}?tab=planning", plan.id)) {
- (icon::rocket_icon("w-4 h-4"))
- "工单规划"
- }
- }
- @if plan.status == PlanStatus::Confirmed || plan.status == PlanStatus::InProgress {
- button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
- hx-post=(PlanSchedulePath { plan_id: plan.id }.to_string())
- hx-confirm="执行工序级排程？将根据工作日历和工作中心产能自动分配时段。" {
- (icon::calendar_icon("w-4 h-4"))
- "工序排程"
- }
- }
- @if plan.status == PlanStatus::Draft {
- button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
- hx-post=(PlanConfirmPath { plan_id: plan.id }.to_string())
- hx-confirm="确认此生产计划？确认后进入已确认状态。" {
- (icon::check_circle_icon("w-4 h-4"))
- "确认计划"
- }
- }
- }
- }
-
- // 副标题行：来源追溯
- div class="flex items-center flex-wrap gap-x-4 gap-y-1 mb-4 text-sm text-fg-2" {
- span { "创建人：" (op_name) }
- span class="text-border" { "|" }
- span class="font-mono" { (fmt_dt(plan.created_at)) }
- @if !plan.remark.is_empty() {
- span class="text-border" { "|" }
- span class="text-muted" { (plan.remark.as_str()) }
- }
- }
-
- // 计划概览 Bento Grid（4 列）
- div class="grid grid-cols-4 gap-5" {
- div class="flex flex-col gap-[3px]" {
- span class="text-xs text-muted font-medium" { "计划日期" }
- span class="text-sm text-fg font-medium font-mono tabular-nums" { (plan.plan_date) }
- }
- div class="flex flex-col gap-[3px]" {
- span class="text-xs text-muted font-medium" { "排产类型" }
- span class="text-sm text-fg font-medium" { (type_label) }
- }
- div class="flex flex-col gap-[3px]" {
- span class="text-xs text-muted font-medium" { "计划数量" }
- span class="text-sm text-fg font-medium font-mono tabular-nums" {
- (format!("{} 项 · {} 件", items.len(), crate::utils::fmt_qty(total_qty)))
- }
- }
- div class="flex flex-col gap-[3px]" {
- span class="text-xs text-muted font-medium" { "创建人" }
- span class="text-sm text-fg font-medium" { (op_name) }
- }
- }
- }
-
- // Tabs
- (detail_tabs("detail", &[
- ("detail", &format!("计划明细 {}", items.len())),
- ("planning", "工单管理"),
- ("log", "操作日志"),
- ]))
-
- (tab_panel("detail", true, tab_detail(items, product_names, &val_map)))
- (tab_panel("planning", false, tab_planning(plan, items, product_names, &val_map, work_orders)))
- (tab_panel("log", false, tab_log(audit_logs)))
- }
- }
+        (tab_panel("detail", true, tab_detail(items, product_names, &val_map)))
+        ({
+            tab_panel(
+                "planning",
+                false,
+                tab_planning(plan, items, product_names, &val_map, work_orders),
+            )
+        })
+        (tab_panel("log", false, tab_log(audit_logs)))
+    }
+}
 }
 
 // ── Tab: 计划明细（9 列表格）──
@@ -477,66 +506,78 @@ fn tab_detail(
  val_map: &HashMap<i64, &ReleaseValidation>,
 ) -> Markup {
  html! {
- div class="data-card" {
- div class="overflow-x-auto" {
- table class="data-table" {
- thead {
- tr {
- th { "#" }
- th { "产品" }
- th class="text-right text-[13px]" { "数量" }
- th { "排程" }
- th { "BOM/工艺" }
- th { "完整度" }
- th { "优先级" }
- th { "状态" }
- }
- }
- tbody {
- @for (idx, item) in items.iter().enumerate() {
- @let pname = product_names.get(&item.product_id).map(|s| s.as_str()).unwrap_or("—");
- @let (item_label, item_bg, item_color) = item_status_label(&item.status);
- @let val = val_map.get(&item.id).copied();
- @let (p_label, p_color) = priority_label(item.priority);
- tr {
- td class="text-muted text-xs text-center" { (idx + 1) }
- td { (pname) }
- td class="text-right text-[13px] font-mono tabular-nums" { (crate::utils::fmt_qty(item.planned_qty)) }
- td {
- div class="flex flex-col gap-[2px] whitespace-nowrap" {
- span class="text-[13px]" { (item.scheduled_start.format("%m-%d")) }
- span class="text-[11px] text-muted" { "至 " (item.scheduled_end.format("%m-%d")) }
- }
- }
- td {
- div class="flex flex-col gap-[2px]" {
- @if let Some(bom_id) = item.bom_snapshot_id {
- span class="font-mono tabular-nums" { "BS-" (bom_id) }
- } @else {
- span class="text-muted" { "—" }
- }
- @if let Some(r_id) = item.routing_id {
- span class="sub" { "路线 #" (r_id) }
- } @else {
- span class="sub text-muted" { "无路线" }
- }
- }
- }
- td { (completeness_dots(val)) }
- td style=(format!("color:{p_color};font-weight:500")) { (p_label) }
- td { (status_pill(item_label, item_bg, item_color)) }
- }
- }
- @if items.is_empty() {
- tr {
- td colspan="8" class="text-center text-muted text-sm" { "暂无计划明细" }
- }
- }
- }
- }
- }
- }
- }
+    div class="data-card" {
+        div class="overflow-x-auto" {
+            table class="data-table" {
+                thead {
+                    tr {
+                        th { "#" }
+                        th { "产品" }
+                        th class="text-right text-[13px]" { "数量" }
+                        th { "排程" }
+                        th { "BOM/工艺" }
+                        th { "完整度" }
+                        th { "优先级" }
+                        th { "状态" }
+                    }
+                }
+                tbody {
+                    @for (idx, item) in items.iter().enumerate() {
+                        @let pname = product_names
+                            .get(&item.product_id)
+                            .map(|s| s.as_str())
+                            .unwrap_or("—");
+                        @let (item_label, item_bg, item_color) = item_status_label(
+                            &item.status,
+                        );
+                        @let val = val_map.get(&item.id).copied();
+                        @let (p_label, p_color) = priority_label(item.priority);
+                        tr {
+                            td class="text-muted text-xs text-center" { (idx + 1) }
+                            td { (pname) }
+                            td class="text-right text-[13px] font-mono tabular-nums" {
+                                (crate::utils::fmt_qty(item.planned_qty))
+                            }
+                            td {
+                                div class="flex flex-col gap-[2px] whitespace-nowrap" {
+                                    span class="text-[13px]" {
+                                        (item.scheduled_start.format("%m-%d"))
+                                    }
+                                    span class="text-[11px] text-muted" {
+                                        "至 "
+                                        (item.scheduled_end.format("%m-%d"))
+                                    }
+                                }
+                            }
+                            td {
+                                div class="flex flex-col gap-[2px]" {
+                                    @if let Some(bom_id) = item.bom_snapshot_id {
+                                        span class="font-mono tabular-nums" { "BS-" (bom_id) }
+                                    } @else {
+                                        span class="text-muted" { "—" }
+                                    }
+                                    @if let Some(r_id) = item.routing_id {
+                                        span class="sub" { "路线 #" (r_id) }
+                                    } @else {
+                                        span class="sub text-muted" { "无路线" }
+                                    }
+                                }
+                            }
+                            td { (completeness_dots(val)) }
+                            td style=(format!("color:{p_color};font-weight:500")) { (p_label) }
+                            td { (status_pill(item_label, item_bg, item_color)) }
+                        }
+                    }
+                    @if items.is_empty() {
+                        tr {
+                            td colspan="8" class="text-center text-muted text-sm" { "暂无计划明细" }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
 }
 
 
@@ -544,27 +585,28 @@ fn tab_detail(
 
 fn tab_log(logs: &[AuditLog]) -> Markup {
  html! {
- @if logs.is_empty() {
- div class="text-center text-muted text-sm" { "暂无操作日志" }
- } @else {
- div class="relative pl-6 before:content-[''] before:absolute before:left-[7px] before:top-1 before:bottom-1 before:w-0.5 before:bg-border-soft" {
- @for log in logs {
- div class="relative pb-5 last:pb-0" {
- div class="absolute w-[14px] h-[14px] rounded-full bg-accent" {}
- div class="font-semibold text-sm text-fg" { (audit_action_label(&log.action)) }
- div class="flex gap-2 text-xs text-muted items-center" {
- span class="font-mono tabular-nums" { (fmt_dt(log.created_at)) }
- span class="sep" { "|" }
- span { "操作人 #" (log.operator_id) }
- }
- @if let Some(changes) = log.changes.as_ref() {
- div class="text-xs text-muted" { (changes) }
- }
- }
- }
- }
- }
- }
+    @if logs.is_empty() {
+        div class="text-center text-muted text-sm" { "暂无操作日志" }
+    } @else {
+        div class="relative pl-6 before:content-[''] before:absolute before:left-[7px] before:top-1 before:bottom-1 before:w-0.5 before:bg-border-soft"
+        {
+            @for log in logs {
+                div class="relative pb-5 last:pb-0" {
+                    div class="absolute w-[14px] h-[14px] rounded-full bg-accent" {}
+                    div class="font-semibold text-sm text-fg" { (audit_action_label(&log.action)) }
+                    div class="flex gap-2 text-xs text-muted items-center" {
+                        span class="font-mono tabular-nums" { (fmt_dt(log.created_at)) }
+                        span class="sep" { "|" }
+                        span { "操作人 #" (log.operator_id) }
+                    }
+                    @if let Some(changes) = log.changes.as_ref() {
+                        div class="text-xs text-muted" { (changes) }
+                    }
+                }
+            }
+        }
+    }
+}
 }
 
 
@@ -598,231 +640,304 @@ fn tab_planning(
  let can_plan = matches!(plan.status, PlanStatus::Confirmed | PlanStatus::InProgress);
 
  html! {
- div class="wo-planning" {
- // ── 上方区块：待规划明细 ──
- @if can_plan {
- div class="form-section" {
- h3 class="text-base font-semibold text-fg mb-3" {
- "待规划明细 " span class="text-muted" { "(" (pending_items.len()) ")" }
- }
+    div class="wo-planning" {
+        // ── 上方区块：待规划明细 ──
+        @if can_plan {
+            div class="form-section" {
+                h3 class="text-base font-semibold text-fg mb-3" {
+                    "待规划明细 "
+                    span class="text-muted" { "(" (pending_items.len()) ")" }
+                }
 
- @if pending_items.is_empty() {
- div class="text-center text-muted text-sm" { "所有明细已生成工单" }
- } @else {
- form id="wo-planning-form"
- hx-post={(PlanGeneratePath { plan_id: plan.id }.to_string())}
- hx-swap="none" {
+                @if pending_items.is_empty() {
+                    div class="text-center text-muted text-sm" { "所有明细已生成工单" }
+                } @else {
+                    form
+                        id="wo-planning-form"
+                        hx-post={ ({
+                            PlanGeneratePath {
+                                plan_id: plan.id,
+                            }
+                                .to_string()
+                        }) }
+                        hx-swap="none"
+                    {
 
- div class="data-card" {
- div class="overflow-x-auto" {
- table class="data-table" {
- thead {
- tr {
- th class="w-8" { input type="checkbox" class="wo-check-all" checked; }
- th { "产品" }
- th class="text-right text-[13px]" { "数量" }
- th { "排程(起→止)" }
- th { "工艺路线" }
- th { "完整度" }
- th class="!text-right" { "操作" }
- }
- }
- tbody id="wo-planning-body" {
- @for item in &pending_items {
- @let pname = product_names.get(&item.product_id).map(|s| s.as_str()).unwrap_or("—");
- @let val = val_map.get(&item.id).copied();
- tr class="wo-plan-row"
- data-plan-item-id=(item.id)
- data-product-id=(item.product_id) {
- td {
- input type="checkbox" class="wo-check" checked;
- }
- td { (pname) }
- td class="text-right text-[13px] font-mono tabular-nums wo-qty" { (crate::utils::fmt_qty(item.planned_qty)) }
- td class="whitespace-nowrap" {
- input type="date" class="w-[130px] px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] wo-start inline-block" value=(item.scheduled_start);
- " → "
- input type="date" class="w-[130px] px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] wo-end inline-block" value=(item.scheduled_end);
- }
- td {
- @match val {
- Some(v) if v.has_routing => { "有" }
- _ => { span class="text-muted" { "无（虚拟默认）" } }
- }
- }
- td { (completeness_dots(val)) }
- td {
- button type="button" class="btn inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative icon:w-4 icon:h-4"
- _="on click call openSplitDialog(me)" { "拆分" }
- }
- }
- }
- }
- }
- }
- }
+                        div class="data-card" {
+                            div class="overflow-x-auto" {
+                                table class="data-table" {
+                                    thead {
+                                        tr {
+                                            th class="w-8" {
+                                                input type="checkbox" class="wo-check-all" checked;
+                                            }
+                                            th { "产品" }
+                                            th class="text-right text-[13px]" { "数量" }
+                                            th { "排程(起→止)" }
+                                            th { "工艺路线" }
+                                            th { "完整度" }
+                                            th class="!text-right" { "操作" }
+                                        }
+                                    }
+                                    tbody id="wo-planning-body" {
+                                        @for item in &pending_items {
+                                            @let pname = product_names
+                                                .get(&item.product_id)
+                                                .map(|s| s.as_str())
+                                                .unwrap_or("—");
+                                            @let val = val_map.get(&item.id).copied();
+                                            tr  class="wo-plan-row"
+                                                data-plan-item-id=(item.id)
+                                                data-product-id=(item.product_id)
+                                            {
+                                                td {
+                                                    input type="checkbox" class="wo-check" checked;
+                                                }
+                                                td { (pname) }
+                                                td  class="text-right text-[13px] font-mono tabular-nums wo-qty"
+                                                { (crate::utils::fmt_qty(item.planned_qty)) }
+                                                td class="whitespace-nowrap" {
+                                                    input
+                                                        type="date"
+                                                        class="w-[130px] px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] wo-start inline-block"
+                                                        value=(item.scheduled_start);
+                                                    " → "
+                                                    input
+                                                        type="date"
+                                                        class="w-[130px] px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] wo-end inline-block"
+                                                        value=(item.scheduled_end);
+                                                }
+                                                td {
+                                                    @match val {
+                                                        Some(v) if v.has_routing => { "有" }
+                                                        _ => {
+                                                            span class="text-muted" { "无（虚拟默认）" }
+                                                        }
+                                                    }
+                                                }
+                                                td { (completeness_dots(val)) }
+                                                td {
+                                                    button
+                                                        type="button"
+                                                        class="btn inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative icon:w-4 icon:h-4"
+                                                        _="on click call openSplitDialog(me)"
+                                                    { "拆分" }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        input type="hidden" name="items_json" id="items_json" {}
+                        ;
 
- input type="hidden" name="items_json" id="items_json" {};
+                        div class="mt-4 flex gap-3" {
+                            button
+                                type="submit"
+                                class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                                onclick="document.getElementById('items_json').value=collectPlanItems()"
+                            { (icon::rocket_icon("w-4 h-4")) "生成草稿工单" }
+                            button
+                                type="submit"
+                                class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                                formaction=({
+                                    PlanGenerateReleasePath {
+                                        plan_id: plan.id,
+                                    }
+                                        .to_string()
+                                })
+                                onclick="document.getElementById('items_json').value=collectPlanItems()"
+                            { "一键生成并下达" }
+                        }
+                    }
+                }
+            }
+        }
+        // ── 下方区块：Draft 工单列表 ──
+        @if !draft_orders.is_empty() {
+            div class={ (format!("form-section{}", if can_plan { " mt-6" } else { "" })) } {
+                h3 class="text-base font-semibold text-fg mb-3" {
+                    "草稿工单 "
+                    span class="text-muted" { "(" (draft_orders.len()) ")" }
+                }
 
- div class="mt-4 flex gap-3" {
- button type="submit" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
- onclick="document.getElementById('items_json').value=collectPlanItems()" {
- (icon::rocket_icon("w-4 h-4"))
- "生成草稿工单"
- }
- button type="submit" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
- formaction=(PlanGenerateReleasePath { plan_id: plan.id }.to_string())
- onclick="document.getElementById('items_json').value=collectPlanItems()" {
- "一键生成并下达"
- }
- }
- }
- }
- }
- }
+                div class="data-card" {
+                    div class="overflow-x-auto" {
+                        table class="data-table" {
+                            thead {
+                                tr {
+                                    th { "工单号" }
+                                    th { "产品" }
+                                    th class="text-right text-[13px]" { "数量" }
+                                    th { "排程" }
+                                    th { "状态" }
+                                    th class="!text-right" { "操作" }
+                                }
+                            }
+                            tbody {
+                                @for wo in &draft_orders {
+                                    @let pname = product_names
+                                        .get(&wo.product_id)
+                                        .map(|s| s.as_str())
+                                        .unwrap_or("—");
+                                    tr {
+                                        td class="font-mono tabular-nums" { (wo.doc_number) }
+                                        td { (pname) }
+                                        td class="text-right text-[13px] font-mono tabular-nums" {
+                                            (crate::utils::fmt_qty(wo.planned_qty))
+                                        }
+                                        td class="whitespace-nowrap" {
+                                            (wo.scheduled_start.format("%m-%d"))
+                                            " → "
+                                            (wo.scheduled_end.format("%m-%d"))
+                                        }
+                                        td { (status_pill("草稿", "rgba(250,140,22,0.08)", "#fa8c16")) }
+                                        td class="whitespace-nowrap" {
+                                            button
+                                                class="btn inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative icon:w-4 icon:h-4"
+                                                hx-post=({
+                                                    OrderReleasePath {
+                                                        order_id: wo.id,
+                                                    }
+                                                        .to_string()
+                                                })
+                                                hx-confirm="确认下达此工单？"
+                                                hx-disabled-elt="this"
+                                            { "下达" }
+                                            button
+                                                class="btn bg-danger text-white border-none hover:opacity-90 inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative icon:w-4 icon:h-4"
+                                                hx-post=(OrderCancelPath { order_id: wo.id }.to_string())
+                                                hx-confirm="确认取消此草稿工单？"
+                                            { "取消" }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
 
- // ── 下方区块：Draft 工单列表 ──
- @if !draft_orders.is_empty() {
- div class={(format!("form-section{}", if can_plan { " mt-6" } else { "" }))} {
- h3 class="text-base font-semibold text-fg mb-3" {
- "草稿工单 " span class="text-muted" { "(" (draft_orders.len()) ")" }
- }
+                div class="mt-4" {
+                    button
+                        class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                        hx-post=({
+                            PlanReleaseAllPath {
+                                plan_id: plan.id,
+                            }
+                                .to_string()
+                        })
+                        hx-confirm="确认全部下达？"
+                        hx-disabled-elt="this"
+                    { (icon::rocket_icon("w-4 h-4")) "全部下达" }
+                }
+            }
+        }
+        // ── 已下达工单区（Released/InProduction/Closed）──
+        @if !released_orders.is_empty() {
+            div class="form-section mt-6" {
+                h3 class="text-base font-semibold text-fg mb-3" {
+                    "已下达工单 "
+                    span class="text-muted" { "(" (released_orders.len()) ")" }
+                }
 
- div class="data-card" {
- div class="overflow-x-auto" {
- table class="data-table" {
- thead {
- tr {
- th { "工单号" }
- th { "产品" }
- th class="text-right text-[13px]" { "数量" }
- th { "排程" }
- th { "状态" }
- th class="!text-right" { "操作" }
- }
- }
- tbody {
- @for wo in &draft_orders {
- @let pname = product_names.get(&wo.product_id).map(|s| s.as_str()).unwrap_or("—");
- tr {
- td class="font-mono tabular-nums" { (wo.doc_number) }
- td { (pname) }
- td class="text-right text-[13px] font-mono tabular-nums" { (crate::utils::fmt_qty(wo.planned_qty)) }
- td class="whitespace-nowrap" { (wo.scheduled_start.format("%m-%d")) " → " (wo.scheduled_end.format("%m-%d")) }
- td { (status_pill("草稿", "rgba(250,140,22,0.08)", "#fa8c16")) }
- td class="whitespace-nowrap" {
- button class="btn inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative icon:w-4 icon:h-4"
- hx-post=(OrderReleasePath { order_id: wo.id }.to_string())
- hx-confirm="确认下达此工单？"
- hx-disabled-elt="this" {
- "下达"
- }
- button class="btn bg-danger text-white border-none hover:opacity-90 inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative icon:w-4 icon:h-4"
- hx-post=(OrderCancelPath { order_id: wo.id }.to_string())
- hx-confirm="确认取消此草稿工单？" {
- "取消"
- }
- }
- }
- }
- }
- }
- }
- }
-
- div class="mt-4" {
- button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
- hx-post=(PlanReleaseAllPath { plan_id: plan.id }.to_string())
- hx-confirm="确认全部下达？"
- hx-disabled-elt="this" {
- (icon::rocket_icon("w-4 h-4"))
- "全部下达"
- }
- }
- }
- }
-
- // ── 已下达工单区（Released/InProduction/Closed）──
- @if !released_orders.is_empty() {
- div class="form-section mt-6" {
- h3 class="text-base font-semibold text-fg mb-3" {
- "已下达工单 " span class="text-muted" { "(" (released_orders.len()) ")" }
- }
-
- div class="data-card" {
- ul class="list-none m-0 p-0" {
- @for wo in &released_orders {
- @let pname = product_names.get(&wo.product_id).map(|s| s.as_str()).unwrap_or("—");
- @let (wo_label, _wo_bg, _wo_color) = wo_status_label(&wo.status);
- @let status_cls = match wo.status {
- WorkOrderStatus::InProduction => "in-production",
- WorkOrderStatus::Closed => "closed",
- _ => "released",
- };
- li class="flex items-center p-4 border-b border-border-soft relative" {
- div class={"wo-status-bar " (status_cls)} {}
- div class="flex-1 grid gap-5 items-center" {
- // 工单号
- div class="text-[14px] font-semibold text-fg" { (wo.doc_number) }
- // 产品信息
- div class="flex flex-col gap-1" {
- div class="text-[14px] font-medium text-fg whitespace-nowrap overflow-hidden" { (pname) }
- div class="flex items-center gap-3 text-xs text-fg-2" {
- span { span class="wo-meta-label" { "数量 " } (crate::utils::fmt_qty(wo.planned_qty)) "件" }
- span { span class="wo-meta-label" { "排程 " } (wo.scheduled_start.format("%m-%d")) " → " (wo.scheduled_end.format("%m-%d")) }
- }
- }
- // 右侧：状态 + 进度 + 操作
- div class="flex items-center gap-4" {
- (status_pill(wo_label, _wo_bg, _wo_color))
- @if let (Some(done), Some(total)) = (wo.completed_steps, wo.total_steps) {
- div class="flex items-center gap-2 text-xs text-fg-2 whitespace-nowrap" {
- span class="flex items-center gap-2 text-xs text-fg-2 whitespace-nowrap-text" { (done) "/" (total) "步" }
- div class="flex items-center gap-2 text-xs text-fg-2 whitespace-nowrap-bar" {
- div class={"wo-step-fill " (status_cls)}
- style=(format!("width: {}%", if total > 0 { done * 100 / total } else { 0 })) {}
- }
- }
- }
- a class="wo-action-inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative"
- href=(OrderDetailPath { id: wo.id }.to_string()) {
- "工单详情"
- }
- }
- }
- }
- }
- }
- }
- }
- }
-
- // ── 空状态 ──
- @if pending_items.is_empty() && draft_orders.is_empty() && released_orders.is_empty() {
- div class="text-center text-muted text-sm p-8" {
- "暂无工单数据"
- }
- }
-
-
- // 拆分弹窗（可复用 input_dialog 组件）
- @if can_plan && !pending_items.is_empty() {
- (crate::components::input_dialog::input_dialog(
- "split-dialog",
- "拆分明细项",
- html! {
- "将当前明细项拆分为两份，各拆分行可独立调整排程和参数。"
- },
- "split-input",
- "第一份数量",
- "number",
- "输入数量",
- "确认拆分",
- "call doSplit()",
- ))
- }
- // 加载规划 JS
- script src="/wo-planning.js" {}
- }
- }
+                div class="data-card" {
+                    ul class="list-none m-0 p-0" {
+                        @for wo in &released_orders {
+                            @let pname = product_names
+                                .get(&wo.product_id)
+                                .map(|s| s.as_str())
+                                .unwrap_or("—");
+                            @let (wo_label, _wo_bg, _wo_color) = wo_status_label(
+                                &wo.status,
+                            );
+                            @let status_cls = match wo.status {
+                                WorkOrderStatus::InProduction => "in-production",
+                                WorkOrderStatus::Closed => "closed",
+                                _ => "released",
+                            };
+                            li class="flex items-center p-4 border-b border-border-soft relative" {
+                                div class={ "wo-status-bar " (status_cls) } {}
+                                div class="flex-1 grid gap-5 items-center" {
+                                    // 工单号
+                                    div class="text-[14px] font-semibold text-fg" { (wo.doc_number) }
+                                    // 产品信息
+                                    div class="flex flex-col gap-1" {
+                                        div class="text-[14px] font-medium text-fg whitespace-nowrap overflow-hidden"
+                                        { (pname) }
+                                        div class="flex items-center gap-3 text-xs text-fg-2" {
+                                            span {
+                                                span class="wo-meta-label" { "数量 " }
+                                                (crate::utils::fmt_qty(wo.planned_qty))
+                                                "件"
+                                            }
+                                            span {
+                                                span class="wo-meta-label" { "排程 " }
+                                                (wo.scheduled_start.format("%m-%d"))
+                                                " → "
+                                                (wo.scheduled_end.format("%m-%d"))
+                                            }
+                                        }
+                                    }
+                                    // 右侧：状态 + 进度 + 操作
+                                    div class="flex items-center gap-4" {
+                                        (status_pill(wo_label, _wo_bg, _wo_color))
+                                        @if let (Some(done), Some(total)) = (wo.completed_steps, wo.total_steps) {
+                                            div class="flex items-center gap-2 text-xs text-fg-2 whitespace-nowrap"
+                                            {
+                                                span
+                                                    class="flex items-center gap-2 text-xs text-fg-2 whitespace-nowrap-text"
+                                                { (done) "/" (total) "步" }
+                                                div class="flex items-center gap-2 text-xs text-fg-2 whitespace-nowrap-bar"
+                                                {
+                                                    div class={ "wo-step-fill " (status_cls) }
+                                                        style=({
+                                                            format!(
+                                                                "width: {}%",
+                                                                if total > 0 { done * 100 / total } else { 0 },
+                                                            )
+                                                        }) {}
+                                                }
+                                            }
+                                        }
+                                        a   class="wo-action-inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative"
+                                            href=(OrderDetailPath { id: wo.id }.to_string())
+                                        { "工单详情" }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        // ── 空状态 ──
+        @if {
+            pending_items.is_empty() && draft_orders.is_empty()
+                && released_orders.is_empty()
+        } {
+            div class="text-center text-muted text-sm p-8" { "暂无工单数据" }
+        }
+        // 拆分弹窗（可复用 input_dialog 组件）
+        @if can_plan && !pending_items.is_empty() {
+            ({
+                crate::components::input_dialog::input_dialog(
+                    "split-dialog",
+                    "拆分明细项",
+                    html! {
+                        "将当前明细项拆分为两份，各拆分行可独立调整排程和参数。"
+                    },
+                    "split-input",
+                    "第一份数量",
+                    "number",
+                    "输入数量",
+                    "确认拆分",
+                    "call doSplit()",
+                )
+            })
+        }
+        // 加载规划 JS
+        script src="/wo-planning.js" {}
+    }
+}
 }

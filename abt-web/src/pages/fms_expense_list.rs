@@ -192,22 +192,33 @@ fn expense_list_page(
  can_create: bool,
 ) -> Markup {
  html! {
- div {
- div class="flex items-center justify-between mb-6" {
- h1 class="text-xl font-bold text-fg tracking-tight" { "费用报销" }
- div class="flex gap-3" {
- button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" type="button" { (icon::download_icon("w-4 h-4")) "导出" }
- @if can_create {
- a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(ExpenseCreatePath::PATH) {
- (icon::plus_icon("w-4 h-4"))
- "新建报销"
- }
- }
- }
- }
- (expense_table_fragment(result, params, applicant_names, dept_names, all_depts, all_users))
- }
- }
+    div {
+        div class="flex items-center justify-between mb-6" {
+            h1 class="text-xl font-bold text-fg tracking-tight" { "费用报销" }
+            div class="flex gap-3" {
+                button
+                    class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                    type="button"
+                { (icon::download_icon("w-4 h-4")) "导出" }
+                @if can_create {
+                    a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                        href=(ExpenseCreatePath::PATH)
+                    { (icon::plus_icon("w-4 h-4")) "新建报销" }
+                }
+            }
+        }
+        ({
+            expense_table_fragment(
+                result,
+                params,
+                applicant_names,
+                dept_names,
+                all_depts,
+                all_users,
+            )
+        })
+    }
+}
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -230,51 +241,80 @@ fn expense_table_fragment(
  ];
 
  html! {
- div {
- (status_tabs_with_param(ExpenseListPath::PATH, "#expense-data-card", "#expense-filter-form", tabs, &selected_status, "status"))
+    div {
+        ({
+            status_tabs_with_param(
+                ExpenseListPath::PATH,
+                "#expense-data-card",
+                "#expense-filter-form",
+                tabs,
+                &selected_status,
+                "status",
+            )
+        })
 
- form class="flex items-center gap-3 mb-5 flex-wrap filter-form" id="expense-filter-form"
- hx-get=(ExpenseListPath::PATH)
- hx-trigger="change, keyup changed delay:300ms from:.search-input"
- hx-target="#expense-data-card"
- hx-select="#expense-data-card"
- hx-swap="outerHTML"
- hx-include="#expense-filter-form"
- hx-push-url="true" {
- select class="w-40 px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer" name="status" {
- option value="" selected[params.status.is_none()] { "全部状态" }
- option value="1" selected[params.status == Some(1)] { "待审批" }
- option value="2" selected[params.status == Some(2)] { "已通过" }
- option value="3" selected[params.status == Some(3)] { "已付款" }
- option value="4" selected[params.status == Some(4)] { "草稿" }
- option value="5" selected[params.status == Some(5)] { "已取消" }
- }
- select class="w-40 px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer" name="applicant_id" {
- option value="" selected[params.applicant_id.is_none()] { "全部申请人" }
- @for u in all_users {
- option value=(u.user.user_id) selected[params.applicant_id == Some(u.user.user_id)] {
- (u.user.display_name.as_deref().unwrap_or(&u.user.username))
- }
- }
- }
- select class="w-40 px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer" name="department_id" {
- option value="" selected[params.department_id.is_none()] { "全部部门" }
- @for d in all_depts {
- option value=(d.department_id) selected[params.department_id == Some(d.department_id)] {
- (d.department_name)
- }
- }
- }
- input class="w-35 px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer" type="date" name="expense_date_from"
- value=(params.expense_date_from.as_deref().unwrap_or(""));
- span class="text-xs text-muted" { "至" }
- input class="w-35 px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer" type="date" name="expense_date_to"
- value=(params.expense_date_to.as_deref().unwrap_or(""));
- }
+        form
+            class="flex items-center gap-3 mb-5 flex-wrap filter-form"
+            id="expense-filter-form"
+            hx-get=(ExpenseListPath::PATH)
+            hx-trigger="change, keyup changed delay:300ms from:.search-input"
+            hx-target="#expense-data-card"
+            hx-select="#expense-data-card"
+            hx-swap="outerHTML"
+            hx-include="#expense-filter-form"
+            hx-push-url="true"
+        {
+            select
+                class="w-40 px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer"
+                name="status"
+            {
+                option value="" selected[params.status.is_none()] { "全部状态" }
+                option value="1" selected[params.status == Some(1)] { "待审批" }
+                option value="2" selected[params.status == Some(2)] { "已通过" }
+                option value="3" selected[params.status == Some(3)] { "已付款" }
+                option value="4" selected[params.status == Some(4)] { "草稿" }
+                option value="5" selected[params.status == Some(5)] { "已取消" }
+            }
+            select
+                class="w-40 px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer"
+                name="applicant_id"
+            {
+                option value="" selected[params.applicant_id.is_none()] { "全部申请人" }
+                @for u in all_users {
+                    option
+                        value=(u.user.user_id)
+                        selected[params.applicant_id == Some(u.user.user_id)]
+                    { (u.user.display_name.as_deref().unwrap_or(&u.user.username)) }
+                }
+            }
+            select
+                class="w-40 px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer"
+                name="department_id"
+            {
+                option value="" selected[params.department_id.is_none()] { "全部部门" }
+                @for d in all_depts {
+                    option
+                        value=(d.department_id)
+                        selected[params.department_id == Some(d.department_id)]
+                    { (d.department_name) }
+                }
+            }
+            input
+                class="w-35 px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer"
+                type="date"
+                name="expense_date_from"
+                value=(params.expense_date_from.as_deref().unwrap_or(""));
+            span class="text-xs text-muted" { "至" }
+            input
+                class="w-35 px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer"
+                type="date"
+                name="expense_date_to"
+                value=(params.expense_date_to.as_deref().unwrap_or(""));
+        }
 
- (expense_data_card(result, params, applicant_names, dept_names))
- }
- }
+        (expense_data_card(result, params, applicant_names, dept_names))
+    }
+}
 }
 
 fn expense_data_card(
@@ -285,53 +325,88 @@ fn expense_data_card(
 ) -> Markup {
  let query = build_query_string(params);
  html! {
- div class="data-card" id="expense-data-card" {
- div class="overflow-x-auto" {
- table class="data-table" {
- thead {
- tr {
- th { "单号" }
- th { "申请人" }
- th { "部门" }
- th { "报销日期" }
- th { "金额" }
- th { "单据张数" }
- th { "状态" }
- th { "提交时间" }
- th class="w-20" { "操作" }
- }
- }
- tbody {
- @for item in &result.items {
- @let (status_text, status_bg, status_color) = expense_status_label(&item.status);
- @let detail_path = ExpenseDetailPath { id: item.id };
- @let applicant_name = applicant_names.get(&item.applicant_id).map(|s| s.as_str()).unwrap_or("—");
- @let dept_name = item.department_id.and_then(|did| dept_names.get(&did).map(|s| s.as_str())).unwrap_or("—");
- tr class="hover:bg-accent-bg transition-colors" {
- td { a href=(detail_path.to_string()) class="text-accent font-medium font-mono tabular-nums hover:underline" { (item.doc_number) } }
- td class="text-sm text-fg-2" { (applicant_name) }
- td class="text-sm text-muted" { (dept_name) }
- td class="text-xs text-muted" { (item.expense_date.format("%Y-%m-%d")) }
- td class="text-right font-mono tabular-nums text-sm font-semibold" { "¥" (format!("{:.2}", item.total_amount)) }
- td class="text-center text-sm text-muted" { (item.sheet_count) }
- td {
- span class=(format!("text-xs px-2 py-0.5 rounded-full font-medium {} {}", status_bg, status_color)) {
- (status_text)
- }
- }
- td class="text-xs text-muted" { (item.created_at.format("%Y-%m-%d %H:%M")) }
- td {
- a href=(detail_path.to_string()) class="text-accent text-xs hover:underline" { "查看" }
- }
- }
- }
- @if result.items.is_empty() {
- tr { td colspan="9" class="text-center text-muted text-sm py-8" { "暂无报销记录" } }
- }
- }
- }
- }
- (pagination(ExpenseListPath::PATH, &query, result.total, result.page, result.total_pages))
- }
- }
+    div class="data-card" id="expense-data-card" {
+        div class="overflow-x-auto" {
+            table class="data-table" {
+                thead {
+                    tr {
+                        th { "单号" }
+                        th { "申请人" }
+                        th { "部门" }
+                        th { "报销日期" }
+                        th { "金额" }
+                        th { "单据张数" }
+                        th { "状态" }
+                        th { "提交时间" }
+                        th class="w-20" { "操作" }
+                    }
+                }
+                tbody {
+                    @for item in &result.items {
+                        @let (status_text, status_bg, status_color) = expense_status_label(
+                            &item.status,
+                        );
+                        @let detail_path = ExpenseDetailPath { id: item.id };
+                        @let applicant_name = applicant_names
+                            .get(&item.applicant_id)
+                            .map(|s| s.as_str())
+                            .unwrap_or("—");
+                        @let dept_name = item
+                            .department_id
+                            .and_then(|did| dept_names.get(&did).map(|s| s.as_str()))
+                            .unwrap_or("—");
+                        tr class="hover:bg-accent-bg transition-colors" {
+                            td {
+                                a   href=(detail_path.to_string())
+                                    class="text-accent font-medium font-mono tabular-nums hover:underline"
+                                { (item.doc_number) }
+                            }
+                            td class="text-sm text-fg-2" { (applicant_name) }
+                            td class="text-sm text-muted" { (dept_name) }
+                            td class="text-xs text-muted" { (item.expense_date.format("%Y-%m-%d")) }
+                            td class="text-right font-mono tabular-nums text-sm font-semibold" {
+                                "¥"
+                                (format!("{:.2}", item.total_amount))
+                            }
+                            td class="text-center text-sm text-muted" { (item.sheet_count) }
+                            td {
+                                span
+                                    class=({
+                                        format!(
+                                            "text-xs px-2 py-0.5 rounded-full font-medium {} {}",
+                                            status_bg,
+                                            status_color,
+                                        )
+                                    })
+                                { (status_text) }
+                            }
+                            td class="text-xs text-muted" {
+                                (item.created_at.format("%Y-%m-%d %H:%M"))
+                            }
+                            td {
+                                a   href=(detail_path.to_string())
+                                    class="text-accent text-xs hover:underline"
+                                { "查看" }
+                            }
+                        }
+                    }
+                    @if result.items.is_empty() {
+                        tr {
+                            td colspan="9" class="text-center text-muted text-sm py-8" { "暂无报销记录" }
+                        }
+                    }
+                }
+            }
+        }
+        ({
+            pagination(
+                ExpenseListPath::PATH,
+                &query,
+                result.total,
+                result.page,
+                result.total_pages,
+            )
+        })
+    }
+}
 }

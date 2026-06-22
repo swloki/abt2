@@ -153,23 +153,32 @@ fn render_single_toast(msg: &str, toast_type: ToastType) -> Markup {
     };
     let icon = toast_type.icon_svg();
     html! {
-        div class={"toast toast-" (type_str) " flex items-center gap-3.5 pl-3.5 pr-4 py-3.5 rounded-lg bg-bg border " (border) " shadow-lg min-w-[280px] max-w-[420px] text-sm"}
+        div class={
+                "toast toast-"
+                (type_str)
+                " flex items-center gap-3.5 pl-3.5 pr-4 py-3.5 rounded-lg bg-bg border "
+                (border)
+                " shadow-lg min-w-[280px] max-w-[420px] text-sm"
+            }
             role="alert"
-            _="on animationend[event.animationName is 'toast-in'] wait 3.5s then add .toast-dismiss\non animationend[event.animationName is 'toast-out'] remove me" {
-            span class={"shrink-0 w-9 h-9 rounded-full grid place-items-center " (icon_bg)} {
-                span class="[&_svg]:w-[18px] [&_svg]:h-[18px] [&_svg]:text-white" { (maud::PreEscaped(icon)) }
+            _="on animationend[event.animationName is 'toast-in'] wait 3.5s then add .toast-dismiss\non animationend[event.animationName is 'toast-out'] remove me"
+        {
+            span class={ "shrink-0 w-9 h-9 rounded-full grid place-items-center " (icon_bg) } {
+                span class="[&_svg]:w-[18px] [&_svg]:h-[18px] [&_svg]:text-white" {
+                    (maud::PreEscaped(icon))
+                }
             }
             span class="flex-1 text-fg font-medium break-words" { (msg) }
-            button class="shrink-0 w-6 h-6 grid place-items-center bg-transparent border-none rounded-sm cursor-pointer text-muted text-[15px] leading-none hover:bg-surface"
-                _="on click add .toast-dismiss to closest .toast" { "×" }
+            button
+                class="shrink-0 w-6 h-6 grid place-items-center bg-transparent border-none rounded-sm cursor-pointer text-muted text-[15px] leading-none hover:bg-surface"
+                _="on click add .toast-dismiss to closest .toast"
+            { "×" }
         }
     }
 }
 
 fn render_toasts(messages: &[ToastMessage]) -> Markup {
     html! {
-        @for m in messages {
-            (render_single_toast(&m.msg, m.r#type))
-        }
+        @for m in messages { (render_single_toast(&m.msg, m.r#type)) }
     }
 }

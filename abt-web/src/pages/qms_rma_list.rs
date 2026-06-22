@@ -169,21 +169,20 @@ fn rma_list_page(
  can_create: bool,
 ) -> Markup {
  html! {
- div {
- div class="flex items-center justify-between mb-6" {
- h1 class="text-xl font-bold text-fg tracking-tight" { "RMA 客诉追溯" }
- div class="flex gap-3" {
- @if can_create {
-a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(RmaCreatePath::PATH) {
- (icon::plus_icon("w-4 h-4"))
- "新建RMA"
- }
- }
- }
- }
- (rma_table_fragment(result, customer_names, product_names, params))
- }
- }
+    div {
+        div class="flex items-center justify-between mb-6" {
+            h1 class="text-xl font-bold text-fg tracking-tight" { "RMA 客诉追溯" }
+            div class="flex gap-3" {
+                @if can_create {
+                    a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                        href=(RmaCreatePath::PATH)
+                    { (icon::plus_icon("w-4 h-4")) "新建RMA" }
+                }
+            }
+        }
+        (rma_table_fragment(result, customer_names, product_names, params))
+    }
+}
 }
 
 fn rma_table_fragment(
@@ -204,42 +203,74 @@ fn rma_table_fragment(
  ];
 
  html! {
- div class="plan-list-panel" {
- (status_tabs_with_param(RmaListPath::PATH, "#rma-data-card", "#filter-form", tabs, selected_status, "status"))
-
- // ── Filter Bar ──
- form id="filter-form" class="flex items-center gap-3 mb-5 flex-wrap filter-form"
- hx-get=(RmaListPath::PATH)
- hx-trigger="change, keyup changed delay:300ms from:.search-input"
- hx-target="#rma-data-card"
- hx-select="#rma-data-card"
- hx-swap="outerHTML"
- hx-include="closest form"
- hx-push-url="true" {
- input type="hidden" name="status" value=(selected_status);
- div class="relative w-60" {
- (icon::search_icon("absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted"))
- input class="search-input w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input" type="text" name="keyword"
- placeholder="搜索单号…"
- value=(params.keyword.as_deref().unwrap_or(""));
- }
- select class="w-40 px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer" name="severity" {
- option value="" selected[params.severity.is_none()] { "全部严重程度" }
- option value="Minor" selected[params.severity.as_deref() == Some("Minor")] { "Minor" }
- option value="Major" selected[params.severity.as_deref() == Some("Major")] { "Major" }
- option value="Critical" selected[params.severity.as_deref() == Some("Critical")] { "Critical" }
- }
- input class="w-40 px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer" type="date" name="date_from"
- value=(params.date_from.as_deref().unwrap_or(""));
- span class="text-sm text-muted" { "至" }
- input class="w-40 px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer" type="date" name="date_to"
- value=(params.date_to.as_deref().unwrap_or(""));
- }
-
- // ── Data Table ──
- (rma_data_card(result, customer_names, product_names, params))
- }
- }
+    div class="plan-list-panel" {
+        ({
+            status_tabs_with_param(
+                RmaListPath::PATH,
+                "#rma-data-card",
+                "#filter-form",
+                tabs,
+                selected_status,
+                "status",
+            )
+        })
+        // ── Filter Bar ──
+        form
+            id="filter-form"
+            class="flex items-center gap-3 mb-5 flex-wrap filter-form"
+            hx-get=(RmaListPath::PATH)
+            hx-trigger="change, keyup changed delay:300ms from:.search-input"
+            hx-target="#rma-data-card"
+            hx-select="#rma-data-card"
+            hx-swap="outerHTML"
+            hx-include="closest form"
+            hx-push-url="true"
+        {
+            input type="hidden" name="status" value=(selected_status);
+            div class="relative w-60" {
+                ({
+                    icon::search_icon(
+                        "absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted",
+                    )
+                })
+                input
+                    class="search-input w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input"
+                    type="text"
+                    name="keyword"
+                    placeholder="搜索单号…"
+                    value=(params.keyword.as_deref().unwrap_or(""));
+            }
+            select
+                class="w-40 px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer"
+                name="severity"
+            {
+                option value="" selected[params.severity.is_none()] { "全部严重程度" }
+                option value="Minor" selected[params.severity.as_deref() == Some("Minor")] {
+                    "Minor"
+                }
+                option value="Major" selected[params.severity.as_deref() == Some("Major")] {
+                    "Major"
+                }
+                option value="Critical" selected[params.severity.as_deref() == Some("Critical")] {
+                    "Critical"
+                }
+            }
+            input
+                class="w-40 px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer"
+                type="date"
+                name="date_from"
+                value=(params.date_from.as_deref().unwrap_or(""));
+            span class="text-sm text-muted" { "至" }
+            input
+                class="w-40 px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer"
+                type="date"
+                name="date_to"
+                value=(params.date_to.as_deref().unwrap_or(""));
+        }
+        // ── Data Table ──
+        (rma_data_card(result, customer_names, product_names, params))
+    }
+}
 }
 
 fn rma_data_card(
@@ -250,58 +281,92 @@ fn rma_data_card(
 ) -> Markup {
  let query = build_query_string(params);
  html! {
- div class="data-card" id="rma-data-card" {
- div class="overflow-x-auto" {
- table class="data-table" {
- thead {
- tr {
- th { "单号" }
- th { "客户" }
- th { "产品" }
- th { "缺陷描述" }
- th { "严重程度" }
- th { "状态" }
- th { "创建时间" }
- }
- }
- tbody {
- @for item in &result.items {
- @let (sev_label, sev_bg, sev_color) = severity_label(&item.severity);
- @let (st_label, st_bg, st_color) = rma_status_label(&item.status);
- @let customer_name = customer_names.get(&item.customer_id).map(|s| s.as_str()).unwrap_or("—");
- @let product_name = product_names.get(&item.product_id).map(|s| s.as_str()).unwrap_or("—");
- @let detail_path = RmaDetailPath { id: item.id };
- tr class="cursor-pointer hover:bg-accent-bg transition-colors duration-100" _=(format!("on click go to {}", detail_path.to_string())) {
- td { a href=(detail_path.to_string()) class="text-accent font-medium font-mono tabular-nums hover:underline" { (item.doc_number) } }
- td { (customer_name) }
- td { (product_name) }
- td {
- span class="line-clamp-2" {
- (item.defect_description)
- }
- }
- td {
- span class=(format!("text-xs px-2 py-0.5 rounded-full font-medium {} {}", sev_bg, sev_color)) {
- (sev_label)
- }
- }
- td {
- span class=(format!("text-xs px-2 py-0.5 rounded-full font-medium {} {}", st_bg, st_color)) {
- (st_label)
- }
- }
- td class="text-xs text-muted" { (item.created_at.format("%Y-%m-%d %H:%M")) }
- }
- }
- @if result.items.is_empty() {
- tr {
- td colspan="7" class="text-center text-muted text-sm py-8" { "暂无RMA记录" }
- }
- }
- }
- }
- }
- (pagination(RmaListPath::PATH, &query, result.total, result.page, result.total_pages))
- }
- }
+    div class="data-card" id="rma-data-card" {
+        div class="overflow-x-auto" {
+            table class="data-table" {
+                thead {
+                    tr {
+                        th { "单号" }
+                        th { "客户" }
+                        th { "产品" }
+                        th { "缺陷描述" }
+                        th { "严重程度" }
+                        th { "状态" }
+                        th { "创建时间" }
+                    }
+                }
+                tbody {
+                    @for item in &result.items {
+                        @let (sev_label, sev_bg, sev_color) = severity_label(
+                            &item.severity,
+                        );
+                        @let (st_label, st_bg, st_color) = rma_status_label(&item.status);
+                        @let customer_name = customer_names
+                            .get(&item.customer_id)
+                            .map(|s| s.as_str())
+                            .unwrap_or("—");
+                        @let product_name = product_names
+                            .get(&item.product_id)
+                            .map(|s| s.as_str())
+                            .unwrap_or("—");
+                        @let detail_path = RmaDetailPath { id: item.id };
+                        tr  class="cursor-pointer hover:bg-accent-bg transition-colors duration-100"
+                            _=(format!("on click go to {}", detail_path.to_string()))
+                        {
+                            td {
+                                a   href=(detail_path.to_string())
+                                    class="text-accent font-medium font-mono tabular-nums hover:underline"
+                                { (item.doc_number) }
+                            }
+                            td { (customer_name) }
+                            td { (product_name) }
+                            td {
+                                span class="line-clamp-2" { (item.defect_description) }
+                            }
+                            td {
+                                span
+                                    class=({
+                                        format!(
+                                            "text-xs px-2 py-0.5 rounded-full font-medium {} {}",
+                                            sev_bg,
+                                            sev_color,
+                                        )
+                                    })
+                                { (sev_label) }
+                            }
+                            td {
+                                span
+                                    class=({
+                                        format!(
+                                            "text-xs px-2 py-0.5 rounded-full font-medium {} {}",
+                                            st_bg,
+                                            st_color,
+                                        )
+                                    })
+                                { (st_label) }
+                            }
+                            td class="text-xs text-muted" {
+                                (item.created_at.format("%Y-%m-%d %H:%M"))
+                            }
+                        }
+                    }
+                    @if result.items.is_empty() {
+                        tr {
+                            td colspan="7" class="text-center text-muted text-sm py-8" { "暂无RMA记录" }
+                        }
+                    }
+                }
+            }
+        }
+        ({
+            pagination(
+                RmaListPath::PATH,
+                &query,
+                result.total,
+                result.page,
+                result.total_pages,
+            )
+        })
+    }
+}
 }

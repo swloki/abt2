@@ -156,192 +156,272 @@ fn result_create_page(
  users: &[abt_core::shared::identity::model::User],
 ) -> Markup {
  html! {
- div {
- // ── Back link ──
- a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", ResultListPath::PATH)) {
- (icon::arrow_left_icon("w-4 h-4"))
- " 返回检验结果列表"
- }
+    div {
+        // ── Back link ──
+        a   class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150"
+            href=(format!("{}?restore=true", ResultListPath::PATH))
+        { (icon::arrow_left_icon("w-4 h-4")) " 返回检验结果列表" }
+        // ── Page header ──
+        div class="flex items-center justify-between mb-6" {
+            div class="flex items-center justify-between mb-6" {
+                h1 class="text-xl font-bold text-fg tracking-tight" { "记录检验结果" }
+            }
+            div class="flex items-center justify-between mb-6" {
+                span class="text-sm text-muted" { "自动保存草稿" }
+            }
+        }
 
- // ── Page header ──
- div class="flex items-center justify-between mb-6" {
- div class="flex items-center justify-between mb-6" {
- h1 class="text-xl font-bold text-fg tracking-tight" { "记录检验结果" }
- }
- div class="flex items-center justify-between mb-6" {
- span class="text-sm text-muted" { "自动保存草稿" }
- }
- }
-
- form id="result-form" hx-post=(ResultCreatePath::PATH) hx-swap="none" {
-
- // ── Section 1: 检验信息 ──
- div class="form-section" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
- (icon::file_text_icon("w-4 h-4"))
- " 检验信息"
- }
- div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
- div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "检验规格 " span class="text-danger" { "*" } }
- select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent" name="spec_id" required {
- option value="" disabled selected { "请选择检验规格" }
- @for spec in specs {
- option value=(spec.id) {
- (spec.doc_number)
- " - "
- @match spec.inspection_type {
- abt_core::qms::enums::InspectionType::Iqc => "IQC",
- abt_core::qms::enums::InspectionType::Ipqc => "IPQC",
- abt_core::qms::enums::InspectionType::Fqc => "FQC",
- abt_core::qms::enums::InspectionType::Oqc => "OQC",
- }
- }
- }
- }
- }
- div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "来源类型 " span class="text-danger" { "*" } }
- select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent" name="source_type" required {
- option value="" disabled selected { "请选择来源类型" }
- option value="1" { "来料通知" }
- option value="2" { "工单工序" }
- option value="3" { "发货单" }
- option value="4" { "委外单" }
- }
- }
- div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "来源单号 " span class="text-danger" { "*" } }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent" type="text" name="source_id" required placeholder="请输入来源单号";
- }
- div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "批次号 " span class="text-danger" { "*" } }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent" type="text" name="batch_no" required placeholder="请输入批次号";
- }
- div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "抽样数量 " span class="text-danger" { "*" } }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent" type="number" step="any" name="sample_qty" required placeholder="请输入抽样数量";
- }
- }
- }
-
- // ── Section 2: 检验结果 ──
- div class="form-section" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
- (icon::check_circle_icon("w-4 h-4"))
- " 检验结果"
- }
- div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
- div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "检验结论 " span class="text-danger" { "*" } }
- select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent" name="result" required {
- option value="" disabled selected { "请选择检验结论" }
- option value="1" { "合格" }
- option value="2" { "不合格" }
- option value="3" { "让步接收" }
- }
- }
- div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "合格数量" }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent" type="number" step="any" name="qualified_qty" placeholder="0";
- }
- div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "不合格数量" }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent" type="number" step="any" name="unqualified_qty" placeholder="0";
- }
- div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "检验员" }
- select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent" name="inspector_id" {
- option value="" disabled selected { "请选择检验员" }
- @for user in users {
- @if user.is_active {
- option value=(user.user_id) {
- (user.display_name.as_deref().unwrap_or(&user.username))
- }
- }
- }
- }
- }
- div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "检验日期" }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent" type="date" name="inspection_date";
- }
- }
- }
-
- // ── Section 3: 检验项目明细 ──
- div class="form-section p-0 overflow-hidden" {
- div class="p-6 pb-4" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg" {
- (icon::clipboard_list_icon("w-4 h-4"))
- " 检验项目明细"
- }
- }
- div class="overflow-x-auto" {
- table class="data-table" {
- thead {
- tr {
- th class="w-[50px] text-center" { "序号" }
- th class="min-w-[140px]" { "检验项目" }
- th class="min-w-[140px]" { "检验标准" }
- th class="min-w-[120px]" { "实测值" }
- th class="w-[110px] text-center" { "是否合格" }
- th class="min-w-[120px]" { "备注" }
- }
- }
- tbody id="check-items-body" {
- // 5 pre-filled example rows
- @for i in 1..=5 {
- tr {
- td class="text-muted text-xs text-center" { (i) }
- td {
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent" type="text"
- name={"item_" (i)}
- placeholder="检验项目";
- }
- td {
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent" type="text"
- name={"standard_" (i)}
- placeholder="检验标准";
- }
- td {
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent" type="text"
- name={"measured_" (i)}
- placeholder="实测值";
- }
- td class="text-center" {
- select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent" name={"pass_" (i)} {
- option value="" { "—" }
- option value="1" { "✓ 合格" }
- option value="0" { "✗ 不合格" }
- }
- }
- td {
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent" type="text"
- name={"remark_" (i)}
- placeholder="备注";
- }
- }
- }
- }
- }
- }
- }
-
- // ── Hidden field for check results JSON ──
- input type="hidden" name="check_results_json" id="check-results-json" value="";
-
- // ── Action bar ──
- div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
- a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{}?restore=true", ResultListPath::PATH)) { "取消" }
- button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" id="btn-save-draft" { "保存草稿" }
- button type="submit" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" { "提交检验结果" }
- }
- }
-
- // ── Inline script: collect check items before submit ──
- script {
- (maud::PreEscaped(r#"
+        form id="result-form" hx-post=(ResultCreatePath::PATH) hx-swap="none" {
+            // ── Section 1: 检验信息 ──
+            div class="form-section" {
+                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
+                { (icon::file_text_icon("w-4 h-4")) " 检验信息" }
+                div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
+                    div class="form-field" {
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
+                            "检验规格 "
+                            span class="text-danger" { "*" }
+                        }
+                        select
+                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent"
+                            name="spec_id"
+                            required
+                        {
+                            option value="" disabled selected { "请选择检验规格" }
+                            @for spec in specs {
+                                option value=(spec.id) {
+                                    (spec.doc_number)
+                                    " - "
+                                    @match spec.inspection_type {
+                                        abt_core::qms::enums::InspectionType::Iqc => "IQC"
+                                        abt_core::qms::enums::InspectionType::Ipqc => "IPQC"
+                                        abt_core::qms::enums::InspectionType::Fqc => "FQC"
+                                        abt_core::qms::enums::InspectionType::Oqc => "OQC"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    div class="form-field" {
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
+                            "来源类型 "
+                            span class="text-danger" { "*" }
+                        }
+                        select
+                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent"
+                            name="source_type"
+                            required
+                        {
+                            option value="" disabled selected { "请选择来源类型" }
+                            option value="1" { "来料通知" }
+                            option value="2" { "工单工序" }
+                            option value="3" { "发货单" }
+                            option value="4" { "委外单" }
+                        }
+                    }
+                    div class="form-field" {
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
+                            "来源单号 "
+                            span class="text-danger" { "*" }
+                        }
+                        input
+                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent"
+                            type="text"
+                            name="source_id"
+                            required
+                            placeholder="请输入来源单号";
+                    }
+                    div class="form-field" {
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
+                            "批次号 "
+                            span class="text-danger" { "*" }
+                        }
+                        input
+                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent"
+                            type="text"
+                            name="batch_no"
+                            required
+                            placeholder="请输入批次号";
+                    }
+                    div class="form-field" {
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
+                            "抽样数量 "
+                            span class="text-danger" { "*" }
+                        }
+                        input
+                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent"
+                            type="number"
+                            step="any"
+                            name="sample_qty"
+                            required
+                            placeholder="请输入抽样数量";
+                    }
+                }
+            }
+            // ── Section 2: 检验结果 ──
+            div class="form-section" {
+                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
+                { (icon::check_circle_icon("w-4 h-4")) " 检验结果" }
+                div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
+                    div class="form-field" {
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
+                            "检验结论 "
+                            span class="text-danger" { "*" }
+                        }
+                        select
+                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent"
+                            name="result"
+                            required
+                        {
+                            option value="" disabled selected { "请选择检验结论" }
+                            option value="1" { "合格" }
+                            option value="2" { "不合格" }
+                            option value="3" { "让步接收" }
+                        }
+                    }
+                    div class="form-field" {
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
+                            "合格数量"
+                        }
+                        input
+                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent"
+                            type="number"
+                            step="any"
+                            name="qualified_qty"
+                            placeholder="0";
+                    }
+                    div class="form-field" {
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
+                            "不合格数量"
+                        }
+                        input
+                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent"
+                            type="number"
+                            step="any"
+                            name="unqualified_qty"
+                            placeholder="0";
+                    }
+                    div class="form-field" {
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
+                            "检验员"
+                        }
+                        select
+                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent"
+                            name="inspector_id"
+                        {
+                            option value="" disabled selected { "请选择检验员" }
+                            @for user in users {
+                                @if user.is_active {
+                                    option value=(user.user_id) {
+                                        (user.display_name.as_deref().unwrap_or(&user.username))
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    div class="form-field" {
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
+                            "检验日期"
+                        }
+                        input
+                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent"
+                            type="date"
+                            name="inspection_date";
+                    }
+                }
+            }
+            // ── Section 3: 检验项目明细 ──
+            div class="form-section p-0 overflow-hidden" {
+                div class="p-6 pb-4" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg" {
+                        (icon::clipboard_list_icon("w-4 h-4"))
+                        " 检验项目明细"
+                    }
+                }
+                div class="overflow-x-auto" {
+                    table class="data-table" {
+                        thead {
+                            tr {
+                                th class="w-[50px] text-center" { "序号" }
+                                th class="min-w-[140px]" { "检验项目" }
+                                th class="min-w-[140px]" { "检验标准" }
+                                th class="min-w-[120px]" { "实测值" }
+                                th class="w-[110px] text-center" { "是否合格" }
+                                th class="min-w-[120px]" { "备注" }
+                            }
+                        }
+                        tbody id="check-items-body" {
+                            // 5 pre-filled example rows
+                            @for i in 1..=5 {
+                                tr {
+                                    td class="text-muted text-xs text-center" { (i) }
+                                    td {
+                                        input
+                                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent"
+                                            type="text"
+                                            name={ "item_" (i) }
+                                            placeholder="检验项目";
+                                    }
+                                    td {
+                                        input
+                                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent"
+                                            type="text"
+                                            name={ "standard_" (i) }
+                                            placeholder="检验标准";
+                                    }
+                                    td {
+                                        input
+                                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent"
+                                            type="text"
+                                            name={ "measured_" (i) }
+                                            placeholder="实测值";
+                                    }
+                                    td class="text-center" {
+                                        select
+                                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent"
+                                            name={ "pass_" (i) }
+                                        {
+                                            option value="" { "—" }
+                                            option value="1" { "✓ 合格" }
+                                            option value="0" { "✗ 不合格" }
+                                        }
+                                    }
+                                    td {
+                                        input
+                                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent"
+                                            type="text"
+                                            name={ "remark_" (i) }
+                                            placeholder="备注";
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            // ── Hidden field for check results JSON ──
+            input type="hidden" name="check_results_json" id="check-results-json" value="";
+            // ── Action bar ──
+            div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
+                a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                    href=(format!("{}?restore=true", ResultListPath::PATH))
+                { "取消" }
+                button
+                    type="button"
+                    class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                    id="btn-save-draft"
+                { "保存草稿" }
+                button
+                    type="submit"
+                    class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                { "提交检验结果" }
+            }
+        }
+        // ── Inline script: collect check items before submit ──
+        script {
+            ({
+                maud::PreEscaped(
+                    r#"
 document.getElementById('result-form').addEventListener('htmx:beforeRequest', function(e) {
  var rows = document.querySelectorAll('#check-items-body tr');
  var items = [];
@@ -363,8 +443,10 @@ document.getElementById('result-form').addEventListener('htmx:beforeRequest', fu
  });
  document.getElementById('check-results-json').value = JSON.stringify(items);
 });
-"#))
- }
- }
- }
+"#,
+                )
+            })
+        }
+    }
+}
 }

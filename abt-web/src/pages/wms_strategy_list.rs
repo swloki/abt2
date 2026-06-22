@@ -86,84 +86,74 @@ fn strategy_list_page(
  pick_strategies: &[PickStrategy],
 ) -> Markup {
  html! {
- div {
- div class="flex items-center justify-between mb-6" {
- h1 class="text-xl font-bold text-fg tracking-tight" { "策略管理" }
- }
-
- // ── 上架策略 ──
- div class="mb-8" {
- div class="flex items-center justify-between mb-4" {
- div class="text-lg font-semibold text-fg flex items-center gap-2" { "上架策略" }
- }
- div class="data-card" {
- div class="overflow-x-auto" {
- table class="data-table" {
- thead {
- tr {
- th { "策略名称" }
- th { "策略类型" }
- th { "适用仓库" }
- th { "产品分类" }
- th { "优先级" }
- th { "状态" }
- th class="!text-right" { "操作" }
- }
- }
- tbody {
- @for s in putaway_strategies {
- (putaway_row(s))
- }
- @if putaway_strategies.is_empty() {
- tr {
- td colspan="7" class="text-center text-muted py-8" {
- "暂无上架策略"
- }
- }
- }
- }
- }
- }
- }
- }
-
- // ── 拣货策略 ──
- div class="mb-8" {
- div class="flex items-center justify-between mb-4" {
- div class="text-lg font-semibold text-fg flex items-center gap-2" { "拣货策略" }
- }
- div class="data-card" {
- div class="overflow-x-auto" {
- table class="data-table" {
- thead {
- tr {
- th { "策略名称" }
- th { "策略类型" }
- th { "适用仓库" }
- th { "产品分类" }
- th { "优先级" }
- th { "状态" }
- th class="!text-right" { "操作" }
- }
- }
- tbody {
- @for s in pick_strategies {
- (pick_row(s))
- }
- @if pick_strategies.is_empty() {
- tr {
- td colspan="7" class="text-center text-muted py-8" {
- "暂无拣货策略"
- }
- }
- }
- }
- }
- }
- }
- }
- }
- }
+    div {
+        div class="flex items-center justify-between mb-6" {
+            h1 class="text-xl font-bold text-fg tracking-tight" { "策略管理" }
+        }
+        // ── 上架策略 ──
+        div class="mb-8" {
+            div class="flex items-center justify-between mb-4" {
+                div class="text-lg font-semibold text-fg flex items-center gap-2" { "上架策略" }
+            }
+            div class="data-card" {
+                div class="overflow-x-auto" {
+                    table class="data-table" {
+                        thead {
+                            tr {
+                                th { "策略名称" }
+                                th { "策略类型" }
+                                th { "适用仓库" }
+                                th { "产品分类" }
+                                th { "优先级" }
+                                th { "状态" }
+                                th class="!text-right" { "操作" }
+                            }
+                        }
+                        tbody {
+                            @for s in putaway_strategies { (putaway_row(s)) }
+                            @if putaway_strategies.is_empty() {
+                                tr {
+                                    td colspan="7" class="text-center text-muted py-8" { "暂无上架策略" }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        // ── 拣货策略 ──
+        div class="mb-8" {
+            div class="flex items-center justify-between mb-4" {
+                div class="text-lg font-semibold text-fg flex items-center gap-2" { "拣货策略" }
+            }
+            div class="data-card" {
+                div class="overflow-x-auto" {
+                    table class="data-table" {
+                        thead {
+                            tr {
+                                th { "策略名称" }
+                                th { "策略类型" }
+                                th { "适用仓库" }
+                                th { "产品分类" }
+                                th { "优先级" }
+                                th { "状态" }
+                                th class="!text-right" { "操作" }
+                            }
+                        }
+                        tbody {
+                            @for s in pick_strategies { (pick_row(s)) }
+                            @if pick_strategies.is_empty() {
+                                tr {
+                                    td colspan="7" class="text-center text-muted py-8" { "暂无拣货策略" }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
 }
 
 fn putaway_row(s: &PutawayStrategy) -> Markup {
@@ -172,42 +162,51 @@ fn putaway_row(s: &PutawayStrategy) -> Markup {
  let toggle_active = if s.is_active { "active" } else { "" };
 
  html! {
- tr {
- td { strong class="font-medium" { (s.name) } }
- td {
- span class="inline-flex items-center rounded-full text-[11px] font-medium px-2.5 py-0.5 font-mono bg-accent-50 text-accent" { (tag) }
- }
- td {
- @if let Some(wid) = s.warehouse_id {
- "仓库#" (wid)
- } @else {
- span class="text-muted" { "全部仓库" }
- }
- }
- td {
- @if let Some(cid) = s.product_category_id {
- "分类#" (cid)
- } @else {
- span class="text-muted" { "全部" }
- }
- }
- td { (priority_badge(s.priority)) }
- td {
- label class="flex items-center gap-2 text-sm text-fg-2 cursor-pointer whitespace-nowrap"
- _="on click toggle .active on closest .toggle-track" {
- span class=(format!("toggle-track w-9 h-5 rounded-full relative shrink-0 transition-colors duration-150 bg-border act:bg-success after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:w-4 after:h-4 after:bg-white after:rounded-full after:transition-transform after:duration-150 after:shadow-[0_1px_3px_rgba(0,0,0,0.15)] act:after:translate-x-4 {}", toggle_active)) {}
- (status_text)
- }
- }
- td {
- div class="flex items-center gap-1 justify-end" {
- button class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer hover:bg-accent-bg" title="编辑" {
- (crate::components::icon::edit_icon("w-4 h-4"))
- }
- }
- }
- }
- }
+    tr {
+        td {
+            strong class="font-medium" { (s.name) }
+        }
+        td {
+            span
+                class="inline-flex items-center rounded-full text-[11px] font-medium px-2.5 py-0.5 font-mono bg-accent-50 text-accent"
+            { (tag) }
+        }
+        td {
+            @if let Some(wid) = s.warehouse_id { "仓库#" (wid) } @else {
+                span class="text-muted" { "全部仓库" }
+            }
+        }
+        td {
+            @if let Some(cid) = s.product_category_id { "分类#" (cid) } @else {
+                span class="text-muted" { "全部" }
+            }
+        }
+        td { (priority_badge(s.priority)) }
+        td {
+            label
+                class="flex items-center gap-2 text-sm text-fg-2 cursor-pointer whitespace-nowrap"
+                _="on click toggle .active on closest .toggle-track"
+            {
+                span
+                    class=({
+                        format!(
+                            "toggle-track w-9 h-5 rounded-full relative shrink-0 transition-colors duration-150 bg-border act:bg-success after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:w-4 after:h-4 after:bg-white after:rounded-full after:transition-transform after:duration-150 after:shadow-[0_1px_3px_rgba(0,0,0,0.15)] act:after:translate-x-4 {}",
+                            toggle_active,
+                        )
+                    }) {}
+                (status_text)
+            }
+        }
+        td {
+            div class="flex items-center gap-1 justify-end" {
+                button
+                    class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer hover:bg-accent-bg"
+                    title="编辑"
+                { (crate::components::icon::edit_icon("w-4 h-4")) }
+            }
+        }
+    }
+}
 }
 
 fn pick_row(s: &PickStrategy) -> Markup {
@@ -216,36 +215,49 @@ fn pick_row(s: &PickStrategy) -> Markup {
  let toggle_active = if s.is_active { "active" } else { "" };
 
  html! {
- tr {
- td { strong class="font-medium" { (s.name) } }
- td {
- span class="inline-flex items-center rounded-full text-[11px] font-medium px-2.5 py-0.5 font-mono text-success bg-success-bg" { (tag) }
- }
- td {
- @if let Some(wid) = s.warehouse_id {
- "仓库#" (wid)
- } @else {
- span class="text-muted" { "全部仓库" }
- }
- }
- td { span class="text-muted" { "全部" } }
- td { (priority_badge(s.priority)) }
- td {
- label class="flex items-center gap-2 text-sm text-fg-2 cursor-pointer whitespace-nowrap"
- _="on click toggle .active on closest .toggle-track" {
- span class=(format!("toggle-track w-9 h-5 rounded-full relative shrink-0 transition-colors duration-150 bg-border act:bg-success after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:w-4 after:h-4 after:bg-white after:rounded-full after:transition-transform after:duration-150 after:shadow-[0_1px_3px_rgba(0,0,0,0.15)] act:after:translate-x-4 {}", toggle_active)) {}
- (status_text)
- }
- }
- td {
- div class="flex items-center gap-1 justify-end" {
- button class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer hover:bg-accent-bg" title="编辑" {
- (crate::components::icon::edit_icon("w-4 h-4"))
- }
- }
- }
- }
- }
+    tr {
+        td {
+            strong class="font-medium" { (s.name) }
+        }
+        td {
+            span
+                class="inline-flex items-center rounded-full text-[11px] font-medium px-2.5 py-0.5 font-mono text-success bg-success-bg"
+            { (tag) }
+        }
+        td {
+            @if let Some(wid) = s.warehouse_id { "仓库#" (wid) } @else {
+                span class="text-muted" { "全部仓库" }
+            }
+        }
+        td {
+            span class="text-muted" { "全部" }
+        }
+        td { (priority_badge(s.priority)) }
+        td {
+            label
+                class="flex items-center gap-2 text-sm text-fg-2 cursor-pointer whitespace-nowrap"
+                _="on click toggle .active on closest .toggle-track"
+            {
+                span
+                    class=({
+                        format!(
+                            "toggle-track w-9 h-5 rounded-full relative shrink-0 transition-colors duration-150 bg-border act:bg-success after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:w-4 after:h-4 after:bg-white after:rounded-full after:transition-transform after:duration-150 after:shadow-[0_1px_3px_rgba(0,0,0,0.15)] act:after:translate-x-4 {}",
+                            toggle_active,
+                        )
+                    }) {}
+                (status_text)
+            }
+        }
+        td {
+            div class="flex items-center gap-1 justify-end" {
+                button
+                    class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer hover:bg-accent-bg"
+                    title="编辑"
+                { (crate::components::icon::edit_icon("w-4 h-4")) }
+            }
+        }
+    }
+}
 }
 
 fn priority_badge(p: i32) -> Markup {
@@ -257,6 +269,9 @@ fn priority_badge(p: i32) -> Markup {
  _ => ("var(--surface)", "var(--muted)"),
  };
  html! {
- span class="inline-flex items-center justify-center w-7 h-7 rounded-sm text-sm font-bold font-mono" style=(format!("background:{};color:{}", bg, color)) { (p) }
- }
+    span
+        class="inline-flex items-center justify-center w-7 h-7 rounded-sm text-sm font-bold font-mono"
+        style=(format!("background:{};color:{}", bg, color))
+    { (p) }
+}
 }

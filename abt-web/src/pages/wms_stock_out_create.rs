@@ -385,21 +385,24 @@ fn stock_out_create_content(
     html! {
         div {
             // ── Back Link ──
-            a href="/admin/wms/stock-out" class="inline-flex items-center gap-2 mb-4 text-sm text-muted no-underline hover:text-accent transition-colors" {
-                (icon::chevron_left_icon("w-4 h-4"))
-                "返回出库列表"
-            }
-
+            a   href="/admin/wms/stock-out"
+                class="inline-flex items-center gap-2 mb-4 text-sm text-muted no-underline hover:text-accent transition-colors"
+            { (icon::chevron_left_icon("w-4 h-4")) "返回出库列表" }
             // ── Page Header ──
             div class="flex items-center justify-between mb-6" {
                 h1 class="text-xl font-bold text-fg tracking-tight" { "新建出库单" }
             }
 
-            form id="stockOutForm" class="space-y-3" hx-post=(StockOutCreatePath::PATH) hx-swap="none"
-            onsubmit="return wmsStockOutCollectItems()" {
-
+            form
+                id="stockOutForm"
+                class="space-y-3"
+                hx-post=(StockOutCreatePath::PATH)
+                hx-swap="none"
+                onsubmit="return wmsStockOutCollectItems()"
+            {
                 // ── 独立出库警示 ──
-                div class="flex items-center rounded-md mb-4 gap-3 px-4 py-3 bg-[rgba(250,173,20,0.05)] border border-[rgba(250,173,20,0.15)]" {
+                div class="flex items-center rounded-md mb-4 gap-3 px-4 py-3 bg-[rgba(250,173,20,0.05)] border border-[rgba(250,173,20,0.15)]"
+                {
                     (icon::circle_alert_icon("w-4 h-4 text-warn shrink-0"))
                     span class="text-sm text-fg-2" {
                         "本页为"
@@ -411,53 +414,76 @@ fn stock_out_create_content(
                         "完成出库，请勿在此重复登记，否则会造成库存双重扣减。"
                     }
                 }
-
                 // ── 来源关联与出库明细（合并 card：选来源 → 同区立即出明细）──
                 div class="bg-bg border border-border rounded p-4" {
-                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-3 pb-2 border-b border-border-soft" {
-                        (icon::link_icon("w-[18px] h-[18px]"))
-                        "来源关联与出库明细"
-                    }
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-3 pb-2 border-b border-border-soft"
+                    { (icon::link_icon("w-[18px] h-[18px]")) "来源关联与出库明细" }
                     // 子区1：来源选择
                     div {
                         div class="text-xs font-medium text-fg-2 mb-2" { "来源选择" }
                         div class="flex gap-3 items-end" {
                             div class="flex flex-col w-[200px]" {
-                                label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "出库类型 " span class="text-danger" { "*" } }
-                                select id="txn-type" class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="transaction_type" required
-                                _="on change call wmsStockOutToggleSourceBtn()" {
+                                label
+                                    class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap"
+                                {
+                                    "出库类型 "
+                                    span class="text-danger" { "*" }
+                                }
+                                select
+                                    id="txn-type"
+                                    class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]"
+                                    name="transaction_type"
+                                    required
+                                    _="on change call wmsStockOutToggleSourceBtn()"
+                                {
                                     option value="SalesShipment" selected { "销售出库" }
                                     option value="MaterialIssue" { "生产领料" }
                                 }
                             }
                             // 出库类型联动：销售出库→选择发货申请 / 生产领料→选择领料单（两按钮切换显隐）
-                            button id="shipping-btn" type="button" class="inline-flex items-center justify-center gap-2 px-[18px] py-2 rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-colors whitespace-nowrap"
-                            _="on click add .is-open to #shipping-picker" {
-                                (icon::plus_icon("w-4 h-4"))
-                                "选择发货申请"
-                            }
-                            button id="mr-btn" type="button" class="hidden inline-flex items-center justify-center gap-2 px-[18px] py-2 rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-colors whitespace-nowrap"
-                            _="on click add .is-open to #mr-picker-modal" {
-                                (icon::plus_icon("w-4 h-4"))
-                                "选择领料单"
-                            }
+                            button
+                                id="shipping-btn"
+                                type="button"
+                                class="inline-flex items-center justify-center gap-2 px-[18px] py-2 rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-colors whitespace-nowrap"
+                                _="on click add .is-open to #shipping-picker"
+                            { (icon::plus_icon("w-4 h-4")) "选择发货申请" }
+                            button
+                                id="mr-btn"
+                                type="button"
+                                class="hidden inline-flex items-center justify-center gap-2 px-[18px] py-2 rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-colors whitespace-nowrap"
+                                _="on click add .is-open to #mr-picker-modal"
+                            { (icon::plus_icon("w-4 h-4")) "选择领料单" }
                         }
                         // 领料单来源 hidden：选领料单后 fill value + trigger change → HTMX POST confirm-requisition 渲染明细
-                        input type="hidden" id="mr-id-hidden" name="requisition_id" value=""
-                        hx-post=(StockOutConfirmReqPath::PATH) hx-trigger="change" hx-target="#source-cards" hx-swap="innerHTML" {};
-                        input type="hidden" id="mr-display" value="" {};
-                        div class="mt-3 text-xs text-muted" id="source-selected-hint" { "未选择来源单据；也可在下方手动添加物料" }
+                        input
+                            type="hidden"
+                            id="mr-id-hidden"
+                            name="requisition_id"
+                            value=""
+                            hx-post=(StockOutConfirmReqPath::PATH)
+                            hx-trigger="change"
+                            hx-target="#source-cards"
+                            hx-swap="innerHTML" {}
+                        ;
+                        input type="hidden" id="mr-display" value="" {}
+                        ;
+                        div class="mt-3 text-xs text-muted" id="source-selected-hint" {
+                            "未选择来源单据；也可在下方手动添加物料"
+                        }
                     }
                     // 分隔线
-                    div class="border-t border-border-soft my-5" { }
+                    div class="border-t border-border-soft my-5" {}
                     // 子区2：出库明细
                     div {
                         div class="flex items-center gap-2 mb-3" {
                             span class="text-xs font-medium text-fg-2" { "出库明细" }
-                            span id="stockout-item-count" class="ml-auto text-xs font-normal text-muted" { "共 0 项" }
+                            span
+                                id="stockout-item-count"
+                                class="ml-auto text-xs font-normal text-muted"
+                            { "共 0 项" }
                         }
                         // 来源单据折叠卡片容器（confirm 端点渲染，每个来源一卡含明细）
-                        div id="source-cards" class="space-y-3" { }
+                        div id="source-cards" class="space-y-3" {}
                         // 手动物料表（无来源 / 补充明细）
                         div class="overflow-x-auto" {
                             table class="data-table" {
@@ -466,13 +492,22 @@ fn stock_out_create_content(
                                         th class="w-10" { "序号" }
                                         th { "产品编码" }
                                         th { "产品名称" }
-                                        th class="w-[140px]" { "关联单号 " span class="text-danger" { "*" } }
-                                        th class="w-[160px]" { "来源仓库 " span class="text-danger" { "*" } }
-                                        th class="w-[110px]" { "出库数量 " span class="text-danger" { "*" } }
+                                        th class="w-[140px]" {
+                                            "关联单号 "
+                                            span class="text-danger" { "*" }
+                                        }
+                                        th class="w-[160px]" {
+                                            "来源仓库 "
+                                            span class="text-danger" { "*" }
+                                        }
+                                        th class="w-[110px]" {
+                                            "出库数量 "
+                                            span class="text-danger" { "*" }
+                                        }
                                         th class="w-[100px]" { "单位成本" }
                                         th class="w-[100px]" { "小计" }
                                         th class="w-[150px]" { "来源库位" }
-                                        th class="w-10" { }
+                                        th class="w-10" {}
                                     }
                                 }
                                 tbody id="stockout-item-tbody" {
@@ -481,83 +516,117 @@ fn stock_out_create_content(
                             }
                         }
                         div class="mt-4" {
-                            button type="button" class="flex items-center justify-center gap-2 w-full text-accent text-sm font-medium cursor-pointer"
-                            _="on click add .is-open to #product-modal" {
-                                (icon::plus_icon("w-3.5 h-3.5"))
-                                "手动添加物料"
-                            }
+                            button
+                                type="button"
+                                class="flex items-center justify-center gap-2 w-full text-accent text-sm font-medium cursor-pointer"
+                                _="on click add .is-open to #product-modal"
+                            { (icon::plus_icon("w-3.5 h-3.5")) "手动添加物料" }
                         }
                     }
                 }
-
                 // ── Summary ──
                 div class="bg-bg border border-border rounded p-4" {
-                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-3 pb-2 border-b border-border-soft" {
-                        (icon::clipboard_list_icon("w-[18px] h-[18px]"))
-                        "出库汇总"
-                    }
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-3 pb-2 border-b border-border-soft"
+                    { (icon::clipboard_list_icon("w-[18px] h-[18px]")) "出库汇总" }
                     div class="grid grid-cols-3 gap-6" {
                         div class="text-center bg-surface p-4 rounded-md" {
                             div class="text-[11px] text-muted mb-1" { "物料种类" }
-                            div id="stockout-summary-kinds" class="font-mono tabular-nums font-semibold text-xl text-fg" { "0" }
+                            div id="stockout-summary-kinds"
+                                class="font-mono tabular-nums font-semibold text-xl text-fg"
+                            { "0" }
                         }
                         div class="text-center bg-surface p-4 rounded-md" {
                             div class="text-[11px] text-muted mb-1" { "出库总量" }
-                            div id="stockout-summary-qty" class="font-mono tabular-nums font-semibold text-xl text-fg" { "0" }
+                            div id="stockout-summary-qty"
+                                class="font-mono tabular-nums font-semibold text-xl text-fg"
+                            { "0" }
                         }
-                        div class="text-center p-4 rounded-md bg-danger-bg border border-[rgba(255,77,79,0.15)]" {
+                        div class="text-center p-4 rounded-md bg-danger-bg border border-[rgba(255,77,79,0.15)]"
+                        {
                             div class="text-[11px] text-danger mb-1" { "出库总金额" }
-                            div id="stockout-summary-amount" class="font-mono tabular-nums font-semibold text-xl text-danger" { "¥0.00" }
+                            div id="stockout-summary-amount"
+                                class="font-mono tabular-nums font-semibold text-xl text-danger"
+                            { "¥0.00" }
                         }
                     }
                 }
-
                 // ── Remark ──
                 div class="bg-bg border border-border rounded p-4" {
-                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-3 pb-2 border-b border-border-soft" {
-                        (icon::edit_icon("w-[18px] h-[18px]"))
-                        "备注"
-                    }
-                    textarea class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none resize-y min-h-[80px] transition-all duration-150 focus:border-accent focus:shadow-[var(--shadow-focus)]" name="remark" placeholder="输入备注信息…" rows="3" { }
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-3 pb-2 border-b border-border-soft"
+                    { (icon::edit_icon("w-[18px] h-[18px]")) "备注" }
+                    textarea
+                        class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none resize-y min-h-[80px] transition-all duration-150 focus:border-accent focus:shadow-[var(--shadow-focus)]"
+                        name="remark"
+                        placeholder="输入备注信息…"
+                        rows="3" {}
                 }
-
                 // hidden input for items JSON
                 input type="hidden" name="items_json" id="stockout-items-json" value="[]" {}
-
                 // ── Action Bar ──
-                div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg border-t border-border-soft" {
-                    a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href="/admin/wms/stock-out" { "取消" }
+                div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg border-t border-border-soft"
+                {
+                    a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                        href="/admin/wms/stock-out"
+                    { "取消" }
                     div class="flex gap-3" {
-                        button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" { "保存草稿" }
-                        button type="submit" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-danger text-accent-on border-none hover:bg-danger-700 text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(220,38,38,0.2)]" {
-                            (icon::upload_icon("w-4 h-4"))
-                            "确认出库"
+                        button
+                            type="button"
+                            class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                        { "保存草稿" }
+                        button
+                            type="submit"
+                            class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-danger text-accent-on border-none hover:bg-danger-700 text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(220,38,38,0.2)]"
+                        { (icon::upload_icon("w-4 h-4")) "确认出库" }
+                    }
+                }
+            }
+
+            ({
+                crate::components::product_picker::product_picker_modal_with_search(
+                    "product-modal",
+                    StockOutItemRowPath::PATH,
+                    "stockout-item-tbody",
+                )
+            })
+            // ── 发货申请多选弹窗（销售出库用）──
+            ({
+                crate::components::shipping_request_picker::shipping_request_picker_modal(
+                    "shipping-picker",
+                    StockOutConfirmShippingPath::PATH,
+                    customers,
+                )
+            })
+            // ── 领料单选择弹窗（生产领料用；选中 fill #mr-id-hidden + trigger change → HTMX POST confirm-requisition 渲染明细）──
+            ({
+                crate::components::material_requisition_picker::material_requisition_picker_modal(
+                    "mr-picker-modal",
+                    "mr-id-hidden",
+                    "mr-display",
+                )
+            })
+            // ── 库位选择弹窗（按产品+仓库，仅有库存库位，由 wmsStockOutOpenBinPicker 触发）──
+            div id="bin-picker"
+                class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto"
+                _="on click[me is event.target] remove .is-open"
+            {
+                div class="modal bg-bg rounded-xl w-[520px] max-h-[80vh] flex flex-col overflow-hidden shadow-xl"
+                {
+                    div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0"
+                    {
+                        h2 { "选择出库库位" }
+                        button
+                            type="button"
+                            class="bg-transparent border-none cursor-pointer text-xl text-muted p-1"
+                            _="on click remove .is-open from #bin-picker"
+                        { "×" }
+                    }
+                    div id="bin-picker-results" class="overflow-y-auto flex-1 min-h-0" {
+                        div class="text-center text-muted py-10 text-sm" {
+                            "点击物料行的「自动分配」加载该产品有库存的库位…"
                         }
                     }
                 }
             }
-
-            (crate::components::product_picker::product_picker_modal_with_search("product-modal", StockOutItemRowPath::PATH, "stockout-item-tbody"))
-            // ── 发货申请多选弹窗（销售出库用）──
-            (crate::components::shipping_request_picker::shipping_request_picker_modal("shipping-picker", StockOutConfirmShippingPath::PATH, customers))
-            // ── 领料单选择弹窗（生产领料用；选中 fill #mr-id-hidden + trigger change → HTMX POST confirm-requisition 渲染明细）──
-            (crate::components::material_requisition_picker::material_requisition_picker_modal("mr-picker-modal", "mr-id-hidden", "mr-display"))
-
-            // ── 库位选择弹窗（按产品+仓库，仅有库存库位，由 wmsStockOutOpenBinPicker 触发）──
-            div id="bin-picker" class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto"
-            _="on click[me is event.target] remove .is-open" {
-                div class="modal bg-bg rounded-xl w-[520px] max-h-[80vh] flex flex-col overflow-hidden shadow-xl" {
-                    div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
-                        h2 { "选择出库库位" }
-                        button type="button" class="bg-transparent border-none cursor-pointer text-xl text-muted p-1"
-                        _="on click remove .is-open from #bin-picker" { "×" }
-                    }
-                    div id="bin-picker-results" class="overflow-y-auto flex-1 min-h-0" {
-                        div class="text-center text-muted py-10 text-sm" { "点击物料行的「自动分配」加载该产品有库存的库位…" }
-                    }
-                }
-            }
-
             // ── Page-specific JS（类型联动 + 来源卡片 + 库位选择 + 明细收集）──
             script src="/wms-stock-out-create.js" {}
         }
@@ -574,9 +643,7 @@ fn source_cards_fragment(
     warehouses: &[abt_core::wms::warehouse::model::Warehouse],
 ) -> Markup {
     html! {
-        @for c in cards {
-            (source_card_fragment(c, warehouses))
-        }
+        @for c in cards { (source_card_fragment(c, warehouses)) }
         @if cards.is_empty() {
             div class="text-center text-muted py-6 text-sm" { "未选择来源单据；可在下方手动添加物料" }
         }
@@ -590,38 +657,58 @@ fn source_card_fragment(
 ) -> Markup {
     html! {
         div class="source-card bg-surface border border-border-soft rounded-md [&.is-collapsed_.source-card-body]:hidden [&.is-collapsed_.source-toggle]:-rotate-90"
-        data-source-id=(card.source_id) {
+            data-source-id=(card.source_id)
+        {
             div class="source-card-header flex items-center gap-3 px-4 py-3 border-b border-border-soft cursor-pointer hover:bg-surface/60"
-            _="on click[not (event.target matches <button/>)] toggle .is-collapsed on closest .source-card" {
-                span class="source-toggle text-muted text-xs transition-transform duration-150 inline-block" { "▼" }
+                _="on click[not (event.target matches <button/>)] toggle .is-collapsed on closest .source-card"
+            {
+                span
+                    class="source-toggle text-muted text-xs transition-transform duration-150 inline-block"
+                { "▼" }
                 span class="text-sm font-semibold text-fg" { (card.doc_number) }
                 span class="text-xs text-muted" { (card.party_label) " · " (card.status_label) }
-                button type="button" class="ml-auto text-xs text-muted hover:text-danger"
-                _="on click remove closest .source-card then trigger sourceCardsUpdated on body" { "删除" }
+                button
+                    type="button"
+                    class="ml-auto text-xs text-muted hover:text-danger"
+                    _="on click remove closest .source-card then trigger sourceCardsUpdated on body"
+                { "删除" }
             }
             div class="source-card-body p-3 overflow-x-auto" {
                 table class="data-table" {
-                    thead { tr {
-                        th class="w-10" { "序号" }
-                        th { "产品" }
-                        th class="w-[160px]" { "来源仓库 " span class="text-danger" { "*" } }
-                        th class="w-[110px]" { "出库数量 " span class="text-danger" { "*" } }
-                        th class="w-[100px]" { "单位成本" }
-                        th class="w-[100px]" { "小计" }
-                        th class="w-[150px]" { "来源库位" }
-                        th class="w-10" { }
-                    } }
+                    thead {
+                        tr {
+                            th class="w-10" { "序号" }
+                            th { "产品" }
+                            th class="w-[160px]" {
+                                "来源仓库 "
+                                span class="text-danger" { "*" }
+                            }
+                            th class="w-[110px]" {
+                                "出库数量 "
+                                span class="text-danger" { "*" }
+                            }
+                            th class="w-[100px]" { "单位成本" }
+                            th class="w-[100px]" { "小计" }
+                            th class="w-[150px]" { "来源库位" }
+                            th class="w-10" {}
+                        }
+                    }
                     tbody {
                         @for (product, req_qty, done_qty, default_wh) in &card.items {
-                            (source_detail_row(&SourceRowInfo {
-                                product,
-                                req_qty: *req_qty,
-                                done_qty: *done_qty,
-                                source_id: card.source_id,
-                                source_type: card.source_type,
-                                source_doc: Some(card.doc_number.as_str()),
-                                default_warehouse_id: *default_wh,
-                            }, warehouses))
+                            ({
+                                source_detail_row(
+                                    &SourceRowInfo {
+                                        product,
+                                        req_qty: *req_qty,
+                                        done_qty: *done_qty,
+                                        source_id: card.source_id,
+                                        source_type: card.source_type,
+                                        source_doc: Some(card.doc_number.as_str()),
+                                        default_warehouse_id: *default_wh,
+                                    },
+                                    warehouses,
+                                )
+                            })
                         }
                     }
                 }
@@ -637,33 +724,71 @@ fn manual_item_row(
 ) -> Markup {
     html! {
         tr class="item-row" oninput="wmsStockOutCalcRow(this)" {
-            td class="line-num text-muted text-xs text-center" { }
+            td class="line-num text-muted text-xs text-center" {}
             td class="font-mono tabular-nums text-sm text-fg" { (product.product_code) }
-            td class="text-sm text-fg" { div class="truncate max-w-[200px]" title=(product.pdt_name) { (product.pdt_name) } }
-            td { input class=(CELL_INPUT) type="text" name="source_doc_number" placeholder="关联单号" required {} }
-            td { select class=(format!("{CELL_INPUT} row-wh-select")) name="warehouse_id" required {
-                option value="" disabled selected { "选择仓库" }
-                @for wh in warehouses {
-                    option value=(wh.id) { (wh.name) }
-                }
-            } }
-            td { input class=(format!("{CELL_INPUT} w-[90px] text-right font-mono")) type="number" step="any" name="quantity" placeholder="0" {} }
-            td { input class=(format!("{CELL_INPUT} w-[90px] text-right font-mono")) type="number" step="any" name="unit_cost" placeholder="0.00" {} }
-            td class="line-subtotal text-right font-mono font-semibold whitespace-nowrap text-sm" { "—" }
+            td class="text-sm text-fg" {
+                div class="truncate max-w-[200px]" title=(product.pdt_name) { (product.pdt_name) }
+            }
             td {
-                input type="hidden" name="bin_id" {};
-                button type="button" class="bin-picker-btn w-full px-2 py-[5px] border border-border rounded-sm text-[13px] bg-white text-fg-2 hover:border-accent hover:text-accent transition-colors text-left truncate"
-                _="on click call wmsStockOutOpenBinPicker(me)" {
+                input
+                    class=(CELL_INPUT)
+                    type="text"
+                    name="source_doc_number"
+                    placeholder="关联单号"
+                    required {}
+            }
+            td {
+                select class=(format!("{CELL_INPUT} row-wh-select")) name="warehouse_id" required {
+                    option value="" disabled selected { "选择仓库" }
+                    @for wh in warehouses {
+                        option value=(wh.id) { (wh.name) }
+                    }
+                }
+            }
+            td {
+                input
+                    class=(format!("{CELL_INPUT} w-[90px] text-right font-mono"))
+                    type="number"
+                    step="any"
+                    name="quantity"
+                    placeholder="0" {}
+            }
+            td {
+                input
+                    class=(format!("{CELL_INPUT} w-[90px] text-right font-mono"))
+                    type="number"
+                    step="any"
+                    name="unit_cost"
+                    placeholder="0.00" {}
+            }
+            td class="line-subtotal text-right font-mono font-semibold whitespace-nowrap text-sm" {
+                "—"
+            }
+            td {
+                input type="hidden" name="bin_id" {}
+                ;
+                button
+                    type="button"
+                    class="bin-picker-btn w-full px-2 py-[5px] border border-border rounded-sm text-[13px] bg-white text-fg-2 hover:border-accent hover:text-accent transition-colors text-left truncate"
+                    _="on click call wmsStockOutOpenBinPicker(me)"
+                {
                     span class="bin-label" { "自动分配" }
                 }
             }
-            td { button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center hover:text-danger" title="删除行"
-                _="on click remove closest <tr/> then call wmsStockOutCalcSummary()" {
-                    (icon::x_icon("w-3.5 h-3.5"))
-                } }
-            input type="hidden" name="product_id" value=(product.product_id) {};
-            input type="hidden" name="source_id" value="0" {};
-            input type="hidden" name="source_type" value="manual" {};
+            td {
+                button
+                    type="button"
+                    class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center hover:text-danger"
+                    title="删除行"
+                    _="on click remove closest <tr/> then call wmsStockOutCalcSummary()"
+                { (icon::x_icon("w-3.5 h-3.5")) }
+            }
+            input type="hidden" name="product_id" value=(product.product_id) {}
+            ;
+            input type="hidden" name="source_id" value="0" {}
+            ;
+            input type="hidden" name="source_type" value="manual" {}
+            ;
         }
     }
 }
@@ -694,43 +819,79 @@ fn source_detail_row(
     let default_warehouse_id = info.default_warehouse_id;
     html! {
         tr class="item-row" oninput="wmsStockOutCalcRow(this)" {
-            td class="line-num text-muted text-xs text-center" { }
+            td class="line-num text-muted text-xs text-center" {}
             td {
                 div class="font-mono tabular-nums text-sm text-fg" { (product.product_code) }
-                div class="text-sm text-fg truncate max-w-[200px]" title=(product.pdt_name) { (product.pdt_name) }
+                div class="text-sm text-fg truncate max-w-[200px]" title=(product.pdt_name) {
+                    (product.pdt_name)
+                }
                 div class="text-[11px] text-muted pending-hint" data-pending=(pending.to_string()) {
-                    "申请 " (crate::utils::fmt_qty(req_qty)) " · 已出 " (crate::utils::fmt_qty(done_qty)) " · 待出库 " (crate::utils::fmt_qty(pending))
+                    "申请 "
+                    (crate::utils::fmt_qty(req_qty))
+                    " · 已出 "
+                    (crate::utils::fmt_qty(done_qty))
+                    " · 待出库 "
+                    (crate::utils::fmt_qty(pending))
                 }
             }
-            td { select class=(format!("{CELL_INPUT} row-wh-select")) name="warehouse_id" required {
-                option value="" disabled { "选择仓库" }
-                @for wh in warehouses {
-                    @let is_default = default_warehouse_id == Some(wh.id);
-                    option value=(wh.id) selected[is_default] { (wh.name) }
+            td {
+                select class=(format!("{CELL_INPUT} row-wh-select")) name="warehouse_id" required {
+                    option value="" disabled { "选择仓库" }
+                    @for wh in warehouses {
+                        @let is_default = default_warehouse_id == Some(wh.id);
+                        option value=(wh.id) selected[is_default] { (wh.name) }
+                    }
                 }
-            } }
-            td {
-                input class=(format!("{CELL_INPUT} w-[90px] text-right font-mono")) type="number" step="any"
-                name="quantity" placeholder="0" value=(pending.to_string())
-                data-pending=(pending.to_string()) oninput="wmsStockOutValidateRow(this)" {}
             }
-            td { input class=(format!("{CELL_INPUT} w-[90px] text-right font-mono")) type="number" step="any" name="unit_cost" placeholder="0.00" {} }
-            td class="line-subtotal text-right font-mono font-semibold whitespace-nowrap text-sm" { "—" }
             td {
-                input type="hidden" name="bin_id" {};
-                button type="button" class="bin-picker-btn w-full px-2 py-[5px] border border-border rounded-sm text-[13px] bg-white text-fg-2 hover:border-accent hover:text-accent transition-colors text-left truncate"
-                _="on click call wmsStockOutOpenBinPicker(me)" {
+                input
+                    class=(format!("{CELL_INPUT} w-[90px] text-right font-mono"))
+                    type="number"
+                    step="any"
+                    name="quantity"
+                    placeholder="0"
+                    value=(pending.to_string())
+                    data-pending=(pending.to_string())
+                    oninput="wmsStockOutValidateRow(this)" {}
+            }
+            td {
+                input
+                    class=(format!("{CELL_INPUT} w-[90px] text-right font-mono"))
+                    type="number"
+                    step="any"
+                    name="unit_cost"
+                    placeholder="0.00" {}
+            }
+            td class="line-subtotal text-right font-mono font-semibold whitespace-nowrap text-sm" {
+                "—"
+            }
+            td {
+                input type="hidden" name="bin_id" {}
+                ;
+                button
+                    type="button"
+                    class="bin-picker-btn w-full px-2 py-[5px] border border-border rounded-sm text-[13px] bg-white text-fg-2 hover:border-accent hover:text-accent transition-colors text-left truncate"
+                    _="on click call wmsStockOutOpenBinPicker(me)"
+                {
                     span class="bin-label" { "自动分配" }
                 }
             }
-            td { button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center hover:text-danger" title="删除行"
-                _="on click remove closest <tr/> then call wmsStockOutCalcSummary()" {
-                    (icon::x_icon("w-3.5 h-3.5"))
-                } }
-            input type="hidden" name="product_id" value=(product.product_id) {};
-            input type="hidden" name="source_id" value=(source_id) {};
-            input type="hidden" name="source_type" value=(source_type) {};
-            input type="hidden" name="source_doc_number" value=(source_doc.unwrap_or("")) {};
+            td {
+                button
+                    type="button"
+                    class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center hover:text-danger"
+                    title="删除行"
+                    _="on click remove closest <tr/> then call wmsStockOutCalcSummary()"
+                { (icon::x_icon("w-3.5 h-3.5")) }
+            }
+            input type="hidden" name="product_id" value=(product.product_id) {}
+            ;
+            input type="hidden" name="source_id" value=(source_id) {}
+            ;
+            input type="hidden" name="source_type" value=(source_type) {}
+            ;
+            input type="hidden" name="source_doc_number" value=(source_doc.unwrap_or("")) {}
+            ;
         }
     }
 }
@@ -746,15 +907,19 @@ fn suggest_bins_fragment(rows: &[(abt_core::wms::warehouse::model::Bin, Decimal)
             }
         } @else {
             @for (bin, qty) in rows {
-                button type="button"
-                class="w-full flex items-center justify-between gap-3 px-4 py-3 border-b border-border-soft last:border-b-0 text-left transition-colors hover:bg-surface"
-                data-bin-id=(bin.id) data-bin-label=(format!("{} {}", bin.code, bin.name))
-                _="on click call wmsStockOutPickBin(@data-bin-id, @data-bin-label)" {
+                button
+                    type="button"
+                    class="w-full flex items-center justify-between gap-3 px-4 py-3 border-b border-border-soft last:border-b-0 text-left transition-colors hover:bg-surface"
+                    data-bin-id=(bin.id)
+                    data-bin-label=(format!("{} {}", bin.code, bin.name))
+                    _="on click call wmsStockOutPickBin(@data-bin-id, @data-bin-label)"
+                {
                     div class="flex-1 min-w-0" {
                         div class="text-sm font-medium text-fg truncate" { (bin.code) " " (bin.name) }
                         div class="text-xs text-success flex items-center gap-1 mt-0.5" {
                             (icon::check_circle_icon("w-3 h-3"))
-                            "现有库存 " (crate::utils::fmt_qty(*qty))
+                            "现有库存 "
+                            (crate::utils::fmt_qty(*qty))
                         }
                     }
                 }

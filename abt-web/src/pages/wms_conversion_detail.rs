@@ -149,172 +149,172 @@ fn conversion_detail_page(
  let produce_items: Vec<_> = items.iter().filter(|i| i.direction == ConversionDir::Produce).collect();
 
  html! {
- div {
- a href="/admin/wms/conversions" class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" {
- (icon::chevron_left_icon("w-4 h-4"))
- "返回形态转换列表"
- }
+    div {
+        a   href="/admin/wms/conversions"
+            class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150"
+        { (icon::chevron_left_icon("w-4 h-4")) "返回形态转换列表" }
 
- div class="block bg-bg border border-border-soft rounded-lg p-6" {
- div {
- div class="flex items-center justify-between" {
- h1 class="text-2xl font-extrabold font-mono tabular-nums" { (conversion.doc_number) }
- span class=(format!("status-pill {}", crate::utils::status_color(status_class))) { (status_label) }
- }
- }
- div class="flex gap-3" {
- (conversion_action_buttons(conversion.status, detail_path))
- }
- }
-
- // ── Workflow Steps ──
- (conversion_workflow_steps(conversion.status))
-
- // ── Info Card ──
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
- div class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" { "转换信息" }
- div class="grid gap-4" {
- div class="flex flex-col gap-1" {
- span class="text-xs text-muted font-medium" { "转换单号" }
- span class="text-sm text-fg font-medium font-mono tabular-nums" { (conversion.doc_number) }
- }
- div class="flex flex-col gap-1" {
- span class="text-xs text-muted font-medium" { "转换仓库" }
- span class="text-sm text-fg font-medium" { (wh_name) }
- }
- div class="flex flex-col gap-1" {
- span class="text-xs text-muted font-medium" { "转换日期" }
- span class="text-sm text-fg font-medium font-mono tabular-nums" { (conversion.conversion_date.to_string()) }
- }
- div class="flex flex-col gap-1" {
- span class="text-xs text-muted font-medium" { "操作员" }
- span class="text-sm text-fg font-medium" { (operator_name) }
- }
- }
- }
-
- // ── Consume Items ──
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
- div class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" {
- "消耗物料 "
- span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-[rgba(220,38,38,0.08)] text-danger" { "消耗" }
- }
- table class="data-table" {
- thead {
- tr {
- th { "行号" }
- th { "产品编码" }
- th { "名称" }
- th { "规格" }
- th { "单位" }
- th class="text-right text-[13px]" { "消耗数量" }
- th class="text-right text-[13px]" { "单位成本" }
- th { "批次号" }
- }
- }
- tbody {
- @for (i, item) in consume_items.iter().enumerate() {
- tr {
- td class="font-mono tabular-nums" { (i + 1) }
- td class="font-mono tabular-nums" { (product_info.code(&item.product_id)) }
- td { (product_info.name(&item.product_id)) }
- td { (product_info.spec(&item.product_id)) }
- td { (product_info.unit(&item.product_id)) }
- td class="text-right text-[13px]" { (format!("{:.2}", item.quantity)) }
- td class="text-right text-[13px]" { (format!("{:.2}", item.unit_cost)) }
- td class="font-mono tabular-nums" {
- @if let Some(ref batch) = item.batch_no {
- (batch)
- } @else {
- "—"
- }
- }
- }
- }
- @if consume_items.is_empty() {
- tr {
- td colspan="8" class="empty-cell" {
- "暂无消耗物料"
- }
- }
- }
- }
- }
- }
-
- // ── Produce Items ──
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
- div class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" {
- "产出物料 "
- span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-success-bg text-success" { "产出" }
- }
- table class="data-table" {
- thead {
- tr {
- th { "行号" }
- th { "产品编码" }
- th { "名称" }
- th { "规格" }
- th { "单位" }
- th class="text-right text-[13px]" { "产出数量" }
- th class="text-right text-[13px]" { "单位成本" }
- th { "批次号" }
- }
- }
- tbody {
- @for (i, item) in produce_items.iter().enumerate() {
- tr {
- td class="font-mono tabular-nums" { (i + 1) }
- td class="font-mono tabular-nums" { (product_info.code(&item.product_id)) }
- td { (product_info.name(&item.product_id)) }
- td { (product_info.spec(&item.product_id)) }
- td { (product_info.unit(&item.product_id)) }
- td class="text-right text-[13px]" { (format!("{:.2}", item.quantity)) }
- td class="text-right text-[13px]" { (format!("{:.2}", item.unit_cost)) }
- td class="font-mono tabular-nums" {
- @if let Some(ref batch) = item.batch_no {
- (batch)
- } @else {
- "—"
- }
- }
- }
- }
- @if produce_items.is_empty() {
- tr {
- td colspan="8" class="empty-cell" {
- "暂无产出物料"
- }
- }
- }
- }
- }
- }
- }
- }
+        div class="block bg-bg border border-border-soft rounded-lg p-6" {
+            div {
+                div class="flex items-center justify-between" {
+                    h1 class="text-2xl font-extrabold font-mono tabular-nums" {
+                        (conversion.doc_number)
+                    }
+                    span class=({
+                        format!(
+                            "status-pill {}",
+                            crate::utils::status_color(status_class),
+                        )
+                    }) { (status_label) }
+                }
+            }
+            div class="flex gap-3" { (conversion_action_buttons(conversion.status, detail_path)) }
+        }
+        // ── Workflow Steps ──
+        (conversion_workflow_steps(conversion.status))
+        // ── Info Card ──
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
+            div class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" {
+                "转换信息"
+            }
+            div class="grid gap-4" {
+                div class="flex flex-col gap-1" {
+                    span class="text-xs text-muted font-medium" { "转换单号" }
+                    span class="text-sm text-fg font-medium font-mono tabular-nums" {
+                        (conversion.doc_number)
+                    }
+                }
+                div class="flex flex-col gap-1" {
+                    span class="text-xs text-muted font-medium" { "转换仓库" }
+                    span class="text-sm text-fg font-medium" { (wh_name) }
+                }
+                div class="flex flex-col gap-1" {
+                    span class="text-xs text-muted font-medium" { "转换日期" }
+                    span class="text-sm text-fg font-medium font-mono tabular-nums" {
+                        (conversion.conversion_date.to_string())
+                    }
+                }
+                div class="flex flex-col gap-1" {
+                    span class="text-xs text-muted font-medium" { "操作员" }
+                    span class="text-sm text-fg font-medium" { (operator_name) }
+                }
+            }
+        }
+        // ── Consume Items ──
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
+            div class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" {
+                "消耗物料 "
+                span
+                    class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-[rgba(220,38,38,0.08)] text-danger"
+                { "消耗" }
+            }
+            table class="data-table" {
+                thead {
+                    tr {
+                        th { "行号" }
+                        th { "产品编码" }
+                        th { "名称" }
+                        th { "规格" }
+                        th { "单位" }
+                        th class="text-right text-[13px]" { "消耗数量" }
+                        th class="text-right text-[13px]" { "单位成本" }
+                        th { "批次号" }
+                    }
+                }
+                tbody {
+                    @for (i, item) in consume_items.iter().enumerate() {
+                        tr {
+                            td class="font-mono tabular-nums" { (i + 1) }
+                            td class="font-mono tabular-nums" {
+                                (product_info.code(&item.product_id))
+                            }
+                            td { (product_info.name(&item.product_id)) }
+                            td { (product_info.spec(&item.product_id)) }
+                            td { (product_info.unit(&item.product_id)) }
+                            td class="text-right text-[13px]" { (format!("{:.2}", item.quantity)) }
+                            td class="text-right text-[13px]" { (format!("{:.2}", item.unit_cost)) }
+                            td class="font-mono tabular-nums" {
+                                @if let Some(ref batch) = item.batch_no { (batch) } @else { "—" }
+                            }
+                        }
+                    }
+                    @if consume_items.is_empty() {
+                        tr {
+                            td colspan="8" class="empty-cell" { "暂无消耗物料" }
+                        }
+                    }
+                }
+            }
+        }
+        // ── Produce Items ──
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
+            div class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" {
+                "产出物料 "
+                span
+                    class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-success-bg text-success"
+                { "产出" }
+            }
+            table class="data-table" {
+                thead {
+                    tr {
+                        th { "行号" }
+                        th { "产品编码" }
+                        th { "名称" }
+                        th { "规格" }
+                        th { "单位" }
+                        th class="text-right text-[13px]" { "产出数量" }
+                        th class="text-right text-[13px]" { "单位成本" }
+                        th { "批次号" }
+                    }
+                }
+                tbody {
+                    @for (i, item) in produce_items.iter().enumerate() {
+                        tr {
+                            td class="font-mono tabular-nums" { (i + 1) }
+                            td class="font-mono tabular-nums" {
+                                (product_info.code(&item.product_id))
+                            }
+                            td { (product_info.name(&item.product_id)) }
+                            td { (product_info.spec(&item.product_id)) }
+                            td { (product_info.unit(&item.product_id)) }
+                            td class="text-right text-[13px]" { (format!("{:.2}", item.quantity)) }
+                            td class="text-right text-[13px]" { (format!("{:.2}", item.unit_cost)) }
+                            td class="font-mono tabular-nums" {
+                                @if let Some(ref batch) = item.batch_no { (batch) } @else { "—" }
+                            }
+                        }
+                    }
+                    @if produce_items.is_empty() {
+                        tr {
+                            td colspan="8" class="empty-cell" { "暂无产出物料" }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
 }
 
 fn conversion_action_buttons(status: ConversionStatus, detail_path: &str) -> Markup {
  match status {
  ConversionStatus::Draft => {
  html! {
- button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
- hx-post=(detail_path)
- hx-vals=r#"{"action":"cancel"}"#
- hx-confirm="确定要取消此转换单吗？"
- hx-redirect=(detail_path) {
- (icon::x_icon("w-4 h-4"))
- "取消"
- }
- button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
- hx-post=(detail_path)
- hx-vals=r#"{"action":"complete"}"#
- hx-confirm="确定要完成形态转换吗？"
- hx-redirect=(detail_path) {
- (icon::check_circle_icon("w-4 h-4"))
- "确认完成"
- }
- }
+    button
+        class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+        hx-post=(detail_path)
+        hx-vals=r#"{"action":"cancel"}"#
+        hx-confirm="确定要取消此转换单吗？"
+        hx-redirect=(detail_path)
+    { (icon::x_icon("w-4 h-4")) "取消" }
+    button
+        class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+        hx-post=(detail_path)
+        hx-vals=r#"{"action":"complete"}"#
+        hx-confirm="确定要完成形态转换吗？"
+        hx-redirect=(detail_path)
+    { (icon::check_circle_icon("w-4 h-4")) "确认完成" }
+}
  }
  _ => html! {},
  }
@@ -334,32 +334,45 @@ fn conversion_workflow_steps(status: ConversionStatus) -> Markup {
  let is_cancelled = matches!(status, ConversionStatus::Cancelled);
 
  html! {
- div class="flex items-center" {
- @for (i, (label, _)) in steps.iter().enumerate() {
- @if i > 0 {
- div class=(format!("w-[48px] h-[2px] {}", if i <= current_idx && !is_cancelled { "bg-success" } else { "bg-border" })) {}
- }
- @let (dot_cls, text_cls, ring_cls) = if is_cancelled {
- ("bg-border-soft", "text-muted", "")
- } else if i < current_idx {
- ("bg-success", "text-success", "")
- } else if i == current_idx {
- ("bg-accent", "text-accent font-semibold", "shadow-[0_0_0_3px_rgba(37,99,235,0.1)]")
- } else {
- ("bg-slate-300", "text-slate-400", "")
- };
- div class="flex items-center gap-2 shrink-0" {
- span class=(format!("w-2.5 h-2.5 rounded-full shrink-0 {} {}", dot_cls, ring_cls)) {}
- span class=(format!("text-xs whitespace-nowrap font-medium {}", text_cls)) { (label) }
- }
- }
- @if is_cancelled {
- div class="w-[48px] h-[2px] bg-border" {}
- div class="flex items-center gap-2 shrink-0" {
- span class="w-2.5 h-2.5 rounded-full shrink-0 bg-danger-500" {}
- span class="text-xs text-danger-500 font-semibold whitespace-nowrap" { "已取消" }
- }
- }
- }
- }
+    div class="flex items-center" {
+        @for (i, (label, _)) in steps.iter().enumerate() {
+            @if i > 0 {
+                div class=({
+                        format!(
+                            "w-[48px] h-[2px] {}",
+                            if i <= current_idx && !is_cancelled {
+                                "bg-success"
+                            } else {
+                                "bg-border"
+                            },
+                        )
+                    }) {}
+            }
+            @let (dot_cls, text_cls, ring_cls) = if is_cancelled {
+                ("bg-border-soft", "text-muted", "")
+            } else if i < current_idx {
+                ("bg-success", "text-success", "")
+            } else if i == current_idx {
+                (
+                    "bg-accent",
+                    "text-accent font-semibold",
+                    "shadow-[0_0_0_3px_rgba(37,99,235,0.1)]",
+                )
+            } else {
+                ("bg-slate-300", "text-slate-400", "")
+            };
+            div class="flex items-center gap-2 shrink-0" {
+                span class=(format!("w-2.5 h-2.5 rounded-full shrink-0 {} {}", dot_cls, ring_cls)) {}
+                span class=(format!("text-xs whitespace-nowrap font-medium {}", text_cls)) { (label) }
+            }
+        }
+        @if is_cancelled {
+            div class="w-[48px] h-[2px] bg-border" {}
+            div class="flex items-center gap-2 shrink-0" {
+                span class="w-2.5 h-2.5 rounded-full shrink-0 bg-danger-500" {}
+                span class="text-xs text-danger-500 font-semibold whitespace-nowrap" { "已取消" }
+            }
+        }
+    }
+}
 }

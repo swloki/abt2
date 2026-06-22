@@ -76,64 +76,117 @@ pub async fn search_purchase_orders(
 pub fn purchase_order_picker_modal(modal_id: &str, confirm_path: &str, suppliers: &[Supplier]) -> Markup {
  let close_hs = format!("on click remove .is-open from #{}", modal_id);
  html! {
- div class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto"
- id=(modal_id) _=(format!("on click[me is event.target] remove .is-open from #{}", modal_id)) {
- div class="modal bg-bg rounded-xl w-[780px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl" {
- div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
- h2 class="text-lg font-semibold m-0" { "选择采购订单（可多选）" }
- button type="button" class="bg-transparent border-none cursor-pointer text-xl text-muted p-1 hover:text-fg transition-colors" _=(close_hs) { "×" }
- }
- div class="px-6 py-4 border-b border-border-soft shrink-0 grid grid-cols-2 gap-3 po-search-bar" {
- div class="flex flex-col gap-1" {
- label class="text-xs font-medium text-fg-2" { "采购单号" }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="doc_number" placeholder="单号关键词…"
- hx-get=(PurchaseOrderSearchPath::PATH) hx-trigger="keyup changed delay:300ms" hx-sync="this:replace"
- hx-target="#po-search-results" hx-swap="innerHTML" hx-include=".po-search-bar" {}
- }
- div class="flex flex-col gap-1" {
- label class="text-xs font-medium text-fg-2" { "产品编码" }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="product_code" placeholder="产品编码关键词…"
- hx-get=(PurchaseOrderSearchPath::PATH) hx-trigger="keyup changed delay:300ms" hx-sync="this:replace"
- hx-target="#po-search-results" hx-swap="innerHTML" hx-include=".po-search-bar" {}
- }
- div class="flex flex-col gap-1" {
- label class="text-xs font-medium text-fg-2" { "供应商" }
- select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" name="supplier_id"
- hx-get=(PurchaseOrderSearchPath::PATH) hx-trigger="change" hx-target="#po-search-results" hx-swap="innerHTML" hx-include=".po-search-bar" {
- option value="" { "全部供应商" }
- @for s in suppliers {
- option value=(s.id) { (s.name.as_str()) }
- }
- }
- }
- div class="flex flex-col gap-1" {
- label class="text-xs font-medium text-fg-2" { "状态" }
- select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" name="status"
- hx-get=(PurchaseOrderSearchPath::PATH) hx-trigger="change" hx-target="#po-search-results" hx-swap="innerHTML" hx-include=".po-search-bar" {
- option value="" { "全部状态" }
- option value="3" { "部分到货" }
- option value="4" { "已到货" }
- option value="2" { "已确认" }
- }
- }
- }
- div id="po-search-results" class="overflow-y-auto flex-1 min-h-0"
- hx-get=(PurchaseOrderSearchPath::PATH) hx-trigger="intersect once" hx-swap="innerHTML" hx-include=".po-search-bar" {
- div class="text-center text-muted py-10 text-sm" { "加载中…" }
- }
- div class="px-6 py-4 border-t border-border-soft flex items-center justify-between shrink-0" {
- span class="text-sm text-muted" { "勾选后点击确认" }
- div class="flex gap-3" {
- button type="button" class="inline-flex items-center gap-2 py-2 px-4 rounded-sm bg-white text-fg-2 border border-border hover:bg-surface text-sm font-medium cursor-pointer transition-colors"
- _=(close_hs) { "取消" }
- button type="button" class="inline-flex items-center gap-2 py-2 px-4 rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-colors"
- hx-post=(confirm_path) hx-target="#po-cards" hx-swap="innerHTML"
- hx-include="#po-search-results input[name='po_id']:checked" { "确认选择" }
- }
- }
- }
- }
- }
+    div class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto"
+        id=(modal_id)
+        _=(format!("on click[me is event.target] remove .is-open from #{}", modal_id))
+    {
+        div class="modal bg-bg rounded-xl w-[780px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl"
+        {
+            div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0"
+            {
+                h2 class="text-lg font-semibold m-0" { "选择采购订单（可多选）" }
+                button
+                    type="button"
+                    class="bg-transparent border-none cursor-pointer text-xl text-muted p-1 hover:text-fg transition-colors"
+                    _=(close_hs)
+                { "×" }
+            }
+            div class="px-6 py-4 border-b border-border-soft shrink-0 grid grid-cols-2 gap-3 po-search-bar"
+            {
+                div class="flex flex-col gap-1" {
+                    label class="text-xs font-medium text-fg-2" { "采购单号" }
+                    input
+                        class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
+                        type="text"
+                        name="doc_number"
+                        placeholder="单号关键词…"
+                        hx-get=(PurchaseOrderSearchPath::PATH)
+                        hx-trigger="keyup changed delay:300ms"
+                        hx-sync="this:replace"
+                        hx-target="#po-search-results"
+                        hx-swap="innerHTML"
+                        hx-include=".po-search-bar" {}
+                }
+                div class="flex flex-col gap-1" {
+                    label class="text-xs font-medium text-fg-2" { "产品编码" }
+                    input
+                        class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
+                        type="text"
+                        name="product_code"
+                        placeholder="产品编码关键词…"
+                        hx-get=(PurchaseOrderSearchPath::PATH)
+                        hx-trigger="keyup changed delay:300ms"
+                        hx-sync="this:replace"
+                        hx-target="#po-search-results"
+                        hx-swap="innerHTML"
+                        hx-include=".po-search-bar" {}
+                }
+                div class="flex flex-col gap-1" {
+                    label class="text-xs font-medium text-fg-2" { "供应商" }
+                    select
+                        class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
+                        name="supplier_id"
+                        hx-get=(PurchaseOrderSearchPath::PATH)
+                        hx-trigger="change"
+                        hx-target="#po-search-results"
+                        hx-swap="innerHTML"
+                        hx-include=".po-search-bar"
+                    {
+                        option value="" { "全部供应商" }
+                        @for s in suppliers {
+                            option value=(s.id) { (s.name.as_str()) }
+                        }
+                    }
+                }
+                div class="flex flex-col gap-1" {
+                    label class="text-xs font-medium text-fg-2" { "状态" }
+                    select
+                        class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
+                        name="status"
+                        hx-get=(PurchaseOrderSearchPath::PATH)
+                        hx-trigger="change"
+                        hx-target="#po-search-results"
+                        hx-swap="innerHTML"
+                        hx-include=".po-search-bar"
+                    {
+                        option value="" { "全部状态" }
+                        option value="3" { "部分到货" }
+                        option value="4" { "已到货" }
+                        option value="2" { "已确认" }
+                    }
+                }
+            }
+            div id="po-search-results"
+                class="overflow-y-auto flex-1 min-h-0"
+                hx-get=(PurchaseOrderSearchPath::PATH)
+                hx-trigger="intersect once"
+                hx-swap="innerHTML"
+                hx-include=".po-search-bar"
+            {
+                div class="text-center text-muted py-10 text-sm" { "加载中…" }
+            }
+            div class="px-6 py-4 border-t border-border-soft flex items-center justify-between shrink-0"
+            {
+                span class="text-sm text-muted" { "勾选后点击确认" }
+                div class="flex gap-3" {
+                    button
+                        type="button"
+                        class="inline-flex items-center gap-2 py-2 px-4 rounded-sm bg-white text-fg-2 border border-border hover:bg-surface text-sm font-medium cursor-pointer transition-colors"
+                        _=(close_hs)
+                    { "取消" }
+                    button
+                        type="button"
+                        class="inline-flex items-center gap-2 py-2 px-4 rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-colors"
+                        hx-post=(confirm_path)
+                        hx-target="#po-cards"
+                        hx-swap="innerHTML"
+                        hx-include="#po-search-results input[name='po_id']:checked"
+                    { "确认选择" }
+                }
+            }
+        }
+    }
+}
 }
 
 fn po_picker_results(
@@ -153,24 +206,37 @@ fn po_picker_results(
  }
  };
  html! {
- @if orders.is_empty() {
- div class="text-center text-muted py-10" {
- p class="text-sm" { "未找到匹配的采购订单" }
- }
- } @else {
- @for o in orders {
- @let sl = status_label(&o.status);
- @let sup = supplier_names.get(&o.supplier_id).cloned().unwrap_or_else(|| "-".into());
- label class="flex items-center gap-3 px-3 py-2 hover:bg-surface cursor-pointer border-b border-border-soft last:border-b-0 transition-colors duration-100" {
- input type="checkbox" name="po_id" value=(o.id) class="po-pick-cb cursor-pointer accent-accent w-4 h-4 shrink-0";
- div class="flex-1 min-w-0" {
- div class="text-sm font-medium text-fg truncate" { (o.doc_number) }
- div class="text-xs text-muted truncate" {
- (sup.as_str()) " · " (sl) " · " (o.order_date.format("%Y-%m-%d").to_string())
- }
- }
- }
- }
- }
- }
+    @if orders.is_empty() {
+        div class="text-center text-muted py-10" {
+            p class="text-sm" { "未找到匹配的采购订单" }
+        }
+    } @else {
+        @for o in orders {
+            @let sl = status_label(&o.status);
+            @let sup = supplier_names
+                .get(&o.supplier_id)
+                .cloned()
+                .unwrap_or_else(|| "-".into());
+            label
+                class="flex items-center gap-3 px-3 py-2 hover:bg-surface cursor-pointer border-b border-border-soft last:border-b-0 transition-colors duration-100"
+            {
+                input
+                    type="checkbox"
+                    name="po_id"
+                    value=(o.id)
+                    class="po-pick-cb cursor-pointer accent-accent w-4 h-4 shrink-0";
+                div class="flex-1 min-w-0" {
+                    div class="text-sm font-medium text-fg truncate" { (o.doc_number) }
+                    div class="text-xs text-muted truncate" {
+                        (sup.as_str())
+                        " · "
+                        (sl)
+                        " · "
+                        (o.order_date.format("%Y-%m-%d").to_string())
+                    }
+                }
+            }
+        }
+    }
+}
 }

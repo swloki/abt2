@@ -128,27 +128,36 @@ pub fn product_picker_modal_with_bom_filter(
     html! {
         div class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto"
             id=(modal_id)
-            _=(close_hs) {
+            _=(close_hs)
+        {
             div class="bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl"
-                _="on click halt the event" {
+                _="on click halt the event"
+            {
                 // ── Header ──
-                div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
+                div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0"
+                {
                     h2 class="text-lg font-semibold m-0" { "选择产品" }
-                    button class="bg-transparent border-none cursor-pointer text-xl text-muted p-1 hover:text-fg transition-colors"
-                        _=(close_hs) { "×" }
+                    button
+                        class="bg-transparent border-none cursor-pointer text-xl text-muted p-1 hover:text-fg transition-colors"
+                        _=(close_hs)
+                    { "×" }
                 }
                 // ── Body ──
                 div class="overflow-y-auto flex-1 min-h-0 p-6" {
                     // ── Search Bar ──
-                    div class="product-search-bar flex gap-4 mb-4 pb-4 border-b border-border-soft" {
+                    div class="product-search-bar flex gap-4 mb-4 pb-4 border-b border-border-soft"
+                    {
                         input type="hidden" name="target_id" value=(target_id);
                         input type="hidden" name="display_id" value=(display_id);
                         input type="hidden" name="modal_id" value=(modal_id);
                         (bom_inputs)
                         div class="flex-1 flex flex-col gap-1" {
                             label class="text-xs font-medium text-fg-2" { "产品名称" }
-                            input class="product-search-input w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
-                                type="text" name="name" placeholder="输入产品名称…"
+                            input
+                                class="product-search-input w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
+                                type="text"
+                                name="name"
+                                placeholder="输入产品名称…"
                                 hx-get=(ProductSearchPath::PATH)
                                 hx-trigger="keyup changed delay:300ms"
                                 hx-sync="this:replace"
@@ -158,8 +167,11 @@ pub fn product_picker_modal_with_bom_filter(
                         }
                         div class="flex-1 flex flex-col gap-1" {
                             label class="text-xs font-medium text-fg-2" { "产品编码" }
-                            input class="product-search-input w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
-                                type="text" name="code" placeholder="输入产品编码…"
+                            input
+                                class="product-search-input w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
+                                type="text"
+                                name="code"
+                                placeholder="输入产品编码…"
                                 hx-get=(ProductSearchPath::PATH)
                                 hx-trigger="keyup changed delay:300ms"
                                 hx-sync="this:replace"
@@ -167,30 +179,41 @@ pub fn product_picker_modal_with_bom_filter(
                                 hx-swap="innerHTML"
                                 hx-include=".product-search-bar" {}
                         }
-                        button type="button" class="self-end py-2 px-4 border border-border rounded-sm bg-bg text-fg-2 text-sm cursor-pointer whitespace-nowrap hover:bg-surface transition-colors"
+                        button
+                            type="button"
+                            class="self-end py-2 px-4 border border-border rounded-sm bg-bg text-fg-2 text-sm cursor-pointer whitespace-nowrap hover:bg-surface transition-colors"
                             hx-get=(ProductSearchPath::PATH)
                             hx-target="#product-search-results"
                             hx-swap="innerHTML"
-                            _="on click set <.product-search-input/>'s value to '' then trigger keyup on the first <.product-search-input/>" {
-                            "清除"
-                        }
+                            _="on click set <.product-search-input/>'s value to '' then trigger keyup on the first <.product-search-input/>"
+                        { "清除" }
                     }
                     // ── Results ──
-                    div id="product-search-results" class="max-h-[400px] overflow-y-auto"
+                    div id="product-search-results"
+                        class="max-h-[400px] overflow-y-auto"
                         hx-get=(ProductSearchPath::PATH)
                         hx-trigger="intersect once"
                         hx-swap="innerHTML"
                         hx-include=".product-search-bar"
                         hx-vals=({
-                            let mut vals = format!("{{\"target_id\":\"{}\",\"display_id\":\"{}\",\"modal_id\":\"{}\"", target_id, display_id, modal_id);
+                            let mut vals = format!(
+                                "{{\"target_id\":\"{}\",\"display_id\":\"{}\",\"modal_id\":\"{}\"",
+                                target_id,
+                                display_id,
+                                modal_id,
+                            );
                             if let Some(ids) = bom_product_ids {
                                 use std::fmt::Write;
-                                write!(&mut vals, ",\"bom_product_ids\":\"{}\"", ids).unwrap();
+                                write!(&mut vals, ",\"bom_product_ids\":\"{}\"", ids)
+                                    .unwrap();
                             }
                             vals.push_str("}");
                             vals
-                        }) {
-                        div class="flex items-center justify-center py-8 text-muted text-sm" { "加载中…" }
+                        })
+                    {
+                        div class="flex items-center justify-center py-8 text-muted text-sm" {
+                            "加载中…"
+                        }
                     }
                 }
             }
@@ -208,23 +231,32 @@ pub fn product_picker_modal_with_search(modal_id: &str, item_row_path: &str, tbo
     html! {
         div class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto"
             id=(modal_id)
-            _=(close_hs) {
+            _=(close_hs)
+        {
             div class="bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl"
-                _="on click halt the event" {
-                div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
+                _="on click halt the event"
+            {
+                div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0"
+                {
                     h2 class="text-lg font-semibold m-0" { "选择产品" }
-                    button class="bg-transparent border-none cursor-pointer text-xl text-muted p-1 hover:text-fg transition-colors"
-                        _=(close_hs) { "×" }
+                    button
+                        class="bg-transparent border-none cursor-pointer text-xl text-muted p-1 hover:text-fg transition-colors"
+                        _=(close_hs)
+                    { "×" }
                 }
                 div class="overflow-y-auto flex-1 min-h-0 p-6" {
-                    div class="product-search-bar flex gap-4 mb-4 pb-4 border-b border-border-soft" {
+                    div class="product-search-bar flex gap-4 mb-4 pb-4 border-b border-border-soft"
+                    {
                         input type="hidden" name="item_row_path" value=(item_row_path);
                         input type="hidden" name="tbody_id" value=(tbody_id);
                         input type="hidden" name="modal_id" value=(modal_id);
                         div class="flex-1 flex flex-col gap-1" {
                             label class="text-xs font-medium text-fg-2" { "产品名称" }
-                            input class="product-search-input w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
-                                type="text" name="name" placeholder="输入产品名称…"
+                            input
+                                class="product-search-input w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
+                                type="text"
+                                name="name"
+                                placeholder="输入产品名称…"
                                 hx-get=(search_path)
                                 hx-trigger="keyup changed delay:300ms"
                                 hx-sync="this:replace"
@@ -234,8 +266,11 @@ pub fn product_picker_modal_with_search(modal_id: &str, item_row_path: &str, tbo
                         }
                         div class="flex-1 flex flex-col gap-1" {
                             label class="text-xs font-medium text-fg-2" { "产品编码" }
-                            input class="product-search-input w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
-                                type="text" name="code" placeholder="输入产品编码…"
+                            input
+                                class="product-search-input w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
+                                type="text"
+                                name="code"
+                                placeholder="输入产品编码…"
                                 hx-get=(search_path)
                                 hx-trigger="keyup changed delay:300ms"
                                 hx-sync="this:replace"
@@ -243,20 +278,32 @@ pub fn product_picker_modal_with_search(modal_id: &str, item_row_path: &str, tbo
                                 hx-swap="innerHTML"
                                 hx-include=".product-search-bar" {}
                         }
-                        button type="button" class="self-end py-2 px-4 border border-border rounded-sm bg-bg text-fg-2 text-sm cursor-pointer whitespace-nowrap hover:bg-surface transition-colors"
+                        button
+                            type="button"
+                            class="self-end py-2 px-4 border border-border rounded-sm bg-bg text-fg-2 text-sm cursor-pointer whitespace-nowrap hover:bg-surface transition-colors"
                             hx-get=(search_path)
                             hx-target="#product-search-results"
                             hx-swap="innerHTML"
-                            _="on click set <.product-search-input/>'s value to '' then trigger keyup on the first <.product-search-input/>" {
-                            "清除"
-                        }
+                            _="on click set <.product-search-input/>'s value to '' then trigger keyup on the first <.product-search-input/>"
+                        { "清除" }
                     }
-                    div id="product-search-results" class="max-h-[400px] overflow-y-auto"
+                    div id="product-search-results"
+                        class="max-h-[400px] overflow-y-auto"
                         hx-get=(search_path)
                         hx-trigger="intersect once"
                         hx-swap="innerHTML"
-                        hx-vals=(format!("{{\"item_row_path\":\"{}\",\"tbody_id\":\"{}\",\"modal_id\":\"{}\"}}", item_row_path, tbody_id, modal_id)) {
-                        div class="flex items-center justify-center py-8 text-muted text-sm" { "加载中…" }
+                        hx-vals=({
+                            format!(
+                                "{{\"item_row_path\":\"{}\",\"tbody_id\":\"{}\",\"modal_id\":\"{}\"}}",
+                                item_row_path,
+                                tbody_id,
+                                modal_id,
+                            )
+                        })
+                    {
+                        div class="flex items-center justify-center py-8 text-muted text-sm" {
+                            "加载中…"
+                        }
                     }
                 }
             }
@@ -287,11 +334,15 @@ pub fn product_picker_results(
                     div class="flex items-center justify-between p-3 border-b border-border-soft cursor-pointer hover:bg-accent-bg transition-colors"
                         data-pid=(p.product_id)
                         data-pname=(p.pdt_name.as_str())
-                        _=(click_hs) {
+                        _=(click_hs)
+                    {
                         div class="flex-1 min-w-0" {
                             div class="text-sm font-medium text-fg truncate" { (p.pdt_name.as_str()) }
-                            div class="text-xs text-muted flex items-center gap-1.5 flex-wrap mt-0.5" {
-                                span class="bg-surface rounded px-1.5 py-0.5 font-mono" { (p.product_code.as_str()) }
+                            div class="text-xs text-muted flex items-center gap-1.5 flex-wrap mt-0.5"
+                            {
+                                span class="bg-surface rounded px-1.5 py-0.5 font-mono" {
+                                    (p.product_code.as_str())
+                                }
                                 span class="text-border" { "·" }
                                 span { (p.meta.specification.as_str()) }
                                 span class="text-border" { "·" }
@@ -325,11 +376,20 @@ pub fn product_picker_results_for_table(
                         hx-get=(format!("{}?product_id={}", item_row_path, p.product_id))
                         hx-target=(format!("#{}", tbody_id))
                         hx-swap="beforeend"
-                        _=(format!("on 'htmx:afterRequest' remove .is-open from #{}", modal_id)) {
+                        _=({
+                            format!(
+                                "on 'htmx:afterRequest' remove .is-open from #{}",
+                                modal_id,
+                            )
+                        })
+                    {
                         div class="flex-1 min-w-0" {
                             div class="text-sm font-medium text-fg truncate" { (p.pdt_name.as_str()) }
-                            div class="text-xs text-muted flex items-center gap-1.5 flex-wrap mt-0.5" {
-                                span class="bg-surface rounded px-1.5 py-0.5 font-mono" { (p.product_code.as_str()) }
+                            div class="text-xs text-muted flex items-center gap-1.5 flex-wrap mt-0.5"
+                            {
+                                span class="bg-surface rounded px-1.5 py-0.5 font-mono" {
+                                    (p.product_code.as_str())
+                                }
                                 span class="text-border" { "·" }
                                 span { (p.meta.specification.as_str()) }
                                 span class="text-border" { "·" }

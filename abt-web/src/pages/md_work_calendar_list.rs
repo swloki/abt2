@@ -50,48 +50,56 @@ pub async fn get_work_calendar_list(
 
 fn work_calendar_list_page(calendars: &[WorkCalendar]) -> Markup {
  html! {
- div class="flex items-center justify-between mb-6" {
- div class="flex items-center justify-between mb-6" {
- h1 class="text-xl font-bold text-fg tracking-tight" { "工作日历管理" }
- }
- div class="flex gap-3" {
- a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(WorkCalendarCreatePath::PATH) {
- (icon::plus_icon("w-4 h-4"))
- "新建日历"
- }
- }
- }
+    div class="flex items-center justify-between mb-6" {
+        div class="flex items-center justify-between mb-6" {
+            h1 class="text-xl font-bold text-fg tracking-tight" { "工作日历管理" }
+        }
+        div class="flex gap-3" {
+            a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                href=(WorkCalendarCreatePath::PATH)
+            { (icon::plus_icon("w-4 h-4")) "新建日历" }
+        }
+    }
 
- div class="data-card" {
- div class="overflow-x-auto" {
- table class="data-table" {
- thead {
- tr {
- th { "名称" }
- th { "描述" }
- th { "创建时间" }
- th class="!text-right" { "操作" }
- }
- }
- tbody {
- @for cal in calendars {
- tr {
- td { strong { (cal.name) } }
- td { (cal.description.as_deref().unwrap_or("—")) }
- td class="font-mono tabular-nums" { (cal.created_at.format("%Y-%m-%d %H:%M")) }
- td {
- a href=(WorkCalendarDetailPath { id: cal.id }.to_string()) {
- (icon::eye_icon("w-4 h-4"))
- }
- }
- }
- }
- @if calendars.is_empty() {
- tr { td colspan="4" class="text-center text-muted text-sm" { "暂无工作日历数据" } }
- }
- }
- }
- }
- }
- }
+    div class="data-card" {
+        div class="overflow-x-auto" {
+            table class="data-table" {
+                thead {
+                    tr {
+                        th { "名称" }
+                        th { "描述" }
+                        th { "创建时间" }
+                        th class="!text-right" { "操作" }
+                    }
+                }
+                tbody {
+                    @for cal in calendars {
+                        tr {
+                            td {
+                                strong { (cal.name) }
+                            }
+                            td { (cal.description.as_deref().unwrap_or("—")) }
+                            td class="font-mono tabular-nums" {
+                                (cal.created_at.format("%Y-%m-%d %H:%M"))
+                            }
+                            td {
+                                a href=({
+                                    WorkCalendarDetailPath {
+                                        id: cal.id,
+                                    }
+                                        .to_string()
+                                }) { (icon::eye_icon("w-4 h-4")) }
+                            }
+                        }
+                    }
+                    @if calendars.is_empty() {
+                        tr {
+                            td colspan="4" class="text-center text-muted text-sm" { "暂无工作日历数据" }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
 }

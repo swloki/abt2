@@ -215,21 +215,31 @@ fn return_list_page(
  can_delete: bool,
 ) -> Markup {
  html! {
- div {
- div class="flex items-center justify-between mb-6" {
- h1 class="text-xl font-bold text-fg tracking-tight" { "销售退货" }
- div class="flex gap-3" {
- @if can_create {
- a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(ReturnCreatePath::PATH) {
- (icon::plus_icon("w-4 h-4"))
- "新建退货单"
- }
- }
- }
- }
- (return_table_fragment(result, customer_names, shipping_numbers, order_numbers, customers, params, status_counts, can_delete))
- }
- }
+    div {
+        div class="flex items-center justify-between mb-6" {
+            h1 class="text-xl font-bold text-fg tracking-tight" { "销售退货" }
+            div class="flex gap-3" {
+                @if can_create {
+                    a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                        href=(ReturnCreatePath::PATH)
+                    { (icon::plus_icon("w-4 h-4")) "新建退货单" }
+                }
+            }
+        }
+        ({
+            return_table_fragment(
+                result,
+                customer_names,
+                shipping_numbers,
+                order_numbers,
+                customers,
+                params,
+                status_counts,
+                can_delete,
+            )
+        })
+    }
+}
 }
 
 fn return_table_fragment(
@@ -268,66 +278,99 @@ fn return_table_fragment(
  let selected_customer = params.customer_id.map(|id| id.to_string()).unwrap_or_default();
 
  html! {
- div class="return-list-panel" {
- (status_tabs_with_param(ReturnListPath::PATH, "#return-data-card", "#return-filter-form", tabs, &active_value, "status"))
+    div class="return-list-panel" {
+        ({
+            status_tabs_with_param(
+                ReturnListPath::PATH,
+                "#return-data-card",
+                "#return-filter-form",
+                tabs,
+                &active_value,
+                "status",
+            )
+        })
 
- form class="flex items-center gap-3 mb-5 flex-wrap filter-form" id="return-filter-form"
- hx-get=(ReturnListPath::PATH)
- hx-trigger="change, keyup changed delay:300ms from:.search-input"
- hx-target="#return-data-card"
- hx-select="#return-data-card"
- hx-swap="outerHTML"
- hx-select-oob="#status-tabs"
- hx-include="#return-filter-form"
- hx-push-url="true" {
- div class="relative flex-1 max-w-xs icon:absolute icon:left-3 icon:top-1/2 icon:-translate-y-1/2 icon:w-4 icon:h-4 icon:text-muted" {
- (icon::search_icon(""))
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input" type="text" name="keyword"
- placeholder="搜索退货单号、客户名称…"
- value=(params.keyword.as_deref().unwrap_or(""));
- }
- select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="customer_id" {
- option value="" { "全部客户" }
- @for c in customers {
- option value=(c.id) selected[selected_customer == c.id.to_string()] { (c.name) }
- }
- }
- }
+        form
+            class="flex items-center gap-3 mb-5 flex-wrap filter-form"
+            id="return-filter-form"
+            hx-get=(ReturnListPath::PATH)
+            hx-trigger="change, keyup changed delay:300ms from:.search-input"
+            hx-target="#return-data-card"
+            hx-select="#return-data-card"
+            hx-swap="outerHTML"
+            hx-select-oob="#status-tabs"
+            hx-include="#return-filter-form"
+            hx-push-url="true"
+        {
+            div class="relative flex-1 max-w-xs icon:absolute icon:left-3 icon:top-1/2 icon:-translate-y-1/2 icon:w-4 icon:h-4 icon:text-muted"
+            {
+                (icon::search_icon(""))
+                input
+                    class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input"
+                    type="text"
+                    name="keyword"
+                    placeholder="搜索退货单号、客户名称…"
+                    value=(params.keyword.as_deref().unwrap_or(""));
+            }
+            select
+                class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer"
+                name="customer_id"
+            {
+                option value="" { "全部客户" }
+                @for c in customers {
+                    option value=(c.id) selected[selected_customer == c.id.to_string()] { (c.name) }
+                }
+            }
+        }
 
- div class="data-card" id="return-data-card" {
- div class="overflow-x-auto" {
- table class="data-table" {
- thead {
- tr {
- th { "退货单号" }
- th { "来源发货" }
- th { "来源订单" }
- th { "客户名称" }
- th { "状态" }
- th class="text-right text-[13px]" { "退货金额" }
- th { "退货原因" }
- th { "创建时间" }
- th class="!text-right" { "操作" }
- }
- }
- tbody {
- @for r in &result.items {
- (return_row(r, customer_names, shipping_numbers, order_numbers, can_delete))
- }
- @if result.items.is_empty() {
- tr {
- td colspan="9" class="text-center p-8 text-muted" {
- "暂无退货数据"
- }
- }
- }
- }
- }
- }
- (pagination(ReturnListPath::PATH, &query, result.total, result.page, result.total_pages))
- }
- }
- }
+        div class="data-card" id="return-data-card" {
+            div class="overflow-x-auto" {
+                table class="data-table" {
+                    thead {
+                        tr {
+                            th { "退货单号" }
+                            th { "来源发货" }
+                            th { "来源订单" }
+                            th { "客户名称" }
+                            th { "状态" }
+                            th class="text-right text-[13px]" { "退货金额" }
+                            th { "退货原因" }
+                            th { "创建时间" }
+                            th class="!text-right" { "操作" }
+                        }
+                    }
+                    tbody {
+                        @for r in &result.items {
+                            ({
+                                return_row(
+                                    r,
+                                    customer_names,
+                                    shipping_numbers,
+                                    order_numbers,
+                                    can_delete,
+                                )
+                            })
+                        }
+                        @if result.items.is_empty() {
+                            tr {
+                                td colspan="9" class="text-center p-8 text-muted" { "暂无退货数据" }
+                            }
+                        }
+                    }
+                }
+            }
+            ({
+                pagination(
+                    ReturnListPath::PATH,
+                    &query,
+                    result.total,
+                    result.page,
+                    result.total_pages,
+                )
+            })
+        }
+    }
+}
 }
 
 fn return_row(
@@ -350,45 +393,60 @@ fn return_row(
  let order_detail = OrderDetailPath { id: r.order_id };
 
  html! {
- tr {
- td class="text-accent font-medium cursor-pointer font-mono tabular-nums" onclick=(&onclick) { (r.doc_number) }
- td onclick=(&onclick) {
- a href=(shipping_detail.to_string()) class="text-accent" _="on click js(event) event.stopPropagation() end" { (shipping_num) }
- }
- td onclick=(&onclick) {
- a href=(order_detail.to_string()) class="text-accent" _="on click js(event) event.stopPropagation() end" { (order_num) }
- }
- td onclick=(&onclick) { (customer_name) }
- td onclick=(&onclick) {
- span class=(format!("status-pill {}", crate::utils::status_color(status_class))) { (status_text) }
- }
- td class="text-right text-[13px]" onclick=(&onclick) {
- span class="font-mono tabular-nums" { (crate::utils::fmt_amount(r.total_amount)) }
- }
- td onclick=(&onclick) { (r.return_reason.as_str()) }
- td onclick=(&onclick) { (created) }
- td _="on click halt the event" {
- div class="row-actions flex items-center gap-1 justify-end opacity-0 transition-opacity duration-150 [&_a]:w-[28px] [&_a]:h-[28px] [&_a]:grid [&_a]:place-items-center [&_a]:rounded-sm [&_a]:cursor-pointer [&_a]:bg-surface [&_a]:hover:bg-accent-bg icon:w-3.5 icon:h-3.5" {
- @if is_draft {
- a class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" href=(detail_path.to_string()) title="编辑" {
- (icon::edit_icon("w-4 h-4"))
- }
- @if can_delete {
- button type="button" class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer text-danger" title="删除"
- hx-confirm=(format!("确认删除退货单 {}？", r.doc_number))
- hx-post=(delete_path.to_string())
- hx-target="closest tr"
- hx-swap="outerHTML swap:0.5s" {
- (icon::trash_icon("w-4 h-4"))
- }
- }
- } @else {
- a class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" href=(detail_path.to_string()) title="查看详情" {
- (icon::eye_icon("w-4 h-4"))
- }
- }
- }
- }
- }
- }
+    tr {
+        td class="text-accent font-medium cursor-pointer font-mono tabular-nums" onclick=(&onclick) {
+            (r.doc_number)
+        }
+        td onclick=(&onclick) {
+            a   href=(shipping_detail.to_string())
+                class="text-accent"
+                _="on click js(event) event.stopPropagation() end"
+            { (shipping_num) }
+        }
+        td onclick=(&onclick) {
+            a   href=(order_detail.to_string())
+                class="text-accent"
+                _="on click js(event) event.stopPropagation() end"
+            { (order_num) }
+        }
+        td onclick=(&onclick) { (customer_name) }
+        td onclick=(&onclick) {
+            span class=(format!("status-pill {}", crate::utils::status_color(status_class))) {
+                (status_text)
+            }
+        }
+        td class="text-right text-[13px]" onclick=(&onclick) {
+            span class="font-mono tabular-nums" { (crate::utils::fmt_amount(r.total_amount)) }
+        }
+        td onclick=(&onclick) { (r.return_reason.as_str()) }
+        td onclick=(&onclick) { (created) }
+        td _="on click halt the event" {
+            div class="row-actions flex items-center gap-1 justify-end opacity-0 transition-opacity duration-150 [&_a]:w-[28px] [&_a]:h-[28px] [&_a]:grid [&_a]:place-items-center [&_a]:rounded-sm [&_a]:cursor-pointer [&_a]:bg-surface [&_a]:hover:bg-accent-bg icon:w-3.5 icon:h-3.5"
+            {
+                @if is_draft {
+                    a   class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer"
+                        href=(detail_path.to_string())
+                        title="编辑"
+                    { (icon::edit_icon("w-4 h-4")) }
+                    @if can_delete {
+                        button
+                            type="button"
+                            class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer text-danger"
+                            title="删除"
+                            hx-confirm=(format!("确认删除退货单 {}？", r.doc_number))
+                            hx-post=(delete_path.to_string())
+                            hx-target="closest tr"
+                            hx-swap="outerHTML swap:0.5s"
+                        { (icon::trash_icon("w-4 h-4")) }
+                    }
+                } @else {
+                    a   class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer"
+                        href=(detail_path.to_string())
+                        title="查看详情"
+                    { (icon::eye_icon("w-4 h-4")) }
+                }
+            }
+        }
+    }
+}
 }

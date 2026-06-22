@@ -81,22 +81,21 @@ fn transfer_list_page(
  can_create: bool,
 ) -> Markup {
  html! {
- div {
- div class="flex items-center justify-between mb-6" {
- h1 class="text-xl font-bold text-fg tracking-tight" { "库存调拨" }
- div class="flex gap-3" {
- @if can_create {
- a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(TransferCreatePath::PATH) {
- (icon::plus_icon("w-4 h-4"))
- "新建调拨"
- }
- }
- }
- }
+    div {
+        div class="flex items-center justify-between mb-6" {
+            h1 class="text-xl font-bold text-fg tracking-tight" { "库存调拨" }
+            div class="flex gap-3" {
+                @if can_create {
+                    a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                        href=(TransferCreatePath::PATH)
+                    { (icon::plus_icon("w-4 h-4")) "新建调拨" }
+                }
+            }
+        }
 
- (transfer_table_fragment(result, params))
- }
- }
+        (transfer_table_fragment(result, params))
+    }
+}
 }
 
 fn transfer_table_fragment(
@@ -116,55 +115,74 @@ fn transfer_table_fragment(
  ];
 
  html! {
- div class="data-card" id="transfer-data-card" {
- (status_tabs(TransferListPath::PATH, "#transfer-data-card", ".filter-bar input, .filter-bar select", tabs, &active_value))
+    div class="data-card" id="transfer-data-card" {
+        ({
+            status_tabs(
+                TransferListPath::PATH,
+                "#transfer-data-card",
+                ".filter-bar input, .filter-bar select",
+                tabs,
+                &active_value,
+            )
+        })
 
- form class="flex items-center gap-3 mb-5 flex-wrap" id="transfer-filter-form"
- hx-get=(TransferListPath::PATH)
- hx-trigger="change, keyup changed delay:300ms from:.search-input"
- hx-target="#transfer-data-card"
- hx-select="#transfer-data-card"
- hx-swap="outerHTML"
- hx-include="#transfer-filter-form"
- hx-push-url="true" {
- div class="relative flex-1 max-w-xs icon:absolute icon:left-3 icon:top-1/2 icon:-translate-y-1/2 icon:w-4 icon:h-4 icon:text-muted" {
- (icon::search_icon(""))
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input" type="text" name="doc_number"
- placeholder="调拨单号";
- }
- }
+        form
+            class="flex items-center gap-3 mb-5 flex-wrap"
+            id="transfer-filter-form"
+            hx-get=(TransferListPath::PATH)
+            hx-trigger="change, keyup changed delay:300ms from:.search-input"
+            hx-target="#transfer-data-card"
+            hx-select="#transfer-data-card"
+            hx-swap="outerHTML"
+            hx-include="#transfer-filter-form"
+            hx-push-url="true"
+        {
+            div class="relative flex-1 max-w-xs icon:absolute icon:left-3 icon:top-1/2 icon:-translate-y-1/2 icon:w-4 icon:h-4 icon:text-muted"
+            {
+                (icon::search_icon(""))
+                input
+                    class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input"
+                    type="text"
+                    name="doc_number"
+                    placeholder="调拨单号";
+            }
+        }
 
- div class="overflow-x-auto" {
- table class="data-table" {
- thead {
- tr {
- th { "调拨单号" }
- th { "调出仓库" }
- th { "调入仓库" }
- th { "调拨日期" }
- th { "状态" }
- th class="text-right text-[13px]" { "物料项数" }
- th { "操作员" }
- th class="!text-right" { "操作" }
- }
- }
- tbody {
- @for t in &result.items {
- (transfer_row(t))
- }
- @if result.items.is_empty() {
- tr {
- td colspan="8" class="text-center text-muted py-8" {
- "暂无调拨数据"
- }
- }
- }
- }
- }
- }
- (pagination(TransferListPath::PATH, &query, result.total, result.page, result.total_pages))
- }
- }
+        div class="overflow-x-auto" {
+            table class="data-table" {
+                thead {
+                    tr {
+                        th { "调拨单号" }
+                        th { "调出仓库" }
+                        th { "调入仓库" }
+                        th { "调拨日期" }
+                        th { "状态" }
+                        th class="text-right text-[13px]" { "物料项数" }
+                        th { "操作员" }
+                        th class="!text-right" { "操作" }
+                    }
+                }
+                tbody {
+                    @for t in &result.items { (transfer_row(t)) }
+                    @if result.items.is_empty() {
+                        tr {
+                            td colspan="8" class="text-center text-muted py-8" { "暂无调拨数据" }
+                        }
+                    }
+                }
+            }
+        }
+        ({
+            pagination(
+                TransferListPath::PATH,
+                &query,
+                result.total,
+                result.page,
+                result.total_pages,
+            )
+        })
+    }
+}
 }
 
 fn transfer_row(t: &InventoryTransfer) -> Markup {
@@ -178,25 +196,35 @@ fn transfer_row(t: &InventoryTransfer) -> Markup {
  };
 
  html! {
- tr class="cursor-pointer" {
- td class="text-accent font-medium cursor-pointer font-mono tabular-nums" onclick=(format!("location.href='{}'", detail_path)) { (t.doc_number) }
- td onclick=(format!("location.href='{}'", detail_path)) { "—" }
- td onclick=(format!("location.href='{}'", detail_path)) { "—" }
- td class="font-mono tabular-nums" onclick=(format!("location.href='{}'", detail_path)) { (t.transfer_date.to_string()) }
- td onclick=(format!("location.href='{}'", detail_path)) {
- span class=(format!("status-pill {}", crate::utils::status_color(status_class))) { (status_label) }
- }
- td class="text-right text-[13px]" onclick=(format!("location.href='{}'", detail_path)) { "—" }
- td onclick=(format!("location.href='{}'", detail_path)) { "—" }
- td _="on click halt the event" {
- div class="row-actions flex items-center gap-1 justify-end opacity-0 transition-opacity duration-150 [&_a]:w-[28px] [&_a]:h-[28px] [&_a]:grid [&_a]:place-items-center [&_a]:rounded-sm [&_a]:cursor-pointer [&_a]:bg-surface [&_a]:hover:bg-accent-bg icon:w-3.5 icon:h-3.5" {
- a class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" title="查看" href=(detail_path.to_string()) {
- (icon::eye_icon("w-4 h-4"))
- }
- }
- }
- }
- }
+    tr class="cursor-pointer" {
+        td  class="text-accent font-medium cursor-pointer font-mono tabular-nums"
+            onclick=(format!("location.href='{}'", detail_path))
+        { (t.doc_number) }
+        td onclick=(format!("location.href='{}'", detail_path)) { "—" }
+        td onclick=(format!("location.href='{}'", detail_path)) { "—" }
+        td class="font-mono tabular-nums" onclick=(format!("location.href='{}'", detail_path)) {
+            (t.transfer_date.to_string())
+        }
+        td onclick=(format!("location.href='{}'", detail_path)) {
+            span class=(format!("status-pill {}", crate::utils::status_color(status_class))) {
+                (status_label)
+            }
+        }
+        td class="text-right text-[13px]" onclick=(format!("location.href='{}'", detail_path)) {
+            "—"
+        }
+        td onclick=(format!("location.href='{}'", detail_path)) { "—" }
+        td _="on click halt the event" {
+            div class="row-actions flex items-center gap-1 justify-end opacity-0 transition-opacity duration-150 [&_a]:w-[28px] [&_a]:h-[28px] [&_a]:grid [&_a]:place-items-center [&_a]:rounded-sm [&_a]:cursor-pointer [&_a]:bg-surface [&_a]:hover:bg-accent-bg icon:w-3.5 icon:h-3.5"
+            {
+                a   class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer"
+                    title="查看"
+                    href=(detail_path.to_string())
+                { (icon::eye_icon("w-4 h-4")) }
+            }
+        }
+    }
+}
 }
 
 fn build_query_string(params: &TransferQueryParams) -> String {

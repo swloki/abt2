@@ -289,73 +289,107 @@ fn product_list_page(
 ) -> Markup {
 
  html! {
- div { (maud::PreEscaped("<script>document.body.addEventListener('closeDrawer',()=>document.querySelector('#price-drawer').classList.remove('open'))</script>"))
- // ── Page Header ──
- div class="flex items-center justify-between mb-6" {
- h1 class="text-xl font-bold text-fg tracking-tight" { "产品管理" span class="text-sm font-normal text-muted ml-2" { "(" (result.total) ")" } }
- div class="flex gap-3" {
- button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
- _=(import_modal::import_modal_onclick(&ImportModalConfig { import_type: "product-inventory", title: "", template_columns: "" })) {
- (icon::upload_icon("w-4 h-4"))
- "导入"
- }
- (export_button::export_dropdown(&[
- ExportItem { label: "含库存产品", export_type: "product-all" },
- ExportItem { label: "不含价格产品", export_type: "product-without-price" },
- ]))
- @if can_create {
- a href=(ProductCreatePath::PATH) class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" {
- (icon::plus_icon("w-4 h-4"))
- "新建产品"
- }
- }
- }
- }
-
- // ── Filter + Data Table (HTMX panel) ──
- (product_table_fragment(result, params, categories, watched_ids, can_delete, can_edit))
-
- // ── Price Drawer (shared) ──
- (crate::components::drawer::drawer(
- "price-drawer",
- "价格设置",
- "保存价格",
- "price-drawer-form",
- html! {
- div id="price-drawer-body" _="on htmx:afterSettle add .open to #price-drawer" {
- // Content loaded via HTMX
- }
- },
- ))
-
- // ── BOM 引用 Drawer ──
- (crate::components::drawer::drawer_with_footer(
- "bom-drawer",
- "BOM 引用查询",
- html! {
- div id="bom-drawer-body" {
- // Content loaded via HTMX
- }
- },
- html! {
- button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
- _="on click remove .open from #bom-drawer" { "关闭" }
- a href="/admin/md/boms/new" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] no-underline" {
- (icon::plus_icon("w-4 h-4"))
- "新建 BOM"
- }
- },
- ))
-
- // ── Import Modal ──
- (import_modal::import_modal(&ImportModalConfig {
- import_type: "product-inventory",
- title: "导入产品库存",
- template_columns: "新编码, 旧编码, 物料名称, 库位编码, 库存数量, 价格, 安全库存, 分类ID",
- }))
-
- }
- }
+    div {
+        ({
+            maud::PreEscaped(
+                "<script>document.body.addEventListener('closeDrawer',()=>document.querySelector('#price-drawer').classList.remove('open'))</script>",
+            )
+        })
+        // ── Page Header ──
+        div class="flex items-center justify-between mb-6" {
+            h1 class="text-xl font-bold text-fg tracking-tight" {
+                "产品管理"
+                span class="text-sm font-normal text-muted ml-2" { "(" (result.total) ")" }
+            }
+            div class="flex gap-3" {
+                button
+                    type="button"
+                    class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                    _=({
+                        import_modal::import_modal_onclick(
+                            &ImportModalConfig {
+                                import_type: "product-inventory",
+                                title: "",
+                                template_columns: "",
+                            },
+                        )
+                    })
+                { (icon::upload_icon("w-4 h-4")) "导入" }
+                ({
+                    export_button::export_dropdown(
+                        &[
+                            ExportItem {
+                                label: "含库存产品",
+                                export_type: "product-all",
+                            },
+                            ExportItem {
+                                label: "不含价格产品",
+                                export_type: "product-without-price",
+                            },
+                        ],
+                    )
+                })
+                @if can_create {
+                    a   href=(ProductCreatePath::PATH)
+                        class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                    { (icon::plus_icon("w-4 h-4")) "新建产品" }
+                }
+            }
+        }
+        // ── Filter + Data Table (HTMX panel) ──
+        ({
+            product_table_fragment(
+                result,
+                params,
+                categories,
+                watched_ids,
+                can_delete,
+                can_edit,
+            )
+        })
+        // ── Price Drawer (shared) ──
+        ({
+            crate::components::drawer::drawer(
+                "price-drawer",
+                "价格设置",
+                "保存价格",
+                "price-drawer-form",
+                html! {
+                    div id = "price-drawer-body" _ =
+                    "on htmx:afterSettle add .open to #price-drawer" {}
+                },
+            )
+        })
+        // ── BOM 引用 Drawer ──
+        ({
+            crate::components::drawer::drawer_with_footer(
+                "bom-drawer",
+                "BOM 引用查询",
+                html! {
+                    div id = "bom-drawer-body" {}
+                },
+                html! {
+                    button type = "button" class =
+                    "inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                    _ = "on click remove .open from #bom-drawer" { "关闭" } a href =
+                    "/admin/md/boms/new" class =
+                    "inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] no-underline"
+                    { (icon::plus_icon("w-4 h-4")) "新建 BOM" }
+                },
+            )
+        })
+        // ── Import Modal ──
+        ({
+            import_modal::import_modal(
+                &ImportModalConfig {
+                    import_type: "product-inventory",
+                    title: "导入产品库存",
+                    template_columns: "新编码, 旧编码, 物料名称, 库位编码, 库存数量, 价格, 安全库存, 分类ID",
+                },
+            )
+        })
+    }
+}
 }
 
 fn product_table_fragment(
@@ -369,72 +403,103 @@ fn product_table_fragment(
  let query = build_query_string(params);
 
  html! {
- div class="customer-list-panel" {
- // ── Filter Bar ──
- form id="filter-form" class="flex items-center gap-3 mb-5 flex-wrap filter-form"
- hx-get=(ProductListPath::PATH)
- hx-trigger="change,keyup changed delay:300ms from:.search-input"
- hx-target=".data-card"
- hx-select=".data-card"
- hx-swap="outerHTML"
- hx-include="#filter-form"
- hx-push-url="true" {
- div class="relative w-60" {
- (icon::search_icon("absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted"))
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input" type="text" name="code"
- placeholder="产品编码"
- value=(params.code.as_deref().unwrap_or_default());
- }
- div class="relative w-60" {
- (icon::search_icon("absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted"))
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input" type="text" name="name"
- placeholder="产品名称"
- value=(params.name.as_deref().unwrap_or_default());
- }
- select class="w-40 px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer" name="status" {
- option value="" { "全部状态" }
- option value="1" selected[params.status == Some(1)] { "在用" }
- option value="2" selected[params.status == Some(2)] { "停用" }
- option value="3" selected[params.status == Some(3)] { "作废" }
- }
- (category_tree_select(
- categories,
- params.category_id,
- "category_id",
- "全部分类",
- ))
- }
-
- // ── Data Table ──
- div class="data-card" {
- div class="overflow-x-auto" {
- table class="data-table" {
- thead {
- tr {
- th { "产品编码" }
- th { "产品名称" }
- th { "规格型号" }
- th { "单位" }
- th { "状态" }
- th class="!text-right" { "操作" }
- }
- }
- tbody {
- @for p in &result.items {
- (product_row(p, watched_ids, can_delete, can_edit))
- }
- @if result.items.is_empty() {
- tr { td colspan="6" class="text-center text-muted text-sm py-8" {
- "暂无产品数据"
- } }
- }
- }
- }
- }
- (pagination(ProductListPath::PATH, &query, result.total, result.page, result.total_pages))
- }
- }
- }
+    div class="customer-list-panel" {
+        // ── Filter Bar ──
+        form
+            id="filter-form"
+            class="flex items-center gap-3 mb-5 flex-wrap filter-form"
+            hx-get=(ProductListPath::PATH)
+            hx-trigger="change,keyup changed delay:300ms from:.search-input"
+            hx-target=".data-card"
+            hx-select=".data-card"
+            hx-swap="outerHTML"
+            hx-include="#filter-form"
+            hx-push-url="true"
+        {
+            div class="relative w-60" {
+                ({
+                    icon::search_icon(
+                        "absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted",
+                    )
+                })
+                input
+                    class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input"
+                    type="text"
+                    name="code"
+                    placeholder="产品编码"
+                    value=(params.code.as_deref().unwrap_or_default());
+            }
+            div class="relative w-60" {
+                ({
+                    icon::search_icon(
+                        "absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted",
+                    )
+                })
+                input
+                    class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input"
+                    type="text"
+                    name="name"
+                    placeholder="产品名称"
+                    value=(params.name.as_deref().unwrap_or_default());
+            }
+            select
+                class="w-40 px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer"
+                name="status"
+            {
+                option value="" { "全部状态" }
+                option value="1" selected[params.status == Some(1)] { "在用" }
+                option value="2" selected[params.status == Some(2)] { "停用" }
+                option value="3" selected[params.status == Some(3)] { "作废" }
+            }
+            ({
+                category_tree_select(
+                    categories,
+                    params.category_id,
+                    "category_id",
+                    "全部分类",
+                )
+            })
+        }
+        // ── Data Table ──
+        div class="data-card" {
+            div class="overflow-x-auto" {
+                table class="data-table" {
+                    thead {
+                        tr {
+                            th { "产品编码" }
+                            th { "产品名称" }
+                            th { "规格型号" }
+                            th { "单位" }
+                            th { "状态" }
+                            th class="!text-right" { "操作" }
+                        }
+                    }
+                    tbody {
+                        @for p in &result.items {
+                            (product_row(p, watched_ids, can_delete, can_edit))
+                        }
+                        @if result.items.is_empty() {
+                            tr {
+                                td colspan="6" class="text-center text-muted text-sm py-8" {
+                                    "暂无产品数据"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            ({
+                pagination(
+                    ProductListPath::PATH,
+                    &query,
+                    result.total,
+                    result.page,
+                    result.total_pages,
+                )
+            })
+        }
+    }
+}
  }
 
 fn product_row(p: &Product, watched_ids: &[i64], can_delete: bool, can_edit: bool) -> Markup {
@@ -456,98 +521,117 @@ fn product_row(p: &Product, watched_ids: &[i64], can_delete: bool, can_edit: boo
  );
 
  html! {
- tr id=(format!("product-row-{}", p.product_id)) class="hover:bg-accent-bg transition-colors" {
- td {
- a href=(detail_path.to_string()) class="text-accent font-medium font-mono tabular-nums hover:underline" { (p.product_code) }
- }
- td { a href=(detail_path.to_string()) class="text-fg hover:text-accent font-medium" { strong { (p.pdt_name) } } }
- td class="text-sm text-muted" {
- @if spec.is_empty() {
- span class="text-muted" { "—" }
- } @else {
- (spec)
- }
- }
- td class="text-sm text-fg-2" { (p.unit) }
- @let (status_label, status_cls) = product_status_badge(&p.status);
- td { span class=(format!("status-pill {}", status_cls)) { (status_label) } }
- td {
- div class="row-actions flex items-center gap-1 justify-end opacity-0 transition-opacity duration-150 icon:w-3.5 icon:h-3.5" {
- // View detail
- a class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer hover:bg-accent-bg" title="查看"
- href=(detail_path) {
- (icon::eye_icon("w-4 h-4"))
- }
- // BOM usage
- button type="button" class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" title="BOM引用"
- hx-get=(usage_path)
- hx-target="#bom-drawer-body"
- hx-swap="innerHTML"
- _="on 'htmx:afterRequest' add .open to #bom-drawer" {
- (icon::link_icon("w-4 h-4"))
- }
- // More menu trigger
- button type="button" class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" title="更多"
- id=(format!("more-btn-{}", p.product_id))
- _="on click if next .row-actions-menu's style's display is 'none'
+    tr id=(format!("product-row-{}", p.product_id)) class="hover:bg-accent-bg transition-colors" {
+        td {
+            a   href=(detail_path.to_string())
+                class="text-accent font-medium font-mono tabular-nums hover:underline"
+            { (p.product_code) }
+        }
+        td {
+            a href=(detail_path.to_string()) class="text-fg hover:text-accent font-medium" {
+                strong { (p.pdt_name) }
+            }
+        }
+        td class="text-sm text-muted" {
+            @if spec.is_empty() {
+                span class="text-muted" { "—" }
+            } @else { (spec) }
+        }
+        td class="text-sm text-fg-2" { (p.unit) }
+        @let (status_label, status_cls) = product_status_badge(&p.status);
+        td {
+            span class=(format!("status-pill {}", status_cls)) { (status_label) }
+        }
+        td {
+            div class="row-actions flex items-center gap-1 justify-end opacity-0 transition-opacity duration-150 icon:w-3.5 icon:h-3.5"
+            {
+                // View detail
+                a   class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer hover:bg-accent-bg"
+                    title="查看"
+                    href=(detail_path)
+                { (icon::eye_icon("w-4 h-4")) }
+                // BOM usage
+                button
+                    type="button"
+                    class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer"
+                    title="BOM引用"
+                    hx-get=(usage_path)
+                    hx-target="#bom-drawer-body"
+                    hx-swap="innerHTML"
+                    _="on 'htmx:afterRequest' add .open to #bom-drawer"
+                { (icon::link_icon("w-4 h-4")) }
+                // More menu trigger
+                button
+                    type="button"
+                    class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer"
+                    title="更多"
+                    id=(format!("more-btn-{}", p.product_id))
+                    _="on click if next .row-actions-menu's style's display is 'none'
  then show next .row-actions-menu then show next .row-actions-menu-backdrop then call positionDropdown(me, next .row-actions-menu)
- else hide next .row-actions-menu then hide next .row-actions-menu-backdrop" {
- (icon::dots_vertical_icon("w-4 h-4"))
- }
- div id=(backdrop_id) class="row-actions-menu-backdrop fixed inset-0 z-[999] cursor-default" style="display:none"
- _="on click remove .is-open from next .row-actions-menu then hide next .row-actions-menu then hide me" {}
- div id=(menu_id) class="row-actions-menu fixed z-[1000] bg-bg border border-border rounded shadow-[var(--shadow-card)] min-w-[140px] py-1" style="display:none" {
- @if can_edit {
- a href=(edit_path) class="flex items-center gap-2 w-full text-left px-4 py-2 text-sm text-fg-2 hover:bg-accent-bg hover:text-accent transition-colors no-underline" {
- (icon::edit_icon("w-4 h-4"))
- "编辑"
- }
- a href=(copy_path.to_string()) class="flex items-center gap-2 w-full text-left px-4 py-2 text-sm text-fg-2 hover:bg-accent-bg hover:text-accent transition-colors no-underline" {
- (icon::copy_icon("w-4 h-4"))
- "复制"
- }
- }
- button type="button" class="flex items-center gap-2 w-full text-left px-4 py-2 text-sm text-fg-2 hover:bg-accent-bg hover:text-accent transition-colors border-none bg-transparent cursor-pointer"
- hx-get=(drawer_path)
- hx-target="#price-drawer-body"
- hx-swap="innerHTML"
- _=(close_menu_hs) {
- (icon::currency_icon("w-4 h-4"))
- "设置价格"
- }
- @if is_watched {
- button type="button" class="flex items-center gap-2 w-full text-left px-4 py-2 text-sm text-fg-2 hover:bg-accent-bg hover:text-accent transition-colors border-none bg-transparent cursor-pointer"
- hx-post=(unwatch_path)
- hx-swap="none"
- _=(close_menu_hs) {
- (icon::bell_icon("w-4 h-4"))
- "取消关注"
- }
- } @else {
- button type="button" class="flex items-center gap-2 w-full text-left px-4 py-2 text-sm text-fg-2 hover:bg-accent-bg hover:text-accent transition-colors border-none bg-transparent cursor-pointer"
- hx-post=(watch_path)
- hx-swap="none"
- _=(close_menu_hs) {
- (icon::bell_icon("w-4 h-4"))
- "关注"
- }
- }
- @if can_delete {
- button type="button" class="flex items-center gap-2 w-full text-left px-4 py-2 text-sm text-danger hover:bg-[rgba(220,38,38,0.08)] transition-colors border-none bg-transparent cursor-pointer"
- hx-post=(delete_path)
- hx-confirm=(format!("删除后无法恢复，确定要删除产品「{}」吗？", p.pdt_name))
- hx-target=(format!("#product-row-{}", p.product_id))
- hx-swap="outerHTML swap:0.5s"
- _=(close_menu_hs) {
- (icon::trash_icon("w-4 h-4"))
- "删除"
- }
- }
- }
- }
- }
- }
- }
+ else hide next .row-actions-menu then hide next .row-actions-menu-backdrop"
+                { (icon::dots_vertical_icon("w-4 h-4")) }
+                div id=(backdrop_id)
+                    class="row-actions-menu-backdrop fixed inset-0 z-[999] cursor-default"
+                    style="display:none"
+                    _="on click remove .is-open from next .row-actions-menu then hide next .row-actions-menu then hide me" {}
+                div id=(menu_id)
+                    class="row-actions-menu fixed z-[1000] bg-bg border border-border rounded shadow-[var(--shadow-card)] min-w-[140px] py-1"
+                    style="display:none"
+                {
+                    @if can_edit {
+                        a   href=(edit_path)
+                            class="flex items-center gap-2 w-full text-left px-4 py-2 text-sm text-fg-2 hover:bg-accent-bg hover:text-accent transition-colors no-underline"
+                        { (icon::edit_icon("w-4 h-4")) "编辑" }
+                        a   href=(copy_path.to_string())
+                            class="flex items-center gap-2 w-full text-left px-4 py-2 text-sm text-fg-2 hover:bg-accent-bg hover:text-accent transition-colors no-underline"
+                        { (icon::copy_icon("w-4 h-4")) "复制" }
+                    }
+                    button
+                        type="button"
+                        class="flex items-center gap-2 w-full text-left px-4 py-2 text-sm text-fg-2 hover:bg-accent-bg hover:text-accent transition-colors border-none bg-transparent cursor-pointer"
+                        hx-get=(drawer_path)
+                        hx-target="#price-drawer-body"
+                        hx-swap="innerHTML"
+                        _=(close_menu_hs)
+                    { (icon::currency_icon("w-4 h-4")) "设置价格" }
+                    @if is_watched {
+                        button
+                            type="button"
+                            class="flex items-center gap-2 w-full text-left px-4 py-2 text-sm text-fg-2 hover:bg-accent-bg hover:text-accent transition-colors border-none bg-transparent cursor-pointer"
+                            hx-post=(unwatch_path)
+                            hx-swap="none"
+                            _=(close_menu_hs)
+                        { (icon::bell_icon("w-4 h-4")) "取消关注" }
+                    } @else {
+                        button
+                            type="button"
+                            class="flex items-center gap-2 w-full text-left px-4 py-2 text-sm text-fg-2 hover:bg-accent-bg hover:text-accent transition-colors border-none bg-transparent cursor-pointer"
+                            hx-post=(watch_path)
+                            hx-swap="none"
+                            _=(close_menu_hs)
+                        { (icon::bell_icon("w-4 h-4")) "关注" }
+                    }
+                    @if can_delete {
+                        button
+                            type="button"
+                            class="flex items-center gap-2 w-full text-left px-4 py-2 text-sm text-danger hover:bg-[rgba(220,38,38,0.08)] transition-colors border-none bg-transparent cursor-pointer"
+                            hx-post=(delete_path)
+                            hx-confirm=({
+                                format!(
+                                    "删除后无法恢复，确定要删除产品「{}」吗？",
+                                    p.pdt_name,
+                                )
+                            })
+                            hx-target=(format!("#product-row-{}", p.product_id))
+                            hx-swap="outerHTML swap:0.5s"
+                            _=(close_menu_hs)
+                        { (icon::trash_icon("w-4 h-4")) "删除" }
+                    }
+                }
+            }
+        }
+    }
+}
 }
 
 fn product_status_badge(s: &ProductStatus) -> (&'static str, &'static str) {
@@ -566,59 +650,52 @@ fn bom_drawer_content(product: &Product, entries: &[UsageEntry], total: u64) -> 
  let draft_count = total as usize - active_count;
 
  html! {
- // Product info card
- div class="flex items-start gap-[14px] bg-surface rounded-lg" {
- div class="w-[40px] h-[40px] rounded flex items-center justify-center shrink-0" style="background:linear-gradient(135deg,#f5f0ff,#ede5ff)" {
- (icon::bolt_icon("w-5 h-5"))
- }
- div class="flex-1 min-w-0" {
- div class="text-[15px] font-semibold text-fg" { (product.pdt_name) }
- div class="text-xs text-muted" {
- (product.product_code) " \u{00b7} "
- @if spec.is_empty() {
- (product.unit)
- } @else {
- (spec) " / " (product.unit)
- }
- }
- }
- }
-
- // Summary stats
- div class="grid grid-cols-3 gap-3" {
- div class="flex flex-col p-3 bg-surface rounded" {
- div class="text-[18px] font-bold text-accent" { (total) }
- div class="text-[11px] text-muted mt-1" { "引用 BOM 数" }
- }
- div class="flex flex-col p-3 bg-surface rounded" {
- div class="text-[18px] font-bold text-success" { (active_count) }
- div class="text-[11px] text-muted mt-1" { "生效中" }
- }
- div class="flex flex-col p-3 bg-surface rounded" {
- div class="text-[18px] font-bold text-fg" { (draft_count) }
- div class="text-[11px] text-muted mt-1" { "草稿" }
- }
- }
-
- // BOM list
- div class="mb-5" {
- div class="text-[13px] font-semibold text-fg flex items-center gap-[6px]" {
- (icon::clipboard_list_icon("w-3.5 h-3.5"))
- "BOM 清单"
- }
- @if entries.is_empty() {
- div class="text-center text-muted" {
- (icon::clipboard_list_icon("w-12 h-12"))
- p { "暂无 BOM 引用" }
- p class="text-xs text-muted mt-1" { "该产品尚未被任何 BOM 引用" }
- }
- } @else {
- @for entry in entries {
- (bom_ref_card(entry))
- }
- }
- }
- }
+    // Product info card
+    div class="flex items-start gap-[14px] bg-surface rounded-lg" {
+        div class="w-[40px] h-[40px] rounded flex items-center justify-center shrink-0"
+            style="background:linear-gradient(135deg,#f5f0ff,#ede5ff)"
+        { (icon::bolt_icon("w-5 h-5")) }
+        div class="flex-1 min-w-0" {
+            div class="text-[15px] font-semibold text-fg" { (product.pdt_name) }
+            div class="text-xs text-muted" {
+                (product.product_code)
+                " \u{00b7} "
+                @if spec.is_empty() { (product.unit) } @else { (spec) " / " (product.unit) }
+            }
+        }
+    }
+    // Summary stats
+    div class="grid grid-cols-3 gap-3" {
+        div class="flex flex-col p-3 bg-surface rounded" {
+            div class="text-[18px] font-bold text-accent" { (total) }
+            div class="text-[11px] text-muted mt-1" { "引用 BOM 数" }
+        }
+        div class="flex flex-col p-3 bg-surface rounded" {
+            div class="text-[18px] font-bold text-success" { (active_count) }
+            div class="text-[11px] text-muted mt-1" { "生效中" }
+        }
+        div class="flex flex-col p-3 bg-surface rounded" {
+            div class="text-[18px] font-bold text-fg" { (draft_count) }
+            div class="text-[11px] text-muted mt-1" { "草稿" }
+        }
+    }
+    // BOM list
+    div class="mb-5" {
+        div class="text-[13px] font-semibold text-fg flex items-center gap-[6px]" {
+            (icon::clipboard_list_icon("w-3.5 h-3.5"))
+            "BOM 清单"
+        }
+        @if entries.is_empty() {
+            div class="text-center text-muted" {
+                (icon::clipboard_list_icon("w-12 h-12"))
+                p { "暂无 BOM 引用" }
+                p class="text-xs text-muted mt-1" { "该产品尚未被任何 BOM 引用" }
+            }
+        } @else {
+            @for entry in entries { (bom_ref_card(entry)) }
+        }
+    }
+}
 }
 
 fn bom_ref_card(entry: &UsageEntry) -> Markup {
@@ -635,140 +712,169 @@ fn bom_ref_card(entry: &UsageEntry) -> Markup {
  let has_detail = entry.bom_version.is_some() || entry.parent_product_name.is_some();
 
  html! {
- div class="bom-ref-card border border-border rounded overflow-hidden" {
- div class="flex items-center gap-[14px] cursor-pointer p-3"
- _="on click toggle .hidden on next <div/>" {
- div class="w-[38px] h-[38px] rounded-sm shrink-0 flex items-center justify-center bg-surface" {
- (icon::bolt_icon("w-4.5 h-4.5"))
- }
- div class="flex-1 min-w-0" {
- div class="text-[14px] font-semibold text-fg flex items-center gap-[8px]" {
- a href=(bom_detail_path) class="text-accent no-underline font-semibold" {
- (entry.source_name)
- }
- span class="text-[11px] font-normal text-muted font-mono" {
- "BOM-" (entry.source_id)
- }
- }
- div class="flex items-center gap-[12px] text-xs text-muted" {
- span { "版本 " (version) }
- @if !parent_name.is_empty() && parent_name != "—" {
- span { "父件: " (parent_name) }
- }
- span class=(format!("status-pill {}", crate::utils::status_color(status_class))) { (status_label) }
- }
- }
- div class="flex items-center gap-[10px] shrink-0" {
- div class="text-right" {
- div class="text-[16px] font-bold text-fg" {
- (qty) " "
- span class="text-xs font-normal text-muted" { (unit) }
- }
- }
- button class="border-none cursor-pointer text-muted flex items-center justify-center" {
- svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" {
- path d="M19 9l-7 7-7-7" {}
- }
- 
- }
- }
-
- }
- @if has_detail {
- div class="border-t bg-surface p-3 grid grid-cols-2 gap-x-6 gap-y-2 text-xs hidden" {
- div class="flex gap-2" {
- span class="text-muted" { "BOM 编码:" }
- span class="text-fg font-medium font-mono" { "BOM-" (entry.source_id) }
- }
- div class="flex gap-2" {
- span class="text-muted" { "版本:" }
- span class="text-fg font-medium" { (version) }
- }
- @if let Some(pn) = &entry.parent_product_name {
- div class="flex gap-2" {
- span class="text-muted" { "父件产品:" }
- span class="text-fg font-medium" {
- a href=(format!("/admin/md/products/{}", entry.parent_product_code.as_deref().unwrap_or(""))) class="text-accent no-underline" {
- (pn)
- }
- }
- }
- }
- @if let Some(pc) = &entry.parent_product_code {
- div class="flex gap-2" {
- span class="text-muted" { "父件编码:" }
- span class="text-fg font-medium font-mono" { (pc) }
- }
- }
- div class="flex gap-2" {
- span class="text-muted" { "用量:" }
- span class="text-fg font-medium font-mono" {
- (qty) " " (unit)
- }
- }
- @if let Some(remark) = &entry.node_remark {
- @if !remark.is_empty() {
- div class="flex gap-2 col-span-full" {
- span class="text-muted" { "备注:" }
- span class="text-fg font-medium" { (remark) }
- }
- }
- }
- }
- }
- }
- }
+    div class="bom-ref-card border border-border rounded overflow-hidden" {
+        div class="flex items-center gap-[14px] cursor-pointer p-3"
+            _="on click toggle .hidden on next <div/>"
+        {
+            div class="w-[38px] h-[38px] rounded-sm shrink-0 flex items-center justify-center bg-surface"
+            { (icon::bolt_icon("w-4.5 h-4.5")) }
+            div class="flex-1 min-w-0" {
+                div class="text-[14px] font-semibold text-fg flex items-center gap-[8px]" {
+                    a href=(bom_detail_path) class="text-accent no-underline font-semibold" {
+                        (entry.source_name)
+                    }
+                    span class="text-[11px] font-normal text-muted font-mono" {
+                        "BOM-"
+                        (entry.source_id)
+                    }
+                }
+                div class="flex items-center gap-[12px] text-xs text-muted" {
+                    span { "版本 " (version) }
+                    @if !parent_name.is_empty() && parent_name != "—" {
+                        span { "父件: " (parent_name) }
+                    }
+                    span class=({
+                        format!(
+                            "status-pill {}",
+                            crate::utils::status_color(status_class),
+                        )
+                    }) { (status_label) }
+                }
+            }
+            div class="flex items-center gap-[10px] shrink-0" {
+                div class="text-right" {
+                    div class="text-[16px] font-bold text-fg" {
+                        (qty)
+                        " "
+                        span class="text-xs font-normal text-muted" { (unit) }
+                    }
+                }
+                button
+                    class="border-none cursor-pointer text-muted flex items-center justify-center"
+                {
+                    svg width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                    {
+                        path d="M19 9l-7 7-7-7" {}
+                    }
+                }
+            }
+        }
+        @if has_detail {
+            div class="border-t bg-surface p-3 grid grid-cols-2 gap-x-6 gap-y-2 text-xs hidden" {
+                div class="flex gap-2" {
+                    span class="text-muted" { "BOM 编码:" }
+                    span class="text-fg font-medium font-mono" { "BOM-" (entry.source_id) }
+                }
+                div class="flex gap-2" {
+                    span class="text-muted" { "版本:" }
+                    span class="text-fg font-medium" { (version) }
+                }
+                @if let Some(pn) = &entry.parent_product_name {
+                    div class="flex gap-2" {
+                        span class="text-muted" { "父件产品:" }
+                        span class="text-fg font-medium" {
+                            a   href=({
+                                    format!(
+                                        "/admin/md/products/{}",
+                                        entry.parent_product_code.as_deref().unwrap_or(""),
+                                    )
+                                })
+                                class="text-accent no-underline"
+                            { (pn) }
+                        }
+                    }
+                }
+                @if let Some(pc) = &entry.parent_product_code {
+                    div class="flex gap-2" {
+                        span class="text-muted" { "父件编码:" }
+                        span class="text-fg font-medium font-mono" { (pc) }
+                    }
+                }
+                div class="flex gap-2" {
+                    span class="text-muted" { "用量:" }
+                    span class="text-fg font-medium font-mono" { (qty) " " (unit) }
+                }
+                @if let Some(remark) = &entry.node_remark {
+                    @if !remark.is_empty() {
+                        div class="flex gap-2 col-span-full" {
+                            span class="text-muted" { "备注:" }
+                            span class="text-fg font-medium" { (remark) }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
 }
 
 fn usage_error_dialog(name: &str, total: u64) -> Markup {
  html! {
- div id="usage-error-dialog" class="error-dialog fixed inset-0 z-[1100] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto is-open"
- _="on click[me is event.target] remove .is-open" {
- div class="bg-bg rounded-xl w-[480px] p-6 shadow-xl" {
- div class="flex justify-center mb-3" {
- (icon::circle_alert_icon("w-7 h-7"))
- }
- div class="text-lg font-semibold text-fg text-center mb-2" { "无法删除" }
- p class="text-sm text-muted text-center leading-relaxed" {
- (maud::PreEscaped(format!(
- "产品 <strong>{name}</strong> 正被 <strong>{total}</strong> 个 BOM 引用，无法删除。请先移除相关引用后再试。",
- )))
- }
- div class="flex justify-center mt-5" {
- button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
- _="on click remove .is-open from closest .error-dialog" { "知道了" }
- }
- }
- }
- }
+    div id="usage-error-dialog"
+        class="error-dialog fixed inset-0 z-[1100] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto is-open"
+        _="on click[me is event.target] remove .is-open"
+    {
+        div class="bg-bg rounded-xl w-[480px] p-6 shadow-xl" {
+            div class="flex justify-center mb-3" { (icon::circle_alert_icon("w-7 h-7")) }
+            div class="text-lg font-semibold text-fg text-center mb-2" { "无法删除" }
+            p class="text-sm text-muted text-center leading-relaxed" {
+                ({
+                    maud::PreEscaped(
+                        format!(
+                            "产品 <strong>{name}</strong> 正被 <strong>{total}</strong> 个 BOM 引用，无法删除。请先移除相关引用后再试。",
+                        ),
+                    )
+                })
+            }
+            div class="flex justify-center mt-5" {
+                button
+                    type="button"
+                    class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                    _="on click remove .is-open from closest .error-dialog"
+                { "知道了" }
+            }
+        }
+    }
+}
 }
 
 fn price_history_table(_product_id: i64, entries: &[PriceLogEntry]) -> Markup {
  html! {
- div class="history-modal fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto is-open"
- _="on click[me is event.target] remove .is-open" {
- div class="bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl" {
- div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
- h2 { "价格变更记录" }
- button class="text-muted hover:text-fg cursor-pointer bg-transparent border-none"
- _="on click remove .is-open from closest .history-modal" { "×" }
- }
- div class="overflow-y-auto flex-1 min-h-0 p-6" {
- @if entries.is_empty() {
- div class="text-center p-6 text-muted text-sm" { "暂无价格变更记录" }
- } @else {
- @for entry in entries {
- (price_history_diff_item(entry))
- }
- }
- }
- div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" {
- button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
- _="on click remove .is-open from closest .history-modal" { "关闭" }
- }
- }
- }
- }
+    div class="history-modal fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto is-open"
+        _="on click[me is event.target] remove .is-open"
+    {
+        div class="bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl"
+        {
+            div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0"
+            {
+                h2 { "价格变更记录" }
+                button
+                    class="text-muted hover:text-fg cursor-pointer bg-transparent border-none"
+                    _="on click remove .is-open from closest .history-modal"
+                { "×" }
+            }
+            div class="overflow-y-auto flex-1 min-h-0 p-6" {
+                @if entries.is_empty() {
+                    div class="text-center p-6 text-muted text-sm" { "暂无价格变更记录" }
+                } @else {
+                    @for entry in entries { (price_history_diff_item(entry)) }
+                }
+            }
+            div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" {
+                button
+                    type="button"
+                    class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                    _="on click remove .is-open from closest .history-modal"
+                { "关闭" }
+            }
+        }
+    }
+}
 }
 
 fn price_type_label(pt: PriceType) -> &'static str {
@@ -784,72 +890,80 @@ fn price_drawer_content(product: &Product, current_price: &Decimal, history: &[P
  let spec = &product.meta.specification;
  let has_more = (total_count as usize) > history.len();
  html! {
- form id="price-drawer-form" hx-post=(price_path) hx-target="#price-drawer-body" hx-swap="innerHTML" {
- input type="hidden" name="price_type" value="1";
- // Product info card
- div class="flex items-start gap-[14px] bg-surface rounded-lg" {
- div class="w-[40px] h-[40px] rounded flex items-center justify-center shrink-0" {
- (icon::box_icon("w-5 h-5"))
- }
- div class="flex-1 min-w-0" {
- div class="text-[15px] font-semibold text-fg" { (product.pdt_name) }
- div class="text-xs text-muted" {
- (product.product_code) " \u{00b7} "
- @if spec.is_empty() {
- (product.unit)
- } @else {
- (spec) " / " (product.unit)
- }
- }
- }
- }
- // Price section
- div class="mb-5" {
- div class="text-[13px] font-semibold text-fg flex items-center gap-[6px]" {
- (icon::currency_icon("w-3.5 h-3.5"))
- "产品单价"
- }
- div class="flex items-center border border-border rounded overflow-hidden bg-bg" {
- div class="px-3 py-2 bg-surface text-muted border-r border-border" { "单价" }
- div class="px-2 text-muted" { "¥" }
- input type="text" name="new_price"
- class="flex-1 min-w-0 px-3 py-2 text-sm text-fg outline-none bg-transparent"
- value=(format!("{:.4}", current_price))
- placeholder="0.0000";
- }
- }
- // Remark section
- div class="mb-5" {
- div class="text-[13px] font-semibold text-fg flex items-center gap-[6px]" {
- (icon::comment_icon("w-3.5 h-3.5"))
- "调价说明"
- }
- div class="form-field" {
- textarea name="remark" placeholder="调价原因（如：原材料上涨、供应商调价、季度促销等）" rows="2" class="resize-none w-full text-[13px] text-fg" class="rounded-md" class="border border-border" style="padding:8px 12px;font-family:var(--font-body)" {}
- }
- }
- // Price history
- div class="mb-5" {
- div class="text-[13px] font-semibold text-fg flex items-center gap-[6px]" {
- (icon::clock_icon("w-3.5 h-3.5"))
- "变更历史"
- }
- @if history.is_empty() {
- div class="text-center text-muted text-sm py-8" { "暂无价格变更记录" }
- } @else {
- @for entry in history {
- (price_history_diff_item(entry))
- }
- @if has_more {
- a class="text-center text-xs text-accent cursor-pointer" href="/admin/md/price-history" {
- (icon::chevron_down_icon("w-3 h-3"))
- "查看全部 " (total_count) " 条变更记录"
- }
- }
- }
- }
- }
- }
+    form
+        id="price-drawer-form"
+        hx-post=(price_path)
+        hx-target="#price-drawer-body"
+        hx-swap="innerHTML"
+    {
+        input type="hidden" name="price_type" value="1";
+        // Product info card
+        div class="flex items-start gap-[14px] bg-surface rounded-lg" {
+            div class="w-[40px] h-[40px] rounded flex items-center justify-center shrink-0" {
+                (icon::box_icon("w-5 h-5"))
+            }
+            div class="flex-1 min-w-0" {
+                div class="text-[15px] font-semibold text-fg" { (product.pdt_name) }
+                div class="text-xs text-muted" {
+                    (product.product_code)
+                    " \u{00b7} "
+                    @if spec.is_empty() { (product.unit) } @else { (spec) " / " (product.unit) }
+                }
+            }
+        }
+        // Price section
+        div class="mb-5" {
+            div class="text-[13px] font-semibold text-fg flex items-center gap-[6px]" {
+                (icon::currency_icon("w-3.5 h-3.5"))
+                "产品单价"
+            }
+            div class="flex items-center border border-border rounded overflow-hidden bg-bg" {
+                div class="px-3 py-2 bg-surface text-muted border-r border-border" { "单价" }
+                div class="px-2 text-muted" { "¥" }
+                input
+                    type="text"
+                    name="new_price"
+                    class="flex-1 min-w-0 px-3 py-2 text-sm text-fg outline-none bg-transparent"
+                    value=(format!("{:.4}", current_price))
+                    placeholder="0.0000";
+            }
+        }
+        // Remark section
+        div class="mb-5" {
+            div class="text-[13px] font-semibold text-fg flex items-center gap-[6px]" {
+                (icon::comment_icon("w-3.5 h-3.5"))
+                "调价说明"
+            }
+            div class="form-field" {
+                textarea
+                    name="remark"
+                    placeholder="调价原因（如：原材料上涨、供应商调价、季度促销等）"
+                    rows="2"
+                    class="resize-none w-full text-[13px] text-fg"
+                    class="rounded-md"
+                    class="border border-border"
+                    style="padding:8px 12px;font-family:var(--font-body)" {}
+            }
+        }
+        // Price history
+        div class="mb-5" {
+            div class="text-[13px] font-semibold text-fg flex items-center gap-[6px]" {
+                (icon::clock_icon("w-3.5 h-3.5"))
+                "变更历史"
+            }
+            @if history.is_empty() {
+                div class="text-center text-muted text-sm py-8" { "暂无价格变更记录" }
+            } @else {
+                @for entry in history { (price_history_diff_item(entry)) }
+                @if has_more {
+                    a   class="text-center text-xs text-accent cursor-pointer"
+                        href="/admin/md/price-history"
+                    { (icon::chevron_down_icon("w-3 h-3")) "查看全部 " (total_count) " 条变更记录" }
+                }
+            }
+        }
+    }
+}
 }
 
 fn price_history_diff_item(entry: &PriceLogEntry) -> Markup {
@@ -874,20 +988,29 @@ fn price_history_diff_item(entry: &PriceLogEntry) -> Markup {
  };
 
  html! {
- div class="border border-border-soft rounded-lg p-3" {
- div class="flex items-center gap-2 mb-2" {
- span class="text-muted line-through" { "¥ " (old_str) }
- svg class="text-muted" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" { path d="M17 8l4 4m0 0l-4 4m4-4H3" {} }
- span class="text-fg font-medium" { "¥ " (new_str) }
- span class=(badge_class) { (pct) }
- }
- div class="flex items-center gap-3 text-[11px] text-muted" {
- span { (price_type_label(entry.price_type)) }
- span { (entry.created_at.format("%Y-%m-%d")) }
- @if !entry.remark.is_empty() {
- span class="flex-1 overflow-hidden text-ellipsis whitespace-nowrap" { (entry.remark) }
- }
- }
- }
- }
+    div class="border border-border-soft rounded-lg p-3" {
+        div class="flex items-center gap-2 mb-2" {
+            span class="text-muted line-through" { "¥ " (old_str) }
+            svg class="text-muted"
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+            {
+                path d="M17 8l4 4m0 0l-4 4m4-4H3" {}
+            }
+            span class="text-fg font-medium" { "¥ " (new_str) }
+            span class=(badge_class) { (pct) }
+        }
+        div class="flex items-center gap-3 text-[11px] text-muted" {
+            span { (price_type_label(entry.price_type)) }
+            span { (entry.created_at.format("%Y-%m-%d")) }
+            @if !entry.remark.is_empty() {
+                span class="flex-1 overflow-hidden text-ellipsis whitespace-nowrap" { (entry.remark) }
+            }
+        }
+    }
+}
 }

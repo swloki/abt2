@@ -96,103 +96,124 @@ fn work_center_list_page(
  let query_string = build_query_string(params);
 
  html! {
- div class="flex items-center justify-between mb-6" {
- h1 class="text-2xl font-bold text-fg tracking-tight" { "工作中心管理" }
- div class="flex gap-3" {
-a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(WorkCenterCreatePath::PATH) {
-(icon::plus_icon("w-4 h-4"))
-"新建工作中心"
-}
-}
-}
+    div class="flex items-center justify-between mb-6" {
+        h1 class="text-2xl font-bold text-fg tracking-tight" { "工作中心管理" }
+        div class="flex gap-3" {
+            a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                href=(WorkCenterCreatePath::PATH)
+            { (icon::plus_icon("w-4 h-4")) "新建工作中心" }
+        }
+    }
+    // 筛选栏
+    div class="flex items-center gap-3 mb-5 flex-wrap" {
+        form
+            class="filter-form flex items-center gap-3"
+            id="wc-filter-form"
+            hx-get=(WorkCenterListPath::PATH)
+            hx-trigger="change, keyup changed delay:300ms from:.search-input"
+            hx-target="#data-card"
+            hx-select="#data-card"
+            hx-swap="outerHTML"
+            hx-push-url="true"
+            hx-include="#wc-filter-form"
+        {
 
- // 筛选栏
- div class="flex items-center gap-3 mb-5 flex-wrap" {
- form class="filter-form flex items-center gap-3" id="wc-filter-form"
- hx-get=(WorkCenterListPath::PATH)
- hx-trigger="change, keyup changed delay:300ms from:.search-input"
- hx-target="#data-card"
- hx-select="#data-card"
- hx-swap="outerHTML"
- hx-push-url="true"
- hx-include="#wc-filter-form" {
+            select
+                class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer"
+                name="is_active"
+            {
+                @if params.is_active.is_none() {
+                    option value="" selected { "全部" }
+                } @else {
+                    option value="" { "全部" }
+                }
+                @if params.is_active.as_deref() == Some("true") {
+                    option value="true" selected { "启用" }
+                } @else {
+                    option value="true" { "启用" }
+                }
+                @if params.is_active.as_deref() == Some("false") {
+                    option value="false" selected { "停用" }
+                } @else {
+                    option value="false" { "停用" }
+                }
+            }
 
- select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="is_active" {
- @if params.is_active.is_none() {
- option value="" selected { "全部" }
- } @else {
- option value="" { "全部" }
- }
- @if params.is_active.as_deref() == Some("true") {
- option value="true" selected { "启用" }
- } @else {
- option value="true" { "启用" }
- }
- @if params.is_active.as_deref() == Some("false") {
- option value="false" selected { "停用" }
- } @else {
- option value="false" { "停用" }
- }
- }
-
- div class="relative flex-1 max-w-xs icon:absolute icon:left-3 icon:top-1/2 icon:-translate-y-1/2 icon:w-4 icon:h-4 icon:text-muted" {
- (icon::search_icon("w-4 h-4"))
- input class="search-input w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input" type="text" name="keyword"
- placeholder="搜索编码 / 名称"
- value=(params.keyword.as_deref().unwrap_or(""));
- }
- }
- }
-
- // 数据表
- div class="data-card" id="data-card" {
- div class="overflow-x-auto" {
- table class="data-table" {
- thead {
- tr {
- th { "编码" }
- th { "名称" }
- th { "类型" }
- th class="text-right text-[13px]" { "产能/小时" }
- th class="text-right text-[13px]" { "成本费率/h" }
- th { "状态" }
- th class="!text-right" { "操作" }
- }
- }
- tbody {
- @for wc in &result.items {
- tr {
- td class="font-mono tabular-nums" { (wc.code) }
- td { strong { (wc.name) } }
- td { (work_center_type_label(wc.work_center_type)) }
- td class="font-mono tabular-nums text-right text-[13px]" { (crate::utils::fmt_qty(wc.default_capacity)) }
- td class="font-mono tabular-nums text-right text-[13px]" { (crate::utils::fmt_amount(wc.costs_hour)) }
- td {
- @if wc.is_active {
- span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-success-bg text-success" { "启用" }
- } @else {
- span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-danger-bg text-danger" { "停用" }
- }
- }
- td class="text-center whitespace-nowrap" {
-a class="inline-flex items-center justify-center w-[28px] h-[28px] border-none bg-surface rounded-sm cursor-pointer hover:bg-accent-bg hover:text-accent transition-colors no-underline text-fg-2" href=(WorkCenterDetailPath { id: wc.id }.to_string()) title="查看" {
-(icon::eye_icon("w-3.5 h-3.5"))
+            div class="relative flex-1 max-w-xs icon:absolute icon:left-3 icon:top-1/2 icon:-translate-y-1/2 icon:w-4 icon:h-4 icon:text-muted"
+            {
+                (icon::search_icon("w-4 h-4"))
+                input
+                    class="search-input w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input"
+                    type="text"
+                    name="keyword"
+                    placeholder="搜索编码 / 名称"
+                    value=(params.keyword.as_deref().unwrap_or(""));
+            }
+        }
+    }
+    // 数据表
+    div class="data-card" id="data-card" {
+        div class="overflow-x-auto" {
+            table class="data-table" {
+                thead {
+                    tr {
+                        th { "编码" }
+                        th { "名称" }
+                        th { "类型" }
+                        th class="text-right text-[13px]" { "产能/小时" }
+                        th class="text-right text-[13px]" { "成本费率/h" }
+                        th { "状态" }
+                        th class="!text-right" { "操作" }
+                    }
+                }
+                tbody {
+                    @for wc in &result.items {
+                        tr {
+                            td class="font-mono tabular-nums" { (wc.code) }
+                            td {
+                                strong { (wc.name) }
+                            }
+                            td { (work_center_type_label(wc.work_center_type)) }
+                            td class="font-mono tabular-nums text-right text-[13px]" {
+                                (crate::utils::fmt_qty(wc.default_capacity))
+                            }
+                            td class="font-mono tabular-nums text-right text-[13px]" {
+                                (crate::utils::fmt_amount(wc.costs_hour))
+                            }
+                            td {
+                                @if wc.is_active {
+                                    span
+                                        class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-success-bg text-success"
+                                    { "启用" }
+                                } @else {
+                                    span
+                                        class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-danger-bg text-danger"
+                                    { "停用" }
+                                }
+                            }
+                            td class="text-center whitespace-nowrap" {
+                                a   class="inline-flex items-center justify-center w-[28px] h-[28px] border-none bg-surface rounded-sm cursor-pointer hover:bg-accent-bg hover:text-accent transition-colors no-underline text-fg-2"
+                                    href=(WorkCenterDetailPath { id: wc.id }.to_string())
+                                    title="查看"
+                                { (icon::eye_icon("w-3.5 h-3.5")) }
+                                a   class="inline-flex items-center justify-center w-[28px] h-[28px] border-none bg-surface rounded-sm cursor-pointer hover:bg-accent-bg hover:text-accent transition-colors no-underline ml-1 text-fg-2"
+                                    href=(WorkCenterEditPath { id: wc.id }.to_string())
+                                    title="编辑"
+                                { (icon::edit_icon("w-3.5 h-3.5")) }
+                            }
+                        }
+                    }
+                    @if result.items.is_empty() {
+                        tr {
+                            td colspan="7" class="text-center text-muted text-sm" { "暂无工作中心数据" }
+                        }
+                    }
+                }
+            }
+        }
+        (pagination(WorkCenterListPath::PATH, &query_string, total, page, total_pages))
+    }
 }
-a class="inline-flex items-center justify-center w-[28px] h-[28px] border-none bg-surface rounded-sm cursor-pointer hover:bg-accent-bg hover:text-accent transition-colors no-underline ml-1 text-fg-2" href=(WorkCenterEditPath { id: wc.id }.to_string()) title="编辑" {
-(icon::edit_icon("w-3.5 h-3.5"))
-}
-}
- }
- }
- @if result.items.is_empty() {
- tr { td colspan="7" class="text-center text-muted text-sm" { "暂无工作中心数据" } }
- }
- }
- }
- }
- (pagination(WorkCenterListPath::PATH, &query_string, total, page, total_pages))
- }
- }
 }
 
 // ── Helpers ──

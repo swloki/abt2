@@ -144,38 +144,46 @@ fn warehouse_list_page(
  can_delete: bool,
 ) -> Markup {
  html! {
- div {
- // ── Page Header ──
- div class="flex items-center justify-between mb-6" {
- h1 class="text-xl font-bold text-fg tracking-tight" { "仓库管理" }
- div class="flex gap-3" {
- button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
- _=(import_modal::import_modal_onclick(&ImportModalConfig { import_type: "warehouse-location", title: "", template_columns: "" })) {
- (icon::upload_icon("w-4 h-4"))
- "导入"
- }
- (export_button::export_button("导出库位", "warehouse-location"))
- @if can_create {
- a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(WarehouseCreatePath::PATH) {
- (icon::plus_icon("w-4 h-4"))
- "新建仓库"
- }
- }
- }
- }
-
- // ── Tabs + Filter + Data Table (HTMX panel) ──
- (warehouse_table_fragment(result, params, manager_map, can_delete))
-
- // ── Import Modal ──
- (import_modal::import_modal(&ImportModalConfig {
- import_type: "warehouse-location",
- title: "导入仓库库位",
- template_columns: "仓库编码, 仓库名称, 库位编码, 库位名称, 容量",
- }))
-
- }
- }
+    div {
+        // ── Page Header ──
+        div class="flex items-center justify-between mb-6" {
+            h1 class="text-xl font-bold text-fg tracking-tight" { "仓库管理" }
+            div class="flex gap-3" {
+                button
+                    type="button"
+                    class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                    _=({
+                        import_modal::import_modal_onclick(
+                            &ImportModalConfig {
+                                import_type: "warehouse-location",
+                                title: "",
+                                template_columns: "",
+                            },
+                        )
+                    })
+                { (icon::upload_icon("w-4 h-4")) "导入" }
+                (export_button::export_button("导出库位", "warehouse-location"))
+                @if can_create {
+                    a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                        href=(WarehouseCreatePath::PATH)
+                    { (icon::plus_icon("w-4 h-4")) "新建仓库" }
+                }
+            }
+        }
+        // ── Tabs + Filter + Data Table (HTMX panel) ──
+        (warehouse_table_fragment(result, params, manager_map, can_delete))
+        // ── Import Modal ──
+        ({
+            import_modal::import_modal(
+                &ImportModalConfig {
+                    import_type: "warehouse-location",
+                    title: "导入仓库库位",
+                    template_columns: "仓库编码, 仓库名称, 库位编码, 库位名称, 容量",
+                },
+            )
+        })
+    }
+}
 }
 
 fn warehouse_table_fragment(
@@ -195,44 +203,66 @@ fn warehouse_table_fragment(
  ];
 
  html! {
- div class="warehouse-list-panel" {
- (status_tabs_with_param(WarehouseListPath::PATH, "#warehouse-data-card", "#warehouse-filter-form", tabs, &active_value, "status"))
+    div class="warehouse-list-panel" {
+        ({
+            status_tabs_with_param(
+                WarehouseListPath::PATH,
+                "#warehouse-data-card",
+                "#warehouse-filter-form",
+                tabs,
+                &active_value,
+                "status",
+            )
+        })
+        // ── Filter Bar ──
+        form
+            class="flex items-center gap-3 mb-5 flex-wrap"
+            id="warehouse-filter-form"
+            hx-get=(WarehouseListPath::PATH)
+            hx-trigger="change, keyup changed delay:300ms from:.search-input"
+            hx-target="#warehouse-data-card"
+            hx-select="#warehouse-data-card"
+            hx-swap="outerHTML"
+            hx-include="#warehouse-filter-form"
+            hx-push-url="true"
+        {
+            div class="relative flex-1 max-w-xs icon:absolute icon:left-3 icon:top-1/2 icon:-translate-y-1/2 icon:w-4 icon:h-4 icon:text-muted"
+            {
+                (icon::search_icon(""))
+                input
+                    class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input"
+                    type="text"
+                    name="code"
+                    class="w-[180px]"
+                    placeholder="仓库编码"
+                    value=(params.code.as_deref().unwrap_or(""));
+            }
+            div class="relative flex-1 max-w-xs icon:absolute icon:left-3 icon:top-1/2 icon:-translate-y-1/2 icon:w-4 icon:h-4 icon:text-muted"
+            {
+                (icon::search_icon(""))
+                input
+                    class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input"
+                    type="text"
+                    name="name"
+                    placeholder="仓库名称"
+                    value=(params.name.as_deref().unwrap_or(""));
+            }
+            select
+                class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer"
+                name="warehouse_type"
+            {
+                option value="" { "全部类型" }
+                option value="1" selected[params.warehouse_type == Some(1)] { "原材料仓" }
+                option value="2" selected[params.warehouse_type == Some(2)] { "成品仓" }
+                option value="3" selected[params.warehouse_type == Some(3)] { "半成品仓" }
+                option value="4" selected[params.warehouse_type == Some(4)] { "辅料仓" }
+                option value="5" selected[params.warehouse_type == Some(5)] { "虚拟仓" }
+            }
+        }
 
- // ── Filter Bar ──
- form class="flex items-center gap-3 mb-5 flex-wrap" id="warehouse-filter-form"
- hx-get=(WarehouseListPath::PATH)
- hx-trigger="change, keyup changed delay:300ms from:.search-input"
- hx-target="#warehouse-data-card"
- hx-select="#warehouse-data-card"
- hx-swap="outerHTML"
- hx-include="#warehouse-filter-form"
- hx-push-url="true" {
- div class="relative flex-1 max-w-xs icon:absolute icon:left-3 icon:top-1/2 icon:-translate-y-1/2 icon:w-4 icon:h-4 icon:text-muted" {
- (icon::search_icon(""))
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input" type="text" name="code"
- class="w-[180px]"
- placeholder="仓库编码"
- value=(params.code.as_deref().unwrap_or(""));
- }
- div class="relative flex-1 max-w-xs icon:absolute icon:left-3 icon:top-1/2 icon:-translate-y-1/2 icon:w-4 icon:h-4 icon:text-muted" {
- (icon::search_icon(""))
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input" type="text" name="name"
- placeholder="仓库名称"
- value=(params.name.as_deref().unwrap_or(""));
- }
- select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="warehouse_type" {
- option value="" { "全部类型" }
- option value="1" selected[params.warehouse_type == Some(1)] { "原材料仓" }
- option value="2" selected[params.warehouse_type == Some(2)] { "成品仓" }
- option value="3" selected[params.warehouse_type == Some(3)] { "半成品仓" }
- option value="4" selected[params.warehouse_type == Some(4)] { "辅料仓" }
- option value="5" selected[params.warehouse_type == Some(5)] { "虚拟仓" }
- }
- }
-
- (warehouse_data_card(result, &query, manager_map, can_delete))
- }
- }
+        (warehouse_data_card(result, &query, manager_map, can_delete))
+    }
+}
 }
 
 fn warehouse_data_card(
@@ -242,39 +272,43 @@ fn warehouse_data_card(
  can_delete: bool,
 ) -> Markup {
  html! {
- div id="warehouse-data-card" class="data-card" {
- div class="overflow-x-auto" {
- table class="data-table" {
- thead {
- tr {
- th { "仓库编码" }
- th { "仓库名称" }
- th { "仓库类型" }
- th { "状态" }
- th { "地址" }
- th { "管理员" }
- th { "库区数" }
- th { "库位数" }
- th class="!text-right" { "操作" }
- }
- }
- tbody {
- @for w in &result.items {
- (warehouse_row(w, manager_map, can_delete))
- }
- @if result.items.is_empty() {
- tr {
- td colspan="9" class="text-center text-muted py-8" {
- "暂无仓库数据"
- }
- }
- }
- }
- }
- }
- (pagination(WarehouseListPath::PATH, query, result.total, result.page, result.total_pages))
- }
- }
+    div id="warehouse-data-card" class="data-card" {
+        div class="overflow-x-auto" {
+            table class="data-table" {
+                thead {
+                    tr {
+                        th { "仓库编码" }
+                        th { "仓库名称" }
+                        th { "仓库类型" }
+                        th { "状态" }
+                        th { "地址" }
+                        th { "管理员" }
+                        th { "库区数" }
+                        th { "库位数" }
+                        th class="!text-right" { "操作" }
+                    }
+                }
+                tbody {
+                    @for w in &result.items { (warehouse_row(w, manager_map, can_delete)) }
+                    @if result.items.is_empty() {
+                        tr {
+                            td colspan="9" class="text-center text-muted py-8" { "暂无仓库数据" }
+                        }
+                    }
+                }
+            }
+        }
+        ({
+            pagination(
+                WarehouseListPath::PATH,
+                query,
+                result.total,
+                result.page,
+                result.total_pages,
+            )
+        })
+    }
+}
 }
 
 fn warehouse_row(w: &Warehouse, manager_map: &std::collections::HashMap<i64, String>, can_delete: bool) -> Markup {
@@ -287,67 +321,76 @@ fn warehouse_row(w: &Warehouse, manager_map: &std::collections::HashMap<i64, Str
  let status_class = warehouse_status_class(&w.status);
 
  html! {
- tr class="cursor-pointer" {
- td class="text-accent font-medium cursor-pointer font-mono tabular-nums" onclick=(format!("location.href='{}'", detail_path)) { (w.code) }
- td onclick=(format!("location.href='{}'", detail_path)) { strong { (w.name) } }
- td onclick=(format!("location.href='{}'", detail_path)) {
- span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-surface text-slate-500" { (type_label) }
- }
- td onclick=(format!("location.href='{}'", detail_path)) {
- span class=(format!("status-pill {}", crate::utils::status_color(status_class))) { (status_label) }
- }
- td onclick=(format!("location.href='{}'", detail_path)) {
- @if w.is_virtual {
- span class="text-muted" { "—" }
- } @else if let Some(ref addr) = w.address {
- (addr)
- } @else {
- span class="text-muted" { "—" }
- }
- }
- td onclick=(format!("location.href='{}'", detail_path)) {
- @if let Some(mid) = w.manager_id {
- @if let Some(name) = manager_map.get(&mid) {
- (name)
- } @else {
- span class="text-muted" { "—" }
- }
- } @else {
- span class="text-muted" { "—" }
- }
- }
- td class="font-mono tabular-nums" onclick=(format!("location.href='{}'", detail_path)) {
- @if w.zone_count > 0 {
- (w.zone_count)
- } @else {
- span class="text-muted" { "0" }
- }
- }
- td class="font-mono tabular-nums" onclick=(format!("location.href='{}'", detail_path)) {
- @if w.bin_count > 0 {
- (w.bin_count)
- } @else {
- span class="text-muted" { "0" }
- }
- }
- td _="on click halt the event" {
- div class="row-actions flex items-center gap-1 justify-end opacity-0 transition-opacity duration-150 [&_a]:w-[28px] [&_a]:h-[28px] [&_a]:grid [&_a]:place-items-center [&_a]:rounded-sm [&_a]:cursor-pointer [&_a]:bg-surface [&_a]:hover:bg-accent-bg icon:w-3.5 icon:h-3.5" {
- a class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" title="编辑" href=(edit_path) {
- (icon::edit_icon("w-4 h-4"))
- }
- @if can_delete {
- button type="button" class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer text-danger" title="删除"
- hx-post=(delete_path)
- hx-confirm=(format!("删除后无法恢复，确定要删除仓库 <strong>{}</strong> 吗？", w.name))
- hx-target="closest tr"
- hx-swap="outerHTML swap:0.5s" {
- (icon::trash_icon("w-4 h-4"))
- }
- }
- }
- }
- }
- }
+    tr class="cursor-pointer" {
+        td  class="text-accent font-medium cursor-pointer font-mono tabular-nums"
+            onclick=(format!("location.href='{}'", detail_path))
+        { (w.code) }
+        td onclick=(format!("location.href='{}'", detail_path)) {
+            strong { (w.name) }
+        }
+        td onclick=(format!("location.href='{}'", detail_path)) {
+            span
+                class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-surface text-slate-500"
+            { (type_label) }
+        }
+        td onclick=(format!("location.href='{}'", detail_path)) {
+            span class=(format!("status-pill {}", crate::utils::status_color(status_class))) {
+                (status_label)
+            }
+        }
+        td onclick=(format!("location.href='{}'", detail_path)) {
+            @if w.is_virtual {
+                span class="text-muted" { "—" }
+            } @else if let Some(ref addr) = w.address { (addr) } @else {
+                span class="text-muted" { "—" }
+            }
+        }
+        td onclick=(format!("location.href='{}'", detail_path)) {
+            @if let Some(mid) = w.manager_id {
+                @if let Some(name) = manager_map.get(&mid) { (name) } @else {
+                    span class="text-muted" { "—" }
+                }
+            } @else {
+                span class="text-muted" { "—" }
+            }
+        }
+        td class="font-mono tabular-nums" onclick=(format!("location.href='{}'", detail_path)) {
+            @if w.zone_count > 0 { (w.zone_count) } @else {
+                span class="text-muted" { "0" }
+            }
+        }
+        td class="font-mono tabular-nums" onclick=(format!("location.href='{}'", detail_path)) {
+            @if w.bin_count > 0 { (w.bin_count) } @else {
+                span class="text-muted" { "0" }
+            }
+        }
+        td _="on click halt the event" {
+            div class="row-actions flex items-center gap-1 justify-end opacity-0 transition-opacity duration-150 [&_a]:w-[28px] [&_a]:h-[28px] [&_a]:grid [&_a]:place-items-center [&_a]:rounded-sm [&_a]:cursor-pointer [&_a]:bg-surface [&_a]:hover:bg-accent-bg icon:w-3.5 icon:h-3.5"
+            {
+                a   class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer"
+                    title="编辑"
+                    href=(edit_path)
+                { (icon::edit_icon("w-4 h-4")) }
+                @if can_delete {
+                    button
+                        type="button"
+                        class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer text-danger"
+                        title="删除"
+                        hx-post=(delete_path)
+                        hx-confirm=({
+                            format!(
+                                "删除后无法恢复，确定要删除仓库 <strong>{}</strong> 吗？",
+                                w.name,
+                            )
+                        })
+                        hx-target="closest tr"
+                        hx-swap="outerHTML swap:0.5s"
+                    { (icon::trash_icon("w-4 h-4")) }
+                }
+            }
+        }
+    }
+}
 }
 
 fn build_query_string(params: &WarehouseQueryParams) -> String {

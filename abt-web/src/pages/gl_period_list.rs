@@ -105,27 +105,35 @@ fn period_data_card(periods: &[AccountingPeriod], can_update: bool) -> Markup {
                     }
                     tbody {
                         @for p in periods {
-                            @let (status_label, status_bg, status_color) = period_status_label(p.status);
+                            @let (status_label, status_bg, status_color) = period_status_label(
+                                p.status,
+                            );
                             tr {
                                 td class="font-mono tabular-nums text-accent" { (&p.name) }
                                 td class="text-fg-2" { (&p.fiscal_year) }
                                 td class="text-fg-2" { (p.start_date.format("%Y-%m-%d")) }
                                 td class="text-fg-2" { (p.end_date.format("%Y-%m-%d")) }
                                 td {
-                                    span style=(format!("display:inline-flex;align-items:center;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{};color:{}", status_bg, status_color)) {
-                                        (status_label)
-                                    }
+                                    span
+                                        style=({
+                                            format!(
+                                                "display:inline-flex;align-items:center;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{};color:{}",
+                                                status_bg,
+                                                status_color,
+                                            )
+                                        })
+                                    { (status_label) }
                                 }
                                 td {
                                     @if p.status == PeriodStatus::Open {
                                         @if can_update {
                                             @let close_path = GlPeriodClosePath { id: p.id };
-                                            button class="text-xs px-2 py-1 rounded-sm border border-border hover:bg-danger-bg hover:border-[rgba(220,38,38,0.3)] hover:text-danger transition-colors cursor-pointer"
+                                            button
+                                                class="text-xs px-2 py-1 rounded-sm border border-border hover:bg-danger-bg hover:border-[rgba(220,38,38,0.3)] hover:text-danger transition-colors cursor-pointer"
                                                 hx-post=(close_path.to_string())
                                                 hx-confirm="关闭期间后将无法再开启，且需该期间无 Draft 凭证。确认关闭？"
-                                                hx-target="this" {
-                                                "关闭"
-                                            }
+                                                hx-target="this"
+                                            { "关闭" }
                                         } @else {
                                             span class="text-muted text-xs" { "—" }
                                         }

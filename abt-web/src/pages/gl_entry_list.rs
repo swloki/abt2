@@ -168,20 +168,38 @@ fn entry_table_fragment(result: &PaginatedResult<GlEntry>, params: &EntryQueryPa
 
     html! {
         div {
-            (status_tabs_with_param(GlEntryListPath::PATH, "#gl-entry-data-card", "#gl-entry-filter-form", tabs, &selected_status, "status"))
+            ({
+                status_tabs_with_param(
+                    GlEntryListPath::PATH,
+                    "#gl-entry-data-card",
+                    "#gl-entry-filter-form",
+                    tabs,
+                    &selected_status,
+                    "status",
+                )
+            })
 
-            form class="flex items-center gap-3 mb-5 flex-wrap filter-form" id="gl-entry-filter-form"
+            form
+                class="flex items-center gap-3 mb-5 flex-wrap filter-form"
+                id="gl-entry-filter-form"
                 hx-get=(GlEntryListPath::PATH)
                 hx-trigger="change, keyup changed delay:300ms from:.search-input"
                 hx-target="#gl-entry-data-card"
                 hx-select="#gl-entry-data-card"
                 hx-swap="outerHTML"
                 hx-include="#gl-entry-filter-form"
-                hx-push-url="true" {
-                input class="w-[120px] px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent font-mono tabular-nums" type="text" name="period"
+                hx-push-url="true"
+            {
+                input
+                    class="w-[120px] px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent font-mono tabular-nums"
+                    type="text"
+                    name="period"
                     placeholder="期间 YYYY-MM"
                     value=(params.period.as_deref().unwrap_or(""));
-                select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="source_type" {
+                select
+                    class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer"
+                    name="source_type"
+                {
                     option value="" selected[params.source_type.is_none()] { "全部来源" }
                     option value="30" selected[params.source_type == Some(30)] { "出纳日记账" }
                     option value="32" selected[params.source_type == Some(32)] { "费用报销" }
@@ -190,7 +208,10 @@ fn entry_table_fragment(result: &PaginatedResult<GlEntry>, params: &EntryQueryPa
                     option value="46" selected[params.source_type == Some(46)] { "销售发票" }
                     option value="47" selected[params.source_type == Some(47)] { "采购发票" }
                 }
-                input class="w-[120px] px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent" type="text" name="voucher_type"
+                input
+                    class="w-[120px] px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent"
+                    type="text"
+                    name="voucher_type"
                     placeholder="凭证字"
                     value=(params.voucher_type.as_deref().unwrap_or(""));
             }
@@ -221,28 +242,52 @@ fn entry_data_card(result: &PaginatedResult<GlEntry>, params: &EntryQueryParams)
                     }
                     tbody {
                         @for item in &result.items {
-                            @let (src_label, src_bg, src_color) = source_type_label(&item.source_type);
-                            @let (status_text, status_bg, status_color) = status_label(&item.status);
+                            @let (src_label, src_bg, src_color) = source_type_label(
+                                &item.source_type,
+                            );
+                            @let (status_text, status_bg, status_color) = status_label(
+                                &item.status,
+                            );
                             @let detail_path = GlEntryDetailPath { id: item.id };
-                            tr class="cursor-pointer" onclick=(format!("location.href='{}'", detail_path.to_string())) {
+                            tr  class="cursor-pointer"
+                                onclick=(format!("location.href='{}'", detail_path.to_string()))
+                            {
                                 td class="font-mono tabular-nums text-accent" { (&item.doc_number) }
                                 td class="font-mono tabular-nums" { (&item.period) }
                                 td class="text-xs text-muted" { (item.entry_date.format("%Y-%m-%d")) }
                                 td class="text-fg-2" { (&item.voucher_type) }
                                 td {
-                                    span style=(format!("display:inline-flex;align-items:center;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{};color:{}", src_bg, src_color)) {
-                                        (src_label)
-                                    }
+                                    span
+                                        style=({
+                                            format!(
+                                                "display:inline-flex;align-items:center;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{};color:{}",
+                                                src_bg,
+                                                src_color,
+                                            )
+                                        })
+                                    { (src_label) }
                                 }
                                 td {
-                                    span style=(format!("display:inline-flex;align-items:center;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{};color:{}", status_bg, status_color)) {
-                                        (status_text)
-                                    }
+                                    span
+                                        style=({
+                                            format!(
+                                                "display:inline-flex;align-items:center;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{};color:{}",
+                                                status_bg,
+                                                status_color,
+                                            )
+                                        })
+                                    { (status_text) }
                                 }
-                                td class="font-mono tabular-nums text-right text-fg" { (crate::utils::fmt_amount(item.total_debit)) }
-                                td class="font-mono tabular-nums text-right text-fg" { (crate::utils::fmt_amount(item.total_credit)) }
+                                td class="font-mono tabular-nums text-right text-fg" {
+                                    (crate::utils::fmt_amount(item.total_debit))
+                                }
+                                td class="font-mono tabular-nums text-right text-fg" {
+                                    (crate::utils::fmt_amount(item.total_credit))
+                                }
                                 td {
-                                    a href=(detail_path.to_string()) class="text-accent text-xs" { "查看" }
+                                    a href=(detail_path.to_string()) class="text-accent text-xs" {
+                                        "查看"
+                                    }
                                 }
                             }
                         }
@@ -254,7 +299,15 @@ fn entry_data_card(result: &PaginatedResult<GlEntry>, params: &EntryQueryParams)
                     }
                 }
             }
-            (pagination(GlEntryListPath::PATH, &query, result.total, result.page, result.total_pages))
+            ({
+                pagination(
+                    GlEntryListPath::PATH,
+                    &query,
+                    result.total,
+                    result.page,
+                    result.total_pages,
+                )
+            })
         }
     }
 }

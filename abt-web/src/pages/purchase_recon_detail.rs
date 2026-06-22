@@ -90,25 +90,34 @@ fn workflow_steps(current: PurchaseReconStatus) -> Markup {
  let current_idx = steps.iter().position(|(_, s)| *s == current).unwrap_or(0);
 
  html! {
- div class="flex items-center mt-6 mb-6" {
- @for (i, (label, _)) in steps.iter().enumerate() {
- @if i > 0 {
- div class=(format!("w-[48px] h-[2px] {}", if i <= current_idx { "bg-success" } else { "bg-border" })) {}
- }
- @let (dot_cls, text_cls, ring_cls) = if i < current_idx {
- ("bg-success", "text-success", "")
- } else if i == current_idx {
- ("bg-accent", "text-accent font-semibold", "shadow-[0_0_0_3px_rgba(37,99,235,0.1)]")
- } else {
- ("bg-slate-300", "text-slate-400", "")
- };
- div class="flex items-center gap-2 shrink-0" {
- span class=(format!("w-2.5 h-2.5 rounded-full shrink-0 {} {}", dot_cls, ring_cls)) {}
- span class=(format!("text-xs whitespace-nowrap font-medium {}", text_cls)) { (label) }
- }
- }
- }
- }
+    div class="flex items-center mt-6 mb-6" {
+        @for (i, (label, _)) in steps.iter().enumerate() {
+            @if i > 0 {
+                div class=({
+                        format!(
+                            "w-[48px] h-[2px] {}",
+                            if i <= current_idx { "bg-success" } else { "bg-border" },
+                        )
+                    }) {}
+            }
+            @let (dot_cls, text_cls, ring_cls) = if i < current_idx {
+                ("bg-success", "text-success", "")
+            } else if i == current_idx {
+                (
+                    "bg-accent",
+                    "text-accent font-semibold",
+                    "shadow-[0_0_0_3px_rgba(37,99,235,0.1)]",
+                )
+            } else {
+                ("bg-slate-300", "text-slate-400", "")
+            };
+            div class="flex items-center gap-2 shrink-0" {
+                span class=(format!("w-2.5 h-2.5 rounded-full shrink-0 {} {}", dot_cls, ring_cls)) {}
+                span class=(format!("text-xs whitespace-nowrap font-medium {}", text_cls)) { (label) }
+            }
+        }
+    }
+}
 }
 
 // ── Components ──
@@ -123,140 +132,155 @@ fn precon_detail_page(
  let (status_text, status_class) = status_label(recon.status);
 
  html! {
- div {
- // ── Back Link ──
- a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", PreconListPath::PATH)) {
- (icon::chevron_left_icon("w-4 h-4"))
- "返回采购对账列表"
- }
+    div {
+        // ── Back Link ──
+        a   class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150"
+            href=(format!("{}?restore=true", PreconListPath::PATH))
+        { (icon::chevron_left_icon("w-4 h-4")) "返回采购对账列表" }
+        // ── Detail Header ──
+        div class="block bg-bg border border-border-soft rounded-lg p-6" {
+            div {
+                div class="flex items-center justify-between" {
+                    h1 class="text-2xl font-extrabold font-mono tabular-nums" { (recon.doc_number) }
+                    span class=({
+                        format!(
+                            "status-pill {}",
+                            crate::utils::status_color(status_class),
+                        )
+                    }) { (status_text) }
+                }
+            }
+            div class="flex gap-3" {
+                @if recon.status == PurchaseReconStatus::Draft {
+                    button
+                        class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                        hx-post=(PreconConfirmPath { id: recon.id }.to_string())
+                        hx-confirm="确认对此对账单进行对账？确认后将不可修改。"
+                    { (icon::check_circle_icon("w-4 h-4")) "确认对账" }
+                }
+                @if recon.status == PurchaseReconStatus::Draft && can_delete {
+                    button
+                        class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-danger text-white border-none hover:opacity-90-ghost"
+                        hx-post=(format!("/purchase/reconciliation/{}", recon.id))
+                        hx-confirm="确认删除此对账单？删除后不可恢复。"
+                    { (icon::trash_icon("w-4 h-4")) "删除" }
+                }
+            }
+        }
 
- // ── Detail Header ──
- div class="block bg-bg border border-border-soft rounded-lg p-6" {
- div {
- div class="flex items-center justify-between" {
- h1 class="text-2xl font-extrabold font-mono tabular-nums" { (recon.doc_number) }
- span class=(format!("status-pill {}", crate::utils::status_color(status_class))) { (status_text) }
- }
- }
- div class="flex gap-3" {
- @if recon.status == PurchaseReconStatus::Draft {
- button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
- hx-post=(PreconConfirmPath { id: recon.id }.to_string())
- hx-confirm="确认对此对账单进行对账？确认后将不可修改。" {
- (icon::check_circle_icon("w-4 h-4"))
- "确认对账"
- }
- }
- @if recon.status == PurchaseReconStatus::Draft && can_delete {
- button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-danger text-white border-none hover:opacity-90-ghost"
- hx-post=(format!("/purchase/reconciliation/{}", recon.id))
- hx-confirm="确认删除此对账单？删除后不可恢复。" {
- (icon::trash_icon("w-4 h-4"))
- "删除"
- }
- }
- }
- }
-
- (workflow_steps(recon.status))
- // ── Reconciliation Info ──
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
- div class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" { "对账信息" }
- div class="grid gap-4" {
- div class="flex flex-col gap-1" {
- span class="text-xs text-muted font-medium" { "供应商名称" }
- span class="text-sm text-fg font-medium" { (supplier_name) }
- }
- div class="flex flex-col gap-1" {
- span class="text-xs text-muted font-medium" { "对账期间" }
- span class="text-sm text-fg font-medium font-mono tabular-nums" { (recon.period) }
- }
- div class="flex flex-col gap-1" {
- span class="text-xs text-muted font-medium" { "状态" }
- span class=(format!("status-pill {}", crate::utils::status_color(status_class))) { (status_text) }
- }
- div class="flex flex-col gap-1" {
- span class="text-xs text-muted font-medium" { "操作人" }
- span class="text-sm text-fg font-medium" { (operator_name) }
- }
- }
- }
-
- // ── Items Table ──
- div class="data-card" {
- div class="overflow-x-auto" {
- table class="data-table" {
- thead {
- tr {
- th { "订单ID" }
- th { "订单明细ID" }
- th class="text-right text-[13px]" { "收货数量" }
- th class="text-right text-[13px]" { "退货数量" }
- th class="text-right text-[13px]" { "退货冲减" }
- th class="text-right text-[13px]" { "单价" }
- th class="text-right text-[13px]" { "金额" }
- th { "已确认" }
- }
- }
- tbody {
- @for item in items {
- (item_row(item))
- }
- @if items.is_empty() {
- tr {
- td colspan="8" class="text-center text-muted py-8" {
- "暂无明细"
- }
- }
- }
- }
- }
- }
- }
-
- // ── Amount Summary ──
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" class="mt-6" {
- div class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" { "金额汇总" }
- div class="grid gap-4" {
- div class="flex flex-col gap-1" {
- span class="text-xs text-muted font-medium" { "总金额" }
- span class="text-sm text-fg font-medium font-mono tabular-nums" { (format!("{:.2}", recon.total_amount)) }
- }
- div class="flex flex-col gap-1" {
- span class="text-xs text-muted font-medium" { "确认金额" }
- span class="text-sm text-fg font-medium font-mono tabular-nums" { (format!("{:.2}", recon.confirmed_amount)) }
- }
- div class="flex flex-col gap-1" {
- span class="text-xs text-muted font-medium" { "差异" }
- span class="text-sm text-fg font-medium font-mono tabular-nums" { (format!("{:.2}", recon.difference)) }
- }
- }
- }
-
- // ── Remarks ──
- @if !recon.remark.is_empty() {
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" class="mt-6" {
- div class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" { "备注" }
- p class="text-muted" { (recon.remark.as_str()) }
- }
- }
- }
- }
+        (workflow_steps(recon.status))
+        // ── Reconciliation Info ──
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
+            div class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" {
+                "对账信息"
+            }
+            div class="grid gap-4" {
+                div class="flex flex-col gap-1" {
+                    span class="text-xs text-muted font-medium" { "供应商名称" }
+                    span class="text-sm text-fg font-medium" { (supplier_name) }
+                }
+                div class="flex flex-col gap-1" {
+                    span class="text-xs text-muted font-medium" { "对账期间" }
+                    span class="text-sm text-fg font-medium font-mono tabular-nums" { (recon.period) }
+                }
+                div class="flex flex-col gap-1" {
+                    span class="text-xs text-muted font-medium" { "状态" }
+                    span class=({
+                        format!(
+                            "status-pill {}",
+                            crate::utils::status_color(status_class),
+                        )
+                    }) { (status_text) }
+                }
+                div class="flex flex-col gap-1" {
+                    span class="text-xs text-muted font-medium" { "操作人" }
+                    span class="text-sm text-fg font-medium" { (operator_name) }
+                }
+            }
+        }
+        // ── Items Table ──
+        div class="data-card" {
+            div class="overflow-x-auto" {
+                table class="data-table" {
+                    thead {
+                        tr {
+                            th { "订单ID" }
+                            th { "订单明细ID" }
+                            th class="text-right text-[13px]" { "收货数量" }
+                            th class="text-right text-[13px]" { "退货数量" }
+                            th class="text-right text-[13px]" { "退货冲减" }
+                            th class="text-right text-[13px]" { "单价" }
+                            th class="text-right text-[13px]" { "金额" }
+                            th { "已确认" }
+                        }
+                    }
+                    tbody {
+                        @for item in items { (item_row(item)) }
+                        @if items.is_empty() {
+                            tr {
+                                td colspan="8" class="text-center text-muted py-8" { "暂无明细" }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        // ── Amount Summary ──
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]"
+            class="mt-6"
+        {
+            div class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" {
+                "金额汇总"
+            }
+            div class="grid gap-4" {
+                div class="flex flex-col gap-1" {
+                    span class="text-xs text-muted font-medium" { "总金额" }
+                    span class="text-sm text-fg font-medium font-mono tabular-nums" {
+                        (format!("{:.2}", recon.total_amount))
+                    }
+                }
+                div class="flex flex-col gap-1" {
+                    span class="text-xs text-muted font-medium" { "确认金额" }
+                    span class="text-sm text-fg font-medium font-mono tabular-nums" {
+                        (format!("{:.2}", recon.confirmed_amount))
+                    }
+                }
+                div class="flex flex-col gap-1" {
+                    span class="text-xs text-muted font-medium" { "差异" }
+                    span class="text-sm text-fg font-medium font-mono tabular-nums" {
+                        (format!("{:.2}", recon.difference))
+                    }
+                }
+            }
+        }
+        // ── Remarks ──
+        @if !recon.remark.is_empty() {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]"
+                class="mt-6"
+            {
+                div class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" {
+                    "备注"
+                }
+                p class="text-muted" { (recon.remark.as_str()) }
+            }
+        }
+    }
+}
 }
 
 fn item_row(item: &PurchaseReconItem) -> Markup {
  let confirmed = if item.confirmed { "✓" } else { "—" };
 
  html! {
- tr {
- td class="font-mono tabular-nums" { (item.order_id) }
- td class="font-mono tabular-nums" { (item.order_item_id) }
- td class="text-right text-[13px]" { (format!("{:.2}", item.received_qty)) }
- td class="text-right text-[13px]" { (format!("{:.2}", item.returned_qty)) }
- td class="text-right text-[13px]" { (format!("{:.2}", item.returned_amount)) }
- td class="text-right text-[13px]" { (format!("{:.2}", item.unit_price)) }
- td class="text-right text-[13px]" { (format!("{:.2}", item.amount)) }
- td class="text-center" { (confirmed) }
- }
- }
+    tr {
+        td class="font-mono tabular-nums" { (item.order_id) }
+        td class="font-mono tabular-nums" { (item.order_item_id) }
+        td class="text-right text-[13px]" { (format!("{:.2}", item.received_qty)) }
+        td class="text-right text-[13px]" { (format!("{:.2}", item.returned_qty)) }
+        td class="text-right text-[13px]" { (format!("{:.2}", item.returned_amount)) }
+        td class="text-right text-[13px]" { (format!("{:.2}", item.unit_price)) }
+        td class="text-right text-[13px]" { (format!("{:.2}", item.amount)) }
+        td class="text-center" { (confirmed) }
+    }
+}
 }

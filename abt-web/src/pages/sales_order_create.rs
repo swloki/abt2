@@ -247,171 +247,228 @@ fn order_create_page(customers: &[abt_core::master_data::customer::model::Custom
  };
 
  html! {
- div id="order-app" class="p-6" {
- // ── Page Header ──
- div class="flex items-center justify-between mb-6" {
- a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", OrderListPath::PATH)) {
- (icon::arrow_left_icon("w-4 h-4"))
- "返回订单列表"
- }
- h1 class="text-xl font-bold text-fg tracking-tight" { "新建订单" }
- }
+    div id="order-app" class="p-6" {
+        // ── Page Header ──
+        div class="flex items-center justify-between mb-6" {
+            a   class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150"
+                href=(format!("{}?restore=true", OrderListPath::PATH))
+            { (icon::arrow_left_icon("w-4 h-4")) "返回订单列表" }
+            h1 class="text-xl font-bold text-fg tracking-tight" { "新建订单" }
+        }
 
- form id="order-form"
- hx-post=(OrderCreatePath::PATH)
- hx-swap="none" {
- input type="hidden" id="items-json" name="items_json" value="[]" {}
-
- // ── Customer Info (HTMX self-contained) ──
- (customer_info_panel(customers, sel_contacts, sel_customer_id, OrderCustomerContactsPath::PATH))
-
- // ── Order Info ──
- div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
- (icon::clipboard_document_icon("w-[18px] h-[18px]"))
- "订单信息"
- }
- div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
- div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "订单日期" span class="required" { "*" } }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="date" value=(today) readonly {}
- }
- div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "业务员" }
- select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="sales_rep" {
- option value="" { "当前用户" }
- }
- }
- div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "付款条款" span class="required" { "*" } }
- select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="payment_terms" {
- option value="30天净额" selected[sel_payment == Some("30天净额")] { "30天净额" }
- option value="60天净额" selected[sel_payment == Some("60天净额")] { "60天净额" }
- option value="预付30%" selected[sel_payment == Some("预付30%")] { "预付30%" }
- option value="货到付款" selected[sel_payment == Some("货到付款")] { "货到付款" }
- option value="月结30天" selected[sel_payment == Some("月结30天")] { "月结30天" }
- }
- }
- div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "交货条款" }
- select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="delivery_terms" {
- option value="FOB 深圳" selected[sel_delivery == Some("FOB 深圳")] { "FOB 深圳" }
- option value="FOB 广州" selected[sel_delivery == Some("FOB 广州")] { "FOB 广州" }
- option value="CIF 目的港" selected[sel_delivery == Some("CIF 目的港")] { "CIF 目的港" }
- option value="EXW 工厂交货" selected[sel_delivery == Some("EXW 工厂交货")] { "EXW 工厂交货" }
- }
- }
- div class="form-field col-span-2" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "交货地址" }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="delivery_address" placeholder="默认取客户地址，可修改" {}
- }
- }
- }
-
- // ── Line Items ──
- div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
- (icon::package_icon("w-[18px] h-[18px]"))
- "产品明细"
- }
- div class="overflow-x-auto" {
- table class="data-table" {
- thead {
- tr {
- th class="w-12" { "#" }
- th { "产品编码" }
- th { "产品名称" }
- th { "规格描述" }
- th class="w-20" { "单位" }
- th class="w-24" { "数量" }
- th class="w-28" { "单价 (¥)" }
- th class="w-20" { "折扣%" }
- th class="w-32" { "小计 (¥)" }
- th class="col-date" { "交货日期" }
- th class="w-16" { }
- }
- }
- tbody id="order-item-tbody" {
- @if let Some(p) = prefill {
- @for item in &p.items {
- (prefill_item_row(item, &p.product_names, &p.product_codes))
- }
- }
- }
- }
- }
- div class="p-3 flex items-center gap-2" {
- button type="button" class="inline-flex items-center gap-2 rounded-sm text-accent text-sm cursor-pointer"
- _="on click add .is-open to #product-modal" {
- (icon::plus_icon("w-3.5 h-3.5"))
- "添加产品行"
- }
- }
- div class="flex justify-end p-4 bg-surface border-t border-border-soft gap-8" {
- div class="flex gap-3" {
- span class="text-sm text-muted" { "合计金额" }
- span class="text-lg font-bold text-fg" id="subtotal-value" { "¥ 0.00" }
- }
- div class="flex gap-3" {
- span class="text-sm text-muted" { "折扣总额" }
- span class="text-lg font-bold text-fg" id="discount-value" { "- ¥ 0.00" }
- }
- div class="flex gap-3" {
- span class="text-sm text-muted" { "订单总额" }
- span class="text-lg font-bold text-fg grand" id="grand-value" { "¥ 0.00" }
- }
- }
- }
-
- // ── Remark ──
- div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
- (icon::file_text_icon("w-[18px] h-[18px]"))
- "备注"
- }
- textarea class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] min-h-[72px] resize-y leading-1.5" name="remark" placeholder="输入订单相关备注信息…" {
- @if let Some(r) = sel_remark { (r) }
- }
- }
-
- // ── Attachment ──
- div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
- (icon::upload_icon("w-[18px] h-[18px]"))
- "附件"
- }
- div class="rounded p-8 text-center cursor-pointer" {
- (icon::upload_icon("w-8 h-8"))
- p class="upload-title" { "点击或拖拽文件到此处上传" }
- p class="upload-hint" { "支持 PDF、Word、Excel、图片，单个文件不超过 10MB" }
- }
- }
-
- // ── Action Bar ──
- div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg border-t border-border-soft" {
- a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{}?restore=true", OrderListPath::PATH)) { "取消" }
- div class="flex gap-3" {
- button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" {
- (icon::save_icon("w-4 h-4"))
- "保存草稿"
- }
- button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" _="on click call salesOrderSubmit() then trigger submit on #order-form" {
- (icon::send_icon("w-4 h-4"))
- "提交订单"
- }
- }
- }
- }
-
-            // ── Product Selection Modal ──
-            (crate::components::product_picker::product_picker_modal_with_search("product-modal", OrderItemRowPath::PATH, "order-item-tbody"))
-
- }
- // ── Pre-fill: recalculate totals after page load ──
- @if prefill.is_some() {
- (maud::PreEscaped(r#"<script>document.addEventListener('DOMContentLoaded',function(){if(typeof salesOrderRecalcTotals==='function')salesOrderRecalcTotals()})</script>"#))
- }
- }
+        form id="order-form" hx-post=(OrderCreatePath::PATH) hx-swap="none" {
+            input type="hidden" id="items-json" name="items_json" value="[]" {}
+            // ── Customer Info (HTMX self-contained) ──
+            ({
+                customer_info_panel(
+                    customers,
+                    sel_contacts,
+                    sel_customer_id,
+                    OrderCustomerContactsPath::PATH,
+                )
+            })
+            // ── Order Info ──
+            div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden"
+            {
+                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
+                { (icon::clipboard_document_icon("w-[18px] h-[18px]")) "订单信息" }
+                div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
+                    div class="form-field" {
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
+                            "订单日期"
+                            span class="required" { "*" }
+                        }
+                        input
+                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]"
+                            type="date"
+                            value=(today)
+                            readonly {}
+                    }
+                    div class="form-field" {
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
+                            "业务员"
+                        }
+                        select
+                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]"
+                            name="sales_rep"
+                        {
+                            option value="" { "当前用户" }
+                        }
+                    }
+                    div class="form-field" {
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
+                            "付款条款"
+                            span class="required" { "*" }
+                        }
+                        select
+                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]"
+                            name="payment_terms"
+                        {
+                            option value="30天净额" selected[sel_payment == Some("30天净额")] {
+                                "30天净额"
+                            }
+                            option value="60天净额" selected[sel_payment == Some("60天净额")] {
+                                "60天净额"
+                            }
+                            option value="预付30%" selected[sel_payment == Some("预付30%")] {
+                                "预付30%"
+                            }
+                            option value="货到付款" selected[sel_payment == Some("货到付款")] {
+                                "货到付款"
+                            }
+                            option value="月结30天" selected[sel_payment == Some("月结30天")] {
+                                "月结30天"
+                            }
+                        }
+                    }
+                    div class="form-field" {
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
+                            "交货条款"
+                        }
+                        select
+                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]"
+                            name="delivery_terms"
+                        {
+                            option value="FOB 深圳" selected[sel_delivery == Some("FOB 深圳")] {
+                                "FOB 深圳"
+                            }
+                            option value="FOB 广州" selected[sel_delivery == Some("FOB 广州")] {
+                                "FOB 广州"
+                            }
+                            option value="CIF 目的港" selected[sel_delivery == Some("CIF 目的港")] {
+                                "CIF 目的港"
+                            }
+                            option value="EXW 工厂交货" selected[sel_delivery == Some("EXW 工厂交货")] {
+                                "EXW 工厂交货"
+                            }
+                        }
+                    }
+                    div class="form-field col-span-2" {
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
+                            "交货地址"
+                        }
+                        input
+                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]"
+                            type="text"
+                            name="delivery_address"
+                            placeholder="默认取客户地址，可修改" {}
+                    }
+                }
+            }
+            // ── Line Items ──
+            div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden"
+            {
+                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
+                { (icon::package_icon("w-[18px] h-[18px]")) "产品明细" }
+                div class="overflow-x-auto" {
+                    table class="data-table" {
+                        thead {
+                            tr {
+                                th class="w-12" { "#" }
+                                th { "产品编码" }
+                                th { "产品名称" }
+                                th { "规格描述" }
+                                th class="w-20" { "单位" }
+                                th class="w-24" { "数量" }
+                                th class="w-28" { "单价 (¥)" }
+                                th class="w-20" { "折扣%" }
+                                th class="w-32" { "小计 (¥)" }
+                                th class="col-date" { "交货日期" }
+                                th class="w-16" {}
+                            }
+                        }
+                        tbody id="order-item-tbody" {
+                            @if let Some(p) = prefill {
+                                @for item in &p.items {
+                                    (prefill_item_row(item, &p.product_names, &p.product_codes))
+                                }
+                            }
+                        }
+                    }
+                }
+                div class="p-3 flex items-center gap-2" {
+                    button
+                        type="button"
+                        class="inline-flex items-center gap-2 rounded-sm text-accent text-sm cursor-pointer"
+                        _="on click add .is-open to #product-modal"
+                    { (icon::plus_icon("w-3.5 h-3.5")) "添加产品行" }
+                }
+                div class="flex justify-end p-4 bg-surface border-t border-border-soft gap-8" {
+                    div class="flex gap-3" {
+                        span class="text-sm text-muted" { "合计金额" }
+                        span class="text-lg font-bold text-fg" id="subtotal-value" { "¥ 0.00" }
+                    }
+                    div class="flex gap-3" {
+                        span class="text-sm text-muted" { "折扣总额" }
+                        span class="text-lg font-bold text-fg" id="discount-value" { "- ¥ 0.00" }
+                    }
+                    div class="flex gap-3" {
+                        span class="text-sm text-muted" { "订单总额" }
+                        span class="text-lg font-bold text-fg grand" id="grand-value" { "¥ 0.00" }
+                    }
+                }
+            }
+            // ── Remark ──
+            div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden"
+            {
+                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
+                { (icon::file_text_icon("w-[18px] h-[18px]")) "备注" }
+                textarea
+                    class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] min-h-[72px] resize-y leading-1.5"
+                    name="remark"
+                    placeholder="输入订单相关备注信息…"
+                {
+                    @if let Some(r) = sel_remark { (r) }
+                }
+            }
+            // ── Attachment ──
+            div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden"
+            {
+                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
+                { (icon::upload_icon("w-[18px] h-[18px]")) "附件" }
+                div class="rounded p-8 text-center cursor-pointer" {
+                    (icon::upload_icon("w-8 h-8"))
+                    p class="upload-title" { "点击或拖拽文件到此处上传" }
+                    p class="upload-hint" { "支持 PDF、Word、Excel、图片，单个文件不超过 10MB" }
+                }
+            }
+            // ── Action Bar ──
+            div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg border-t border-border-soft"
+            {
+                a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                    href=(format!("{}?restore=true", OrderListPath::PATH))
+                { "取消" }
+                div class="flex gap-3" {
+                    button
+                        type="button"
+                        class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                    { (icon::save_icon("w-4 h-4")) "保存草稿" }
+                    button
+                        type="button"
+                        class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                        _="on click call salesOrderSubmit() then trigger submit on #order-form"
+                    { (icon::send_icon("w-4 h-4")) "提交订单" }
+                }
+            }
+        }
+        // ── Product Selection Modal ──
+        ({
+            crate::components::product_picker::product_picker_modal_with_search(
+                "product-modal",
+                OrderItemRowPath::PATH,
+                "order-item-tbody",
+            )
+        })
+    }
+    // ── Pre-fill: recalculate totals after page load ──
+    @if prefill.is_some() {
+        ({
+            maud::PreEscaped(
+                r#"<script>document.addEventListener('DOMContentLoaded',function(){if(typeof salesOrderRecalcTotals==='function')salesOrderRecalcTotals()})</script>"#,
+            )
+        })
+    }
+}
 }
 
 fn prefill_item_row(item: &QuotationItem, names: &HashMap<i64, String>, codes: &HashMap<i64, String>) -> Markup {
@@ -425,44 +482,129 @@ fn prefill_item_row(item: &QuotationItem, names: &HashMap<i64, String>, codes: &
  };
 
  html! {
- tr oninput="salesOrderCalcRow(this)" {
- td class="text-muted text-xs text-center" { }
- td class="font-mono tabular-nums" { (product_code) }
- td { (product_name) }
- td { input class="w-full px-2 py-[5px] text-[13px] border border-border rounded-sm outline-none focus:border-accent" type="text" name="description" value=(item.description.as_str()) {} }
- td { input class="w-[56px] text-center px-2 py-[5px] text-[13px] border border-border rounded-sm bg-surface outline-none focus:border-accent" type="text" name="unit" readonly value=(item.unit.as_str()) {} }
- td { input class="w-[80px] text-right px-2 py-[5px] text-[13px] font-mono border border-border rounded-sm outline-none focus:border-accent" type="number" step="any" name="quantity" value=(item.quantity) {} }
- td { input class="w-[100px] text-right px-2 py-[5px] text-[13px] font-mono border border-border rounded-sm outline-none focus:border-accent" type="number" step="any" name="unit_price" value=(item.unit_price) {} }
- td { input class="w-[64px] text-right px-2 py-[5px] text-[13px] font-mono border border-border rounded-sm outline-none focus:border-accent" type="number" step="any" name="discount_rate" value=(discount) {} }
- td class="text-right font-semibold text-fg whitespace-nowrap" { "—" }
- td { input class="w-[110px] px-1.5 py-[5px] text-xs border border-border rounded-sm outline-none focus:border-accent" type="date" name="item_delivery_date" value=(delivery) {} }
- td { button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center" title="删除行"
- _="on click remove closest <tr/>" {
- (icon::x_icon("w-3.5 h-3.5"))
- } }
- input type="hidden" name="product_id" value=(item.product_id) {}
- }
- }
+    tr oninput="salesOrderCalcRow(this)" {
+        td class="text-muted text-xs text-center" {}
+        td class="font-mono tabular-nums" { (product_code) }
+        td { (product_name) }
+        td {
+            input
+                class="w-full px-2 py-[5px] text-[13px] border border-border rounded-sm outline-none focus:border-accent"
+                type="text"
+                name="description"
+                value=(item.description.as_str()) {}
+        }
+        td {
+            input
+                class="w-[56px] text-center px-2 py-[5px] text-[13px] border border-border rounded-sm bg-surface outline-none focus:border-accent"
+                type="text"
+                name="unit"
+                readonly
+                value=(item.unit.as_str()) {}
+        }
+        td {
+            input
+                class="w-[80px] text-right px-2 py-[5px] text-[13px] font-mono border border-border rounded-sm outline-none focus:border-accent"
+                type="number"
+                step="any"
+                name="quantity"
+                value=(item.quantity) {}
+        }
+        td {
+            input
+                class="w-[100px] text-right px-2 py-[5px] text-[13px] font-mono border border-border rounded-sm outline-none focus:border-accent"
+                type="number"
+                step="any"
+                name="unit_price"
+                value=(item.unit_price) {}
+        }
+        td {
+            input
+                class="w-[64px] text-right px-2 py-[5px] text-[13px] font-mono border border-border rounded-sm outline-none focus:border-accent"
+                type="number"
+                step="any"
+                name="discount_rate"
+                value=(discount) {}
+        }
+        td class="text-right font-semibold text-fg whitespace-nowrap" { "—" }
+        td {
+            input
+                class="w-[110px] px-1.5 py-[5px] text-xs border border-border rounded-sm outline-none focus:border-accent"
+                type="date"
+                name="item_delivery_date"
+                value=(delivery) {}
+        }
+        td {
+            button
+                type="button"
+                class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center"
+                title="删除行"
+                _="on click remove closest <tr/>"
+            { (icon::x_icon("w-3.5 h-3.5")) }
+        }
+        input type="hidden" name="product_id" value=(item.product_id) {}
+    }
+}
 }
 
 fn item_row_fragment(product: &abt_core::master_data::product::model::Product) -> Markup {
  html! {
- tr oninput="salesOrderCalcRow(this)" {
- td class="text-muted text-xs text-center" { }
- td class="font-mono tabular-nums" { (product.product_code) }
- td { (product.pdt_name) }
- td { input class="w-full px-2 py-[5px] text-[13px] border border-border rounded-sm outline-none focus:border-accent" type="text" name="description" {} }
- td { input class="w-[56px] text-center px-2 py-[5px] text-[13px] border border-border rounded-sm bg-surface outline-none focus:border-accent" type="text" name="unit" readonly value=(product.unit) {} }
- td { input class="w-[80px] text-right px-2 py-[5px] text-[13px] font-mono border border-border rounded-sm outline-none focus:border-accent" type="number" step="any" name="quantity" placeholder="0" {} }
- td { input class="w-[100px] text-right px-2 py-[5px] text-[13px] font-mono border border-border rounded-sm outline-none focus:border-accent" type="number" step="any" name="unit_price" placeholder="0.00" {} }
- td { input class="w-[64px] text-right px-2 py-[5px] text-[13px] font-mono border border-border rounded-sm outline-none focus:border-accent" type="number" step="any" name="discount_rate" {} }
- td class="text-right font-semibold text-fg whitespace-nowrap" { "—" }
- td { input class="w-[110px] px-1.5 py-[5px] text-xs border border-border rounded-sm outline-none focus:border-accent" type="date" name="item_delivery_date" {} }
- td { button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center" title="删除行"
- _="on click remove closest <tr/>" {
- (icon::x_icon("w-3.5 h-3.5"))
- } }
- input type="hidden" name="product_id" value=(product.product_id) {}
- }
- }
+    tr oninput="salesOrderCalcRow(this)" {
+        td class="text-muted text-xs text-center" {}
+        td class="font-mono tabular-nums" { (product.product_code) }
+        td { (product.pdt_name) }
+        td {
+            input
+                class="w-full px-2 py-[5px] text-[13px] border border-border rounded-sm outline-none focus:border-accent"
+                type="text"
+                name="description" {}
+        }
+        td {
+            input
+                class="w-[56px] text-center px-2 py-[5px] text-[13px] border border-border rounded-sm bg-surface outline-none focus:border-accent"
+                type="text"
+                name="unit"
+                readonly
+                value=(product.unit) {}
+        }
+        td {
+            input
+                class="w-[80px] text-right px-2 py-[5px] text-[13px] font-mono border border-border rounded-sm outline-none focus:border-accent"
+                type="number"
+                step="any"
+                name="quantity"
+                placeholder="0" {}
+        }
+        td {
+            input
+                class="w-[100px] text-right px-2 py-[5px] text-[13px] font-mono border border-border rounded-sm outline-none focus:border-accent"
+                type="number"
+                step="any"
+                name="unit_price"
+                placeholder="0.00" {}
+        }
+        td {
+            input
+                class="w-[64px] text-right px-2 py-[5px] text-[13px] font-mono border border-border rounded-sm outline-none focus:border-accent"
+                type="number"
+                step="any"
+                name="discount_rate" {}
+        }
+        td class="text-right font-semibold text-fg whitespace-nowrap" { "—" }
+        td {
+            input
+                class="w-[110px] px-1.5 py-[5px] text-xs border border-border rounded-sm outline-none focus:border-accent"
+                type="date"
+                name="item_delivery_date" {}
+        }
+        td {
+            button
+                type="button"
+                class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center"
+                title="删除行"
+                _="on click remove closest <tr/>"
+            { (icon::x_icon("w-3.5 h-3.5")) }
+        }
+        input type="hidden" name="product_id" value=(product.product_id) {}
+    }
+}
 }

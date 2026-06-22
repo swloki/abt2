@@ -90,166 +90,226 @@ fn routing_detail_page(
  let step_count = steps.len();
 
  html! {
- div {
- // ── Detail Top ──
- div class="flex justify-between items-start" {
- div class="flex items-center gap-5" {
- div class="w-10 h-10 grid place-items-center rounded-full bg-accent text-white" {
- (icon::clipboard_list_icon("w-5 h-5"))
- }
- div {
- h1 class="text-xl font-bold" {
- (routing.name)
- }
- div class="flex gap-4 text-muted text-xs" {
- span { "工序: " (step_count) }
- span { "必经: " (required_count) }
- span { "关联BOM: " (boms.total) }
- @if let Some(dt) = routing.created_at {
- span { "创建: " (dt.format("%Y-%m-%d")) }
- }
- }
- }
- }
- div class="flex gap-3" {
- a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{list_path}?restore=true")) {
- (icon::arrow_left_icon("w-4 h-4"))
- " 返回列表"
- }
- a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href="#" {
- (icon::edit_icon("w-4 h-4"))
- " 编辑"
- }
- a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href="#" {
- (icon::copy_icon("w-4 h-4"))
- " 复制"
- }
- button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-danger text-white border-none hover:opacity-90"
- hx-confirm=(format!("确定要删除工艺路线 {} 吗？此操作不可撤销。", routing.name))
- hx-post=(delete_path.to_string())
- hx-target="body"
- hx-swap="outerHTML" {
- (icon::trash_icon("w-4 h-4"))
- " 删除"
- }
- }
- }
-
- // ── 基本信息 ──
- div class="bg-white border border-border-soft rounded p-5" {
- div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 border-b border-border-soft" { "基本信息" }
- div class="grid gap-5" class="grid-cols-3" {
- (detail_row("编码", html! { span class="font-mono tabular-nums" { (routing.id) } }))
- (detail_row("名称", html! { (routing.name) }))
- (detail_row("描述", html! { (routing.description.as_deref().unwrap_or("—")) }))
- (detail_row("创建人", html! {
- @if let Some(name) = creator_name {
- (name)
- } @else {
- "—"
- }
- }))
- @if let Some(dt) = routing.created_at {
- (detail_row("创建时间", html! { (dt.format("%Y-%m-%d %H:%M")) }))
- } @else {
- (detail_row("创建时间", html! { "—" }))
- }
- @if let Some(dt) = routing.updated_at {
- (detail_row("更新时间", html! { (dt.format("%Y-%m-%d %H:%M")) }))
- } @else {
- (detail_row("更新时间", html! { "—" }))
- }
- }
- }
-
- // ── 工序流程 ──
- div class="bg-white border border-border-soft rounded p-5" class="mt-5" {
- div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 border-b border-border-soft" {
- span { "工序流程" }
- span class="text-muted font-normal text-xs" {
- "（共 " (step_count) " 道工序）"
- }
- }
- @if steps.is_empty() {
- div class="text-center p-6 text-muted text-sm" { "暂无工序步骤" }
- } @else {
- table class="data-table" {
- thead {
- tr {
- th class="w-[60px]" { "序号" }
- th class="w-[120px]" { "工序代码" }
- th { "工序名称" }
- th class="w-[100px]" { "产出品" }
- th class="w-[80px]" { "是否必经" }
- th { "备注" }
- }
- }
- tbody {
- @for step in steps {
- tr {
- td class="font-mono tabular-nums" { (step.step_order) }
- td class="font-mono tabular-nums" { (step.process_code) }
- td { (step.process_name.as_deref().unwrap_or(&step.process_code)) }
- td class="font-mono tabular-nums" {
- @if let Some(pid) = step.product_id { "#" (pid) } @else { "—" }
- }
- td {
- @if step.is_required {
- span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-warn-bg text-warn" { "必经" }
- } @else {
- span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-surface text-muted" { "选检" }
- }
- }
- td { (step.remark.as_deref().unwrap_or("—")) }
- }
- }
- }
- }
- }
- }
-
- // ── 关联BOM ──
- div class="bg-white border border-border-soft rounded p-5 routing-bom-card" class="mt-5"
- hx-select=".routing-bom-card" hx-target=".routing-bom-card" hx-swap="outerHTML"
- hx-push-url="true" {
- div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 border-b border-border-soft" { "关联BOM" }
- (bom_table_fragment(routing.id, boms))
- }
- }
- }
+    div {
+        // ── Detail Top ──
+        div class="flex justify-between items-start" {
+            div class="flex items-center gap-5" {
+                div class="w-10 h-10 grid place-items-center rounded-full bg-accent text-white" {
+                    (icon::clipboard_list_icon("w-5 h-5"))
+                }
+                div {
+                    h1 class="text-xl font-bold" { (routing.name) }
+                    div class="flex gap-4 text-muted text-xs" {
+                        span { "工序: " (step_count) }
+                        span { "必经: " (required_count) }
+                        span { "关联BOM: " (boms.total) }
+                        @if let Some(dt) = routing.created_at {
+                            span { "创建: " (dt.format("%Y-%m-%d")) }
+                        }
+                    }
+                }
+            }
+            div class="flex gap-3" {
+                a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                    href=(format!("{list_path}?restore=true"))
+                { (icon::arrow_left_icon("w-4 h-4")) " 返回列表" }
+                a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                    href="#"
+                { (icon::edit_icon("w-4 h-4")) " 编辑" }
+                a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                    href="#"
+                { (icon::copy_icon("w-4 h-4")) " 复制" }
+                button
+                    class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-danger text-white border-none hover:opacity-90"
+                    hx-confirm=({
+                        format!(
+                            "确定要删除工艺路线 {} 吗？此操作不可撤销。",
+                            routing.name,
+                        )
+                    })
+                    hx-post=(delete_path.to_string())
+                    hx-target="body"
+                    hx-swap="outerHTML"
+                { (icon::trash_icon("w-4 h-4")) " 删除" }
+            }
+        }
+        // ── 基本信息 ──
+        div class="bg-white border border-border-soft rounded p-5" {
+            div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 border-b border-border-soft"
+            { "基本信息" }
+            div class="grid gap-5" class="grid-cols-3" {
+                ({
+                    detail_row(
+                        "编码",
+                        html! {
+                            span class = "font-mono tabular-nums" { (routing.id) }
+                        },
+                    )
+                })
+                ({
+                    detail_row(
+                        "名称",
+                        html! {
+                            (routing.name)
+                        },
+                    )
+                })
+                ({
+                    detail_row(
+                        "描述",
+                        html! {
+                            (routing.description.as_deref().unwrap_or("—"))
+                        },
+                    )
+                })
+                ({
+                    detail_row(
+                        "创建人",
+                        html! {
+                            @ if let Some(name) = creator_name { (name) } @ else { "—"
+                            }
+                        },
+                    )
+                })
+                @if let Some(dt) = routing.created_at {
+                    ({
+                        detail_row(
+                            "创建时间",
+                            html! {
+                                (dt.format("%Y-%m-%d %H:%M"))
+                            },
+                        )
+                    })
+                } @else { ({
+                    detail_row(
+                        "创建时间",
+                        html! {
+                            "—"
+                        },
+                    )
+                }) }
+                @if let Some(dt) = routing.updated_at {
+                    ({
+                        detail_row(
+                            "更新时间",
+                            html! {
+                                (dt.format("%Y-%m-%d %H:%M"))
+                            },
+                        )
+                    })
+                } @else { ({
+                    detail_row(
+                        "更新时间",
+                        html! {
+                            "—"
+                        },
+                    )
+                }) }
+            }
+        }
+        // ── 工序流程 ──
+        div class="bg-white border border-border-soft rounded p-5" class="mt-5" {
+            div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 border-b border-border-soft"
+            {
+                span { "工序流程" }
+                span class="text-muted font-normal text-xs" { "（共 " (step_count) " 道工序）" }
+            }
+            @if steps.is_empty() {
+                div class="text-center p-6 text-muted text-sm" { "暂无工序步骤" }
+            } @else {
+                table class="data-table" {
+                    thead {
+                        tr {
+                            th class="w-[60px]" { "序号" }
+                            th class="w-[120px]" { "工序代码" }
+                            th { "工序名称" }
+                            th class="w-[100px]" { "产出品" }
+                            th class="w-[80px]" { "是否必经" }
+                            th { "备注" }
+                        }
+                    }
+                    tbody {
+                        @for step in steps {
+                            tr {
+                                td class="font-mono tabular-nums" { (step.step_order) }
+                                td class="font-mono tabular-nums" { (step.process_code) }
+                                td { (step.process_name.as_deref().unwrap_or(&step.process_code)) }
+                                td class="font-mono tabular-nums" {
+                                    @if let Some(pid) = step.product_id { "#" (pid) } @else { "—" }
+                                }
+                                td {
+                                    @if step.is_required {
+                                        span
+                                            class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-warn-bg text-warn"
+                                        { "必经" }
+                                    } @else {
+                                        span
+                                            class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-surface text-muted"
+                                        { "选检" }
+                                    }
+                                }
+                                td { (step.remark.as_deref().unwrap_or("—")) }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        // ── 关联BOM ──
+        div class="bg-white border border-border-soft rounded p-5 routing-bom-card"
+            class="mt-5"
+            hx-select=".routing-bom-card"
+            hx-target=".routing-bom-card"
+            hx-swap="outerHTML"
+            hx-push-url="true"
+        {
+            div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 border-b border-border-soft"
+            { "关联BOM" }
+            (bom_table_fragment(routing.id, boms))
+        }
+    }
+}
 }
 fn bom_table_fragment(routing_id: i64, boms: &abt_core::shared::types::PaginatedResult<BomRouting>) -> Markup {
  let base_path = RoutingDetailPath { id: routing_id }.to_string();
  html! {
- @if boms.items.is_empty() {
- div class="text-center p-6 text-muted text-sm" { "暂无关联BOM" }
- } @else {
- table class="data-table" {
- thead {
- tr {
- th class="w-[60px]" { "ID" }
- th { "产品编码" }
- th style="width:160px" { "关联时间" }
- }
- }
- tbody {
- @for bom in &boms.items {
- tr {
- td class="font-mono tabular-nums" { (bom.id) }
- td class="font-mono tabular-nums" { (bom.product_code) }
- td {
- @if let Some(dt) = bom.created_at {
- (dt.format("%Y-%m-%d %H:%M"))
- } @else {
- "—"
- }
- }
- }
- }
- }
- }
- (htmx_pagination(&base_path, "", boms.total, boms.page, boms.total_pages, ".routing-bom-card", "outerHTML"))
- }
- }
+    @if boms.items.is_empty() {
+        div class="text-center p-6 text-muted text-sm" { "暂无关联BOM" }
+    } @else {
+        table class="data-table" {
+            thead {
+                tr {
+                    th class="w-[60px]" { "ID" }
+                    th { "产品编码" }
+                    th style="width:160px" { "关联时间" }
+                }
+            }
+            tbody {
+                @for bom in &boms.items {
+                    tr {
+                        td class="font-mono tabular-nums" { (bom.id) }
+                        td class="font-mono tabular-nums" { (bom.product_code) }
+                        td {
+                            @if let Some(dt) = bom.created_at { (dt.format("%Y-%m-%d %H:%M")) } @else {
+                                "—"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        ({
+            htmx_pagination(
+                &base_path,
+                "",
+                boms.total,
+                boms.page,
+                boms.total_pages,
+                ".routing-bom-card",
+                "outerHTML",
+            )
+        })
+    }
+}
 }
 // ── Helpers ──

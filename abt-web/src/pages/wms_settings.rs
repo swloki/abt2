@@ -75,14 +75,15 @@ fn settings_page(threshold: &rust_decimal::Decimal) -> Markup {
             form hx-post=(WmsSettingsPath::PATH) hx-swap="none" {
                 // ── 盘点差异审批 ──
                 div class="data-card" {
-                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
-                        "盘点差异审批"
-                    }
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
+                    { "盘点差异审批" }
                     div class="form-field" {
                         label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
                             "盘点差异金额阈值"
                         }
-                        input type="number" step="any"
+                        input
+                            type="number"
+                            step="any"
                             name="cycle_count_variance_threshold"
                             value=(threshold)
                             class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]";
@@ -93,15 +94,16 @@ fn settings_page(threshold: &rust_decimal::Decimal) -> Markup {
                         }
                     }
                 }
-
                 // ── Actions ──
-                div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg border-t border-border-soft" {
-                    a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
-                        href="/admin/wms/cycle-counts" { "返回盘点列表" }
-                    button type="submit"
-                        class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" {
-                        "保存配置"
-                    }
+                div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg border-t border-border-soft"
+                {
+                    a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                        href="/admin/wms/cycle-counts"
+                    { "返回盘点列表" }
+                    button
+                        type="submit"
+                        class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                    { "保存配置" }
                 }
             }
         }

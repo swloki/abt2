@@ -45,12 +45,22 @@ pub fn status_tabs_with_oob(
  param_name: &str,
 ) -> Markup {
  html! {
- div id="status-tabs" class="flex gap-1 mb-6 border-b border-border-soft" {
- @for tab in tabs {
- (status_tab(hx_get, hx_target, hx_include, hx_select_oob, tab, active_value, param_name))
- }
- }
- }
+    div id="status-tabs" class="flex gap-1 mb-6 border-b border-border-soft" {
+        @for tab in tabs {
+            ({
+                status_tab(
+                    hx_get,
+                    hx_target,
+                    hx_include,
+                    hx_select_oob,
+                    tab,
+                    active_value,
+                    param_name,
+                )
+            })
+        }
+    }
+}
 }
 
 fn status_tab(hx_get: &str, hx_target: &str, hx_include: &str, hx_select_oob: &str, tab: &TabItem, active_value: &str, param_name: &str) -> Markup {
@@ -67,19 +77,22 @@ fn status_tab(hx_get: &str, hx_target: &str, hx_include: &str, hx_select_oob: &s
  };
 
  html! {
- a class=(class)
- hx-get=(hx_get)
- hx-target=(hx_target)
- hx-select=(hx_target)
- hx-select-oob=(hx_select_oob)
- hx-swap="outerHTML"
- hx-push-url="true"
- hx-vals=(vals)
- hx-include=(hx_include) {
- (tab.label)
- @if let Some(c) = tab.count {
- span class="text-[11px] bg-surface px-1.5 py-0.5 rounded-full text-muted font-medium ml-1" { (c) }
- }
- }
- }
+    a   class=(class)
+        hx-get=(hx_get)
+        hx-target=(hx_target)
+        hx-select=(hx_target)
+        hx-select-oob=(hx_select_oob)
+        hx-swap="outerHTML"
+        hx-push-url="true"
+        hx-vals=(vals)
+        hx-include=(hx_include)
+    {
+        (tab.label)
+        @if let Some(c) = tab.count {
+            span
+                class="text-[11px] bg-surface px-1.5 py-0.5 rounded-full text-muted font-medium ml-1"
+            { (c) }
+        }
+    }
+}
 }

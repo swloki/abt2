@@ -199,24 +199,22 @@ fn misc_list_page(
  can_create: bool,
 ) -> Markup {
  html! {
- div {
- // ── Page Header ──
- div class="flex items-center justify-between mb-6" {
- h1 class="text-xl font-bold text-fg tracking-tight" { "零星请购" }
- div class="flex gap-3" {
- @if can_create {
- a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(MiscCreatePath::PATH) {
- (icon::plus_icon("w-4 h-4"))
- "新建零星请购"
- }
- }
- }
- }
-
- // ── Tabs + Filter + Data Table (HTMX panel) ──
- (misc_table_fragment(result, params, operator_map, dept_name_map))
- }
- }
+    div {
+        // ── Page Header ──
+        div class="flex items-center justify-between mb-6" {
+            h1 class="text-xl font-bold text-fg tracking-tight" { "零星请购" }
+            div class="flex gap-3" {
+                @if can_create {
+                    a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                        href=(MiscCreatePath::PATH)
+                    { (icon::plus_icon("w-4 h-4")) "新建零星请购" }
+                }
+            }
+        }
+        // ── Tabs + Filter + Data Table (HTMX panel) ──
+        (misc_table_fragment(result, params, operator_map, dept_name_map))
+    }
+}
 }
 
 fn misc_table_fragment(
@@ -243,78 +241,102 @@ fn misc_table_fragment(
  let date_range_value = params.date_range.as_deref().unwrap_or("");
 
  html! {
- div class="misc-list-panel" {
- (status_tabs_with_param(MiscListPath::PATH, "#misc-data-card", "#misc-filter-form", tabs, &active_value, "status"))
-
- // ── Filter Bar ──
- form class="flex items-center gap-3 mb-5 flex-wrap filter-form" id="misc-filter-form"
- hx-get=(MiscListPath::PATH)
- hx-trigger="change, keyup changed delay:300ms from:.search-input"
- hx-target="#misc-data-card"
- hx-select="#misc-data-card"
- hx-swap="outerHTML"
- hx-select-oob="#status-tabs"
- hx-include="#misc-filter-form"
- hx-push-url="true" {
- div class="relative flex-1 max-w-xs icon:absolute icon:left-3 icon:top-1/2 icon:-translate-y-1/2 icon:w-4 icon:h-4 icon:text-muted" {
- (icon::search_icon(""))
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input" type="text" name="keyword"
- placeholder="搜索单据编号…"
- value=(params.keyword.as_deref().unwrap_or(""));
- }
- select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="department" {
- option value="" selected[dept_value.is_empty()] { "全部部门" }
- option value="行政部" selected[dept_value == "行政部"] { "行政部" }
- option value="IT部" selected[dept_value == "IT部"] { "IT部" }
- option value="生产部" selected[dept_value == "生产部"] { "生产部" }
- option value="品质部" selected[dept_value == "品质部"] { "品质部" }
- option value="研发部" selected[dept_value == "研发部"] { "研发部" }
- option value="财务部" selected[dept_value == "财务部"] { "财务部" }
- option value="人事部" selected[dept_value == "人事部"] { "人事部" }
- option value="市场部" selected[dept_value == "市场部"] { "市场部" }
- }
- select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="date_range" {
- option value="" selected[date_range_value.is_empty()] { "请购日期" }
- option value="7d" selected[date_range_value == "7d"] { "最近7天" }
- option value="30d" selected[date_range_value == "30d"] { "最近30天" }
- option value="3m" selected[date_range_value == "3m"] { "最近3个月" }
- }
- }
-
- // ── Data Table ──
- div class="data-card" id="misc-data-card" {
- div class="overflow-x-auto" {
- table class="data-table" {
- thead {
- tr {
- th { "请购单号" }
- th { "申请部门" }
- th { "请购日期" }
- th { "用途" }
- th { "状态" }
- th class="text-right text-[13px]" { "预估金额" }
- th { "申请人" }
- th class="!text-right" { "操作" }
- }
- }
- tbody {
- @for r in &result.items {
- (misc_row(r, operator_map, dept_name_map))
- }
- @if result.items.is_empty() {
- tr {
- td colspan="8" class="text-center text-muted py-8" {
- "暂无请购数据"
- }
- }
- }
- }
- }
- }
- (pagination(MiscListPath::PATH, &query, result.total, result.page, result.total_pages))
- }
- }
- }
+    div class="misc-list-panel" {
+        ({
+            status_tabs_with_param(
+                MiscListPath::PATH,
+                "#misc-data-card",
+                "#misc-filter-form",
+                tabs,
+                &active_value,
+                "status",
+            )
+        })
+        // ── Filter Bar ──
+        form
+            class="flex items-center gap-3 mb-5 flex-wrap filter-form"
+            id="misc-filter-form"
+            hx-get=(MiscListPath::PATH)
+            hx-trigger="change, keyup changed delay:300ms from:.search-input"
+            hx-target="#misc-data-card"
+            hx-select="#misc-data-card"
+            hx-swap="outerHTML"
+            hx-select-oob="#status-tabs"
+            hx-include="#misc-filter-form"
+            hx-push-url="true"
+        {
+            div class="relative flex-1 max-w-xs icon:absolute icon:left-3 icon:top-1/2 icon:-translate-y-1/2 icon:w-4 icon:h-4 icon:text-muted"
+            {
+                (icon::search_icon(""))
+                input
+                    class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input"
+                    type="text"
+                    name="keyword"
+                    placeholder="搜索单据编号…"
+                    value=(params.keyword.as_deref().unwrap_or(""));
+            }
+            select
+                class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer"
+                name="department"
+            {
+                option value="" selected[dept_value.is_empty()] { "全部部门" }
+                option value="行政部" selected[dept_value == "行政部"] { "行政部" }
+                option value="IT部" selected[dept_value == "IT部"] { "IT部" }
+                option value="生产部" selected[dept_value == "生产部"] { "生产部" }
+                option value="品质部" selected[dept_value == "品质部"] { "品质部" }
+                option value="研发部" selected[dept_value == "研发部"] { "研发部" }
+                option value="财务部" selected[dept_value == "财务部"] { "财务部" }
+                option value="人事部" selected[dept_value == "人事部"] { "人事部" }
+                option value="市场部" selected[dept_value == "市场部"] { "市场部" }
+            }
+            select
+                class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer"
+                name="date_range"
+            {
+                option value="" selected[date_range_value.is_empty()] { "请购日期" }
+                option value="7d" selected[date_range_value == "7d"] { "最近7天" }
+                option value="30d" selected[date_range_value == "30d"] { "最近30天" }
+                option value="3m" selected[date_range_value == "3m"] { "最近3个月" }
+            }
+        }
+        // ── Data Table ──
+        div class="data-card" id="misc-data-card" {
+            div class="overflow-x-auto" {
+                table class="data-table" {
+                    thead {
+                        tr {
+                            th { "请购单号" }
+                            th { "申请部门" }
+                            th { "请购日期" }
+                            th { "用途" }
+                            th { "状态" }
+                            th class="text-right text-[13px]" { "预估金额" }
+                            th { "申请人" }
+                            th class="!text-right" { "操作" }
+                        }
+                    }
+                    tbody {
+                        @for r in &result.items { (misc_row(r, operator_map, dept_name_map)) }
+                        @if result.items.is_empty() {
+                            tr {
+                                td colspan="8" class="text-center text-muted py-8" { "暂无请购数据" }
+                            }
+                        }
+                    }
+                }
+            }
+            ({
+                pagination(
+                    MiscListPath::PATH,
+                    &query,
+                    result.total,
+                    result.page,
+                    result.total_pages,
+                )
+            })
+        }
+    }
+}
 }
 
 fn misc_row(
@@ -330,25 +352,33 @@ fn misc_row(
  let is_draft = r.status == MiscRequestStatus::Draft;
 
  html! {
- tr class="cursor-pointer" {
- td class="text-accent font-medium cursor-pointer font-mono tabular-nums" onclick=(&onclick) { (r.doc_number) }
- td onclick=(&onclick) { (dept_name) }
- td class="font-mono tabular-nums" onclick=(&onclick) { (r.request_date.format("%Y-%m-%d")) }
- td onclick=(&onclick) { (r.purpose.as_str()) }
- td onclick=(&onclick) {
- span class=(format!("status-pill {}", crate::utils::status_color(status_class))) { (status_text) }
- }
- td class="text-right text-[13px] font-mono tabular-nums" onclick=(&onclick) { (format!("{:.2}", r.total_amount)) }
- td onclick=(&onclick) { (operator_name) }
- td _="on click halt the event" {
- @if is_draft {
- div class="row-actions flex items-center gap-1 justify-end opacity-0 transition-opacity duration-150 [&_a]:w-[28px] [&_a]:h-[28px] [&_a]:grid [&_a]:place-items-center [&_a]:rounded-sm [&_a]:cursor-pointer [&_a]:bg-surface [&_a]:hover:bg-accent-bg icon:w-3.5 icon:h-3.5" {
- a class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" href=(detail_path.to_string()) title="编辑" {
- (icon::edit_icon("w-4 h-4"))
- }
- }
- }
- }
- }
- }
+    tr class="cursor-pointer" {
+        td class="text-accent font-medium cursor-pointer font-mono tabular-nums" onclick=(&onclick) {
+            (r.doc_number)
+        }
+        td onclick=(&onclick) { (dept_name) }
+        td class="font-mono tabular-nums" onclick=(&onclick) { (r.request_date.format("%Y-%m-%d")) }
+        td onclick=(&onclick) { (r.purpose.as_str()) }
+        td onclick=(&onclick) {
+            span class=(format!("status-pill {}", crate::utils::status_color(status_class))) {
+                (status_text)
+            }
+        }
+        td class="text-right text-[13px] font-mono tabular-nums" onclick=(&onclick) {
+            (format!("{:.2}", r.total_amount))
+        }
+        td onclick=(&onclick) { (operator_name) }
+        td _="on click halt the event" {
+            @if is_draft {
+                div class="row-actions flex items-center gap-1 justify-end opacity-0 transition-opacity duration-150 [&_a]:w-[28px] [&_a]:h-[28px] [&_a]:grid [&_a]:place-items-center [&_a]:rounded-sm [&_a]:cursor-pointer [&_a]:bg-surface [&_a]:hover:bg-accent-bg icon:w-3.5 icon:h-3.5"
+                {
+                    a   class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer"
+                        href=(detail_path.to_string())
+                        title="编辑"
+                    { (icon::edit_icon("w-4 h-4")) }
+                }
+            }
+        }
+    }
+}
 }

@@ -116,22 +116,59 @@ fn qms_dashboard_page(
         div class="flex items-center justify-between mb-6" {
             h1 class="text-xl font-bold text-fg tracking-tight" { "质量管理总览" }
             div class="flex gap-3" {
-                a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(ResultCreatePath::PATH) {
-                    (icon::plus_icon("w-4 h-4"))
-                    " 新建检验结果"
-                }
+                a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                    href=(ResultCreatePath::PATH)
+                { (icon::plus_icon("w-4 h-4")) " 新建检验结果" }
             }
         }
-
         // ── 5 Stat Cards ──
         div class="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6" {
-            (stat_card("待检验", &pending.to_string(), icon::clipboard_list_icon("w-5 h-5"), "#fef3c7", "#d97706"))
-            (stat_card("合格率", &pass_rate_str, icon::check_circle_icon("w-5 h-5"), "#dcfce7", "#16a34a"))
-            (stat_card("不良品数", &fail_count.to_string(), icon::alert_triangle_icon("w-5 h-5"), "#fee2e2", "#dc2626"))
-            (stat_card("待审MRB", &mrb_pending.to_string(), icon::file_text_icon("w-5 h-5"), "#ede9fe", "#7c3aed"))
-            (stat_card("活跃RMA", &rma_active.to_string(), icon::return_arrow_icon("w-5 h-5"), "#cffafe", "#0891b2"))
+            ({
+                stat_card(
+                    "待检验",
+                    &pending.to_string(),
+                    icon::clipboard_list_icon("w-5 h-5"),
+                    "#fef3c7",
+                    "#d97706",
+                )
+            })
+            ({
+                stat_card(
+                    "合格率",
+                    &pass_rate_str,
+                    icon::check_circle_icon("w-5 h-5"),
+                    "#dcfce7",
+                    "#16a34a",
+                )
+            })
+            ({
+                stat_card(
+                    "不良品数",
+                    &fail_count.to_string(),
+                    icon::alert_triangle_icon("w-5 h-5"),
+                    "#fee2e2",
+                    "#dc2626",
+                )
+            })
+            ({
+                stat_card(
+                    "待审MRB",
+                    &mrb_pending.to_string(),
+                    icon::file_text_icon("w-5 h-5"),
+                    "#ede9fe",
+                    "#7c3aed",
+                )
+            })
+            ({
+                stat_card(
+                    "活跃RMA",
+                    &rma_active.to_string(),
+                    icon::return_arrow_icon("w-5 h-5"),
+                    "#cffafe",
+                    "#0891b2",
+                )
+            })
         }
-
         // ── Quick Entry Grid ──
         div class="mb-6" {
             h2 class="text-lg font-semibold text-fg flex items-center gap-2 mb-4" {
@@ -139,23 +176,57 @@ fn qms_dashboard_page(
                 " 快捷操作"
             }
             div class="grid grid-cols-2 lg:grid-cols-4 gap-4" {
-                (quick_entry_card(SpecCreatePath::PATH, "新建检验规格", "定义检验标准 & AQL", "blue", "spec"))
-                (quick_entry_card(ResultCreatePath::PATH, "记录检验结果", "录入IQC/IPQC/FQC/OQC", "green", "result"))
-                (quick_entry_card(MrbCreatePath::PATH, "新建MRB评审", "不合格品评审处置", "red", "mrb"))
-                (quick_entry_card(RmaCreatePath::PATH, "新建RMA客诉", "客户退货 & 8D报告", "purple", "rma"))
+                ({
+                    quick_entry_card(
+                        SpecCreatePath::PATH,
+                        "新建检验规格",
+                        "定义检验标准 & AQL",
+                        "blue",
+                        "spec",
+                    )
+                })
+                ({
+                    quick_entry_card(
+                        ResultCreatePath::PATH,
+                        "记录检验结果",
+                        "录入IQC/IPQC/FQC/OQC",
+                        "green",
+                        "result",
+                    )
+                })
+                ({
+                    quick_entry_card(
+                        MrbCreatePath::PATH,
+                        "新建MRB评审",
+                        "不合格品评审处置",
+                        "red",
+                        "mrb",
+                    )
+                })
+                ({
+                    quick_entry_card(
+                        RmaCreatePath::PATH,
+                        "新建RMA客诉",
+                        "客户退货 & 8D报告",
+                        "purple",
+                        "rma",
+                    )
+                })
             }
         }
-
         // ── Two-Column: Recent Results + MRB ──
         div class="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-6" {
             // Recent Results
             div class="data-card overflow-hidden" {
-                div class="px-4 py-3 border-b border-border-soft text-sm font-semibold text-fg flex items-center justify-between" {
+                div class="px-4 py-3 border-b border-border-soft text-sm font-semibold text-fg flex items-center justify-between"
+                {
                     span class="flex items-center gap-2" {
                         (icon::check_circle_icon("w-4 h-4"))
                         " 最近检验结果"
                     }
-                    a href=(ResultListPath::PATH) class="text-xs text-accent font-medium hover:underline" { "查看全部 →" }
+                    a   href=(ResultListPath::PATH)
+                        class="text-xs text-accent font-medium hover:underline"
+                    { "查看全部 →" }
                 }
                 div class="p-2" {
                     @if recent_results.is_empty() {
@@ -163,35 +234,56 @@ fn qms_dashboard_page(
                     } @else {
                         @for r in recent_results {
                             @let is_pass = r.result == InspectionResultType::Pass;
-                            @let result_label = if is_pass { "Pass" } else if r.result == InspectionResultType::Fail { "Fail" } else { "让步" };
+                            @let result_label = if is_pass {
+                                "Pass"
+                            } else if r.result == InspectionResultType::Fail {
+                                "Fail"
+                            } else {
+                                "让步"
+                            };
                             @let time_str = r.created_at.format("%m-%d %H:%M").to_string();
-                            (flow_row(&r.doc_number, &time_str, result_label, &time_str, is_pass))
+                            ({
+                                flow_row(
+                                    &r.doc_number,
+                                    &time_str,
+                                    result_label,
+                                    &time_str,
+                                    is_pass,
+                                )
+                            })
                         }
                     }
                 }
             }
-
             // MRB List
             div class="data-card overflow-hidden" {
-                div class="px-4 py-3 border-b border-border-soft text-sm font-semibold text-fg flex items-center justify-between" {
+                div class="px-4 py-3 border-b border-border-soft text-sm font-semibold text-fg flex items-center justify-between"
+                {
                     span class="flex items-center gap-2" {
                         (icon::alert_triangle_icon("w-4 h-4"))
                         " MRB评审列表"
                     }
-                    a href=(MrbListPath::PATH) class="text-xs text-accent font-medium hover:underline" { "查看全部 →" }
+                    a   href=(MrbListPath::PATH)
+                        class="text-xs text-accent font-medium hover:underline"
+                    { "查看全部 →" }
                 }
                 div class="p-2" {
                     @if recent_mrbs.is_empty() {
                         div class="text-center py-8 text-sm text-muted" { "暂无MRB记录" }
                     } @else {
                         @for m in recent_mrbs {
-                            (mrb_flow_row(&m.doc_number, &m.defect_description, mrb_status_label(&m.status)))
+                            ({
+                                mrb_flow_row(
+                                    &m.doc_number,
+                                    &m.defect_description,
+                                    mrb_status_label(&m.status),
+                                )
+                            })
                         }
                     }
                 }
             }
         }
-
         // ── 6-Month Quality Trend ──
         div class="mb-6" {
             h2 class="text-lg font-semibold text-fg flex items-center gap-2 mb-4" {
@@ -225,9 +317,8 @@ fn stat_card(label: &str, value: &str, icon_svg: Markup, bg_hex: &str, fg_hex: &
     html! {
         div class="data-card flex items-center gap-4 p-5" {
             div class="w-11 h-11 rounded-md grid place-items-center shrink-0"
-                style=(format!("background:{};color:{}", bg_hex, fg_hex)) {
-                (icon_svg)
-            }
+                style=(format!("background:{};color:{}", bg_hex, fg_hex))
+            { (icon_svg) }
             div {
                 div class="text-2xl font-bold font-mono tabular-nums text-fg" { (value) }
                 div class="text-sm text-muted mt-1" { (label) }
@@ -254,14 +345,19 @@ fn quick_entry_card(href: &str, title: &str, desc: &str, color: &str, badge: &st
         _ => "text-fg",
     };
     html! {
-        a href=(href) class="data-card block p-5 no-underline hover:shadow-[var(--shadow-card-hover)] transition-shadow duration-200" {
+        a   href=(href)
+            class="data-card block p-5 no-underline hover:shadow-[var(--shadow-card-hover)] transition-shadow duration-200"
+        {
             div class="flex items-center gap-3 mb-3" {
                 div class="w-10 h-10 rounded-md grid place-items-center" {
                     span class=(title_cls) { (icon_svg) }
                 }
-                span class=(format!("text-[10px] font-bold px-2 py-0.5 rounded-full {}", badge_cls)) {
-                    (badge.to_uppercase())
-                }
+                span class=({
+                    format!(
+                        "text-[10px] font-bold px-2 py-0.5 rounded-full {}",
+                        badge_cls,
+                    )
+                }) { (badge.to_uppercase()) }
             }
             div class=(format!("text-base font-semibold {} mb-1", title_cls)) { (title) }
             div class="text-sm text-muted" { (desc) }
@@ -275,7 +371,8 @@ fn flow_row(doc: &str, info: &str, result: &str, time: &str, is_pass: bool) -> M
     let dot_cls = if is_pass { "bg-success" } else { "bg-danger" };
     let result_cls = if is_pass { "text-success" } else { "text-danger" };
     html! {
-        div class="flex items-center gap-3 px-3 py-2.5 rounded-sm hover:bg-accent-bg transition-colors" {
+        div class="flex items-center gap-3 px-3 py-2.5 rounded-sm hover:bg-accent-bg transition-colors"
+        {
             div class=(format!("w-2.5 h-2.5 rounded-full shrink-0 {}", dot_cls)) {}
             div class="flex-1 min-w-0" {
                 div class="text-sm font-medium text-fg truncate font-mono" { (doc) }
@@ -291,15 +388,16 @@ fn flow_row(doc: &str, info: &str, result: &str, time: &str, is_pass: bool) -> M
 
 fn mrb_flow_row(doc: &str, desc: &str, status: &str) -> Markup {
     html! {
-        div class="flex items-center gap-3 px-3 py-2.5 rounded-sm hover:bg-accent-bg transition-colors" {
+        div class="flex items-center gap-3 px-3 py-2.5 rounded-sm hover:bg-accent-bg transition-colors"
+        {
             div class="w-2.5 h-2.5 rounded-full shrink-0 bg-warn" {}
             div class="flex-1 min-w-0" {
                 div class="text-sm font-medium text-fg truncate font-mono" { (doc) }
                 div class="text-xs text-muted mt-0.5 truncate" { (desc) }
             }
-            span class="inline-flex items-center gap-1 rounded-full text-xs font-medium whitespace-nowrap px-2 py-0.5 bg-warn-bg text-warn-700" {
-                (status)
-            }
+            span
+                class="inline-flex items-center gap-1 rounded-full text-xs font-medium whitespace-nowrap px-2 py-0.5 bg-warn-bg text-warn-700"
+            { (status) }
         }
     }
 }
@@ -327,7 +425,12 @@ fn chart_bar(month: &str, pass_rate: f64, is_current: bool) -> Markup {
     html! {
         div class="text-center" {
             div class="flex flex-col items-center gap-1 h-[140px] justify-end" {
-                div class=(format!("relative overflow-hidden w-full max-w-[48px] rounded-sm {}", bar_cls))
+                div class=({
+                        format!(
+                            "relative overflow-hidden w-full max-w-[48px] rounded-sm {}",
+                            bar_cls,
+                        )
+                    })
                     style=(format!("height:{}px", pass_height)) {}
             }
             div class=(format!("text-xs mt-1 {}", month_cls)) { (month) }

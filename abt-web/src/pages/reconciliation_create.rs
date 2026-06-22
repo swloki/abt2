@@ -178,162 +178,210 @@ fn reconciliation_create_page(
  username: &str,
 ) -> Markup {
  html! {
- div id="rec-app" class="p-6" {
- // ── Page Header ──
- div class="flex items-center justify-between mb-6" {
- a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", ReconciliationListPath::PATH)) {
- (icon::arrow_left_icon("w-4 h-4"))
- "返回对账单列表"
- }
- h1 class="text-xl font-bold text-fg tracking-tight" { "新建对账单" }
- }
+    div id="rec-app" class="p-6" {
+        // ── Page Header ──
+        div class="flex items-center justify-between mb-6" {
+            a   class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150"
+                href=(format!("{}?restore=true", ReconciliationListPath::PATH))
+            { (icon::arrow_left_icon("w-4 h-4")) "返回对账单列表" }
+            h1 class="text-xl font-bold text-fg tracking-tight" { "新建对账单" }
+        }
 
- form id="rec-create-form"
- hx-post=(ReconciliationCreatePath::PATH)
- hx-swap="none" {
-
- // ── 对账基本信息 ──
- div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
- (icon::clipboard_document_icon("w-[18px] h-[18px]"))
- "对账基本信息"
- }
- div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
- div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "客户 " span class="required" { "*" } }
- select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="customer_id" id="rec-customer-select"
- onchange="triggerPreview()" {
- option value="" { "请选择客户" }
- @for c in customers {
- option value=(c.id) { (c.name) }
- }
- }
- }
- div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "对账期间 " span class="required" { "*" } }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="month" name="period" id="rec-period-select"
- onchange="triggerPreview()" placeholder="选择月份";
- }
- div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "对账日期" }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="date" id="rec-date";
- }
- div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "销售员" }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" readonly value=(username);
- }
- div class="form-field field-full" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "联系人 / 电话" }
- div class="grid grid-cols-2 gap-4" {
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" id="rec-contact-name" readonly placeholder="选择客户后自动填充";
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" id="rec-contact-phone" readonly placeholder="—";
- }
- }
- div class="form-field col-span-2" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "备注" }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" placeholder="对账备注信息…";
- }
- }
- }
-
- // ── 对账明细 ──
- div class="bg-bg border border-border rounded overflow-hidden" id="rec-preview-area"
- hx-get=(ReconciliationPreviewPath::PATH)
- hx-trigger="previewChanged from:#rec-app"
- hx-include="#rec-customer-select,#rec-period-select"
- hx-target="this"
- hx-swap="outerHTML" {
- div class="flex items-center justify-between p-5 border-b border-border-soft" {
- h3 {
- (icon::package_icon("w-[18px] h-[18px]"))
- "对账明细"
- }
- button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" id="pickOrderBtn" disabled {
- (icon::plus_icon("w-3.5 h-3.5"))
- "从发货单添加"
- }
- }
-
- // Empty state
- div class="text-center p-6 text-muted text-sm" id="emptyState" {
- (icon::clipboard_list_icon("w-12 h-12"))
- p class="text-center text-muted text-sm font-medium" { "暂无对账明细" }
- p class="text-center text-muted text-sm mt-1" { "请先选择客户，然后从发货单中添加对账明细" }
- button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] mt-5" _="on click trigger click on #pickOrderBtn" { "选择发货单" }
- }
- }
-
- // ── Remark ──
- div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
- (icon::file_text_icon("w-[18px] h-[18px]"))
- "备注"
- }
- textarea class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] min-h-[72px] resize-y leading-1.5" name="remark" placeholder="输入对账相关备注信息…" {}
- }
-
- // ── Attachment ──
- div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
- (icon::upload_icon("w-[18px] h-[18px]"))
- "附件"
- }
- div class="rounded p-8 text-center cursor-pointer" {
- (icon::upload_icon("w-8 h-8"))
- p class="text-sm font-medium text-fg mt-2" { "点击或拖拽文件到此处上传" }
- p class="text-xs text-muted mt-1" { "支持 PDF、Word、Excel、图片，单个文件不超过 10MB" }
- }
- }
-
- // ── Action Bar ──
- div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg border-t border-border-soft" {
- a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{}?restore=true", ReconciliationListPath::PATH)) { "取消" }
- div class="action-bar-right" {
- button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" onclick="show_info_toast('草稿功能开发中')" {
- (icon::save_icon("w-4 h-4"))
- "保存草稿"
- }
- button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" _="on click trigger submit on #rec-create-form" {
- (icon::send_icon("w-4 h-4"))
- "提交确认"
- }
- }
- }
- }
-
- // ── Preview trigger helper ──
- (maud::PreEscaped(r#"<script>
+        form id="rec-create-form" hx-post=(ReconciliationCreatePath::PATH) hx-swap="none" {
+            // ── 对账基本信息 ──
+            div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden"
+            {
+                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
+                { (icon::clipboard_document_icon("w-[18px] h-[18px]")) "对账基本信息" }
+                div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
+                    div class="form-field" {
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
+                            "客户 "
+                            span class="required" { "*" }
+                        }
+                        select
+                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]"
+                            name="customer_id"
+                            id="rec-customer-select"
+                            onchange="triggerPreview()"
+                        {
+                            option value="" { "请选择客户" }
+                            @for c in customers {
+                                option value=(c.id) { (c.name) }
+                            }
+                        }
+                    }
+                    div class="form-field" {
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
+                            "对账期间 "
+                            span class="required" { "*" }
+                        }
+                        input
+                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]"
+                            type="month"
+                            name="period"
+                            id="rec-period-select"
+                            onchange="triggerPreview()"
+                            placeholder="选择月份";
+                    }
+                    div class="form-field" {
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
+                            "对账日期"
+                        }
+                        input
+                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]"
+                            type="date"
+                            id="rec-date";
+                    }
+                    div class="form-field" {
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
+                            "销售员"
+                        }
+                        input
+                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]"
+                            type="text"
+                            readonly
+                            value=(username);
+                    }
+                    div class="form-field field-full" {
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
+                            "联系人 / 电话"
+                        }
+                        div class="grid grid-cols-2 gap-4" {
+                            input
+                                class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]"
+                                type="text"
+                                id="rec-contact-name"
+                                readonly
+                                placeholder="选择客户后自动填充";
+                            input
+                                class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]"
+                                type="text"
+                                id="rec-contact-phone"
+                                readonly
+                                placeholder="—";
+                        }
+                    }
+                    div class="form-field col-span-2" {
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
+                            "备注"
+                        }
+                        input
+                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]"
+                            type="text"
+                            placeholder="对账备注信息…";
+                    }
+                }
+            }
+            // ── 对账明细 ──
+            div class="bg-bg border border-border rounded overflow-hidden"
+                id="rec-preview-area"
+                hx-get=(ReconciliationPreviewPath::PATH)
+                hx-trigger="previewChanged from:#rec-app"
+                hx-include="#rec-customer-select,#rec-period-select"
+                hx-target="this"
+                hx-swap="outerHTML"
+            {
+                div class="flex items-center justify-between p-5 border-b border-border-soft" {
+                    h3 { (icon::package_icon("w-[18px] h-[18px]")) "对账明细" }
+                    button
+                        type="button"
+                        class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                        id="pickOrderBtn"
+                        disabled
+                    { (icon::plus_icon("w-3.5 h-3.5")) "从发货单添加" }
+                }
+                // Empty state
+                div class="text-center p-6 text-muted text-sm" id="emptyState" {
+                    (icon::clipboard_list_icon("w-12 h-12"))
+                    p class="text-center text-muted text-sm font-medium" { "暂无对账明细" }
+                    p class="text-center text-muted text-sm mt-1" { "请先选择客户，然后从发货单中添加对账明细" }
+                    button
+                        type="button"
+                        class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] mt-5"
+                        _="on click trigger click on #pickOrderBtn"
+                    { "选择发货单" }
+                }
+            }
+            // ── Remark ──
+            div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden"
+            {
+                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
+                { (icon::file_text_icon("w-[18px] h-[18px]")) "备注" }
+                textarea
+                    class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] min-h-[72px] resize-y leading-1.5"
+                    name="remark"
+                    placeholder="输入对账相关备注信息…" {}
+            }
+            // ── Attachment ──
+            div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden"
+            {
+                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
+                { (icon::upload_icon("w-[18px] h-[18px]")) "附件" }
+                div class="rounded p-8 text-center cursor-pointer" {
+                    (icon::upload_icon("w-8 h-8"))
+                    p class="text-sm font-medium text-fg mt-2" { "点击或拖拽文件到此处上传" }
+                    p class="text-xs text-muted mt-1" { "支持 PDF、Word、Excel、图片，单个文件不超过 10MB" }
+                }
+            }
+            // ── Action Bar ──
+            div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg border-t border-border-soft"
+            {
+                a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                    href=(format!("{}?restore=true", ReconciliationListPath::PATH))
+                { "取消" }
+                div class="action-bar-right" {
+                    button
+                        type="button"
+                        class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                        onclick="show_info_toast('草稿功能开发中')"
+                    { (icon::save_icon("w-4 h-4")) "保存草稿" }
+                    button
+                        type="button"
+                        class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                        _="on click trigger submit on #rec-create-form"
+                    { (icon::send_icon("w-4 h-4")) "提交确认" }
+                }
+            }
+        }
+        // ── Preview trigger helper ──
+        ({
+            maud::PreEscaped(
+                r#"<script>
 function triggerPreview() {
  htmx.trigger(document.getElementById('rec-app'), 'previewChanged');
 }
-</script>"#))
- }
- }
+</script>"#,
+            )
+        })
+    }
+}
 }
 fn preview_empty(message: &str) -> Markup {
  html! {
- div class="bg-bg border border-border rounded overflow-hidden" id="rec-preview-area"
- hx-get=(ReconciliationPreviewPath::PATH)
- hx-trigger="previewChanged from:#rec-app"
- hx-include="#rec-customer-select,#rec-period-select"
- hx-target="this"
- hx-swap="outerHTML" {
- div class="flex items-center justify-between p-5 border-b border-border-soft" {
- h3 {
- (icon::package_icon("w-[18px] h-[18px]"))
- "对账明细"
- }
- button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" id="pickOrderBtn" disabled {
- (icon::plus_icon("w-3.5 h-3.5"))
- "从发货单添加"
- }
- }
- div class="text-center p-6 text-muted text-sm" id="emptyState" {
- (icon::clipboard_list_icon("w-12 h-12"))
- p class="text-center p-6 text-muted text-sm-title" { (message) }
- }
- }
- }
+    div class="bg-bg border border-border rounded overflow-hidden"
+        id="rec-preview-area"
+        hx-get=(ReconciliationPreviewPath::PATH)
+        hx-trigger="previewChanged from:#rec-app"
+        hx-include="#rec-customer-select,#rec-period-select"
+        hx-target="this"
+        hx-swap="outerHTML"
+    {
+        div class="flex items-center justify-between p-5 border-b border-border-soft" {
+            h3 { (icon::package_icon("w-[18px] h-[18px]")) "对账明细" }
+            button
+                type="button"
+                class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                id="pickOrderBtn"
+                disabled
+            { (icon::plus_icon("w-3.5 h-3.5")) "从发货单添加" }
+        }
+        div class="text-center p-6 text-muted text-sm" id="emptyState" {
+            (icon::clipboard_list_icon("w-12 h-12"))
+            p class="text-center p-6 text-muted text-sm-title" { (message) }
+        }
+    }
+}
 }
 
 fn preview_table(
@@ -347,95 +395,113 @@ fn preview_table(
  let item_count = items.len();
 
  html! {
- div class="bg-bg border border-border rounded overflow-hidden" id="rec-preview-area"
- hx-get=(ReconciliationPreviewPath::PATH)
- hx-trigger="previewChanged from:#rec-app"
- hx-include="#rec-customer-select,#rec-period-select"
- hx-target="this"
- hx-swap="outerHTML" {
- div class="flex items-center justify-between p-5 border-b border-border-soft" {
- h3 {
- (icon::package_icon("w-[18px] h-[18px]"))
- "对账明细"
- }
- div class="flex items-center gap-2" {
- span class="text-xs text-muted" {
- (item_count) " 行"
- }
- button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" id="pickOrderBtn" {
- (icon::plus_icon("w-3.5 h-3.5"))
- "从发货单添加"
- }
- }
- }
- div class="overflow-x-auto" {
- table class="data-table" {
- thead {
- tr {
- th class="w-12" { "行号" }
- th { "关联发货单" }
- th { "产品编码" }
- th { "产品名称" }
- th class="w-24" { "发货数量" }
- th class="w-24" { "退货数量" }
- th class="w-28" { "退货金额" }
- th class="w-28" { "单价" }
- th class="w-32" { "应收金额" }
- th class="w-16" { }
- }
- }
- tbody {
- @for (i, item) in items.iter().enumerate() {
- @let product = product_map.get(&item.product_id);
- @let product_code = product.map(|p| p.code.as_str()).unwrap_or("—");
- @let product_name = product.map(|p| p.name.as_str()).unwrap_or("—");
- @let shipping_num = shipping_numbers.get(&item.shipping_request_id).map(|s| s.as_str()).unwrap_or("—");
- @let shipping_detail = ShippingDetailPath { id: item.shipping_request_id };
+    div class="bg-bg border border-border rounded overflow-hidden"
+        id="rec-preview-area"
+        hx-get=(ReconciliationPreviewPath::PATH)
+        hx-trigger="previewChanged from:#rec-app"
+        hx-include="#rec-customer-select,#rec-period-select"
+        hx-target="this"
+        hx-swap="outerHTML"
+    {
+        div class="flex items-center justify-between p-5 border-b border-border-soft" {
+            h3 { (icon::package_icon("w-[18px] h-[18px]")) "对账明细" }
+            div class="flex items-center gap-2" {
+                span class="text-xs text-muted" { (item_count) " 行" }
+                button
+                    type="button"
+                    class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                    id="pickOrderBtn"
+                { (icon::plus_icon("w-3.5 h-3.5")) "从发货单添加" }
+            }
+        }
+        div class="overflow-x-auto" {
+            table class="data-table" {
+                thead {
+                    tr {
+                        th class="w-12" { "行号" }
+                        th { "关联发货单" }
+                        th { "产品编码" }
+                        th { "产品名称" }
+                        th class="w-24" { "发货数量" }
+                        th class="w-24" { "退货数量" }
+                        th class="w-28" { "退货金额" }
+                        th class="w-28" { "单价" }
+                        th class="w-32" { "应收金额" }
+                        th class="w-16" {}
+                    }
+                }
+                tbody {
+                    @for (i, item) in items.iter().enumerate() {
+                        @let product = product_map.get(&item.product_id);
+                        @let product_code = product
+                            .map(|p| p.code.as_str())
+                            .unwrap_or("—");
+                        @let product_name = product
+                            .map(|p| p.name.as_str())
+                            .unwrap_or("—");
+                        @let shipping_num = shipping_numbers
+                            .get(&item.shipping_request_id)
+                            .map(|s| s.as_str())
+                            .unwrap_or("—");
+                        @let shipping_detail = ShippingDetailPath {
+                            id: item.shipping_request_id,
+                        };
 
- tr {
- td class="text-muted text-xs text-center" { (i + 1) }
- td {
- a href=(shipping_detail.to_string()) class="link-accent" { (shipping_num) }
- }
- td class="font-mono tabular-nums" { (product_code) }
- td { (product_name) }
- td class="text-right text-[13px]" { (item.quantity) }
- td class="text-right text-[13px]" { "—" }
- td class="text-right text-[13px]" { "—" }
- td class="text-right text-[13px] font-mono tabular-nums" { (format!("{:.2}", item.unit_price)) }
- td class="text-right text-[13px] font-mono tabular-nums" { (format!("{:.2}", item.amount)) }
- td {
- button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center" title="删除" {
- (icon::x_icon("w-3.5 h-3.5"))
- }
- }
- }
- }
- }
- }
- }
- }
-
- // ── 金额汇总 ──
- div class="flex justify-end gap-8 p-5 border-t border-border-soft bg-surface-raised" {
- div {
- span class="text-xs text-muted" { "发货总额" }
- span class="text-lg font-bold font-mono tabular-nums text-fg" { (crate::utils::fmt_amount(total_amount)) }
- }
- div {
- span class="text-xs text-muted" { "退货总额" }
- span class="text-lg font-bold font-mono tabular-nums text-danger" { "— ¥ 0.00" }
- }
- div {
- span class="text-xs text-muted" { "调整金额" }
- span class="text-lg font-bold font-mono tabular-nums text-muted" { "¥ 0.00" }
- }
- div {
- span class="text-xs text-muted" { "净额（应收）" }
- span class="text-lg font-bold font-mono tabular-nums text-fg" { (crate::utils::fmt_amount(total_amount)) }
- }
- }
- }
+                        tr {
+                            td class="text-muted text-xs text-center" { (i + 1) }
+                            td {
+                                a href=(shipping_detail.to_string()) class="link-accent" {
+                                    (shipping_num)
+                                }
+                            }
+                            td class="font-mono tabular-nums" { (product_code) }
+                            td { (product_name) }
+                            td class="text-right text-[13px]" { (item.quantity) }
+                            td class="text-right text-[13px]" { "—" }
+                            td class="text-right text-[13px]" { "—" }
+                            td class="text-right text-[13px] font-mono tabular-nums" {
+                                (format!("{:.2}", item.unit_price))
+                            }
+                            td class="text-right text-[13px] font-mono tabular-nums" {
+                                (format!("{:.2}", item.amount))
+                            }
+                            td {
+                                button
+                                    type="button"
+                                    class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center"
+                                    title="删除"
+                                { (icon::x_icon("w-3.5 h-3.5")) }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    // ── 金额汇总 ──
+    div class="flex justify-end gap-8 p-5 border-t border-border-soft bg-surface-raised" {
+        div {
+            span class="text-xs text-muted" { "发货总额" }
+            span class="text-lg font-bold font-mono tabular-nums text-fg" {
+                (crate::utils::fmt_amount(total_amount))
+            }
+        }
+        div {
+            span class="text-xs text-muted" { "退货总额" }
+            span class="text-lg font-bold font-mono tabular-nums text-danger" { "— ¥ 0.00" }
+        }
+        div {
+            span class="text-xs text-muted" { "调整金额" }
+            span class="text-lg font-bold font-mono tabular-nums text-muted" { "¥ 0.00" }
+        }
+        div {
+            span class="text-xs text-muted" { "净额（应收）" }
+            span class="text-lg font-bold font-mono tabular-nums text-fg" {
+                (crate::utils::fmt_amount(total_amount))
+            }
+        }
+    }
+}
 }
 
 // ── Referenced paths from other route modules ──

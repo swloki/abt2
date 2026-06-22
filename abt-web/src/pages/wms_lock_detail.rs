@@ -142,84 +142,87 @@ fn lock_detail_page(
  let is_active = matches!(lock.status, LockStatus::Active);
 
  html! {
- div {
- a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", LockListPath::PATH)) {
- (crate::components::icon::chevron_left_icon("w-4 h-4"))
- "返回库存锁定列表"
- }
+    div {
+        a   class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150"
+            href=(format!("{}?restore=true", LockListPath::PATH))
+        { (crate::components::icon::chevron_left_icon("w-4 h-4")) "返回库存锁定列表" }
 
- div class="block bg-bg border border-border-soft rounded-lg p-6" {
- div {
- div class="flex items-center justify-between" {
- span class="text-2xl font-extrabold font-mono tabular-nums" { (lock.doc_number) }
- span class=(format!("status-pill {}", crate::utils::status_color(sc))) { (sl) }
- }
- }
- @if is_active {
- div class="flex gap-3" {
- button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
- hx-post=(detail_path)
- hx-vals=r#"{"action":"release"}"#
- hx-confirm="确定要释放此锁定吗？释放后库存将恢复可用。"
- hx-redirect=(detail_path) {
- (crate::components::icon::lock_icon("w-4 h-4"))
- "释放锁定"
- }
- button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-danger text-white border-none hover:opacity-90"
- hx-post=(detail_path)
- hx-vals=r#"{"action":"cancel"}"#
- hx-confirm="确定要作废此锁库单吗？此操作不可撤销。"
- hx-redirect=(detail_path) {
- (crate::components::icon::x_icon("w-4 h-4"))
- "作废"
- }
- }
- }
- }
+        div class="block bg-bg border border-border-soft rounded-lg p-6" {
+            div {
+                div class="flex items-center justify-between" {
+                    span class="text-2xl font-extrabold font-mono tabular-nums" { (lock.doc_number) }
+                    span class=(format!("status-pill {}", crate::utils::status_color(sc))) { (sl) }
+                }
+            }
+            @if is_active {
+                div class="flex gap-3" {
+                    button
+                        class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                        hx-post=(detail_path)
+                        hx-vals=r#"{"action":"release"}"#
+                        hx-confirm="确定要释放此锁定吗？释放后库存将恢复可用。"
+                        hx-redirect=(detail_path)
+                    { (crate::components::icon::lock_icon("w-4 h-4")) "释放锁定" }
+                    button
+                        class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-danger text-white border-none hover:opacity-90"
+                        hx-post=(detail_path)
+                        hx-vals=r#"{"action":"cancel"}"#
+                        hx-confirm="确定要作废此锁库单吗？此操作不可撤销。"
+                        hx-redirect=(detail_path)
+                    { (crate::components::icon::x_icon("w-4 h-4")) "作废" }
+                }
+            }
+        }
 
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
- div class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" { "锁库信息" }
- div class="grid gap-4" {
- div class="flex flex-col gap-1" {
- span class="text-xs text-muted font-medium" { "锁库单号" }
- span class="text-sm text-fg font-medium font-mono tabular-nums" { (lock.doc_number) }
- }
- div class="flex flex-col gap-1" {
- span class="text-xs text-muted font-medium" { "产品编码" }
- span class="text-sm text-fg font-medium font-mono tabular-nums" { (product_code) }
- }
- div class="flex flex-col gap-1" {
- span class="text-xs text-muted font-medium" { "产品名称" }
- span class="text-sm text-fg font-medium" { (product_name_val) }
- }
- div class="flex flex-col gap-1" {
- span class="text-xs text-muted font-medium" { "锁定仓库" }
- span class="text-sm text-fg font-medium" { (wh_name) }
- }
- div class="flex flex-col gap-1" {
- span class="text-xs text-muted font-medium" { "锁定数量" }
- span class="text-sm text-fg font-medium font-mono tabular-nums" { (locked_qty_fmt) }
- }
- div class="flex flex-col gap-1" {
- span class="text-xs text-muted font-medium" { "锁定原因" }
- span class="text-sm text-fg font-medium" { (lock.lock_reason) }
- }
- div class="flex flex-col gap-1" {
- span class="text-xs text-muted font-medium" { "关联客户" }
- span class="text-sm text-fg font-medium" { (customer_name) }
- }
- div class="flex flex-col gap-1" {
- span class="text-xs text-muted font-medium" { "操作员" }
- span class="text-sm text-fg font-medium" { (operator_name) }
- }
- div class="flex flex-col gap-1" {
- span class="text-xs text-muted font-medium" { "创建时间" }
- span class="text-sm text-fg font-medium font-mono tabular-nums" {
- (lock.created_at.format("%Y-%m-%d %H:%M"))
- }
- }
- }
- }
- }
- }
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
+            div class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" {
+                "锁库信息"
+            }
+            div class="grid gap-4" {
+                div class="flex flex-col gap-1" {
+                    span class="text-xs text-muted font-medium" { "锁库单号" }
+                    span class="text-sm text-fg font-medium font-mono tabular-nums" {
+                        (lock.doc_number)
+                    }
+                }
+                div class="flex flex-col gap-1" {
+                    span class="text-xs text-muted font-medium" { "产品编码" }
+                    span class="text-sm text-fg font-medium font-mono tabular-nums" { (product_code) }
+                }
+                div class="flex flex-col gap-1" {
+                    span class="text-xs text-muted font-medium" { "产品名称" }
+                    span class="text-sm text-fg font-medium" { (product_name_val) }
+                }
+                div class="flex flex-col gap-1" {
+                    span class="text-xs text-muted font-medium" { "锁定仓库" }
+                    span class="text-sm text-fg font-medium" { (wh_name) }
+                }
+                div class="flex flex-col gap-1" {
+                    span class="text-xs text-muted font-medium" { "锁定数量" }
+                    span class="text-sm text-fg font-medium font-mono tabular-nums" {
+                        (locked_qty_fmt)
+                    }
+                }
+                div class="flex flex-col gap-1" {
+                    span class="text-xs text-muted font-medium" { "锁定原因" }
+                    span class="text-sm text-fg font-medium" { (lock.lock_reason) }
+                }
+                div class="flex flex-col gap-1" {
+                    span class="text-xs text-muted font-medium" { "关联客户" }
+                    span class="text-sm text-fg font-medium" { (customer_name) }
+                }
+                div class="flex flex-col gap-1" {
+                    span class="text-xs text-muted font-medium" { "操作员" }
+                    span class="text-sm text-fg font-medium" { (operator_name) }
+                }
+                div class="flex flex-col gap-1" {
+                    span class="text-xs text-muted font-medium" { "创建时间" }
+                    span class="text-sm text-fg font-medium font-mono tabular-nums" {
+                        (lock.created_at.format("%Y-%m-%d %H:%M"))
+                    }
+                }
+            }
+        }
+    }
+}
 }

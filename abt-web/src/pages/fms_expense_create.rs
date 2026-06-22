@@ -106,12 +106,9 @@ fn expense_create_page() -> Markup {
     html! {
         div {
             // 返回链接
-            a href=(format!("{}?restore=true", ExpenseListPath::PATH))
-                class="inline-flex items-center gap-1 text-sm text-muted hover:text-fg transition-colors duration-150 mb-6" {
-                (icon::chevron_left_icon("w-4 h-4"))
-                "返回列表"
-            }
-
+            a   href=(format!("{}?restore=true", ExpenseListPath::PATH))
+                class="inline-flex items-center gap-1 text-sm text-muted hover:text-fg transition-colors duration-150 mb-6"
+            { (icon::chevron_left_icon("w-4 h-4")) "返回列表" }
             // 标题
             div class="mb-6" {
                 h1 class="text-2xl font-bold text-fg tracking-tight" { "新建费用报销" }
@@ -120,15 +117,18 @@ fn expense_create_page() -> Markup {
             form id="expense-form" hx-post=(ExpenseCreatePath::PATH) hx-swap="none" {
                 // ── Section 1: 报销信息 ──
                 div class="form-section" {
-                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
-                        (icon::clipboard_document_icon("w-4 h-4"))
-                        " 报销信息"
-                    }
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
+                    { (icon::clipboard_document_icon("w-4 h-4")) " 报销信息" }
                     div class="grid grid-cols-2 gap-4 gap-x-6" {
                         // 所属部门
                         div class="form-field" {
-                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "所属部门" }
-                            select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer" name="department" {
+                            label
+                                class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap"
+                            { "所属部门" }
+                            select
+                                class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer"
+                                name="department"
+                            {
                                 option value="" { "请选择" }
                                 option value="production" { "生产部" }
                                 option value="sales" { "销售部" }
@@ -139,22 +139,35 @@ fn expense_create_page() -> Markup {
                         }
                         // 报销日期
                         div class="form-field" {
-                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
-                                "报销日期 " span class="text-danger" { "*" }
+                            label
+                                class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap"
+                            {
+                                "报销日期 "
+                                span class="text-danger" { "*" }
                             }
-                            input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer" type="date" name="expense_date" required;
+                            input
+                                class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer"
+                                type="date"
+                                name="expense_date"
+                                required;
                         }
                         // 备注
                         div class="form-field" {
-                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "备注" }
-                            input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="remark" placeholder="报销事由简述";
+                            label
+                                class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap"
+                            { "备注" }
+                            input
+                                class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
+                                type="text"
+                                name="remark"
+                                placeholder="报销事由简述";
                         }
                     }
                 }
-
                 // ── Section 2: 费用明细 ──
                 div class="form-section" {
-                    div class="flex items-center justify-between text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
+                    div class="flex items-center justify-between text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
+                    {
                         span class="flex items-center gap-2" {
                             (icon::dollar_icon("w-4 h-4"))
                             " 费用明细"
@@ -168,10 +181,20 @@ fn expense_create_page() -> Markup {
                         table class="w-full border-separate border-spacing-0 min-w-[800px]" {
                             thead {
                                 tr {
-                                    th class="w-[140px] text-left text-xs font-semibold text-fg-2 px-3 py-2 border-b border-border-soft uppercase tracking-wide" { "费用类型 " span class="text-danger" { "*" } }
-                                    th class="w-[140px] text-left text-xs font-semibold text-fg-2 px-3 py-2 border-b border-border-soft uppercase tracking-wide" { "金额 " span class="text-danger" { "*" } }
-                                    th class="text-left text-xs font-semibold text-fg-2 px-3 py-2 border-b border-border-soft uppercase tracking-wide" { "说明" }
-                                    th class="w-[160px] text-left text-xs font-semibold text-fg-2 px-3 py-2 border-b border-border-soft uppercase tracking-wide" { "发票号" }
+                                    th  class="w-[140px] text-left text-xs font-semibold text-fg-2 px-3 py-2 border-b border-border-soft uppercase tracking-wide"
+                                    {
+                                        "费用类型 "
+                                        span class="text-danger" { "*" }
+                                    }
+                                    th  class="w-[140px] text-left text-xs font-semibold text-fg-2 px-3 py-2 border-b border-border-soft uppercase tracking-wide"
+                                    {
+                                        "金额 "
+                                        span class="text-danger" { "*" }
+                                    }
+                                    th  class="text-left text-xs font-semibold text-fg-2 px-3 py-2 border-b border-border-soft uppercase tracking-wide"
+                                    { "说明" }
+                                    th  class="w-[160px] text-left text-xs font-semibold text-fg-2 px-3 py-2 border-b border-border-soft uppercase tracking-wide"
+                                    { "发票号" }
                                     th class="w-[44px] px-3 py-2 border-b border-border-soft" {}
                                 }
                             }
@@ -180,39 +203,44 @@ fn expense_create_page() -> Markup {
                     }
                     // 添加费用项
                     div class="py-4" {
-                        button type="button"
+                        button
+                            type="button"
                             class="flex items-center justify-center gap-2 w-full py-3 border-1.5 border-dashed border-border text-accent text-sm font-medium cursor-pointer rounded-md hover:border-accent hover:bg-[rgba(37,99,235,0.04)] transition-all duration-200"
-                            onclick="addExpenseLine()" {
-                            (icon::plus_icon("w-4 h-4"))
-                            "添加费用项"
-                        }
+                            onclick="addExpenseLine()"
+                        { (icon::plus_icon("w-4 h-4")) "添加费用项" }
                     }
                 }
 
                 input type="hidden" name="items_json" id="items_json_input";
             }
-
             // ── Action Bar ──
-            div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg border-t border-border-soft" {
-                a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
-                    href=(format!("{}?restore=true", ExpenseListPath::PATH)) {
-                    "取消"
-                }
-                button type="button"
+            div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg border-t border-border-soft"
+            {
+                a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                    href=(format!("{}?restore=true", ExpenseListPath::PATH))
+                { "取消" }
+                button
+                    type="button"
                     class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
-                    onclick="document.getElementById('expense-form').requestSubmit()" {
-                    (PreEscaped(r#"<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>"#))
+                    onclick="document.getElementById('expense-form').requestSubmit()"
+                {
+                    ({
+                        PreEscaped(
+                            r#"<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>"#,
+                        )
+                    })
                     "保存草稿"
                 }
-                button type="button"
+                button
+                    type="button"
                     class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
-                    _="on click trigger submit on #expense-form" {
-                    (icon::check_circle_icon("w-4 h-4"))
-                    "提交审批"
-                }
+                    _="on click trigger submit on #expense-form"
+                { (icon::check_circle_icon("w-4 h-4")) "提交审批" }
             }
         }
-        (PreEscaped(r#"<script>
+        ({
+            PreEscaped(
+                r#"<script>
 function addExpenseLine() {
     var tbody = document.getElementById('expenseLines');
     var row = document.createElement('tr');
@@ -265,6 +293,8 @@ document.getElementById('expense-form').addEventListener('htmx:configRequest', f
 
 // 初始添加一行
 addExpenseLine();
-</script>"#))
+</script>"#,
+            )
+        })
     }
 }

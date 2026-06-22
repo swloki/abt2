@@ -184,10 +184,9 @@ fn account_list_page(
                 h1 class="text-xl font-bold text-fg tracking-tight" { "科目表" }
                 div class="flex gap-3" {
                     @if can_create {
-                        a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(GlAccountCreatePath::PATH) {
-                            (icon::plus_icon("w-4 h-4"))
-                            "新建科目"
-                        }
+                        a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                            href=(GlAccountCreatePath::PATH)
+                        { (icon::plus_icon("w-4 h-4")) "新建科目" }
                     }
                 }
             }
@@ -213,23 +212,42 @@ fn account_table_fragment(
 
     html! {
         div {
-            (status_tabs_with_param(GlAccountListPath::PATH, "#gl-account-data-card", "#gl-account-filter-form", tabs, &selected_disabled, "disabled"))
+            ({
+                status_tabs_with_param(
+                    GlAccountListPath::PATH,
+                    "#gl-account-data-card",
+                    "#gl-account-filter-form",
+                    tabs,
+                    &selected_disabled,
+                    "disabled",
+                )
+            })
 
-            form class="flex items-center gap-3 mb-5 flex-wrap filter-form" id="gl-account-filter-form"
+            form
+                class="flex items-center gap-3 mb-5 flex-wrap filter-form"
+                id="gl-account-filter-form"
                 hx-get=(GlAccountListPath::PATH)
                 hx-trigger="change, keyup changed delay:300ms from:.search-input"
                 hx-target="#gl-account-data-card"
                 hx-select="#gl-account-data-card"
                 hx-swap="outerHTML"
                 hx-include="#gl-account-filter-form"
-                hx-push-url="true" {
-                div class="relative flex-1 max-w-xs icon:absolute icon:left-3 icon:top-1/2 icon:-translate-y-1/2 icon:w-4 icon:h-4 icon:text-muted" {
+                hx-push-url="true"
+            {
+                div class="relative flex-1 max-w-xs icon:absolute icon:left-3 icon:top-1/2 icon:-translate-y-1/2 icon:w-4 icon:h-4 icon:text-muted"
+                {
                     (icon::search_icon(""))
-                    input class="w-[200px] pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input" type="text" name="keyword"
+                    input
+                        class="w-[200px] pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input"
+                        type="text"
+                        name="keyword"
                         placeholder="搜索科目编码、名称…"
                         value=(params.keyword.as_deref().unwrap_or(""));
                 }
-                select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="account_type" {
+                select
+                    class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer"
+                    name="account_type"
+                {
                     option value="" selected[params.account_type.is_none()] { "全部类型" }
                     option value="1" selected[params.account_type == Some(1)] { "资产" }
                     option value="2" selected[params.account_type == Some(2)] { "负债" }
@@ -269,34 +287,50 @@ fn account_data_card(
                     }
                     tbody {
                         @for item in &result.items {
-                            @let (type_label, type_bg, type_color) = account_type_label(&item.account_type);
+                            @let (type_label, type_bg, type_color) = account_type_label(
+                                &item.account_type,
+                            );
                             tr {
                                 td class="font-mono tabular-nums text-accent" { (&item.code) }
                                 td { (&item.name) }
                                 td {
-                                    span style=(format!("display:inline-flex;align-items:center;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{};color:{}", type_bg, type_color)) {
-                                        (type_label)
-                                    }
+                                    span
+                                        style=({
+                                            format!(
+                                                "display:inline-flex;align-items:center;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{};color:{}",
+                                                type_bg,
+                                                type_color,
+                                            )
+                                        })
+                                    { (type_label) }
                                 }
                                 td class="text-fg-2" { (item.balance_direction.as_str()) }
                                 td class="font-mono tabular-nums text-muted" { (&item.currency) }
-                                td class="text-muted text-xs" { @if item.is_detail { "明细" } @else { "汇总" } }
+                                td class="text-muted text-xs" {
+                                    @if item.is_detail { "明细" } @else { "汇总" }
+                                }
                                 td {
                                     @if item.disabled {
-                                        span style="display:inline-flex;align-items:center;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:rgba(220,38,38,0.08);color:#dc2626" { "停用" }
+                                        span
+                                            style="display:inline-flex;align-items:center;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:rgba(220,38,38,0.08);color:#dc2626"
+                                        { "停用" }
                                     } @else {
-                                        span style="display:inline-flex;align-items:center;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:rgba(22,163,74,0.08);color:#16a34a" { "启用" }
+                                        span
+                                            style="display:inline-flex;align-items:center;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:rgba(22,163,74,0.08);color:#16a34a"
+                                        { "启用" }
                                     }
                                 }
                                 td {
                                     @if can_update {
                                         @let toggle_path = GlAccountTogglePath { id: item.id };
-                                        button class="text-xs px-2 py-1 rounded-sm border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent transition-colors cursor-pointer"
+                                        button
+                                            class="text-xs px-2 py-1 rounded-sm border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent transition-colors cursor-pointer"
                                             hx-post=(toggle_path.to_string())
                                             hx-target="#gl-account-data-card"
                                             hx-select="#gl-account-data-card"
                                             hx-swap="outerHTML"
-                                            hx-include="#gl-account-filter-form" {
+                                            hx-include="#gl-account-filter-form"
+                                        {
                                             @if item.disabled { "启用" } @else { "停用" }
                                         }
                                     } @else {
@@ -313,7 +347,15 @@ fn account_data_card(
                     }
                 }
             }
-            (pagination(GlAccountListPath::PATH, &query, result.total, result.page, result.total_pages))
+            ({
+                pagination(
+                    GlAccountListPath::PATH,
+                    &query,
+                    result.total,
+                    result.page,
+                    result.total_pages,
+                )
+            })
         }
     }
 }

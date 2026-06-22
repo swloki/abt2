@@ -38,11 +38,11 @@ fn wo_status_label(s: &WorkOrderStatus) -> (&'static str, &'static str, &'static
 
 fn status_pill(label: &str, bg: &str, color: &str) -> Markup {
  html! {
- span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium whitespace-nowrap"
- style=(format!("background:{bg};color:{color}")) {
- (label)
- }
- }
+    span
+        class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium whitespace-nowrap"
+        style=(format!("background:{bg};color:{color}"))
+    { (label) }
+}
 }
 
 fn batch_status_pill(s: BatchStatus) -> Markup {
@@ -421,10 +421,16 @@ pub async fn get_routing_edit(
         }
     };
     Ok(Html(html! {
-        (routing_edit_form(path.order_id, path.routing_id, routing, &pname, &work_centers))
-        div hx-swap-oob="innerHTML:#routing-product-modal-container" {
-            (bom_modal)
-        }
+        ({
+            routing_edit_form(
+                path.order_id,
+                path.routing_id,
+                routing,
+                &pname,
+                &work_centers,
+            )
+        })
+        div hx-swap-oob="innerHTML:#routing-product-modal-container" { (bom_modal) }
     }.into_string()))
 }
 
@@ -452,7 +458,15 @@ pub async fn post_routing_edit(
             let work_centers = state.work_center_service().list_active(&service_ctx, &mut conn).await.unwrap_or_default();
             Ok(([("HX-Trigger", "")], Html(html! {
                 div hx-swap-oob="innerHTML:#routing-edit-drawer-body" {
-                    (routing_edit_form(path.order_id, path.routing_id, routing, &pname, &work_centers))
+                    ({
+                        routing_edit_form(
+                            path.order_id,
+                            path.routing_id,
+                            routing,
+                            &pname,
+                            &work_centers,
+                        )
+                    })
                 }
             }.into_string())))
         }
@@ -535,16 +549,22 @@ fn routing_row_fragment(
     html! {
         tr id=(format!("routing-row-{}", r.id)) {
             td class="font-mono tabular-nums" { (r.step_no) }
-            td { strong { (r.process_name.as_str()) } }
+            td {
+                strong { (r.process_name.as_str()) }
+            }
             td class="text-[13px] max-w-[180px]" {
-                @if let Some(pn) = product_name { span class="truncate block" title=(pn) { (pn) } }
-                @else if let Some(pid) = r.product_id { span class="text-muted" { "#" (pid) } }
-                @else { "—" }
+                @if let Some(pn) = product_name {
+                    span class="truncate block" title=(pn) { (pn) }
+                } @else if let Some(pid) = r.product_id {
+                    span class="text-muted" { "#" (pid) }
+                } @else { "—" }
             }
             td class="text-[13px] max-w-[120px]" {
-                @if let Some(name) = work_center_name { span class="truncate block" title=(name) { (name) } }
-                @else if let Some(wc) = r.work_center_id { span class="text-muted" { "#" (wc) } }
-                @else { "—" }
+                @if let Some(name) = work_center_name {
+                    span class="truncate block" title=(name) { (name) }
+                } @else if let Some(wc) = r.work_center_id {
+                    span class="text-muted" { "#" (wc) }
+                } @else { "—" }
             }
             td class="font-mono tabular-nums text-right text-[13px] w-[80px]" {
                 @if let Some(t) = r.standard_time { (crate::utils::fmt_qty(t)) } @else { "—" }
@@ -553,24 +573,44 @@ fn routing_row_fragment(
                 @if let Some(p) = r.unit_price { "¥" (crate::utils::fmt_qty(p)) } @else { "—" }
             }
             td {
-                @if r.is_outsourced { span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-warn-bg text-warn" { "委外" } } @else { "—" }
+                @if r.is_outsourced {
+                    span
+                        class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-warn-bg text-warn"
+                    { "委外" }
+                } @else { "—" }
             }
             td class="text-center whitespace-nowrap" {
                 @if !is_reported_step {
-                    button class="text-muted hover:text-accent cursor-pointer border-none bg-transparent p-1" title="编辑"
-                        hx-get=(OrderRoutingEditPath { order_id: r.work_order_id, routing_id: r.id }.to_string())
-                        hx-target="#routing-edit-drawer-body" hx-swap="innerHTML"
-                        _="on 'htmx:afterRequest'[detail.xhr.status < 400] add .open to #routing-edit-drawer" {
-                        (icon::edit_icon("w-4 h-4"))
-                    }
+                    button
+                        class="text-muted hover:text-accent cursor-pointer border-none bg-transparent p-1"
+                        title="编辑"
+                        hx-get=({
+                            OrderRoutingEditPath {
+                                order_id: r.work_order_id,
+                                routing_id: r.id,
+                            }
+                                .to_string()
+                        })
+                        hx-target="#routing-edit-drawer-body"
+                        hx-swap="innerHTML"
+                        _="on 'htmx:afterRequest'[detail.xhr.status < 400] add .open to #routing-edit-drawer"
+                    { (icon::edit_icon("w-4 h-4")) }
                 } @else { "—" }
                 @if !order_has_report {
-                    button class="text-muted hover:text-danger cursor-pointer border-none bg-transparent p-1 ml-1" title="删除该工序"
-                        hx-post=(OrderRoutingDeletePath { order_id: r.work_order_id, routing_id: r.id }.to_string())
+                    button
+                        class="text-muted hover:text-danger cursor-pointer border-none bg-transparent p-1 ml-1"
+                        title="删除该工序"
+                        hx-post=({
+                            OrderRoutingDeletePath {
+                                order_id: r.work_order_id,
+                                routing_id: r.id,
+                            }
+                                .to_string()
+                        })
                         hx-confirm="删除该工序并重排后续工序号？"
-                        hx-swap="none" hx-disabled-elt="this" {
-                        (icon::trash_icon("w-4 h-4"))
-                    }
+                        hx-swap="none"
+                        hx-disabled-elt="this"
+                    { (icon::trash_icon("w-4 h-4")) }
                 }
             }
         }
@@ -586,25 +626,46 @@ fn routing_edit_form(
     work_centers: &[abt_core::master_data::work_center::model::WorkCenter],
 ) -> Markup {
     html! {
-        form id="routing-edit-form"
-            hx-post=(OrderRoutingEditPath { order_id: work_order_id, routing_id }.to_string())
+        form
+            id="routing-edit-form"
+            hx-post=({
+                OrderRoutingEditPath {
+                    order_id: work_order_id,
+                    routing_id,
+                }
+                    .to_string()
+            })
             hx-swap="none"
-            hx-on:htmx:after-request="if(event.detail.successful) document.querySelector('#routing-edit-drawer').classList.remove('open')" {
-            input type="hidden" name="product_id" id="routing-product-id"
+            hx-on:htmx:after-request="if(event.detail.successful) document.querySelector('#routing-edit-drawer').classList.remove('open')"
+        {
+            input
+                type="hidden"
+                name="product_id"
+                id="routing-product-id"
                 value=(r.product_id.map(|p| p.to_string()).unwrap_or_default());
             div class="mb-4" {
                 label class="block text-xs font-medium text-fg-2 mb-1" { "产出品" }
                 div class="flex gap-2" {
-                    input type="text" id="routing-product-display" readonly
+                    input
+                        type="text"
+                        id="routing-product-display"
+                        readonly
                         class="flex-1 px-3 py-2 border border-border rounded-sm text-sm bg-surface"
-                        value=(product_name) placeholder="点击右侧选择产出品…";
-                    button type="button" class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg-2 cursor-pointer hover:bg-surface"
-                        _="on click add .is-open to #routing-product-modal" { "选择" }
+                        value=(product_name)
+                        placeholder="点击右侧选择产出品…";
+                    button
+                        type="button"
+                        class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg-2 cursor-pointer hover:bg-surface"
+                        _="on click add .is-open to #routing-product-modal"
+                    { "选择" }
                 }
             }
             div class="mb-4" {
                 label class="block text-xs font-medium text-fg-2 mb-1" { "工作中心" }
-                select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white outline-none focus:border-accent" name="work_center_id" {
+                select
+                    class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white outline-none focus:border-accent"
+                    name="work_center_id"
+                {
                     option value="" { "—" }
                     @for wc in work_centers {
                         option value=(wc.id) selected[r.work_center_id == Some(wc.id)] { (wc.name) }
@@ -614,20 +675,30 @@ fn routing_edit_form(
             div class="grid grid-cols-2 gap-4 mb-4" {
                 div {
                     label class="block text-xs font-medium text-fg-2 mb-1" { "计件单价（元/件）" }
-                    input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white outline-none focus:border-accent"
-                        type="number" step="any" name="unit_price" required
+                    input
+                        class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white outline-none focus:border-accent"
+                        type="number"
+                        step="any"
+                        name="unit_price"
+                        required
                         value=(r.unit_price.map(|p| p.to_string()).unwrap_or_default());
                 }
                 div {
                     label class="block text-xs font-medium text-fg-2 mb-1" { "标准工时（小时）" }
-                    input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white outline-none focus:border-accent"
-                        type="number" step="any" name="standard_time"
+                    input
+                        class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white outline-none focus:border-accent"
+                        type="number"
+                        step="any"
+                        name="standard_time"
                         value=(r.standard_time.map(|t| t.to_string()).unwrap_or_default());
                 }
             }
             div class="mb-4" {
                 label class="flex items-center gap-2 cursor-pointer" {
-                    input type="checkbox" name="is_outsourced" value="true"
+                    input
+                        type="checkbox"
+                        name="is_outsourced"
+                        value="true"
                         class="w-4 h-4 accent-accent"
                         checked[r.is_outsourced] {}
                     span class="text-sm text-fg-2 select-none" { "委外工序" }
@@ -692,34 +763,43 @@ fn routing_bom_tree_modal(
     html! {
         div id="routing-product-modal"
             class="fixed inset-0 z-[1100] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto"
-            _="on click[me is event.target] remove .is-open from me" {
+            _="on click[me is event.target] remove .is-open from me"
+        {
             div class="bg-bg rounded-xl w-[720px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl"
-                _="on click halt the event" {
+                _="on click halt the event"
+            {
                 // Header
-                div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
+                div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0"
+                {
                     h2 class="text-lg font-semibold m-0" { "选择 BOM 物料" }
-                    button class="bg-transparent border-none cursor-pointer text-xl text-muted p-1 hover:text-fg transition-colors"
-                        _="on click remove .is-open from #routing-product-modal" { "×" }
+                    button
+                        class="bg-transparent border-none cursor-pointer text-xl text-muted p-1 hover:text-fg transition-colors"
+                        _="on click remove .is-open from #routing-product-modal"
+                    { "×" }
                 }
                 // Search + Level filter
                 div class="px-6 py-3 border-b border-border-soft shrink-0 flex gap-3" {
-                    input type="text" id="bom-search-input" placeholder="搜索物料名称或编码…"
+                    input
+                        type="text"
+                        id="bom-search-input"
+                        placeholder="搜索物料名称或编码…"
                         class="flex-1 px-3 py-2 border border-border rounded-sm text-sm bg-white outline-none focus:border-accent"
                         onkeyup="window._filterBomTree()" {}
                     @let max_depth = rows.iter().map(|r| r.depth).max().unwrap_or(0);
                     @if max_depth > 0 {
-                        select id="bom-level-select" class="px-3 py-2 border border-border rounded-sm text-sm bg-white outline-none focus:border-accent"
-                            onchange="window._filterBomTree()" {
+                        select
+                            id="bom-level-select"
+                            class="px-3 py-2 border border-border rounded-sm text-sm bg-white outline-none focus:border-accent"
+                            onchange="window._filterBomTree()"
+                        {
                             option value="" { "全部层级" }
                             @for d in 0..=max_depth {
                                 option value=(d.to_string()) {
-                                    @if d == 0 { "成品级 (L0)" }
-                                    @else if d == 1 { "一级物料 (L1)" }
-                                    @else if d == 2 { "二级物料 (L2)" }
-                                    @else if d == 3 { "三级物料 (L3)" }
-                                    @else if d == 4 { "四级物料 (L4)" }
-                                    @else if d == 5 { "五级物料 (L5)" }
-                                    @else { "L" (d) }
+                                    @if d == 0 { "成品级 (L0)" } @else if d == 1 { "一级物料 (L1)" } @else if d == 2 {
+                                        "二级物料 (L2)"
+                                    } @else if d == 3 { "三级物料 (L3)" } @else if d == 4 {
+                                        "四级物料 (L4)"
+                                    } @else if d == 5 { "五级物料 (L5)" } @else { "L" (d) }
                                 }
                             }
                         }
@@ -735,31 +815,50 @@ fn routing_bom_tree_modal(
                         } else {
                             ""
                         };
-                        div class=(format!("bom-tree-row flex items-center gap-2 px-6 py-2 border-b border-border-soft cursor-pointer {}", row_class))
+                        div class=({
+                                format!(
+                                    "bom-tree-row flex items-center gap-2 px-6 py-2 border-b border-border-soft cursor-pointer {}",
+                                    row_class,
+                                )
+                            })
                             data-pid=(row.product_id)
                             data-pname=(row.product_name.as_str())
                             data-name=(row.product_name.to_lowercase())
                             data-code=(row.product_code.to_lowercase())
                             data-depth=(row.depth)
                             style=(format!("padding-left:{}px", 24 + row.depth * 28))
-                            _="on click put my @data-pid into <input[id='routing-product-id']/>'s value then put my @data-pname into <input[id='routing-product-display']/>'s value then remove .is-open from #routing-product-modal" {
+                            _="on click put my @data-pid into <input[id='routing-product-id']/>'s value then put my @data-pname into <input[id='routing-product-display']/>'s value then remove .is-open from #routing-product-modal"
+                        {
                             @if row.depth > 0 {
-                                span style=(format!("margin-left:{}px", -8isize - ((row.depth as isize) - 1) * 28))
-                                    class="text-border-soft text-xs shrink-0" {
+                                span
+                                    style=({
+                                        format!(
+                                            "margin-left:{}px",
+                                            -8isize - ((row.depth as isize) - 1) * 28,
+                                        )
+                                    })
+                                    class="text-border-soft text-xs shrink-0"
+                                {
                                     @for _ in 0..row.depth {
                                         span class="text-border-soft" { "└ " }
                                     }
                                 }
                             }
-                            span class="text-xs font-mono text-muted bg-surface rounded px-1.5 py-0.5 shrink-0" { (row.product_code.as_str()) }
-                            span class="text-sm text-fg flex-1 truncate" { (row.product_name.as_str()) }
+                            span
+                                class="text-xs font-mono text-muted bg-surface rounded px-1.5 py-0.5 shrink-0"
+                            { (row.product_code.as_str()) }
+                            span class="text-sm text-fg flex-1 truncate" {
+                                (row.product_name.as_str())
+                            }
                             span class="text-xs text-muted shrink-0" { (row.quantity.to_string()) }
                             span class="text-xs text-muted w-8 shrink-0" { (row.unit.as_str()) }
                         }
                     }
                 }
                 // Client-side filter logic
-                (maud::PreEscaped(r#"<script>
+                ({
+                    maud::PreEscaped(
+                        r#"<script>
 window._filterBomTree=function(){
   var q=(document.getElementById('bom-search-input')?.value||'').toLowerCase();
   var lv=document.getElementById('bom-level-select')?.value||'';
@@ -772,11 +871,16 @@ window._filterBomTree=function(){
     row.classList.toggle('hidden',!(match&&levelOk));
   });
 };
-</script>"#))
+</script>"#,
+                    )
+                })
                 // Footer
                 div class="px-6 py-4 border-t border-border-soft flex justify-end shrink-0" {
-                    button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface text-sm cursor-pointer"
-                        _="on click remove .is-open from #routing-product-modal" { "关闭" }
+                    button
+                        type="button"
+                        class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface text-sm cursor-pointer"
+                        _="on click remove .is-open from #routing-product-modal"
+                    { "关闭" }
                 }
             }
         }
@@ -794,16 +898,26 @@ fn routing_tbody_fragment(
     html! {
         tbody {
             @for r in routings {
-                (routing_row_fragment(
-                    r,
-                    reported_routing_ids.contains(&r.id),
-                    order_has_report,
-                    r.product_id.and_then(|pid| product_names.get(&pid)).map(|s| s.as_str()),
-                    r.work_center_id.and_then(|wid| work_center_names.get(&wid)).map(|s| s.as_str()),
-                ))
+                ({
+                    routing_row_fragment(
+                        r,
+                        reported_routing_ids.contains(&r.id),
+                        order_has_report,
+                        r
+                            .product_id
+                            .and_then(|pid| product_names.get(&pid))
+                            .map(|s| s.as_str()),
+                        r
+                            .work_center_id
+                            .and_then(|wid| work_center_names.get(&wid))
+                            .map(|s| s.as_str()),
+                    )
+                })
             }
             @if routings.is_empty() {
-                tr { td colspan="8" class="text-center text-muted text-sm" { "暂无工序明细（工单未下达或无工艺路线）" } }
+                tr {
+                    td colspan="8" class="text-center text-muted text-sm" { "暂无工序明细（工单未下达或无工艺路线）" }
+                }
             }
         }
     }
@@ -828,256 +942,454 @@ fn order_detail_page(
  let routing_tab_label = format!("工序明细 {}", routings.len());
 
  html! {
- div {
- // 返回
- a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", OrderListPath::PATH)) {
- (icon::chevron_left_icon("w-4 h-4"))
- "返回工单列表"
- }
+    div {
+        // 返回
+        a   class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150"
+            href=(format!("{}?restore=true", OrderListPath::PATH))
+        { (icon::chevron_left_icon("w-4 h-4")) "返回工单列表" }
+        // Detail Header（裸 flex，非 card）
+        div class="flex items-center justify-between mb-2" {
+            div class="flex items-center gap-4" {
+                h1 class="text-xl font-bold font-mono tabular-nums" { (order.doc_number) }
+                (status_pill(status_label, status_bg, status_color))
+            }
+            div class="flex gap-3" {
+                @if {
+                    matches!(
+                        order.status,
+                        WorkOrderStatus::Released | WorkOrderStatus::InProduction
+                    )
+                } {
+                    button
+                        class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                        type="button"
+                        _="on click add .is-open to #unrelease-dialog"
+                    { "反下达" }
+                    @if completion_pct >= rust_decimal::Decimal::new(95, 2) {
+                        button
+                            class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                            hx-post=({
+                                OrderClosePath {
+                                    order_id: order.id,
+                                }
+                                    .to_string()
+                            })
+                            hx-confirm="确认关闭此工单？所有批次必须已完工或已取消。"
+                            hx-disabled-elt="this"
+                        { (icon::check_circle_icon("w-4 h-4")) "关闭工单" }
+                    } @else {
+                        button
+                            class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                            disabled
+                            title=({
+                                format!(
+                                    "完工率 {}%，需 ≥ 95% 才能关闭",
+                                    completion_pct.round_dp(1),
+                                )
+                            })
+                        { (icon::check_circle_icon("w-4 h-4")) "关闭工单（完工不足）" }
+                    }
+                }
+                @if {
+                    matches!(
+                        order.status,
+                        WorkOrderStatus::Draft | WorkOrderStatus::Planned
+                    )
+                } {
+                    button
+                        class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                        hx-post=({
+                            OrderReleasePath {
+                                order_id: order.id,
+                            }
+                                .to_string()
+                        })
+                        hx-confirm="确认下达此工单？下达后将开始生产。"
+                        hx-disabled-elt="this"
+                    { (icon::rocket_icon("w-4 h-4")) "下达工单" }
+                }
+                @if {
+                    matches!(
+                        order.status,
+                        WorkOrderStatus::Draft
+                        | WorkOrderStatus::Planned
+                        | WorkOrderStatus::Released
+                        | WorkOrderStatus::InProduction
+                    )
+                } {
+                    @if has_receipts {
+                        button
+                            class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-danger text-white border-none hover:opacity-90"
+                            disabled
+                            title="存在已完工入库记录，无法取消"
+                        { (icon::x_icon("w-4 h-4")) "取消（有入库记录）" }
+                    } @else {
+                        button
+                            class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-danger text-white border-none hover:opacity-90"
+                            hx-post=({
+                                OrderCancelPath {
+                                    order_id: order.id,
+                                }
+                                    .to_string()
+                            })
+                            hx-confirm="确认取消此工单？取消后不可恢复。"
+                            hx-disabled-elt="this"
+                        { (icon::x_icon("w-4 h-4")) "取消工单" }
+                    }
+                }
+            }
+        }
+        // 副标题行
+        div class="flex items-center flex-wrap gap-2 text-muted text-sm mb-6" {
+            span { (product_name) }
+            span class="text-border" { "|" }
+            span class="font-mono tabular-nums" { (crate::utils::fmt_qty(order.planned_qty)) " 件" }
+            @if order.completed_qty > rust_decimal::Decimal::ZERO {
+                span class="text-border" { "|" }
+                span class="font-mono tabular-nums text-success" {
+                    "完成 "
+                    (crate::utils::fmt_qty(order.completed_qty))
+                }
+            }
+            @if order.scrap_qty > rust_decimal::Decimal::ZERO {
+                span class="text-border" { "|" }
+                span class="font-mono tabular-nums text-danger" {
+                    "报废 "
+                    (crate::utils::fmt_qty(order.scrap_qty))
+                }
+            }
+            span class="text-border" { "|" }
+            span { "—" }
+            @if let Some(so) = order.source_so_doc.as_ref() {
+                span class="text-border" { "|" }
+                span { "销售订单: " (so) }
+                @if let Some(c) = order.source_customer.as_ref() {
+                    span class="text-muted" { " (" (c) ")" }
+                }
+            }
+            @if let Some(pdoc) = order.source_plan_doc.as_ref() {
+                span class="text-border" { "|" }
+                span { "生产计划: " }
+                @if let Some(pid) = order.source_plan_id {
+                    a   class="text-accent font-medium cursor-pointer"
+                        href=(format!("/admin/mes/plans/{pid}"))
+                    { (pdoc) }
+                } @else {
+                    span { (pdoc) }
+                }
+            }
+        }
+        // Tabs
+        ({
+            detail_tabs(
+                "info",
+                &[
+                    ("info", "工单信息"),
+                    ("routing", &routing_tab_label),
+                    ("batches", &format!("生产批次 {}", batches.len())),
+                    ("reports", &format!("报工记录 {}", reports.len())),
+                    ("log", "操作日志"),
+                ],
+            )
+        })
 
- // Detail Header（裸 flex，非 card）
- div class="flex items-center justify-between mb-2" {
- div class="flex items-center gap-4" {
- h1 class="text-xl font-bold font-mono tabular-nums" { (order.doc_number) }
- (status_pill(status_label, status_bg, status_color))
- }
- div class="flex gap-3" {
- @if matches!(order.status, WorkOrderStatus::Released | WorkOrderStatus::InProduction) {
- button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" type="button" _="on click add .is-open to #unrelease-dialog" {
- "反下达"
- }
- @if completion_pct >= rust_decimal::Decimal::new(95, 2) {
- button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
- hx-post=(OrderClosePath { order_id: order.id }.to_string())
- hx-confirm="确认关闭此工单？所有批次必须已完工或已取消。"
- hx-disabled-elt="this" {
- (icon::check_circle_icon("w-4 h-4"))
- "关闭工单"
- }
- } @else {
- button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" disabled
- title=(format!("完工率 {}%，需 ≥ 95% 才能关闭", completion_pct.round_dp(1))) {
- (icon::check_circle_icon("w-4 h-4"))
- "关闭工单（完工不足）"
- }
- }
- }
- @if matches!(order.status, WorkOrderStatus::Draft | WorkOrderStatus::Planned) {
- button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
- hx-post=(OrderReleasePath { order_id: order.id }.to_string())
- hx-confirm="确认下达此工单？下达后将开始生产。"
- hx-disabled-elt="this" {
- (icon::rocket_icon("w-4 h-4"))
- "下达工单"
- }
- }
- @if matches!(order.status, WorkOrderStatus::Draft | WorkOrderStatus::Planned | WorkOrderStatus::Released | WorkOrderStatus::InProduction) {
- @if has_receipts {
- button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-danger text-white border-none hover:opacity-90" disabled
- title="存在已完工入库记录，无法取消" {
- (icon::x_icon("w-4 h-4"))
- "取消（有入库记录）"
- }
- } @else {
- button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-danger text-white border-none hover:opacity-90"
- hx-post=(OrderCancelPath { order_id: order.id }.to_string())
- hx-confirm="确认取消此工单？取消后不可恢复。"
- hx-disabled-elt="this" {
- (icon::x_icon("w-4 h-4"))
- "取消工单"
- }
- }
- }
- }
- }
-
- // 副标题行
- div class="flex items-center flex-wrap gap-2 text-muted text-sm mb-6" {
- span { (product_name) }
- span class="text-border" { "|" }
- span class="font-mono tabular-nums" { (crate::utils::fmt_qty(order.planned_qty)) " 件" }
- @if order.completed_qty > rust_decimal::Decimal::ZERO {
- span class="text-border" { "|" }
- span class="font-mono tabular-nums text-success" { "完成 " (crate::utils::fmt_qty(order.completed_qty)) }
- }
- @if order.scrap_qty > rust_decimal::Decimal::ZERO {
- span class="text-border" { "|" }
- span class="font-mono tabular-nums text-danger" { "报废 " (crate::utils::fmt_qty(order.scrap_qty)) }
- }
- span class="text-border" { "|" }
- span { "—" }
- @if let Some(so) = order.source_so_doc.as_ref() {
- span class="text-border" { "|" }
- span { "销售订单: " (so) }
- @if let Some(c) = order.source_customer.as_ref() {
- span class="text-muted" { " (" (c) ")" }
- }
- }
- @if let Some(pdoc) = order.source_plan_doc.as_ref() {
- span class="text-border" { "|" }
- span { "生产计划: " }
- @if let Some(pid) = order.source_plan_id {
- a class="text-accent font-medium cursor-pointer" href=(format!("/admin/mes/plans/{pid}")) { (pdoc) }
- } @else { span { (pdoc) } }
- }
- }
-
- // Tabs
- (detail_tabs("info", &[
- ("info", "工单信息"),
- ("routing", &routing_tab_label),
- ("batches", &format!("生产批次 {}", batches.len())),
- ("reports", &format!("报工记录 {}", reports.len())),
- ("log", "操作日志"),
- ]))
-
- (tab_panel("info", true, tab_info(order, product_name, routings.len(), completion_pct)))
- (tab_panel("routing", false, tab_routing(routings, reported_routing_ids, order_has_report, product_names, work_center_names, order.id)))
- (tab_panel("batches", false, tab_batches(batches, routings, order)))
- (tab_panel("reports", false, tab_reports(reports)))
- (tab_panel("log", false, tab_log(audit_logs)))
-
- // 编辑抽屉（保存按钮用 hyperscript 触发 form submit）
- (drawer::drawer(
- "routing-edit-drawer",
- "编辑工序",
- "保存",
- "routing-edit-form",
- html! { div id="routing-edit-drawer-body" {} },
- ))
- // 产品选择弹窗容器（页面级，避免放在 drawer 内太小；由 GET /edit 通过 OOB swap 填充）
- div id="routing-product-modal-container" {}
-
- // ── 从工艺路径加载（routing_picker → 直接应用）──
- form hx-post=(OrderRoutingApplyFromRoutingPath { order_id: order.id }.to_string())
-     hx-trigger="routingSelected from:body"
-     hx-target="#routing-tbody-wrap" hx-swap="outerHTML"
-     hx-disabled-elt="this" {
-     input type="hidden" id="routing-id-hidden" name="routing_id";
-     span id="routing-name-display" class="hidden" {}
- }
- (routing_picker::routing_picker_modal("routing-picker-modal", "routing-id-hidden", "routing-name-display"))
-
- // 反下达对话框
- @if matches!(order.status, WorkOrderStatus::Released) {
- div class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto" id="unrelease-dialog" {
- div class="bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl" {
- div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
- h2 { "确认反下达？" }
- }
- div class="overflow-y-auto flex-1 min-h-0 p-6" {
- p class="text-sm text-fg-2 leading-relaxed" {
- "反下达将回退工单到 "
- strong { "草稿" }
- " 状态，同时取消领料单、释放库存预留、软删除生产批次（若有报工记录则无法反下达）。此操作不可撤销。"
- }
- }
- div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" {
- button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" type="button" _="on click remove .is-open from #unrelease-dialog" {
- "取消"
- }
- button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-danger text-white border-none hover:opacity-90"
- hx-post=(OrderUnreleasePath { order_id: order.id }.to_string())
- hx-confirm="确认执行反下达？"
- hx-disabled-elt="this" {
- "确认反下达"
- }
- }
- }
- }
- }
- }
- }
+        ({
+            tab_panel(
+                "info",
+                true,
+                tab_info(order, product_name, routings.len(), completion_pct),
+            )
+        })
+        ({
+            tab_panel(
+                "routing",
+                false,
+                tab_routing(
+                    routings,
+                    reported_routing_ids,
+                    order_has_report,
+                    product_names,
+                    work_center_names,
+                    order.id,
+                ),
+            )
+        })
+        (tab_panel("batches", false, tab_batches(batches, routings, order)))
+        (tab_panel("reports", false, tab_reports(reports)))
+        (tab_panel("log", false, tab_log(audit_logs)))
+        // 编辑抽屉（保存按钮用 hyperscript 触发 form submit）
+        ({
+            drawer::drawer(
+                "routing-edit-drawer",
+                "编辑工序",
+                "保存",
+                "routing-edit-form",
+                html! {
+                    div id = "routing-edit-drawer-body" {}
+                },
+            )
+        })
+        // 产品选择弹窗容器（页面级，避免放在 drawer 内太小；由 GET /edit 通过 OOB swap 填充）
+        div id="routing-product-modal-container" {}
+        // ── 从工艺路径加载（routing_picker → 直接应用）──
+        form
+            hx-post=({
+                OrderRoutingApplyFromRoutingPath {
+                    order_id: order.id,
+                }
+                    .to_string()
+            })
+            hx-trigger="routingSelected from:body"
+            hx-target="#routing-tbody-wrap"
+            hx-swap="outerHTML"
+            hx-disabled-elt="this"
+        {
+            input type="hidden" id="routing-id-hidden" name="routing_id";
+            span id="routing-name-display" class="hidden" {}
+        }
+        ({
+            routing_picker::routing_picker_modal(
+                "routing-picker-modal",
+                "routing-id-hidden",
+                "routing-name-display",
+            )
+        })
+        // 反下达对话框
+        @if matches!(order.status, WorkOrderStatus::Released) {
+            div class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto"
+                id="unrelease-dialog"
+            {
+                div class="bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl"
+                {
+                    div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0"
+                    {
+                        h2 { "确认反下达？" }
+                    }
+                    div class="overflow-y-auto flex-1 min-h-0 p-6" {
+                        p class="text-sm text-fg-2 leading-relaxed" {
+                            "反下达将回退工单到 "
+                            strong { "草稿" }
+                            " 状态，同时取消领料单、释放库存预留、软删除生产批次（若有报工记录则无法反下达）。此操作不可撤销。"
+                        }
+                    }
+                    div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0"
+                    {
+                        button
+                            class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                            type="button"
+                            _="on click remove .is-open from #unrelease-dialog"
+                        { "取消" }
+                        button
+                            class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-danger text-white border-none hover:opacity-90"
+                            hx-post=({
+                                OrderUnreleasePath {
+                                    order_id: order.id,
+                                }
+                                    .to_string()
+                            })
+                            hx-confirm="确认执行反下达？"
+                            hx-disabled-elt="this"
+                        { "确认反下达" }
+                    }
+                }
+            }
+        }
+    }
+}
 }
 
 // ── Tab Panels ──
 fn tab_info(order: &WorkOrder, product_name: &str, routing_count: usize, completion_pct: rust_decimal::Decimal) -> Markup {
  let (sl, sb, sc) = wo_status_label(&order.status);
  html! {
- div class="flex flex-col gap-5" {
- // 生产进度
- div class="bg-bg border border-border-soft rounded-lg p-6" {
- div class="text-sm font-semibold text-fg mb-4 pb-3 border-b border-border-soft" { "生产进度" }
- div class="flex items-end justify-between flex-wrap gap-4 mb-5" {
- div class="flex items-baseline gap-2" {
- span class=(format!("text-4xl font-bold font-mono tabular-nums leading-none {}", if completion_pct >= rust_decimal::Decimal::ONE_HUNDRED { "text-success" } else { "text-accent" })) {
- (completion_pct.round_dp(1)) "%"
- }
- span class="text-xs text-muted" { "完工率" }
- }
- div class="flex gap-6" {
- div class="text-right" {
- div class="text-xs text-muted mb-0.5" { "计划数量" }
- div class="text-sm font-semibold font-mono tabular-nums text-fg" { (crate::utils::fmt_qty(order.planned_qty)) }
- }
- div class="text-right" {
- div class="text-xs text-muted mb-0.5" { "已完工" }
- div class="text-sm font-semibold font-mono tabular-nums text-success" { (crate::utils::fmt_qty(order.completed_qty)) }
- }
- @if order.scrap_qty > rust_decimal::Decimal::ZERO {
- div class="text-right" {
- div class="text-xs text-muted mb-0.5" { "报废" }
- div class="text-sm font-semibold font-mono tabular-nums text-danger" { (crate::utils::fmt_qty(order.scrap_qty)) }
- }
- }
- }
- }
- div class="relative" {
- div class="h-2.5 bg-slate-50 rounded-full overflow-hidden" {
- div class=(format!("h-full rounded-full transition-all duration-500 {}", if completion_pct >= rust_decimal::Decimal::ONE_HUNDRED { "bg-gradient-to-r from-success to-success" } else { "bg-gradient-to-r from-accent to-accent-hover" }))
- style=(format!("width: {}%", completion_pct.round_dp(1)))
- {}
- }
- div class="flex justify-between mt-2 px-0.5" {
- div class="flex flex-col items-center" { div class="w-px h-1 bg-border-soft mb-1" {} span class="text-[10px] text-muted" { "0%" } }
- div class="flex flex-col items-center" { div class="w-px h-1 bg-border-soft mb-1" {} span class="text-[10px] text-muted" { "25%" } }
- div class="flex flex-col items-center" { div class="w-px h-1 bg-border-soft mb-1" {} span class="text-[10px] text-muted" { "50%" } }
- div class="flex flex-col items-center" { div class="w-px h-1 bg-border-soft mb-1" {} span class="text-[10px] text-muted" { "75%" } }
- div class="flex flex-col items-center" { div class="w-px h-1 bg-border-soft mb-1" {} span class="text-[10px] text-muted" { "100%" } }
- }
- }
- }
- // 基础信息 + 生产配置
- div class="grid gap-5 bg-bg border border-border-soft rounded-lg p-6 lg:grid-cols-2" {
- div class="flex flex-col gap-4" {
- div class="text-sm font-semibold text-fg mb-3 pb-2 border-b border-border-soft" { "基础信息" }
- div class="grid grid-cols-2 gap-4" {
- div class="flex flex-col gap-1" { span class="text-xs text-muted font-medium" { "工单编号" } span class="text-sm text-fg font-medium font-mono tabular-nums" { (order.doc_number) } }
- div class="flex flex-col gap-1" { span class="text-xs text-muted font-medium" { "产品" } span class="text-sm text-fg font-medium" { (product_name) } }
- div class="flex flex-col gap-1" { span class="text-xs text-muted font-medium" { "计划数量" } span class="text-sm text-fg font-medium font-mono tabular-nums" { (crate::utils::fmt_qty(order.planned_qty)) } }
- div class="flex flex-col gap-1" { span class="text-xs text-muted font-medium" { "状态" } span class="text-sm text-fg font-medium" { (status_pill(sl, sb, sc)) } }
- div class="flex flex-col gap-1" { span class="text-xs text-muted font-medium" { "版本号" } span class="text-sm text-fg font-medium font-mono tabular-nums" { "v"(order.version) } }
- div class="flex flex-col gap-1" { span class="text-xs text-muted font-medium" { "计划开始" } span class="text-sm text-fg font-medium font-mono tabular-nums" { (order.scheduled_start) } }
- div class="flex flex-col gap-1" { span class="text-xs text-muted font-medium" { "计划结束" } span class="text-sm text-fg font-medium font-mono tabular-nums" { (order.scheduled_end) } }
- div class="flex flex-col gap-1" { span class="text-xs text-muted font-medium" { "创建人" } span class="text-sm text-fg font-medium font-mono tabular-nums" { "#" (order.operator_id) } }
- }
- }
- div class="flex flex-col gap-4" {
- div class="text-sm font-semibold text-fg mb-3 pb-2 border-b border-border-soft" { "生产配置" }
- div class="grid grid-cols-2 gap-4" {
- div class="flex flex-col gap-1" {
- span class="text-xs text-muted font-medium" { "BOM 快照" }
- span class="text-sm text-fg font-medium font-mono tabular-nums" { @if let Some(bid) = order.bom_snapshot_id { "#" (bid) } @else { "—" } }
- }
- div class="flex flex-col gap-1" {
- span class="text-xs text-muted font-medium" { "工艺路线" }
- span class="text-sm text-fg font-medium font-mono tabular-nums" { @if let Some(rid) = order.routing_id { "#" (rid) } @else { "—" } }
- }
- div class="flex flex-col gap-1" { span class="text-xs text-muted font-medium" { "工序数" } span class="text-sm text-fg font-medium font-mono tabular-nums" { (routing_count) } }
- div class="flex flex-col gap-1" { span class="text-xs text-muted font-medium" { "物料模式" } span class="text-sm text-fg font-medium" { "—" } }
- div class="flex flex-col gap-1" { span class="text-xs text-muted font-medium" { "超额容差" } span class="text-sm text-fg font-medium" { "—" } }
- div class="flex flex-col gap-1" { span class="text-xs text-muted font-medium" { "创建时间" } span class="text-sm text-fg font-medium font-mono tabular-nums" { (fmt_dt(order.created_at)) } }
- }
- }
- }
- @if !order.remark.is_empty() {
- div class="bg-bg border border-border-soft rounded-lg p-6" {
- div class="text-sm font-semibold text-fg mb-3 pb-2 border-b border-border-soft" { "备注" }
- p class="text-sm text-muted" { (order.remark.as_str()) }
- }
- }
- }
- }
+    div class="flex flex-col gap-5" {
+        // 生产进度
+        div class="bg-bg border border-border-soft rounded-lg p-6" {
+            div class="text-sm font-semibold text-fg mb-4 pb-3 border-b border-border-soft" {
+                "生产进度"
+            }
+            div class="flex items-end justify-between flex-wrap gap-4 mb-5" {
+                div class="flex items-baseline gap-2" {
+                    span
+                        class=({
+                            format!(
+                                "text-4xl font-bold font-mono tabular-nums leading-none {}",
+                                if completion_pct >= rust_decimal::Decimal::ONE_HUNDRED {
+                                    "text-success"
+                                } else {
+                                    "text-accent"
+                                },
+                            )
+                        })
+                    { (completion_pct.round_dp(1)) "%" }
+                    span class="text-xs text-muted" { "完工率" }
+                }
+                div class="flex gap-6" {
+                    div class="text-right" {
+                        div class="text-xs text-muted mb-0.5" { "计划数量" }
+                        div class="text-sm font-semibold font-mono tabular-nums text-fg" {
+                            (crate::utils::fmt_qty(order.planned_qty))
+                        }
+                    }
+                    div class="text-right" {
+                        div class="text-xs text-muted mb-0.5" { "已完工" }
+                        div class="text-sm font-semibold font-mono tabular-nums text-success" {
+                            (crate::utils::fmt_qty(order.completed_qty))
+                        }
+                    }
+                    @if order.scrap_qty > rust_decimal::Decimal::ZERO {
+                        div class="text-right" {
+                            div class="text-xs text-muted mb-0.5" { "报废" }
+                            div class="text-sm font-semibold font-mono tabular-nums text-danger" {
+                                (crate::utils::fmt_qty(order.scrap_qty))
+                            }
+                        }
+                    }
+                }
+            }
+            div class="relative" {
+                div class="h-2.5 bg-slate-50 rounded-full overflow-hidden" {
+                    div class=({
+                            format!(
+                                "h-full rounded-full transition-all duration-500 {}",
+                                if completion_pct >= rust_decimal::Decimal::ONE_HUNDRED {
+                                    "bg-gradient-to-r from-success to-success"
+                                } else {
+                                    "bg-gradient-to-r from-accent to-accent-hover"
+                                },
+                            )
+                        })
+                        style=(format!("width: {}%", completion_pct.round_dp(1))) {}
+                }
+                div class="flex justify-between mt-2 px-0.5" {
+                    div class="flex flex-col items-center" {
+                        div class="w-px h-1 bg-border-soft mb-1" {}
+                        span class="text-[10px] text-muted" { "0%" }
+                    }
+                    div class="flex flex-col items-center" {
+                        div class="w-px h-1 bg-border-soft mb-1" {}
+                        span class="text-[10px] text-muted" { "25%" }
+                    }
+                    div class="flex flex-col items-center" {
+                        div class="w-px h-1 bg-border-soft mb-1" {}
+                        span class="text-[10px] text-muted" { "50%" }
+                    }
+                    div class="flex flex-col items-center" {
+                        div class="w-px h-1 bg-border-soft mb-1" {}
+                        span class="text-[10px] text-muted" { "75%" }
+                    }
+                    div class="flex flex-col items-center" {
+                        div class="w-px h-1 bg-border-soft mb-1" {}
+                        span class="text-[10px] text-muted" { "100%" }
+                    }
+                }
+            }
+        }
+        // 基础信息 + 生产配置
+        div class="grid gap-5 bg-bg border border-border-soft rounded-lg p-6 lg:grid-cols-2" {
+            div class="flex flex-col gap-4" {
+                div class="text-sm font-semibold text-fg mb-3 pb-2 border-b border-border-soft" {
+                    "基础信息"
+                }
+                div class="grid grid-cols-2 gap-4" {
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "工单编号" }
+                        span class="text-sm text-fg font-medium font-mono tabular-nums" {
+                            (order.doc_number)
+                        }
+                    }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "产品" }
+                        span class="text-sm text-fg font-medium" { (product_name) }
+                    }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "计划数量" }
+                        span class="text-sm text-fg font-medium font-mono tabular-nums" {
+                            (crate::utils::fmt_qty(order.planned_qty))
+                        }
+                    }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "状态" }
+                        span class="text-sm text-fg font-medium" { (status_pill(sl, sb, sc)) }
+                    }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "版本号" }
+                        span class="text-sm text-fg font-medium font-mono tabular-nums" {
+                            "v"
+                            (order.version)
+                        }
+                    }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "计划开始" }
+                        span class="text-sm text-fg font-medium font-mono tabular-nums" {
+                            (order.scheduled_start)
+                        }
+                    }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "计划结束" }
+                        span class="text-sm text-fg font-medium font-mono tabular-nums" {
+                            (order.scheduled_end)
+                        }
+                    }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "创建人" }
+                        span class="text-sm text-fg font-medium font-mono tabular-nums" {
+                            "#"
+                            (order.operator_id)
+                        }
+                    }
+                }
+            }
+            div class="flex flex-col gap-4" {
+                div class="text-sm font-semibold text-fg mb-3 pb-2 border-b border-border-soft" {
+                    "生产配置"
+                }
+                div class="grid grid-cols-2 gap-4" {
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "BOM 快照" }
+                        span class="text-sm text-fg font-medium font-mono tabular-nums" {
+                            @if let Some(bid) = order.bom_snapshot_id { "#" (bid) } @else { "—" }
+                        }
+                    }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "工艺路线" }
+                        span class="text-sm text-fg font-medium font-mono tabular-nums" {
+                            @if let Some(rid) = order.routing_id { "#" (rid) } @else { "—" }
+                        }
+                    }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "工序数" }
+                        span class="text-sm text-fg font-medium font-mono tabular-nums" {
+                            (routing_count)
+                        }
+                    }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "物料模式" }
+                        span class="text-sm text-fg font-medium" { "—" }
+                    }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "超额容差" }
+                        span class="text-sm text-fg font-medium" { "—" }
+                    }
+                    div class="flex flex-col gap-1" {
+                        span class="text-xs text-muted font-medium" { "创建时间" }
+                        span class="text-sm text-fg font-medium font-mono tabular-nums" {
+                            (fmt_dt(order.created_at))
+                        }
+                    }
+                }
+            }
+        }
+        @if !order.remark.is_empty() {
+            div class="bg-bg border border-border-soft rounded-lg p-6" {
+                div class="text-sm font-semibold text-fg mb-3 pb-2 border-b border-border-soft" {
+                    "备注"
+                }
+                p class="text-sm text-muted" { (order.remark.as_str()) }
+            }
+        }
+    }
+}
 }
 
 fn tab_routing(
@@ -1089,53 +1401,70 @@ fn tab_routing(
  order_id: i64,
 ) -> Markup {
  html! {
- div id="routing-tbody-wrap" {
- // 批量加载产出品（仅整单未报工时可用）
- @if !order_has_report {
- div class="flex justify-end gap-3 mb-3" {
- button type="button" class="inline-flex items-center gap-1 py-1.5 px-3 rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
-     _="on click add .is-open to #routing-picker-modal"
-     title="选择工艺路径，预填产出品和单价后应用到工单工序" {
-     (icon::download_icon("w-3.5 h-3.5"))
-     "从工艺路径加载"
- }
- button type="button" class="inline-flex items-center gap-1 py-1.5 px-3 rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
-     hx-post=(OrderRoutingLoadRecentPath { order_id }.to_string())
-     hx-target="#routing-tbody-wrap" hx-swap="outerHTML" hx-disabled-elt="this"
-     title="从最近一个同工艺路径、已设产出品的工单复制" {
-     (icon::copy_icon("w-3.5 h-3.5"))
-     "从最近工单加载"
- }
- }
- }
- // 工序定义表（执行进度已迁移至 batch_routing_progress，由批次维度页面展示）
- div id="routing-card" class="data-card"
-     hx-get=(OrderDetailPath { id: order_id }.to_string())
-     hx-trigger="routingChanged from:body"
-     hx-select="#routing-card"
-     hx-select-oob="#tab-batches"
-     hx-swap="outerHTML"
-     hx-disinherit="hx-select" {
- div class="overflow-x-auto" {
- table class="data-table" {
- thead {
- tr {
- th { "序号" }
- th { "工序名称" }
- th { "产出品" }
- th { "工作中心" }
- th class="text-right text-[13px]" { "标准工时" }
- th class="text-right text-[13px]" { "计件单价" }
- th { "委外" }
- th { "操作" }
- }
- }
- (routing_tbody_fragment(routings, reported_routing_ids, order_has_report, product_names, work_center_names))
- }
- }
- }
- }
- }
+    div id="routing-tbody-wrap" {
+        // 批量加载产出品（仅整单未报工时可用）
+        @if !order_has_report {
+            div class="flex justify-end gap-3 mb-3" {
+                button
+                    type="button"
+                    class="inline-flex items-center gap-1 py-1.5 px-3 rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                    _="on click add .is-open to #routing-picker-modal"
+                    title="选择工艺路径，预填产出品和单价后应用到工单工序"
+                { (icon::download_icon("w-3.5 h-3.5")) "从工艺路径加载" }
+                button
+                    type="button"
+                    class="inline-flex items-center gap-1 py-1.5 px-3 rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                    hx-post=({
+                        OrderRoutingLoadRecentPath {
+                            order_id,
+                        }
+                            .to_string()
+                    })
+                    hx-target="#routing-tbody-wrap"
+                    hx-swap="outerHTML"
+                    hx-disabled-elt="this"
+                    title="从最近一个同工艺路径、已设产出品的工单复制"
+                { (icon::copy_icon("w-3.5 h-3.5")) "从最近工单加载" }
+            }
+        }
+        // 工序定义表（执行进度已迁移至 batch_routing_progress，由批次维度页面展示）
+        div id="routing-card"
+            class="data-card"
+            hx-get=(OrderDetailPath { id: order_id }.to_string())
+            hx-trigger="routingChanged from:body"
+            hx-select="#routing-card"
+            hx-select-oob="#tab-batches"
+            hx-swap="outerHTML"
+            hx-disinherit="hx-select"
+        {
+            div class="overflow-x-auto" {
+                table class="data-table" {
+                    thead {
+                        tr {
+                            th { "序号" }
+                            th { "工序名称" }
+                            th { "产出品" }
+                            th { "工作中心" }
+                            th class="text-right text-[13px]" { "标准工时" }
+                            th class="text-right text-[13px]" { "计件单价" }
+                            th { "委外" }
+                            th { "操作" }
+                        }
+                    }
+                    ({
+                        routing_tbody_fragment(
+                            routings,
+                            reported_routing_ids,
+                            order_has_report,
+                            product_names,
+                            work_center_names,
+                        )
+                    })
+                }
+            }
+        }
+    }
+}
 }
 
 fn tab_batches(batches: &[ProductionBatch], routings: &[WorkOrderRouting], order: &WorkOrder) -> Markup {
@@ -1146,192 +1475,242 @@ fn tab_batches(batches: &[ProductionBatch], routings: &[WorkOrderRouting], order
  let can_split = matches!(order.status, WorkOrderStatus::Released | WorkOrderStatus::InProduction);
 
  html! {
- // 操作栏
- @if can_split {
- div class="flex items-center gap-3 flex-wrap justify-end mb-3" {
- button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" type="button"
- _="on click add .is-open to #split-dialog" {
- (icon::plus_icon("w-4 h-4"))
- "新增批次"
- }
- }
- }
+    // 操作栏
+    @if can_split {
+        div class="flex items-center gap-3 flex-wrap justify-end mb-3" {
+            button
+                class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                type="button"
+                _="on click add .is-open to #split-dialog"
+            { (icon::plus_icon("w-4 h-4")) "新增批次" }
+        }
+    }
 
- div class="data-card" {
- div class="overflow-x-auto" {
- table class="data-table" {
- thead {
- tr {
- th { "批次号" }
- th { "流转卡号" }
- th class="text-right text-[13px]" { "完成量" }
- th class="text-right text-[13px]" { "报废量" }
- th { "当前工序" }
- th { "状态" }
- th class="!text-right" { "操作" }
- }
- }
- tbody {
- @for b in batches {
- tr {
- td class="font-mono tabular-nums" { (b.batch_no.as_str()) }
- td class="font-mono tabular-nums" { (b.card_sn.as_str()) }
- td class="font-mono tabular-nums text-right text-[13px]" { (crate::utils::fmt_qty(b.batch_qty)) }
- td class="font-mono tabular-nums text-right text-[13px] text-success" { (crate::utils::fmt_qty(b.completed_qty)) }
- td class="font-mono tabular-nums text-right text-[13px] text-danger" { (crate::utils::fmt_qty(b.scrap_qty)) }
- td {
- @if b.current_step == 0 {
- span class="text-muted" { "未开始" }
- } @else {
- @let total = routings.len();
- @let sname = routings.iter()
- .find(|r| r.step_no == b.current_step)
- .map(|r| r.process_name.as_str())
- .unwrap_or("—");
- span { (b.current_step) "/" (total) " " (sname) }
- }
- }
- td { (batch_status_pill(b.status)) }
- td { a class="text-accent font-medium cursor-pointer" href=(format!("/admin/mes/batches/{}", b.id)) { "查看" } }
- }
- }
- @if batches.is_empty() {
- tr { td colspan="8" class="text-center text-muted text-sm" { @if can_split { "暂无生产批次，请点击「新增批次」创建" } @else { "暂无生产批次（工单未下达或无工艺路线）" } } }
- }
- }
- }
- }
- }
-
- // 拆批对话框
- @if can_split {
- div class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto" id="split-dialog" {
- div class="bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl" {
- div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
- h2 { "新增生产批次" }
- }
- form {
- div class="overflow-y-auto flex-1 min-h-0 p-6" {
- p class="text-sm text-fg-2 leading-relaxed" {
- "工单计划量 " strong { (crate::utils::fmt_qty(order.planned_qty)) }
- "，已分批 " strong { (crate::utils::fmt_qty(existing_qty)) }
- @if remaining > rust_decimal::Decimal::ZERO {
- "，可新增 " strong class="text-success" { (crate::utils::fmt_qty(remaining)) }
- } @else {
- "（已全部分配，可按容差新增）"
- }
- }
- div class="form-field" {
- label { "新增批次数量" }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" step="any" name="split_qty"
- placeholder="输入数量"
- required;
- }
- // 工艺路线预览
- @if !routings.is_empty() {
- div class="form-field" {
- label { "工艺路线（该批次将依次经过以下工序）" }
- div class="flex flex-wrap bg-surface rounded-sm border border-border gap-1.5 p-2" {
- @for (i, r) in routings.iter().enumerate() {
- @if i > 0 {
- span class="flex items-center text-muted" { "\u{2192}" }
- }
- span class="items-center rounded-sm inline-flex gap-1 text-xs px-2 py-0.5 bg-surface" {
- span class="font-semibold text-accent" { (r.step_no) }
- (r.process_name.as_str())
- @if r.is_inspection_point {
- span class="inline-flex items-center rounded-full font-medium py-0.5 px-1 text-[10px] bg-accent-bg text-accent" { "检" }
- }
- @if r.is_outsourced {
- span class="inline-flex items-center rounded-full font-medium py-0.5 px-1 text-[10px] bg-warn-bg text-warn" { "外" }
- }
- }
- }
- }
- }
- }
- }
- div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" {
- button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" type="button"
- _="on click remove .is-open from #split-dialog" {
- "取消"
- }
- button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" type="submit"
- hx-post=(OrderSplitPath { order_id: order.id }.to_string())
- hx-disabled-elt="this" {
- "确认新增"
- }
- }
- }
- }
- }
- }
- }
+    div class="data-card" {
+        div class="overflow-x-auto" {
+            table class="data-table" {
+                thead {
+                    tr {
+                        th { "批次号" }
+                        th { "流转卡号" }
+                        th class="text-right text-[13px]" { "完成量" }
+                        th class="text-right text-[13px]" { "报废量" }
+                        th { "当前工序" }
+                        th { "状态" }
+                        th class="!text-right" { "操作" }
+                    }
+                }
+                tbody {
+                    @for b in batches {
+                        tr {
+                            td class="font-mono tabular-nums" { (b.batch_no.as_str()) }
+                            td class="font-mono tabular-nums" { (b.card_sn.as_str()) }
+                            td class="font-mono tabular-nums text-right text-[13px]" {
+                                (crate::utils::fmt_qty(b.batch_qty))
+                            }
+                            td class="font-mono tabular-nums text-right text-[13px] text-success" {
+                                (crate::utils::fmt_qty(b.completed_qty))
+                            }
+                            td class="font-mono tabular-nums text-right text-[13px] text-danger" {
+                                (crate::utils::fmt_qty(b.scrap_qty))
+                            }
+                            td {
+                                @if b.current_step == 0 {
+                                    span class="text-muted" { "未开始" }
+                                } @else {
+                                    @let total = routings.len();
+                                    @let sname = routings
+                                        .iter()
+                                        .find(|r| r.step_no == b.current_step)
+                                        .map(|r| r.process_name.as_str())
+                                        .unwrap_or("—");
+                                    span { (b.current_step) "/" (total) " " (sname) }
+                                }
+                            }
+                            td { (batch_status_pill(b.status)) }
+                            td {
+                                a   class="text-accent font-medium cursor-pointer"
+                                    href=(format!("/admin/mes/batches/{}", b.id))
+                                { "查看" }
+                            }
+                        }
+                    }
+                    @if batches.is_empty() {
+                        tr {
+                            td colspan="8" class="text-center text-muted text-sm" {
+                                @if can_split { "暂无生产批次，请点击「新增批次」创建" } @else {
+                                    "暂无生产批次（工单未下达或无工艺路线）"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    // 拆批对话框
+    @if can_split {
+        div class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto"
+            id="split-dialog"
+        {
+            div class="bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl"
+            {
+                div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0"
+                {
+                    h2 { "新增生产批次" }
+                }
+                form {
+                    div class="overflow-y-auto flex-1 min-h-0 p-6" {
+                        p class="text-sm text-fg-2 leading-relaxed" {
+                            "工单计划量 "
+                            strong { (crate::utils::fmt_qty(order.planned_qty)) }
+                            "，已分批 "
+                            strong { (crate::utils::fmt_qty(existing_qty)) }
+                            @if remaining > rust_decimal::Decimal::ZERO {
+                                "，可新增 "
+                                strong class="text-success" { (crate::utils::fmt_qty(remaining)) }
+                            } @else { "（已全部分配，可按容差新增）" }
+                        }
+                        div class="form-field" {
+                            label { "新增批次数量" }
+                            input
+                                class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]"
+                                type="number"
+                                step="any"
+                                name="split_qty"
+                                placeholder="输入数量"
+                                required;
+                        }
+                        // 工艺路线预览
+                        @if !routings.is_empty() {
+                            div class="form-field" {
+                                label { "工艺路线（该批次将依次经过以下工序）" }
+                                div class="flex flex-wrap bg-surface rounded-sm border border-border gap-1.5 p-2"
+                                {
+                                    @for (i, r) in routings.iter().enumerate() {
+                                        @if i > 0 {
+                                            span class="flex items-center text-muted" { "\u{2192}" }
+                                        }
+                                        span
+                                            class="items-center rounded-sm inline-flex gap-1 text-xs px-2 py-0.5 bg-surface"
+                                        {
+                                            span class="font-semibold text-accent" { (r.step_no) }
+                                            (r.process_name.as_str())
+                                            @if r.is_inspection_point {
+                                                span
+                                                    class="inline-flex items-center rounded-full font-medium py-0.5 px-1 text-[10px] bg-accent-bg text-accent"
+                                                { "检" }
+                                            }
+                                            @if r.is_outsourced {
+                                                span
+                                                    class="inline-flex items-center rounded-full font-medium py-0.5 px-1 text-[10px] bg-warn-bg text-warn"
+                                                { "外" }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0"
+                    {
+                        button
+                            class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                            type="button"
+                            _="on click remove .is-open from #split-dialog"
+                        { "取消" }
+                        button
+                            class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                            type="submit"
+                            hx-post=({
+                                OrderSplitPath {
+                                    order_id: order.id,
+                                }
+                                    .to_string()
+                            })
+                            hx-disabled-elt="this"
+                        { "确认新增" }
+                    }
+                }
+            }
+        }
+    }
+}
 }
 
 fn tab_reports(reports: &[ReportListItem]) -> Markup {
  html! {
- div class="data-card" {
- div class="overflow-x-auto" {
- table class="data-table" {
- thead {
- tr {
- th { "报工时间" }
- th { "工序" }
- th { "报工单号" }
- th class="text-right text-[13px]" { "完成量" }
- th class="text-right text-[13px]" { "报废量" }
- th { "报工人" }
- th { "班次" }
- }
- }
- tbody {
- @for r in reports {
- tr {
- td class="font-mono tabular-nums" { (fmt_dt(r.created_at)) }
- td { (r.process_name.as_str()) }
- td { a class="text-accent font-medium cursor-pointer font-mono tabular-nums" href=(format!("/admin/mes/reports/{}", r.id)) { (r.doc_number.as_str()) } }
- td class="font-mono tabular-nums text-right text-[13px]" { (crate::utils::fmt_qty(r.completed_qty)) }
- td class="font-mono tabular-nums text-right text-[13px]" { (crate::utils::fmt_qty(r.defect_qty)) }
- td { (r.worker_name.as_deref().unwrap_or("—")) }
- td { (shift_label(r.shift)) }
- }
- }
- @if reports.is_empty() {
- tr { td colspan="7" class="text-center text-muted text-sm" { "暂无报工记录" } }
- }
- }
- }
- }
- }
- }
+    div class="data-card" {
+        div class="overflow-x-auto" {
+            table class="data-table" {
+                thead {
+                    tr {
+                        th { "报工时间" }
+                        th { "工序" }
+                        th { "报工单号" }
+                        th class="text-right text-[13px]" { "完成量" }
+                        th class="text-right text-[13px]" { "报废量" }
+                        th { "报工人" }
+                        th { "班次" }
+                    }
+                }
+                tbody {
+                    @for r in reports {
+                        tr {
+                            td class="font-mono tabular-nums" { (fmt_dt(r.created_at)) }
+                            td { (r.process_name.as_str()) }
+                            td {
+                                a   class="text-accent font-medium cursor-pointer font-mono tabular-nums"
+                                    href=(format!("/admin/mes/reports/{}", r.id))
+                                { (r.doc_number.as_str()) }
+                            }
+                            td class="font-mono tabular-nums text-right text-[13px]" {
+                                (crate::utils::fmt_qty(r.completed_qty))
+                            }
+                            td class="font-mono tabular-nums text-right text-[13px]" {
+                                (crate::utils::fmt_qty(r.defect_qty))
+                            }
+                            td { (r.worker_name.as_deref().unwrap_or("—")) }
+                            td { (shift_label(r.shift)) }
+                        }
+                    }
+                    @if reports.is_empty() {
+                        tr {
+                            td colspan="7" class="text-center text-muted text-sm" { "暂无报工记录" }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
 }
 
 fn tab_log(logs: &[AuditLog]) -> Markup {
  html! {
- div class="bg-bg border border-border-soft rounded-lg p-6" {
- div class="relative" {
- div class="absolute left-[5px] top-2 bottom-2 w-0.5 bg-border-soft" {}
- @for log in logs {
- div class="relative pl-6 pb-5 last:pb-0" {
- div class="absolute left-0 top-1 w-3 h-3 rounded-full bg-accent ring-4 ring-bg" {}
- div {
- div class="font-semibold text-sm text-fg" { (audit_action_label(log.action)) }
- div class="flex gap-2 text-xs text-muted items-center mt-1" {
- span { (fmt_dt(log.created_at)) }
- span class="text-border" { "·" }
- span { "操作人 #" (log.operator_id) }
- }
- @if let Some(changes) = log.changes.as_ref() {
- div class="text-xs text-muted mt-1" { (changes) }
- }
- }
- }
- }
- @if logs.is_empty() {
- div class="text-center text-muted text-sm py-4" { "暂无操作日志" }
- }
- }
- }
- }
+    div class="bg-bg border border-border-soft rounded-lg p-6" {
+        div class="relative" {
+            div class="absolute left-[5px] top-2 bottom-2 w-0.5 bg-border-soft" {}
+            @for log in logs {
+                div class="relative pl-6 pb-5 last:pb-0" {
+                    div class="absolute left-0 top-1 w-3 h-3 rounded-full bg-accent ring-4 ring-bg" {}
+                    div {
+                        div class="font-semibold text-sm text-fg" { (audit_action_label(log.action)) }
+                        div class="flex gap-2 text-xs text-muted items-center mt-1" {
+                            span { (fmt_dt(log.created_at)) }
+                            span class="text-border" { "·" }
+                            span { "操作人 #" (log.operator_id) }
+                        }
+                        @if let Some(changes) = log.changes.as_ref() {
+                            div class="text-xs text-muted mt-1" { (changes) }
+                        }
+                    }
+                }
+            }
+            @if logs.is_empty() {
+                div class="text-center text-muted text-sm py-4" { "暂无操作日志" }
+            }
+        }
+    }
+}
 }

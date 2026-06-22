@@ -67,24 +67,27 @@ pub fn entity_picker_field(
  modal_id, modal_id
  );
  html! {
- div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
- (label)
- @if required { span class="required" { "*" } }
- }
- div class="flex gap-2 items-stretch" {
- input type="hidden" name=(name) id=(target_id);
- div class="flex-1 flex items-center px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg cursor-pointer transition-all duration-150 hover:border-accent truncate text-muted" id=(display_id)
- _=(open_hs.as_str()) {
- (placeholder)
- }
- button type="button" class="inline-flex items-center gap-2 px-3 py-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap bg-white text-fg-2 border border-border hover:bg-surface hover:border-accent transition-all duration-150"
- _=(open_hs.as_str()) {
- "选择"
- }
- }
- }
- }
+    div class="form-field" {
+        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
+            (label)
+            @if required {
+                span class="required" { "*" }
+            }
+        }
+        div class="flex gap-2 items-stretch" {
+            input type="hidden" name=(name) id=(target_id);
+            div class="flex-1 flex items-center px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg cursor-pointer transition-all duration-150 hover:border-accent truncate text-muted"
+                id=(display_id)
+                _=(open_hs.as_str())
+            { (placeholder) }
+            button
+                type="button"
+                class="inline-flex items-center gap-2 px-3 py-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap bg-white text-fg-2 border border-border hover:bg-surface hover:border-accent transition-all duration-150"
+                _=(open_hs.as_str())
+            { "选择" }
+        }
+    }
+}
 }
 
 // ── Modal ──
@@ -94,49 +97,60 @@ pub fn entity_picker_modal(cfg: &EntityPickerConfig) -> Markup {
  let open_hs = format!("on click[me is event.target] remove .is-open from #{}", cfg.modal_id);
 
  html! {
- div class="modal-overlay fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto" id=(cfg.modal_id) _=(open_hs) {
- div class="modal bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl" _="on click halt" {
- div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
- h2 { (cfg.title) }
- button class="text-2xl text-muted hover:text-fg cursor-pointer bg-transparent border-none p-1 leading-none"
- _=(format!("on click remove .is-open from #{}", cfg.modal_id)) { "×" }
- }
- div class="flex flex-col flex-1 min-h-0" {
- // Hidden context for results fragment
- input type="hidden" name="target_id" value=(cfg.target_id);
- input type="hidden" name="display_id" value=(cfg.display_id);
- input type="hidden" name="modal_id" value=(cfg.modal_id);
- input type="hidden" name="event_name" value=(cfg.event_name);
+    div class="modal-overlay fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto"
+        id=(cfg.modal_id)
+        _=(open_hs)
+    {
+        div class="modal bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl"
+            _="on click halt"
+        {
+            div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0"
+            {
+                h2 { (cfg.title) }
+                button
+                    class="text-2xl text-muted hover:text-fg cursor-pointer bg-transparent border-none p-1 leading-none"
+                    _=(format!("on click remove .is-open from #{}", cfg.modal_id))
+                { "×" }
+            }
+            div class="flex flex-col flex-1 min-h-0" {
+                // Hidden context for results fragment
+                input type="hidden" name="target_id" value=(cfg.target_id);
+                input type="hidden" name="display_id" value=(cfg.display_id);
+                input type="hidden" name="modal_id" value=(cfg.modal_id);
+                input type="hidden" name="event_name" value=(cfg.event_name);
 
- div class="flex gap-4 px-6 py-4 border-b border-border-soft shrink-0" {
- div class="flex-1 flex flex-col gap-[4px]" {
- label class="text-xs font-medium text-fg-2" { (cfg.search_label) }
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text"
- name=(cfg.search_param)
- placeholder=(cfg.search_placeholder)
- autocomplete="off"
- hx-get=(cfg.search_path)
- hx-trigger="keyup changed delay:300ms"
- hx-sync="this:replace"
- hx-target=(format!("#{}-results", cfg.modal_id))
- hx-swap="innerHTML"
- hx-include=(hx_include_expr(cfg)) {}
- }
- }
- div id=(format!("{}-results", cfg.modal_id))
- class="overflow-y-auto flex-1 min-h-0"
- hx-get=(cfg.search_path)
- hx-trigger="openModal"
- hx-swap="innerHTML"
- hx-include=(hx_include_expr(cfg)) {
- div class="flex items-center justify-center p-8" style="color:var(--text-muted)" {
- "加载中…"
- }
- }
- }
- }
- }
- }
+                div class="flex gap-4 px-6 py-4 border-b border-border-soft shrink-0" {
+                    div class="flex-1 flex flex-col gap-[4px]" {
+                        label class="text-xs font-medium text-fg-2" { (cfg.search_label) }
+                        input
+                            class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
+                            type="text"
+                            name=(cfg.search_param)
+                            placeholder=(cfg.search_placeholder)
+                            autocomplete="off"
+                            hx-get=(cfg.search_path)
+                            hx-trigger="keyup changed delay:300ms"
+                            hx-sync="this:replace"
+                            hx-target=(format!("#{}-results", cfg.modal_id))
+                            hx-swap="innerHTML"
+                            hx-include=(hx_include_expr(cfg)) {}
+                    }
+                }
+                div id=(format!("{}-results", cfg.modal_id))
+                    class="overflow-y-auto flex-1 min-h-0"
+                    hx-get=(cfg.search_path)
+                    hx-trigger="openModal"
+                    hx-swap="innerHTML"
+                    hx-include=(hx_include_expr(cfg))
+                {
+                    div class="flex items-center justify-center p-8"
+                        style="color:var(--text-muted)"
+                    { "加载中…" }
+                }
+            }
+        }
+    }
+}
 }
 
 /// Build the hx-include expression: always include the modal itself
@@ -160,41 +174,45 @@ fn hx_include_expr(cfg: &EntityPickerConfig) -> String {
 /// 4. Fires the custom event (if configured)
 pub fn entity_picker_results(items: &[EntityPickerItem]) -> Markup {
  html! {
- @if items.is_empty() {
- div class="text-center" class="p-12 text-muted" {
- p class="m-0" class="text-sm" { "未找到匹配结果" }
- }
- } @else {
- div class="py-2" {
- @for item in items {
- @if item.disabled {
- div class="flex items-center justify-between p-3 border-b border-border-soft opacity-45 cursor-not-allowed"
- data-id=(item.id)
- data-label=(item.label.as_str()) {
- div class="product-select-info" {
- div class="text-sm font-medium text-fg" { (item.label.as_str()) }
- @if let Some(ref sub) = item.sub_label {
- div class="text-xs text-muted flex items-center gap-[6px] flex-wrap" { (sub.as_str()) }
- }
- }
- }
- } @else {
- div class="flex items-center justify-between p-3 border-b border-border-soft"
- data-id=(item.id)
- data-label=(item.label.as_str())
- _=(selection_hs()) {
- div class="product-select-info" {
- div class="text-sm font-medium text-fg" { (item.label.as_str()) }
- @if let Some(ref sub) = item.sub_label {
- div class="text-xs text-muted flex items-center gap-[6px] flex-wrap" { (sub.as_str()) }
- }
- }
- }
- }
- }
- }
- }
- }
+    @if items.is_empty() {
+        div class="text-center" class="p-12 text-muted" {
+            p class="m-0" class="text-sm" { "未找到匹配结果" }
+        }
+    } @else {
+        div class="py-2" {
+            @for item in items {
+                @if item.disabled {
+                    div class="flex items-center justify-between p-3 border-b border-border-soft opacity-45 cursor-not-allowed"
+                        data-id=(item.id)
+                        data-label=(item.label.as_str())
+                    {
+                        div class="product-select-info" {
+                            div class="text-sm font-medium text-fg" { (item.label.as_str()) }
+                            @if let Some(ref sub) = item.sub_label {
+                                div class="text-xs text-muted flex items-center gap-[6px] flex-wrap"
+                                { (sub.as_str()) }
+                            }
+                        }
+                    }
+                } @else {
+                    div class="flex items-center justify-between p-3 border-b border-border-soft"
+                        data-id=(item.id)
+                        data-label=(item.label.as_str())
+                        _=(selection_hs())
+                    {
+                        div class="product-select-info" {
+                            div class="text-sm font-medium text-fg" { (item.label.as_str()) }
+                            @if let Some(ref sub) = item.sub_label {
+                                div class="text-xs text-muted flex items-center gap-[6px] flex-wrap"
+                                { (sub.as_str()) }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
 }
 
 fn selection_hs() -> &'static str {

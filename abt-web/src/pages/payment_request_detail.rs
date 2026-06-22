@@ -48,34 +48,47 @@ fn workflow_steps(current: PaymentStatus) -> Markup {
  let is_cancelled = current == PaymentStatus::Cancelled;
 
  html! {
- div class="flex items-center mt-6 mb-6" {
- @for (i, (label, _)) in steps.iter().enumerate() {
- @if i > 0 {
- div class=(format!("w-[48px] h-[2px] {}", if i <= current_idx && !is_cancelled { "bg-success" } else { "bg-border" })) {}
- }
- @let (dot_cls, text_cls, ring_cls) = if is_cancelled {
- ("bg-border-soft", "text-muted", "")
- } else if i < current_idx {
- ("bg-success", "text-success", "")
- } else if i == current_idx {
- ("bg-accent", "text-accent font-semibold", "shadow-[0_0_0_3px_rgba(37,99,235,0.1)]")
- } else {
- ("bg-slate-300", "text-slate-400", "")
- };
- div class="flex items-center gap-2 shrink-0" {
- span class=(format!("w-2.5 h-2.5 rounded-full shrink-0 {} {}", dot_cls, ring_cls)) {}
- span class=(format!("text-xs whitespace-nowrap font-medium {}", text_cls)) { (label) }
- }
- }
- @if is_cancelled {
- div class="w-[48px] h-[2px] bg-border" {}
- div class="flex items-center gap-2 shrink-0" {
- span class="w-2.5 h-2.5 rounded-full shrink-0 bg-danger-500" {}
- span class="text-xs text-danger-500 font-semibold whitespace-nowrap" { "已取消" }
- }
- }
- }
- }
+    div class="flex items-center mt-6 mb-6" {
+        @for (i, (label, _)) in steps.iter().enumerate() {
+            @if i > 0 {
+                div class=({
+                        format!(
+                            "w-[48px] h-[2px] {}",
+                            if i <= current_idx && !is_cancelled {
+                                "bg-success"
+                            } else {
+                                "bg-border"
+                            },
+                        )
+                    }) {}
+            }
+            @let (dot_cls, text_cls, ring_cls) = if is_cancelled {
+                ("bg-border-soft", "text-muted", "")
+            } else if i < current_idx {
+                ("bg-success", "text-success", "")
+            } else if i == current_idx {
+                (
+                    "bg-accent",
+                    "text-accent font-semibold",
+                    "shadow-[0_0_0_3px_rgba(37,99,235,0.1)]",
+                )
+            } else {
+                ("bg-slate-300", "text-slate-400", "")
+            };
+            div class="flex items-center gap-2 shrink-0" {
+                span class=(format!("w-2.5 h-2.5 rounded-full shrink-0 {} {}", dot_cls, ring_cls)) {}
+                span class=(format!("text-xs whitespace-nowrap font-medium {}", text_cls)) { (label) }
+            }
+        }
+        @if is_cancelled {
+            div class="w-[48px] h-[2px] bg-border" {}
+            div class="flex items-center gap-2 shrink-0" {
+                span class="w-2.5 h-2.5 rounded-full shrink-0 bg-danger-500" {}
+                span class="text-xs text-danger-500 font-semibold whitespace-nowrap" { "已取消" }
+            }
+        }
+    }
+}
 }
 
 // ── Handlers ──
@@ -165,122 +178,123 @@ fn pay_detail_page(
  let (status_text, status_class) = status_label(pay.status);
 
  html! {
- div {
- // ── Back Link ──
- a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", PayListPath::PATH)) {
- (icon::chevron_left_icon("w-4 h-4"))
- "返回付款列表"
- }
-
- // ── Detail Header ──
- div class="flex items-center justify-between bg-bg border border-border-soft rounded-lg p-6" {
- div {
- div class="flex items-center justify-between" {
- h1 class="text-2xl font-extrabold font-mono tabular-nums" { (pay.doc_number) }
- span class=(format!("status-pill {}", crate::utils::status_color(status_class))) { (status_text) }
- }
- }
- div class="flex gap-3" {
- @if pay.status == PaymentStatus::Draft {
- button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
- hx-post=(PayApprovePath { id: pay.id }.to_string())
- hx-confirm="确认审批此付款申请？" {
- (icon::check_circle_icon("w-4 h-4"))
- "审批"
- }
- button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-danger text-white border-none hover:opacity-90"
- hx-post=(PayCancelPath { id: pay.id }.to_string())
- hx-confirm="确认取消此付款申请？取消后不可恢复。" {
- "取消"
- }
- }
- }
- }
-
- // ── Workflow Steps ──
- (workflow_steps(pay.status))
-
- // ── Payment Info ──
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
- div class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" { "付款信息" }
- div class="grid gap-4" {
- div class="flex flex-col gap-1" {
- span class="text-xs text-muted font-medium" { "供应商名称" }
- span class="text-sm text-fg font-medium" { (supplier_name) }
- }
- div class="flex flex-col gap-1" {
- span class="text-xs text-muted font-medium" { "付款日期" }
- span class="text-sm text-fg font-medium font-mono tabular-nums" { (pay.payment_date.format("%Y-%m-%d")) }
- }
- div class="flex flex-col gap-1" {
- span class="text-xs text-muted font-medium" { "付款方式" }
- span class="text-sm text-fg font-medium" { (payment_method_label(pay.payment_method)) }
- }
- div class="flex flex-col gap-1" {
- span class="text-xs text-muted font-medium" { "付款金额" }
- span class="text-sm text-fg font-medium font-mono tabular-nums" { (format!("{}", pay.amount)) }
- }
- div class="flex flex-col gap-1" {
- span class="text-xs text-muted font-medium" { "关联对账单" }
- span class="text-sm text-fg font-medium font-mono tabular-nums" {
- @if let Some(doc) = recon_doc_number {
- (doc)
- } @else {
- "—"
- }
- }
- }
- div class="flex flex-col gap-1" {
- span class="text-xs text-muted font-medium" { "银行账户" }
- span class="text-sm text-fg font-medium font-mono tabular-nums" {
- @if let Some(bank_id) = pay.bank_account_id {
- (format!("{}", bank_id))
- } @else {
- "—"
- }
- }
- }
- div class="flex flex-col gap-1" {
- span class="text-xs text-muted font-medium" { "操作人" }
- span class="text-sm text-fg font-medium" { (operator_name) }
- }
- }
- }
-
- // ── Invoice Info ──
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 mt-6 shadow-[var(--shadow-sm)]" {
- div class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" { "发票信息" }
- div class="grid gap-4" {
- div class="flex flex-col gap-1" {
- span class="text-xs text-muted font-medium" { "发票号" }
- span class="text-sm text-fg font-medium font-mono tabular-nums" {
- @if let Some(ref inv) = pay.invoice_number {
- (inv.as_str())
- } @else {
- "—"
- }
- }
- }
- div class="flex flex-col gap-1" {
- span class="text-xs text-muted font-medium" { "发票金额" }
- span class="text-sm text-fg font-medium font-mono tabular-nums" {
- @if let Some(amt) = pay.invoice_amount {
- (format!("{}", amt))
- } @else {
- "—"
- }
- }
- }
- }
- }
-
- // ── Remarks ──
- @if !pay.remark.is_empty() {
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 mt-6 shadow-[var(--shadow-sm)]" {
- div class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" { "备注" }
- p class="text-muted" { (pay.remark.as_str()) }
- }
- }
- }
- }
+    div {
+        // ── Back Link ──
+        a   class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150"
+            href=(format!("{}?restore=true", PayListPath::PATH))
+        { (icon::chevron_left_icon("w-4 h-4")) "返回付款列表" }
+        // ── Detail Header ──
+        div class="flex items-center justify-between bg-bg border border-border-soft rounded-lg p-6"
+        {
+            div {
+                div class="flex items-center justify-between" {
+                    h1 class="text-2xl font-extrabold font-mono tabular-nums" { (pay.doc_number) }
+                    span class=({
+                        format!(
+                            "status-pill {}",
+                            crate::utils::status_color(status_class),
+                        )
+                    }) { (status_text) }
+                }
+            }
+            div class="flex gap-3" {
+                @if pay.status == PaymentStatus::Draft {
+                    button
+                        class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                        hx-post=(PayApprovePath { id: pay.id }.to_string())
+                        hx-confirm="确认审批此付款申请？"
+                    { (icon::check_circle_icon("w-4 h-4")) "审批" }
+                    button
+                        class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-danger text-white border-none hover:opacity-90"
+                        hx-post=(PayCancelPath { id: pay.id }.to_string())
+                        hx-confirm="确认取消此付款申请？取消后不可恢复。"
+                    { "取消" }
+                }
+            }
+        }
+        // ── Workflow Steps ──
+        (workflow_steps(pay.status))
+        // ── Payment Info ──
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
+            div class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" {
+                "付款信息"
+            }
+            div class="grid gap-4" {
+                div class="flex flex-col gap-1" {
+                    span class="text-xs text-muted font-medium" { "供应商名称" }
+                    span class="text-sm text-fg font-medium" { (supplier_name) }
+                }
+                div class="flex flex-col gap-1" {
+                    span class="text-xs text-muted font-medium" { "付款日期" }
+                    span class="text-sm text-fg font-medium font-mono tabular-nums" {
+                        (pay.payment_date.format("%Y-%m-%d"))
+                    }
+                }
+                div class="flex flex-col gap-1" {
+                    span class="text-xs text-muted font-medium" { "付款方式" }
+                    span class="text-sm text-fg font-medium" {
+                        (payment_method_label(pay.payment_method))
+                    }
+                }
+                div class="flex flex-col gap-1" {
+                    span class="text-xs text-muted font-medium" { "付款金额" }
+                    span class="text-sm text-fg font-medium font-mono tabular-nums" {
+                        (format!("{}", pay.amount))
+                    }
+                }
+                div class="flex flex-col gap-1" {
+                    span class="text-xs text-muted font-medium" { "关联对账单" }
+                    span class="text-sm text-fg font-medium font-mono tabular-nums" {
+                        @if let Some(doc) = recon_doc_number { (doc) } @else { "—" }
+                    }
+                }
+                div class="flex flex-col gap-1" {
+                    span class="text-xs text-muted font-medium" { "银行账户" }
+                    span class="text-sm text-fg font-medium font-mono tabular-nums" {
+                        @if let Some(bank_id) = pay.bank_account_id { (format!("{}", bank_id)) } @else {
+                            "—"
+                        }
+                    }
+                }
+                div class="flex flex-col gap-1" {
+                    span class="text-xs text-muted font-medium" { "操作人" }
+                    span class="text-sm text-fg font-medium" { (operator_name) }
+                }
+            }
+        }
+        // ── Invoice Info ──
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 mt-6 shadow-[var(--shadow-sm)]"
+        {
+            div class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" {
+                "发票信息"
+            }
+            div class="grid gap-4" {
+                div class="flex flex-col gap-1" {
+                    span class="text-xs text-muted font-medium" { "发票号" }
+                    span class="text-sm text-fg font-medium font-mono tabular-nums" {
+                        @if let Some(ref inv) = pay.invoice_number { (inv.as_str()) } @else { "—" }
+                    }
+                }
+                div class="flex flex-col gap-1" {
+                    span class="text-xs text-muted font-medium" { "发票金额" }
+                    span class="text-sm text-fg font-medium font-mono tabular-nums" {
+                        @if let Some(amt) = pay.invoice_amount { (format!("{}", amt)) } @else {
+                            "—"
+                        }
+                    }
+                }
+            }
+        }
+        // ── Remarks ──
+        @if !pay.remark.is_empty() {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 mt-6 shadow-[var(--shadow-sm)]"
+            {
+                div class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" {
+                    "备注"
+                }
+                p class="text-muted" { (pay.remark.as_str()) }
+            }
+        }
+    }
+}
 }

@@ -322,16 +322,16 @@ fn demand_pool_material_page(
  params: &DemandPoolQueryParams,
 ) -> Markup {
  html! {
- div {
- (page_header())
- (stat_mini_cards(stats))
- div id="demand-pool-data-card" {
- (view_toggle_and_filter("material", params))
- (material_table_fragment(result, params))
- }
- (batch_action_bar())
- }
- }
+    div {
+        (page_header())
+        (stat_mini_cards(stats))
+        div id="demand-pool-data-card" {
+            (view_toggle_and_filter("material", params))
+            (material_table_fragment(result, params))
+        }
+        (batch_action_bar())
+    }
+}
 }
 
 fn demand_pool_detail_page(
@@ -340,39 +340,38 @@ fn demand_pool_detail_page(
  params: &DemandPoolQueryParams,
 ) -> Markup {
  html! {
- div {
- (page_header())
- (stat_mini_cards(stats))
- div id="demand-pool-data-card" {
- (view_toggle_and_filter("detail", params))
- (detail_table_fragment(result, params))
- }
- (batch_action_bar())
- }
- }
+    div {
+        (page_header())
+        (stat_mini_cards(stats))
+        div id="demand-pool-data-card" {
+            (view_toggle_and_filter("detail", params))
+            (detail_table_fragment(result, params))
+        }
+        (batch_action_bar())
+    }
+}
 }
 
 fn page_header() -> Markup {
  html! {
- div class="flex items-center justify-between mb-6" {
- div {
- h1 class="text-xl font-bold text-fg tracking-tight" { "采购需求池" }
- p class="text-muted" class="text-sm" style="margin-top:var(--space-1)" {
- "销售订单确认后产生的外购需求，按物料聚合展示。可选择需求创建采购订单草稿。"
- }
- }
- div class="flex gap-3" {
- button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
- hx-get=(PurchaseDemandPoolListPath::PATH)
- hx-target="#demand-pool-data-card"
- hx-select="#demand-pool-data-card"
- hx-swap="outerHTML" {
- (icon::refresh_icon("w-4 h-4"))
- "刷新"
- }
- }
- }
- }
+    div class="flex items-center justify-between mb-6" {
+        div {
+            h1 class="text-xl font-bold text-fg tracking-tight" { "采购需求池" }
+            p class="text-muted" class="text-sm" style="margin-top:var(--space-1)" {
+                "销售订单确认后产生的外购需求，按物料聚合展示。可选择需求创建采购订单草稿。"
+            }
+        }
+        div class="flex gap-3" {
+            button
+                class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                hx-get=(PurchaseDemandPoolListPath::PATH)
+                hx-target="#demand-pool-data-card"
+                hx-select="#demand-pool-data-card"
+                hx-swap="outerHTML"
+            { (icon::refresh_icon("w-4 h-4")) "刷新" }
+        }
+    }
+}
 }
 
 fn view_toggle_and_filter(active: &str, params: &DemandPoolQueryParams) -> Markup {
@@ -391,136 +390,170 @@ fn view_toggle_and_filter(active: &str, params: &DemandPoolQueryParams) -> Marku
  let date_filter_val = params.date_filter.as_deref().unwrap_or("");
 
  html! {
- div class="flex items-center justify-between flex-wrap gap-3" {
- div class="inline-flex bg-surface border border-border-soft rounded-md p-[3px] gap-0.5" {
- a class=(material_cls)
- hx-get=(PurchaseDemandPoolListPath::PATH)
- hx-vals="{\"view\":\"material\"}"
- hx-target="#demand-pool-data-card"
- hx-select="#demand-pool-data-card"
- hx-swap="outerHTML"
- hx-push-url="true"
- hx-include="#demand-pool-filter-form" {
- (icon::grid_4_icon("w-4 h-4"))
- "物料汇总"
- }
- a class=(detail_cls)
- hx-get=(PurchaseDemandPoolListPath::PATH)
- hx-vals="{\"view\":\"detail\"}"
- hx-target="#demand-pool-data-card"
- hx-select="#demand-pool-data-card"
- hx-swap="outerHTML"
- hx-push-url="true"
- hx-include="#demand-pool-filter-form" {
- (icon::rows_icon("w-4 h-4"))
- "订单行明细"
- }
- }
+    div class="flex items-center justify-between flex-wrap gap-3" {
+        div class="inline-flex bg-surface border border-border-soft rounded-md p-[3px] gap-0.5" {
+            a   class=(material_cls)
+                hx-get=(PurchaseDemandPoolListPath::PATH)
+                hx-vals="{\"view\":\"material\"}"
+                hx-target="#demand-pool-data-card"
+                hx-select="#demand-pool-data-card"
+                hx-swap="outerHTML"
+                hx-push-url="true"
+                hx-include="#demand-pool-filter-form"
+            { (icon::grid_4_icon("w-4 h-4")) "物料汇总" }
+            a   class=(detail_cls)
+                hx-get=(PurchaseDemandPoolListPath::PATH)
+                hx-vals="{\"view\":\"detail\"}"
+                hx-target="#demand-pool-data-card"
+                hx-select="#demand-pool-data-card"
+                hx-swap="outerHTML"
+                hx-push-url="true"
+                hx-include="#demand-pool-filter-form"
+            { (icon::rows_icon("w-4 h-4")) "订单行明细" }
+        }
 
- @if let Some(oid) = params.order_id {
- div class="inline-flex items-center gap-1.5 py-1 px-2.5 bg-accent-bg text-accent rounded-sm text-xs font-medium" {
- (icon::clipboard_document_icon("w-3.5 h-3.5"))
- "订单 #" (oid)
- a class="ml-0.5 text-accent/70 hover:text-accent font-bold leading-none" href=(PurchaseDemandPoolListPath::PATH) title="清除订单筛选" { "×" }
- }
- }
+        @if let Some(oid) = params.order_id {
+            div class="inline-flex items-center gap-1.5 py-1 px-2.5 bg-accent-bg text-accent rounded-sm text-xs font-medium"
+            {
+                (icon::clipboard_document_icon("w-3.5 h-3.5"))
+                "订单 #"
+                (oid)
+                a   class="ml-0.5 text-accent/70 hover:text-accent font-bold leading-none"
+                    href=(PurchaseDemandPoolListPath::PATH)
+                    title="清除订单筛选"
+                { "×" }
+            }
+        }
 
- form class="flex items-center gap-3 mb-5 flex-wrap"
- hx-get=(PurchaseDemandPoolListPath::PATH)
- hx-trigger="change, keyup changed delay:300ms from:.search-input"
- hx-target="#demand-pool-data-card"
- hx-select="#demand-pool-data-card"
- hx-swap="outerHTML"
- hx-push-url="true" {
- input type="hidden" name="view" value=(active);
- @if let Some(oid) = params.order_id {
- input type="hidden" name="order_id" value=(oid);
- }
- div class="relative flex-1 max-w-xs icon:absolute icon:left-3 icon:top-1/2 icon:-translate-y-1/2 icon:w-4 icon:h-4 icon:text-muted" {
- (icon::search_icon(""))
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input" type="text" name="keyword"
- placeholder="搜索物料名称、编码、订单号…"
- value=(keyword);
- }
- select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="date_filter" {
- option value="" selected[date_filter_val.is_empty()] { "全部需求日期" }
- option value="3days" selected[date_filter_val == "3days"] { "近3天到期" }
- option value="7days" selected[date_filter_val == "7days"] { "近7天到期" }
- option value="30days" selected[date_filter_val == "30days"] { "近30天到期" }
- option value="overdue" selected[date_filter_val == "overdue"] { "已逾期" }
- }
- }
+        form
+            class="flex items-center gap-3 mb-5 flex-wrap"
+            hx-get=(PurchaseDemandPoolListPath::PATH)
+            hx-trigger="change, keyup changed delay:300ms from:.search-input"
+            hx-target="#demand-pool-data-card"
+            hx-select="#demand-pool-data-card"
+            hx-swap="outerHTML"
+            hx-push-url="true"
+        {
+            input type="hidden" name="view" value=(active);
+            @if let Some(oid) = params.order_id {
+                input type="hidden" name="order_id" value=(oid);
+            }
+            div class="relative flex-1 max-w-xs icon:absolute icon:left-3 icon:top-1/2 icon:-translate-y-1/2 icon:w-4 icon:h-4 icon:text-muted"
+            {
+                (icon::search_icon(""))
+                input
+                    class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input"
+                    type="text"
+                    name="keyword"
+                    placeholder="搜索物料名称、编码、订单号…"
+                    value=(keyword);
+            }
+            select
+                class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer"
+                name="date_filter"
+            {
+                option value="" selected[date_filter_val.is_empty()] { "全部需求日期" }
+                option value="3days" selected[date_filter_val == "3days"] { "近3天到期" }
+                option value="7days" selected[date_filter_val == "7days"] { "近7天到期" }
+                option value="30days" selected[date_filter_val == "30days"] { "近30天到期" }
+                option value="overdue" selected[date_filter_val == "overdue"] { "已逾期" }
+            }
+        }
 
- form id="demand-pool-filter-form" style="display:none;" {
- input type="hidden" name="keyword" value=(keyword);
- input type="hidden" name="date_filter" value=(date_filter_val);
- }
- }
- }
+        form id="demand-pool-filter-form" style="display:none;" {
+            input type="hidden" name="keyword" value=(keyword);
+            input type="hidden" name="date_filter" value=(date_filter_val);
+        }
+    }
+}
 }
 
 fn stat_mini_cards(stats: &Stats) -> Markup {
  html! {
- div class="grid grid-cols-4 gap-4 mb-6" {
- div class="flex items-center gap-3 bg-bg border border-border-soft rounded-lg px-5 py-4 shadow-[var(--shadow-card)]" {
- div class="w-[38px] h-[38px] rounded-md grid place-items-center shrink-0" style="background:#ede9fe;color:#7c3aed;" {
- (icon::clipboard_list_icon("w-[18px] h-[18px]"))
- }
- div {
- div class="text-xl font-bold font-mono tabular-nums leading-tight text-fg" { (stats.pending_count) }
- div class="text-[11px] text-muted mt-0.5" { "待处理需求" }
- }
- }
- div class="flex items-center gap-3 bg-bg border border-border-soft rounded-lg px-5 py-4 shadow-[var(--shadow-card)]" {
- div class="w-[38px] h-[38px] rounded-md grid place-items-center shrink-0" class="text-accent" style="background:#dbeafe" {
- (icon::cube_icon("w-[18px] h-[18px]"))
- }
- div {
- div class="text-xl font-bold font-mono tabular-nums leading-tight text-fg" { (stats.material_count) }
- div class="text-[11px] text-muted mt-0.5" { "涉及物料" }
- }
- }
- div class="flex items-center gap-3 bg-bg border border-border-soft rounded-lg px-5 py-4 shadow-[var(--shadow-card)]" {
- div class="w-[38px] h-[38px] rounded-md grid place-items-center shrink-0" class="text-success" style="background:#dcfce7" {
- (icon::check_circle_icon("w-[18px] h-[18px]"))
- }
- div {
- div class="text-xl font-bold font-mono tabular-nums leading-tight text-muted" { "—" }
- div class="text-[11px] text-muted mt-0.5" { "处理中" }
- }
- }
- div class="flex items-center gap-3 bg-bg border border-border-soft rounded-lg px-5 py-4 shadow-[var(--shadow-card)]" {
- div class="w-[38px] h-[38px] rounded-md grid place-items-center shrink-0" class="text-warn" style="background:#fef3c7" {
- (icon::clock_icon("w-[18px] h-[18px]"))
- }
- div {
- div class="text-xl font-bold font-mono tabular-nums leading-tight text-muted" { "—" }
- div class="text-[11px] text-muted mt-0.5" { "近3日到期" }
- }
- }
- }
- }
+    div class="grid grid-cols-4 gap-4 mb-6" {
+        div class="flex items-center gap-3 bg-bg border border-border-soft rounded-lg px-5 py-4 shadow-[var(--shadow-card)]"
+        {
+            div class="w-[38px] h-[38px] rounded-md grid place-items-center shrink-0"
+                style="background:#ede9fe;color:#7c3aed;"
+            { (icon::clipboard_list_icon("w-[18px] h-[18px]")) }
+            div {
+                div class="text-xl font-bold font-mono tabular-nums leading-tight text-fg" {
+                    (stats.pending_count)
+                }
+                div class="text-[11px] text-muted mt-0.5" { "待处理需求" }
+            }
+        }
+        div class="flex items-center gap-3 bg-bg border border-border-soft rounded-lg px-5 py-4 shadow-[var(--shadow-card)]"
+        {
+            div class="w-[38px] h-[38px] rounded-md grid place-items-center shrink-0"
+                class="text-accent"
+                style="background:#dbeafe"
+            { (icon::cube_icon("w-[18px] h-[18px]")) }
+            div {
+                div class="text-xl font-bold font-mono tabular-nums leading-tight text-fg" {
+                    (stats.material_count)
+                }
+                div class="text-[11px] text-muted mt-0.5" { "涉及物料" }
+            }
+        }
+        div class="flex items-center gap-3 bg-bg border border-border-soft rounded-lg px-5 py-4 shadow-[var(--shadow-card)]"
+        {
+            div class="w-[38px] h-[38px] rounded-md grid place-items-center shrink-0"
+                class="text-success"
+                style="background:#dcfce7"
+            { (icon::check_circle_icon("w-[18px] h-[18px]")) }
+            div {
+                div class="text-xl font-bold font-mono tabular-nums leading-tight text-muted" {
+                    "—"
+                }
+                div class="text-[11px] text-muted mt-0.5" { "处理中" }
+            }
+        }
+        div class="flex items-center gap-3 bg-bg border border-border-soft rounded-lg px-5 py-4 shadow-[var(--shadow-card)]"
+        {
+            div class="w-[38px] h-[38px] rounded-md grid place-items-center shrink-0"
+                class="text-warn"
+                style="background:#fef3c7"
+            { (icon::clock_icon("w-[18px] h-[18px]")) }
+            div {
+                div class="text-xl font-bold font-mono tabular-nums leading-tight text-muted" {
+                    "—"
+                }
+                div class="text-[11px] text-muted mt-0.5" { "近3日到期" }
+            }
+        }
+    }
+}
 }
 
 // ── View Toggle ──
 
 fn batch_action_bar() -> Markup {
  html! {
- // ── Batch Action Bar ──
- div class="fixed bottom-6 left-1/2 -translate-x-1/2 hidden show:flex bg-[var(--fg)] text-white rounded-lg p-3 px-6 z-[100] items-center gap-5 text-sm shadow-[0_12px_40px_rgba(15,23,42,0.25)]" id="batchBar" {
- span { "已选择 " span class="batch-count" id="batchCount" { "0" } " 条需求" }
- a class="inline-flex items-center gap-2 py-[5px] px-3 text-[13px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover font-medium cursor-pointer transition-all duration-150 shadow-[0_2px_8px_rgba(37,99,235,0.3)]" id="batchCreateBtn"
- href=(PurchaseDemandPoolCreatePath::PATH)
- data-base-path=(PurchaseDemandPoolCreatePath::PATH) {
- "创建采购单"
- }
- button class="inline-flex items-center gap-2 py-[5px] px-3 text-[13px] rounded-sm border border-[rgba(255,255,255,0.15)] text-[rgba(255,255,255,0.7)] hover:text-white hover:bg-[rgba(255,255,255,0.1)] bg-transparent font-medium cursor-pointer transition-all duration-150" type="button" id="batchClearBtn" {
- "清除选择"
- }
- }
-
- // ── Global checkbox + batch bar logic ──
- (PreEscaped(r#"<script>
+    // ── Batch Action Bar ──
+    div class="fixed bottom-6 left-1/2 -translate-x-1/2 hidden show:flex bg-[var(--fg)] text-white rounded-lg p-3 px-6 z-[100] items-center gap-5 text-sm shadow-[0_12px_40px_rgba(15,23,42,0.25)]"
+        id="batchBar"
+    {
+        span {
+            "已选择 "
+            span class="batch-count" id="batchCount" { "0" }
+            " 条需求"
+        }
+        a   class="inline-flex items-center gap-2 py-[5px] px-3 text-[13px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover font-medium cursor-pointer transition-all duration-150 shadow-[0_2px_8px_rgba(37,99,235,0.3)]"
+            id="batchCreateBtn"
+            href=(PurchaseDemandPoolCreatePath::PATH)
+            data-base-path=(PurchaseDemandPoolCreatePath::PATH)
+        { "创建采购单" }
+        button
+            class="inline-flex items-center gap-2 py-[5px] px-3 text-[13px] rounded-sm border border-[rgba(255,255,255,0.15)] text-[rgba(255,255,255,0.7)] hover:text-white hover:bg-[rgba(255,255,255,0.1)] bg-transparent font-medium cursor-pointer transition-all duration-150"
+            type="button"
+            id="batchClearBtn"
+        { "清除选择" }
+    }
+    // ── Global checkbox + batch bar logic ──
+    ({
+        PreEscaped(
+            r#"<script>
  function toggleAllDemands(master, table) {
  var cbs = table.querySelectorAll('input.demand-cb:not([disabled])');
  cbs.forEach(function(c) {
@@ -581,8 +614,10 @@ fn batch_action_bar() -> Markup {
  });
  document.getElementById('batchBar').classList.remove('show');
  });
- </script>"#))
- }
+ </script>"#,
+        )
+    })
+}
 }
 
 // ── Material Aggregated View ──
@@ -594,37 +629,36 @@ fn material_table_fragment(
  let qs = material_query_string(params.keyword.as_deref(), params.date_filter.as_deref());
 
  html! {
- div class="data-card" id="materialView" {
- (material_table_header())
- @for m in &result.items {
- (material_row(m))
- }
- @if result.items.is_empty() {
- div class="text-center text-muted py-8" {
- "暂无待处理需求"
- }
- }
- (pagination(
- PurchaseDemandPoolListPath::PATH,
- &qs,
- result.total,
- result.page,
- result.total_pages,
- ))
- }
- }
+    div class="data-card" id="materialView" {
+        (material_table_header())
+        @for m in &result.items { (material_row(m)) }
+        @if result.items.is_empty() {
+            div class="text-center text-muted py-8" { "暂无待处理需求" }
+        }
+        ({
+            pagination(
+                PurchaseDemandPoolListPath::PATH,
+                &qs,
+                result.total,
+                result.page,
+                result.total_pages,
+            )
+        })
+    }
+}
 }
 
 fn material_table_header() -> Markup {
  html! {
- div class="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-6 px-6 py-3 bg-surface-raised text-xs font-semibold uppercase tracking-wide text-muted border-b border-border-soft" {
- div { "物料信息" }
- div class="text-center w-[100px]" { "总需求量" }
- div class="text-center w-[80px]" { "涉及订单" }
- div class="text-center w-[160px]" { "需求日期范围" }
- div class="text-center w-[120px]" { "操作" }
- }
- }
+    div class="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-6 px-6 py-3 bg-surface-raised text-xs font-semibold uppercase tracking-wide text-muted border-b border-border-soft"
+    {
+        div { "物料信息" }
+        div class="text-center w-[100px]" { "总需求量" }
+        div class="text-center w-[80px]" { "涉及订单" }
+        div class="text-center w-[160px]" { "需求日期范围" }
+        div class="text-center w-[120px]" { "操作" }
+    }
+}
 }
 
 fn material_row(m: &MaterialAggSummary) -> Markup {
@@ -642,94 +676,100 @@ fn material_row(m: &MaterialAggSummary) -> Markup {
  let (icon_bg, icon_color, icon_svg) = material_icon(pid);
 
  html! {
- div class="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-6 px-6 py-4 border-b border-border-soft" {
+    div class="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-6 px-6 py-4 border-b border-border-soft"
+    {
 
- div class="flex items-center gap-4 cursor-pointer"
- hx-get=(format!("/admin/purchase/demand-pool/demand-rows?product_id={pid}"))
- hx-target=(format!("#expand-tbody-{pid}"))
- hx-swap="innerHTML"
- hx-trigger="click once"
- _=(format!("on click toggle .expanded on #expand-mat-{}", pid)) {
- div class="w-[40px] h-[40px] rounded-md grid place-items-center shrink-0" style=(format!("background:{icon_bg};color:{icon_color}")) {
- (icon_svg)
- }
- div {
- div class="font-semibold text-fg text-sm" { (m.product_name) }
- div class="text-xs text-muted" { (m.product_code) }
- }
- }
+        div class="flex items-center gap-4 cursor-pointer"
+            hx-get=(format!("/admin/purchase/demand-pool/demand-rows?product_id={pid}"))
+            hx-target=(format!("#expand-tbody-{pid}"))
+            hx-swap="innerHTML"
+            hx-trigger="click once"
+            _=(format!("on click toggle .expanded on #expand-mat-{}", pid))
+        {
+            div class="w-[40px] h-[40px] rounded-md grid place-items-center shrink-0"
+                style=(format!("background:{icon_bg};color:{icon_color}"))
+            { (icon_svg) }
+            div {
+                div class="font-semibold text-fg text-sm" { (m.product_name) }
+                div class="text-xs text-muted" { (m.product_code) }
+            }
+        }
 
- div class="text-center min-w-[80px]" {
- div class="text-lg font-bold font-mono tabular-nums text-fg" { (fmt_qty(m.total_demand_qty)) }
- div class="text-[11px] text-muted mt-0.5" { "总需求量" }
- }
+        div class="text-center min-w-[80px]" {
+            div class="text-lg font-bold font-mono tabular-nums text-fg" {
+                (fmt_qty(m.total_demand_qty))
+            }
+            div class="text-[11px] text-muted mt-0.5" { "总需求量" }
+        }
 
- div class="text-center min-w-[80px]" {
- div class="text-lg font-bold font-mono tabular-nums text-accent" { (m.demand_count) }
- div class="text-[11px] text-muted mt-0.5" { "涉及订单" }
- }
+        div class="text-center min-w-[80px]" {
+            div class="text-lg font-bold font-mono tabular-nums text-accent" { (m.demand_count) }
+            div class="text-[11px] text-muted mt-0.5" { "涉及订单" }
+        }
 
- div class="text-center min-w-[160px]" {
- div class="text-[13px] font-semibold text-fg" { (date_range) }
- @if let Some((hint_text, cls)) = &hint {
- div class=(format!("text-[11px] mt-0.5 {}", cls)) { (hint_text) }
- }
- }
+        div class="text-center min-w-[160px]" {
+            div class="text-[13px] font-semibold text-fg" { (date_range) }
+            @if let Some((hint_text, cls)) = &hint {
+                div class=(format!("text-[11px] mt-0.5 {}", cls)) { (hint_text) }
+            }
+        }
 
- div class="flex gap-2" {
- form method="get" action=(PurchaseDemandPoolCreatePath::PATH)
- class="inline" {
- input type="hidden" name="product_id" value=(pid) {}
- button type="submit" class="inline-flex items-center gap-1.5 py-[5px] px-3 text-[13px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" { "创建采购单" }
- }
- }
- }
-
- // ── Expandable demand detail ──
- div class="hidden expanded:block bg-surface-raised border-b border-border-soft" id=(format!("expand-mat-{pid}")) {
- div class="px-6 py-4" {
- table class="data-table" class="text-[13px]" {
- thead {
- tr {
- th class="w-10" {
- input type="checkbox" title="全选" _="on change call toggleAllDemands(me, closest <table/>)";
- }
- th { "需求ID" }
- th { "来源订单" }
- th class="text-right text-[13px]" { "需求数量" }
- th { "需求日期" }
- th { "优先级" }
- th { "状态" }
- }
- }
- tbody id=(format!("expand-tbody-{pid}")) {
- tr {
- td colspan="7" class="text-center text-muted" class="p-3" {
- "点击物料信息展开加载..."
- }
- }
- }
- }
- }
- }
- }
+        div class="flex gap-2" {
+            form method="get" action=(PurchaseDemandPoolCreatePath::PATH) class="inline" {
+                input type="hidden" name="product_id" value=(pid) {}
+                button
+                    type="submit"
+                    class="inline-flex items-center gap-1.5 py-[5px] px-3 text-[13px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                { "创建采购单" }
+            }
+        }
+    }
+    // ── Expandable demand detail ──
+    div class="hidden expanded:block bg-surface-raised border-b border-border-soft"
+        id=(format!("expand-mat-{pid}"))
+    {
+        div class="px-6 py-4" {
+            table class="data-table" class="text-[13px]" {
+                thead {
+                    tr {
+                        th class="w-10" {
+                            input
+                                type="checkbox"
+                                title="全选"
+                                _="on change call toggleAllDemands(me, closest <table/>)";
+                        }
+                        th { "需求ID" }
+                        th { "来源订单" }
+                        th class="text-right text-[13px]" { "需求数量" }
+                        th { "需求日期" }
+                        th { "优先级" }
+                        th { "状态" }
+                    }
+                }
+                tbody id=(format!("expand-tbody-{pid}")) {
+                    tr {
+                        td colspan="7" class="text-center text-muted" class="p-3" {
+                            "点击物料信息展开加载..."
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
 }
 
 // ── Demand Expand Rows (HTMX fragment) ──
 
 fn demand_expand_rows(demands: &[DemandSummary]) -> Markup {
  html! {
- @if demands.is_empty() {
- tr {
- td colspan="7" class="text-center text-muted" class="p-3" {
- "暂无需求明细"
- }
- }
- }
- @for d in demands {
- (demand_expand_row(d))
- }
- }
+    @if demands.is_empty() {
+        tr {
+            td colspan="7" class="text-center text-muted" class="p-3" { "暂无需求明细" }
+        }
+    }
+    @for d in demands { (demand_expand_row(d)) }
+}
 }
 
 fn demand_expand_row(d: &DemandSummary) -> Markup {
@@ -741,27 +781,39 @@ fn demand_expand_row(d: &DemandSummary) -> Markup {
  .unwrap_or_else(|| "—".into());
 
  html! {
- tr {
- td {
- input type="checkbox" class="demand-cb" value=(d.id)
- data-product-id=(d.product_id)
- data-product-name=(d.product_name)
- data-product-code=(d.product_code);
- }
- td class="font-mono tabular-nums" class="text-xs" { (d.id) }
- td {
- a class="text-accent font-medium cursor-pointer" href=(OrderDetailPath { id: d.order_id }.to_string()) { (d.order_no.as_deref().unwrap_or("—")) }
- }
- td class="text-right text-[13px] font-mono tabular-nums" { (fmt_qty(d.quantity)) }
- td class="font-mono tabular-nums" { (req_date) }
- td {
- span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium" style=(pri_style) { (pri_text) }
- }
- td {
- span class=(format!("status-pill {}", crate::utils::status_color(status_class))) class="text-[11px]" style="padding:2px 8px" { (status_text) }
- }
- }
- }
+    tr {
+        td {
+            input
+                type="checkbox"
+                class="demand-cb"
+                value=(d.id)
+                data-product-id=(d.product_id)
+                data-product-name=(d.product_name)
+                data-product-code=(d.product_code);
+        }
+        td class="font-mono tabular-nums" class="text-xs" { (d.id) }
+        td {
+            a   class="text-accent font-medium cursor-pointer"
+                href=(OrderDetailPath { id: d.order_id }.to_string())
+            { (d.order_no.as_deref().unwrap_or("—")) }
+        }
+        td class="text-right text-[13px] font-mono tabular-nums" { (fmt_qty(d.quantity)) }
+        td class="font-mono tabular-nums" { (req_date) }
+        td {
+            span
+                class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium"
+                style=(pri_style)
+            { (pri_text) }
+        }
+        td {
+            span
+                class=(format!("status-pill {}", crate::utils::status_color(status_class)))
+                class="text-[11px]"
+                style="padding:2px 8px"
+            { (status_text) }
+        }
+    }
+}
 }
 
 // ── Detail View ──
@@ -773,50 +825,52 @@ fn detail_table_fragment(
  let qs = detail_query_string(params.keyword.as_deref(), params.date_filter.as_deref(), params.order_id);
 
  html! {
- div class="data-card" id="detailView" {
- div class="overflow-x-auto" {
- table class="data-table" {
- thead {
- tr {
- th class="w-10" {
- input type="checkbox" title="全选";
- (PreEscaped(r#"<script>document.currentScript.parentElement.addEventListener('change',function(e){e.target.closest('table').querySelectorAll('input.demand-cb:not([disabled])').forEach(function(c){c.checked=e.target.checked;c.dispatchEvent(new Event('change',{bubbles:true}))})})</script>"#))
- }
- th { "需求ID" }
- th { "产品编码" }
- th { "产品名称" }
- th { "来源订单" }
- th class="text-right text-[13px]" { "需求数量" }
- th { "需求日期" }
- th { "优先级" }
- th { "状态" }
- th { "关联单据" }
- th class="!text-right" { "操作" }
- }
- }
- tbody {
- @for d in &result.items {
- (detail_row(d))
- }
- @if result.items.is_empty() {
- tr {
- td colspan="11" class="text-center text-muted py-8" {
- "暂无需求数据"
- }
- }
- }
- }
- }
- }
- (pagination(
- PurchaseDemandPoolListPath::PATH,
- &qs,
- result.total,
- result.page,
- result.total_pages,
- ))
- }
- }
+    div class="data-card" id="detailView" {
+        div class="overflow-x-auto" {
+            table class="data-table" {
+                thead {
+                    tr {
+                        th class="w-10" {
+                            input type="checkbox" title="全选";
+                            ({
+                                PreEscaped(
+                                    r#"<script>document.currentScript.parentElement.addEventListener('change',function(e){e.target.closest('table').querySelectorAll('input.demand-cb:not([disabled])').forEach(function(c){c.checked=e.target.checked;c.dispatchEvent(new Event('change',{bubbles:true}))})})</script>"#,
+                                )
+                            })
+                        }
+                        th { "需求ID" }
+                        th { "产品编码" }
+                        th { "产品名称" }
+                        th { "来源订单" }
+                        th class="text-right text-[13px]" { "需求数量" }
+                        th { "需求日期" }
+                        th { "优先级" }
+                        th { "状态" }
+                        th { "关联单据" }
+                        th class="!text-right" { "操作" }
+                    }
+                }
+                tbody {
+                    @for d in &result.items { (detail_row(d)) }
+                    @if result.items.is_empty() {
+                        tr {
+                            td colspan="11" class="text-center text-muted py-8" { "暂无需求数据" }
+                        }
+                    }
+                }
+            }
+        }
+        ({
+            pagination(
+                PurchaseDemandPoolListPath::PATH,
+                &qs,
+                result.total,
+                result.page,
+                result.total_pages,
+            )
+        })
+    }
+}
 }
 
 fn detail_row(d: &DemandSummary) -> Markup {
@@ -829,58 +883,71 @@ fn detail_row(d: &DemandSummary) -> Markup {
  let is_pending = d.demand_status == 1;
 
  html! {
- tr {
- td {
- @if is_pending {
- input type="checkbox" class="demand-cb" value=(d.id)
- data-product-id=(d.product_id)
- data-product-name=(d.product_name)
- data-product-code=(d.product_code);
- } @else {
- input type="checkbox" class="demand-cb" disabled;
- }
- }
- td class="font-mono tabular-nums" class="text-xs" { (d.id) }
- td class="font-mono tabular-nums" { (d.product_code) }
- td { (d.product_name) }
- td {
- a class="text-accent font-medium cursor-pointer" href=(OrderDetailPath { id: d.order_id }.to_string()) { (d.order_no.as_deref().unwrap_or("—")) }
- }
- td class="text-right text-[13px] font-mono tabular-nums" { (fmt_qty(d.quantity)) }
- td class="font-mono tabular-nums" { (req_date) }
- td {
- span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium" style=(pri_style) { (pri_text) }
- }
- td {
- span class=(format!("status-pill {}", crate::utils::status_color(status_class))) class="text-[11px]" style="padding:2px 8px" { (status_text) }
- }
- td class="font-mono tabular-nums" {
- @if let (Some(doc_type), Some(doc_id)) = (d.target_doc_type, d.target_doc_id) {
- @if doc_type == 7 {
- a class="text-accent font-medium cursor-pointer" href=(PODetailPath { id: doc_id }.to_string()) {
- "PO-" (doc_id)
- }
- } @else if doc_type == 12 {
- a class="text-accent font-medium cursor-pointer" href=(PlanDetailPath { id: doc_id }.to_string()) {
- "PP-" (doc_id)
- }
- } @else {
- "—"
- }
- } @else {
- span class="text-muted" { "—" }
- }
- }
- td {
- @if is_pending {
- form method="get" action=(PurchaseDemandPoolCreatePath::PATH) class="inline" {
- input type="hidden" name="product_id" value=(d.product_id) {}
- button type="submit" class="btn inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative icon:w-4 icon:h-4" { "创建" }
- }
- } @else {
- span class="text-muted text-sm" { "—" }
- }
- }
- }
- }
+    tr {
+        td {
+            @if is_pending {
+                input
+                    type="checkbox"
+                    class="demand-cb"
+                    value=(d.id)
+                    data-product-id=(d.product_id)
+                    data-product-name=(d.product_name)
+                    data-product-code=(d.product_code);
+            } @else {
+                input type="checkbox" class="demand-cb" disabled;
+            }
+        }
+        td class="font-mono tabular-nums" class="text-xs" { (d.id) }
+        td class="font-mono tabular-nums" { (d.product_code) }
+        td { (d.product_name) }
+        td {
+            a   class="text-accent font-medium cursor-pointer"
+                href=(OrderDetailPath { id: d.order_id }.to_string())
+            { (d.order_no.as_deref().unwrap_or("—")) }
+        }
+        td class="text-right text-[13px] font-mono tabular-nums" { (fmt_qty(d.quantity)) }
+        td class="font-mono tabular-nums" { (req_date) }
+        td {
+            span
+                class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium"
+                style=(pri_style)
+            { (pri_text) }
+        }
+        td {
+            span
+                class=(format!("status-pill {}", crate::utils::status_color(status_class)))
+                class="text-[11px]"
+                style="padding:2px 8px"
+            { (status_text) }
+        }
+        td class="font-mono tabular-nums" {
+            @if let (Some(doc_type), Some(doc_id)) = (d.target_doc_type, d.target_doc_id) {
+                @if doc_type == 7 {
+                    a   class="text-accent font-medium cursor-pointer"
+                        href=(PODetailPath { id: doc_id }.to_string())
+                    { "PO-" (doc_id) }
+                } @else if doc_type == 12 {
+                    a   class="text-accent font-medium cursor-pointer"
+                        href=(PlanDetailPath { id: doc_id }.to_string())
+                    { "PP-" (doc_id) }
+                } @else { "—" }
+            } @else {
+                span class="text-muted" { "—" }
+            }
+        }
+        td {
+            @if is_pending {
+                form method="get" action=(PurchaseDemandPoolCreatePath::PATH) class="inline" {
+                    input type="hidden" name="product_id" value=(d.product_id) {}
+                    button
+                        type="submit"
+                        class="btn inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative icon:w-4 icon:h-4"
+                    { "创建" }
+                }
+            } @else {
+                span class="text-muted text-sm" { "—" }
+            }
+        }
+    }
+}
 }

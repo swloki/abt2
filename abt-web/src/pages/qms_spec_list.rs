@@ -162,21 +162,20 @@ fn spec_list_page(
  can_create: bool,
 ) -> Markup {
  html! {
- div {
- div class="flex items-center justify-between mb-6" {
- h1 class="text-xl font-bold text-fg tracking-tight" { "检验规格" }
- div class="flex gap-3" {
- @if can_create {
-a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(SpecCreatePath::PATH) {
- (icon::plus_icon("w-4 h-4"))
- "新建规格"
- }
- }
- }
- }
- (spec_table_fragment(result, product_names, params))
- }
- }
+    div {
+        div class="flex items-center justify-between mb-6" {
+            h1 class="text-xl font-bold text-fg tracking-tight" { "检验规格" }
+            div class="flex gap-3" {
+                @if can_create {
+                    a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                        href=(SpecCreatePath::PATH)
+                    { (icon::plus_icon("w-4 h-4")) "新建规格" }
+                }
+            }
+        }
+        (spec_table_fragment(result, product_names, params))
+    }
+}
 }
 
 fn spec_table_fragment(
@@ -195,43 +194,76 @@ fn spec_table_fragment(
  ];
 
  html! {
- div class="spec-list-panel" {
- (status_tabs_with_param(SpecListPath::PATH, "#spec-data-card", "#filter-form", tabs, selected_status, "status"))
-
- // ── Filter Bar ──
- form id="filter-form" class="flex items-center gap-3 mb-5 flex-wrap filter-form"
- hx-get=(SpecListPath::PATH)
- hx-trigger="change, keyup changed delay:300ms from:.search-input"
- hx-target="#spec-data-card"
- hx-select="#spec-data-card"
- hx-swap="outerHTML"
- hx-include="closest form"
- hx-push-url="true" {
- div class="relative w-60" {
- (icon::search_icon("absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted"))
- input class="search-input w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input" type="text" name="keyword"
- placeholder="搜索单号…"
- value=(params.keyword.as_deref().unwrap_or(""));
- }
- select class="w-40 px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer" name="inspection_type" {
- option value="" selected[params.inspection_type.is_none()] { "全部类型" }
- option value="Iqc" selected[params.inspection_type.as_deref() == Some("Iqc")] { "IQC (来料)" }
- option value="Ipqc" selected[params.inspection_type.as_deref() == Some("Ipqc")] { "IPQC (过程)" }
- option value="Fqc" selected[params.inspection_type.as_deref() == Some("Fqc")] { "FQC (成品)" }
- option value="Oqc" selected[params.inspection_type.as_deref() == Some("Oqc")] { "OQC (出货)" }
- }
- select class="w-40 px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer" name="status" {
- option value="" selected[params.status.is_none()] { "全部状态" }
- option value="Draft" selected[params.status.as_deref() == Some("Draft")] { "草稿" }
- option value="Active" selected[params.status.as_deref() == Some("Active")] { "生效" }
- option value="Inactive" selected[params.status.as_deref() == Some("Inactive")] { "停用" }
- }
- }
-
- // ── Data Table ──
- (spec_data_card(result, product_names, params))
- }
- }
+    div class="spec-list-panel" {
+        ({
+            status_tabs_with_param(
+                SpecListPath::PATH,
+                "#spec-data-card",
+                "#filter-form",
+                tabs,
+                selected_status,
+                "status",
+            )
+        })
+        // ── Filter Bar ──
+        form
+            id="filter-form"
+            class="flex items-center gap-3 mb-5 flex-wrap filter-form"
+            hx-get=(SpecListPath::PATH)
+            hx-trigger="change, keyup changed delay:300ms from:.search-input"
+            hx-target="#spec-data-card"
+            hx-select="#spec-data-card"
+            hx-swap="outerHTML"
+            hx-include="closest form"
+            hx-push-url="true"
+        {
+            div class="relative w-60" {
+                ({
+                    icon::search_icon(
+                        "absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted",
+                    )
+                })
+                input
+                    class="search-input w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input"
+                    type="text"
+                    name="keyword"
+                    placeholder="搜索单号…"
+                    value=(params.keyword.as_deref().unwrap_or(""));
+            }
+            select
+                class="w-40 px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer"
+                name="inspection_type"
+            {
+                option value="" selected[params.inspection_type.is_none()] { "全部类型" }
+                option value="Iqc" selected[params.inspection_type.as_deref() == Some("Iqc")] {
+                    "IQC (来料)"
+                }
+                option value="Ipqc" selected[params.inspection_type.as_deref() == Some("Ipqc")] {
+                    "IPQC (过程)"
+                }
+                option value="Fqc" selected[params.inspection_type.as_deref() == Some("Fqc")] {
+                    "FQC (成品)"
+                }
+                option value="Oqc" selected[params.inspection_type.as_deref() == Some("Oqc")] {
+                    "OQC (出货)"
+                }
+            }
+            select
+                class="w-40 px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer"
+                name="status"
+            {
+                option value="" selected[params.status.is_none()] { "全部状态" }
+                option value="Draft" selected[params.status.as_deref() == Some("Draft")] { "草稿" }
+                option value="Active" selected[params.status.as_deref() == Some("Active")] { "生效" }
+                option value="Inactive" selected[params.status.as_deref() == Some("Inactive")] {
+                    "停用"
+                }
+            }
+        }
+        // ── Data Table ──
+        (spec_data_card(result, product_names, params))
+    }
+}
 }
 
 fn spec_data_card(
@@ -241,57 +273,96 @@ fn spec_data_card(
 ) -> Markup {
  let query = build_query_string(params);
  html! {
- div class="data-card" id="spec-data-card" {
- div class="overflow-x-auto" {
- table class="data-table" {
- thead {
- tr {
- th { "单号" }
- th { "产品" }
- th { "检验类型" }
- th { "检验项目数" }
- th { "抽样方案" }
- th { "版本" }
- th { "状态" }
- th { "创建时间" }
- }
- }
- tbody {
- @for item in &result.items {
- @let (status_label, status_bg, status_color) = spec_status_label(&item.status);
- @let (type_label, type_bg, type_color) = inspection_type_label(&item.inspection_type);
- @let product_name = product_names.get(&item.product_id).map(|s| s.as_str()).unwrap_or("—");
- @let detail_path = SpecDetailPath { id: item.id };
- @let check_count = item.check_items.len();
- @let sample_plan = format!("Level {}, AQL {}", item.sample_plan.level, item.sample_plan.aql);
- tr class="cursor-pointer hover:bg-accent-bg transition-colors duration-100" _=(format!("on click go to {}", detail_path.to_string())) {
- td { a href=(detail_path.to_string()) class="text-accent font-medium font-mono tabular-nums hover:underline" { (item.doc_number) } }
- td { (product_name) }
- td {
- span class=(format!("text-xs px-2 py-0.5 rounded-full font-medium {} {}", type_bg, type_color)) {
- (type_label)
- }
- }
- td class="text-center" { (check_count) }
- td { (sample_plan) }
- td class="text-center" { "v" (item.version) }
- td {
- span class=(format!("text-xs px-2 py-0.5 rounded-full font-medium {} {}", status_bg, status_color)) {
- (status_label)
- }
- }
- td class="text-xs text-muted" { (item.created_at.format("%Y-%m-%d %H:%M")) }
- }
- }
- @if result.items.is_empty() {
- tr {
- td colspan="8" class="text-center text-muted text-sm py-8" { "暂无检验规格" }
- }
- }
- }
- }
- }
- (pagination(SpecListPath::PATH, &query, result.total, result.page, result.total_pages))
- }
- }
+    div class="data-card" id="spec-data-card" {
+        div class="overflow-x-auto" {
+            table class="data-table" {
+                thead {
+                    tr {
+                        th { "单号" }
+                        th { "产品" }
+                        th { "检验类型" }
+                        th { "检验项目数" }
+                        th { "抽样方案" }
+                        th { "版本" }
+                        th { "状态" }
+                        th { "创建时间" }
+                    }
+                }
+                tbody {
+                    @for item in &result.items {
+                        @let (status_label, status_bg, status_color) = spec_status_label(
+                            &item.status,
+                        );
+                        @let (type_label, type_bg, type_color) = inspection_type_label(
+                            &item.inspection_type,
+                        );
+                        @let product_name = product_names
+                            .get(&item.product_id)
+                            .map(|s| s.as_str())
+                            .unwrap_or("—");
+                        @let detail_path = SpecDetailPath { id: item.id };
+                        @let check_count = item.check_items.len();
+                        @let sample_plan = format!(
+                            "Level {}, AQL {}",
+                            item.sample_plan.level,
+                            item.sample_plan.aql,
+                        );
+                        tr  class="cursor-pointer hover:bg-accent-bg transition-colors duration-100"
+                            _=(format!("on click go to {}", detail_path.to_string()))
+                        {
+                            td {
+                                a   href=(detail_path.to_string())
+                                    class="text-accent font-medium font-mono tabular-nums hover:underline"
+                                { (item.doc_number) }
+                            }
+                            td { (product_name) }
+                            td {
+                                span
+                                    class=({
+                                        format!(
+                                            "text-xs px-2 py-0.5 rounded-full font-medium {} {}",
+                                            type_bg,
+                                            type_color,
+                                        )
+                                    })
+                                { (type_label) }
+                            }
+                            td class="text-center" { (check_count) }
+                            td { (sample_plan) }
+                            td class="text-center" { "v" (item.version) }
+                            td {
+                                span
+                                    class=({
+                                        format!(
+                                            "text-xs px-2 py-0.5 rounded-full font-medium {} {}",
+                                            status_bg,
+                                            status_color,
+                                        )
+                                    })
+                                { (status_label) }
+                            }
+                            td class="text-xs text-muted" {
+                                (item.created_at.format("%Y-%m-%d %H:%M"))
+                            }
+                        }
+                    }
+                    @if result.items.is_empty() {
+                        tr {
+                            td colspan="8" class="text-center text-muted text-sm py-8" { "暂无检验规格" }
+                        }
+                    }
+                }
+            }
+        }
+        ({
+            pagination(
+                SpecListPath::PATH,
+                &query,
+                result.total,
+                result.page,
+                result.total_pages,
+            )
+        })
+    }
+}
 }

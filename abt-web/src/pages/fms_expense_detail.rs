@@ -93,62 +93,69 @@ pub async fn get_detail(path: ExpenseDetailPath, ctx: RequestContext) -> Result<
 
     let content = html! {
         // 返回链接
-        a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150 mb-4"
-          href=(format!("{}?restore=true", ExpenseListPath::PATH)) {
-            (PreEscaped(r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>"#))
+        a   class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150 mb-4"
+            href=(format!("{}?restore=true", ExpenseListPath::PATH))
+        {
+            ({
+                PreEscaped(
+                    r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>"#,
+                )
+            })
             " 返回列表"
         }
-
         // 标题行
         div class="flex items-center gap-4 mb-6" {
             h1 class="text-xl font-bold font-mono tabular-nums" { (expense.doc_number) }
             span class=(format!("status-pill {}", crate::utils::status_color(s_class))) { (s_text) }
         }
-
         // ── 审批进度条 ──
         (approval_progress_bar(&progress))
-
         // ── 操作按钮（按当前 status 条件渲染）──
         div class="flex gap-3 mb-6" {
             @if expense.status == ExpenseStatus::Draft {
-                a class="inline-flex items-center gap-2 px-4 py-2 rounded-sm bg-accent text-white text-sm font-medium hover:opacity-90 cursor-pointer transition-all duration-150"
-                  hx-post=(ExpenseSubmitPath { id: path.id }.to_string())
-                  hx-swap="none"
-                  _="on 'htmx:afterRequest'[detail.xhr.status < 400] location.reload()" {
-                    "提交审批"
-                }
-            } @else if matches!(expense.status, ExpenseStatus::Submitted | ExpenseStatus::SupervisorApproved | ExpenseStatus::FinanceApproved) {
-                a class="inline-flex items-center gap-2 px-4 py-2 rounded-sm bg-success text-white text-sm font-medium hover:opacity-90 cursor-pointer transition-all duration-150"
-                  hx-post=(ExpenseApprovePath { id: path.id }.to_string())
-                  hx-swap="none"
-                  _="on 'htmx:afterRequest'[detail.xhr.status < 400] location.reload()" {
-                    (approve_text)
-                }
+                a   class="inline-flex items-center gap-2 px-4 py-2 rounded-sm bg-accent text-white text-sm font-medium hover:opacity-90 cursor-pointer transition-all duration-150"
+                    hx-post=(ExpenseSubmitPath { id: path.id }.to_string())
+                    hx-swap="none"
+                    _="on 'htmx:afterRequest'[detail.xhr.status < 400] location.reload()"
+                { "提交审批" }
+            } @else if {
+                matches!(
+                    expense.status,
+                    ExpenseStatus::Submitted
+                    | ExpenseStatus::SupervisorApproved
+                    | ExpenseStatus::FinanceApproved
+                )
+            } {
+                a   class="inline-flex items-center gap-2 px-4 py-2 rounded-sm bg-success text-white text-sm font-medium hover:opacity-90 cursor-pointer transition-all duration-150"
+                    hx-post=(ExpenseApprovePath { id: path.id }.to_string())
+                    hx-swap="none"
+                    _="on 'htmx:afterRequest'[detail.xhr.status < 400] location.reload()"
+                { (approve_text) }
             } @else if expense.status == ExpenseStatus::Approved {
-                button type="button"
-                  class="inline-flex items-center gap-2 px-4 py-2 rounded-sm bg-warning text-white text-sm font-medium hover:opacity-90 cursor-pointer transition-all duration-150"
-                  _="on click add .is-open to #pay-modal" {
-                    "出纳付款"
-                }
+                button
+                    type="button"
+                    class="inline-flex items-center gap-2 px-4 py-2 rounded-sm bg-warning text-white text-sm font-medium hover:opacity-90 cursor-pointer transition-all duration-150"
+                    _="on click add .is-open to #pay-modal"
+                { "出纳付款" }
             }
         }
-
         // ── 报销信息卡片 ──
-        (info_card(&expense, &applicant_name, &department_name, &operator_name, s_text, s_class))
-
+        ({
+            info_card(
+                &expense,
+                &applicant_name,
+                &department_name,
+                &operator_name,
+                s_text,
+                s_class,
+            )
+        })
         // ── 费用明细卡片 ──
         (items_card(&items, expense.total_amount))
-
         // ── 附件展示 ──
-        @if !attachments.is_empty() {
-            (attachments_card(&attachments))
-        }
-
+        @if !attachments.is_empty() { (attachments_card(&attachments)) }
         // ── 付款信息（已付款时展示）──
-        @if expense.status == ExpenseStatus::Paid {
-            (payment_info_card(&expense))
-        }
-
+        @if expense.status == ExpenseStatus::Paid { (payment_info_card(&expense)) }
         // ── 付款弹窗 ──
         (pay_modal(path.id))
     };
@@ -234,22 +241,32 @@ fn approval_progress_bar(progress: &[abt_core::fms::expense::model::ApprovalProg
 
     let total = progress.len();
     html! {
-        div class="bg-bg border border-border-soft rounded-lg p-6 mb-6 shadow-[var(--shadow-card)]" {
-            div class="text-base font-semibold text-fg mb-5 pb-3 border-b border-border-soft" { "审批进度" }
+        div class="bg-bg border border-border-soft rounded-lg p-6 mb-6 shadow-[var(--shadow-card)]"
+        {
+            div class="text-base font-semibold text-fg mb-5 pb-3 border-b border-border-soft" {
+                "审批进度"
+            }
             div class="flex items-center justify-between" {
                 @for (i, node) in progress.iter().enumerate() {
                     div class="flex flex-col items-center flex-1" {
                         // 节点圆点
-                        div class=(format!(
-                            "w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold mb-2 {}",
-                            match node.status.as_str() {
-                                "completed" => "bg-success text-white",
-                                "current" => "bg-accent text-white ring-4 ring-accent/20",
-                                _ => "bg-border-soft text-muted",
-                            }
-                        )) {
+                        div class=({
+                                format!(
+                                    "w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold mb-2 {}",
+                                    match node.status.as_str() {
+                                        "completed" => "bg-success text-white",
+                                        "current" => "bg-accent text-white ring-4 ring-accent/20",
+                                        _ => "bg-border-soft text-muted",
+                                    },
+                                )
+                            })
+                        {
                             @if node.status == "completed" {
-                                (PreEscaped(r#"<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg>"#))
+                                ({
+                                    PreEscaped(
+                                        r#"<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg>"#,
+                                    )
+                                })
                             } @else if node.status == "current" {
                                 span { ((i + 1).to_string()) }
                             } @else {
@@ -257,10 +274,20 @@ fn approval_progress_bar(progress: &[abt_core::fms::expense::model::ApprovalProg
                             }
                         }
                         // 标签
-                        span class=(format!(
-                            "text-xs font-medium mb-1 {}",
-                            if node.status == "current" { "text-accent" } else if node.status == "completed" { "text-fg" } else { "text-muted" }
-                        )) { (node.label) }
+                        span
+                            class=({
+                                format!(
+                                    "text-xs font-medium mb-1 {}",
+                                    if node.status == "current" {
+                                        "text-accent"
+                                    } else if node.status == "completed" {
+                                        "text-fg"
+                                    } else {
+                                        "text-muted"
+                                    },
+                                )
+                            })
+                        { (node.label) }
                         // 操作人
                         @if let Some(ref name) = node.operator_name {
                             span class="text-xs text-muted" { (name) }
@@ -272,10 +299,16 @@ fn approval_progress_bar(progress: &[abt_core::fms::expense::model::ApprovalProg
                     }
                     // 连接线（最后一个节点不加）
                     @if i < total - 1 {
-                        div class=(format!(
-                            "flex-1 h-0.5 mx-2 mt-[-28px] {}",
-                            if node.status == "completed" { "bg-success" } else { "bg-border-soft" }
-                        )) {}
+                        div class=({
+                                format!(
+                                    "flex-1 h-0.5 mx-2 mt-[-28px] {}",
+                                    if node.status == "completed" {
+                                        "bg-success"
+                                    } else {
+                                        "bg-border-soft"
+                                    },
+                                )
+                            }) {}
                     }
                 }
             }
@@ -293,12 +326,17 @@ fn info_card(
     s_class: &str,
 ) -> Markup {
     html! {
-        div class="bg-bg border border-border-soft rounded-lg p-6 mb-6 shadow-[var(--shadow-card)]" {
-            div class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" { "报销信息" }
+        div class="bg-bg border border-border-soft rounded-lg p-6 mb-6 shadow-[var(--shadow-card)]"
+        {
+            div class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" {
+                "报销信息"
+            }
             div class="grid gap-5 [grid-template-columns:repeat(auto-fill,minmax(200px,1fr))]" {
                 div class="flex flex-col gap-1" {
                     span class="text-xs text-muted font-medium" { "单号" }
-                    span class="text-sm text-fg font-medium font-mono tabular-nums" { (expense.doc_number) }
+                    span class="text-sm text-fg font-medium font-mono tabular-nums" {
+                        (expense.doc_number)
+                    }
                 }
                 div class="flex flex-col gap-1" {
                     span class="text-xs text-muted font-medium" { "申请人" }
@@ -310,13 +348,15 @@ fn info_card(
                 }
                 div class="flex flex-col gap-1" {
                     span class="text-xs text-muted font-medium" { "报销日期" }
-                    span class="text-sm text-fg font-medium" { (expense.expense_date.format("%Y-%m-%d")) }
+                    span class="text-sm text-fg font-medium" {
+                        (expense.expense_date.format("%Y-%m-%d"))
+                    }
                 }
                 div class="flex flex-col gap-1" {
                     span class="text-xs text-muted font-medium" { "报销金额" }
-                    span class="text-sm text-fg font-medium font-mono tabular-nums text-accent font-bold text-lg" {
-                        "¥" (format!("{:.2}", expense.total_amount))
-                    }
+                    span
+                        class="text-sm text-fg font-medium font-mono tabular-nums text-accent font-bold text-lg"
+                    { "¥" (format!("{:.2}", expense.total_amount)) }
                 }
                 div class="flex flex-col gap-1" {
                     span class="text-xs text-muted font-medium" { "单据张数" }
@@ -325,7 +365,12 @@ fn info_card(
                 div class="flex flex-col gap-1" {
                     span class="text-xs text-muted font-medium" { "当前状态" }
                     span class="text-sm text-fg font-medium" {
-                        span class=(format!("status-pill {}", crate::utils::status_color(s_class))) { (s_text) }
+                        span class=({
+                            format!(
+                                "status-pill {}",
+                                crate::utils::status_color(s_class),
+                            )
+                        }) { (s_text) }
                     }
                 }
                 div class="flex flex-col gap-1" {
@@ -334,7 +379,9 @@ fn info_card(
                 }
                 div class="flex flex-col gap-1" {
                     span class="text-xs text-muted font-medium" { "创建时间" }
-                    span class="text-[13px] text-fg font-medium font-mono tabular-nums" { (expense.created_at.format("%Y-%m-%d %H:%M:%S")) }
+                    span class="text-[13px] text-fg font-medium font-mono tabular-nums" {
+                        (expense.created_at.format("%Y-%m-%d %H:%M:%S"))
+                    }
                 }
                 div class="flex flex-col gap-1" {
                     span class="text-xs text-muted font-medium" { "备注" }
@@ -354,8 +401,11 @@ fn payment_info_card(expense: &ExpenseReimbursement) -> Markup {
     let date = expense.payment_date.map(|d| d.format("%Y-%m-%d").to_string()).unwrap_or_else(|| "—".into());
 
     html! {
-        div class="bg-bg border border-border-soft rounded-lg p-6 mb-6 shadow-[var(--shadow-card)]" {
-            div class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" { "付款信息" }
+        div class="bg-bg border border-border-soft rounded-lg p-6 mb-6 shadow-[var(--shadow-card)]"
+        {
+            div class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" {
+                "付款信息"
+            }
             div class="grid gap-5 [grid-template-columns:repeat(auto-fill,minmax(200px,1fr))]" {
                 div class="flex flex-col gap-1" {
                     span class="text-xs text-muted font-medium" { "付款银行" }
@@ -377,8 +427,11 @@ fn payment_info_card(expense: &ExpenseReimbursement) -> Markup {
 /// 费用明细卡片
 fn items_card(items: &[ExpenseReimbursementItem], total: Decimal) -> Markup {
     html! {
-        div class="bg-bg border border-border-soft rounded-lg p-6 mb-6 shadow-[var(--shadow-card)]" {
-            div class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" { "费用明细" }
+        div class="bg-bg border border-border-soft rounded-lg p-6 mb-6 shadow-[var(--shadow-card)]"
+        {
+            div class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" {
+                "费用明细"
+            }
             @if items.is_empty() {
                 p class="text-center text-muted p-6" { "暂无费用明细" }
             } @else {
@@ -395,15 +448,17 @@ fn items_card(items: &[ExpenseReimbursementItem], total: Decimal) -> Markup {
                             }
                         }
                         tbody {
-                            @for item in items {
-                                (item_row(item))
-                            }
+                            @for item in items { (item_row(item)) }
                         }
                     }
                 }
-                div class="flex items-center justify-end gap-6 mt-4 pt-4 border-t border-border-soft" {
+                div class="flex items-center justify-end gap-6 mt-4 pt-4 border-t border-border-soft"
+                {
                     span class="text-xs text-muted" { "合计金额" }
-                    span class="text-lg font-bold font-mono tabular-nums text-accent" { "¥" (format!("{:.2}", total)) }
+                    span class="text-lg font-bold font-mono tabular-nums text-accent" {
+                        "¥"
+                        (format!("{:.2}", total))
+                    }
                 }
             }
         }
@@ -419,7 +474,9 @@ fn item_row(item: &ExpenseReimbursementItem) -> Markup {
     html! {
         tr {
             td {
-                span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium text-muted mr-1" { (type_label) }
+                span
+                    class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium text-muted mr-1"
+                { (type_label) }
             }
             td class="text-right font-semibold" { "¥" (format!("{:.2}", item.amount)) }
             td class="text-xs text-muted" { (occurrence) }
@@ -433,11 +490,15 @@ fn item_row(item: &ExpenseReimbursementItem) -> Markup {
 /// 附件卡片
 fn attachments_card(attachments: &[abt_core::fms::expense::model::ExpenseAttachment]) -> Markup {
     html! {
-        div class="bg-bg border border-border-soft rounded-lg p-6 mb-6 shadow-[var(--shadow-card)]" {
-            div class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" { "报销凭证" }
+        div class="bg-bg border border-border-soft rounded-lg p-6 mb-6 shadow-[var(--shadow-card)]"
+        {
+            div class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" {
+                "报销凭证"
+            }
             div class="flex flex-wrap gap-3" {
                 @for att in attachments {
-                    div class="w-24 h-24 border border-border rounded-sm flex flex-col items-center justify-center bg-surface text-muted text-xs gap-1 cursor-pointer hover:border-accent transition-colors" {
+                    div class="w-24 h-24 border border-border rounded-sm flex flex-col items-center justify-center bg-surface text-muted text-xs gap-1 cursor-pointer hover:border-accent transition-colors"
+                    {
                         span class="text-xl" { "📎" }
                         span class="truncate w-full px-1 text-center" { (att.file_name) }
                     }
@@ -451,8 +512,9 @@ fn attachments_card(attachments: &[abt_core::fms::expense::model::ExpenseAttachm
 fn pay_modal(expense_id: i64) -> Markup {
     html! {
         div id="pay-modal"
-          class="modal-overlay fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto"
-          _="on click[me is event.target] remove .is-open" {
+            class="modal-overlay fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto"
+            _="on click[me is event.target] remove .is-open"
+        {
 
             div class="bg-bg border border-border rounded-lg p-6 w-full max-w-md mx-4 shadow-xl" {
                 // 注：不加 _="on click halt"——halt 的 preventDefault 会阻止「确认付款」submit
@@ -460,36 +522,47 @@ fn pay_modal(expense_id: i64) -> Markup {
                 // [me is event.target] 过滤实现，点内容不会误关，无需内层 halt。
                 h2 class="text-lg font-bold text-fg mb-4" { "确认付款" }
 
-                form hx-post=(ExpensePayPath { id: expense_id }.to_string())
-                  hx-swap="none"
-                  _="on 'htmx:afterRequest'[detail.xhr.status < 400] location.reload()" {
+                form
+                    hx-post=(ExpensePayPath { id: expense_id }.to_string())
+                    hx-swap="none"
+                    _="on 'htmx:afterRequest'[detail.xhr.status < 400] location.reload()"
+                {
 
                     div class="form-field mb-4" {
                         label class="block text-xs font-medium text-fg-2 mb-1" { "付款银行" }
-                        input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent"
-                          type="text" name="payment_bank" placeholder="请输入付款银行" required;
+                        input
+                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent"
+                            type="text"
+                            name="payment_bank"
+                            placeholder="请输入付款银行"
+                            required;
                     }
                     div class="form-field mb-4" {
                         label class="block text-xs font-medium text-fg-2 mb-1" { "付款日期" }
-                        input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent"
-                          type="date" name="payment_date" required;
+                        input
+                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent"
+                            type="date"
+                            name="payment_date"
+                            required;
                     }
                     div class="form-field mb-6" {
                         label class="block text-xs font-medium text-fg-2 mb-1" { "付款备注" }
-                        textarea class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent resize-y min-h-72px"
-                          name="payment_remark" placeholder="请输入付款备注" {}
+                        textarea
+                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent resize-y min-h-72px"
+                            name="payment_remark"
+                            placeholder="请输入付款备注" {}
                     }
 
                     div class="flex justify-end gap-3" {
-                        button type="button"
-                          class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface text-sm font-medium cursor-pointer transition-all duration-150"
-                          _="on click remove .is-open from #pay-modal" {
-                            "取消"
-                        }
-                        button type="submit"
-                          class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150" {
-                            "确认付款"
-                        }
+                        button
+                            type="button"
+                            class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface text-sm font-medium cursor-pointer transition-all duration-150"
+                            _="on click remove .is-open from #pay-modal"
+                        { "取消" }
+                        button
+                            type="submit"
+                            class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150"
+                        { "确认付款" }
                     }
                 }
             }

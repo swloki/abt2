@@ -95,68 +95,64 @@ fn customer_list_page(
  let total_count = result.total;
 
  html! {
- div {
- // ── Page Header ──
- div class="flex items-center justify-between mb-6" {
- h1 class="text-xl font-bold text-fg tracking-tight" { "客户管理" }
- div class="flex gap-3" {
- button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" {
- (icon::download_icon("w-4 h-4"))
- "导出"
- }
- @if can_create {
- a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href="/admin/customers/new" {
- (icon::plus_icon("w-4 h-4"))
- "新建客户"
- }
- }
- }
- }
-
- // ── Stat Cards ──
- div class="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-5 mb-8" {
- div class="flex items-center gap-4 p-5 px-6 bg-bg border border-border-soft rounded-lg shadow-[var(--shadow-card)]" {
- div class="w-12 h-12 rounded-lg grid place-items-center shrink-0 bg-accent-bg text-accent" {
- (icon::users_icon("w-6 h-6"))
- }
- div {
- div class="text-2xl font-bold font-mono tabular-nums text-fg" { (total_count) }
- div class="text-xs text-muted mt-0.5 font-medium" { "客户总数" }
- }
- }
- div class="flex items-center gap-4 p-5 px-6 bg-bg border border-border-soft rounded-lg shadow-[var(--shadow-card)]" {
- div class="w-12 h-12 rounded-lg grid place-items-center shrink-0 bg-success-bg text-success" {
- (icon::check_circle_icon("w-6 h-6"))
- }
- div {
- div class="text-2xl font-bold font-mono tabular-nums text-fg" { "—" }
- div class="text-xs text-muted mt-0.5 font-medium" { "活跃客户" }
- }
- }
- div class="flex items-center gap-4 p-5 px-6 bg-bg border border-border-soft rounded-lg shadow-[var(--shadow-card)]" {
- div class="w-12 h-12 rounded-lg grid place-items-center shrink-0 bg-warn-100 text-warn" {
- (icon::trending_up_icon("w-6 h-6"))
- }
- div {
- div class="text-2xl font-bold font-mono tabular-nums text-fg" { "—" }
- div class="text-xs text-muted mt-0.5 font-medium" { "本月交易额" }
- }
- }
- div class="flex items-center gap-4 p-5 px-6 bg-bg border border-border-soft rounded-lg shadow-[var(--shadow-card)]" {
- div class="w-12 h-12 rounded-lg grid place-items-center shrink-0 bg-danger-100 text-danger" {
- (icon::circle_alert_icon("w-6 h-6"))
- }
- div {
- div class="text-2xl font-bold font-mono tabular-nums text-fg" { "—" }
- div class="text-xs text-muted mt-0.5 font-medium" { "信用预警" }
- }
- }
- }
-
- // ── Tabs + Filter + Data Table (HTMX panel) ──
- (customer_table_fragment(result, params, can_delete))
- }
- }
+    div {
+        // ── Page Header ──
+        div class="flex items-center justify-between mb-6" {
+            h1 class="text-xl font-bold text-fg tracking-tight" { "客户管理" }
+            div class="flex gap-3" {
+                button
+                    class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                { (icon::download_icon("w-4 h-4")) "导出" }
+                @if can_create {
+                    a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                        href="/admin/customers/new"
+                    { (icon::plus_icon("w-4 h-4")) "新建客户" }
+                }
+            }
+        }
+        // ── Stat Cards ──
+        div class="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-5 mb-8" {
+            div class="flex items-center gap-4 p-5 px-6 bg-bg border border-border-soft rounded-lg shadow-[var(--shadow-card)]"
+            {
+                div class="w-12 h-12 rounded-lg grid place-items-center shrink-0 bg-accent-bg text-accent"
+                { (icon::users_icon("w-6 h-6")) }
+                div {
+                    div class="text-2xl font-bold font-mono tabular-nums text-fg" { (total_count) }
+                    div class="text-xs text-muted mt-0.5 font-medium" { "客户总数" }
+                }
+            }
+            div class="flex items-center gap-4 p-5 px-6 bg-bg border border-border-soft rounded-lg shadow-[var(--shadow-card)]"
+            {
+                div class="w-12 h-12 rounded-lg grid place-items-center shrink-0 bg-success-bg text-success"
+                { (icon::check_circle_icon("w-6 h-6")) }
+                div {
+                    div class="text-2xl font-bold font-mono tabular-nums text-fg" { "—" }
+                    div class="text-xs text-muted mt-0.5 font-medium" { "活跃客户" }
+                }
+            }
+            div class="flex items-center gap-4 p-5 px-6 bg-bg border border-border-soft rounded-lg shadow-[var(--shadow-card)]"
+            {
+                div class="w-12 h-12 rounded-lg grid place-items-center shrink-0 bg-warn-100 text-warn"
+                { (icon::trending_up_icon("w-6 h-6")) }
+                div {
+                    div class="text-2xl font-bold font-mono tabular-nums text-fg" { "—" }
+                    div class="text-xs text-muted mt-0.5 font-medium" { "本月交易额" }
+                }
+            }
+            div class="flex items-center gap-4 p-5 px-6 bg-bg border border-border-soft rounded-lg shadow-[var(--shadow-card)]"
+            {
+                div class="w-12 h-12 rounded-lg grid place-items-center shrink-0 bg-danger-100 text-danger"
+                { (icon::circle_alert_icon("w-6 h-6")) }
+                div {
+                    div class="text-2xl font-bold font-mono tabular-nums text-fg" { "—" }
+                    div class="text-xs text-muted mt-0.5 font-medium" { "信用预警" }
+                }
+            }
+        }
+        // ── Tabs + Filter + Data Table (HTMX panel) ──
+        (customer_table_fragment(result, params, can_delete))
+    }
+}
 }
 
 fn customer_table_fragment(
@@ -177,58 +173,83 @@ fn customer_table_fragment(
  ];
 
  html! {
- div class="customer-list-panel" {
- (status_tabs_with_param(CustomerListPath::PATH, "#customer-data-card", "#customer-filter-form", tabs, &active_value, "status"))
-
- // ── Filter Bar ──
- form class="flex items-center gap-3 mb-5 flex-wrap filter-form" id="customer-filter-form"
- hx-get=(CustomerListPath::PATH)
- hx-trigger="change, keyup changed delay:300ms from:.search-input"
- hx-target="#customer-data-card"
- hx-select="#customer-data-card"
- hx-swap="outerHTML"
- hx-select-oob="#status-tabs"
- hx-include="#customer-filter-form"
- hx-push-url="true" {
- div class="relative flex-1 max-w-xs icon:absolute icon:left-3 icon:top-1/2 icon:-translate-y-1/2 icon:w-4 icon:h-4 icon:text-muted" {
- (icon::search_icon(""))
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input" type="text" name="keyword"
- placeholder="搜索客户名称、联系人、电话…"
- value=(params.keyword.as_deref().unwrap_or(""));
- }
- select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="category" {
- option value="" { "全部分类" }
- option value="1" selected[params.category == Some(1)] { "经销商" }
- option value="2" selected[params.category == Some(2)] { "直客" }
- option value="3" selected[params.category == Some(3)] { "OEM" }
- option value="4" selected[params.category == Some(4)] { "零售商" }
- }
- }
-
- // ── Data Table ──
- div class="bg-bg border border-border-soft rounded-md mb-5 shadow-[var(--shadow-card)] overflow-x-auto" id="customer-data-card" {
- table class="data-table" {
- thead {
- tr {
- th { "客户编码" }
- th { "客户名称" }
- th { "分类" }
- th { "信用额度" }
- th { "状态" }
- th { "创建时间" }
- th class="!text-right" { "操作" }
- }
- }
- tbody {
- @for row in &result.items {
- (customer_row(row, can_delete))
- }
- }
- }
- (pagination(CustomerListPath::PATH, &query, result.total, result.page, result.total_pages))
- }
- }
- }
+    div class="customer-list-panel" {
+        ({
+            status_tabs_with_param(
+                CustomerListPath::PATH,
+                "#customer-data-card",
+                "#customer-filter-form",
+                tabs,
+                &active_value,
+                "status",
+            )
+        })
+        // ── Filter Bar ──
+        form
+            class="flex items-center gap-3 mb-5 flex-wrap filter-form"
+            id="customer-filter-form"
+            hx-get=(CustomerListPath::PATH)
+            hx-trigger="change, keyup changed delay:300ms from:.search-input"
+            hx-target="#customer-data-card"
+            hx-select="#customer-data-card"
+            hx-swap="outerHTML"
+            hx-select-oob="#status-tabs"
+            hx-include="#customer-filter-form"
+            hx-push-url="true"
+        {
+            div class="relative flex-1 max-w-xs icon:absolute icon:left-3 icon:top-1/2 icon:-translate-y-1/2 icon:w-4 icon:h-4 icon:text-muted"
+            {
+                (icon::search_icon(""))
+                input
+                    class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input"
+                    type="text"
+                    name="keyword"
+                    placeholder="搜索客户名称、联系人、电话…"
+                    value=(params.keyword.as_deref().unwrap_or(""));
+            }
+            select
+                class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer"
+                name="category"
+            {
+                option value="" { "全部分类" }
+                option value="1" selected[params.category == Some(1)] { "经销商" }
+                option value="2" selected[params.category == Some(2)] { "直客" }
+                option value="3" selected[params.category == Some(3)] { "OEM" }
+                option value="4" selected[params.category == Some(4)] { "零售商" }
+            }
+        }
+        // ── Data Table ──
+        div class="bg-bg border border-border-soft rounded-md mb-5 shadow-[var(--shadow-card)] overflow-x-auto"
+            id="customer-data-card"
+        {
+            table class="data-table" {
+                thead {
+                    tr {
+                        th { "客户编码" }
+                        th { "客户名称" }
+                        th { "分类" }
+                        th { "信用额度" }
+                        th { "状态" }
+                        th { "创建时间" }
+                        th class="!text-right" { "操作" }
+                    }
+                }
+                tbody {
+                    @for row in &result.items { (customer_row(row, can_delete)) }
+                }
+            }
+            ({
+                pagination(
+                    CustomerListPath::PATH,
+                    &query,
+                    result.total,
+                    result.page,
+                    result.total_pages,
+                )
+            })
+        }
+    }
+}
 }
 
 fn build_query_string(params: &CustomerQueryParams) -> String {
@@ -263,42 +284,61 @@ fn customer_row(c: &Customer, can_delete: bool) -> Markup {
  };
 
  html! {
- tr {
- td class="text-accent font-medium cursor-pointer font-mono tabular-nums" onclick=(format!("location.href='{}'", detail_path)) { (c.code) }
- td onclick=(format!("location.href='{}'", detail_path)) { strong { (c.name) } }
- td onclick=(format!("location.href='{}'", detail_path)) { span class=(category_label.1) { (category_label.0) } }
- td onclick=(format!("location.href='{}'", detail_path)) {
- @if let Some(limit) = c.credit_limit {
- div class="flex items-center gap-[6px]" {
- span class="font-mono tabular-nums text-xs" { "¥ " (format_amount(limit)) }
- div class="w-[60px] h-1 bg-border-soft rounded-full overflow-hidden" {
- div class="h-full bg-accent rounded-full" style="width:0%" {}
- }
- }
- } @else {
- span class="text-muted" { "—" }
- }
- }
- td onclick=(format!("location.href='{}'", detail_path)) { span class=(format!("status-pill {}", crate::utils::status_color(status_class))) { (status_label) } }
- td onclick=(format!("location.href='{}'", detail_path)) { (c.created_at.format("%Y-%m-%d")) }
- td _="on click halt the event" {
- div class="row-actions flex items-center gap-1 justify-end opacity-0 transition-opacity duration-150 [&_a]:w-[28px] [&_a]:h-[28px] [&_a]:grid [&_a]:place-items-center [&_a]:rounded-sm [&_a]:cursor-pointer [&_a]:bg-surface [&_a]:hover:bg-accent-bg icon:w-3.5 icon:h-3.5" {
- a class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" title="编辑" href=(edit_path) {
- (icon::edit_icon("w-4 h-4"))
- }
- @if can_delete {
- button type="button" class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer text-danger" title="删除"
- hx-post=(delete_path)
- hx-confirm=(format!("删除后无法恢复，确定要删除客户 <strong>{}</strong> 吗？", c.name))
- hx-target="closest tr"
- hx-swap="outerHTML swap:0.5s" {
- (icon::trash_icon("w-4 h-4"))
- }
- }
- }
- }
- }
- }
+    tr {
+        td  class="text-accent font-medium cursor-pointer font-mono tabular-nums"
+            onclick=(format!("location.href='{}'", detail_path))
+        { (c.code) }
+        td onclick=(format!("location.href='{}'", detail_path)) {
+            strong { (c.name) }
+        }
+        td onclick=(format!("location.href='{}'", detail_path)) {
+            span class=(category_label.1) { (category_label.0) }
+        }
+        td onclick=(format!("location.href='{}'", detail_path)) {
+            @if let Some(limit) = c.credit_limit {
+                div class="flex items-center gap-[6px]" {
+                    span class="font-mono tabular-nums text-xs" { "¥ " (format_amount(limit)) }
+                    div class="w-[60px] h-1 bg-border-soft rounded-full overflow-hidden" {
+                        div class="h-full bg-accent rounded-full" style="width:0%" {}
+                    }
+                }
+            } @else {
+                span class="text-muted" { "—" }
+            }
+        }
+        td onclick=(format!("location.href='{}'", detail_path)) {
+            span class=(format!("status-pill {}", crate::utils::status_color(status_class))) {
+                (status_label)
+            }
+        }
+        td onclick=(format!("location.href='{}'", detail_path)) { (c.created_at.format("%Y-%m-%d")) }
+        td _="on click halt the event" {
+            div class="row-actions flex items-center gap-1 justify-end opacity-0 transition-opacity duration-150 [&_a]:w-[28px] [&_a]:h-[28px] [&_a]:grid [&_a]:place-items-center [&_a]:rounded-sm [&_a]:cursor-pointer [&_a]:bg-surface [&_a]:hover:bg-accent-bg icon:w-3.5 icon:h-3.5"
+            {
+                a   class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer"
+                    title="编辑"
+                    href=(edit_path)
+                { (icon::edit_icon("w-4 h-4")) }
+                @if can_delete {
+                    button
+                        type="button"
+                        class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer text-danger"
+                        title="删除"
+                        hx-post=(delete_path)
+                        hx-confirm=({
+                            format!(
+                                "删除后无法恢复，确定要删除客户 <strong>{}</strong> 吗？",
+                                c.name,
+                            )
+                        })
+                        hx-target="closest tr"
+                        hx-swap="outerHTML swap:0.5s"
+                    { (icon::trash_icon("w-4 h-4")) }
+                }
+            }
+        }
+    }
+}
 }
 
 fn format_amount(d: rust_decimal::Decimal) -> String {

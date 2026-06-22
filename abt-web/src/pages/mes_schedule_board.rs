@@ -120,23 +120,18 @@ fn schedule_board_content(
             div class="flex items-center justify-between mb-6" {
                 h1 class="text-xl font-bold text-fg tracking-tight" { "排程看板" }
             }
-
             // ── Stats Row ──
             (stats_row(stats))
-
             // ── Toolbar: tabs + date nav ──
             (toolbar(from, to, active_view))
-
             // ── Gantt View ──
             div id="gantt-view" class=(if active_view == "gantt" { "" } else { "hidden" }) {
                 (gantt_view(gantt, today))
             }
-
             // ── Load View ──
             div id="load-view" class=(if active_view == "load" { "" } else { "hidden" }) {
                 (load_view(loads, &gantt.date_range, &gantt.work_centers, today))
             }
-
             // ── Kanban View ──
             div id="kanban-view" class=(if active_view == "kanban" { "" } else { "hidden" }) {
                 (kanban_view(cards))
@@ -152,24 +147,66 @@ fn schedule_board_content(
 fn stats_row(stats: &ScheduleStats) -> Markup {
     html! {
         div class="grid grid-cols-5 gap-3 mb-6" {
-            (stat_card(&stats.active_orders.to_string(), "活跃工单",
-                "bg-accent/10 border-l-4 border-l-accent", "text-accent"))
-            (stat_card(&stats.pending_batches.to_string(), "待排产",
-                "bg-warn/10 border-l-4 border-l-warn", "text-warn"))
-            (stat_card(&stats.in_progress_batches.to_string(), "进行中",
-                "bg-purple-600/10 border-l-4 border-l-purple-600", "text-purple-600"))
-            (stat_card(&stats.pending_receipt_batches.to_string(), "待入库",
-                "bg-purple/10 border-l-4 border-l-purple", "text-purple"))
-            (stat_card(&stats.completed_batches.to_string(), "已完成",
-                "bg-success/10 border-l-4 border-l-success", "text-success"))
+            ({
+                stat_card(
+                    &stats.active_orders.to_string(),
+                    "活跃工单",
+                    "bg-accent/10 border-l-4 border-l-accent",
+                    "text-accent",
+                )
+            })
+            ({
+                stat_card(
+                    &stats.pending_batches.to_string(),
+                    "待排产",
+                    "bg-warn/10 border-l-4 border-l-warn",
+                    "text-warn",
+                )
+            })
+            ({
+                stat_card(
+                    &stats.in_progress_batches.to_string(),
+                    "进行中",
+                    "bg-purple-600/10 border-l-4 border-l-purple-600",
+                    "text-purple-600",
+                )
+            })
+            ({
+                stat_card(
+                    &stats.pending_receipt_batches.to_string(),
+                    "待入库",
+                    "bg-purple/10 border-l-4 border-l-purple",
+                    "text-purple",
+                )
+            })
+            ({
+                stat_card(
+                    &stats.completed_batches.to_string(),
+                    "已完成",
+                    "bg-success/10 border-l-4 border-l-success",
+                    "text-success",
+                )
+            })
         }
     }
 }
 
 fn stat_card(value: &str, label: &str, card_cls: &str, num_cls: &str) -> Markup {
     html! {
-        div class=(format!("rounded-md p-4 text-center shadow-xs transition-all duration-150 hover:shadow-sm hover:-translate-y-px {}", card_cls)) {
-            div class=(format!("text-xl font-bold font-mono tabular-nums tracking-tight {}", num_cls)) { (value) }
+        div class=({
+                format!(
+                    "rounded-md p-4 text-center shadow-xs transition-all duration-150 hover:shadow-sm hover:-translate-y-px {}",
+                    card_cls,
+                )
+            })
+        {
+            div class=({
+                    format!(
+                        "text-xl font-bold font-mono tabular-nums tracking-tight {}",
+                        num_cls,
+                    )
+                })
+            { (value) }
             div class="text-[11px] text-fg-2 mt-[3px] font-medium" { (label) }
         }
     }
@@ -217,12 +254,12 @@ fn toolbar(from: NaiveDate, to: NaiveDate, active_view: &str) -> Markup {
             ""
         };
         html! {
-            a class=(format!("{class}{sep}"))
+            a   class=(format!("{class}{sep}"))
                 hx-get=(url_for(view))
                 hx-target="#schedule-content"
                 hx-swap="outerHTML"
                 hx-push-url="true"
-                { (label) }
+            { (label) }
         }
     };
 
@@ -239,16 +276,18 @@ fn toolbar(from: NaiveDate, to: NaiveDate, active_view: &str) -> Markup {
                     hx-get=(prev_url)
                     hx-target="#schedule-content"
                     hx-swap="outerHTML"
-                    { "‹" }
+                { "‹" }
                 span class="font-mono text-[13px] font-semibold text-fg text-center min-w-[110px]" {
-                    (from.format("%m/%d").to_string()) " - " (to.format("%m/%d").to_string())
+                    (from.format("%m/%d").to_string())
+                    " - "
+                    (to.format("%m/%d").to_string())
                 }
                 button
                     class="w-[30px] h-[30px] inline-grid place-items-center border border-border rounded-sm bg-bg text-fg cursor-pointer transition-colors hover:border-accent hover:text-accent hover:bg-accent-bg"
                     hx-get=(next_url)
                     hx-target="#schedule-content"
                     hx-swap="outerHTML"
-                    { "›" }
+                { "›" }
             }
         }
     }
@@ -264,7 +303,8 @@ fn gantt_view(data: &GanttData, today: NaiveDate) -> Markup {
     }
 
     html! {
-        div class="bg-bg border border-border-soft rounded-md p-5 shadow-[var(--shadow-card)] min-w-0" {
+        div class="bg-bg border border-border-soft rounded-md p-5 shadow-[var(--shadow-card)] min-w-0"
+        {
             // ── Legend ──
             div class="flex gap-4 mb-4 text-xs text-muted" {
                 (legend_dot("bg-accent/25 border border-accent", "计划"))
@@ -276,9 +316,7 @@ fn gantt_view(data: &GanttData, today: NaiveDate) -> Markup {
             (gantt_header(&data.date_range, today))
             // ── Rows: one track per work center ──
             div class="flex flex-col" {
-                @for wc in &data.work_centers {
-                    (gantt_row(data, wc, today))
-                }
+                @for wc in &data.work_centers { (gantt_row(data, wc, today)) }
             }
         }
     }
@@ -296,13 +334,10 @@ fn legend_dot(dot_cls: &str, label: &str) -> Markup {
 fn gantt_header(date_range: &[NaiveDate], today: NaiveDate) -> Markup {
     html! {
         div class="flex items-stretch pb-2 mb-2 border-b border-border-soft" {
-            div class="w-[160px] shrink-0 pr-3 flex items-center text-[11px] text-muted font-semibold" {
-                "工作中心"
-            }
+            div class="w-[160px] shrink-0 pr-3 flex items-center text-[11px] text-muted font-semibold"
+            { "工作中心" }
             div class="flex-1 flex" {
-                @for date in date_range {
-                    (gantt_header_tick(*date, today))
-                }
+                @for date in date_range { (gantt_header_tick(*date, today)) }
             }
         }
     }
@@ -348,17 +383,18 @@ fn gantt_row(
     };
 
     html! {
-        div class="flex items-stretch py-1.5 [&:not(:last-child)]:border-b [&:not(:last-child)]:border-border-soft" {
+        div class="flex items-stretch py-1.5 [&:not(:last-child)]:border-b [&:not(:last-child)]:border-border-soft"
+        {
             // ── Work center label ──
             div class="w-[160px] shrink-0 pr-3" {
                 div class="text-sm font-medium text-fg truncate" { (wc.name) }
-                div class="text-[11px] text-muted mt-0.5" { (work_center_type_label(wc.work_center_type)) }
+                div class="text-[11px] text-muted mt-0.5" {
+                    (work_center_type_label(wc.work_center_type))
+                }
             }
             // ── Track ──
             div class="flex-1 relative h-7 bg-surface rounded-sm" {
-                @if let Some(html) = today_marker {
-                    (maud::PreEscaped(html))
-                }
+                @if let Some(html) = today_marker { (maud::PreEscaped(html)) }
                 @for b in data.bookings.iter().filter(|b| b.work_center_id == wc.id) {
                     (gantt_bar(b, range_start, range_end, total))
                 }
@@ -395,11 +431,9 @@ fn gantt_bar(
     // Pure colored block (no label, no rounded corners) — reads like a
     // timeline/progress-bar segment. Full info stays available on hover.
     html! {
-        div
-            class=(format!("absolute top-0 bottom-0 cursor-pointer {}", color_cls))
+        div class=(format!("absolute top-0 bottom-0 cursor-pointer {}", color_cls))
             style=(format!("left:{}%;width:{}%", left_pct, width_pct))
-            title=(format!("{title} · {process} · {product} · {hours}"))
-            {}
+            title=(format!("{title} · {process} · {product} · {hours}")) {}
     }
 }
 
@@ -432,7 +466,8 @@ fn load_view(
     }
 
     html! {
-        div class="bg-bg border border-border-soft rounded-md p-5 shadow-[var(--shadow-card)] min-w-0" {
+        div class="bg-bg border border-border-soft rounded-md p-5 shadow-[var(--shadow-card)] min-w-0"
+        {
             // ── Legend ──
             div class="flex gap-4 mb-4 text-xs text-muted" {
                 (legend_dot("bg-surface border border-border", "无排程"))
@@ -445,24 +480,24 @@ fn load_view(
                 table class="border-collapse w-full" {
                     thead {
                         tr {
-                            th class="sticky left-0 z-10 bg-surface-raised w-[140px] min-w-[140px] px-3 py-2 text-left [border-right:1px_solid_var(--border-soft)] border-b border-border-soft" {
+                            th  class="sticky left-0 z-10 bg-surface-raised w-[140px] min-w-[140px] px-3 py-2 text-left [border-right:1px_solid_var(--border-soft)] border-b border-border-soft"
+                            {
                                 span class="text-[11px] text-muted font-semibold" { "工作中心" }
                             }
-                            @for date in date_range {
-                                (load_date_header(*date, today))
-                            }
+                            @for date in date_range { (load_date_header(*date, today)) }
                         }
                     }
                     tbody {
                         @for wc in work_centers {
                             tr {
-                                td class="sticky left-0 z-[1] px-3 py-2 bg-surface-raised [border-right:1px_solid_var(--border-soft)] border-b border-border-soft" {
+                                td  class="sticky left-0 z-[1] px-3 py-2 bg-surface-raised [border-right:1px_solid_var(--border-soft)] border-b border-border-soft"
+                                {
                                     div class="text-sm font-medium text-fg truncate" { (wc.name) }
-                                    div class="text-[11px] text-muted mt-0.5" { (work_center_type_label(wc.work_center_type)) }
+                                    div class="text-[11px] text-muted mt-0.5" {
+                                        (work_center_type_label(wc.work_center_type))
+                                    }
                                 }
-                                @for date in date_range {
-                                    (load_cell(loads, wc.id, *date))
-                                }
+                                @for date in date_range { (load_cell(loads, wc.id, *date)) }
                             }
                         }
                     }
@@ -483,7 +518,8 @@ fn load_date_header(date: NaiveDate, today: NaiveDate) -> Markup {
         "block text-[11px] font-semibold text-fg-2"
     };
     html! {
-        th class="text-center px-1 py-2 min-w-[64px] w-[64px] border-b border-border-soft [border-left:1px_solid_var(--border-soft)]" {
+        th  class="text-center px-1 py-2 min-w-[64px] w-[64px] border-b border-border-soft [border-left:1px_solid_var(--border-soft)]"
+        {
             span class=(date_cls) { (date.format("%m/%d").to_string()) }
             span class="block text-[10px] text-muted" { (weekday_cn(date.weekday())) }
         }
@@ -517,13 +553,16 @@ fn load_cell(loads: &[WcDailyLoad], wc_id: i64, date: NaiveDate) -> Markup {
     };
 
     html! {
-        td class="text-center h-[44px] border-b border-border-soft [border-left:1px_solid_var(--border-soft)]" {
-            div
-                class=(format!("h-full flex items-center justify-center text-xs font-semibold font-mono {}", level_cls))
+        td  class="text-center h-[44px] border-b border-border-soft [border-left:1px_solid_var(--border-soft)]"
+        {
+            div class=({
+                    format!(
+                        "h-full flex items-center justify-center text-xs font-semibold font-mono {}",
+                        level_cls,
+                    )
+                })
                 title=(format!("已排 {booked} / 可用 {avail}"))
-            {
-                (display)
-            }
+            { (display) }
         }
     }
 }
@@ -560,15 +599,21 @@ fn kanban_column(
     col_class: &str,
 ) -> Markup {
     html! {
-        div class=(format!("bg-white rounded-md border border-border-soft border-t-[3px] flex flex-col {}", col_class)) {
+        div class=({
+                format!(
+                    "bg-white rounded-md border border-border-soft border-t-[3px] flex flex-col {}",
+                    col_class,
+                )
+            })
+        {
             div class="flex items-center justify-between px-4 py-3 border-b border-border-soft" {
                 span class="text-sm font-semibold text-fg" { (title) }
-                span class="text-xs text-muted bg-[rgba(0,0,0,0.04)] px-2 py-0.5 rounded-full" { (cards.len()) }
+                span class="text-xs text-muted bg-[rgba(0,0,0,0.04)] px-2 py-0.5 rounded-full" {
+                    (cards.len())
+                }
             }
             div class="flex-1 p-3 flex flex-col gap-3 overflow-y-auto min-h-[200px]" {
-                @for card in cards {
-                    (kanban_card(card))
-                }
+                @for card in cards { (kanban_card(card)) }
                 @if cards.is_empty() {
                     div class="text-sm text-muted text-center py-8" { "暂无数据" }
                 }
@@ -604,29 +649,40 @@ fn kanban_card(card: &ScheduleCard) -> Markup {
     };
 
     html! {
-        a class="block bg-white rounded-md border border-border-soft p-4 shadow-xs hover:shadow-md hover:-translate-y-px transition-all duration-200 cursor-pointer" href=(format!("/admin/mes/batches/{}", card.id)) {
+        a   class="block bg-white rounded-md border border-border-soft p-4 shadow-xs hover:shadow-md hover:-translate-y-px transition-all duration-200 cursor-pointer"
+            href=(format!("/admin/mes/batches/{}", card.id))
+        {
             div class="flex items-center justify-between mb-2" {
                 span class="text-xs font-mono tabular-nums text-fg font-semibold" { (card.batch_no) }
-                span class=(format!("text-[11px] px-2 py-0.5 rounded-full font-medium {}", status_cls)) { (status_label) }
+                span
+                    class=({
+                        format!(
+                            "text-[11px] px-2 py-0.5 rounded-full font-medium {}",
+                            status_cls,
+                        )
+                    })
+                { (status_label) }
             }
-            div class="text-sm text-fg mb-2" {
-                (card.product_name.as_deref().unwrap_or("—"))
-            }
+            div class="text-sm text-fg mb-2" { (card.product_name.as_deref().unwrap_or("—")) }
             div class="text-xs text-muted mb-2" {
-                span { (crate::utils::fmt_qty(card.completed_qty)) " / " (crate::utils::fmt_qty(card.batch_qty)) }
+                span {
+                    (crate::utils::fmt_qty(card.completed_qty))
+                    " / "
+                    (crate::utils::fmt_qty(card.batch_qty))
+                }
             }
             @if card.current_step > 0 {
                 div class="mb-2" {
                     div class="h-1.5 bg-[rgba(0,0,0,0.06)] rounded-full overflow-hidden" {
-                        div class="h-full bg-accent rounded-full transition-all duration-300" style=(format!("width:{}%", progress_pct)) {}
+                        div class="h-full bg-accent rounded-full transition-all duration-300"
+                            style=(format!("width:{}%", progress_pct)) {}
                     }
                     span class="text-[10px] text-muted mt-1 block" { (step_display) }
                 }
             }
             @if !card.wo_doc_number.as_ref().is_none_or(|s| s.is_empty()) {
-                div class="text-[10px] text-muted bg-[rgba(0,0,0,0.04)] px-2 py-0.5 rounded inline-block" {
-                    "工单 " (card.wo_doc_number.as_deref().unwrap_or(""))
-                }
+                div class="text-[10px] text-muted bg-[rgba(0,0,0,0.04)] px-2 py-0.5 rounded inline-block"
+                { "工单 " (card.wo_doc_number.as_deref().unwrap_or("")) }
             }
         }
     }

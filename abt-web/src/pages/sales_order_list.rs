@@ -177,28 +177,34 @@ fn order_list_page(
  can_delete: bool,
 ) -> Markup {
  html! {
- div {
- // ── Page Header ──
- div class="flex items-center justify-between mb-6" {
- h1 class="text-xl font-bold text-fg tracking-tight" { "销售订单" }
- div class="flex gap-3" {
- button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" {
- (icon::download_icon("w-4 h-4"))
- "导出"
- }
- @if can_create {
- a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(OrderCreatePath::PATH) {
- (icon::plus_icon("w-4 h-4"))
- "新建订单"
- }
- }
- }
- }
-
- // ── Tabs + Filter + Data Table (HTMX panel) ──
- (order_table_fragment(result, customer_names, sales_rep_names, customers, params, can_delete))
- }
- }
+    div {
+        // ── Page Header ──
+        div class="flex items-center justify-between mb-6" {
+            h1 class="text-xl font-bold text-fg tracking-tight" { "销售订单" }
+            div class="flex gap-3" {
+                button
+                    class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                { (icon::download_icon("w-4 h-4")) "导出" }
+                @if can_create {
+                    a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                        href=(OrderCreatePath::PATH)
+                    { (icon::plus_icon("w-4 h-4")) "新建订单" }
+                }
+            }
+        }
+        // ── Tabs + Filter + Data Table (HTMX panel) ──
+        ({
+            order_table_fragment(
+                result,
+                customer_names,
+                sales_rep_names,
+                customers,
+                params,
+                can_delete,
+            )
+        })
+    }
+}
 }
 
 fn order_table_fragment(
@@ -228,74 +234,100 @@ fn order_table_fragment(
  let selected_range = params.date_range.as_deref().unwrap_or("");
 
  html! {
- div class="order-list-panel" {
- (status_tabs_with_param(OrderListPath::PATH, "#order-data-card", "#order-filter-form", tabs, &active_value, "status"))
-
- // ── Filter Bar ──
- form class="flex items-center gap-3 mb-5 flex-wrap filter-form" id="order-filter-form"
- hx-get=(OrderListPath::PATH)
- hx-trigger="change, keyup changed delay:300ms from:.search-input"
- hx-target="#order-data-card"
- hx-select="#order-data-card"
- hx-swap="outerHTML"
- hx-select-oob="#status-tabs"
- hx-include="#order-filter-form"
- hx-push-url="true" {
- div class="relative flex-1 max-w-xs icon:absolute icon:left-3 icon:top-1/2 icon:-translate-y-1/2 icon:w-4 icon:h-4 icon:text-muted" {
- (icon::search_icon(""))
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input" type="text" name="keyword"
- placeholder="搜索订单号、客户名称…"
- value=(params.keyword.as_deref().unwrap_or(""));
- }
- select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="customer_id" {
- option value="" { "全部客户" }
- @for c in customers {
- option value=(c.id) selected[selected_customer == c.id.to_string()] { (c.name) }
- }
- }
- select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="date_range" {
- option value="" selected[selected_range.is_empty()] { "交货日期" }
- option value="7d" selected[selected_range == "7d"] { "最近7天" }
- option value="30d" selected[selected_range == "30d"] { "最近30天" }
- option value="3m" selected[selected_range == "3m"] { "最近3个月" }
- }
- }
-
- // ── Data Table ──
- div class="data-card" id="order-data-card" {
- div class="overflow-x-auto" {
- table class="data-table" {
- thead {
- tr {
- th { "订单号" }
- th { "来源报价" }
- th { "客户名称" }
- th { "状态" }
- th class="text-right text-[13px]" { "总金额" }
- th { "交货日期" }
- th { "业务员" }
- th { "创建时间" }
- th class="!text-right" { "操作" }
- }
- }
- tbody {
- @for o in &result.items {
- (order_row(o, customer_names, sales_rep_names, can_delete))
- }
- @if result.items.is_empty() {
- tr {
- td colspan="9" class="text-center p-8 text-muted" {
- "暂无订单数据"
- }
- }
- }
- }
- }
- }
- (pagination(OrderListPath::PATH, &query, result.total, result.page, result.total_pages))
- }
- }
- }
+    div class="order-list-panel" {
+        ({
+            status_tabs_with_param(
+                OrderListPath::PATH,
+                "#order-data-card",
+                "#order-filter-form",
+                tabs,
+                &active_value,
+                "status",
+            )
+        })
+        // ── Filter Bar ──
+        form
+            class="flex items-center gap-3 mb-5 flex-wrap filter-form"
+            id="order-filter-form"
+            hx-get=(OrderListPath::PATH)
+            hx-trigger="change, keyup changed delay:300ms from:.search-input"
+            hx-target="#order-data-card"
+            hx-select="#order-data-card"
+            hx-swap="outerHTML"
+            hx-select-oob="#status-tabs"
+            hx-include="#order-filter-form"
+            hx-push-url="true"
+        {
+            div class="relative flex-1 max-w-xs icon:absolute icon:left-3 icon:top-1/2 icon:-translate-y-1/2 icon:w-4 icon:h-4 icon:text-muted"
+            {
+                (icon::search_icon(""))
+                input
+                    class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input"
+                    type="text"
+                    name="keyword"
+                    placeholder="搜索订单号、客户名称…"
+                    value=(params.keyword.as_deref().unwrap_or(""));
+            }
+            select
+                class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer"
+                name="customer_id"
+            {
+                option value="" { "全部客户" }
+                @for c in customers {
+                    option value=(c.id) selected[selected_customer == c.id.to_string()] { (c.name) }
+                }
+            }
+            select
+                class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer"
+                name="date_range"
+            {
+                option value="" selected[selected_range.is_empty()] { "交货日期" }
+                option value="7d" selected[selected_range == "7d"] { "最近7天" }
+                option value="30d" selected[selected_range == "30d"] { "最近30天" }
+                option value="3m" selected[selected_range == "3m"] { "最近3个月" }
+            }
+        }
+        // ── Data Table ──
+        div class="data-card" id="order-data-card" {
+            div class="overflow-x-auto" {
+                table class="data-table" {
+                    thead {
+                        tr {
+                            th { "订单号" }
+                            th { "来源报价" }
+                            th { "客户名称" }
+                            th { "状态" }
+                            th class="text-right text-[13px]" { "总金额" }
+                            th { "交货日期" }
+                            th { "业务员" }
+                            th { "创建时间" }
+                            th class="!text-right" { "操作" }
+                        }
+                    }
+                    tbody {
+                        @for o in &result.items {
+                            (order_row(o, customer_names, sales_rep_names, can_delete))
+                        }
+                        @if result.items.is_empty() {
+                            tr {
+                                td colspan="9" class="text-center p-8 text-muted" { "暂无订单数据" }
+                            }
+                        }
+                    }
+                }
+            }
+            ({
+                pagination(
+                    OrderListPath::PATH,
+                    &query,
+                    result.total,
+                    result.page,
+                    result.total_pages,
+                )
+            })
+        }
+    }
+}
 }
 
 fn order_row(
@@ -315,38 +347,46 @@ fn order_row(
  let is_draft = o.status == SalesOrderStatus::Draft;
 
  html! {
- tr {
- td class="text-accent font-medium cursor-pointer font-mono tabular-nums" onclick=(&onclick) { (o.doc_number) }
- td onclick=(&onclick) { "—" }
- td onclick=(&onclick) { (customer_name) }
- td onclick=(&onclick) {
- span class=(format!("status-pill {}", crate::utils::status_color(status_class))) { (status_text) }
- }
- td class="text-right text-[13px]" onclick=(&onclick) {
- span class="font-mono tabular-nums" { (crate::utils::fmt_amount(o.total_amount)) }
- }
- td class="font-mono tabular-nums" onclick=(&onclick) { (o.order_date.format("%Y-%m-%d")) }
- td onclick=(&onclick) { (sales_rep) }
- td onclick=(&onclick) { (created) }
- td _="on click halt the event" {
- @if is_draft {
- div class="row-actions flex items-center gap-1 justify-end opacity-0 transition-opacity duration-150 [&_a]:w-[28px] [&_a]:h-[28px] [&_a]:grid [&_a]:place-items-center [&_a]:rounded-sm [&_a]:cursor-pointer [&_a]:bg-surface [&_a]:hover:bg-accent-bg icon:w-3.5 icon:h-3.5" {
- a class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" href=(edit_form_path.to_string()) title="编辑" {
- (icon::edit_icon("w-4 h-4"))
- }
- @if can_delete {
- button type="button" class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer text-danger" title="删除"
- hx-confirm="确认删除该订单吗？"
- hx-post=(delete_path)
- hx-target="closest tr"
- hx-swap="outerHTML swap:0.5s" {
- (icon::trash_icon("w-4 h-4"))
- }
- }
- }
- }
- }
- }
- }
+    tr {
+        td class="text-accent font-medium cursor-pointer font-mono tabular-nums" onclick=(&onclick) {
+            (o.doc_number)
+        }
+        td onclick=(&onclick) { "—" }
+        td onclick=(&onclick) { (customer_name) }
+        td onclick=(&onclick) {
+            span class=(format!("status-pill {}", crate::utils::status_color(status_class))) {
+                (status_text)
+            }
+        }
+        td class="text-right text-[13px]" onclick=(&onclick) {
+            span class="font-mono tabular-nums" { (crate::utils::fmt_amount(o.total_amount)) }
+        }
+        td class="font-mono tabular-nums" onclick=(&onclick) { (o.order_date.format("%Y-%m-%d")) }
+        td onclick=(&onclick) { (sales_rep) }
+        td onclick=(&onclick) { (created) }
+        td _="on click halt the event" {
+            @if is_draft {
+                div class="row-actions flex items-center gap-1 justify-end opacity-0 transition-opacity duration-150 [&_a]:w-[28px] [&_a]:h-[28px] [&_a]:grid [&_a]:place-items-center [&_a]:rounded-sm [&_a]:cursor-pointer [&_a]:bg-surface [&_a]:hover:bg-accent-bg icon:w-3.5 icon:h-3.5"
+                {
+                    a   class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer"
+                        href=(edit_form_path.to_string())
+                        title="编辑"
+                    { (icon::edit_icon("w-4 h-4")) }
+                    @if can_delete {
+                        button
+                            type="button"
+                            class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer text-danger"
+                            title="删除"
+                            hx-confirm="确认删除该订单吗？"
+                            hx-post=(delete_path)
+                            hx-target="closest tr"
+                            hx-swap="outerHTML swap:0.5s"
+                        { (icon::trash_icon("w-4 h-4")) }
+                    }
+                }
+            }
+        }
+    }
+}
 }
 

@@ -80,112 +80,178 @@ pub async fn get_detail(path: ResultDetailPath, ctx: RequestContext) -> Result<H
  let (type_text, type_class) = inspection_type_label(&result.inspection_type);
  let (result_text, result_class) = result_type_label(&result.result);
 
- let content = html! { div {
- div class="flex items-center justify-between mb-6" {
- div class="flex items-center justify-between mb-6" {
- a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", ResultListPath::PATH)) { "\u{2190} 返回列表" }
- h1 class="text-xl font-bold text-fg tracking-tight" {
- "单号 " (&result.doc_number)
- " "
- span class=(format!("status-pill {}", crate::utils::status_color(status_class))) { (status_text) }
- }
- }
- }
-
- // ── 基本信息 ──
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
- h3 class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" { "基本信息" }
- div class="grid gap-4" {
- div class="flex flex-col gap-1" { label { "产品" } span { (product_name) } }
- div class="flex flex-col gap-1" {
- label { "检验类型" }
- span class=(format!("status-pill {}", crate::utils::status_color(type_class))) { (type_text) }
- }
- div class="flex flex-col gap-1" { label { "来源类型" } span { (source_type_label(&result.source_type)) } }
- div class="flex flex-col gap-1" { label { "批次号" } span class="font-mono tabular-nums" { (&result.batch_no) } }
- div class="flex flex-col gap-1" {
- label { "检验日期" }
- span { (result.inspection_date.map(|d| d.to_string()).unwrap_or_else(|| "—".into())) }
- }
- }
- }
-
- // ── 抽样结果 ──
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
- h3 class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" { "抽样结果" }
- div class="grid gap-4" {
- div class="flex flex-col gap-1" { label { "抽样数量" } span class="font-mono tabular-nums text-right text-[13px]" { (fmt_qty(result.sample_qty)) } }
- div class="flex flex-col gap-1" { label { "合格数量" } span class="font-mono tabular-nums text-right text-[13px]" { (fmt_qty(result.qualified_qty)) } }
- div class="flex flex-col gap-1" { label { "不合格数量" } span class="font-mono tabular-nums text-right text-[13px]" { (fmt_qty(result.unqualified_qty)) } }
- div class="flex flex-col gap-1" {
- label { "检验结果" }
- span class=(format!("status-pill {}", crate::utils::status_color(result_class))) { (result_text) }
- }
- }
- }
-
- // ── 检验项目结果 ──
- div class="data-card overflow-x-auto" {
- h3 class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" { "检验项目结果" }
- @if result.check_results.is_empty() {
- p { "暂无检验项目结果" }
- } @else {
- table class="data-table" {
- thead {
- tr {
- th { "序号" }
- th { "检验项目" }
- th { "实测值" }
- th { "是否合格" }
- th { "备注" }
- }
- }
- tbody {
- @for (i, cr) in result.check_results.iter().enumerate() {
- tr {
- td class="font-mono tabular-nums" { (i + 1) }
- td { (&cr.item) }
- td class="font-mono tabular-nums" { (&cr.measured) }
- td {
- @if cr.pass {
- span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-success-bg text-success" { "合格" }
- } @else {
- span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-danger-bg text-danger" { "不合格" }
- }
- }
- td { (cr.remark.as_deref().unwrap_or("—")) }
- }
- }
- }
- }
- }
- }
-
- // ── 其他信息 ──
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
- h3 class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" { "其他信息" }
- div class="grid gap-4" {
- div class="flex flex-col gap-1" { label { "创建时间" } span { (result.created_at.format("%Y-%m-%d %H:%M")) } }
- div class="flex flex-col gap-1" { label { "更新时间" } span { (result.updated_at.format("%Y-%m-%d %H:%M")) } }
- }
- }
-
- // ── 操作按钮 ──
- @if result.status == InspectionStatus::Pending {
- div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg border-t border-border-soft" {
- a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(format!("{}?restore=true", ResultListPath::PATH)) {
- "记录结果"
- }
- }
- }
- @if result.status == InspectionStatus::Completed && result.result == InspectionResultType::Fail {
- div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg border-t border-border-soft" {
- a class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-danger text-white border-none hover:opacity-90" href=(MrbCreatePath::PATH) {
- "创建MRB"
- }
- }
- }
- }};
+ let content = html! {
+    div {
+        div class="flex items-center justify-between mb-6" {
+            div class="flex items-center justify-between mb-6" {
+                a   class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150"
+                    href=(format!("{}?restore=true", ResultListPath::PATH))
+                { "\u{2190} 返回列表" }
+                h1 class="text-xl font-bold text-fg tracking-tight" {
+                    "单号 "
+                    (&result.doc_number)
+                    " "
+                    span class=({
+                        format!(
+                            "status-pill {}",
+                            crate::utils::status_color(status_class),
+                        )
+                    }) { (status_text) }
+                }
+            }
+        }
+        // ── 基本信息 ──
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
+            h3 class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" {
+                "基本信息"
+            }
+            div class="grid gap-4" {
+                div class="flex flex-col gap-1" {
+                    label { "产品" }
+                    span { (product_name) }
+                }
+                div class="flex flex-col gap-1" {
+                    label { "检验类型" }
+                    span class=(format!("status-pill {}", crate::utils::status_color(type_class))) {
+                        (type_text)
+                    }
+                }
+                div class="flex flex-col gap-1" {
+                    label { "来源类型" }
+                    span { (source_type_label(&result.source_type)) }
+                }
+                div class="flex flex-col gap-1" {
+                    label { "批次号" }
+                    span class="font-mono tabular-nums" { (&result.batch_no) }
+                }
+                div class="flex flex-col gap-1" {
+                    label { "检验日期" }
+                    span {
+                        ({
+                            result
+                                .inspection_date
+                                .map(|d| d.to_string())
+                                .unwrap_or_else(|| "—".into())
+                        })
+                    }
+                }
+            }
+        }
+        // ── 抽样结果 ──
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
+            h3 class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" {
+                "抽样结果"
+            }
+            div class="grid gap-4" {
+                div class="flex flex-col gap-1" {
+                    label { "抽样数量" }
+                    span class="font-mono tabular-nums text-right text-[13px]" {
+                        (fmt_qty(result.sample_qty))
+                    }
+                }
+                div class="flex flex-col gap-1" {
+                    label { "合格数量" }
+                    span class="font-mono tabular-nums text-right text-[13px]" {
+                        (fmt_qty(result.qualified_qty))
+                    }
+                }
+                div class="flex flex-col gap-1" {
+                    label { "不合格数量" }
+                    span class="font-mono tabular-nums text-right text-[13px]" {
+                        (fmt_qty(result.unqualified_qty))
+                    }
+                }
+                div class="flex flex-col gap-1" {
+                    label { "检验结果" }
+                    span class=({
+                        format!(
+                            "status-pill {}",
+                            crate::utils::status_color(result_class),
+                        )
+                    }) { (result_text) }
+                }
+            }
+        }
+        // ── 检验项目结果 ──
+        div class="data-card overflow-x-auto" {
+            h3 class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" {
+                "检验项目结果"
+            }
+            @if result.check_results.is_empty() {
+                p { "暂无检验项目结果" }
+            } @else {
+                table class="data-table" {
+                    thead {
+                        tr {
+                            th { "序号" }
+                            th { "检验项目" }
+                            th { "实测值" }
+                            th { "是否合格" }
+                            th { "备注" }
+                        }
+                    }
+                    tbody {
+                        @for (i, cr) in result.check_results.iter().enumerate() {
+                            tr {
+                                td class="font-mono tabular-nums" { (i + 1) }
+                                td { (&cr.item) }
+                                td class="font-mono tabular-nums" { (&cr.measured) }
+                                td {
+                                    @if cr.pass {
+                                        span
+                                            class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-success-bg text-success"
+                                        { "合格" }
+                                    } @else {
+                                        span
+                                            class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-danger-bg text-danger"
+                                        { "不合格" }
+                                    }
+                                }
+                                td { (cr.remark.as_deref().unwrap_or("—")) }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        // ── 其他信息 ──
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
+            h3 class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" {
+                "其他信息"
+            }
+            div class="grid gap-4" {
+                div class="flex flex-col gap-1" {
+                    label { "创建时间" }
+                    span { (result.created_at.format("%Y-%m-%d %H:%M")) }
+                }
+                div class="flex flex-col gap-1" {
+                    label { "更新时间" }
+                    span { (result.updated_at.format("%Y-%m-%d %H:%M")) }
+                }
+            }
+        }
+        // ── 操作按钮 ──
+        @if result.status == InspectionStatus::Pending {
+            div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg border-t border-border-soft"
+            {
+                a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                    href=(format!("{}?restore=true", ResultListPath::PATH))
+                { "记录结果" }
+            }
+        }
+        @if {
+            result.status == InspectionStatus::Completed
+                && result.result == InspectionResultType::Fail
+        } {
+            div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg border-t border-border-soft"
+            {
+                a   class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-danger text-white border-none hover:opacity-90"
+                    href=(MrbCreatePath::PATH)
+                { "创建MRB" }
+            }
+        }
+    }
+};
 
  let current_path = ResultDetailPath { id: path.id }.to_string();
  let html = admin_page(

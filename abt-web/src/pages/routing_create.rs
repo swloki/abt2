@@ -156,88 +156,102 @@ fn routing_create_page(
  let product_map_json = serde_json::to_string(&product_map).unwrap_or_else(|_| "{}".into());
 
  html! {
- div id="routing-app" {
- // ── Page Header ──
- div class="flex items-center justify-between mb-6" {
- a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", RoutingListPath::PATH)) {
- (icon::arrow_left_icon("w-4 h-4"))
- "返回工艺路线列表"
- }
- h1 class="text-xl font-bold text-fg tracking-tight" { "新建工艺路线" }
- }
+    div id="routing-app" {
+        // ── Page Header ──
+        div class="flex items-center justify-between mb-6" {
+            a   class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150"
+                href=(format!("{}?restore=true", RoutingListPath::PATH))
+            { (icon::arrow_left_icon("w-4 h-4")) "返回工艺路线列表" }
+            h1 class="text-xl font-bold text-fg tracking-tight" { "新建工艺路线" }
+        }
 
- form id="routing-form"
- hx-post=(RoutingCreatePath::PATH)
- hx-swap="none"
- onsubmit="syncFromDom(); document.querySelector('#routing-form input[name=steps_json]').value = getStepsJson()" {
- input type="hidden" name="steps_json";
-
- // ── Section: 基本信息 ──
- div class="data-card" class="mb-4" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "基本信息" }
- div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
- div class="form-field" {
- label { "路线名称 " span class="text-danger" { "*" } }
- input type="text" name="name" required placeholder="请输入路线名称" {}
- }
- div class="form-field" {
- label { "路线编码" }
- input type="text" value="自动生成" readonly
- class="bg-surface text-muted" {}
- }
- div class="form-field field-full" {
- label { "描述" }
- textarea name="description" placeholder="请输入描述信息…"
- class="w-full resize-y" class="min-h-[80px]" {}
- }
- }
- }
-
- // ── Section: 工序步骤 ──
- div class="data-card" class="p-0 overflow-hidden mb-4" {
- div class="p-5 pb-3 flex justify-between items-center" {
- span class="flex items-center gap-2 text-sm font-semibold text-fg m-0 p-0" { "工序步骤" }
- button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] icon:w-4 icon:h-4" onclick="addStep()" {
- (icon::plus_icon("w-3.5 h-3.5"))
- "添加工序"
- }
- }
- div class="overflow-x-auto" {
- table class="data-table" class="min-w-[800px]" {
- thead {
- tr {
- th class="w-[60px] text-center" { "排序" }
- th class="w-[200px]" { "工序代码" }
- th class="w-[180px]" { "工序名称" }
- th class="w-[200px]" { "产出品" }
- th class="w-[80px] text-center" { "是否必经" }
- th { "备注" }
- th class="w-[50px]" { }
- }
- }
- tbody id="routing-steps-body" {
- }
- }
- }
- div class="p-3 flex items-center gap-2" {
- button type="button" class="inline-flex items-center gap-2 rounded-sm text-accent text-sm cursor-pointer" onclick="addStep()" {
- (icon::plus_icon("w-3.5 h-3.5"))
- "添加工序"
- }
- }
- }
-
- // ── Action Bar ──
- div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
- a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{}?restore=true", RoutingListPath::PATH)) { "取消" }
- button type="submit" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" { "保存路线" }
- }
- }
- }
-
- // TODO: Rewrite routingForm() to a proper vanilla JS module with DOM-based state reading
- script {
- (PreEscaped(format!(r#"
+        form
+            id="routing-form"
+            hx-post=(RoutingCreatePath::PATH)
+            hx-swap="none"
+            onsubmit="syncFromDom(); document.querySelector('#routing-form input[name=steps_json]').value = getStepsJson()"
+        {
+            input type="hidden" name="steps_json";
+            // ── Section: 基本信息 ──
+            div class="data-card" class="mb-4" {
+                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
+                { "基本信息" }
+                div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
+                    div class="form-field" {
+                        label {
+                            "路线名称 "
+                            span class="text-danger" { "*" }
+                        }
+                        input type="text" name="name" required placeholder="请输入路线名称" {}
+                    }
+                    div class="form-field" {
+                        label { "路线编码" }
+                        input type="text" value="自动生成" readonly class="bg-surface text-muted" {}
+                    }
+                    div class="form-field field-full" {
+                        label { "描述" }
+                        textarea
+                            name="description"
+                            placeholder="请输入描述信息…"
+                            class="w-full resize-y"
+                            class="min-h-[80px]" {}
+                    }
+                }
+            }
+            // ── Section: 工序步骤 ──
+            div class="data-card" class="p-0 overflow-hidden mb-4" {
+                div class="p-5 pb-3 flex justify-between items-center" {
+                    span class="flex items-center gap-2 text-sm font-semibold text-fg m-0 p-0" {
+                        "工序步骤"
+                    }
+                    button
+                        type="button"
+                        class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] icon:w-4 icon:h-4"
+                        onclick="addStep()"
+                    { (icon::plus_icon("w-3.5 h-3.5")) "添加工序" }
+                }
+                div class="overflow-x-auto" {
+                    table class="data-table" class="min-w-[800px]" {
+                        thead {
+                            tr {
+                                th class="w-[60px] text-center" { "排序" }
+                                th class="w-[200px]" { "工序代码" }
+                                th class="w-[180px]" { "工序名称" }
+                                th class="w-[200px]" { "产出品" }
+                                th class="w-[80px] text-center" { "是否必经" }
+                                th { "备注" }
+                                th class="w-[50px]" {}
+                            }
+                        }
+                        tbody id="routing-steps-body" {}
+                    }
+                }
+                div class="p-3 flex items-center gap-2" {
+                    button
+                        type="button"
+                        class="inline-flex items-center gap-2 rounded-sm text-accent text-sm cursor-pointer"
+                        onclick="addStep()"
+                    { (icon::plus_icon("w-3.5 h-3.5")) "添加工序" }
+                }
+            }
+            // ── Action Bar ──
+            div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
+                a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                    href=(format!("{}?restore=true", RoutingListPath::PATH))
+                { "取消" }
+                button
+                    type="submit"
+                    class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                { "保存路线" }
+            }
+        }
+    }
+    // TODO: Rewrite routingForm() to a proper vanilla JS module with DOM-based state reading
+    script {
+        ({
+            PreEscaped(
+                format!(
+                    r#"
 const processMap = {process_map_json};
 const productMap = {product_map_json};
 let steps = [
@@ -320,7 +334,10 @@ function onStepChange(idx) {{
  syncFromDom();
  renderSteps();
 }}
-"#)))
- }
- }
+"#,
+                ),
+            )
+        })
+    }
+}
 }

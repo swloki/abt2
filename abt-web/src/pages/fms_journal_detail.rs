@@ -65,47 +65,88 @@ pub async fn get_detail(path: JournalDetailPath, ctx: RequestContext) -> Result<
 
  let (s_text, s_class) = status_text(&journal.status);
 
- let content = html! { div {
- div class="flex items-center justify-between mb-6" {
- div class="flex items-center justify-between mb-6" {
- a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", JournalListPath::PATH)) { "\u{2190} 返回列表" }
- h1 class="text-xl font-bold text-fg tracking-tight" {
- "单号 " (journal.doc_number)
- " "
- span class=(format!("status-pill {}", crate::utils::status_color(s_class))) { (s_text) }
- }
- }
- }
+ let content = html! {
+    div {
+        div class="flex items-center justify-between mb-6" {
+            div class="flex items-center justify-between mb-6" {
+                a   class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150"
+                    href=(format!("{}?restore=true", JournalListPath::PATH))
+                { "\u{2190} 返回列表" }
+                h1 class="text-xl font-bold text-fg tracking-tight" {
+                    "单号 "
+                    (journal.doc_number)
+                    " "
+                    span class=(format!("status-pill {}", crate::utils::status_color(s_class))) {
+                        (s_text)
+                    }
+                }
+            }
+        }
+        // ── 基本信息 ──
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
+            h3 class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" {
+                "基本信息"
+            }
+            div class="grid gap-4 grid-cols-2 md:grid-cols-3" {
+                div class="flex flex-col gap-1" {
+                    label { "单号" }
+                    span class="font-mono tabular-nums" { (journal.doc_number) }
+                }
+                div class="flex flex-col gap-1" {
+                    label { "日记账类型" }
+                    span { (journal_type_label(&journal.journal_type)) }
+                }
+                div class="flex flex-col gap-1" {
+                    label { "方向" }
+                    span { (direction_text(&journal.direction)) }
+                }
+                div class="flex flex-col gap-1" {
+                    label { "金额" }
+                    span
+                        class="font-mono tabular-nums font-bold"
+                        style=(format!("color:{}", amount_color(&journal.direction)))
+                    { (fmt_direction_amount(journal.amount, &journal.direction)) }
+                }
+                div class="flex flex-col gap-1" {
+                    label { "银行账户" }
+                    span class="font-mono tabular-nums" { (journal.bank_account) }
+                }
+                div class="flex flex-col gap-1" {
+                    label { "交易日期" }
+                    span { (journal.transaction_date.format("%Y-%m-%d")) }
+                }
+                div class="flex flex-col gap-1" {
+                    label { "期间" }
+                    span class="font-mono tabular-nums" { (journal.period) }
+                }
+                div class="flex flex-col gap-1" {
+                    label { "状态" }
+                    span { (s_text) }
+                }
+                div class="flex flex-col gap-1 col-span-2" {
+                    label { "备注" }
+                    span {
+                        ({
+                            if journal.remark.is_empty() {
+                                "—".into()
+                            } else {
+                                journal.remark.clone()
+                            }
+                        })
+                    }
+                }
+            }
+        }
 
- // ── 基本信息 ──
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
- h3 class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" { "基本信息" }
- div class="grid gap-4 grid-cols-2 md:grid-cols-3" {
- div class="flex flex-col gap-1" { label { "单号" } span class="font-mono tabular-nums" { (journal.doc_number) } }
- div class="flex flex-col gap-1" { label { "日记账类型" } span { (journal_type_label(&journal.journal_type)) } }
- div class="flex flex-col gap-1" { label { "方向" } span { (direction_text(&journal.direction)) } }
- div class="flex flex-col gap-1" {
- label { "金额" }
- span class="font-mono tabular-nums font-bold" style=(format!("color:{}", amount_color(&journal.direction))) {
- (fmt_direction_amount(journal.amount, &journal.direction))
- }
- }
- div class="flex flex-col gap-1" { label { "银行账户" } span class="font-mono tabular-nums" { (journal.bank_account) } }
- div class="flex flex-col gap-1" { label { "交易日期" } span { (journal.transaction_date.format("%Y-%m-%d")) } }
- div class="flex flex-col gap-1" { label { "期间" } span class="font-mono tabular-nums" { (journal.period) } }
- div class="flex flex-col gap-1" { label { "状态" } span { (s_text) } }
- div class="flex flex-col gap-1 col-span-2" { label { "备注" } span { (if journal.remark.is_empty() { "—".into() } else { journal.remark.clone() }) } }
- }
- }
-
- @if journal.status == JournalStatus::Draft {
- div class="flex gap-3 mt-5" {
- a class="inline-flex items-center gap-2 px-4 py-2 rounded-sm bg-accent text-white text-sm font-medium hover:opacity-90 cursor-pointer transition-all duration-150"
-   hx-post=(JournalConfirmPath { id: path.id }.to_string())
-   { "确认" }
- }
- }
- }};
+        @if journal.status == JournalStatus::Draft {
+            div class="flex gap-3 mt-5" {
+                a   class="inline-flex items-center gap-2 px-4 py-2 rounded-sm bg-accent text-white text-sm font-medium hover:opacity-90 cursor-pointer transition-all duration-150"
+                    hx-post=(JournalConfirmPath { id: path.id }.to_string())
+                { "确认" }
+            }
+        }
+    }
+};
 
  let current_path = JournalDetailPath { id: path.id }.to_string();
  let html = admin_page(

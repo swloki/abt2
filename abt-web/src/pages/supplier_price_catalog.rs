@@ -266,110 +266,124 @@ pub async fn delete_price(path: PriceDeletePath, ctx: RequestContext) -> Result<
 
 fn list_page(result: &PaginatedResult<PriceView>, query: &ListQuery) -> Markup {
  html! {
- div {
- div class="flex items-center justify-between mb-6" {
- h1 class="text-xl font-bold text-fg tracking-tight" { "供应商价格目录" }
- div class="flex gap-3" {
- button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
- hx-get=(PriceCreatePath::PATH)
- hx-target="#price-modal"
- hx-swap="innerHTML"
- _="on 'htmx:afterRequest' add .is-open to #price-modal" {
- "+ 新建价格"
- }
- }
- }
- (table_fragment(result, query))
- // Modal shells (empty, loaded via hx-get)
- (price_modal_shell())
- // Page-level event: refresh data card when price is created/updated
- (PreEscaped(r#"<script>
+    div {
+        div class="flex items-center justify-between mb-6" {
+            h1 class="text-xl font-bold text-fg tracking-tight" { "供应商价格目录" }
+            div class="flex gap-3" {
+                button
+                    type="button"
+                    class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                    hx-get=(PriceCreatePath::PATH)
+                    hx-target="#price-modal"
+                    hx-swap="innerHTML"
+                    _="on 'htmx:afterRequest' add .is-open to #price-modal"
+                { "+ 新建价格" }
+            }
+        }
+        (table_fragment(result, query))
+        // Modal shells (empty, loaded via hx-get)
+        (price_modal_shell())
+        // Page-level event: refresh data card when price is created/updated
+        ({
+            PreEscaped(
+                r#"<script>
  document.body.addEventListener('priceUpdated', function() {
  var filterForm = document.getElementById('price-filter-form');
  if (filterForm) { filterForm.dispatchEvent(new Event('change', {bubbles: true})); }
  });
- </script>"#))
- }
- }
+ </script>"#,
+            )
+        })
+    }
+}
 }
 
 fn table_fragment(result: &PaginatedResult<PriceView>, query: &ListQuery) -> Markup {
  html! {
- div id="price-data-card" {
- (filter_bar(query))
- (data_card(result))
- }
- }
+    div id="price-data-card" { (filter_bar(query)) (data_card(result)) }
+}
 }
 
 fn filter_bar(query: &ListQuery) -> Markup {
  let active_val = query.is_active.as_deref().unwrap_or("");
  html! {
- form id="price-filter-form" class="flex items-center gap-3 mb-5 flex-wrap"
- hx-get=(SupplierPricesPath::PATH)
- hx-trigger="change, keyup changed delay:300ms from:.search-input"
- hx-target="#price-data-card"
- hx-select="#price-data-card"
- hx-swap="outerHTML"
- hx-push-url="true"
- hx-include="#price-filter-form" {
+    form
+        id="price-filter-form"
+        class="flex items-center gap-3 mb-5 flex-wrap"
+        hx-get=(SupplierPricesPath::PATH)
+        hx-trigger="change, keyup changed delay:300ms from:.search-input"
+        hx-target="#price-data-card"
+        hx-select="#price-data-card"
+        hx-swap="outerHTML"
+        hx-push-url="true"
+        hx-include="#price-filter-form"
+    {
 
- div class="relative flex-1 max-w-xs" {
- (icon::search_icon("absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted"))
- input class="search-input w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" name="keyword"
- placeholder="搜索供应商/产品名称或编码..."
- value=(query.keyword.as_deref().unwrap_or(""))
- autocomplete="off";
- }
- select name="currency_code" class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" {
- option value="" selected[query.currency_code.is_none()] { "全部币种" }
- option value="CNY" selected[query.currency_code.as_deref() == Some("CNY")] { "CNY" }
- option value="USD" selected[query.currency_code.as_deref() == Some("USD")] { "USD" }
- option value="EUR" selected[query.currency_code.as_deref() == Some("EUR")] { "EUR" }
- }
- select name="is_active" class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" {
- option value="" selected[active_val.is_empty()] { "全部状态" }
- option value="true" selected[active_val == "true"] { "启用" }
- option value="false" selected[active_val == "false"] { "停用" }
- }
- }
- }
+        div class="relative flex-1 max-w-xs" {
+            ({
+                icon::search_icon(
+                    "absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted",
+                )
+            })
+            input
+                class="search-input w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
+                type="text"
+                name="keyword"
+                placeholder="搜索供应商/产品名称或编码..."
+                value=(query.keyword.as_deref().unwrap_or(""))
+                autocomplete="off";
+        }
+        select
+            name="currency_code"
+            class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer"
+        {
+            option value="" selected[query.currency_code.is_none()] { "全部币种" }
+            option value="CNY" selected[query.currency_code.as_deref() == Some("CNY")] { "CNY" }
+            option value="USD" selected[query.currency_code.as_deref() == Some("USD")] { "USD" }
+            option value="EUR" selected[query.currency_code.as_deref() == Some("EUR")] { "EUR" }
+        }
+        select
+            name="is_active"
+            class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer"
+        {
+            option value="" selected[active_val.is_empty()] { "全部状态" }
+            option value="true" selected[active_val == "true"] { "启用" }
+            option value="false" selected[active_val == "false"] { "停用" }
+        }
+    }
+}
 }
 
 fn data_card(result: &PaginatedResult<PriceView>) -> Markup {
  html! {
- div class="data-card" {
- @if result.items.is_empty() {
- (empty_state())
- } @else {
- div class="overflow-x-auto" {
- table class="data-table" {
- thead {
- tr {
- th { "供应商" }
- th { "产品" }
- th { "供应商料号" }
- th class="text-right text-[13px]" { "价格" }
- th { "币种" }
- th class="text-right text-[13px]" { "折扣%" }
- th class="text-right text-[13px]" { "起订量" }
- th class="text-right text-[13px]" { "交期(天)" }
- th { "有效期" }
- th { "状态" }
- th class="!text-right" { "操作" }
- }
- }
- tbody {
- @for price in &result.items {
- (row_tr(price))
- }
- }
- }
- }
- (pagination_bar(result))
- }
- }
- }
+    div class="data-card" {
+        @if result.items.is_empty() { (empty_state()) } @else {
+            div class="overflow-x-auto" {
+                table class="data-table" {
+                    thead {
+                        tr {
+                            th { "供应商" }
+                            th { "产品" }
+                            th { "供应商料号" }
+                            th class="text-right text-[13px]" { "价格" }
+                            th { "币种" }
+                            th class="text-right text-[13px]" { "折扣%" }
+                            th class="text-right text-[13px]" { "起订量" }
+                            th class="text-right text-[13px]" { "交期(天)" }
+                            th { "有效期" }
+                            th { "状态" }
+                            th class="!text-right" { "操作" }
+                        }
+                    }
+                    tbody {
+                        @for price in &result.items { (row_tr(price)) }
+                    }
+                }
+            }
+            (pagination_bar(result))
+        }
+    }
+}
 }
 
 fn pagination_bar(result: &PaginatedResult<PriceView>) -> Markup {
@@ -380,41 +394,41 @@ fn pagination_bar(result: &PaginatedResult<PriceView>) -> Markup {
  return html! {};
  }
  html! {
- div class="flex items-center justify-between py-4 px-5" {
- span { "共 " (total) " 条记录，第 " (current) "/" (total_pages) " 页" }
- div class="flex items-center gap-1" {
- @if current > 1 {
- (page_btn(current - 1, "«"))
- }
- @for p in page_range(current, total_pages) {
- @if p == 0 {
- button class="w-[34px] h-[34px] grid place-items-center border border-border-soft rounded-sm bg-bg text-fg text-sm cursor-pointer no-underline" disabled { "…" }
- } @else if p == current {
- button class="w-[34px] h-[34px] grid place-items-center border border-border-soft rounded-sm bg-accent text-accent-on text-sm cursor-pointer no-underline" disabled { (p) }
- } @else {
- (page_btn(p, &p.to_string()))
- }
- }
- @if current < total_pages {
- (page_btn(current + 1, "»"))
- }
- }
- }
- }
+    div class="flex items-center justify-between py-4 px-5" {
+        span { "共 " (total) " 条记录，第 " (current) "/" (total_pages) " 页" }
+        div class="flex items-center gap-1" {
+            @if current > 1 { (page_btn(current - 1, "«")) }
+            @for p in page_range(current, total_pages) {
+                @if p == 0 {
+                    button
+                        class="w-[34px] h-[34px] grid place-items-center border border-border-soft rounded-sm bg-bg text-fg text-sm cursor-pointer no-underline"
+                        disabled
+                    { "…" }
+                } @else if p == current {
+                    button
+                        class="w-[34px] h-[34px] grid place-items-center border border-border-soft rounded-sm bg-accent text-accent-on text-sm cursor-pointer no-underline"
+                        disabled
+                    { (p) }
+                } @else { (page_btn(p, &p.to_string())) }
+            }
+            @if current < total_pages { (page_btn(current + 1, "»")) }
+        }
+    }
+}
 }
 
 fn page_btn(page: u32, label: &str) -> Markup {
  html! {
- button class="w-[34px] h-[34px] grid place-items-center border border-border-soft rounded-sm bg-bg text-fg text-sm cursor-pointer no-underline"
- hx-get=(SupplierPricesPath::PATH)
- hx-vals=(format!(r#"{{"page":{page}}}"#))
- hx-include="#price-filter-form"
- hx-target="#price-data-card"
- hx-select="#price-data-card"
- hx-swap="outerHTML" {
- (label)
- }
- }
+    button
+        class="w-[34px] h-[34px] grid place-items-center border border-border-soft rounded-sm bg-bg text-fg text-sm cursor-pointer no-underline"
+        hx-get=(SupplierPricesPath::PATH)
+        hx-vals=(format!(r#"{{"page":{page}}}"#))
+        hx-include="#price-filter-form"
+        hx-target="#price-data-card"
+        hx-select="#price-data-card"
+        hx-swap="outerHTML"
+    { (label) }
+}
 }
 
 fn page_range(current: u32, total: u32) -> Vec<u32> {
@@ -446,70 +460,78 @@ fn row_tr(price: &PriceView) -> Markup {
  (None, None) => "—".into(),
  };
  html! {
- tr {
- td {
- div class="font-medium" { (&price.supplier_name) }
- div class="text-muted" class="text-xs" { (&price.supplier_code) }
- }
- td {
- div { (&price.product_name) }
- div class="text-muted" class="text-xs" { (&price.product_code) }
- }
- td { (price.supplier_item_code.as_deref().unwrap_or("—")) }
- td class="font-mono tabular-nums text-right text-[13px]" { (crate::utils::fmt_qty(price.price)) }
- td { (&price.currency_code) }
- td class="text-right text-[13px]" { (crate::utils::fmt_qty(price.discount_pct)) }
- td class="text-right text-[13px]" { (crate::utils::fmt_qty(price.min_order_qty)) }
- td class="text-right text-[13px]" { (price.lead_time_days) }
- td class="text-muted" class="text-xs" { (valid_text) }
- td {
- @if price.is_active {
- span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-success-bg text-success" { "启用" }
- } @else {
- span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-danger-bg text-danger" { "停用" }
- }
- }
- td {
- div class="row-actions flex items-center gap-1 justify-end opacity-0 transition-opacity duration-150 [&_a]:w-[28px] [&_a]:h-[28px] [&_a]:grid [&_a]:place-items-center [&_a]:rounded-sm [&_a]:cursor-pointer [&_a]:bg-surface [&_a]:hover:bg-accent-bg icon:w-3.5 icon:h-3.5" {
- button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs icon:w-4 icon:h-4"
- hx-get=(PriceEditPath { id: price.id }.to_string())
- hx-target="#price-modal"
- hx-swap="innerHTML"
- _="on 'htmx:afterRequest' add .is-open to #price-modal" {
- "编辑"
- }
- button class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-danger text-white border-none hover:opacity-90 icon:w-4 icon:h-4"
- hx-post=(PriceDeletePath { id: price.id }.to_string())
- hx-confirm="确认删除此价格记录？"
- hx-target="#price-data-card"
- hx-select="#price-data-card"
- hx-swap="outerHTML" {
- "删除"
- }
- }
- }
- }
- }
+    tr {
+        td {
+            div class="font-medium" { (&price.supplier_name) }
+            div class="text-muted" class="text-xs" { (&price.supplier_code) }
+        }
+        td {
+            div { (&price.product_name) }
+            div class="text-muted" class="text-xs" { (&price.product_code) }
+        }
+        td { (price.supplier_item_code.as_deref().unwrap_or("—")) }
+        td class="font-mono tabular-nums text-right text-[13px]" {
+            (crate::utils::fmt_qty(price.price))
+        }
+        td { (&price.currency_code) }
+        td class="text-right text-[13px]" { (crate::utils::fmt_qty(price.discount_pct)) }
+        td class="text-right text-[13px]" { (crate::utils::fmt_qty(price.min_order_qty)) }
+        td class="text-right text-[13px]" { (price.lead_time_days) }
+        td class="text-muted" class="text-xs" { (valid_text) }
+        td {
+            @if price.is_active {
+                span
+                    class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-success-bg text-success"
+                { "启用" }
+            } @else {
+                span
+                    class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-danger-bg text-danger"
+                { "停用" }
+            }
+        }
+        td {
+            div class="row-actions flex items-center gap-1 justify-end opacity-0 transition-opacity duration-150 [&_a]:w-[28px] [&_a]:h-[28px] [&_a]:grid [&_a]:place-items-center [&_a]:rounded-sm [&_a]:cursor-pointer [&_a]:bg-surface [&_a]:hover:bg-accent-bg icon:w-3.5 icon:h-3.5"
+            {
+                button
+                    type="button"
+                    class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs icon:w-4 icon:h-4"
+                    hx-get=(PriceEditPath { id: price.id }.to_string())
+                    hx-target="#price-modal"
+                    hx-swap="innerHTML"
+                    _="on 'htmx:afterRequest' add .is-open to #price-modal"
+                { "编辑" }
+                button
+                    class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-danger text-white border-none hover:opacity-90 icon:w-4 icon:h-4"
+                    hx-post=(PriceDeletePath { id: price.id }.to_string())
+                    hx-confirm="确认删除此价格记录？"
+                    hx-target="#price-data-card"
+                    hx-select="#price-data-card"
+                    hx-swap="outerHTML"
+                { "删除" }
+            }
+        }
+    }
+}
 }
 
 fn empty_state() -> Markup {
  html! {
- div class="text-center" class="p-12 text-muted" {
- p class="m-0" class="text-lg" { "暂无价格记录" }
- p class="mt-2 text-sm" { "点击「+ 新建价格」添加供应商价格" }
- }
- }
+    div class="text-center" class="p-12 text-muted" {
+        p class="m-0" class="text-lg" { "暂无价格记录" }
+        p class="mt-2 text-sm" { "点击「+ 新建价格」添加供应商价格" }
+    }
+}
 }
 
 // ── Modal ──
 
 fn price_modal_shell() -> Markup {
  html! {
- div class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto" id="price-modal"
- _="on closePriceModal from body remove .is-open
- on click[me is event.target] remove .is-open" {
- }
- }
+    div class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto"
+        id="price-modal"
+        _="on closePriceModal from body remove .is-open
+ on click[me is event.target] remove .is-open" {}
+}
 }
 
 fn price_form(action_url: &str, price: Option<&PriceView>) -> Markup {
@@ -563,128 +585,238 @@ fn price_form(action_url: &str, price: Option<&PriceView>) -> Markup {
  .unwrap_or_default();
 
  html! {
- // 不加 _="on click halt"——halt 的 preventDefault 会阻止「保存」submit 按钮提交；
- // 背景关闭已由 #price-modal overlay 的 [me is event.target] 过滤实现。
- div class="modal bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl" {
- div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
- h2 { (title) }
- button class="bg-transparent border-none cursor-pointer text-xl text-muted p-1 hover:text-fg"
- _="on click remove .is-open from #price-modal" { "×" }
- }
- form hx-post=(action_url) hx-target="this" hx-swap="outerHTML"
- _="on 'htmx:afterRequest'[detail.successful] remove .is-open from #price-modal" {
+    // 不加 _="on click halt"——halt 的 preventDefault 会阻止「保存」submit 按钮提交；
+    // 背景关闭已由 #price-modal overlay 的 [me is event.target] 过滤实现。
+    div class="modal bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl"
+    {
+        div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0"
+        {
+            h2 { (title) }
+            button
+                class="bg-transparent border-none cursor-pointer text-xl text-muted p-1 hover:text-fg"
+                _="on click remove .is-open from #price-modal"
+            { "×" }
+        }
+        form
+            hx-post=(action_url)
+            hx-target="this"
+            hx-swap="outerHTML"
+            _="on 'htmx:afterRequest'[detail.successful] remove .is-open from #price-modal"
+        {
 
- div class="overflow-y-auto flex-1 min-h-0 p-6" {
- // Section: Basic info
- div class="form-section" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "基本信息" }
- @if is_edit {
- div class="supplier-info-bar" {
- span { "供应商: " (supplier_display) }
- span { " | 产品: " (product_display) }
- }
- }
- div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
- div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "供应商ID" span class="required" { "*" } }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" step="any" name="supplier_id"
- required value=(sid);
- }
- div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "产品ID" span class="required" { "*" } }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" step="any" name="product_id"
- required value=(pid);
- }
- div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "单价" span class="required" { "*" } }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" step="any"
- name="price" required value=(pv);
- }
- div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "币种" }
- select name="currency_code" class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" {
- @for c in &["CNY", "USD", "EUR"] {
- option value=(*c) selected[cc == *c] {
- (match *c { "CNY" => "CNY 人民币", "USD" => "USD 美元", _ => "EUR 欧元" })
- }
- }
- }
- }
- div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "起订量" }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" step="any"
- name="min_order_qty" value=(moq);
- }
- div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "折扣(%)" }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" step="any"
- name="discount_pct" value=(disc);
- }
- div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "交货天数" }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" step="any"
- name="lead_time_days" value=(ldt);
- }
- div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "排序" }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" step="any"
- name="sequence" value=(seq);
- }
- }
- }
+            div class="overflow-y-auto flex-1 min-h-0 p-6" {
+                // Section: Basic info
+                div class="form-section" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
+                    { "基本信息" }
+                    @if is_edit {
+                        div class="supplier-info-bar" {
+                            span { "供应商: " (supplier_display) }
+                            span { " | 产品: " (product_display) }
+                        }
+                    }
+                    div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
+                        div class="form-field" {
+                            label
+                                class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap"
+                            {
+                                "供应商ID"
+                                span class="required" { "*" }
+                            }
+                            input
+                                class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]"
+                                type="number"
+                                step="any"
+                                name="supplier_id"
+                                required
+                                value=(sid);
+                        }
+                        div class="form-field" {
+                            label
+                                class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap"
+                            {
+                                "产品ID"
+                                span class="required" { "*" }
+                            }
+                            input
+                                class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]"
+                                type="number"
+                                step="any"
+                                name="product_id"
+                                required
+                                value=(pid);
+                        }
+                        div class="form-field" {
+                            label
+                                class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap"
+                            {
+                                "单价"
+                                span class="required" { "*" }
+                            }
+                            input
+                                class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]"
+                                type="number"
+                                step="any"
+                                name="price"
+                                required
+                                value=(pv);
+                        }
+                        div class="form-field" {
+                            label
+                                class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap"
+                            { "币种" }
+                            select
+                                name="currency_code"
+                                class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]"
+                            {
+                                @for c in &["CNY", "USD", "EUR"] {
+                                    option value=(*c) selected[cc == *c] {
+                                        ({
+                                            match *c {
+                                                "CNY" => "CNY 人民币",
+                                                "USD" => "USD 美元",
+                                                _ => "EUR 欧元",
+                                            }
+                                        })
+                                    }
+                                }
+                            }
+                        }
+                        div class="form-field" {
+                            label
+                                class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap"
+                            { "起订量" }
+                            input
+                                class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]"
+                                type="number"
+                                step="any"
+                                name="min_order_qty"
+                                value=(moq);
+                        }
+                        div class="form-field" {
+                            label
+                                class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap"
+                            { "折扣(%)" }
+                            input
+                                class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]"
+                                type="number"
+                                step="any"
+                                name="discount_pct"
+                                value=(disc);
+                        }
+                        div class="form-field" {
+                            label
+                                class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap"
+                            { "交货天数" }
+                            input
+                                class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]"
+                                type="number"
+                                step="any"
+                                name="lead_time_days"
+                                value=(ldt);
+                        }
+                        div class="form-field" {
+                            label
+                                class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap"
+                            { "排序" }
+                            input
+                                class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]"
+                                type="number"
+                                step="any"
+                                name="sequence"
+                                value=(seq);
+                        }
+                    }
+                }
+                // Section: Supplier item info
+                div class="form-section" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
+                    { "供应商物料信息" }
+                    div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
+                        div class="form-field" {
+                            label
+                                class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap"
+                            { "供应商料号" }
+                            input
+                                class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]"
+                                type="text"
+                                name="supplier_item_code"
+                                value=(sic);
+                        }
+                        div class="form-field" {
+                            label
+                                class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap"
+                            { "供应商品名" }
+                            input
+                                class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]"
+                                type="text"
+                                name="supplier_item_name"
+                                value=(sin);
+                        }
+                    }
+                }
+                // Section: Tax & validity
+                div class="form-section" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
+                    { "税率与有效期" }
+                    div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
+                        div class="form-field" {
+                            label
+                                class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap"
+                            { "税率ID" }
+                            input
+                                class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]"
+                                type="number"
+                                step="any"
+                                name="tax_rate_id"
+                                value=(tax_id);
+                        }
+                        div class="form-field" {
+                            label
+                                class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap"
+                            { "启用状态" }
+                            label class="flex items-center cursor-pointer" class="gap-2" {
+                                input type="checkbox" name="is_active" checked[active_checked] {}
+                                ;
+                                " 启用"
+                            }
+                        }
+                        div class="form-field" {
+                            label
+                                class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap"
+                            { "生效日期" }
+                            input
+                                class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]"
+                                type="date"
+                                name="valid_from"
+                                value=(vf);
+                        }
+                        div class="form-field" {
+                            label
+                                class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap"
+                            { "失效日期" }
+                            input
+                                class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]"
+                                type="date"
+                                name="valid_until"
+                                value=(vu);
+                        }
+                    }
+                }
+            }
 
- // Section: Supplier item info
- div class="form-section" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "供应商物料信息" }
- div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
- div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "供应商料号" }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text"
- name="supplier_item_code" value=(sic);
- }
- div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "供应商品名" }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text"
- name="supplier_item_name" value=(sin);
- }
- }
- }
-
- // Section: Tax & validity
- div class="form-section" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "税率与有效期" }
- div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
- div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "税率ID" }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" step="any"
- name="tax_rate_id" value=(tax_id);
- }
- div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "启用状态" }
- label class="flex items-center cursor-pointer" class="gap-2" {
- input type="checkbox" name="is_active"
- checked[active_checked] {};
- " 启用"
- }
- }
- div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "生效日期" }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="date" name="valid_from" value=(vf);
- }
- div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "失效日期" }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="date" name="valid_until" value=(vu);
- }
- }
- }
- }
-
- div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" {
- button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
- _="on click remove .is-open from #price-modal" { "取消" }
- button type="submit" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" { "保存" }
- }
- }
- }
- }
+            div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" {
+                button
+                    type="button"
+                    class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                    _="on click remove .is-open from #price-modal"
+                { "取消" }
+                button
+                    type="submit"
+                    class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                { "保存" }
+            }
+        }
+    }
+}
 }

@@ -135,114 +135,303 @@ const BTN_DEFAULT: &str =
 
 fn stat_card(icon: &Markup, icon_cls: &str, value: &str, label: &str) -> Markup {
  html! {
- div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-md shadow-xs" {
- div class=(format!("w-[44px] h-[44px] rounded-md grid place-items-center shrink-0 {}", icon_cls)) {
- (icon)
- }
- div {
- div class="text-2xl font-bold font-mono tabular-nums text-fg" { (value) }
- div class="text-sm text-muted mt-1" { (label) }
- }
- }
- }
+    div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-md shadow-xs" {
+        div class=({
+                format!(
+                    "w-[44px] h-[44px] rounded-md grid place-items-center shrink-0 {}",
+                    icon_cls,
+                )
+            })
+        { (icon) }
+        div {
+            div class="text-2xl font-bold font-mono tabular-nums text-fg" { (value) }
+            div class="text-sm text-muted mt-1" { (label) }
+        }
+    }
+}
 }
 
 fn wms_dashboard_content(stats: &DashboardStats) -> Markup {
  html! {
- // ── Page Header ──
- div class="flex items-center justify-between mb-6" {
- h1 class="text-xl font-bold text-fg tracking-tight" { "库存管理总览" }
- button class=(BTN_DEFAULT) {
- (icon::download_icon("w-4 h-4"))
- "导出报表"
- }
- }
-
- // ── Stat Cards ──
- div class="grid grid-cols-5 gap-5 mb-8" {
- (stat_card(&icon::building_icon("w-[22px] h-[22px]"), "bg-accent-bg text-accent", &stats.warehouse_count.to_string(), "仓库总数"))
- (stat_card(&icon::box_icon("w-[22px] h-[22px]"), "bg-success-bg text-success", &format_number(stats.stock_sku_count), "库存品类"))
- (stat_card(&icon::download_icon("w-[22px] h-[22px]"), "bg-accent-bg text-accent", &stats.month_in_count.to_string(), "本月入库"))
- (stat_card(&icon::upload_icon("w-[22px] h-[22px]"), "bg-danger-bg text-danger", &stats.month_out_count.to_string(), "本月出库"))
- (stat_card(&icon::circle_alert_icon("w-[22px] h-[22px]"), "bg-danger-bg text-danger", &stats.low_stock_count.to_string(), "低库存预警"))
- }
-
- // ── Quick Entry Grid ──
- div class="mb-8" {
- h2 class="text-lg font-semibold text-fg mb-4" { "快捷入口" }
- div class="grid grid-cols-4 gap-4" {
- (quick_entry_card("/admin/wms/warehouses", "bg-accent-bg", "text-accent", &icon::building_icon("w-[22px] h-[22px]"), "仓库管理", "仓库主数据与分区配置"))
- (quick_entry_card("/admin/wms/bins", "bg-success-bg", "text-success", &icon::grid_icon("w-[22px] h-[22px]"), "库位管理", "库位规划与容量管理"))
- (quick_entry_card("/admin/wms/stock", "bg-accent-bg", "text-accent", &icon::search_icon("w-[22px] h-[22px]"), "库存查询", "实时库存数量与批次"))
- (quick_entry_card("/admin/wms/arrivals", "bg-warn-bg", "text-warn", &icon::truck_icon("w-[22px] h-[22px]"), "来料通知", "供应商送货到货登记"))
- (quick_entry_card("/admin/wms/stock-in", "bg-accent-bg", "text-accent", &icon::download_icon("w-[22px] h-[22px]"), "入库管理", "采购入库 / 生产入库"))
- (quick_entry_card("/admin/wms/stock-out", "bg-danger-bg", "text-danger", &icon::upload_icon("w-[22px] h-[22px]"), "出库管理", "销售出库 / 生产领料"))
- (quick_entry_card("/admin/wms/requisitions", "bg-success-bg", "text-success", &icon::clipboard_module_icon("w-[22px] h-[22px]"), "领料单", "生产领料与发料管理"))
- (quick_entry_card("/admin/wms/cycle-counts", "bg-warn-bg", "text-warn", &icon::clipboard_list_icon("w-[22px] h-[22px]"), "循环盘点", "定期盘点与差异处理"))
- (quick_entry_card("/admin/wms/transfers", "bg-accent-bg", "text-accent", &icon::arrow_right_icon("w-[22px] h-[22px]"), "库存调拨", "跨仓调拨与在途管理"))
- (quick_entry_card("/admin/wms/conversions", "bg-danger-bg", "text-danger", &icon::refresh_icon("w-[22px] h-[22px]"), "形态转换", "物料形态与单位转换"))
- (quick_entry_card("/admin/wms/backflushes", "bg-success-bg", "text-success", &icon::refresh_icon("w-[22px] h-[22px]"), "倒冲记录", "生产完工自动扣料"))
- (quick_entry_card("/admin/wms/locks", "bg-danger-bg", "text-danger", &icon::lock_icon("w-[22px] h-[22px]"), "库存锁定", "质检与预留库存冻结"))
- (quick_entry_card("/admin/wms/transactions", "bg-warn-bg", "text-warn", &icon::file_text_icon("w-[22px] h-[22px]"), "事务日志", "全量库存事务流水"))
- (quick_entry_card("/admin/wms/strategies", "bg-accent-bg", "text-accent", &icon::sliders_icon("w-[22px] h-[22px]"), "策略管理", "上架与拣货策略配置"))
- }
- }
-
- // ── Recent Operations ──
- div {
- h2 class="text-lg font-semibold text-fg mb-4" { "最近操作" }
- div class="data-card overflow-hidden" {
- table class="data-table w-full" {
- thead {
- tr {
- th { "时间" }
- th { "操作类型" }
- th { "单号" }
- th { "仓库" }
- th { "操作人" }
- }
- }
- tbody {
- tr {
- td class="text-muted text-xs" { "—" }
- td { span class="inline-flex items-center gap-1 rounded-full text-xs font-medium whitespace-nowrap bg-accent-50 text-accent" { "来料接收" } }
- td { a href="/admin/wms/arrivals" class="text-accent" { "—" } }
- td { "—" }
- td { "—" }
- }
- tr {
- td class="text-muted text-xs" { "—" }
- td { span class="inline-flex items-center gap-1 rounded-full text-xs font-medium whitespace-nowrap bg-warn-bg text-warn" { "领料出库" } }
- td { a href="/admin/wms/requisitions" class="text-accent" { "—" } }
- td { "—" }
- td { "—" }
- }
- tr {
- td class="text-muted text-xs" { "—" }
- td { span class="inline-flex items-center gap-1 rounded-full text-xs font-medium whitespace-nowrap bg-success-bg text-success" { "库存调拨" } }
- td { a href="/admin/wms/transfers" class="text-accent" { "—" } }
- td { "—" }
- td { "—" }
- }
- tr {
- td class="text-muted text-xs" { "—" }
- td { span class="inline-flex items-center gap-1 rounded-full text-xs font-medium whitespace-nowrap bg-surface text-muted" { "循环盘点" } }
- td { a href="/admin/wms/cycle-counts" class="text-accent" { "—" } }
- td { "—" }
- td { "—" }
- }
- tr {
- td class="text-muted text-xs" { "—" }
- td { span class="inline-flex items-center gap-1 rounded-full text-xs font-medium whitespace-nowrap bg-warn-bg text-warn" { "库存锁定" } }
- td { a href="/admin/wms/locks" class="text-accent" { "—" } }
- td { "—" }
- td { "—" }
- }
- }
- }
- }
- }
- }
+    // ── Page Header ──
+    div class="flex items-center justify-between mb-6" {
+        h1 class="text-xl font-bold text-fg tracking-tight" { "库存管理总览" }
+        button class=(BTN_DEFAULT) { (icon::download_icon("w-4 h-4")) "导出报表" }
+    }
+    // ── Stat Cards ──
+    div class="grid grid-cols-5 gap-5 mb-8" {
+        ({
+            stat_card(
+                &icon::building_icon("w-[22px] h-[22px]"),
+                "bg-accent-bg text-accent",
+                &stats.warehouse_count.to_string(),
+                "仓库总数",
+            )
+        })
+        ({
+            stat_card(
+                &icon::box_icon("w-[22px] h-[22px]"),
+                "bg-success-bg text-success",
+                &format_number(stats.stock_sku_count),
+                "库存品类",
+            )
+        })
+        ({
+            stat_card(
+                &icon::download_icon("w-[22px] h-[22px]"),
+                "bg-accent-bg text-accent",
+                &stats.month_in_count.to_string(),
+                "本月入库",
+            )
+        })
+        ({
+            stat_card(
+                &icon::upload_icon("w-[22px] h-[22px]"),
+                "bg-danger-bg text-danger",
+                &stats.month_out_count.to_string(),
+                "本月出库",
+            )
+        })
+        ({
+            stat_card(
+                &icon::circle_alert_icon("w-[22px] h-[22px]"),
+                "bg-danger-bg text-danger",
+                &stats.low_stock_count.to_string(),
+                "低库存预警",
+            )
+        })
+    }
+    // ── Quick Entry Grid ──
+    div class="mb-8" {
+        h2 class="text-lg font-semibold text-fg mb-4" { "快捷入口" }
+        div class="grid grid-cols-4 gap-4" {
+            ({
+                quick_entry_card(
+                    "/admin/wms/warehouses",
+                    "bg-accent-bg",
+                    "text-accent",
+                    &icon::building_icon("w-[22px] h-[22px]"),
+                    "仓库管理",
+                    "仓库主数据与分区配置",
+                )
+            })
+            ({
+                quick_entry_card(
+                    "/admin/wms/bins",
+                    "bg-success-bg",
+                    "text-success",
+                    &icon::grid_icon("w-[22px] h-[22px]"),
+                    "库位管理",
+                    "库位规划与容量管理",
+                )
+            })
+            ({
+                quick_entry_card(
+                    "/admin/wms/stock",
+                    "bg-accent-bg",
+                    "text-accent",
+                    &icon::search_icon("w-[22px] h-[22px]"),
+                    "库存查询",
+                    "实时库存数量与批次",
+                )
+            })
+            ({
+                quick_entry_card(
+                    "/admin/wms/arrivals",
+                    "bg-warn-bg",
+                    "text-warn",
+                    &icon::truck_icon("w-[22px] h-[22px]"),
+                    "来料通知",
+                    "供应商送货到货登记",
+                )
+            })
+            ({
+                quick_entry_card(
+                    "/admin/wms/stock-in",
+                    "bg-accent-bg",
+                    "text-accent",
+                    &icon::download_icon("w-[22px] h-[22px]"),
+                    "入库管理",
+                    "采购入库 / 生产入库",
+                )
+            })
+            ({
+                quick_entry_card(
+                    "/admin/wms/stock-out",
+                    "bg-danger-bg",
+                    "text-danger",
+                    &icon::upload_icon("w-[22px] h-[22px]"),
+                    "出库管理",
+                    "销售出库 / 生产领料",
+                )
+            })
+            ({
+                quick_entry_card(
+                    "/admin/wms/requisitions",
+                    "bg-success-bg",
+                    "text-success",
+                    &icon::clipboard_module_icon("w-[22px] h-[22px]"),
+                    "领料单",
+                    "生产领料与发料管理",
+                )
+            })
+            ({
+                quick_entry_card(
+                    "/admin/wms/cycle-counts",
+                    "bg-warn-bg",
+                    "text-warn",
+                    &icon::clipboard_list_icon("w-[22px] h-[22px]"),
+                    "循环盘点",
+                    "定期盘点与差异处理",
+                )
+            })
+            ({
+                quick_entry_card(
+                    "/admin/wms/transfers",
+                    "bg-accent-bg",
+                    "text-accent",
+                    &icon::arrow_right_icon("w-[22px] h-[22px]"),
+                    "库存调拨",
+                    "跨仓调拨与在途管理",
+                )
+            })
+            ({
+                quick_entry_card(
+                    "/admin/wms/conversions",
+                    "bg-danger-bg",
+                    "text-danger",
+                    &icon::refresh_icon("w-[22px] h-[22px]"),
+                    "形态转换",
+                    "物料形态与单位转换",
+                )
+            })
+            ({
+                quick_entry_card(
+                    "/admin/wms/backflushes",
+                    "bg-success-bg",
+                    "text-success",
+                    &icon::refresh_icon("w-[22px] h-[22px]"),
+                    "倒冲记录",
+                    "生产完工自动扣料",
+                )
+            })
+            ({
+                quick_entry_card(
+                    "/admin/wms/locks",
+                    "bg-danger-bg",
+                    "text-danger",
+                    &icon::lock_icon("w-[22px] h-[22px]"),
+                    "库存锁定",
+                    "质检与预留库存冻结",
+                )
+            })
+            ({
+                quick_entry_card(
+                    "/admin/wms/transactions",
+                    "bg-warn-bg",
+                    "text-warn",
+                    &icon::file_text_icon("w-[22px] h-[22px]"),
+                    "事务日志",
+                    "全量库存事务流水",
+                )
+            })
+            ({
+                quick_entry_card(
+                    "/admin/wms/strategies",
+                    "bg-accent-bg",
+                    "text-accent",
+                    &icon::sliders_icon("w-[22px] h-[22px]"),
+                    "策略管理",
+                    "上架与拣货策略配置",
+                )
+            })
+        }
+    }
+    // ── Recent Operations ──
+    div {
+        h2 class="text-lg font-semibold text-fg mb-4" { "最近操作" }
+        div class="data-card overflow-hidden" {
+            table class="data-table w-full" {
+                thead {
+                    tr {
+                        th { "时间" }
+                        th { "操作类型" }
+                        th { "单号" }
+                        th { "仓库" }
+                        th { "操作人" }
+                    }
+                }
+                tbody {
+                    tr {
+                        td class="text-muted text-xs" { "—" }
+                        td {
+                            span
+                                class="inline-flex items-center gap-1 rounded-full text-xs font-medium whitespace-nowrap bg-accent-50 text-accent"
+                            { "来料接收" }
+                        }
+                        td {
+                            a href="/admin/wms/arrivals" class="text-accent" { "—" }
+                        }
+                        td { "—" }
+                        td { "—" }
+                    }
+                    tr {
+                        td class="text-muted text-xs" { "—" }
+                        td {
+                            span
+                                class="inline-flex items-center gap-1 rounded-full text-xs font-medium whitespace-nowrap bg-warn-bg text-warn"
+                            { "领料出库" }
+                        }
+                        td {
+                            a href="/admin/wms/requisitions" class="text-accent" { "—" }
+                        }
+                        td { "—" }
+                        td { "—" }
+                    }
+                    tr {
+                        td class="text-muted text-xs" { "—" }
+                        td {
+                            span
+                                class="inline-flex items-center gap-1 rounded-full text-xs font-medium whitespace-nowrap bg-success-bg text-success"
+                            { "库存调拨" }
+                        }
+                        td {
+                            a href="/admin/wms/transfers" class="text-accent" { "—" }
+                        }
+                        td { "—" }
+                        td { "—" }
+                    }
+                    tr {
+                        td class="text-muted text-xs" { "—" }
+                        td {
+                            span
+                                class="inline-flex items-center gap-1 rounded-full text-xs font-medium whitespace-nowrap bg-surface text-muted"
+                            { "循环盘点" }
+                        }
+                        td {
+                            a href="/admin/wms/cycle-counts" class="text-accent" { "—" }
+                        }
+                        td { "—" }
+                        td { "—" }
+                    }
+                    tr {
+                        td class="text-muted text-xs" { "—" }
+                        td {
+                            span
+                                class="inline-flex items-center gap-1 rounded-full text-xs font-medium whitespace-nowrap bg-warn-bg text-warn"
+                            { "库存锁定" }
+                        }
+                        td {
+                            a href="/admin/wms/locks" class="text-accent" { "—" }
+                        }
+                        td { "—" }
+                        td { "—" }
+                    }
+                }
+            }
+        }
+    }
+}
 }
 
 // ── Sub-components ──
@@ -266,13 +455,15 @@ fn quick_entry_card(
  desc: &str,
 ) -> Markup {
  html! {
- a href=(href) class="flex flex-col items-center gap-3 rounded-md border border-border-soft px-4 py-6 bg-bg shadow-xs no-underline cursor-pointer hover:border-accent hover:bg-accent-bg transition-colors" {
- div class=(format!("w-11 h-11 rounded-md grid place-items-center {}", icon_bg)) {
- span class=(icon_color) { (svg_icon) }
- }
- span class="text-sm font-semibold text-fg" { (title) }
- span class="text-xs text-muted text-center" { (desc) }
- }
- }
+    a   href=(href)
+        class="flex flex-col items-center gap-3 rounded-md border border-border-soft px-4 py-6 bg-bg shadow-xs no-underline cursor-pointer hover:border-accent hover:bg-accent-bg transition-colors"
+    {
+        div class=(format!("w-11 h-11 rounded-md grid place-items-center {}", icon_bg)) {
+            span class=(icon_color) { (svg_icon) }
+        }
+        span class="text-sm font-semibold text-fg" { (title) }
+        span class="text-xs text-muted text-center" { (desc) }
+    }
+}
 }
 

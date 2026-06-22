@@ -371,232 +371,320 @@ fn user_detail_page(
  .sum();
 
  html! {
- div class="space-y-5" {
- // ── Back Link ──
- a class="inline-flex items-center gap-1 text-sm text-muted hover:text-fg transition-colors"
- href=(format!("{list_path}?restore=true")) {
- (icon::chevron_left_icon("w-4 h-4"))
- "返回用户列表"
- }
-
- // ── Profile Hero ──
- div class="flex items-center justify-between p-5 px-6 bg-bg border border-border-soft rounded-xl shadow-xs" {
- div class="flex items-center gap-4" {
- div class="w-[52px] h-[52px] rounded-lg flex items-center justify-center text-[18px] font-bold text-white shrink-0 bg-[linear-gradient(135deg,#1677ff,#4096ff)] shadow-[0_3px_10px_rgba(22,119,255,0.2)]" {
- (avatar_initials)
- }
- div {
- h2 class="text-[18px] font-bold text-fg mb-[3px] tracking-[-0.01em]" { (display_name) }
- div class="flex items-center gap-[6px] flex-wrap" {
- span class="inline-flex items-center px-[7px] py-[1px] bg-surface border border-border rounded-[3px] font-mono text-[11px] font-semibold text-accent tracking-[0.04em]" {
- (&user.user.username)
- }
- span class="text-xs text-muted" {
- "ID: " (user_id) " · 创建于 "
- (user.user.created_at.format("%Y-%m-%d"))
- }
- }
- div class="flex gap-[4px] mt-[4px]" {
- @if user.user.is_active {
- span class=(format!("{TAG_PILL_BASE} bg-success-bg text-success border border-success-100")) { "已激活" }
- } @else {
- span class=(format!("{TAG_PILL_BASE} bg-surface text-slate-400 border border-border")) { "未激活" }
- }
- @if user.user.is_super_admin {
- span class=(format!("{TAG_PILL_BASE} bg-purple-bg text-purple border border-purple-100")) { "超级管理员" }
- }
- @for dept in user_depts {
- span class=(format!("{TAG_PILL_BASE} bg-accent-50 text-accent border border-accent-100")) { (&dept.department_name) }
- }
- span class=(format!("{TAG_PILL_BASE} bg-accent-50 text-accent border border-accent-100")) { (data_scope) }
- }
- }
- }
- div class="flex gap-[6px]" {
- a class=(BTN_DEFAULT_SM) href=(edit_path) {
- (icon::edit_icon("w-3.5 h-3.5"))
- "编辑"
- }
- button type="button" class=(BTN_DEFAULT_SM)
- _="on click add .is-open to #reset-pw-modal" {
- (icon::lock_icon("w-3.5 h-3.5"))
- "重置密码"
- }
- }
- }
-
- // ── Stats Row ──
- div class="flex gap-3" {
- (stat_item("bg-accent", &user.roles.len().to_string(), "个角色", false))
- (stat_item("bg-success-500", &user_depts.len().to_string(), "个部门", false))
- (stat_item("bg-purple", &total_perms.to_string(), "项权限", false))
- (stat_item("bg-warn-500", data_scope, "数据范围", true))
- }
-
- // ── Two-Column Grid ──
- div class="grid grid-cols-2 gap-5" {
- // ── LEFT COLUMN ──
- div class="space-y-5" {
- // Basic Info Card
- div class=(D_CARD) {
- div class=(D_CARD_HEAD) {
- h3 class="text-[13px] font-semibold flex items-center gap-[6px] text-fg" {
- (info_circle_icon("w-3.5 h-3.5"))
- "基本信息"
- }
- }
- div class="p-4" {
- div class="border border-border-soft rounded-lg overflow-hidden" {
- (info_row("用户 ID", html! { span class="text-fg font-medium font-mono text-xs text-accent" { "#" (format!("{:03}", user_id)) } }))
- (info_row("登录名", html! { span class="text-fg font-medium font-mono text-xs text-accent" { (&user.user.username) } }))
- (info_row("显示名称", html! { span class="text-fg font-medium" { (display_name) } }))
- (info_row("超级管理员", html! {
- @if user.user.is_super_admin {
- span class="text-fg font-medium" { "是" }
- } @else {
- span class="text-muted font-medium" { "否" }
- }
- }))
- (info_row("激活状态", html! {
- @if user.user.is_active {
- span class="text-success font-medium" { "已激活" }
- } @else {
- span class="text-muted font-medium" { "未激活" }
- }
- }))
- (info_row("数据权限", html! { span class="text-fg font-medium" { (data_scope) } }))
- (info_row("创建时间", html! { span class="text-fg font-medium font-mono text-xs text-accent" { (user.user.created_at.format("%Y-%m-%d %H:%M")) } }))
- (info_row("最后更新", html! {
- @if let Some(updated) = &user.user.updated_at {
- span class="text-fg font-medium font-mono text-xs text-accent" { (updated.format("%Y-%m-%d %H:%M")) }
- } @else {
- span class="text-muted font-medium" { "—" }
- }
- }))
- }
- }
- }
-
- // Departments Card
- div class=(D_CARD) {
- div class=(D_CARD_HEAD) {
- h3 class="text-[13px] font-semibold flex items-center gap-[6px] text-fg" {
- (icon::building_icon("w-3.5 h-3.5"))
- "所属部门"
- }
- div class="flex items-center gap-2" {
- span class="text-[11px] text-muted bg-bg px-2 py-[1px] rounded-full border border-border-soft" {
- (user_depts.len())
- }
- button type="button" class="inline-flex items-center justify-center w-6 h-6 rounded-sm text-muted hover:text-accent hover:bg-accent-bg cursor-pointer transition-colors"
- title="管理部门"
- _="on click add .is-open to #dept-assign-modal" {
- (icon::edit_icon("w-3.5 h-3.5"))
- }
- }
- }
- div class="p-4" {
- @if user_depts.is_empty() {
- p class="text-sm text-muted" { "暂未分配部门" }
- } @else {
- @for dept in user_depts {
- div class="flex items-center gap-3 border border-border-soft rounded-md mb-2 transition-colors last:mb-0 hover:border-accent" {
- span class="w-7 h-7 rounded-lg flex items-center justify-center text-[9px] font-bold text-white shrink-0 bg-[linear-gradient(135deg,#1677ff,#4096ff)]" {
- (get_initials(&dept.department_code))
- }
- div class="flex-1 min-w-0" {
- div class="text-[13px] font-semibold text-fg leading-[1.3]" { (&dept.department_name) }
- div class="text-[11px] text-muted font-mono" { (&dept.department_code) }
- }
- }
- }
- }
- }
- }
- }
-
- // ── RIGHT COLUMN ──
- div class="space-y-5" {
- // Roles Card
- div class=(D_CARD) {
- div class=(D_CARD_HEAD) {
- h3 class="text-[13px] font-semibold flex items-center gap-[6px] text-fg" {
- (icon::lock_icon("w-3.5 h-3.5"))
- "已分配角色"
- }
- div class="flex items-center gap-2" {
- span class="text-[11px] text-muted bg-bg px-2 py-[1px] rounded-full border border-border-soft" {
- (user.roles.len())
- }
- button type="button" class="inline-flex items-center justify-center w-6 h-6 rounded-sm text-muted hover:text-accent hover:bg-accent-bg cursor-pointer transition-colors"
- title="管理角色"
- _="on click add .is-open to #role-assign-modal" {
- (icon::edit_icon("w-3.5 h-3.5"))
- }
- }
- }
- div class="p-4" {
- @if user.roles.is_empty() {
- p class="text-sm text-muted" { "暂未分配角色" }
- } @else {
- @for role in &user.roles {
- div class="flex items-center gap-3 border border-border-soft rounded-md mb-2 transition-colors last:mb-0 hover:border-accent" {
- span class="w-7 h-7 rounded-lg flex items-center justify-center text-[9px] font-bold text-white shrink-0 bg-[linear-gradient(135deg,#1677ff,#4096ff)]" {
- (get_initials(&role.role_code))
- }
- div class="flex-1 min-w-0" {
- div class="text-[13px] font-semibold text-fg leading-[1.3]" { (&role.role_name) }
- div class="text-[11px] text-muted font-mono" { (&role.role_code) }
- }
- @if is_role_system(&role.role_code, all_roles) {
- span class="text-[10px] px-[6px] py-[1px] rounded-[3px] font-medium bg-warn-bg text-warn border border-warn-200" { "内置" }
- }
- }
- }
- }
- }
- }
-
- // Permission Preview Card
- div class=(D_CARD) {
- div class=(D_CARD_HEAD) {
- h3 class="text-[13px] font-semibold flex items-center gap-[6px] text-fg" {
- (shield_check_icon("w-3.5 h-3.5"))
- "权限预览"
- }
- span class="text-[11px] text-muted bg-bg px-2 py-[1px] rounded-full border border-border-soft" {
- (format!("{} 项", total_perms))
- }
- }
- div class="p-4 max-h-[320px] overflow-y-auto" {
- @if grouped_perms.is_empty() {
- p class="text-sm text-muted" { "暂无权限" }
- } @else {
- @for (code, name, actions) in grouped_perms {
- div class="mb-3 last:mb-0" {
- div class="text-xs font-semibold text-fg mb-2 flex items-center gap-[6px]" {
- (resource_icon(code, "w-3 h-3"))
- " " (name) " (" (code) ")"
- }
- div class="flex flex-wrap gap-[4px]" {
- @for action in actions {
- (perm_chip(&action))
- }
- }
- }
- }
- }
- }
- }
- }
- }
-
- // ── Modals ──
- (role_assign_modal(&role_assign_path, all_roles, &current_role_ids))
- (dept_assign_modal(&dept_assign_path, all_depts, &current_dept_ids))
- (reset_password_modal(&password_path))
- }
- }
+    div class="space-y-5" {
+        // ── Back Link ──
+        a   class="inline-flex items-center gap-1 text-sm text-muted hover:text-fg transition-colors"
+            href=(format!("{list_path}?restore=true"))
+        { (icon::chevron_left_icon("w-4 h-4")) "返回用户列表" }
+        // ── Profile Hero ──
+        div class="flex items-center justify-between p-5 px-6 bg-bg border border-border-soft rounded-xl shadow-xs"
+        {
+            div class="flex items-center gap-4" {
+                div class="w-[52px] h-[52px] rounded-lg flex items-center justify-center text-[18px] font-bold text-white shrink-0 bg-[linear-gradient(135deg,#1677ff,#4096ff)] shadow-[0_3px_10px_rgba(22,119,255,0.2)]"
+                { (avatar_initials) }
+                div {
+                    h2 class="text-[18px] font-bold text-fg mb-[3px] tracking-[-0.01em]" {
+                        (display_name)
+                    }
+                    div class="flex items-center gap-[6px] flex-wrap" {
+                        span
+                            class="inline-flex items-center px-[7px] py-[1px] bg-surface border border-border rounded-[3px] font-mono text-[11px] font-semibold text-accent tracking-[0.04em]"
+                        { (&user.user.username) }
+                        span class="text-xs text-muted" {
+                            "ID: "
+                            (user_id)
+                            " · 创建于 "
+                            (user.user.created_at.format("%Y-%m-%d"))
+                        }
+                    }
+                    div class="flex gap-[4px] mt-[4px]" {
+                        @if user.user.is_active {
+                            span
+                                class=({
+                                    format!(
+                                        "{TAG_PILL_BASE} bg-success-bg text-success border border-success-100",
+                                    )
+                                })
+                            { "已激活" }
+                        } @else {
+                            span
+                                class=({
+                                    format!(
+                                        "{TAG_PILL_BASE} bg-surface text-slate-400 border border-border",
+                                    )
+                                })
+                            { "未激活" }
+                        }
+                        @if user.user.is_super_admin {
+                            span
+                                class=({
+                                    format!(
+                                        "{TAG_PILL_BASE} bg-purple-bg text-purple border border-purple-100",
+                                    )
+                                })
+                            { "超级管理员" }
+                        }
+                        @for dept in user_depts {
+                            span
+                                class=({
+                                    format!(
+                                        "{TAG_PILL_BASE} bg-accent-50 text-accent border border-accent-100",
+                                    )
+                                })
+                            { (&dept.department_name) }
+                        }
+                        span
+                            class=({
+                                format!(
+                                    "{TAG_PILL_BASE} bg-accent-50 text-accent border border-accent-100",
+                                )
+                            })
+                        { (data_scope) }
+                    }
+                }
+            }
+            div class="flex gap-[6px]" {
+                a class=(BTN_DEFAULT_SM) href=(edit_path) { (icon::edit_icon("w-3.5 h-3.5")) "编辑" }
+                button
+                    type="button"
+                    class=(BTN_DEFAULT_SM)
+                    _="on click add .is-open to #reset-pw-modal"
+                { (icon::lock_icon("w-3.5 h-3.5")) "重置密码" }
+            }
+        }
+        // ── Stats Row ──
+        div class="flex gap-3" {
+            (stat_item("bg-accent", &user.roles.len().to_string(), "个角色", false))
+            ({
+                stat_item(
+                    "bg-success-500",
+                    &user_depts.len().to_string(),
+                    "个部门",
+                    false,
+                )
+            })
+            (stat_item("bg-purple", &total_perms.to_string(), "项权限", false))
+            (stat_item("bg-warn-500", data_scope, "数据范围", true))
+        }
+        // ── Two-Column Grid ──
+        div class="grid grid-cols-2 gap-5" {
+            // ── LEFT COLUMN ──
+            div class="space-y-5" {
+                // Basic Info Card
+                div class=(D_CARD) {
+                    div class=(D_CARD_HEAD) {
+                        h3 class="text-[13px] font-semibold flex items-center gap-[6px] text-fg" {
+                            (info_circle_icon("w-3.5 h-3.5"))
+                            "基本信息"
+                        }
+                    }
+                    div class="p-4" {
+                        div class="border border-border-soft rounded-lg overflow-hidden" {
+                            ({
+                                info_row(
+                                    "用户 ID",
+                                    html! {
+                                        span class =
+                                        "text-fg font-medium font-mono text-xs text-accent" {
+                                        "#"(format!("{:03}", user_id)) }
+                                    },
+                                )
+                            })
+                            ({
+                                info_row(
+                                    "登录名",
+                                    html! {
+                                        span class =
+                                        "text-fg font-medium font-mono text-xs text-accent" { (&
+                                        user.user.username) }
+                                    },
+                                )
+                            })
+                            ({
+                                info_row(
+                                    "显示名称",
+                                    html! {
+                                        span class = "text-fg font-medium" { (display_name) }
+                                    },
+                                )
+                            })
+                            ({
+                                info_row(
+                                    "超级管理员",
+                                    html! {
+                                        @ if user.user.is_super_admin { span class =
+                                        "text-fg font-medium" { "是" } } @ else { span class =
+                                        "text-muted font-medium" { "否" } }
+                                    },
+                                )
+                            })
+                            ({
+                                info_row(
+                                    "激活状态",
+                                    html! {
+                                        @ if user.user.is_active { span class =
+                                        "text-success font-medium" { "已激活" } } @ else { span
+                                        class = "text-muted font-medium" { "未激活" } }
+                                    },
+                                )
+                            })
+                            ({
+                                info_row(
+                                    "数据权限",
+                                    html! {
+                                        span class = "text-fg font-medium" { (data_scope) }
+                                    },
+                                )
+                            })
+                            ({
+                                info_row(
+                                    "创建时间",
+                                    html! {
+                                        span class =
+                                        "text-fg font-medium font-mono text-xs text-accent" { (user
+                                        .user.created_at.format("%Y-%m-%d %H:%M")) }
+                                    },
+                                )
+                            })
+                            ({
+                                info_row(
+                                    "最后更新",
+                                    html! {
+                                        @ if let Some(updated) = & user.user.updated_at { span class
+                                        = "text-fg font-medium font-mono text-xs text-accent" {
+                                        (updated.format("%Y-%m-%d %H:%M")) } } @ else { span class =
+                                        "text-muted font-medium" { "—" } }
+                                    },
+                                )
+                            })
+                        }
+                    }
+                }
+                // Departments Card
+                div class=(D_CARD) {
+                    div class=(D_CARD_HEAD) {
+                        h3 class="text-[13px] font-semibold flex items-center gap-[6px] text-fg" {
+                            (icon::building_icon("w-3.5 h-3.5"))
+                            "所属部门"
+                        }
+                        div class="flex items-center gap-2" {
+                            span
+                                class="text-[11px] text-muted bg-bg px-2 py-[1px] rounded-full border border-border-soft"
+                            { (user_depts.len()) }
+                            button
+                                type="button"
+                                class="inline-flex items-center justify-center w-6 h-6 rounded-sm text-muted hover:text-accent hover:bg-accent-bg cursor-pointer transition-colors"
+                                title="管理部门"
+                                _="on click add .is-open to #dept-assign-modal"
+                            { (icon::edit_icon("w-3.5 h-3.5")) }
+                        }
+                    }
+                    div class="p-4" {
+                        @if user_depts.is_empty() {
+                            p class="text-sm text-muted" { "暂未分配部门" }
+                        } @else {
+                            @for dept in user_depts {
+                                div class="flex items-center gap-3 border border-border-soft rounded-md mb-2 transition-colors last:mb-0 hover:border-accent"
+                                {
+                                    span
+                                        class="w-7 h-7 rounded-lg flex items-center justify-center text-[9px] font-bold text-white shrink-0 bg-[linear-gradient(135deg,#1677ff,#4096ff)]"
+                                    { (get_initials(&dept.department_code)) }
+                                    div class="flex-1 min-w-0" {
+                                        div class="text-[13px] font-semibold text-fg leading-[1.3]"
+                                        { (&dept.department_name) }
+                                        div class="text-[11px] text-muted font-mono" {
+                                            (&dept.department_code)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            // ── RIGHT COLUMN ──
+            div class="space-y-5" {
+                // Roles Card
+                div class=(D_CARD) {
+                    div class=(D_CARD_HEAD) {
+                        h3 class="text-[13px] font-semibold flex items-center gap-[6px] text-fg" {
+                            (icon::lock_icon("w-3.5 h-3.5"))
+                            "已分配角色"
+                        }
+                        div class="flex items-center gap-2" {
+                            span
+                                class="text-[11px] text-muted bg-bg px-2 py-[1px] rounded-full border border-border-soft"
+                            { (user.roles.len()) }
+                            button
+                                type="button"
+                                class="inline-flex items-center justify-center w-6 h-6 rounded-sm text-muted hover:text-accent hover:bg-accent-bg cursor-pointer transition-colors"
+                                title="管理角色"
+                                _="on click add .is-open to #role-assign-modal"
+                            { (icon::edit_icon("w-3.5 h-3.5")) }
+                        }
+                    }
+                    div class="p-4" {
+                        @if user.roles.is_empty() {
+                            p class="text-sm text-muted" { "暂未分配角色" }
+                        } @else {
+                            @for role in &user.roles {
+                                div class="flex items-center gap-3 border border-border-soft rounded-md mb-2 transition-colors last:mb-0 hover:border-accent"
+                                {
+                                    span
+                                        class="w-7 h-7 rounded-lg flex items-center justify-center text-[9px] font-bold text-white shrink-0 bg-[linear-gradient(135deg,#1677ff,#4096ff)]"
+                                    { (get_initials(&role.role_code)) }
+                                    div class="flex-1 min-w-0" {
+                                        div class="text-[13px] font-semibold text-fg leading-[1.3]"
+                                        { (&role.role_name) }
+                                        div class="text-[11px] text-muted font-mono" {
+                                            (&role.role_code)
+                                        }
+                                    }
+                                    @if is_role_system(&role.role_code, all_roles) {
+                                        span
+                                            class="text-[10px] px-[6px] py-[1px] rounded-[3px] font-medium bg-warn-bg text-warn border border-warn-200"
+                                        { "内置" }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                // Permission Preview Card
+                div class=(D_CARD) {
+                    div class=(D_CARD_HEAD) {
+                        h3 class="text-[13px] font-semibold flex items-center gap-[6px] text-fg" {
+                            (shield_check_icon("w-3.5 h-3.5"))
+                            "权限预览"
+                        }
+                        span
+                            class="text-[11px] text-muted bg-bg px-2 py-[1px] rounded-full border border-border-soft"
+                        { (format!("{} 项", total_perms)) }
+                    }
+                    div class="p-4 max-h-[320px] overflow-y-auto" {
+                        @if grouped_perms.is_empty() {
+                            p class="text-sm text-muted" { "暂无权限" }
+                        } @else {
+                            @for (code, name, actions) in grouped_perms {
+                                div class="mb-3 last:mb-0" {
+                                    div class="text-xs font-semibold text-fg mb-2 flex items-center gap-[6px]"
+                                    { (resource_icon(code, "w-3 h-3")) " " (name) " (" (code) ")" }
+                                    div class="flex flex-wrap gap-[4px]" {
+                                        @for action in actions { (perm_chip(&action)) }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        // ── Modals ──
+        (role_assign_modal(&role_assign_path, all_roles, &current_role_ids))
+        (dept_assign_modal(&dept_assign_path, all_depts, &current_dept_ids))
+        (reset_password_modal(&password_path))
+    }
+}
 }
 
 fn stat_item(dot_class: &str, value: &str, label: &str, small_value: bool) -> Markup {
@@ -606,21 +694,23 @@ fn stat_item(dot_class: &str, value: &str, label: &str, small_value: bool) -> Ma
  "text-[15px] font-bold text-fg leading-none"
  };
  html! {
- div class="flex items-center gap-2 py-[10px] px-4 bg-bg border border-border-soft rounded-md flex-1 shadow-xs" {
- span class=(format!("w-2 h-2 rounded-full shrink-0 {dot_class}")) {}
- b class=(value_class) { (value) }
- span class="text-[11px] text-muted ml-[2px]" { (label) }
- }
- }
+    div class="flex items-center gap-2 py-[10px] px-4 bg-bg border border-border-soft rounded-md flex-1 shadow-xs"
+    {
+        span class=(format!("w-2 h-2 rounded-full shrink-0 {dot_class}")) {}
+        b class=(value_class) { (value) }
+        span class="text-[11px] text-muted ml-[2px]" { (label) }
+    }
+}
 }
 
 fn info_row(label: &str, value: Markup) -> Markup {
  html! {
- div class="flex items-center py-[9px] px-4 text-[13px] border-b border-border-soft last:border-b-0" {
- span class="w-[80px] shrink-0 text-muted text-xs" { (label) }
- (value)
- }
- }
+    div class="flex items-center py-[9px] px-4 text-[13px] border-b border-border-soft last:border-b-0"
+    {
+        span class="w-[80px] shrink-0 text-muted text-xs" { (label) }
+        (value)
+    }
+}
 }
 
 fn perm_chip(action: &str) -> Markup {
@@ -632,129 +722,200 @@ fn perm_chip(action: &str) -> Markup {
  _ => "text-muted border border-border-soft",
  };
  html! {
- span class=(format!("text-[11px] px-2 py-[2px] rounded-[3px] font-medium font-mono {cls}")) {
- (action.to_uppercase())
- }
- }
+    span class=(format!("text-[11px] px-2 py-[2px] rounded-[3px] font-medium font-mono {cls}")) {
+        (action.to_uppercase())
+    }
+}
 }
 
 // ── Modals ──
 
 fn role_assign_modal(action: &str, all_roles: &[Role], current_ids: &[i64]) -> Markup {
  html! {
- div id="role-assign-modal" class="modal-overlay fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto"
- _="on click[me is event.target] remove .is-open" {
- form id="role-assign-form" class="bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl"
- hx-post=(action) hx-swap="none" {
- div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
- h2 class="text-base font-semibold text-fg" { "管理角色" }
- button type="button" class="bg-transparent border-none cursor-pointer text-xl text-muted p-1 hover:text-fg"
- _="on click remove .is-open from closest .modal-overlay then reset #role-assign-form" { "×" }
- }
- div class="overflow-y-auto flex-1 min-h-0 p-6" {
- input type="hidden" name="role_ids" id="role-ids-input" {}
- div class="flex flex-col gap-1" {
- @for role in all_roles {
- label class="flex items-center gap-2.5 py-2 px-2 rounded-sm cursor-pointer hover:bg-surface transition-colors" {
- input type="checkbox" class="role-checkbox w-4 h-4 accent-[var(--accent)] cursor-pointer"
- value=(role.role_id) checked[current_ids.contains(&role.role_id)];
- span class="text-sm text-fg" { (role.role_name) }
- @if role.is_system_role {
- span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-accent-bg text-accent" { "系统" }
- }
- @if let Some(desc) = &role.description {
- span class="ml-auto text-xs text-muted" { (desc) }
- }
- }
- }
- }
- }
- div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" {
- button type="button" class=(BTN_DEFAULT_SM)
- _="on click remove .is-open from closest .modal-overlay then reset #role-assign-form" { "取消" }
- button type="submit" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
- onclick="document.querySelector('#role-ids-input').value=Array.from(document.querySelectorAll('.role-checkbox:checked')).map(function(c){return c.value}).join(',')" {
- "保存"
- }
- }
- }
- }
- }
+    div id="role-assign-modal"
+        class="modal-overlay fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto"
+        _="on click[me is event.target] remove .is-open"
+    {
+        form
+            id="role-assign-form"
+            class="bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl"
+            hx-post=(action)
+            hx-swap="none"
+        {
+            div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0"
+            {
+                h2 class="text-base font-semibold text-fg" { "管理角色" }
+                button
+                    type="button"
+                    class="bg-transparent border-none cursor-pointer text-xl text-muted p-1 hover:text-fg"
+                    _="on click remove .is-open from closest .modal-overlay then reset #role-assign-form"
+                { "×" }
+            }
+            div class="overflow-y-auto flex-1 min-h-0 p-6" {
+                input type="hidden" name="role_ids" id="role-ids-input" {}
+                div class="flex flex-col gap-1" {
+                    @for role in all_roles {
+                        label
+                            class="flex items-center gap-2.5 py-2 px-2 rounded-sm cursor-pointer hover:bg-surface transition-colors"
+                        {
+                            input
+                                type="checkbox"
+                                class="role-checkbox w-4 h-4 accent-[var(--accent)] cursor-pointer"
+                                value=(role.role_id)
+                                checked[current_ids.contains(&role.role_id)];
+                            span class="text-sm text-fg" { (role.role_name) }
+                            @if role.is_system_role {
+                                span
+                                    class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-accent-bg text-accent"
+                                { "系统" }
+                            }
+                            @if let Some(desc) = &role.description {
+                                span class="ml-auto text-xs text-muted" { (desc) }
+                            }
+                        }
+                    }
+                }
+            }
+            div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" {
+                button
+                    type="button"
+                    class=(BTN_DEFAULT_SM)
+                    _="on click remove .is-open from closest .modal-overlay then reset #role-assign-form"
+                { "取消" }
+                button
+                    type="submit"
+                    class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                    onclick="document.querySelector('#role-ids-input').value=Array.from(document.querySelectorAll('.role-checkbox:checked')).map(function(c){return c.value}).join(',')"
+                { "保存" }
+            }
+        }
+    }
+}
 }
 
 fn dept_assign_modal(action: &str, all_depts: &[Department], current_ids: &[i64]) -> Markup {
  html! {
- div id="dept-assign-modal" class="modal-overlay fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto"
- _="on click[me is event.target] remove .is-open" {
- form id="dept-assign-form" class="bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl"
- hx-post=(action) hx-swap="none" {
- div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
- h2 class="text-base font-semibold text-fg" { "管理部门" }
- button type="button" class="bg-transparent border-none cursor-pointer text-xl text-muted p-1 hover:text-fg"
- _="on click remove .is-open from closest .modal-overlay then reset #dept-assign-form" { "×" }
- }
- div class="overflow-y-auto flex-1 min-h-0 p-6" {
- input type="hidden" name="dept_ids" id="dept-ids-input" {}
- div class="flex flex-col gap-1" {
- @for dept in all_depts {
- label class="flex items-center gap-2.5 py-2 px-2 rounded-sm cursor-pointer hover:bg-surface transition-colors" {
- input type="checkbox" class="dept-checkbox w-4 h-4 accent-[var(--accent)] cursor-pointer"
- value=(dept.department_id) checked[current_ids.contains(&dept.department_id)];
- span class="text-sm text-fg" { (dept.department_name) }
- span class="text-xs text-muted font-mono" { (dept.department_code) }
- @if !dept.is_active {
- span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-danger-bg text-danger" { "停用" }
- }
- }
- }
- }
- }
- div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" {
- button type="button" class=(BTN_DEFAULT_SM)
- _="on click remove .is-open from closest .modal-overlay then reset #dept-assign-form" { "取消" }
- button type="submit" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
- onclick="document.querySelector('#dept-ids-input').value=Array.from(document.querySelectorAll('.dept-checkbox:checked')).map(function(c){return c.value}).join(',')" {
- "保存"
- }
- }
- }
- }
- }
+    div id="dept-assign-modal"
+        class="modal-overlay fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto"
+        _="on click[me is event.target] remove .is-open"
+    {
+        form
+            id="dept-assign-form"
+            class="bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl"
+            hx-post=(action)
+            hx-swap="none"
+        {
+            div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0"
+            {
+                h2 class="text-base font-semibold text-fg" { "管理部门" }
+                button
+                    type="button"
+                    class="bg-transparent border-none cursor-pointer text-xl text-muted p-1 hover:text-fg"
+                    _="on click remove .is-open from closest .modal-overlay then reset #dept-assign-form"
+                { "×" }
+            }
+            div class="overflow-y-auto flex-1 min-h-0 p-6" {
+                input type="hidden" name="dept_ids" id="dept-ids-input" {}
+                div class="flex flex-col gap-1" {
+                    @for dept in all_depts {
+                        label
+                            class="flex items-center gap-2.5 py-2 px-2 rounded-sm cursor-pointer hover:bg-surface transition-colors"
+                        {
+                            input
+                                type="checkbox"
+                                class="dept-checkbox w-4 h-4 accent-[var(--accent)] cursor-pointer"
+                                value=(dept.department_id)
+                                checked[current_ids.contains(&dept.department_id)];
+                            span class="text-sm text-fg" { (dept.department_name) }
+                            span class="text-xs text-muted font-mono" { (dept.department_code) }
+                            @if !dept.is_active {
+                                span
+                                    class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-danger-bg text-danger"
+                                { "停用" }
+                            }
+                        }
+                    }
+                }
+            }
+            div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" {
+                button
+                    type="button"
+                    class=(BTN_DEFAULT_SM)
+                    _="on click remove .is-open from closest .modal-overlay then reset #dept-assign-form"
+                { "取消" }
+                button
+                    type="submit"
+                    class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                    onclick="document.querySelector('#dept-ids-input').value=Array.from(document.querySelectorAll('.dept-checkbox:checked')).map(function(c){return c.value}).join(',')"
+                { "保存" }
+            }
+        }
+    }
+}
 }
 
 fn reset_password_modal(action: &str) -> Markup {
  html! {
- div id="reset-pw-modal" class="modal-overlay fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto"
- _="on click[me is event.target] remove .is-open" {
- form id="reset-pw-form" class="bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl"
- hx-post=(action) hx-swap="none" {
- div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
- h2 class="text-base font-semibold text-fg" { "重置密码" }
- button type="button" class="bg-transparent border-none cursor-pointer text-xl text-muted p-1 hover:text-fg"
- _="on click remove .is-open from closest .modal-overlay then reset #reset-pw-form" { "×" }
- }
- div class="overflow-y-auto flex-1 min-h-0 p-6" {
- p class="text-muted text-sm mb-4" { "为该用户设置新密码，重置后立即生效。" }
- div class="mb-4" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "新密码 " span class="text-danger" { "*" } }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="password" name="new_password" required
- minlength="8" placeholder="至少 8 位，含字母和数字" {}
- }
- div {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "确认密码 " span class="text-danger" { "*" } }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="password" name="confirm_password" required
- minlength="8" placeholder="再次输入新密码" {}
- }
- }
- div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" {
- button type="button" class=(BTN_DEFAULT_SM)
- _="on click remove .is-open from closest .modal-overlay then reset #reset-pw-form" { "取消" }
- button type="submit" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" {
- (icon::check_circle_icon("w-4 h-4"))
- "确认重置"
- }
- }
- }
- }
- }
+    div id="reset-pw-modal"
+        class="modal-overlay fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto"
+        _="on click[me is event.target] remove .is-open"
+    {
+        form
+            id="reset-pw-form"
+            class="bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl"
+            hx-post=(action)
+            hx-swap="none"
+        {
+            div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0"
+            {
+                h2 class="text-base font-semibold text-fg" { "重置密码" }
+                button
+                    type="button"
+                    class="bg-transparent border-none cursor-pointer text-xl text-muted p-1 hover:text-fg"
+                    _="on click remove .is-open from closest .modal-overlay then reset #reset-pw-form"
+                { "×" }
+            }
+            div class="overflow-y-auto flex-1 min-h-0 p-6" {
+                p class="text-muted text-sm mb-4" { "为该用户设置新密码，重置后立即生效。" }
+                div class="mb-4" {
+                    label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
+                        "新密码 "
+                        span class="text-danger" { "*" }
+                    }
+                    input
+                        class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]"
+                        type="password"
+                        name="new_password"
+                        required
+                        minlength="8"
+                        placeholder="至少 8 位，含字母和数字" {}
+                }
+                div {
+                    label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
+                        "确认密码 "
+                        span class="text-danger" { "*" }
+                    }
+                    input
+                        class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]"
+                        type="password"
+                        name="confirm_password"
+                        required
+                        minlength="8"
+                        placeholder="再次输入新密码" {}
+                }
+            }
+            div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" {
+                button
+                    type="button"
+                    class=(BTN_DEFAULT_SM)
+                    _="on click remove .is-open from closest .modal-overlay then reset #reset-pw-form"
+                { "取消" }
+                button
+                    type="submit"
+                    class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                { (icon::check_circle_icon("w-4 h-4")) "确认重置" }
+            }
+        }
+    }
+}
 }

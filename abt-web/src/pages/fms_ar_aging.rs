@@ -32,23 +32,34 @@ fn aging_table(rows: &[AgingRow], bucket_labels: &[String]) -> Markup {
                 table class="data-table" {
                     thead {
                         tr {
-                            th class="px-4 py-3 text-left text-xs font-medium text-fg-2 uppercase" { "客户" }
-                            th class="px-4 py-3 text-right text-xs font-medium text-fg-2 uppercase" { "未清总额" }
-                            @for label in bucket_labels {
-                                th class="px-4 py-3 text-right text-xs font-medium text-fg-2 uppercase" { (label) }
+                            th class="px-4 py-3 text-left text-xs font-medium text-fg-2 uppercase" {
+                                "客户"
                             }
-                            th class="px-4 py-3 text-right text-xs font-medium text-fg-2 uppercase" { "超期" }
+                            th  class="px-4 py-3 text-right text-xs font-medium text-fg-2 uppercase"
+                            { "未清总额" }
+                            @for label in bucket_labels {
+                                th  class="px-4 py-3 text-right text-xs font-medium text-fg-2 uppercase"
+                                { (label) }
+                            }
+                            th  class="px-4 py-3 text-right text-xs font-medium text-fg-2 uppercase"
+                            { "超期" }
                         }
                     }
                     tbody class="divide-y divide-border-soft" {
                         @for row in rows {
                             tr {
                                 td class="px-4 py-3 text-sm font-medium" { (row.party_name) }
-                                td class="px-4 py-3 text-sm font-mono text-right font-semibold" { "¥" (fmt_amount(row.total_outstanding)) }
+                                td class="px-4 py-3 text-sm font-mono text-right font-semibold" {
+                                    "¥"
+                                    (fmt_amount(row.total_outstanding))
+                                }
                                 @for amt in &row.buckets {
                                     td class="px-4 py-3 text-sm font-mono text-right" {
                                         @if *amt > Decimal::ZERO {
-                                            span style="color:var(--danger)" { "¥" (fmt_amount(*amt)) }
+                                            span style="color:var(--danger)" {
+                                                "¥"
+                                                (fmt_amount(*amt))
+                                            }
                                         } @else {
                                             span class="text-fg-3" { "—" }
                                         }
@@ -56,7 +67,10 @@ fn aging_table(rows: &[AgingRow], bucket_labels: &[String]) -> Markup {
                                 }
                                 td class="px-4 py-3 text-sm font-mono text-right" {
                                     @if row.over_max > Decimal::ZERO {
-                                        span style="color:var(--danger);font-weight:600" { "¥" (fmt_amount(row.over_max)) }
+                                        span style="color:var(--danger);font-weight:600" {
+                                            "¥"
+                                            (fmt_amount(row.over_max))
+                                        }
                                     } @else {
                                         span class="text-fg-3" { "—" }
                                     }

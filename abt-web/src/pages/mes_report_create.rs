@@ -335,139 +335,227 @@ fn report_create_page(
  };
  let today = chrono::Local::now().format("%Y-%m-%d").to_string();
 
- html! { div {
- // ── Back Link ──
- a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150 mb-4" href=(format!("{}?restore=true", ReportListPath::PATH)) {
- (icon::chevron_left_icon("w-4 h-4"))
- "返回报工记录"
- }
- // ── Page Header ──
- div class="flex items-center justify-between mb-5" {
- h1 class="text-xl font-bold text-fg tracking-tight" { "新建报工" }
- }
- form hx-post=(ReportCreatePath::PATH) hx-swap="none" id="report-form" {
-
- // ── 基本信息 ──
- div class="form-section" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-3 border-b border-border-soft" {
- (icon::clipboard_document_icon("w-[18px] h-[18px]"))
- "基本信息"
- }
- div class="grid grid-cols-2 gap-4 gap-x-6" {
- div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "报工单号" }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-surface text-muted outline-none" type="text" readonly value=(doc_number);
- }
- // 工单：搜索选择框
- (entity_picker::entity_picker_field(
- "work_order_id", "work_order_id", "wo-display", "wo-picker",
- "工单", false, "点击选择工单…",
- ))
- // 批次：搜索选择框
- (entity_picker::entity_picker_field(
- "batch_id", "batch_id", "batch-display", "batch-picker",
- "批次", false, "选择工单后可选…",
- ))
- }
- // 工序（批次选中后级联加载）
- div id="batch-cascade"
- hx-get=(ReportBatchSelectedPath::PATH)
- hx-trigger="batchSelected from:body"
- hx-target="this"
- hx-swap="outerHTML"
- hx-include="#batch_id" {}
- }
-
- // ── 生产数据 ──
- div class="form-section" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-3 border-b border-border-soft" {
- (icon::edit_icon("w-[18px] h-[18px]"))
- "生产数据"
- }
- div class="grid grid-cols-2 gap-4 gap-x-6" {
- div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "班次 " span class="required" { "*" } }
- div class="inline-flex bg-surface border border-border-soft rounded-md p-[3px] gap-0.5" {
- button type="button" class="shift-btn flex-1 px-4 py-1.5 text-sm cursor-pointer rounded-sm border-none bg-transparent text-muted act:bg-accent act:text-accent-on act:font-semibold active"
- _="on click take .active from .shift-btn then put '1' into #shift-input's value" { "白班" }
- button type="button" class="shift-btn flex-1 px-4 py-1.5 text-sm cursor-pointer rounded-sm border-none bg-transparent text-muted act:bg-accent act:text-accent-on act:font-semibold"
- _="on click take .active from .shift-btn then put '2' into #shift-input's value" { "夜班" }
- input type="hidden" name="shift" id="shift-input" value="1";
- }
- }
- div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "工人 " span class="required" { "*" } }
- select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" name="worker_id" required {
- option value="" { "请选择工人" }
- @for w in workers {
- option value=(w.user_id) { (w.display_name.as_deref().unwrap_or(&w.username)) }
- }
- }
- }
- div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "报工日期 " span class="required" { "*" } }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="date" name="report_date" value=(today) required;
- }
- div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "完成数量 " span class="required" { "*" } }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="number" step="any" placeholder="0" name="completed_qty"
- id="completed-qty" required;
- }
- div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "不良数量" }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="number" step="any" placeholder="0" name="defect_qty" value="0";
- }
- div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "不良原因" }
- select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" name="defect_reason" {
- option value="" { "—" }
- option value="1" { "物料不良" }
- option value="2" { "设备故障" }
- option value="3" { "操作失误" }
- option value="4" { "工艺问题" }
- }
- }
- div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "实际工时 (h)" }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="number" step="any" placeholder="0" name="work_hours";
- }
- div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "计件单价" }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-surface text-muted outline-none" type="text" readonly id="unit-price" value="—";
- }
- div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "预计工资" }
- div class="flex flex-col gap-1 p-4 bg-surface rounded-sm border border-border-soft text-center" {
- div class="font-bold text-success" id="wage-amount" { "\u{00a5}0.00" }
- div class="text-xs text-muted" { "完成数量 \u{00d7} 计件单价" }
- }
- }
- }
- div class="mt-4" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "备注" }
- textarea class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent resize-y" name="remark" rows="2" placeholder="报工备注…" {}
- }
- }
-
- // ── Action Bar ──
- div class="sticky bottom-0 flex items-center justify-between gap-3 px-6 py-4 bg-bg border-t border-border-soft" {
- div { }
- div class="flex gap-3" {
- a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{}?restore=true", ReportListPath::PATH)) { "取消" }
- button type="submit" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" {
- (icon::check_circle_icon("w-4 h-4"))
- "确认报工"
- }
- }
- }
- }
-
- // ── 弹窗 ──
- (entity_picker::entity_picker_modal(&wo_picker))
- (entity_picker::entity_picker_modal(&batch_picker))
-
- // ── 工资实时计算 ──
- (maud::PreEscaped(r#"
+ html! {
+    div {
+        // ── Back Link ──
+        a   class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150 mb-4"
+            href=(format!("{}?restore=true", ReportListPath::PATH))
+        { (icon::chevron_left_icon("w-4 h-4")) "返回报工记录" }
+        // ── Page Header ──
+        div class="flex items-center justify-between mb-5" {
+            h1 class="text-xl font-bold text-fg tracking-tight" { "新建报工" }
+        }
+        form hx-post=(ReportCreatePath::PATH) hx-swap="none" id="report-form" {
+            // ── 基本信息 ──
+            div class="form-section" {
+                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-3 border-b border-border-soft"
+                { (icon::clipboard_document_icon("w-[18px] h-[18px]")) "基本信息" }
+                div class="grid grid-cols-2 gap-4 gap-x-6" {
+                    div class="form-field" {
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
+                            "报工单号"
+                        }
+                        input
+                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-surface text-muted outline-none"
+                            type="text"
+                            readonly
+                            value=(doc_number);
+                    }
+                    // 工单：搜索选择框
+                    ({
+                        entity_picker::entity_picker_field(
+                            "work_order_id",
+                            "work_order_id",
+                            "wo-display",
+                            "wo-picker",
+                            "工单",
+                            false,
+                            "点击选择工单…",
+                        )
+                    })
+                    // 批次：搜索选择框
+                    ({
+                        entity_picker::entity_picker_field(
+                            "batch_id",
+                            "batch_id",
+                            "batch-display",
+                            "batch-picker",
+                            "批次",
+                            false,
+                            "选择工单后可选…",
+                        )
+                    })
+                }
+                // 工序（批次选中后级联加载）
+                div id="batch-cascade"
+                    hx-get=(ReportBatchSelectedPath::PATH)
+                    hx-trigger="batchSelected from:body"
+                    hx-target="this"
+                    hx-swap="outerHTML"
+                    hx-include="#batch_id" {}
+            }
+            // ── 生产数据 ──
+            div class="form-section" {
+                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-3 border-b border-border-soft"
+                { (icon::edit_icon("w-[18px] h-[18px]")) "生产数据" }
+                div class="grid grid-cols-2 gap-4 gap-x-6" {
+                    div class="form-field" {
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
+                            "班次 "
+                            span class="required" { "*" }
+                        }
+                        div class="inline-flex bg-surface border border-border-soft rounded-md p-[3px] gap-0.5"
+                        {
+                            button
+                                type="button"
+                                class="shift-btn flex-1 px-4 py-1.5 text-sm cursor-pointer rounded-sm border-none bg-transparent text-muted act:bg-accent act:text-accent-on act:font-semibold active"
+                                _="on click take .active from .shift-btn then put '1' into #shift-input's value"
+                            { "白班" }
+                            button
+                                type="button"
+                                class="shift-btn flex-1 px-4 py-1.5 text-sm cursor-pointer rounded-sm border-none bg-transparent text-muted act:bg-accent act:text-accent-on act:font-semibold"
+                                _="on click take .active from .shift-btn then put '2' into #shift-input's value"
+                            { "夜班" }
+                            input type="hidden" name="shift" id="shift-input" value="1";
+                        }
+                    }
+                    div class="form-field" {
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
+                            "工人 "
+                            span class="required" { "*" }
+                        }
+                        select
+                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
+                            name="worker_id"
+                            required
+                        {
+                            option value="" { "请选择工人" }
+                            @for w in workers {
+                                option value=(w.user_id) {
+                                    (w.display_name.as_deref().unwrap_or(&w.username))
+                                }
+                            }
+                        }
+                    }
+                    div class="form-field" {
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
+                            "报工日期 "
+                            span class="required" { "*" }
+                        }
+                        input
+                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
+                            type="date"
+                            name="report_date"
+                            value=(today)
+                            required;
+                    }
+                    div class="form-field" {
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
+                            "完成数量 "
+                            span class="required" { "*" }
+                        }
+                        input
+                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
+                            type="number"
+                            step="any"
+                            placeholder="0"
+                            name="completed_qty"
+                            id="completed-qty"
+                            required;
+                    }
+                    div class="form-field" {
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
+                            "不良数量"
+                        }
+                        input
+                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
+                            type="number"
+                            step="any"
+                            placeholder="0"
+                            name="defect_qty"
+                            value="0";
+                    }
+                    div class="form-field" {
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
+                            "不良原因"
+                        }
+                        select
+                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
+                            name="defect_reason"
+                        {
+                            option value="" { "—" }
+                            option value="1" { "物料不良" }
+                            option value="2" { "设备故障" }
+                            option value="3" { "操作失误" }
+                            option value="4" { "工艺问题" }
+                        }
+                    }
+                    div class="form-field" {
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
+                            "实际工时 (h)"
+                        }
+                        input
+                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
+                            type="number"
+                            step="any"
+                            placeholder="0"
+                            name="work_hours";
+                    }
+                    div class="form-field" {
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
+                            "计件单价"
+                        }
+                        input
+                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-surface text-muted outline-none"
+                            type="text"
+                            readonly
+                            id="unit-price"
+                            value="—";
+                    }
+                    div class="form-field" {
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
+                            "预计工资"
+                        }
+                        div class="flex flex-col gap-1 p-4 bg-surface rounded-sm border border-border-soft text-center"
+                        {
+                            div class="font-bold text-success" id="wage-amount" { "\u{00a5}0.00" }
+                            div class="text-xs text-muted" { "完成数量 \u{00d7} 计件单价" }
+                        }
+                    }
+                }
+                div class="mt-4" {
+                    label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
+                        "备注"
+                    }
+                    textarea
+                        class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent resize-y"
+                        name="remark"
+                        rows="2"
+                        placeholder="报工备注…" {}
+                }
+            }
+            // ── Action Bar ──
+            div class="sticky bottom-0 flex items-center justify-between gap-3 px-6 py-4 bg-bg border-t border-border-soft"
+            {
+                div {}
+                div class="flex gap-3" {
+                    a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                        href=(format!("{}?restore=true", ReportListPath::PATH))
+                    { "取消" }
+                    button
+                        type="submit"
+                        class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                    { (icon::check_circle_icon("w-4 h-4")) "确认报工" }
+                }
+            }
+        }
+        // ── 弹窗 ──
+        (entity_picker::entity_picker_modal(&wo_picker))
+        (entity_picker::entity_picker_modal(&batch_picker))
+        // ── 工资实时计算 ──
+        ({
+            maud::PreEscaped(
+                r#"
  <script>
  document.addEventListener('DOMContentLoaded', function() {
  function calcWage() {
@@ -493,8 +581,11 @@ fn report_create_page(
  });
  });
  </script>
- "#))
- }}
+ "#,
+            )
+        })
+    }
+}
 }
 
 fn batch_cascade_fragment(
@@ -504,33 +595,47 @@ fn batch_cascade_fragment(
  completed: &HashSet<i64>,
 ) -> Markup {
  html! {
- div id="batch-cascade" class="mt-5" {
- input type="hidden" name="work_order_id" value=(work_order_id);
- div class="grid grid-cols-2 gap-4 gap-x-6" {
- div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "工序 " span class="required" { "*" } }
- @if routings.is_empty() {
- select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" name="step_no" disabled {
- option value="" { "该工单暂无工序路线" }
- }
- } @else {
- select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" name="step_no" required {
- option value="" { "请选择工序" }
- @for r in routings {
- @if !completed.contains(&r.id) {
- @let is_cur = batch.current_step == r.step_no;
- @let tag = if is_cur { " [当前工序]" } else { "" };
- @let price = r.unit_price.unwrap_or(rust_decimal::Decimal::ZERO);
- option value=(r.step_no) selected[is_cur]
- data-price=(price.to_string()) {
- (r.step_no) " - " (r.process_name) (tag)
- }
- }
- }
- }
- }
- }
- }
- }
- }
+    div id="batch-cascade" class="mt-5" {
+        input type="hidden" name="work_order_id" value=(work_order_id);
+        div class="grid grid-cols-2 gap-4 gap-x-6" {
+            div class="form-field" {
+                label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
+                    "工序 "
+                    span class="required" { "*" }
+                }
+                @if routings.is_empty() {
+                    select
+                        class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
+                        name="step_no"
+                        disabled
+                    {
+                        option value="" { "该工单暂无工序路线" }
+                    }
+                } @else {
+                    select
+                        class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
+                        name="step_no"
+                        required
+                    {
+                        option value="" { "请选择工序" }
+                        @for r in routings {
+                            @if !completed.contains(&r.id) {
+                                @let is_cur = batch.current_step == r.step_no;
+                                @let tag = if is_cur { " [当前工序]" } else { "" };
+                                @let price = r
+                                    .unit_price
+                                    .unwrap_or(rust_decimal::Decimal::ZERO);
+                                option
+                                    value=(r.step_no)
+                                    selected[is_cur]
+                                    data-price=(price.to_string())
+                                { (r.step_no) " - " (r.process_name) (tag) }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
 }

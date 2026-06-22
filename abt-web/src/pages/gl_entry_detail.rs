@@ -118,21 +118,30 @@ fn detail_page(
     html! {
         div {
             div class="flex items-center justify-between mb-6" {
-                a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", GlEntryListPath::PATH)) {
-                    (crate::components::icon::arrow_left_icon("w-4 h-4"))
-                    "返回列表"
-                }
+                a   class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150"
+                    href=(format!("{}?restore=true", GlEntryListPath::PATH))
+                { (crate::components::icon::arrow_left_icon("w-4 h-4")) "返回列表" }
                 h1 class="text-xl font-bold text-fg tracking-tight" {
-                    "凭证 " (entry.doc_number) " "
-                    span style=(format!("display:inline-flex;align-items:center;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{};color:{}", status_bg, status_color)) {
-                        (status_text)
-                    }
+                    "凭证 "
+                    (entry.doc_number)
+                    " "
+                    span
+                        style=({
+                            format!(
+                                "display:inline-flex;align-items:center;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{};color:{}",
+                                status_bg,
+                                status_color,
+                            )
+                        })
+                    { (status_text) }
                 }
             }
-
             // ── 基本信息 ──
-            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
-                h3 class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" { "基本信息" }
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]"
+            {
+                h3 class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" {
+                    "基本信息"
+                }
                 div class="grid gap-4 grid-cols-2 md:grid-cols-3" {
                     div class="flex flex-col gap-1" {
                         label class="text-xs text-fg-2" { "凭证号" }
@@ -160,15 +169,21 @@ fn detail_page(
                     }
                     div class="flex flex-col gap-1" {
                         label class="text-xs text-fg-2" { "期初凭证" }
-                        span { @if entry.is_opening { "是" } @else { "否" } }
+                        span {
+                            @if entry.is_opening { "是" } @else { "否" }
+                        }
                     }
                     div class="flex flex-col gap-1" {
                         label class="text-xs text-fg-2" { "借方合计" }
-                        span class="font-mono tabular-nums font-semibold" { (fmt_amount(entry.total_debit)) }
+                        span class="font-mono tabular-nums font-semibold" {
+                            (fmt_amount(entry.total_debit))
+                        }
                     }
                     div class="flex flex-col gap-1" {
                         label class="text-xs text-fg-2" { "贷方合计" }
-                        span class="font-mono tabular-nums font-semibold" { (fmt_amount(entry.total_credit)) }
+                        span class="font-mono tabular-nums font-semibold" {
+                            (fmt_amount(entry.total_credit))
+                        }
                     }
                     @if !entry.description.is_empty() {
                         div class="flex flex-col gap-1 col-span-full" {
@@ -178,13 +193,23 @@ fn detail_page(
                     }
                 }
             }
-
             // ── 分录行 ──
             div class="data-card" {
                 div class="flex items-center justify-between px-1 mb-3" {
                     h3 class="text-base font-semibold text-fg" { "分录行" }
                     // 借贷平衡自检标识
-                    span class=(format!("inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium {}", if balanced { "bg-success-bg text-success" } else { "bg-danger-bg text-danger" })) {
+                    span
+                        class=({
+                            format!(
+                                "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium {}",
+                                if balanced {
+                                    "bg-success-bg text-success"
+                                } else {
+                                    "bg-danger-bg text-danger"
+                                },
+                            )
+                        })
+                    {
                         @if balanced { "借贷平衡" } @else { "借贷不平衡" }
                     }
                 }
@@ -202,14 +227,28 @@ fn detail_page(
                         }
                         tbody {
                             @for line in lines {
-                                @let (code, name) = accounts.get(&line.account_id).cloned().unwrap_or_else(|| ("—".to_string(), format!("#{}", line.account_id)));
+                                @let (code, name) = accounts
+                                    .get(&line.account_id)
+                                    .cloned()
+                                    .unwrap_or_else(|| (
+                                        "—".to_string(),
+                                        format!("#{}", line.account_id),
+                                    ));
                                 tr {
                                     td class="font-mono tabular-nums text-accent" { (code) }
                                     td { (name) }
-                                    td class="font-mono tabular-nums text-right text-fg" { (fmt_amount(line.debit)) }
-                                    td class="font-mono tabular-nums text-right text-fg" { (fmt_amount(line.credit)) }
-                                    td class="font-mono tabular-nums text-muted text-xs" { (&line.currency) }
-                                    td class="text-fg-2 text-xs" { @if line.memo.is_empty() { "—" } @else { (&line.memo) } }
+                                    td class="font-mono tabular-nums text-right text-fg" {
+                                        (fmt_amount(line.debit))
+                                    }
+                                    td class="font-mono tabular-nums text-right text-fg" {
+                                        (fmt_amount(line.credit))
+                                    }
+                                    td class="font-mono tabular-nums text-muted text-xs" {
+                                        (&line.currency)
+                                    }
+                                    td class="text-fg-2 text-xs" {
+                                        @if line.memo.is_empty() { "—" } @else { (&line.memo) }
+                                    }
                                 }
                             }
                             @if lines.is_empty() {
@@ -222,8 +261,20 @@ fn detail_page(
                         tfoot {
                             tr class="font-semibold" {
                                 td colspan="2" class="text-right text-fg-2" { "合计" }
-                                td class=(format!("font-mono tabular-nums text-right {}", if balanced { "text-fg" } else { "text-danger" })) { (fmt_amount(sum_debit)) }
-                                td class=(format!("font-mono tabular-nums text-right {}", if balanced { "text-fg" } else { "text-danger" })) { (fmt_amount(sum_credit)) }
+                                td  class=({
+                                        format!(
+                                            "font-mono tabular-nums text-right {}",
+                                            if balanced { "text-fg" } else { "text-danger" },
+                                        )
+                                    })
+                                { (fmt_amount(sum_debit)) }
+                                td  class=({
+                                        format!(
+                                            "font-mono tabular-nums text-right {}",
+                                            if balanced { "text-fg" } else { "text-danger" },
+                                        )
+                                    })
+                                { (fmt_amount(sum_credit)) }
                                 td colspan="2" {}
                                 td class="text-muted text-xs" {
                                     @if balanced { "✓ 借贷相等" } @else { "✗ 借贷不等" }

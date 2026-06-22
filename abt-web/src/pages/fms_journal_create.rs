@@ -242,30 +242,31 @@ fn journal_create_page() -> Markup {
     html! {
         div {
             // 返回链接
-            a href=(format!("{}?restore=true", JournalListPath::PATH))
-              class="inline-flex items-center gap-1 text-sm text-muted hover:text-fg mb-4" {
-                (icon::chevron_left_icon("w-4 h-4"))
-                "返回列表"
-            }
+            a   href=(format!("{}?restore=true", JournalListPath::PATH))
+                class="inline-flex items-center gap-1 text-sm text-muted hover:text-fg mb-4"
+            { (icon::chevron_left_icon("w-4 h-4")) "返回列表" }
             // 标题
             h1 class="text-xl font-bold text-fg tracking-tight mb-6" { "新建出纳日记账" }
 
             form id="journal-create-form" hx-post=(JournalCreatePath::PATH) hx-swap="none" {
-
                 // ── Section 1: 基本信息 ──
                 div class="form-section" {
-                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
-                        (icon::clipboard_document_icon("w-4 h-4"))
-                        " 基本信息"
-                    }
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
+                    { (icon::clipboard_document_icon("w-4 h-4")) " 基本信息" }
                     div class="grid grid-cols-2 gap-4 gap-x-6" {
                         // 日记账类型
                         div class="form-field" {
-                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
-                                "日记账类型 " span class="text-danger" { "*" }
+                            label
+                                class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap"
+                            {
+                                "日记账类型 "
+                                span class="text-danger" { "*" }
                             }
-                            select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent"
-                              name="journal_type" required {
+                            select
+                                class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent"
+                                name="journal_type"
+                                required
+                            {
                                 option value="" disabled selected { "请选择类型" }
                                 option value="1" { "销售回款" }
                                 option value="2" { "采购付款" }
@@ -276,56 +277,91 @@ fn journal_create_page() -> Markup {
                         }
                         // 收付方向
                         div class="form-field" {
-                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
-                                "收付方向 " span class="text-danger" { "*" }
+                            label
+                                class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap"
+                            {
+                                "收付方向 "
+                                span class="text-danger" { "*" }
                             }
-                            select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent"
-                              name="direction" required {
+                            select
+                                class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent"
+                                name="direction"
+                                required
+                            {
                                 option value="1" { "流入 (Inflow)" }
                                 option value="2" { "流出 (Outflow)" }
                             }
                         }
                         // 银行账户（预设 + 手动）
                         div class="form-field" {
-                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
-                                "银行账户 " span class="text-danger" { "*" }
+                            label
+                                class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap"
+                            {
+                                "银行账户 "
+                                span class="text-danger" { "*" }
                             }
-                            select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent mb-2"
-                              id="bank-preset"
-                              _="on change if my value is not '' put my value into #bank-account's value" {
+                            select
+                                class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent mb-2"
+                                id="bank-preset"
+                                _="on change if my value is not '' put my value into #bank-account's value"
+                            {
                                 option value="" { "手动输入" }
                                 option value="工商银行 6222021234567890" { "工商银行 6222...7890" }
                                 option value="建设银行 6227001234567890" { "建设银行 6227...7890" }
                                 option value="招商银行 6225881234567890" { "招商银行 6225...7890" }
                                 option value="中国银行 6217001234567890" { "中国银行 6217...7890" }
                             }
-                            input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent"
-                              type="text" name="bank_account" id="bank-account" required placeholder="或手动输入银行账号";
+                            input
+                                class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent"
+                                type="text"
+                                name="bank_account"
+                                id="bank-account"
+                                required
+                                placeholder="或手动输入银行账号";
                         }
                         // 交易日期
                         div class="form-field" {
-                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
-                                "交易日期 " span class="text-danger" { "*" }
+                            label
+                                class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap"
+                            {
+                                "交易日期 "
+                                span class="text-danger" { "*" }
                             }
-                            input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent"
-                              type="date" name="transaction_date" required;
+                            input
+                                class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent"
+                                type="date"
+                                name="transaction_date"
+                                required;
                         }
                         // 期间
                         div class="form-field" {
-                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
-                                "期间 " span class="text-danger" { "*" }
+                            label
+                                class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap"
+                            {
+                                "期间 "
+                                span class="text-danger" { "*" }
                             }
-                            input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent"
-                              type="month" name="period" required;
+                            input
+                                class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent"
+                                type="month"
+                                name="period"
+                                required;
                         }
                         // 往来方类型
                         div class="form-field" {
-                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
-                                "往来方类型 " span class="text-danger" { "*" }
+                            label
+                                class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap"
+                            {
+                                "往来方类型 "
+                                span class="text-danger" { "*" }
                             }
-                            select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent"
-                              name="counterparty_type" id="cp-type" required
-                              _="on change put '' into #cp-display's innerHTML then put '' into #cp-id's value" {
+                            select
+                                class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent"
+                                name="counterparty_type"
+                                id="cp-type"
+                                required
+                                _="on change put '' into #cp-display's innerHTML then put '' into #cp-id's value"
+                            {
                                 option value="" disabled selected { "请选择" }
                                 option value="1" { "客户" }
                                 option value="2" { "供应商" }
@@ -334,16 +370,34 @@ fn journal_create_page() -> Markup {
                         }
                         // 往来方选择器
                         div class="form-field" {
-                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
-                                "往来方 " span class="text-danger" { "*" }
+                            label
+                                class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap"
+                            {
+                                "往来方 "
+                                span class="text-danger" { "*" }
                             }
-                            (entity_picker::entity_picker_field("counterparty_id", "cp-id", "cp-display", "cp-picker", "选择往来方", true, "搜索选择往来方…"))
+                            ({
+                                entity_picker::entity_picker_field(
+                                    "counterparty_id",
+                                    "cp-id",
+                                    "cp-display",
+                                    "cp-picker",
+                                    "选择往来方",
+                                    true,
+                                    "搜索选择往来方…",
+                                )
+                            })
                         }
                         // 来源类型
                         div class="form-field" {
-                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "来源单据" }
-                            select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent"
-                              name="source_type" id="source-type" {
+                            label
+                                class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap"
+                            { "来源单据" }
+                            select
+                                class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent"
+                                name="source_type"
+                                id="source-type"
+                            {
                                 option value="" { "无关联" }
                                 option value="1" { "销售订单" }
                                 option value="2" { "采购订单" }
@@ -352,31 +406,46 @@ fn journal_create_page() -> Markup {
                         }
                         // 来源单据ID（可选）
                         div class="form-field" {
-                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "来源单号" }
-                            input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent"
-                              type="text" name="source_id" id="source-id" placeholder="输入来源单号（可选）";
+                            label
+                                class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap"
+                            { "来源单号" }
+                            input
+                                class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent"
+                                type="text"
+                                name="source_id"
+                                id="source-id"
+                                placeholder="输入来源单号（可选）";
                         }
                     }
                     // 备注（跨列）
                     div class="form-field mt-4" {
-                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "备注" }
-                        textarea class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent"
-                          name="remark" placeholder="填写备注信息…" rows="2" {}
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
+                            "备注"
+                        }
+                        textarea
+                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent"
+                            name="remark"
+                            placeholder="填写备注信息…"
+                            rows="2" {}
                     }
                 }
-
                 // ── Section 2: 借贷分录（多行动态）──
                 div class="form-section" {
-                    div class="flex items-center justify-between text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
+                    div class="flex items-center justify-between text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
+                    {
                         span class="flex items-center gap-2" {
                             (icon::dollar_icon("w-4 h-4"))
                             " 借贷分录"
                         }
                         span class="text-sm font-normal text-muted" {
                             "借方合计："
-                            strong id="total-debit-display" class="text-accent font-mono" { "¥0.00" }
+                            strong id="total-debit-display" class="text-accent font-mono" {
+                                "¥0.00"
+                            }
                             "  贷方合计："
-                            strong id="total-credit-display" class="text-success font-mono" { "¥0.00" }
+                            strong id="total-credit-display" class="text-success font-mono" {
+                                "¥0.00"
+                            }
                             "  差额："
                             strong id="balance-display" class="text-danger font-mono" { "¥0.00" }
                         }
@@ -385,10 +454,17 @@ fn journal_create_page() -> Markup {
                         table class="w-full border-separate border-spacing-0 min-w-[700px]" {
                             thead {
                                 tr {
-                                    th class="text-left text-xs font-semibold text-fg-2 px-3 py-2 border-b border-border-soft uppercase tracking-wide w-[180px]" { "科目 " span class="text-danger" { "*" } }
-                                    th class="w-[140px] text-right text-xs font-semibold text-fg-2 px-3 py-2 border-b border-border-soft uppercase tracking-wide" { "借方金额" }
-                                    th class="w-[140px] text-right text-xs font-semibold text-fg-2 px-3 py-2 border-b border-border-soft uppercase tracking-wide" { "贷方金额" }
-                                    th class="text-left text-xs font-semibold text-fg-2 px-3 py-2 border-b border-border-soft uppercase tracking-wide" { "备注" }
+                                    th  class="text-left text-xs font-semibold text-fg-2 px-3 py-2 border-b border-border-soft uppercase tracking-wide w-[180px]"
+                                    {
+                                        "科目 "
+                                        span class="text-danger" { "*" }
+                                    }
+                                    th  class="w-[140px] text-right text-xs font-semibold text-fg-2 px-3 py-2 border-b border-border-soft uppercase tracking-wide"
+                                    { "借方金额" }
+                                    th  class="w-[140px] text-right text-xs font-semibold text-fg-2 px-3 py-2 border-b border-border-soft uppercase tracking-wide"
+                                    { "贷方金额" }
+                                    th  class="text-left text-xs font-semibold text-fg-2 px-3 py-2 border-b border-border-soft uppercase tracking-wide"
+                                    { "备注" }
                                     th class="w-[44px] px-3 py-2 border-b border-border-soft" {}
                                 }
                             }
@@ -397,12 +473,11 @@ fn journal_create_page() -> Markup {
                     }
                     // 添加分录行
                     div class="py-4" {
-                        button type="button"
-                          class="flex items-center justify-center gap-2 w-full py-3 border-1.5 border-dashed border-border text-accent text-sm font-medium cursor-pointer rounded-md hover:border-accent hover:bg-[rgba(37,99,235,0.04)] transition-all duration-200"
-                          onclick="addJournalLine()" {
-                            (icon::plus_icon("w-4 h-4"))
-                            "添加分录行"
-                        }
+                        button
+                            type="button"
+                            class="flex items-center justify-center gap-2 w-full py-3 border-1.5 border-dashed border-border text-accent text-sm font-medium cursor-pointer rounded-md hover:border-accent hover:bg-[rgba(37,99,235,0.04)] transition-all duration-200"
+                            onclick="addJournalLine()"
+                        { (icon::plus_icon("w-4 h-4")) "添加分录行" }
                     }
                 }
 
@@ -411,25 +486,25 @@ fn journal_create_page() -> Markup {
                 input type="hidden" name="source_id" id="source-id" value="0";
             }
         }
-
         // ── Entity Picker Modals ──
         (entity_picker::entity_picker_modal(&cp_picker))
         (entity_picker::entity_picker_modal(&acct_picker))
-
         // ── Action Bar ──
-        div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg border-t border-border-soft" {
-            a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
-              href=(format!("{}?restore=true", JournalListPath::PATH)) { "取消" }
-            button type="button"
-              class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
-              _="on click trigger submit on #journal-create-form" {
-                (icon::check_circle_icon("w-4 h-4"))
-                "提交"
-            }
+        div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg border-t border-border-soft"
+        {
+            a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                href=(format!("{}?restore=true", JournalListPath::PATH))
+            { "取消" }
+            button
+                type="button"
+                class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                _="on click trigger submit on #journal-create-form"
+            { (icon::check_circle_icon("w-4 h-4")) "提交" }
         }
-
         // ── JS: Dynamic journal lines + counterparty picker ──
-        (PreEscaped(r#"<script>
+        ({
+            PreEscaped(
+                r#"<script>
 // ── Counterparty Picker ──
 (function() {
     // Re-open the cp picker with the current counterparty_type filter
@@ -523,6 +598,8 @@ document.getElementById('journal-create-form').addEventListener('htmx:configRequ
 // Add 2 default lines (debit + credit)
 addJournalLine('', '', '', '借方');
 addJournalLine('', '', '', '贷方');
-</script>"#))
+</script>"#,
+            )
+        })
     }
 }

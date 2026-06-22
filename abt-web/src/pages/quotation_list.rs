@@ -158,24 +158,22 @@ fn quotation_list_page(
  can_delete: bool,
 ) -> Markup {
  html! {
- div {
- // ── Page Header ──
- div class="flex items-center justify-between mb-6" {
- h1 class="text-xl font-bold text-fg tracking-tight" { "报价单" }
- div class="flex gap-3" {
- @if can_create {
- a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(QuotationCreatePath::PATH) {
- (icon::plus_icon("w-4 h-4"))
- "新建报价单"
- }
- }
- }
- }
-
- // ── Tabs + Filter + Data Table (HTMX panel) ──
- (quotation_table_fragment(result, names, customers, params, can_delete))
- }
- }
+    div {
+        // ── Page Header ──
+        div class="flex items-center justify-between mb-6" {
+            h1 class="text-xl font-bold text-fg tracking-tight" { "报价单" }
+            div class="flex gap-3" {
+                @if can_create {
+                    a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                        href=(QuotationCreatePath::PATH)
+                    { (icon::plus_icon("w-4 h-4")) "新建报价单" }
+                }
+            }
+        }
+        // ── Tabs + Filter + Data Table (HTMX panel) ──
+        (quotation_table_fragment(result, names, customers, params, can_delete))
+    }
+}
 }
 
 fn quotation_table_fragment(
@@ -202,72 +200,96 @@ fn quotation_table_fragment(
  let selected_range = params.date_range.as_deref().unwrap_or("");
 
  html! {
- div class="quotation-list-panel" {
- (status_tabs_with_param(QuotationListPath::PATH, "#quotation-data-card", "#quotation-filter-form", tabs, &active_value, "status"))
-
- // ── Filter Bar ──
- form class="flex items-center gap-3 mb-5 flex-wrap filter-form" id="quotation-filter-form"
- hx-get=(QuotationListPath::PATH)
- hx-trigger="change, keyup changed delay:300ms from:.search-input"
- hx-target="#quotation-data-card"
- hx-select="#quotation-data-card"
- hx-swap="outerHTML"
- hx-select-oob="#status-tabs"
- hx-include="#quotation-filter-form"
- hx-push-url="true" {
-   div class="relative flex-1 max-w-xs icon:absolute icon:left-3 icon:top-1/2 icon:-translate-y-1/2 icon:w-4 icon:h-4 icon:text-muted" {
-   (icon::search_icon(""))
-   input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input" type="text" name="keyword"
-   placeholder="搜索报价单号、客户名称…"
-   value=(params.keyword.as_deref().unwrap_or(""));
-   }
- select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="customer_id" {
- option value="" { "全部客户" }
- @for c in customers {
- option value=(c.id) selected[selected_customer == c.id.to_string()] { (c.name) }
- }
- }
- select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="date_range" {
- option value="" selected[selected_range.is_empty()] { "报价日期" }
- option value="7d" selected[selected_range == "7d"] { "最近7天" }
- option value="30d" selected[selected_range == "30d"] { "最近30天" }
- option value="3m" selected[selected_range == "3m"] { "最近3个月" }
- }
- }
-
- // ── Data Table ──
- div class="data-card" id="quotation-data-card" {
- div class="overflow-x-auto" {
- table class="data-table" {
- thead {
- tr {
- th { "报价单号" }
- th { "客户名称" }
- th { "状态" }
- th class="text-right text-[13px]" { "总金额" }
- th { "报价日期" }
- th { "有效期至" }
- th class="!text-right" { "操作" }
- }
- }
- tbody {
- @for q in &result.items {
- (quotation_row(q, names, can_delete))
- }
- @if result.items.is_empty() {
- tr {
- td colspan="7" class="text-center p-8 text-muted" {
- "暂无报价单数据"
- }
- }
- }
- }
- }
- }
- (pagination(QuotationListPath::PATH, &query, result.total, result.page, result.total_pages))
- }
- }
- }
+    div class="quotation-list-panel" {
+        ({
+            status_tabs_with_param(
+                QuotationListPath::PATH,
+                "#quotation-data-card",
+                "#quotation-filter-form",
+                tabs,
+                &active_value,
+                "status",
+            )
+        })
+        // ── Filter Bar ──
+        form
+            class="flex items-center gap-3 mb-5 flex-wrap filter-form"
+            id="quotation-filter-form"
+            hx-get=(QuotationListPath::PATH)
+            hx-trigger="change, keyup changed delay:300ms from:.search-input"
+            hx-target="#quotation-data-card"
+            hx-select="#quotation-data-card"
+            hx-swap="outerHTML"
+            hx-select-oob="#status-tabs"
+            hx-include="#quotation-filter-form"
+            hx-push-url="true"
+        {
+            div class="relative flex-1 max-w-xs icon:absolute icon:left-3 icon:top-1/2 icon:-translate-y-1/2 icon:w-4 icon:h-4 icon:text-muted"
+            {
+                (icon::search_icon(""))
+                input
+                    class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input"
+                    type="text"
+                    name="keyword"
+                    placeholder="搜索报价单号、客户名称…"
+                    value=(params.keyword.as_deref().unwrap_or(""));
+            }
+            select
+                class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer"
+                name="customer_id"
+            {
+                option value="" { "全部客户" }
+                @for c in customers {
+                    option value=(c.id) selected[selected_customer == c.id.to_string()] { (c.name) }
+                }
+            }
+            select
+                class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer"
+                name="date_range"
+            {
+                option value="" selected[selected_range.is_empty()] { "报价日期" }
+                option value="7d" selected[selected_range == "7d"] { "最近7天" }
+                option value="30d" selected[selected_range == "30d"] { "最近30天" }
+                option value="3m" selected[selected_range == "3m"] { "最近3个月" }
+            }
+        }
+        // ── Data Table ──
+        div class="data-card" id="quotation-data-card" {
+            div class="overflow-x-auto" {
+                table class="data-table" {
+                    thead {
+                        tr {
+                            th { "报价单号" }
+                            th { "客户名称" }
+                            th { "状态" }
+                            th class="text-right text-[13px]" { "总金额" }
+                            th { "报价日期" }
+                            th { "有效期至" }
+                            th class="!text-right" { "操作" }
+                        }
+                    }
+                    tbody {
+                        @for q in &result.items { (quotation_row(q, names, can_delete)) }
+                        @if result.items.is_empty() {
+                            tr {
+                                td colspan="7" class="text-center p-8 text-muted" { "暂无报价单数据" }
+                            }
+                        }
+                    }
+                }
+            }
+            ({
+                pagination(
+                    QuotationListPath::PATH,
+                    &query,
+                    result.total,
+                    result.page,
+                    result.total_pages,
+                )
+            })
+        }
+    }
+}
 }
 
 fn quotation_row(q: &Quotation, names: &HashMap<i64, String>, can_delete: bool) -> Markup {
@@ -279,36 +301,46 @@ fn quotation_row(q: &Quotation, names: &HashMap<i64, String>, can_delete: bool) 
  let customer_name = names.get(&q.customer_id).map(|s| s.as_str()).unwrap_or("—");
 
  html! {
- tr {
- td class="text-accent font-medium cursor-pointer font-mono tabular-nums" onclick=(format!("location.href='{}'", detail_path)) { (q.doc_number) }
- td onclick=(format!("location.href='{}'", detail_path)) { (customer_name) }
- td onclick=(format!("location.href='{}'", detail_path)) {
- span class=(format!("status-pill {}", crate::utils::status_color(status_class))) { (status_text) }
- }
- td class="text-right text-[13px]" onclick=(format!("location.href='{}'", detail_path)) {
- span class="font-mono tabular-nums" { (crate::utils::fmt_amount(q.total_amount)) }
- }
- td onclick=(format!("location.href='{}'", detail_path)) { (q.quotation_date.format("%Y-%m-%d")) }
- td onclick=(format!("location.href='{}'", detail_path)) { (q.valid_until.format("%Y-%m-%d")) }
- td _="on click halt the event" {
- @if is_draft {
- div class="row-actions flex items-center gap-1 justify-end opacity-0 transition-opacity duration-150 [&_a]:w-[28px] [&_a]:h-[28px] [&_a]:grid [&_a]:place-items-center [&_a]:rounded-sm [&_a]:cursor-pointer [&_a]:bg-surface [&_a]:hover:bg-accent-bg icon:w-3.5 icon:h-3.5" {
- a class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" title="编辑" href=(edit_form_path) {
- (icon::edit_icon("w-4 h-4"))
- }
- @if can_delete {
- button type="button" class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer text-danger" title="删除"
- hx-confirm="确认删除该报价单吗？"
- hx-post=(delete_path)
- hx-target="closest tr"
- hx-swap="outerHTML swap:0.5s" {
- (icon::trash_icon("w-4 h-4"))
- }
- }
- }
- }
- }
- }
- }
+    tr {
+        td  class="text-accent font-medium cursor-pointer font-mono tabular-nums"
+            onclick=(format!("location.href='{}'", detail_path))
+        { (q.doc_number) }
+        td onclick=(format!("location.href='{}'", detail_path)) { (customer_name) }
+        td onclick=(format!("location.href='{}'", detail_path)) {
+            span class=(format!("status-pill {}", crate::utils::status_color(status_class))) {
+                (status_text)
+            }
+        }
+        td class="text-right text-[13px]" onclick=(format!("location.href='{}'", detail_path)) {
+            span class="font-mono tabular-nums" { (crate::utils::fmt_amount(q.total_amount)) }
+        }
+        td onclick=(format!("location.href='{}'", detail_path)) {
+            (q.quotation_date.format("%Y-%m-%d"))
+        }
+        td onclick=(format!("location.href='{}'", detail_path)) { (q.valid_until.format("%Y-%m-%d")) }
+        td _="on click halt the event" {
+            @if is_draft {
+                div class="row-actions flex items-center gap-1 justify-end opacity-0 transition-opacity duration-150 [&_a]:w-[28px] [&_a]:h-[28px] [&_a]:grid [&_a]:place-items-center [&_a]:rounded-sm [&_a]:cursor-pointer [&_a]:bg-surface [&_a]:hover:bg-accent-bg icon:w-3.5 icon:h-3.5"
+                {
+                    a   class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer"
+                        title="编辑"
+                        href=(edit_form_path)
+                    { (icon::edit_icon("w-4 h-4")) }
+                    @if can_delete {
+                        button
+                            type="button"
+                            class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer text-danger"
+                            title="删除"
+                            hx-confirm="确认删除该报价单吗？"
+                            hx-post=(delete_path)
+                            hx-target="closest tr"
+                            hx-swap="outerHTML swap:0.5s"
+                        { (icon::trash_icon("w-4 h-4")) }
+                    }
+                }
+            }
+        }
+    }
+}
 }
 

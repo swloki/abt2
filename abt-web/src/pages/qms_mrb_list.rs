@@ -194,21 +194,20 @@ fn mrb_list_page(
  can_create: bool,
 ) -> Markup {
  html! {
- div {
- div class="flex items-center justify-between mb-6" {
- h1 class="text-xl font-bold text-fg tracking-tight" { "MRB 不良评审" }
- div class="flex gap-3" {
- @if can_create {
-a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(MrbCreatePath::PATH) {
- (icon::plus_icon("w-4 h-4"))
- "新建MRB"
- }
- }
- }
- }
- (mrb_table_fragment(result, product_names, result_doc_numbers, params))
- }
- }
+    div {
+        div class="flex items-center justify-between mb-6" {
+            h1 class="text-xl font-bold text-fg tracking-tight" { "MRB 不良评审" }
+            div class="flex gap-3" {
+                @if can_create {
+                    a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                        href=(MrbCreatePath::PATH)
+                    { (icon::plus_icon("w-4 h-4")) "新建MRB" }
+                }
+            }
+        }
+        (mrb_table_fragment(result, product_names, result_doc_numbers, params))
+    }
+}
 }
 
 fn mrb_table_fragment(
@@ -229,48 +228,77 @@ fn mrb_table_fragment(
  ];
 
  html! {
- div class="mrb-list-panel" {
- (status_tabs_with_param(MrbListPath::PATH, "#mrb-data-card", "#filter-form", tabs, selected_status, "status"))
-
- // ── Filter Bar ──
- form id="filter-form" class="flex items-center gap-3 mb-5 flex-wrap filter-form"
- hx-get=(MrbListPath::PATH)
- hx-trigger="change, keyup changed delay:300ms from:.search-input"
- hx-target="#mrb-data-card"
- hx-select="#mrb-data-card"
- hx-swap="outerHTML"
- hx-include="closest form"
- hx-push-url="true" {
- div class="relative w-60" {
- (icon::search_icon("absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted"))
- input class="search-input w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input" type="text" name="keyword"
- placeholder="搜索单号…"
- value=(params.keyword.as_deref().unwrap_or(""));
- }
- select class="w-40 px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer" name="disposition" {
- option value="" selected[params.disposition.is_none()] { "全部处置" }
- option value="1" selected[params.disposition == Some(1)] { "报废" }
- option value="2" selected[params.disposition == Some(2)] { "退货" }
- option value="3" selected[params.disposition == Some(3)] { "降级" }
- option value="4" selected[params.disposition == Some(4)] { "返工" }
- }
- select class="w-40 px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer" name="responsible_party" {
- option value="" selected[params.responsible_party.is_none()] { "全部责任方" }
- option value="1" selected[params.responsible_party == Some(1)] { "内部" }
- option value="2" selected[params.responsible_party == Some(2)] { "供应商" }
- option value="3" selected[params.responsible_party == Some(3)] { "客户" }
- }
- input class="w-40 px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer" type="date" name="date_from"
- value=(params.date_from.as_deref().unwrap_or(""));
- span class="text-sm text-muted" { "至" }
- input class="w-40 px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer" type="date" name="date_to"
- value=(params.date_to.as_deref().unwrap_or(""));
- }
-
- // ── Data Table ──
- (mrb_data_card(result, product_names, result_doc_numbers, params))
- }
- }
+    div class="mrb-list-panel" {
+        ({
+            status_tabs_with_param(
+                MrbListPath::PATH,
+                "#mrb-data-card",
+                "#filter-form",
+                tabs,
+                selected_status,
+                "status",
+            )
+        })
+        // ── Filter Bar ──
+        form
+            id="filter-form"
+            class="flex items-center gap-3 mb-5 flex-wrap filter-form"
+            hx-get=(MrbListPath::PATH)
+            hx-trigger="change, keyup changed delay:300ms from:.search-input"
+            hx-target="#mrb-data-card"
+            hx-select="#mrb-data-card"
+            hx-swap="outerHTML"
+            hx-include="closest form"
+            hx-push-url="true"
+        {
+            div class="relative w-60" {
+                ({
+                    icon::search_icon(
+                        "absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted",
+                    )
+                })
+                input
+                    class="search-input w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input"
+                    type="text"
+                    name="keyword"
+                    placeholder="搜索单号…"
+                    value=(params.keyword.as_deref().unwrap_or(""));
+            }
+            select
+                class="w-40 px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer"
+                name="disposition"
+            {
+                option value="" selected[params.disposition.is_none()] { "全部处置" }
+                option value="1" selected[params.disposition == Some(1)] { "报废" }
+                option value="2" selected[params.disposition == Some(2)] { "退货" }
+                option value="3" selected[params.disposition == Some(3)] { "降级" }
+                option value="4" selected[params.disposition == Some(4)] { "返工" }
+            }
+            select
+                class="w-40 px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer"
+                name="responsible_party"
+            {
+                option value="" selected[params.responsible_party.is_none()] { "全部责任方" }
+                option value="1" selected[params.responsible_party == Some(1)] { "内部" }
+                option value="2" selected[params.responsible_party == Some(2)] { "供应商" }
+                option value="3" selected[params.responsible_party == Some(3)] { "客户" }
+            }
+            input
+                class="w-40 px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer"
+                type="date"
+                name="date_from"
+                value=(params.date_from.as_deref().unwrap_or(""));
+            span class="text-sm text-muted" { "至" }
+            input
+                class="w-40 px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer"
+                type="date"
+                name="date_to"
+                value=(params.date_to.as_deref().unwrap_or(""));
+        }
+        // ── Data Table ──
+        (mrb_data_card(result, product_names, result_doc_numbers, params))
+    }
+}
 }
 
 fn mrb_data_card(
@@ -281,61 +309,106 @@ fn mrb_data_card(
 ) -> Markup {
  let query = build_query_string(params);
  html! {
- div class="data-card" id="mrb-data-card" {
- div class="overflow-x-auto" {
- table class="data-table" {
- thead {
- tr {
- th { "单号" }
- th { "关联检验" }
- th { "产品" }
- th { "缺陷描述" }
- th { "处置方式" }
- th { "责任方" }
- th { "成本影响" }
- th { "状态" }
- }
- }
- tbody {
- @for item in &result.items {
- @let (disp_label, disp_bg, disp_color) = disposition_label(&item.disposition);
- @let (rp_label, rp_bg, rp_color) = responsible_party_label(&item.responsible_party);
- @let (st_label, st_bg, st_color) = mrb_status_label(&item.status);
- @let product_name = product_names.get(&item.product_id).map(|s| s.as_str()).unwrap_or("—");
- @let result_doc = result_doc_numbers.get(&item.inspection_result_id).map(|s| s.as_str()).unwrap_or("—");
- @let detail_path = MrbDetailPath { id: item.id };
- tr class="cursor-pointer hover:bg-accent-bg transition-colors duration-100" _=(format!("on click go to {}", detail_path.to_string())) {
- td { a href=(detail_path.to_string()) class="text-accent font-medium font-mono tabular-nums hover:underline" { (item.doc_number) } }
- td class="font-mono tabular-nums text-xs" { (result_doc) }
- td { (product_name) }
- td class="max-w-[200px] overflow-hidden text-ellipsis whitespace-nowrap" { (item.defect_description) }
- td {
- span class=(format!("text-xs px-2 py-0.5 rounded-full font-medium {} {}", disp_bg, disp_color)) {
- (disp_label)
- }
- }
- td {
- span class=(format!("text-xs px-2 py-0.5 rounded-full font-medium {} {}", rp_bg, rp_color)) {
- (rp_label)
- }
- }
- td class="font-mono tabular-nums" { (format!("¥{:.2}", item.cost_impact)) }
- td {
- span class=(format!("text-xs px-2 py-0.5 rounded-full font-medium {} {}", st_bg, st_color)) {
- (st_label)
- }
- }
- }
- }
- @if result.items.is_empty() {
- tr {
- td colspan="8" class="text-center text-muted text-sm py-8" { "暂无MRB记录" }
- }
- }
- }
- }
- }
- (pagination(MrbListPath::PATH, &query, result.total, result.page, result.total_pages))
- }
- }
+    div class="data-card" id="mrb-data-card" {
+        div class="overflow-x-auto" {
+            table class="data-table" {
+                thead {
+                    tr {
+                        th { "单号" }
+                        th { "关联检验" }
+                        th { "产品" }
+                        th { "缺陷描述" }
+                        th { "处置方式" }
+                        th { "责任方" }
+                        th { "成本影响" }
+                        th { "状态" }
+                    }
+                }
+                tbody {
+                    @for item in &result.items {
+                        @let (disp_label, disp_bg, disp_color) = disposition_label(
+                            &item.disposition,
+                        );
+                        @let (rp_label, rp_bg, rp_color) = responsible_party_label(
+                            &item.responsible_party,
+                        );
+                        @let (st_label, st_bg, st_color) = mrb_status_label(&item.status);
+                        @let product_name = product_names
+                            .get(&item.product_id)
+                            .map(|s| s.as_str())
+                            .unwrap_or("—");
+                        @let result_doc = result_doc_numbers
+                            .get(&item.inspection_result_id)
+                            .map(|s| s.as_str())
+                            .unwrap_or("—");
+                        @let detail_path = MrbDetailPath { id: item.id };
+                        tr  class="cursor-pointer hover:bg-accent-bg transition-colors duration-100"
+                            _=(format!("on click go to {}", detail_path.to_string()))
+                        {
+                            td {
+                                a   href=(detail_path.to_string())
+                                    class="text-accent font-medium font-mono tabular-nums hover:underline"
+                                { (item.doc_number) }
+                            }
+                            td class="font-mono tabular-nums text-xs" { (result_doc) }
+                            td { (product_name) }
+                            td  class="max-w-[200px] overflow-hidden text-ellipsis whitespace-nowrap"
+                            { (item.defect_description) }
+                            td {
+                                span
+                                    class=({
+                                        format!(
+                                            "text-xs px-2 py-0.5 rounded-full font-medium {} {}",
+                                            disp_bg,
+                                            disp_color,
+                                        )
+                                    })
+                                { (disp_label) }
+                            }
+                            td {
+                                span
+                                    class=({
+                                        format!(
+                                            "text-xs px-2 py-0.5 rounded-full font-medium {} {}",
+                                            rp_bg,
+                                            rp_color,
+                                        )
+                                    })
+                                { (rp_label) }
+                            }
+                            td class="font-mono tabular-nums" {
+                                (format!("¥{:.2}", item.cost_impact))
+                            }
+                            td {
+                                span
+                                    class=({
+                                        format!(
+                                            "text-xs px-2 py-0.5 rounded-full font-medium {} {}",
+                                            st_bg,
+                                            st_color,
+                                        )
+                                    })
+                                { (st_label) }
+                            }
+                        }
+                    }
+                    @if result.items.is_empty() {
+                        tr {
+                            td colspan="8" class="text-center text-muted text-sm py-8" { "暂无MRB记录" }
+                        }
+                    }
+                }
+            }
+        }
+        ({
+            pagination(
+                MrbListPath::PATH,
+                &query,
+                result.total,
+                result.page,
+                result.total_pages,
+            )
+        })
+    }
+}
 }

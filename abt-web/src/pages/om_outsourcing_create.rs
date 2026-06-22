@@ -233,8 +233,11 @@ async fn build_material_rows(
  use abt_core::wms::stock_ledger::StockLedgerService;
 
  if planned_qty <= rust_decimal::Decimal::ZERO {
-     return Ok(html! { tr { td colspan="3" class="text-center text-muted text-sm py-4" {
-         "请先选择关联工单以加载计划数量" } } }.into_string());
+     return Ok(html! {
+        tr {
+            td colspan="3" class="text-center text-muted text-sm py-4" { "请先选择关联工单以加载计划数量" }
+        }
+    }.into_string());
  }
 
  // 1. 获取工序产出品
@@ -293,8 +296,17 @@ async fn build_material_rows(
      let (_, code, name, _) = product_map.get(&semi_product_id)
          .map(|(_, c, n, _)| (AcquireChannel::Purchased, c.clone(), n.clone(), None::<rust_decimal::Decimal>))
          .unwrap_or((AcquireChannel::Purchased, semi_product_id.to_string(), semi_product_id.to_string(), None));
-     return Ok(html! { tr { td colspan="3" class="text-center text-muted text-sm py-4" {
-         "产出品「" (name) "」(" (code) ") 在工单 BOM 中无子物料" } } }.into_string());
+     return Ok(html! {
+        tr {
+            td colspan="3" class="text-center text-muted text-sm py-4" {
+                "产出品「"
+                (name)
+                "」("
+                (code)
+                ") 在工单 BOM 中无子物料"
+            }
+        }
+    }.into_string());
  }
 
  // 4. 过滤采购件，计算需求量
@@ -318,8 +330,13 @@ async fn build_material_rows(
  }
 
  if rows.is_empty() {
-     return Ok(html! { tr { td colspan="3" class="text-center text-muted text-sm py-4" {
-         "产出品在工单 BOM 中的子物料均为自制件，无需发料" } } }.into_string());
+     return Ok(html! {
+        tr {
+            td colspan="3" class="text-center text-muted text-sm py-4" {
+                "产出品在工单 BOM 中的子物料均为自制件，无需发料"
+            }
+        }
+    }.into_string());
  }
 
  Ok(material_rows_fragment(&rows).into_string())
@@ -374,27 +391,39 @@ fn routing_select_fragment(s: &abt_core::om::outsourcing_order::model::WorkOrder
  )).collect::<Vec<_>>(),
  ).unwrap_or_else(|_| "[]".into());
  html! {
- select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
-     name="routing_id" id="routing-select" {
- @if outsourced.is_empty() {
- option value="" { "（无可委外工序，勾选下方显示全部）" }
- } @else {
- option value="" { "请选择工序" }
- }
- @for r in &outsourced {
- option value=(r.id) data-name=(r.process_name) data-price=(r.unit_price.map(|p| p.to_string()).unwrap_or_default()) { (r.step_no) " - " (r.process_name) }
- }
- }
- label class="inline-flex items-center gap-1 text-xs text-muted mt-1 cursor-pointer" {
- input type="checkbox" id="show-all-routings" class="cursor-pointer accent-accent";
- "显示全部工序"
- }
- // 回填数据（选工单后由 JS 读取并写入表单字段）
- input type="hidden" id="wo-summary-data"
-     data-pid=(s.product_id) data-pname=(s.product_name) data-pq=(s.planned_qty.to_string()) data-se=(s.scheduled_end.to_string());
- input type="hidden" id="routings-json" value=(all_json);
- (maud::PreEscaped("<script>omInitWorkOrderPicker();</script>"))
- }
+    select
+        class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
+        name="routing_id"
+        id="routing-select"
+    {
+        @if outsourced.is_empty() {
+            option value="" { "（无可委外工序，勾选下方显示全部）" }
+        } @else {
+            option value="" { "请选择工序" }
+        }
+        @for r in &outsourced {
+            option
+                value=(r.id)
+                data-name=(r.process_name)
+                data-price=(r.unit_price.map(|p| p.to_string()).unwrap_or_default())
+            { (r.step_no) " - " (r.process_name) }
+        }
+    }
+    label class="inline-flex items-center gap-1 text-xs text-muted mt-1 cursor-pointer" {
+        input type="checkbox" id="show-all-routings" class="cursor-pointer accent-accent";
+        "显示全部工序"
+    }
+    // 回填数据（选工单后由 JS 读取并写入表单字段）
+    input
+        type="hidden"
+        id="wo-summary-data"
+        data-pid=(s.product_id)
+        data-pname=(s.product_name)
+        data-pq=(s.planned_qty.to_string())
+        data-se=(s.scheduled_end.to_string());
+    input type="hidden" id="routings-json" value=(all_json);
+    (maud::PreEscaped("<script>omInitWorkOrderPicker();</script>"))
+}
 }
 
 // ── 联动：发料即时查询（BOM 展开 + 库存 + min_pack_qty）──
@@ -429,31 +458,47 @@ fn material_rows_fragment(
  rows: &[(i64, String, String, rust_decimal::Decimal, Option<rust_decimal::Decimal>, rust_decimal::Decimal)],
 ) -> Markup {
  html! {
- @for (pid, code, name, req_qty, min_pack, stock) in rows {
- tr oninput="omUpdateMaterialJson()" {
- td {
- div { (name) " " span class="text-muted text-xs" { "(" (code) ")" } }
- input type="hidden" name="m_product_id" value=(pid);
- span class="pack-hint text-[11px] text-muted" data-min-pack=(min_pack.map(|m| m.to_string()).unwrap_or_default()) {
- "需 " (crate::utils::fmt_qty(*req_qty)) " / 库存 " (crate::utils::fmt_qty(*stock))
- @if let Some(mp) = min_pack { " / min_pack " (crate::utils::fmt_qty(*mp)) }
- }
- }
- td {
- input class="w-[100px] text-right px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
- type="number" step="any" name="m_planned_qty" value=(req_qty.to_string())
- data-min-pack=(min_pack.map(|m| m.to_string()).unwrap_or_default())
- oninput="omValidatePack(this); omUpdateMaterialJson()";
- }
- td {
- button type="button" class="w-7 h-7 border-none text-muted rounded-sm cursor-pointer grid place-items-center hover:bg-surface transition-colors duration-150" title="删除"
- onclick="this.closest('tr').remove();omUpdateMaterialJson()" {
- (icon::x_icon("w-3.5 h-3.5"))
- }
- }
- }
- }
- }
+    @for (pid, code, name, req_qty, min_pack, stock) in rows {
+        tr oninput="omUpdateMaterialJson()" {
+            td {
+                div {
+                    (name)
+                    " "
+                    span class="text-muted text-xs" { "(" (code) ")" }
+                }
+                input type="hidden" name="m_product_id" value=(pid);
+                span
+                    class="pack-hint text-[11px] text-muted"
+                    data-min-pack=(min_pack.map(|m| m.to_string()).unwrap_or_default())
+                {
+                    "需 "
+                    (crate::utils::fmt_qty(*req_qty))
+                    " / 库存 "
+                    (crate::utils::fmt_qty(*stock))
+                    @if let Some(mp) = min_pack { " / min_pack " (crate::utils::fmt_qty(*mp)) }
+                }
+            }
+            td {
+                input
+                    class="w-[100px] text-right px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
+                    type="number"
+                    step="any"
+                    name="m_planned_qty"
+                    value=(req_qty.to_string())
+                    data-min-pack=(min_pack.map(|m| m.to_string()).unwrap_or_default())
+                    oninput="omValidatePack(this); omUpdateMaterialJson()";
+            }
+            td {
+                button
+                    type="button"
+                    class="w-7 h-7 border-none text-muted rounded-sm cursor-pointer grid place-items-center hover:bg-surface transition-colors duration-150"
+                    title="删除"
+                    onclick="this.closest('tr').remove();omUpdateMaterialJson()"
+                { (icon::x_icon("w-3.5 h-3.5")) }
+            }
+        }
+    }
+}
 }
 
 // ── Page Components ──
@@ -463,185 +508,287 @@ fn create_page(
  products: &[abt_core::master_data::product::model::Product],
 ) -> Markup {
  html! {
- div {
- // ── Back Link ──
- a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150 mb-4" href=(format!("{}?restore=true", OmOutsourcingListPath::PATH)) {
- (icon::chevron_left_icon("w-4 h-4"))
- "返回委外单列表"
- }
- // ── Page Header ──
- div class="flex items-center justify-between mb-5" {
- h1 class="text-xl font-bold text-fg tracking-tight" { "新建委外单" }
- }
+    div {
+        // ── Back Link ──
+        a   class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150 mb-4"
+            href=(format!("{}?restore=true", OmOutsourcingListPath::PATH))
+        { (icon::chevron_left_icon("w-4 h-4")) "返回委外单列表" }
+        // ── Page Header ──
+        div class="flex items-center justify-between mb-5" {
+            h1 class="text-xl font-bold text-fg tracking-tight" { "新建委外单" }
+        }
 
- form
- id="om-create-form"
- hx-post=(OmOutsourcingCreatePath::PATH)
- hx-swap="none"
- _="on submit if not omValidateAllPacks() then halt the event"
- {
- // ── Section 1: 关联信息 ──
- div class="form-section" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-3 border-b border-border-soft" {
- (icon::link_icon("w-[18px] h-[18px]"))
- "关联信息"
- }
- div class="grid grid-cols-2 gap-4 gap-x-6" {
- div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "关联工单" }
- input type="hidden" name="work_order_id" id="wo-id-hidden" value=""
-     hx-get=(OmOutsourcingWoSummaryPath::PATH) hx-trigger="change" hx-target="#routing-zone" hx-swap="innerHTML";
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer transition-all duration-150 focus:border-accent"
-     type="text" id="wo-display" value="" readonly
-     placeholder="点击搜索工单…"
-     _="on click add .is-open to #wo-picker-modal";
- }
- div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "关联工序" }
- div id="routing-zone" {
- select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-surface text-muted outline-none" name="routing_id" disabled {
- option value="" { "先选择关联工单" }
- }
- }
- }
- div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "产品 " span class="required" { "*" } }
- input type="hidden" name="product_id" id="product-id-hidden" value="" required;
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-surface text-fg outline-none" type="text" id="product-name-display" value="" readonly placeholder="选择工单后自动加载";
- }
- div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "供应商 " span class="required" { "*" } }
- select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" name="supplier_id" required {
- option value="" { "请选择供应商" }
- @for s in suppliers {
- option value=(s.id) { (s.name) }
- }
- }
- }
- div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "委外类型 " span class="required" { "*" } }
- select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" name="outsourcing_type" required {
- option value="" { "请选择委外类型" }
- option value="1" { "整体委外" }
- option value="2" { "工序委外" }
- option value="3" { "材料委外" }
- option value="4" { "返工委外" }
- }
- }
- div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "计划数量 " span class="required" { "*" } }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="number" step="any" name="planned_qty" required;
- }
- div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "单价 " span class="required" { "*" } }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="number" step="any" name="unit_price" required;
- }
- div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "预计交期" }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="date" name="scheduled_date";
- }
- }
- }
-
- // ── Section 3: 发料明细 ──
- div class="form-section" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-3 border-b border-border-soft" {
- (icon::box_icon("w-[18px] h-[18px]"))
- "发料明细"
- }
- // 监听 routingSelected 事件 → 自动加载发料明细
- div id="material-loader"
-     hx-get=(OmOutsourcingSuggestMaterialsPath::PATH)
-     hx-trigger="routingSelected"
-     hx-target="#material-tbody"
-     hx-swap="innerHTML"
-     hx-include="[name='work_order_id'], [name='routing_id'], [name='planned_qty']" {}
- div class="overflow-x-auto -mx-2" {
- table class="data-table" {
- thead { tr {
- th { "物料" }
- th { "应发数量" }
- th style="width:50px" { }
- }}
- tbody id="material-tbody" { }
- }
- input type="hidden" name="materials_json" id="materials-json" value="";
- }
- div class="p-4 flex items-center gap-2" {
- button type="button" class="inline-flex items-center gap-2 text-accent text-sm font-medium cursor-pointer hover:text-accent-hover transition-colors duration-150"
- _="on click call omAddMaterialRow()" {
- (icon::plus_icon("w-4 h-4"))
- "添加物料"
- }
- }
- }
-
- // ── Section 4: 备注 ──
- div class="form-section" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-3 border-b border-border-soft" {
- (icon::comment_icon("w-[18px] h-[18px]"))
- "备注"
- }
- div class="form-field col-span-2" {
- textarea class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent resize-y" name="remark" rows="3" placeholder="请输入备注信息…" {}
- }
- }
-
- // ── Action bar ──
- div class="sticky bottom-0 flex items-center justify-between gap-3 px-6 py-4 bg-bg border-t border-border-soft" {
- div { }
- div class="flex gap-3" {
- a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{}?restore=true", OmOutsourcingListPath::PATH)) { "取消" }
- button type="submit" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" {
- (icon::check_circle_icon("w-4 h-4"))
- "确认提交"
- }
- }
- }
- }
-
- // ── Material row modal ──
- div id="material-modal" class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 is-open:opacity-100 is-open:pointer-events-auto" _="on click[me is event.target] remove .is-open from #material-modal" {
- div class="bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl" _="on click halt the event" {
- div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
- h3 class="text-base font-semibold text-fg" { "选择物料" }
- button type="button" class="w-7 h-7 border-none text-muted rounded-sm cursor-pointer grid place-items-center hover:bg-surface transition-colors duration-150" title="关闭"
- _="on click remove .is-open from #material-modal" {
- (icon::x_icon("w-4 h-4"))
- }
- }
- div class="overflow-y-auto flex-1 min-h-0 p-6" {
- div class="grid grid-cols-2 gap-4 gap-x-6" {
- div class="form-field col-span-2" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "物料" }
- select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" id="modal-product-id" {
- option value="" { "请选择物料" }
- @for p in products {
- option value=(p.product_id) {
- (p.pdt_name) " (" (p.product_code) ")"
- }
- }
- }
- }
- div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "应发数量 " span class="required" { "*" } }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="number" step="any" id="modal-planned-qty" required;
- }
- }
- }
- div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" {
- button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
- _="on click remove .is-open from #material-modal" { "取消" }
- button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
- _="on click call omConfirmMaterial()" { "确认" }
- }
- }
- }
-
- // ── Page-specific JS ──
- (crate::components::work_order_picker::work_order_picker_modal("wo-picker-modal", "wo-id-hidden", "wo-display"))
-
- script src="/om-outsourcing-create.js" {}
- }
+        form
+            id="om-create-form"
+            hx-post=(OmOutsourcingCreatePath::PATH)
+            hx-swap="none"
+            _="on submit if not omValidateAllPacks() then halt the event"
+        {
+            // ── Section 1: 关联信息 ──
+            div class="form-section" {
+                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-3 border-b border-border-soft"
+                { (icon::link_icon("w-[18px] h-[18px]")) "关联信息" }
+                div class="grid grid-cols-2 gap-4 gap-x-6" {
+                    div class="form-field" {
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
+                            "关联工单"
+                        }
+                        input
+                            type="hidden"
+                            name="work_order_id"
+                            id="wo-id-hidden"
+                            value=""
+                            hx-get=(OmOutsourcingWoSummaryPath::PATH)
+                            hx-trigger="change"
+                            hx-target="#routing-zone"
+                            hx-swap="innerHTML";
+                        input
+                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer transition-all duration-150 focus:border-accent"
+                            type="text"
+                            id="wo-display"
+                            value=""
+                            readonly
+                            placeholder="点击搜索工单…"
+                            _="on click add .is-open to #wo-picker-modal";
+                    }
+                    div class="form-field" {
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
+                            "关联工序"
+                        }
+                        div id="routing-zone" {
+                            select
+                                class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-surface text-muted outline-none"
+                                name="routing_id"
+                                disabled
+                            {
+                                option value="" { "先选择关联工单" }
+                            }
+                        }
+                    }
+                    div class="form-field" {
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
+                            "产品 "
+                            span class="required" { "*" }
+                        }
+                        input
+                            type="hidden"
+                            name="product_id"
+                            id="product-id-hidden"
+                            value=""
+                            required;
+                        input
+                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-surface text-fg outline-none"
+                            type="text"
+                            id="product-name-display"
+                            value=""
+                            readonly
+                            placeholder="选择工单后自动加载";
+                    }
+                    div class="form-field" {
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
+                            "供应商 "
+                            span class="required" { "*" }
+                        }
+                        select
+                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
+                            name="supplier_id"
+                            required
+                        {
+                            option value="" { "请选择供应商" }
+                            @for s in suppliers {
+                                option value=(s.id) { (s.name) }
+                            }
+                        }
+                    }
+                    div class="form-field" {
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
+                            "委外类型 "
+                            span class="required" { "*" }
+                        }
+                        select
+                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
+                            name="outsourcing_type"
+                            required
+                        {
+                            option value="" { "请选择委外类型" }
+                            option value="1" { "整体委外" }
+                            option value="2" { "工序委外" }
+                            option value="3" { "材料委外" }
+                            option value="4" { "返工委外" }
+                        }
+                    }
+                    div class="form-field" {
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
+                            "计划数量 "
+                            span class="required" { "*" }
+                        }
+                        input
+                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
+                            type="number"
+                            step="any"
+                            name="planned_qty"
+                            required;
+                    }
+                    div class="form-field" {
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
+                            "单价 "
+                            span class="required" { "*" }
+                        }
+                        input
+                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
+                            type="number"
+                            step="any"
+                            name="unit_price"
+                            required;
+                    }
+                    div class="form-field" {
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
+                            "预计交期"
+                        }
+                        input
+                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
+                            type="date"
+                            name="scheduled_date";
+                    }
+                }
+            }
+            // ── Section 3: 发料明细 ──
+            div class="form-section" {
+                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-3 border-b border-border-soft"
+                { (icon::box_icon("w-[18px] h-[18px]")) "发料明细" }
+                // 监听 routingSelected 事件 → 自动加载发料明细
+                div id="material-loader"
+                    hx-get=(OmOutsourcingSuggestMaterialsPath::PATH)
+                    hx-trigger="routingSelected"
+                    hx-target="#material-tbody"
+                    hx-swap="innerHTML"
+                    hx-include="[name='work_order_id'], [name='routing_id'], [name='planned_qty']" {}
+                div class="overflow-x-auto -mx-2" {
+                    table class="data-table" {
+                        thead {
+                            tr {
+                                th { "物料" }
+                                th { "应发数量" }
+                                th style="width:50px" {}
+                            }
+                        }
+                        tbody id="material-tbody" {}
+                    }
+                    input type="hidden" name="materials_json" id="materials-json" value="";
+                }
+                div class="p-4 flex items-center gap-2" {
+                    button
+                        type="button"
+                        class="inline-flex items-center gap-2 text-accent text-sm font-medium cursor-pointer hover:text-accent-hover transition-colors duration-150"
+                        _="on click call omAddMaterialRow()"
+                    { (icon::plus_icon("w-4 h-4")) "添加物料" }
+                }
+            }
+            // ── Section 4: 备注 ──
+            div class="form-section" {
+                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-3 border-b border-border-soft"
+                { (icon::comment_icon("w-[18px] h-[18px]")) "备注" }
+                div class="form-field col-span-2" {
+                    textarea
+                        class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent resize-y"
+                        name="remark"
+                        rows="3"
+                        placeholder="请输入备注信息…" {}
+                }
+            }
+            // ── Action bar ──
+            div class="sticky bottom-0 flex items-center justify-between gap-3 px-6 py-4 bg-bg border-t border-border-soft"
+            {
+                div {}
+                div class="flex gap-3" {
+                    a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                        href=(format!("{}?restore=true", OmOutsourcingListPath::PATH))
+                    { "取消" }
+                    button
+                        type="submit"
+                        class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                    { (icon::check_circle_icon("w-4 h-4")) "确认提交" }
+                }
+            }
+        }
+        // ── Material row modal ──
+        div id="material-modal"
+            class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 is-open:opacity-100 is-open:pointer-events-auto"
+            _="on click[me is event.target] remove .is-open from #material-modal"
+        {
+            div class="bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl"
+                _="on click halt the event"
+            {
+                div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0"
+                {
+                    h3 class="text-base font-semibold text-fg" { "选择物料" }
+                    button
+                        type="button"
+                        class="w-7 h-7 border-none text-muted rounded-sm cursor-pointer grid place-items-center hover:bg-surface transition-colors duration-150"
+                        title="关闭"
+                        _="on click remove .is-open from #material-modal"
+                    { (icon::x_icon("w-4 h-4")) }
+                }
+                div class="overflow-y-auto flex-1 min-h-0 p-6" {
+                    div class="grid grid-cols-2 gap-4 gap-x-6" {
+                        div class="form-field col-span-2" {
+                            label
+                                class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap"
+                            { "物料" }
+                            select
+                                class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
+                                id="modal-product-id"
+                            {
+                                option value="" { "请选择物料" }
+                                @for p in products {
+                                    option value=(p.product_id) {
+                                        (p.pdt_name)
+                                        " ("
+                                        (p.product_code)
+                                        ")"
+                                    }
+                                }
+                            }
+                        }
+                        div class="form-field" {
+                            label
+                                class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap"
+                            {
+                                "应发数量 "
+                                span class="required" { "*" }
+                            }
+                            input
+                                class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
+                                type="number"
+                                step="any"
+                                id="modal-planned-qty"
+                                required;
+                        }
+                    }
+                }
+                div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" {
+                    button
+                        type="button"
+                        class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                        _="on click remove .is-open from #material-modal"
+                    { "取消" }
+                    button
+                        type="button"
+                        class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                        _="on click call omConfirmMaterial()"
+                    { "确认" }
+                }
+            }
+        }
+        // ── Page-specific JS ──
+        ({
+            crate::components::work_order_picker::work_order_picker_modal(
+                "wo-picker-modal",
+                "wo-id-hidden",
+                "wo-display",
+            )
+        })
+        script src="/om-outsourcing-create.js" {}
+    }
 }
  }

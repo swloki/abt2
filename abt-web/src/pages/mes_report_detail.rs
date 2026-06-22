@@ -32,62 +32,142 @@ pub async fn get_report_detail(path: ReportDetailPath, ctx: RequestContext) -> R
  let process = lookups.process_name.as_deref().unwrap_or("—");
  let worker = lookups.worker_name.as_deref().unwrap_or("—");
 
- let content = html! { div {
- div class="data-card" {
- div class="flex items-center justify-between" {
- div class="text-xl font-bold text-fg flex items-center gap-[14px]" { (report.doc_number) " " span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-success-bg text-success" { "已确认" } }
- }
- div class="grid grid-cols-3 gap-x-6 gap-y-4" {
- div class="flex flex-col gap-1" { span class="text-xs text-muted font-medium" { "工单" } span class="text-sm text-fg font-medium" { (wo) } }
- div class="flex flex-col gap-1" { span class="text-xs text-muted font-medium" { "批次" } span class="text-sm text-fg font-medium" { (batch) } }
- div class="flex flex-col gap-1" { span class="text-xs text-muted font-medium" { "工序" } span class="text-sm text-fg font-medium" { (process) } }
- div class="flex flex-col gap-1" { span class="text-xs text-muted font-medium" { "班次" } span class="text-sm text-fg font-medium" { (shift_label) } }
- div class="flex flex-col gap-1" { span class="text-xs text-muted font-medium" { "工人" } span class="text-sm text-fg font-medium" { (worker) } }
- div class="flex flex-col gap-1" { span class="text-xs text-muted font-medium" { "完成数量" } span class="text-sm text-fg font-medium text-success" { (crate::utils::fmt_qty(report.completed_qty)) } }
- div class="flex flex-col gap-1" { span class="text-xs text-muted font-medium" { "不良数量" } span class="text-sm text-fg font-medium text-danger" { (crate::utils::fmt_qty(report.defect_qty)) } }
- div class="flex flex-col gap-1" { span class="text-xs text-muted font-medium" { "不良原因" } span class="text-sm text-fg font-medium" { (defect_label) } }
- div class="flex flex-col gap-1" { span class="text-xs text-muted font-medium" { "实际工时" } span class="text-sm text-fg font-medium" { (crate::utils::fmt_qty(report.work_hours)) " h" } }
- div class="flex flex-col gap-1" { span class="text-xs text-muted font-medium" { "报工日期" } span class="text-sm text-fg font-medium" { (report.report_date) } }
- div class="flex flex-col gap-1" { span class="text-xs text-muted font-medium" { "创建人" } span class="text-sm text-fg font-medium" { (worker) } }
- div class="flex flex-col gap-1" { span class="text-xs text-muted font-medium" { "创建时间" } span class="text-sm text-fg font-medium" { (report.created_at.format("%Y-%m-%d %H:%M")) } }
- div class="col-span-full flex flex-col gap-1" { span class="text-xs text-muted font-medium" { "备注" } span class="text-sm text-fg font-medium" { (if report.remark.is_empty() { "—".to_string() } else { report.remark.clone() }) } }
- }
- }
-
- // 工资计算明细
- div class="data-card" {
- div class="text-sm font-semibold text-fg mb-3 pb-2 border-b border-border-soft" { "工资计算" }
- div class="grid grid-cols-3 gap-4" {
- div class="flex flex-col gap-1" {
- label { "完成数量" }
- span class="font-mono tabular-nums" { (crate::utils::fmt_qty(report.completed_qty)) }
- }
- div class="flex flex-col gap-1" {
- label { "不良数量" }
- span class="font-mono tabular-nums" { (crate::utils::fmt_qty(report.defect_qty)) }
- }
- div class="flex flex-col gap-1" {
- label { "合格数量" }
- span class="font-mono tabular-nums" { (crate::utils::fmt_qty(report.completed_qty - report.defect_qty)) }
- }
- }
- div class="mt-4 pt-4 border-t border-border-soft flex flex-col gap-2" {
- div class="flex gap-[12px]" {
- span class="w-[80px] text-slate-400 text-[13px]" { "工序" }
- span class="text-slate-700 text-[13px]" { (process) }
- }
- div class="flex gap-[12px]" {
- span class="w-[80px] text-slate-400 text-[13px]" { "实际工时" }
- span class="text-slate-700 text-[13px] font-mono tabular-nums" { (crate::utils::fmt_qty(report.work_hours)) " h" }
- }
- div class="bg-white text-[13px]" {
- "合格量 = 完成量(" (crate::utils::fmt_qty(report.completed_qty)) ")"
- " - 不良量(" (crate::utils::fmt_qty(report.defect_qty)) ")"
- " = "
- strong { (crate::utils::fmt_qty(report.completed_qty - report.defect_qty)) " 件" }
- }
- }
- }
- }};
+ let content = html! {
+    div {
+        div class="data-card" {
+            div class="flex items-center justify-between" {
+                div class="text-xl font-bold text-fg flex items-center gap-[14px]" {
+                    (report.doc_number)
+                    " "
+                    span
+                        class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-success-bg text-success"
+                    { "已确认" }
+                }
+            }
+            div class="grid grid-cols-3 gap-x-6 gap-y-4" {
+                div class="flex flex-col gap-1" {
+                    span class="text-xs text-muted font-medium" { "工单" }
+                    span class="text-sm text-fg font-medium" { (wo) }
+                }
+                div class="flex flex-col gap-1" {
+                    span class="text-xs text-muted font-medium" { "批次" }
+                    span class="text-sm text-fg font-medium" { (batch) }
+                }
+                div class="flex flex-col gap-1" {
+                    span class="text-xs text-muted font-medium" { "工序" }
+                    span class="text-sm text-fg font-medium" { (process) }
+                }
+                div class="flex flex-col gap-1" {
+                    span class="text-xs text-muted font-medium" { "班次" }
+                    span class="text-sm text-fg font-medium" { (shift_label) }
+                }
+                div class="flex flex-col gap-1" {
+                    span class="text-xs text-muted font-medium" { "工人" }
+                    span class="text-sm text-fg font-medium" { (worker) }
+                }
+                div class="flex flex-col gap-1" {
+                    span class="text-xs text-muted font-medium" { "完成数量" }
+                    span class="text-sm text-fg font-medium text-success" {
+                        (crate::utils::fmt_qty(report.completed_qty))
+                    }
+                }
+                div class="flex flex-col gap-1" {
+                    span class="text-xs text-muted font-medium" { "不良数量" }
+                    span class="text-sm text-fg font-medium text-danger" {
+                        (crate::utils::fmt_qty(report.defect_qty))
+                    }
+                }
+                div class="flex flex-col gap-1" {
+                    span class="text-xs text-muted font-medium" { "不良原因" }
+                    span class="text-sm text-fg font-medium" { (defect_label) }
+                }
+                div class="flex flex-col gap-1" {
+                    span class="text-xs text-muted font-medium" { "实际工时" }
+                    span class="text-sm text-fg font-medium" {
+                        (crate::utils::fmt_qty(report.work_hours))
+                        " h"
+                    }
+                }
+                div class="flex flex-col gap-1" {
+                    span class="text-xs text-muted font-medium" { "报工日期" }
+                    span class="text-sm text-fg font-medium" { (report.report_date) }
+                }
+                div class="flex flex-col gap-1" {
+                    span class="text-xs text-muted font-medium" { "创建人" }
+                    span class="text-sm text-fg font-medium" { (worker) }
+                }
+                div class="flex flex-col gap-1" {
+                    span class="text-xs text-muted font-medium" { "创建时间" }
+                    span class="text-sm text-fg font-medium" {
+                        (report.created_at.format("%Y-%m-%d %H:%M"))
+                    }
+                }
+                div class="col-span-full flex flex-col gap-1" {
+                    span class="text-xs text-muted font-medium" { "备注" }
+                    span class="text-sm text-fg font-medium" {
+                        ({
+                            if report.remark.is_empty() {
+                                "—".to_string()
+                            } else {
+                                report.remark.clone()
+                            }
+                        })
+                    }
+                }
+            }
+        }
+        // 工资计算明细
+        div class="data-card" {
+            div class="text-sm font-semibold text-fg mb-3 pb-2 border-b border-border-soft" {
+                "工资计算"
+            }
+            div class="grid grid-cols-3 gap-4" {
+                div class="flex flex-col gap-1" {
+                    label { "完成数量" }
+                    span class="font-mono tabular-nums" {
+                        (crate::utils::fmt_qty(report.completed_qty))
+                    }
+                }
+                div class="flex flex-col gap-1" {
+                    label { "不良数量" }
+                    span class="font-mono tabular-nums" { (crate::utils::fmt_qty(report.defect_qty)) }
+                }
+                div class="flex flex-col gap-1" {
+                    label { "合格数量" }
+                    span class="font-mono tabular-nums" {
+                        ({
+                            crate::utils::fmt_qty(
+                                report.completed_qty - report.defect_qty,
+                            )
+                        })
+                    }
+                }
+            }
+            div class="mt-4 pt-4 border-t border-border-soft flex flex-col gap-2" {
+                div class="flex gap-[12px]" {
+                    span class="w-[80px] text-slate-400 text-[13px]" { "工序" }
+                    span class="text-slate-700 text-[13px]" { (process) }
+                }
+                div class="flex gap-[12px]" {
+                    span class="w-[80px] text-slate-400 text-[13px]" { "实际工时" }
+                    span class="text-slate-700 text-[13px] font-mono tabular-nums" {
+                        (crate::utils::fmt_qty(report.work_hours))
+                        " h"
+                    }
+                }
+                div class="bg-white text-[13px]" {
+                    "合格量 = 完成量("
+                    (crate::utils::fmt_qty(report.completed_qty))
+                    ")"
+                    " - 不良量("
+                    (crate::utils::fmt_qty(report.defect_qty))
+                    ")"
+                    " = "
+                    strong { (crate::utils::fmt_qty(report.completed_qty - report.defect_qty)) " 件" }
+                }
+            }
+        }
+    }
+};
  Ok(Html(admin_page(is_htmx, "报工详情", &claims, "production", &format!("/admin/mes/reports/{}", path.id), "生产管理", Some(ReportListPath::PATH), content, &nav_filter).into_string()))
 }

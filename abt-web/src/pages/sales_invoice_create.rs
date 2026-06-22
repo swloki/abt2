@@ -187,34 +187,39 @@ fn invoice_create_page(
     let today = chrono::Utc::now().date_naive().format("%Y-%m-%d").to_string();
     html! {
         div {
-            a href=(format!("{}?restore=true", SalesInvoiceListPath::PATH))
-                class="inline-flex items-center gap-1 text-sm text-muted hover:text-accent transition-colors duration-150 mb-6" {
-                (icon::arrow_left_icon("w-4 h-4"))
-                "返回列表"
-            }
+            a   href=(format!("{}?restore=true", SalesInvoiceListPath::PATH))
+                class="inline-flex items-center gap-1 text-sm text-muted hover:text-accent transition-colors duration-150 mb-6"
+            { (icon::arrow_left_icon("w-4 h-4")) "返回列表" }
 
             div class="mb-6" {
                 h1 class="text-xl font-bold text-fg tracking-tight" { "新建销售发票" }
             }
 
-            form id="sales-invoice-form"
+            form
+                id="sales-invoice-form"
                 hx-post=(SalesInvoiceCreatePath::PATH)
                 hx-swap="none"
-                onsubmit="lineItemCalc('#sales-invoice-item-tbody').collectItems()" {
-                input type="hidden" id="items-json" name="items_json" value="[]" {};
-
+                onsubmit="lineItemCalc('#sales-invoice-item-tbody').collectItems()"
+            {
+                input type="hidden" id="items-json" name="items_json" value="[]" {}
+                ;
                 // ── Section 1: 发票头 ──
                 div class="form-section" {
-                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
-                        (icon::clipboard_document_icon("w-4 h-4"))
-                        " 发票信息"
-                    }
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
+                    { (icon::clipboard_document_icon("w-4 h-4")) " 发票信息" }
                     div class="grid grid-cols-2 gap-4 gap-x-6" {
                         div class="form-field" {
-                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
-                                "客户 " span class="text-danger" { "*" }
+                            label
+                                class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap"
+                            {
+                                "客户 "
+                                span class="text-danger" { "*" }
                             }
-                            select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer" name="customer_id" required {
+                            select
+                                class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer"
+                                name="customer_id"
+                                required
+                            {
                                 option value="" { "请选择客户" }
                                 @for c in customers {
                                     option value=(c.id) { (c.code) " — " (c.name) }
@@ -222,17 +227,25 @@ fn invoice_create_page(
                             }
                         }
                         div class="form-field" {
-                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
-                                "开票日期 " span class="text-danger" { "*" }
+                            label
+                                class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap"
+                            {
+                                "开票日期 "
+                                span class="text-danger" { "*" }
                             }
-                            input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer" type="date" name="issue_date" value=(today) required;
+                            input
+                                class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer"
+                                type="date"
+                                name="issue_date"
+                                value=(today)
+                                required;
                         }
                     }
                 }
-
                 // ── Section 2: 行项目 ──
                 div class="form-section" {
-                    div class="flex items-center justify-between text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
+                    div class="flex items-center justify-between text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
+                    {
                         span class="flex items-center gap-2" {
                             (icon::dollar_icon("w-4 h-4"))
                             " 发票明细"
@@ -246,13 +259,29 @@ fn invoice_create_page(
                         table class="w-full border-separate border-spacing-0 min-w-[870px]" {
                             thead {
                                 tr {
-                                    th class="w-[140px] text-left text-xs font-semibold text-fg-2 px-3 py-2 border-b border-border-soft uppercase tracking-wide" { "产品 " span class="text-danger" { "*" } }
-                                    th class="text-left text-xs font-semibold text-fg-2 px-3 py-2 border-b border-border-soft uppercase tracking-wide" { "产品编码" }
-                                    th class="w-[100px] text-left text-xs font-semibold text-fg-2 px-3 py-2 border-b border-border-soft uppercase tracking-wide" { "单位" }
-                                    th class="w-[100px] text-left text-xs font-semibold text-fg-2 px-3 py-2 border-b border-border-soft uppercase tracking-wide" { "数量 " span class="text-danger" { "*" } }
-                                    th class="w-[120px] text-left text-xs font-semibold text-fg-2 px-3 py-2 border-b border-border-soft uppercase tracking-wide" { "单价 " span class="text-danger" { "*" } }
-                                    th class="w-[110px] text-left text-xs font-semibold text-fg-2 px-3 py-2 border-b border-border-soft uppercase tracking-wide" { "税率" }
-                                    th class="w-[120px] text-right text-xs font-semibold text-fg-2 px-3 py-2 border-b border-border-soft uppercase tracking-wide" { "小计 (¥)" }
+                                    th  class="w-[140px] text-left text-xs font-semibold text-fg-2 px-3 py-2 border-b border-border-soft uppercase tracking-wide"
+                                    {
+                                        "产品 "
+                                        span class="text-danger" { "*" }
+                                    }
+                                    th  class="text-left text-xs font-semibold text-fg-2 px-3 py-2 border-b border-border-soft uppercase tracking-wide"
+                                    { "产品编码" }
+                                    th  class="w-[100px] text-left text-xs font-semibold text-fg-2 px-3 py-2 border-b border-border-soft uppercase tracking-wide"
+                                    { "单位" }
+                                    th  class="w-[100px] text-left text-xs font-semibold text-fg-2 px-3 py-2 border-b border-border-soft uppercase tracking-wide"
+                                    {
+                                        "数量 "
+                                        span class="text-danger" { "*" }
+                                    }
+                                    th  class="w-[120px] text-left text-xs font-semibold text-fg-2 px-3 py-2 border-b border-border-soft uppercase tracking-wide"
+                                    {
+                                        "单价 "
+                                        span class="text-danger" { "*" }
+                                    }
+                                    th  class="w-[110px] text-left text-xs font-semibold text-fg-2 px-3 py-2 border-b border-border-soft uppercase tracking-wide"
+                                    { "税率" }
+                                    th  class="w-[120px] text-right text-xs font-semibold text-fg-2 px-3 py-2 border-b border-border-soft uppercase tracking-wide"
+                                    { "小计 (¥)" }
                                     th class="w-[44px] px-3 py-2 border-b border-border-soft" {}
                                 }
                             }
@@ -260,35 +289,35 @@ fn invoice_create_page(
                         }
                     }
                     div class="py-4" {
-                        button type="button"
+                        button
+                            type="button"
                             class="flex items-center justify-center gap-2 w-full py-3 border-1.5 border-dashed border-border text-accent text-sm font-medium cursor-pointer rounded-md hover:border-accent hover:bg-[rgba(37,99,235,0.04)] transition-all duration-200"
-                            _="on click call addInvoiceLine()" {
-                            (icon::plus_icon("w-4 h-4"))
-                            "添加产品行"
-                        }
+                            _="on click call addInvoiceLine()"
+                        { (icon::plus_icon("w-4 h-4")) "添加产品行" }
                     }
                     // lineItemCalc.recalcTotals() 会写入 #subtotal-value / #discount-value / #grand-value，
                     // 缺一即报错；发票无折扣概念，前两者隐藏即可
                     span class="hidden" id="subtotal-value" { "¥ 0.00" }
                     span class="hidden" id="discount-value" { "- ¥ 0.00" }
                 }
-
                 // ── Action Bar ──
-                div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg border-t border-border-soft" {
-                    a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
-                        href=(format!("{}?restore=true", SalesInvoiceListPath::PATH)) {
-                        "取消"
-                    }
-                    button type="submit"
-                        class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" {
-                        (icon::check_circle_icon("w-4 h-4"))
-                        "创建发票"
-                    }
+                div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg border-t border-border-soft"
+                {
+                    a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                        href=(format!("{}?restore=true", SalesInvoiceListPath::PATH))
+                    { "取消" }
+                    button
+                        type="submit"
+                        class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                    { (icon::check_circle_icon("w-4 h-4")) "创建发票" }
                 }
             }
         }
 
-        (PreEscaped(format!(r#"<script>
+        ({
+            PreEscaped(
+                format!(
+                    r#"<script>
 // 产品下拉数据（注入给 addInvoiceLine）
 window.__INVOICE_PRODUCTS__ = [{}];
 // 税率下拉数据（注入给 addInvoiceLine）
@@ -334,22 +363,34 @@ document.addEventListener('DOMContentLoaded', function() {{
     addInvoiceLine();
 }});
 </script>"#,
-            products
-                .iter()
-                .map(|p| format!(
-                    "{{\"id\":{},\"code\":{:?},\"name\":{:?},\"unit\":{:?}}}",
-                    p.product_id, p.product_code, p.pdt_name, p.unit
-                ))
-                .collect::<Vec<_>>()
-                .join(","),
-            tax_rates
-                .iter()
-                .map(|t| format!(
-                    "{{\"id\":{},\"code\":{:?},\"name\":{:?},\"rate\":{}}}",
-                    t.id, t.code, t.name, t.rate
-                ))
-                .collect::<Vec<_>>()
-                .join(",")
-        )))
+                    products
+                        .iter()
+                        .map(|p| {
+                            format!(
+                                "{{\"id\":{},\"code\":{:?},\"name\":{:?},\"unit\":{:?}}}",
+                                p.product_id,
+                                p.product_code,
+                                p.pdt_name,
+                                p.unit,
+                            )
+                        })
+                        .collect::<Vec<_>>()
+                        .join(","),
+                    tax_rates
+                        .iter()
+                        .map(|t| {
+                            format!(
+                                "{{\"id\":{},\"code\":{:?},\"name\":{:?},\"rate\":{}}}",
+                                t.id,
+                                t.code,
+                                t.name,
+                                t.rate,
+                            )
+                        })
+                        .collect::<Vec<_>>()
+                        .join(","),
+                ),
+            )
+        })
     }
 }

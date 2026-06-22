@@ -155,151 +155,200 @@ fn product_create_page(source: Option<&Product>, categories: &[CategoryTree]) ->
  let old_code_val = source.as_ref().and_then(|p| p.meta.old_code.as_deref()).unwrap_or("");
 
  html! {
- div {
- // ── Page Header ──
- div class="flex items-center justify-between mb-6" {
- a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", ProductListPath::PATH)) {
- (icon::arrow_left_icon("w-4 h-4"))
- "返回产品列表"
- }
- h1 class="text-xl font-bold text-fg tracking-tight" { (title) }
- }
+    div {
+        // ── Page Header ──
+        div class="flex items-center justify-between mb-6" {
+            a   class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150"
+                href=(format!("{}?restore=true", ProductListPath::PATH))
+            { (icon::arrow_left_icon("w-4 h-4")) "返回产品列表" }
+            h1 class="text-xl font-bold text-fg tracking-tight" { (title) }
+        }
 
- form id="product-form"
- hx-post=(ProductCreatePath::PATH)
- hx-swap="none" {
-
- // ── Section: 基本信息 ──
- div class="form-section" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "基本信息" }
- div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
- div class="form-field" {
- label { "产品名称 " span class="text-danger" { "*" } }
- input type="text" name="name" required placeholder="请输入产品名称" value=(name_val) {}
- }
- div class="form-field" {
- label { "产品编码" }
- input type="text" value="自动生成" readonly
- class="bg-surface text-muted" {}
- }
- div class="form-field" {
- label { "规格型号" }
- input type="text" name="specification" placeholder="请输入规格型号" value=(spec_val) {}
- }
- div class="form-field" {
- label { "计量单位 " span class="text-danger" { "*" } }
- select name="unit" required {
- option value="" disabled selected[unit_val.is_empty()] { "请选择" }
- option value="个" selected[unit_val == "个"] { "个" }
- option value="件" selected[unit_val == "件"] { "件" }
- option value="台" selected[unit_val == "台"] { "台" }
- option value="套" selected[unit_val == "套"] { "套" }
- option value="批" selected[unit_val == "批"] { "批" }
- option value="kg" selected[unit_val == "kg" || unit_val == "千克"] { "千克 (kg)" }
- option value="g" selected[unit_val == "g" || unit_val == "克"] { "克 (g)" }
- option value="m" selected[unit_val == "m" || unit_val == "米"] { "米 (m)" }
- option value="cm" selected[unit_val == "cm" || unit_val == "厘米"] { "厘米 (cm)" }
- option value="L" selected[unit_val == "L" || unit_val == "升"] { "升 (L)" }
- option value="卷" selected[unit_val == "卷"] { "卷" }
- option value="包" selected[unit_val == "包"] { "包" }
- option value="箱" selected[unit_val == "箱"] { "箱" }
- option value="根" selected[unit_val == "根"] { "根" }
- option value="块" selected[unit_val == "块"] { "块" }
- option value="片" selected[unit_val == "片"] { "片" }
- option value="张" selected[unit_val == "张"] { "张" }
- option value="条" selected[unit_val == "条"] { "条" }
- }
- }
- div class="form-field" {
- label { "获取途径" }
- select name="acquire_channel" {
- option value="采购" selected[acquire_val == "采购"] { "采购" }
- option value="自制" selected[acquire_val == "自制"] { "自制" }
- option value="委外" selected[acquire_val == "委外"] { "委外" }
- }
- }
- div class="form-field" {
- label { "外部编码" }
- input type="text" name="external_code" placeholder="请输入外部编码" value=(external_code_val) {}
- }
- }
- }
-
- // ── Section: 分类与归属 ──
- div class="form-section" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "分类与归属" }
- div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
- div class="form-field" {
- label { "所属分类 " span class="text-danger" { "*" } }
- input type="hidden" name="category_id" id="selected-category-id" {}
- button type="button" class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] cursor-pointer flex items-center justify-between text-left" id="category-select-btn" _="on click add .is-open to #category-modal" {
- span id="category-select-label" { "请选择分类" }
- (icon::chevron_right_icon("w-4 h-4"))
- }
- }
- div class="form-field" {
- label { "归属部门" }
- select name="owner_department_id" {
- option value="" { "-- 请选择 --" }
- }
- }
- div class="form-field" {
- label { "旧编码" }
- input type="text" name="old_code" placeholder="请输入旧编码" value=(old_code_val) {}
- }
- }
- }
-
- // ── Section: 其他信息 ──
- div class="form-section" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "其他信息" }
- div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
- div class="form-field field-full" {
- label { "备注" }
- textarea name="remark" placeholder="请输入备注信息…"
- class="w-full resize-y" class="min-h-[80px]" {}
- }
- }
- }
-
- // ── Action Bar ──
- div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg border-t border-border-soft" {
- a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{}?restore=true", ProductListPath::PATH)) { "取消" }
- button type="submit" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" {
- (btn_label)
- }
- }
- }
-
- // ── Category Select Modal ──
- div id="category-modal" class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto" _="on click[me is event.target] remove .is-open" {
- div class="bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl" _="on click halt the event" {
- div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
- h2 { "选择分类" }
- button type="button" class="border-none cursor-pointer text-muted flex items-center justify-center" _="on click remove .is-open from #category-modal" {
- (icon::x_icon("w-4 h-4"))
- }
- }
- div class="overflow-y-auto flex-1 min-h-0 p-6" {
- div class="flex items-center gap-2 p-3 border-b border-border-soft" {
- (icon::search_icon("w-4 h-4"))
- input type="text" id="category-search-input" class="category-w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" placeholder="搜索分类…" {}
- }
- div id="category-list-container" class="overflow-y-auto p-2" {
- @if categories.is_empty() {
- div class="p-8 text-center text-muted text-sm" { "暂无分类数据" }
- } @else {
- @for node in categories {
- (category_tree_node(node, 0))
- }
- }
- }
- }
- }
- }
-
- // ── Category Select Scripts ──
- (PreEscaped(r#"<script>
+        form id="product-form" hx-post=(ProductCreatePath::PATH) hx-swap="none" {
+            // ── Section: 基本信息 ──
+            div class="form-section" {
+                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
+                { "基本信息" }
+                div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
+                    div class="form-field" {
+                        label {
+                            "产品名称 "
+                            span class="text-danger" { "*" }
+                        }
+                        input
+                            type="text"
+                            name="name"
+                            required
+                            placeholder="请输入产品名称"
+                            value=(name_val) {}
+                    }
+                    div class="form-field" {
+                        label { "产品编码" }
+                        input type="text" value="自动生成" readonly class="bg-surface text-muted" {}
+                    }
+                    div class="form-field" {
+                        label { "规格型号" }
+                        input
+                            type="text"
+                            name="specification"
+                            placeholder="请输入规格型号"
+                            value=(spec_val) {}
+                    }
+                    div class="form-field" {
+                        label {
+                            "计量单位 "
+                            span class="text-danger" { "*" }
+                        }
+                        select name="unit" required {
+                            option value="" disabled selected[unit_val.is_empty()] { "请选择" }
+                            option value="个" selected[unit_val == "个"] { "个" }
+                            option value="件" selected[unit_val == "件"] { "件" }
+                            option value="台" selected[unit_val == "台"] { "台" }
+                            option value="套" selected[unit_val == "套"] { "套" }
+                            option value="批" selected[unit_val == "批"] { "批" }
+                            option value="kg" selected[unit_val == "kg" || unit_val == "千克"] {
+                                "千克 (kg)"
+                            }
+                            option value="g" selected[unit_val == "g" || unit_val == "克"] {
+                                "克 (g)"
+                            }
+                            option value="m" selected[unit_val == "m" || unit_val == "米"] {
+                                "米 (m)"
+                            }
+                            option value="cm" selected[unit_val == "cm" || unit_val == "厘米"] {
+                                "厘米 (cm)"
+                            }
+                            option value="L" selected[unit_val == "L" || unit_val == "升"] {
+                                "升 (L)"
+                            }
+                            option value="卷" selected[unit_val == "卷"] { "卷" }
+                            option value="包" selected[unit_val == "包"] { "包" }
+                            option value="箱" selected[unit_val == "箱"] { "箱" }
+                            option value="根" selected[unit_val == "根"] { "根" }
+                            option value="块" selected[unit_val == "块"] { "块" }
+                            option value="片" selected[unit_val == "片"] { "片" }
+                            option value="张" selected[unit_val == "张"] { "张" }
+                            option value="条" selected[unit_val == "条"] { "条" }
+                        }
+                    }
+                    div class="form-field" {
+                        label { "获取途径" }
+                        select name="acquire_channel" {
+                            option value="采购" selected[acquire_val == "采购"] { "采购" }
+                            option value="自制" selected[acquire_val == "自制"] { "自制" }
+                            option value="委外" selected[acquire_val == "委外"] { "委外" }
+                        }
+                    }
+                    div class="form-field" {
+                        label { "外部编码" }
+                        input
+                            type="text"
+                            name="external_code"
+                            placeholder="请输入外部编码"
+                            value=(external_code_val) {}
+                    }
+                }
+            }
+            // ── Section: 分类与归属 ──
+            div class="form-section" {
+                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
+                { "分类与归属" }
+                div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
+                    div class="form-field" {
+                        label {
+                            "所属分类 "
+                            span class="text-danger" { "*" }
+                        }
+                        input type="hidden" name="category_id" id="selected-category-id" {}
+                        button
+                            type="button"
+                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] cursor-pointer flex items-center justify-between text-left"
+                            id="category-select-btn"
+                            _="on click add .is-open to #category-modal"
+                        {
+                            span id="category-select-label" { "请选择分类" }
+                            (icon::chevron_right_icon("w-4 h-4"))
+                        }
+                    }
+                    div class="form-field" {
+                        label { "归属部门" }
+                        select name="owner_department_id" {
+                            option value="" { "-- 请选择 --" }
+                        }
+                    }
+                    div class="form-field" {
+                        label { "旧编码" }
+                        input type="text" name="old_code" placeholder="请输入旧编码" value=(old_code_val) {}
+                    }
+                }
+            }
+            // ── Section: 其他信息 ──
+            div class="form-section" {
+                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
+                { "其他信息" }
+                div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
+                    div class="form-field field-full" {
+                        label { "备注" }
+                        textarea
+                            name="remark"
+                            placeholder="请输入备注信息…"
+                            class="w-full resize-y"
+                            class="min-h-[80px]" {}
+                    }
+                }
+            }
+            // ── Action Bar ──
+            div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg border-t border-border-soft"
+            {
+                a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                    href=(format!("{}?restore=true", ProductListPath::PATH))
+                { "取消" }
+                button
+                    type="submit"
+                    class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                { (btn_label) }
+            }
+        }
+        // ── Category Select Modal ──
+        div id="category-modal"
+            class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto"
+            _="on click[me is event.target] remove .is-open"
+        {
+            div class="bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl"
+                _="on click halt the event"
+            {
+                div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0"
+                {
+                    h2 { "选择分类" }
+                    button
+                        type="button"
+                        class="border-none cursor-pointer text-muted flex items-center justify-center"
+                        _="on click remove .is-open from #category-modal"
+                    { (icon::x_icon("w-4 h-4")) }
+                }
+                div class="overflow-y-auto flex-1 min-h-0 p-6" {
+                    div class="flex items-center gap-2 p-3 border-b border-border-soft" {
+                        (icon::search_icon("w-4 h-4"))
+                        input
+                            type="text"
+                            id="category-search-input"
+                            class="category-w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
+                            placeholder="搜索分类…" {}
+                    }
+                    div id="category-list-container" class="overflow-y-auto p-2" {
+                        @if categories.is_empty() {
+                            div class="p-8 text-center text-muted text-sm" { "暂无分类数据" }
+                        } @else {
+                            @for node in categories { (category_tree_node(node, 0)) }
+                        }
+                    }
+                }
+            }
+        }
+        // ── Category Select Scripts ──
+        ({
+            PreEscaped(
+                r#"<script>
 (function(){
  var searchInput=document.getElementById('category-search-input');
  var container=document.getElementById('category-list-container');
@@ -341,9 +390,11 @@ fn product_create_page(source: Option<&Product>, categories: &[CategoryTree]) ->
  document.getElementById('category-modal').classList.remove('is-open');
  });
 })();
-</script>"#))
- }
- }
+</script>"#,
+            )
+        })
+    }
+}
 }
 
 /// 递归渲染分类树节点（用于弹窗选择）
@@ -356,24 +407,27 @@ fn category_tree_node(node: &CategoryTree, depth: usize) -> Markup {
  let has_children = !node.children.is_empty();
 
  html! {
- div.category-select-item data-name=(name_lower) {
- div class="flex items-center gap-2 border-b border-border-soft" style=(pad) {
- @if has_children {
- span class="inline-flex items-center justify-center w-[20px] h-[20px] shrink-0 cursor-pointer text-muted rounded-sm" _="on click halt the event then toggle .expanded on closest .category-select-item" {
- (icon::chevron_right_icon("w-3.5 h-3.5"))
- }
- }
- span class="flex-1 text-sm font-medium text-fg cursor-pointer rounded-sm" data-id=(id) data-name=(name) { (name) }
- }
- @if has_children {
- div class="hidden" {
- @for child in &node.children {
- (category_tree_node(child, depth + 1))
- }
- }
- }
- }
- }
+    div.category-select-item data-name=(name_lower) {
+        div class="flex items-center gap-2 border-b border-border-soft" style=(pad) {
+            @if has_children {
+                span
+                    class="inline-flex items-center justify-center w-[20px] h-[20px] shrink-0 cursor-pointer text-muted rounded-sm"
+                    _="on click halt the event then toggle .expanded on closest .category-select-item"
+                { (icon::chevron_right_icon("w-3.5 h-3.5")) }
+            }
+            span
+                class="flex-1 text-sm font-medium text-fg cursor-pointer rounded-sm"
+                data-id=(id)
+                data-name=(name)
+            { (name) }
+        }
+        @if has_children {
+            div class="hidden" {
+                @for child in &node.children { (category_tree_node(child, depth + 1)) }
+            }
+        }
+    }
+}
 }
 
 // ── Copy Handler ──

@@ -268,64 +268,77 @@ pub async fn delete_category(
 fn category_page(tree: &[CategoryTree], initial_panel: Option<&Markup>, first_id: Option<i64>, can_create: bool) -> Markup {
 
  html! {
- div {
- (category_split_view_script())
-
- // ── Page Header ──
- div class="flex items-center justify-between mb-6" {
- h1 class="text-xl font-bold text-fg tracking-tight" { "产品分类" }
- (crate::components::export_button::export_dropdown(&[
- crate::components::export_button::ExportItem {
- label: "导出分类数据".into(),
- export_type: "categories".into(),
- },
- ]))
- }
-
- // ── Split View Container ──
- div class="flex gap-6 h-[calc(100vh-180px)] min-h-[600px]" {
- div class="w-80 min-w-80 bg-bg border border-border-soft rounded-md shadow-[var(--shadow-xs)] flex flex-col overflow-hidden" {
- div class="p-4 pb-3 border-b border-border-soft shrink-0" {
- h3 class="text-base font-semibold text-fg mb-3" { "分类目录" }
- div class="relative w-full" {
- (icon::search_icon("absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted"))
- input class="w-full pl-8 pr-2 py-1.5 border border-border rounded-sm text-sm bg-surface text-fg outline-none focus:border-accent transition-all duration-150"
- type="text" placeholder="搜索分类…"
- _="on input call filterTree(my value)" {}
- }
- }
- div class="flex-1 overflow-y-auto py-2" id="category-tree" {
- (tree_fragment(tree, first_id))
- }
- @if can_create {
- div class="p-3 px-4 border-t border-border-soft shrink-0" {
- button class="inline-flex items-center justify-center gap-2 w-full py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
- _="on click add .is-open to #create-modal" {
- (icon::plus_icon("w-4 h-4"))
- "新建分类"
- }
- }
- }
- }
- div class="flex-1 min-w-0 overflow-y-auto" id="detail-panel" {
- @if let Some(panel) = initial_panel {
- (panel)
- } @else {
- div class="flex flex-col items-center justify-center text-center text-muted min-h-[400px]" {
- svg class="w-16 h-16 text-border mb-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" {
- path d="M4 20h16M8 16h8M6 12h12M10 8h4M12 4v16" {}
- }
- div class="text-base font-medium mb-2" { "请从左侧选择一个分类" }
- div class="text-sm text-muted" { "选择分类查看详情和管理关联产品" }
- }
- }
- }
- }
-
- // ── Create Modal ──
- (create_category_modal(tree, can_create))
- }
- }
+    div {
+        (category_split_view_script())
+        // ── Page Header ──
+        div class="flex items-center justify-between mb-6" {
+            h1 class="text-xl font-bold text-fg tracking-tight" { "产品分类" }
+            ({
+                crate::components::export_button::export_dropdown(
+                    &[
+                        crate::components::export_button::ExportItem {
+                            label: "导出分类数据".into(),
+                            export_type: "categories".into(),
+                        },
+                    ],
+                )
+            })
+        }
+        // ── Split View Container ──
+        div class="flex gap-6 h-[calc(100vh-180px)] min-h-[600px]" {
+            div class="w-80 min-w-80 bg-bg border border-border-soft rounded-md shadow-[var(--shadow-xs)] flex flex-col overflow-hidden"
+            {
+                div class="p-4 pb-3 border-b border-border-soft shrink-0" {
+                    h3 class="text-base font-semibold text-fg mb-3" { "分类目录" }
+                    div class="relative w-full" {
+                        ({
+                            icon::search_icon(
+                                "absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted",
+                            )
+                        })
+                        input
+                            class="w-full pl-8 pr-2 py-1.5 border border-border rounded-sm text-sm bg-surface text-fg outline-none focus:border-accent transition-all duration-150"
+                            type="text"
+                            placeholder="搜索分类…"
+                            _="on input call filterTree(my value)" {}
+                    }
+                }
+                div class="flex-1 overflow-y-auto py-2" id="category-tree" {
+                    (tree_fragment(tree, first_id))
+                }
+                @if can_create {
+                    div class="p-3 px-4 border-t border-border-soft shrink-0" {
+                        button
+                            class="inline-flex items-center justify-center gap-2 w-full py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                            _="on click add .is-open to #create-modal"
+                        { (icon::plus_icon("w-4 h-4")) "新建分类" }
+                    }
+                }
+            }
+            div class="flex-1 min-w-0 overflow-y-auto" id="detail-panel" {
+                @if let Some(panel) = initial_panel { (panel) } @else {
+                    div class="flex flex-col items-center justify-center text-center text-muted min-h-[400px]"
+                    {
+                        svg class="w-16 h-16 text-border mb-5"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="1.2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                        {
+                            path d="M4 20h16M8 16h8M6 12h12M10 8h4M12 4v16" {}
+                        }
+                        div class="text-base font-medium mb-2" { "请从左侧选择一个分类" }
+                        div class="text-sm text-muted" { "选择分类查看详情和管理关联产品" }
+                    }
+                }
+            }
+        }
+        // ── Create Modal ──
+        (create_category_modal(tree, can_create))
+    }
+}
 }
 
 // Vanilla JS globals for tree interaction (filterTree).
@@ -364,10 +377,8 @@ fn tree_fragment(tree: &[CategoryTree], selected_id: Option<i64>) -> Markup {
  });
 
  html! {
- @for node in tree {
- (tree_node(node, 0, selected_id, &expand_ids))
- }
- }
+    @for node in tree { (tree_node(node, 0, selected_id, &expand_ids)) }
+}
 }
 
 fn tree_node(node: &CategoryTree, depth: usize, selected_id: Option<i64>, expand_ids: &[i64]) -> Markup {
@@ -390,46 +401,65 @@ fn tree_node(node: &CategoryTree, depth: usize, selected_id: Option<i64>, expand
  let children_style = if should_expand { "display: block" } else { "display: none" };
 
  html! {
- @if has_children {
- div class="select-none" data-name=(name_lower) {
- div class=(row_cls)
- style=(pad)
- hx-get=(detail_url)
- hx-select="#detail-panel" hx-target="#detail-panel" hx-swap="innerHTML"
- hx-push-url="true"
- _="on click take .cat-active from .cat-row" {
- span class="w-5 h-5 grid place-items-center shrink-0 cursor-pointer rounded-sm hover:bg-black/6"
- _="on click halt the event then toggle .rotate-90 on me then if next <div/>'s style's display is 'none' then show next <div/> else hide next <div/>" {
- (icon::chevron_down_icon(&(format!("w-3.5 h-3.5 text-muted transition-transform{}", if should_expand { " rotate-90" } else { "" }))))
- }
- span class=(name_cls) { (name) }
- @if count > 0 {
- span class="text-[11px] text-muted bg-surface px-2 py-0.5 rounded-full font-medium shrink-0 font-mono tabular-nums" { (count) }
- }
- }
- div class="overflow-hidden" style=(children_style) {
- @for child in &node.children {
- (tree_node(child, depth + 1, selected_id, expand_ids))
- }
- }
- }
- } @else {
- div class="select-none" data-name=(name_lower) {
- div class=(row_cls)
- style=(pad)
- hx-get=(detail_url)
- hx-select="#detail-panel" hx-target="#detail-panel" hx-swap="innerHTML"
- hx-push-url="true"
- _="on click take .cat-active from .cat-row" {
- span class="w-5 h-5 shrink-0" {}
- span class=(name_cls) { (name) }
- @if count > 0 {
- span class="text-[11px] text-muted bg-surface px-2 py-0.5 rounded-full font-medium shrink-0 font-mono tabular-nums" { (count) }
- }
- }
- }
- }
- }
+    @if has_children {
+        div class="select-none" data-name=(name_lower) {
+            div class=(row_cls)
+                style=(pad)
+                hx-get=(detail_url)
+                hx-select="#detail-panel"
+                hx-target="#detail-panel"
+                hx-swap="innerHTML"
+                hx-push-url="true"
+                _="on click take .cat-active from .cat-row"
+            {
+                span
+                    class="w-5 h-5 grid place-items-center shrink-0 cursor-pointer rounded-sm hover:bg-black/6"
+                    _="on click halt the event then toggle .rotate-90 on me then if next <div/>'s style's display is 'none' then show next <div/> else hide next <div/>"
+                {
+                    ({
+                        icon::chevron_down_icon(
+                            &(format!(
+                                "w-3.5 h-3.5 text-muted transition-transform{}",
+                                if should_expand { " rotate-90" } else { "" },
+                            )),
+                        )
+                    })
+                }
+                span class=(name_cls) { (name) }
+                @if count > 0 {
+                    span
+                        class="text-[11px] text-muted bg-surface px-2 py-0.5 rounded-full font-medium shrink-0 font-mono tabular-nums"
+                    { (count) }
+                }
+            }
+            div class="overflow-hidden" style=(children_style) {
+                @for child in &node.children {
+                    (tree_node(child, depth + 1, selected_id, expand_ids))
+                }
+            }
+        }
+    } @else {
+        div class="select-none" data-name=(name_lower) {
+            div class=(row_cls)
+                style=(pad)
+                hx-get=(detail_url)
+                hx-select="#detail-panel"
+                hx-target="#detail-panel"
+                hx-swap="innerHTML"
+                hx-push-url="true"
+                _="on click take .cat-active from .cat-row"
+            {
+                span class="w-5 h-5 shrink-0" {}
+                span class=(name_cls) { (name) }
+                @if count > 0 {
+                    span
+                        class="text-[11px] text-muted bg-surface px-2 py-0.5 rounded-full font-medium shrink-0 font-mono tabular-nums"
+                    { (count) }
+                }
+            }
+        }
+    }
+}
 }
 
 fn detail_panel(
@@ -457,132 +487,157 @@ fn detail_panel(
  .collect();
 
  let info_card = html! {
- div class="data-card" {
- div class="flex items-start justify-between mb-5" {
- div {
- div class="text-xl font-bold text-fg tracking-tight" { (category.category_name) }
- div class="text-sm text-muted font-mono tabular-nums mt-1" {
- "路径: " (category.path) " \u{00a0}·\u{00a0} 上级: " (parent_name)
- }
- }
- div class="flex gap-2" {
- @if can_update {
- button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs icon:w-4 icon:h-4"
- _="on click add .is-open to #edit-category-modal" {
- (icon::edit_icon("w-4 h-4"))
- "编辑"
- }
- }
- @if can_delete {
- button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-danger border border-border hover:bg-danger-bg hover:border-danger-200 text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs icon:w-4 icon:h-4"
- hx-post=(delete_url)
- hx-confirm="确定要删除此分类吗？此操作不可撤销。"
- hx-swap="none" {
- (icon::trash_icon("w-4 h-4"))
- "删除"
- }
- }
- }
- }
- div class="grid grid-cols-4 gap-5" {
- div class="flex flex-col gap-1" {
- span class="text-xs text-muted font-medium" { "分类名称" }
- span class="text-sm text-fg font-medium" { (category.category_name) }
- }
- div class="flex flex-col gap-1" {
- span class="text-xs text-muted font-medium" { "分类路径" }
- span class="text-sm text-fg font-medium font-mono tabular-nums" { (category.path) }
- }
- div class="flex flex-col gap-1" {
- span class="text-xs text-muted font-medium" { "上级分类" }
- span class="text-sm text-fg font-medium" { (parent_name) }
- }
- div class="flex flex-col gap-1" {
- span class="text-xs text-muted font-medium" { "关联产品数" }
- span class="text-sm text-fg font-medium font-mono tabular-nums" { (category.meta.count) }
- }
- }
- }
- };
+    div class="data-card" {
+        div class="flex items-start justify-between mb-5" {
+            div {
+                div class="text-xl font-bold text-fg tracking-tight" { (category.category_name) }
+                div class="text-sm text-muted font-mono tabular-nums mt-1" {
+                    "路径: "
+                    (category.path)
+                    " \u{00a0}·\u{00a0} 上级: "
+                    (parent_name)
+                }
+            }
+            div class="flex gap-2" {
+                @if can_update {
+                    button
+                        class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs icon:w-4 icon:h-4"
+                        _="on click add .is-open to #edit-category-modal"
+                    { (icon::edit_icon("w-4 h-4")) "编辑" }
+                }
+                @if can_delete {
+                    button
+                        class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-danger border border-border hover:bg-danger-bg hover:border-danger-200 text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs icon:w-4 icon:h-4"
+                        hx-post=(delete_url)
+                        hx-confirm="确定要删除此分类吗？此操作不可撤销。"
+                        hx-swap="none"
+                    { (icon::trash_icon("w-4 h-4")) "删除" }
+                }
+            }
+        }
+        div class="grid grid-cols-4 gap-5" {
+            div class="flex flex-col gap-1" {
+                span class="text-xs text-muted font-medium" { "分类名称" }
+                span class="text-sm text-fg font-medium" { (category.category_name) }
+            }
+            div class="flex flex-col gap-1" {
+                span class="text-xs text-muted font-medium" { "分类路径" }
+                span class="text-sm text-fg font-medium font-mono tabular-nums" { (category.path) }
+            }
+            div class="flex flex-col gap-1" {
+                span class="text-xs text-muted font-medium" { "上级分类" }
+                span class="text-sm text-fg font-medium" { (parent_name) }
+            }
+            div class="flex flex-col gap-1" {
+                span class="text-xs text-muted font-medium" { "关联产品数" }
+                span class="text-sm text-fg font-medium font-mono tabular-nums" {
+                    (category.meta.count)
+                }
+            }
+        }
+    }
+};
 
  let subcat_section = html! {
- @if has_children {
- div class="mb-5" {
- div class="flex items-center justify-between mb-4" {
- div {
- span class="text-[13px] font-semibold text-fg" { "子分类" }
- span class="text-xs text-muted ml-2" { "(" (child_tree.len()) ")" }
- }
- }
- div class="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3" {
- @for (name, url, count) in &subcat_cards {
- a class="flex items-center justify-between bg-bg border border-border-soft rounded-md p-4 cursor-pointer transition-all duration-150 shadow-[var(--shadow-xs)] hover:border-accent hover:shadow-[var(--shadow-sm)] hover:-translate-y-px no-underline"
- href=(url)
- hx-get=(url)
- hx-target="#detail-panel" hx-swap="innerHTML" hx-push-url="true" {
- span class="text-sm font-medium text-fg truncate min-w-0" { (name) }
- span class="text-xs text-muted bg-surface px-2.5 py-0.5 rounded-full font-mono tabular-nums" { (count) }
- }
- }
- }
- }
- }
- };
+    @if has_children {
+        div class="mb-5" {
+            div class="flex items-center justify-between mb-4" {
+                div {
+                    span class="text-[13px] font-semibold text-fg" { "子分类" }
+                    span class="text-xs text-muted ml-2" { "(" (child_tree.len()) ")" }
+                }
+            }
+            div class="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3" {
+                @for (name, url, count) in &subcat_cards {
+                    a   class="flex items-center justify-between bg-bg border border-border-soft rounded-md p-4 cursor-pointer transition-all duration-150 shadow-[var(--shadow-xs)] hover:border-accent hover:shadow-[var(--shadow-sm)] hover:-translate-y-px no-underline"
+                        href=(url)
+                        hx-get=(url)
+                        hx-target="#detail-panel"
+                        hx-swap="innerHTML"
+                        hx-push-url="true"
+                    {
+                        span class="text-sm font-medium text-fg truncate min-w-0" { (name) }
+                        span
+                            class="text-xs text-muted bg-surface px-2.5 py-0.5 rounded-full font-mono tabular-nums"
+                        { (count) }
+                    }
+                }
+            }
+        }
+    }
+};
 
  let products_section = html! {
- div class="mb-5" id="products-section"
- hx-select="#products-section" hx-target="#products-section"
- hx-swap="outerHTML" hx-push-url="true" {
- div class="flex items-center justify-between mb-4" {
- div {
- span class="text-[13px] font-semibold text-fg" { "关联产品" }
- span class="text-xs text-muted ml-2" { "(" (total_products) ")" }
- }
- }
- @if has_products {
- div class="data-card" {
- div class="overflow-x-auto" {
- table class="data-table" {
- thead {
- tr {
- th { "产品编码" }
- th { "产品名称" }
- th { "状态" }
- }
- }
- tbody {
- @for p in &products.items {
- tr {
- td class="text-accent font-medium font-mono tabular-nums" { (p.product_code) }
- td class="max-w-[260px] truncate" title=(p.pdt_name) { strong { (p.pdt_name) } }
- td {
- @match p.status {
- ProductStatus::Active => span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-success-bg text-success" { "在用" }
- ProductStatus::Inactive => span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-surface text-muted" { "停用" }
- ProductStatus::Obsolete => span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-danger-bg text-danger" { "淘汰" }
- }
- }
- }
- }
- }
- }
- }
- }
- }
- @if total_pages > 1 {
- (htmx_pagination_inherited(
- "/admin/md/categories",
- &format!("category_id={}", category_id),
- total_products, current_page, total_pages,
- ))
- }
- @if !has_products {
- div class="bg-surface border border-border-soft rounded-md p-8 text-center text-sm text-muted" {
- "暂无关联产品"
- }
- }
- }
- };
+    div class="mb-5"
+        id="products-section"
+        hx-select="#products-section"
+        hx-target="#products-section"
+        hx-swap="outerHTML"
+        hx-push-url="true"
+    {
+        div class="flex items-center justify-between mb-4" {
+            div {
+                span class="text-[13px] font-semibold text-fg" { "关联产品" }
+                span class="text-xs text-muted ml-2" { "(" (total_products) ")" }
+            }
+        }
+        @if has_products {
+            div class="data-card" {
+                div class="overflow-x-auto" {
+                    table class="data-table" {
+                        thead {
+                            tr {
+                                th { "产品编码" }
+                                th { "产品名称" }
+                                th { "状态" }
+                            }
+                        }
+                        tbody {
+                            @for p in &products.items {
+                                tr {
+                                    td class="text-accent font-medium font-mono tabular-nums" {
+                                        (p.product_code)
+                                    }
+                                    td class="max-w-[260px] truncate" title=(p.pdt_name) {
+                                        strong { (p.pdt_name) }
+                                    }
+                                    td {
+                                        @match p.status {
+                                            ProductStatus::Active => span
+                                                class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-success-bg text-success"
+                                            { "在用" }
+                                            ProductStatus::Inactive => span
+                                                class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-surface text-muted"
+                                            { "停用" }
+                                            ProductStatus::Obsolete => span
+                                                class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-danger-bg text-danger"
+                                            { "淘汰" }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        @if total_pages > 1 {
+            ({
+                htmx_pagination_inherited(
+                    "/admin/md/categories",
+                    &format!("category_id={}", category_id),
+                    total_products,
+                    current_page,
+                    total_pages,
+                )
+            })
+        }
+        @if !has_products {
+            div class="bg-surface border border-border-soft rounded-md p-8 text-center text-sm text-muted"
+            { "暂无关联产品" }
+        }
+    }
+};
 
  let edit_modal = modal::modal(
  "edit-category-modal",
@@ -591,21 +646,15 @@ fn detail_panel(
  "edit-category-form",
  update_url,
  html! {
- div class="form-field" {
- label { "分类名称" }
- input type="text" name="category_name"
- value=(category.category_name) required;
- }
- },
+    div class="form-field" {
+        label { "分类名称" }
+        input type="text" name="category_name" value=(category.category_name) required;
+    }
+},
  );
  html! {
- div {
- (info_card)
- (subcat_section)
- (products_section)
- (edit_modal)
- }
- }
+    div { (info_card) (subcat_section) (products_section) (edit_modal) }
+}
 }
 
 
@@ -623,32 +672,30 @@ fn create_category_modal(tree: &[CategoryTree], can_create: bool) -> Markup {
  "create-category-form",
  CategoryCreatePath::PATH,
  html! {
- div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
- div class="form-field" {
- label { "分类名称 " span class="text-danger" { "*" } }
- input type="text" name="category_name"
- placeholder="请输入分类名称" required;
- }
- div class="form-field" {
- label { "上级分类" }
- select name="parent_id" {
- option value="0" { "无 (顶级分类)" }
- @for node in tree {
- (tree_option(node, 0))
- }
- }
- }
- }
- },
+    div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
+        div class="form-field" {
+            label {
+                "分类名称 "
+                span class="text-danger" { "*" }
+            }
+            input type="text" name="category_name" placeholder="请输入分类名称" required;
+        }
+        div class="form-field" {
+            label { "上级分类" }
+            select name="parent_id" {
+                option value="0" { "无 (顶级分类)" }
+                @for node in tree { (tree_option(node, 0)) }
+            }
+        }
+    }
+},
  )
 }
 
 fn tree_option(node: &CategoryTree, depth: usize) -> Markup {
  let prefix = "\u{3000}".repeat(depth);
  html! {
- option value=(node.category_id) { (prefix) (node.category_name) }
- @for child in &node.children {
- (tree_option(child, depth + 1))
- }
- }
+    option value=(node.category_id) { (prefix) (node.category_name) }
+    @for child in &node.children { (tree_option(child, depth + 1)) }
+}
 }

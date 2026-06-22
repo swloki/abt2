@@ -216,24 +216,32 @@ fn pq_list_page(
  can_delete: bool,
 ) -> Markup {
  html! {
- div {
- // ── Page Header ──
- div class="flex items-center justify-between mb-6" {
- h1 class="text-xl font-bold text-fg tracking-tight" { "采购报价" }
- div class="flex gap-3" {
- @if can_create {
- a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(PQCreatePath::PATH) {
- (icon::plus_icon("w-4 h-4"))
- "新建采购报价"
- }
- }
- }
- }
-
- // ── Tabs + Filter + Data Table (HTMX panel) ──
- (pq_table_fragment(result, supplier_names, supplier_contacts, supplier_currencies, suppliers, params, can_delete))
- }
- }
+    div {
+        // ── Page Header ──
+        div class="flex items-center justify-between mb-6" {
+            h1 class="text-xl font-bold text-fg tracking-tight" { "采购报价" }
+            div class="flex gap-3" {
+                @if can_create {
+                    a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                        href=(PQCreatePath::PATH)
+                    { (icon::plus_icon("w-4 h-4")) "新建采购报价" }
+                }
+            }
+        }
+        // ── Tabs + Filter + Data Table (HTMX panel) ──
+        ({
+            pq_table_fragment(
+                result,
+                supplier_names,
+                supplier_contacts,
+                supplier_currencies,
+                suppliers,
+                params,
+                can_delete,
+            )
+        })
+    }
+}
 }
 
 fn pq_table_fragment(
@@ -261,73 +269,107 @@ fn pq_table_fragment(
  let selected_range = params.date_range.as_deref().unwrap_or("");
 
  html! {
- div class="pq-list-panel" {
- (status_tabs_with_param(PQListPath::PATH, "#pq-data-card", "#pq-filter-form", tabs, &active_value, "status"))
-
- // ── Filter Bar ──
- form class="flex items-center gap-3 mb-5 flex-wrap filter-form" id="pq-filter-form"
- hx-get=(PQListPath::PATH)
- hx-trigger="change, keyup changed delay:300ms from:.search-input"
- hx-target="#pq-data-card"
- hx-select="#pq-data-card"
- hx-swap="outerHTML"
- hx-select-oob="#status-tabs"
- hx-include="#pq-filter-form"
- hx-push-url="true" {
- div class="relative flex-1 max-w-xs icon:absolute icon:left-3 icon:top-1/2 icon:-translate-y-1/2 icon:w-4 icon:h-4 icon:text-muted" {
- (icon::search_icon(""))
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input" type="text" name="keyword"
- placeholder="搜索报价单号…"
- value=(params.keyword.as_deref().unwrap_or(""));
- }
- select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="supplier_id" {
- option value="" { "全部供应商" }
- @for s in suppliers {
- option value=(s.id) selected[selected_supplier == s.id.to_string()] { (s.name) }
- }
- }
- select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="date_range" {
- option value="" selected[selected_range.is_empty()] { "报价日期" }
- option value="7d" selected[selected_range == "7d"] { "最近7天" }
- option value="30d" selected[selected_range == "30d"] { "最近30天" }
- option value="3m" selected[selected_range == "3m"] { "最近3个月" }
- }
- }
-
- // ── Data Table ──
- div class="data-card" id="pq-data-card" {
- div class="overflow-x-auto" {
- table class="data-table" {
- thead {
- tr {
- th { "报价单号" }
- th { "供应商名称" }
- th { "联系人" }
- th { "状态" }
- th { "报价日期" }
- th { "有效期至" }
- th { "币种" }
- th class="!text-right" { "操作" }
- }
- }
- tbody {
- @for q in &result.items {
- (pq_row(q, supplier_names, supplier_contacts, supplier_currencies, can_delete))
- }
- @if result.items.is_empty() {
- tr {
- td colspan="8" class="text-center text-muted py-8" {
- "暂无报价数据"
- }
- }
- }
- }
- }
- }
- (pagination(PQListPath::PATH, &query, result.total, result.page, result.total_pages))
- }
- }
- }
+    div class="pq-list-panel" {
+        ({
+            status_tabs_with_param(
+                PQListPath::PATH,
+                "#pq-data-card",
+                "#pq-filter-form",
+                tabs,
+                &active_value,
+                "status",
+            )
+        })
+        // ── Filter Bar ──
+        form
+            class="flex items-center gap-3 mb-5 flex-wrap filter-form"
+            id="pq-filter-form"
+            hx-get=(PQListPath::PATH)
+            hx-trigger="change, keyup changed delay:300ms from:.search-input"
+            hx-target="#pq-data-card"
+            hx-select="#pq-data-card"
+            hx-swap="outerHTML"
+            hx-select-oob="#status-tabs"
+            hx-include="#pq-filter-form"
+            hx-push-url="true"
+        {
+            div class="relative flex-1 max-w-xs icon:absolute icon:left-3 icon:top-1/2 icon:-translate-y-1/2 icon:w-4 icon:h-4 icon:text-muted"
+            {
+                (icon::search_icon(""))
+                input
+                    class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input"
+                    type="text"
+                    name="keyword"
+                    placeholder="搜索报价单号…"
+                    value=(params.keyword.as_deref().unwrap_or(""));
+            }
+            select
+                class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer"
+                name="supplier_id"
+            {
+                option value="" { "全部供应商" }
+                @for s in suppliers {
+                    option value=(s.id) selected[selected_supplier == s.id.to_string()] { (s.name) }
+                }
+            }
+            select
+                class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer"
+                name="date_range"
+            {
+                option value="" selected[selected_range.is_empty()] { "报价日期" }
+                option value="7d" selected[selected_range == "7d"] { "最近7天" }
+                option value="30d" selected[selected_range == "30d"] { "最近30天" }
+                option value="3m" selected[selected_range == "3m"] { "最近3个月" }
+            }
+        }
+        // ── Data Table ──
+        div class="data-card" id="pq-data-card" {
+            div class="overflow-x-auto" {
+                table class="data-table" {
+                    thead {
+                        tr {
+                            th { "报价单号" }
+                            th { "供应商名称" }
+                            th { "联系人" }
+                            th { "状态" }
+                            th { "报价日期" }
+                            th { "有效期至" }
+                            th { "币种" }
+                            th class="!text-right" { "操作" }
+                        }
+                    }
+                    tbody {
+                        @for q in &result.items {
+                            ({
+                                pq_row(
+                                    q,
+                                    supplier_names,
+                                    supplier_contacts,
+                                    supplier_currencies,
+                                    can_delete,
+                                )
+                            })
+                        }
+                        @if result.items.is_empty() {
+                            tr {
+                                td colspan="8" class="text-center text-muted py-8" { "暂无报价数据" }
+                            }
+                        }
+                    }
+                }
+            }
+            ({
+                pagination(
+                    PQListPath::PATH,
+                    &query,
+                    result.total,
+                    result.page,
+                    result.total_pages,
+                )
+            })
+        }
+    }
+}
 }
 
 fn pq_row(
@@ -346,35 +388,41 @@ fn pq_row(
  let is_draft = q.status == PurchaseQuotationStatus::Draft;
  let status_allows_delete = q.status != PurchaseQuotationStatus::Active;
  html! {
- tr class="cursor-pointer" {
- td class="text-accent font-medium cursor-pointer font-mono tabular-nums" onclick=(&onclick) { (q.doc_number) }
- td onclick=(&onclick) { (supplier_name) }
- td onclick=(&onclick) { (contact) }
- td onclick=(&onclick) {
- span class=(format!("status-pill {}", crate::utils::status_color(status_class))) { (status_text) }
- }
- td class="font-mono tabular-nums" onclick=(&onclick) { (q.quotation_date.format("%Y-%m-%d")) }
- td class="font-mono tabular-nums" onclick=(&onclick) { (q.valid_until.format("%Y-%m-%d")) }
- td onclick=(&onclick) { (currency) }
- td _="on click halt the event" {
- @if is_draft || (can_delete && status_allows_delete) {
- div class="row-actions flex items-center gap-1 justify-end opacity-0 transition-opacity duration-150 [&_a]:w-[28px] [&_a]:h-[28px] [&_a]:grid [&_a]:place-items-center [&_a]:rounded-sm [&_a]:cursor-pointer [&_a]:bg-surface [&_a]:hover:bg-accent-bg icon:w-3.5 icon:h-3.5" {
- @if is_draft {
- a class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" href=(detail_path.to_string()) title="编辑" {
- (icon::edit_icon("w-4 h-4"))
- }
- }
- @if can_delete && status_allows_delete {
- button class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer row-action-danger"
- title="删除"
- hx-post=(PQDeletePath { id: q.id }.to_string())
- hx-confirm="确认删除此报价？" {
- (icon::trash_icon("w-4 h-4"))
- }
- }
- }
- }
- }
- }
- }
+    tr class="cursor-pointer" {
+        td class="text-accent font-medium cursor-pointer font-mono tabular-nums" onclick=(&onclick) {
+            (q.doc_number)
+        }
+        td onclick=(&onclick) { (supplier_name) }
+        td onclick=(&onclick) { (contact) }
+        td onclick=(&onclick) {
+            span class=(format!("status-pill {}", crate::utils::status_color(status_class))) {
+                (status_text)
+            }
+        }
+        td class="font-mono tabular-nums" onclick=(&onclick) { (q.quotation_date.format("%Y-%m-%d")) }
+        td class="font-mono tabular-nums" onclick=(&onclick) { (q.valid_until.format("%Y-%m-%d")) }
+        td onclick=(&onclick) { (currency) }
+        td _="on click halt the event" {
+            @if is_draft || (can_delete && status_allows_delete) {
+                div class="row-actions flex items-center gap-1 justify-end opacity-0 transition-opacity duration-150 [&_a]:w-[28px] [&_a]:h-[28px] [&_a]:grid [&_a]:place-items-center [&_a]:rounded-sm [&_a]:cursor-pointer [&_a]:bg-surface [&_a]:hover:bg-accent-bg icon:w-3.5 icon:h-3.5"
+                {
+                    @if is_draft {
+                        a   class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer"
+                            href=(detail_path.to_string())
+                            title="编辑"
+                        { (icon::edit_icon("w-4 h-4")) }
+                    }
+                    @if can_delete && status_allows_delete {
+                        button
+                            class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer row-action-danger"
+                            title="删除"
+                            hx-post=(PQDeletePath { id: q.id }.to_string())
+                            hx-confirm="确认删除此报价？"
+                        { (icon::trash_icon("w-4 h-4")) }
+                    }
+                }
+            }
+        }
+    }
+}
 }

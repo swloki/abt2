@@ -76,38 +76,42 @@ fn conversion_data_card(
  query: &str,
 ) -> Markup {
  html! {
- div id="conversion-data-card" class="data-card" {
- div class="overflow-x-auto" {
- table class="data-table" {
- thead {
- tr {
- th { "转换单号" }
- th { "转换仓库" }
- th { "转换日期" }
- th { "状态" }
- th { "消耗项" }
- th { "产出项" }
- th { "操作员" }
- th class="!text-right" { "操作" }
- }
- }
- tbody {
- @for c in &result.items {
- (conversion_row(c))
- }
- @if result.items.is_empty() {
- tr {
- td colspan="8" class="text-center text-muted py-8" {
- "暂无转换数据"
- }
- }
- }
- }
- }
- }
- (pagination(ConversionListPath::PATH, query, result.total, result.page, result.total_pages))
- }
- }
+    div id="conversion-data-card" class="data-card" {
+        div class="overflow-x-auto" {
+            table class="data-table" {
+                thead {
+                    tr {
+                        th { "转换单号" }
+                        th { "转换仓库" }
+                        th { "转换日期" }
+                        th { "状态" }
+                        th { "消耗项" }
+                        th { "产出项" }
+                        th { "操作员" }
+                        th class="!text-right" { "操作" }
+                    }
+                }
+                tbody {
+                    @for c in &result.items { (conversion_row(c)) }
+                    @if result.items.is_empty() {
+                        tr {
+                            td colspan="8" class="text-center text-muted py-8" { "暂无转换数据" }
+                        }
+                    }
+                }
+            }
+        }
+        ({
+            pagination(
+                ConversionListPath::PATH,
+                query,
+                result.total,
+                result.page,
+                result.total_pages,
+            )
+        })
+    }
+}
 }
 
 // ── Components ──
@@ -118,22 +122,21 @@ fn conversion_list_page(
  can_create: bool,
 ) -> Markup {
  html! {
- div {
- div class="flex items-center justify-between mb-6" {
- h1 class="text-xl font-bold text-fg tracking-tight" { "形态转换" }
- div class="flex gap-3" {
- @if can_create {
- a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(ConversionCreatePath::PATH) {
- (icon::plus_icon("w-4 h-4"))
- "新建转换"
- }
- }
- }
- }
+    div {
+        div class="flex items-center justify-between mb-6" {
+            h1 class="text-xl font-bold text-fg tracking-tight" { "形态转换" }
+            div class="flex gap-3" {
+                @if can_create {
+                    a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                        href=(ConversionCreatePath::PATH)
+                    { (icon::plus_icon("w-4 h-4")) "新建转换" }
+                }
+            }
+        }
 
- (conversion_table_fragment(result, params))
- }
- }
+        (conversion_table_fragment(result, params))
+    }
+}
 }
 
 fn conversion_table_fragment(
@@ -152,27 +155,43 @@ fn conversion_table_fragment(
  ];
 
  html! {
- div class="conversion-list-panel" {
- (status_tabs_with_param(ConversionListPath::PATH, "#conversion-data-card", "#conversion-filter-form", tabs, &active_value, "status"))
+    div class="conversion-list-panel" {
+        ({
+            status_tabs_with_param(
+                ConversionListPath::PATH,
+                "#conversion-data-card",
+                "#conversion-filter-form",
+                tabs,
+                &active_value,
+                "status",
+            )
+        })
 
- form class="flex items-center gap-3 mb-5 flex-wrap" id="conversion-filter-form"
- hx-get=(ConversionListPath::PATH)
- hx-trigger="change, keyup changed delay:300ms from:.search-input"
- hx-target="#conversion-data-card"
- hx-select="#conversion-data-card"
- hx-swap="outerHTML"
- hx-include="#conversion-filter-form"
- hx-push-url="true" {
- div class="relative flex-1 max-w-xs icon:absolute icon:left-3 icon:top-1/2 icon:-translate-y-1/2 icon:w-4 icon:h-4 icon:text-muted" {
- (icon::search_icon(""))
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input" type="text" name="doc_number"
- placeholder="转换单号";
- }
- }
+        form
+            class="flex items-center gap-3 mb-5 flex-wrap"
+            id="conversion-filter-form"
+            hx-get=(ConversionListPath::PATH)
+            hx-trigger="change, keyup changed delay:300ms from:.search-input"
+            hx-target="#conversion-data-card"
+            hx-select="#conversion-data-card"
+            hx-swap="outerHTML"
+            hx-include="#conversion-filter-form"
+            hx-push-url="true"
+        {
+            div class="relative flex-1 max-w-xs icon:absolute icon:left-3 icon:top-1/2 icon:-translate-y-1/2 icon:w-4 icon:h-4 icon:text-muted"
+            {
+                (icon::search_icon(""))
+                input
+                    class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input"
+                    type="text"
+                    name="doc_number"
+                    placeholder="转换单号";
+            }
+        }
 
- (conversion_data_card(result, &query))
- }
- }
+        (conversion_data_card(result, &query))
+    }
+}
 }
 
 fn conversion_row(c: &FormConversion) -> Markup {
@@ -185,25 +204,33 @@ fn conversion_row(c: &FormConversion) -> Markup {
  };
 
  html! {
- tr class="cursor-pointer" {
- td class="text-accent font-medium cursor-pointer font-mono tabular-nums" onclick=(format!("location.href='{}'", detail_path)) { (c.doc_number) }
- td onclick=(format!("location.href='{}'", detail_path)) { "—" }
- td class="font-mono tabular-nums" onclick=(format!("location.href='{}'", detail_path)) { (c.conversion_date.to_string()) }
- td onclick=(format!("location.href='{}'", detail_path)) {
- span class=(format!("status-pill {}", crate::utils::status_color(status_class))) { (status_label) }
- }
- td onclick=(format!("location.href='{}'", detail_path)) { "—" }
- td onclick=(format!("location.href='{}'", detail_path)) { "—" }
- td onclick=(format!("location.href='{}'", detail_path)) { "—" }
- td _="on click halt the event" {
- div class="row-actions flex items-center gap-1 justify-end opacity-0 transition-opacity duration-150 [&_a]:w-[28px] [&_a]:h-[28px] [&_a]:grid [&_a]:place-items-center [&_a]:rounded-sm [&_a]:cursor-pointer [&_a]:bg-surface [&_a]:hover:bg-accent-bg icon:w-3.5 icon:h-3.5" {
- a class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" title="查看" href=(detail_path.to_string()) {
- (icon::eye_icon("w-4 h-4"))
- }
- }
- }
- }
- }
+    tr class="cursor-pointer" {
+        td  class="text-accent font-medium cursor-pointer font-mono tabular-nums"
+            onclick=(format!("location.href='{}'", detail_path))
+        { (c.doc_number) }
+        td onclick=(format!("location.href='{}'", detail_path)) { "—" }
+        td class="font-mono tabular-nums" onclick=(format!("location.href='{}'", detail_path)) {
+            (c.conversion_date.to_string())
+        }
+        td onclick=(format!("location.href='{}'", detail_path)) {
+            span class=(format!("status-pill {}", crate::utils::status_color(status_class))) {
+                (status_label)
+            }
+        }
+        td onclick=(format!("location.href='{}'", detail_path)) { "—" }
+        td onclick=(format!("location.href='{}'", detail_path)) { "—" }
+        td onclick=(format!("location.href='{}'", detail_path)) { "—" }
+        td _="on click halt the event" {
+            div class="row-actions flex items-center gap-1 justify-end opacity-0 transition-opacity duration-150 [&_a]:w-[28px] [&_a]:h-[28px] [&_a]:grid [&_a]:place-items-center [&_a]:rounded-sm [&_a]:cursor-pointer [&_a]:bg-surface [&_a]:hover:bg-accent-bg icon:w-3.5 icon:h-3.5"
+            {
+                a   class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer"
+                    title="查看"
+                    href=(detail_path.to_string())
+                { (icon::eye_icon("w-4 h-4")) }
+            }
+        }
+    }
+}
 }
 
 fn build_query_string(params: &ConversionQueryParams) -> String {

@@ -8,7 +8,9 @@ use maud::{html, Markup};
 /// 扫描器提取并生成 CSS。因此下面的每个 pub fn 都直接写出完整图标 class 字面，
 /// 调用方零改动即可。
 fn icon(ic: &str, c: &str) -> Markup {
-    html! { i class=(format!("{ic} {c}")) {} }
+    html! {
+        i class=(format!("{ic} {c}")) {}
+    }
 }
 
 /// 渲染任意图标（传完整 class 字面）。供页面渲染下方未预定义的图标用；

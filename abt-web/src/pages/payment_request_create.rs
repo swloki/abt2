@@ -220,119 +220,156 @@ fn pay_create_page(
  let today = chrono::Local::now().format("%Y-%m-%d").to_string();
 
  html! {
- div {
- // ── Page Header ──
- div class="flex items-center justify-between mb-6" {
- a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", PayListPath::PATH)) {
- (icon::arrow_left_icon("w-4 h-4"))
- "返回付款申请列表"
- }
- h1 class="text-xl font-bold text-fg tracking-tight" { "新建付款申请" }
- }
+    div {
+        // ── Page Header ──
+        div class="flex items-center justify-between mb-6" {
+            a   class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150"
+                href=(format!("{}?restore=true", PayListPath::PATH))
+            { (icon::arrow_left_icon("w-4 h-4")) "返回付款申请列表" }
+            h1 class="text-xl font-bold text-fg tracking-tight" { "新建付款申请" }
+        }
 
- form id="pay-form"
- hx-post=(PayCreatePath::PATH)
- hx-swap="none" {
-
- // ── 供应商信息 ──
- (supplier_section(suppliers, None, &[], &[]))
-
- // ── 付款信息 ──
- div class="data-card" class="mb-4" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "付款信息" }
- div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
- div class="form-field" {
- label { "关联对账单" }
- select name="reconciliation_id" {
- option value="" { "无" }
- @for r in reconciliations {
- option value=(r.id) { (r.doc_number) " — " (r.period) }
- }
- }
- }
- div class="form-field" {
- label { "付款日期" span class="text-danger" { "*" } }
- input type="date" name="payment_date" value=(today) required {}
- }
- div class="form-field" {
- label { "付款金额" span class="text-danger" { "*" } }
- input type="number" step="any" id="pay-amount" name="amount" placeholder="0.00" required {}
- }
- div class="form-field" {
- label { "付款方式" span class="text-danger" { "*" } }
- select name="payment_method" required {
- option value="1" selected { "银行转账" }
- option value="2" { "现金" }
- option value="3" { "票据" }
- }
- }
- div class="form-field" {
- label { "发票号" }
- input type="text" name="invoice_number" placeholder="输入发票号" {}
- }
- div class="form-field" {
- label { "发票金额" }
- input type="number" step="any" name="invoice_amount" placeholder="0.00" {}
- }
- div class="form-field" {
- label { "申请人" }
- input type="text" value=(applicant_name) readonly {}
- }
- div class="form-field col-span-2" {
- label { "备注" }
- textarea name="remark" placeholder="输入付款申请相关备注信息…" class="w-full resize-y" class="rounded-sm" class="min-h-[80px] border border-border text-sm" style="padding:8px 12px;font-family:inherit" {}
- }
- }
- }
-
- // ── 三单匹配校验 ──
- div class="data-card" class="mb-4" {
- div class="flex items-center justify-between mb-4" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" class="m-0 p-0 border-none" { "三单匹配校验" }
- span class="items-center font-semibold" class="rounded-sm" class="inline-flex text-xs" style="gap:6px;padding:4px 12px;background:#fef9c3;color:#a16207;border:1px solid #fde68a" {
- (icon::clock_icon("w-3.5 h-3.5"))
- "待验证"
- }
- }
- div class="grid" class="grid grid-cols-3 gap-4" {
- // 验收单
- div class="flex items-center bg-surface" class="gap-3 rounded-sm" class="px-4 py-3 border border-border-soft" {
- (icon::check_circle_icon("w-5 h-5"))
- div {
- div class="text-sm font-semibold text-fg" { "验收单" }
- div class="text-success" class="text-xs" { "已匹配" }
- }
- }
- // 发票
- div class="flex items-center bg-surface" class="gap-3 rounded-sm" class="px-4 py-3 border border-border-soft" {
- (icon::clock_icon("w-5 h-5"))
- div {
- div class="text-sm font-semibold text-fg" { "发票" }
- div class="text-xs" style="color:#d97706" { "待验证" }
- }
- }
- // 对账单
- div class="flex items-center bg-surface" class="gap-3 rounded-sm" class="px-4 py-3 border border-border-soft" {
- (icon::check_circle_icon("w-5 h-5"))
- div {
- div class="text-sm font-semibold text-fg" { "对账单" }
- div class="text-success" class="text-xs" { "已匹配" }
- }
- }
- }
- }
-
- // ── Action Bar ──
- div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg border-t border-border-soft" {
- a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{}?restore=true", PayListPath::PATH)) { "取消" }
- div class="flex gap-3" {
- button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" { "保存草稿" }
- button type="submit" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" { "提交付款申请" }
- }
- }
- }
- }
- }
+        form id="pay-form" hx-post=(PayCreatePath::PATH) hx-swap="none" {
+            // ── 供应商信息 ──
+            (supplier_section(suppliers, None, &[], &[]))
+            // ── 付款信息 ──
+            div class="data-card" class="mb-4" {
+                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
+                { "付款信息" }
+                div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
+                    div class="form-field" {
+                        label { "关联对账单" }
+                        select name="reconciliation_id" {
+                            option value="" { "无" }
+                            @for r in reconciliations {
+                                option value=(r.id) { (r.doc_number) " — " (r.period) }
+                            }
+                        }
+                    }
+                    div class="form-field" {
+                        label {
+                            "付款日期"
+                            span class="text-danger" { "*" }
+                        }
+                        input type="date" name="payment_date" value=(today) required {}
+                    }
+                    div class="form-field" {
+                        label {
+                            "付款金额"
+                            span class="text-danger" { "*" }
+                        }
+                        input
+                            type="number"
+                            step="any"
+                            id="pay-amount"
+                            name="amount"
+                            placeholder="0.00"
+                            required {}
+                    }
+                    div class="form-field" {
+                        label {
+                            "付款方式"
+                            span class="text-danger" { "*" }
+                        }
+                        select name="payment_method" required {
+                            option value="1" selected { "银行转账" }
+                            option value="2" { "现金" }
+                            option value="3" { "票据" }
+                        }
+                    }
+                    div class="form-field" {
+                        label { "发票号" }
+                        input type="text" name="invoice_number" placeholder="输入发票号" {}
+                    }
+                    div class="form-field" {
+                        label { "发票金额" }
+                        input type="number" step="any" name="invoice_amount" placeholder="0.00" {}
+                    }
+                    div class="form-field" {
+                        label { "申请人" }
+                        input type="text" value=(applicant_name) readonly {}
+                    }
+                    div class="form-field col-span-2" {
+                        label { "备注" }
+                        textarea
+                            name="remark"
+                            placeholder="输入付款申请相关备注信息…"
+                            class="w-full resize-y"
+                            class="rounded-sm"
+                            class="min-h-[80px] border border-border text-sm"
+                            style="padding:8px 12px;font-family:inherit" {}
+                    }
+                }
+            }
+            // ── 三单匹配校验 ──
+            div class="data-card" class="mb-4" {
+                div class="flex items-center justify-between mb-4" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
+                        class="m-0 p-0 border-none"
+                    { "三单匹配校验" }
+                    span
+                        class="items-center font-semibold"
+                        class="rounded-sm"
+                        class="inline-flex text-xs"
+                        style="gap:6px;padding:4px 12px;background:#fef9c3;color:#a16207;border:1px solid #fde68a"
+                    { (icon::clock_icon("w-3.5 h-3.5")) "待验证" }
+                }
+                div class="grid" class="grid grid-cols-3 gap-4" {
+                    // 验收单
+                    div class="flex items-center bg-surface"
+                        class="gap-3 rounded-sm"
+                        class="px-4 py-3 border border-border-soft"
+                    {
+                        (icon::check_circle_icon("w-5 h-5"))
+                        div {
+                            div class="text-sm font-semibold text-fg" { "验收单" }
+                            div class="text-success" class="text-xs" { "已匹配" }
+                        }
+                    }
+                    // 发票
+                    div class="flex items-center bg-surface"
+                        class="gap-3 rounded-sm"
+                        class="px-4 py-3 border border-border-soft"
+                    {
+                        (icon::clock_icon("w-5 h-5"))
+                        div {
+                            div class="text-sm font-semibold text-fg" { "发票" }
+                            div class="text-xs" style="color:#d97706" { "待验证" }
+                        }
+                    }
+                    // 对账单
+                    div class="flex items-center bg-surface"
+                        class="gap-3 rounded-sm"
+                        class="px-4 py-3 border border-border-soft"
+                    {
+                        (icon::check_circle_icon("w-5 h-5"))
+                        div {
+                            div class="text-sm font-semibold text-fg" { "对账单" }
+                            div class="text-success" class="text-xs" { "已匹配" }
+                        }
+                    }
+                }
+            }
+            // ── Action Bar ──
+            div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg border-t border-border-soft"
+            {
+                a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                    href=(format!("{}?restore=true", PayListPath::PATH))
+                { "取消" }
+                div class="flex gap-3" {
+                    button
+                        type="button"
+                        class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                    { "保存草稿" }
+                    button
+                        type="submit"
+                        class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                    { "提交付款申请" }
+                }
+            }
+        }
+    }
+}
 }
 
 /// Renders the entire supplier info data-card.
@@ -350,63 +387,84 @@ fn supplier_section(
  let default_account = bank_accounts.first();
 
  html! {
- div class="data-card" class="mb-4" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "供应商信息" }
- div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
- div class="form-field" {
- label { "供应商" span class="text-danger" { "*" } }
- select name="supplier_id" required
- hx-get=(PaySupplierInfoPath::PATH)
- hx-trigger="change"
- hx-target="closest .data-card"
- hx-swap="outerHTML"
- hx-include="this" {
- option value="" disabled[selected_supplier_id.is_none()] { "请选择供应商" }
- @for s in suppliers {
- @let sel = selected_supplier_id == Some(s.id);
- option value=(s.id) selected[sel] { (s.name) }
- }
- }
- }
- div class="form-field" {
- label { "联系人" }
- input type="text" value=(contact_name) placeholder="自动填充" readonly {}
- }
- div class="form-field" {
- label { "联系电话" }
- input type="text" value=(contact_phone) placeholder="自动填充" readonly {}
- }
- }
- // 收款账户 info
- div class="mt-4" {
- div class="form-field" {
- label { "收款账户" }
- @if let Some(acct) = default_account {
- input type="text" value=(format!("{} — {} {}", acct.bank_name, acct.account_name, acct.account_number)) readonly {}
- input type="hidden" name="bank_account_id" value=(acct.id) {}
- div class="bg-surface text-muted grid" class="p-3 rounded-sm gap-4" class="mt-2 border border-border-soft text-xs" style="grid-template-columns:1fr 1fr 1fr" {
- div {
- span class="block font-medium text-fg" { "户名" }
- span { (acct.account_name) }
- }
- div {
- span class="block font-medium text-fg" { "开户行" }
- span { (acct.bank_name) }
- }
- div {
- span class="block font-medium text-fg" { "账号" }
- span class="font-mono" { (acct.account_number) }
- }
- }
- } @else if selected_supplier_id.is_some() {
- input type="text" value="" placeholder="该供应商暂无银行账户信息" readonly {}
- input type="hidden" name="bank_account_id" value="" {}
- } @else {
- input type="text" value="" placeholder="选择供应商后自动填充" readonly {}
- input type="hidden" name="bank_account_id" value="" {}
- }
- }
- }
- }
- }
+    div class="data-card" class="mb-4" {
+        div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
+        { "供应商信息" }
+        div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
+            div class="form-field" {
+                label {
+                    "供应商"
+                    span class="text-danger" { "*" }
+                }
+                select
+                    name="supplier_id"
+                    required
+                    hx-get=(PaySupplierInfoPath::PATH)
+                    hx-trigger="change"
+                    hx-target="closest .data-card"
+                    hx-swap="outerHTML"
+                    hx-include="this"
+                {
+                    option value="" disabled[selected_supplier_id.is_none()] { "请选择供应商" }
+                    @for s in suppliers {
+                        @let sel = selected_supplier_id == Some(s.id);
+                        option value=(s.id) selected[sel] { (s.name) }
+                    }
+                }
+            }
+            div class="form-field" {
+                label { "联系人" }
+                input type="text" value=(contact_name) placeholder="自动填充" readonly {}
+            }
+            div class="form-field" {
+                label { "联系电话" }
+                input type="text" value=(contact_phone) placeholder="自动填充" readonly {}
+            }
+        }
+        // 收款账户 info
+        div class="mt-4" {
+            div class="form-field" {
+                label { "收款账户" }
+                @if let Some(acct) = default_account {
+                    input
+                        type="text"
+                        value=({
+                            format!(
+                                "{} — {} {}",
+                                acct.bank_name,
+                                acct.account_name,
+                                acct.account_number,
+                            )
+                        })
+                        readonly {}
+                    input type="hidden" name="bank_account_id" value=(acct.id) {}
+                    div class="bg-surface text-muted grid"
+                        class="p-3 rounded-sm gap-4"
+                        class="mt-2 border border-border-soft text-xs"
+                        style="grid-template-columns:1fr 1fr 1fr"
+                    {
+                        div {
+                            span class="block font-medium text-fg" { "户名" }
+                            span { (acct.account_name) }
+                        }
+                        div {
+                            span class="block font-medium text-fg" { "开户行" }
+                            span { (acct.bank_name) }
+                        }
+                        div {
+                            span class="block font-medium text-fg" { "账号" }
+                            span class="font-mono" { (acct.account_number) }
+                        }
+                    }
+                } @else if selected_supplier_id.is_some() {
+                    input type="text" value="" placeholder="该供应商暂无银行账户信息" readonly {}
+                    input type="hidden" name="bank_account_id" value="" {}
+                } @else {
+                    input type="text" value="" placeholder="选择供应商后自动填充" readonly {}
+                    input type="hidden" name="bank_account_id" value="" {}
+                }
+            }
+        }
+    }
+}
 }

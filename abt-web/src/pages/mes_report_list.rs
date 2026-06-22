@@ -65,41 +65,68 @@ fn report_list_page(
  params: &ReportQueryParams,
  can_create: bool,
 ) -> Markup {
- html! { div {
- div class="flex items-center justify-between mb-6" {
- h1 class="text-xl font-bold text-fg tracking-tight" { "报工记录" }
- div class="flex gap-3" {
- @if can_create {
- a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(ReportCreatePath::PATH) {
- (icon::plus_icon("w-4 h-4"))
- "新建报工"
- }
- }
- }
- }
- (report_table_fragment(result, params))
- }}
+ html! {
+    div {
+        div class="flex items-center justify-between mb-6" {
+            h1 class="text-xl font-bold text-fg tracking-tight" { "报工记录" }
+            div class="flex gap-3" {
+                @if can_create {
+                    a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                        href=(ReportCreatePath::PATH)
+                    { (icon::plus_icon("w-4 h-4")) "新建报工" }
+                }
+            }
+        }
+        (report_table_fragment(result, params))
+    }
+}
 }
 
 fn report_table_fragment(
  result: &PaginatedResult<ReportListItem>,
  params: &ReportQueryParams,
 ) -> Markup {
- html! { div {
- form id="filter-form" class="flex items-center gap-3 mb-5 flex-wrap" hx-get=(ReportListPath::PATH)
- hx-trigger="change, keyup changed delay:300ms from:.search-input"
- hx-target="#report-data-card" hx-select="#report-data-card" hx-swap="outerHTML" hx-include="#filter-form"
- hx-push-url="true" {
- div class="relative w-60" {
- (icon::search_icon("absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted"))
- input class="search-input w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input" type="text" name="keyword" placeholder="搜索单号…" value=(params.keyword.as_deref().unwrap_or(""));
- }
- input class="w-40 px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="date" name="date_from" value=(params.date_from.as_deref().unwrap_or(""));
- span class="text-sm text-muted" { "至" }
- input class="w-40 px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="date" name="date_to" value=(params.date_to.as_deref().unwrap_or(""));
- }
- (report_data_card(result, params))
- }}
+ html! {
+    div {
+        form
+            id="filter-form"
+            class="flex items-center gap-3 mb-5 flex-wrap"
+            hx-get=(ReportListPath::PATH)
+            hx-trigger="change, keyup changed delay:300ms from:.search-input"
+            hx-target="#report-data-card"
+            hx-select="#report-data-card"
+            hx-swap="outerHTML"
+            hx-include="#filter-form"
+            hx-push-url="true"
+        {
+            div class="relative w-60" {
+                ({
+                    icon::search_icon(
+                        "absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted",
+                    )
+                })
+                input
+                    class="search-input w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input"
+                    type="text"
+                    name="keyword"
+                    placeholder="搜索单号…"
+                    value=(params.keyword.as_deref().unwrap_or(""));
+            }
+            input
+                class="w-40 px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
+                type="date"
+                name="date_from"
+                value=(params.date_from.as_deref().unwrap_or(""));
+            span class="text-sm text-muted" { "至" }
+            input
+                class="w-40 px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
+                type="date"
+                name="date_to"
+                value=(params.date_to.as_deref().unwrap_or(""));
+        }
+        (report_data_card(result, params))
+    }
+}
 }
 
 fn report_data_card(
@@ -113,36 +140,66 @@ fn report_data_card(
  let query = qs.join("&");
 
  html! {
- div class="data-card" id="report-data-card" {
- div class="overflow-x-auto" {
- table class="data-table" { thead { tr {
- th { "单号" } th { "产品" } th { "工序" } th { "日期" } th { "工人" }
- th class="text-right text-[13px]" { "完成" } th class="text-right text-[13px]" { "不良" } th { "班次" } th class="!text-right" { "操作" }
- }} tbody {
- @for item in &result.items {
- @let dp = format!("/admin/mes/reports/{}", item.id);
- @let wn = item.worker_name.as_deref().unwrap_or("\u{2014}");
- @let sl = shift_label(&item.shift);
- tr {
- td {
- a class="text-accent font-medium font-mono tabular-nums hover:underline" href=(dp) { (item.doc_number) }
- }
- td { (item.product_name.as_deref().unwrap_or("\u{2014}")) }
- td { (item.process_name) }
- td { (item.report_date) }
- td { (wn) }
- td class="text-right text-[13px] font-mono tabular-nums" { (crate::utils::fmt_qty(item.completed_qty)) }
- td class="text-right text-[13px] font-mono tabular-nums" { (crate::utils::fmt_qty(item.defect_qty)) }
- td { (sl) }
- td class="text-right" { a class="text-accent text-xs hover:underline" href=(dp) { "查看" } }
- }
- }
- @if result.items.is_empty() {
- tr { td colspan="9" class="text-center text-muted text-sm py-8" { "暂无报工记录" } }
- }
- }}
- }
- (pagination(ReportListPath::PATH, &query, result.total, result.page, result.total_pages))
- }
- }
+    div class="data-card" id="report-data-card" {
+        div class="overflow-x-auto" {
+            table class="data-table" {
+                thead {
+                    tr {
+                        th { "单号" }
+                        th { "产品" }
+                        th { "工序" }
+                        th { "日期" }
+                        th { "工人" }
+                        th class="text-right text-[13px]" { "完成" }
+                        th class="text-right text-[13px]" { "不良" }
+                        th { "班次" }
+                        th class="!text-right" { "操作" }
+                    }
+                }
+                tbody {
+                    @for item in &result.items {
+                        @let dp = format!("/admin/mes/reports/{}", item.id);
+                        @let wn = item.worker_name.as_deref().unwrap_or("\u{2014}");
+                        @let sl = shift_label(&item.shift);
+                        tr {
+                            td {
+                                a   class="text-accent font-medium font-mono tabular-nums hover:underline"
+                                    href=(dp)
+                                { (item.doc_number) }
+                            }
+                            td { (item.product_name.as_deref().unwrap_or("\u{2014}")) }
+                            td { (item.process_name) }
+                            td { (item.report_date) }
+                            td { (wn) }
+                            td class="text-right text-[13px] font-mono tabular-nums" {
+                                (crate::utils::fmt_qty(item.completed_qty))
+                            }
+                            td class="text-right text-[13px] font-mono tabular-nums" {
+                                (crate::utils::fmt_qty(item.defect_qty))
+                            }
+                            td { (sl) }
+                            td class="text-right" {
+                                a class="text-accent text-xs hover:underline" href=(dp) { "查看" }
+                            }
+                        }
+                    }
+                    @if result.items.is_empty() {
+                        tr {
+                            td colspan="9" class="text-center text-muted text-sm py-8" { "暂无报工记录" }
+                        }
+                    }
+                }
+            }
+        }
+        ({
+            pagination(
+                ReportListPath::PATH,
+                &query,
+                result.total,
+                result.page,
+                result.total_pages,
+            )
+        })
+    }
+}
 }

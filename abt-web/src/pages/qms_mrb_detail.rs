@@ -81,59 +81,91 @@ pub async fn get_detail(path: MrbDetailPath, ctx: RequestContext) -> Result<Html
  let (disp_text, disp_class) = disposition_label(&mrb.disposition);
  let (party_text, party_class) = responsible_party_label(&mrb.responsible_party);
 
- let content = html! { div {
- div class="flex items-center justify-between mb-6" {
- div class="flex items-center justify-between mb-6" {
- a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", MrbListPath::PATH)) { "\u{2190} 返回列表" }
- h1 class="text-xl font-bold text-fg tracking-tight" {
- "MRB单号 " (&mrb.doc_number)
- " "
- span class=(format!("status-pill {}", crate::utils::status_color(status_class))) { (status_text) }
- }
- }
- }
-
- // ── 基本信息 ──
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
- h3 class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" { "基本信息" }
- div class="grid gap-4" {
- div class="flex flex-col gap-1" {
- label { "关联检验结果单号" }
- span class="font-mono tabular-nums" { (inspection_doc) }
- }
- div class="flex flex-col gap-1" { label { "产品" } span { (product_name) } }
- div class="flex flex-col gap-1" {
- label { "处置方式" }
- span class=(format!("status-pill {}", crate::utils::status_color(disp_class))) { (disp_text) }
- }
- div class="flex flex-col gap-1" {
- label { "责任方" }
- span class=(format!("status-pill {}", crate::utils::status_color(party_class))) { (party_text) }
- }
- div class="flex flex-col gap-1" { label { "成本影响" } span class="font-mono tabular-nums text-right text-[13px]" { (fmt_cost(mrb.cost_impact)) } }
- }
- }
-
- // ── 缺陷描述 ──
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
- h3 class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" { "缺陷描述" }
- p class="whitespace-pre-wrap" { (&mrb.defect_description) }
- }
-
- // ── 备注 ──
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
- h3 class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" { "备注" }
- p class="whitespace-pre-wrap" { (if mrb.remark.is_empty() { "—" } else { &mrb.remark }) }
- }
-
- // ── 其他信息 ──
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
- h3 class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" { "其他信息" }
- div class="grid gap-4" {
- div class="flex flex-col gap-1" { label { "创建时间" } span { (mrb.created_at.format("%Y-%m-%d %H:%M")) } }
- }
- }
- }};
+ let content = html! {
+    div {
+        div class="flex items-center justify-between mb-6" {
+            div class="flex items-center justify-between mb-6" {
+                a   class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150"
+                    href=(format!("{}?restore=true", MrbListPath::PATH))
+                { "\u{2190} 返回列表" }
+                h1 class="text-xl font-bold text-fg tracking-tight" {
+                    "MRB单号 "
+                    (&mrb.doc_number)
+                    " "
+                    span class=({
+                        format!(
+                            "status-pill {}",
+                            crate::utils::status_color(status_class),
+                        )
+                    }) { (status_text) }
+                }
+            }
+        }
+        // ── 基本信息 ──
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
+            h3 class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" {
+                "基本信息"
+            }
+            div class="grid gap-4" {
+                div class="flex flex-col gap-1" {
+                    label { "关联检验结果单号" }
+                    span class="font-mono tabular-nums" { (inspection_doc) }
+                }
+                div class="flex flex-col gap-1" {
+                    label { "产品" }
+                    span { (product_name) }
+                }
+                div class="flex flex-col gap-1" {
+                    label { "处置方式" }
+                    span class=(format!("status-pill {}", crate::utils::status_color(disp_class))) {
+                        (disp_text)
+                    }
+                }
+                div class="flex flex-col gap-1" {
+                    label { "责任方" }
+                    span class=({
+                        format!(
+                            "status-pill {}",
+                            crate::utils::status_color(party_class),
+                        )
+                    }) { (party_text) }
+                }
+                div class="flex flex-col gap-1" {
+                    label { "成本影响" }
+                    span class="font-mono tabular-nums text-right text-[13px]" {
+                        (fmt_cost(mrb.cost_impact))
+                    }
+                }
+            }
+        }
+        // ── 缺陷描述 ──
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
+            h3 class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" {
+                "缺陷描述"
+            }
+            p class="whitespace-pre-wrap" { (&mrb.defect_description) }
+        }
+        // ── 备注 ──
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
+            h3 class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" {
+                "备注"
+            }
+            p class="whitespace-pre-wrap" { (if mrb.remark.is_empty() { "—" } else { &mrb.remark }) }
+        }
+        // ── 其他信息 ──
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
+            h3 class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" {
+                "其他信息"
+            }
+            div class="grid gap-4" {
+                div class="flex flex-col gap-1" {
+                    label { "创建时间" }
+                    span { (mrb.created_at.format("%Y-%m-%d %H:%M")) }
+                }
+            }
+        }
+    }
+};
 
  let current_path = MrbDetailPath { id: path.id }.to_string();
  let html = admin_page(

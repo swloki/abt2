@@ -280,181 +280,217 @@ fn return_create_page(customers: &[abt_core::master_data::customer::model::Custo
  let customers_json = serde_json::to_string(&customers.iter().map(|c| serde_json::json!({"id":c.id,"name":c.name})).collect::<Vec<_>>()).unwrap_or_default();
 
  html! {
- div id="return-app" class="p-6" {
- // ── Page Header ──
- div class="flex items-center justify-between mb-6" {
- a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", ReturnListPath::PATH)) {
- (icon::arrow_left_icon("w-4 h-4"))
- "返回退货列表"
- }
- h1 class="text-xl font-bold text-fg tracking-tight" { "新建退货单" }
- div class="flex gap-3" {
- span class="flex items-center justify-center p-8 text-muted" {
- (icon::clock_icon("w-3.5 h-3.5"))
- "自动保存草稿"
- }
- }
- }
+    div id="return-app" class="p-6" {
+        // ── Page Header ──
+        div class="flex items-center justify-between mb-6" {
+            a   class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150"
+                href=(format!("{}?restore=true", ReturnListPath::PATH))
+            { (icon::arrow_left_icon("w-4 h-4")) "返回退货列表" }
+            h1 class="text-xl font-bold text-fg tracking-tight" { "新建退货单" }
+            div class="flex gap-3" {
+                span class="flex items-center justify-center p-8 text-muted" {
+                    (icon::clock_icon("w-3.5 h-3.5"))
+                    "自动保存草稿"
+                }
+            }
+        }
 
- form id="return-form"
- hx-post=(ReturnCreatePath::PATH)
- hx-swap="none" {
- input type="hidden" name="items_json";
- input type="hidden" name="customer_id" id="f-customer-id";
- input type="hidden" name="order_id" id="f-order-id";
- input type="hidden" name="shipping_request_id" id="f-shipping-id";
- input type="hidden" name="return_reason" id="f-reason";
-
- // ── 关联单据 ──
- div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
- (icon::clipboard_document_icon("w-[18px] h-[18px]"))
- "关联单据"
- }
- div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
- div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "客户 " span class="required" { "*" } }
- select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" id="customer-select" {
- option value="" { "请选择客户" }
- @for c in customers {
- option value=(c.id) { (c.name) }
- }
- }
- }
- div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "来源订单 " span class="required" { "*" } }
- select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" id="order-select" disabled {
- option value="" { "请先选择客户" }
- }
- }
- div class="form-field col-span-2" {
- div class="flex items-center gap-6 p-3 rounded-sm text-xs text-fg-2 hidden" id="linked-info" {
- span { span class="label" { "客户：" } span id="li-customer" { "—" } }
- span { span class="label" { "订单金额：" } span id="li-amount" { "—" } }
- span { span class="label" { "订单日期：" } span id="li-date" { "—" } }
- }
- }
- }
- }
-
- // ── 退货信息 ──
- div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
- (icon::clipboard_document_icon("w-[18px] h-[18px]"))
- "退货信息"
- }
- div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
- div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "退货原因 " span class="required" { "*" } }
- select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" id="reason-select" {
- option value="" { "请选择退货原因" }
- option value="quality" { "质量缺陷" }
- option value="wrong_spec" { "规格不符" }
- option value="excess" { "数量多余" }
- option value="damage" { "运输损坏" }
- option value="cancel" { "客户取消" }
- option value="other" { "其他原因" }
- }
- }
- div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "处理方式" }
- select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" id="disposition-select" {
- option value="restock" { "退回入库" }
- option value="replace" { "换货处理" }
- option value="scrap" { "报废处理" }
- }
- }
- }
- }
-
- // ── 退货产品明细 ──
- div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden flush hidden" id="items-section" {
- div class="flush-header" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
- (icon::package_icon("w-[18px] h-[18px]"))
- "退货产品明细"
- }
- }
- div class="overflow-x-auto" {
- table class="data-table" {
- thead {
- tr {
- th class="w-12" { "#" }
- th { "产品编码" }
- th { "产品名称" }
- th class="w-20" { "单位" }
- th class="w-28" { "原单价 (¥)" }
- th class="w-24" { "已发数量" }
- th class="w-24" { "退货数量 " span class="required" { "*" } }
- th class="w-32" { "退货金额 (¥)" }
- th class="w-16" { }
- }
- }
- tbody id="line-items-body" {
- // Populated by JS when order is selected
- }
- }
- }
- div class="p-3 flex items-center gap-2" {
- button type="button" class="inline-flex items-center gap-2 rounded-sm text-accent text-sm cursor-pointer" onclick="addReturnRow()" {
- (icon::plus_icon("w-3.5 h-3.5"))
- "添加产品行"
- }
- }
- div class="flex justify-end p-4 bg-surface border-t border-border-soft gap-8" {
- div class="flex gap-3" {
- span class="text-sm text-muted" { "退货总数量" }
- span class="text-lg font-bold text-fg" id="total-qty" { "0" }
- }
- div class="flex gap-3" {
- span class="text-sm text-muted" { "退货总额" }
- span class="text-lg font-bold text-fg grand" id="grand-total" { "¥ 0.00" }
- }
- }
- }
-
- // ── 备注 ──
- div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
- (icon::file_text_icon("w-[18px] h-[18px]"))
- "备注"
- }
- textarea class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] min-h-[72px] resize-y leading-1.5" name="remark" placeholder="输入退货相关备注，如质量问题详细描述、客户诉求、处理要求等…" {}
- }
-
- // ── 附件 ──
- div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
- (icon::upload_icon("w-[18px] h-[18px]"))
- "附件"
- }
- div class="rounded p-8 text-center cursor-pointer" id="upload-area" {
- (icon::upload_icon("w-8 h-8"))
- p class="upload-title" { "点击或拖拽文件到此处上传" }
- p class="upload-hint" { "支持 PDF、Word、Excel、图片，单个文件不超过 10MB" }
- input type="file" id="file-input" multiple name="attachments" class="hidden" {}
- }
- div id="file-list" class="mt-3" {}
- }
- }
-
- // ── Action Bar ──
- div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg border-t border-border-soft" {
- a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{}?restore=true", ReturnListPath::PATH)) { "取消" }
- div class="flex gap-3" {
- button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" onclick="handleSaveDraft()" {
- (icon::save_icon("w-4 h-4"))
- "保存草稿"
- }
- button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" _="on click call handleSubmit() then if it trigger submit on #return-form" {
- (icon::send_icon("w-4 h-4"))
- "提交退货"
- }
- }
- }
-
- // ── Inline JS ──
- (maud::PreEscaped(format!(r#"<script>
+        form id="return-form" hx-post=(ReturnCreatePath::PATH) hx-swap="none" {
+            input type="hidden" name="items_json";
+            input type="hidden" name="customer_id" id="f-customer-id";
+            input type="hidden" name="order_id" id="f-order-id";
+            input type="hidden" name="shipping_request_id" id="f-shipping-id";
+            input type="hidden" name="return_reason" id="f-reason";
+            // ── 关联单据 ──
+            div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden"
+            {
+                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
+                { (icon::clipboard_document_icon("w-[18px] h-[18px]")) "关联单据" }
+                div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
+                    div class="form-field" {
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
+                            "客户 "
+                            span class="required" { "*" }
+                        }
+                        select
+                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]"
+                            id="customer-select"
+                        {
+                            option value="" { "请选择客户" }
+                            @for c in customers {
+                                option value=(c.id) { (c.name) }
+                            }
+                        }
+                    }
+                    div class="form-field" {
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
+                            "来源订单 "
+                            span class="required" { "*" }
+                        }
+                        select
+                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]"
+                            id="order-select"
+                            disabled
+                        {
+                            option value="" { "请先选择客户" }
+                        }
+                    }
+                    div class="form-field col-span-2" {
+                        div class="flex items-center gap-6 p-3 rounded-sm text-xs text-fg-2 hidden"
+                            id="linked-info"
+                        {
+                            span {
+                                span class="label" { "客户：" }
+                                span id="li-customer" { "—" }
+                            }
+                            span {
+                                span class="label" { "订单金额：" }
+                                span id="li-amount" { "—" }
+                            }
+                            span {
+                                span class="label" { "订单日期：" }
+                                span id="li-date" { "—" }
+                            }
+                        }
+                    }
+                }
+            }
+            // ── 退货信息 ──
+            div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden"
+            {
+                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
+                { (icon::clipboard_document_icon("w-[18px] h-[18px]")) "退货信息" }
+                div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
+                    div class="form-field" {
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
+                            "退货原因 "
+                            span class="required" { "*" }
+                        }
+                        select
+                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]"
+                            id="reason-select"
+                        {
+                            option value="" { "请选择退货原因" }
+                            option value="quality" { "质量缺陷" }
+                            option value="wrong_spec" { "规格不符" }
+                            option value="excess" { "数量多余" }
+                            option value="damage" { "运输损坏" }
+                            option value="cancel" { "客户取消" }
+                            option value="other" { "其他原因" }
+                        }
+                    }
+                    div class="form-field" {
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
+                            "处理方式"
+                        }
+                        select
+                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]"
+                            id="disposition-select"
+                        {
+                            option value="restock" { "退回入库" }
+                            option value="replace" { "换货处理" }
+                            option value="scrap" { "报废处理" }
+                        }
+                    }
+                }
+            }
+            // ── 退货产品明细 ──
+            div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden flush hidden"
+                id="items-section"
+            {
+                div class="flush-header" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
+                    { (icon::package_icon("w-[18px] h-[18px]")) "退货产品明细" }
+                }
+                div class="overflow-x-auto" {
+                    table class="data-table" {
+                        thead {
+                            tr {
+                                th class="w-12" { "#" }
+                                th { "产品编码" }
+                                th { "产品名称" }
+                                th class="w-20" { "单位" }
+                                th class="w-28" { "原单价 (¥)" }
+                                th class="w-24" { "已发数量" }
+                                th class="w-24" {
+                                    "退货数量 "
+                                    span class="required" { "*" }
+                                }
+                                th class="w-32" { "退货金额 (¥)" }
+                                th class="w-16" {}
+                            }
+                        }
+                        tbody id="line-items-body" {
+                            // Populated by JS when order is selected
+                        }
+                    }
+                }
+                div class="p-3 flex items-center gap-2" {
+                    button
+                        type="button"
+                        class="inline-flex items-center gap-2 rounded-sm text-accent text-sm cursor-pointer"
+                        onclick="addReturnRow()"
+                    { (icon::plus_icon("w-3.5 h-3.5")) "添加产品行" }
+                }
+                div class="flex justify-end p-4 bg-surface border-t border-border-soft gap-8" {
+                    div class="flex gap-3" {
+                        span class="text-sm text-muted" { "退货总数量" }
+                        span class="text-lg font-bold text-fg" id="total-qty" { "0" }
+                    }
+                    div class="flex gap-3" {
+                        span class="text-sm text-muted" { "退货总额" }
+                        span class="text-lg font-bold text-fg grand" id="grand-total" { "¥ 0.00" }
+                    }
+                }
+            }
+            // ── 备注 ──
+            div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden"
+            {
+                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
+                { (icon::file_text_icon("w-[18px] h-[18px]")) "备注" }
+                textarea
+                    class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] min-h-[72px] resize-y leading-1.5"
+                    name="remark"
+                    placeholder="输入退货相关备注，如质量问题详细描述、客户诉求、处理要求等…" {}
+            }
+            // ── 附件 ──
+            div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden"
+            {
+                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
+                { (icon::upload_icon("w-[18px] h-[18px]")) "附件" }
+                div class="rounded p-8 text-center cursor-pointer" id="upload-area" {
+                    (icon::upload_icon("w-8 h-8"))
+                    p class="upload-title" { "点击或拖拽文件到此处上传" }
+                    p class="upload-hint" { "支持 PDF、Word、Excel、图片，单个文件不超过 10MB" }
+                    input type="file" id="file-input" multiple name="attachments" class="hidden" {}
+                }
+                div id="file-list" class="mt-3" {}
+            }
+        }
+        // ── Action Bar ──
+        div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg border-t border-border-soft"
+        {
+            a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                href=(format!("{}?restore=true", ReturnListPath::PATH))
+            { "取消" }
+            div class="flex gap-3" {
+                button
+                    type="button"
+                    class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                    onclick="handleSaveDraft()"
+                { (icon::save_icon("w-4 h-4")) "保存草稿" }
+                button
+                    type="button"
+                    class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                    _="on click call handleSubmit() then if it trigger submit on #return-form"
+                { (icon::send_icon("w-4 h-4")) "提交退货" }
+            }
+        }
+        // ── Inline JS ──
+        ({
+            maud::PreEscaped(
+                format!(
+                    r#"<script>
 (function(){{
 const customersJson = {customers_json};
 let selectedOrder = null;
@@ -645,9 +681,15 @@ window.handleSaveDraft = handleSaveDraft;
  }}
 }})();
 }})();
-</script>"#, customers_json = customers_json, orders_path = ReturnOrdersPath::PATH, chevron = r#"<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>"#)))
- }
- }
+</script>"#,
+                    customers_json = customers_json,
+                    orders_path = ReturnOrdersPath::PATH,
+                    chevron = r#"<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>"#,
+                ),
+            )
+        })
+    }
+}
 }
 
 fn order_search_results(
@@ -657,57 +699,54 @@ fn order_search_results(
  shipping_map: &std::collections::HashMap<i64, i64>,
 ) -> Markup {
  html! {
- div class="py-2" {
- @for order in orders {
- @let status_text = order_status_text(order.status);
- @let order_date = order.order_date.format("%Y-%m-%d").to_string();
- @let total = order.total_amount.to_string();
- @let shipping_id = shipping_map.get(&order.id).copied().unwrap_or(0);
- @let items_json = serde_json::json!({
- "id": order.id,
- "doc_number": &order.doc_number,
- "shipping_id": shipping_id,
- "items": items_map.get(&order.id).map(|items| items.iter().map(|item| {
- let product = product_map.get(&item.product_id);
- serde_json::json!({
- "order_item_id": item.id,
- "product_id": item.product_id,
- "product_code": product.map(|p| p.product_code.as_str()).unwrap_or(""),
- "product_name": product.map(|p| p.pdt_name.as_str()).unwrap_or_else(|| item.description.as_str()),
- "unit": product.map(|p| p.unit.as_str()).unwrap_or(""),
- "order_qty": item.quantity.to_string(),
- "unit_price": item.unit_price.to_string(),
- })
- }).collect::<Vec<_>>()).unwrap_or_default()
- }).to_string();
+    div class="py-2" {
+        @for order in orders {
+            @let status_text = order_status_text(order.status);
+            @let order_date = order.order_date.format("%Y-%m-%d").to_string();
+            @let total = order.total_amount.to_string();
+            @let shipping_id = shipping_map.get(&order.id).copied().unwrap_or(0);
+            @let items_json = serde_json::json!(
+                { "id" : order.id, "doc_number" : & order.doc_number, "shipping_id" :
+                shipping_id, "items" : items_map.get(& order.id).map(| items | items
+                .iter().map(| item | { let product = product_map.get(& item.product_id);
+                serde_json::json!({ "order_item_id" : item.id, "product_id" : item
+                .product_id, "product_code" : product.map(| p | p.product_code.as_str())
+                .unwrap_or(""), "product_name" : product.map(| p | p.pdt_name.as_str())
+                .unwrap_or_else(|| item.description.as_str()), "unit" : product.map(| p |
+                p.unit.as_str()).unwrap_or(""), "order_qty" : item.quantity.to_string(),
+                "unit_price" : item.unit_price.to_string(), }) }).collect::< Vec < _ >>
+                ()).unwrap_or_default() }
+            )
+                .to_string();
 
- div class="flex items-center justify-between p-3 border-b border-border-soft" {
- div class="product-select-info" {
- div class="text-sm font-medium text-fg" { (order.doc_number) }
- div class="text-xs text-muted flex items-center gap-[6px] flex-wrap" {
- span { (order_date) }
- span class="text-border" { "·" }
- span { (status_text) }
- span class="text-border" { "·" }
- span { "¥" (total) }
- }
- }
- button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] icon:w-4 icon:h-4"
- data-order=(items_json)
- onclick="selectOrder(JSON.parse(this.dataset.order))" {
- "选择"
- }
- }
- }
- }
- }
+            div class="flex items-center justify-between p-3 border-b border-border-soft" {
+                div class="product-select-info" {
+                    div class="text-sm font-medium text-fg" { (order.doc_number) }
+                    div class="text-xs text-muted flex items-center gap-[6px] flex-wrap" {
+                        span { (order_date) }
+                        span class="text-border" { "·" }
+                        span { (status_text) }
+                        span class="text-border" { "·" }
+                        span { "¥" (total) }
+                    }
+                }
+                button
+                    type="button"
+                    class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] icon:w-4 icon:h-4"
+                    data-order=(items_json)
+                    onclick="selectOrder(JSON.parse(this.dataset.order))"
+                { "选择" }
+            }
+        }
+    }
+}
 }
 
 fn order_search_empty() -> Markup {
  html! {
- div class="flex items-center justify-center p-8 text-muted" {
- (icon::package_icon("w-8 h-8"))
- p class="mt-2 text-sm" { "请先选择客户，或未找到匹配的订单" }
- }
- }
+    div class="flex items-center justify-center p-8 text-muted" {
+        (icon::package_icon("w-8 h-8"))
+        p class="mt-2 text-sm" { "请先选择客户，或未找到匹配的订单" }
+    }
+}
 }

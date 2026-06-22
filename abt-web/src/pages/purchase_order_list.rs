@@ -196,28 +196,36 @@ fn po_list_page(
  can_delete: bool,
 ) -> Markup {
  html! {
- div {
- // ── Page Header ──
- div class="flex items-center justify-between mb-6" {
- h1 class="text-xl font-bold text-fg tracking-tight" { "采购订单" }
- div class="flex gap-3" {
- @if can_create {
- a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(POCreatePath::PATH) {
- (icon::plus_icon("w-4 h-4"))
- "新建采购订单"
- }
- }
- button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
- _="on click call mergeSelectedPOs()" {
- "合并选中"
- }
- }
- }
-
- // ── Tabs + Filter + Data Table (HTMX panel) ──
- (po_table_fragment(result, supplier_names, buyer_names, suppliers, params, can_delete))
- }
- }
+    div {
+        // ── Page Header ──
+        div class="flex items-center justify-between mb-6" {
+            h1 class="text-xl font-bold text-fg tracking-tight" { "采购订单" }
+            div class="flex gap-3" {
+                @if can_create {
+                    a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                        href=(POCreatePath::PATH)
+                    { (icon::plus_icon("w-4 h-4")) "新建采购订单" }
+                }
+                button
+                    type="button"
+                    class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                    _="on click call mergeSelectedPOs()"
+                { "合并选中" }
+            }
+        }
+        // ── Tabs + Filter + Data Table (HTMX panel) ──
+        ({
+            po_table_fragment(
+                result,
+                supplier_names,
+                buyer_names,
+                suppliers,
+                params,
+                can_delete,
+            )
+        })
+    }
+}
 }
 
 fn po_table_fragment(
@@ -246,73 +254,102 @@ fn po_table_fragment(
  let selected_range = params.date_range.as_deref().unwrap_or("");
 
  html! {
- div class="po-list-panel" {
- (status_tabs_with_param(POListPath::PATH, "#po-data-card", "#po-filter-form", tabs, &active_value, "status"))
-
- // ── Filter Bar ──
- form class="flex items-center gap-3 mb-5 flex-wrap filter-form" id="po-filter-form"
- hx-get=(POListPath::PATH)
- hx-trigger="change, keyup changed delay:300ms from:.search-input"
- hx-target="#po-data-card"
- hx-select="#po-data-card"
- hx-swap="outerHTML"
- hx-select-oob="#status-tabs"
- hx-include="#po-filter-form"
- hx-push-url="true" {
- div class="relative flex-1 max-w-xs icon:absolute icon:left-3 icon:top-1/2 icon:-translate-y-1/2 icon:w-4 icon:h-4 icon:text-muted" {
- (icon::search_icon(""))
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input" type="text" name="keyword"
- placeholder="搜索采购单号…"
- value=(params.keyword.as_deref().unwrap_or(""));
- }
- select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="supplier_id" {
- option value="" { "全部供应商" }
- @for s in suppliers {
- option value=(s.id) selected[selected_supplier == s.id.to_string()] { (s.name) }
- }
- }
- select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="date_range" {
- option value="" selected[selected_range.is_empty()] { "订单日期" }
- option value="7d" selected[selected_range == "7d"] { "最近7天" }
- option value="30d" selected[selected_range == "30d"] { "最近30天" }
- option value="3m" selected[selected_range == "3m"] { "最近3个月" }
- }
- }
-
- // ── Data Table ──
- div class="data-card" id="po-data-card" {
- table class="data-table" {
- thead {
- tr {
- th class="w-9" { input type="checkbox" class="po-select-all" _="on click toggle @checked on .po-checkbox" {} }
- th { "订单编号" }
- th { "供应商名称" }
- th { "订单日期" }
- th { "预计到货" }
- th { "状态" }
- th { "开票" }
- th class="text-right text-[13px]" { "总金额" }
- th { "业务员" }
- th class="!text-right" { "操作" }
- }
- }
- tbody {
- @for o in &result.items {
- (po_row(o, supplier_names, buyer_names, can_delete))
- }
- @if result.items.is_empty() {
- tr {
- td colspan="10" class="text-center text-muted py-8" {
- "暂无订单数据"
- }
- }
- }
- }
- }
- (pagination(POListPath::PATH, &query, result.total, result.page, result.total_pages))
- }
- }
- }
+    div class="po-list-panel" {
+        ({
+            status_tabs_with_param(
+                POListPath::PATH,
+                "#po-data-card",
+                "#po-filter-form",
+                tabs,
+                &active_value,
+                "status",
+            )
+        })
+        // ── Filter Bar ──
+        form
+            class="flex items-center gap-3 mb-5 flex-wrap filter-form"
+            id="po-filter-form"
+            hx-get=(POListPath::PATH)
+            hx-trigger="change, keyup changed delay:300ms from:.search-input"
+            hx-target="#po-data-card"
+            hx-select="#po-data-card"
+            hx-swap="outerHTML"
+            hx-select-oob="#status-tabs"
+            hx-include="#po-filter-form"
+            hx-push-url="true"
+        {
+            div class="relative flex-1 max-w-xs icon:absolute icon:left-3 icon:top-1/2 icon:-translate-y-1/2 icon:w-4 icon:h-4 icon:text-muted"
+            {
+                (icon::search_icon(""))
+                input
+                    class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input"
+                    type="text"
+                    name="keyword"
+                    placeholder="搜索采购单号…"
+                    value=(params.keyword.as_deref().unwrap_or(""));
+            }
+            select
+                class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer"
+                name="supplier_id"
+            {
+                option value="" { "全部供应商" }
+                @for s in suppliers {
+                    option value=(s.id) selected[selected_supplier == s.id.to_string()] { (s.name) }
+                }
+            }
+            select
+                class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer"
+                name="date_range"
+            {
+                option value="" selected[selected_range.is_empty()] { "订单日期" }
+                option value="7d" selected[selected_range == "7d"] { "最近7天" }
+                option value="30d" selected[selected_range == "30d"] { "最近30天" }
+                option value="3m" selected[selected_range == "3m"] { "最近3个月" }
+            }
+        }
+        // ── Data Table ──
+        div class="data-card" id="po-data-card" {
+            table class="data-table" {
+                thead {
+                    tr {
+                        th class="w-9" {
+                            input
+                                type="checkbox"
+                                class="po-select-all"
+                                _="on click toggle @checked on .po-checkbox" {}
+                        }
+                        th { "订单编号" }
+                        th { "供应商名称" }
+                        th { "订单日期" }
+                        th { "预计到货" }
+                        th { "状态" }
+                        th { "开票" }
+                        th class="text-right text-[13px]" { "总金额" }
+                        th { "业务员" }
+                        th class="!text-right" { "操作" }
+                    }
+                }
+                tbody {
+                    @for o in &result.items { (po_row(o, supplier_names, buyer_names, can_delete)) }
+                    @if result.items.is_empty() {
+                        tr {
+                            td colspan="10" class="text-center text-muted py-8" { "暂无订单数据" }
+                        }
+                    }
+                }
+            }
+            ({
+                pagination(
+                    POListPath::PATH,
+                    &query,
+                    result.total,
+                    result.page,
+                    result.total_pages,
+                )
+            })
+        }
+    }
+}
 }
 
 fn po_row(
@@ -330,43 +367,61 @@ fn po_row(
  let is_draft = o.status == PurchaseOrderStatus::Draft;
 
  html! {
- tr class="cursor-pointer" {
- td style="cursor:default" {
- @if is_draft {
- input type="checkbox" class="po-checkbox" value=(o.id) {}
- }
- }
- td class="text-accent font-medium cursor-pointer font-mono tabular-nums" onclick=(&onclick) { (o.doc_number) }
- td onclick=(&onclick) { (supplier_name) }
- td class="font-mono tabular-nums" onclick=(&onclick) { (o.order_date.format("%Y-%m-%d")) }
- td class="font-mono tabular-nums" onclick=(&onclick) { (o.expected_delivery_date.map(|d| d.format("%Y-%m-%d").to_string()).unwrap_or_else(|| "—".into())) }
- td onclick=(&onclick) {
- span class=(format!("status-pill {}", crate::utils::status_color(status_class))) { (status_text) }
- }
- td onclick=(&onclick) {
- @let (inv_text, inv_class) = invoice_status_label(o.invoice_status);
- span class=(format!("status-pill {}", crate::utils::status_color(inv_class))) { (inv_text) }
- }
- td class="text-right text-[13px] font-mono tabular-nums" onclick=(&onclick) { (format!("{:.2}", o.total_amount)) }
- td onclick=(&onclick) { (buyer_name) }
- td _="on click halt the event" {
- @if is_draft {
- div class="row-actions flex items-center gap-1 justify-end opacity-0 transition-opacity duration-150 [&_a]:w-[28px] [&_a]:h-[28px] [&_a]:grid [&_a]:place-items-center [&_a]:rounded-sm [&_a]:cursor-pointer [&_a]:bg-surface [&_a]:hover:bg-accent-bg icon:w-3.5 icon:h-3.5" {
- a class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" href=(POEditPath { id: o.id }.to_string()) title="编辑" {
- (icon::edit_icon("w-4 h-4"))
- }
- @if can_delete {
- button type="button" class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer text-danger" title="删除"
- hx-confirm="确认删除该采购订单吗？"
- hx-post=(delete_path)
- hx-target="closest tr"
- hx-swap="outerHTML swap:0.5s" {
- (icon::trash_icon("w-4 h-4"))
- }
- }
- }
- }
- }
- }
- }
+    tr class="cursor-pointer" {
+        td style="cursor:default" {
+            @if is_draft {
+                input type="checkbox" class="po-checkbox" value=(o.id) {}
+            }
+        }
+        td class="text-accent font-medium cursor-pointer font-mono tabular-nums" onclick=(&onclick) {
+            (o.doc_number)
+        }
+        td onclick=(&onclick) { (supplier_name) }
+        td class="font-mono tabular-nums" onclick=(&onclick) { (o.order_date.format("%Y-%m-%d")) }
+        td class="font-mono tabular-nums" onclick=(&onclick) {
+            ({
+                o.expected_delivery_date
+                    .map(|d| d.format("%Y-%m-%d").to_string())
+                    .unwrap_or_else(|| "—".into())
+            })
+        }
+        td onclick=(&onclick) {
+            span class=(format!("status-pill {}", crate::utils::status_color(status_class))) {
+                (status_text)
+            }
+        }
+        td onclick=(&onclick) {
+            @let (inv_text, inv_class) = invoice_status_label(o.invoice_status);
+            span class=(format!("status-pill {}", crate::utils::status_color(inv_class))) {
+                (inv_text)
+            }
+        }
+        td class="text-right text-[13px] font-mono tabular-nums" onclick=(&onclick) {
+            (format!("{:.2}", o.total_amount))
+        }
+        td onclick=(&onclick) { (buyer_name) }
+        td _="on click halt the event" {
+            @if is_draft {
+                div class="row-actions flex items-center gap-1 justify-end opacity-0 transition-opacity duration-150 [&_a]:w-[28px] [&_a]:h-[28px] [&_a]:grid [&_a]:place-items-center [&_a]:rounded-sm [&_a]:cursor-pointer [&_a]:bg-surface [&_a]:hover:bg-accent-bg icon:w-3.5 icon:h-3.5"
+                {
+                    a   class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer"
+                        href=(POEditPath { id: o.id }.to_string())
+                        title="编辑"
+                    { (icon::edit_icon("w-4 h-4")) }
+                    @if can_delete {
+                        button
+                            type="button"
+                            class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer text-danger"
+                            title="删除"
+                            hx-confirm="确认删除该采购订单吗？"
+                            hx-post=(delete_path)
+                            hx-target="closest tr"
+                            hx-swap="outerHTML swap:0.5s"
+                        { (icon::trash_icon("w-4 h-4")) }
+                    }
+                }
+            }
+        }
+    }
+}
 }

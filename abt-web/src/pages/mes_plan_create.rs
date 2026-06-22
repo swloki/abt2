@@ -113,18 +113,29 @@ pub async fn search_products(
  PageParams { page: 1, page_size: 20 },
  ).await?;
  let rows = if result.items.is_empty() {
- html! { tr { td colspan="3" class="text-center text-muted p-6" { "未找到匹配的产品" } } }
+ html! {
+    tr {
+        td colspan="3" class="text-center text-muted p-6" { "未找到匹配的产品" }
+    }
+}
  } else {
  html! {
- @for p in &result.items {
- tr class="cursor-pointer"
- _=(format!("on dblclick set window._selectedProduct to {{id: {}, name: '{}'}} then remove .is-open from #product-picker then send productSelected to #product-picker", p.product_id, p.pdt_name.replace('\'', "\\'"))) {
- td class="font-mono tabular-nums" { (p.product_code) }
- td { (p.pdt_name) }
- td class="w-[60px]" { (p.unit) }
- }
- }
- }
+    @for p in &result.items {
+        tr  class="cursor-pointer"
+            _=({
+                format!(
+                    "on dblclick set window._selectedProduct to {{id: {}, name: '{}'}} then remove .is-open from #product-picker then send productSelected to #product-picker",
+                    p.product_id,
+                    p.pdt_name.replace('\'', "\\'"),
+                )
+            })
+        {
+            td class="font-mono tabular-nums" { (p.product_code) }
+            td { (p.pdt_name) }
+            td class="w-[60px]" { (p.unit) }
+        }
+    }
+}
  };
 
  Ok(Html(rows.into_string()))
@@ -134,137 +145,181 @@ pub async fn search_products(
 
 fn plan_create_page() -> Markup {
  html! {
- div {
- // ── Back Link ──
- a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150 mb-4" href=(format!("{}?restore=true", PlanListPath::PATH)) {
- (icon::chevron_left_icon("w-4 h-4"))
- "返回计划列表"
- }
- // ── Page Header ──
- div class="flex items-center justify-between mb-5" {
- h1 class="text-xl font-bold text-fg tracking-tight" { "新建生产计划" }
- }
- form id="plan-create-form" hx-post=(PlanCreatePath::PATH) hx-swap="none" {
- // ── Basic Info ──
- div class="form-section" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-3 border-b border-border-soft" {
- (icon::clipboard_document_icon("w-[18px] h-[18px]"))
- "基本信息"
- }
- div class="grid grid-cols-2 gap-4 gap-x-6" {
- div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "排产类型 " span class="required" { "*" } }
- select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" name="plan_type" required {
- option value="Mto" { "按单生产 (MTO)" }
- option value="Mts" { "按库存备货 (MTS)" }
- }
- }
- div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "计划日期 " span class="required" { "*" } }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="date" name="plan_date" required;
- }
- div class="form-field col-span-2" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "备注" }
- textarea class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent resize-y" name="remark" rows="2" placeholder="可选备注…" {}
- }
- }
- }
- // ── Plan Items ──
- div class="form-section p-0 overflow-hidden" {
- div class="px-6 pt-6 pb-4" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-3" {
- (icon::box_icon("w-[18px] h-[18px]"))
- "计划明细"
- span id="plan-item-count" class="ml-auto text-xs font-normal text-muted" { "共 0 项" }
- }
- }
- div class="overflow-x-auto" {
- table class="data-table" {
- thead {
- tr {
- th class="w-10 text-center" { "序号" }
- th { "产品" }
- th class="text-right text-[13px]" { "计划数量 " span class="required" { "*" } }
- th { "开始日期" }
- th { "结束日期" }
- th { "优先级" }
- th class="w-10" { }
- }
- }
- tbody id="plan-items-tbody" { }
- }
- }
- div class="p-4" {
- button type="button" class="flex items-center justify-center gap-2 w-full text-accent text-sm font-medium cursor-pointer" id="add-plan-item-btn" {
- (icon::plus_icon("w-3.5 h-3.5"))
- "添加计划行"
- }
- }
- }
- input type="hidden" name="items_json" id="items-json-input";
- // ── Action Bar ──
- div class="sticky bottom-0 flex items-center justify-between gap-3 px-6 py-4 bg-bg border-t border-border-soft" {
- div { }
- div class="flex gap-3" {
- a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{}?restore=true", PlanListPath::PATH)) { "取消" }
- button type="submit" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" {
- (icon::check_circle_icon("w-4 h-4"))
- "提交"
- }
- }
- }
- }
- // ── Product Picker Modal ──
- div id="product-picker" class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto"
- _="on click[me is event.target] remove .is-open
+    div {
+        // ── Back Link ──
+        a   class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150 mb-4"
+            href=(format!("{}?restore=true", PlanListPath::PATH))
+        { (icon::chevron_left_icon("w-4 h-4")) "返回计划列表" }
+        // ── Page Header ──
+        div class="flex items-center justify-between mb-5" {
+            h1 class="text-xl font-bold text-fg tracking-tight" { "新建生产计划" }
+        }
+        form id="plan-create-form" hx-post=(PlanCreatePath::PATH) hx-swap="none" {
+            // ── Basic Info ──
+            div class="form-section" {
+                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-3 border-b border-border-soft"
+                { (icon::clipboard_document_icon("w-[18px] h-[18px]")) "基本信息" }
+                div class="grid grid-cols-2 gap-4 gap-x-6" {
+                    div class="form-field" {
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
+                            "排产类型 "
+                            span class="required" { "*" }
+                        }
+                        select
+                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
+                            name="plan_type"
+                            required
+                        {
+                            option value="Mto" { "按单生产 (MTO)" }
+                            option value="Mts" { "按库存备货 (MTS)" }
+                        }
+                    }
+                    div class="form-field" {
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
+                            "计划日期 "
+                            span class="required" { "*" }
+                        }
+                        input
+                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
+                            type="date"
+                            name="plan_date"
+                            required;
+                    }
+                    div class="form-field col-span-2" {
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
+                            "备注"
+                        }
+                        textarea
+                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent resize-y"
+                            name="remark"
+                            rows="2"
+                            placeholder="可选备注…" {}
+                    }
+                }
+            }
+            // ── Plan Items ──
+            div class="form-section p-0 overflow-hidden" {
+                div class="px-6 pt-6 pb-4" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-3" {
+                        (icon::box_icon("w-[18px] h-[18px]"))
+                        "计划明细"
+                        span id="plan-item-count" class="ml-auto text-xs font-normal text-muted" {
+                            "共 0 项"
+                        }
+                    }
+                }
+                div class="overflow-x-auto" {
+                    table class="data-table" {
+                        thead {
+                            tr {
+                                th class="w-10 text-center" { "序号" }
+                                th { "产品" }
+                                th class="text-right text-[13px]" {
+                                    "计划数量 "
+                                    span class="required" { "*" }
+                                }
+                                th { "开始日期" }
+                                th { "结束日期" }
+                                th { "优先级" }
+                                th class="w-10" {}
+                            }
+                        }
+                        tbody id="plan-items-tbody" {}
+                    }
+                }
+                div class="p-4" {
+                    button
+                        type="button"
+                        class="flex items-center justify-center gap-2 w-full text-accent text-sm font-medium cursor-pointer"
+                        id="add-plan-item-btn"
+                    { (icon::plus_icon("w-3.5 h-3.5")) "添加计划行" }
+                }
+            }
+            input type="hidden" name="items_json" id="items-json-input";
+            // ── Action Bar ──
+            div class="sticky bottom-0 flex items-center justify-between gap-3 px-6 py-4 bg-bg border-t border-border-soft"
+            {
+                div {}
+                div class="flex gap-3" {
+                    a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                        href=(format!("{}?restore=true", PlanListPath::PATH))
+                    { "取消" }
+                    button
+                        type="submit"
+                        class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                    { (icon::check_circle_icon("w-4 h-4")) "提交" }
+                }
+            }
+        }
+        // ── Product Picker Modal ──
+        div id="product-picker"
+            class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto"
+            _="on click[me is event.target] remove .is-open
  on productSelected
  if window._productPickerTarget
  set t to window._productPickerTarget
  remove .picker-placeholder from (t's querySelector('[data-field=\"product_name\"]'))
  put window._selectedProduct.name into (t's querySelector('[data-field=\"product_name\"]'))
- set (t's querySelector('[data-field=\"product_id\"]'))'s value to window._selectedProduct.id" {
- div class="modal bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl" _="on click halt" {
- div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
- h2 { "选择产品" }
- button type="button" class="bg-transparent border-none cursor-pointer text-xl text-muted p-1"
- _="on click remove .is-open from #product-picker" { "×" }
- }
- div class="overflow-y-auto flex-1 min-h-0 p-6" {
- div class="flex gap-2 mb-2" {
- input type="text" class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" placeholder="产品名称…"
- id="product-search-name"
- name="name"
- hx-get=(ProductSearchPath::PATH)
- hx-trigger="load, input changed delay:300ms"
- hx-target="#product-search-results"
- hx-swap="innerHTML"
- hx-include="#product-search-name, #product-search-code";
- input type="text" class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" placeholder="产品编码…"
- id="product-search-code"
- name="code"
- hx-get=(ProductSearchPath::PATH)
- hx-trigger="input changed delay:300ms"
- hx-target="#product-search-results"
- hx-swap="innerHTML"
- hx-include="#product-search-name, #product-search-code";
- }
- table class="data-table" {
- thead {
- tr {
- th class="w-[120px]" { "编码" }
- th { "名称" }
- th class="w-[60px]" { "单位" }
- }
- }
- tbody id="product-search-results" {
- tr { td colspan="3" class="text-center text-muted p-6" { "正在加载..." } }
- }
- }
- }
- }
- }
- }
- (maud::PreEscaped(r#"<script>
+ set (t's querySelector('[data-field=\"product_id\"]'))'s value to window._selectedProduct.id"
+        {
+            div class="modal bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl"
+                _="on click halt"
+            {
+                div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0"
+                {
+                    h2 { "选择产品" }
+                    button
+                        type="button"
+                        class="bg-transparent border-none cursor-pointer text-xl text-muted p-1"
+                        _="on click remove .is-open from #product-picker"
+                    { "×" }
+                }
+                div class="overflow-y-auto flex-1 min-h-0 p-6" {
+                    div class="flex gap-2 mb-2" {
+                        input
+                            type="text"
+                            class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
+                            placeholder="产品名称…"
+                            id="product-search-name"
+                            name="name"
+                            hx-get=(ProductSearchPath::PATH)
+                            hx-trigger="load, input changed delay:300ms"
+                            hx-target="#product-search-results"
+                            hx-swap="innerHTML"
+                            hx-include="#product-search-name, #product-search-code";
+                        input
+                            type="text"
+                            class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
+                            placeholder="产品编码…"
+                            id="product-search-code"
+                            name="code"
+                            hx-get=(ProductSearchPath::PATH)
+                            hx-trigger="input changed delay:300ms"
+                            hx-target="#product-search-results"
+                            hx-swap="innerHTML"
+                            hx-include="#product-search-name, #product-search-code";
+                    }
+                    table class="data-table" {
+                        thead {
+                            tr {
+                                th class="w-[120px]" { "编码" }
+                                th { "名称" }
+                                th class="w-[60px]" { "单位" }
+                            }
+                        }
+                        tbody id="product-search-results" {
+                            tr {
+                                td colspan="3" class="text-center text-muted p-6" { "正在加载..." }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    ({
+        maud::PreEscaped(
+            r#"<script>
  window.openProductPicker = function(tr) {
  window._productPickerTarget = tr;
  document.getElementById('product-picker').classList.add('is-open');
@@ -309,27 +364,59 @@ fn plan_create_page() -> Markup {
  document.getElementById('items-json-input').value = JSON.stringify(items);
  });
  })();
- </script>"#))
- }
+ </script>"#,
+        )
+    })
+}
 }
 
 fn plan_item_row_html(index: usize) -> Markup {
  html! {
- tr {
- td class="text-muted text-xs text-center" { (index + 1) }
- td {
- div class="flex items-center gap-[6px] border border-border rounded-sm bg-white cursor-pointer px-2 py-[5px]"
- _="on click set window._productPickerTarget to closest tr then add .is-open to #product-picker" {
- (icon::search_icon("w-3.5 h-3.5 text-muted"))
- span data-field="product_name" class="text-muted text-[13px]" { "点击选择产品" }
- input type="hidden" data-field="product_id";
- }
- }
- td { input class="w-full px-2 py-[5px] text-right text-[13px] font-mono tabular-nums border border-border rounded-sm bg-white text-fg outline-none focus:border-accent" type="number" step="any" name=(format!("items[{index}].planned_qty")); }
- td { input class="w-full px-2 py-[5px] text-[13px] border border-border rounded-sm bg-white text-fg outline-none focus:border-accent" type="date" name=(format!("items[{index}].scheduled_start")); }
- td { input class="w-full px-2 py-[5px] text-[13px] border border-border rounded-sm bg-white text-fg outline-none focus:border-accent" type="date" name=(format!("items[{index}].scheduled_end")); }
- td { input class="w-full px-2 py-[5px] text-[13px] font-mono tabular-nums border border-border rounded-sm bg-white text-fg outline-none focus:border-accent" type="number" step="any" name=(format!("items[{index}].priority")) value="1" class="w-[60px]"; }
- td { button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center hover:text-danger" { "✕" } }
- }
- }
+    tr {
+        td class="text-muted text-xs text-center" { (index + 1) }
+        td {
+            div class="flex items-center gap-[6px] border border-border rounded-sm bg-white cursor-pointer px-2 py-[5px]"
+                _="on click set window._productPickerTarget to closest tr then add .is-open to #product-picker"
+            {
+                (icon::search_icon("w-3.5 h-3.5 text-muted"))
+                span data-field="product_name" class="text-muted text-[13px]" { "点击选择产品" }
+                input type="hidden" data-field="product_id";
+            }
+        }
+        td {
+            input
+                class="w-full px-2 py-[5px] text-right text-[13px] font-mono tabular-nums border border-border rounded-sm bg-white text-fg outline-none focus:border-accent"
+                type="number"
+                step="any"
+                name=(format!("items[{index}].planned_qty"));
+        }
+        td {
+            input
+                class="w-full px-2 py-[5px] text-[13px] border border-border rounded-sm bg-white text-fg outline-none focus:border-accent"
+                type="date"
+                name=(format!("items[{index}].scheduled_start"));
+        }
+        td {
+            input
+                class="w-full px-2 py-[5px] text-[13px] border border-border rounded-sm bg-white text-fg outline-none focus:border-accent"
+                type="date"
+                name=(format!("items[{index}].scheduled_end"));
+        }
+        td {
+            input
+                class="w-full px-2 py-[5px] text-[13px] font-mono tabular-nums border border-border rounded-sm bg-white text-fg outline-none focus:border-accent"
+                type="number"
+                step="any"
+                name=(format!("items[{index}].priority"))
+                value="1"
+                class="w-[60px]";
+        }
+        td {
+            button
+                type="button"
+                class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center hover:text-danger"
+            { "✕" }
+        }
+    }
+}
 }

@@ -252,21 +252,29 @@ fn user_list_page(
  can_delete: bool,
 ) -> Markup {
  html! {
- div {
- div class="flex items-center justify-between mb-6" {
- h1 class="text-2xl font-bold text-fg tracking-tight" { "用户管理" }
- div class="flex gap-3" {
- @if can_create {
- a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(UserCreatePath::PATH) {
- (icon::plus_icon("w-4 h-4"))
- "新建用户"
- }
- }
- }
- }
- (user_table_fragment(users, all_roles, all_depts, user_depts, params, can_delete))
- }
- }
+    div {
+        div class="flex items-center justify-between mb-6" {
+            h1 class="text-2xl font-bold text-fg tracking-tight" { "用户管理" }
+            div class="flex gap-3" {
+                @if can_create {
+                    a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                        href=(UserCreatePath::PATH)
+                    { (icon::plus_icon("w-4 h-4")) "新建用户" }
+                }
+            }
+        }
+        ({
+            user_table_fragment(
+                users,
+                all_roles,
+                all_depts,
+                user_depts,
+                params,
+                can_delete,
+            )
+        })
+    }
+}
 }
 
 fn user_table_fragment(
@@ -304,139 +312,167 @@ fn user_table_fragment(
 
 
  html! {
-div class="user-list-panel" id="user-list-panel" {
- // ── Stats ──
-div id="user-stats" class="grid grid-cols-4 gap-5" {
- div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
-div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 bg-accent-bg text-accent" {
- (icon::users_icon("w-6 h-6"))
- }
- div {
-div class="text-2xl font-bold font-mono tabular-nums text-fg" { (total_count) }
- div class="text-sm text-muted mt-1" { "用户总数" }
- }
- }
- div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
-div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 bg-success-bg text-success" {
- (icon::check_circle_icon("w-6 h-6"))
- }
- div {
-div class="text-2xl font-bold font-mono tabular-nums text-fg" { (active_count) }
- div class="text-sm text-muted mt-1" { "已激活" }
- }
- }
- div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
-div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 bg-warn-100 text-warn" {
- (icon::clock_icon("w-6 h-6"))
- }
- div {
-div class="text-2xl font-bold font-mono tabular-nums text-fg" { (inactive_count) }
- div class="text-sm text-muted mt-1" { "已停用" }
- }
- }
- div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
-div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 bg-purple-bg text-purple" {
- svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-6 h-6" {
- path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" {}
- }
- }
- div {
-div class="text-2xl font-bold font-mono tabular-nums text-fg" { (super_admin_count) }
- div class="text-sm text-muted mt-1" { "超级管理员" }
- }
- }
- }
+    div class="user-list-panel" id="user-list-panel" {
+        // ── Stats ──
+        div id="user-stats" class="grid grid-cols-4 gap-5" {
+            div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
+                div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 bg-accent-bg text-accent"
+                { (icon::users_icon("w-6 h-6")) }
+                div {
+                    div class="text-2xl font-bold font-mono tabular-nums text-fg" { (total_count) }
+                    div class="text-sm text-muted mt-1" { "用户总数" }
+                }
+            }
+            div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
+                div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 bg-success-bg text-success"
+                { (icon::check_circle_icon("w-6 h-6")) }
+                div {
+                    div class="text-2xl font-bold font-mono tabular-nums text-fg" { (active_count) }
+                    div class="text-sm text-muted mt-1" { "已激活" }
+                }
+            }
+            div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
+                div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 bg-warn-100 text-warn"
+                { (icon::clock_icon("w-6 h-6")) }
+                div {
+                    div class="text-2xl font-bold font-mono tabular-nums text-fg" { (inactive_count) }
+                    div class="text-sm text-muted mt-1" { "已停用" }
+                }
+            }
+            div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
+                div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 bg-purple-bg text-purple"
+                {
+                    svg viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.8"
+                        class="w-6 h-6"
+                    {
+                        path
+                            d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" {}
+                    }
+                }
+                div {
+                    div class="text-2xl font-bold font-mono tabular-nums text-fg" {
+                        (super_admin_count)
+                    }
+                    div class="text-sm text-muted mt-1" { "超级管理员" }
+                }
+            }
+        }
 
-(status_tabs_with_oob(
-    UserListPath::PATH,
-    ".data-card",
-    "#user-filter-form",
-    "#status-tabs,#user-stats,#user-filter-form",
-    &[
-        TabItem { value: String::new(), label: "全部", count: Some(total_count as u64) },
-        TabItem { value: "active".to_string(), label: "已激活", count: Some(active_count as u64) },
-        TabItem { value: "inactive".to_string(), label: "已停用", count: Some(inactive_count as u64) },
-    ],
-    status_filter,
-    "status",
-))
-
-// ── Filter Bar ──
-form id="user-filter-form" class="flex items-center gap-3 mb-5 flex-wrap"
-hx-get=(UserListPath::PATH)
-hx-target=".data-card" hx-select=".data-card" hx-select-oob="#status-tabs,#user-stats,#user-filter-form"
-hx-swap="outerHTML"
-hx-push-url="true"
-hx-trigger="change, keyup changed delay:300ms from:input[name=keyword], userToggled from:body" {
- input type="hidden" name="status" value=(status_filter);
- div class="relative w-[280px] shrink-0 icon:absolute icon:left-3 icon:top-1/2 icon:-translate-y-1/2 icon:w-4 icon:h-4 icon:text-muted" {
- (icon::search_icon("w-4 h-4"))
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input" type="text" name="keyword"
- placeholder="搜索用户名、显示名称…"
- value=(keyword);
- }
- select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="role_id" {
- option value="" { "全部角色" }
- @for role in all_roles {
- @let selected = role_filter == Some(role.role_id);
- option value=(role.role_id) selected[selected] {
- (role.role_name)
- }
- }
- }
- select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="dept_id" {
- option value="" { "全部部门" }
- @for dept in all_depts {
- @let selected = dept_filter == Some(dept.department_id);
- option value=(dept.department_id) selected[selected] {
- (dept.department_name)
- }
- }
- }
+        ({
+            status_tabs_with_oob(
+                UserListPath::PATH,
+                ".data-card",
+                "#user-filter-form",
+                "#status-tabs,#user-stats,#user-filter-form",
+                &[
+                    TabItem {
+                        value: String::new(),
+                        label: "全部",
+                        count: Some(total_count as u64),
+                    },
+                    TabItem {
+                        value: "active".to_string(),
+                        label: "已激活",
+                        count: Some(active_count as u64),
+                    },
+                    TabItem {
+                        value: "inactive".to_string(),
+                        label: "已停用",
+                        count: Some(inactive_count as u64),
+                    },
+                ],
+                status_filter,
+                "status",
+            )
+        })
+        // ── Filter Bar ──
+        form
+            id="user-filter-form"
+            class="flex items-center gap-3 mb-5 flex-wrap"
+            hx-get=(UserListPath::PATH)
+            hx-target=".data-card"
+            hx-select=".data-card"
+            hx-select-oob="#status-tabs,#user-stats,#user-filter-form"
+            hx-swap="outerHTML"
+            hx-push-url="true"
+            hx-trigger="change, keyup changed delay:300ms from:input[name=keyword], userToggled from:body"
+        {
+            input type="hidden" name="status" value=(status_filter);
+            div class="relative w-[280px] shrink-0 icon:absolute icon:left-3 icon:top-1/2 icon:-translate-y-1/2 icon:w-4 icon:h-4 icon:text-muted"
+            {
+                (icon::search_icon("w-4 h-4"))
+                input
+                    class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input"
+                    type="text"
+                    name="keyword"
+                    placeholder="搜索用户名、显示名称…"
+                    value=(keyword);
+            }
+            select
+                class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer"
+                name="role_id"
+            {
+                option value="" { "全部角色" }
+                @for role in all_roles {
+                    @let selected = role_filter == Some(role.role_id);
+                    option value=(role.role_id) selected[selected] { (role.role_name) }
+                }
+            }
+            select
+                class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer"
+                name="dept_id"
+            {
+                option value="" { "全部部门" }
+                @for dept in all_depts {
+                    @let selected = dept_filter == Some(dept.department_id);
+                    option value=(dept.department_id) selected[selected] { (dept.department_name) }
+                }
+            }
+        }
+        // ── Data Table ──
+        div class="data-card" {
+            div class="overflow-x-auto" {
+                table class="data-table" {
+                    thead {
+                        tr {
+                            th { "用户信息" }
+                            th { "登录名" }
+                            th { "角色" }
+                            th { "部门" }
+                            th { "数据权限" }
+                            th { "状态" }
+                            th { "创建时间" }
+                            th class="!text-right" { "操作" }
+                        }
+                    }
+                    tbody {
+                        @for u in &page_users { (user_row(u, user_depts, can_delete)) }
+                        @if page_users.is_empty() {
+                            tr {
+                                td colspan="8" class="text-center p-6 text-muted text-sm" {
+                                    "暂无用户数据"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            // ── Pagination（必须在 .data-card 内：搜索刷新 .data-card 时一并更新分页，保留筛选 query）──
+            ({
+                pagination::pagination(
+                    UserListPath::PATH,
+                    &build_query_string(params),
+                    total,
+                    page,
+                    total_pages,
+                )
+            })
+        }
+    }
 }
-
- // ── Data Table ──
- div class="data-card" {
- div class="overflow-x-auto" {
- table class="data-table" {
- thead {
- tr {
- th { "用户信息" }
- th { "登录名" }
- th { "角色" }
- th { "部门" }
- th { "数据权限" }
- th { "状态" }
- th { "创建时间" }
- th class="!text-right" { "操作" }
- }
- }
- tbody {
- @for u in &page_users {
- (user_row(u, user_depts, can_delete))
- }
- @if page_users.is_empty() {
- tr {
- td colspan="8" class="text-center p-6 text-muted text-sm" {
- "暂无用户数据"
- }
- }
- }
- }
- }
- }
-
- // ── Pagination（必须在 .data-card 内：搜索刷新 .data-card 时一并更新分页，保留筛选 query）──
- (pagination::pagination(
- UserListPath::PATH,
- &build_query_string(params),
- total,
- page,
- total_pages,
- ))
- }
- }
- }
 }
 
 fn user_row(
@@ -468,102 +504,117 @@ fn user_row(
  let toggle_title = if u.user.is_active { "停用" } else { "启用" };
 
  html! {
- tr onclick=(format!("location.href='{}'", detail_path)) {
- // User info
- td {
- div class="flex items-center gap-3" {
- div class={"w-8 h-8 rounded-[10px] flex items-center justify-center text-xs font-semibold shrink-0 text-white " (avatar_cls)} {
- (avatar_initials)
- }
-div class="flex flex-col gap-[2px]" {
-span class="flex items-center gap-[6px] text-[13px] font-semibold text-fg" {
- (display_name)
- @if u.user.is_super_admin {
- span class="text-[10px] font-semibold px-[6px] py-[2px] rounded-[3px] bg-purple-bg text-purple border border-purple-100 tracking-[0.02em]" { "超管" }
- }
- }
-span class="text-xs text-muted" {
- "ID: " (u.user.user_id)
- }
- }
- }
- }
-
- // Login name
- td class="font-mono tabular-nums" {
- (u.user.username)
- }
-
- // Roles
- td {
- div class="flex flex-wrap gap-[4px]" {
- @for role in &u.roles {
- span class="text-[10px] font-medium px-[7px] py-[2px] rounded-[3px] bg-accent-50 text-accent border border-accent-100" { (role.role_name) }
- }
- @if u.roles.is_empty() {
- span class="text-muted" { "—" }
- }
- }
- }
-
- // Departments
- td {
- @if depts.is_empty() {
- span class="text-muted" { "—" }
- } @else {
- @for dept in depts {
- span class="text-[10px] font-medium px-[7px] py-[2px] rounded-[3px] bg-success-bg text-success border border-success-100" { (dept.department_name) }
- }
- }
- }
-
- // Data scope
- td {
- span class="text-xs text-muted" { (scope) }
- }
-
- // Status
- td {
- span class="flex items-center gap-1 text-[13px]" {
- span class=(dot_class) {}
- (status_label)
- }
- }
-
- // Created at
- td class="font-mono tabular-nums text-xs text-muted" {
- (u.user.created_at.format("%Y-%m-%d"))
- }
-
- // Actions
- td _="on click halt the event" {
-div class="row-actions flex items-center gap-1 justify-end opacity-0 transition-opacity duration-150 [&_a]:w-[28px] [&_a]:h-[28px] [&_a]:grid [&_a]:place-items-center [&_a]:rounded-sm [&_a]:cursor-pointer [&_a]:bg-surface [&_a]:hover:bg-accent-bg [&_button]:w-[28px] [&_button]:h-[28px] [&_button]:grid [&_button]:place-items-center [&_button]:rounded-sm [&_button]:cursor-pointer [&_button]:bg-surface [&_button]:hover:bg-accent-bg icon:w-3.5 icon:h-3.5" {
- a class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" title="编辑"
- href=(edit_path.to_string()) {
- (icon::edit_icon("w-3.5 h-3.5"))
- }
- @if can_delete && !u.user.is_super_admin {
-button type="button" class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" title=(toggle_title)
-hx-post=(toggle_path.to_string())
-hx-swap="none"
-hx-confirm=(format!(
-    "确定要{}用户 <strong>{}</strong> 吗？",
-    if u.user.is_active { "停用" } else { "启用" },
-    display_name,
-)) {
- @if u.user.is_active {
- svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5" {
- path d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" {}
- }
- } @else {
- svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5" {
- path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" {}
- }
- }
- }
- }
- }
- }
- }
- }
+    tr onclick=(format!("location.href='{}'", detail_path)) {
+        // User info
+        td {
+            div class="flex items-center gap-3" {
+                div class={
+                        "w-8 h-8 rounded-[10px] flex items-center justify-center text-xs font-semibold shrink-0 text-white "
+                        (avatar_cls)
+                    }
+                { (avatar_initials) }
+                div class="flex flex-col gap-[2px]" {
+                    span class="flex items-center gap-[6px] text-[13px] font-semibold text-fg" {
+                        (display_name)
+                        @if u.user.is_super_admin {
+                            span
+                                class="text-[10px] font-semibold px-[6px] py-[2px] rounded-[3px] bg-purple-bg text-purple border border-purple-100 tracking-[0.02em]"
+                            { "超管" }
+                        }
+                    }
+                    span class="text-xs text-muted" { "ID: " (u.user.user_id) }
+                }
+            }
+        }
+        // Login name
+        td class="font-mono tabular-nums" { (u.user.username) }
+        // Roles
+        td {
+            div class="flex flex-wrap gap-[4px]" {
+                @for role in &u.roles {
+                    span
+                        class="text-[10px] font-medium px-[7px] py-[2px] rounded-[3px] bg-accent-50 text-accent border border-accent-100"
+                    { (role.role_name) }
+                }
+                @if u.roles.is_empty() {
+                    span class="text-muted" { "—" }
+                }
+            }
+        }
+        // Departments
+        td {
+            @if depts.is_empty() {
+                span class="text-muted" { "—" }
+            } @else {
+                @for dept in depts {
+                    span
+                        class="text-[10px] font-medium px-[7px] py-[2px] rounded-[3px] bg-success-bg text-success border border-success-100"
+                    { (dept.department_name) }
+                }
+            }
+        }
+        // Data scope
+        td {
+            span class="text-xs text-muted" { (scope) }
+        }
+        // Status
+        td {
+            span class="flex items-center gap-1 text-[13px]" {
+                span class=(dot_class) {}
+                (status_label)
+            }
+        }
+        // Created at
+        td class="font-mono tabular-nums text-xs text-muted" {
+            (u.user.created_at.format("%Y-%m-%d"))
+        }
+        // Actions
+        td _="on click halt the event" {
+            div class="row-actions flex items-center gap-1 justify-end opacity-0 transition-opacity duration-150 [&_a]:w-[28px] [&_a]:h-[28px] [&_a]:grid [&_a]:place-items-center [&_a]:rounded-sm [&_a]:cursor-pointer [&_a]:bg-surface [&_a]:hover:bg-accent-bg [&_button]:w-[28px] [&_button]:h-[28px] [&_button]:grid [&_button]:place-items-center [&_button]:rounded-sm [&_button]:cursor-pointer [&_button]:bg-surface [&_button]:hover:bg-accent-bg icon:w-3.5 icon:h-3.5"
+            {
+                a   class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer"
+                    title="编辑"
+                    href=(edit_path.to_string())
+                { (icon::edit_icon("w-3.5 h-3.5")) }
+                @if can_delete && !u.user.is_super_admin {
+                    button
+                        type="button"
+                        class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer"
+                        title=(toggle_title)
+                        hx-post=(toggle_path.to_string())
+                        hx-swap="none"
+                        hx-confirm=({
+                            format!(
+                                "确定要{}用户 <strong>{}</strong> 吗？",
+                                if u.user.is_active { "停用" } else { "启用" },
+                                display_name,
+                            )
+                        })
+                    {
+                        @if u.user.is_active {
+                            svg viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                                class="w-3.5 h-3.5"
+                            {
+                                path
+                                    d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" {}
+                            }
+                        } @else {
+                            svg viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                                class="w-3.5 h-3.5"
+                            {
+                                path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" {}
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
 }

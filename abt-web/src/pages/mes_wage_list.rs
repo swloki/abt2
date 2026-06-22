@@ -129,183 +129,292 @@ fn wage_list_page(
  "0%".to_string()
  };
 
- html! { div {
- // ── Page Header ──
- div class="flex items-center justify-between mb-6" {
- h1 class="text-xl font-bold text-fg tracking-tight" { "计件工资汇总" }
- div class="flex gap-3" {
- button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" {
- (icon::download_icon("w-4 h-4"))
- "导出"
- }
- }
- }
+ html! {
+    div {
+        // ── Page Header ──
+        div class="flex items-center justify-between mb-6" {
+            h1 class="text-xl font-bold text-fg tracking-tight" { "计件工资汇总" }
+            div class="flex gap-3" {
+                button
+                    class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                { (icon::download_icon("w-4 h-4")) "导出" }
+            }
+        }
+        // ── 筛选栏 ──
+        div class="flex items-center gap-3 mb-5 flex-wrap" {
+            div class="relative w-60" {
+                ({
+                    icon::search_icon(
+                        "absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted",
+                    )
+                })
+                input
+                    class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input"
+                    type="text"
+                    placeholder="搜索工人姓名、工号…";
+            }
+            input
+                type="date"
+                class="w-40 px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
+                value=(date_from_str);
+            span class="text-sm text-muted" { "至" }
+            input
+                type="date"
+                class="w-40 px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
+                value=(date_to_str);
+        }
+        // ── 汇总统计卡片 ──
+        div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-5" {
+            // 工资总额
+            div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-md" {
+                div class="w-11 h-11 rounded-md grid place-items-center shrink-0 bg-accent-bg text-accent"
+                { (icon::dollar_icon("w-5 h-5")) }
+                div {
+                    div class="text-2xl font-bold font-mono tabular-nums text-fg" {
+                        "¥"
+                        (crate::utils::fmt_qty(ctx.total_wage))
+                    }
+                    div class="text-sm text-muted mt-1" { "本月工资总额" }
+                }
+            }
+            // 计件工人数
+            div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-md" {
+                div class="w-11 h-11 rounded-md grid place-items-center shrink-0 bg-success-bg text-success"
+                { (icon::users_icon("w-5 h-5")) }
+                div {
+                    div class="text-2xl font-bold font-mono tabular-nums text-fg" {
+                        (ctx.worker_count)
+                    }
+                    div class="text-sm text-muted mt-1" { "计件工人数" }
+                }
+            }
+            // 完成数量
+            div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-md" {
+                div class="w-11 h-11 rounded-md grid place-items-center shrink-0 bg-warn-bg text-warn"
+                { (icon::package_icon("w-5 h-5")) }
+                div {
+                    div class="text-2xl font-bold font-mono tabular-nums text-fg" {
+                        (total_completed_fmt)
+                    }
+                    div class="text-sm text-muted mt-1" { "总完成数量" }
+                    div class="text-xs text-muted mt-0.5" {
+                        "不良品 "
+                        (total_defect_fmt)
+                        " ("
+                        (defect_rate)
+                        ")"
+                    }
+                }
+            }
+            // 扣减金额
+            div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-md" {
+                div class="w-11 h-11 rounded-md grid place-items-center shrink-0 bg-danger-bg text-danger"
+                { (icon::alert_triangle_icon("w-5 h-5")) }
+                div {
+                    div class="text-2xl font-bold font-mono tabular-nums text-fg" { "—" }
+                    div class="text-sm text-muted mt-1" { "扣减金额(操作失误)" }
+                    div class="text-xs text-muted mt-0.5" {
+                        "操作失误不良: "
+                        (crate::utils::fmt_qty(ctx.total_operator_defect))
+                        "件"
+                    }
+                }
+            }
+        }
+        // ── 工资公式提示 ──
+        div class="flex items-start gap-2 p-3 bg-surface border border-border-soft rounded-sm text-sm text-fg-2 mb-5"
+        {
+            (icon::info_icon("w-3.5 h-3.5 mt-0.5 shrink-0"))
+            span {
+                "计算公式："
+                code class="px-1 py-0.5 bg-bg rounded text-xs" { "(完成数 + 非操作失误不良数) × 计件单价" }
+                "，其中物料不良/设备故障/工艺问题照常计工资，操作失误不计工资"
+            }
+        }
+        // ── 工人工资明细 ──
+        div class="data-card" {
+            div class="flex items-center gap-2 font-semibold text-fg px-5 py-4 border-b border-border-soft"
+            { (icon::users_icon("w-5 h-5")) "工人工资明细" }
+            // Header row
+            div class="grid grid-cols-[1fr_80px_80px_80px_100px_40px] items-center gap-3 px-5 py-2 text-xs text-muted font-semibold uppercase tracking-wide border-b border-border-soft"
+            {
+                span { "工人" }
+                span class="text-right" { "完成数" }
+                span class="text-right" { "不良品" }
+                span class="text-right" { "有效数" }
+                span class="text-right" { "应发工资" }
+                span {}
+            }
 
- // ── 筛选栏 ──
- div class="flex items-center gap-3 mb-5 flex-wrap" {
- div class="relative w-60" {
- (icon::search_icon("absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted"))
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input" type="text" placeholder="搜索工人姓名、工号…";
- }
- input type="date" class="w-40 px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" value=(date_from_str);
- span class="text-sm text-muted" { "至" }
- input type="date" class="w-40 px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" value=(date_to_str);
- }
+            @if summaries.is_empty() {
+                div class="text-center text-muted text-sm py-8" { "暂无工资数据" }
+            }
 
- // ── 汇总统计卡片 ──
- div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-5" {
- // 工资总额
- div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-md" {
- div class="w-11 h-11 rounded-md grid place-items-center shrink-0 bg-accent-bg text-accent" {
- (icon::dollar_icon("w-5 h-5"))
- }
- div {
- div class="text-2xl font-bold font-mono tabular-nums text-fg" { "¥" (crate::utils::fmt_qty(ctx.total_wage)) }
- div class="text-sm text-muted mt-1" { "本月工资总额" }
- }
- }
- // 计件工人数
- div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-md" {
- div class="w-11 h-11 rounded-md grid place-items-center shrink-0 bg-success-bg text-success" {
- (icon::users_icon("w-5 h-5"))
- }
- div {
- div class="text-2xl font-bold font-mono tabular-nums text-fg" { (ctx.worker_count) }
- div class="text-sm text-muted mt-1" { "计件工人数" }
- }
- }
- // 完成数量
- div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-md" {
- div class="w-11 h-11 rounded-md grid place-items-center shrink-0 bg-warn-bg text-warn" {
- (icon::package_icon("w-5 h-5"))
- }
- div {
- div class="text-2xl font-bold font-mono tabular-nums text-fg" { (total_completed_fmt) }
- div class="text-sm text-muted mt-1" { "总完成数量" }
- div class="text-xs text-muted mt-0.5" { "不良品 " (total_defect_fmt) " (" (defect_rate) ")" }
- }
- }
- // 扣减金额
- div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-md" {
- div class="w-11 h-11 rounded-md grid place-items-center shrink-0 bg-danger-bg text-danger" {
- (icon::alert_triangle_icon("w-5 h-5"))
- }
- div {
- div class="text-2xl font-bold font-mono tabular-nums text-fg" { "—" }
- div class="text-sm text-muted mt-1" { "扣减金额(操作失误)" }
- div class="text-xs text-muted mt-0.5" { "操作失误不良: " (crate::utils::fmt_qty(ctx.total_operator_defect)) "件" }
- }
- }
- }
-
- // ── 工资公式提示 ──
- div class="flex items-start gap-2 p-3 bg-surface border border-border-soft rounded-sm text-sm text-fg-2 mb-5" {
- (icon::info_icon("w-3.5 h-3.5 mt-0.5 shrink-0"))
- span {
- "计算公式："
- code class="px-1 py-0.5 bg-bg rounded text-xs" { "(完成数 + 非操作失误不良数) × 计件单价" }
- "，其中物料不良/设备故障/工艺问题照常计工资，操作失误不计工资"
- }
- }
-
- // ── 工人工资明细 ──
- div class="data-card" {
- div class="flex items-center gap-2 font-semibold text-fg px-5 py-4 border-b border-border-soft" {
- (icon::users_icon("w-5 h-5"))
- "工人工资明细"
- }
-
- // Header row
- div class="grid grid-cols-[1fr_80px_80px_80px_100px_40px] items-center gap-3 px-5 py-2 text-xs text-muted font-semibold uppercase tracking-wide border-b border-border-soft" {
- span { "工人" }
- span class="text-right" { "完成数" }
- span class="text-right" { "不良品" }
- span class="text-right" { "有效数" }
- span class="text-right" { "应发工资" }
- span {}
- }
-
- @if summaries.is_empty() {
- div class="text-center text-muted text-sm py-8" { "暂无工资数据" }
- }
-
- @for (idx, summary) in summaries.iter().enumerate() {
- @let worker_name = ctx.user_map.get(&summary.worker_id).cloned().unwrap_or_else(|| format!("工人#{}", summary.worker_id));
- @let initial = worker_name.chars().next().unwrap_or('?');
- @let wc = summary.details.iter().map(|d| d.completed_qty).sum::<rust_decimal::Decimal>();
- @let wd = summary.details.iter().map(|d| d.defect_qty).sum::<rust_decimal::Decimal>();
- @let we = summary.details.iter().map(|d| {
- let non_op = match d.defect_reason {
- Some(abt_core::mes::enums::DefectReason::OperatorError) => rust_decimal::Decimal::ZERO,
- _ => d.defect_qty,
- };
- d.completed_qty + non_op
- }).sum::<rust_decimal::Decimal>();
- @let toggle_id = format!("w{}", idx);
-
- // Worker summary row
- div class="grid grid-cols-[1fr_80px_80px_80px_100px_40px] items-center gap-3 px-5 py-3 border-b border-border-soft cursor-pointer hover:bg-accent-bg transition-colors duration-100"
- _=(format!("on click toggle .expanded on #{0} then toggle .rotate-180 on #{0}-icon", toggle_id)) {
- div class="flex items-center gap-3" {
- div class="w-8 h-8 rounded-full grid place-items-center text-white font-semibold shrink-0 bg-accent" { (initial) }
- span class="font-medium text-fg" { (worker_name) }
- }
- span class="text-right font-mono tabular-nums text-fg" { (crate::utils::fmt_qty(wc)) }
- span class="text-right font-mono tabular-nums text-danger" { (crate::utils::fmt_qty(wd)) }
- span class="text-right font-mono tabular-nums text-fg" { (crate::utils::fmt_qty(we)) }
- span class="text-right font-mono tabular-nums text-success font-bold" { "¥" (crate::utils::fmt_qty(summary.total_amount)) }
- span class="text-muted" {
- svg id=(format!("{}-icon", toggle_id)) viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 transition-transform duration-200 rotate-180" {
- polyline points="6 9 12 15 18 9" {}
- }
- }
- }
-
- // Expandable detail table — animated grid-rows expansion
- div class="bg-surface grid transition-all duration-200 ease-in-out grid-rows-[0fr] expanded:grid-rows-[1fr] overflow-hidden" id=(toggle_id) {
- div class="overflow-hidden" {
- table class="w-full data-table" {
- thead { tr {
- th { "工单" } th { "工序" } th class="text-right" { "完成" }
- th class="text-right" { "不良(原因)" } th class="text-right" { "有效数" } th class="text-right" { "单价" }
- th class="text-right" { "工资" }
- }}
- tbody {
- @for detail in &summary.details {
- @let wo_doc = ctx.wo_doc_map.get(&detail.work_order_id).cloned().unwrap_or_else(|| "—".to_string());
- @let defect_label = match detail.defect_reason {
- Some(abt_core::mes::enums::DefectReason::MaterialDefect) => format!("{} (物料不良)", crate::utils::fmt_qty(detail.defect_qty)),
- Some(abt_core::mes::enums::DefectReason::EquipmentFault) => format!("{} (设备故障)", crate::utils::fmt_qty(detail.defect_qty)),
- Some(abt_core::mes::enums::DefectReason::OperatorError) => format!("{} (操作失误)", crate::utils::fmt_qty(detail.defect_qty)),
- Some(abt_core::mes::enums::DefectReason::ProcessIssue) => format!("{} (工艺问题)", crate::utils::fmt_qty(detail.defect_qty)),
- None if detail.defect_qty > rust_decimal::Decimal::ZERO => crate::utils::fmt_qty(detail.defect_qty),
- _ => "—".to_string(),
- };
- @let non_op_defect = match detail.defect_reason {
- Some(abt_core::mes::enums::DefectReason::OperatorError) => rust_decimal::Decimal::ZERO,
- _ => detail.defect_qty,
- };
- @let effective = detail.completed_qty + non_op_defect;
- tr {
- td class="font-mono tabular-nums" { (wo_doc) }
- td { (detail.process_name) }
- td class="text-right font-mono tabular-nums" { (crate::utils::fmt_qty(detail.completed_qty)) }
- td class="text-right font-mono tabular-nums text-danger" { (defect_label) }
- td class="text-right font-mono tabular-nums" { (crate::utils::fmt_qty(effective)) }
- td class="text-right font-mono tabular-nums" { "¥" (detail.unit_price) }
- td class="text-right font-mono tabular-nums text-success" { "¥" (crate::utils::fmt_qty(detail.wage_amount)) }
- }
- }
- }
- }
- }
- }
- }
-
- // 分页
- div class="flex items-center justify-between px-5 py-4" {
- span class="text-sm text-muted" { "共 " (ctx.worker_count) " 名工人" }
- }
- }
- }}
+            @for (idx, summary) in summaries.iter().enumerate() {
+                @let worker_name = ctx
+                    .user_map
+                    .get(&summary.worker_id)
+                    .cloned()
+                    .unwrap_or_else(|| format!("工人#{}", summary.worker_id));
+                @let initial = worker_name.chars().next().unwrap_or('?');
+                @let wc = summary
+                    .details
+                    .iter()
+                    .map(|d| d.completed_qty)
+                    .sum::<rust_decimal::Decimal>();
+                @let wd = summary
+                    .details
+                    .iter()
+                    .map(|d| d.defect_qty)
+                    .sum::<rust_decimal::Decimal>();
+                @let we = summary
+                    .details
+                    .iter()
+                    .map(|d| {
+                        let non_op = match d.defect_reason {
+                            Some(abt_core::mes::enums::DefectReason::OperatorError) => {
+                                rust_decimal::Decimal::ZERO
+                            }
+                            _ => d.defect_qty,
+                        };
+                        d.completed_qty + non_op
+                    })
+                    .sum::<rust_decimal::Decimal>();
+                @let toggle_id = format!("w{}", idx);
+                // Worker summary row
+                div class="grid grid-cols-[1fr_80px_80px_80px_100px_40px] items-center gap-3 px-5 py-3 border-b border-border-soft cursor-pointer hover:bg-accent-bg transition-colors duration-100"
+                    _=({
+                        format!(
+                            "on click toggle .expanded on #{0} then toggle .rotate-180 on #{0}-icon",
+                            toggle_id,
+                        )
+                    })
+                {
+                    div class="flex items-center gap-3" {
+                        div class="w-8 h-8 rounded-full grid place-items-center text-white font-semibold shrink-0 bg-accent"
+                        { (initial) }
+                        span class="font-medium text-fg" { (worker_name) }
+                    }
+                    span class="text-right font-mono tabular-nums text-fg" {
+                        (crate::utils::fmt_qty(wc))
+                    }
+                    span class="text-right font-mono tabular-nums text-danger" {
+                        (crate::utils::fmt_qty(wd))
+                    }
+                    span class="text-right font-mono tabular-nums text-fg" {
+                        (crate::utils::fmt_qty(we))
+                    }
+                    span class="text-right font-mono tabular-nums text-success font-bold" {
+                        "¥"
+                        (crate::utils::fmt_qty(summary.total_amount))
+                    }
+                    span class="text-muted" {
+                        svg id=(format!("{}-icon", toggle_id))
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="1.8"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            class="w-4 h-4 transition-transform duration-200 rotate-180"
+                        {
+                            polyline points="6 9 12 15 18 9" {}
+                        }
+                    }
+                }
+                // Expandable detail table — animated grid-rows expansion
+                div class="bg-surface grid transition-all duration-200 ease-in-out grid-rows-[0fr] expanded:grid-rows-[1fr] overflow-hidden"
+                    id=(toggle_id)
+                {
+                    div class="overflow-hidden" {
+                        table class="w-full data-table" {
+                            thead {
+                                tr {
+                                    th { "工单" }
+                                    th { "工序" }
+                                    th class="text-right" { "完成" }
+                                    th class="text-right" { "不良(原因)" }
+                                    th class="text-right" { "有效数" }
+                                    th class="text-right" { "单价" }
+                                    th class="text-right" { "工资" }
+                                }
+                            }
+                            tbody {
+                                @for detail in &summary.details {
+                                    @let wo_doc = ctx
+                                        .wo_doc_map
+                                        .get(&detail.work_order_id)
+                                        .cloned()
+                                        .unwrap_or_else(|| "—".to_string());
+                                    @let defect_label = match detail.defect_reason {
+                                        Some(abt_core::mes::enums::DefectReason::MaterialDefect) => {
+                                            format!(
+                                                "{} (物料不良)",
+                                                crate::utils::fmt_qty(detail.defect_qty),
+                                            )
+                                        }
+                                        Some(abt_core::mes::enums::DefectReason::EquipmentFault) => {
+                                            format!(
+                                                "{} (设备故障)",
+                                                crate::utils::fmt_qty(detail.defect_qty),
+                                            )
+                                        }
+                                        Some(abt_core::mes::enums::DefectReason::OperatorError) => {
+                                            format!(
+                                                "{} (操作失误)",
+                                                crate::utils::fmt_qty(detail.defect_qty),
+                                            )
+                                        }
+                                        Some(abt_core::mes::enums::DefectReason::ProcessIssue) => {
+                                            format!(
+                                                "{} (工艺问题)",
+                                                crate::utils::fmt_qty(detail.defect_qty),
+                                            )
+                                        }
+                                        None if detail.defect_qty > rust_decimal::Decimal::ZERO => {
+                                            crate::utils::fmt_qty(detail.defect_qty)
+                                        }
+                                        _ => "—".to_string(),
+                                    };
+                                    @let non_op_defect = match detail.defect_reason {
+                                        Some(abt_core::mes::enums::DefectReason::OperatorError) => {
+                                            rust_decimal::Decimal::ZERO
+                                        }
+                                        _ => detail.defect_qty,
+                                    };
+                                    @let effective = detail.completed_qty + non_op_defect;
+                                    tr {
+                                        td class="font-mono tabular-nums" { (wo_doc) }
+                                        td { (detail.process_name) }
+                                        td class="text-right font-mono tabular-nums" {
+                                            (crate::utils::fmt_qty(detail.completed_qty))
+                                        }
+                                        td class="text-right font-mono tabular-nums text-danger" {
+                                            (defect_label)
+                                        }
+                                        td class="text-right font-mono tabular-nums" {
+                                            (crate::utils::fmt_qty(effective))
+                                        }
+                                        td class="text-right font-mono tabular-nums" {
+                                            "¥"
+                                            (detail.unit_price)
+                                        }
+                                        td class="text-right font-mono tabular-nums text-success" {
+                                            "¥"
+                                            (crate::utils::fmt_qty(detail.wage_amount))
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            // 分页
+            div class="flex items-center justify-between px-5 py-4" {
+                span class="text-sm text-muted" { "共 " (ctx.worker_count) " 名工人" }
+            }
+        }
+    }
+}
 }

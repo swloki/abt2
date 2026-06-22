@@ -88,37 +88,52 @@ pub async fn post_work_calendar_create(
 
 fn work_calendar_form_page() -> Markup {
  html! {
- div class="flex items-center justify-between mb-6" {
- div class="flex items-center justify-between mb-6" {
- a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(WorkCalendarListPath::PATH) { "← 返回列表" }
- h1 class="text-xl font-bold text-fg tracking-tight" { "新建工作日历" }
- }
- }
+    div class="flex items-center justify-between mb-6" {
+        div class="flex items-center justify-between mb-6" {
+            a   class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150"
+                href=(WorkCalendarListPath::PATH)
+            { "← 返回列表" }
+            h1 class="text-xl font-bold text-fg tracking-tight" { "新建工作日历" }
+        }
+    }
 
- form class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)] form-card"
- hx-post=(WorkCalendarCreatePath::PATH) {
+    form
+        class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)] form-card"
+        hx-post=(WorkCalendarCreatePath::PATH)
+    {
 
- div class="form-section" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "基本信息" }
- div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
- div class="form-field" {
- label { "名称 *" }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="name" required;
- }
- div class="form-field col-span-2" {
- label { "描述" }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="description";
- }
- }
- }
+        div class="form-section" {
+            div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
+            { "基本信息" }
+            div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
+                div class="form-field" {
+                    label { "名称 *" }
+                    input
+                        class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]"
+                        type="text"
+                        name="name"
+                        required;
+                }
+                div class="form-field col-span-2" {
+                    label { "描述" }
+                    input
+                        class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]"
+                        type="text"
+                        name="description";
+                }
+            }
+        }
 
- div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg border-t border-border-soft" {
- a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(WorkCalendarListPath::PATH) { "取消" }
- button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" type="submit" {
- (icon::check_circle_icon("w-4 h-4"))
- "创建"
- }
- }
- }
- }
+        div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg border-t border-border-soft"
+        {
+            a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                href=(WorkCalendarListPath::PATH)
+            { "取消" }
+            button
+                class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                type="submit"
+            { (icon::check_circle_icon("w-4 h-4")) "创建" }
+        }
+    }
+}
 }

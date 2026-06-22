@@ -243,197 +243,278 @@ fn arrival_create_page(
  operator_name: &str,
 ) -> Markup {
  html! {
- div {
- a href=(format!("{}?restore=true", ArrivalListPath::PATH)) class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" {
- (icon::chevron_left_icon("w-4 h-4"))
- "返回来料通知列表"
- }
+    div {
+        a   href=(format!("{}?restore=true", ArrivalListPath::PATH))
+            class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150"
+        { (icon::chevron_left_icon("w-4 h-4")) "返回来料通知列表" }
 
- div class="flex items-center justify-between mb-5" {
- h1 class="text-xl font-bold text-fg tracking-tight" { "新建来料通知" }
- div class="flex gap-3" {
- span class="flex items-center gap-2 text-xs text-muted" {
- (icon::clock_icon("w-3.5 h-3.5"))
- "操作员: " (operator_name)
- }
- }
- }
+        div class="flex items-center justify-between mb-5" {
+            h1 class="text-xl font-bold text-fg tracking-tight" { "新建来料通知" }
+            div class="flex gap-3" {
+                span class="flex items-center gap-2 text-xs text-muted" {
+                    (icon::clock_icon("w-3.5 h-3.5"))
+                    "操作员: "
+                    (operator_name)
+                }
+            }
+        }
 
- form class="space-y-5" hx-post=(ArrivalCreatePath::PATH) hx-swap="none" id="arrivalForm"
- onsubmit="return arrivalCollectItems()" {
- // ── 供应商信息 ──
- div class="bg-bg border border-border rounded p-6" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
- (icon::building_icon("w-4 h-4"))
- "供应商信息"
- }
- div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
- div class="flex flex-col" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "供应商 " span class="text-danger" { "*" } }
- select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" id="supplier-select" name="supplier_id" required {
- option value="" { "请选择供应商" }
- @for s in suppliers {
- option value=(s.id) { (s.name) }
- }
- }
- }
- div class="flex flex-col" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "联系人" }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" readonly tabindex="-1" placeholder="自动填充";
- }
- div class="flex flex-col" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "联系电话" }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" readonly tabindex="-1" placeholder="自动填充";
- }
- div class="flex flex-col" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "来源采购单" }
- select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="purchase_order_id" {
- option value="" { "请选择采购单（可选）" }
- }
- }
- }
- }
+        form
+            class="space-y-5"
+            hx-post=(ArrivalCreatePath::PATH)
+            hx-swap="none"
+            id="arrivalForm"
+            onsubmit="return arrivalCollectItems()"
+        {
+            // ── 供应商信息 ──
+            div class="bg-bg border border-border rounded p-6" {
+                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
+                { (icon::building_icon("w-4 h-4")) "供应商信息" }
+                div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
+                    div class="flex flex-col" {
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
+                            "供应商 "
+                            span class="text-danger" { "*" }
+                        }
+                        select
+                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]"
+                            id="supplier-select"
+                            name="supplier_id"
+                            required
+                        {
+                            option value="" { "请选择供应商" }
+                            @for s in suppliers {
+                                option value=(s.id) { (s.name) }
+                            }
+                        }
+                    }
+                    div class="flex flex-col" {
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
+                            "联系人"
+                        }
+                        input
+                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]"
+                            type="text"
+                            readonly
+                            tabindex="-1"
+                            placeholder="自动填充";
+                    }
+                    div class="flex flex-col" {
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
+                            "联系电话"
+                        }
+                        input
+                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]"
+                            type="text"
+                            readonly
+                            tabindex="-1"
+                            placeholder="自动填充";
+                    }
+                    div class="flex flex-col" {
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
+                            "来源采购单"
+                        }
+                        select
+                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]"
+                            name="purchase_order_id"
+                        {
+                            option value="" { "请选择采购单（可选）" }
+                        }
+                    }
+                }
+            }
+            // ── 到货信息 ──
+            div class="bg-bg border border-border rounded p-6" {
+                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
+                { (icon::truck_icon("w-4 h-4")) "到货信息" }
+                div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
+                    div class="flex flex-col" {
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
+                            "到货仓库 "
+                            span class="text-danger" { "*" }
+                        }
+                        select
+                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]"
+                            name="warehouse_id"
+                            required
+                        {
+                            option value="" { "请选择仓库" }
+                            @for w in warehouses {
+                                option value=(w.id) { (w.name) }
+                            }
+                        }
+                    }
+                    div class="flex flex-col" {
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
+                            "到货库区"
+                        }
+                        select
+                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]"
+                            name="zone_id"
+                        {
+                            option value="" { "请选择库区" }
+                        }
+                    }
+                    div class="flex flex-col" {
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
+                            "到货日期 "
+                            span class="text-danger" { "*" }
+                        }
+                        input
+                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]"
+                            type="date"
+                            name="arrival_date"
+                            required
+                            value=(Local::now().format("%Y-%m-%d"));
+                    }
+                    div class="flex flex-col" {
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
+                            "送货单号"
+                        }
+                        input
+                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]"
+                            type="text"
+                            name="delivery_note"
+                            placeholder="请输入送货单号";
+                    }
+                }
+            }
+            // ── 物料明细 ──
+            div class="bg-bg border border-border rounded-md overflow-hidden" {
+                div class="px-6 pt-6 pb-4" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg pb-2 border-b border-border-soft"
+                    {
+                        (icon::box_icon("w-4 h-4"))
+                        "物料明细"
+                        span
+                            id="arrival-item-count"
+                            class="ml-auto text-xs font-normal text-muted"
+                        { "共 0 项" }
+                    }
+                }
+                div class="overflow-x-auto" {
+                    table class="data-table" {
+                        thead {
+                            tr {
+                                th class="w-10 text-center" { "行号" }
+                                th class="min-w-[140px]" { "产品编码" }
+                                th class="min-w-[200px]" { "产品名称" }
+                                th class="min-w-[160px]" { "规格" }
+                                th class="w-[100px] text-right" {
+                                    "申报数量 "
+                                    span class="text-danger" { "*" }
+                                }
+                                th class="w-[140px]" { "批次号" }
+                                th class="w-10" { "操作" }
+                            }
+                        }
+                        tbody id="arrival-item-tbody" {
+                            // JS-managed dynamic rows
+                        }
+                    }
+                }
+                div class="p-3 flex items-center gap-2" {
+                    button
+                        type="button"
+                        class="inline-flex items-center gap-2 rounded-sm text-accent text-sm cursor-pointer"
+                        _="on click add .is-open to #product-modal"
+                    { (icon::plus_icon("w-4 h-4")) "添加物料" }
+                    button
+                        type="button"
+                        class="inline-flex items-center gap-2 ml-3 rounded-sm text-accent text-sm cursor-pointer"
+                        _="on click add .is-open to #po-modal"
+                    { (icon::download_icon("w-4 h-4")) "从采购订单导入" }
+                }
+            }
+            // ── 备注 ──
+            div class="bg-bg border border-border rounded p-6" {
+                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
+                { (icon::edit_icon("w-4 h-4")) "备注" }
+                textarea
+                    class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none resize-y min-h-[80px] transition-all duration-150 focus:border-accent focus:shadow-[var(--shadow-focus)]"
+                    name="remark"
+                    rows="3"
+                    placeholder="请输入备注信息" {}
+            }
+            input type="hidden" name="purchase_order_id" id="arrival-po-id" value="" {}
+            input type="hidden" name="items_json" id="arrival-items-json" value="[]" {}
+            // ── Action Bar ──
+            div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg border-t border-border-soft"
+            {
+                a   href=(format!("{}?restore=true", ArrivalListPath::PATH))
+                    class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                { "取消" }
+                button
+                    type="submit"
+                    class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                { (icon::check_circle_icon("w-4 h-4")) "提交来料通知" }
+            }
+        }
+    }
 
- // ── 到货信息 ──
- div class="bg-bg border border-border rounded p-6" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
- (icon::truck_icon("w-4 h-4"))
- "到货信息"
- }
- div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
- div class="flex flex-col" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "到货仓库 " span class="text-danger" { "*" } }
- select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="warehouse_id" required {
- option value="" { "请选择仓库" }
- @for w in warehouses {
- option value=(w.id) { (w.name) }
- }
- }
- }
- div class="flex flex-col" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "到货库区" }
- select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" name="zone_id" {
- option value="" { "请选择库区" }
- }
- }
- div class="flex flex-col" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "到货日期 " span class="text-danger" { "*" } }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="date" name="arrival_date" required value=(Local::now().format("%Y-%m-%d"));
- }
- div class="flex flex-col" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "送货单号" }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="delivery_note" placeholder="请输入送货单号";
- }
- }
- }
-
- // ── 物料明细 ──
- div class="bg-bg border border-border rounded-md overflow-hidden" {
- div class="px-6 pt-6 pb-4" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg pb-2 border-b border-border-soft" {
- (icon::box_icon("w-4 h-4"))
- "物料明细"
- span id="arrival-item-count" class="ml-auto text-xs font-normal text-muted" { "共 0 项" }
- }
- }
- div class="overflow-x-auto" {
- table class="data-table" {
- thead {
- tr {
- th class="w-10 text-center" { "行号" }
- th class="min-w-[140px]" { "产品编码" }
- th class="min-w-[200px]" { "产品名称" }
- th class="min-w-[160px]" { "规格" }
- th class="w-[100px] text-right" { "申报数量 " span class="text-danger" { "*" } }
- th class="w-[140px]" { "批次号" }
- th class="w-10" { "操作" }
- }
- }
- tbody id="arrival-item-tbody" {
- // JS-managed dynamic rows
- }
- }
- }
- div class="p-3 flex items-center gap-2" {
- button type="button" class="inline-flex items-center gap-2 rounded-sm text-accent text-sm cursor-pointer"
- _="on click add .is-open to #product-modal" {
- (icon::plus_icon("w-4 h-4"))
- "添加物料"
- }
- button type="button" class="inline-flex items-center gap-2 ml-3 rounded-sm text-accent text-sm cursor-pointer"
- _="on click add .is-open to #po-modal" {
- (icon::download_icon("w-4 h-4"))
- "从采购订单导入"
- }
- }
- }
-
- // ── 备注 ──
- div class="bg-bg border border-border rounded p-6" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
- (icon::edit_icon("w-4 h-4"))
- "备注"
- }
- textarea class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none resize-y min-h-[80px] transition-all duration-150 focus:border-accent focus:shadow-[var(--shadow-focus)]" name="remark" rows="3" placeholder="请输入备注信息" {}
- }
-
- input type="hidden" name="purchase_order_id" id="arrival-po-id" value="" {}
- input type="hidden" name="items_json" id="arrival-items-json" value="[]" {}
-
- // ── Action Bar ──
- div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg border-t border-border-soft" {
- a href=(format!("{}?restore=true", ArrivalListPath::PATH)) class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" { "取消" }
- button type="submit" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" {
- (icon::check_circle_icon("w-4 h-4"))
- "提交来料通知"
- }
- }
- }
- }
-
-            (crate::components::product_picker::product_picker_modal_with_search("product-modal", ArrivalItemRowPath::PATH, "arrival-item-tbody"))
-
- // ── PO Import Modal ──
- div id="po-modal" class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto"
- _="on click[me is event.target] remove .is-open" {
- div class="modal bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl" _="on click halt the event" {
- div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
- h2 { "从采购订单导入" }
- button type="button" class="bg-transparent border-none cursor-pointer text-xl text-muted p-1"
- _="on click remove .is-open from #po-modal" { "×" }
- }
- div class="overflow-y-auto flex-1 min-h-0 p-4" hx-disinherit="hx-select" {
- div class="flex gap-4 border-b border-border-soft" {
- div class="flex-1 flex flex-col gap-[4px]" {
- label class="text-xs font-medium text-fg-2" { "采购订单号" }
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="text" id="po-search-input" name="keyword" placeholder="输入PO编号搜索…"
- hx-get=(ArrivalPoPickPath::PATH)
- hx-trigger="keyup changed delay:300ms"
- hx-sync="this:replace"
- hx-target="#po-search-results"
- hx-swap="innerHTML"
- hx-include="#po-search-input" {}
- }
- button type="button" class="border border-border rounded-sm bg-bg text-fg-2 text-sm cursor-pointer whitespace-nowrap"
- hx-get=(ArrivalPoPickPath::PATH)
- hx-target="#po-search-results"
- hx-swap="innerHTML"
- _="on click set #po-search-input's value to '' then trigger keyup on #po-search-input" {
- "清除"
- }
- }
- div id="po-search-results" {
- div class="text-center text-muted py-12" {
- (icon::package_icon("w-8 h-8"))
- p class="mt-2 text-sm" { "输入PO编号搜索已确认的采购订单" }
- }
- }
- }
- }
- }
-
- // ── JS ──
- (maud::PreEscaped(r#"<script>
+    ({
+        crate::components::product_picker::product_picker_modal_with_search(
+            "product-modal",
+            ArrivalItemRowPath::PATH,
+            "arrival-item-tbody",
+        )
+    })
+    // ── PO Import Modal ──
+    div id="po-modal"
+        class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto"
+        _="on click[me is event.target] remove .is-open"
+    {
+        div class="modal bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl"
+            _="on click halt the event"
+        {
+            div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0"
+            {
+                h2 { "从采购订单导入" }
+                button
+                    type="button"
+                    class="bg-transparent border-none cursor-pointer text-xl text-muted p-1"
+                    _="on click remove .is-open from #po-modal"
+                { "×" }
+            }
+            div class="overflow-y-auto flex-1 min-h-0 p-4" hx-disinherit="hx-select" {
+                div class="flex gap-4 border-b border-border-soft" {
+                    div class="flex-1 flex flex-col gap-[4px]" {
+                        label class="text-xs font-medium text-fg-2" { "采购订单号" }
+                        input
+                            class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
+                            type="text"
+                            id="po-search-input"
+                            name="keyword"
+                            placeholder="输入PO编号搜索…"
+                            hx-get=(ArrivalPoPickPath::PATH)
+                            hx-trigger="keyup changed delay:300ms"
+                            hx-sync="this:replace"
+                            hx-target="#po-search-results"
+                            hx-swap="innerHTML"
+                            hx-include="#po-search-input" {}
+                    }
+                    button
+                        type="button"
+                        class="border border-border rounded-sm bg-bg text-fg-2 text-sm cursor-pointer whitespace-nowrap"
+                        hx-get=(ArrivalPoPickPath::PATH)
+                        hx-target="#po-search-results"
+                        hx-swap="innerHTML"
+                        _="on click set #po-search-input's value to '' then trigger keyup on #po-search-input"
+                    { "清除" }
+                }
+                div id="po-search-results" {
+                    div class="text-center text-muted py-12" {
+                        (icon::package_icon("w-8 h-8"))
+                        p class="mt-2 text-sm" { "输入PO编号搜索已确认的采购订单" }
+                    }
+                }
+            }
+        }
+    }
+    // ── JS ──
+    ({
+        maud::PreEscaped(
+            r#"<script>
  function arrivalCalcSummary() {
  var tbody = document.getElementById('arrival-item-tbody');
  var rows = tbody.querySelectorAll('tr');
@@ -469,8 +550,10 @@ fn arrival_create_page(
  });
  arrivalCalcSummary();
  }
- </script>"#))
- }
+ </script>"#,
+        )
+    })
+}
 }
 
 const CELL_INPUT: &str =
@@ -489,33 +572,51 @@ fn po_items_fragment(
  _supplier_id: i64,
 ) -> Markup {
  html! {
- @for item in items {
- @if let Some(product) = product_map.get(&item.product_id) {
- (arrival_line_row(product, &item.quantity.to_string(), Some(item.id)))
- }
- }
- }
+    @for item in items {
+        @if let Some(product) = product_map.get(&item.product_id) {
+            (arrival_line_row(product, &item.quantity.to_string(), Some(item.id)))
+        }
+    }
+}
 }
 
 fn arrival_line_row(product: &abt_core::master_data::product::model::Product, qty: &str, order_item_id: Option<i64>) -> Markup {
  html! {
- tr {
- td class="line-num text-muted text-xs text-center" { }
- td class="font-mono tabular-nums text-sm text-fg" { (product.product_code) }
- td class="text-sm text-fg" { (product.pdt_name) }
- td class="text-sm text-fg-2" { (product.meta.specification) }
- td { input class=(format!("{CELL_INPUT} w-[90px] text-right font-mono")) type="number" step="any" name="declared_qty" placeholder="0" value=(qty) {} }
- td { input class=(format!("{CELL_INPUT} w-[120px]")) type="text" name="batch_no" placeholder="批次号" {} }
- td { button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center hover:text-danger" title="删除行"
- _="on click remove closest <tr/> then call arrivalRenumber()" {
- (icon::x_icon("w-3.5 h-3.5"))
- } }
- input type="hidden" name="product_id" value=(product.product_id) {}
- @if let Some(oi) = order_item_id {
- input type="hidden" name="order_item_id" value=(oi) {}
- }
- }
- }
+    tr {
+        td class="line-num text-muted text-xs text-center" {}
+        td class="font-mono tabular-nums text-sm text-fg" { (product.product_code) }
+        td class="text-sm text-fg" { (product.pdt_name) }
+        td class="text-sm text-fg-2" { (product.meta.specification) }
+        td {
+            input
+                class=(format!("{CELL_INPUT} w-[90px] text-right font-mono"))
+                type="number"
+                step="any"
+                name="declared_qty"
+                placeholder="0"
+                value=(qty) {}
+        }
+        td {
+            input
+                class=(format!("{CELL_INPUT} w-[120px]"))
+                type="text"
+                name="batch_no"
+                placeholder="批次号" {}
+        }
+        td {
+            button
+                type="button"
+                class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center hover:text-danger"
+                title="删除行"
+                _="on click remove closest <tr/> then call arrivalRenumber()"
+            { (icon::x_icon("w-3.5 h-3.5")) }
+        }
+        input type="hidden" name="product_id" value=(product.product_id) {}
+        @if let Some(oi) = order_item_id {
+            input type="hidden" name="order_item_id" value=(oi) {}
+        }
+    }
+}
 }
 
 /// PO search results fragment for import modal
@@ -524,36 +625,50 @@ fn po_list_fragment(
  supplier_map: &std::collections::HashMap<i64, String>,
 ) -> Markup {
  html! {
- @if orders.is_empty() {
- div class="text-center text-muted py-12" {
- (icon::package_icon("w-8 h-8"))
- p class="mt-2 text-sm" { "未找到已确认的采购订单" }
- }
- } @else {
- div class="py-2" {
- @for o in orders {
-div class="flex items-center justify-between p-3 border-b border-border-soft" {
- div class="flex-1 min-w-0" {
- div class="text-sm font-medium text-fg" { (o.doc_number) }
- div class="text-xs text-muted flex items-center gap-[6px] flex-wrap" {
- span class="bg-surface rounded-sm" { (supplier_map.get(&o.supplier_id).cloned().unwrap_or_else(|| "-".into())) }
- span class="text-border" { "·" }
- span { (o.order_date.format("%Y-%m-%d")) }
- span class="text-border" { "·" }
- span { "¥" (o.total_amount) }
- }
- }
- button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] icon:w-4 icon:h-4"
- hx-get=(ArrivalPoItemsPath { po_id: o.id }.to_string())
- hx-target="#arrival-item-tbody"
- hx-swap="beforeend"
- _=(format!("on click set #arrival-po-id's value to '{}' then set #supplier-select's value to '{}' then remove .is-open from #po-modal end on htmx:afterRequest[detail.xhr.status < 400] wait 50ms then call arrivalRenumber()", o.id, o.supplier_id)) {
- "导入"
- }
- }
- }
- }
- }
- }
+    @if orders.is_empty() {
+        div class="text-center text-muted py-12" {
+            (icon::package_icon("w-8 h-8"))
+            p class="mt-2 text-sm" { "未找到已确认的采购订单" }
+        }
+    } @else {
+        div class="py-2" {
+            @for o in orders {
+                div class="flex items-center justify-between p-3 border-b border-border-soft" {
+                    div class="flex-1 min-w-0" {
+                        div class="text-sm font-medium text-fg" { (o.doc_number) }
+                        div class="text-xs text-muted flex items-center gap-[6px] flex-wrap" {
+                            span class="bg-surface rounded-sm" {
+                                ({
+                                    supplier_map
+                                        .get(&o.supplier_id)
+                                        .cloned()
+                                        .unwrap_or_else(|| "-".into())
+                                })
+                            }
+                            span class="text-border" { "·" }
+                            span { (o.order_date.format("%Y-%m-%d")) }
+                            span class="text-border" { "·" }
+                            span { "¥" (o.total_amount) }
+                        }
+                    }
+                    button
+                        type="button"
+                        class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] icon:w-4 icon:h-4"
+                        hx-get=(ArrivalPoItemsPath { po_id: o.id }.to_string())
+                        hx-target="#arrival-item-tbody"
+                        hx-swap="beforeend"
+                        _=({
+                            format!(
+                                "on click set #arrival-po-id's value to '{}' then set #supplier-select's value to '{}' then remove .is-open from #po-modal end on htmx:afterRequest[detail.xhr.status < 400] wait 50ms then call arrivalRenumber()",
+                                o.id,
+                                o.supplier_id,
+                            )
+                        })
+                    { "导入" }
+                }
+            }
+        }
+    }
+}
 }
 

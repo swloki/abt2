@@ -78,14 +78,14 @@ fn backflush_list_page(
  params: &BackflushQueryParams,
 ) -> Markup {
  html! {
- div {
- div class="flex items-center justify-between mb-6" {
- h1 class="text-xl font-bold text-fg tracking-tight" { "倒冲记录" }
- }
+    div {
+        div class="flex items-center justify-between mb-6" {
+            h1 class="text-xl font-bold text-fg tracking-tight" { "倒冲记录" }
+        }
 
- (backflush_table_fragment(result, params))
- }
- }
+        (backflush_table_fragment(result, params))
+    }
+}
 }
 
 fn backflush_table_fragment(
@@ -95,70 +95,88 @@ fn backflush_table_fragment(
  let query = build_query_string(params);
 
  html! {
- div class="backflush-list-panel" {
- form class="flex items-center gap-3 mb-5 flex-wrap" id="filter-form"
- hx-get=(BackflushListPath::PATH)
- hx-trigger="change,keyup changed delay:300ms from:.search-input"
- hx-target="#backflush-data-card"
- hx-select="#backflush-data-card"
- hx-swap="outerHTML"
- hx-include="#filter-form"
- hx-push-url="true" {
- div class="relative flex-1 max-w-xs icon:absolute icon:left-3 icon:top-1/2 icon:-translate-y-1/2 icon:w-4 icon:h-4 icon:text-muted" {
- (icon::search_icon(""))
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input" type="text" name="doc_number"
- class="w-[180px]"
- placeholder="单据编号"
- value=(params.doc_number.as_deref().unwrap_or(""));
- }
- div class="relative flex-1 max-w-xs icon:absolute icon:left-3 icon:top-1/2 icon:-translate-y-1/2 icon:w-4 icon:h-4 icon:text-muted" {
- (icon::search_icon(""))
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input" type="text" name="work_order"
- placeholder="工单号"
- value=(params.work_order.as_deref().unwrap_or(""));
- }
- select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="status" {
- option value="" { "全部状态" }
- option value="1" selected[params.status == Some(1)] { "草稿" }
- option value="2" selected[params.status == Some(2)] { "已执行" }
- option value="3" selected[params.status == Some(3)] { "已调整" }
- }
- }
+    div class="backflush-list-panel" {
+        form
+            class="flex items-center gap-3 mb-5 flex-wrap"
+            id="filter-form"
+            hx-get=(BackflushListPath::PATH)
+            hx-trigger="change,keyup changed delay:300ms from:.search-input"
+            hx-target="#backflush-data-card"
+            hx-select="#backflush-data-card"
+            hx-swap="outerHTML"
+            hx-include="#filter-form"
+            hx-push-url="true"
+        {
+            div class="relative flex-1 max-w-xs icon:absolute icon:left-3 icon:top-1/2 icon:-translate-y-1/2 icon:w-4 icon:h-4 icon:text-muted"
+            {
+                (icon::search_icon(""))
+                input
+                    class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input"
+                    type="text"
+                    name="doc_number"
+                    class="w-[180px]"
+                    placeholder="单据编号"
+                    value=(params.doc_number.as_deref().unwrap_or(""));
+            }
+            div class="relative flex-1 max-w-xs icon:absolute icon:left-3 icon:top-1/2 icon:-translate-y-1/2 icon:w-4 icon:h-4 icon:text-muted"
+            {
+                (icon::search_icon(""))
+                input
+                    class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input"
+                    type="text"
+                    name="work_order"
+                    placeholder="工单号"
+                    value=(params.work_order.as_deref().unwrap_or(""));
+            }
+            select
+                class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer"
+                name="status"
+            {
+                option value="" { "全部状态" }
+                option value="1" selected[params.status == Some(1)] { "草稿" }
+                option value="2" selected[params.status == Some(2)] { "已执行" }
+                option value="3" selected[params.status == Some(3)] { "已调整" }
+            }
+        }
 
- div id="backflush-data-card" class="data-card" {
- div class="overflow-x-auto" {
- table class="data-table" {
- thead {
- tr {
- th { "单据编号" }
- th { "关联工单" }
- th { "完工产品" }
- th class="text-right text-[13px]" { "完工数量" }
- th { "倒冲日期" }
- th { "状态" }
- th { "差异预警" }
- th { "操作员" }
- th class="!text-right" { "操作" }
- }
- }
- tbody {
- @for r in &result.items {
- (backflush_row(r))
- }
- @if result.items.is_empty() {
- tr {
- td colspan="9" class="text-center text-muted py-8" {
- "暂无倒冲记录"
- }
- }
- }
- }
- }
- }
- (pagination(BackflushListPath::PATH, &query, result.total, result.page, result.total_pages))
- }
- }
- }
+        div id="backflush-data-card" class="data-card" {
+            div class="overflow-x-auto" {
+                table class="data-table" {
+                    thead {
+                        tr {
+                            th { "单据编号" }
+                            th { "关联工单" }
+                            th { "完工产品" }
+                            th class="text-right text-[13px]" { "完工数量" }
+                            th { "倒冲日期" }
+                            th { "状态" }
+                            th { "差异预警" }
+                            th { "操作员" }
+                            th class="!text-right" { "操作" }
+                        }
+                    }
+                    tbody {
+                        @for r in &result.items { (backflush_row(r)) }
+                        @if result.items.is_empty() {
+                            tr {
+                                td colspan="9" class="text-center text-muted py-8" { "暂无倒冲记录" }
+                            }
+                        }
+                    }
+                }
+            }
+            ({
+                pagination(
+                    BackflushListPath::PATH,
+                    &query,
+                    result.total,
+                    result.page,
+                    result.total_pages,
+                )
+            })
+        }
+    }
+}
 }
 
 fn backflush_data_card(
@@ -168,39 +186,43 @@ fn backflush_data_card(
  let query = build_query_string(params);
 
  html! {
- div id="backflush-data-card" class="data-card" {
- div class="overflow-x-auto" {
- table class="data-table" {
- thead {
- tr {
- th { "单据编号" }
- th { "关联工单" }
- th { "完工产品" }
- th class="text-right text-[13px]" { "完工数量" }
- th { "倒冲日期" }
- th { "状态" }
- th { "差异预警" }
- th { "操作员" }
- th class="!text-right" { "操作" }
- }
- }
- tbody {
- @for r in &result.items {
- (backflush_row(r))
- }
- @if result.items.is_empty() {
- tr {
- td colspan="9" class="text-center text-muted py-8" {
- "暂无倒冲记录"
- }
- }
- }
- }
- }
- }
- (pagination(BackflushListPath::PATH, &query, result.total, result.page, result.total_pages))
- }
- }
+    div id="backflush-data-card" class="data-card" {
+        div class="overflow-x-auto" {
+            table class="data-table" {
+                thead {
+                    tr {
+                        th { "单据编号" }
+                        th { "关联工单" }
+                        th { "完工产品" }
+                        th class="text-right text-[13px]" { "完工数量" }
+                        th { "倒冲日期" }
+                        th { "状态" }
+                        th { "差异预警" }
+                        th { "操作员" }
+                        th class="!text-right" { "操作" }
+                    }
+                }
+                tbody {
+                    @for r in &result.items { (backflush_row(r)) }
+                    @if result.items.is_empty() {
+                        tr {
+                            td colspan="9" class="text-center text-muted py-8" { "暂无倒冲记录" }
+                        }
+                    }
+                }
+            }
+        }
+        ({
+            pagination(
+                BackflushListPath::PATH,
+                &query,
+                result.total,
+                result.page,
+                result.total_pages,
+            )
+        })
+    }
+}
 }
 
 fn backflush_row(r: &BackflushRecord) -> Markup {
@@ -213,26 +235,38 @@ fn backflush_row(r: &BackflushRecord) -> Markup {
  };
 
  html! {
- tr class="cursor-pointer" {
- td class="text-accent font-medium cursor-pointer font-mono tabular-nums" onclick=(format!("location.href='{}'", detail_path)) { (r.doc_number) }
- td class="font-mono tabular-nums" onclick=(format!("location.href='{}'", detail_path)) { "—" }
- td onclick=(format!("location.href='{}'", detail_path)) { "—" }
- td class="text-right text-[13px]" onclick=(format!("location.href='{}'", detail_path)) { (format!("{:.2}", r.completed_qty)) }
- td class="font-mono tabular-nums" onclick=(format!("location.href='{}'", detail_path)) { (r.backflush_date.to_string()) }
- td onclick=(format!("location.href='{}'", detail_path)) {
- span class=(format!("status-pill {}", crate::utils::status_color(status_class))) { (status_label) }
- }
- td onclick=(format!("location.href='{}'", detail_path)) { "—" }
- td onclick=(format!("location.href='{}'", detail_path)) { "—" }
- td _="on click halt the event" {
- div class="row-actions flex items-center gap-1 justify-end opacity-0 transition-opacity duration-150 [&_a]:w-[28px] [&_a]:h-[28px] [&_a]:grid [&_a]:place-items-center [&_a]:rounded-sm [&_a]:cursor-pointer [&_a]:bg-surface [&_a]:hover:bg-accent-bg icon:w-3.5 icon:h-3.5" {
- a class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" title="查看详情" href=(detail_path.to_string()) {
- (icon::eye_icon("w-4 h-4"))
- }
- }
- }
- }
- }
+    tr class="cursor-pointer" {
+        td  class="text-accent font-medium cursor-pointer font-mono tabular-nums"
+            onclick=(format!("location.href='{}'", detail_path))
+        { (r.doc_number) }
+        td class="font-mono tabular-nums" onclick=(format!("location.href='{}'", detail_path)) {
+            "—"
+        }
+        td onclick=(format!("location.href='{}'", detail_path)) { "—" }
+        td class="text-right text-[13px]" onclick=(format!("location.href='{}'", detail_path)) {
+            (format!("{:.2}", r.completed_qty))
+        }
+        td class="font-mono tabular-nums" onclick=(format!("location.href='{}'", detail_path)) {
+            (r.backflush_date.to_string())
+        }
+        td onclick=(format!("location.href='{}'", detail_path)) {
+            span class=(format!("status-pill {}", crate::utils::status_color(status_class))) {
+                (status_label)
+            }
+        }
+        td onclick=(format!("location.href='{}'", detail_path)) { "—" }
+        td onclick=(format!("location.href='{}'", detail_path)) { "—" }
+        td _="on click halt the event" {
+            div class="row-actions flex items-center gap-1 justify-end opacity-0 transition-opacity duration-150 [&_a]:w-[28px] [&_a]:h-[28px] [&_a]:grid [&_a]:place-items-center [&_a]:rounded-sm [&_a]:cursor-pointer [&_a]:bg-surface [&_a]:hover:bg-accent-bg icon:w-3.5 icon:h-3.5"
+            {
+                a   class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer"
+                    title="查看详情"
+                    href=(detail_path.to_string())
+                { (icon::eye_icon("w-4 h-4")) }
+            }
+        }
+    }
+}
 }
 
 fn build_query_string(params: &BackflushQueryParams) -> String {

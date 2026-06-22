@@ -147,99 +147,167 @@ pub async fn post_work_center_update(
 fn work_center_form_page(wc: Option<&WorkCenter>) -> Markup {
  let is_edit = wc.is_some();
  html! {
- div class="flex items-center justify-between mb-6" {
- div class="flex items-center justify-between mb-6" {
- a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(WorkCenterListPath::PATH) { "← 返回列表" }
- h1 class="text-xl font-bold text-fg tracking-tight" {
- @if is_edit { "编辑工作中心" } @else { "新建工作中心" }
- }
- }
- }
+    div class="flex items-center justify-between mb-6" {
+        div class="flex items-center justify-between mb-6" {
+            a   class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150"
+                href=(WorkCenterListPath::PATH)
+            { "← 返回列表" }
+            h1 class="text-xl font-bold text-fg tracking-tight" {
+                @if is_edit { "编辑工作中心" } @else { "新建工作中心" }
+            }
+        }
+    }
 
- form class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)] form-card"
- hx-post={ @if is_edit {
- (WorkCenterEditPath { id: wc.unwrap().id }.to_string())
- } @else {
- (WorkCenterCreatePath::PATH)
- }} {
+    form
+        class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)] form-card"
+        hx-post={
+            @if is_edit { ({
+                WorkCenterEditPath {
+                    id: wc.unwrap().id,
+                }
+                    .to_string()
+            }) } @else { (WorkCenterCreatePath::PATH) }
+        }
+    {
 
- div class="form-section" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "基本信息" }
- div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
- div class="form-field" {
- label { "编码 *" }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent" type="text" name="code" required
- value=(wc.map(|w| w.code.as_str()).unwrap_or(""))
- disabled[is_edit];
- @if is_edit {
- input type="hidden" name="code"
- value=(wc.map(|w| w.code.as_str()).unwrap_or(""));
- }
- }
- div class="form-field" {
- label { "名称 *" }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent" type="text" name="name" required
- value=(wc.map(|w| w.name.as_str()).unwrap_or(""));
- }
- div class="form-field" {
- label { "类型" }
- select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent" name="work_center_type" {
- @for (val, label) in [("1", "机器"), ("2", "人工"), ("3", "委外")] {
- option value=(val)
- selected=(wc.map(|w| w.work_center_type.to_string()).as_deref() == Some(val)) {
- (label)
- }
- }
- }
- }
- div class="form-field" {
- label { "位置" }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent" type="text" name="location"
- value=(wc.and_then(|w| w.location.as_deref()).unwrap_or(""));
- }
- }
- }
+        div class="form-section" {
+            div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
+            { "基本信息" }
+            div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
+                div class="form-field" {
+                    label { "编码 *" }
+                    input
+                        class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent"
+                        type="text"
+                        name="code"
+                        required
+                        value=(wc.map(|w| w.code.as_str()).unwrap_or(""))
+                        disabled[is_edit];
+                    @if is_edit {
+                        input
+                            type="hidden"
+                            name="code"
+                            value=(wc.map(|w| w.code.as_str()).unwrap_or(""));
+                    }
+                }
+                div class="form-field" {
+                    label { "名称 *" }
+                    input
+                        class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent"
+                        type="text"
+                        name="name"
+                        required
+                        value=(wc.map(|w| w.name.as_str()).unwrap_or(""));
+                }
+                div class="form-field" {
+                    label { "类型" }
+                    select
+                        class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent"
+                        name="work_center_type"
+                    {
+                        @for (val, label) in [("1", "机器"), ("2", "人工"), ("3", "委外")] {
+                            option
+                                value=(val)
+                                selected=({
+                                    wc.map(|w| w.work_center_type.to_string()).as_deref()
+                                        == Some(val)
+                                })
+                            { (label) }
+                        }
+                    }
+                }
+                div class="form-field" {
+                    label { "位置" }
+                    input
+                        class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent"
+                        type="text"
+                        name="location"
+                        value=(wc.and_then(|w| w.location.as_deref()).unwrap_or(""));
+                }
+            }
+        }
 
- div class="form-section" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "产能与成本" }
- div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
- div class="form-field" {
- label { "产能/小时" }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent" type="number" step="any" name="default_capacity"
- value=(wc.map(|w| crate::utils::fmt_qty(w.default_capacity)).unwrap_or_else(|| "0".into()));
- }
- div class="form-field" {
- label { "成本费率/小时 (¥)" }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent" type="number" step="any" name="costs_hour"
- value=(wc.map(|w| crate::utils::fmt_qty(w.costs_hour)).unwrap_or_else(|| "0".into()));
- }
- div class="form-field" {
- label { "效率系数" }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent" type="number" step="any" name="time_efficiency"
- value=(wc.map(|w| crate::utils::fmt_qty(w.time_efficiency)).unwrap_or_else(|| "1".into()));
- }
- div class="form-field" {
- label { "准备时间 (分钟)" }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent" type="number" step="any" name="setup_time"
- value=(wc.map(|w| crate::utils::fmt_qty(w.setup_time)).unwrap_or_else(|| "0".into()));
- }
- div class="form-field" {
- label { "清理时间 (分钟)" }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent" type="number" step="any" name="cleanup_time"
- value=(wc.map(|w| crate::utils::fmt_qty(w.cleanup_time)).unwrap_or_else(|| "0".into()));
- }
- }
- }
+        div class="form-section" {
+            div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
+            { "产能与成本" }
+            div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
+                div class="form-field" {
+                    label { "产能/小时" }
+                    input
+                        class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent"
+                        type="number"
+                        step="any"
+                        name="default_capacity"
+                        value=({
+                            wc.map(|w| crate::utils::fmt_qty(w.default_capacity))
+                                .unwrap_or_else(|| "0".into())
+                        });
+                }
+                div class="form-field" {
+                    label { "成本费率/小时 (¥)" }
+                    input
+                        class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent"
+                        type="number"
+                        step="any"
+                        name="costs_hour"
+                        value=({
+                            wc.map(|w| crate::utils::fmt_qty(w.costs_hour))
+                                .unwrap_or_else(|| "0".into())
+                        });
+                }
+                div class="form-field" {
+                    label { "效率系数" }
+                    input
+                        class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent"
+                        type="number"
+                        step="any"
+                        name="time_efficiency"
+                        value=({
+                            wc.map(|w| crate::utils::fmt_qty(w.time_efficiency))
+                                .unwrap_or_else(|| "1".into())
+                        });
+                }
+                div class="form-field" {
+                    label { "准备时间 (分钟)" }
+                    input
+                        class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent"
+                        type="number"
+                        step="any"
+                        name="setup_time"
+                        value=({
+                            wc.map(|w| crate::utils::fmt_qty(w.setup_time))
+                                .unwrap_or_else(|| "0".into())
+                        });
+                }
+                div class="form-field" {
+                    label { "清理时间 (分钟)" }
+                    input
+                        class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent"
+                        type="number"
+                        step="any"
+                        name="cleanup_time"
+                        value=({
+                            wc.map(|w| crate::utils::fmt_qty(w.cleanup_time))
+                                .unwrap_or_else(|| "0".into())
+                        });
+                }
+            }
+        }
 
- div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
- a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(WorkCenterListPath::PATH) { "取消" }
- button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" type="submit" {
- (icon::check_circle_icon("w-4 h-4"))
- @if is_edit { "保存" } @else { "创建" }
- }
- }
- }
- }
+        div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
+            a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                href=(WorkCenterListPath::PATH)
+            { "取消" }
+            button
+                class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                type="submit"
+            {
+                (icon::check_circle_icon("w-4 h-4"))
+                @if is_edit { "保存" } @else { "创建" }
+            }
+        }
+    }
+}
 }
 
 // ── Parsers ──

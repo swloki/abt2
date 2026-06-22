@@ -146,22 +146,30 @@ fn lock_list_page(
  can_create: bool,
 ) -> Markup {
  html! {
- div {
- div class="flex items-center justify-between mb-6" {
- h1 class="text-xl font-bold text-fg tracking-tight" { "库存锁定" }
- div class="flex gap-3" {
- @if can_create {
- a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(LockCreatePath::PATH) {
- (icon::plus_icon("w-4 h-4"))
- "新建锁库"
- }
- }
- }
- }
+    div {
+        div class="flex items-center justify-between mb-6" {
+            h1 class="text-xl font-bold text-fg tracking-tight" { "库存锁定" }
+            div class="flex gap-3" {
+                @if can_create {
+                    a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                        href=(LockCreatePath::PATH)
+                    { (icon::plus_icon("w-4 h-4")) "新建锁库" }
+                }
+            }
+        }
 
- (lock_table_fragment(result, params, product_map, wh_names, operator_map, customer_map))
- }
- }
+        ({
+            lock_table_fragment(
+                result,
+                params,
+                product_map,
+                wh_names,
+                operator_map,
+                customer_map,
+            )
+        })
+    }
+}
 }
 
 fn lock_table_fragment(
@@ -184,37 +192,69 @@ fn lock_table_fragment(
  ];
 
  html! {
- div class="lock-list-panel" {
- (status_tabs_with_param(LockListPath::PATH, "#lock-data-card", "#lock-filter-form", tabs, &active_value, "status"))
+    div class="lock-list-panel" {
+        ({
+            status_tabs_with_param(
+                LockListPath::PATH,
+                "#lock-data-card",
+                "#lock-filter-form",
+                tabs,
+                &active_value,
+                "status",
+            )
+        })
 
- form class="flex items-center gap-3 mb-6 flex-wrap" id="lock-filter-form"
- hx-get=(LockListPath::PATH)
- hx-trigger="change, keyup changed delay:300ms from:.search-input"
- hx-target="#lock-data-card"
- hx-select="#lock-data-card"
- hx-swap="outerHTML"
- hx-include="#lock-filter-form"
- hx-push-url="true" {
- div class="relative w-60 icon:absolute icon:left-3 icon:top-1/2 icon:-translate-y-1/2 icon:w-4 icon:h-4 icon:text-muted" {
- (icon::search_icon(""))
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input" type="text" name="doc_number"
- placeholder="搜索锁库单号…"
- value=(params.doc_number.as_deref().unwrap_or(""));
- }
- div class="relative w-40 icon:absolute icon:left-3 icon:top-1/2 icon:-translate-y-1/2 icon:w-4 icon:h-4 icon:text-muted" {
- (icon::search_icon(""))
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input" type="text" name="product"
- placeholder="产品编码/名称"
- value=(params.product.as_deref().unwrap_or(""));
- }
- select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="warehouse_id" {
- option value="" { "全部仓库" }
- }
- }
+        form
+            class="flex items-center gap-3 mb-6 flex-wrap"
+            id="lock-filter-form"
+            hx-get=(LockListPath::PATH)
+            hx-trigger="change, keyup changed delay:300ms from:.search-input"
+            hx-target="#lock-data-card"
+            hx-select="#lock-data-card"
+            hx-swap="outerHTML"
+            hx-include="#lock-filter-form"
+            hx-push-url="true"
+        {
+            div class="relative w-60 icon:absolute icon:left-3 icon:top-1/2 icon:-translate-y-1/2 icon:w-4 icon:h-4 icon:text-muted"
+            {
+                (icon::search_icon(""))
+                input
+                    class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input"
+                    type="text"
+                    name="doc_number"
+                    placeholder="搜索锁库单号…"
+                    value=(params.doc_number.as_deref().unwrap_or(""));
+            }
+            div class="relative w-40 icon:absolute icon:left-3 icon:top-1/2 icon:-translate-y-1/2 icon:w-4 icon:h-4 icon:text-muted"
+            {
+                (icon::search_icon(""))
+                input
+                    class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input"
+                    type="text"
+                    name="product"
+                    placeholder="产品编码/名称"
+                    value=(params.product.as_deref().unwrap_or(""));
+            }
+            select
+                class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer"
+                name="warehouse_id"
+            {
+                option value="" { "全部仓库" }
+            }
+        }
 
- (lock_data_card_fragment(result, params, product_map, wh_names, operator_map, customer_map))
- }
- }
+        ({
+            lock_data_card_fragment(
+                result,
+                params,
+                product_map,
+                wh_names,
+                operator_map,
+                customer_map,
+            )
+        })
+    }
+}
 }
 
 fn lock_data_card_fragment(
@@ -228,40 +268,54 @@ fn lock_data_card_fragment(
  let query = build_query_string(params);
 
  html! {
- div class="data-card" id="lock-data-card" {
- div class="overflow-x-auto" {
- table class="data-table min-w-[1060px]" {
- thead {
- tr {
- th { "锁库单号" }
- th { "产品编码" }
- th { "产品名称" }
- th { "锁定仓库" }
- th class="text-right text-[13px]" { "锁定数量" }
- th { "锁定原因" }
- th { "关联客户" }
- th { "状态" }
- th { "操作员" }
- th class="!text-right" { "操作" }
- }
- }
- tbody {
- @for lock in &result.items {
- (lock_row(lock, product_map, wh_names, operator_map, customer_map))
- }
- @if result.items.is_empty() {
- tr {
- td colspan="10" class="text-center text-muted p-8" {
- "暂无锁库数据"
- }
- }
- }
- }
- }
- }
- (pagination(LockListPath::PATH, &query, result.total, result.page, result.total_pages))
- }
- }
+    div class="data-card" id="lock-data-card" {
+        div class="overflow-x-auto" {
+            table class="data-table min-w-[1060px]" {
+                thead {
+                    tr {
+                        th { "锁库单号" }
+                        th { "产品编码" }
+                        th { "产品名称" }
+                        th { "锁定仓库" }
+                        th class="text-right text-[13px]" { "锁定数量" }
+                        th { "锁定原因" }
+                        th { "关联客户" }
+                        th { "状态" }
+                        th { "操作员" }
+                        th class="!text-right" { "操作" }
+                    }
+                }
+                tbody {
+                    @for lock in &result.items {
+                        ({
+                            lock_row(
+                                lock,
+                                product_map,
+                                wh_names,
+                                operator_map,
+                                customer_map,
+                            )
+                        })
+                    }
+                    @if result.items.is_empty() {
+                        tr {
+                            td colspan="10" class="text-center text-muted p-8" { "暂无锁库数据" }
+                        }
+                    }
+                }
+            }
+        }
+        ({
+            pagination(
+                LockListPath::PATH,
+                &query,
+                result.total,
+                result.page,
+                result.total_pages,
+            )
+        })
+    }
+}
 }
 
 fn lock_row(
@@ -277,42 +331,44 @@ fn lock_row(
  let locked_qty_fmt = format!("{:.2}", lock.locked_qty);
 
  html! {
- tr {
- td {
- a class="text-accent font-medium font-mono tabular-nums hover:underline" href=(&detail_path) { (lock.doc_number) }
- }
- td class="font-mono tabular-nums" {
- (product_map.get(&lock.product_id).map(|(c,_)| c.as_str()).unwrap_or("—"))
- }
- td {
- (product_map.get(&lock.product_id).map(|(_,n)| n.as_str()).unwrap_or("—"))
- }
- td {
- (wh_names.get(&lock.warehouse_id).map(|s| s.as_str()).unwrap_or("—"))
- }
- td class="text-right text-[13px] font-mono tabular-nums" { (locked_qty_fmt) }
- td { (lock.lock_reason) }
- td {
- @if let Some(cid) = lock.customer_id {
- (customer_map.get(&cid).map(|s| s.as_str()).unwrap_or("—"))
- } @else {
- span class="text-muted" { "—" }
- }
- }
- td {
- span class=(format!("status-pill {}", crate::utils::status_color(sc))) { (sl) }
- }
- td {
- (operator_map.get(&lock.operator_id).map(|s| s.as_str()).unwrap_or("—"))
- }
- td {
- div class="flex items-center gap-1 justify-end" {
- a class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer hover:bg-accent-bg" href=(&detail_path) title="查看" {
- (icon::eye_icon("w-4 h-4"))
- }
- }
- }
- }
+    tr {
+        td {
+            a   class="text-accent font-medium font-mono tabular-nums hover:underline"
+                href=(&detail_path)
+            { (lock.doc_number) }
+        }
+        td class="font-mono tabular-nums" {
+            ({
+                product_map
+                    .get(&lock.product_id)
+                    .map(|(c, _)| c.as_str())
+                    .unwrap_or("—")
+            })
+        }
+        td { (product_map.get(&lock.product_id).map(|(_, n)| n.as_str()).unwrap_or("—")) }
+        td { (wh_names.get(&lock.warehouse_id).map(|s| s.as_str()).unwrap_or("—")) }
+        td class="text-right text-[13px] font-mono tabular-nums" { (locked_qty_fmt) }
+        td { (lock.lock_reason) }
+        td {
+            @if let Some(cid) = lock.customer_id {
+                (customer_map.get(&cid).map(|s| s.as_str()).unwrap_or("—"))
+            } @else {
+                span class="text-muted" { "—" }
+            }
+        }
+        td {
+            span class=(format!("status-pill {}", crate::utils::status_color(sc))) { (sl) }
+        }
+        td { (operator_map.get(&lock.operator_id).map(|s| s.as_str()).unwrap_or("—")) }
+        td {
+            div class="flex items-center gap-1 justify-end" {
+                a   class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer hover:bg-accent-bg"
+                    href=(&detail_path)
+                    title="查看"
+                { (icon::eye_icon("w-4 h-4")) }
+            }
+        }
+    }
 }
 }
 

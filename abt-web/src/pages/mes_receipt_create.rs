@@ -328,129 +328,168 @@ fn receipt_create_content() -> Markup {
  };
 
  html! {
- div {
- // ── Back Link ──
- a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150 mb-4" href=(format!("{}?restore=true", ReceiptListPath::PATH)) {
- (icon::chevron_left_icon("w-4 h-4"))
- "返回完工入库列表"
- }
- // ── Page Header ──
- div class="flex items-center justify-between mb-5" {
- h1 class="text-xl font-bold text-fg tracking-tight" { "新建完工入库" }
- }
+    div {
+        // ── Back Link ──
+        a   class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150 mb-4"
+            href=(format!("{}?restore=true", ReceiptListPath::PATH))
+        { (icon::chevron_left_icon("w-4 h-4")) "返回完工入库列表" }
+        // ── Page Header ──
+        div class="flex items-center justify-between mb-5" {
+            h1 class="text-xl font-bold text-fg tracking-tight" { "新建完工入库" }
+        }
 
- form hx-post=(ReceiptCreatePath::PATH) hx-swap="none" id="receipt-form" {
- // ── 入库来源 ──
- div class="form-section" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-3 border-b border-border-soft" {
- (icon::clipboard_document_icon("w-[18px] h-[18px]"))
- "入库来源"
- }
+        form hx-post=(ReceiptCreatePath::PATH) hx-swap="none" id="receipt-form" {
+            // ── 入库来源 ──
+            div class="form-section" {
+                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-3 border-b border-border-soft"
+                { (icon::clipboard_document_icon("w-[18px] h-[18px]")) "入库来源" }
 
- (entity_picker::entity_picker_field(
- "work_order_id", "work_order_id", "wo-display", "wo-picker",
- "工单号", true, "点击选择工单…",
- ))
+                ({
+                    entity_picker::entity_picker_field(
+                        "work_order_id",
+                        "work_order_id",
+                        "wo-display",
+                        "wo-picker",
+                        "工单号",
+                        true,
+                        "点击选择工单…",
+                    )
+                })
+                // 工单选中后级联加载：产品名
+                div id="wo-cascade"
+                    hx-get=(ReceiptWoSelectedPath::PATH)
+                    hx-trigger="woSelected from:body"
+                    hx-target="this"
+                    hx-swap="outerHTML"
+                    hx-include="#work_order_id"
+                {
+                    div class="grid grid-cols-2 gap-4 gap-x-6" {
+                        div class="form-field" {
+                            label
+                                class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap"
+                            { "产品" }
+                            div class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-surface text-muted outline-none"
+                            { "选择工单后自动填充" }
+                        }
+                    }
+                }
+            }
+            // ── 入库明细 ──
+            div class="form-section" {
+                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-3 border-b border-border-soft"
+                { (icon::box_icon("w-[18px] h-[18px]")) "入库明细" }
+                div class="grid grid-cols-2 gap-4 gap-x-6" {
+                    div class="form-field" {
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
+                            "入库数量 "
+                            span class="required" { "*" }
+                        }
+                        input
+                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
+                            type="number"
+                            step="any"
+                            name="received_qty"
+                            required
+                            placeholder="0";
+                    }
+                    div class="form-field" {
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
+                            "入库日期 "
+                            span class="required" { "*" }
+                        }
+                        input
+                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
+                            type="date"
+                            name="receipt_date"
+                            value=(today)
+                            required;
+                    }
+                }
+            }
+            // ── 目标库位 ──
+            div class="form-section" {
+                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-3 border-b border-border-soft"
+                { (icon::cube_icon("w-[18px] h-[18px]")) "目标库位" }
 
- // 工单选中后级联加载：产品名
- div id="wo-cascade"
- hx-get=(ReceiptWoSelectedPath::PATH)
- hx-trigger="woSelected from:body"
- hx-target="this"
- hx-swap="outerHTML"
- hx-include="#work_order_id" {
- div class="grid grid-cols-2 gap-4 gap-x-6" {
- div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "产品" }
- div class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-surface text-muted outline-none" { "选择工单后自动填充" }
- }
- }
- }
- }
-
- // ── 入库明细 ──
- div class="form-section" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-3 border-b border-border-soft" {
- (icon::box_icon("w-[18px] h-[18px]"))
- "入库明细"
- }
- div class="grid grid-cols-2 gap-4 gap-x-6" {
- div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "入库数量 " span class="required" { "*" } }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="number" step="any" name="received_qty" required placeholder="0";
- }
- div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "入库日期 " span class="required" { "*" } }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" type="date" name="receipt_date" value=(today) required;
- }
- }
- }
-
- // ── 目标库位 ──
- div class="form-section" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-3 border-b border-border-soft" {
- (icon::cube_icon("w-[18px] h-[18px]"))
- "目标库位"
- }
-
- (entity_picker::entity_picker_field(
- "warehouse_id", "warehouse_id", "wh-display", "wh-picker",
- "目标仓库", true, "点击选择仓库…",
- ))
-
- // 仓库选中后级联加载：库区 + 库位
- div id="zone-bin-area"
- hx-get=(ReceiptWhZonesPath::PATH)
- hx-trigger="whSelected from:body"
- hx-target="this"
- hx-swap="outerHTML"
- hx-include="#warehouse_id" {
- div class="grid grid-cols-2 gap-4 gap-x-6" {
- div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "库区" }
- select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" name="zone_id" disabled {
- option value="" { "选择仓库后加载" }
- }
- }
- div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "库位" }
- select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" name="bin_id" disabled {
- option value="" { "选择库区后加载" }
- }
- }
- }
- }
- }
-
- // ── 备注 ──
- div class="form-section" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-3 border-b border-border-soft" {
- (icon::comment_icon("w-[18px] h-[18px]"))
- "备注"
- }
- div class="form-field col-span-2" {
- textarea class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent resize-y" name="remark" rows="2" placeholder="可选备注…" {}
- }
- }
-
- // ── Action Bar ──
- div class="sticky bottom-0 flex items-center justify-between gap-3 px-6 py-4 bg-bg border-t border-border-soft" {
- div { }
- div class="flex gap-3" {
- a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{}?restore=true", ReceiptListPath::PATH)) { "取消" }
- button type="submit" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" {
- (icon::check_circle_icon("w-4 h-4"))
- "提交入库"
- }
- }
- }
- }
-
- // ── 弹窗 ──
- (entity_picker::entity_picker_modal(&wo_picker))
- (entity_picker::entity_picker_modal(&wh_picker))
- }
- }
+                ({
+                    entity_picker::entity_picker_field(
+                        "warehouse_id",
+                        "warehouse_id",
+                        "wh-display",
+                        "wh-picker",
+                        "目标仓库",
+                        true,
+                        "点击选择仓库…",
+                    )
+                })
+                // 仓库选中后级联加载：库区 + 库位
+                div id="zone-bin-area"
+                    hx-get=(ReceiptWhZonesPath::PATH)
+                    hx-trigger="whSelected from:body"
+                    hx-target="this"
+                    hx-swap="outerHTML"
+                    hx-include="#warehouse_id"
+                {
+                    div class="grid grid-cols-2 gap-4 gap-x-6" {
+                        div class="form-field" {
+                            label
+                                class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap"
+                            { "库区" }
+                            select
+                                class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
+                                name="zone_id"
+                                disabled
+                            {
+                                option value="" { "选择仓库后加载" }
+                            }
+                        }
+                        div class="form-field" {
+                            label
+                                class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap"
+                            { "库位" }
+                            select
+                                class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
+                                name="bin_id"
+                                disabled
+                            {
+                                option value="" { "选择库区后加载" }
+                            }
+                        }
+                    }
+                }
+            }
+            // ── 备注 ──
+            div class="form-section" {
+                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-3 border-b border-border-soft"
+                { (icon::comment_icon("w-[18px] h-[18px]")) "备注" }
+                div class="form-field col-span-2" {
+                    textarea
+                        class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent resize-y"
+                        name="remark"
+                        rows="2"
+                        placeholder="可选备注…" {}
+                }
+            }
+            // ── Action Bar ──
+            div class="sticky bottom-0 flex items-center justify-between gap-3 px-6 py-4 bg-bg border-t border-border-soft"
+            {
+                div {}
+                div class="flex gap-3" {
+                    a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                        href=(format!("{}?restore=true", ReceiptListPath::PATH))
+                    { "取消" }
+                    button
+                        type="submit"
+                        class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                    { (icon::check_circle_icon("w-4 h-4")) "提交入库" }
+                }
+            }
+        }
+        // ── 弹窗 ──
+        (entity_picker::entity_picker_modal(&wo_picker))
+        (entity_picker::entity_picker_modal(&wh_picker))
+    }
+}
 }
 
 // ── HTMX fragments ──
@@ -458,72 +497,94 @@ fn receipt_create_content() -> Markup {
 /// 工单选中后返回的产品信息片段
 fn wo_cascade_fragment(product_id: i64, product_name: &str) -> Markup {
  html! {
- div id="wo-cascade" {
- div class="grid grid-cols-2 gap-4 gap-x-6" {
- // 产品（只读 + 隐藏 ID）
- div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "产品" }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-surface text-muted outline-none" type="text" value=(product_name) disabled;
- input type="hidden" name="product_id" value=(product_id);
- }
- }
- }
- }
+    div id="wo-cascade" {
+        div class="grid grid-cols-2 gap-4 gap-x-6" {
+            // 产品（只读 + 隐藏 ID）
+            div class="form-field" {
+                label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "产品" }
+                input
+                    class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-surface text-muted outline-none"
+                    type="text"
+                    value=(product_name)
+                    disabled;
+                input type="hidden" name="product_id" value=(product_id);
+            }
+        }
+    }
+}
 }
 
 /// 仓库选中后返回的库区下拉 + 库位占位
 fn zone_select_fragment(zones: &[abt_core::wms::warehouse::model::Zone]) -> Markup {
  html! {
- div id="zone-bin-area" {
- div class="grid grid-cols-2 gap-4 gap-x-6" {
- div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "库区" }
- @if zones.is_empty() {
- select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" name="zone_id" disabled {
- option value="" { "该仓库暂无库区" }
- }
- input type="hidden" name="zone_id" value="";
- } @else {
- select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" name="zone_id"
- hx-get=(ReceiptZnBinsPath::PATH)
- hx-target="#bin-select-wrap"
- hx-trigger="change"
- hx-swap="outerHTML"
- hx-include="this" {
- option value="" selected { "默认库区" }
- @for z in zones {
- option value=(z.id) { (z.name) }
- }
- }
- }
- }
- div class="form-field" id="bin-select-wrap" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "库位" }
- select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" name="bin_id" disabled {
- option value="" { "选择库区后加载" }
- }
- }
- }
- }
- }
+    div id="zone-bin-area" {
+        div class="grid grid-cols-2 gap-4 gap-x-6" {
+            div class="form-field" {
+                label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "库区" }
+                @if zones.is_empty() {
+                    select
+                        class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
+                        name="zone_id"
+                        disabled
+                    {
+                        option value="" { "该仓库暂无库区" }
+                    }
+                    input type="hidden" name="zone_id" value="";
+                } @else {
+                    select
+                        class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
+                        name="zone_id"
+                        hx-get=(ReceiptZnBinsPath::PATH)
+                        hx-target="#bin-select-wrap"
+                        hx-trigger="change"
+                        hx-swap="outerHTML"
+                        hx-include="this"
+                    {
+                        option value="" selected { "默认库区" }
+                        @for z in zones {
+                            option value=(z.id) { (z.name) }
+                        }
+                    }
+                }
+            }
+            div class="form-field" id="bin-select-wrap" {
+                label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "库位" }
+                select
+                    class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
+                    name="bin_id"
+                    disabled
+                {
+                    option value="" { "选择库区后加载" }
+                }
+            }
+        }
+    }
+}
  }
 /// 库区选中后返回的库位下拉
 fn bin_select_fragment(bins: &[abt_core::wms::warehouse::model::Bin]) -> Markup {
  html! {
- div class="form-field" id="bin-select-wrap" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "库位" }
- @if bins.is_empty() {
- select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" name="bin_id" disabled {
- option value="" { "该库区暂无库位" }
- }
- } @else {
- select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent" name="bin_id" {
- option value="" selected { "自动分配" }
- @for b in bins {
- option value=(b.id) { (b.code) " " (b.name) }
- }
- }
- }
- }
- }
+    div class="form-field" id="bin-select-wrap" {
+        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "库位" }
+        @if bins.is_empty() {
+            select
+                class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
+                name="bin_id"
+                disabled
+            {
+                option value="" { "该库区暂无库位" }
+            }
+        } @else {
+            select
+                class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
+                name="bin_id"
+            {
+                option value="" selected { "自动分配" }
+                @for b in bins {
+                    option value=(b.id) { (b.code) " " (b.name) }
+                }
+            }
+        }
+    }
+}
 }

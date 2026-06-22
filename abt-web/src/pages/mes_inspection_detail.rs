@@ -44,34 +44,95 @@ pub async fn get_inspection_detail(path: InspectionDetailPath, ctx: RequestConte
  let product = lookups.product_name.as_deref().unwrap_or("—");
  let inspector = lookups.inspector_name.as_deref().unwrap_or("—");
 
- let content = html! { div {
- div class="flex items-center justify-between mb-6" {
- div class="flex items-center justify-between mb-6" { a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", InspectionListPath::PATH)) { "\u{2190} 返回列表" } h1 class="text-xl font-bold text-fg tracking-tight" { "检验 " (insp.doc_number) } }
- }
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
- div class="grid gap-4" {
- div class="flex flex-col gap-1" { label { "单号" } span class="font-mono tabular-nums" { (insp.doc_number) } }
- div class="flex flex-col gap-1" { label { "工单" } span { (wo) } }
- div class="flex flex-col gap-1" { label { "产品" } span { (product) } }
- div class="flex flex-col gap-1" { label { "检验类型" } span { (type_label) } }
- div class="flex flex-col gap-1" { label { "样本数量" } span class="font-mono tabular-nums" { (crate::utils::fmt_qty(insp.sample_qty)) } }
- div class="flex flex-col gap-1" { label { "合格数量" } span class="font-mono tabular-nums" { (crate::utils::fmt_qty(insp.qualified_qty)) } }
- div class="flex flex-col gap-1" { label { "不合格数量" } span class="font-mono tabular-nums" { (crate::utils::fmt_qty(insp.unqualified_qty)) } }
- div class="flex flex-col gap-1" { label { "结果" } span style=(format!("display:inline-flex;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{};color:{}", rb, rc)) { (rl) } }
- div class="flex flex-col gap-1" { label { "检验员" } span { (inspector) } }
- div class="flex flex-col gap-1" { label { "检验日期" } span { (insp.inspection_date) } }
- }
- }
- div class="form-section mt-6" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "记录检验结果" }
- form hx-post=(format!("/admin/mes/inspections/{}/record-result", insp.id)) hx-swap="none" {
- select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] inline-block w-[200px]" name="result" {
- option value="1" { "合格" } option value="2" { "不合格" } option value="3" { "让步接收" }
- }
- button type="submit" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] ml-3" { "提交" }
- }
- }
- }};
+ let content = html! {
+    div {
+        div class="flex items-center justify-between mb-6" {
+            div class="flex items-center justify-between mb-6" {
+                a   class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150"
+                    href=(format!("{}?restore=true", InspectionListPath::PATH))
+                { "\u{2190} 返回列表" }
+                h1 class="text-xl font-bold text-fg tracking-tight" { "检验 " (insp.doc_number) }
+            }
+        }
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
+            div class="grid gap-4" {
+                div class="flex flex-col gap-1" {
+                    label { "单号" }
+                    span class="font-mono tabular-nums" { (insp.doc_number) }
+                }
+                div class="flex flex-col gap-1" {
+                    label { "工单" }
+                    span { (wo) }
+                }
+                div class="flex flex-col gap-1" {
+                    label { "产品" }
+                    span { (product) }
+                }
+                div class="flex flex-col gap-1" {
+                    label { "检验类型" }
+                    span { (type_label) }
+                }
+                div class="flex flex-col gap-1" {
+                    label { "样本数量" }
+                    span class="font-mono tabular-nums" { (crate::utils::fmt_qty(insp.sample_qty)) }
+                }
+                div class="flex flex-col gap-1" {
+                    label { "合格数量" }
+                    span class="font-mono tabular-nums" {
+                        (crate::utils::fmt_qty(insp.qualified_qty))
+                    }
+                }
+                div class="flex flex-col gap-1" {
+                    label { "不合格数量" }
+                    span class="font-mono tabular-nums" {
+                        (crate::utils::fmt_qty(insp.unqualified_qty))
+                    }
+                }
+                div class="flex flex-col gap-1" {
+                    label { "结果" }
+                    span
+                        style=({
+                            format!(
+                                "display:inline-flex;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{};color:{}",
+                                rb,
+                                rc,
+                            )
+                        })
+                    { (rl) }
+                }
+                div class="flex flex-col gap-1" {
+                    label { "检验员" }
+                    span { (inspector) }
+                }
+                div class="flex flex-col gap-1" {
+                    label { "检验日期" }
+                    span { (insp.inspection_date) }
+                }
+            }
+        }
+        div class="form-section mt-6" {
+            div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
+            { "记录检验结果" }
+            form
+                hx-post=(format!("/admin/mes/inspections/{}/record-result", insp.id))
+                hx-swap="none"
+            {
+                select
+                    class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] inline-block w-[200px]"
+                    name="result"
+                {
+                    option value="1" { "合格" }
+                    option value="2" { "不合格" }
+                    option value="3" { "让步接收" }
+                }
+                button
+                    type="submit"
+                    class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] ml-3"
+                { "提交" }
+            }
+        }
+    }
+};
  Ok(Html(admin_page(is_htmx, "检验详情", &claims, "production", &format!("/admin/mes/inspections/{}", path.id), "生产管理", Some(InspectionListPath::PATH), content, &nav_filter).into_string()))
 }
 

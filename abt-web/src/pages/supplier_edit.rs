@@ -101,118 +101,217 @@ fn supplier_edit_page(supplier: &abt_core::master_data::supplier::model::Supplie
  };
 
  html! {
- div {
- // ── Page Header ──
- div class="flex items-center justify-between mb-6" {
- a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(detail_path) {
- (icon::arrow_left_icon("w-4 h-4"))
- "返回供应商详情"
- }
- h1 class="text-xl font-bold text-fg tracking-tight" { "编辑供应商" }
- }
+    div {
+        // ── Page Header ──
+        div class="flex items-center justify-between mb-6" {
+            a   class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150"
+                href=(detail_path)
+            { (icon::arrow_left_icon("w-4 h-4")) "返回供应商详情" }
+            h1 class="text-xl font-bold text-fg tracking-tight" { "编辑供应商" }
+        }
 
- form id="supplier-form"
- hx-post=(edit_path)
- hx-swap="none" {
-
- // ── Section: 基本信息 ──
- div class="data-card" class="mb-4" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "基本信息" }
- div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
- div class="form-field" {
- label { "供应商编码" }
- input type="text" value=(supplier.code) readonly
- class="bg-surface text-muted" {}
- }
- div class="form-field" {
- label { "供应商名称 " span class="text-danger" { "*" } }
- input type="text" name="name" required value=(supplier.name) {}
- }
- div class="form-field" {
- label { "简称" }
- input type="text" name="short_name" placeholder="请输入简称"
- value=(supplier.short_name.as_deref().unwrap_or("")) {}
- }
- div class="form-field" {
- label { "供应类别 " span class="text-danger" { "*" } }
- select name="category" required {
- option value="1" selected[attr_selected(category_val, 1)] { "原材料" }
- option value="2" selected[attr_selected(category_val, 2)] { "包装材料" }
- option value="3" selected[attr_selected(category_val, 3)] { "外协加工" }
- option value="4" selected[attr_selected(category_val, 4)] { "辅料耗材" }
- option value="5" selected[attr_selected(category_val, 5)] { "服务" }
- }
- }
- div class="form-field" {
- label { "状态 " span class="text-danger" { "*" } }
- select name="status" required {
- option value="1" selected[attr_selected(status_val, 1)] { "潜在" }
- option value="2" selected[attr_selected(status_val, 2)] { "合格" }
- option value="3" selected[attr_selected(status_val, 3)] { "试用期" }
- option value="4" selected[attr_selected(status_val, 4)] { "不合格" }
- option value="5" selected[attr_selected(status_val, 5)] { "黑名单" }
- }
- }
- div class="form-field" {
- label { "统一社会信用代码" }
- input type="text" name="tax_number" placeholder="请输入统一社会信用代码"
- value=(supplier.tax_number.as_deref().unwrap_or("")) {}
- }
- div class="form-field" {
- label { "交货天数 " span class="text-danger" { "*" } }
- input type="number" step="any" name="lead_time_days" required placeholder="请输入交货天数"
- value=(lead_time) {}
- }
- div class="form-field" {
- label { "付款条件" }
- select name="payment_terms" {
- option value="" { "-- 请选择 --" }
- option value="30天净额" selected[attr_selected_str(supplier.payment_terms.as_deref(), "30天净额")] { "30天净额" }
- option value="60天净额" selected[attr_selected_str(supplier.payment_terms.as_deref(), "60天净额")] { "60天净额" }
- option value="预付30%" selected[attr_selected_str(supplier.payment_terms.as_deref(), "预付30%")] { "预付30%" }
- option value="货到付款" selected[attr_selected_str(supplier.payment_terms.as_deref(), "货到付款")] { "货到付款" }
- option value="月结30天" selected[attr_selected_str(supplier.payment_terms.as_deref(), "月结30天")] { "月结30天" }
- option value="月结60天" selected[attr_selected_str(supplier.payment_terms.as_deref(), "月结60天")] { "月结60天" }
- option value="月结90天" selected[attr_selected_str(supplier.payment_terms.as_deref(), "月结90天")] { "月结90天" }
- }
- }
- div class="form-field" {
- label { "结算货币" }
- select name="currency" {
- option value="CNY" selected[attr_selected_str(Some(&supplier.currency), "CNY")] { "CNY - 人民币" }
- option value="USD" selected[attr_selected_str(Some(&supplier.currency), "USD")] { "USD - 美元" }
- option value="JPY" selected[attr_selected_str(Some(&supplier.currency), "JPY")] { "JPY - 日元" }
- option value="AUD" selected[attr_selected_str(Some(&supplier.currency), "AUD")] { "AUD - 澳元" }
- option value="EUR" selected[attr_selected_str(Some(&supplier.currency), "EUR")] { "EUR - 欧元" }
- }
- }
- }
- }
-
- // ── Section: 其他 ──
- div class="data-card" class="mb-4" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "其他" }
- div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
- div class="form-field field-full" {
- label { "备注" }
- textarea name="remark" placeholder="请输入备注信息…"
- class="w-full resize-y" class="min-h-[80px]" {
- (supplier.remark)
- }
- }
- }
- }
-
- // ── Action Bar ──
- div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg border-t border-border-soft" {
- a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(detail_path) { "取消" }
- button type="submit" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" {
- "保存修改"
- }
- }
- }
- }
- }
+        form id="supplier-form" hx-post=(edit_path) hx-swap="none" {
+            // ── Section: 基本信息 ──
+            div class="data-card" class="mb-4" {
+                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
+                { "基本信息" }
+                div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
+                    div class="form-field" {
+                        label { "供应商编码" }
+                        input
+                            type="text"
+                            value=(supplier.code)
+                            readonly
+                            class="bg-surface text-muted" {}
+                    }
+                    div class="form-field" {
+                        label {
+                            "供应商名称 "
+                            span class="text-danger" { "*" }
+                        }
+                        input type="text" name="name" required value=(supplier.name) {}
+                    }
+                    div class="form-field" {
+                        label { "简称" }
+                        input
+                            type="text"
+                            name="short_name"
+                            placeholder="请输入简称"
+                            value=(supplier.short_name.as_deref().unwrap_or("")) {}
+                    }
+                    div class="form-field" {
+                        label {
+                            "供应类别 "
+                            span class="text-danger" { "*" }
+                        }
+                        select name="category" required {
+                            option value="1" selected[attr_selected(category_val, 1)] { "原材料" }
+                            option value="2" selected[attr_selected(category_val, 2)] { "包装材料" }
+                            option value="3" selected[attr_selected(category_val, 3)] { "外协加工" }
+                            option value="4" selected[attr_selected(category_val, 4)] { "辅料耗材" }
+                            option value="5" selected[attr_selected(category_val, 5)] { "服务" }
+                        }
+                    }
+                    div class="form-field" {
+                        label {
+                            "状态 "
+                            span class="text-danger" { "*" }
+                        }
+                        select name="status" required {
+                            option value="1" selected[attr_selected(status_val, 1)] { "潜在" }
+                            option value="2" selected[attr_selected(status_val, 2)] { "合格" }
+                            option value="3" selected[attr_selected(status_val, 3)] { "试用期" }
+                            option value="4" selected[attr_selected(status_val, 4)] { "不合格" }
+                            option value="5" selected[attr_selected(status_val, 5)] { "黑名单" }
+                        }
+                    }
+                    div class="form-field" {
+                        label { "统一社会信用代码" }
+                        input
+                            type="text"
+                            name="tax_number"
+                            placeholder="请输入统一社会信用代码"
+                            value=(supplier.tax_number.as_deref().unwrap_or("")) {}
+                    }
+                    div class="form-field" {
+                        label {
+                            "交货天数 "
+                            span class="text-danger" { "*" }
+                        }
+                        input
+                            type="number"
+                            step="any"
+                            name="lead_time_days"
+                            required
+                            placeholder="请输入交货天数"
+                            value=(lead_time) {}
+                    }
+                    div class="form-field" {
+                        label { "付款条件" }
+                        select name="payment_terms" {
+                            option value="" { "-- 请选择 --" }
+                            option
+                                value="30天净额"
+                                selected[
+                                    attr_selected_str(
+                                        supplier.payment_terms.as_deref(),
+                                        "30天净额",
+                                    )
+                                ]
+                            { "30天净额" }
+                            option
+                                value="60天净额"
+                                selected[
+                                    attr_selected_str(
+                                        supplier.payment_terms.as_deref(),
+                                        "60天净额",
+                                    )
+                                ]
+                            { "60天净额" }
+                            option
+                                value="预付30%"
+                                selected[
+                                    attr_selected_str(
+                                        supplier.payment_terms.as_deref(),
+                                        "预付30%",
+                                    )
+                                ]
+                            { "预付30%" }
+                            option
+                                value="货到付款"
+                                selected[
+                                    attr_selected_str(
+                                        supplier.payment_terms.as_deref(),
+                                        "货到付款",
+                                    )
+                                ]
+                            { "货到付款" }
+                            option
+                                value="月结30天"
+                                selected[
+                                    attr_selected_str(
+                                        supplier.payment_terms.as_deref(),
+                                        "月结30天",
+                                    )
+                                ]
+                            { "月结30天" }
+                            option
+                                value="月结60天"
+                                selected[
+                                    attr_selected_str(
+                                        supplier.payment_terms.as_deref(),
+                                        "月结60天",
+                                    )
+                                ]
+                            { "月结60天" }
+                            option
+                                value="月结90天"
+                                selected[
+                                    attr_selected_str(
+                                        supplier.payment_terms.as_deref(),
+                                        "月结90天",
+                                    )
+                                ]
+                            { "月结90天" }
+                        }
+                    }
+                    div class="form-field" {
+                        label { "结算货币" }
+                        select name="currency" {
+                            option
+                                value="CNY"
+                                selected[attr_selected_str(Some(&supplier.currency), "CNY")]
+                            { "CNY - 人民币" }
+                            option
+                                value="USD"
+                                selected[attr_selected_str(Some(&supplier.currency), "USD")]
+                            { "USD - 美元" }
+                            option
+                                value="JPY"
+                                selected[attr_selected_str(Some(&supplier.currency), "JPY")]
+                            { "JPY - 日元" }
+                            option
+                                value="AUD"
+                                selected[attr_selected_str(Some(&supplier.currency), "AUD")]
+                            { "AUD - 澳元" }
+                            option
+                                value="EUR"
+                                selected[attr_selected_str(Some(&supplier.currency), "EUR")]
+                            { "EUR - 欧元" }
+                        }
+                    }
+                }
+            }
+            // ── Section: 其他 ──
+            div class="data-card" class="mb-4" {
+                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
+                { "其他" }
+                div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
+                    div class="form-field field-full" {
+                        label { "备注" }
+                        textarea
+                            name="remark"
+                            placeholder="请输入备注信息…"
+                            class="w-full resize-y"
+                            class="min-h-[80px]"
+                        { (supplier.remark) }
+                    }
+                }
+            }
+            // ── Action Bar ──
+            div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg border-t border-border-soft"
+            {
+                a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                    href=(detail_path)
+                { "取消" }
+                button
+                    type="submit"
+                    class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                { "保存修改" }
+            }
+        }
+    }
+}
 }
 
 fn attr_selected(val: i16, target: i16) -> bool {

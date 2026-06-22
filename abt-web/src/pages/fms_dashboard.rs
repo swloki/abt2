@@ -131,9 +131,13 @@ fn amount_color_cls(direction: &CashDirection) -> &'static str {
 fn stat_card(title: &str, value: &str, sub: Markup, icon_svg: Markup, icon_cls: &str) -> Markup {
     html! {
         div class="data-card flex items-center gap-4 p-5" {
-            div class=(format!("w-11 h-11 rounded-md grid place-items-center shrink-0 {}", icon_cls)) {
-                (icon_svg)
-            }
+            div class=({
+                    format!(
+                        "w-11 h-11 rounded-md grid place-items-center shrink-0 {}",
+                        icon_cls,
+                    )
+                })
+            { (icon_svg) }
             div class="flex-1 min-w-0" {
                 div class="text-sm text-muted" { (title) }
                 div class="text-2xl font-bold font-mono tabular-nums text-fg mt-1" {
@@ -180,54 +184,85 @@ fn fms_dashboard_page(
         div class="flex items-center justify-between mb-6" {
             h1 class="text-xl font-bold text-fg tracking-tight" { "财务管理总览" }
             div class="flex gap-3" {
-                a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(JournalCreatePath::PATH) {
-                    (icon::plus_icon("w-4 h-4"))
-                    " 新建日记账"
-                }
+                a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                    href=(JournalCreatePath::PATH)
+                { (icon::plus_icon("w-4 h-4")) " 新建日记账" }
             }
         }
-
         // ── Stat Cards ──
         div class="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6" {
-            (stat_card(
-                "本月流入",
-                &format!("¥{} <span class=\"text-sm text-muted\">万</span>", fmt_wan(balance.total_inflow)),
-                html! { "已确认流入" },
-                icon::dollar_icon("w-5 h-5"),
-                "bg-success-100 text-success",
-            ))
-            (stat_card(
-                "本月流出",
-                &format!("¥{} <span class=\"text-sm text-muted\">万</span>", fmt_wan(balance.total_outflow)),
-                html! { "已确认流出" },
-                icon::dollar_icon("w-5 h-5"),
-                "bg-danger-100 text-danger",
-            ))
+            ({
+                stat_card(
+                    "本月流入",
+                    &format!(
+                        "¥{} <span class=\"text-sm text-muted\">万</span>",
+                        fmt_wan(balance.total_inflow),
+                    ),
+                    html! {
+                        "已确认流入"
+                    },
+                    icon::dollar_icon("w-5 h-5"),
+                    "bg-success-100 text-success",
+                )
+            })
+            ({
+                stat_card(
+                    "本月流出",
+                    &format!(
+                        "¥{} <span class=\"text-sm text-muted\">万</span>",
+                        fmt_wan(balance.total_outflow),
+                    ),
+                    html! {
+                        "已确认流出"
+                    },
+                    icon::dollar_icon("w-5 h-5"),
+                    "bg-danger-100 text-danger",
+                )
+            })
             @let net = balance.net_balance;
             @let net_sign = if net >= Decimal::ZERO { "+" } else { "" };
-            (stat_card(
-                "净现金流",
-                &format!("{}¥{} <span class=\"text-sm text-muted\">万</span>", net_sign, fmt_wan(net.abs())),
-                html! { "期间 " span class="font-semibold" { (current_period) } },
-                icon::dollar_icon("w-5 h-5"),
-                "bg-accent-100 text-accent",
-            ))
-            (stat_card(
-                "待核销金额",
-                &format!("¥{} <span class=\"text-sm text-muted\">万</span>", fmt_wan(Decimal::ZERO)),
-                html! { "暂无核销数据" },
-                icon::dollar_icon("w-5 h-5"),
-                "bg-warn-100 text-warn",
-            ))
-            (stat_card(
-                "待审报销",
-                &pending_count.to_string(),
-                html! { "金额合计 " span class="font-semibold text-purple" { (format!("¥{}万", fmt_wan(pending_amount))) } },
-                icon::dollar_icon("w-5 h-5"),
-                "bg-purple-100 text-purple",
-            ))
+            ({
+                stat_card(
+                    "净现金流",
+                    &format!(
+                        "{}¥{} <span class=\"text-sm text-muted\">万</span>",
+                        net_sign,
+                        fmt_wan(net.abs()),
+                    ),
+                    html! {
+                        "期间 " span class = "font-semibold" { (current_period) }
+                    },
+                    icon::dollar_icon("w-5 h-5"),
+                    "bg-accent-100 text-accent",
+                )
+            })
+            ({
+                stat_card(
+                    "待核销金额",
+                    &format!(
+                        "¥{} <span class=\"text-sm text-muted\">万</span>",
+                        fmt_wan(Decimal::ZERO),
+                    ),
+                    html! {
+                        "暂无核销数据"
+                    },
+                    icon::dollar_icon("w-5 h-5"),
+                    "bg-warn-100 text-warn",
+                )
+            })
+            ({
+                stat_card(
+                    "待审报销",
+                    &pending_count.to_string(),
+                    html! {
+                        "金额合计 " span class = "font-semibold text-purple" {
+                        (format!("¥{}万", fmt_wan(pending_amount))) }
+                    },
+                    icon::dollar_icon("w-5 h-5"),
+                    "bg-purple-100 text-purple",
+                )
+            })
         }
-
         // ── Quick Entry ──
         div class="mb-6" {
             h2 class="text-lg font-semibold text-fg flex items-center gap-2 mb-4" {
@@ -235,76 +270,126 @@ fn fms_dashboard_page(
                 " 快捷操作"
             }
             div class="grid grid-cols-2 lg:grid-cols-4 gap-4" {
-                (quick_entry_card(JournalCreatePath::PATH, "新建日记账", "录入现金收支", "CashJournal", "blue"))
-                (quick_entry_card(ExpenseCreatePath::PATH, "费用报销", "提交报销申请", "Expense", "purple"))
-                (quick_entry_card(WriteoffListPath::PATH, "核销管理", "按单核销收款/付款", "WriteOff", "green"))
-                (quick_entry_card(CostAnalysisPath::PATH, "成本核算", "利润分析 & P&L", "CostEntry", "orange"))
+                ({
+                    quick_entry_card(
+                        JournalCreatePath::PATH,
+                        "新建日记账",
+                        "录入现金收支",
+                        "CashJournal",
+                        "blue",
+                    )
+                })
+                ({
+                    quick_entry_card(
+                        ExpenseCreatePath::PATH,
+                        "费用报销",
+                        "提交报销申请",
+                        "Expense",
+                        "purple",
+                    )
+                })
+                ({
+                    quick_entry_card(
+                        WriteoffListPath::PATH,
+                        "核销管理",
+                        "按单核销收款/付款",
+                        "WriteOff",
+                        "green",
+                    )
+                })
+                ({
+                    quick_entry_card(
+                        CostAnalysisPath::PATH,
+                        "成本核算",
+                        "利润分析 & P&L",
+                        "CostEntry",
+                        "orange",
+                    )
+                })
             }
         }
-
         // ── Two-Column: Recent Journals + Pending Expenses ──
         div class="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-6" {
             // Recent Journals
             div class="data-card overflow-hidden" {
-                div class="px-4 py-3 border-b border-border-soft text-sm font-semibold text-fg flex items-center justify-between" {
-                    span class="flex items-center gap-2" {
-                        (icon::dollar_icon("w-4 h-4"))
-                        " 最近日记账"
-                    }
-                    a href=(JournalListPath::PATH) class="text-xs text-accent font-medium hover:underline" { "查看全部 →" }
+                div class="px-4 py-3 border-b border-border-soft text-sm font-semibold text-fg flex items-center justify-between"
+                {
+                    span class="flex items-center gap-2" { (icon::dollar_icon("w-4 h-4")) " 最近日记账" }
+                    a   href=(JournalListPath::PATH)
+                        class="text-xs text-accent font-medium hover:underline"
+                    { "查看全部 →" }
                 }
                 div class="p-2" {
                     @if journals.is_empty() {
                         div class="text-center py-8 text-sm text-muted" { "暂无日记账记录" }
                     } @else {
                         @for j in journals {
-                            @let dot_cls = if j.direction == CashDirection::Inflow { "bg-success" } else { "bg-danger" };
+                            @let dot_cls = if j.direction == CashDirection::Inflow {
+                                "bg-success"
+                            } else {
+                                "bg-danger"
+                            };
                             @let amt_cls = amount_color_cls(&j.direction);
-                            div class="flex items-center gap-3 px-3 py-2.5 rounded-sm hover:bg-accent-bg transition-colors" {
- div class=(format!("w-2.5 h-2.5 rounded-full shrink-0 {}", dot_cls)) {}
+                            div class="flex items-center gap-3 px-3 py-2.5 rounded-sm hover:bg-accent-bg transition-colors"
+                            {
+                                div class=(format!("w-2.5 h-2.5 rounded-full shrink-0 {}", dot_cls)) {}
                                 div class="flex-1 min-w-0" {
-                                    div class="text-sm font-medium text-fg truncate font-mono" { (j.doc_number) }
-                                    div class="text-xs text-muted mt-0.5 truncate" { (journal_type_label(&j.journal_type)) " · " (j.remark.as_str()) }
+                                    div class="text-sm font-medium text-fg truncate font-mono" {
+                                        (j.doc_number)
+                                    }
+                                    div class="text-xs text-muted mt-0.5 truncate" {
+                                        (journal_type_label(&j.journal_type))
+                                        " · "
+                                        (j.remark.as_str())
+                                    }
                                 }
                                 div class="text-right shrink-0" {
                                     div class=(format!("text-sm font-bold font-mono {}", amt_cls)) {
                                         (fmt_amount(j.amount, &j.direction))
                                     }
-                                    div class="text-xs text-muted font-mono" { (j.transaction_date.format("%m-%d")) }
+                                    div class="text-xs text-muted font-mono" {
+                                        (j.transaction_date.format("%m-%d"))
+                                    }
                                 }
                             }
                         }
                     }
                 }
-
             }
             // Pending Expenses
             div class="data-card overflow-hidden" {
-                div class="px-4 py-3 border-b border-border-soft text-sm font-semibold text-fg flex items-center justify-between" {
+                div class="px-4 py-3 border-b border-border-soft text-sm font-semibold text-fg flex items-center justify-between"
+                {
                     span class="flex items-center gap-2" {
                         (icon::alert_triangle_icon("w-4 h-4"))
                         " 待审批报销"
                     }
-                    a href=(ExpenseListPath::PATH) class="text-xs text-accent font-medium hover:underline" { "查看全部 →" }
+                    a   href=(ExpenseListPath::PATH)
+                        class="text-xs text-accent font-medium hover:underline"
+                    { "查看全部 →" }
                 }
                 div class="p-2" {
                     @if expenses.is_empty() {
                         div class="text-center py-8 text-sm text-muted" { "暂无待审批报销" }
                     } @else {
                         @for e in expenses {
-                            div class="flex items-center gap-3 px-3 py-2.5 rounded-sm hover:bg-accent-bg transition-colors" {
-                                div class="w-8 h-8 rounded-full grid place-items-center shrink-0 text-xs font-bold text-white bg-accent" {
-                                    (e.doc_number.chars().next().unwrap_or('—'))
-                                }
+                            div class="flex items-center gap-3 px-3 py-2.5 rounded-sm hover:bg-accent-bg transition-colors"
+                            {
+                                div class="w-8 h-8 rounded-full grid place-items-center shrink-0 text-xs font-bold text-white bg-accent"
+                                { (e.doc_number.chars().next().unwrap_or('—')) }
                                 div class="flex-1 min-w-0" {
-                                    div class="text-sm font-medium text-fg truncate" { (e.remark.as_str()) }
+                                    div class="text-sm font-medium text-fg truncate" {
+                                        (e.remark.as_str())
+                                    }
                                     div class="text-xs text-muted font-mono" { (e.doc_number) }
                                 }
                                 div class="text-right shrink-0" {
                                     div class="text-sm font-bold font-mono text-fg" {
                                         (format!("¥{:.2}", e.total_amount))
                                     }
-                                    span class="inline-flex items-center rounded-full text-xs font-medium px-2 py-0.5 bg-warn-bg text-warn" { "待审批" }
+                                    span
+                                        class="inline-flex items-center rounded-full text-xs font-medium px-2 py-0.5 bg-warn-bg text-warn"
+                                    { "待审批" }
                                 }
                             }
                         }
@@ -312,34 +397,39 @@ fn fms_dashboard_page(
                 }
             }
         }
-
         // ── Distribution + Trend ──
         div class="grid grid-cols-1 lg:grid-cols-[1fr_1.5fr] gap-5 mb-6" {
             // Type Distribution
             div class="data-card overflow-hidden" {
-                div class="px-4 py-3 border-b border-border-soft text-sm font-semibold text-fg flex items-center gap-2" {
-                    (icon::dollar_icon("w-4 h-4"))
-                    " 本月日记账分布"
-                }
+                div class="px-4 py-3 border-b border-border-soft text-sm font-semibold text-fg flex items-center gap-2"
+                { (icon::dollar_icon("w-4 h-4")) " 本月日记账分布" }
                 div class="p-5 flex flex-col gap-5" {
                     @for (type_id, label, color_token) in dist_types {
-                        @let amount = distribution.iter().find(|(t, _)| *t == type_id).map(|(_, v)| *v).unwrap_or(Decimal::ZERO);
+                        @let amount = distribution
+                            .iter()
+                            .find(|(t, _)| *t == type_id)
+                            .map(|(_, v)| *v)
+                            .unwrap_or(Decimal::ZERO);
                         @let pct = if dist_max > Decimal::ZERO {
                             (amount / dist_max * Decimal::from(100)).round_dp(0)
                         } else {
                             Decimal::ZERO
                         };
-                        (distribution_bar(label, &format!("¥{}万", fmt_wan(amount)), color_token, &format!("{}%", pct)))
+                        ({
+                            distribution_bar(
+                                label,
+                                &format!("¥{}万", fmt_wan(amount)),
+                                color_token,
+                                &format!("{}%", pct),
+                            )
+                        })
                     }
                 }
             }
-
             // Monthly Trend
             div class="data-card overflow-hidden" {
-                div class="px-4 py-3 border-b border-border-soft text-sm font-semibold text-fg flex items-center gap-2" {
-                    (icon::trending_up_icon("w-4 h-4"))
-                    " 近6月现金流趋势（万元）"
-                }
+                div class="px-4 py-3 border-b border-border-soft text-sm font-semibold text-fg flex items-center gap-2"
+                { (icon::trending_up_icon("w-4 h-4")) " 近6月现金流趋势（万元）" }
                 div class="p-5" {
                     div class="flex items-center justify-between text-xs text-muted mb-5" {
                         div class="flex items-center gap-4" {
@@ -361,24 +451,51 @@ fn fms_dashboard_page(
                     div class="grid grid-cols-6 gap-2" {
                         @for i in 0..6 {
                             @let month_offset = 5 - i;
-                            @let target_date = (chrono::NaiveDate::from_ymd_opt(now.year(), now.month(), 1).unwrap())
+                            @let target_date = (chrono::NaiveDate::from_ymd_opt(
+                                    now.year(),
+                                    now.month(),
+                                    1,
+                                )
+                                .unwrap())
                                 .checked_sub_months(chrono::Months::new(month_offset as u32))
                                 .unwrap();
                             @let target_period = target_date.format("%Y-%m").to_string();
                             @let month_label = format!("{}月", target_date.month());
                             @let is_current = month_offset == 0;
-                            @let (inflow, outflow) = trend.iter()
+                            @let (inflow, outflow) = trend
+                                .iter()
                                 .find(|(p, _, _)| p == &target_period)
                                 .map(|(_, i, o)| (*i, *o))
                                 .unwrap_or((Decimal::ZERO, Decimal::ZERO));
                             @let net = inflow - outflow;
-                            @let inflow_h = (inflow / trend_max * Decimal::from(130) + Decimal::from(10)).round_dp(0);
-                            @let outflow_h = (outflow / trend_max * Decimal::from(130) + Decimal::from(10)).round_dp(0);
-                            @let net_display = if net >= Decimal::ZERO { format!("+{}", fmt_wan(net)) } else { fmt_wan(net) };
-                            @let net_cls = if is_current { "text-accent" }
-                                else if net >= Decimal::ZERO { "text-success" }
-                                else { "text-danger" };
-                            (trend_bar(&month_label, inflow_h, outflow_h, &net_display, net_cls, is_current))
+                            @let inflow_h = (inflow / trend_max * Decimal::from(130)
+                                + Decimal::from(10))
+                                .round_dp(0);
+                            @let outflow_h = (outflow / trend_max * Decimal::from(130)
+                                + Decimal::from(10))
+                                .round_dp(0);
+                            @let net_display = if net >= Decimal::ZERO {
+                                format!("+{}", fmt_wan(net))
+                            } else {
+                                fmt_wan(net)
+                            };
+                            @let net_cls = if is_current {
+                                "text-accent"
+                            } else if net >= Decimal::ZERO {
+                                "text-success"
+                            } else {
+                                "text-danger"
+                            };
+                            ({
+                                trend_bar(
+                                    &month_label,
+                                    inflow_h,
+                                    outflow_h,
+                                    &net_display,
+                                    net_cls,
+                                    is_current,
+                                )
+                            })
                         }
                     }
                 }
@@ -398,14 +515,19 @@ fn quick_entry_card(href: &str, title: &str, desc: &str, badge: &str, color: &st
         _ => (icon::grid_icon("w-5 h-5"), "text-fg", "bg-accent-bg text-muted"),
     };
     html! {
-        a href=(href) class="data-card block p-5 no-underline hover:shadow-[var(--shadow-card-hover)] transition-shadow duration-200" {
+        a   href=(href)
+            class="data-card block p-5 no-underline hover:shadow-[var(--shadow-card-hover)] transition-shadow duration-200"
+        {
             div class="flex items-center gap-3 mb-3" {
                 span class=(title_cls) { (icon_svg) }
- span class=(format!("text-[10px] font-bold px-2 py-0.5 rounded-full {}", badge_cls)) {
- (badge.to_uppercase())
- }
+                span class=({
+                    format!(
+                        "text-[10px] font-bold px-2 py-0.5 rounded-full {}",
+                        badge_cls,
+                    )
+                }) { (badge.to_uppercase()) }
             }
- div class=(format!("text-base font-semibold {} mb-1", title_cls)) { (title) }
+            div class=(format!("text-base font-semibold {} mb-1", title_cls)) { (title) }
             div class="text-sm text-muted" { (desc) }
         }
     }
@@ -425,7 +547,8 @@ fn distribution_bar(label: &str, value: &str, color_token: &str, width: &str) ->
                 span class=(format!("text-sm font-bold font-mono {}", text_cls)) { (value) }
             }
             div class="h-1.5 bg-[rgba(0,0,0,0.06)] rounded-full overflow-hidden" {
-                div class=(format!("h-full rounded-full {}", bar_cls)) style=(format!("width:{}", width)) {}
+                div class=(format!("h-full rounded-full {}", bar_cls))
+                    style=(format!("width:{}", width)) {}
             }
         }
     }
@@ -451,7 +574,7 @@ fn trend_bar(month: &str, inflow_h: Decimal, outflow_h: Decimal, net: &str, net_
                 div class=(outflow_bar_cls) style=(format!("height:{}px", outflow_h)) {}
             }
             div class=(month_cls) { (month) }
- div class=(format!("text-xs font-mono {} {}", net_cls, net_weight)) { (net) }
+            div class=(format!("text-xs font-mono {} {}", net_cls, net_weight)) { (net) }
         }
     }
 }

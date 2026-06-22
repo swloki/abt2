@@ -148,11 +148,9 @@ fn invoice_list_page(
         div {
             div class="flex items-center justify-between mb-6" {
                 h1 class="text-xl font-bold text-fg tracking-tight" { "采购发票" }
-                a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on text-sm font-medium cursor-pointer hover:bg-accent-hover transition-all duration-150 shadow-xs"
-                    href=(PurchaseInvoiceCreatePath::PATH) {
-                    (crate::components::icon::plus_icon("w-4 h-4"))
-                    "新建发票"
-                }
+                a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on text-sm font-medium cursor-pointer hover:bg-accent-hover transition-all duration-150 shadow-xs"
+                    href=(PurchaseInvoiceCreatePath::PATH)
+                { (crate::components::icon::plus_icon("w-4 h-4")) "新建发票" }
             }
             (invoice_table_fragment(result, params, supplier_map))
         }
@@ -176,20 +174,39 @@ fn invoice_table_fragment(
 
     html! {
         div {
-            (status_tabs_with_param(PurchaseInvoiceListPath::PATH, "#purchase-invoice-data-card", "#purchase-invoice-filter-form", tabs, &selected_status, "status"))
+            ({
+                status_tabs_with_param(
+                    PurchaseInvoiceListPath::PATH,
+                    "#purchase-invoice-data-card",
+                    "#purchase-invoice-filter-form",
+                    tabs,
+                    &selected_status,
+                    "status",
+                )
+            })
 
-            form class="flex items-center gap-3 mb-5 flex-wrap filter-form" id="purchase-invoice-filter-form"
+            form
+                class="flex items-center gap-3 mb-5 flex-wrap filter-form"
+                id="purchase-invoice-filter-form"
                 hx-get=(PurchaseInvoiceListPath::PATH)
                 hx-trigger="change, keyup changed delay:300ms from:.search-input"
                 hx-target="#purchase-invoice-data-card"
                 hx-select="#purchase-invoice-data-card"
                 hx-swap="outerHTML"
                 hx-include="#purchase-invoice-filter-form"
-                hx-push-url="true" {
-                input class="w-[120px] px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent font-mono tabular-nums" type="text" name="period"
+                hx-push-url="true"
+            {
+                input
+                    class="w-[120px] px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent font-mono tabular-nums"
+                    type="text"
+                    name="period"
                     placeholder="期间 YYYY-MM"
                     value=(params.period.as_deref().unwrap_or(""));
-                input class="w-[140px] px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent" type="number" step="any" name="supplier_id"
+                input
+                    class="w-[140px] px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent"
+                    type="number"
+                    step="any"
+                    name="supplier_id"
                     placeholder="供应商 ID"
                     value=(params.supplier_id.map(|v| v.to_string()).unwrap_or_default());
             }
@@ -222,22 +239,41 @@ fn invoice_data_card(
                     }
                     tbody {
                         @for item in &result.items {
-                            @let (status_text, status_bg, status_color) = status_label(&item.status);
-                            @let detail_path = PurchaseInvoiceDetailPath { id: item.id };
-                            @let supplier_name = supplier_map.get(&item.supplier_id).cloned().unwrap_or_else(|| format!("#{}", item.supplier_id));
-                            tr class="cursor-pointer" onclick=(format!("location.href='{}'", detail_path.to_string())) {
+                            @let (status_text, status_bg, status_color) = status_label(
+                                &item.status,
+                            );
+                            @let detail_path = PurchaseInvoiceDetailPath {
+                                id: item.id,
+                            };
+                            @let supplier_name = supplier_map
+                                .get(&item.supplier_id)
+                                .cloned()
+                                .unwrap_or_else(|| format!("#{}", item.supplier_id));
+                            tr  class="cursor-pointer"
+                                onclick=(format!("location.href='{}'", detail_path.to_string()))
+                            {
                                 td class="font-mono tabular-nums text-accent" { (&item.doc_number) }
                                 td class="font-mono tabular-nums" { (&item.period) }
                                 td class="text-xs text-muted" { (item.issue_date.format("%Y-%m-%d")) }
                                 td { (supplier_name) }
-                                td class="font-mono tabular-nums text-right text-fg" { (fmt_amount(item.total)) }
-                                td {
-                                    span style=(format!("display:inline-flex;align-items:center;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{};color:{}", status_bg, status_color)) {
-                                        (status_text)
-                                    }
+                                td class="font-mono tabular-nums text-right text-fg" {
+                                    (fmt_amount(item.total))
                                 }
                                 td {
-                                    a href=(detail_path.to_string()) class="text-accent text-xs" { "查看" }
+                                    span
+                                        style=({
+                                            format!(
+                                                "display:inline-flex;align-items:center;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{};color:{}",
+                                                status_bg,
+                                                status_color,
+                                            )
+                                        })
+                                    { (status_text) }
+                                }
+                                td {
+                                    a href=(detail_path.to_string()) class="text-accent text-xs" {
+                                        "查看"
+                                    }
                                 }
                             }
                         }
@@ -249,7 +285,15 @@ fn invoice_data_card(
                     }
                 }
             }
-            (pagination(PurchaseInvoiceListPath::PATH, &query, result.total, result.page, result.total_pages))
+            ({
+                pagination(
+                    PurchaseInvoiceListPath::PATH,
+                    &query,
+                    result.total,
+                    result.page,
+                    result.total_pages,
+                )
+            })
         }
     }
 }

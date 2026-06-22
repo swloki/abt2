@@ -69,74 +69,132 @@ fn exception_detail_page(
  .map(crate::utils::fmt_qty)
  .unwrap_or_else(|| "—".to_string());
 
- html! { div {
- div class="flex items-center justify-between mb-6" {
- div class="flex items-center justify-between mb-6" {
- a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", ExceptionListPath::PATH)) { "\u{2190} 返回列表" }
- h1 class="text-xl font-bold text-fg tracking-tight" { "异常 " (exc.doc_number) }
- }
- }
-
- // Status + severity
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
- div class="flex items-center mb-4 gap-3" {
- span class=(format!("status-pill {}", crate::utils::status_color(type_cls))) { (type_label) }
- span class=(format!("status-pill {}", crate::utils::status_color(status_cls))) { (status_label) }
- span class=(format!("status-pill {}", crate::utils::status_color(severity_cls))) { (severity_label) }
- }
- div class="grid gap-4" {
- div class="flex flex-col gap-1" { label { "异常类型" } span { (type_label) } }
- div class="flex flex-col gap-1" { label { "原因分类" } span { (reason_label) } }
- div class="flex flex-col gap-1" { label { "关联工单" } span class="font-mono tabular-nums" {
- @if let Some(ref wo) = lookups.wo_doc_number {
- a href=(format!("/admin/mes/orders/{}", exc.work_order_id.unwrap_or(0))) class="text-accent font-medium cursor-pointer" { (wo) }
- } @else { "—" }
- }}
- div class="flex flex-col gap-1" { label { "关联批次" } span class="font-mono tabular-nums" {
- @if let Some(ref bn) = lookups.batch_no {
- a href=(format!("/admin/mes/batches/{}", exc.batch_id.unwrap_or(0))) class="text-accent font-medium cursor-pointer" { (bn) }
- } @else { "—" }
- }}
- div class="flex flex-col gap-1" { label { "产品" } span { (lookups.product_name.as_deref().unwrap_or("—")) } }
- div class="flex flex-col gap-1" { label { "影响数量" } span class="font-mono tabular-nums" { (impact_display) } }
- div class="flex flex-col gap-1" { label { "发现时间" } span { (exc.found_at.format("%Y-%m-%d %H:%M")) } }
- div class="flex flex-col gap-1" { label { "发现人" } span { (lookups.finder_name.as_deref().unwrap_or("—")) } }
- div class="flex flex-col gap-1" { label { "负责人" } span { (lookups.owner_name.as_deref().unwrap_or("—")) } }
- div class="flex flex-col gap-1" { label { "处置方式" } span { (exc.disposition.as_deref().unwrap_or("—")) } }
- div class="flex flex-col gap-1" { label { "优先级" } span { (severity_label) } }
- div class="flex flex-col gap-1" { label { "状态" } span { (status_label) } }
- }
- }
-
- // Description
- @if let Some(ref desc) = exc.description {
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
- div class="font-semibold mb-2" { "异常描述" }
- div class="whitespace-pre-wrap leading-relaxed" { (desc) }
- }
- }
-
- // Timeline
- @if !events.is_empty() {
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
- div class="font-semibold mb-4" { "处理时间线" }
- div class="flex flex-col gap-0" {
- @for event in events {
- div class="flex flex-col gap-0-item" {
- div class="flex flex-col gap-0-dot" {}
- div class="flex flex-col gap-0-content" {
- div class="flex flex-col gap-0-time" { (event.created_at.format("%Y-%m-%d %H:%M")) }
- div class="flex flex-col gap-0-action" { (event_type_label(&event.event_type)) }
- @if let Some(ref desc) = event.description {
- div class="flex flex-col gap-0-desc" { (desc) }
- }
- }
- }
- }
- }
- }
- }
- }}
+ html! {
+    div {
+        div class="flex items-center justify-between mb-6" {
+            div class="flex items-center justify-between mb-6" {
+                a   class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150"
+                    href=(format!("{}?restore=true", ExceptionListPath::PATH))
+                { "\u{2190} 返回列表" }
+                h1 class="text-xl font-bold text-fg tracking-tight" { "异常 " (exc.doc_number) }
+            }
+        }
+        // Status + severity
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
+            div class="flex items-center mb-4 gap-3" {
+                span class=(format!("status-pill {}", crate::utils::status_color(type_cls))) {
+                    (type_label)
+                }
+                span class=(format!("status-pill {}", crate::utils::status_color(status_cls))) {
+                    (status_label)
+                }
+                span class=(format!("status-pill {}", crate::utils::status_color(severity_cls))) {
+                    (severity_label)
+                }
+            }
+            div class="grid gap-4" {
+                div class="flex flex-col gap-1" {
+                    label { "异常类型" }
+                    span { (type_label) }
+                }
+                div class="flex flex-col gap-1" {
+                    label { "原因分类" }
+                    span { (reason_label) }
+                }
+                div class="flex flex-col gap-1" {
+                    label { "关联工单" }
+                    span class="font-mono tabular-nums" {
+                        @if let Some(ref wo) = lookups.wo_doc_number {
+                            a   href=({
+                                    format!(
+                                        "/admin/mes/orders/{}",
+                                        exc.work_order_id.unwrap_or(0),
+                                    )
+                                })
+                                class="text-accent font-medium cursor-pointer"
+                            { (wo) }
+                        } @else { "—" }
+                    }
+                }
+                div class="flex flex-col gap-1" {
+                    label { "关联批次" }
+                    span class="font-mono tabular-nums" {
+                        @if let Some(ref bn) = lookups.batch_no {
+                            a   href=(format!("/admin/mes/batches/{}", exc.batch_id.unwrap_or(0)))
+                                class="text-accent font-medium cursor-pointer"
+                            { (bn) }
+                        } @else { "—" }
+                    }
+                }
+                div class="flex flex-col gap-1" {
+                    label { "产品" }
+                    span { (lookups.product_name.as_deref().unwrap_or("—")) }
+                }
+                div class="flex flex-col gap-1" {
+                    label { "影响数量" }
+                    span class="font-mono tabular-nums" { (impact_display) }
+                }
+                div class="flex flex-col gap-1" {
+                    label { "发现时间" }
+                    span { (exc.found_at.format("%Y-%m-%d %H:%M")) }
+                }
+                div class="flex flex-col gap-1" {
+                    label { "发现人" }
+                    span { (lookups.finder_name.as_deref().unwrap_or("—")) }
+                }
+                div class="flex flex-col gap-1" {
+                    label { "负责人" }
+                    span { (lookups.owner_name.as_deref().unwrap_or("—")) }
+                }
+                div class="flex flex-col gap-1" {
+                    label { "处置方式" }
+                    span { (exc.disposition.as_deref().unwrap_or("—")) }
+                }
+                div class="flex flex-col gap-1" {
+                    label { "优先级" }
+                    span { (severity_label) }
+                }
+                div class="flex flex-col gap-1" {
+                    label { "状态" }
+                    span { (status_label) }
+                }
+            }
+        }
+        // Description
+        @if let Some(ref desc) = exc.description {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]"
+            {
+                div class="font-semibold mb-2" { "异常描述" }
+                div class="whitespace-pre-wrap leading-relaxed" { (desc) }
+            }
+        }
+        // Timeline
+        @if !events.is_empty() {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]"
+            {
+                div class="font-semibold mb-4" { "处理时间线" }
+                div class="flex flex-col gap-0" {
+                    @for event in events {
+                        div class="flex flex-col gap-0-item" {
+                            div class="flex flex-col gap-0-dot" {}
+                            div class="flex flex-col gap-0-content" {
+                                div class="flex flex-col gap-0-time" {
+                                    (event.created_at.format("%Y-%m-%d %H:%M"))
+                                }
+                                div class="flex flex-col gap-0-action" {
+                                    (event_type_label(&event.event_type))
+                                }
+                                @if let Some(ref desc) = event.description {
+                                    div class="flex flex-col gap-0-desc" { (desc) }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
 }
 
 

@@ -61,99 +61,113 @@ fn work_calendar_detail_page(
  exceptions: &[CalendarException],
 ) -> Markup {
  html! {
- div class="flex items-center justify-between mb-6" {
- div class="flex items-center justify-between mb-6" {
- a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(WorkCalendarListPath::PATH) { "← 返回列表" }
- h1 class="text-xl font-bold text-fg tracking-tight" { "工作日历 " (cal.name) }
- }
- }
-
- // 基本信息
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
- div class="text-sm font-semibold text-fg mb-3 pb-2 border-b border-border-soft" { "基本信息" }
- div class="grid gap-4" {
- div class="flex flex-col gap-1" { label { "名称" } span { (cal.name) } }
- div class="flex flex-col gap-1" {
- label { "描述" }
- span { (cal.description.as_deref().unwrap_or("—")) }
- }
- div class="flex flex-col gap-1" {
- label { "创建时间" }
- span class="font-mono tabular-nums" { (cal.created_at.format("%Y-%m-%d %H:%M")) }
- }
- }
- }
-
- // 工作时间明细
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
- div class="text-sm font-semibold text-fg mb-3 pb-2 border-b border-border-soft" { "工作时间明细" }
- div class="overflow-x-auto" {
- table class="data-table" {
- thead {
- tr {
- th { "星期" }
- th { "开始时间" }
- th { "结束时间" }
- }
- }
- tbody {
- @for line in lines {
- tr {
- td { (weekday_label(line.weekday)) }
- td class="font-mono tabular-nums" { (line.from_time.format("%H:%M")) }
- td class="font-mono tabular-nums" { (line.to_time.format("%H:%M")) }
- }
- }
- @if lines.is_empty() {
- tr { td colspan="3" class="text-center text-muted text-sm" { "暂无工作时间设置" } }
- }
- }
- }
- }
- }
-
- // 例外日
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
- div class="text-sm font-semibold text-fg mb-3 pb-2 border-b border-border-soft" { "例外日（节假日/特殊工作日）" }
- div class="overflow-x-auto" {
- table class="data-table" {
- thead {
- tr {
- th { "日期" }
- th { "类型" }
- th { "工作时间" }
- th { "备注" }
- }
- }
- tbody {
- @for ex in exceptions {
- tr {
- td class="font-mono tabular-nums" { (ex.exception_date.format("%Y-%m-%d")) }
- td {
- @if ex.is_workday {
- span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-success-bg text-success" { "特殊工作日" }
- } @else {
- span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-danger-bg text-danger" { "休息日" }
- }
- }
- td class="font-mono tabular-nums" {
- @if let (Some(f), Some(t)) = (ex.from_time, ex.to_time) {
- (f.format("%H:%M")) " - " (t.format("%H:%M"))
- } @else {
- "—"
- }
- }
- td { (ex.remark.as_deref().unwrap_or("—")) }
- }
- }
- @if exceptions.is_empty() {
- tr { td colspan="4" class="text-center text-muted text-sm" { "暂无例外日设置" } }
- }
- }
- }
- }
- }
- }
+    div class="flex items-center justify-between mb-6" {
+        div class="flex items-center justify-between mb-6" {
+            a   class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150"
+                href=(WorkCalendarListPath::PATH)
+            { "← 返回列表" }
+            h1 class="text-xl font-bold text-fg tracking-tight" { "工作日历 " (cal.name) }
+        }
+    }
+    // 基本信息
+    div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
+        div class="text-sm font-semibold text-fg mb-3 pb-2 border-b border-border-soft" { "基本信息" }
+        div class="grid gap-4" {
+            div class="flex flex-col gap-1" {
+                label { "名称" }
+                span { (cal.name) }
+            }
+            div class="flex flex-col gap-1" {
+                label { "描述" }
+                span { (cal.description.as_deref().unwrap_or("—")) }
+            }
+            div class="flex flex-col gap-1" {
+                label { "创建时间" }
+                span class="font-mono tabular-nums" { (cal.created_at.format("%Y-%m-%d %H:%M")) }
+            }
+        }
+    }
+    // 工作时间明细
+    div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
+        div class="text-sm font-semibold text-fg mb-3 pb-2 border-b border-border-soft" { "工作时间明细" }
+        div class="overflow-x-auto" {
+            table class="data-table" {
+                thead {
+                    tr {
+                        th { "星期" }
+                        th { "开始时间" }
+                        th { "结束时间" }
+                    }
+                }
+                tbody {
+                    @for line in lines {
+                        tr {
+                            td { (weekday_label(line.weekday)) }
+                            td class="font-mono tabular-nums" { (line.from_time.format("%H:%M")) }
+                            td class="font-mono tabular-nums" { (line.to_time.format("%H:%M")) }
+                        }
+                    }
+                    @if lines.is_empty() {
+                        tr {
+                            td colspan="3" class="text-center text-muted text-sm" { "暂无工作时间设置" }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    // 例外日
+    div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
+        div class="text-sm font-semibold text-fg mb-3 pb-2 border-b border-border-soft" {
+            "例外日（节假日/特殊工作日）"
+        }
+        div class="overflow-x-auto" {
+            table class="data-table" {
+                thead {
+                    tr {
+                        th { "日期" }
+                        th { "类型" }
+                        th { "工作时间" }
+                        th { "备注" }
+                    }
+                }
+                tbody {
+                    @for ex in exceptions {
+                        tr {
+                            td class="font-mono tabular-nums" {
+                                (ex.exception_date.format("%Y-%m-%d"))
+                            }
+                            td {
+                                @if ex.is_workday {
+                                    span
+                                        class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-success-bg text-success"
+                                    { "特殊工作日" }
+                                } @else {
+                                    span
+                                        class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-danger-bg text-danger"
+                                    { "休息日" }
+                                }
+                            }
+                            td class="font-mono tabular-nums" {
+                                @if let (Some(f), Some(t)) = (ex.from_time, ex.to_time) {
+                                    (f.format("%H:%M"))
+                                    " - "
+                                    (t.format("%H:%M"))
+                                } @else { "—" }
+                            }
+                            td { (ex.remark.as_deref().unwrap_or("—")) }
+                        }
+                    }
+                    @if exceptions.is_empty() {
+                        tr {
+                            td colspan="4" class="text-center text-muted text-sm" { "暂无例外日设置" }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
 }
 
 fn weekday_label(w: i16) -> &'static str {

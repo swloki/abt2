@@ -166,153 +166,238 @@ fn order_edit_page(
  let rm = &order.remark;
 
  html! {
- div id="order-app" {
- // ── Page Header ──
- div class="flex items-center justify-between mb-6" {
- a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(detail_path.to_string()) {
- (icon::chevron_left_icon("w-4 h-4"))
- "返回订单详情"
- }
- h1 class="text-xl font-bold text-fg tracking-tight" { "编辑订单 " (order.doc_number) }
- }
+    div id="order-app" {
+        // ── Page Header ──
+        div class="flex items-center justify-between mb-6" {
+            a   class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150"
+                href=(detail_path.to_string())
+            { (icon::chevron_left_icon("w-4 h-4")) "返回订单详情" }
+            h1 class="text-xl font-bold text-fg tracking-tight" { "编辑订单 " (order.doc_number) }
+        }
 
- form id="order-form"
- hx-post=(update_path.to_string())
- hx-swap="none"
- onsubmit="lineItemCalc('#order-item-tbody').collectItems()" {
- input type="hidden" id="items-json" name="items_json" value="[]";
+        form
+            id="order-form"
+            hx-post=(update_path.to_string())
+            hx-swap="none"
+            onsubmit="lineItemCalc('#order-item-tbody').collectItems()"
+        {
+            input type="hidden" id="items-json" name="items_json" value="[]";
+            // ── Customer Info ──
+            ({
+                customer_info_panel(
+                    customers,
+                    contacts,
+                    Some(order.customer_id),
+                    OrderCustomerContactsPath::PATH,
+                )
+            })
+            // ── Order Info ──
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)] mb-4"
+            {
+                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
+                { "订单信息" }
+                div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
+                    div class="form-field" {
+                        label { "订单日期" }
+                        input type="date" value=(order.order_date.format("%Y-%m-%d")) disabled {}
+                    }
+                    div class="form-field" {
+                        label { "付款条款" }
+                        select name="payment_terms" {
+                            option value="30天净额" selected[*pt == "30天净额"] { "30天净额" }
+                            option value="60天净额" selected[*pt == "60天净额"] { "60天净额" }
+                            option value="预付30%" selected[*pt == "预付30%"] { "预付30%" }
+                            option value="货到付款" selected[*pt == "货到付款"] { "货到付款" }
+                            option value="月结30天" selected[*pt == "月结30天"] { "月结30天" }
+                        }
+                    }
+                    div class="form-field" {
+                        label { "交货条款" }
+                        select name="delivery_terms" {
+                            option value="FOB 深圳" selected[*dt == "FOB 深圳"] { "FOB 深圳" }
+                            option value="FOB 广州" selected[*dt == "FOB 广州"] { "FOB 广州" }
+                            option value="CIF 目的港" selected[*dt == "CIF 目的港"] {
+                                "CIF 目的港"
+                            }
+                            option value="EXW 工厂交货" selected[*dt == "EXW 工厂交货"] {
+                                "EXW 工厂交货"
+                            }
+                        }
+                    }
+                    div class="form-field" {
+                        label { "交货地址" }
+                        input type="text" name="delivery_address" value=(da) {}
+                    }
+                }
+            }
+            // ── Line Items ──
+            div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden flush mb-4"
+            {
+                div class="flush-header" {
+                    span
+                        class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
+                    { "产品明细" }
+                    button
+                        type="button"
+                        class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] icon:w-4 icon:h-4"
+                        _="on click add .is-open to #product-modal"
+                    { (icon::plus_icon("w-3.5 h-3.5")) "添加产品" }
+                }
+                div class="flush-scroll" {
+                    table class="data-table" {
+                        thead {
+                            tr {
+                                th class="w-9" { "#" }
+                                th { "产品编码" }
+                                th { "产品名称" }
+                                th { "规格描述" }
+                                th class="w-14" { "单位" }
+                                th class="w-[90px]" { "数量" }
+                                th class="w-[110px]" { "单价 (¥)" }
+                                th style="width:76px" { "折扣%" }
+                                th class="w-[110px]" { "小计 (¥)" }
+                                th class="w-[110px]" { "交货日期" }
+                                th class="w-9" {}
+                            }
+                        }
+                        tbody id="order-item-tbody" {
+                            @for item in items {
+                                @let (code, name) = product_codes
+                                    .get(&item.product_id)
+                                    .cloned()
+                                    .unwrap_or_default();
+                                tr {
+                                    td class="text-muted text-xs text-center" {}
+                                    td class="font-mono tabular-nums" { (code) }
+                                    td { (name) }
+                                    td {
+                                        input
+                                            class="w-full px-2 py-[5px] text-[13px] border border-border rounded-sm outline-none focus:border-accent"
+                                            type="text"
+                                            name="description"
+                                            value=(&item.description) {}
+                                    }
+                                    td {
+                                        input
+                                            class="w-[56px] text-center px-2 py-[5px] text-[13px] border border-border rounded-sm bg-surface outline-none focus:border-accent"
+                                            type="text"
+                                            name="unit"
+                                            readonly
+                                            value=(&item.unit) {}
+                                    }
+                                    td {
+                                        input
+                                            class="w-[80px] text-right px-2 py-[5px] text-[13px] font-mono border border-border rounded-sm outline-none focus:border-accent"
+                                            type="number"
+                                            step="any"
+                                            name="quantity"
+                                            value=(item.quantity.to_string())
+                                            placeholder="0" {}
+                                    }
+                                    td {
+                                        input
+                                            class="w-[100px] text-right px-2 py-[5px] text-[13px] font-mono border border-border rounded-sm outline-none focus:border-accent"
+                                            type="number"
+                                            step="any"
+                                            name="unit_price"
+                                            value=(item.unit_price.to_string())
+                                            placeholder="0.00" {}
+                                    }
+                                    td {
+                                        input
+                                            class="w-[64px] text-right px-2 py-[5px] text-[13px] font-mono border border-border rounded-sm outline-none focus:border-accent"
+                                            type="number"
+                                            step="any"
+                                            name="discount_rate"
+                                            value=(item.discount_rate.to_string()) {}
+                                    }
+                                    td class="text-right font-semibold text-fg whitespace-nowrap" {
+                                        "—"
+                                    }
+                                    td {
+                                        input
+                                            class="w-[110px] px-1.5 py-[5px] text-xs border border-border rounded-sm outline-none focus:border-accent"
+                                            type="date"
+                                            name="item_delivery_date"
+                                            value=({
+                                                item.delivery_date
+                                                    .map(|d| d.format("%Y-%m-%d").to_string())
+                                                    .unwrap_or_default()
+                                            }) {}
+                                    }
+                                    td {
+                                        button
+                                            type="button"
+                                            class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center"
+                                            title="删除行"
+                                            _="on click remove closest <tr/>"
+                                        { (icon::x_icon("w-3.5 h-3.5")) }
+                                    }
+                                    input type="hidden" name="product_id" value=(item.product_id) {}
+                                }
+                            }
+                        }
+                    }
+                }
+                div class="p-3 flex items-center gap-2" {
+                    button
+                        type="button"
+                        class="inline-flex items-center gap-2 rounded-sm text-accent text-sm cursor-pointer"
+                        _="on click add .is-open to #product-modal"
+                    { (icon::plus_icon("w-3.5 h-3.5")) "添加产品行" }
+                }
+                div class="flex justify-end p-4 bg-surface border-t border-border-soft gap-8" {
+                    div class="flex gap-3" {
+                        span class="text-sm text-muted" { "合计金额" }
+                        span class="text-lg font-bold text-fg" id="subtotal-value" { "¥ 0.00" }
+                    }
+                    div class="flex gap-3" {
+                        span class="text-sm text-muted" { "折扣总额" }
+                        span class="text-lg font-bold text-fg" id="discount-value" { "- ¥ 0.00" }
+                    }
+                    div class="flex gap-3" {
+                        span class="text-sm text-muted" { "订单总额" }
+                        span class="text-lg font-bold text-fg grand" id="grand-value" { "¥ 0.00" }
+                    }
+                }
+            }
+            // ── Remark ──
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)] mb-4"
+            {
+                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
+                { "备注" }
+                textarea
+                    class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] min-h-[72px] resize-y leading-1.5"
+                    name="remark"
+                    placeholder="输入订单相关备注信息…"
+                { (rm) }
+            }
+            // ── Action Bar ──
+            div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg border-t border-border-soft"
+            {
+                a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                    href=(detail_path.to_string())
+                { "取消" }
+                div class="flex gap-3" {
+                    button
+                        type="submit"
+                        class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                    { "保存修改" }
+                }
+            }
+        }
 
- // ── Customer Info ──
- (customer_info_panel(customers, contacts, Some(order.customer_id), OrderCustomerContactsPath::PATH))
+        ({
+            crate::components::product_picker::product_picker_modal_with_search(
+                "product-modal",
+                OrderItemRowPath::PATH,
+                "order-item-tbody",
+            )
+        })
 
- // ── Order Info ──
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)] mb-4" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "订单信息" }
- div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
- div class="form-field" {
- label { "订单日期" }
- input type="date" value=(order.order_date.format("%Y-%m-%d")) disabled {}
- }
- div class="form-field" {
- label { "付款条款" }
- select name="payment_terms" {
- option value="30天净额" selected[*pt == "30天净额"] { "30天净额" }
- option value="60天净额" selected[*pt == "60天净额"] { "60天净额" }
- option value="预付30%" selected[*pt == "预付30%"] { "预付30%" }
- option value="货到付款" selected[*pt == "货到付款"] { "货到付款" }
- option value="月结30天" selected[*pt == "月结30天"] { "月结30天" }
- }
- }
- div class="form-field" {
- label { "交货条款" }
- select name="delivery_terms" {
- option value="FOB 深圳" selected[*dt == "FOB 深圳"] { "FOB 深圳" }
- option value="FOB 广州" selected[*dt == "FOB 广州"] { "FOB 广州" }
- option value="CIF 目的港" selected[*dt == "CIF 目的港"] { "CIF 目的港" }
- option value="EXW 工厂交货" selected[*dt == "EXW 工厂交货"] { "EXW 工厂交货" }
- }
- }
- div class="form-field" {
- label { "交货地址" }
- input type="text" name="delivery_address" value=(da) {}
- }
- }
- }
-
- // ── Line Items ──
- div class="bg-bg border border-border-soft rounded-lg p-5 mb-5 shadow-[var(--shadow-card)] overflow-hidden flush mb-4" {
- div class="flush-header" {
- span class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "产品明细" }
- button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] icon:w-4 icon:h-4"
- _="on click add .is-open to #product-modal" {
- (icon::plus_icon("w-3.5 h-3.5"))
- "添加产品"
- }
- }
- div class="flush-scroll" {
- table class="data-table" {
- thead {
- tr {
- th class="w-9" { "#" }
- th { "产品编码" }
- th { "产品名称" }
- th { "规格描述" }
- th class="w-14" { "单位" }
- th class="w-[90px]" { "数量" }
- th class="w-[110px]" { "单价 (¥)" }
- th style="width:76px" { "折扣%" }
- th class="w-[110px]" { "小计 (¥)" }
- th class="w-[110px]" { "交货日期" }
- th class="w-9" { }
- }
- }
- tbody id="order-item-tbody" {
- @for item in items {
- @let (code, name) = product_codes.get(&item.product_id).cloned().unwrap_or_default();
- tr {
- td class="text-muted text-xs text-center" { }
- td class="font-mono tabular-nums" { (code) }
- td { (name) }
- td { input class="w-full px-2 py-[5px] text-[13px] border border-border rounded-sm outline-none focus:border-accent" type="text" name="description" value=(&item.description) {} }
- td { input class="w-[56px] text-center px-2 py-[5px] text-[13px] border border-border rounded-sm bg-surface outline-none focus:border-accent" type="text" name="unit" readonly value=(&item.unit) {} }
- td { input class="w-[80px] text-right px-2 py-[5px] text-[13px] font-mono border border-border rounded-sm outline-none focus:border-accent" type="number" step="any" name="quantity" value=(item.quantity.to_string()) placeholder="0" {} }
- td { input class="w-[100px] text-right px-2 py-[5px] text-[13px] font-mono border border-border rounded-sm outline-none focus:border-accent" type="number" step="any" name="unit_price" value=(item.unit_price.to_string()) placeholder="0.00" {} }
- td { input class="w-[64px] text-right px-2 py-[5px] text-[13px] font-mono border border-border rounded-sm outline-none focus:border-accent" type="number" step="any" name="discount_rate" value=(item.discount_rate.to_string()) {} }
- td class="text-right font-semibold text-fg whitespace-nowrap" { "—" }
- td { input class="w-[110px] px-1.5 py-[5px] text-xs border border-border rounded-sm outline-none focus:border-accent" type="date" name="item_delivery_date" value=(item.delivery_date.map(|d| d.format("%Y-%m-%d").to_string()).unwrap_or_default()) {} }
- td { button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center" title="删除行"
- _="on click remove closest <tr/>" {
- (icon::x_icon("w-3.5 h-3.5"))
- } }
- input type="hidden" name="product_id" value=(item.product_id) {}
- }
- }
- }
- }
- }
- div class="p-3 flex items-center gap-2" {
- button type="button" class="inline-flex items-center gap-2 rounded-sm text-accent text-sm cursor-pointer"
- _="on click add .is-open to #product-modal" {
- (icon::plus_icon("w-3.5 h-3.5"))
- "添加产品行"
- }
- }
- div class="flex justify-end p-4 bg-surface border-t border-border-soft gap-8" {
- div class="flex gap-3" {
- span class="text-sm text-muted" { "合计金额" }
- span class="text-lg font-bold text-fg" id="subtotal-value" { "¥ 0.00" }
- }
- div class="flex gap-3" {
- span class="text-sm text-muted" { "折扣总额" }
- span class="text-lg font-bold text-fg" id="discount-value" { "- ¥ 0.00" }
- }
- div class="flex gap-3" {
- span class="text-sm text-muted" { "订单总额" }
- span class="text-lg font-bold text-fg grand" id="grand-value" { "¥ 0.00" }
- }
- }
- }
-
- // ── Remark ──
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)] mb-4" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "备注" }
- textarea class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] min-h-[72px] resize-y leading-1.5" name="remark" placeholder="输入订单相关备注信息…" { (rm) }
- }
-
- // ── Action Bar ──
- div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg border-t border-border-soft" {
- a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(detail_path.to_string()) { "取消" }
- div class="flex gap-3" {
- button type="submit" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" {
- "保存修改"
- }
- }
- }
- }
-
-            (crate::components::product_picker::product_picker_modal_with_search("product-modal", OrderItemRowPath::PATH, "order-item-tbody"))
-
- (maud::PreEscaped(r#"<script>
+        ({
+            maud::PreEscaped(
+                r#"<script>
  function oeRecalc() { lineItemCalc('#order-item-tbody').recalcTotals() }
  document.addEventListener('input', function(e) {
  if (e.target.classList.contains('num-input')) {
@@ -324,7 +409,9 @@ fn order_edit_page(
  if (e.target.querySelector && e.target.querySelector('#order-item-tbody')) oeRecalc();
  });
  document.addEventListener('DOMContentLoaded', oeRecalc);
- </script>"#))
- }
- }
+ </script>"#,
+            )
+        })
+    }
+}
 }

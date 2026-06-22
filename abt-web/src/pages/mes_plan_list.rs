@@ -153,21 +153,20 @@ fn plan_list_page(
  can_create: bool,
 ) -> Markup {
  html! {
- div {
- div class="flex items-center justify-between mb-6" {
- h1 class="text-xl font-bold text-fg tracking-tight" { "生产计划" }
- div class="flex gap-3" {
- @if can_create {
- a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(PlanCreatePath::PATH) {
- (icon::plus_icon("w-4 h-4"))
- "新建计划"
- }
- }
- }
- }
- (plan_table_fragment(result, operator_names, plan_stats, params))
- }
- }
+    div {
+        div class="flex items-center justify-between mb-6" {
+            h1 class="text-xl font-bold text-fg tracking-tight" { "生产计划" }
+            div class="flex gap-3" {
+                @if can_create {
+                    a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                        href=(PlanCreatePath::PATH)
+                    { (icon::plus_icon("w-4 h-4")) "新建计划" }
+                }
+            }
+        }
+        (plan_table_fragment(result, operator_names, plan_stats, params))
+    }
+}
 }
 fn plan_table_fragment(
  result: &abt_core::shared::types::PaginatedResult<ProductionPlan>,
@@ -188,40 +187,67 @@ fn plan_table_fragment(
  ];
 
  html! {
- div class="plan-list-panel" {
- (status_tabs_with_param(PlanListPath::PATH, "#plan-data-card", "#filter-form", tabs, selected_status, "status"))
-
- // ── Filter Bar ──
- form id="filter-form" class="flex items-center gap-3 mb-6 flex-wrap filter-form"
- hx-get=(PlanListPath::PATH)
- hx-trigger="change, keyup changed delay:300ms from:.search-input"
- hx-target="#plan-data-card"
- hx-select="#plan-data-card"
- hx-swap="outerHTML"
- hx-include="#filter-form"
- hx-push-url="true" {
- div class="relative w-60 icon:absolute icon:left-3 icon:top-1/2 icon:-translate-y-1/2 icon:w-4 icon:h-4 icon:text-muted" {
- (icon::search_icon(""))
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input" type="text" name="keyword"
- placeholder="搜索计划编号…"
- value=(params.keyword.as_deref().unwrap_or(""));
- }
- select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="plan_type" {
- option value="" selected[params.plan_type.is_none()] { "全部类型" }
- option value="Mto" selected[params.plan_type.as_deref() == Some("Mto")] { "按单生产 (MTO)" }
- option value="Mts" selected[params.plan_type.as_deref() == Some("Mts")] { "按库存备货 (MTS)" }
- }
- input class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer w-[140px]" type="date" name="date_from"
- value=(params.date_from.as_deref().unwrap_or(""));
- span class="text-muted text-[13px]" { "至" }
- input class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer w-[140px]" type="date" name="date_to"
- value=(params.date_to.as_deref().unwrap_or(""));
- }
- }
-
- // ── Data Table ──
- (plan_data_card(result, operator_names, plan_stats, params))
- }
+    div class="plan-list-panel" {
+        ({
+            status_tabs_with_param(
+                PlanListPath::PATH,
+                "#plan-data-card",
+                "#filter-form",
+                tabs,
+                selected_status,
+                "status",
+            )
+        })
+        // ── Filter Bar ──
+        form
+            id="filter-form"
+            class="flex items-center gap-3 mb-6 flex-wrap filter-form"
+            hx-get=(PlanListPath::PATH)
+            hx-trigger="change, keyup changed delay:300ms from:.search-input"
+            hx-target="#plan-data-card"
+            hx-select="#plan-data-card"
+            hx-swap="outerHTML"
+            hx-include="#filter-form"
+            hx-push-url="true"
+        {
+            div class="relative w-60 icon:absolute icon:left-3 icon:top-1/2 icon:-translate-y-1/2 icon:w-4 icon:h-4 icon:text-muted"
+            {
+                (icon::search_icon(""))
+                input
+                    class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input"
+                    type="text"
+                    name="keyword"
+                    placeholder="搜索计划编号…"
+                    value=(params.keyword.as_deref().unwrap_or(""));
+            }
+            select
+                class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer"
+                name="plan_type"
+            {
+                option value="" selected[params.plan_type.is_none()] { "全部类型" }
+                option value="Mto" selected[params.plan_type.as_deref() == Some("Mto")] {
+                    "按单生产 (MTO)"
+                }
+                option value="Mts" selected[params.plan_type.as_deref() == Some("Mts")] {
+                    "按库存备货 (MTS)"
+                }
+            }
+            input
+                class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer w-[140px]"
+                type="date"
+                name="date_from"
+                value=(params.date_from.as_deref().unwrap_or(""));
+            span class="text-muted text-[13px]" { "至" }
+            input
+                class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer w-[140px]"
+                type="date"
+                name="date_to"
+                value=(params.date_to.as_deref().unwrap_or(""));
+        }
+    }
+    // ── Data Table ──
+    (plan_data_card(result, operator_names, plan_stats, params))
+}
  }
 fn plan_data_card(
  result: &abt_core::shared::types::PaginatedResult<ProductionPlan>,
@@ -231,71 +257,97 @@ fn plan_data_card(
 ) -> Markup {
  let query = build_query_string(params);
  html! {
- div class="data-card" id="plan-data-card" {
- div class="overflow-x-auto" {
- table class="data-table" {
- thead {
- tr {
- th { "计划编号" }
- th { "计划日期" }
- th { "排产类型" }
- th { "计划行数" }
- th { "关联销售单" }
- th { "状态" }
- th { "创建人" }
- th { "创建时间" }
- th class="!text-right" { "操作" }
- }
- }
- tbody {
- @for item in &result.items {
- @let (status_label, status_bg, status_color) = plan_status_label(&item.status);
- @let (type_label, type_bg, type_color) = plan_type_label(&item.plan_type.to_string());
- @let op_name = operator_names.get(&item.operator_id).map(|s| s.as_str()).unwrap_or("—");
- @let detail_path = PlanDetailPath { id: item.id };
- @let stats = plan_stats.get(&item.id);
- @let item_count = stats.map(|s| s.item_count).unwrap_or(0);
- @let sales_orders = stats.map(|s| s.sales_orders.as_str()).unwrap_or("—");
- @let sales_orders_display = if sales_orders.is_empty() { "—" } else { sales_orders };
- tr {
- td {
- a class="text-accent font-medium font-mono tabular-nums hover:underline" href=(detail_path.to_string()) { (item.doc_number) }
- }
- td { (item.plan_date) }
- td {
- span class="inline-flex items-center rounded-full text-xs font-medium px-2 py-0.5" style=(format!("background:{};color:{}", type_bg, type_color)) {
- (type_label)
- }
- }
- td class="text-center" { (item_count) }
- td { (sales_orders_display) }
- td {
- span class="inline-flex items-center rounded-full text-xs font-medium px-2 py-0.5" style=(format!("background:{};color:{}", status_bg, status_color)) {
- (status_label)
- }
- }
- td { (op_name) }
- td class="text-xs text-muted" { (item.created_at.format("%Y-%m-%d %H:%M")) }
- td {
- div class="flex items-center gap-1 justify-end" {
- a class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer hover:bg-accent-bg" href=(detail_path.to_string()) title="查看" {
- (icon::eye_icon("w-4 h-4"))
- }
- }
- }
+    div class="data-card" id="plan-data-card" {
+        div class="overflow-x-auto" {
+            table class="data-table" {
+                thead {
+                    tr {
+                        th { "计划编号" }
+                        th { "计划日期" }
+                        th { "排产类型" }
+                        th { "计划行数" }
+                        th { "关联销售单" }
+                        th { "状态" }
+                        th { "创建人" }
+                        th { "创建时间" }
+                        th class="!text-right" { "操作" }
+                    }
+                }
+                tbody {
+                    @for item in &result.items {
+                        @let (status_label, status_bg, status_color) = plan_status_label(
+                            &item.status,
+                        );
+                        @let (type_label, type_bg, type_color) = plan_type_label(
+                            &item.plan_type.to_string(),
+                        );
+                        @let op_name = operator_names
+                            .get(&item.operator_id)
+                            .map(|s| s.as_str())
+                            .unwrap_or("—");
+                        @let detail_path = PlanDetailPath { id: item.id };
+                        @let stats = plan_stats.get(&item.id);
+                        @let item_count = stats.map(|s| s.item_count).unwrap_or(0);
+                        @let sales_orders = stats
+                            .map(|s| s.sales_orders.as_str())
+                            .unwrap_or("—");
+                        @let sales_orders_display = if sales_orders.is_empty() {
+                            "—"
+                        } else {
+                            sales_orders
+                        };
+                        tr {
+                            td {
+                                a   class="text-accent font-medium font-mono tabular-nums hover:underline"
+                                    href=(detail_path.to_string())
+                                { (item.doc_number) }
+                            }
+                            td { (item.plan_date) }
+                            td {
+                                span
+                                    class="inline-flex items-center rounded-full text-xs font-medium px-2 py-0.5"
+                                    style=(format!("background:{};color:{}", type_bg, type_color))
+                                { (type_label) }
+                            }
+                            td class="text-center" { (item_count) }
+                            td { (sales_orders_display) }
+                            td {
+                                span
+                                    class="inline-flex items-center rounded-full text-xs font-medium px-2 py-0.5"
+                                    style=(format!("background:{};color:{}", status_bg, status_color))
+                                { (status_label) }
+                            }
+                            td { (op_name) }
+                            td class="text-xs text-muted" {
+                                (item.created_at.format("%Y-%m-%d %H:%M"))
+                            }
+                            td {
+                                div class="flex items-center gap-1 justify-end" {
+                                    a   class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer hover:bg-accent-bg"
+                                        href=(detail_path.to_string())
+                                        title="查看"
+                                    { (icon::eye_icon("w-4 h-4")) }
+                                }
+                            }
+                        }
+                    }
+                    @if result.items.is_empty() {
+                        tr {
+                            td colspan="9" class="text-center py-8 text-muted" { "暂无生产计划" }
+                        }
+                    }
+                }
+            }
+        }
+        ({
+            pagination(
+                PlanListPath::PATH,
+                &query,
+                result.total,
+                result.page,
+                result.total_pages,
+            )
+        })
+    }
 }
-}
- @if result.items.is_empty() {
- tr {
- td colspan="9" class="text-center py-8 text-muted" {
- "暂无生产计划"
- }
- }
- }
- }
- }
- }
- (pagination(PlanListPath::PATH, &query, result.total, result.page, result.total_pages))
- }
- }
 }

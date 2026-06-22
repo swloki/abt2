@@ -148,129 +148,143 @@ fn cycle_count_detail_page(
  let adjusted_items = items.iter().filter(|i| i.is_adjusted).count();
 
  html! {
- div {
- a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", CycleCountListPath::PATH)) {
- (crate::components::icon::chevron_left_icon("w-4 h-4"))
- "返回循环盘点列表"
- }
+    div {
+        a   class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150"
+            href=(format!("{}?restore=true", CycleCountListPath::PATH))
+        { (crate::components::icon::chevron_left_icon("w-4 h-4")) "返回循环盘点列表" }
 
- div class="block bg-bg border border-border-soft rounded-lg p-6" {
- div {
- div class="flex items-center justify-between" {
- span class="text-2xl font-extrabold font-mono tabular-nums" { (cc.doc_number) }
- span class=(format!("status-pill {}", crate::utils::status_color(sc))) { (sl) }
- }
- }
- div class="flex gap-3" {
- (action_buttons(cc, &detail_path))
- }
- }
+        div class="block bg-bg border border-border-soft rounded-lg p-6" {
+            div {
+                div class="flex items-center justify-between" {
+                    span class="text-2xl font-extrabold font-mono tabular-nums" { (cc.doc_number) }
+                    span class=(format!("status-pill {}", crate::utils::status_color(sc))) { (sl) }
+                }
+            }
+            div class="flex gap-3" { (action_buttons(cc, &detail_path)) }
+        }
 
- (workflow_steps(&cc.status))
+        (workflow_steps(&cc.status))
 
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
- div class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" { "盘点信息" }
- div class="grid gap-4" {
- div class="flex flex-col gap-1" {
- span class="text-xs text-muted font-medium" { "盘点单号" }
- span class="text-sm text-fg font-medium font-mono tabular-nums" { (cc.doc_number) }
- }
- div class="flex flex-col gap-1" {
- span class="text-xs text-muted font-medium" { "仓库" }
- span class="text-sm text-fg font-medium" { (wh_name) }
- }
- div class="flex flex-col gap-1" {
- span class="text-xs text-muted font-medium" { "库区" }
- span class="text-sm text-fg font-medium" { (zone_name) }
- }
- div class="flex flex-col gap-1" {
- span class="text-xs text-muted font-medium" { "盘点日期" }
- span class="text-sm text-fg font-medium font-mono tabular-nums" { (cc.count_date.format("%Y-%m-%d")) }
- }
- div class="flex flex-col gap-1" {
- span class="text-xs text-muted font-medium" { "盲盘" }
- span class="text-sm text-fg font-medium" {
- @if cc.is_blind { "是" } @else { "否" }
- }
- }
- div class="flex flex-col gap-1" {
- span class="text-xs text-muted font-medium" { "操作员" }
- span class="text-sm text-fg font-medium" { "操作员#" (cc.operator_id) }
- }
- }
- }
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
+            div class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" {
+                "盘点信息"
+            }
+            div class="grid gap-4" {
+                div class="flex flex-col gap-1" {
+                    span class="text-xs text-muted font-medium" { "盘点单号" }
+                    span class="text-sm text-fg font-medium font-mono tabular-nums" {
+                        (cc.doc_number)
+                    }
+                }
+                div class="flex flex-col gap-1" {
+                    span class="text-xs text-muted font-medium" { "仓库" }
+                    span class="text-sm text-fg font-medium" { (wh_name) }
+                }
+                div class="flex flex-col gap-1" {
+                    span class="text-xs text-muted font-medium" { "库区" }
+                    span class="text-sm text-fg font-medium" { (zone_name) }
+                }
+                div class="flex flex-col gap-1" {
+                    span class="text-xs text-muted font-medium" { "盘点日期" }
+                    span class="text-sm text-fg font-medium font-mono tabular-nums" {
+                        (cc.count_date.format("%Y-%m-%d"))
+                    }
+                }
+                div class="flex flex-col gap-1" {
+                    span class="text-xs text-muted font-medium" { "盲盘" }
+                    span class="text-sm text-fg font-medium" {
+                        @if cc.is_blind { "是" } @else { "否" }
+                    }
+                }
+                div class="flex flex-col gap-1" {
+                    span class="text-xs text-muted font-medium" { "操作员" }
+                    span class="text-sm text-fg font-medium" { "操作员#" (cc.operator_id) }
+                }
+            }
+        }
 
- div class="grid grid-cols-4 gap-4 mb-6" {
- (summary_card("总项数", &total_items.to_string(), "blue"))
- (summary_card("一致项", &matching_items.to_string(), "green"))
- (summary_card("差异项", &variance_items.to_string(), "orange"))
- (summary_card("已调整项", &adjusted_items.to_string(), "purple"))
- }
+        div class="grid grid-cols-4 gap-4 mb-6" {
+            (summary_card("总项数", &total_items.to_string(), "blue"))
+            (summary_card("一致项", &matching_items.to_string(), "green"))
+            (summary_card("差异项", &variance_items.to_string(), "orange"))
+            (summary_card("已调整项", &adjusted_items.to_string(), "purple"))
+        }
 
- div class="data-card" {
- div class="pt-5 px-6 pb-3" {
- div class="text-base font-semibold text-fg pb-3 mb-0 border-b border-border-soft" { "盘点明细" }
- }
- div class="overflow-x-auto" {
- table class="data-table" {
- thead {
- tr {
- th { "行号" }
- th { "库位" }
- th { "产品ID" }
- th { "批次号" }
- th class="text-right text-[13px]" { "系统数量" }
- th class="text-right text-[13px]" { "实盘数量" }
- th class="text-right text-[13px]" { "差异数量" }
- th { "差异原因" }
- th { "已调整" }
- }
- }
- tbody {
- @for (i, item) in items.iter().enumerate() {
- tr {
- td { (i + 1) }
- td class="font-mono tabular-nums" {
- (bin_codes.get(&item.bin_id).map(|s| s.as_str()).unwrap_or("—"))
- }
- td { "产品#" (item.product_id) }
- td class="font-mono tabular-nums" {
- (item.batch_no.as_deref().unwrap_or("—"))
- }
- td class="text-right text-[13px]" { (format!("{:.2}", item.system_qty)) }
- td class="text-right text-[13px]" { (format!("{:.2}", item.counted_qty)) }
- td class="text-right text-[13px]" {
- @if item.variance_qty != rust_decimal::Decimal::ZERO {
- span class="font-semibold text-warn" {
- (format!("{:.2}", item.variance_qty))
- }
- } @else {
- span class="text-muted" { "0.00" }
- }
- }
- td { (item.variance_reason.as_deref().unwrap_or("—")) }
- td {
- @if item.is_adjusted {
- span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-success-bg text-success" { "已调整" }
- } @else {
- span class="text-muted" { "—" }
- }
- }
- }
- }
- @if items.is_empty() {
- tr {
- td colspan="9" class="text-center text-muted py-8" {
- "暂无盘点明细"
- }
- }
- }
- }
- }
- }
- }
- }
- }
+        div class="data-card" {
+            div class="pt-5 px-6 pb-3" {
+                div class="text-base font-semibold text-fg pb-3 mb-0 border-b border-border-soft" {
+                    "盘点明细"
+                }
+            }
+            div class="overflow-x-auto" {
+                table class="data-table" {
+                    thead {
+                        tr {
+                            th { "行号" }
+                            th { "库位" }
+                            th { "产品ID" }
+                            th { "批次号" }
+                            th class="text-right text-[13px]" { "系统数量" }
+                            th class="text-right text-[13px]" { "实盘数量" }
+                            th class="text-right text-[13px]" { "差异数量" }
+                            th { "差异原因" }
+                            th { "已调整" }
+                        }
+                    }
+                    tbody {
+                        @for (i, item) in items.iter().enumerate() {
+                            tr {
+                                td { (i + 1) }
+                                td class="font-mono tabular-nums" {
+                                    ({
+                                        bin_codes
+                                            .get(&item.bin_id)
+                                            .map(|s| s.as_str())
+                                            .unwrap_or("—")
+                                    })
+                                }
+                                td { "产品#" (item.product_id) }
+                                td class="font-mono tabular-nums" {
+                                    (item.batch_no.as_deref().unwrap_or("—"))
+                                }
+                                td class="text-right text-[13px]" {
+                                    (format!("{:.2}", item.system_qty))
+                                }
+                                td class="text-right text-[13px]" {
+                                    (format!("{:.2}", item.counted_qty))
+                                }
+                                td class="text-right text-[13px]" {
+                                    @if item.variance_qty != rust_decimal::Decimal::ZERO {
+                                        span class="font-semibold text-warn" {
+                                            (format!("{:.2}", item.variance_qty))
+                                        }
+                                    } @else {
+                                        span class="text-muted" { "0.00" }
+                                    }
+                                }
+                                td { (item.variance_reason.as_deref().unwrap_or("—")) }
+                                td {
+                                    @if item.is_adjusted {
+                                        span
+                                            class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-success-bg text-success"
+                                        { "已调整" }
+                                    } @else {
+                                        span class="text-muted" { "—" }
+                                    }
+                                }
+                            }
+                        }
+                        @if items.is_empty() {
+                            tr {
+                                td colspan="9" class="text-center text-muted py-8" { "暂无盘点明细" }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
 }
 
 fn workflow_steps(status: &CycleCountStatus) -> Markup {
@@ -292,96 +306,108 @@ fn workflow_steps(status: &CycleCountStatus) -> Markup {
  let is_cancelled = matches!(status, CycleCountStatus::Cancelled);
 
  html! {
- div class="flex items-center" {
- @for (i, (label, _)) in steps.iter().enumerate() {
- @if i > 0 {
- div class=(format!("w-[48px] h-[2px] {}", if i <= idx && !is_cancelled { "bg-success" } else { "bg-border" })) {}
- }
- @let (dot_cls, text_cls, ring_cls) = if is_cancelled {
- ("bg-border-soft", "text-muted", "")
- } else if i < idx {
- ("bg-success", "text-success", "")
- } else if i == idx {
- ("bg-accent", "text-accent font-semibold", "shadow-[0_0_0_3px_rgba(37,99,235,0.1)]")
- } else {
- ("bg-slate-300", "text-slate-400", "")
- };
- div class="flex items-center gap-2 shrink-0" {
- span class=(format!("w-2.5 h-2.5 rounded-full shrink-0 {} {}", dot_cls, ring_cls)) {}
- span class=(format!("text-xs whitespace-nowrap font-medium {}", text_cls)) { (label) }
- }
- }
- @if is_cancelled {
- div class="w-[48px] h-[2px] bg-border" {}
- div class="flex items-center gap-2 shrink-0" {
- span class="w-2.5 h-2.5 rounded-full shrink-0 bg-danger-500" {}
- span class="text-xs text-danger-500 font-semibold whitespace-nowrap" { "已取消" }
- }
- }
- }
- }
+    div class="flex items-center" {
+        @for (i, (label, _)) in steps.iter().enumerate() {
+            @if i > 0 {
+                div class=({
+                        format!(
+                            "w-[48px] h-[2px] {}",
+                            if i <= idx && !is_cancelled {
+                                "bg-success"
+                            } else {
+                                "bg-border"
+                            },
+                        )
+                    }) {}
+            }
+            @let (dot_cls, text_cls, ring_cls) = if is_cancelled {
+                ("bg-border-soft", "text-muted", "")
+            } else if i < idx {
+                ("bg-success", "text-success", "")
+            } else if i == idx {
+                (
+                    "bg-accent",
+                    "text-accent font-semibold",
+                    "shadow-[0_0_0_3px_rgba(37,99,235,0.1)]",
+                )
+            } else {
+                ("bg-slate-300", "text-slate-400", "")
+            };
+            div class="flex items-center gap-2 shrink-0" {
+                span class=(format!("w-2.5 h-2.5 rounded-full shrink-0 {} {}", dot_cls, ring_cls)) {}
+                span class=(format!("text-xs whitespace-nowrap font-medium {}", text_cls)) { (label) }
+            }
+        }
+        @if is_cancelled {
+            div class="w-[48px] h-[2px] bg-border" {}
+            div class="flex items-center gap-2 shrink-0" {
+                span class="w-2.5 h-2.5 rounded-full shrink-0 bg-danger-500" {}
+                span class="text-xs text-danger-500 font-semibold whitespace-nowrap" { "已取消" }
+            }
+        }
+    }
+}
 }
 
 fn action_buttons(cc: &abt_core::wms::cycle_count::model::CycleCount, detail_path: &str) -> Markup {
  match &cc.status {
  CycleCountStatus::Draft => {
  html! {
- button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
- hx-post=(detail_path)
- hx-vals=r#"{"action":"start"}"#
- hx-confirm="确定要开始盘点吗？"
- hx-redirect=(detail_path) {
- "开始盘点"
- }
- }
+    button
+        class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+        hx-post=(detail_path)
+        hx-vals=r#"{"action":"start"}"#
+        hx-confirm="确定要开始盘点吗？"
+        hx-redirect=(detail_path)
+    { "开始盘点" }
+}
  }
  CycleCountStatus::Counting => {
  html! {
- button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
- hx-post=(detail_path)
- hx-vals=r#"{"action":"complete"}"#
- hx-confirm="确定要完成盘点吗？"
- hx-redirect=(detail_path) {
- "完成盘点"
- }
- }
+    button
+        class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+        hx-post=(detail_path)
+        hx-vals=r#"{"action":"complete"}"#
+        hx-confirm="确定要完成盘点吗？"
+        hx-redirect=(detail_path)
+    { "完成盘点" }
+}
  }
  CycleCountStatus::Completed => {
  html! {
- button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
- hx-post=(detail_path)
- hx-vals=r#"{"action":"cancel"}"#
- hx-confirm="确定要取消此盘点单吗？"
- hx-redirect=(detail_path) {
- (crate::components::icon::x_icon("w-4 h-4"))
- "取消"
- }
- button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
- hx-post=(detail_path)
- hx-vals=r#"{"action":"adjust"}"#
- hx-confirm="确定要确认调整库存吗？差异超阈值将进入审批。"
- hx-redirect=(detail_path) {
- "确认调整"
- }
- }
+    button
+        class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+        hx-post=(detail_path)
+        hx-vals=r#"{"action":"cancel"}"#
+        hx-confirm="确定要取消此盘点单吗？"
+        hx-redirect=(detail_path)
+    { (crate::components::icon::x_icon("w-4 h-4")) "取消" }
+    button
+        class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+        hx-post=(detail_path)
+        hx-vals=r#"{"action":"adjust"}"#
+        hx-confirm="确定要确认调整库存吗？差异超阈值将进入审批。"
+        hx-redirect=(detail_path)
+    { "确认调整" }
+}
  }
  CycleCountStatus::PendingReview => {
  html! {
- button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
- hx-post=(detail_path)
- hx-vals=r#"{"action":"reject"}"#
- hx-confirm="驳回后回到已完成状态，需重新盘点。确认驳回？"
- hx-redirect=(detail_path) {
- "驳回重盘"
- }
- button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-success text-white border-none hover:opacity-90 text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(34,197,94,0.2)]"
- hx-post=(detail_path)
- hx-vals=r#"{"action":"approve"}"#
- hx-confirm="审批通过将按差异调整库存，不可撤销。确认？"
- hx-redirect=(detail_path) {
- "审批通过"
- }
- }
+    button
+        class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+        hx-post=(detail_path)
+        hx-vals=r#"{"action":"reject"}"#
+        hx-confirm="驳回后回到已完成状态，需重新盘点。确认驳回？"
+        hx-redirect=(detail_path)
+    { "驳回重盘" }
+    button
+        class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-success text-white border-none hover:opacity-90 text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(34,197,94,0.2)]"
+        hx-post=(detail_path)
+        hx-vals=r#"{"action":"approve"}"#
+        hx-confirm="审批通过将按差异调整库存，不可撤销。确认？"
+        hx-redirect=(detail_path)
+    { "审批通过" }
+}
  }
  _ => html! {},
  }
@@ -395,12 +421,12 @@ fn summary_card(label: &str, value: &str, color: &str) -> Markup {
  _ => "bg-accent-bg",
  };
  html! {
- div class="flex items-center gap-3 px-5 py-4 bg-bg border border-border-soft rounded-md" {
- div class={(format!("w-10 h-10 rounded-md grid place-items-center shrink-0 {icon_bg}"))} {}
- div {
- div class="font-bold text-xl leading-tight" { (value) }
- div class="text-xs text-muted mt-0.5" { (label) }
- }
- }
- }
+    div class="flex items-center gap-3 px-5 py-4 bg-bg border border-border-soft rounded-md" {
+        div class={ (format!("w-10 h-10 rounded-md grid place-items-center shrink-0 {icon_bg}")) } {}
+        div {
+            div class="font-bold text-xl leading-tight" { (value) }
+            div class="text-xs text-muted mt-0.5" { (label) }
+        }
+    }
+}
 }

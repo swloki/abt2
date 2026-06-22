@@ -325,225 +325,342 @@ fn cost_analysis_page(
  stats: &PageStats,
 ) -> Markup {
  html! {
- div class="relative" {
- // ── 页面标题栏 ──
- div class="flex items-center justify-between mb-6" {
- h1 class="text-xl font-bold text-fg tracking-tight" { "成本核算分析" }
- div class="flex gap-3" {
- button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" {
- (PreEscaped(r#"<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>"#))
- "导出报表"
- }
- }
- }
- // ── 统计概要 ──
- div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6" {
- (stat_card("本月产品成本", &fmt_money_wan_html(stats.total_product_cost), "border-accent", "bg-accent-bg text-accent", r#"M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"#))
- (stat_card("本月工单成本", &fmt_money_wan_html(stats.total_wo_cost), "border-warn", "bg-warn-100 text-warn", r#"M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"#))
- (stat_card("综合毛利率", &format!("<span class=\"text-success\">{}%</span>", stats.avg_margin_rate), "border-success", "bg-success-bg text-success", r#"M23 6l-9.5 9.5-5-5L1 18M17 6h6v6"#))
- (stat_card("利润中心数", &stats.pc_count.to_string(), "border-purple", "bg-purple-100 text-purple", r#"M18 20V10M12 20V4M6 20v-6"#))
- }
-
- // ── 分析Tab ──
- div class="flex gap-1 mb-6 border-b border-border-soft" {
- button class="analysis-tab px-4 py-3 text-sm text-accent font-semibold cursor-pointer whitespace-nowrap relative border-b-2 border-accent -mb-px active" onclick="switchTab('product')" { "产品成本" }
- button class="analysis-tab px-4 py-3 text-sm text-muted cursor-pointer whitespace-nowrap relative border-b-2 border-transparent -mb-px hover:text-fg transition-colors" onclick="switchTab('order')" { "工单成本" }
- button class="analysis-tab px-4 py-3 text-sm text-muted cursor-pointer whitespace-nowrap relative border-b-2 border-transparent -mb-px hover:text-fg transition-colors" onclick="switchTab('profit')" { "利润中心 P&L" }
- button class="analysis-tab px-4 py-3 text-sm text-muted cursor-pointer whitespace-nowrap relative border-b-2 border-transparent -mb-px hover:text-fg transition-colors" onclick="switchTab('margin')" { "毛利分析" }
- }
-
- // ── 产品成本面板 ──
- div id="panel-product" class="analysis-panel" {
- div class="data-card mb-0" {
- div class="px-4 py-3 border-b border-border-soft text-sm font-semibold text-fg flex items-center justify-between" {
- span { "产品成本汇总 · 2026-06" }
- }
- @if products.is_empty() {
- div class="text-center py-8 text-sm text-muted" { "暂无产品成本数据" }
- } @else {
- div class="overflow-x-auto" {
- table class="data-table min-w-[900px]" {
- thead {
- tr {
- th { "产品编码" }
- th { "产品名称" }
- th class="text-right" { "材料成本" }
- th class="text-right" { "人工成本" }
- th class="text-right" { "制造费用" }
- th class="text-right" { "总成本" }
- th { "成本构成" }
- }
- }
- tbody {
- @for p in products {
- tr {
- td class="font-mono tabular-nums" { (p.product_code) }
- td class="font-semibold" { (p.product_name) }
- td class="text-right text-[13px]" { (fmt_money_full(p.material_cost)) }
- td class="text-right text-[13px]" { (fmt_money_full(p.labor_cost)) }
- td class="text-right text-[13px]" { (fmt_money_full(p.overhead_cost)) }
- td class="text-right text-[13px] font-bold text-accent" { (fmt_money_full(p.total_cost)) }
- td class="min-w-[160px]" {
- (cost_breakdown_bar(p.material_cost, p.labor_cost, p.overhead_cost, p.total_cost))
- }
- }
- }
- }
- }
- }
- div class="flex gap-5 text-xs text-muted px-4 py-3" {
- span class="flex items-center gap-1.5" {
- span class="w-2.5 h-0.5 rounded inline-block bg-accent" {}
- "材料成本"
- }
- span class="flex items-center gap-1.5" {
- span class="w-2.5 h-0.5 rounded inline-block bg-warn" {}
- "人工成本"
- }
- span class="flex items-center gap-1.5" {
- span class="w-2.5 h-0.5 rounded inline-block bg-purple" {}
- "制造费用"
- }
- }
- }
- }
- }
-
- // ── 工单成本面板 ──
- div id="panel-order" class="analysis-panel" style="display:none" {
- div class="data-card mb-0" {
- div class="px-4 py-3 border-b border-border-soft text-sm font-semibold text-fg flex items-center justify-between" {
- span { "工单成本归集" }
- }
- @if work_orders.is_empty() {
- div class="text-center py-8 text-sm text-muted" { "暂无工单成本数据" }
- } @else {
- div class="overflow-x-auto" {
- table class="data-table min-w-[950px]" {
- thead {
- tr {
- th { "工单号" }
- th { "产品" }
- th class="text-right" { "计划数量" }
- th class="text-right" { "完工数量" }
- th class="text-right" { "材料成本" }
- th class="text-right" { "人工成本" }
- th class="text-right" { "外协成本" }
- th class="text-right" { "总成本" }
- th { "状态" }
- }
- }
- tbody {
- @for w in work_orders {
- tr {
- td class="text-accent font-medium cursor-pointer" { (w.doc_number) }
- td { (w.product_name) }
- td class="text-right text-[13px]" { (w.planned_qty.round_dp(0)) }
- td class="text-right text-[13px]" { (w.completed_qty.round_dp(0)) }
- td class="text-right text-[13px]" { (fmt_money_full(w.material_cost)) }
- td class="text-right text-[13px]" { (fmt_money_full(w.labor_cost)) }
- td class="text-right text-[13px]" { (fmt_money_full(w.outsource_cost)) }
- td class="text-right text-[13px] font-bold text-accent" { (fmt_money_full(w.total_cost)) }
- @let (label, cls) = wo_status_label(w.wo_status);
- td { span class=(format!("status-pill {}", crate::utils::status_color(cls))) { (label) } }
- }
- }
- }
- }
- }
- }
- }
-}
-
- // ── 利润中心 P&L 面板 ──
- div id="panel-profit" class="analysis-panel" style="display:none" {
- div class="data-card mb-0" {
- div class="px-4 py-3 border-b border-border-soft text-sm font-semibold text-fg flex items-center justify-between" {
- span { "利润中心 P&L · 2026-06" }
- }
- @if profit_centers.is_empty() {
- div class="text-center py-8 text-sm text-muted" { "暂无利润中心数据" }
- } @else {
- div class="overflow-x-auto" {
- table class="data-table min-w-[900px]" {
- thead {
- tr {
- th { "利润中心" }
- th class="text-right" { "收入" }
- th class="text-right" { "材料成本" }
- th class="text-right" { "人工成本" }
- th class="text-right" { "制造费用" }
- th class="text-right" { "管理费用" }
- th class="text-right" { "利润" }
- th { "利润率" }
- }
- }
- tbody {
- @for pc in profit_centers {
- tr {
- td class="font-semibold" { (pc.label) }
- td class="text-right text-[13px] font-semibold" { (fmt_money(pc.income)) }
- td class="text-right text-[13px]" { (fmt_money(pc.material_cost)) }
- td class="text-right text-[13px]" { (fmt_money(pc.labor_cost)) }
- td class="text-right text-[13px]" { (fmt_money(pc.overhead_cost)) }
- td class="text-right text-[13px]" { (fmt_money(pc.admin_cost)) }
- td class="text-right text-[13px] font-bold text-success" { (fmt_money(pc.profit)) }
- td { span class=(margin_class(pc.profit_rate)) { (format!("{}%", pc.profit_rate)) } }
- }
- }
- }
- }
- }
- }
- }
-}
-
- // ── 毛利分析面板 ──
- div id="panel-margin" class="analysis-panel" style="display:none" {
- div class="data-card mb-0" {
- div class="px-4 py-3 border-b border-border-soft text-sm font-semibold text-fg flex items-center justify-between" {
- span { "订单毛利分析" }
- }
- @if margins.is_empty() {
- div class="text-center py-8 text-sm text-muted" { "暂无毛利数据" }
- } @else {
- div class="overflow-x-auto" {
- table class="data-table min-w-[1000px]" {
- thead {
- tr {
- th { "订单号" }
- th { "客户" }
- th class="text-right" { "订单金额" }
- th class="text-right" { "实际成本" }
- th class="text-right" { "毛利" }
- th { "毛利率" }
- }
- }
- tbody {
- @for m in margins {
- tr {
- td class="text-accent font-medium cursor-pointer" { (m.doc_number) }
- td { (m.customer_name) }
- td class="text-right text-[13px] font-semibold" { (fmt_money_full(m.order_amount)) }
- td class="text-right text-[13px]" { (fmt_money_full(m.actual_cost)) }
- td class="text-right text-[13px] font-bold" {
- @if m.margin_amount >= Decimal::ZERO {
- span class="text-success" { (fmt_money_full(m.margin_amount)) }
- } @else {
- span class="text-danger" { (fmt_money_full(m.margin_amount)) }
- }
- }
- td { span class=(margin_class(m.margin_rate)) { (format!("{}%", m.margin_rate)) } }
- }
- }
- }
- }
- }
- }
- }
-}
- }
- (PreEscaped(r#"<script>
+    div class="relative" {
+        // ── 页面标题栏 ──
+        div class="flex items-center justify-between mb-6" {
+            h1 class="text-xl font-bold text-fg tracking-tight" { "成本核算分析" }
+            div class="flex gap-3" {
+                button
+                    class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                {
+                    ({
+                        PreEscaped(
+                            r#"<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>"#,
+                        )
+                    })
+                    "导出报表"
+                }
+            }
+        }
+        // ── 统计概要 ──
+        div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6" {
+            ({
+                stat_card(
+                    "本月产品成本",
+                    &fmt_money_wan_html(stats.total_product_cost),
+                    "border-accent",
+                    "bg-accent-bg text-accent",
+                    r#"M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"#,
+                )
+            })
+            ({
+                stat_card(
+                    "本月工单成本",
+                    &fmt_money_wan_html(stats.total_wo_cost),
+                    "border-warn",
+                    "bg-warn-100 text-warn",
+                    r#"M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"#,
+                )
+            })
+            ({
+                stat_card(
+                    "综合毛利率",
+                    &format!(
+                        "<span class=\"text-success\">{}%</span>",
+                        stats.avg_margin_rate,
+                    ),
+                    "border-success",
+                    "bg-success-bg text-success",
+                    r#"M23 6l-9.5 9.5-5-5L1 18M17 6h6v6"#,
+                )
+            })
+            ({
+                stat_card(
+                    "利润中心数",
+                    &stats.pc_count.to_string(),
+                    "border-purple",
+                    "bg-purple-100 text-purple",
+                    r#"M18 20V10M12 20V4M6 20v-6"#,
+                )
+            })
+        }
+        // ── 分析Tab ──
+        div class="flex gap-1 mb-6 border-b border-border-soft" {
+            button
+                class="analysis-tab px-4 py-3 text-sm text-accent font-semibold cursor-pointer whitespace-nowrap relative border-b-2 border-accent -mb-px active"
+                onclick="switchTab('product')"
+            { "产品成本" }
+            button
+                class="analysis-tab px-4 py-3 text-sm text-muted cursor-pointer whitespace-nowrap relative border-b-2 border-transparent -mb-px hover:text-fg transition-colors"
+                onclick="switchTab('order')"
+            { "工单成本" }
+            button
+                class="analysis-tab px-4 py-3 text-sm text-muted cursor-pointer whitespace-nowrap relative border-b-2 border-transparent -mb-px hover:text-fg transition-colors"
+                onclick="switchTab('profit')"
+            { "利润中心 P&L" }
+            button
+                class="analysis-tab px-4 py-3 text-sm text-muted cursor-pointer whitespace-nowrap relative border-b-2 border-transparent -mb-px hover:text-fg transition-colors"
+                onclick="switchTab('margin')"
+            { "毛利分析" }
+        }
+        // ── 产品成本面板 ──
+        div id="panel-product" class="analysis-panel" {
+            div class="data-card mb-0" {
+                div class="px-4 py-3 border-b border-border-soft text-sm font-semibold text-fg flex items-center justify-between"
+                {
+                    span { "产品成本汇总 · 2026-06" }
+                }
+                @if products.is_empty() {
+                    div class="text-center py-8 text-sm text-muted" { "暂无产品成本数据" }
+                } @else {
+                    div class="overflow-x-auto" {
+                        table class="data-table min-w-[900px]" {
+                            thead {
+                                tr {
+                                    th { "产品编码" }
+                                    th { "产品名称" }
+                                    th class="text-right" { "材料成本" }
+                                    th class="text-right" { "人工成本" }
+                                    th class="text-right" { "制造费用" }
+                                    th class="text-right" { "总成本" }
+                                    th { "成本构成" }
+                                }
+                            }
+                            tbody {
+                                @for p in products {
+                                    tr {
+                                        td class="font-mono tabular-nums" { (p.product_code) }
+                                        td class="font-semibold" { (p.product_name) }
+                                        td class="text-right text-[13px]" {
+                                            (fmt_money_full(p.material_cost))
+                                        }
+                                        td class="text-right text-[13px]" {
+                                            (fmt_money_full(p.labor_cost))
+                                        }
+                                        td class="text-right text-[13px]" {
+                                            (fmt_money_full(p.overhead_cost))
+                                        }
+                                        td class="text-right text-[13px] font-bold text-accent" {
+                                            (fmt_money_full(p.total_cost))
+                                        }
+                                        td class="min-w-[160px]" {
+                                            ({
+                                                cost_breakdown_bar(
+                                                    p.material_cost,
+                                                    p.labor_cost,
+                                                    p.overhead_cost,
+                                                    p.total_cost,
+                                                )
+                                            })
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    div class="flex gap-5 text-xs text-muted px-4 py-3" {
+                        span class="flex items-center gap-1.5" {
+                            span class="w-2.5 h-0.5 rounded inline-block bg-accent" {}
+                            "材料成本"
+                        }
+                        span class="flex items-center gap-1.5" {
+                            span class="w-2.5 h-0.5 rounded inline-block bg-warn" {}
+                            "人工成本"
+                        }
+                        span class="flex items-center gap-1.5" {
+                            span class="w-2.5 h-0.5 rounded inline-block bg-purple" {}
+                            "制造费用"
+                        }
+                    }
+                }
+            }
+        }
+        // ── 工单成本面板 ──
+        div id="panel-order" class="analysis-panel" style="display:none" {
+            div class="data-card mb-0" {
+                div class="px-4 py-3 border-b border-border-soft text-sm font-semibold text-fg flex items-center justify-between"
+                {
+                    span { "工单成本归集" }
+                }
+                @if work_orders.is_empty() {
+                    div class="text-center py-8 text-sm text-muted" { "暂无工单成本数据" }
+                } @else {
+                    div class="overflow-x-auto" {
+                        table class="data-table min-w-[950px]" {
+                            thead {
+                                tr {
+                                    th { "工单号" }
+                                    th { "产品" }
+                                    th class="text-right" { "计划数量" }
+                                    th class="text-right" { "完工数量" }
+                                    th class="text-right" { "材料成本" }
+                                    th class="text-right" { "人工成本" }
+                                    th class="text-right" { "外协成本" }
+                                    th class="text-right" { "总成本" }
+                                    th { "状态" }
+                                }
+                            }
+                            tbody {
+                                @for w in work_orders {
+                                    tr {
+                                        td class="text-accent font-medium cursor-pointer" {
+                                            (w.doc_number)
+                                        }
+                                        td { (w.product_name) }
+                                        td class="text-right text-[13px]" {
+                                            (w.planned_qty.round_dp(0))
+                                        }
+                                        td class="text-right text-[13px]" {
+                                            (w.completed_qty.round_dp(0))
+                                        }
+                                        td class="text-right text-[13px]" {
+                                            (fmt_money_full(w.material_cost))
+                                        }
+                                        td class="text-right text-[13px]" {
+                                            (fmt_money_full(w.labor_cost))
+                                        }
+                                        td class="text-right text-[13px]" {
+                                            (fmt_money_full(w.outsource_cost))
+                                        }
+                                        td class="text-right text-[13px] font-bold text-accent" {
+                                            (fmt_money_full(w.total_cost))
+                                        }
+                                        @let (label, cls) = wo_status_label(w.wo_status);
+                                        td {
+                                            span
+                                                class=(format!("status-pill {}", crate::utils::status_color(cls)))
+                                            { (label) }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        // ── 利润中心 P&L 面板 ──
+        div id="panel-profit" class="analysis-panel" style="display:none" {
+            div class="data-card mb-0" {
+                div class="px-4 py-3 border-b border-border-soft text-sm font-semibold text-fg flex items-center justify-between"
+                {
+                    span { "利润中心 P&L · 2026-06" }
+                }
+                @if profit_centers.is_empty() {
+                    div class="text-center py-8 text-sm text-muted" { "暂无利润中心数据" }
+                } @else {
+                    div class="overflow-x-auto" {
+                        table class="data-table min-w-[900px]" {
+                            thead {
+                                tr {
+                                    th { "利润中心" }
+                                    th class="text-right" { "收入" }
+                                    th class="text-right" { "材料成本" }
+                                    th class="text-right" { "人工成本" }
+                                    th class="text-right" { "制造费用" }
+                                    th class="text-right" { "管理费用" }
+                                    th class="text-right" { "利润" }
+                                    th { "利润率" }
+                                }
+                            }
+                            tbody {
+                                @for pc in profit_centers {
+                                    tr {
+                                        td class="font-semibold" { (pc.label) }
+                                        td class="text-right text-[13px] font-semibold" {
+                                            (fmt_money(pc.income))
+                                        }
+                                        td class="text-right text-[13px]" {
+                                            (fmt_money(pc.material_cost))
+                                        }
+                                        td class="text-right text-[13px]" {
+                                            (fmt_money(pc.labor_cost))
+                                        }
+                                        td class="text-right text-[13px]" {
+                                            (fmt_money(pc.overhead_cost))
+                                        }
+                                        td class="text-right text-[13px]" {
+                                            (fmt_money(pc.admin_cost))
+                                        }
+                                        td class="text-right text-[13px] font-bold text-success" {
+                                            (fmt_money(pc.profit))
+                                        }
+                                        td {
+                                            span class=(margin_class(pc.profit_rate)) {
+                                                (format!("{}%", pc.profit_rate))
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        // ── 毛利分析面板 ──
+        div id="panel-margin" class="analysis-panel" style="display:none" {
+            div class="data-card mb-0" {
+                div class="px-4 py-3 border-b border-border-soft text-sm font-semibold text-fg flex items-center justify-between"
+                {
+                    span { "订单毛利分析" }
+                }
+                @if margins.is_empty() {
+                    div class="text-center py-8 text-sm text-muted" { "暂无毛利数据" }
+                } @else {
+                    div class="overflow-x-auto" {
+                        table class="data-table min-w-[1000px]" {
+                            thead {
+                                tr {
+                                    th { "订单号" }
+                                    th { "客户" }
+                                    th class="text-right" { "订单金额" }
+                                    th class="text-right" { "实际成本" }
+                                    th class="text-right" { "毛利" }
+                                    th { "毛利率" }
+                                }
+                            }
+                            tbody {
+                                @for m in margins {
+                                    tr {
+                                        td class="text-accent font-medium cursor-pointer" {
+                                            (m.doc_number)
+                                        }
+                                        td { (m.customer_name) }
+                                        td class="text-right text-[13px] font-semibold" {
+                                            (fmt_money_full(m.order_amount))
+                                        }
+                                        td class="text-right text-[13px]" {
+                                            (fmt_money_full(m.actual_cost))
+                                        }
+                                        td class="text-right text-[13px] font-bold" {
+                                            @if m.margin_amount >= Decimal::ZERO {
+                                                span class="text-success" {
+                                                    (fmt_money_full(m.margin_amount))
+                                                }
+                                            } @else {
+                                                span class="text-danger" {
+                                                    (fmt_money_full(m.margin_amount))
+                                                }
+                                            }
+                                        }
+                                        td {
+                                            span class=(margin_class(m.margin_rate)) {
+                                                (format!("{}%", m.margin_rate))
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    ({
+        PreEscaped(
+            r#"<script>
 function switchTab(name) {
  document.querySelectorAll('.analysis-tab').forEach(function(t) {
  t.className = 'analysis-tab px-4 py-3 text-sm text-muted cursor-pointer whitespace-nowrap relative border-b-2 border-transparent -mb-px hover:text-fg transition-colors';
@@ -554,26 +671,30 @@ function switchTab(name) {
  var panel = document.getElementById('panel-' + name);
  if (panel) panel.style.display = '';
 }
-</script>"#))
- }
+</script>"#,
+        )
+    })
+}
 }
 
 // ── Components ──
 
 fn cost_breakdown_bar(material: Decimal, labor: Decimal, overhead: Decimal, total: Decimal) -> Markup {
  if total == Decimal::ZERO {
- return html! { "—" };
+ return html! {
+    "—"
+};
  }
  let mat_pct = (material / total * Decimal::from(100)).round_dp(0).to_string();
  let lab_pct = (labor / total * Decimal::from(100)).round_dp(0).to_string();
  let ovh_pct = (overhead / total * Decimal::from(100)).round_dp(0).to_string();
  html! {
- div class="flex h-[9px] overflow-hidden gap-[2px] relative" {
- div class="h-full bg-accent" style=(format!("width:{}%", mat_pct)) {}
- div class="h-full bg-warn" style=(format!("width:{}%", lab_pct)) {}
- div class="h-full bg-purple" style=(format!("width:{}%", ovh_pct)) {}
- }
- }
+    div class="flex h-[9px] overflow-hidden gap-[2px] relative" {
+        div class="h-full bg-accent" style=(format!("width:{}%", mat_pct)) {}
+        div class="h-full bg-warn" style=(format!("width:{}%", lab_pct)) {}
+        div class="h-full bg-purple" style=(format!("width:{}%", ovh_pct)) {}
+    }
+}
 }
 
 fn stat_card(
@@ -584,14 +705,26 @@ fn stat_card(
  icon_path: &str,
 ) -> Markup {
  html! {
- div class=(format!("data-card flex items-center gap-4 p-5 border-l-[3px] {}", border_class)) {
- div class=(format!("w-11 h-11 rounded-md grid place-items-center shrink-0 {}", icon_class)) {
- (PreEscaped(format!(r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24"><path d="{}"/></svg>"#, icon_path)))
- }
- div {
- div class="text-sm text-muted" { (title) }
- div class="text-2xl font-bold font-mono tabular-nums text-fg mt-1" { (PreEscaped(value)) }
- }
- }
- }
+    div class=(format!("data-card flex items-center gap-4 p-5 border-l-[3px] {}", border_class)) {
+        div class=({
+            format!(
+                "w-11 h-11 rounded-md grid place-items-center shrink-0 {}",
+                icon_class,
+            )
+        }) {
+            ({
+                PreEscaped(
+                    format!(
+                        r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24"><path d="{}"/></svg>"#,
+                        icon_path,
+                    ),
+                )
+            })
+        }
+        div {
+            div class="text-sm text-muted" { (title) }
+            div class="text-2xl font-bold font-mono tabular-nums text-fg mt-1" { (PreEscaped(value)) }
+        }
+    }
+}
 }

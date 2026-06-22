@@ -101,25 +101,22 @@ fn supplier_list_page(
  can_edit: bool,
 ) -> Markup {
  html! {
- div {
- // ── Page Header ──
- div class="flex items-center justify-between mb-6" {
- h1 class="text-xl font-bold text-fg tracking-tight" { "供应商管理" }
- div class="flex gap-3" {
- @if can_create {
- a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(SupplierCreatePath::PATH) {
- (icon::plus_icon("w-4 h-4"))
- "新建供应商"
- }
- }
- }
- }
-
-
- // ── Tabs + Filter + Data Table (HTMX panel) ──
- (supplier_table_fragment(result, params, can_delete, can_edit))
- }
- }
+    div {
+        // ── Page Header ──
+        div class="flex items-center justify-between mb-6" {
+            h1 class="text-xl font-bold text-fg tracking-tight" { "供应商管理" }
+            div class="flex gap-3" {
+                @if can_create {
+                    a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                        href=(SupplierCreatePath::PATH)
+                    { (icon::plus_icon("w-4 h-4")) "新建供应商" }
+                }
+            }
+        }
+        // ── Tabs + Filter + Data Table (HTMX panel) ──
+        (supplier_table_fragment(result, params, can_delete, can_edit))
+    }
+}
 }
 
 fn supplier_table_fragment(
@@ -142,69 +139,90 @@ fn supplier_table_fragment(
  ];
 
  html! {
- div class="supplier-list-panel" {
- (status_tabs_with_param(SupplierListPath::PATH, "#supplier-data-card", "#supplier-filter-form", tabs, &active_value, "status"))
-
- // ── Filter Bar ──
- form class="flex items-center gap-3 mb-5 flex-wrap filter-form" id="supplier-filter-form"
- hx-get=(SupplierListPath::PATH)
- hx-trigger="change, keyup changed delay:300ms from:.search-input"
- hx-target="#supplier-data-card"
- hx-select="#supplier-data-card"
- hx-swap="outerHTML"
- hx-select-oob="#status-tabs"
- hx-include="#supplier-filter-form"
- hx-push-url="true" {
- div class="relative flex-1 max-w-xs icon:absolute icon:left-3 icon:top-1/2 icon:-translate-y-1/2 icon:w-4 icon:h-4 icon:text-muted" {
- (icon::search_icon(""))
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input" type="text" name="keyword"
- placeholder="搜索供应商名称、编码…"
- value=(params.keyword.as_deref().unwrap_or(""));
- }
- select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="category" {
- option value="" { "全部类别" }
- option value="1" selected[params.category == Some(1)] { "原材料" }
- option value="2" selected[params.category == Some(2)] { "包装材料" }
- option value="3" selected[params.category == Some(3)] { "外协加工" }
- option value="4" selected[params.category == Some(4)] { "辅料" }
- option value="5" selected[params.category == Some(5)] { "服务" }
- }
- }
-
- // ── Data Table ──
- div class="data-card" id="supplier-data-card" {
- div class="overflow-x-auto" {
- table class="data-table" {
- thead {
- tr {
- th { "供应商编码" }
- th { "供应商名称" }
- th { "供应类别" }
- th { "联系人" }
- th { "电话" }
- th { "交货天数" }
- th { "状态" }
- th class="!text-right" { "操作" }
- }
- }
- tbody {
- @for s in &result.items {
- (supplier_row(s, can_delete, can_edit))
- }
- @if result.items.is_empty() {
- tr {
- td colspan="8" class="text-center text-muted py-8" {
- "暂无供应商数据"
- }
- }
- }
- }
- }
- }
- (pagination(SupplierListPath::PATH, &query, result.total, result.page, result.total_pages))
- }
- }
- }
+    div class="supplier-list-panel" {
+        ({
+            status_tabs_with_param(
+                SupplierListPath::PATH,
+                "#supplier-data-card",
+                "#supplier-filter-form",
+                tabs,
+                &active_value,
+                "status",
+            )
+        })
+        // ── Filter Bar ──
+        form
+            class="flex items-center gap-3 mb-5 flex-wrap filter-form"
+            id="supplier-filter-form"
+            hx-get=(SupplierListPath::PATH)
+            hx-trigger="change, keyup changed delay:300ms from:.search-input"
+            hx-target="#supplier-data-card"
+            hx-select="#supplier-data-card"
+            hx-swap="outerHTML"
+            hx-select-oob="#status-tabs"
+            hx-include="#supplier-filter-form"
+            hx-push-url="true"
+        {
+            div class="relative flex-1 max-w-xs icon:absolute icon:left-3 icon:top-1/2 icon:-translate-y-1/2 icon:w-4 icon:h-4 icon:text-muted"
+            {
+                (icon::search_icon(""))
+                input
+                    class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input"
+                    type="text"
+                    name="keyword"
+                    placeholder="搜索供应商名称、编码…"
+                    value=(params.keyword.as_deref().unwrap_or(""));
+            }
+            select
+                class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer"
+                name="category"
+            {
+                option value="" { "全部类别" }
+                option value="1" selected[params.category == Some(1)] { "原材料" }
+                option value="2" selected[params.category == Some(2)] { "包装材料" }
+                option value="3" selected[params.category == Some(3)] { "外协加工" }
+                option value="4" selected[params.category == Some(4)] { "辅料" }
+                option value="5" selected[params.category == Some(5)] { "服务" }
+            }
+        }
+        // ── Data Table ──
+        div class="data-card" id="supplier-data-card" {
+            div class="overflow-x-auto" {
+                table class="data-table" {
+                    thead {
+                        tr {
+                            th { "供应商编码" }
+                            th { "供应商名称" }
+                            th { "供应类别" }
+                            th { "联系人" }
+                            th { "电话" }
+                            th { "交货天数" }
+                            th { "状态" }
+                            th class="!text-right" { "操作" }
+                        }
+                    }
+                    tbody {
+                        @for s in &result.items { (supplier_row(s, can_delete, can_edit)) }
+                        @if result.items.is_empty() {
+                            tr {
+                                td colspan="8" class="text-center text-muted py-8" { "暂无供应商数据" }
+                            }
+                        }
+                    }
+                }
+            }
+            ({
+                pagination(
+                    SupplierListPath::PATH,
+                    &query,
+                    result.total,
+                    result.page,
+                    result.total_pages,
+                )
+            })
+        }
+    }
+}
 }
 
 fn supplier_row(s: &Supplier, can_delete: bool, can_edit: bool) -> Markup {
@@ -228,49 +246,63 @@ fn supplier_row(s: &Supplier, can_delete: bool, can_edit: bool) -> Markup {
  };
 
  html! {
- tr class="cursor-pointer" {
- td class="text-accent font-medium cursor-pointer font-mono tabular-nums" onclick=(format!("location.href='{}'", detail_path)) { (s.code) }
- td onclick=(format!("location.href='{}'", detail_path)) { strong { (s.name) } }
- td onclick=(format!("location.href='{}'", detail_path)) {
- span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-surface text-slate-500" { (category_label) }
- }
- td onclick=(format!("location.href='{}'", detail_path)) {
- span class="text-muted" { "—" }
- }
- td onclick=(format!("location.href='{}'", detail_path)) {
- span class="text-muted" { "—" }
- }
- td class="font-mono tabular-nums" onclick=(format!("location.href='{}'", detail_path)) {
- @if s.lead_time_days > 0 {
- (s.lead_time_days) " 天"
- } @else {
- span class="text-muted" { "—" }
- }
- }
- td onclick=(format!("location.href='{}'", detail_path)) {
- span class=(format!("status-pill {}", crate::utils::status_color(status_class))) { (status_label) }
- }
- td _="on click halt the event" {
- div class="row-actions flex items-center gap-1 justify-end opacity-0 transition-opacity duration-150 [&_a]:w-[28px] [&_a]:h-[28px] [&_a]:grid [&_a]:place-items-center [&_a]:rounded-sm [&_a]:cursor-pointer [&_a]:bg-surface [&_a]:hover:bg-accent-bg icon:w-3.5 icon:h-3.5" {
- @if can_edit {
- a class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" title="编辑"
- href=(SupplierDetailPath { id: s.id }.to_string()) {
- (icon::edit_icon("w-4 h-4"))
- }
- }
- @if can_delete {
- button type="button" class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer text-danger" title="删除"
- hx-post=(delete_path)
- hx-confirm=(format!("删除后无法恢复，确定要删除供应商 <strong>{}</strong> 吗？", s.name))
- hx-target="closest tr"
- hx-swap="outerHTML swap:0.5s" {
- (icon::trash_icon("w-4 h-4"))
- }
- }
- }
- }
- }
- }
+    tr class="cursor-pointer" {
+        td  class="text-accent font-medium cursor-pointer font-mono tabular-nums"
+            onclick=(format!("location.href='{}'", detail_path))
+        { (s.code) }
+        td onclick=(format!("location.href='{}'", detail_path)) {
+            strong { (s.name) }
+        }
+        td onclick=(format!("location.href='{}'", detail_path)) {
+            span
+                class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-surface text-slate-500"
+            { (category_label) }
+        }
+        td onclick=(format!("location.href='{}'", detail_path)) {
+            span class="text-muted" { "—" }
+        }
+        td onclick=(format!("location.href='{}'", detail_path)) {
+            span class="text-muted" { "—" }
+        }
+        td class="font-mono tabular-nums" onclick=(format!("location.href='{}'", detail_path)) {
+            @if s.lead_time_days > 0 { (s.lead_time_days) " 天" } @else {
+                span class="text-muted" { "—" }
+            }
+        }
+        td onclick=(format!("location.href='{}'", detail_path)) {
+            span class=(format!("status-pill {}", crate::utils::status_color(status_class))) {
+                (status_label)
+            }
+        }
+        td _="on click halt the event" {
+            div class="row-actions flex items-center gap-1 justify-end opacity-0 transition-opacity duration-150 [&_a]:w-[28px] [&_a]:h-[28px] [&_a]:grid [&_a]:place-items-center [&_a]:rounded-sm [&_a]:cursor-pointer [&_a]:bg-surface [&_a]:hover:bg-accent-bg icon:w-3.5 icon:h-3.5"
+            {
+                @if can_edit {
+                    a   class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer"
+                        title="编辑"
+                        href=(SupplierDetailPath { id: s.id }.to_string())
+                    { (icon::edit_icon("w-4 h-4")) }
+                }
+                @if can_delete {
+                    button
+                        type="button"
+                        class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer text-danger"
+                        title="删除"
+                        hx-post=(delete_path)
+                        hx-confirm=({
+                            format!(
+                                "删除后无法恢复，确定要删除供应商 <strong>{}</strong> 吗？",
+                                s.name,
+                            )
+                        })
+                        hx-target="closest tr"
+                        hx-swap="outerHTML swap:0.5s"
+                    { (icon::trash_icon("w-4 h-4")) }
+                }
+            }
+        }
+    }
+}
 }
 
 fn build_query_string(params: &SupplierQueryParams) -> String {

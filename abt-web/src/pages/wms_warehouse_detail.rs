@@ -321,175 +321,185 @@ fn warehouse_detail_page(
  let type_label = warehouse_type_label(&warehouse.warehouse_type);
 
  html! {
- div {
- // ── Detail Header ──
- div class="block bg-bg border border-border-soft rounded-lg p-6 flex justify-between items-start mb-5" {
- div {
- div class="flex items-center gap-3" {
- h1 class="text-xl font-bold m-0 font-mono" { (warehouse.code) }
- span class=(format!("status-pill {}", crate::utils::status_color(status_class))) { (status_label) }
- @if warehouse.is_virtual {
- span class="inline-flex items-center gap-[5px] rounded-full text-[11px] font-medium whitespace-nowrap bg-[rgba(114,46,209,0.08)] text-purple-600 px-2 py-0.5" { "虚拟仓" }
- }
- }
- div class="text-[13px] text-muted mt-2" { (warehouse.name) }
- }
- div class="flex gap-3" {
- a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{}?restore=true", WarehouseListPath::PATH)) {
- (icon::arrow_left_icon("w-4 h-4"))
- " 返回列表"
- }
- @if can_edit {
- a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(edit_path) {
- (icon::edit_icon("w-4 h-4"))
- " 编辑"
- }
- }
- @if can_delete {
- button type="button" class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-danger text-white border-none hover:opacity-90 ml-2"
- hx-post=(delete_path)
- hx-confirm=(format!("删除后无法恢复，确定要删除仓库 <strong>{}</strong> 吗？", warehouse.name))
- hx-target="body"
- hx-swap="none" {
- (icon::trash_icon("w-4 h-4"))
- " 删除"
- }
- }
- }
- }
-
- // ── Info Card ──
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-sm" {
- div class="text-base font-semibold text-fg mb-4" { "仓库信息" }
- div class="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-4" {
- div class="flex flex-col gap-1" {
- span class="text-xs text-muted font-medium" { "仓库编码" }
- span class="text-sm text-fg font-medium font-mono tabular-nums" { (warehouse.code) }
- }
- div class="flex flex-col gap-1" {
- span class="text-xs text-muted font-medium" { "仓库名称" }
- span class="text-sm text-fg font-medium" { (warehouse.name) }
- }
- div class="flex flex-col gap-1" {
- span class="text-xs text-muted font-medium" { "仓库类型" }
- span class="text-sm text-fg font-medium" { (type_label) }
- }
- div class="flex flex-col gap-1" {
- span class="text-xs text-muted font-medium" { "状态" }
- span class="text-sm text-fg font-medium" {
- span class=(format!("status-pill {}", crate::utils::status_color(status_class))) { (status_label) }
- }
- }
- div class="flex flex-col gap-1" {
- span class="text-xs text-muted font-medium" { "地址" }
- span class="text-sm text-fg font-medium" {
- @if warehouse.is_virtual {
- "—"
- } @else if let Some(ref addr) = warehouse.address {
- (addr)
- } @else {
- "—"
- }
- }
- }
- div class="flex flex-col gap-1" {
- span class="text-xs text-muted font-medium" { "管理员" }
- span class="text-sm text-fg font-medium" { "—" }
- }
- div class="flex flex-col gap-1" {
- span class="text-xs text-muted font-medium" { "创建时间" }
- span class="text-sm text-fg font-medium font-mono tabular-nums" { (warehouse.created_at.format("%Y-%m-%d")) }
- }
- }
- }
-
- // ── Zones Table ──
- div class="bg-bg border border-border-soft rounded-md overflow-hidden mb-6 p-6" {
- div class="flex items-center justify-between mb-4 pb-3 border-b border-border-soft" {
- div class="font-semibold text-fg text-base" {
- "库区列表 "
- span class="font-normal text-xs text-muted ml-2" {
- "共 " (zones.len()) " 个库区"
- }
- }
- button type="button" class="inline-flex items-center gap-2 rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-xs font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] px-3 py-1" _="on click add .is-open to #zone-create-modal" {
- (icon::plus_icon("w-3.5 h-3.5"))
- "新建库区"
- }
- }
- div id="zones-table-container" hx-trigger="zoneChanged from:body" hx-get=(format!("{}/zones", detail_path)) hx-target="#zones-table-container" hx-swap="innerHTML" {
- (zones_table_fragment(zones, warehouse.id))
- }
- }
-
- // ── Zone Bins Table (placeholder, populated on zone click) ──
- div id="bins-section" class="bg-bg border border-border-soft rounded-md overflow-hidden mb-6 p-6" {
- div class="font-semibold text-fg mb-4 pb-3 text-base border-b border-border-soft" {
- "库位明细 "
- span class="font-normal text-xs text-muted ml-2" {
- "请点击库区查看库位"
- }
- }
- div id="bins-table-container" {
- div class="text-center text-muted py-8" { "选择库区后显示库位列表" }
- }
- }
-
- // ── Stats ──
- (stats_section(stats))
-
- // ── Zone Create Modal ──
- (crate::components::modal::modal(
- "zone-create-modal",
- "新建库区",
- "保存",
- "create-zone-form",
- &WarehouseZoneCreatePath { id: warehouse.id }.to_string(),
- html! {
- div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
- div class="form-field" {
- label { "库区编码 " span class="text-danger" { "*" } }
- input type="text" name="code" required placeholder="如 A-07";
- }
- div class="form-field" {
- label { "库区名称 " span class="text-danger" { "*" } }
- input type="text" name="name" required placeholder="请输入库区名称";
- }
- div class="form-field" {
- label { "库区类型 " span class="text-danger" { "*" } }
- select name="zone_type" required {
- option value="" disabled selected { "-- 请选择 --" }
- option value="1" { "收货区" }
- option value="2" { "存储区" }
- option value="3" { "拣货区" }
- option value="4" { "包装区" }
- option value="5" { "待检区" }
- option value="6" { "退货区" }
- }
- }
- div class="form-field" {
- label { "排序" }
- input type="number" step="any" name="sort_order" placeholder="排序号";
- }
- div class="form-field field-full" {
- label { "备注" }
- textarea name="remark" placeholder="库区备注信息…"
- class="w-full resize-y min-h-[60px]" {}
- }
- }
- },
- ))
-
- // ── Zone Edit Modal ──
- div id="zone-edit-modal" class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto" { }
- (maud::PreEscaped(r#"<script>
+    div {
+        // ── Detail Header ──
+        div class="block bg-bg border border-border-soft rounded-lg p-6 flex justify-between items-start mb-5"
+        {
+            div {
+                div class="flex items-center gap-3" {
+                    h1 class="text-xl font-bold m-0 font-mono" { (warehouse.code) }
+                    span class=({
+                        format!(
+                            "status-pill {}",
+                            crate::utils::status_color(status_class),
+                        )
+                    }) { (status_label) }
+                    @if warehouse.is_virtual {
+                        span
+                            class="inline-flex items-center gap-[5px] rounded-full text-[11px] font-medium whitespace-nowrap bg-[rgba(114,46,209,0.08)] text-purple-600 px-2 py-0.5"
+                        { "虚拟仓" }
+                    }
+                }
+                div class="text-[13px] text-muted mt-2" { (warehouse.name) }
+            }
+            div class="flex gap-3" {
+                a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                    href=(format!("{}?restore=true", WarehouseListPath::PATH))
+                { (icon::arrow_left_icon("w-4 h-4")) " 返回列表" }
+                @if can_edit {
+                    a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                        href=(edit_path)
+                    { (icon::edit_icon("w-4 h-4")) " 编辑" }
+                }
+                @if can_delete {
+                    button
+                        type="button"
+                        class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-danger text-white border-none hover:opacity-90 ml-2"
+                        hx-post=(delete_path)
+                        hx-confirm=({
+                            format!(
+                                "删除后无法恢复，确定要删除仓库 <strong>{}</strong> 吗？",
+                                warehouse.name,
+                            )
+                        })
+                        hx-target="body"
+                        hx-swap="none"
+                    { (icon::trash_icon("w-4 h-4")) " 删除" }
+                }
+            }
+        }
+        // ── Info Card ──
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-sm" {
+            div class="text-base font-semibold text-fg mb-4" { "仓库信息" }
+            div class="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-4" {
+                div class="flex flex-col gap-1" {
+                    span class="text-xs text-muted font-medium" { "仓库编码" }
+                    span class="text-sm text-fg font-medium font-mono tabular-nums" {
+                        (warehouse.code)
+                    }
+                }
+                div class="flex flex-col gap-1" {
+                    span class="text-xs text-muted font-medium" { "仓库名称" }
+                    span class="text-sm text-fg font-medium" { (warehouse.name) }
+                }
+                div class="flex flex-col gap-1" {
+                    span class="text-xs text-muted font-medium" { "仓库类型" }
+                    span class="text-sm text-fg font-medium" { (type_label) }
+                }
+                div class="flex flex-col gap-1" {
+                    span class="text-xs text-muted font-medium" { "状态" }
+                    span class="text-sm text-fg font-medium" {
+                        span
+                            class=({
+                                format!(
+                                    "status-pill {}",
+                                    crate::utils::status_color(status_class),
+                                )
+                            })
+                        { (status_label) }
+                    }
+                }
+                div class="flex flex-col gap-1" {
+                    span class="text-xs text-muted font-medium" { "地址" }
+                    span class="text-sm text-fg font-medium" {
+                        @if warehouse.is_virtual { "—" } @else if let Some(ref addr) = warehouse.address {
+                            (addr)
+                        } @else { "—" }
+                    }
+                }
+                div class="flex flex-col gap-1" {
+                    span class="text-xs text-muted font-medium" { "管理员" }
+                    span class="text-sm text-fg font-medium" { "—" }
+                }
+                div class="flex flex-col gap-1" {
+                    span class="text-xs text-muted font-medium" { "创建时间" }
+                    span class="text-sm text-fg font-medium font-mono tabular-nums" {
+                        (warehouse.created_at.format("%Y-%m-%d"))
+                    }
+                }
+            }
+        }
+        // ── Zones Table ──
+        div class="bg-bg border border-border-soft rounded-md overflow-hidden mb-6 p-6" {
+            div class="flex items-center justify-between mb-4 pb-3 border-b border-border-soft" {
+                div class="font-semibold text-fg text-base" {
+                    "库区列表 "
+                    span class="font-normal text-xs text-muted ml-2" { "共 " (zones.len()) " 个库区" }
+                }
+                button
+                    type="button"
+                    class="inline-flex items-center gap-2 rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-xs font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] px-3 py-1"
+                    _="on click add .is-open to #zone-create-modal"
+                { (icon::plus_icon("w-3.5 h-3.5")) "新建库区" }
+            }
+            div id="zones-table-container"
+                hx-trigger="zoneChanged from:body"
+                hx-get=(format!("{}/zones", detail_path))
+                hx-target="#zones-table-container"
+                hx-swap="innerHTML"
+            { (zones_table_fragment(zones, warehouse.id)) }
+        }
+        // ── Zone Bins Table (placeholder, populated on zone click) ──
+        div id="bins-section"
+            class="bg-bg border border-border-soft rounded-md overflow-hidden mb-6 p-6"
+        {
+            div class="font-semibold text-fg mb-4 pb-3 text-base border-b border-border-soft" {
+                "库位明细 "
+                span class="font-normal text-xs text-muted ml-2" { "请点击库区查看库位" }
+            }
+            div id="bins-table-container" {
+                div class="text-center text-muted py-8" { "选择库区后显示库位列表" }
+            }
+        }
+        // ── Stats ──
+        (stats_section(stats))
+        // ── Zone Create Modal ──
+        ({
+            crate::components::modal::modal(
+                "zone-create-modal",
+                "新建库区",
+                "保存",
+                "create-zone-form",
+                &WarehouseZoneCreatePath {
+                    id: warehouse.id,
+                }
+                    .to_string(),
+                html! {
+                    div class = "grid grid-cols-2 gap-4 gap-x-6 mb-6" { div class =
+                    "form-field" { label { "库区编码 " span class = "text-danger" {
+                    "*" } } input type = "text" name = "code" required placeholder =
+                    "如 A-07"; } div class = "form-field" { label { "库区名称 " span
+                    class = "text-danger" { "*" } } input type = "text" name = "name"
+                    required placeholder = "请输入库区名称"; } div class =
+                    "form-field" { label { "库区类型 " span class = "text-danger" {
+                    "*" } } select name = "zone_type" required { option value = ""
+                    disabled selected { "-- 请选择 --" } option value = "1" {
+                    "收货区" } option value = "2" { "存储区" } option value = "3" {
+                    "拣货区" } option value = "4" { "包装区" } option value = "5" {
+                    "待检区" } option value = "6" { "退货区" } } } div class =
+                    "form-field" { label { "排序" } input type = "number" step = "any"
+                    name = "sort_order" placeholder = "排序号"; } div class =
+                    "form-field field-full" { label { "备注" } textarea name = "remark"
+                    placeholder = "库区备注信息…" class =
+                    "w-full resize-y min-h-[60px]" {} } }
+                },
+            )
+        })
+        // ── Zone Edit Modal ──
+        div id="zone-edit-modal"
+            class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto" {}
+        ({
+            maud::PreEscaped(
+                r#"<script>
 var zem = document.querySelector('#zone-edit-modal');
 zem.addEventListener('htmx:afterSettle', function(ev){ if(ev.detail.xhr.responseText.length > 0) zem.classList.add('is-open'); });
 zem.addEventListener('click', function(ev){ if(ev.target === zem) zem.classList.remove('is-open'); });
 document.body.addEventListener('zoneChanged', function(){ zem.classList.remove('is-open'); });
-</script>"#))
- }
- }
+</script>"#,
+            )
+        })
+    }
+}
 }
 
 fn zone_edit_form_fragment(zone: &Zone) -> Markup {
@@ -504,89 +514,107 @@ fn zone_edit_form_fragment(zone: &Zone) -> Markup {
  };
 
  html! {
- form class="bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl" hx-put=(put_path) hx-swap="none" {
- div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
- h2 { "编辑库区" }
- button type="button" class="bg-transparent border-none cursor-pointer text-xl text-muted p-1" _="on click remove .is-open from #zone-edit-modal" {
- "×"
- }
- }
- div class="overflow-y-auto flex-1 min-h-0 p-6" {
- div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
- div class="form-field" {
- label { "库区编码" }
- input type="text" name="code" value=(zone.code) readonly
- class="bg-surface text-muted";
- }
- div class="form-field" {
- label { "库区名称 " span class="text-danger" { "*" } }
- input type="text" name="name" value=(zone.name) required;
- }
- div class="form-field" {
- label { "库区类型 " span class="text-danger" { "*" } }
- select name="zone_type" required {
- option value="1" selected[type_val == 1] { "收货区" }
- option value="2" selected[type_val == 2] { "存储区" }
- option value="3" selected[type_val == 3] { "拣货区" }
- option value="4" selected[type_val == 4] { "包装区" }
- option value="5" selected[type_val == 5] { "待检区" }
- option value="6" selected[type_val == 6] { "退货区" }
- }
- }
- div class="form-field" {
- label { "排序" }
- input type="number" step="any" name="sort_order" value=(zone.sort_order);
- }
- div class="form-field field-full" {
- label { "备注" }
- textarea name="remark" class="w-full resize-y min-h-[60px]" {
- (zone.remark.as_deref().unwrap_or(""))
- }
- }
- }
- }
- div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" {
- button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" _="on click remove .is-open from #zone-edit-modal" {
- "取消"
- }
- button type="submit" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" { "保存" }
- }
- }
- }
+    form
+        class="bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl"
+        hx-put=(put_path)
+        hx-swap="none"
+    {
+        div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0"
+        {
+            h2 { "编辑库区" }
+            button
+                type="button"
+                class="bg-transparent border-none cursor-pointer text-xl text-muted p-1"
+                _="on click remove .is-open from #zone-edit-modal"
+            { "×" }
+        }
+        div class="overflow-y-auto flex-1 min-h-0 p-6" {
+            div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
+                div class="form-field" {
+                    label { "库区编码" }
+                    input
+                        type="text"
+                        name="code"
+                        value=(zone.code)
+                        readonly
+                        class="bg-surface text-muted";
+                }
+                div class="form-field" {
+                    label {
+                        "库区名称 "
+                        span class="text-danger" { "*" }
+                    }
+                    input type="text" name="name" value=(zone.name) required;
+                }
+                div class="form-field" {
+                    label {
+                        "库区类型 "
+                        span class="text-danger" { "*" }
+                    }
+                    select name="zone_type" required {
+                        option value="1" selected[type_val == 1] { "收货区" }
+                        option value="2" selected[type_val == 2] { "存储区" }
+                        option value="3" selected[type_val == 3] { "拣货区" }
+                        option value="4" selected[type_val == 4] { "包装区" }
+                        option value="5" selected[type_val == 5] { "待检区" }
+                        option value="6" selected[type_val == 6] { "退货区" }
+                    }
+                }
+                div class="form-field" {
+                    label { "排序" }
+                    input type="number" step="any" name="sort_order" value=(zone.sort_order);
+                }
+                div class="form-field field-full" {
+                    label { "备注" }
+                    textarea name="remark" class="w-full resize-y min-h-[60px]" {
+                        (zone.remark.as_deref().unwrap_or(""))
+                    }
+                }
+            }
+        }
+        div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" {
+            button
+                type="button"
+                class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                _="on click remove .is-open from #zone-edit-modal"
+            { "取消" }
+            button
+                type="submit"
+                class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+            { "保存" }
+        }
+    }
+}
 }
 
 fn zones_table_fragment(zones: &[Zone], warehouse_id: i64) -> Markup {
  html! {
- div class="data-card mb-0" {
- div class="overflow-x-auto" {
- table class="data-table" {
- thead {
- tr {
- th { "库区编码" }
- th { "名称" }
- th { "类型" }
- th { "库位数" }
- th { "排序" }
- th { "备注" }
- th class="!text-right" { "操作" }
- }
- }
- tbody {
- @for z in zones {
- (zone_row(z, warehouse_id))
- }
- @if zones.is_empty() {
- tr {
- td colspan="7" class="text-center text-muted py-8" {
- "暂无库区数据"
- }
- }
- }
- }
- }
- }
- }
- }
+    div class="data-card mb-0" {
+        div class="overflow-x-auto" {
+            table class="data-table" {
+                thead {
+                    tr {
+                        th { "库区编码" }
+                        th { "名称" }
+                        th { "类型" }
+                        th { "库位数" }
+                        th { "排序" }
+                        th { "备注" }
+                        th class="!text-right" { "操作" }
+                    }
+                }
+                tbody {
+                    @for z in zones { (zone_row(z, warehouse_id)) }
+                    @if zones.is_empty() {
+                        tr {
+                            td colspan="7" class="text-center text-muted py-8" { "暂无库区数据" }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
 }
 
 fn zone_row(z: &Zone, _warehouse_id: i64) -> Markup {
@@ -595,75 +623,80 @@ fn zone_row(z: &Zone, _warehouse_id: i64) -> Markup {
  let type_label = zone_type_label(&z.zone_type);
 
  html! {
- tr {
- td class="font-mono tabular-nums" { (z.code) }
- td { (z.name) }
- td {
- span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-[rgba(22,119,255,0.06)] text-accent" { (type_label) }
- }
- td class="text-right text-[13px] text-muted" { "—" }
- td class="font-mono tabular-nums" { (z.sort_order) }
- td class="text-muted" {
- @if let Some(ref r) = z.remark { (r) } @else { "—" }
- }
- td {
- div class="row-actions flex items-center gap-1 justify-end opacity-0 transition-opacity duration-150 [&_a]:w-[28px] [&_a]:h-[28px] [&_a]:grid [&_a]:place-items-center [&_a]:rounded-sm [&_a]:cursor-pointer [&_a]:bg-surface [&_a]:hover:bg-accent-bg icon:w-3.5 icon:h-3.5" {
- button type="button" class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" title="查看库位"
- hx-get=(bins_path)
- hx-target="#bins-table-container"
- hx-swap="innerHTML" {
- (icon::eye_icon("w-4 h-4"))
- }
- button type="button" class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" title="编辑"
- hx-get=(WarehouseZonePath { zone_id: z.id })
- hx-target="#zone-edit-modal"
- hx-swap="innerHTML" {
- (icon::edit_icon("w-4 h-4"))
- }
- button type="button" class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer text-danger" title="删除"
- hx-delete=(delete_path)
- hx-confirm="确定要删除该库区吗？删除后不可恢复。"
- hx-target="closest tr"
- hx-swap="outerHTML swap:0.5s" {
- (icon::trash_icon("w-4 h-4"))
- }
- }
- }
- }
- }
+    tr {
+        td class="font-mono tabular-nums" { (z.code) }
+        td { (z.name) }
+        td {
+            span
+                class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-[rgba(22,119,255,0.06)] text-accent"
+            { (type_label) }
+        }
+        td class="text-right text-[13px] text-muted" { "—" }
+        td class="font-mono tabular-nums" { (z.sort_order) }
+        td class="text-muted" {
+            @if let Some(ref r) = z.remark { (r) } @else { "—" }
+        }
+        td {
+            div class="row-actions flex items-center gap-1 justify-end opacity-0 transition-opacity duration-150 [&_a]:w-[28px] [&_a]:h-[28px] [&_a]:grid [&_a]:place-items-center [&_a]:rounded-sm [&_a]:cursor-pointer [&_a]:bg-surface [&_a]:hover:bg-accent-bg icon:w-3.5 icon:h-3.5"
+            {
+                button
+                    type="button"
+                    class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer"
+                    title="查看库位"
+                    hx-get=(bins_path)
+                    hx-target="#bins-table-container"
+                    hx-swap="innerHTML"
+                { (icon::eye_icon("w-4 h-4")) }
+                button
+                    type="button"
+                    class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer"
+                    title="编辑"
+                    hx-get=(WarehouseZonePath { zone_id: z.id })
+                    hx-target="#zone-edit-modal"
+                    hx-swap="innerHTML"
+                { (icon::edit_icon("w-4 h-4")) }
+                button
+                    type="button"
+                    class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer text-danger"
+                    title="删除"
+                    hx-delete=(delete_path)
+                    hx-confirm="确定要删除该库区吗？删除后不可恢复。"
+                    hx-target="closest tr"
+                    hx-swap="outerHTML swap:0.5s"
+                { (icon::trash_icon("w-4 h-4")) }
+            }
+        }
+    }
+}
 }
 
 fn bins_table_fragment(bins: &[Bin]) -> Markup {
  html! {
- div class="data-card mb-0" {
- div class="overflow-x-auto" {
- table class="data-table" {
- thead {
- tr {
- th { "库位编码" }
- th { "名称" }
- th { "行/列/层" }
- th { "容量上限" }
- th { "状态" }
- th { "温控要求" }
- }
- }
- tbody {
- @for b in bins {
- (bin_row(b))
- }
- @if bins.is_empty() {
- tr {
- td colspan="6" class="text-center text-muted py-8" {
- "暂无库位数据"
- }
- }
- }
- }
- }
- }
- }
- }
+    div class="data-card mb-0" {
+        div class="overflow-x-auto" {
+            table class="data-table" {
+                thead {
+                    tr {
+                        th { "库位编码" }
+                        th { "名称" }
+                        th { "行/列/层" }
+                        th { "容量上限" }
+                        th { "状态" }
+                        th { "温控要求" }
+                    }
+                }
+                tbody {
+                    @for b in bins { (bin_row(b)) }
+                    @if bins.is_empty() {
+                        tr {
+                            td colspan="6" class="text-center text-muted py-8" { "暂无库位数据" }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
 }
 
 fn bin_row(b: &Bin) -> Markup {
@@ -678,29 +711,25 @@ fn bin_row(b: &Bin) -> Markup {
  );
 
  html! {
- tr {
- td class="font-mono tabular-nums" { (b.code) }
- td { (b.name) }
- td class="font-mono tabular-nums" { (row_col) }
- td class="text-right text-[13px]" {
- @if let Some(cap) = b.capacity_limit {
- (format!("{:.2}", cap))
- } @else {
- "—"
- }
- }
- td {
- span class=(format!("status-pill {}", crate::utils::status_color(status_class))) { (status_label) }
- }
- td {
- @if let Some(ref req) = b.temperature_req {
- (req)
- } @else {
- span class="text-muted" { "—" }
- }
- }
- }
- }
+    tr {
+        td class="font-mono tabular-nums" { (b.code) }
+        td { (b.name) }
+        td class="font-mono tabular-nums" { (row_col) }
+        td class="text-right text-[13px]" {
+            @if let Some(cap) = b.capacity_limit { (format!("{:.2}", cap)) } @else { "—" }
+        }
+        td {
+            span class=(format!("status-pill {}", crate::utils::status_color(status_class))) {
+                (status_label)
+            }
+        }
+        td {
+            @if let Some(ref req) = b.temperature_req { (req) } @else {
+                span class="text-muted" { "—" }
+            }
+        }
+    }
+}
 }
 
 fn stats_section(stats: Option<&WarehouseInventoryStats>) -> Markup {
@@ -710,28 +739,32 @@ fn stats_section(stats: Option<&WarehouseInventoryStats>) -> Markup {
  };
 
  html! {
- div class="bg-bg border border-border-soft rounded-md overflow-hidden mb-6 p-6" {
- div class="font-semibold text-fg mb-4 pb-3 text-base border-b border-border-soft" {
- "库存统计"
- }
- div class="grid gap-5 grid-cols-4" {
- div class="text-center rounded-md p-5 bg-surface border border-border-soft" {
- div class="font-bold text-accent text-2xl tracking-tight leading-tight" { (total_qty) }
- div class="text-xs text-muted font-medium mt-2" { "总库存量" }
- }
- div class="text-center rounded-md p-5 bg-surface border border-border-soft" {
- div class="font-bold text-success text-2xl tracking-tight leading-tight" { (product_count) }
- div class="text-xs text-muted font-medium mt-2" { "品种数" }
- }
- div class="text-center rounded-md p-5 bg-surface border border-border-soft" {
- div class="font-bold text-2xl text-warn tracking-tight leading-tight" { (low_stock) }
- div class="text-xs text-muted font-medium mt-2" { "低库存项" }
- }
- div class="text-center rounded-md p-5 bg-surface border border-border-soft" {
- div class="font-bold text-danger text-2xl tracking-tight leading-tight" { (safety_warning) }
- div class="text-xs text-muted font-medium mt-2" { "安全库存预警" }
- }
- }
- }
- }
+    div class="bg-bg border border-border-soft rounded-md overflow-hidden mb-6 p-6" {
+        div class="font-semibold text-fg mb-4 pb-3 text-base border-b border-border-soft" { "库存统计" }
+        div class="grid gap-5 grid-cols-4" {
+            div class="text-center rounded-md p-5 bg-surface border border-border-soft" {
+                div class="font-bold text-accent text-2xl tracking-tight leading-tight" {
+                    (total_qty)
+                }
+                div class="text-xs text-muted font-medium mt-2" { "总库存量" }
+            }
+            div class="text-center rounded-md p-5 bg-surface border border-border-soft" {
+                div class="font-bold text-success text-2xl tracking-tight leading-tight" {
+                    (product_count)
+                }
+                div class="text-xs text-muted font-medium mt-2" { "品种数" }
+            }
+            div class="text-center rounded-md p-5 bg-surface border border-border-soft" {
+                div class="font-bold text-2xl text-warn tracking-tight leading-tight" { (low_stock) }
+                div class="text-xs text-muted font-medium mt-2" { "低库存项" }
+            }
+            div class="text-center rounded-md p-5 bg-surface border border-border-soft" {
+                div class="font-bold text-danger text-2xl tracking-tight leading-tight" {
+                    (safety_warning)
+                }
+                div class="text-xs text-muted font-medium mt-2" { "安全库存预警" }
+            }
+        }
+    }
+}
 }

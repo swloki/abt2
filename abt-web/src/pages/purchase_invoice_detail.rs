@@ -130,22 +130,30 @@ fn detail_page(
     html! {
         div {
             div class="flex items-center justify-between mb-6" {
-                a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150"
-                    href=(format!("{}?restore=true", PurchaseInvoiceListPath::PATH)) {
-                    (crate::components::icon::arrow_left_icon("w-4 h-4"))
-                    "返回列表"
-                }
+                a   class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150"
+                    href=(format!("{}?restore=true", PurchaseInvoiceListPath::PATH))
+                { (crate::components::icon::arrow_left_icon("w-4 h-4")) "返回列表" }
                 h1 class="text-xl font-bold text-fg tracking-tight" {
-                    "采购发票 " (invoice.doc_number) " "
-                    span style=(format!("display:inline-flex;align-items:center;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{};color:{}", status_bg, status_color)) {
-                        (status_text)
-                    }
+                    "采购发票 "
+                    (invoice.doc_number)
+                    " "
+                    span
+                        style=({
+                            format!(
+                                "display:inline-flex;align-items:center;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{};color:{}",
+                                status_bg,
+                                status_color,
+                            )
+                        })
+                    { (status_text) }
                 }
             }
-
             // ── 基本信息 ──
-            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
-                h3 class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" { "基本信息" }
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]"
+            {
+                h3 class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" {
+                    "基本信息"
+                }
                 div class="grid gap-4 grid-cols-2 md:grid-cols-3" {
                     div class="flex flex-col gap-1" {
                         label class="text-xs text-fg-2" { "发票号" }
@@ -165,15 +173,21 @@ fn detail_page(
                     }
                     div class="flex flex-col gap-1" {
                         label class="text-xs text-fg-2" { "金额小计" }
-                        span class="font-mono tabular-nums font-semibold" { (fmt_amount(invoice.subtotal)) }
+                        span class="font-mono tabular-nums font-semibold" {
+                            (fmt_amount(invoice.subtotal))
+                        }
                     }
                     div class="flex flex-col gap-1" {
                         label class="text-xs text-fg-2" { "税额" }
-                        span class="font-mono tabular-nums font-semibold" { (fmt_amount(invoice.tax_amount)) }
+                        span class="font-mono tabular-nums font-semibold" {
+                            (fmt_amount(invoice.tax_amount))
+                        }
                     }
                     div class="flex flex-col gap-1" {
                         label class="text-xs text-fg-2" { "价税合计" }
-                        span class="font-mono tabular-nums font-bold text-accent" { (fmt_amount(invoice.total)) }
+                        span class="font-mono tabular-nums font-bold text-accent" {
+                            (fmt_amount(invoice.total))
+                        }
                     }
                     div class="flex flex-col gap-1" {
                         label class="text-xs text-fg-2" { "状态" }
@@ -182,15 +196,13 @@ fn detail_page(
                     @if let Some(gl_id) = invoice.gl_entry_id {
                         div class="flex flex-col gap-1" {
                             label class="text-xs text-fg-2" { "GL 凭证" }
-                            a class="text-accent font-mono tabular-nums text-sm hover:underline"
-                                href=(GlEntryDetailPath { id: gl_id }.to_string()) {
-                                "# " (gl_id)
-                            }
+                            a   class="text-accent font-mono tabular-nums text-sm hover:underline"
+                                href=(GlEntryDetailPath { id: gl_id }.to_string())
+                            { "# " (gl_id) }
                         }
                     }
                 }
             }
-
             // ── 行项目 ──
             div class="data-card" {
                 h3 class="text-base font-semibold text-fg mb-3 px-1" { "发票明细" }
@@ -209,15 +221,31 @@ fn detail_page(
                         }
                         tbody {
                             @for line in items {
-                                @let (code, name) = product_map.get(&line.product_id).cloned().unwrap_or_else(|| ("—".to_string(), format!("#{}", line.product_id)));
+                                @let (code, name) = product_map
+                                    .get(&line.product_id)
+                                    .cloned()
+                                    .unwrap_or_else(|| (
+                                        "—".to_string(),
+                                        format!("#{}", line.product_id),
+                                    ));
                                 tr {
                                     td class="font-mono tabular-nums text-accent" { (code) }
                                     td { (name) }
-                                    td class="font-mono tabular-nums text-right" { (line.qty.to_string()) }
-                                    td class="font-mono tabular-nums text-right" { (fmt_amount(line.unit_price)) }
-                                    td class="font-mono tabular-nums text-right" { (fmt_amount(line.line_subtotal)) }
-                                    td class="font-mono tabular-nums text-right" { (fmt_amount(line.line_tax)) }
-                                    td class="font-mono tabular-nums text-right font-semibold" { (fmt_amount(line.line_total)) }
+                                    td class="font-mono tabular-nums text-right" {
+                                        (line.qty.to_string())
+                                    }
+                                    td class="font-mono tabular-nums text-right" {
+                                        (fmt_amount(line.unit_price))
+                                    }
+                                    td class="font-mono tabular-nums text-right" {
+                                        (fmt_amount(line.line_subtotal))
+                                    }
+                                    td class="font-mono tabular-nums text-right" {
+                                        (fmt_amount(line.line_tax))
+                                    }
+                                    td class="font-mono tabular-nums text-right font-semibold" {
+                                        (fmt_amount(line.line_total))
+                                    }
                                 }
                             }
                             @if items.is_empty() {
@@ -229,28 +257,35 @@ fn detail_page(
                     }
                 }
             }
-
             // ── 状态流转按钮 ──
             @if invoice.status == InvoiceStatus::Draft {
                 div class="flex gap-3 mt-5" {
-                    button class="inline-flex items-center gap-2 px-4 py-2 rounded-sm bg-accent text-accent-on text-sm font-medium hover:bg-accent-hover cursor-pointer transition-all duration-150 shadow-xs"
-                        hx-post=(PurchaseInvoicePostPath { id: invoice.id }.to_string())
+                    button
+                        class="inline-flex items-center gap-2 px-4 py-2 rounded-sm bg-accent text-accent-on text-sm font-medium hover:bg-accent-hover cursor-pointer transition-all duration-150 shadow-xs"
+                        hx-post=({
+                            PurchaseInvoicePostPath {
+                                id: invoice.id,
+                            }
+                                .to_string()
+                        })
                         hx-swap="none"
-                        _="on click if not confirm('确认过账此发票？将生成 GL 凭证。') halt the event" {
-                        (crate::components::icon::check_circle_icon("w-4 h-4"))
-                        "过账"
-                    }
+                        _="on click if not confirm('确认过账此发票？将生成 GL 凭证。') halt the event"
+                    { (crate::components::icon::check_circle_icon("w-4 h-4")) "过账" }
                 }
             }
             @if invoice.status == InvoiceStatus::Posted {
                 div class="flex gap-3 mt-5" {
-                    button class="inline-flex items-center gap-2 px-4 py-2 rounded-sm bg-white text-danger border border-border hover:bg-danger-bg text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
-                        hx-post=(PurchaseInvoiceCancelPath { id: invoice.id }.to_string())
+                    button
+                        class="inline-flex items-center gap-2 px-4 py-2 rounded-sm bg-white text-danger border border-border hover:bg-danger-bg text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                        hx-post=({
+                            PurchaseInvoiceCancelPath {
+                                id: invoice.id,
+                            }
+                                .to_string()
+                        })
                         hx-swap="none"
-                        _="on click if not confirm('确认取消此发票？将同步取消关联 GL 凭证。') halt the event" {
-                        (crate::components::icon::x_icon("w-4 h-4"))
-                        "取消发票"
-                    }
+                        _="on click if not confirm('确认取消此发票？将同步取消关联 GL 凭证。') halt the event"
+                    { (crate::components::icon::x_icon("w-4 h-4")) "取消发票" }
                 }
             }
         }

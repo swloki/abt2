@@ -51,14 +51,21 @@ fn row_status(item: &ArApLedgerRow, today: chrono::NaiveDate) -> Option<(&'stati
 fn stat_card(title: &str, value: &str, value_cls: &str, icon_svg: Markup, icon_cls: &str) -> Markup {
     html! {
         div class="data-card flex items-center gap-4 p-5" {
-            div class=(format!("w-11 h-11 rounded-md grid place-items-center shrink-0 {}", icon_cls)) {
-                (icon_svg)
-            }
+            div class=({
+                    format!(
+                        "w-11 h-11 rounded-md grid place-items-center shrink-0 {}",
+                        icon_cls,
+                    )
+                })
+            { (icon_svg) }
             div class="flex-1 min-w-0" {
                 div class="text-sm text-muted" { (title) }
-                div class=(format!("text-2xl font-bold font-mono tabular-nums mt-1 {}", value_cls)) {
-                    (value)
-                }
+                div class=({
+                    format!(
+                        "text-2xl font-bold font-mono tabular-nums mt-1 {}",
+                        value_cls,
+                    )
+                }) { (value) }
             }
         }
     }
@@ -67,14 +74,42 @@ fn stat_card(title: &str, value: &str, value_cls: &str, icon_svg: Markup, icon_c
 fn summary_cards(s: &LedgerSummary) -> Markup {
     html! {
         div class="grid grid-cols-4 gap-4 mb-6" {
-            (stat_card("应收总额", &format!("¥{}", fmt_amount(s.total_amount)), "text-fg",
-                icon::dollar_icon("w-5 h-5 text-accent"), "bg-accent-bg"))
-            (stat_card("未清余额", &format!("¥{}", fmt_amount(s.total_outstanding)), "text-success",
-                icon::check_circle_icon("w-5 h-5 text-success"), "bg-success/10"))
-            (stat_card("逾期金额", &format!("¥{}", fmt_amount(s.total_overdue)), "text-danger",
-                icon::alert_triangle_icon("w-5 h-5 text-danger"), "bg-danger/10"))
-            (stat_card("7天内到期", &format!("¥{}", fmt_amount(s.due_within_7d)), "text-warn",
-                icon::clock_icon("w-5 h-5 text-warn"), "bg-warn/10"))
+            ({
+                stat_card(
+                    "应收总额",
+                    &format!("¥{}", fmt_amount(s.total_amount)),
+                    "text-fg",
+                    icon::dollar_icon("w-5 h-5 text-accent"),
+                    "bg-accent-bg",
+                )
+            })
+            ({
+                stat_card(
+                    "未清余额",
+                    &format!("¥{}", fmt_amount(s.total_outstanding)),
+                    "text-success",
+                    icon::check_circle_icon("w-5 h-5 text-success"),
+                    "bg-success/10",
+                )
+            })
+            ({
+                stat_card(
+                    "逾期金额",
+                    &format!("¥{}", fmt_amount(s.total_overdue)),
+                    "text-danger",
+                    icon::alert_triangle_icon("w-5 h-5 text-danger"),
+                    "bg-danger/10",
+                )
+            })
+            ({
+                stat_card(
+                    "7天内到期",
+                    &format!("¥{}", fmt_amount(s.due_within_7d)),
+                    "text-warn",
+                    icon::clock_icon("w-5 h-5 text-warn"),
+                    "bg-warn/10",
+                )
+            })
         }
     }
 }
@@ -89,20 +124,40 @@ fn ledger_row(item: &ArApLedgerRow, today: chrono::NaiveDate) -> Markup {
 
     html! {
         tr class=(row_cls) {
-            td class="px-4 py-3 text-sm whitespace-nowrap" { (item.transaction_date.format("%Y-%m-%d")) }
+            td class="px-4 py-3 text-sm whitespace-nowrap" {
+                (item.transaction_date.format("%Y-%m-%d"))
+            }
             td class="px-4 py-3 text-sm font-medium" { (item.party_name) }
             td class="px-4 py-3 text-sm text-accent font-mono" { (item.source_doc_no) }
             td class="px-4 py-3 text-sm text-fg-2 whitespace-nowrap" {
                 @if let Some(due) = item.due_date { (due.format("%Y-%m-%d")) } @else { "—" }
             }
-            td class="px-4 py-3 text-sm font-mono tabular-nums text-right" { "¥" (fmt_amount(item.amount)) }
-            td class="px-4 py-3 text-sm font-mono tabular-nums text-right" { "¥" (fmt_amount(item.amount_applied)) }
-            td class=(format!("px-4 py-3 text-sm font-mono tabular-nums text-right font-semibold {}", outstanding_cls)) {
-                "¥" (fmt_amount(outstanding))
+            td class="px-4 py-3 text-sm font-mono tabular-nums text-right" {
+                "¥"
+                (fmt_amount(item.amount))
             }
+            td class="px-4 py-3 text-sm font-mono tabular-nums text-right" {
+                "¥"
+                (fmt_amount(item.amount_applied))
+            }
+            td  class=({
+                    format!(
+                        "px-4 py-3 text-sm font-mono tabular-nums text-right font-semibold {}",
+                        outstanding_cls,
+                    )
+                })
+            { "¥" (fmt_amount(outstanding)) }
             td class="px-4 py-3 text-sm" {
                 @if let Some((label, txt, bg)) = status {
-                    span class=(format!("inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium {} {}", txt, bg)) { (label) }
+                    span
+                        class=({
+                            format!(
+                                "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium {} {}",
+                                txt,
+                                bg,
+                            )
+                        })
+                    { (label) }
                 } @else if outstanding <= Decimal::ZERO {
                     span class="text-fg-3 text-xs" { "已结清" }
                 } @else {
@@ -121,28 +176,46 @@ fn ledger_table(items: &[ArApLedgerRow], today: chrono::NaiveDate, total: u64, p
                 table class="data-table w-full" {
                     thead {
                         tr class="border-b border-border-soft" {
-                            th class="px-4 py-3 text-left text-xs font-medium text-fg-2 uppercase tracking-wider" { "日期" }
-                            th class="px-4 py-3 text-left text-xs font-medium text-fg-2 uppercase tracking-wider" { "客户" }
-                            th class="px-4 py-3 text-left text-xs font-medium text-fg-2 uppercase tracking-wider" { "单据号" }
-                            th class="px-4 py-3 text-left text-xs font-medium text-fg-2 uppercase tracking-wider" { "到期日" }
-                            th class="px-4 py-3 text-right text-xs font-medium text-fg-2 uppercase tracking-wider" { "应收金额" }
-                            th class="px-4 py-3 text-right text-xs font-medium text-fg-2 uppercase tracking-wider" { "已核销" }
-                            th class="px-4 py-3 text-right text-xs font-medium text-fg-2 uppercase tracking-wider" { "未清余额" }
-                            th class="px-4 py-3 text-left text-xs font-medium text-fg-2 uppercase tracking-wider" { "状态" }
+                            th  class="px-4 py-3 text-left text-xs font-medium text-fg-2 uppercase tracking-wider"
+                            { "日期" }
+                            th  class="px-4 py-3 text-left text-xs font-medium text-fg-2 uppercase tracking-wider"
+                            { "客户" }
+                            th  class="px-4 py-3 text-left text-xs font-medium text-fg-2 uppercase tracking-wider"
+                            { "单据号" }
+                            th  class="px-4 py-3 text-left text-xs font-medium text-fg-2 uppercase tracking-wider"
+                            { "到期日" }
+                            th  class="px-4 py-3 text-right text-xs font-medium text-fg-2 uppercase tracking-wider"
+                            { "应收金额" }
+                            th  class="px-4 py-3 text-right text-xs font-medium text-fg-2 uppercase tracking-wider"
+                            { "已核销" }
+                            th  class="px-4 py-3 text-right text-xs font-medium text-fg-2 uppercase tracking-wider"
+                            { "未清余额" }
+                            th  class="px-4 py-3 text-left text-xs font-medium text-fg-2 uppercase tracking-wider"
+                            { "状态" }
                         }
                     }
                     tbody class="divide-y divide-border-soft" {
-                        @for item in items {
-                            (ledger_row(item, today))
-                        }
+                        @for item in items { (ledger_row(item, today)) }
                         @if items.is_empty() {
-                            tr { td colspan="8" class="px-4 py-12 text-center text-muted text-sm" { "暂无应收记录" } }
+                            tr {
+                                td colspan="8" class="px-4 py-12 text-center text-muted text-sm" {
+                                    "暂无应收记录"
+                                }
+                            }
                         }
                     }
                 }
             }
             @if total > page_size as u64 {
-                (pagination(ArLedgerPath::PATH, query_string, total, page, total_pages))
+                ({
+                    pagination(
+                        ArLedgerPath::PATH,
+                        query_string,
+                        total,
+                        page,
+                        total_pages,
+                    )
+                })
             }
         }
     }
@@ -161,34 +234,60 @@ fn filter_and_table(
 
     html! {
         // 筛选 form（HTMX：搜索框 keyup 触发）
-        form class="flex items-center gap-3 mb-5 flex-wrap"
+        form
+            class="flex items-center gap-3 mb-5 flex-wrap"
             hx-get=(ArLedgerPath::PATH)
             hx-trigger="change, keyup changed delay:300ms from:.search-input"
             hx-target="#data-card"
             hx-select="#data-card"
             hx-swap="outerHTML"
-            hx-push-url="true" {
+            hx-push-url="true"
+        {
             input type="hidden" name="outstanding_only" value=(outstanding_only);
             // 搜索框
-            div class="relative flex-1 max-w-xs icon:absolute icon:left-3 icon:top-1/2 icon:-translate-y-1/2 icon:w-4 icon:h-4 icon:text-muted" {
+            div class="relative flex-1 max-w-xs icon:absolute icon:left-3 icon:top-1/2 icon:-translate-y-1/2 icon:w-4 icon:h-4 icon:text-muted"
+            {
                 (icon::search_icon(""))
-                input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input"
-                    type="text" name="keyword" placeholder="搜索客户名称…"
+                input
+                    class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input"
+                    type="text"
+                    name="keyword"
+                    placeholder="搜索客户名称…"
                     value=(keyword_val);
             }
             // 只看未清 / 全部 toggle（hx-include keyword input 保持搜索词）
-            div class="inline-flex bg-surface border border-border-soft rounded-md p-[3px] gap-0.5" {
-                a class=(if outstanding_only { active_cls } else { inactive_cls })
-                    hx-get=(ArLedgerPath::PATH) hx-vals=r#"{"outstanding_only":"true"}"#
-                    hx-target="#data-card" hx-select="#data-card" hx-swap="outerHTML" hx-push-url="true"
-                    hx-include="input[name=keyword]" { "只看未清" }
-                a class=(if !outstanding_only { active_cls } else { inactive_cls })
-                    hx-get=(ArLedgerPath::PATH) hx-vals=r#"{"outstanding_only":"false"}"#
-                    hx-target="#data-card" hx-select="#data-card" hx-swap="outerHTML" hx-push-url="true"
-                    hx-include="input[name=keyword]" { "全部" }
+            div class="inline-flex bg-surface border border-border-soft rounded-md p-[3px] gap-0.5"
+            {
+                a   class=(if outstanding_only { active_cls } else { inactive_cls })
+                    hx-get=(ArLedgerPath::PATH)
+                    hx-vals=r#"{"outstanding_only":"true"}"#
+                    hx-target="#data-card"
+                    hx-select="#data-card"
+                    hx-swap="outerHTML"
+                    hx-push-url="true"
+                    hx-include="input[name=keyword]"
+                { "只看未清" }
+                a   class=(if !outstanding_only { active_cls } else { inactive_cls })
+                    hx-get=(ArLedgerPath::PATH)
+                    hx-vals=r#"{"outstanding_only":"false"}"#
+                    hx-target="#data-card"
+                    hx-select="#data-card"
+                    hx-swap="outerHTML"
+                    hx-push-url="true"
+                    hx-include="input[name=keyword]"
+                { "全部" }
             }
         }
-        (ledger_table(&result.items, today, result.total, result.page, result.page_size, query_string))
+        ({
+            ledger_table(
+                &result.items,
+                today,
+                result.total,
+                result.page,
+                result.page_size,
+                query_string,
+            )
+        })
     }
 }
 
@@ -234,7 +333,15 @@ pub async fn get_list(
                 h1 class="text-xl font-bold text-fg tracking-tight" { "应收台账" }
             }
             (summary_cards(&summary))
-            (filter_and_table(&result, &keyword_val, outstanding_only, today, &query_string))
+            ({
+                filter_and_table(
+                    &result,
+                    &keyword_val,
+                    outstanding_only,
+                    today,
+                    &query_string,
+                )
+            })
         }
     };
 

@@ -217,22 +217,24 @@ fn build_filter(params: &JournalQueryParams) -> CashJournalFilter {
 
 fn journal_list_page(result: &PaginatedResult<CashJournal>, params: &JournalQueryParams, counterparty_names: &HashMap<(CounterpartyType, i64), String>, can_create: bool) -> Markup {
  html! {
- div {
- div class="flex items-center justify-between mb-6" {
- h1 class="text-xl font-bold text-fg tracking-tight" { "出纳日记账" }
- div class="flex gap-3" {
- button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" type="button" { (icon::download_icon("w-4 h-4")) "导出" }
- @if can_create {
- a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(JournalCreatePath::PATH) {
- (icon::plus_icon("w-4 h-4"))
- "新建日记账"
- }
- }
- }
- }
- (journal_table_fragment(result, params, counterparty_names))
- }
- }
+    div {
+        div class="flex items-center justify-between mb-6" {
+            h1 class="text-xl font-bold text-fg tracking-tight" { "出纳日记账" }
+            div class="flex gap-3" {
+                button
+                    class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                    type="button"
+                { (icon::download_icon("w-4 h-4")) "导出" }
+                @if can_create {
+                    a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                        href=(JournalCreatePath::PATH)
+                    { (icon::plus_icon("w-4 h-4")) "新建日记账" }
+                }
+            }
+        }
+        (journal_table_fragment(result, params, counterparty_names))
+    }
+}
 }
 
 fn journal_table_fragment(result: &PaginatedResult<CashJournal>, params: &JournalQueryParams, counterparty_names: &HashMap<(CounterpartyType, i64), String>) -> Markup {
@@ -247,109 +249,172 @@ fn journal_table_fragment(result: &PaginatedResult<CashJournal>, params: &Journa
  ];
 
  html! {
- div {
- (status_tabs_with_param(JournalListPath::PATH, "#journal-data-card", "#journal-filter-form", tabs, &selected_status, "status"))
+    div {
+        ({
+            status_tabs_with_param(
+                JournalListPath::PATH,
+                "#journal-data-card",
+                "#journal-filter-form",
+                tabs,
+                &selected_status,
+                "status",
+            )
+        })
 
- form class="flex items-center gap-3 mb-5 flex-wrap filter-form" id="journal-filter-form"
- hx-get=(JournalListPath::PATH)
- hx-trigger="change, keyup changed delay:300ms from:.search-input"
- hx-target="#journal-data-card"
- hx-select="#journal-data-card"
- hx-swap="outerHTML"
- hx-include="#journal-filter-form"
- hx-push-url="true" {
- div class="relative flex-1 max-w-xs icon:absolute icon:left-3 icon:top-1/2 icon:-translate-y-1/2 icon:w-4 icon:h-4 icon:text-muted" {
- (icon::search_icon(""))
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input" type="text" name="keyword"
- placeholder="搜索单号、往来方名称…"
- value=(params.keyword.as_deref().unwrap_or(""));
- }
- select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="journal_type" {
- option value="" selected[params.journal_type.is_none()] { "全部类型" }
- option value="1" selected[params.journal_type == Some(1)] { "销售回款" }
- option value="2" selected[params.journal_type == Some(2)] { "采购付款" }
- option value="3" selected[params.journal_type == Some(3)] { "费用报销" }
- option value="4" selected[params.journal_type == Some(4)] { "工资支付" }
- option value="5" selected[params.journal_type == Some(5)] { "其他" }
- }
- select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="direction" {
- option value="" selected[params.direction.is_none()] { "全部方向" }
- option value="1" selected[params.direction == Some(1)] { "流入" }
- option value="2" selected[params.direction == Some(2)] { "流出" }
- }
- }
+        form
+            class="flex items-center gap-3 mb-5 flex-wrap filter-form"
+            id="journal-filter-form"
+            hx-get=(JournalListPath::PATH)
+            hx-trigger="change, keyup changed delay:300ms from:.search-input"
+            hx-target="#journal-data-card"
+            hx-select="#journal-data-card"
+            hx-swap="outerHTML"
+            hx-include="#journal-filter-form"
+            hx-push-url="true"
+        {
+            div class="relative flex-1 max-w-xs icon:absolute icon:left-3 icon:top-1/2 icon:-translate-y-1/2 icon:w-4 icon:h-4 icon:text-muted"
+            {
+                (icon::search_icon(""))
+                input
+                    class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input"
+                    type="text"
+                    name="keyword"
+                    placeholder="搜索单号、往来方名称…"
+                    value=(params.keyword.as_deref().unwrap_or(""));
+            }
+            select
+                class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer"
+                name="journal_type"
+            {
+                option value="" selected[params.journal_type.is_none()] { "全部类型" }
+                option value="1" selected[params.journal_type == Some(1)] { "销售回款" }
+                option value="2" selected[params.journal_type == Some(2)] { "采购付款" }
+                option value="3" selected[params.journal_type == Some(3)] { "费用报销" }
+                option value="4" selected[params.journal_type == Some(4)] { "工资支付" }
+                option value="5" selected[params.journal_type == Some(5)] { "其他" }
+            }
+            select
+                class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer"
+                name="direction"
+            {
+                option value="" selected[params.direction.is_none()] { "全部方向" }
+                option value="1" selected[params.direction == Some(1)] { "流入" }
+                option value="2" selected[params.direction == Some(2)] { "流出" }
+            }
+        }
 
- (journal_data_card(result, params, counterparty_names))
- }
- }
+        (journal_data_card(result, params, counterparty_names))
+    }
+}
 }
 
 fn journal_data_card(result: &PaginatedResult<CashJournal>, params: &JournalQueryParams, counterparty_names: &HashMap<(CounterpartyType, i64), String>) -> Markup {
  let query = build_query_string(params);
  html! {
- div class="data-card" id="journal-data-card" {
- div class="overflow-x-auto" {
- table class="data-table" {
- thead {
- tr {
- th { "单号" }
- th { "日记账类型" }
- th { "方向" }
- th { "金额" }
- th { "往来方" }
- th { "银行账户" }
- th { "交易日期" }
- th { "期间" }
- th { "状态" }
- th class="w-[80px]" { "操作" }
- }
- }
- tbody {
- @for item in &result.items {
- @let (type_label, type_bg, type_color) = journal_type_label(&item.journal_type);
- @let (dir_label, dir_bg, dir_color) = direction_label(&item.direction);
- @let (status_text, status_bg, status_color) = status_label(&item.status);
- @let detail_path = JournalDetailPath { id: item.id };
- tr class="cursor-pointer" onclick=(format!("location.href='{}'", detail_path.to_string())) {
- td class="font-mono tabular-nums text-accent" { (item.doc_number) }
- td {
- span style=(format!("display:inline-flex;align-items:center;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{};color:{}", type_bg, type_color)) {
- (type_label)
- }
- }
- td {
- span style=(format!("display:inline-flex;align-items:center;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{};color:{}", dir_bg, dir_color)) {
- (dir_label)
- }
- }
- td class="font-mono tabular-nums text-right text-[13px]" style=(format!("font-weight:600;color:{}", amount_color(&item.direction))) {
- (fmt_amount(item.amount, &item.direction))
- }
- td { (counterparty_name(item, counterparty_names)) }
- td class="font-mono tabular-nums text-muted" { (&item.bank_account) }
- td class="text-xs text-muted" { (item.transaction_date.format("%Y-%m-%d")) }
- td class="font-mono tabular-nums" { (&item.period) }
- td {
- span style=(format!("display:inline-flex;align-items:center;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{};color:{}", status_bg, status_color)) {
- (status_text)
- }
- }
- td {
- a href=(detail_path.to_string()) class="text-accent text-xs" { "查看" }
- }
- }
- }
- @if result.items.is_empty() {
- tr {
- td colspan="10" class="text-center text-muted py-8" {
- "暂无日记账记录"
- }
- }
- }
- }
- }
- }
- (pagination(JournalListPath::PATH, &query, result.total, result.page, result.total_pages))
- }
- }
+    div class="data-card" id="journal-data-card" {
+        div class="overflow-x-auto" {
+            table class="data-table" {
+                thead {
+                    tr {
+                        th { "单号" }
+                        th { "日记账类型" }
+                        th { "方向" }
+                        th { "金额" }
+                        th { "往来方" }
+                        th { "银行账户" }
+                        th { "交易日期" }
+                        th { "期间" }
+                        th { "状态" }
+                        th class="w-[80px]" { "操作" }
+                    }
+                }
+                tbody {
+                    @for item in &result.items {
+                        @let (type_label, type_bg, type_color) = journal_type_label(
+                            &item.journal_type,
+                        );
+                        @let (dir_label, dir_bg, dir_color) = direction_label(
+                            &item.direction,
+                        );
+                        @let (status_text, status_bg, status_color) = status_label(
+                            &item.status,
+                        );
+                        @let detail_path = JournalDetailPath { id: item.id };
+                        tr  class="cursor-pointer"
+                            onclick=(format!("location.href='{}'", detail_path.to_string()))
+                        {
+                            td class="font-mono tabular-nums text-accent" { (item.doc_number) }
+                            td {
+                                span
+                                    style=({
+                                        format!(
+                                            "display:inline-flex;align-items:center;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{};color:{}",
+                                            type_bg,
+                                            type_color,
+                                        )
+                                    })
+                                { (type_label) }
+                            }
+                            td {
+                                span
+                                    style=({
+                                        format!(
+                                            "display:inline-flex;align-items:center;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{};color:{}",
+                                            dir_bg,
+                                            dir_color,
+                                        )
+                                    })
+                                { (dir_label) }
+                            }
+                            td  class="font-mono tabular-nums text-right text-[13px]"
+                                style=({
+                                    format!(
+                                        "font-weight:600;color:{}",
+                                        amount_color(&item.direction),
+                                    )
+                                })
+                            { (fmt_amount(item.amount, &item.direction)) }
+                            td { (counterparty_name(item, counterparty_names)) }
+                            td class="font-mono tabular-nums text-muted" { (&item.bank_account) }
+                            td class="text-xs text-muted" {
+                                (item.transaction_date.format("%Y-%m-%d"))
+                            }
+                            td class="font-mono tabular-nums" { (&item.period) }
+                            td {
+                                span
+                                    style=({
+                                        format!(
+                                            "display:inline-flex;align-items:center;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{};color:{}",
+                                            status_bg,
+                                            status_color,
+                                        )
+                                    })
+                                { (status_text) }
+                            }
+                            td {
+                                a href=(detail_path.to_string()) class="text-accent text-xs" {
+                                    "查看"
+                                }
+                            }
+                        }
+                    }
+                    @if result.items.is_empty() {
+                        tr {
+                            td colspan="10" class="text-center text-muted py-8" { "暂无日记账记录" }
+                        }
+                    }
+                }
+            }
+        }
+        ({
+            pagination(
+                JournalListPath::PATH,
+                &query,
+                result.total,
+                result.page,
+                result.total_pages,
+            )
+        })
+    }
+}
 }

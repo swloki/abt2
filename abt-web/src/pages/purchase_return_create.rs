@@ -244,163 +244,191 @@ fn pr_create_page(
  let today = chrono::Local::now().format("%Y-%m-%d").to_string();
 
  html! {
- div id="pr-app" {
- // ── Page Header ──
- div class="flex items-center justify-between mb-6" {
- a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", PRListPath::PATH)) {
- (icon::arrow_left_icon("w-4 h-4"))
- "返回采购退货列表"
- }
- h1 class="text-xl font-bold text-fg tracking-tight" { "新建采购退货" }
- }
+    div id="pr-app" {
+        // ── Page Header ──
+        div class="flex items-center justify-between mb-6" {
+            a   class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150"
+                href=(format!("{}?restore=true", PRListPath::PATH))
+            { (icon::arrow_left_icon("w-4 h-4")) "返回采购退货列表" }
+            h1 class="text-xl font-bold text-fg tracking-tight" { "新建采购退货" }
+        }
 
- form id="pr-form"
- hx-post=(PRCreatePath::PATH)
- hx-swap="none"
- onsubmit="PRCreate.collectItems();return true" {
- input type="hidden" id="items-json" name="items_json" value="[]";
+        form
+            id="pr-form"
+            hx-post=(PRCreatePath::PATH)
+            hx-swap="none"
+            onsubmit="PRCreate.collectItems();return true"
+        {
+            input type="hidden" id="items-json" name="items_json" value="[]";
+            // ── 关联单据 ──
+            div class="data-card" class="mb-4" {
+                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
+                { "关联单据" }
+                div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
+                    div class="form-field" {
+                        label {
+                            "采购订单"
+                            span class="text-danger" { "*" }
+                        }
+                        select
+                            id="pr-order-select"
+                            name="order_id"
+                            hx-get=(PROrderItemsPath::PATH)
+                            hx-trigger="change"
+                            hx-target="#pr-order-data"
+                            hx-swap="innerHTML"
+                            hx-include="#pr-order-select"
+                        {
+                            option value="" { "请选择采购订单" }
+                            @for o in orders {
+                                @let status_text = order_status_text(o.status);
+                                option value=(o.id) { (o.doc_number) " — " (status_text) }
+                            }
+                        }
+                    }
+                    div class="form-field" {
+                        label { "供应商" }
+                        input type="text" id="pr-supplier-name" readonly value="—" {}
+                    }
+                    div class="form-field" {
+                        label { "联系人" }
+                        input type="text" id="pr-contact" readonly value="—" {}
+                    }
+                    div class="form-field" {
+                        label { "联系电话" }
+                        input type="text" id="pr-phone" readonly value="—" {}
+                    }
+                }
+            }
+            // ── 退货信息 ──
+            div class="data-card" class="mb-4" {
+                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
+                { "退货信息" }
+                div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
+                    div class="form-field" {
+                        label {
+                            "退货日期"
+                            span class="text-danger" { "*" }
+                        }
+                        input type="date" name="return_date" value=(today) required {}
+                    }
+                    div class="form-field" {
+                        label {
+                            "退货原因"
+                            span class="text-danger" { "*" }
+                        }
+                        select name="return_reason" required {
+                            option value="" { "请选择" }
+                            option value="质量不合格" { "质量不合格" }
+                            option value="规格不符" { "规格不符" }
+                            option value="数量短缺" { "数量短缺" }
+                            option value="损坏" { "损坏" }
+                            option value="交货延迟" { "交货延迟" }
+                            option value="其他" { "其他" }
+                        }
+                    }
+                    div class="form-field" {
+                        label { "处理方式" }
+                        select name="processing_method" {
+                            option value="" { "请选择" }
+                            option value="退货退款" { "退货退款" }
+                            option value="换货" { "换货" }
+                            option value="返工" { "返工" }
+                        }
+                    }
+                    div class="form-field" {
+                        label { "物流公司" }
+                        input type="text" name="logistics_company" placeholder="输入物流公司名称…" {}
+                    }
+                    div class="form-field" {
+                        label { "物流单号" }
+                        input type="text" name="tracking_number" placeholder="输入物流单号…" {}
+                    }
+                    div class="form-field" {
+                        label { "处理人" }
+                        select name="handler" {
+                            option value="" { "请选择" }
+                            option value="current_user" { "当前用户" }
+                        }
+                    }
+                    div class="form-field" {
+                        label { "收货仓库" }
+                        select name="receiving_warehouse" {
+                            option value="" { "请选择仓库" }
+                            option value="东莞原料仓" { "东莞原料仓" }
+                            option value="深圳成品仓" { "深圳成品仓" }
+                            option value="苏州配件仓" { "苏州配件仓" }
+                        }
+                    }
+                    div class="form-field col-span-2" {
+                        label { "备注" }
+                        textarea
+                            name="remark"
+                            placeholder="输入退货相关备注信息…"
+                            class="w-full resize-y"
+                            class="rounded-sm"
+                            class="min-h-[80px] border border-border text-sm"
+                            style="padding:8px 12px;font-family:inherit" {}
+                    }
+                }
+            }
+            // ── 退货产品明细 ──
+            div id="pr-items-section"
+                class="data-card"
+                class="p-0 overflow-hidden mb-4"
+                style="display:none"
+            {
+                div class="flex justify-between items-center" class="px-5 pt-5 pb-3" {
+                    span
+                        class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
+                        class="m-0 p-0 border-none"
+                    { "退货产品明细" }
+                }
+                div class="overflow-x-auto" {
+                    table class="data-table" style="min-width:1100px" {
+                        thead {
+                            tr {
+                                th class="w-9 text-center" { "行号" }
+                                th { "物料编码" }
+                                th { "物料名称" }
+                                th { "规格" }
+                                th { "单位" }
+                                th class="text-right text-[13px]" { "订单数量" }
+                                th class="text-right text-[13px]" { "已收货" }
+                                th class="w-[120px] text-right" { "退货数量" }
+                                th class="text-right text-[13px]" { "单价" }
+                                th class="text-right text-[13px]" { "退货金额" }
+                                th class="w-9" { "操作" }
+                            }
+                        }
+                        tbody id="pr-item-tbody" {}
+                    }
+                }
+            }
+            // Hidden container for HTMX swap of order data
+            div id="pr-order-data" style="display:none" {}
 
- // ── 关联单据 ──
- div class="data-card" class="mb-4" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "关联单据" }
- div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
- div class="form-field" {
- label { "采购订单" span class="text-danger" { "*" } }
- select id="pr-order-select"
- name="order_id"
- hx-get=(PROrderItemsPath::PATH)
- hx-trigger="change"
- hx-target="#pr-order-data"
- hx-swap="innerHTML"
- hx-include="#pr-order-select" {
- option value="" { "请选择采购订单" }
- @for o in orders {
- @let status_text = order_status_text(o.status);
- option value=(o.id) { (o.doc_number) " — " (status_text) }
- }
- }
- }
- div class="form-field" {
- label { "供应商" }
- input type="text" id="pr-supplier-name" readonly value="—" {}
- }
- div class="form-field" {
- label { "联系人" }
- input type="text" id="pr-contact" readonly value="—" {}
- }
- div class="form-field" {
- label { "联系电话" }
- input type="text" id="pr-phone" readonly value="—" {}
- }
- }
- }
-
- // ── 退货信息 ──
- div class="data-card" class="mb-4" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "退货信息" }
- div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
- div class="form-field" {
- label { "退货日期" span class="text-danger" { "*" } }
- input type="date" name="return_date" value=(today) required {}
- }
- div class="form-field" {
- label { "退货原因" span class="text-danger" { "*" } }
- select name="return_reason" required {
- option value="" { "请选择" }
- option value="质量不合格" { "质量不合格" }
- option value="规格不符" { "规格不符" }
- option value="数量短缺" { "数量短缺" }
- option value="损坏" { "损坏" }
- option value="交货延迟" { "交货延迟" }
- option value="其他" { "其他" }
- }
- }
- div class="form-field" {
- label { "处理方式" }
- select name="processing_method" {
- option value="" { "请选择" }
- option value="退货退款" { "退货退款" }
- option value="换货" { "换货" }
- option value="返工" { "返工" }
- }
- }
- div class="form-field" {
- label { "物流公司" }
- input type="text" name="logistics_company" placeholder="输入物流公司名称…" {}
- }
- div class="form-field" {
- label { "物流单号" }
- input type="text" name="tracking_number" placeholder="输入物流单号…" {}
- }
- div class="form-field" {
- label { "处理人" }
- select name="handler" {
- option value="" { "请选择" }
- option value="current_user" { "当前用户" }
- }
- }
- div class="form-field" {
- label { "收货仓库" }
- select name="receiving_warehouse" {
- option value="" { "请选择仓库" }
- option value="东莞原料仓" { "东莞原料仓" }
- option value="深圳成品仓" { "深圳成品仓" }
- option value="苏州配件仓" { "苏州配件仓" }
- }
- }
- div class="form-field col-span-2" {
- label { "备注" }
- textarea name="remark" placeholder="输入退货相关备注信息…" class="w-full resize-y" class="rounded-sm" class="min-h-[80px] border border-border text-sm" style="padding:8px 12px;font-family:inherit" {}
- }
- }
- }
-
- // ── 退货产品明细 ──
- div id="pr-items-section" class="data-card" class="p-0 overflow-hidden mb-4" style="display:none" {
- div class="flex justify-between items-center" class="px-5 pt-5 pb-3" {
- span class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" class="m-0 p-0 border-none" { "退货产品明细" }
- }
- div class="overflow-x-auto" {
- table class="data-table" style="min-width:1100px" {
- thead {
- tr {
- th class="w-9 text-center" { "行号" }
- th { "物料编码" }
- th { "物料名称" }
- th { "规格" }
- th { "单位" }
- th class="text-right text-[13px]" { "订单数量" }
- th class="text-right text-[13px]" { "已收货" }
- th class="w-[120px] text-right" { "退货数量" }
- th class="text-right text-[13px]" { "单价" }
- th class="text-right text-[13px]" { "退货金额" }
- th class="w-9" { "操作" }
- }
- }
- tbody id="pr-item-tbody" { }
- }
- }
- }
-
- // Hidden container for HTMX swap of order data
- div id="pr-order-data" style="display:none" { }
-
- div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg border-t border-border-soft" {
- a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{}?restore=true", PRListPath::PATH)) { "取消" }
- div class="flex gap-3" {
- button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" id="pr-save-draft" {
- "保存草稿"
- }
- button type="submit" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" {
- "提交退货"
- }
- }
- }
- }
-
- }
- script src="/return-create.js?v=20260612" {}
- }
+            div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg border-t border-border-soft"
+            {
+                a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                    href=(format!("{}?restore=true", PRListPath::PATH))
+                { "取消" }
+                div class="flex gap-3" {
+                    button
+                        type="button"
+                        class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                        id="pr-save-draft"
+                    { "保存草稿" }
+                    button
+                        type="submit"
+                        class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                    { "提交退货" }
+                }
+            }
+        }
+    }
+    script src="/return-create.js?v=20260612" {}
+}
 }
 
 /// Order items fragment rendered when a PO is selected
@@ -410,32 +438,33 @@ fn order_items_fragment(
  supplier_info: &SupplierInfo,
 ) -> Markup {
  html! {
- div data-supplier-name=(supplier_info.name)
- data-contact=(supplier_info.contact)
- data-phone=(supplier_info.phone) {
- @for item in items {
- @let product = product_map.get(&item.product_id);
- @let product_code = product.map(|p| p.product_code.as_str()).unwrap_or("");
- @let product_name = product.map(|p| p.pdt_name.as_str()).unwrap_or(item.description.as_str());
- @let specification = product.map(|p| p.meta.specification.as_str()).unwrap_or("");
- @let unit = product.map(|p| p.unit.as_str()).unwrap_or("");
- @let item_json = serde_json::json!({
- "order_item_id": item.id,
- "product_id": item.product_id,
- "product_code": product_code,
- "product_name": product_name,
- "specification": specification,
- "unit": unit,
- "order_qty": item.quantity.to_string(),
- "received_qty": item.received_qty.to_string(),
- "unit_price": item.unit_price.to_string(),
- "returned_qty": item.quantity.to_string(),
- }).to_string();
-
- div data-item=(item_json) {}
- }
- }
- }
+    div data-supplier-name=(supplier_info.name)
+        data-contact=(supplier_info.contact)
+        data-phone=(supplier_info.phone)
+    {
+        @for item in items {
+            @let product = product_map.get(&item.product_id);
+            @let product_code = product.map(|p| p.product_code.as_str()).unwrap_or("");
+            @let product_name = product
+                .map(|p| p.pdt_name.as_str())
+                .unwrap_or(item.description.as_str());
+            @let specification = product
+                .map(|p| p.meta.specification.as_str())
+                .unwrap_or("");
+            @let unit = product.map(|p| p.unit.as_str()).unwrap_or("");
+            @let item_json = serde_json::json!(
+                { "order_item_id" : item.id, "product_id" : item.product_id,
+                "product_code" : product_code, "product_name" : product_name,
+                "specification" : specification, "unit" : unit, "order_qty" : item
+                .quantity.to_string(), "received_qty" : item.received_qty.to_string(),
+                "unit_price" : item.unit_price.to_string(), "returned_qty" : item
+                .quantity.to_string(), }
+            )
+                .to_string();
+            div data-item=(item_json) {}
+        }
+    }
+}
 }
 
 fn order_status_text(s: PurchaseOrderStatus) -> &'static str {

@@ -26,8 +26,8 @@ fn fqc_badge(status: &FqcGate) -> Markup {
  FqcGate::HasFailed => ("FQC 不合格", "fqc-badge--failed"),
  };
  html! {
- span class=(format!("fqc-badge {}", class)) { (label) }
- }
+    span class=(format!("fqc-badge {}", class)) { (label) }
+}
 }
 
 #[require_permission("WORK_ORDER", "read")]
@@ -52,94 +52,150 @@ pub async fn get_receipt_detail(path: ReceiptDetailPath, ctx: RequestContext) ->
  let unit_cost = svc.get_unit_cost(&mut conn, receipt.product_id).await.unwrap_or(rust_decimal::Decimal::ZERO);
  let total_cost = receipt.received_qty * unit_cost;
 
- let content = html! { div {
- div class="flex items-center justify-between mb-6" {
- div class="flex items-center justify-between mb-6" {
- a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", ReceiptListPath::PATH)) { "← 返回列表" }
- h1 class="text-xl font-bold text-fg tracking-tight" { "入库单 " (receipt.doc_number) }
- }
- div class="flex gap-3" {
- @if receipt.status == abt_core::mes::enums::ReceiptStatus::Draft {
- @if matches!(fqc_status, FqcGate::AllPassed | FqcGate::NotRequired) {
- form class="inline-form" hx-post=(ReceiptConfirmPath { receipt_id: receipt.id }.to_string()) hx-swap="none" {
- button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" type="submit"
- hx-confirm="确认入库？将触发倒冲和成本结转。" {
- "确认入库"
- }
- }
- } @else if matches!(fqc_status, FqcGate::PendingInspection) {
- button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" disabled title="需完成 FQC 质检后才能确认入库" {
- "确认入库（待 FQC）"
- }
- } @else {
- button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" disabled title="FQC 有不合格项，无法入库" {
- "确认入库（FQC 不合格）"
- }
- }
- }
- }
- }
-
- // 状态条
- div class="flex items-center gap-[16px] bg-slate-50" {
- span class="receipt-status-label" {
- "状态: "
- span class=(format!("status-pill {}", crate::utils::status_color(sc))) { (sl) }
- }
- (fqc_badge(&fqc_status))
- }
-
- // 基本信息
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
- div class="text-sm font-semibold text-fg mb-3 pb-2 border-b border-border-soft" { "基本信息" }
- div class="grid gap-4" {
- div class="flex flex-col gap-1" { label { "单号" } span class="font-mono tabular-nums" { (receipt.doc_number) } }
- div class="flex flex-col gap-1" { label { "工单" } span { (wo) } }
- div class="flex flex-col gap-1" { label { "批次" } span { (batch) } }
- div class="flex flex-col gap-1" { label { "产品" } span { (product) } }
- div class="flex flex-col gap-1" { label { "入库数量" } span class="font-mono tabular-nums" { (crate::utils::fmt_qty(receipt.received_qty)) } }
- div class="flex flex-col gap-1" { label { "仓库" } span { (warehouse) } }
- div class="flex flex-col gap-1" { label { "入库日期" } span { (receipt.receipt_date) } }
- div class="flex flex-col gap-1" { label { "倒冲触发" } span { (if receipt.backflush_triggered { "是" } else { "否" }) } }
- div class="flex flex-col gap-1" { label { "创建时间" } span { (receipt.created_at.format("%Y-%m-%d %H:%M")) } }
- @if !receipt.remark.is_empty() {
- div class="flex flex-col gap-1 col-span-2" { label { "备注" } span { (receipt.remark) } }
- }
- }
- }
-
- // FQC 质检卡片
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
- div class="text-sm font-semibold text-fg mb-3 pb-2 border-b border-border-soft" { "FQC 质检状态" }
- div { (fqc_badge(&fqc_status)) }
- @if matches!(fqc_status, FqcGate::PendingInspection) {
- p class="text-muted" { "⚠ 尚无 FQC 检验记录，需完成 FQC 后才能确认入库" }
- }
- }
-
- // 成本明细
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
- div class="text-sm font-semibold text-fg mb-3 pb-2 border-b border-border-soft" { "成本明细" }
- div class="grid gap-4" {
- div class="flex flex-col gap-1" {
- label { "入库数量" }
- span class="font-mono tabular-nums" { (crate::utils::fmt_qty(receipt.received_qty)) }
- }
- div class="flex flex-col gap-1" {
- label { "单位成本" }
- @if unit_cost > rust_decimal::Decimal::ZERO {
- span class="font-mono tabular-nums" { (crate::utils::fmt_amount(unit_cost)) }
- } @else {
- span class="text-muted" { "—（无历史成本）" }
- }
- }
- div class="flex flex-col gap-1" {
- label { "总成本" }
- span class="font-mono tabular-nums" { strong { (crate::utils::fmt_amount(total_cost)) } }
- }
- }
- }
- }};
+ let content = html! {
+    div {
+        div class="flex items-center justify-between mb-6" {
+            div class="flex items-center justify-between mb-6" {
+                a   class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150"
+                    href=(format!("{}?restore=true", ReceiptListPath::PATH))
+                { "← 返回列表" }
+                h1 class="text-xl font-bold text-fg tracking-tight" { "入库单 " (receipt.doc_number) }
+            }
+            div class="flex gap-3" {
+                @if receipt.status == abt_core::mes::enums::ReceiptStatus::Draft {
+                    @if matches!(fqc_status, FqcGate::AllPassed | FqcGate::NotRequired) {
+                        form
+                            class="inline-form"
+                            hx-post=({
+                                ReceiptConfirmPath {
+                                    receipt_id: receipt.id,
+                                }
+                                    .to_string()
+                            })
+                            hx-swap="none"
+                        {
+                            button
+                                class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                                type="submit"
+                                hx-confirm="确认入库？将触发倒冲和成本结转。"
+                            { "确认入库" }
+                        }
+                    } @else if matches!(fqc_status, FqcGate::PendingInspection) {
+                        button
+                            class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                            disabled
+                            title="需完成 FQC 质检后才能确认入库"
+                        { "确认入库（待 FQC）" }
+                    } @else {
+                        button
+                            class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                            disabled
+                            title="FQC 有不合格项，无法入库"
+                        { "确认入库（FQC 不合格）" }
+                    }
+                }
+            }
+        }
+        // 状态条
+        div class="flex items-center gap-[16px] bg-slate-50" {
+            span class="receipt-status-label" {
+                "状态: "
+                span class=(format!("status-pill {}", crate::utils::status_color(sc))) { (sl) }
+            }
+            (fqc_badge(&fqc_status))
+        }
+        // 基本信息
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
+            div class="text-sm font-semibold text-fg mb-3 pb-2 border-b border-border-soft" {
+                "基本信息"
+            }
+            div class="grid gap-4" {
+                div class="flex flex-col gap-1" {
+                    label { "单号" }
+                    span class="font-mono tabular-nums" { (receipt.doc_number) }
+                }
+                div class="flex flex-col gap-1" {
+                    label { "工单" }
+                    span { (wo) }
+                }
+                div class="flex flex-col gap-1" {
+                    label { "批次" }
+                    span { (batch) }
+                }
+                div class="flex flex-col gap-1" {
+                    label { "产品" }
+                    span { (product) }
+                }
+                div class="flex flex-col gap-1" {
+                    label { "入库数量" }
+                    span class="font-mono tabular-nums" {
+                        (crate::utils::fmt_qty(receipt.received_qty))
+                    }
+                }
+                div class="flex flex-col gap-1" {
+                    label { "仓库" }
+                    span { (warehouse) }
+                }
+                div class="flex flex-col gap-1" {
+                    label { "入库日期" }
+                    span { (receipt.receipt_date) }
+                }
+                div class="flex flex-col gap-1" {
+                    label { "倒冲触发" }
+                    span { (if receipt.backflush_triggered { "是" } else { "否" }) }
+                }
+                div class="flex flex-col gap-1" {
+                    label { "创建时间" }
+                    span { (receipt.created_at.format("%Y-%m-%d %H:%M")) }
+                }
+                @if !receipt.remark.is_empty() {
+                    div class="flex flex-col gap-1 col-span-2" {
+                        label { "备注" }
+                        span { (receipt.remark) }
+                    }
+                }
+            }
+        }
+        // FQC 质检卡片
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
+            div class="text-sm font-semibold text-fg mb-3 pb-2 border-b border-border-soft" {
+                "FQC 质检状态"
+            }
+            div { (fqc_badge(&fqc_status)) }
+            @if matches!(fqc_status, FqcGate::PendingInspection) {
+                p class="text-muted" { "⚠ 尚无 FQC 检验记录，需完成 FQC 后才能确认入库" }
+            }
+        }
+        // 成本明细
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
+            div class="text-sm font-semibold text-fg mb-3 pb-2 border-b border-border-soft" {
+                "成本明细"
+            }
+            div class="grid gap-4" {
+                div class="flex flex-col gap-1" {
+                    label { "入库数量" }
+                    span class="font-mono tabular-nums" {
+                        (crate::utils::fmt_qty(receipt.received_qty))
+                    }
+                }
+                div class="flex flex-col gap-1" {
+                    label { "单位成本" }
+                    @if unit_cost > rust_decimal::Decimal::ZERO {
+                        span class="font-mono tabular-nums" { (crate::utils::fmt_amount(unit_cost)) }
+                    } @else {
+                        span class="text-muted" { "—（无历史成本）" }
+                    }
+                }
+                div class="flex flex-col gap-1" {
+                    label { "总成本" }
+                    span class="font-mono tabular-nums" {
+                        strong { (crate::utils::fmt_amount(total_cost)) }
+                    }
+                }
+            }
+        }
+    }
+};
  Ok(Html(admin_page(
  is_htmx, "入库详情", &claims, "production",
  &format!("/admin/mes/receipts/{}", path.id), "生产管理",

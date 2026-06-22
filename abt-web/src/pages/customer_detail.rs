@@ -137,53 +137,72 @@ fn transaction_table_fragment(
  let txn_path = CustomerTransactionsPath { id: customer_id };
 
  html! {
- div class="bg-white border border-border-soft rounded p-5 mt-5 transaction-panel" {
- div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 border-b border-border-soft" {
- span { "交易记录" }
- }
- @if page_txns.is_empty() {
- div class="text-center p-6 text-muted text-sm" { "暂无交易记录" }
- } @else {
- table class="data-table" {
- thead {
- tr {
- th { "单据编号" }
- th { "类型" }
- th { "状态" }
- th class="text-right text-[13px]" { "金额" }
- th { "日期" }
- }
- }
- tbody {
- @for tx in &page_txns {
- tr {
- td.mono { (tx.doc_number) }
- td { (match tx.tx_type { TxType::Quotation => "报价单", TxType::Order => "销售订单", TxType::Shipping => "发货申请", TxType::Return => "退货单" }) }
- td { span class=(format!("status-pill {}", crate::utils::status_color(tx.status_class))) { (tx.status_label) } }
- td.mono.num-right {
- @if let Some(amt) = tx.amount {
- (crate::utils::fmt_amount(amt))
- } @else {
- "—"
- }
- }
- td { (tx.date) }
- }
- }
- }
- }
- (htmx_pagination(
- txn_path.to_string().as_str(),
- "",
- total,
- page,
- total_pages,
- "closest .transaction-panel",
- "outerHTML",
- ))
- }
- }
- }
+    div class="bg-white border border-border-soft rounded p-5 mt-5 transaction-panel" {
+        div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 border-b border-border-soft"
+        {
+            span { "交易记录" }
+        }
+        @if page_txns.is_empty() {
+            div class="text-center p-6 text-muted text-sm" { "暂无交易记录" }
+        } @else {
+            table class="data-table" {
+                thead {
+                    tr {
+                        th { "单据编号" }
+                        th { "类型" }
+                        th { "状态" }
+                        th class="text-right text-[13px]" { "金额" }
+                        th { "日期" }
+                    }
+                }
+                tbody {
+                    @for tx in &page_txns {
+                        tr {
+                            td.mono { (tx.doc_number) }
+                            td {
+                                ({
+                                    match tx.tx_type {
+                                        TxType::Quotation => "报价单",
+                                        TxType::Order => "销售订单",
+                                        TxType::Shipping => "发货申请",
+                                        TxType::Return => "退货单",
+                                    }
+                                })
+                            }
+                            td {
+                                span
+                                    class=({
+                                        format!(
+                                            "status-pill {}",
+                                            crate::utils::status_color(tx.status_class),
+                                        )
+                                    })
+                                { (tx.status_label) }
+                            }
+                            td.mono.num-right {
+                                @if let Some(amt) = tx.amount { (crate::utils::fmt_amount(amt)) } @else {
+                                    "—"
+                                }
+                            }
+                            td { (tx.date) }
+                        }
+                    }
+                }
+            }
+            ({
+                htmx_pagination(
+                    txn_path.to_string().as_str(),
+                    "",
+                    total,
+                    page,
+                    total_pages,
+                    "closest .transaction-panel",
+                    "outerHTML",
+                )
+            })
+        }
+    }
+}
 }
 
 // ── Handlers ──
@@ -383,269 +402,261 @@ fn customer_detail_page(
  };
 
  html! {
- div {
- // ── Back Link ──
- a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{list_path}?restore=true")) {
- (icon::arrow_left_icon("w-4 h-4"))
- "返回客户列表"
- }
+    div {
+        // ── Back Link ──
+        a   class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150"
+            href=(format!("{list_path}?restore=true"))
+        { (icon::arrow_left_icon("w-4 h-4")) "返回客户列表" }
+        // ── Detail Top ──
+        div class="flex justify-between items-start" {
+            div class="flex items-center gap-5" {
+                div class="w-10 h-10 grid place-items-center rounded-full bg-accent text-white font-semibold shrink-0 select-none"
+                { (avatar_chars(&customer.name)) }
+                div {
+                    h1 class="text-xl font-bold" {
+                        (customer.name)
+                        " "
+                        span class="bg-accent-bg text-accent rounded-full text-[11px] font-medium" {
+                            (category_label)
+                        }
+                    }
+                    div class="flex gap-4 text-muted text-xs" {
+                        span { (customer.code) }
+                        span { (customer.created_at.format("%Y-%m-%d")) }
+                    }
+                }
+            }
+            div class="flex gap-3" {
+                a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                    href=(format!("/admin/quotations/new"))
+                { "新建报价单" }
+            }
+        }
+        // ── 3-Column Detail Grid ──
+        div class="grid gap-5" {
+            // ── Left: Basic Info ──
+            div class="bg-white border border-border-soft rounded p-5" {
+                div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 border-b border-border-soft"
+                { "基本信息" }
+                div class="flex py-2 text-sm" {
+                    span class="w-[90px] shrink-0 text-muted" { "客户全称" }
+                    span class="detail-value" { (customer.name) }
+                }
+                div class="flex py-2 text-sm" {
+                    span class="w-[90px] shrink-0 text-muted" { "客户简称" }
+                    span class="detail-value" { (customer.short_name.as_deref().unwrap_or("—")) }
+                }
+                div class="flex py-2 text-sm" {
+                    span class="w-[90px] shrink-0 text-muted" { "客户编码" }
+                    span class="detail-value font-mono tabular-nums" { (customer.code) }
+                }
+                div class="flex py-2 text-sm" {
+                    span class="w-[90px] shrink-0 text-muted" { "客户分类" }
+                    span class="detail-value" { (category_label) }
+                }
+                div class="flex py-2 text-sm" {
+                    span class="w-[90px] shrink-0 text-muted" { "状态" }
+                    span class="detail-value" {
+                        span
+                            class=({
+                                format!(
+                                    "status-pill {}",
+                                    crate::utils::status_color(status_class),
+                                )
+                            })
+                        { (status_label) }
+                    }
+                }
+                div class="flex py-2 text-sm" {
+                    span class="w-[90px] shrink-0 text-muted" { "付款条款" }
+                    span class="detail-value" { (customer.payment_terms.as_deref().unwrap_or("—")) }
+                }
+                div class="flex py-2 text-sm" {
+                    span class="w-[90px] shrink-0 text-muted" { "发票抬头" }
+                    span class="detail-value" { (customer.invoice_title.as_deref().unwrap_or("—")) }
+                }
+                div class="flex py-2 text-sm" {
+                    span class="w-[90px] shrink-0 text-muted" { "创建时间" }
+                    span class="detail-value" { (customer.created_at.format("%Y-%m-%d")) }
+                }
+                div class="flex py-2 text-sm" {
+                    span class="w-[90px] shrink-0 text-muted" { "备注" }
+                    span class="detail-value" {
+                        @if customer.remark.is_empty() { "—" } @else { (&customer.remark) }
+                    }
+                }
+            }
+            // ── Center: Contacts ──
+            div class="bg-white border border-border-soft rounded p-5" {
+                div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 border-b border-border-soft"
+                {
+                    span { "联系人" }
+                    button
+                        class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] icon:w-4 icon:h-4"
+                        _="on click add .is-open to #contact-create-modal"
+                    { (icon::plus_icon("w-3.5 h-3.5")) "添加" }
+                }
+                @if contacts.is_empty() {
+                    div class="text-center p-6 text-muted text-sm" { "暂无联系人" }
+                } @else {
+                    @for c in contacts { (contact_card(c, &detail_path, can_delete)) }
+                }
+            }
+            // ── Right: Credit & Financial ──
+            div class="bg-white border border-border-soft rounded p-5" {
+                div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 border-b border-border-soft"
+                { "信用额度" }
+                (credit_display(customer.credit_limit))
+                div class="border-t border-border-soft pt-4" {
+                    div class="flex py-2 text-sm" {
+                        span class="w-[90px] shrink-0 text-muted" { "付款条款" }
+                        span class="detail-value" {
+                            (customer.payment_terms.as_deref().unwrap_or("—"))
+                        }
+                    }
+                    div class="flex py-2 text-sm" {
+                        span class="w-[90px] shrink-0 text-muted" { "税号" }
+                        span class="detail-value font-mono tabular-nums text-xs" {
+                            (customer.tax_number.as_deref().unwrap_or("—"))
+                        }
+                    }
+                }
+            }
+        }
+        // ── Addresses Section (full width) ──
+        div class="bg-white border border-border-soft rounded p-5 mt-5" {
+            div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 border-b border-border-soft"
+            {
+                span { "地址信息" }
+                button
+                    class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] icon:w-4 icon:h-4"
+                    _="on click add .is-open to #address-create-modal"
+                { (icon::plus_icon("w-3.5 h-3.5")) "添加" }
+            }
+            @if addresses.is_empty() {
+                div class="text-center p-6 text-muted text-sm" { "暂无地址" }
+            } @else {
+                div class="grid gap-3" {
+                    @for a in addresses { (address_card(a, &detail_path, can_delete)) }
+                }
+            }
+        }
+        // ── Transaction History ──
+        (txn_html)
+        // ── Modals ──
+        ({
+            crate::components::modal::modal(
+                "contact-create-modal",
+                "添加联系人",
+                "保存",
+                "create-contact-form",
+                &contact_create_path.to_string(),
+                html! {
+                    div class = "grid grid-cols-2 gap-4 gap-x-6 mb-6" { div class =
+                    "form-field" { label { "姓名 *" } input type = "text" name =
+                    "contact_name" required placeholder = "请输入联系人姓名"; }
+                    div class = "form-field" { label { "职位" } input type = "text"
+                    name = "position" placeholder = "请输入职位"; } div class =
+                    "form-field" { label { "电话" } input type = "text" name = "phone"
+                    placeholder = "请输入电话"; } div class = "form-field" { label {
+                    "邮箱" } input type = "email" name = "email" placeholder =
+                    "请输入邮箱"; } div class = "form-field" { label class =
+                    "checkbox-label" { input type = "checkbox" name = "is_primary" value
+                    = "true"; "主要联系人" } } }
+                },
+            )
+        })
 
- // ── Detail Top ──
- div class="flex justify-between items-start" {
- div class="flex items-center gap-5" {
- div class="w-10 h-10 grid place-items-center rounded-full bg-accent text-white font-semibold shrink-0 select-none" { (avatar_chars(&customer.name)) }
- div {
- h1 class="text-xl font-bold" {
- (customer.name)
- " "
- span class="bg-accent-bg text-accent rounded-full text-[11px] font-medium" { (category_label) }
- }
- div class="flex gap-4 text-muted text-xs" {
- span { (customer.code) }
- span { (customer.created_at.format("%Y-%m-%d")) }
- }
- }
- }
- div class="flex gap-3" {
- a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(format!("/admin/quotations/new")) { "新建报价单" }
- }
- }
-
- // ── 3-Column Detail Grid ──
- div class="grid gap-5" {
- // ── Left: Basic Info ──
- div class="bg-white border border-border-soft rounded p-5" {
- div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 border-b border-border-soft" { "基本信息" }
- div class="flex py-2 text-sm" {
- span class="w-[90px] shrink-0 text-muted" { "客户全称" }
- span class="detail-value" { (customer.name) }
- }
- div class="flex py-2 text-sm" {
- span class="w-[90px] shrink-0 text-muted" { "客户简称" }
- span class="detail-value" { (customer.short_name.as_deref().unwrap_or("—")) }
- }
- div class="flex py-2 text-sm" {
- span class="w-[90px] shrink-0 text-muted" { "客户编码" }
- span class="detail-value font-mono tabular-nums" { (customer.code) }
- }
- div class="flex py-2 text-sm" {
- span class="w-[90px] shrink-0 text-muted" { "客户分类" }
- span class="detail-value" { (category_label) }
- }
- div class="flex py-2 text-sm" {
- span class="w-[90px] shrink-0 text-muted" { "状态" }
- span class="detail-value" {
- span class=(format!("status-pill {}", crate::utils::status_color(status_class))) { (status_label) }
- }
- }
- div class="flex py-2 text-sm" {
- span class="w-[90px] shrink-0 text-muted" { "付款条款" }
- span class="detail-value" { (customer.payment_terms.as_deref().unwrap_or("—")) }
- }
- div class="flex py-2 text-sm" {
- span class="w-[90px] shrink-0 text-muted" { "发票抬头" }
- span class="detail-value" { (customer.invoice_title.as_deref().unwrap_or("—")) }
- }
- div class="flex py-2 text-sm" {
- span class="w-[90px] shrink-0 text-muted" { "创建时间" }
- span class="detail-value" { (customer.created_at.format("%Y-%m-%d")) }
- }
- div class="flex py-2 text-sm" {
- span class="w-[90px] shrink-0 text-muted" { "备注" }
- span class="detail-value" {
- @if customer.remark.is_empty() { "—" } @else { (&customer.remark) }
- }
- }
- }
-
- // ── Center: Contacts ──
- div class="bg-white border border-border-soft rounded p-5" {
- div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 border-b border-border-soft" {
- span { "联系人" }
- button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] icon:w-4 icon:h-4"
- _="on click add .is-open to #contact-create-modal" {
- (icon::plus_icon("w-3.5 h-3.5"))
- "添加"
- }
- }
- @if contacts.is_empty() {
- div class="text-center p-6 text-muted text-sm" { "暂无联系人" }
- } @else {
- @for c in contacts {
- (contact_card(c, &detail_path, can_delete))
- }
- }
- }
-
- // ── Right: Credit & Financial ──
- div class="bg-white border border-border-soft rounded p-5" {
- div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 border-b border-border-soft" { "信用额度" }
- (credit_display(customer.credit_limit))
- div class="border-t border-border-soft pt-4" {
- div class="flex py-2 text-sm" {
- span class="w-[90px] shrink-0 text-muted" { "付款条款" }
- span class="detail-value" { (customer.payment_terms.as_deref().unwrap_or("—")) }
- }
- div class="flex py-2 text-sm" {
- span class="w-[90px] shrink-0 text-muted" { "税号" }
- span class="detail-value font-mono tabular-nums text-xs" {
- (customer.tax_number.as_deref().unwrap_or("—"))
- }
- }
- }
- }
- }
-
- // ── Addresses Section (full width) ──
- div class="bg-white border border-border-soft rounded p-5 mt-5" {
- div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 border-b border-border-soft" {
- span { "地址信息" }
- button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] icon:w-4 icon:h-4"
- _="on click add .is-open to #address-create-modal" {
- (icon::plus_icon("w-3.5 h-3.5"))
- "添加"
- }
- }
- @if addresses.is_empty() {
- div class="text-center p-6 text-muted text-sm" { "暂无地址" }
- } @else {
- div class="grid gap-3" {
- @for a in addresses {
- (address_card(a, &detail_path, can_delete))
- }
- }
- }
- }
-
- // ── Transaction History ──
- (txn_html)
-
- // ── Modals ──
- (crate::components::modal::modal(
- "contact-create-modal",
- "添加联系人",
- "保存",
- "create-contact-form",
- &contact_create_path.to_string(),
- html! {
- div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
- div class="form-field" {
- label { "姓名 *" }
- input type="text" name="contact_name" required placeholder="请输入联系人姓名";
- }
- div class="form-field" {
- label { "职位" }
- input type="text" name="position" placeholder="请输入职位";
- }
- div class="form-field" {
- label { "电话" }
- input type="text" name="phone" placeholder="请输入电话";
- }
- div class="form-field" {
- label { "邮箱" }
- input type="email" name="email" placeholder="请输入邮箱";
- }
- div class="form-field" {
- label class="checkbox-label" {
- input type="checkbox" name="is_primary" value="true";
- "主要联系人"
- }
- }
- }
- },
- ))
-
- (crate::components::modal::modal(
- "address-create-modal",
- "添加地址",
- "保存",
- "create-address-form",
- &address_create_path.to_string(),
- html! {
- div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
- div class="form-field" {
- label { "地址类型 *" }
- select name="address_type" {
- option value="shipping" { "收货地址" }
- option value="billing" { "开票地址" }
- option value="other" { "其他" }
- }
- }
- div class="form-field" {
- label { "省份 *" }
- input type="text" name="province" required placeholder="请输入省份";
- }
- div class="form-field" {
- label { "城市 *" }
- input type="text" name="city" required placeholder="请输入城市";
- }
- div class="form-field" {
- label { "区县" }
- input type="text" name="district" placeholder="请输入区县";
- }
- div class="form-field field-full" {
- label { "详细地址 *" }
- input type="text" name="detail" required placeholder="请输入详细地址";
- }
- div class="form-field" {
- label { "收件人" }
- input type="text" name="contact_name" placeholder="请输入收件人";
- }
- div class="form-field" {
- label { "联系电话" }
- input type="text" name="contact_phone" placeholder="请输入联系电话";
- }
- div class="form-field" {
- label class="checkbox-label" {
- input type="checkbox" name="is_default" value="true";
- "默认地址"
- }
- }
- }
- },
- ))
- }
- }
+        ({
+            crate::components::modal::modal(
+                "address-create-modal",
+                "添加地址",
+                "保存",
+                "create-address-form",
+                &address_create_path.to_string(),
+                html! {
+                    div class = "grid grid-cols-2 gap-4 gap-x-6 mb-6" { div class =
+                    "form-field" { label { "地址类型 *" } select name =
+                    "address_type" { option value = "shipping" { "收货地址" } option
+                    value = "billing" { "开票地址" } option value = "other" {
+                    "其他" } } } div class = "form-field" { label { "省份 *" } input
+                    type = "text" name = "province" required placeholder =
+                    "请输入省份"; } div class = "form-field" { label { "城市 *" }
+                    input type = "text" name = "city" required placeholder =
+                    "请输入城市"; } div class = "form-field" { label { "区县" }
+                    input type = "text" name = "district" placeholder =
+                    "请输入区县"; } div class = "form-field field-full" { label {
+                    "详细地址 *" } input type = "text" name = "detail" required
+                    placeholder = "请输入详细地址"; } div class = "form-field" {
+                    label { "收件人" } input type = "text" name = "contact_name"
+                    placeholder = "请输入收件人"; } div class = "form-field" {
+                    label { "联系电话" } input type = "text" name = "contact_phone"
+                    placeholder = "请输入联系电话"; } div class = "form-field" {
+                    label class = "checkbox-label" { input type = "checkbox" name =
+                    "is_default" value = "true"; "默认地址" } } }
+                },
+            )
+        })
+    }
+}
 }
 
 fn credit_display(credit_limit: Option<rust_decimal::Decimal>) -> Markup {
  html! {
- div class="text-center p-5" {
- @if let Some(limit) = credit_limit {
- // 仅有总额度，无已用数据 → 空环 + "未设置"提示
- div class="w-[120px] h-[120px] relative mx-auto" {
- svg viewBox="0 0 120 120" class="w-[120px] h-[120px] -rotate-90" {
- circle cx="60" cy="60" r="50" fill="none" stroke="var(--border-soft)" stroke-width="10" {}
- circle cx="60" cy="60" r="50" fill="none" stroke="var(--accent)" stroke-width="10"
- stroke-dasharray="314.16" stroke-dashoffset="314.16" stroke-linecap="round" {}
- }
- div class="absolute inset-0 grid place-items-center" {
- div class="flex flex-col items-center" {
- div class="text-muted text-sm" { "—" }
- div class="text-xs text-muted" { "未设置" }
- }
- }
- }
- div class="text-xs text-muted mt-2" { "总额度" }
- div class="text-lg font-bold" {
- (crate::utils::fmt_amount(limit))
- }
- } @else {
- div class="w-[120px] h-[120px] relative mx-auto" {
- svg viewBox="0 0 120 120" class="w-[120px] h-[120px] -rotate-90" {
- circle cx="60" cy="60" r="50" fill="none" stroke="var(--border-soft)" stroke-width="10" {}
- }
- div class="absolute inset-0 grid place-items-center" {
- div class="flex flex-col items-center" {
- div class="text-muted text-sm" { "—" }
- div class="text-xs text-muted" { "未设置" }
- }
- }
- }
- div class="text-xs text-muted mt-2" { "未设置信用额度" }
- }
- }
- }
+    div class="text-center p-5" {
+        @if let Some(limit) = credit_limit {
+            // 仅有总额度，无已用数据 → 空环 + "未设置"提示
+            div class="w-[120px] h-[120px] relative mx-auto" {
+                svg viewBox="0 0 120 120" class="w-[120px] h-[120px] -rotate-90" {
+                    circle
+                        cx="60"
+                        cy="60"
+                        r="50"
+                        fill="none"
+                        stroke="var(--border-soft)"
+                        stroke-width="10" {}
+                    circle
+                        cx="60"
+                        cy="60"
+                        r="50"
+                        fill="none"
+                        stroke="var(--accent)"
+                        stroke-width="10"
+                        stroke-dasharray="314.16"
+                        stroke-dashoffset="314.16"
+                        stroke-linecap="round" {}
+                }
+                div class="absolute inset-0 grid place-items-center" {
+                    div class="flex flex-col items-center" {
+                        div class="text-muted text-sm" { "—" }
+                        div class="text-xs text-muted" { "未设置" }
+                    }
+                }
+            }
+            div class="text-xs text-muted mt-2" { "总额度" }
+            div class="text-lg font-bold" { (crate::utils::fmt_amount(limit)) }
+        } @else {
+            div class="w-[120px] h-[120px] relative mx-auto" {
+                svg viewBox="0 0 120 120" class="w-[120px] h-[120px] -rotate-90" {
+                    circle
+                        cx="60"
+                        cy="60"
+                        r="50"
+                        fill="none"
+                        stroke="var(--border-soft)"
+                        stroke-width="10" {}
+                }
+                div class="absolute inset-0 grid place-items-center" {
+                    div class="flex flex-col items-center" {
+                        div class="text-muted text-sm" { "—" }
+                        div class="text-xs text-muted" { "未设置" }
+                    }
+                }
+            }
+            div class="text-xs text-muted mt-2" { "未设置信用额度" }
+        }
+    }
+}
 }
 
 fn contact_card(contact: &CustomerContact, detail_path: &CustomerDetailPath, can_delete: bool) -> Markup {
@@ -655,42 +666,53 @@ fn contact_card(contact: &CustomerContact, detail_path: &CustomerDetailPath, can
  };
 
  html! {
- div class="p-3 border border-border-soft rounded-sm" {
- div class="flex items-center gap-2 p-3 border border-border-soft rounded-sm" {
- strong { (contact.name) }
- @if contact.is_primary {
- span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-accent-bg text-accent" { "主要" }
- }
- @if let Some(ref pos) = contact.position {
- span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-surface text-slate-500" { (pos) }
- }
- }
- div class="p-3" {
- @if let Some(ref phone) = contact.phone {
- div class="flex items-center gap-2 text-xs text-fg-2" {
- (icon::phone_icon("w-3.5 h-3.5"))
- span { (phone) }
- }
- }
- @if let Some(ref email) = contact.email {
- div class="flex items-center gap-2 text-xs text-fg-2" {
- (icon::mail_icon("w-3.5 h-3.5"))
- span { (email) }
- }
- }
- }
- div class="p-3 flex justify-end" {
- @if can_delete {
- button type="button" class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer text-danger" title="删除"
- hx-post=(delete_path)
- hx-confirm=(format!("删除后无法恢复，确定要删除联系人 <strong>{}</strong> 吗？", contact.name))
- hx-swap="none" {
- (icon::trash_icon("w-4 h-4"))
- }
- }
- }
- }
- }
+    div class="p-3 border border-border-soft rounded-sm" {
+        div class="flex items-center gap-2 p-3 border border-border-soft rounded-sm" {
+            strong { (contact.name) }
+            @if contact.is_primary {
+                span
+                    class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-accent-bg text-accent"
+                { "主要" }
+            }
+            @if let Some(ref pos) = contact.position {
+                span
+                    class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-surface text-slate-500"
+                { (pos) }
+            }
+        }
+        div class="p-3" {
+            @if let Some(ref phone) = contact.phone {
+                div class="flex items-center gap-2 text-xs text-fg-2" {
+                    (icon::phone_icon("w-3.5 h-3.5"))
+                    span { (phone) }
+                }
+            }
+            @if let Some(ref email) = contact.email {
+                div class="flex items-center gap-2 text-xs text-fg-2" {
+                    (icon::mail_icon("w-3.5 h-3.5"))
+                    span { (email) }
+                }
+            }
+        }
+        div class="p-3 flex justify-end" {
+            @if can_delete {
+                button
+                    type="button"
+                    class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer text-danger"
+                    title="删除"
+                    hx-post=(delete_path)
+                    hx-confirm=({
+                        format!(
+                            "删除后无法恢复，确定要删除联系人 <strong>{}</strong> 吗？",
+                            contact.name,
+                        )
+                    })
+                    hx-swap="none"
+                { (icon::trash_icon("w-4 h-4")) }
+            }
+        }
+    }
+}
 }
 
 fn address_card(addr: &CustomerAddress, detail_path: &CustomerDetailPath, can_delete: bool) -> Markup {
@@ -712,35 +734,41 @@ fn address_card(addr: &CustomerAddress, detail_path: &CustomerDetailPath, can_de
  );
 
  html! {
- div class="p-3 border border-border-soft rounded-sm" {
- div class="flex items-center gap-2 p-3 border border-border-soft rounded-sm" {
- span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-surface text-slate-500" { (type_label) }
- @if addr.is_default {
- span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-accent-bg text-accent" { "默认" }
- }
- }
- div class="p-3" {
- p { (full_addr) }
- @if let Some(ref name) = addr.contact_name {
- p class="flex items-center gap-2 text-xs text-muted" {
- (icon::user_icon("w-3.5 h-3.5"))
- span { (name) }
- @if let Some(ref phone) = addr.contact_phone {
- span { " " (phone) }
- }
- }
- }
- }
- div class="p-3 flex justify-end" {
- @if can_delete {
- button type="button" class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer text-danger" title="删除"
- hx-post=(delete_path)
- hx-confirm="删除后无法恢复，确定要删除该地址吗？"
- hx-swap="none" {
- (icon::trash_icon("w-4 h-4"))
- }
- }
- }
- }
- }
+    div class="p-3 border border-border-soft rounded-sm" {
+        div class="flex items-center gap-2 p-3 border border-border-soft rounded-sm" {
+            span
+                class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-surface text-slate-500"
+            { (type_label) }
+            @if addr.is_default {
+                span
+                    class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-accent-bg text-accent"
+                { "默认" }
+            }
+        }
+        div class="p-3" {
+            p { (full_addr) }
+            @if let Some(ref name) = addr.contact_name {
+                p class="flex items-center gap-2 text-xs text-muted" {
+                    (icon::user_icon("w-3.5 h-3.5"))
+                    span { (name) }
+                    @if let Some(ref phone) = addr.contact_phone {
+                        span { " " (phone) }
+                    }
+                }
+            }
+        }
+        div class="p-3 flex justify-end" {
+            @if can_delete {
+                button
+                    type="button"
+                    class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer text-danger"
+                    title="删除"
+                    hx-post=(delete_path)
+                    hx-confirm="删除后无法恢复，确定要删除该地址吗？"
+                    hx-swap="none"
+                { (icon::trash_icon("w-4 h-4")) }
+            }
+        }
+    }
+}
 }

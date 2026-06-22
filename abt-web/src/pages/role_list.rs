@@ -250,112 +250,138 @@ fn role_list_page(
  let total = roles.len();
 
  html! {
- div {
- // ── Page Header ──
- div class="flex items-center justify-between mb-6" {
- h1 class="text-xl font-bold text-fg tracking-tight" { "角色管理" }
- div class="flex gap-3" {
- @if can_create {
- a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(RoleCreatePath::PATH) {
- (icon::plus_icon("w-4 h-4"))
- "新建角色"
- }
- }
- }
- }
-
- // ── Panel (stats + filter + table): HTMX swap boundary ──
- div class="role-list-panel" id="role-list-panel" {
- // ── Stats ──
- div class="grid grid-cols-3 gap-5" {
- div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
- div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 bg-purple-bg text-purple" {
- (icon::lock_icon("w-6 h-6"))
- }
- div {
- div class="text-2xl font-bold font-mono tabular-nums text-fg" { (total) }
- div class="text-sm text-muted mt-1" { "角色总数" }
- }
- }
- div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
- div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 bg-warn-bg text-warn" {
- (icon::check_circle_icon("w-6 h-6"))
- }
- div {
- div class="text-2xl font-bold font-mono tabular-nums text-fg" { (system_count) }
- div class="text-sm text-muted mt-1" { "内置角色" }
- }
- }
- div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
- div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 bg-accent-50 text-accent" {
- (icon::plus_icon("w-6 h-6"))
- }
- div {
- div class="text-2xl font-bold font-mono tabular-nums text-fg" { (custom_count) }
- div class="text-sm text-muted mt-1" { "自定义角色" }
- }
- }
- }
-
- // ── Filter Bar (single-endpoint: form submits, panel refreshes) ──
- form id="role-filter-form" class="flex items-center gap-3 mb-5 mt-5 flex-wrap"
- hx-get=(RoleListPath::PATH)
- hx-target="#role-list-panel" hx-select="#role-list-panel"
- hx-swap="outerHTML" hx-push-url="true"
- hx-trigger="change, keyup changed delay:300ms from:input[name=keyword]" {
- div class="relative flex-1 max-w-xs icon:absolute icon:left-3 icon:top-1/2 icon:-translate-y-1/2 icon:w-4 icon:h-4 icon:text-muted" {
- (icon::search_icon("w-4 h-4"))
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input" type="text" name="keyword"
- placeholder="搜索角色名称、角色代码…"
- value=(params.keyword.as_deref().unwrap_or("")) {}
- }
- select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="role_type" {
- option value="" selected[params.role_type.is_none() || params.role_type.as_deref() == Some("")] { "全部类型" }
- option value="system" selected[params.role_type.as_deref() == Some("system")] { "内置角色" }
- option value="custom" selected[params.role_type.as_deref() == Some("custom")] { "自定义角色" }
- }
- }
-
- // ── Data Table ──
- div class="data-card" {
- div class="overflow-x-auto" {
- table class="data-table" {
- thead {
- tr {
- th { "角色名称" }
- th { "角色代码" }
- th { "类型" }
- th { "权限数" }
- th { "关联用户" }
- th { "描述" }
- th class="!text-right" { "操作" }
- }
- }
- tbody {
- @for (role, depth) in &sort_roles_by_hierarchy(roles) {
- (role_row(role, *depth, perm_counts, total_perms, user_map, can_create, can_delete))
- }
- @if roles.is_empty() {
- tr {
- td colspan="7" class="text-center p-6 text-muted text-sm" {
- "暂无角色数据"
- }
- }
- }
- }
- }
- }
- }
-
- // ── Record count ──
- div class="flex items-center px-5 py-4" {
- span class="text-[13px] text-muted" {
- "共 " (roles.len()) " 条记录"
- }
- }
- }
- }
- }
+    div {
+        // ── Page Header ──
+        div class="flex items-center justify-between mb-6" {
+            h1 class="text-xl font-bold text-fg tracking-tight" { "角色管理" }
+            div class="flex gap-3" {
+                @if can_create {
+                    a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                        href=(RoleCreatePath::PATH)
+                    { (icon::plus_icon("w-4 h-4")) "新建角色" }
+                }
+            }
+        }
+        // ── Panel (stats + filter + table): HTMX swap boundary ──
+        div class="role-list-panel" id="role-list-panel" {
+            // ── Stats ──
+            div class="grid grid-cols-3 gap-5" {
+                div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
+                    div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 bg-purple-bg text-purple"
+                    { (icon::lock_icon("w-6 h-6")) }
+                    div {
+                        div class="text-2xl font-bold font-mono tabular-nums text-fg" { (total) }
+                        div class="text-sm text-muted mt-1" { "角色总数" }
+                    }
+                }
+                div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
+                    div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 bg-warn-bg text-warn"
+                    { (icon::check_circle_icon("w-6 h-6")) }
+                    div {
+                        div class="text-2xl font-bold font-mono tabular-nums text-fg" {
+                            (system_count)
+                        }
+                        div class="text-sm text-muted mt-1" { "内置角色" }
+                    }
+                }
+                div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded" {
+                    div class="w-[44px] h-[44px] rounded grid place-items-center shrink-0 bg-accent-50 text-accent"
+                    { (icon::plus_icon("w-6 h-6")) }
+                    div {
+                        div class="text-2xl font-bold font-mono tabular-nums text-fg" {
+                            (custom_count)
+                        }
+                        div class="text-sm text-muted mt-1" { "自定义角色" }
+                    }
+                }
+            }
+            // ── Filter Bar (single-endpoint: form submits, panel refreshes) ──
+            form
+                id="role-filter-form"
+                class="flex items-center gap-3 mb-5 mt-5 flex-wrap"
+                hx-get=(RoleListPath::PATH)
+                hx-target="#role-list-panel"
+                hx-select="#role-list-panel"
+                hx-swap="outerHTML"
+                hx-push-url="true"
+                hx-trigger="change, keyup changed delay:300ms from:input[name=keyword]"
+            {
+                div class="relative flex-1 max-w-xs icon:absolute icon:left-3 icon:top-1/2 icon:-translate-y-1/2 icon:w-4 icon:h-4 icon:text-muted"
+                {
+                    (icon::search_icon("w-4 h-4"))
+                    input
+                        class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input"
+                        type="text"
+                        name="keyword"
+                        placeholder="搜索角色名称、角色代码…"
+                        value=(params.keyword.as_deref().unwrap_or("")) {}
+                }
+                select
+                    class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer"
+                    name="role_type"
+                {
+                    option
+                        value=""
+                        selected[
+                            params.role_type.is_none()
+                                || params.role_type.as_deref() == Some("")
+                        ]
+                    { "全部类型" }
+                    option value="system" selected[params.role_type.as_deref() == Some("system")] {
+                        "内置角色"
+                    }
+                    option value="custom" selected[params.role_type.as_deref() == Some("custom")] {
+                        "自定义角色"
+                    }
+                }
+            }
+            // ── Data Table ──
+            div class="data-card" {
+                div class="overflow-x-auto" {
+                    table class="data-table" {
+                        thead {
+                            tr {
+                                th { "角色名称" }
+                                th { "角色代码" }
+                                th { "类型" }
+                                th { "权限数" }
+                                th { "关联用户" }
+                                th { "描述" }
+                                th class="!text-right" { "操作" }
+                            }
+                        }
+                        tbody {
+                            @for (role, depth) in &sort_roles_by_hierarchy(roles) {
+                                ({
+                                    role_row(
+                                        role,
+                                        *depth,
+                                        perm_counts,
+                                        total_perms,
+                                        user_map,
+                                        can_create,
+                                        can_delete,
+                                    )
+                                })
+                            }
+                            @if roles.is_empty() {
+                                tr {
+                                    td colspan="7" class="text-center p-6 text-muted text-sm" {
+                                        "暂无角色数据"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            // ── Record count ──
+            div class="flex items-center px-5 py-4" {
+                span class="text-[13px] text-muted" { "共 " (roles.len()) " 条记录" }
+            }
+        }
+    }
+}
 }
 
 fn role_row(
@@ -382,87 +408,105 @@ fn role_row(
  let user_count = users.map_or(0, |u| u.len());
 
  html! {
- tr {
- // Role Name (with hierarchy indentation)
- td {
- div style=(format!("padding-left:{}px", depth * 24)) {
- @if depth > 0 {
- span class="text-muted mr-1" { "└ " }
- }
- a href=(detail_path) class="text-fg no-underline" { strong { (role.role_name) } }
- }
- }
- // Role Code
- td class="font-mono tabular-nums text-xs" {
- (role.role_code)
- }
- // Type
- td {
- @if role.is_system_role {
- span class="inline-block text-[11px] px-2 py-0.5 rounded-full bg-warn-bg text-warn font-medium" { "内置" }
- } @else {
- span class="inline-block text-[11px] px-2 py-0.5 rounded-full bg-accent-50 text-accent font-medium" { "自定义" }
- }
- }
- // Permission Count
- td {
- @if perm_count == total_perms {
- span class="text-[13px] text-muted" { "全部权限" }
- } @else {
- div class="flex items-center gap-2" {
- span class="text-accent font-semibold text-sm" { (perm_count) }
- div class="flex-1 h-1 bg-border rounded-full overflow-hidden" {
- div class="h-full bg-accent rounded-full" style=(format!("width:{}%", perm_pct)) {}
- }
- }
- }
- }
- // Users
- td {
- div class="flex items-center" {
- @if let Some(users) = users {
- @for u in users.iter().take(3) {
- span class="inline-flex w-7 h-7 rounded-full items-center justify-center text-[10px] font-semibold text-white shrink-0 border-2 border-bg -ml-2 first:ml-0"
- style=(format!("background:linear-gradient(135deg,{},{})", u.gradient.0, u.gradient.1)) {
- (u.initials)
- }
- }
- @if user_count > 3 {
- span class="inline-flex w-7 h-7 rounded-full items-center justify-center text-[10px] font-semibold shrink-0 border-2 border-bg bg-surface text-muted -ml-2 first:ml-0" {
- "+" (user_count - 3)
- }
- }
- }
- @if user_count == 0 {
- span class="inline-flex w-7 h-7 rounded-full items-center justify-center text-[10px] font-semibold shrink-0 border border-border-soft bg-surface text-muted" { "0" }
- }
- }
- }
- // Description
- td class="text-xs text-muted overflow-hidden whitespace-nowrap" {
- @if let Some(desc) = &role.description {
- (desc)
- } @else {
- "—"
- }
- }
- // Actions
- td {
- div class="row-actions flex items-center gap-1 justify-end opacity-0 transition-opacity duration-150 [&_a]:w-[28px] [&_a]:h-[28px] [&_a]:grid [&_a]:place-items-center [&_a]:rounded-sm [&_a]:cursor-pointer [&_a]:bg-surface [&_a]:hover:bg-accent-bg [&_button]:w-[28px] [&_button]:h-[28px] [&_button]:grid [&_button]:place-items-center [&_button]:rounded-sm [&_button]:cursor-pointer [&_button]:bg-surface [&_button]:hover:bg-accent-bg icon:w-3.5 icon:h-3.5" {
- @if can_create {
- a class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer" title="编辑" href=(edit_path) {
- (icon::edit_icon("w-3.5 h-3.5"))
- }
- }
- @if can_delete && !role.is_system_role {
- button type="button" class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer text-danger" title="删除"
- hx-post=(delete_path)
- hx-confirm=(format!("删除后无法恢复，确定要删除角色「{}」吗？", role.role_name)) {
- (icon::trash_icon("w-3.5 h-3.5"))
- }
- }
- }
- }
- }
- }
+    tr {
+        // Role Name (with hierarchy indentation)
+        td {
+            div style=(format!("padding-left:{}px", depth * 24)) {
+                @if depth > 0 {
+                    span class="text-muted mr-1" { "└ " }
+                }
+                a href=(detail_path) class="text-fg no-underline" {
+                    strong { (role.role_name) }
+                }
+            }
+        }
+        // Role Code
+        td class="font-mono tabular-nums text-xs" { (role.role_code) }
+        // Type
+        td {
+            @if role.is_system_role {
+                span
+                    class="inline-block text-[11px] px-2 py-0.5 rounded-full bg-warn-bg text-warn font-medium"
+                { "内置" }
+            } @else {
+                span
+                    class="inline-block text-[11px] px-2 py-0.5 rounded-full bg-accent-50 text-accent font-medium"
+                { "自定义" }
+            }
+        }
+        // Permission Count
+        td {
+            @if perm_count == total_perms {
+                span class="text-[13px] text-muted" { "全部权限" }
+            } @else {
+                div class="flex items-center gap-2" {
+                    span class="text-accent font-semibold text-sm" { (perm_count) }
+                    div class="flex-1 h-1 bg-border rounded-full overflow-hidden" {
+                        div class="h-full bg-accent rounded-full"
+                            style=(format!("width:{}%", perm_pct)) {}
+                    }
+                }
+            }
+        }
+        // Users
+        td {
+            div class="flex items-center" {
+                @if let Some(users) = users {
+                    @for u in users.iter().take(3) {
+                        span
+                            class="inline-flex w-7 h-7 rounded-full items-center justify-center text-[10px] font-semibold text-white shrink-0 border-2 border-bg -ml-2 first:ml-0"
+                            style=({
+                                format!(
+                                    "background:linear-gradient(135deg,{},{})",
+                                    u.gradient.0,
+                                    u.gradient.1,
+                                )
+                            })
+                        { (u.initials) }
+                    }
+                    @if user_count > 3 {
+                        span
+                            class="inline-flex w-7 h-7 rounded-full items-center justify-center text-[10px] font-semibold shrink-0 border-2 border-bg bg-surface text-muted -ml-2 first:ml-0"
+                        { "+" (user_count - 3) }
+                    }
+                }
+                @if user_count == 0 {
+                    span
+                        class="inline-flex w-7 h-7 rounded-full items-center justify-center text-[10px] font-semibold shrink-0 border border-border-soft bg-surface text-muted"
+                    { "0" }
+                }
+            }
+        }
+        // Description
+        td class="text-xs text-muted overflow-hidden whitespace-nowrap" {
+            @if let Some(desc) = &role.description { (desc) } @else { "—" }
+        }
+        // Actions
+        td {
+            div class="row-actions flex items-center gap-1 justify-end opacity-0 transition-opacity duration-150 [&_a]:w-[28px] [&_a]:h-[28px] [&_a]:grid [&_a]:place-items-center [&_a]:rounded-sm [&_a]:cursor-pointer [&_a]:bg-surface [&_a]:hover:bg-accent-bg [&_button]:w-[28px] [&_button]:h-[28px] [&_button]:grid [&_button]:place-items-center [&_button]:rounded-sm [&_button]:cursor-pointer [&_button]:bg-surface [&_button]:hover:bg-accent-bg icon:w-3.5 icon:h-3.5"
+            {
+                @if can_create {
+                    a   class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer"
+                        title="编辑"
+                        href=(edit_path)
+                    { (icon::edit_icon("w-3.5 h-3.5")) }
+                }
+                @if can_delete && !role.is_system_role {
+                    button
+                        type="button"
+                        class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer text-danger"
+                        title="删除"
+                        hx-post=(delete_path)
+                        hx-confirm=({
+                            format!(
+                                "删除后无法恢复，确定要删除角色「{}」吗？",
+                                role.role_name,
+                            )
+                        })
+                    { (icon::trash_icon("w-3.5 h-3.5")) }
+                }
+            }
+        }
+    }
+}
 }

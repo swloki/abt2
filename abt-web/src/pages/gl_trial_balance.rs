@@ -115,27 +115,38 @@ fn trial_balance_page(
 /// 期间选择：select change 触发 hx-get 重新查询
 fn period_selector(all_periods: &[AccountingPeriod], selected: &str) -> Markup {
     html! {
-        form class="flex items-center gap-3 mb-5 flex-wrap" id="gl-trial-filter-form"
+        form
+            class="flex items-center gap-3 mb-5 flex-wrap"
+            id="gl-trial-filter-form"
             hx-get=(GlTrialBalancePath::PATH)
             hx-trigger="change"
             hx-target="#gl-trial-data-card"
             hx-select="#gl-trial-data-card"
             hx-swap="outerHTML"
             hx-push-url="true"
-            hx-include="#gl-trial-filter-form" {
+            hx-include="#gl-trial-filter-form"
+        {
             label class="text-sm text-fg-2" for="period" { "期间" }
-            select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer min-w-[160px]"
-                id="period" name="period" {
+            select
+                class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer min-w-[160px]"
+                id="period"
+                name="period"
+            {
                 @if all_periods.is_empty() {
                     option value="" { "无可用期间" }
                 }
                 @for p in all_periods {
                     option value=(p.name) selected[p.name == selected] {
-                        (p.name) " (" (p.status.as_str()) ")"
+                        (p.name)
+                        " ("
+                        (p.status.as_str())
+                        ")"
                     }
                 }
             }
-            a href=(GlPeriodListPath::PATH) class="text-xs text-accent hover:underline ml-2" { "管理期间 →" }
+            a href=(GlPeriodListPath::PATH) class="text-xs text-accent hover:underline ml-2" {
+                "管理期间 →"
+            }
         }
     }
 }
@@ -165,10 +176,18 @@ fn trial_card(trial: &TrialBalance) -> Markup {
                             tr {
                                 td class="font-mono tabular-nums text-accent" { (&row.code) }
                                 td { (&row.name) }
-                                td class="font-mono tabular-nums text-right text-fg-2" { (fmt_amount(row.opening_balance)) }
-                                td class="font-mono tabular-nums text-right text-fg" { (fmt_amount(row.period_debit)) }
-                                td class="font-mono tabular-nums text-right text-fg" { (fmt_amount(row.period_credit)) }
-                                td class="font-mono tabular-nums text-right text-fg font-medium" { (fmt_amount(row.end_balance)) }
+                                td class="font-mono tabular-nums text-right text-fg-2" {
+                                    (fmt_amount(row.opening_balance))
+                                }
+                                td class="font-mono tabular-nums text-right text-fg" {
+                                    (fmt_amount(row.period_debit))
+                                }
+                                td class="font-mono tabular-nums text-right text-fg" {
+                                    (fmt_amount(row.period_credit))
+                                }
+                                td class="font-mono tabular-nums text-right text-fg font-medium" {
+                                    (fmt_amount(row.end_balance))
+                                }
                             }
                         }
                         @if trial.rows.is_empty() {
@@ -180,18 +199,29 @@ fn trial_card(trial: &TrialBalance) -> Markup {
                     tfoot {
                         tr class="border-t-2 border-border font-medium bg-surface" {
                             td colspan="2" class="text-fg" { "合计" }
-                            td class="font-mono tabular-nums text-right text-fg-2" { (fmt_amount(total_opening)) }
-                            td class="font-mono tabular-nums text-right text-fg" { (fmt_amount(trial.total_debit)) }
-                            td class="font-mono tabular-nums text-right text-fg" { (fmt_amount(trial.total_credit)) }
-                            td class="font-mono tabular-nums text-right text-fg-2" { (fmt_amount(total_end)) }
+                            td class="font-mono tabular-nums text-right text-fg-2" {
+                                (fmt_amount(total_opening))
+                            }
+                            td class="font-mono tabular-nums text-right text-fg" {
+                                (fmt_amount(trial.total_debit))
+                            }
+                            td class="font-mono tabular-nums text-right text-fg" {
+                                (fmt_amount(trial.total_credit))
+                            }
+                            td class="font-mono tabular-nums text-right text-fg-2" {
+                                (fmt_amount(total_end))
+                            }
                         }
                         tr {
-                            td colspan="6" class={
-                                "text-xs py-2 " @if balanced { "text-success" } @else { "text-danger font-medium" }
-                            } {
-                                @if balanced {
-                                    "✓ 借贷平衡（借方合计 = 贷方合计）"
-                                } @else {
+                            td  colspan="6"
+                                class={
+                                    "text-xs py-2 "
+                                    @if balanced { "text-success" } @else {
+                                        "text-danger font-medium"
+                                    }
+                                }
+                            {
+                                @if balanced { "✓ 借贷平衡（借方合计 = 贷方合计）" } @else {
                                     "✗ 借贷不平：借方合计 ≠ 贷方合计，请检查凭证数据"
                                 }
                             }

@@ -74,14 +74,21 @@ fn order_list_page(
  product_names: &HashMap<i64, String>, params: &OrderQueryParams,
  can_create: bool,
 ) -> Markup {
- html! { div {
- div class="flex items-center justify-between mb-6" { h1 class="text-xl font-bold text-fg tracking-tight" { "工单管理" } div class="flex gap-3" {
- @if can_create {
- a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(OrderCreatePath::PATH) { (icon::plus_icon("w-4 h-4")) "新建工单" }
- }
- }}
- (order_table_fragment(result, product_names, params))
- }}
+ html! {
+    div {
+        div class="flex items-center justify-between mb-6" {
+            h1 class="text-xl font-bold text-fg tracking-tight" { "工单管理" }
+            div class="flex gap-3" {
+                @if can_create {
+                    a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                        href=(OrderCreatePath::PATH)
+                    { (icon::plus_icon("w-4 h-4")) "新建工单" }
+                }
+            }
+        }
+        (order_table_fragment(result, product_names, params))
+    }
+}
 }
 
 fn order_table_fragment(
@@ -98,18 +105,43 @@ fn order_table_fragment(
  ];
  let sel = params.status.as_deref().unwrap_or("");
 
- html! { div {
- (status_tabs_with_param(OrderListPath::PATH, "#order-data-card", "#filter-form", tabs, sel, "status"))
- form id="filter-form" class="flex items-center gap-3 mb-5 flex-wrap filter-form" hx-get=(OrderListPath::PATH)
- hx-trigger="change, keyup changed delay:300ms from:.search-input"
- hx-target="#order-data-card" hx-select="#order-data-card" hx-swap="outerHTML" hx-include="#filter-form"
- hx-push-url="true" {
- div class="relative flex-1 max-w-xs icon:absolute icon:left-3 icon:top-1/2 icon:-translate-y-1/2 icon:w-4 icon:h-4 icon:text-muted" {(icon::search_icon(""))
- input class="w-[180px] pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input" type="text" name="keyword" placeholder="搜索工单编号…" value=(params.keyword.as_deref().unwrap_or(""));
- }
- }
- (order_data_card(result, product_names, params))
- }}
+ html! {
+    div {
+        ({
+            status_tabs_with_param(
+                OrderListPath::PATH,
+                "#order-data-card",
+                "#filter-form",
+                tabs,
+                sel,
+                "status",
+            )
+        })
+        form
+            id="filter-form"
+            class="flex items-center gap-3 mb-5 flex-wrap filter-form"
+            hx-get=(OrderListPath::PATH)
+            hx-trigger="change, keyup changed delay:300ms from:.search-input"
+            hx-target="#order-data-card"
+            hx-select="#order-data-card"
+            hx-swap="outerHTML"
+            hx-include="#filter-form"
+            hx-push-url="true"
+        {
+            div class="relative flex-1 max-w-xs icon:absolute icon:left-3 icon:top-1/2 icon:-translate-y-1/2 icon:w-4 icon:h-4 icon:text-muted"
+            {
+                (icon::search_icon(""))
+                input
+                    class="w-[180px] pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input"
+                    type="text"
+                    name="keyword"
+                    placeholder="搜索工单编号…"
+                    value=(params.keyword.as_deref().unwrap_or(""));
+            }
+        }
+        (order_data_card(result, product_names, params))
+    }
+}
 }
 fn order_data_card(
  result: &abt_core::shared::types::PaginatedResult<abt_core::mes::work_order::WorkOrder>,
@@ -120,91 +152,156 @@ fn order_data_card(
  if let Some(ref s) = params.status { qs.push(format!("status={s}")); }
  let query = qs.join("&");
  html! {
- div class="data-card" id="order-data-card" {
- div class="overflow-x-auto" {
- table class="data-table" { thead { tr {
- th { "工单编号" } th { "产品" } th class="text-right text-[13px]" { "计划数量" }
- th { "生产进度" } th { "排程" } th { "车间" } th { "来源追溯" }
- th { "状态" } th class="!text-right" { "操作" }
- }} tbody {
- @for item in &result.items {
- @let (sl, sb, sc) = wo_status_label(&item.status);
- @let pn = product_names.get(&item.product_id).map(|s| s.as_str()).unwrap_or("\u{2014}");
- @let dp = format!("/admin/mes/orders/{}", item.id);
- @let total = item.total_steps.unwrap_or(0);
- @let done = item.completed_steps.unwrap_or(0);
- tr class="cursor-pointer" onclick=(format!("location.href='{}'", dp)) {
- td class="text-accent font-medium cursor-pointer font-mono tabular-nums" { (item.doc_number) }
- td { (pn) }
- td class="text-right text-[13px] font-mono tabular-nums" { (crate::utils::fmt_qty(item.planned_qty)) }
- td {
- @if total == 0 && item.completed_qty == rust_decimal::Decimal::ZERO {
- span class="inline-block w-[80px] text-center text-muted text-xs" { "尚未开始" }
- } @else {
- // 工序进度
- @if total > 0 {
- @if done >= total {
- span class="text-success" { "✓ 工序完成" }
- } @else {
- @let pct = done * 100 / total;
- div class="w-[80px] h-[6px] bg-border-soft overflow-hidden" {
- div class="wo-flex items-center gap-[2px]" {
- div class="w-[80px] h-[6px] bg-border-soft overflow-hidden" style=(format!("width:{}%", pct)) {}
- }
- span class="text-xs" { (format!("工序 {}/{}", done, total)) }
- }
- }
- }
- // 完成数量
- @if item.completed_qty > rust_decimal::Decimal::ZERO {
- div class="text-xs mt-0.5" {
- span class="text-success" { (crate::utils::fmt_qty(item.completed_qty)) }
- " / "
- span class="text-muted" { (crate::utils::fmt_qty(item.planned_qty)) " 件" }
- @if item.scrap_qty > rust_decimal::Decimal::ZERO {
- span class="text-danger ml-1" { "废 " (crate::utils::fmt_qty(item.scrap_qty)) }
- }
- }
- }
- }
- }
- td {
- div class="flex flex-col gap-[2px]" {
- span { (item.scheduled_start.format("%m-%d")) }
- span class="sub" { "至 " (item.scheduled_end.format("%m-%d")) }
- }
- }
- td { "—" }
- td {
- @if item.source_plan_doc.is_none() && item.source_so_doc.is_none() {
- "—"
- } @else {
- div class="text-[11px] text-muted" {
- @if let (Some(pid), Some(pdoc)) = (item.source_plan_id, item.source_plan_doc.as_deref()) {
- a class="text-[11px] text-muted-sub" href=(format!("/admin/mes/plans/{}", pid)) { (pdoc) }
- span class="text-[11px] text-muted-sub" { " → " }
- }
- @if let Some(soid) = item.sales_order_id {
- @if let Some(sodoc) = item.source_so_doc.as_deref() {
- a class="text-[11px] text-muted-sub" href=(format!("/admin/orders/{}", soid)) { (sodoc) }
- }
- @if let Some(cust) = item.source_customer.as_deref() {
- span class="text-[11px] text-muted-sub" { " (" (cust) ")" }
- }
- }
- }
- }
- }
- td { span style=(format!("display:inline-flex;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{};color:{}", sb, sc)) { (sl) } }
- td { a href=(dp) class="text-accent text-xs" { "查看" } }
- }
- }
- @if result.items.is_empty() {
- tr { td colspan="9" class="text-center text-muted py-8" { "暂无工单" } }
- }
- }}
- }
- (pagination(OrderListPath::PATH, &query, result.total, result.page, result.total_pages))
- }
- }
+    div class="data-card" id="order-data-card" {
+        div class="overflow-x-auto" {
+            table class="data-table" {
+                thead {
+                    tr {
+                        th { "工单编号" }
+                        th { "产品" }
+                        th class="text-right text-[13px]" { "计划数量" }
+                        th { "生产进度" }
+                        th { "排程" }
+                        th { "车间" }
+                        th { "来源追溯" }
+                        th { "状态" }
+                        th class="!text-right" { "操作" }
+                    }
+                }
+                tbody {
+                    @for item in &result.items {
+                        @let (sl, sb, sc) = wo_status_label(&item.status);
+                        @let pn = product_names
+                            .get(&item.product_id)
+                            .map(|s| s.as_str())
+                            .unwrap_or("\u{2014}");
+                        @let dp = format!("/admin/mes/orders/{}", item.id);
+                        @let total = item.total_steps.unwrap_or(0);
+                        @let done = item.completed_steps.unwrap_or(0);
+                        tr class="cursor-pointer" onclick=(format!("location.href='{}'", dp)) {
+                            td  class="text-accent font-medium cursor-pointer font-mono tabular-nums"
+                            { (item.doc_number) }
+                            td { (pn) }
+                            td class="text-right text-[13px] font-mono tabular-nums" {
+                                (crate::utils::fmt_qty(item.planned_qty))
+                            }
+                            td {
+                                @if {
+                                    total == 0
+                                        && item.completed_qty == rust_decimal::Decimal::ZERO
+                                } {
+                                    span
+                                        class="inline-block w-[80px] text-center text-muted text-xs"
+                                    { "尚未开始" }
+                                } @else {
+                                    // 工序进度
+                                    @if total > 0 {
+                                        @if done >= total {
+                                            span class="text-success" { "✓ 工序完成" }
+                                        } @else {
+                                            @let pct = done * 100 / total;
+                                            div class="w-[80px] h-[6px] bg-border-soft overflow-hidden"
+                                            {
+                                                div class="wo-flex items-center gap-[2px]" {
+                                                    div class="w-[80px] h-[6px] bg-border-soft overflow-hidden"
+                                                        style=(format!("width:{}%", pct)) {}
+                                                }
+                                                span class="text-xs" {
+                                                    (format!("工序 {}/{}", done, total))
+                                                }
+                                            }
+                                        }
+                                    }
+                                    // 完成数量
+                                    @if item.completed_qty > rust_decimal::Decimal::ZERO {
+                                        div class="text-xs mt-0.5" {
+                                            span class="text-success" {
+                                                (crate::utils::fmt_qty(item.completed_qty))
+                                            }
+                                            " / "
+                                            span class="text-muted" {
+                                                (crate::utils::fmt_qty(item.planned_qty))
+                                                " 件"
+                                            }
+                                            @if item.scrap_qty > rust_decimal::Decimal::ZERO {
+                                                span class="text-danger ml-1" {
+                                                    "废 "
+                                                    (crate::utils::fmt_qty(item.scrap_qty))
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            td {
+                                div class="flex flex-col gap-[2px]" {
+                                    span { (item.scheduled_start.format("%m-%d")) }
+                                    span class="sub" { "至 " (item.scheduled_end.format("%m-%d")) }
+                                }
+                            }
+                            td { "—" }
+                            td {
+                                @if {
+                                    item.source_plan_doc.is_none()
+                                        && item.source_so_doc.is_none()
+                                } { "—" } @else {
+                                    div class="text-[11px] text-muted" {
+                                        @if let (Some(pid), Some(pdoc)) = (item.source_plan_id, item.source_plan_doc.as_deref()) {
+                                            a   class="text-[11px] text-muted-sub"
+                                                href=(format!("/admin/mes/plans/{}", pid))
+                                            { (pdoc) }
+                                            span class="text-[11px] text-muted-sub" { " → " }
+                                        }
+                                        @if let Some(soid) = item.sales_order_id {
+                                            @if let Some(sodoc) = item.source_so_doc.as_deref() {
+                                                a   class="text-[11px] text-muted-sub"
+                                                    href=(format!("/admin/orders/{}", soid))
+                                                { (sodoc) }
+                                            }
+                                            @if let Some(cust) = item.source_customer.as_deref() {
+                                                span class="text-[11px] text-muted-sub" {
+                                                    " ("
+                                                    (cust)
+                                                    ")"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            td {
+                                span
+                                    style=({
+                                        format!(
+                                            "display:inline-flex;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{};color:{}",
+                                            sb,
+                                            sc,
+                                        )
+                                    })
+                                { (sl) }
+                            }
+                            td {
+                                a href=(dp) class="text-accent text-xs" { "查看" }
+                            }
+                        }
+                    }
+                    @if result.items.is_empty() {
+                        tr {
+                            td colspan="9" class="text-center text-muted py-8" { "暂无工单" }
+                        }
+                    }
+                }
+            }
+        }
+        ({
+            pagination(
+                OrderListPath::PATH,
+                &query,
+                result.total,
+                result.page,
+                result.total_pages,
+            )
+        })
+    }
+}
 }

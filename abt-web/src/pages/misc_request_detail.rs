@@ -113,34 +113,47 @@ fn workflow_steps(current: MiscRequestStatus) -> Markup {
  let is_cancelled = current == MiscRequestStatus::Cancelled;
 
  html! {
- div class="flex items-center mt-6 mb-6" {
- @for (i, (label, _)) in steps.iter().enumerate() {
- @if i > 0 {
- div class=(format!("w-[48px] h-[2px] {}", if i <= current_idx && !is_cancelled { "bg-success" } else { "bg-border" })) {}
- }
- @let (dot_cls, text_cls, ring_cls) = if is_cancelled {
- ("bg-border-soft", "text-muted", "")
- } else if i < current_idx {
- ("bg-success", "text-success", "")
- } else if i == current_idx {
- ("bg-accent", "text-accent font-semibold", "shadow-[0_0_0_3px_rgba(37,99,235,0.1)]")
- } else {
- ("bg-slate-300", "text-slate-400", "")
- };
- div class="flex items-center gap-2 shrink-0" {
- span class=(format!("w-2.5 h-2.5 rounded-full shrink-0 {} {}", dot_cls, ring_cls)) {}
- span class=(format!("text-xs whitespace-nowrap font-medium {}", text_cls)) { (label) }
- }
- }
- @if is_cancelled {
- div class="w-[48px] h-[2px] bg-border" {}
- div class="flex items-center gap-2 shrink-0" {
- span class="w-2.5 h-2.5 rounded-full shrink-0 bg-danger-500" {}
- span class="text-xs text-danger-500 font-semibold whitespace-nowrap" { "已取消" }
- }
- }
- }
- }
+    div class="flex items-center mt-6 mb-6" {
+        @for (i, (label, _)) in steps.iter().enumerate() {
+            @if i > 0 {
+                div class=({
+                        format!(
+                            "w-[48px] h-[2px] {}",
+                            if i <= current_idx && !is_cancelled {
+                                "bg-success"
+                            } else {
+                                "bg-border"
+                            },
+                        )
+                    }) {}
+            }
+            @let (dot_cls, text_cls, ring_cls) = if is_cancelled {
+                ("bg-border-soft", "text-muted", "")
+            } else if i < current_idx {
+                ("bg-success", "text-success", "")
+            } else if i == current_idx {
+                (
+                    "bg-accent",
+                    "text-accent font-semibold",
+                    "shadow-[0_0_0_3px_rgba(37,99,235,0.1)]",
+                )
+            } else {
+                ("bg-slate-300", "text-slate-400", "")
+            };
+            div class="flex items-center gap-2 shrink-0" {
+                span class=(format!("w-2.5 h-2.5 rounded-full shrink-0 {} {}", dot_cls, ring_cls)) {}
+                span class=(format!("text-xs whitespace-nowrap font-medium {}", text_cls)) { (label) }
+            }
+        }
+        @if is_cancelled {
+            div class="w-[48px] h-[2px] bg-border" {}
+            div class="flex items-center gap-2 shrink-0" {
+                span class="w-2.5 h-2.5 rounded-full shrink-0 bg-danger-500" {}
+                span class="text-xs text-danger-500 font-semibold whitespace-nowrap" { "已取消" }
+            }
+        }
+    }
+}
 }
 
 // ── Components ──
@@ -155,118 +168,125 @@ fn misc_detail_page(
  let (status_text, status_class) = status_label(req.status);
 
  html! {
- div {
- // ── Back Link ──
- a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", MiscListPath::PATH)) {
- (icon::chevron_left_icon("w-4 h-4"))
- "返回零星请购列表"
- }
-
- // ── Detail Header ──
- div class="block bg-bg border border-border-soft rounded-lg p-6" {
- div {
- div class="flex items-center justify-between" {
- h1 class="text-2xl font-extrabold font-mono tabular-nums" { (req.doc_number) }
- span class=(format!("status-pill {}", crate::utils::status_color(status_class))) { (status_text) }
- }
- }
- div class="flex gap-3" {
- @if req.status == MiscRequestStatus::Draft {
- button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
- hx-post=(MiscApprovePath { id: req.id }.to_string())
- hx-confirm="确认审批此零星请购？" {
- (icon::check_circle_icon("w-4 h-4"))
- "审批"
- }
- button class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-danger text-white border-none hover:opacity-90"
- hx-post=(MiscCancelPath { id: req.id }.to_string())
- hx-confirm="确认取消此零星请购？取消后不可恢复。" {
- "取消"
- }
- }
- }
- }
-
- // ── Workflow Steps ──
- (workflow_steps(req.status))
-
- // ── Request Info ──
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
- div class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" { "请购信息" }
- div class="grid gap-4" {
- div class="flex flex-col gap-1" {
- span class="text-xs text-muted font-medium" { "用途说明" }
- span class="text-sm text-fg font-medium" { (req.purpose) }
- }
- div class="flex flex-col gap-1" {
- span class="text-xs text-muted font-medium" { "申请部门" }
- span class="text-sm text-fg font-medium" { (department_name) }
- }
- div class="flex flex-col gap-1" {
- span class="text-xs text-muted font-medium" { "申请日期" }
- span class="text-sm text-fg font-medium font-mono tabular-nums" { (req.request_date.format("%Y-%m-%d")) }
- }
- div class="flex flex-col gap-1" {
- span class="text-xs text-muted font-medium" { "申请人" }
- span class="text-sm text-fg font-medium" { (operator_name) }
- }
- }
- }
-
- // ── Items Table ──
- div class="data-card" {
- div class="overflow-x-auto" {
- table class="data-table" {
- thead {
- tr {
- th { "行号" }
- th { "物品名称" }
- th { "规格" }
- th class="text-right text-[13px]" { "数量" }
- th { "单位" }
- th class="text-right text-[13px]" { "预估单价" }
- th class="text-right text-[13px]" { "预估小计" }
- th { "备注" }
- }
- }
- tbody {
- @for item in items {
- (item_row(item))
- }
- @if items.is_empty() {
- tr {
- td colspan="8" class="text-center text-muted py-8" {
- "暂无明细"
- }
- }
- }
- }
- }
- }
- }
-
- // ── Amount Summary ──
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" class="mt-6" {
- div class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" { "金额汇总" }
- div class="grid gap-4" {
- div class="flex flex-col gap-1" {
- span class="text-xs text-muted font-medium" { "总金额" }
- span class="text-sm text-fg font-medium font-mono tabular-nums" class="font-semibold" style="font-size:1.125rem" {
- (format!("{:.2}", total_amount))
- }
- }
- }
- }
-
- // ── Remarks ──
- @if !req.remark.is_empty() {
- div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" class="mt-6" {
- div class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" { "备注" }
- p class="text-muted" { (req.remark.as_str()) }
- }
- }
- }
- }
+    div {
+        // ── Back Link ──
+        a   class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150"
+            href=(format!("{}?restore=true", MiscListPath::PATH))
+        { (icon::chevron_left_icon("w-4 h-4")) "返回零星请购列表" }
+        // ── Detail Header ──
+        div class="block bg-bg border border-border-soft rounded-lg p-6" {
+            div {
+                div class="flex items-center justify-between" {
+                    h1 class="text-2xl font-extrabold font-mono tabular-nums" { (req.doc_number) }
+                    span class=({
+                        format!(
+                            "status-pill {}",
+                            crate::utils::status_color(status_class),
+                        )
+                    }) { (status_text) }
+                }
+            }
+            div class="flex gap-3" {
+                @if req.status == MiscRequestStatus::Draft {
+                    button
+                        class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                        hx-post=(MiscApprovePath { id: req.id }.to_string())
+                        hx-confirm="确认审批此零星请购？"
+                    { (icon::check_circle_icon("w-4 h-4")) "审批" }
+                    button
+                        class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-danger text-white border-none hover:opacity-90"
+                        hx-post=(MiscCancelPath { id: req.id }.to_string())
+                        hx-confirm="确认取消此零星请购？取消后不可恢复。"
+                    { "取消" }
+                }
+            }
+        }
+        // ── Workflow Steps ──
+        (workflow_steps(req.status))
+        // ── Request Info ──
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
+            div class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" {
+                "请购信息"
+            }
+            div class="grid gap-4" {
+                div class="flex flex-col gap-1" {
+                    span class="text-xs text-muted font-medium" { "用途说明" }
+                    span class="text-sm text-fg font-medium" { (req.purpose) }
+                }
+                div class="flex flex-col gap-1" {
+                    span class="text-xs text-muted font-medium" { "申请部门" }
+                    span class="text-sm text-fg font-medium" { (department_name) }
+                }
+                div class="flex flex-col gap-1" {
+                    span class="text-xs text-muted font-medium" { "申请日期" }
+                    span class="text-sm text-fg font-medium font-mono tabular-nums" {
+                        (req.request_date.format("%Y-%m-%d"))
+                    }
+                }
+                div class="flex flex-col gap-1" {
+                    span class="text-xs text-muted font-medium" { "申请人" }
+                    span class="text-sm text-fg font-medium" { (operator_name) }
+                }
+            }
+        }
+        // ── Items Table ──
+        div class="data-card" {
+            div class="overflow-x-auto" {
+                table class="data-table" {
+                    thead {
+                        tr {
+                            th { "行号" }
+                            th { "物品名称" }
+                            th { "规格" }
+                            th class="text-right text-[13px]" { "数量" }
+                            th { "单位" }
+                            th class="text-right text-[13px]" { "预估单价" }
+                            th class="text-right text-[13px]" { "预估小计" }
+                            th { "备注" }
+                        }
+                    }
+                    tbody {
+                        @for item in items { (item_row(item)) }
+                        @if items.is_empty() {
+                            tr {
+                                td colspan="8" class="text-center text-muted py-8" { "暂无明细" }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        // ── Amount Summary ──
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]"
+            class="mt-6"
+        {
+            div class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" {
+                "金额汇总"
+            }
+            div class="grid gap-4" {
+                div class="flex flex-col gap-1" {
+                    span class="text-xs text-muted font-medium" { "总金额" }
+                    span
+                        class="text-sm text-fg font-medium font-mono tabular-nums"
+                        class="font-semibold"
+                        style="font-size:1.125rem"
+                    { (format!("{:.2}", total_amount)) }
+                }
+            }
+        }
+        // ── Remarks ──
+        @if !req.remark.is_empty() {
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]"
+                class="mt-6"
+            {
+                div class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" {
+                    "备注"
+                }
+                p class="text-muted" { (req.remark.as_str()) }
+            }
+        }
+    }
+}
 }
 
 fn item_row(item: &MiscRequestItem) -> Markup {
@@ -280,15 +300,15 @@ fn item_row(item: &MiscRequestItem) -> Markup {
  let remark = item.remark.as_deref().unwrap_or("—");
 
  html! {
- tr {
- td class="font-mono tabular-nums" { (item.line_no) }
- td { (item.item_name) }
- td { (spec) }
- td class="text-right text-[13px] font-mono tabular-nums" { (format!("{:.2}", item.quantity)) }
- td { (item.unit) }
- td class="text-right text-[13px]" { (price) }
- td class="text-right text-[13px]" { (subtotal) }
- td { (remark) }
- }
- }
+    tr {
+        td class="font-mono tabular-nums" { (item.line_no) }
+        td { (item.item_name) }
+        td { (spec) }
+        td class="text-right text-[13px] font-mono tabular-nums" { (format!("{:.2}", item.quantity)) }
+        td { (item.unit) }
+        td class="text-right text-[13px]" { (price) }
+        td class="text-right text-[13px]" { (subtotal) }
+        td { (remark) }
+    }
+}
 }

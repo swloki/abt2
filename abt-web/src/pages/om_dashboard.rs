@@ -311,191 +311,275 @@ struct OmDashboardContext<'a> {
 
 fn om_dashboard_page(total: u64, ctx: &OmDashboardContext) -> Markup {
  html! {
- div {
- // ── Page Header ──
- div class="flex items-center justify-between mb-6" {
- h1 class="text-xl font-bold text-fg tracking-tight" { "委外管理总览" }
- div class="flex gap-3" {
- a href=(OmOutsourcingCreatePath::PATH) class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" {
- (icon::plus_icon("w-4 h-4"))
- "新建委外单"
- }
- }
- }
-
- // ── Stat Cards ──
- div class="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6" {
- div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-md" {
- div class="w-11 h-11 rounded-md grid place-items-center shrink-0 bg-accent-bg text-accent" { (icon::file_text_icon("w-5 h-5")) }
- div {
- div class="text-2xl font-bold font-mono tabular-nums text-fg" { (total) }
- div class="text-sm text-muted mt-1" { "委外单总数" }
- }
- }
- div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-md" {
- div class="w-11 h-11 rounded-md grid place-items-center shrink-0 bg-success-bg text-success" { (icon::tool_icon("w-5 h-5")) }
- div {
- div class="text-2xl font-bold font-mono tabular-nums text-fg" { (ctx.in_production) }
- div class="text-sm text-muted mt-1" { "生产中" }
- }
- }
- div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-md" {
- div class="w-11 h-11 rounded-md grid place-items-center shrink-0 bg-warn-bg text-warn" { (icon::package_icon("w-5 h-5")) }
- div {
- div class="text-2xl font-bold font-mono tabular-nums text-fg" { (ctx.delivered) }
- div class="text-sm text-muted mt-1" { "待收货" }
- }
- }
- div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-md" {
- div class="w-11 h-11 rounded-md grid place-items-center shrink-0 bg-danger-bg text-danger" { (icon::alert_triangle_icon("w-5 h-5")) }
- div {
- div class="text-2xl font-bold font-mono tabular-nums text-fg" { (ctx.overdue) }
- div class="text-sm text-muted mt-1" { "超期预警" }
- }
- }
- div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-md" {
- div class="w-11 h-11 rounded-md grid place-items-center shrink-0 bg-[rgba(124,58,237,0.1)] text-purple" { (icon::currency_icon("w-5 h-5")) }
- div {
- div class="text-2xl font-bold font-mono tabular-nums text-fg" { (format_amount(ctx.monthly_amount)) }
- div class="text-sm text-muted mt-1" { "本月委外金额" }
- }
- }
- }
-
- // ── Quick Entry Grid ──
- div class="mb-8" {
- h2 class="text-lg font-semibold text-fg flex items-center gap-2 mb-4" { "快捷入口" }
- div class="grid grid-cols-2 lg:grid-cols-4 gap-4" {
- (quick_entry_card(OmOutsourcingCreatePath::PATH, "新建委外单", "创建委外生产订单", "blue", "plus", None))
- (quick_entry_card(OmOutsourcingListPath::PATH, "委外单管理", "查看和管理所有委外单", "green", "list", Some(total)))
- (quick_entry_card(OmTrackingListPath::PATH, "追踪管理", "物流节点与进度跟踪", "orange", "track", if ctx.overdue > 0 { Some(ctx.overdue) } else { None }))
- (quick_entry_card(OmOutsourcingListPath::PATH, "收货登记", "委外到货确认与入库", "cyan", "receive", Some(ctx.delivered)))
- }
- }
-
- // ── Recent Outsourcing Orders ──
- div class="mb-8" {
- h2 class="text-lg font-semibold text-fg flex items-center gap-2 mb-4" {
- (icon::clock_icon("w-4 h-4"))
- "最近委外单"
- }
- div class="data-card overflow-hidden" {
- table class="data-table w-full" {
- thead { tr {
- th { "委外单号" }
- th { "供应商" }
- th { "产品" }
- th { "类型" }
- th { "数量(计划/完成)" }
- th { "金额" }
- th { "最新追踪" }
- th { "状态" }
- }}
- tbody {
- @if ctx.recent.is_empty() {
- tr { td colspan="8" class="text-center text-muted text-sm py-8" { "暂无委外单" } }
- } @else {
- @for order in ctx.recent {
- @let supplier_name = ctx.supplier_names.get(&order.supplier_id).map(|s| s.as_str()).unwrap_or("—");
- @let product_name = ctx.product_names.get(&order.product_id).map(|s| s.as_str()).unwrap_or("—");
- @let amount = order.planned_qty * order.unit_price;
- @let tracking = ctx.latest_tracking.get(&order.id).map(|s| s.as_str()).unwrap_or("—");
- @let (s_label, s_bg, s_color) = status_label(&order.status);
- @let (t_label, t_bg, t_color) = type_label(&order.outsourcing_type);
- tr {
- td {
- a href=(format!("/admin/om/outsourcing/{}", order.id)) class="text-accent font-medium font-mono tabular-nums hover:underline" { (order.doc_number.as_str()) }
- }
- td class="text-sm text-fg-2" { (supplier_name) }
- td class="text-sm text-fg-2" { (product_name) }
- td {
- span class=(format!("text-xs px-2 py-0.5 rounded-full font-medium {} {}", t_bg, t_color)) { (t_label) }
- }
- td class="text-center text-sm font-mono tabular-nums" {
- span class="font-medium text-fg" { (fmt_qty(order.planned_qty)) }
- " / "
- span class="text-success" { (fmt_qty(order.completed_qty)) }
- }
- td class="text-right text-sm font-mono tabular-nums text-fg" { (format_amount(amount)) }
- td class="text-xs text-muted" { (tracking) }
- td {
- span class=(format!("text-xs px-2 py-0.5 rounded-full font-medium {} {}", s_bg, s_color)) { (s_label) }
- }
- }
- }
- }
- }
- }
- }
-
- // ── Analytics Row ──
- div class="grid grid-cols-1 lg:grid-cols-2 gap-5" {
- // ── 委外类型分布 ──
- div {
- h2 class="text-lg font-semibold text-fg flex items-center gap-2 mb-4" {
- (icon::grid_icon("w-4 h-4"))
- "委外类型分布"
- }
- div class="data-card p-5" {
- @for entry in ctx.type_dist {
- div class="mb-4" {
- div class="flex justify-between items-center mb-2" {
- span class="text-[13px] font-medium text-fg-2" { (entry.label) }
- span class="text-[13px] text-muted" {
- (entry.count) " 单"
- " ("
- (format!("{:.1}%", entry.pct))
- ")"
- }
- }
- div class="h-2 bg-surface rounded overflow-hidden" {
- div class="h-full rounded transition-all duration-300" style=(format!("width:{}%;background:{}", entry.pct, entry.fg)) {}
- }
- }
- }
- @if ctx.type_dist.iter().all(|e| e.count == 0) {
- div class="text-center text-muted text-sm py-6" { "暂无数据" }
- }
- }
- }
-
- // ── 供应商委外金额排名 ──
- div {
- h2 class="text-lg font-semibold text-fg flex items-center gap-2 mb-4" {
- (icon::trending_up_icon("w-4 h-4"))
- "供应商委外金额排名"
- }
- div class="data-card p-5" {
- @for (i, entry) in ctx.supplier_ranking.iter().enumerate() {
- @let medal = match i {
- 0 => "\u{1f947}",
- 1 => "\u{1f948}",
- 2 => "\u{1f949}",
- _ => "",
- };
- div class="mb-4" {
- div class="flex justify-between items-center mb-2" {
- span class="text-[13px] font-medium text-fg-2" {
- span class="mr-1.5" { (medal) }
- (entry.name)
- }
- span class="text-[13px] text-muted" {
- (format_amount(entry.amount))
- }
- }
- div class="h-2 bg-surface rounded overflow-hidden" {
- div class="h-full rounded transition-all duration-300 bg-[linear-gradient(90deg,var(--accent),#7c3aed)]" style=(format!("width:{}%", entry.pct)) {}
- }
- }
- }
- @if ctx.supplier_ranking.is_empty() {
- div class="text-center text-muted text-sm py-6" { "暂无数据" }
- }
- }
- }
- }
- }
- }
+    div {
+        // ── Page Header ──
+        div class="flex items-center justify-between mb-6" {
+            h1 class="text-xl font-bold text-fg tracking-tight" { "委外管理总览" }
+            div class="flex gap-3" {
+                a   href=(OmOutsourcingCreatePath::PATH)
+                    class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                { (icon::plus_icon("w-4 h-4")) "新建委外单" }
+            }
+        }
+        // ── Stat Cards ──
+        div class="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6" {
+            div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-md" {
+                div class="w-11 h-11 rounded-md grid place-items-center shrink-0 bg-accent-bg text-accent"
+                { (icon::file_text_icon("w-5 h-5")) }
+                div {
+                    div class="text-2xl font-bold font-mono tabular-nums text-fg" { (total) }
+                    div class="text-sm text-muted mt-1" { "委外单总数" }
+                }
+            }
+            div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-md" {
+                div class="w-11 h-11 rounded-md grid place-items-center shrink-0 bg-success-bg text-success"
+                { (icon::tool_icon("w-5 h-5")) }
+                div {
+                    div class="text-2xl font-bold font-mono tabular-nums text-fg" {
+                        (ctx.in_production)
+                    }
+                    div class="text-sm text-muted mt-1" { "生产中" }
+                }
+            }
+            div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-md" {
+                div class="w-11 h-11 rounded-md grid place-items-center shrink-0 bg-warn-bg text-warn"
+                { (icon::package_icon("w-5 h-5")) }
+                div {
+                    div class="text-2xl font-bold font-mono tabular-nums text-fg" { (ctx.delivered) }
+                    div class="text-sm text-muted mt-1" { "待收货" }
+                }
+            }
+            div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-md" {
+                div class="w-11 h-11 rounded-md grid place-items-center shrink-0 bg-danger-bg text-danger"
+                { (icon::alert_triangle_icon("w-5 h-5")) }
+                div {
+                    div class="text-2xl font-bold font-mono tabular-nums text-fg" { (ctx.overdue) }
+                    div class="text-sm text-muted mt-1" { "超期预警" }
+                }
+            }
+            div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-md" {
+                div class="w-11 h-11 rounded-md grid place-items-center shrink-0 bg-[rgba(124,58,237,0.1)] text-purple"
+                { (icon::currency_icon("w-5 h-5")) }
+                div {
+                    div class="text-2xl font-bold font-mono tabular-nums text-fg" {
+                        (format_amount(ctx.monthly_amount))
+                    }
+                    div class="text-sm text-muted mt-1" { "本月委外金额" }
+                }
+            }
+        }
+        // ── Quick Entry Grid ──
+        div class="mb-8" {
+            h2 class="text-lg font-semibold text-fg flex items-center gap-2 mb-4" { "快捷入口" }
+            div class="grid grid-cols-2 lg:grid-cols-4 gap-4" {
+                ({
+                    quick_entry_card(
+                        OmOutsourcingCreatePath::PATH,
+                        "新建委外单",
+                        "创建委外生产订单",
+                        "blue",
+                        "plus",
+                        None,
+                    )
+                })
+                ({
+                    quick_entry_card(
+                        OmOutsourcingListPath::PATH,
+                        "委外单管理",
+                        "查看和管理所有委外单",
+                        "green",
+                        "list",
+                        Some(total),
+                    )
+                })
+                ({
+                    quick_entry_card(
+                        OmTrackingListPath::PATH,
+                        "追踪管理",
+                        "物流节点与进度跟踪",
+                        "orange",
+                        "track",
+                        if ctx.overdue > 0 { Some(ctx.overdue) } else { None },
+                    )
+                })
+                ({
+                    quick_entry_card(
+                        OmOutsourcingListPath::PATH,
+                        "收货登记",
+                        "委外到货确认与入库",
+                        "cyan",
+                        "receive",
+                        Some(ctx.delivered),
+                    )
+                })
+            }
+        }
+        // ── Recent Outsourcing Orders ──
+        div class="mb-8" {
+            h2 class="text-lg font-semibold text-fg flex items-center gap-2 mb-4" {
+                (icon::clock_icon("w-4 h-4"))
+                "最近委外单"
+            }
+            div class="data-card overflow-hidden" {
+                table class="data-table w-full" {
+                    thead {
+                        tr {
+                            th { "委外单号" }
+                            th { "供应商" }
+                            th { "产品" }
+                            th { "类型" }
+                            th { "数量(计划/完成)" }
+                            th { "金额" }
+                            th { "最新追踪" }
+                            th { "状态" }
+                        }
+                    }
+                    tbody {
+                        @if ctx.recent.is_empty() {
+                            tr {
+                                td colspan="8" class="text-center text-muted text-sm py-8" {
+                                    "暂无委外单"
+                                }
+                            }
+                        } @else {
+                            @for order in ctx.recent {
+                                @let supplier_name = ctx
+                                    .supplier_names
+                                    .get(&order.supplier_id)
+                                    .map(|s| s.as_str())
+                                    .unwrap_or("—");
+                                @let product_name = ctx
+                                    .product_names
+                                    .get(&order.product_id)
+                                    .map(|s| s.as_str())
+                                    .unwrap_or("—");
+                                @let amount = order.planned_qty * order.unit_price;
+                                @let tracking = ctx
+                                    .latest_tracking
+                                    .get(&order.id)
+                                    .map(|s| s.as_str())
+                                    .unwrap_or("—");
+                                @let (s_label, s_bg, s_color) = status_label(&order.status);
+                                @let (t_label, t_bg, t_color) = type_label(
+                                    &order.outsourcing_type,
+                                );
+                                tr {
+                                    td {
+                                        a   href=(format!("/admin/om/outsourcing/{}", order.id))
+                                            class="text-accent font-medium font-mono tabular-nums hover:underline"
+                                        { (order.doc_number.as_str()) }
+                                    }
+                                    td class="text-sm text-fg-2" { (supplier_name) }
+                                    td class="text-sm text-fg-2" { (product_name) }
+                                    td {
+                                        span
+                                            class=({
+                                                format!(
+                                                    "text-xs px-2 py-0.5 rounded-full font-medium {} {}",
+                                                    t_bg,
+                                                    t_color,
+                                                )
+                                            })
+                                        { (t_label) }
+                                    }
+                                    td class="text-center text-sm font-mono tabular-nums" {
+                                        span class="font-medium text-fg" {
+                                            (fmt_qty(order.planned_qty))
+                                        }
+                                        " / "
+                                        span class="text-success" { (fmt_qty(order.completed_qty)) }
+                                    }
+                                    td class="text-right text-sm font-mono tabular-nums text-fg" {
+                                        (format_amount(amount))
+                                    }
+                                    td class="text-xs text-muted" { (tracking) }
+                                    td {
+                                        span
+                                            class=({
+                                                format!(
+                                                    "text-xs px-2 py-0.5 rounded-full font-medium {} {}",
+                                                    s_bg,
+                                                    s_color,
+                                                )
+                                            })
+                                        { (s_label) }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            // ── Analytics Row ──
+            div class="grid grid-cols-1 lg:grid-cols-2 gap-5" {
+                // ── 委外类型分布 ──
+                div {
+                    h2 class="text-lg font-semibold text-fg flex items-center gap-2 mb-4" {
+                        (icon::grid_icon("w-4 h-4"))
+                        "委外类型分布"
+                    }
+                    div class="data-card p-5" {
+                        @for entry in ctx.type_dist {
+                            div class="mb-4" {
+                                div class="flex justify-between items-center mb-2" {
+                                    span class="text-[13px] font-medium text-fg-2" { (entry.label) }
+                                    span class="text-[13px] text-muted" {
+                                        (entry.count)
+                                        " 单"
+                                        " ("
+                                        (format!("{:.1}%", entry.pct))
+                                        ")"
+                                    }
+                                }
+                                div class="h-2 bg-surface rounded overflow-hidden" {
+                                    div class="h-full rounded transition-all duration-300"
+                                        style=(format!("width:{}%;background:{}", entry.pct, entry.fg)) {}
+                                }
+                            }
+                        }
+                        @if ctx.type_dist.iter().all(|e| e.count == 0) {
+                            div class="text-center text-muted text-sm py-6" { "暂无数据" }
+                        }
+                    }
+                }
+                // ── 供应商委外金额排名 ──
+                div {
+                    h2 class="text-lg font-semibold text-fg flex items-center gap-2 mb-4" {
+                        (icon::trending_up_icon("w-4 h-4"))
+                        "供应商委外金额排名"
+                    }
+                    div class="data-card p-5" {
+                        @for (i, entry) in ctx.supplier_ranking.iter().enumerate() {
+                            @let medal = match i {
+                                0 => "\u{1f947}",
+                                1 => "\u{1f948}",
+                                2 => "\u{1f949}",
+                                _ => "",
+                            };
+                            div class="mb-4" {
+                                div class="flex justify-between items-center mb-2" {
+                                    span class="text-[13px] font-medium text-fg-2" {
+                                        span class="mr-1.5" { (medal) }
+                                        (entry.name)
+                                    }
+                                    span class="text-[13px] text-muted" {
+                                        (format_amount(entry.amount))
+                                    }
+                                }
+                                div class="h-2 bg-surface rounded overflow-hidden" {
+                                    div class="h-full rounded transition-all duration-300 bg-[linear-gradient(90deg,var(--accent),#7c3aed)]"
+                                        style=(format!("width:{}%", entry.pct)) {}
+                                }
+                            }
+                        }
+                        @if ctx.supplier_ranking.is_empty() {
+                            div class="text-center text-muted text-sm py-6" { "暂无数据" }
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 }
 
@@ -547,19 +631,19 @@ fn quick_entry_card(
  _ => icon::grid_icon("w-5 h-5"),
  };
  html! {
- a href=(href) class="block p-5 rounded-md bg-bg border border-border-soft no-underline relative overflow-hidden hover:border-accent transition-colors duration-150" {
- div class="w-8 h-8 mb-3" style=(format!("color:{}", fg)) {
- (icon_svg)
- }
- span class="block text-sm font-semibold text-fg" { (title) }
- span class="block text-xs text-muted mt-1" { (desc) }
- @if let Some(count) = badge {
- span class="absolute top-2 right-2 inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[11px] font-semibold bg-danger text-white leading-none" {
- (count)
- }
- }
- }
- }
+    a   href=(href)
+        class="block p-5 rounded-md bg-bg border border-border-soft no-underline relative overflow-hidden hover:border-accent transition-colors duration-150"
+    {
+        div class="w-8 h-8 mb-3" style=(format!("color:{}", fg)) { (icon_svg) }
+        span class="block text-sm font-semibold text-fg" { (title) }
+        span class="block text-xs text-muted mt-1" { (desc) }
+        @if let Some(count) = badge {
+            span
+                class="absolute top-2 right-2 inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[11px] font-semibold bg-danger text-white leading-none"
+            { (count) }
+        }
+    }
+}
 }
 
 fn status_label(s: &OutsourcingStatus) -> (&'static str, &'static str, &'static str) {

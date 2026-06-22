@@ -158,157 +158,214 @@ fn role_detail_page(
  let initials = get_initials(&role.role_name);
 
  html! {
- div class="space-y-5" {
- // ── Back Link ──
- a class="inline-flex items-center gap-1 text-sm text-muted hover:text-fg transition-colors"
- href=(format!("{list_path}?restore=true")) {
- (icon::chevron_left_icon("w-4 h-4"))
- "返回角色列表"
- }
-
- // ── Profile Hero ──
- div class="flex items-center justify-between p-5 px-6 bg-bg border border-border-soft rounded-xl shadow-xs" {
- div class="flex items-center gap-4" {
- div class="w-[52px] h-[52px] rounded-lg flex items-center justify-center text-[18px] font-bold text-white shrink-0 bg-[linear-gradient(135deg,#7c3aed,#a78bfa)] shadow-[0_3px_10px_rgba(124,58,237,0.2)]" {
- (initials)
- }
- div {
- h2 class="text-[18px] font-bold text-fg mb-[3px] tracking-[-0.01em]" { (&role.role_name) }
- div class="flex items-center gap-[6px] flex-wrap" {
- span class="inline-flex items-center px-[7px] py-[1px] bg-surface border border-border rounded-[3px] font-mono text-[11px] font-semibold text-accent tracking-[0.04em]" {
- (&role.role_code)
- }
- span class="text-xs text-muted" {
- "ID: " (role_id) " · 创建于 "
- (role.created_at.format("%Y-%m-%d"))
- }
- }
- div class="flex gap-[4px] mt-[4px]" {
- @if role.is_system_role {
- span class=(format!("{TAG_PILL} bg-success-bg text-success border border-success-100")) { "内置角色" }
- } @else {
- span class=(format!("{TAG_PILL} bg-accent-50 text-accent border border-accent-100")) { "自定义角色" }
- }
- @if let Some(pname) = parent_role_name {
- span class=(format!("{TAG_PILL} bg-purple-bg text-purple border border-purple-100")) { "上级: " (pname) }
- }
- }
- }
- }
- div class="flex gap-[6px]" {
- a class=(BTN_DEFAULT_SM) href=(edit_path) {
- (icon::edit_icon("w-3.5 h-3.5"))
- "编辑"
- }
- }
- }
-
- // ── Stats Row ──
- div class="flex gap-3" {
- (stat_item("bg-accent", &direct_count.to_string(), "项直属权限"))
- (stat_item("bg-success-500", &user_count.to_string(), "个用户"))
- (stat_item("bg-purple", &inherited_count.to_string(), "项继承权限"))
- }
-
- // ── Role Info Card ──
- div class=(INFO_CARD) {
- div class=(INFO_CARD_TITLE) {
- (icon::lock_icon("w-[18px] h-[18px] text-accent"))
- "角色信息"
- }
- div {
- (info_row("角色 ID", html! { span class="text-fg font-medium font-mono text-xs text-accent" { "#" (format!("{:03}", role_id)) } }))
- (info_row("角色编码", html! { span class="text-fg font-medium font-mono text-xs text-accent" { (&role.role_code) } }))
- (info_row("角色类型", html! {
- @if role.is_system_role {
- span class="text-success font-medium" { "内置角色" }
- } @else {
- span class="text-fg font-medium" { "自定义角色" }
- }
- }))
- (info_row("上级角色", html! {
- @if let Some(pname) = parent_role_name {
- span class="text-fg font-medium" { (pname) }
- } @else {
- span class="text-muted font-medium" { "无" }
- }
- }))
- (info_row("描述", html! {
- @if let Some(desc) = &role.description {
- span class="text-fg font-medium" { (desc) }
- } @else {
- span class="text-muted font-medium" { "—" }
- }
- }))
- (info_row("创建时间", html! { span class="text-fg font-medium font-mono text-xs text-accent" { (role.created_at.format("%Y-%m-%d %H:%M")) } }))
- (info_row("最后更新", html! {
- @if let Some(updated) = &role.updated_at {
- span class="text-fg font-medium font-mono text-xs text-accent" { (updated.format("%Y-%m-%d %H:%M")) }
- } @else {
- span class="text-muted font-medium" { "—" }
- }
- }))
- }
- }
-
- // ── Child Roles Card ──
- @if !child_roles.is_empty() {
- div class=(INFO_CARD) {
- div class=(INFO_CARD_TITLE) {
- (icon::grid_icon("w-[18px] h-[18px] text-accent"))
- "下级角色"
- span class="ml-auto text-[11px] text-muted bg-bg px-2 py-[1px] rounded-full border border-border-soft" {
- (child_roles.len())
- }
- }
- div {
- @for child in child_roles {
- div class="flex items-center px-4 py-[9px] text-[13px] border-b border-border-soft last:border-b-0" {
- span class="w-[80px] shrink-0 text-muted text-xs" {
- a href=(RoleDetailPath { id: child.role_id }.to_string()) class="text-accent hover:underline" {
- (child.role_name)
- }
- }
- span class="text-fg font-medium font-mono text-xs text-accent" { (child.role_code) }
- }
- }
- }
- }
- }
-
- // ── Permissions managed on /admin/system/permissions ──
- div class=(INFO_CARD) {
- div class="p-4 flex items-center justify-between gap-3" {
- div class="flex items-center gap-2 text-sm text-muted" {
- (icon::sliders_icon("w-[18px] h-[18px] text-accent"))
- "角色权限请在权限管理页面统一配置"
- }
- a class="inline-flex items-center gap-1 text-sm font-medium text-accent hover:underline"
- href="/admin/system/permissions" {
- "前往权限管理"
- (icon::chevron_right_icon("w-4 h-4"))
- }
- }
- }
- }
- }
+    div class="space-y-5" {
+        // ── Back Link ──
+        a   class="inline-flex items-center gap-1 text-sm text-muted hover:text-fg transition-colors"
+            href=(format!("{list_path}?restore=true"))
+        { (icon::chevron_left_icon("w-4 h-4")) "返回角色列表" }
+        // ── Profile Hero ──
+        div class="flex items-center justify-between p-5 px-6 bg-bg border border-border-soft rounded-xl shadow-xs"
+        {
+            div class="flex items-center gap-4" {
+                div class="w-[52px] h-[52px] rounded-lg flex items-center justify-center text-[18px] font-bold text-white shrink-0 bg-[linear-gradient(135deg,#7c3aed,#a78bfa)] shadow-[0_3px_10px_rgba(124,58,237,0.2)]"
+                { (initials) }
+                div {
+                    h2 class="text-[18px] font-bold text-fg mb-[3px] tracking-[-0.01em]" {
+                        (&role.role_name)
+                    }
+                    div class="flex items-center gap-[6px] flex-wrap" {
+                        span
+                            class="inline-flex items-center px-[7px] py-[1px] bg-surface border border-border rounded-[3px] font-mono text-[11px] font-semibold text-accent tracking-[0.04em]"
+                        { (&role.role_code) }
+                        span class="text-xs text-muted" {
+                            "ID: "
+                            (role_id)
+                            " · 创建于 "
+                            (role.created_at.format("%Y-%m-%d"))
+                        }
+                    }
+                    div class="flex gap-[4px] mt-[4px]" {
+                        @if role.is_system_role {
+                            span
+                                class=({
+                                    format!(
+                                        "{TAG_PILL} bg-success-bg text-success border border-success-100",
+                                    )
+                                })
+                            { "内置角色" }
+                        } @else {
+                            span
+                                class=({
+                                    format!(
+                                        "{TAG_PILL} bg-accent-50 text-accent border border-accent-100",
+                                    )
+                                })
+                            { "自定义角色" }
+                        }
+                        @if let Some(pname) = parent_role_name {
+                            span
+                                class=({
+                                    format!(
+                                        "{TAG_PILL} bg-purple-bg text-purple border border-purple-100",
+                                    )
+                                })
+                            { "上级: " (pname) }
+                        }
+                    }
+                }
+            }
+            div class="flex gap-[6px]" {
+                a class=(BTN_DEFAULT_SM) href=(edit_path) { (icon::edit_icon("w-3.5 h-3.5")) "编辑" }
+            }
+        }
+        // ── Stats Row ──
+        div class="flex gap-3" {
+            (stat_item("bg-accent", &direct_count.to_string(), "项直属权限"))
+            (stat_item("bg-success-500", &user_count.to_string(), "个用户"))
+            (stat_item("bg-purple", &inherited_count.to_string(), "项继承权限"))
+        }
+        // ── Role Info Card ──
+        div class=(INFO_CARD) {
+            div class=(INFO_CARD_TITLE) { (icon::lock_icon("w-[18px] h-[18px] text-accent")) "角色信息" }
+            div {
+                ({
+                    info_row(
+                        "角色 ID",
+                        html! {
+                            span class =
+                            "text-fg font-medium font-mono text-xs text-accent" {
+                            "#"(format!("{:03}", role_id)) }
+                        },
+                    )
+                })
+                ({
+                    info_row(
+                        "角色编码",
+                        html! {
+                            span class =
+                            "text-fg font-medium font-mono text-xs text-accent" { (& role
+                            .role_code) }
+                        },
+                    )
+                })
+                ({
+                    info_row(
+                        "角色类型",
+                        html! {
+                            @ if role.is_system_role { span class =
+                            "text-success font-medium" { "内置角色" } } @ else { span
+                            class = "text-fg font-medium" { "自定义角色" } }
+                        },
+                    )
+                })
+                ({
+                    info_row(
+                        "上级角色",
+                        html! {
+                            @ if let Some(pname) = parent_role_name { span class =
+                            "text-fg font-medium" { (pname) } } @ else { span class =
+                            "text-muted font-medium" { "无" } }
+                        },
+                    )
+                })
+                ({
+                    info_row(
+                        "描述",
+                        html! {
+                            @ if let Some(desc) = & role.description { span class =
+                            "text-fg font-medium" { (desc) } } @ else { span class =
+                            "text-muted font-medium" { "—" } }
+                        },
+                    )
+                })
+                ({
+                    info_row(
+                        "创建时间",
+                        html! {
+                            span class =
+                            "text-fg font-medium font-mono text-xs text-accent" { (role
+                            .created_at.format("%Y-%m-%d %H:%M")) }
+                        },
+                    )
+                })
+                ({
+                    info_row(
+                        "最后更新",
+                        html! {
+                            @ if let Some(updated) = & role.updated_at { span class =
+                            "text-fg font-medium font-mono text-xs text-accent" {
+                            (updated.format("%Y-%m-%d %H:%M")) } } @ else { span class =
+                            "text-muted font-medium" { "—" } }
+                        },
+                    )
+                })
+            }
+        }
+        // ── Child Roles Card ──
+        @if !child_roles.is_empty() {
+            div class=(INFO_CARD) {
+                div class=(INFO_CARD_TITLE) {
+                    (icon::grid_icon("w-[18px] h-[18px] text-accent"))
+                    "下级角色"
+                    span
+                        class="ml-auto text-[11px] text-muted bg-bg px-2 py-[1px] rounded-full border border-border-soft"
+                    { (child_roles.len()) }
+                }
+                div {
+                    @for child in child_roles {
+                        div class="flex items-center px-4 py-[9px] text-[13px] border-b border-border-soft last:border-b-0"
+                        {
+                            span class="w-[80px] shrink-0 text-muted text-xs" {
+                                a   href=({
+                                        RoleDetailPath {
+                                            id: child.role_id,
+                                        }
+                                            .to_string()
+                                    })
+                                    class="text-accent hover:underline"
+                                { (child.role_name) }
+                            }
+                            span class="text-fg font-medium font-mono text-xs text-accent" {
+                                (child.role_code)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        // ── Permissions managed on /admin/system/permissions ──
+        div class=(INFO_CARD) {
+            div class="p-4 flex items-center justify-between gap-3" {
+                div class="flex items-center gap-2 text-sm text-muted" {
+                    (icon::sliders_icon("w-[18px] h-[18px] text-accent"))
+                    "角色权限请在权限管理页面统一配置"
+                }
+                a   class="inline-flex items-center gap-1 text-sm font-medium text-accent hover:underline"
+                    href="/admin/system/permissions"
+                { "前往权限管理" (icon::chevron_right_icon("w-4 h-4")) }
+            }
+        }
+    }
+}
 }
 
 fn stat_item(dot_class: &str, value: &str, label: &str) -> Markup {
  html! {
- div class="flex items-center gap-2 py-[10px] px-4 bg-bg border border-border-soft rounded-md flex-1 shadow-xs" {
- span class=(format!("w-2 h-2 rounded-full shrink-0 {dot_class}")) {}
- b class="text-[15px] font-bold text-fg leading-none" { (value) }
- span class="text-[11px] text-muted ml-[2px]" { (label) }
- }
- }
+    div class="flex items-center gap-2 py-[10px] px-4 bg-bg border border-border-soft rounded-md flex-1 shadow-xs"
+    {
+        span class=(format!("w-2 h-2 rounded-full shrink-0 {dot_class}")) {}
+        b class="text-[15px] font-bold text-fg leading-none" { (value) }
+        span class="text-[11px] text-muted ml-[2px]" { (label) }
+    }
+}
 }
 
 fn info_row(label: &str, value: Markup) -> Markup {
  html! {
- div class="flex items-center px-4 py-[9px] text-[13px] border-b border-border-soft last:border-b-0" {
- span class="w-[80px] shrink-0 text-muted text-xs" { (label) }
- (value)
- }
- }
+    div class="flex items-center px-4 py-[9px] text-[13px] border-b border-border-soft last:border-b-0"
+    {
+        span class="w-[80px] shrink-0 text-muted text-xs" { (label) }
+        (value)
+    }
+}
 }

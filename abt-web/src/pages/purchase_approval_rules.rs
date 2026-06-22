@@ -177,44 +177,47 @@ pub async fn delete_rule(
 fn list_page(rules: &[PurchaseApprovalRule]) -> Markup {
  use maud::PreEscaped;
  html! {
- div {
- div class="flex items-center justify-between mb-6" {
- div class="flex items-center justify-between mb-6" {
- h1 class="text-xl font-bold text-fg tracking-tight" { "审批规则管理" }
- }
- div class="flex gap-3" {
- button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
- hx-get=(RuleCreatePath::PATH)
- hx-target="#rule-modal"
- hx-swap="innerHTML"
- _="on 'htmx:afterRequest' add .is-open to #rule-modal" {
- "+ 新建规则"
- }
- }
- }
- (table_fragment(rules))
- (rule_modal_shell())
- (PreEscaped(r#"<script>
+    div {
+        div class="flex items-center justify-between mb-6" {
+            div class="flex items-center justify-between mb-6" {
+                h1 class="text-xl font-bold text-fg tracking-tight" { "审批规则管理" }
+            }
+            div class="flex gap-3" {
+                button
+                    type="button"
+                    class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                    hx-get=(RuleCreatePath::PATH)
+                    hx-target="#rule-modal"
+                    hx-swap="innerHTML"
+                    _="on 'htmx:afterRequest' add .is-open to #rule-modal"
+                { "+ 新建规则" }
+            }
+        }
+        (table_fragment(rules))
+        (rule_modal_shell())
+        ({
+            PreEscaped(
+                r#"<script>
  document.body.addEventListener('rulesUpdated', function() {
  var card = document.getElementById('rules-data-card');
  if (card) {
  htmx.ajax('GET', window.location.href, {target: '#rules-data-card', swap: 'outerHTML'});
  }
  });
- </script>"#))
- }
- }
+ </script>"#,
+            )
+        })
+    }
+}
 }
 
 fn table_fragment(rules: &[PurchaseApprovalRule]) -> Markup {
  html! {
- div id="rules-data-card" {
- @if !rules.is_empty() {
- (ladder_vis(rules))
- }
- (data_card(rules))
- }
- }
+    div id="rules-data-card" {
+        @if !rules.is_empty() { (ladder_vis(rules)) }
+        (data_card(rules))
+    }
+}
 }
 
 fn ladder_vis(rules: &[PurchaseApprovalRule]) -> Markup {
@@ -237,39 +240,44 @@ fn ladder_vis(rules: &[PurchaseApprovalRule]) -> Markup {
  let colors = ["#165DFF", "#0FC6C2", "#FF7D00", "#F53F3F", "#722ED1", "#14C9C9"];
 
  html! {
- div class="data-card" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "金额阶梯" }
- div style="padding:var(--space-4) var(--space-4) var(--space-2)" {
- div style="position:relative;height:40px;margin-bottom:4px" {
- @for (i, rule) in rules.iter().enumerate() {
- @if rule.is_active {
- (ladder_bar(rule, i, min_all, range, &colors))
- }
- }
- }
- // Labels below bars
- div class="flex justify-between p-0" class="text-xs" style="color:var(--text-muted)" {
- span { (crate::utils::fmt_qty(min_all)) }
- @for rule in rules {
- @if rule.is_active && rule.max_amount.is_some() {
- span { (crate::utils::fmt_qty(rule.max_amount.unwrap())) }
- }
- }
- }
- }
- // Legend
- div class="flex flex-wrap" class="gap-4" style="padding:var(--space-2) var(--space-4)" {
- @for (i, rule) in rules.iter().enumerate() {
- @if rule.is_active {
- div class="flex items-center" class="text-xs" class="gap-1" {
- span style=(format!("display:inline-block;width:10px;height:10px;border-radius:2px;background:{}", colors[i % colors.len()])) {}
- span { (&rule.name) }
- }
- }
- }
- }
- }
- }
+    div class="data-card" {
+        div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
+        { "金额阶梯" }
+        div style="padding:var(--space-4) var(--space-4) var(--space-2)" {
+            div style="position:relative;height:40px;margin-bottom:4px" {
+                @for (i, rule) in rules.iter().enumerate() {
+                    @if rule.is_active { (ladder_bar(rule, i, min_all, range, &colors)) }
+                }
+            }
+            // Labels below bars
+            div class="flex justify-between p-0" class="text-xs" style="color:var(--text-muted)" {
+                span { (crate::utils::fmt_qty(min_all)) }
+                @for rule in rules {
+                    @if rule.is_active && rule.max_amount.is_some() {
+                        span { (crate::utils::fmt_qty(rule.max_amount.unwrap())) }
+                    }
+                }
+            }
+        }
+        // Legend
+        div class="flex flex-wrap" class="gap-4" style="padding:var(--space-2) var(--space-4)" {
+            @for (i, rule) in rules.iter().enumerate() {
+                @if rule.is_active {
+                    div class="flex items-center" class="text-xs" class="gap-1" {
+                        span
+                            style=({
+                                format!(
+                                    "display:inline-block;width:10px;height:10px;border-radius:2px;background:{}",
+                                    colors[i % colors.len()],
+                                )
+                            }) {}
+                        span { (&rule.name) }
+                    }
+                }
+            }
+        }
+    }
+}
 }
 
 fn ladder_bar(
@@ -289,115 +297,132 @@ fn ladder_bar(
  let color = colors[i % colors.len()];
 
  html! {
- div style=(format!(
- "position:absolute;left:{}%;width:{}%;top:4px;height:24px;background:{};border-radius:4px;opacity:0.85;display:flex;align-items:center;justify-content:center;overflow:hidden",
- left_pct, width_pct, color
- )) {
- span class="whitespace-nowrap overflow-hidden" style="color:#fff;font-size:10px;text-overflow:ellipsis;padding:0 4px" {
- (&rule.name)
- @if let Some(max) = rule.max_amount {
- " " (crate::utils::fmt_qty(rule.min_amount)) "–" (crate::utils::fmt_qty(max))
- } @else {
- " ≥" (crate::utils::fmt_qty(rule.min_amount))
- }
- }
- }
- }
+    div style=({
+            format!(
+                "position:absolute;left:{}%;width:{}%;top:4px;height:24px;background:{};border-radius:4px;opacity:0.85;display:flex;align-items:center;justify-content:center;overflow:hidden",
+                left_pct,
+                width_pct,
+                color,
+            )
+        })
+    {
+        span
+            class="whitespace-nowrap overflow-hidden"
+            style="color:#fff;font-size:10px;text-overflow:ellipsis;padding:0 4px"
+        {
+            (&rule.name)
+            @if let Some(max) = rule.max_amount {
+                " "
+                (crate::utils::fmt_qty(rule.min_amount))
+                "–"
+                (crate::utils::fmt_qty(max))
+            } @else { " ≥" (crate::utils::fmt_qty(rule.min_amount)) }
+        }
+    }
+}
 }
 
 fn data_card(rules: &[PurchaseApprovalRule]) -> Markup {
  html! {
- div class="data-card" {
- @if rules.is_empty() {
- (empty_state())
- } @else {
- div class="overflow-x-auto" {
- table class="data-table" {
- thead {
- tr {
- th { "排序" }
- th { "规则名称" }
- th class="text-right text-[13px]" { "最低金额" }
- th class="text-right text-[13px]" { "最高金额" }
- th { "审批角色" }
- th { "审批人ID" }
- th { "状态" }
- th class="!text-right" { "操作" }
- }
- }
- tbody {
- @for rule in rules {
- (row_tr(rule))
- }
- }
- }
- }
- }
- }
- }
+    div class="data-card" {
+        @if rules.is_empty() { (empty_state()) } @else {
+            div class="overflow-x-auto" {
+                table class="data-table" {
+                    thead {
+                        tr {
+                            th { "排序" }
+                            th { "规则名称" }
+                            th class="text-right text-[13px]" { "最低金额" }
+                            th class="text-right text-[13px]" { "最高金额" }
+                            th { "审批角色" }
+                            th { "审批人ID" }
+                            th { "状态" }
+                            th class="!text-right" { "操作" }
+                        }
+                    }
+                    tbody {
+                        @for rule in rules { (row_tr(rule)) }
+                    }
+                }
+            }
+        }
+    }
+}
 }
 
 fn row_tr(rule: &PurchaseApprovalRule) -> Markup {
  html! {
- tr {
- td { (rule.sort_order) }
- td {
- span class="font-medium" { (&rule.name) }
- }
- td class="font-mono tabular-nums text-right text-[13px]" { (crate::utils::fmt_qty(rule.min_amount)) }
- td class="font-mono tabular-nums text-right text-[13px]" {
- (rule.max_amount.map(crate::utils::fmt_qty).unwrap_or_else(|| "不限".into()))
- }
- td { (&rule.approver_role) }
- td { (rule.approver_id.map(|id| id.to_string()).unwrap_or_else(|| "—".into())) }
- td {
- @if rule.is_active {
- span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-success-bg text-success" { "启用" }
- } @else {
- span class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-danger-bg text-danger" { "停用" }
- }
- }
- td {
- div class="row-actions flex items-center gap-1 justify-end opacity-0 transition-opacity duration-150 [&_a]:w-[28px] [&_a]:h-[28px] [&_a]:grid [&_a]:place-items-center [&_a]:rounded-sm [&_a]:cursor-pointer [&_a]:bg-surface [&_a]:hover:bg-accent-bg icon:w-3.5 icon:h-3.5" {
- button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs icon:w-4 icon:h-4"
- hx-get=(RuleEditPath { id: rule.id }.to_string())
- hx-target="#rule-modal"
- hx-swap="innerHTML"
- _="on 'htmx:afterRequest' add .is-open to #rule-modal" {
- "编辑"
- }
- button class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-danger text-white border-none hover:opacity-90 icon:w-4 icon:h-4"
- hx-post=(RuleDeletePath { id: rule.id }.to_string())
- hx-confirm="确认删除此审批规则？"
- hx-target="#rules-data-card"
- hx-select="#rules-data-card"
- hx-swap="outerHTML" {
- "删除"
- }
- }
- }
- }
- }
+    tr {
+        td { (rule.sort_order) }
+        td {
+            span class="font-medium" { (&rule.name) }
+        }
+        td class="font-mono tabular-nums text-right text-[13px]" {
+            (crate::utils::fmt_qty(rule.min_amount))
+        }
+        td class="font-mono tabular-nums text-right text-[13px]" {
+            ({
+                rule.max_amount
+                    .map(crate::utils::fmt_qty)
+                    .unwrap_or_else(|| "不限".into())
+            })
+        }
+        td { (&rule.approver_role) }
+        td { (rule.approver_id.map(|id| id.to_string()).unwrap_or_else(|| "—".into())) }
+        td {
+            @if rule.is_active {
+                span
+                    class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-success-bg text-success"
+                { "启用" }
+            } @else {
+                span
+                    class="inline-flex items-center gap-[5px] rounded-full text-xs font-medium whitespace-nowrap bg-danger-bg text-danger"
+                { "停用" }
+            }
+        }
+        td {
+            div class="row-actions flex items-center gap-1 justify-end opacity-0 transition-opacity duration-150 [&_a]:w-[28px] [&_a]:h-[28px] [&_a]:grid [&_a]:place-items-center [&_a]:rounded-sm [&_a]:cursor-pointer [&_a]:bg-surface [&_a]:hover:bg-accent-bg icon:w-3.5 icon:h-3.5"
+            {
+                button
+                    type="button"
+                    class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs icon:w-4 icon:h-4"
+                    hx-get=(RuleEditPath { id: rule.id }.to_string())
+                    hx-target="#rule-modal"
+                    hx-swap="innerHTML"
+                    _="on 'htmx:afterRequest' add .is-open to #rule-modal"
+                { "编辑" }
+                button
+                    class="btn inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-danger text-white border-none hover:opacity-90 icon:w-4 icon:h-4"
+                    hx-post=(RuleDeletePath { id: rule.id }.to_string())
+                    hx-confirm="确认删除此审批规则？"
+                    hx-target="#rules-data-card"
+                    hx-select="#rules-data-card"
+                    hx-swap="outerHTML"
+                { "删除" }
+            }
+        }
+    }
+}
 }
 
 fn empty_state() -> Markup {
  html! {
- div class="text-center" class="p-12 text-muted" {
- p class="m-0" class="text-lg" { "暂无审批规则" }
- p class="mt-2 text-sm" { "点击「+ 新建规则」添加金额阶梯审批规则" }
- }
- }
+    div class="text-center" class="p-12 text-muted" {
+        p class="m-0" class="text-lg" { "暂无审批规则" }
+        p class="mt-2 text-sm" { "点击「+ 新建规则」添加金额阶梯审批规则" }
+    }
+}
 }
 
 // ── Modal ──
 
 fn rule_modal_shell() -> Markup {
  html! {
- div class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto" id="rule-modal"
- _="on closeRuleModal from body remove .is-open
- on click[me is event.target] remove .is-open" {
- }
- }
+    div class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto"
+        id="rule-modal"
+        _="on closeRuleModal from body remove .is-open
+ on click[me is event.target] remove .is-open" {}
+}
 }
 
 fn rule_form(action_url: &str, rule: Option<&PurchaseApprovalRule>) -> Markup {
@@ -415,78 +440,141 @@ fn rule_form(action_url: &str, rule: Option<&PurchaseApprovalRule>) -> Markup {
  let common_roles = ["manager", "director", "finance", "vp", "ceo"];
 
  html! {
- // 不加 _="on click halt"——halt 的 preventDefault 会阻止「保存」submit 按钮提交；
- // 背景关闭已由 #rule-modal overlay 的 [me is event.target] 过滤实现。
- div class="bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl" {
- div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
- h2 { (title) }
- button class="bg-transparent border-none cursor-pointer text-xl text-muted p-1 hover:text-fg"
- _="on click remove .is-open from #rule-modal" { "×" }
- }
- form hx-post=(action_url) hx-target="this" hx-swap="outerHTML"
- _="on 'htmx:afterRequest'[detail.successful] remove .is-open from #rule-modal" {
+    // 不加 _="on click halt"——halt 的 preventDefault 会阻止「保存」submit 按钮提交；
+    // 背景关闭已由 #rule-modal overlay 的 [me is event.target] 过滤实现。
+    div class="bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl" {
+        div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0"
+        {
+            h2 { (title) }
+            button
+                class="bg-transparent border-none cursor-pointer text-xl text-muted p-1 hover:text-fg"
+                _="on click remove .is-open from #rule-modal"
+            { "×" }
+        }
+        form
+            hx-post=(action_url)
+            hx-target="this"
+            hx-swap="outerHTML"
+            _="on 'htmx:afterRequest'[detail.successful] remove .is-open from #rule-modal"
+        {
 
- div class="overflow-y-auto flex-1 min-h-0 p-6" {
- div class="form-section" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" { "规则信息" }
- div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
- div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "规则名称" span class="required" { "*" } }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="name"
- required value=(name)
- placeholder="如：小额审批、大额审批";
- }
- div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "审批角色" span class="required" { "*" } }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="text" name="approver_role"
- required value=(role)
- placeholder="如 manager"
- list="common-roles";
- // Datalist for common roles
- }
- div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "最低金额" span class="required" { "*" } }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" step="any"
- name="min_amount" required value=(min_amt);
- }
- div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "最高金额（空=不限）" }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" step="any"
- name="max_amount" value=(max_amt);
- }
- div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "审批人ID（可选）" }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" step="any"
- name="approver_id" value=(approver);
- }
- div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "排序" }
- input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]" type="number" step="any"
- name="sort_order" value=(sort);
- }
- div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "启用状态" }
- label class="flex items-center cursor-pointer" class="gap-2" {
- input type="checkbox" name="is_active" checked[active] {};
- " 启用"
- }
- }
- }
- }
- // Datalist for common approver roles
- datalist id="common-roles" {
- @for role_name in &common_roles {
- option value=(*role_name) {}
- }
- }
- }
+            div class="overflow-y-auto flex-1 min-h-0 p-6" {
+                div class="form-section" {
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
+                    { "规则信息" }
+                    div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
+                        div class="form-field" {
+                            label
+                                class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap"
+                            {
+                                "规则名称"
+                                span class="required" { "*" }
+                            }
+                            input
+                                class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]"
+                                type="text"
+                                name="name"
+                                required
+                                value=(name)
+                                placeholder="如：小额审批、大额审批";
+                        }
+                        div class="form-field" {
+                            label
+                                class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap"
+                            {
+                                "审批角色"
+                                span class="required" { "*" }
+                            }
+                            input
+                                class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]"
+                                type="text"
+                                name="approver_role"
+                                required
+                                value=(role)
+                                placeholder="如 manager"
+                                list="common-roles";
+                            // Datalist for common roles
+                        }
+                        div class="form-field" {
+                            label
+                                class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap"
+                            {
+                                "最低金额"
+                                span class="required" { "*" }
+                            }
+                            input
+                                class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]"
+                                type="number"
+                                step="any"
+                                name="min_amount"
+                                required
+                                value=(min_amt);
+                        }
+                        div class="form-field" {
+                            label
+                                class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap"
+                            { "最高金额（空=不限）" }
+                            input
+                                class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]"
+                                type="number"
+                                step="any"
+                                name="max_amount"
+                                value=(max_amt);
+                        }
+                        div class="form-field" {
+                            label
+                                class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap"
+                            { "审批人ID（可选）" }
+                            input
+                                class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]"
+                                type="number"
+                                step="any"
+                                name="approver_id"
+                                value=(approver);
+                        }
+                        div class="form-field" {
+                            label
+                                class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap"
+                            { "排序" }
+                            input
+                                class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]"
+                                type="number"
+                                step="any"
+                                name="sort_order"
+                                value=(sort);
+                        }
+                        div class="form-field" {
+                            label
+                                class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap"
+                            { "启用状态" }
+                            label class="flex items-center cursor-pointer" class="gap-2" {
+                                input type="checkbox" name="is_active" checked[active] {}
+                                ;
+                                " 启用"
+                            }
+                        }
+                    }
+                }
+                // Datalist for common approver roles
+                datalist id="common-roles" {
+                    @for role_name in &common_roles {
+                        option value=(*role_name) {}
+                    }
+                }
+            }
 
- div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" {
- button type="button" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
- _="on click remove .is-open from #rule-modal" { "取消" }
- button type="submit" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" { "保存" }
- }
- }
- }
- }
+            div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" {
+                button
+                    type="button"
+                    class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                    _="on click remove .is-open from #rule-modal"
+                { "取消" }
+                button
+                    type="submit"
+                    class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                { "保存" }
+            }
+        }
+    }
+}
 }

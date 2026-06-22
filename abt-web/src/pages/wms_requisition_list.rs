@@ -163,21 +163,28 @@ fn requisition_list_page(
  can_create: bool,
 ) -> Markup {
  html! {
- div {
- div class="flex items-center justify-between mb-6" {
- h1 class="text-xl font-bold text-fg tracking-tight" { "领料单" }
- div class="flex gap-3" {
- @if can_create {
- a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" href=(RequisitionCreatePath::PATH) {
- (icon::plus_icon("w-4 h-4"))
- "新建领料单"
- }
- }
- }
- }
- (requisition_table_fragment(result, warehouse_names, operator_names, warehouses, params))
- }
- }
+    div {
+        div class="flex items-center justify-between mb-6" {
+            h1 class="text-xl font-bold text-fg tracking-tight" { "领料单" }
+            div class="flex gap-3" {
+                @if can_create {
+                    a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                        href=(RequisitionCreatePath::PATH)
+                    { (icon::plus_icon("w-4 h-4")) "新建领料单" }
+                }
+            }
+        }
+        ({
+            requisition_table_fragment(
+                result,
+                warehouse_names,
+                operator_names,
+                warehouses,
+                params,
+            )
+        })
+    }
+}
 }
 
 fn requisition_table_fragment(
@@ -202,40 +209,63 @@ fn requisition_table_fragment(
  let selected_warehouse = params.warehouse_id.map(|id| id.to_string()).unwrap_or_default();
 
  html! {
- div class="requisition-list-panel" {
- (status_tabs_with_param(RequisitionListPath::PATH, "#requisition-data-card", "#requisition-filter-form", tabs, &active_value, "status"))
+    div class="requisition-list-panel" {
+        ({
+            status_tabs_with_param(
+                RequisitionListPath::PATH,
+                "#requisition-data-card",
+                "#requisition-filter-form",
+                tabs,
+                &active_value,
+                "status",
+            )
+        })
 
- form class="flex items-center gap-3 mb-6 flex-wrap" id="requisition-filter-form"
- hx-get=(RequisitionListPath::PATH)
- hx-trigger="change, keyup changed delay:300ms from:.search-input"
- hx-target="#requisition-data-card"
- hx-select="#requisition-data-card"
- hx-swap="outerHTML"
- hx-include="#requisition-filter-form"
- hx-push-url="true" {
- div class="relative w-60 icon:absolute icon:left-3 icon:top-1/2 icon:-translate-y-1/2 icon:w-4 icon:h-4 icon:text-muted" {
- (icon::search_icon(""))
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input" type="text" name="doc_number"
- placeholder="搜索单据编号…"
- value=(params.doc_number.as_deref().unwrap_or(""));
- }
- div class="relative w-40 icon:absolute icon:left-3 icon:top-1/2 icon:-translate-y-1/2 icon:w-4 icon:h-4 icon:text-muted" {
- (icon::search_icon(""))
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input" type="text" name="work_order"
- placeholder="关联工单"
- value=(params.work_order.as_deref().unwrap_or(""));
- }
- select class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer" name="warehouse_id" {
- option value="" { "全部仓库" }
- @for w in warehouses {
- option value=(w.id) selected[selected_warehouse == w.id.to_string()] { (w.name) }
- }
- }
- }
+        form
+            class="flex items-center gap-3 mb-6 flex-wrap"
+            id="requisition-filter-form"
+            hx-get=(RequisitionListPath::PATH)
+            hx-trigger="change, keyup changed delay:300ms from:.search-input"
+            hx-target="#requisition-data-card"
+            hx-select="#requisition-data-card"
+            hx-swap="outerHTML"
+            hx-include="#requisition-filter-form"
+            hx-push-url="true"
+        {
+            div class="relative w-60 icon:absolute icon:left-3 icon:top-1/2 icon:-translate-y-1/2 icon:w-4 icon:h-4 icon:text-muted"
+            {
+                (icon::search_icon(""))
+                input
+                    class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input"
+                    type="text"
+                    name="doc_number"
+                    placeholder="搜索单据编号…"
+                    value=(params.doc_number.as_deref().unwrap_or(""));
+            }
+            div class="relative w-40 icon:absolute icon:left-3 icon:top-1/2 icon:-translate-y-1/2 icon:w-4 icon:h-4 icon:text-muted"
+            {
+                (icon::search_icon(""))
+                input
+                    class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input"
+                    type="text"
+                    name="work_order"
+                    placeholder="关联工单"
+                    value=(params.work_order.as_deref().unwrap_or(""));
+            }
+            select
+                class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer"
+                name="warehouse_id"
+            {
+                option value="" { "全部仓库" }
+                @for w in warehouses {
+                    option value=(w.id) selected[selected_warehouse == w.id.to_string()] { (w.name) }
+                }
+            }
+        }
 
- (requisition_data_card(result, warehouse_names, operator_names, params))
- }
- }
+        (requisition_data_card(result, warehouse_names, operator_names, params))
+    }
+}
 }
 
 fn requisition_data_card(
@@ -246,37 +276,41 @@ fn requisition_data_card(
 ) -> Markup {
  let query = build_query_string(params);
  html! {
- div class="data-card" id="requisition-data-card" {
- div class="overflow-x-auto" {
- table class="data-table" {
- thead {
- tr {
- th { "单据编号" }
- th { "关联工单" }
- th { "领料仓库" }
- th { "领料日期" }
- th { "状态" }
- th { "操作员" }
- th class="!text-right" { "操作" }
- }
- }
- tbody {
- @for r in &result.items {
- (requisition_row(r, warehouse_names, operator_names))
- }
- @if result.items.is_empty() {
- tr {
- td colspan="7" class="text-center text-muted py-8" {
- "暂无领料单数据"
- }
- }
- }
- }
- }
- }
- (pagination(RequisitionListPath::PATH, &query, result.total, result.page, result.total_pages))
- }
- }
+    div class="data-card" id="requisition-data-card" {
+        div class="overflow-x-auto" {
+            table class="data-table" {
+                thead {
+                    tr {
+                        th { "单据编号" }
+                        th { "关联工单" }
+                        th { "领料仓库" }
+                        th { "领料日期" }
+                        th { "状态" }
+                        th { "操作员" }
+                        th class="!text-right" { "操作" }
+                    }
+                }
+                tbody {
+                    @for r in &result.items { (requisition_row(r, warehouse_names, operator_names)) }
+                    @if result.items.is_empty() {
+                        tr {
+                            td colspan="7" class="text-center text-muted py-8" { "暂无领料单数据" }
+                        }
+                    }
+                }
+            }
+        }
+        ({
+            pagination(
+                RequisitionListPath::PATH,
+                &query,
+                result.total,
+                result.page,
+                result.total_pages,
+            )
+        })
+    }
+}
 }
 
 fn requisition_row(
@@ -291,24 +325,29 @@ fn requisition_row(
  let operator_name = operator_names.get(&r.operator_id).map(|s| s.as_str()).unwrap_or("—");
 
  html! {
- tr {
- td {
- a class="text-accent font-medium font-mono tabular-nums hover:underline" href=(detail_path.to_string()) { (r.doc_number) }
- }
- td class="font-mono tabular-nums text-fg-2" { "WO-" (r.work_order_id) }
- td { (warehouse_name) }
- td class="font-mono tabular-nums" { (r.requisition_date.format("%Y-%m-%d")) }
- td {
- span class=(format!("status-pill {}", crate::utils::status_color(status_class))) { (status_text) }
- }
- td { (operator_name) }
- td {
- div class="flex items-center gap-1 justify-end" {
- a class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer hover:bg-accent-bg" href=(detail_path.to_string()) title="查看" {
- (icon::eye_icon("w-4 h-4"))
- }
- }
- }
- }
+    tr {
+        td {
+            a   class="text-accent font-medium font-mono tabular-nums hover:underline"
+                href=(detail_path.to_string())
+            { (r.doc_number) }
+        }
+        td class="font-mono tabular-nums text-fg-2" { "WO-" (r.work_order_id) }
+        td { (warehouse_name) }
+        td class="font-mono tabular-nums" { (r.requisition_date.format("%Y-%m-%d")) }
+        td {
+            span class=(format!("status-pill {}", crate::utils::status_color(status_class))) {
+                (status_text)
+            }
+        }
+        td { (operator_name) }
+        td {
+            div class="flex items-center gap-1 justify-end" {
+                a   class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer hover:bg-accent-bg"
+                    href=(detail_path.to_string())
+                    title="查看"
+                { (icon::eye_icon("w-4 h-4")) }
+            }
+        }
+    }
 }
 }

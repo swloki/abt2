@@ -149,134 +149,170 @@ pub async fn create(
 
 fn rma_create_page(customers: &[Customer], products: &[Product], sales_orders: &[abt_core::sales::sales_order::model::SalesOrder], shipping_requests: &[abt_core::sales::shipping_request::model::ShippingRequest]) -> Markup {
  html! {
- div {
- // ── Page header ──
- div class="flex items-center justify-between mb-6" {
- div class="flex items-center justify-between mb-6" {
- a class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150" href=(format!("{}?restore=true", RmaListPath::PATH)) {
- (icon::arrow_left_icon("w-4 h-4"))
- "返回列表"
- }
- h1 class="text-xl font-bold text-fg tracking-tight" { "新建RMA客诉" }
- }
- }
+    div {
+        // ── Page header ──
+        div class="flex items-center justify-between mb-6" {
+            div class="flex items-center justify-between mb-6" {
+                a   class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150"
+                    href=(format!("{}?restore=true", RmaListPath::PATH))
+                { (icon::arrow_left_icon("w-4 h-4")) "返回列表" }
+                h1 class="text-xl font-bold text-fg tracking-tight" { "新建RMA客诉" }
+            }
+        }
 
- form id="rma-form" hx-post=(RmaCreatePath::PATH) hx-swap="none" {
-
- // ── Section 1: 客户信息 ──
- div class="form-section" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
- (icon::users_icon("w-4 h-4"))
- "客户信息"
- }
- div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
- div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap required" { "客户" }
- select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent" name="customer_id" required {
- option value="" disabled selected { "请选择客户" }
- @for c in customers {
- option value=(c.id) { (c.code) " — " (c.name) }
- }
- }
- }
- div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "关联销售订单" }
- select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent" name="sales_order_id" {
- option value="" selected { "请选择销售订单（可选）" }
- @for order in sales_orders {
- option value=(order.id) {
- (order.doc_number)
- " - 客户ID:" (order.customer_id)
- }
- }
- }
- }
- div class="form-field col-span-full" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "关联发货单" }
- select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent" name="shipping_request_id" {
- option value="" selected { "请选择发货单（可选）" }
- @for ship in shipping_requests {
- option value=(ship.id) {
- (ship.doc_number)
- }
- }
- }
- }
- }
- }
-
- // ── Section 2: 产品信息 ──
- div class="form-section" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
- (icon::box_icon("w-4 h-4"))
- "产品信息"
- }
- div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
- div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap required" { "产品" }
- select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent" name="product_id" required {
- option value="" disabled selected { "请选择产品" }
- @for p in products {
- option value=(p.product_id) { (p.product_code) " — " (p.pdt_name) }
- }
- }
- }
- div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "关联检验结果" }
- select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent" name="linked_inspection_result_id" {
- option value="" selected { "请选择检验结果（可选）" }
- }
- span class="text-xs text-muted mt-0.5" { "可选，关联相关来料/过程检验记录" }
- }
- }
- }
-
- // ── Section 3: 缺陷描述 ──
- div class="form-section" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
- (icon::alert_triangle_icon("w-4 h-4"))
- "缺陷描述"
- }
- div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
- div class="form-field col-span-full" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap required" { "缺陷描述" }
- textarea class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent min-h-[72px] resize-y leading-1.5" name="defect_description" rows="3" required placeholder="请描述缺陷详情…" {}
- }
- div class="form-field" {
- label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap required" { "严重程度" }
- select class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent" name="severity" required {
- option value="" disabled selected { "请选择严重程度" }
- option value="1" { "轻微 Minor" }
- option value="2" { "一般 Major" }
- option value="3" { "严重 Critical" }
- }
- }
- }
- }
-
- // ── Section 4: 备注 ──
- div class="form-section" {
- div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft" {
- (icon::edit_icon("w-4 h-4"))
- "备注"
- }
- div class="form-field" {
- textarea class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent min-h-[72px] resize-y leading-1.5" name="remark" rows="3" placeholder="填写备注信息…" {}
- }
- }
-
- // ── Action bar ──
- div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
- a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" href=(format!("{}?restore=true", RmaListPath::PATH)) { "取消" }
- button type="submit" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" name="action" value="save" {
- (icon::check_circle_icon("w-4 h-4"))
- "保存"
- }
- button type="submit" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" name="action" value="submit" {
- "提交"
- }
- }
- }
- }
- }
+        form id="rma-form" hx-post=(RmaCreatePath::PATH) hx-swap="none" {
+            // ── Section 1: 客户信息 ──
+            div class="form-section" {
+                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
+                { (icon::users_icon("w-4 h-4")) "客户信息" }
+                div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
+                    div class="form-field" {
+                        label
+                            class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap required"
+                        { "客户" }
+                        select
+                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent"
+                            name="customer_id"
+                            required
+                        {
+                            option value="" disabled selected { "请选择客户" }
+                            @for c in customers {
+                                option value=(c.id) { (c.code) " — " (c.name) }
+                            }
+                        }
+                    }
+                    div class="form-field" {
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
+                            "关联销售订单"
+                        }
+                        select
+                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent"
+                            name="sales_order_id"
+                        {
+                            option value="" selected { "请选择销售订单（可选）" }
+                            @for order in sales_orders {
+                                option value=(order.id) {
+                                    (order.doc_number)
+                                    " - 客户ID:"
+                                    (order.customer_id)
+                                }
+                            }
+                        }
+                    }
+                    div class="form-field col-span-full" {
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
+                            "关联发货单"
+                        }
+                        select
+                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent"
+                            name="shipping_request_id"
+                        {
+                            option value="" selected { "请选择发货单（可选）" }
+                            @for ship in shipping_requests {
+                                option value=(ship.id) { (ship.doc_number) }
+                            }
+                        }
+                    }
+                }
+            }
+            // ── Section 2: 产品信息 ──
+            div class="form-section" {
+                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
+                { (icon::box_icon("w-4 h-4")) "产品信息" }
+                div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
+                    div class="form-field" {
+                        label
+                            class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap required"
+                        { "产品" }
+                        select
+                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent"
+                            name="product_id"
+                            required
+                        {
+                            option value="" disabled selected { "请选择产品" }
+                            @for p in products {
+                                option value=(p.product_id) { (p.product_code) " — " (p.pdt_name) }
+                            }
+                        }
+                    }
+                    div class="form-field" {
+                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
+                            "关联检验结果"
+                        }
+                        select
+                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent"
+                            name="linked_inspection_result_id"
+                        {
+                            option value="" selected { "请选择检验结果（可选）" }
+                        }
+                        span class="text-xs text-muted mt-0.5" { "可选，关联相关来料/过程检验记录" }
+                    }
+                }
+            }
+            // ── Section 3: 缺陷描述 ──
+            div class="form-section" {
+                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
+                { (icon::alert_triangle_icon("w-4 h-4")) "缺陷描述" }
+                div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
+                    div class="form-field col-span-full" {
+                        label
+                            class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap required"
+                        { "缺陷描述" }
+                        textarea
+                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent min-h-[72px] resize-y leading-1.5"
+                            name="defect_description"
+                            rows="3"
+                            required
+                            placeholder="请描述缺陷详情…" {}
+                    }
+                    div class="form-field" {
+                        label
+                            class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap required"
+                        { "严重程度" }
+                        select
+                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent"
+                            name="severity"
+                            required
+                        {
+                            option value="" disabled selected { "请选择严重程度" }
+                            option value="1" { "轻微 Minor" }
+                            option value="2" { "一般 Major" }
+                            option value="3" { "严重 Critical" }
+                        }
+                    }
+                }
+            }
+            // ── Section 4: 备注 ──
+            div class="form-section" {
+                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
+                { (icon::edit_icon("w-4 h-4")) "备注" }
+                div class="form-field" {
+                    textarea
+                        class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent min-h-[72px] resize-y leading-1.5"
+                        name="remark"
+                        rows="3"
+                        placeholder="填写备注信息…" {}
+                }
+            }
+            // ── Action bar ──
+            div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
+                a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                    href=(format!("{}?restore=true", RmaListPath::PATH))
+                { "取消" }
+                button
+                    type="submit"
+                    class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                    name="action"
+                    value="save"
+                { (icon::check_circle_icon("w-4 h-4")) "保存" }
+                button
+                    type="submit"
+                    class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                    name="action"
+                    value="submit"
+                { "提交" }
+            }
+        }
+    }
+}
 }

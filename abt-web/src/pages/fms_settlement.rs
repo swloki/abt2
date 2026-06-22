@@ -40,31 +40,68 @@ fn settlement_table(items: &[ArApSettlement], total: u64, page: u32, page_size: 
                 table class="data-table" {
                     thead {
                         tr {
-                            th class="px-4 py-3 text-left text-xs font-medium text-fg-2 uppercase" { "ID" }
-                            th class="px-4 py-3 text-left text-xs font-medium text-fg-2 uppercase" { "付款单据" }
-                            th class="px-4 py-3 text-left text-xs font-medium text-fg-2 uppercase" { "发票单据" }
-                            th class="px-4 py-3 text-right text-xs font-medium text-fg-2 uppercase" { "核销金额" }
-                            th class="px-4 py-3 text-right text-xs font-medium text-fg-2 uppercase" { "汇兑损益" }
-                            th class="px-4 py-3 text-left text-xs font-medium text-fg-2 uppercase" { "核销日期" }
-                            th class="px-4 py-3 text-left text-xs font-medium text-fg-2 uppercase" { "操作" }
+                            th class="px-4 py-3 text-left text-xs font-medium text-fg-2 uppercase" {
+                                "ID"
+                            }
+                            th class="px-4 py-3 text-left text-xs font-medium text-fg-2 uppercase" {
+                                "付款单据"
+                            }
+                            th class="px-4 py-3 text-left text-xs font-medium text-fg-2 uppercase" {
+                                "发票单据"
+                            }
+                            th  class="px-4 py-3 text-right text-xs font-medium text-fg-2 uppercase"
+                            { "核销金额" }
+                            th  class="px-4 py-3 text-right text-xs font-medium text-fg-2 uppercase"
+                            { "汇兑损益" }
+                            th class="px-4 py-3 text-left text-xs font-medium text-fg-2 uppercase" {
+                                "核销日期"
+                            }
+                            th class="px-4 py-3 text-left text-xs font-medium text-fg-2 uppercase" {
+                                "操作"
+                            }
                         }
                     }
                     tbody class="divide-y divide-border-soft" {
                         @for item in items {
                             tr {
                                 td class="px-4 py-3 text-sm text-fg-2" { "#" (item.id) }
-                                td class="px-4 py-3 text-sm text-fg-2" { (item.payment_source_type.prefix()) "-" (item.payment_source_id) }
-                                td class="px-4 py-3 text-sm text-fg-2" { (item.invoice_source_type.prefix()) "-" (item.invoice_source_id) }
-                                td class="px-4 py-3 text-sm font-mono text-right" { "¥" (fmt_amount(item.amount)) }
+                                td class="px-4 py-3 text-sm text-fg-2" {
+                                    (item.payment_source_type.prefix())
+                                    "-"
+                                    (item.payment_source_id)
+                                }
+                                td class="px-4 py-3 text-sm text-fg-2" {
+                                    (item.invoice_source_type.prefix())
+                                    "-"
+                                    (item.invoice_source_id)
+                                }
+                                td class="px-4 py-3 text-sm font-mono text-right" {
+                                    "¥"
+                                    (fmt_amount(item.amount))
+                                }
                                 td class="px-4 py-3 text-sm font-mono text-right" {
                                     @if item.exchange_gain_loss != Decimal::ZERO {
-                                        span style="color:var(--warning)" { "¥" (fmt_amount(item.exchange_gain_loss)) }
+                                        span style="color:var(--warning)" {
+                                            "¥"
+                                            (fmt_amount(item.exchange_gain_loss))
+                                        }
                                     } @else { "—" }
                                 }
                                 td class="px-4 py-3 text-sm text-fg-2" { (item.settlement_date) }
                                 td class="px-4 py-3 text-sm" {
-                                    form hx-post=(SettlementUnsettlePath { id: item.id }) hx-target="#data-card" hx-swap="outerHTML" {
-                                        button type="submit" class="btn btn-sm btn-outline text-danger" { "撤销" }
+                                    form
+                                        hx-post=({
+                                            SettlementUnsettlePath {
+                                                id: item.id,
+                                            }
+                                        })
+                                        hx-target="#data-card"
+                                        hx-swap="outerHTML"
+                                    {
+                                        button
+                                            type="submit"
+                                            class="btn btn-sm btn-outline text-danger"
+                                        { "撤销" }
                                     }
                                 }
                             }

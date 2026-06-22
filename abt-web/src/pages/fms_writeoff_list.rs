@@ -147,19 +147,19 @@ fn writeoff_list_page(
  operator_names: &HashMap<i64, String>,
 ) -> Markup {
  html! {
- div class="relative" {
- div class="flex items-center justify-between mb-6" {
- h1 class="text-xl font-bold text-fg tracking-tight" { "核销管理" }
- div class="flex gap-3" {
- button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs" type="button" {
- (icon::download_icon("w-4 h-4"))
- "导出"
- }
- }
- }
- (writeoff_table_fragment(result, params, operator_names))
- }
- }
+    div class="relative" {
+        div class="flex items-center justify-between mb-6" {
+            h1 class="text-xl font-bold text-fg tracking-tight" { "核销管理" }
+            div class="flex gap-3" {
+                button
+                    class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                    type="button"
+                { (icon::download_icon("w-4 h-4")) "导出" }
+            }
+        }
+        (writeoff_table_fragment(result, params, operator_names))
+    }
+}
 }
 
 fn writeoff_table_fragment(
@@ -177,38 +177,57 @@ fn writeoff_table_fragment(
  ];
 
  html! {
- div {
- // 类型 Tab
- (status_tabs_with_param(
- WriteoffListPath::PATH,
- "#writeoff-data-card",
- "#writeoff-filter-form",
- tabs,
- &selected_type,
- "writeoff_type",
- ))
+    div {
+        // 类型 Tab
+        ({
+            status_tabs_with_param(
+                WriteoffListPath::PATH,
+                "#writeoff-data-card",
+                "#writeoff-filter-form",
+                tabs,
+                &selected_type,
+                "writeoff_type",
+            )
+        })
+        // 筛选栏 — 暂时只放占位搜索和日期筛选
+        form
+            id="writeoff-filter-form"
+            class="flex items-center gap-3 mb-5 flex-wrap filter-form"
+            hx-get=(WriteoffListPath::PATH)
+            hx-trigger="change, keyup changed delay:300ms from:.search-input"
+            hx-target="#writeoff-data-card"
+            hx-select="#writeoff-data-card"
+            hx-swap="outerHTML"
+            hx-include="#writeoff-filter-form"
+            hx-push-url="true"
+        {
+            div class="relative w-[200px]" {
+                ({
+                    icon::search_icon(
+                        "absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted",
+                    )
+                })
+                input
+                    class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input"
+                    type="text"
+                    name="keyword"
+                    placeholder="搜索日记账号、来源单号…";
+            }
+            input
+                type="date"
+                name="start_date"
+                class="w-[150px] px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer"
+                title="起始日期";
+            input
+                type="date"
+                name="end_date"
+                class="w-[150px] px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer"
+                title="截止日期";
+        }
 
- // 筛选栏 — 暂时只放占位搜索和日期筛选
- form id="writeoff-filter-form" class="flex items-center gap-3 mb-5 flex-wrap filter-form"
- hx-get=(WriteoffListPath::PATH)
- hx-trigger="change, keyup changed delay:300ms from:.search-input"
- hx-target="#writeoff-data-card"
- hx-select="#writeoff-data-card"
- hx-swap="outerHTML"
- hx-include="#writeoff-filter-form"
- hx-push-url="true" {
- div class="relative w-[200px]" {
- (icon::search_icon("absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted"))
- input class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input" type="text" name="keyword"
- placeholder="搜索日记账号、来源单号…";
- }
- input type="date" name="start_date" class="w-[150px] px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer" title="起始日期";
- input type="date" name="end_date" class="w-[150px] px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent cursor-pointer" title="截止日期";
- }
-
- (writeoff_data_card(result, params, operator_names))
- }
- }
+        (writeoff_data_card(result, params, operator_names))
+    }
+}
 }
 
 fn writeoff_data_card(
@@ -218,60 +237,87 @@ fn writeoff_data_card(
 ) -> Markup {
  let query = build_query_string(params);
  html! {
- div class="data-card overflow-hidden" id="writeoff-data-card" {
- div class="overflow-x-auto" {
- table class="data-table min-w-[1000px]" {
- thead {
- tr {
- th { "核销类型" }
- th { "日记账号" }
- th { "来源单号" }
- th { "来源总额" }
- th { "本次核销金额" }
- th { "未核销余额" }
- th { "核销状态" }
- th { "核销日期" }
- th { "操作人" }
- }
- }
- tbody {
- @for item in &result.items {
- @let (css_class, type_label) = writeoff_type_class(&item.write_off_type);
- @let source_prefix = source_type_label(&item.source_type);
- @let operator_name = operator_names.get(&item.operator_id)
- .cloned()
- .unwrap_or_else(|| item.operator_id.to_string());
- tr class="hover:bg-accent-bg transition-colors" {
- td {
- span class=(format!("inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-xs font-semibold border {}", css_class)) {
- (type_label)
- }
- }
- td { span class="text-accent font-medium font-mono tabular-nums hover:underline cursor-pointer" { "CJ-" (item.cash_journal_id) } }
- td { span class="text-accent font-medium font-mono tabular-nums hover:underline cursor-pointer" { (source_prefix) "-" (item.source_id) } }
- td class="text-right text-[13px] font-mono tabular-nums" { "—" }
- td class="text-right text-[13px] font-bold text-accent font-mono tabular-nums" { "¥" (format!("{:.2}", item.amount)) }
- td class="text-right text-[13px] font-mono tabular-nums text-warn" { "—" }
- td {
- span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold border bg-[rgba(22,163,74,0.08)] text-success border-[rgba(22,163,74,0.15)]" {
- "已核销完毕"
- }
- }
- td class="text-muted text-[13px]" { (item.write_off_date.format("%Y-%m-%d")) }
- td class="text-sm text-fg-2" { (operator_name) }
- }
- }
- @if result.items.is_empty() {
- tr {
- td colspan="9" class="text-center text-muted text-sm py-8" {
- "暂无核销记录"
- }
- }
- }
- }
- }
- }
- (pagination(WriteoffListPath::PATH, &query, result.total, result.page, result.total_pages))
- }
- }
+    div class="data-card overflow-hidden" id="writeoff-data-card" {
+        div class="overflow-x-auto" {
+            table class="data-table min-w-[1000px]" {
+                thead {
+                    tr {
+                        th { "核销类型" }
+                        th { "日记账号" }
+                        th { "来源单号" }
+                        th { "来源总额" }
+                        th { "本次核销金额" }
+                        th { "未核销余额" }
+                        th { "核销状态" }
+                        th { "核销日期" }
+                        th { "操作人" }
+                    }
+                }
+                tbody {
+                    @for item in &result.items {
+                        @let (css_class, type_label) = writeoff_type_class(
+                            &item.write_off_type,
+                        );
+                        @let source_prefix = source_type_label(&item.source_type);
+                        @let operator_name = operator_names
+                            .get(&item.operator_id)
+                            .cloned()
+                            .unwrap_or_else(|| item.operator_id.to_string());
+                        tr class="hover:bg-accent-bg transition-colors" {
+                            td {
+                                span
+                                    class=({
+                                        format!(
+                                            "inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-xs font-semibold border {}",
+                                            css_class,
+                                        )
+                                    })
+                                { (type_label) }
+                            }
+                            td {
+                                span
+                                    class="text-accent font-medium font-mono tabular-nums hover:underline cursor-pointer"
+                                { "CJ-" (item.cash_journal_id) }
+                            }
+                            td {
+                                span
+                                    class="text-accent font-medium font-mono tabular-nums hover:underline cursor-pointer"
+                                { (source_prefix) "-" (item.source_id) }
+                            }
+                            td class="text-right text-[13px] font-mono tabular-nums" { "—" }
+                            td  class="text-right text-[13px] font-bold text-accent font-mono tabular-nums"
+                            { "¥" (format!("{:.2}", item.amount)) }
+                            td class="text-right text-[13px] font-mono tabular-nums text-warn" {
+                                "—"
+                            }
+                            td {
+                                span
+                                    class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold border bg-[rgba(22,163,74,0.08)] text-success border-[rgba(22,163,74,0.15)]"
+                                { "已核销完毕" }
+                            }
+                            td class="text-muted text-[13px]" {
+                                (item.write_off_date.format("%Y-%m-%d"))
+                            }
+                            td class="text-sm text-fg-2" { (operator_name) }
+                        }
+                    }
+                    @if result.items.is_empty() {
+                        tr {
+                            td colspan="9" class="text-center text-muted text-sm py-8" { "暂无核销记录" }
+                        }
+                    }
+                }
+            }
+        }
+        ({
+            pagination(
+                WriteoffListPath::PATH,
+                &query,
+                result.total,
+                result.page,
+                result.total_pages,
+            )
+        })
+    }
+}
 }

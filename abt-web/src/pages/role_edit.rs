@@ -102,75 +102,65 @@ fn role_edit_page(
  let edit_path = RoleEditPath { id: role.role_id }.to_string();
 
  html! {
- form id="role-form"
- method="POST"
- action=(&edit_path)
- hx-post=(&edit_path)
- hx-swap="none" {
-
- // ── Page Header ──
- div class="flex items-center justify-between mb-6" {
- h1 class="text-xl font-bold text-fg tracking-tight" { "编辑角色" }
- }
-
- // ── Role Info ──
- div class=(INFO_CARD) {
- div class=(INFO_CARD_TITLE) {
- (icon::lock_icon("w-[18px] h-[18px] text-accent"))
- "角色信息"
- }
- div class="p-4" {
- div class="grid grid-cols-2 gap-4 gap-x-6" {
- div class="form-field" {
- label { "角色名称 " span class="text-danger" { "*" } }
- input type="text" name="role_name" required value=(role.role_name) {}
- }
- div class="form-field" {
- label { "角色编码" }
- input type="text" value=(role.role_code) disabled {}
- }
- @if let Some(pname) = parent_role_name {
- div class="form-field" {
- label { "上级角色" }
- input type="text" value=(pname) disabled {}
- }
- }
- div class="form-field field-full" {
- label { "描述" }
- textarea name="description" rows="3" placeholder="角色用途说明" {
- @if let Some(desc) = &role.description {
- (desc)
- }
- }
- }
- }
- }
- }
-
- // ── Permissions managed elsewhere ──
- div class=(INFO_CARD) {
- div class="p-4 flex items-center justify-between gap-3" {
- div class="flex items-center gap-2 text-sm text-muted" {
- (icon::sliders_icon("w-[18px] h-[18px] text-accent"))
- "角色权限请在权限管理页面统一配置"
- }
- a class="inline-flex items-center gap-1 text-sm font-medium text-accent hover:underline"
- href="/admin/system/permissions" {
- "前往权限管理"
- (icon::chevron_right_icon("w-4 h-4"))
- }
- }
- }
-
- // ── Action Bar ──
- div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg border-t border-border-soft" {
- a class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
- href=(&detail_path) { "取消" }
- button type="submit" class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]" {
- (icon::check_circle_icon("w-4 h-4"))
- "保存修改"
- }
- }
- }
- }
+    form id="role-form" method="POST" action=(&edit_path) hx-post=(&edit_path) hx-swap="none" {
+        // ── Page Header ──
+        div class="flex items-center justify-between mb-6" {
+            h1 class="text-xl font-bold text-fg tracking-tight" { "编辑角色" }
+        }
+        // ── Role Info ──
+        div class=(INFO_CARD) {
+            div class=(INFO_CARD_TITLE) { (icon::lock_icon("w-[18px] h-[18px] text-accent")) "角色信息" }
+            div class="p-4" {
+                div class="grid grid-cols-2 gap-4 gap-x-6" {
+                    div class="form-field" {
+                        label {
+                            "角色名称 "
+                            span class="text-danger" { "*" }
+                        }
+                        input type="text" name="role_name" required value=(role.role_name) {}
+                    }
+                    div class="form-field" {
+                        label { "角色编码" }
+                        input type="text" value=(role.role_code) disabled {}
+                    }
+                    @if let Some(pname) = parent_role_name {
+                        div class="form-field" {
+                            label { "上级角色" }
+                            input type="text" value=(pname) disabled {}
+                        }
+                    }
+                    div class="form-field field-full" {
+                        label { "描述" }
+                        textarea name="description" rows="3" placeholder="角色用途说明" {
+                            @if let Some(desc) = &role.description { (desc) }
+                        }
+                    }
+                }
+            }
+        }
+        // ── Permissions managed elsewhere ──
+        div class=(INFO_CARD) {
+            div class="p-4 flex items-center justify-between gap-3" {
+                div class="flex items-center gap-2 text-sm text-muted" {
+                    (icon::sliders_icon("w-[18px] h-[18px] text-accent"))
+                    "角色权限请在权限管理页面统一配置"
+                }
+                a   class="inline-flex items-center gap-1 text-sm font-medium text-accent hover:underline"
+                    href="/admin/system/permissions"
+                { "前往权限管理" (icon::chevron_right_icon("w-4 h-4")) }
+            }
+        }
+        // ── Action Bar ──
+        div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg border-t border-border-soft"
+        {
+            a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                href=(&detail_path)
+            { "取消" }
+            button
+                type="submit"
+                class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+            { (icon::check_circle_icon("w-4 h-4")) "保存修改" }
+        }
+    }
+}
 }

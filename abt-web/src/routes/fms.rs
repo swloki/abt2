@@ -76,6 +76,15 @@ pub struct WriteoffListPath;
 #[typed_path("/admin/fms/cost-analysis")]
 pub struct CostAnalysisPath;
 
+// Journal search endpoints (for entity_picker)
+#[derive(TypedPath, Deserialize, Serialize, Clone)]
+#[typed_path("/admin/fms/journals/search-counterparty")]
+pub struct JournalSearchCpPath;
+
+#[derive(TypedPath, Deserialize, Serialize, Clone)]
+#[typed_path("/admin/fms/journals/search-account")]
+pub struct JournalSearchAccountPath;
+
 // ── Router ──
 
 pub fn router() -> Router<AppState> {
@@ -87,6 +96,8 @@ pub fn router() -> Router<AppState> {
 .route(JournalCreatePath::PATH, get(crate::pages::fms_journal_create::get_create).post(crate::pages::fms_journal_create::create))
         .route(JournalDetailPath::PATH, get(crate::pages::fms_journal_detail::get_detail))
         .route(JournalConfirmPath::PATH, axum::routing::post(crate::pages::fms_journal_detail::confirm))
+        .route(JournalSearchCpPath::PATH, get(crate::pages::fms_journal_create::search_counterparty))
+        .route(JournalSearchAccountPath::PATH, get(crate::pages::fms_journal_create::search_account))
         // Expense
         .route(ExpenseListPath::PATH, get(crate::pages::fms_expense_list::get_list))
 .route(ExpenseCreatePath::PATH, get(crate::pages::fms_expense_create::get_create).post(crate::pages::fms_expense_create::create))

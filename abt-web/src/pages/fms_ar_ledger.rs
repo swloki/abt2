@@ -7,6 +7,7 @@ use serde::Deserialize;
 
 use abt_core::fms::ar_ap::model::{ArApLedgerFilter, ArApLedgerRow, LedgerDetailItem, LedgerSummary};
 use abt_core::fms::ar_ap::ArApService;
+use abt_core::shared::identity::UserService;
 use abt_core::fms::enums::CounterpartyType;
 use abt_core::shared::types::PaginatedResult;
 
@@ -253,6 +254,7 @@ fn filter_and_table(
     today: chrono::NaiveDate,
     query_string: &str,
     detail_path: &str,
+    buyers: &[String],
 ) -> Markup {
     let active_cls = "inline-flex items-center px-3 py-1 text-sm font-semibold cursor-pointer bg-bg text-accent rounded-sm";
     let inactive_cls = "inline-flex items-center px-3 py-1 text-sm cursor-pointer bg-transparent border-none text-muted rounded-sm hover:text-fg transition-colors";
@@ -345,7 +347,12 @@ fn filter_and_table(
                         input type="text" id="doc_no" name="doc_no" hx-preserve class=(ti) placeholder="模糊搜索" value=(q.doc_no.as_deref().unwrap_or(""));
                         span class="text-fg-3 mx-1" { "|" }
                         span class="text-xs text-fg-2" { "销售经理" }
-                        input type="text" id="rep_name" name="rep_name" hx-preserve class=(ti) placeholder="模糊搜索" value=(q.rep_name.as_deref().unwrap_or(""));
+                        select id="rep_name" name="rep_name" hx-preserve class=(ti) {
+                            option value="" { "全部" }
+                            @for name in buyers {
+                                option value=(name) selected[(q.rep_name.as_deref() == Some(name.as_str()))] { (name) }
+                            }
+                        }
                     }
                 }
             }
@@ -400,6 +407,13 @@ pub async fn get_list(
     let result = svc.list_ledger(&service_ctx, &mut conn, filter, abt_core::shared::types::PageParams::new(page, page_size)).await
         .unwrap_or_else(|_| PaginatedResult::new(vec![], 0, page, page_size));
 
+    let buyers: Vec<String> = state.user_service().list_users_with_roles(&service_ctx, &mut conn).await
+        .unwrap_or_default().into_iter()
+        .filter(|u: &abt_core::shared::identity::model::UserWithRoles| u.user.is_active)
+        .filter_map(|u: abt_core::shared::identity::model::UserWithRoles| u.user.display_name)
+        .filter(|n: &String| !n.is_empty())
+        .collect();
+
     let mut parts: Vec<String> = Vec::new();
     push_param(&mut parts, "keyword", &q.keyword);
     if outstanding_only { parts.push("outstanding_only=true".into()); }
@@ -426,6 +440,7 @@ pub async fn get_list(
                     today,
                     &query_string,
                     ArLedgerDetailPath::PATH,
+                    &buyers,
                 )
             })
             ({

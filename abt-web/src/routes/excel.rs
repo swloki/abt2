@@ -46,9 +46,9 @@ pub struct ExportForm {
     pub rep_name: Option<String>,
     /// 台账明细导出：发生日期范围
     #[serde(default)]
-    pub start_date: Option<chrono::NaiveDate>,
+    pub start_date: Option<String>,
     #[serde(default)]
-    pub end_date: Option<chrono::NaiveDate>,
+    pub end_date: Option<String>,
 }
 
 // ── TypedPath 路由定义 ──
@@ -461,8 +461,8 @@ fn build_ledger_filter(form: &ExportForm) -> abt_core::fms::ar_ap::ArApLedgerFil
         product_code: form.product_code.clone(),
         product_name: form.product_name.clone(),
         rep_name: form.rep_name.clone(),
-        start_date: form.start_date,
-        end_date: form.end_date,
+        start_date: form.start_date.as_deref().and_then(|s| s.trim().parse().ok()),
+        end_date: form.end_date.as_deref().and_then(|s| s.trim().parse().ok()),
         ..Default::default()
     }
 }

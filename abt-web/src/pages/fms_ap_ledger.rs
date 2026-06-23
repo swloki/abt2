@@ -26,8 +26,8 @@ pub struct ListQuery {
     pub page: Option<u32>,
     pub keyword: Option<String>,
     pub outstanding_only: Option<bool>,
-    pub start_date: Option<chrono::NaiveDate>,
-    pub end_date: Option<chrono::NaiveDate>,
+    pub start_date: Option<String>,
+    pub end_date: Option<String>,
     pub doc_no: Option<String>,
     pub product_code: Option<String>,
     pub product_name: Option<String>,
@@ -259,8 +259,8 @@ fn filter_and_table(
     let active_cls = "inline-flex items-center gap-1.5 px-4 py-1.5 text-sm font-semibold cursor-pointer bg-bg text-accent rounded-sm";
     let inactive_cls = "inline-flex items-center gap-1.5 px-4 py-1.5 text-sm cursor-pointer bg-transparent border-none text-muted rounded-sm hover:text-fg transition-colors";
     let keyword = q.keyword.as_deref().unwrap_or("");
-    let start = q.start_date.map(|d| d.format("%Y-%m-%d").to_string()).unwrap_or_default();
-    let end = q.end_date.map(|d| d.format("%Y-%m-%d").to_string()).unwrap_or_default();
+    let start = q.start_date.clone().unwrap_or_default();
+    let end = q.end_date.clone().unwrap_or_default();
 
     html! {
         form id="ap-filter-form"
@@ -351,8 +351,8 @@ pub async fn get_list(
         product_code: opt_string(&q.product_code),
         product_name: opt_string(&q.product_name),
         rep_name: opt_string(&q.rep_name),
-        start_date: q.start_date,
-        end_date: q.end_date,
+        start_date: q.start_date.as_deref().and_then(|s| s.trim().parse().ok()),
+        end_date: q.end_date.as_deref().and_then(|s| s.trim().parse().ok()),
         ..Default::default()
     };
 
@@ -363,8 +363,8 @@ pub async fn get_list(
     let mut parts: Vec<String> = Vec::new();
     push_param(&mut parts, "keyword", &q.keyword);
     if outstanding_only { parts.push("outstanding_only=true".into()); }
-    if let Some(d) = q.start_date { parts.push(format!("start_date={d}")); }
-    if let Some(d) = q.end_date { parts.push(format!("end_date={d}")); }
+    push_param(&mut parts, "start_date", &q.start_date);
+    push_param(&mut parts, "end_date", &q.end_date);
     push_param(&mut parts, "doc_no", &q.doc_no);
     push_param(&mut parts, "product_code", &q.product_code);
     push_param(&mut parts, "product_name", &q.product_name);

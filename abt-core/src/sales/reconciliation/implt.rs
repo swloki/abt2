@@ -379,7 +379,8 @@ impl ReconciliationService for ReconciliationServiceImpl {
 
         self.repo.update_status(db, id, ReconciliationStatus::Settled).await?;
 
-        new_cash_journal_service(self.pool.clone())
+        let journal_svc = new_cash_journal_service(self.pool.clone());
+        let journal_id = journal_svc
             .create(
                 ctx, db,
                 CreateCashJournalReq {
@@ -397,6 +398,8 @@ impl ReconciliationService for ReconciliationServiceImpl {
                 },
             )
             .await?;
+        // 自动确认收付款记录，使其可被 write_off 核销（补全 settle → 收款 → 核销 链路）
+        journal_svc.confirm(ctx, db, journal_id, None).await?;
 
         new_audit_log_service(self.pool.clone())
             .record(

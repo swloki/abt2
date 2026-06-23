@@ -14,7 +14,7 @@ use crate::components::entity_picker::{EntityPickerConfig, EntityPickerItem};
 use crate::errors::Result;
 use crate::layout::page::admin_page;
 use crate::routes::fms::{JournalCreatePath, JournalListPath, JournalSearchAccountPath, JournalSearchCpPath};
-use crate::utils::RequestContext;
+use crate::utils::{empty_as_none, RequestContext};
 use abt_macros::require_permission;
 
 // ── Forms ──
@@ -25,21 +25,16 @@ pub struct JournalCreateForm {
     pub direction: i16,
     pub bank_account: String,
     pub counterparty_type: i16,
+    #[serde(default, deserialize_with = "empty_as_none")]
     pub counterparty_id: Option<i64>,
+    #[serde(default, deserialize_with = "empty_as_none")]
     pub source_type: Option<i16>,
+    #[serde(default, deserialize_with = "empty_as_none")]
     pub source_id: Option<i64>,
     pub transaction_date: String,
     pub period: String,
     pub remark: String,
-    pub lines_json: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct LineJson {
-    account_code: String,
-    debit_amount: f64,
-    credit_amount: f64,
-    remark: String,
+    pub amount: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -142,37 +137,8 @@ pub async fn create(
     let transaction_date = chrono::NaiveDate::parse_from_str(&form.transaction_date, "%Y-%m-%d")
         .map_err(|_| abt_core::shared::types::DomainError::Validation("无效交易日期".into()))?;
 
-    // Parse journal lines from JSON
-    let lines_data: Vec<LineJson> = serde_json::from_str(&form.lines_json)
-        .map_err(|_| abt_core::shared::types::DomainError::Validation("无效分录数据格式".into()))?;
-
-    if lines_data.is_empty() {
-        return Err(abt_core::shared::types::DomainError::Validation("至少需要一条分录".into()).into());
-    }
-
-    let lines: Vec<abt_core::fms::cash_journal::model::CashJournalLineInput> = lines_data
-        .into_iter()
-        .map(|l| abt_core::fms::cash_journal::model::CashJournalLineInput {
-            account_code: l.account_code,
-            debit_amount: rust_decimal::Decimal::try_from(l.debit_amount).unwrap_or(rust_decimal::Decimal::ZERO),
-            credit_amount: rust_decimal::Decimal::try_from(l.credit_amount).unwrap_or(rust_decimal::Decimal::ZERO),
-            cost_center: None,
-            profit_center: None,
-            remark: l.remark,
-        })
-        .collect();
-
-    // Validate balanced: total debit == total credit
-    let total_debit: rust_decimal::Decimal = lines.iter().map(|l| l.debit_amount).sum();
-    let total_credit: rust_decimal::Decimal = lines.iter().map(|l| l.credit_amount).sum();
-    if total_debit != total_credit {
-        return Err(abt_core::shared::types::DomainError::Validation(
-            format!("借贷不平衡：借方 ¥{total_debit}，贷方 ¥{total_credit}")
-        ).into());
-    }
-    if total_debit == rust_decimal::Decimal::ZERO {
-        return Err(abt_core::shared::types::DomainError::Validation("金额不能为零".into()).into());
-    }
+    let amount = form.amount.trim().parse::<rust_decimal::Decimal>()
+        .map_err(|_| abt_core::shared::types::DomainError::Validation("无效金额".into()))?;
 
     let counterparty_id = form.counterparty_id.unwrap_or(0);
     let counterparty = abt_core::fms::enums::CounterpartyRef::from_parts(counterparty_type, counterparty_id);
@@ -185,10 +151,11 @@ pub async fn create(
     };
     let source_id = form.source_id.unwrap_or(0);
 
+    // 出纳日记账简化为简单收付款单：金额取自表单，不再强制借贷分录（write_off 按 header amount 核销）
     let req = CreateCashJournalReq {
         journal_type,
         direction,
-        amount: total_debit,
+        amount,
         counterparty,
         source_type,
         source_id,
@@ -196,7 +163,7 @@ pub async fn create(
         transaction_date,
         period: form.period,
         remark: form.remark,
-        lines,
+        lines: vec![],
     };
 
     let svc = state.cash_journal_service();
@@ -223,20 +190,6 @@ fn journal_create_page() -> Markup {
         display_id: "cp-display",
         event_name: "counterpartySelected",
         extra_include: Some("#cp-type"),
-    };
-
-    // Account picker config (reused for each line)
-    let acct_picker = EntityPickerConfig {
-        modal_id: "acct-picker",
-        title: "选择会计科目",
-        search_label: "关键词",
-        search_placeholder: "搜索科目编码或名称…",
-        search_path: JournalSearchAccountPath::PATH,
-        search_param: "q",
-        target_id: "acct-id",
-        display_id: "acct-display",
-        event_name: "accountSelected",
-        extra_include: None,
     };
 
     html! {
@@ -291,6 +244,23 @@ fn journal_create_page() -> Markup {
                                 option value="1" { "流入 (Inflow)" }
                                 option value="2" { "流出 (Outflow)" }
                             }
+                        }
+                        // 金额
+                        div class="form-field" {
+                            label
+                                class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap"
+                            {
+                                "金额 "
+                                span class="text-danger" { "*" }
+                            }
+                            input
+                                class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent font-mono text-right"
+                                type="number"
+                                step="any"
+                                min="0"
+                                name="amount"
+                                required
+                                placeholder="0.00";
                         }
                         // 银行账户（预设 + 手动）
                         div class="form-field" {
@@ -429,66 +399,11 @@ fn journal_create_page() -> Markup {
                             rows="2" {}
                     }
                 }
-                // ── Section 2: 借贷分录（多行动态）──
-                div class="form-section" {
-                    div class="flex items-center justify-between text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
-                    {
-                        span class="flex items-center gap-2" {
-                            (icon::dollar_icon("w-4 h-4"))
-                            " 借贷分录"
-                        }
-                        span class="text-sm font-normal text-muted" {
-                            "借方合计："
-                            strong id="total-debit-display" class="text-accent font-mono" {
-                                "¥0.00"
-                            }
-                            "  贷方合计："
-                            strong id="total-credit-display" class="text-success font-mono" {
-                                "¥0.00"
-                            }
-                            "  差额："
-                            strong id="balance-display" class="text-danger font-mono" { "¥0.00" }
-                        }
-                    }
-                    div class="overflow-x-auto" {
-                        table class="w-full border-separate border-spacing-0 min-w-[700px]" {
-                            thead {
-                                tr {
-                                    th  class="text-left text-xs font-semibold text-fg-2 px-3 py-2 border-b border-border-soft uppercase tracking-wide w-[180px]"
-                                    {
-                                        "科目 "
-                                        span class="text-danger" { "*" }
-                                    }
-                                    th  class="w-[140px] text-right text-xs font-semibold text-fg-2 px-3 py-2 border-b border-border-soft uppercase tracking-wide"
-                                    { "借方金额" }
-                                    th  class="w-[140px] text-right text-xs font-semibold text-fg-2 px-3 py-2 border-b border-border-soft uppercase tracking-wide"
-                                    { "贷方金额" }
-                                    th  class="text-left text-xs font-semibold text-fg-2 px-3 py-2 border-b border-border-soft uppercase tracking-wide"
-                                    { "备注" }
-                                    th class="w-[44px] px-3 py-2 border-b border-border-soft" {}
-                                }
-                            }
-                            tbody id="journal-lines" {}
-                        }
-                    }
-                    // 添加分录行
-                    div class="py-4" {
-                        button
-                            type="button"
-                            class="flex items-center justify-center gap-2 w-full py-3 border-1.5 border-dashed border-border text-accent text-sm font-medium cursor-pointer rounded-md hover:border-accent hover:bg-[rgba(37,99,235,0.04)] transition-all duration-200"
-                            onclick="addJournalLine()"
-                        { (icon::plus_icon("w-4 h-4")) "添加分录行" }
-                    }
-                }
-
-                input type="hidden" name="lines_json" id="lines-json-input";
-                // Hidden field for counterparty_id comes from entity_picker
-                input type="hidden" name="source_id" id="source-id" value="0";
+                // 借贷分录已移除：简化为简单收付款单（金额在基本信息区），write_off 按 header amount 核销（issue #78）
             }
         }
         // ── Entity Picker Modals ──
         (entity_picker::entity_picker_modal(&cp_picker))
-        (entity_picker::entity_picker_modal(&acct_picker))
         // ── Action Bar ──
         div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg border-t border-border-soft"
         {
@@ -517,87 +432,6 @@ fn journal_create_page() -> Markup {
         });
     }
 })();
-
-// ── Journal Lines ──
-function addJournalLine(accountCode, debitAmount, creditAmount, remarkText) {
-    var tbody = document.getElementById('journal-lines');
-    var row = document.createElement('tr');
-    row.className = 'journal-line-row';
-    row.innerHTML =
-        '<td class="px-3 py-2 border-b border-border-soft">' +
-          '<input type="text" class="w-full px-2.5 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent font-mono" ' +
-            'data-field="account_code" placeholder="科目编码" oninput="calcJournalTotal()">' +
-        '</td>' +
-        '<td class="px-3 py-2 border-b border-border-soft">' +
-          '<input type="number" step="any" class="w-full px-2.5 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent font-mono text-right" ' +
-            'data-field="debit_amount" placeholder="0.00" value="' + (debitAmount || '') + '" oninput="calcJournalTotal()">' +
-        '</td>' +
-        '<td class="px-3 py-2 border-b border-border-soft">' +
-          '<input type="number" step="any" class="w-full px-2.5 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent font-mono text-right" ' +
-            'data-field="credit_amount" placeholder="0.00" value="' + (creditAmount || '') + '" oninput="calcJournalTotal()">' +
-        '</td>' +
-        '<td class="px-3 py-2 border-b border-border-soft">' +
-          '<input type="text" class="w-full px-2.5 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent" ' +
-            'data-field="remark" placeholder="备注" value="' + (remarkText || '') + '">' +
-        '</td>' +
-        '<td class="px-3 py-2 border-b border-border-soft">' +
-          '<button type="button" class="w-7 h-7 border-none text-muted rounded-sm cursor-pointer grid place-items-center hover:bg-[rgba(220,38,38,0.08)] hover:text-danger transition-all"' +
-            ' onclick="this.closest(\'tr\').remove();calcJournalTotal()">' +
-            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M18 6L6 18M6 6l12 12"/></svg>' +
-          '</button>' +
-        '</td>';
-    tbody.appendChild(row);
-}
-
-function calcJournalTotal() {
-    var totalDebit = 0, totalCredit = 0;
-    document.querySelectorAll('#journal-lines tr').forEach(function(row) {
-        var dEl = row.querySelector('[data-field="debit_amount"]');
-        var cEl = row.querySelector('[data-field="credit_amount"]');
-        if (dEl && dEl.value) totalDebit += parseFloat(dEl.value) || 0;
-        if (cEl && cEl.value) totalCredit += parseFloat(cEl.value) || 0;
-    });
-
-    var balance = totalDebit - totalCredit;
-
-    var tDisplay = document.getElementById('total-debit-display');
-    if (tDisplay) tDisplay.textContent = '¥' + totalDebit.toFixed(2);
-
-    var cDisplay = document.getElementById('total-credit-display');
-    if (cDisplay) cDisplay.textContent = '¥' + totalCredit.toFixed(2);
-
-    var bDisplay = document.getElementById('balance-display');
-    if (bDisplay) {
-        bDisplay.textContent = '¥' + balance.toFixed(2);
-        bDisplay.className = balance === 0 ? 'text-success font-mono' : 'text-danger font-mono';
-    }
-}
-
-// Collect lines before submit
-document.getElementById('journal-create-form').addEventListener('htmx:configRequest', function(e) {
-    var lines = [];
-    document.querySelectorAll('#journal-lines tr').forEach(function(row) {
-        var account = row.querySelector('[data-field="account_code"]');
-        var debit = row.querySelector('[data-field="debit_amount"]');
-        var credit = row.querySelector('[data-field="credit_amount"]');
-        var remark = row.querySelector('[data-field="remark"]');
-        if (account && account.value) {
-            lines.push({
-                account_code: account.value,
-                debit_amount: parseFloat(debit ? debit.value : 0) || 0,
-                credit_amount: parseFloat(credit ? credit.value : 0) || 0,
-                remark: remark ? remark.value : ''
-            });
-        }
-    });
-    var json = JSON.stringify(lines);
-    document.getElementById('lines-json-input').value = json;
-    if (e && e.detail && e.detail.parameters) e.detail.parameters['lines_json'] = json;
-});
-
-// Add 2 default lines (debit + credit)
-addJournalLine('', '', '', '借方');
-addJournalLine('', '', '', '贷方');
 </script>"#,
             )
         })

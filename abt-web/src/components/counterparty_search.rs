@@ -50,7 +50,7 @@ pub fn counterparty_search_input(
                     input
                         class="flex-1 py-1 text-sm bg-transparent text-fg outline-none min-w-0"
                         type="text"
-                        name="keyword"
+                        name="q"
                         id=(q_id)
                         placeholder=(format!("搜索{}…", placeholder))
                         hx-get=(search_path)

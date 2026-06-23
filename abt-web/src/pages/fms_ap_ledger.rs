@@ -559,7 +559,7 @@ pub async fn get_detail(
 // ── Supplier search（autocomplete dropdown）──
 
 #[derive(Deserialize, Debug)]
-pub(crate) struct SupplierSearchParams { pub keyword: Option<String> }
+pub(crate) struct SupplierSearchParams { pub q: Option<String> }
 
 pub async fn search_supplier(
     _path: ApSupplierSearchPath,
@@ -568,7 +568,7 @@ pub async fn search_supplier(
 ) -> Result<Html<String>> {
     let RequestContext { mut conn, state, service_ctx, .. } = ctx;
     let svc = state.cash_journal_service();
-    let kw = q.keyword.as_deref().unwrap_or("");
+    let kw = q.q.as_deref().unwrap_or("");
     let items: Vec<abt_core::fms::cash_journal::model::CounterpartyResult> = svc
         .search_counterparties(&service_ctx, &mut conn, CounterpartyType::Supplier, kw, 50)
         .await

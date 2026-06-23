@@ -249,6 +249,7 @@ fn filter_input(input_type: &str, name: &str, label: &str, value: &str) -> Marku
                 type=(input_type)
                 id=(name)
                 name=(name)
+                hx-preserve
                 class="w-full px-3 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
                 value=(value);
         }
@@ -290,6 +291,8 @@ fn filter_and_table(
                         class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input"
                         type="text"
                         name="keyword"
+                        id="ap-keyword"
+                        hx-preserve
                         placeholder="搜索供应商名称"
                         value=(keyword);
                 }

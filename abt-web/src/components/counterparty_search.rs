@@ -35,12 +35,10 @@ pub fn counterparty_search_input(
                 value=(value)
                 hx-get=(search_path)
                 hx-trigger="keyup changed delay:200ms, search"
-                hx-include=(format!("next #{}", dropdown_id))
+                hx-include="this"
                 hx-target=(format!("#{}", dropdown_id))
                 hx-swap="innerHTML"
                 autocomplete="off";
-            // hidden input：携当前 keyword 值到搜索请求
-            input type="hidden" id=(dropdown_id) name="keyword" value=(value);
             div id=(dropdown_id)
                 class="absolute left-0 top-full mt-0.5 w-60 max-h-[200px] overflow-y-auto bg-white border border-border rounded-sm shadow-[var(--shadow-card)] z-20"
             {}
@@ -49,19 +47,17 @@ pub fn counterparty_search_input(
 }
 
 /// 搜索结果列表（搜索 handler 调用，渲染匹配行）
-pub fn render_counterparty_results(items: &[CounterpartyResult], input_id: &str, dropdown_id: &str, empty_msg: &str) -> Markup {
+pub fn render_counterparty_results(items: &[CounterpartyResult], empty_msg: &str) -> Markup {
     html! {
         @if items.is_empty() {
             div class="px-3 py-2 text-xs text-muted" { (empty_msg) }
         } @else {
             @for item in items {
                 div
-                    class="px-3 py-1.5 text-sm cursor-pointer hover:bg-accent-bg border-b border-border-soft"
-                    data-val=(item.name.clone())
-                    _=(format!(
-                        "on click put me.dataset.val into #{}'s value then put '' into #{}'s innerHTML",
-                        input_id, dropdown_id
-                    ))
+                    class="flex items-center justify-between p-3 border-b border-border-soft cursor-pointer hover:bg-accent-bg"
+                    data-id=(item.name.clone())
+                    data-label=(item.name.clone())
+                    _="on click call entityPickerSelect(me)"
                 {
                     (item.name) " · " span class="text-xs text-muted" { (item.code) }
                 }

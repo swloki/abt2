@@ -568,11 +568,8 @@ pub async fn search_customer(
     let RequestContext { mut conn, state, service_ctx, .. } = ctx;
     let svc = state.cash_journal_service();
     let kw = q.keyword.as_deref().unwrap_or("");
-    if kw.is_empty() {
-        return Ok(Html(String::new()));
-    }
     let items: Vec<abt_core::fms::cash_journal::model::CounterpartyResult> = svc
-        .search_counterparties(&service_ctx, &mut conn, CounterpartyType::Customer, kw, 15)
+        .search_counterparties(&service_ctx, &mut conn, CounterpartyType::Customer, kw, 50)
         .await
         .unwrap_or_default();
 

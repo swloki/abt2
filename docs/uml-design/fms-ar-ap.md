@@ -56,7 +56,9 @@
 业务单据**直接**驱动往来台账，不经发票实体、不经 GL 凭证：
 
 - **销售发货** `ShippingRequest::ship()` → 直接 insert AR 台账（`source_type=ShippingRequest`，Debit，金额=Σ发货量×订单售价）
+- **销售退货** `SalesReturnReceivedHandler`（销售退货 `complete()` 时发布的 `SalesReturnReceived` 事件，Issue #86）→ insert 反向 AR 台账（`source_type=SalesReturn`，Credit，冲减发货 Debit，金额=Σ退货明细 `amount`）。净应收 = 发货 Debit − 退货 Credit
 - **采购入库** `ArrivalAcceptedHandler`（来料检验通过事件）→ 直接 insert AP 台账（`source_type=ArrivalNotice`，Credit）
+- **采购退货** `PurchaseReturnSettledHandler`（采购对账单 `confirm()` 结算退货时发布的 `PurchaseReturnSettled` 事件，Issue #85）→ insert 反向 AP 台账（`source_type=PurchaseReturn`，Debit，冲减入库 Credit，金额=Σ退货明细 `amount`）。净应付 = 入库 Credit − 退货 Debit = 对账单 `confirmed_amount`
 - **委外收货** `OutsourcingOrder::receive()` → 直接 insert AP 台账（`source_type=OutsourcingOrder`，加工费=`iqc_qty × unit_price`）
 - **收付款核销** `CashJournal::confirm()` → 台账冲销方向（收款 Credit / 付款 Debit）+ `settle` 自动核销（业务单据 ↔ 收付款）
 
@@ -69,7 +71,7 @@
 - 枚举 `DocumentType::{GlEntry, SalesInvoice, PurchaseInvoice}`、`DomainEventType::ExpensePaymentGenerated`
 - 前端 14 个页面（GL / 发票 / 费用报销）+ `routes/gl.rs` + 侧边栏「总账管理」模块
 
-**已知留口**：① 销售立账 `tax_rate_id=None`（不含税 AR，待 `SalesOrderItem` 加税率字段）；② 发票删除后 `cancel` 红冲随之消失（台账无反向冲销，核销侧 `unsettle` 可补救）；③ 幂等为 SELECT 查重（`UNIQUE` 约束未加）；④ 收/付款单创建页选业务单据的 `source_type` 交互待完善。
+**已知留口**：① 销售立账 `tax_rate_id=None`（不含税 AR，待 `SalesOrderItem` 加税率字段）；② 发票删除后 `cancel` 红冲随之消失（台账无反向冲销，核销侧 `unsettle` 可补救）——**采购退货（#85 `PurchaseReturnSettledHandler`）/ 销售退货（#86 `SalesReturnReceivedHandler`）的反向冲减已补齐**；委外按 `iqc_passed_qty` 合格量立账，不良品在源头排除，**无需对称退货冲减**（事后索赔扣款走 `ar_ap_adjustment`）；③ 幂等为 SELECT 查重（`UNIQUE` 约束未加）；④ 收/付款单创建页选业务单据的 `source_type` 交互待完善。
 
 ## 台账明细与导出（2026-06）
 

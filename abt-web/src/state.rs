@@ -99,9 +99,11 @@ impl AppState {
                 DeadLetterServiceImpl,
             };
             use abt_core::purchase::arrival_handler::ArrivalAcceptedHandler;
+            use abt_core::purchase::return_settlement_handler::PurchaseReturnSettledHandler;
             use abt_core::purchase::demand_handler::PurchaseDemandCreatedHandler;
             use abt_core::mes::demand_handler::MesDemandCreatedHandler;
             use abt_core::sales::sales_order::{SalesDemandConfirmedHandler, SalesDemandRejectedHandler};
+            use abt_core::sales::sales_return_received_handler::SalesReturnReceivedHandler;
             use abt_core::shared::enums::event::DomainEventType;
 
             let registry = Arc::new(EventHandlerRegistryImpl::new());
@@ -130,6 +132,18 @@ impl AppState {
             registry.register(
                 DomainEventType::ArrivalInspected,
                 Arc::new(ArrivalAcceptedHandler::new(pool.clone())),
+            );
+
+            // PurchaseReturnSettled — 退货经对账单结算后，写反向 AP 台账冲减应付（Issue #85）
+            registry.register(
+                DomainEventType::PurchaseReturnSettled,
+                Arc::new(PurchaseReturnSettledHandler::new(pool.clone())),
+            );
+
+            // SalesReturnReceived — 销售退货完成后，写反向 AR 台账冲减应收（Issue #86）
+            registry.register(
+                DomainEventType::SalesReturnReceived,
+                Arc::new(SalesReturnReceivedHandler::new(pool.clone())),
             );
 
             let dead_letter = Arc::new(DeadLetterServiceImpl::new());

@@ -340,7 +340,7 @@ classDiagram
 
     note for PurchaseOrderService "confirm 前置校验：Supplier status ∉ {Blacklisted,Disqualified} | 所有 Item quantity>0 且 unit_price>0 | 若关联 Quotation 则 quotation.status==Active 且 valid_until>now\nconfirm -> publish(PurchaseOrderConfirmed) → Outbox → WMS 异步创建 ArrivalNotice\nShared: DocSeq(PO), DocLink(DERIVED_FROM)"
 
-    note for PurchaseReturnService "Shipped → Settled 由 PurchaseReconciliation.confirm() 异步驱动，或监听 WMS SupplierReturnReceived 事件\n状态变更时发布 PurchaseReturnSettled 事件，通知 FMS 生成贷项通知单(Credit Memo)\nShared: DocSeq(PRT), DocLink(REFERENCES)"
+    note for PurchaseReturnService "Shipped → Settled 由 PurchaseReconciliation.confirm() 异步驱动，或监听 WMS SupplierReturnReceived 事件\n状态变更时发布 PurchaseReturnSettled 事件 → PurchaseReturnSettledHandler 写反向 AP 台账(Debit 冲减应付, Issue #85)\nShared: DocSeq(PRT), DocLink(REFERENCES)"
     note for PaymentRequestService "Three-way match: receipt + invoice + payment\nValidation: PO.received_qty + Invoice qty/amount match, tolerance_rate configurable\napprove -> CostEntry(cash outflow)\nmark_paid_by_fms: FMS 执行付款后回调，或监听 PaymentExecuted 事件\nShared: DocSeq(PAY)\nFMS: CashJournal(PurchasePayment)\nBoundary: SRM=应付申请+三单匹配, FMS=资金流水+核销"
 
     note "Convention: Result~T~ = Result&lt;T, DomainError&gt; | Unit = () | ctx = &ServiceContext, db = PgExecutor | 写操作返回 i64 或 Unit | 读操作返回完整实体或 PaginatedResult | Decimal精度: unit_price/quantity/min_order_qty/estimated_price→(18,6), amount/total_amount/confirmed_amount/difference→(20,4) | 写接口支持 idempotency_key"
@@ -656,7 +656,7 @@ classDiagram
           <strong style="color:#6bc76b;">PurchaseOrderStatus</strong>：Draft/Confirmed → Cancelled | Confirmed → PartiallyReceived → Received → Closed<br>
           <strong style="color:#e06c75;">PurchaseReturnStatus</strong>：Draft → Confirmed → Shipped → Settled<br>
           &nbsp;&nbsp;Shipped → Settled 由 PurchaseReconciliation.confirm() 异步驱动，或监听 WMS <span style="color:#6bc76b;">SupplierReturnReceived</span> 事件<br>
-          &nbsp;&nbsp;状态变更时发布 <span style="color:#6bc76b;">PurchaseReturnSettled</span> 事件，通知 FMS 生成贷项通知单(Credit Memo)<br>
+          &nbsp;&nbsp;状态变更时发布 <span style="color:#6bc76b;">PurchaseReturnSettled</span> 事件 → <span style="color:#6bc76b;">PurchaseReturnSettledHandler</span> 写反向 AP 台账(Debit 冲减应付, Issue #85)<br>
           <strong style="color:#56b6c2;">PurchaseReconStatus</strong>：Draft → Confirmed → Settled（独立于 Sales ReconciliationStatus）<br>
           <strong style="color:#e5c07b;">PurchaseQuotationStatus</strong>：Draft → Active（activate 方法触发）→ Expired → Cancelled<br>
           <strong style="color:#98c379;">MiscRequestStatus</strong>：Approved → Purchasing → Received → Closed。如需转正式 PO 在业务层处理，不增加枚举状态

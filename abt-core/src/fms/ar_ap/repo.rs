@@ -186,6 +186,85 @@ impl ArApLedgerRepo {
         Ok(id)
     }
 
+    /// 查往来方币种（customers/suppliers.currency，缺省 CNY）。与 adjustment/cash_journal 口径一致。
+    pub async fn fetch_party_currency(
+        db: PgExecutor<'_>,
+        party_type: CounterpartyType,
+        party_id: i64,
+    ) -> Result<String> {
+        let sql = match party_type {
+            CounterpartyType::Customer => {
+                "SELECT currency FROM customers WHERE customer_id = $1 AND deleted_at IS NULL"
+            }
+            CounterpartyType::Supplier => {
+                "SELECT currency FROM suppliers WHERE supplier_id = $1 AND deleted_at IS NULL"
+            }
+            _ => return Ok("CNY".to_string()),
+        };
+        let currency = sqlx::query_scalar::<sqlx::Postgres, Option<String>>(sql)
+            .bind(party_id)
+            .fetch_optional(&mut *db)
+            .await?
+            .flatten()
+            .filter(|c| !c.is_empty())
+            .unwrap_or_else(|| "CNY".to_string());
+        Ok(currency)
+    }
+
+    /// 幂等插入反向台账行（退货/冲减用）：`source_type + source_id` 已存在则跳过（返回 `None`），
+    /// 否则按往来方币种 insert（返回新 ledger id）。`against` 留空，由业务层按需补。
+    pub async fn insert_reversal_if_absent(
+        db: PgExecutor<'_>,
+        party_type: CounterpartyType,
+        party_id: i64,
+        source_type: DocumentType,
+        source_id: i64,
+        source_doc_no: &str,
+        direction: super::enums::LedgerDirection,
+        amount: Decimal,
+        description: &str,
+        operator_id: i64,
+    ) -> Result<Option<i64>> {
+        // 幂等：同一来源不重复立账
+        let dup: Option<i64> = sqlx::query_scalar::<sqlx::Postgres, i64>(
+            "SELECT id FROM ar_ap_ledger WHERE source_type = $1 AND source_id = $2 LIMIT 1",
+        )
+        .bind(source_type)
+        .bind(source_id)
+        .fetch_optional(&mut *db)
+        .await?;
+        if dup.is_some() {
+            return Ok(None);
+        }
+
+        let currency = Self::fetch_party_currency(db, party_type, party_id).await?;
+        let period = chrono::Utc::now().format("%Y-%m").to_string();
+        let today = chrono::Local::now().date_naive();
+        let id = ArApLedgerRepo::insert(
+            db,
+            &ArApLedgerInsert {
+                party_type,
+                party_id,
+                source_type,
+                source_id,
+                source_doc_no,
+                against_type: None,
+                against_id: None,
+                direction,
+                amount,
+                currency: &currency,
+                exchange_rate: Decimal::ONE,
+                transaction_date: today,
+                due_date: None,
+                period: &period,
+                description,
+                operator_id,
+            },
+        )
+        .await?;
+        Ok(Some(id))
+    }
+
     /// 更新 amount_applied（核销/反核销时调用）
     pub async fn update_amount_applied(
         executor: PgExecutor<'_>,

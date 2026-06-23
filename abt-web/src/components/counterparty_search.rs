@@ -23,7 +23,7 @@ pub fn counterparty_search_input(
     let q_id = format!("{}-q", panel_id);
     let list_id = format!("{}-list", panel_id);
     html! {
-        div class="relative w-40"
+        div class="relative w-52"
             _=(format!("on click from elsewhere add .invisible to #{}", panel_id))
         {
             input type="hidden" name="keyword" id=(input_id) value=(value);
@@ -35,7 +35,7 @@ pub fn counterparty_search_input(
                 ))
             {
                 div id=(display_id)
-                    class=(format!("flex-1 pl-2.5 pr-1 py-1.5 truncate {}", if value.is_empty() { "text-muted" } else { "text-fg" }))
+                    class=(format!("flex-1 pl-3.5 pr-1 py-1.5 truncate {}", if value.is_empty() { "text-muted" } else { "text-fg" }))
                 {
                     @if value.is_empty() { (placeholder) } @else { (value) }
                 }

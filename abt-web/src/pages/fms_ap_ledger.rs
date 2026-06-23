@@ -297,7 +297,7 @@ fn filter_and_table(
                     }
                     // 供应商（搜索型 select）
                     (crate::components::counterparty_search::counterparty_search_input(
-                        "ap-keyword", "ap-supplier-dd", ApSupplierSearchPath::PATH, "供应商", keyword, "ap-filter-form"
+                        "ap-keyword", "ap-keyword-display", "ap-supplier-panel", ApSupplierSearchPath::PATH, "供应商", keyword
                     ))
                     // 产品编码
                     input type="text" id="product_code" name="product_code" hx-preserve
@@ -575,7 +575,7 @@ pub async fn search_supplier(
         .unwrap_or_default();
 
     Ok(Html(crate::components::counterparty_search::render_counterparty_results(
-        &items, "ap-keyword", "ap-supplier-dd", "ap-filter-form", "未找到匹配供应商",
+        &items, "ap-keyword", "ap-keyword-display", "ap-supplier-panel", "未找到匹配供应商",
     ).into_string()))
 }
 

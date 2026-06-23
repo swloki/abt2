@@ -298,7 +298,7 @@ fn filter_and_table(
                     }
                     // 客户（搜索型 select）
                     (crate::components::counterparty_search::counterparty_search_input(
-                        "ar-keyword", "ar-customer-dd", ArCustomerSearchPath::PATH, "客户", keyword, "ar-filter-form"
+                        "ar-keyword", "ar-keyword-display", "ar-customer-panel", ArCustomerSearchPath::PATH, "客户", keyword
                     ))
                     // 产品编码
                     input type="text" id="product_code" name="product_code" hx-preserve
@@ -574,7 +574,7 @@ pub async fn search_customer(
         .unwrap_or_default();
 
     Ok(Html(crate::components::counterparty_search::render_counterparty_results(
-        &items, "ar-keyword", "ar-customer-dd", "ar-filter-form", "未找到匹配客户",
+        &items, "ar-keyword", "ar-keyword-display", "ar-customer-panel", "未找到匹配客户",
     ).into_string()))
 }
 

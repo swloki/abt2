@@ -12,73 +12,89 @@ use abt_core::fms::cash_journal::model::CounterpartyResult;
 
 use super::icon;
 
-/// 搜索输入框 + 下拉容器
+/// 搜索型 select：只读显示框 + 点击弹出搜索面板
 pub fn counterparty_search_input(
     input_id: &str,
     dropdown_id: &str,
+    panel_id: &str,
     search_path: &str,
     placeholder: &str,
     value: &str,
-    _form_id: &str,
 ) -> Markup {
     html! {
-        div class="relative" {
-            // 搜索 icon（左）
-            div class="absolute left-2.5 top-1/2 -translate-y-1/2 z-10 pointer-events-none" {
-                (icon::search_icon("w-3.5 h-3.5 text-muted"))
+        div class="relative"
+            _=(format!("on click from elsewhere remove .show from #{}", panel_id))
+        {
+            // 隐藏 input（提交 form 用）
+            input type="hidden" name="keyword" id=(input_id) value=(value);
+            // 只读显示框（不能输入，点击弹出面板）
+            div
+                class="flex items-center border border-border rounded-sm bg-white cursor-pointer text-sm transition-colors duration-150 hover:border-accent"
+                _=(format!("on click toggle .show on #{} then if #{} is .show send focus to #{}", panel_id, panel_id, format!("{}-q", panel_id)))
+            {
+                div id=(dropdown_id)
+                    class=(format!("flex-1 pl-2.5 pr-1 py-1.5 text-sm truncate {}",
+                        if value.is_empty() { "text-muted" } else { "text-fg" }))
+                {
+                    @if value.is_empty() { (placeholder) } @else { (value) }
+                }
+                span class="px-1.5 text-muted text-xs transition-transform"
+                    _=(format!("on click halt the event then toggle .show on #{} then toggle .rotate-180 on me", panel_id))
+                { "▾" }
             }
-            // 下拉三角（右）
-            span
-                class="absolute right-2 top-1/2 -translate-y-1/2 z-10 text-muted cursor-pointer select-none leading-none text-xs transition-transform"
-                _=(format!(
-                    "on click halt the event then toggle .rotate-180 on me then
-                     if #{}'s innerHTML is not '' add .hidden to #{} else remove .hidden from #{} end",
-                    dropdown_id, dropdown_id, dropdown_id
-                ))
-            { "▾" }
-            input
-                class="w-full pl-8 pr-6 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-colors duration-150 focus:border-accent"
-                type="text"
-                name="keyword"
-                id=(input_id)
-                hx-preserve
-                placeholder=(placeholder)
-                value=(value)
-                hx-get=(search_path)
-                hx-trigger="keyup changed delay:200ms, focus"
-                hx-include=(format!("#{}", input_id))
-                hx-target=(format!("#{}", dropdown_id))
-                hx-swap="innerHTML"
-                autocomplete="off"
-                _=(format!(
-                    "on 'htmx:afterSettle' if #{}'s innerHTML is not '' and #{}'s innerHTML is not '\\n' then remove .hidden from #{} end",
-                    dropdown_id, dropdown_id, dropdown_id
-                ));
-            div id=(dropdown_id)
-                class="absolute left-0 top-full mt-0.5 w-full min-w-[240px] max-h-[200px] overflow-y-auto bg-white border border-border rounded-sm shadow-[var(--shadow-card)] z-20 hidden"
-            {}
+            // 弹出搜索面板
+            div id=(panel_id) class="absolute left-0 top-full mt-0.5 w-64 bg-white border border-border rounded-sm shadow-[var(--shadow-card)] z-30 hidden"
+                _="on click halt"
+            {
+                // 面板内搜索框
+                div class="flex items-center gap-2 p-2 border-b border-border-soft" {
+                    (icon::search_icon("w-3.5 h-3.5 text-muted shrink-0"))
+                    input
+                        class="flex-1 py-1 text-sm bg-transparent text-fg outline-none"
+                        type="text"
+                        id=(format!("{}-q", panel_id))
+                        placeholder=(format!("搜索{}…", placeholder))
+                        hx-get=(search_path)
+                        hx-trigger="keyup changed delay:200ms, load"
+                        hx-include=(format!("#{}", format!("{}-q", panel_id)))
+                        hx-target=(format!("#{}", format!("{}-list", panel_id)))
+                        hx-swap="innerHTML"
+                        autocomplete="off";
+                }
+                // 面板内结果列表
+                div id=(format!("{}-list", panel_id))
+                    class="max-h-[200px] overflow-y-auto"
+                {}
+            }
         }
     }
 }
 
-/// 搜索结果列表（搜索 handler 调用）
-pub fn render_counterparty_results(items: &[CounterpartyResult], input_id: &str, dropdown_id: &str, form_id: &str, empty_msg: &str) -> Markup {
+/// 搜索结果列表
+pub fn render_counterparty_results(items: &[CounterpartyResult], input_id: &str, display_id: &str, panel_id: &str, empty_msg: &str) -> Markup {
     html! {
         @if items.is_empty() {
-            div class="px-3 py-2 text-xs text-muted" { (empty_msg) }
+            div class="px-3 py-3 text-xs text-muted text-center" { (empty_msg) }
         } @else {
             @for item in items {
                 div
                     class="px-3 py-2 text-sm cursor-pointer hover:bg-accent-bg border-b border-border-soft last:border-b-0"
                     _=(format!(
-                        "on click put '{}' into #{}'s value then remove .show from #{} then send change to #{}",
-                        item.name, input_id, dropdown_id, form_id
+                        "on click put '{}' into #{}'s value
+                         then put '{}' into #{}'s innerHTML
+                         then remove .text-muted from #{}
+                         then remove .show from #{}",
+                        item.name, input_id,
+                        item.name, display_id,
+                        display_id,
+                        panel_id
                     ))
                 {
-                    div class="text-sm font-medium" { (item.name) }
+                    div class="font-medium" { (item.name) }
                     div class="text-xs text-muted" { (item.code) }
                 }
             }
         }
     }
 }
+

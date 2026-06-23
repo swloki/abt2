@@ -184,7 +184,7 @@ fn ledger_row(item: &ArApLedgerRow, today: chrono::NaiveDate) -> Markup {
 fn ledger_table(items: &[ArApLedgerRow], today: chrono::NaiveDate, total: u64, page: u32, page_size: u32, query_string: &str) -> Markup {
     let total_pages = ((total as f64) / (page_size as f64)).ceil() as u32;
     html! {
-        div id="data-card" class="data-card" {
+        div class="data-card mt-4" {
             div class="overflow-x-auto" {
                 table class="data-table w-full" {
                     thead {
@@ -270,6 +270,7 @@ fn filter_and_table(
     let end = q.end_date.clone().unwrap_or_default();
 
     html! {
+        div id="data-card" {
         form id="ar-filter-form"
             class="data-card p-4 mb-4"
             hx-get=(ArLedgerPath::PATH)
@@ -336,6 +337,7 @@ fn filter_and_table(
                 query_string,
             )
         })
+        }
     }
 }
 

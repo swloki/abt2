@@ -22,14 +22,22 @@ pub fn counterparty_search_input(
     _form_id: &str,
 ) -> Markup {
     html! {
-        div class=(format!("relative"))
-            _=(format!("on click from elsewhere remove .show from #{}", dropdown_id))
-        {
-            div class="relative icon:absolute icon:left-2.5 icon:top-1/2 icon:-translate-y-1/2 icon:w-3.5 icon:h-3.5 icon:text-muted z-10" {
-                (icon::search_icon(""))
+        div class="relative" {
+            // 搜索 icon（左）
+            div class="absolute left-2.5 top-1/2 -translate-y-1/2 z-10 pointer-events-none" {
+                (icon::search_icon("w-3.5 h-3.5 text-muted"))
             }
+            // 下拉三角（右）
+            span
+                class="absolute right-2 top-1/2 -translate-y-1/2 z-10 text-muted cursor-pointer select-none leading-none text-xs transition-transform"
+                _=(format!(
+                    "on click halt the event then toggle .rotate-180 on me then
+                     if #{}'s innerHTML is not '' add .hidden to #{} else remove .hidden from #{} end",
+                    dropdown_id, dropdown_id, dropdown_id
+                ))
+            { "▾" }
             input
-                class="w-full pl-8 pr-3 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-colors duration-150 focus:border-accent"
+                class="w-full pl-8 pr-6 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-colors duration-150 focus:border-accent"
                 type="text"
                 name="keyword"
                 id=(input_id)
@@ -37,17 +45,17 @@ pub fn counterparty_search_input(
                 placeholder=(placeholder)
                 value=(value)
                 hx-get=(search_path)
-                hx-trigger="keyup changed delay:200ms"
+                hx-trigger="keyup changed delay:200ms, focus"
                 hx-include=(format!("#{}", input_id))
                 hx-target=(format!("#{}", dropdown_id))
                 hx-swap="innerHTML"
                 autocomplete="off"
                 _=(format!(
-                    "on focus if #{}'s innerHTML is not '' then add .show to #{} end",
-                    dropdown_id, dropdown_id
+                    "on 'htmx:afterSettle' if #{}'s innerHTML is not '' and #{}'s innerHTML is not '\\n' then remove .hidden from #{} end",
+                    dropdown_id, dropdown_id, dropdown_id
                 ));
             div id=(dropdown_id)
-                class="absolute left-0 top-full mt-0.5 w-56 max-h-[200px] overflow-y-auto bg-white border border-border rounded-sm shadow-[var(--shadow-card)] z-20 hidden [&.show]:block"
+                class="absolute left-0 top-full mt-0.5 w-full min-w-[240px] max-h-[200px] overflow-y-auto bg-white border border-border rounded-sm shadow-[var(--shadow-card)] z-20 hidden"
             {}
         }
     }

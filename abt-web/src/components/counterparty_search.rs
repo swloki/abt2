@@ -50,11 +50,11 @@ pub fn counterparty_search_input(
                     input
                         class="flex-1 py-1 text-sm bg-transparent text-fg outline-none min-w-0"
                         type="text"
+                        name="keyword"
                         id=(q_id)
                         placeholder=(format!("搜索{}…", placeholder))
                         hx-get=(search_path)
-                        hx-trigger="keyup changed delay:200ms, load"
-                        hx-include=(format!("#{}", q_id))
+                        hx-trigger="load, keyup changed delay:200ms"
                         hx-target=(format!("#{}", list_id))
                         hx-swap="innerHTML"
                         autocomplete="off";

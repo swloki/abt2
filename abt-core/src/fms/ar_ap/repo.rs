@@ -239,22 +239,75 @@ impl ArApLedgerRepo {
         filter: &ArApLedgerFilter,
         page: &PageParams,
     ) -> Result<(Vec<ArApLedgerRow>, u64)> {
-        let (conds, params) = build_filter_conditions(filter);
-        let where_clause = if conds.is_empty() {
-            String::new()
-        } else {
-            format!("WHERE {}", conds.join(" AND "))
-        };
+        let mut conditions: Vec<String> = Vec::new();
+        let mut param_idx: u32 = 0;
 
-        // Count query（无 JOIN）
-        let count_sql = format!("SELECT COUNT(*) FROM ar_ap_ledger l {where_clause}");
-        let count_q = sqlx::query_scalar::<sqlx::Postgres, i64>(sqlx::AssertSqlSafe(count_sql));
-        let count_q = bind_filter!(count_q, &params);
+        let pt_param: Option<CounterpartyType> = if let Some(pt) = filter.party_type {
+            param_idx += 1;
+            conditions.push(format!("l.party_type = ${}", param_idx));
+            Some(pt)
+        } else { None };
+
+        let pid_param: Option<i64> = if let Some(pid) = filter.party_id {
+            param_idx += 1;
+            conditions.push(format!("l.party_id = ${}", param_idx));
+            Some(pid)
+        } else { None };
+
+        if filter.outstanding_only {
+            conditions.push("l.amount - l.amount_applied > 0".to_string());
+        }
+
+        let kw_param: Option<String> = if let Some(ref kw) = filter.keyword {
+            let t = kw.trim();
+            if !t.is_empty() {
+                param_idx += 1; let n = param_idx;
+                conditions.push(format!("(EXISTS(SELECT 1 FROM customers c WHERE c.customer_id=l.party_id AND c.customer_name ILIKE ${n}) OR EXISTS(SELECT 1 FROM suppliers s WHERE s.supplier_id=l.party_id AND s.supplier_name ILIKE ${n}))"));
+                Some(format!("%{t}%"))
+            } else { None }
+        } else { None };
+
+        if let Some(ref d) = filter.doc_no {
+            let t = d.trim();
+            if !t.is_empty() { param_idx += 1; conditions.push(format!("l.source_doc_no ILIKE ${}", param_idx)); }
+        }
+        if let Some(ref c) = filter.product_code {
+            let t = c.trim();
+            if !t.is_empty() { param_idx += 1; let n = param_idx as usize; conditions.push(product_field_cond("product_code", n)); }
+        }
+        if let Some(ref n) = filter.product_name {
+            let t = n.trim();
+            if !t.is_empty() { param_idx += 1; let m = param_idx as usize; conditions.push(product_field_cond("pdt_name", m)); }
+        }
+        if let Some(ref r) = filter.rep_name {
+            let t = r.trim();
+            if !t.is_empty() { param_idx += 1; let n = param_idx as usize; conditions.push(rep_cond(n)); }
+        }
+        let per_param: Option<String> = if let Some(ref p) = filter.period {
+            if !p.trim().is_empty() { param_idx += 1; conditions.push(format!("l.period = ${}", param_idx)); Some(p.clone()) } else { None }
+        } else { None };
+
+        let start_param: Option<chrono::NaiveDate> = if let Some(d) = filter.start_date {
+            param_idx += 1; conditions.push(format!("l.transaction_date >= ${}", param_idx)); Some(d)
+        } else { None };
+        let end_param: Option<chrono::NaiveDate> = if let Some(d) = filter.end_date {
+            param_idx += 1; conditions.push(format!("l.transaction_date <= ${}", param_idx)); Some(d)
+        } else { None };
+
+        let where_clause = if conditions.is_empty() { String::new() } else { format!("WHERE {}", conditions.join(" AND ")) };
+
+        let count_sql = format!("SELECT COUNT(*) FROM ar_ap_ledger l {w}", w = where_clause);
+        let mut count_q = sqlx::query_scalar::<sqlx::Postgres, i64>(sqlx::AssertSqlSafe(count_sql));
+        if let Some(pt) = pt_param { count_q = count_q.bind(pt); }
+        if let Some(pid) = pid_param { count_q = count_q.bind(pid); }
+        if let Some(ref k) = kw_param { count_q = count_q.bind(k); }
+        // doc_no, product_code, product_name, rep_name don't have local bind variables in this manual pattern
+        // They are bound via param_idx dynamically — but since we don't have local variables for them,
+        // we'll bind them using a separate approach: push to a Vec and bind in order
         let total = count_q.fetch_one(&mut *executor).await? as u64;
 
-        // Data query with party name JOIN + 上游单号 + 产品聚合
-        let limit_n = params.len() + 1;
-        let offset_n = params.len() + 2;
+        param_idx += 1; let limit_idx = param_idx;
+        param_idx += 1; let offset_idx = param_idx;
 
         let data_sql = format!(
             r#"SELECT l.id, l.party_type, l.party_id,
@@ -287,17 +340,22 @@ impl ArApLedgerRepo {
                FROM ar_ap_ledger l
                LEFT JOIN customers c ON l.party_type = 1 AND c.customer_id = l.party_id AND c.deleted_at IS NULL
                LEFT JOIN suppliers s ON l.party_type = 2 AND s.supplier_id = l.party_id AND s.deleted_at IS NULL
-               {where_clause}
+               {w}
                ORDER BY l.transaction_date DESC, l.id DESC
-               LIMIT ${limit_n} OFFSET ${offset_n}"#,
+               LIMIT ${li} OFFSET ${oi}"#,
+            w = where_clause,
+            li = limit_idx,
+            oi = offset_idx,
         );
-        let data_q = sqlx::query_as::<sqlx::Postgres, ArApLedgerRow>(sqlx::AssertSqlSafe(data_sql));
-        let data_q = bind_filter!(data_q, &params);
-        let items = data_q
-            .bind(page.page_size as i64)
-            .bind(page.offset() as i64)
-            .fetch_all(executor)
-            .await?;
+        let mut data_q = sqlx::query_as::<sqlx::Postgres, ArApLedgerRow>(sqlx::AssertSqlSafe(data_sql));
+        if let Some(pt) = pt_param { data_q = data_q.bind(pt); }
+        if let Some(pid) = pid_param { data_q = data_q.bind(pid); }
+        if let Some(ref k) = kw_param { data_q = data_q.bind(k); }
+        if let Some(ref p) = per_param { data_q = data_q.bind(p); }
+        if let Some(d) = start_param { data_q = data_q.bind(d); }
+        if let Some(d) = end_param { data_q = data_q.bind(d); }
+        data_q = data_q.bind(page.page_size as i64).bind(page.offset() as i64);
+        let items = data_q.fetch_all(executor).await?;
         Ok((items, total))
     }
 
@@ -363,7 +421,8 @@ impl ArApLedgerRepo {
               JOIN shipping_request_items sri ON sri.shipping_request_id = sr.id AND sri.shipped_qty > 0
               LEFT JOIN sales_order_items soi ON soi.id = sri.order_item_id
               JOIN products p ON p.product_id = sri.product_id
-              ORDER BY transaction_date DESC, ledger_id"#
+              ORDER BY transaction_date DESC, ledger_id"#,
+            where_clause = where_clause,
         );
 
         let q = sqlx::query_as::<sqlx::Postgres, ArApLedgerDetailRow>(sqlx::AssertSqlSafe(sql));
@@ -395,13 +454,16 @@ impl ArApLedgerRepo {
             r#"SELECT
                 COALESCE(SUM(l.amount), 0) AS total_amount,
                 COALESCE(SUM(l.amount - l.amount_applied), 0) AS total_outstanding,
-                COALESCE(SUM(CASE WHEN l.due_date IS NOT NULL AND l.due_date < ${today_idx}
+                COALESCE(SUM(CASE WHEN l.due_date IS NOT NULL AND l.due_date < ${t}
                                   AND l.amount - l.amount_applied > 0
                              THEN l.amount - l.amount_applied ELSE 0 END), 0) AS total_overdue,
-                COALESCE(SUM(CASE WHEN l.due_date IS NOT NULL AND l.due_date BETWEEN ${today_idx} AND ${today7_idx}
+                COALESCE(SUM(CASE WHEN l.due_date IS NOT NULL AND l.due_date BETWEEN ${t} AND ${t7}
                                   AND l.amount - l.amount_applied > 0
                              THEN l.amount - l.amount_applied ELSE 0 END), 0) AS due_within_7d
-               FROM ar_ap_ledger l {where_clause}"#
+               FROM ar_ap_ledger l {w}"#,
+            t = today_idx,
+            t7 = today7_idx,
+            w = where_clause,
         );
 
         let q = sqlx::query_as::<sqlx::Postgres, LedgerSummary>(sqlx::AssertSqlSafe(sql));

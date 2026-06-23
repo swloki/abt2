@@ -263,8 +263,7 @@ fn filter_and_table(
     let has_filter = q.start_date.is_some() || q.end_date.is_some()
         || q.doc_no.as_deref().is_some_and(|s| !s.is_empty())
         || q.rep_name.as_deref().is_some_and(|s| !s.is_empty());
-    let panel_cls = if has_filter { "grid grid-cols-2 gap-2 mt-2 p-3 bg-surface border border-border-soft rounded-md" }
-                    else { "grid grid-cols-2 gap-2 mt-2 p-3 bg-surface border border-border-soft rounded-md hidden" };
+    let panel_cls = if has_filter { "filter-advanced-inner " } else { "filter-advanced-inner hidden" };
     let arrow_cls = if has_filter { "filter-arrow inline-block transition-transform rotate-180" }
                     else { "filter-arrow inline-block transition-transform" };
 
@@ -280,65 +279,71 @@ fn filter_and_table(
             hx-push-url="true"
         {
             input type="hidden" name="outstanding_only" value=(outstanding_only);
-            // 主行：搜索框 + 产品编码/名称 + toggle
-            div class="flex items-center gap-2"
+            // ── filter-card 容器 ──
+            div class="border border-border-soft rounded-md bg-white mb-4"
             {
-                div class="relative flex-1 icon:absolute icon:left-3 icon:top-1/2 icon:-translate-y-1/2 icon:w-4 icon:h-4 icon:text-muted"
+                // 主筛选行：label+input 水平排列
+                div class="flex items-center gap-3 px-4 py-3 flex-wrap"
                 {
-                    (icon::search_icon(""))
-                    input
-                        class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-colors duration-150 focus:border-accent search-input"
-                        type="text"
-                        name="keyword"
-                        id="ap-keyword"
-                        hx-preserve
-                        placeholder="搜索供应商名称"
-                        value=(keyword);
+                    // 供应商搜索
+                    div class="relative flex-1 min-w-[180px] max-w-xs icon:absolute icon:left-2.5 icon:top-1/2 icon:-translate-y-1/2 icon:w-3.5 icon:h-3.5 icon:text-muted" {
+                        (icon::search_icon(""))
+                        input class="w-full pl-8 pr-3 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-colors duration-150 focus:border-accent search-input"
+                            type="text" name="keyword" id="ap-keyword" hx-preserve
+                            placeholder="供应商" value=(keyword);
+                    }
+                    // 产品编码
+                    input type="text" id="product_code" name="product_code" hx-preserve
+                        class=(format!("{} w-28 ", ti)) placeholder="产品编码" value=(q.product_code.as_deref().unwrap_or(""));
+                    // 产品名称
+                    input type="text" id="product_name" name="product_name" hx-preserve
+                        class=(format!("{} w-32 ", ti)) placeholder="产品名称" value=(q.product_name.as_deref().unwrap_or(""));
+                    // toggle
+                    div class="inline-flex bg-surface border border-border-soft rounded-md p-[3px] gap-0.5"
+                    {
+                        a class=(if outstanding_only { active_cls } else { inactive_cls })
+                            hx-get=(ApLedgerPath::PATH) hx-vals=r#"{"outstanding_only":"true"}"#
+                            hx-target="#data-card" hx-select="#data-card" hx-swap="outerHTML" hx-push-url="true"
+                            hx-include="#ap-filter-form input:not([type=hidden])"
+                        { "只看未清" }
+                        a class=(if !outstanding_only { active_cls } else { inactive_cls })
+                            hx-get=(ApLedgerPath::PATH) hx-vals=r#"{"outstanding_only":"false"}"#
+                            hx-target="#data-card" hx-select="#data-card" hx-swap="outerHTML" hx-push-url="true"
+                            hx-include="#ap-filter-form input:not([type=hidden])"
+                        { "全部" }
+                    }
+                    // 高级筛选 + 重置（右对齐）
+                    div class="flex items-center gap-2 ml-auto" {
+                        button type="button"
+                            class="inline-flex items-center gap-1 text-xs text-fg-2 hover:text-accent cursor-pointer select-none border-none bg-transparent p-0 transition-colors"
+                            _="on click toggle .hidden on #ap-filter-panel then toggle .rotate-180 on .filter-arrow"
+                        {
+                            "高级筛选 "
+                            span class=(arrow_cls) { "▾" }
+                        }
+                        a class="inline-flex items-center gap-1 text-xs text-fg-2 hover:text-accent cursor-pointer select-none no-underline transition-colors"
+                            hx-get=(ApLedgerPath::PATH)
+                            { (icon::refresh_icon("w-3.5 h-3.5")) " 重置" }
+                    }
                 }
-                input type="text" id="product_code" name="product_code" hx-preserve
-                    class=(format!("{} w-28 ", ti)) placeholder="产品编码" value=(q.product_code.as_deref().unwrap_or(""));
-                input type="text" id="product_name" name="product_name" hx-preserve
-                    class=(format!("{} w-32 ", ti)) placeholder="产品名称" value=(q.product_name.as_deref().unwrap_or(""));
-                div class="inline-flex bg-surface border border-border-soft rounded-md p-[3px] gap-0.5"
+                // 高级筛选面板（折叠）
+                div id="ap-filter-panel" class=(panel_cls)
                 {
-                    a class=(if outstanding_only { active_cls } else { inactive_cls })
-                        hx-get=(ApLedgerPath::PATH) hx-vals=r#"{"outstanding_only":"true"}"#
-                        hx-target="#data-card" hx-select="#data-card" hx-swap="outerHTML" hx-push-url="true"
-                        hx-include="#ap-filter-form input:not([type=hidden])"
-                    { "只看未清" }
-                    a class=(if !outstanding_only { active_cls } else { inactive_cls })
-                        hx-get=(ApLedgerPath::PATH) hx-vals=r#"{"outstanding_only":"false"}"#
-                        hx-target="#data-card" hx-select="#data-card" hx-swap="outerHTML" hx-push-url="true"
-                        hx-include="#ap-filter-form input:not([type=hidden])"
-                    { "全部" }
-                }
-            }
-            // 筛选折叠按钮
-            button type="button"
-                class="text-xs text-fg-2 hover:text-fg cursor-pointer select-none border-none bg-transparent p-0 mt-2 inline-flex items-center gap-1"
-                _="on click toggle .hidden on #ap-filter-panel then toggle .rotate-180 on .filter-arrow"
-            {
-                "筛选条件 "
-                span class=(arrow_cls) { "▾" }
-            }
-            // 折叠面板
-            div id="ap-filter-panel" class=(panel_cls)
-            {
-                label class="flex flex-col gap-1" {
-                    span class="text-xs text-fg-2" { "开始日期" }
-                    input type="date" id="start_date" name="start_date" hx-preserve class=(ti) value=(start);
-                }
-                label class="flex flex-col gap-1" {
-                    span class="text-xs text-fg-2" { "结束日期" }
-                    input type="date" id="end_date" name="end_date" hx-preserve class=(ti) value=(end);
-                }
-                label class="flex flex-col gap-1" {
-                    span class="text-xs text-fg-2" { "发生单号" }
-                    input type="text" id="doc_no" name="doc_no" hx-preserve class=(ti) placeholder="模糊搜索" value=(q.doc_no.as_deref().unwrap_or(""));
-                }
-                label class="flex flex-col gap-1" {
-                    span class="text-xs text-fg-2" { "采购员" }
-                    input type="text" id="rep_name" name="rep_name" hx-preserve class=(ti) placeholder="模糊搜索" value=(q.rep_name.as_deref().unwrap_or(""));
+                    div class="flex items-center gap-3 px-4 pb-3 flex-wrap border-t border-border-soft pt-3"
+                    {
+                        // 日期
+                        span class="text-xs text-fg-2" { "发生日期" }
+                        input type="date" id="start_date" name="start_date" hx-preserve class=(ti) value=(start);
+                        span class="text-fg-3 text-xs" { "至" }
+                        input type="date" id="end_date" name="end_date" hx-preserve class=(ti) value=(end);
+                        // 分隔
+                        span class="text-fg-3 mx-1" { "|" }
+                        span class="text-xs text-fg-2" { "发生单号" }
+                        input type="text" id="doc_no" name="doc_no" hx-preserve class=(ti) placeholder="模糊搜索" value=(q.doc_no.as_deref().unwrap_or(""));
+                        span class="text-fg-3 mx-1" { "|" }
+                        span class="text-xs text-fg-2" { "采购员" }
+                        input type="text" id="rep_name" name="rep_name" hx-preserve class=(ti) placeholder="模糊搜索" value=(q.rep_name.as_deref().unwrap_or(""));
+                    }
                 }
             }
         }

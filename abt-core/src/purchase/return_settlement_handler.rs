@@ -11,7 +11,7 @@ use sqlx::postgres::PgPool;
 use tracing::{info, warn};
 
 use crate::fms::ar_ap::enums::LedgerDirection;
-use crate::fms::ar_ap::repo::{ArApLedgerInsert, ArApLedgerRepo};
+use crate::fms::ar_ap::repo::ArApLedgerRepo;
 use crate::fms::enums::CounterpartyType;
 use crate::purchase::return_order::repo::{PurchaseReturnItemRepo, PurchaseReturnRepo};
 use crate::shared::enums::DocumentType;
@@ -22,7 +22,7 @@ use crate::shared::types::{DomainError, Result, ServiceContext};
 /// 采购退货结算 Handler
 ///
 /// 监听 `PurchaseReturnSettled` 事件：退货单经对账单结算后，写反向 AP 台账（`Debit`）
-/// 冲减应付。幂等：同一退货单（`source_type = PurchaseReturn, source_id = return_id`）不重复立账。
+/// 冲减应付。幂等 + 往来方币种由 `ArApLedgerRepo::insert_reversal_if_absent` 统一处理。
 pub struct PurchaseReturnSettledHandler {
     pool: PgPool,
 }
@@ -45,69 +45,45 @@ impl EventHandler for PurchaseReturnSettledHandler {
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
 
-        // 1. 幂等：同一退货单不重复写台账（事件重放 / 重复结算保护）
-        let dup: Option<i64> = sqlx::query_scalar::<sqlx::Postgres, i64>(
-            "SELECT id FROM ar_ap_ledger WHERE source_type = $1 AND source_id = $2 LIMIT 1",
-        )
-        .bind(DocumentType::PurchaseReturn)
-        .bind(return_id)
-        .fetch_optional(&mut *conn)
-        .await?;
-
-        if dup.is_some() {
-            info!(return_id, "PurchaseReturn already has AP ledger entry, skipping");
-            return Ok(());
-        }
-
-        // 2. 取退货单主表 + 明细
+        // 1. 取退货单主表 + 明细（域特定）
         let ret = PurchaseReturnRepo::get_by_id(&mut conn, return_id)
             .await?
             .ok_or_else(|| DomainError::not_found(format!("PurchaseReturn #{return_id}")))?;
-
         let items = PurchaseReturnItemRepo::list_by_return_id(&mut conn, return_id).await?;
 
-        // 退货冲减金额 = Σ 明细 amount（以明细为准，与主表 total_amount 口径一致）
+        // 退货冲减金额 = Σ 明细 amount
         let refund_amount: Decimal = items.iter().map(|i| i.amount).sum();
-
         if refund_amount <= Decimal::ZERO {
             warn!(return_id, "PurchaseReturn refund amount <= 0, skipping AP reversal");
             return Ok(());
         }
 
-        // 3. 写反向 AP 台账（Debit 冲减入库时立的 Credit）
-        let period = chrono::Utc::now().format("%Y-%m").to_string();
-        let today = chrono::Local::now().date_naive();
+        // 2. 公共：幂等 + 按往来方币种 insert 反向 AP 台账（Debit 冲减 Credit）
         let desc = format!("采购退货冲减应付 {}", ret.doc_number);
-
-        ArApLedgerRepo::insert(
+        let inserted = ArApLedgerRepo::insert_reversal_if_absent(
             &mut *conn,
-            &ArApLedgerInsert {
-                party_type: CounterpartyType::Supplier,
-                party_id: ret.supplier_id,
-                source_type: DocumentType::PurchaseReturn,
-                source_id: return_id,
-                source_doc_no: &ret.doc_number,
-                against_type: None,
-                against_id: None,
-                direction: LedgerDirection::Debit,
-                amount: refund_amount,
-                currency: "CNY",
-                exchange_rate: Decimal::ONE,
-                transaction_date: today,
-                due_date: None,
-                period: &period,
-                description: &desc,
-                operator_id: ctx.operator_id,
-            },
+            CounterpartyType::Supplier,
+            ret.supplier_id,
+            DocumentType::PurchaseReturn,
+            return_id,
+            &ret.doc_number,
+            LedgerDirection::Debit,
+            refund_amount,
+            &desc,
+            ctx.operator_id,
         )
         .await?;
 
-        info!(
-            return_id,
-            supplier_id = ret.supplier_id,
-            amount = %refund_amount,
-            "AP ledger Debit (purchase return reversal) inserted"
-        );
+        if inserted.is_some() {
+            info!(
+                return_id,
+                supplier_id = ret.supplier_id,
+                amount = %refund_amount,
+                "AP ledger Debit (purchase return reversal) inserted"
+            );
+        } else {
+            info!(return_id, "PurchaseReturn already has AP ledger entry, skipping");
+        }
 
         Ok(())
     }

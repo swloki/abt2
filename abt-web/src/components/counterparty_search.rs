@@ -39,6 +39,18 @@ pub fn counterparty_search_input(
                 {
                     @if value.is_empty() { (placeholder) } @else { (value) }
                 }
+                @if !value.is_empty() {
+                    span class="px-1 py-1.5 text-muted text-xs cursor-pointer hover:text-danger"
+                        _=(format!(
+                            "on click halt the event \
+                            then put '' into #{}'s value \
+                            then put '{}' into #{}'s innerHTML \
+                            then add .text-muted to #{} \
+                            then trigger change on #{}",
+                            input_id, placeholder, display_id, display_id, input_id
+                        ))
+                    { "✕" }
+                }
                 span class="px-2 py-1.5 text-muted text-xs pointer-events-none" { "▾" }
             }
             // 弹出面板

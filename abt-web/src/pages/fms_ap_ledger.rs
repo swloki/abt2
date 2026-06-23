@@ -295,7 +295,8 @@ fn filter_and_table(
                     }
                     // 供应商（纯 HTMX 搜索控件，自身 URL）
                     (crate::components::supplier_search::supplier_search_field(
-                        "ap-keyword", "ap-keyword-display", "ap-supplier-panel", "ap-supplier-results", "keyword", keyword, "供应商"
+                        "ap-keyword", "ap-keyword-display", "ap-supplier-panel", "ap-supplier-results", "keyword", keyword, "供应商",
+                        false, "w-52 min-w-[208px]", None
                     ))
                     // 产品编码
                     input type="text" id="product_code" name="product_code" hx-preserve

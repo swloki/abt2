@@ -148,7 +148,6 @@ pub fn router(state: AppState) -> Router {
                 .merge(crate::components::routing_picker::router())
                 .merge(crate::components::work_order_picker::router())
                 .merge(crate::components::purchase_order_picker::router())
-                .merge(crate::components::counterparty_search::router())
                 .merge(crate::components::supplier_search::router())
                 .merge(crate::components::customer_search::router())
                 .merge(crate::components::shipping_request_picker::router())

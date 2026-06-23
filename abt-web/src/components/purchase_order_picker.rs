@@ -14,9 +14,7 @@ use abt_core::purchase::order::model::PurchaseOrderQuery;
 use abt_core::purchase::order::PurchaseOrderService;
 use abt_core::shared::types::PageParams;
 
-use crate::components::counterparty_search::{
-    counterparty_search_field, CpCascade, CpSearchField, CounterpartySearchPath,
-};
+use crate::components::supplier_search::{supplier_search_field, CascadeParams};
 use crate::errors::Result;
 use crate::utils::RequestContext;
 
@@ -126,28 +124,18 @@ pub fn purchase_order_picker_modal(modal_id: &str, confirm_path: &str) -> Markup
                 }
                 div class="flex flex-col gap-1" {
                     label class="text-xs font-medium text-fg-2" { "供应商" }
-                    (counterparty_search_field(&CpSearchField {
-                        input_id: "po-supplier-input",
-                        display_id: "po-supplier-display",
-                        panel_id: "po-supplier-panel",
-                        search_path: &format!(
-                            "{}?kind=supplier&input_id=po-supplier-input&display_id=po-supplier-display&panel_id=po-supplier-panel&store_id=true",
-                            CounterpartySearchPath::PATH,
-                        ),
-                        placeholder: "全部供应商",
-                        hidden_value: "",
-                        display_value: "",
-                        name: "supplier_id",
-                        store_id: true,
-                        width_class: "w-full",
-                        cascade: Some(&CpCascade {
+                    (supplier_search_field(
+                        "po-supplier-input", "po-supplier-display", "po-supplier-panel", "po-supplier-results",
+                        "supplier_id", "", "全部供应商",
+                        true,
+                        "w-full",
+                        Some(&CascadeParams {
                             hx_get: PurchaseOrderSearchPath::PATH.to_string(),
-                            hx_trigger: "change".to_string(),
                             hx_target: "#po-search-results".to_string(),
                             hx_include: ".po-search-bar".to_string(),
                             hx_swap: "innerHTML".to_string(),
                         }),
-                    }))
+                    ))
                 }
                 div class="flex flex-col gap-1" {
                     label class="text-xs font-medium text-fg-2" { "状态" }

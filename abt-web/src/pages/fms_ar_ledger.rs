@@ -297,7 +297,8 @@ fn filter_and_table(
                     }
                     // 客户（搜索型 select）
                     (crate::components::customer_search::customer_search_field(
-                        "ar-keyword", "ar-keyword-display", "ar-customer-panel", "ar-customer-results", "keyword", keyword, "客户"
+                        "ar-keyword", "ar-keyword-display", "ar-customer-panel", "ar-customer-results", "keyword", keyword, "客户",
+                        false, "w-52 min-w-[208px]", None
                     ))
                     // 产品编码
                     input type="text" id="product_code" name="product_code" hx-preserve

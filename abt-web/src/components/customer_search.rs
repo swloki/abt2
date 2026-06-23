@@ -55,6 +55,10 @@ pub struct CustomerSearchParams {
     /// 客户端 `hx-select=#results_id + hx-swap=outerHTML` 只替换结果区，不影响隐藏 input。
     #[serde(default)]
     pub value: Option<String>,
+    /// true→选中存 id（结果项 hyperscript 用 @data-id），false→存 name（@data-name）。
+    /// 影响结果区渲染，故需经 hx-vals 带给端点。
+    #[serde(default)]
+    pub store_id: Option<bool>,
 }
 
 pub fn router() -> Router<crate::state::AppState> {
@@ -80,6 +84,9 @@ pub async fn search_customers(
         .await
         .unwrap_or_default();
     let value = p.value.as_deref().unwrap_or("");
+    let store_id = p.store_id.unwrap_or(false);
+    // 端点返回完整组件，但客户端只用 hx-select 切结果区；width/cascade 在结果区外，
+    // 客户端永不重渲染，故端点用默认值即可（被 hx-select 丢弃）。
     Ok(Html(
         render_component(
             &p.input_id,
@@ -90,10 +97,25 @@ pub async fn search_customers(
             value,
             p.placeholder.as_deref().unwrap_or(""),
             Some(&items),
+            store_id,
+            DEFAULT_WIDTH,
+            None,
         )
         .into_string(),
     ))
 }
+
+/// 选中后级联重搜配置：挂在隐藏 input 上，选中 hyperscript `trigger change` 即触发。
+/// `hx_trigger` 固定为 `change`，故不作为字段。
+pub struct CascadeParams {
+    pub hx_get: String,
+    pub hx_target: String,
+    pub hx_include: String,
+    pub hx_swap: String,
+}
+
+/// 默认宽度（台账场景）；PO 弹窗传 "w-full"。
+const DEFAULT_WIDTH: &str = "w-52 min-w-[208px]";
 
 // ── 完整组件渲染（SSR 与端点共用同一段代码）──
 
@@ -112,6 +134,9 @@ fn render_component(
     value: &str,
     placeholder: &str,
     items: Option<&[CounterpartyResult]>,
+    store_id: bool,
+    width_class: &str,
+    cascade: Option<&CascadeParams>,
 ) -> Markup {
     let clear_id = format!("{}-clear", input_id);
     let q_id = format!("{}-q", panel_id);
@@ -136,10 +161,20 @@ fn render_component(
     );
 
     html! {
-        div class="relative w-52 min-w-[208px]"
+        div class=(format!("relative {}", width_class))
             _=(format!("on click from elsewhere add .invisible to #{}", panel_id))
         {
-            input type="hidden" name=(name) id=(input_id) value=(value) {};
+            // 隐藏 input：有 cascade 时挂 hx-*（选中 trigger change → 级联外部重搜），否则裸 hidden
+            @if let Some(c) = cascade {
+                input type="hidden" name=(name) id=(input_id) value=(value)
+                    hx-get=(c.hx_get.as_str())
+                    hx-trigger="change"
+                    hx-target=(c.hx_target.as_str())
+                    hx-include=(c.hx_include.as_str())
+                    hx-swap=(c.hx_swap.as_str()) {};
+            } @else {
+                input type="hidden" name=(name) id=(input_id) value=(value) {};
+            }
             // 只读显示框（点击展开 + 加载结果）
             div class="flex items-center w-full border border-border rounded-sm bg-white cursor-pointer text-sm transition-colors duration-150 hover:border-accent"
                 _=(open_hs)
@@ -181,12 +216,12 @@ fn render_component(
                         hx-target=(format!("#{}", results_id))
                         hx-select=(format!("#{}", results_id))
                         hx-swap="outerHTML"
-                        hx-vals=(vals_json(input_id, display_id, panel_id, results_id, name, placeholder).as_str())
+                        hx-vals=(vals_json(input_id, display_id, panel_id, results_id, name, placeholder, store_id).as_str())
                         _="on keyup halt on change halt on input halt"
                         hx-include="this";
                 }
                 // 结果区（打开面板时由 loadResults 触发 hx-get 加载；搜索时由上方 input 的 hx-get 更新）
-                (results_region(results_id, input_id, display_id, panel_id, items))
+                (results_region(results_id, input_id, display_id, panel_id, items, store_id))
             }
         }
     }
@@ -213,8 +248,14 @@ pub fn customer_search_field(
     name: &str,
     value: &str,
     placeholder: &str,
+    store_id: bool,
+    width_class: &str,
+    cascade: Option<&CascadeParams>,
 ) -> Markup {
-    render_component(input_id, display_id, panel_id, results_id, name, value, placeholder, None)
+    render_component(
+        input_id, display_id, panel_id, results_id, name, value, placeholder, None,
+        store_id, width_class, cascade,
+    )
 }
 
 // ── 结果区（render_component 内部使用；端点搜索结果通过 hx-select 切出此区域）──
@@ -227,15 +268,20 @@ fn results_region(
     display_id: &str,
     panel_id: &str,
     items: Option<&[CounterpartyResult]>,
+    store_id: bool,
 ) -> Markup {
     let clear_id = format!("{}-clear", input_id);
-    // 选中：从 my @data-name 读名称（运行时取属性，不拼字符串）→ 写隐藏 input + 显示框 + 关面板 + 触发 change
+    // 选中：运行时读属性（不拼字符串，兼容带引号的名字）。
+    // store_id=true：隐藏 input 存 id（@data-id）；false：存 name（@data-name）。显示框始终显示 name。
+    // trigger change → store_id=false 时宿主表单响应；true 时触发隐藏 input 上的级联 hx-get。
+    let value_attr = if store_id { "@data-id" } else { "@data-name" };
     let select_hs = format!(
-        "on click set #{i}'s value to my @data-name \
+        "on click set #{i}'s value to my {v} \
          then put my @data-name into #{d} \
          then remove .hidden from #{c} \
          then add .invisible to #{p} \
          then trigger change on #{i}",
+        v = value_attr,
         i = input_id,
         d = display_id,
         c = clear_id,
@@ -252,7 +298,7 @@ fn results_region(
                 }
                 Some(list) => {
                     @for item in list {
-                        div data-name=(item.name.as_str())
+                        div data-name=(item.name.as_str()) data-id=(item.id.to_string())
                             class="px-3 py-2 text-sm cursor-pointer hover:bg-accent-bg border-b border-border-soft last:border-b-0"
                             _=(select_hs.as_str())
                         {
@@ -277,14 +323,16 @@ fn vals_json(
     results_id: &str,
     name: &str,
     placeholder: &str,
+    store_id: bool,
 ) -> String {
     format!(
-        "{{\"input_id\":\"{i}\",\"display_id\":\"{d}\",\"panel_id\":\"{p}\",\"results_id\":\"{r}\",\"name\":\"{n}\",\"placeholder\":\"{ph}\"}}",
+        "{{\"input_id\":\"{i}\",\"display_id\":\"{d}\",\"panel_id\":\"{p}\",\"results_id\":\"{r}\",\"name\":\"{n}\",\"placeholder\":\"{ph}\",\"store_id\":{s}}}",
         i = input_id,
         d = display_id,
         p = panel_id,
         r = results_id,
         n = name,
-        ph = placeholder
+        ph = placeholder,
+        s = store_id
     )
 }

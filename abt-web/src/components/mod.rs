@@ -1,5 +1,4 @@
 pub mod confirm_dialog;
-pub mod counterparty_search;
 pub mod customer_info;
 pub mod icon;
 pub mod modal;

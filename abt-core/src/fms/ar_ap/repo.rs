@@ -267,22 +267,26 @@ impl ArApLedgerRepo {
             } else { None }
         } else { None };
 
-        if let Some(ref d) = filter.doc_no {
+        let doc_param: Option<String> = if let Some(ref d) = filter.doc_no {
             let t = d.trim();
-            if !t.is_empty() { param_idx += 1; conditions.push(format!("l.source_doc_no ILIKE ${}", param_idx)); }
-        }
-        if let Some(ref c) = filter.product_code {
+            if !t.is_empty() { param_idx += 1; conditions.push(format!("l.source_doc_no ILIKE ${}", param_idx)); Some(format!("%{t}%")) }
+            else { None }
+        } else { None };
+        let pcode_param: Option<String> = if let Some(ref c) = filter.product_code {
             let t = c.trim();
-            if !t.is_empty() { param_idx += 1; let n = param_idx as usize; conditions.push(product_field_cond("product_code", n)); }
-        }
-        if let Some(ref n) = filter.product_name {
+            if !t.is_empty() { param_idx += 1; let n = param_idx as usize; conditions.push(product_field_cond("product_code", n)); Some(format!("%{t}%")) }
+            else { None }
+        } else { None };
+        let pname_param: Option<String> = if let Some(ref n) = filter.product_name {
             let t = n.trim();
-            if !t.is_empty() { param_idx += 1; let m = param_idx as usize; conditions.push(product_field_cond("pdt_name", m)); }
-        }
-        if let Some(ref r) = filter.rep_name {
+            if !t.is_empty() { param_idx += 1; let m = param_idx as usize; conditions.push(product_field_cond("pdt_name", m)); Some(format!("%{t}%")) }
+            else { None }
+        } else { None };
+        let rep_param: Option<String> = if let Some(ref r) = filter.rep_name {
             let t = r.trim();
-            if !t.is_empty() { param_idx += 1; let n = param_idx as usize; conditions.push(rep_cond(n)); }
-        }
+            if !t.is_empty() { param_idx += 1; let n = param_idx as usize; conditions.push(rep_cond(n)); Some(format!("%{t}%")) }
+            else { None }
+        } else { None };
         let per_param: Option<String> = if let Some(ref p) = filter.period {
             if !p.trim().is_empty() { param_idx += 1; conditions.push(format!("l.period = ${}", param_idx)); Some(p.clone()) } else { None }
         } else { None };
@@ -301,9 +305,10 @@ impl ArApLedgerRepo {
         if let Some(pt) = pt_param { count_q = count_q.bind(pt); }
         if let Some(pid) = pid_param { count_q = count_q.bind(pid); }
         if let Some(ref k) = kw_param { count_q = count_q.bind(k); }
-        // doc_no, product_code, product_name, rep_name don't have local bind variables in this manual pattern
-        // They are bound via param_idx dynamically — but since we don't have local variables for them,
-        // we'll bind them using a separate approach: push to a Vec and bind in order
+        if let Some(ref d) = doc_param { count_q = count_q.bind(d); }
+        if let Some(ref c) = pcode_param { count_q = count_q.bind(c); }
+        if let Some(ref n) = pname_param { count_q = count_q.bind(n); }
+        if let Some(ref r) = rep_param { count_q = count_q.bind(r); }
         let total = count_q.fetch_one(&mut *executor).await? as u64;
 
         param_idx += 1; let limit_idx = param_idx;
@@ -351,6 +356,10 @@ impl ArApLedgerRepo {
         if let Some(pt) = pt_param { data_q = data_q.bind(pt); }
         if let Some(pid) = pid_param { data_q = data_q.bind(pid); }
         if let Some(ref k) = kw_param { data_q = data_q.bind(k); }
+        if let Some(ref d) = doc_param { data_q = data_q.bind(d); }
+        if let Some(ref c) = pcode_param { data_q = data_q.bind(c); }
+        if let Some(ref n) = pname_param { data_q = data_q.bind(n); }
+        if let Some(ref r) = rep_param { data_q = data_q.bind(r); }
         if let Some(ref p) = per_param { data_q = data_q.bind(p); }
         if let Some(d) = start_param { data_q = data_q.bind(d); }
         if let Some(d) = end_param { data_q = data_q.bind(d); }

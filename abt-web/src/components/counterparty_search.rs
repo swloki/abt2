@@ -23,7 +23,7 @@ pub fn counterparty_search_input(
     let q_id = format!("{}-q", panel_id);
     let list_id = format!("{}-list", panel_id);
     html! {
-        div class="relative w-52"
+        div class="relative w-52 min-w-[208px]"
             _=(format!("on click from elsewhere add .invisible to #{}", panel_id))
         {
             input type="hidden" name="keyword" id=(input_id) value=(value);

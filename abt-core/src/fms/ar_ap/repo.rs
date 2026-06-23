@@ -222,7 +222,28 @@ impl ArApLedgerRepo {
                       l.source_type, l.source_id, l.source_doc_no,
                       l.direction, l.amount, l.amount_applied,
                       l.amount - l.amount_applied AS amount_outstanding,
-                      l.currency, l.transaction_date, l.due_date, l.period, l.description
+                      l.currency, l.transaction_date, l.due_date, l.period, l.description,
+                      COALESCE(
+                        (SELECT po.doc_number FROM arrival_notices an
+                         JOIN purchase_orders po ON po.id = an.purchase_order_id AND po.deleted_at IS NULL
+                         WHERE an.id = l.source_id AND l.source_type = 16),
+                        (SELECT so.doc_number FROM shipping_requests sr
+                         JOIN sales_orders so ON so.id = sr.order_id AND so.deleted_at IS NULL
+                         WHERE sr.id = l.source_id AND l.source_type = 3)
+                      ) AS upstream_doc_no,
+                      COALESCE(
+                        (SELECT string_agg(DISTINCT p.pdt_name, '、')
+                         FROM arrival_notice_items ani
+                         JOIN products p ON p.product_id = ani.product_id
+                         WHERE ani.notice_id = l.source_id AND l.source_type = 16),
+                        (SELECT p.pdt_name FROM outsourcing_orders oo
+                         JOIN products p ON p.product_id = oo.product_id
+                         WHERE oo.id = l.source_id AND l.source_type = 11),
+                        (SELECT string_agg(DISTINCT p.pdt_name, '、')
+                         FROM shipping_request_items sri
+                         JOIN products p ON p.product_id = sri.product_id
+                         WHERE sri.shipping_request_id = l.source_id AND l.source_type = 3)
+                      ) AS product_summary
                FROM ar_ap_ledger l
                LEFT JOIN customers c ON l.party_type = 1 AND c.customer_id = l.party_id AND c.deleted_at IS NULL
                LEFT JOIN suppliers s ON l.party_type = 2 AND s.supplier_id = l.party_id AND s.deleted_at IS NULL
@@ -257,6 +278,162 @@ impl ArApLedgerRepo {
 
         let items = data_q.fetch_all(executor).await?;
         Ok((items, total))
+    }
+
+    /// 查询台账明细（产品行项目级，导出明细表用，不分页）
+    ///
+    /// 用 CTE 先按 filter 筛出 ar_ap_ledger 行 + 往来方名称，再 UNION ALL 三种来源
+    /// 的行项目级明细：采购入库(多产品/PO单价)、委外(单产品/主表单价)、销售发货(多产品/SO单价)。
+    pub async fn query_details(
+        executor: PgExecutor<'_>,
+        filter: &ArApLedgerFilter,
+    ) -> Result<Vec<ArApLedgerDetailRow>> {
+        let mut conditions: Vec<String> = Vec::new();
+        let mut param_idx: u32 = 0;
+
+        let pt_param: Option<CounterpartyType> = if let Some(pt) = filter.party_type {
+            param_idx += 1;
+            conditions.push(format!("l.party_type = ${}", param_idx));
+            Some(pt)
+        } else {
+            None
+        };
+
+        let pid_param: Option<i64> = if let Some(pid) = filter.party_id {
+            param_idx += 1;
+            conditions.push(format!("l.party_id = ${}", param_idx));
+            Some(pid)
+        } else {
+            None
+        };
+
+        if filter.outstanding_only {
+            conditions.push("l.amount - l.amount_applied > 0".to_string());
+        }
+
+        let kw_param: Option<String> = if let Some(ref kw) = filter.keyword {
+            let trimmed = kw.trim();
+            if trimmed.is_empty() {
+                None
+            } else {
+                param_idx += 1;
+                conditions.push(format!(
+                    "(EXISTS(SELECT 1 FROM customers c WHERE c.customer_id = l.party_id AND c.customer_name ILIKE ${p}) \
+                      OR EXISTS(SELECT 1 FROM suppliers s WHERE s.supplier_id = l.party_id AND s.supplier_name ILIKE ${p}))",
+                    p = param_idx
+                ));
+                Some(format!("%{trimmed}%"))
+            }
+        } else {
+            None
+        };
+
+        let per_param: Option<String> = if let Some(ref p) = filter.period {
+            if !p.trim().is_empty() {
+                param_idx += 1;
+                conditions.push(format!("l.period = ${}", param_idx));
+                Some(p.clone())
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
+        let start_param: Option<chrono::NaiveDate> = if let Some(d) = filter.start_date {
+            param_idx += 1;
+            conditions.push(format!("l.transaction_date >= ${}", param_idx));
+            Some(d)
+        } else {
+            None
+        };
+
+        let end_param: Option<chrono::NaiveDate> = if let Some(d) = filter.end_date {
+            param_idx += 1;
+            conditions.push(format!("l.transaction_date <= ${}", param_idx));
+            Some(d)
+        } else {
+            None
+        };
+
+        let where_clause = if conditions.is_empty() {
+            String::new()
+        } else {
+            format!("WHERE {}", conditions.join(" AND "))
+        };
+
+        let sql = format!(
+            r#"WITH filtered AS (
+                SELECT l.id, l.source_type, l.source_id, l.source_doc_no, l.transaction_date, l.amount,
+                       COALESCE(c.customer_name, s.supplier_name, 'Unknown') AS party_name
+                FROM ar_ap_ledger l
+                LEFT JOIN customers c ON l.party_type = 1 AND c.customer_id = l.party_id AND c.deleted_at IS NULL
+                LEFT JOIN suppliers s ON l.party_type = 2 AND s.supplier_id = l.party_id AND s.deleted_at IS NULL
+                {where_clause}
+              )
+              SELECT f.id AS ledger_id, f.party_name, f.source_doc_no,
+                     po.doc_number AS upstream_doc_no, 16::SMALLINT AS source_type,
+                     p.product_code, p.pdt_name AS product_name,
+                     ani.accepted_qty AS quantity,
+                     COALESCE(poi.unit_price, 0) AS unit_price,
+                     COALESCE(ani.accepted_qty * poi.unit_price, 0) AS line_amount,
+                     f.transaction_date
+              FROM filtered f
+              JOIN arrival_notices an ON an.id = f.source_id AND f.source_type = 16
+              LEFT JOIN purchase_orders po ON po.id = an.purchase_order_id
+              JOIN arrival_notice_items ani ON ani.notice_id = an.id AND ani.accepted_qty > 0
+              LEFT JOIN purchase_order_items poi ON poi.id = ani.order_item_id
+              JOIN products p ON p.product_id = ani.product_id
+              UNION ALL
+              SELECT f.id, f.party_name, f.source_doc_no,
+                     NULL, 11::SMALLINT,
+                     p.product_code, p.pdt_name,
+                     COALESCE(f.amount / NULLIF(oo.unit_price, 0), 0) AS quantity,
+                     oo.unit_price AS unit_price,
+                     f.amount AS line_amount,
+                     f.transaction_date
+              FROM filtered f
+              JOIN outsourcing_orders oo ON oo.id = f.source_id AND f.source_type = 11
+              JOIN products p ON p.product_id = oo.product_id
+              UNION ALL
+              SELECT f.id, f.party_name, f.source_doc_no,
+                     so.doc_number, 3::SMALLINT,
+                     p.product_code, p.pdt_name,
+                     sri.shipped_qty AS quantity,
+                     COALESCE(soi.unit_price, 0) AS unit_price,
+                     COALESCE(sri.shipped_qty * soi.unit_price, 0) AS line_amount,
+                     f.transaction_date
+              FROM filtered f
+              JOIN shipping_requests sr ON sr.id = f.source_id AND f.source_type = 3
+              LEFT JOIN sales_orders so ON so.id = sr.order_id
+              JOIN shipping_request_items sri ON sri.shipping_request_id = sr.id AND sri.shipped_qty > 0
+              LEFT JOIN sales_order_items soi ON soi.id = sri.order_item_id
+              JOIN products p ON p.product_id = sri.product_id
+              ORDER BY transaction_date DESC, ledger_id"#
+        );
+
+        let mut q = sqlx::query_as::<sqlx::Postgres, ArApLedgerDetailRow>(sqlx::AssertSqlSafe(sql));
+        if let Some(pt) = pt_param {
+            q = q.bind(pt);
+        }
+        if let Some(pid) = pid_param {
+            q = q.bind(pid);
+        }
+        if let Some(ref k) = kw_param {
+            q = q.bind(k);
+        }
+        if let Some(ref p) = per_param {
+            q = q.bind(p);
+        }
+        if let Some(d) = start_param {
+            q = q.bind(d);
+        }
+        if let Some(d) = end_param {
+            q = q.bind(d);
+        }
+
+        let items = q.fetch_all(executor).await?;
+        Ok(items)
     }
 
     /// 台账汇总（按 filter 聚合：总额/未清/逾期/7天内到期，逾期基准=due_date）

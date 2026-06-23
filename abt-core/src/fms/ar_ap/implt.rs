@@ -83,6 +83,15 @@ impl ArApService for ArApServiceImpl {
         Ok(PaginatedResult::new(items, total, page.page, page.page_size))
     }
 
+    async fn list_ledger_details(
+        &self,
+        _ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        filter: ArApLedgerFilter,
+    ) -> Result<Vec<ArApLedgerDetailRow>> {
+        ArApLedgerRepo::query_details(db, &filter).await
+    }
+
     async fn ledger_summary(
         &self,
         _ctx: &ServiceContext,

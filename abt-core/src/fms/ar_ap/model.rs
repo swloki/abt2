@@ -144,6 +144,32 @@ pub struct ArApLedgerRow {
     pub due_date: Option<NaiveDate>,
     pub period: String,
     pub description: String,
+    /// 上游单据号：采购单号(AP-采购入库) / 销售单号(AR-销售发货)；委外为 None
+    pub upstream_doc_no: Option<String>,
+    /// 产品名称聚合（string_agg DISTINCT），如「螺丝、螺母」；前端 CSS truncate
+    pub product_summary: Option<String>,
+}
+
+/// 台账明细行（产品行项目级，导出明细表用）
+#[derive(Debug, Clone, sqlx::FromRow, serde::Serialize)]
+pub struct ArApLedgerDetailRow {
+    pub ledger_id: i64,
+    /// 往来方名称（供应商 / 客户）
+    pub party_name: String,
+    /// 发生单号（入库单 / 发货单 / 委外单）
+    pub source_doc_no: String,
+    /// 上游单据号：采购单号 / 销售单号；委外为 None
+    pub upstream_doc_no: Option<String>,
+    /// 来源单据类型（区分采购入库 / 委外 / 销售发货）
+    pub source_type: DocumentType,
+    pub product_code: String,
+    /// 产品名称（products.pdt_name）
+    pub product_name: String,
+    pub quantity: Decimal,
+    pub unit_price: Decimal,
+    /// 行金额 = quantity × unit_price
+    pub line_amount: Decimal,
+    pub transaction_date: NaiveDate,
 }
 
 /// 往来方余额

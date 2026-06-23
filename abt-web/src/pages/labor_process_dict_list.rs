@@ -176,6 +176,7 @@ fn process_dict_list_page(
                     export_button::export_button(
                         "导出工序字典",
                         "labor-process-dict",
+                        None,
                     )
                 })
                 @if can_create {

@@ -162,7 +162,7 @@ fn warehouse_list_page(
                         )
                     })
                 { (icon::upload_icon("w-4 h-4")) "导入" }
-                (export_button::export_button("导出库位", "warehouse-location"))
+                (export_button::export_button("导出库位", "warehouse-location", None))
                 @if can_create {
                     a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
                         href=(WarehouseCreatePath::PATH)

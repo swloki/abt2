@@ -17,6 +17,14 @@ pub trait ArApService: Send + Sync {
         page: PageParams,
     ) -> Result<PaginatedResult<ArApLedgerRow>>;
 
+    /// 查询台账明细（产品行项目级，供「导出明细表」用，不分页，遵循同一 filter）
+    async fn list_ledger_details(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        filter: ArApLedgerFilter,
+    ) -> Result<Vec<ArApLedgerDetailRow>>;
+
     /// 台账汇总（按 filter 聚合：总额/未清/逾期/7天内到期，逾期基准=due_date）
     async fn ledger_summary(
         &self,

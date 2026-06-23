@@ -10,6 +10,7 @@ use abt_core::fms::ar_ap::ArApService;
 use abt_core::fms::enums::CounterpartyType;
 use abt_core::shared::types::PaginatedResult;
 
+use crate::components::export_button;
 use crate::components::icon;
 use crate::components::pagination::pagination;
 use crate::errors::Result;
@@ -129,6 +130,12 @@ fn ledger_row(item: &ArApLedgerRow, today: chrono::NaiveDate) -> Markup {
             }
             td class="px-4 py-3 text-sm font-medium" { (item.party_name) }
             td class="px-4 py-3 text-sm text-accent font-mono" { (item.source_doc_no) }
+            td class="px-4 py-3 text-sm text-fg-2 font-mono" {
+                @if let Some(no) = item.upstream_doc_no.as_deref() { (no) } @else { "—" }
+            }
+            td class="px-4 py-3 text-sm text-fg-2 max-w-[180px] truncate" title=(item.product_summary.as_deref().unwrap_or("")) {
+                @if let Some(p) = item.product_summary.as_deref() { (p) } @else { "—" }
+            }
             td class="px-4 py-3 text-sm text-fg-2 whitespace-nowrap" {
                 @if let Some(due) = item.due_date { (due.format("%Y-%m-%d")) } @else { "—" }
             }
@@ -183,6 +190,10 @@ fn ledger_table(items: &[ArApLedgerRow], today: chrono::NaiveDate, total: u64, p
                             th  class="px-4 py-3 text-left text-xs font-medium text-fg-2 uppercase tracking-wider"
                             { "单据号" }
                             th  class="px-4 py-3 text-left text-xs font-medium text-fg-2 uppercase tracking-wider"
+                            { "采购单号" }
+                            th  class="px-4 py-3 text-left text-xs font-medium text-fg-2 uppercase tracking-wider"
+                            { "产品" }
+                            th  class="px-4 py-3 text-left text-xs font-medium text-fg-2 uppercase tracking-wider"
                             { "到期日" }
                             th  class="px-4 py-3 text-right text-xs font-medium text-fg-2 uppercase tracking-wider"
                             { "应付金额" }
@@ -198,7 +209,7 @@ fn ledger_table(items: &[ArApLedgerRow], today: chrono::NaiveDate, total: u64, p
                         @for item in items { (ledger_row(item, today)) }
                         @if items.is_empty() {
                             tr {
-                                td colspan="8" class="px-4 py-12 text-center text-muted text-sm" {
+                                td colspan="10" class="px-4 py-12 text-center text-muted text-sm" {
                                     "暂无应付记录"
                                 }
                             }
@@ -232,7 +243,7 @@ fn filter_and_table(
     let inactive_cls = "inline-flex items-center gap-1.5 px-4 py-1.5 text-sm cursor-pointer bg-transparent border-none text-muted rounded-sm hover:text-fg transition-colors";
 
     html! {
-        form
+        form id="ap-filter-form"
             class="flex items-center gap-3 mb-5 flex-wrap"
             hx-get=(ApLedgerPath::PATH)
             hx-trigger="change, keyup changed delay:300ms from:.search-input"
@@ -326,6 +337,7 @@ pub async fn get_list(
         div {
             div class="flex items-center justify-between mb-6" {
                 h1 class="text-xl font-bold text-fg tracking-tight" { "应付台账" }
+                (export_button::export_button("导出明细表", "ap-ledger-detail", Some("#ap-filter-form")))
             }
             (summary_cards(&summary))
             ({

@@ -7,18 +7,24 @@ pub struct ExportItem {
 }
 
 /// 单个导出按钮（点击弹确认框，确认后直接下载）
-pub fn export_button(label: &str, export_type: &str) -> Markup {
+///
+/// `hx_include` 传入 CSS 选择器（如 `#ap-filter-form`）时，导出请求会一并携带该表单的
+/// 字段值，用于按当前筛选条件导出；传 `None` 则全量导出。
+pub fn export_button(label: &str, export_type: &str, hx_include: Option<&str>) -> Markup {
  let path = format!("{}/{}", crate::routes::excel::EXPORT_START_PATH, export_type);
  let confirm_msg = format!("确定要导出「{}」吗？", label);
- html! {
-    button
-        type="button"
-        class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
-        hx-post=(path)
-        hx-confirm=(confirm_msg)
-        hx-swap="none"
-    { (crate::components::icon::download_icon("w-4 h-4")) " " (label) }
-}
+ let class = "inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs";
+ let inner = html! { (crate::components::icon::download_icon("w-4 h-4")) " " (label) };
+ match hx_include {
+  Some(sel) => html! {
+   button type="button" class=(class) hx-post=(path) hx-confirm=(confirm_msg) hx-swap="none" hx-include=(sel)
+   { (inner) }
+  },
+  None => html! {
+   button type="button" class=(class) hx-post=(path) hx-confirm=(confirm_msg) hx-swap="none"
+   { (inner) }
+  },
+ }
 }
 
 /// 导出下拉菜单（多种导出类型）

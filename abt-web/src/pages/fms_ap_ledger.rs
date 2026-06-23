@@ -238,14 +238,20 @@ fn ledger_table(items: &[ArApLedgerRow], today: chrono::NaiveDate, total: u64, p
     }
 }
 
-fn filter_input(input_type: &str, name: &str, placeholder: &str, value: &str) -> Markup {
+fn filter_input(input_type: &str, name: &str, label: &str, value: &str) -> Markup {
     html! {
-        input
-            type=(input_type)
-            name=(name)
-            class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
-            placeholder=(placeholder)
-            value=(value);
+        label
+            class="flex flex-col gap-1"
+            for=(name)
+        {
+            span class="text-xs font-medium text-fg-2 whitespace-nowrap" { (label) }
+            input
+                type=(input_type)
+                id=(name)
+                name=(name)
+                class="w-full px-3 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
+                value=(value);
+        }
     }
 }
 
@@ -256,15 +262,15 @@ fn filter_and_table(
     today: chrono::NaiveDate,
     query_string: &str,
 ) -> Markup {
-    let active_cls = "inline-flex items-center gap-1.5 px-4 py-1.5 text-sm font-semibold cursor-pointer bg-bg text-accent rounded-sm";
-    let inactive_cls = "inline-flex items-center gap-1.5 px-4 py-1.5 text-sm cursor-pointer bg-transparent border-none text-muted rounded-sm hover:text-fg transition-colors";
+    let active_cls = "inline-flex items-center px-3 py-1 text-sm font-semibold cursor-pointer bg-bg text-accent rounded-sm";
+    let inactive_cls = "inline-flex items-center px-3 py-1 text-sm cursor-pointer bg-transparent border-none text-muted rounded-sm hover:text-fg transition-colors";
     let keyword = q.keyword.as_deref().unwrap_or("");
     let start = q.start_date.clone().unwrap_or_default();
     let end = q.end_date.clone().unwrap_or_default();
 
     html! {
         form id="ap-filter-form"
-            class="flex items-center gap-3 mb-5 flex-wrap"
+            class="data-card p-4 mb-4"
             hx-get=(ApLedgerPath::PATH)
             hx-trigger="change, keyup changed delay:300ms"
             hx-target="#data-card"
@@ -273,43 +279,50 @@ fn filter_and_table(
             hx-push-url="true"
         {
             input type="hidden" name="outstanding_only" value=(outstanding_only);
-            div class="relative flex-1 min-w-[200px] max-w-xs icon:absolute icon:left-3 icon:top-1/2 icon:-translate-y-1/2 icon:w-4 icon:h-4 icon:text-muted"
+            // 主搜索行：供应商名称 + 只看未清 toggle
+            div class="flex items-center gap-3 mb-3"
             {
-                (icon::search_icon(""))
-                input
-                    class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input"
-                    type="text"
-                    name="keyword"
-                    placeholder="供应商名称"
-                    value=(keyword);
+                div class="relative flex-1 max-w-sm icon:absolute icon:left-3 icon:top-1/2 icon:-translate-y-1/2 icon:w-4 icon:h-4 icon:text-muted"
+                {
+                    (icon::search_icon(""))
+                    input
+                        class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input"
+                        type="text"
+                        name="keyword"
+                        placeholder="搜索供应商名称"
+                        value=(keyword);
+                }
+                div class="inline-flex bg-surface border border-border-soft rounded-md p-[3px] gap-0.5 ml-auto"
+                {
+                    a   class=(if outstanding_only { active_cls } else { inactive_cls })
+                        hx-get=(ApLedgerPath::PATH)
+                        hx-vals=r#"{"outstanding_only":"true"}"#
+                        hx-target="#data-card"
+                        hx-select="#data-card"
+                        hx-swap="outerHTML"
+                        hx-push-url="true"
+                        hx-include="#ap-filter-form input:not([type=hidden])"
+                    { "只看未清" }
+                    a   class=(if !outstanding_only { active_cls } else { inactive_cls })
+                        hx-get=(ApLedgerPath::PATH)
+                        hx-vals=r#"{"outstanding_only":"false"}"#
+                        hx-target="#data-card"
+                        hx-select="#data-card"
+                        hx-swap="outerHTML"
+                        hx-push-url="true"
+                        hx-include="#ap-filter-form input:not([type=hidden])"
+                    { "全部" }
+                }
             }
-            (filter_input("date", "start_date", "开始日期", &start))
-            span class="text-muted text-sm self-center" { "—" }
-            (filter_input("date", "end_date", "结束日期", &end))
-            (filter_input("text", "doc_no", "发生单号", q.doc_no.as_deref().unwrap_or("")))
-            (filter_input("text", "product_code", "产品编码", q.product_code.as_deref().unwrap_or("")))
-            (filter_input("text", "product_name", "产品名称", q.product_name.as_deref().unwrap_or("")))
-            (filter_input("text", "rep_name", "采购员", q.rep_name.as_deref().unwrap_or("")))
-            div class="inline-flex bg-surface border border-border-soft rounded-md p-[3px] gap-0.5"
+            // 高级筛选网格
+            div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-x-3 gap-y-2"
             {
-                a   class=(if outstanding_only { active_cls } else { inactive_cls })
-                    hx-get=(ApLedgerPath::PATH)
-                    hx-vals=r#"{"outstanding_only":"true"}"#
-                    hx-target="#data-card"
-                    hx-select="#data-card"
-                    hx-swap="outerHTML"
-                    hx-push-url="true"
-                    hx-include="#ap-filter-form input:not([type=hidden])"
-                { "只看未清" }
-                a   class=(if !outstanding_only { active_cls } else { inactive_cls })
-                    hx-get=(ApLedgerPath::PATH)
-                    hx-vals=r#"{"outstanding_only":"false"}"#
-                    hx-target="#data-card"
-                    hx-select="#data-card"
-                    hx-swap="outerHTML"
-                    hx-push-url="true"
-                    hx-include="#ap-filter-form input:not([type=hidden])"
-                { "全部" }
+                (filter_input("date", "start_date", "开始日期", &start))
+                (filter_input("date", "end_date", "结束日期", &end))
+                (filter_input("text", "doc_no", "发生单号", q.doc_no.as_deref().unwrap_or("")))
+                (filter_input("text", "product_code", "产品编码", q.product_code.as_deref().unwrap_or("")))
+                (filter_input("text", "product_name", "产品名称", q.product_name.as_deref().unwrap_or("")))
+                (filter_input("text", "rep_name", "采购员", q.rep_name.as_deref().unwrap_or("")))
             }
         }
         ({

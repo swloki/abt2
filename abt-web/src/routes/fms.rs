@@ -52,6 +52,27 @@ pub struct ArLedgerPath;
 #[typed_path("/admin/fms/ap-ledger")]
 pub struct ApLedgerPath;
 
+// AR/AP Adjustment
+#[derive(TypedPath, Deserialize, Serialize, Clone)]
+#[typed_path("/admin/fms/ar-adjustments")]
+pub struct ArAdjustmentListPath;
+
+#[derive(TypedPath, Deserialize, Serialize, Clone)]
+#[typed_path("/admin/fms/ar-adjustments/create")]
+pub struct ArAdjustmentCreatePath;
+
+#[derive(TypedPath, Deserialize, Serialize, Clone)]
+#[typed_path("/admin/fms/ap-adjustments")]
+pub struct ApAdjustmentListPath;
+
+#[derive(TypedPath, Deserialize, Serialize, Clone)]
+#[typed_path("/admin/fms/ap-adjustments/create")]
+pub struct ApAdjustmentCreatePath;
+
+#[derive(TypedPath, Deserialize, Serialize, Clone)]
+#[typed_path("/admin/fms/adjustments/balance")]
+pub struct AdjustmentBalancePath;
+
 // AR/AP Aging
 #[derive(TypedPath, Deserialize, Serialize, Clone)]
 #[typed_path("/admin/fms/ar-aging")]
@@ -101,6 +122,12 @@ pub fn router() -> Router<AppState> {
         // AR/AP Ledger
         .route(ArLedgerPath::PATH, get(crate::pages::fms_ar_ledger::get_list))
         .route(ApLedgerPath::PATH, get(crate::pages::fms_ap_ledger::get_list))
+        // AR/AP Adjustment
+        .route(ArAdjustmentListPath::PATH, get(crate::pages::fms_adjustment_list::get_ar_list))
+        .route(ArAdjustmentCreatePath::PATH, get(crate::pages::fms_adjustment_create::get_ar_create).post(crate::pages::fms_adjustment_create::create_ar))
+        .route(ApAdjustmentListPath::PATH, get(crate::pages::fms_adjustment_list::get_ap_list))
+        .route(ApAdjustmentCreatePath::PATH, get(crate::pages::fms_adjustment_create::get_ap_create).post(crate::pages::fms_adjustment_create::create_ap))
+        .route(AdjustmentBalancePath::PATH, get(crate::pages::fms_adjustment_create::get_balance))
         // AR/AP Aging
         .route(ArAgingPath::PATH, get(crate::pages::fms_ar_aging::get_page))
         .route(ApAgingPath::PATH, get(crate::pages::fms_ap_aging::get_page))

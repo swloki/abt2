@@ -182,3 +182,5 @@ pub mod fms_ap_ledger;
 pub mod fms_ar_aging;
 pub mod fms_ap_aging;
 pub mod fms_settlement;
+pub mod fms_adjustment_create;
+pub mod fms_adjustment_list;

@@ -52,13 +52,6 @@ pub struct ArLedgerPath;
 #[typed_path("/admin/fms/ap-ledger")]
 pub struct ApLedgerPath;
 
-#[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/fms/ap-ledger/search-supplier")]
-pub struct ApSupplierSearchPath;
-
-#[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/fms/ar-ledger/search-customer")]
-pub struct ArCustomerSearchPath;
 
 #[derive(TypedPath, Deserialize, Serialize, Clone)]
 #[typed_path("/admin/fms/ar-ledger/detail")]
@@ -140,8 +133,6 @@ pub fn router() -> Router<AppState> {
         .route(ApLedgerPath::PATH, get(crate::pages::fms_ap_ledger::get_list))
         .route(ArLedgerDetailPath::PATH, get(crate::pages::fms_ar_ledger::get_detail))
         .route(ApLedgerDetailPath::PATH, get(crate::pages::fms_ap_ledger::get_detail))
-        .route(ApSupplierSearchPath::PATH, get(crate::pages::fms_ap_ledger::search_supplier))
-        .route(ArCustomerSearchPath::PATH, get(crate::pages::fms_ar_ledger::search_customer))
         // AR/AP Adjustment
         .route(ArAdjustmentListPath::PATH, get(crate::pages::fms_adjustment_list::get_ar_list))
         .route(ArAdjustmentCreatePath::PATH, get(crate::pages::fms_adjustment_create::get_ar_create).post(crate::pages::fms_adjustment_create::create_ar))

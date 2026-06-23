@@ -8,12 +8,13 @@ use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
 use serde::Deserialize;
 
-use abt_core::master_data::supplier::model::{Supplier, SupplierQuery};
+use abt_core::master_data::supplier::model::SupplierQuery;
 use abt_core::master_data::supplier::SupplierService;
 use abt_core::purchase::order::model::PurchaseOrderQuery;
 use abt_core::purchase::order::PurchaseOrderService;
 use abt_core::shared::types::PageParams;
 
+use crate::components::supplier_search::{supplier_search_field, CascadeParams};
 use crate::errors::Result;
 use crate::utils::RequestContext;
 
@@ -73,7 +74,7 @@ pub async fn search_purchase_orders(
 
 /// 采购订单多选弹窗（confirm-post：确认按钮 hx-post=confirm_path hx-target=#po-cards，提交选中 po_id）
 /// confirm_path 由调用方传（入库单传 StockInConfirmPosPath）
-pub fn purchase_order_picker_modal(modal_id: &str, confirm_path: &str, suppliers: &[Supplier]) -> Markup {
+pub fn purchase_order_picker_modal(modal_id: &str, confirm_path: &str) -> Markup {
  let close_hs = format!("on click remove .is-open from #{}", modal_id);
  html! {
     div class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto"
@@ -123,20 +124,18 @@ pub fn purchase_order_picker_modal(modal_id: &str, confirm_path: &str, suppliers
                 }
                 div class="flex flex-col gap-1" {
                     label class="text-xs font-medium text-fg-2" { "供应商" }
-                    select
-                        class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
-                        name="supplier_id"
-                        hx-get=(PurchaseOrderSearchPath::PATH)
-                        hx-trigger="change"
-                        hx-target="#po-search-results"
-                        hx-swap="innerHTML"
-                        hx-include=".po-search-bar"
-                    {
-                        option value="" { "全部供应商" }
-                        @for s in suppliers {
-                            option value=(s.id) { (s.name.as_str()) }
-                        }
-                    }
+                    (supplier_search_field(
+                        "po-supplier-input", "po-supplier-display", "po-supplier-panel", "po-supplier-results",
+                        "supplier_id", "", "全部供应商",
+                        true,
+                        "w-full",
+                        Some(&CascadeParams {
+                            hx_get: PurchaseOrderSearchPath::PATH.to_string(),
+                            hx_target: "#po-search-results".to_string(),
+                            hx_include: ".po-search-bar".to_string(),
+                            hx_swap: "innerHTML".to_string(),
+                        }),
+                    ))
                 }
                 div class="flex flex-col gap-1" {
                     label class="text-xs font-medium text-fg-2" { "状态" }

@@ -93,6 +93,14 @@ pub struct ArApLedgerFilter {
     pub end_date: Option<NaiveDate>,
     /// 往来方名称模糊搜（customer_name / supplier_name）
     pub keyword: Option<String>,
+    /// 发生单号模糊搜（source_doc_no）
+    pub doc_no: Option<String>,
+    /// 产品编码模糊搜（EXISTS 子查询行项目产品）
+    pub product_code: Option<String>,
+    /// 产品名称模糊搜（EXISTS 子查询行项目产品）
+    pub product_name: Option<String>,
+    /// 销售经理/采购员姓名模糊搜（users.display_name）
+    pub rep_name: Option<String>,
 }
 
 /// 核销记录查询筛选条件

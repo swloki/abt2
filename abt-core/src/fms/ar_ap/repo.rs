@@ -17,6 +17,141 @@ const SETTLEMENT_COLUMNS: &str = "id, payment_source_type, payment_source_id, in
 // ArApLedgerRepo
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// 筛选条件构造（query_with_party / summary / query_details 三处共用）
+// ---------------------------------------------------------------------------
+
+/// 筛选参数值（异构类型，由 bind_filter! 按类型绑定到 $N 占位符）
+pub(crate) enum FilterArg {
+    PartyType(CounterpartyType),
+    PartyId(i64),
+    Text(String),
+    Date(chrono::NaiveDate),
+}
+
+/// 按 build_filter_conditions 返回的 params 顺序绑定到 sqlx query
+macro_rules! bind_filter {
+    ($q:expr, $params:expr) => {{
+        let mut q = $q;
+        for p in $params {
+            q = match p {
+                FilterArg::PartyType(v) => q.bind(*v),
+                FilterArg::PartyId(v) => q.bind(*v),
+                FilterArg::Text(v) => q.bind(v.as_str()),
+                FilterArg::Date(v) => q.bind(*v),
+            };
+        }
+        q
+    }};
+}
+
+/// 产品字段（product_code / pdt_name）EXISTS 子查询：匹配三种来源的行项目产品
+fn product_field_cond(field: &str, n: usize) -> String {
+    format!(
+        "EXISTS(\
+         SELECT 1 FROM shipping_request_items sri JOIN products p ON p.product_id = sri.product_id \
+           WHERE sri.shipping_request_id = l.source_id AND l.source_type = 3 AND p.{field} ILIKE ${n} \
+         UNION ALL SELECT 1 FROM arrival_notice_items ani JOIN products p ON p.product_id = ani.product_id \
+           WHERE ani.notice_id = l.source_id AND l.source_type = 16 AND p.{field} ILIKE ${n} \
+         UNION ALL SELECT 1 FROM outsourcing_orders oo JOIN products p ON p.product_id = oo.product_id \
+           WHERE oo.id = l.source_id AND l.source_type = 11 AND p.{field} ILIKE ${n})",
+        field = field,
+        n = n
+    )
+}
+
+/// 销售经理/采购员（users.display_name）EXISTS：销售发货→销售经理、采购入库→采购员
+fn rep_cond(n: usize) -> String {
+    format!(
+        "EXISTS(\
+         SELECT 1 FROM shipping_requests sr JOIN sales_orders so ON so.id = sr.order_id \
+           JOIN users u ON u.user_id = so.sales_rep_id \
+           WHERE sr.id = l.source_id AND l.source_type = 3 AND u.display_name ILIKE ${n} \
+         UNION ALL SELECT 1 FROM arrival_notices an JOIN purchase_orders po ON po.id = an.purchase_order_id \
+           JOIN users u ON u.user_id = po.operator_id \
+           WHERE an.id = l.source_id AND l.source_type = 16 AND u.display_name ILIKE ${n})",
+        n = n
+    )
+}
+
+/// 由 ArApLedgerFilter 构造 WHERE 条件片段与绑定参数。
+/// 条件 SQL 中参数编号 ${n} 按绑定顺序 1,2,3...；调用方用 bind_filter! 绑定 params，
+/// LIMIT/OFFSET 或其它附加参数编号从 params.len()+1 起。
+pub(crate) fn build_filter_conditions(
+    filter: &ArApLedgerFilter,
+) -> (Vec<String>, Vec<FilterArg>) {
+    let mut conds: Vec<String> = Vec::new();
+    let mut params: Vec<FilterArg> = Vec::new();
+
+    if let Some(pt) = filter.party_type {
+        params.push(FilterArg::PartyType(pt));
+        conds.push(format!("l.party_type = ${}", params.len()));
+    }
+    if let Some(pid) = filter.party_id {
+        params.push(FilterArg::PartyId(pid));
+        conds.push(format!("l.party_id = ${}", params.len()));
+    }
+    if filter.outstanding_only {
+        conds.push("l.amount - l.amount_applied > 0".into());
+    }
+    if let Some(ref kw) = filter.keyword {
+        let t = kw.trim();
+        if !t.is_empty() {
+            params.push(FilterArg::Text(format!("%{t}%")));
+            let n = params.len();
+            conds.push(format!(
+                "(EXISTS(SELECT 1 FROM customers c WHERE c.customer_id = l.party_id AND c.customer_name ILIKE ${n}) \
+                  OR EXISTS(SELECT 1 FROM suppliers s WHERE s.supplier_id = l.party_id AND s.supplier_name ILIKE ${n}))"
+            ));
+        }
+    }
+    if let Some(ref d) = filter.doc_no {
+        let t = d.trim();
+        if !t.is_empty() {
+            params.push(FilterArg::Text(format!("%{t}%")));
+            conds.push(format!("l.source_doc_no ILIKE ${}", params.len()));
+        }
+    }
+    if let Some(ref code) = filter.product_code {
+        let t = code.trim();
+        if !t.is_empty() {
+            params.push(FilterArg::Text(format!("%{t}%")));
+            conds.push(product_field_cond("product_code", params.len()));
+        }
+    }
+    if let Some(ref name) = filter.product_name {
+        let t = name.trim();
+        if !t.is_empty() {
+            params.push(FilterArg::Text(format!("%{t}%")));
+            conds.push(product_field_cond("pdt_name", params.len()));
+        }
+    }
+    if let Some(ref rep) = filter.rep_name {
+        let t = rep.trim();
+        if !t.is_empty() {
+            params.push(FilterArg::Text(format!("%{t}%")));
+            conds.push(rep_cond(params.len()));
+        }
+    }
+    if let Some(ref p) = filter.period {
+        let t = p.trim();
+        if !t.is_empty() {
+            params.push(FilterArg::Text(t.to_string()));
+            conds.push(format!("l.period = ${}", params.len()));
+        }
+    }
+    if let Some(d) = filter.start_date {
+        params.push(FilterArg::Date(d));
+        conds.push(format!("l.transaction_date >= ${}", params.len()));
+    }
+    if let Some(d) = filter.end_date {
+        params.push(FilterArg::Date(d));
+        conds.push(format!("l.transaction_date <= ${}", params.len()));
+    }
+
+    (conds, params)
+}
+
 pub struct ArApLedgerRepo;
 
 impl ArApLedgerRepo {
@@ -104,117 +239,22 @@ impl ArApLedgerRepo {
         filter: &ArApLedgerFilter,
         page: &PageParams,
     ) -> Result<(Vec<ArApLedgerRow>, u64)> {
-        let mut conditions: Vec<String> = Vec::new();
-        let mut param_idx: u32 = 0;
-
-        // party_type filter
-        let pt_param: Option<CounterpartyType> = if let Some(pt) = filter.party_type {
-            param_idx += 1;
-            conditions.push(format!("l.party_type = ${}", param_idx));
-            Some(pt)
-        } else {
-            None
-        };
-
-        // party_id filter
-        let pid_param: Option<i64> = if let Some(pid) = filter.party_id {
-            param_idx += 1;
-            conditions.push(format!("l.party_id = ${}", param_idx));
-            Some(pid)
-        } else {
-            None
-        };
-
-        // outstanding only
-        if filter.outstanding_only {
-            conditions.push("l.amount - l.amount_applied > 0".to_string());
-        }
-
-        // keyword filter（往来方名称模糊搜，用 EXISTS 子查询避免依赖外层 JOIN — count 查询无 JOIN）
-        let kw_param: Option<String> = if let Some(ref kw) = filter.keyword {
-            let trimmed = kw.trim();
-            if trimmed.is_empty() {
-                None
-            } else {
-                param_idx += 1;
-                conditions.push(format!(
-                    "(EXISTS(SELECT 1 FROM customers c WHERE c.customer_id = l.party_id AND c.customer_name ILIKE ${p}) \
-                      OR EXISTS(SELECT 1 FROM suppliers s WHERE s.supplier_id = l.party_id AND s.supplier_name ILIKE ${p}))",
-                    p = param_idx
-                ));
-                Some(format!("%{trimmed}%"))
-            }
-        } else {
-            None
-        };
-
-        // period filter
-        let per_param: Option<String> = if let Some(ref p) = filter.period {
-            if !p.trim().is_empty() {
-                param_idx += 1;
-                conditions.push(format!("l.period = ${}", param_idx));
-                Some(p.clone())
-            } else {
-                None
-            }
-        } else {
-            None
-        };
-
-        // date range
-        let start_param: Option<chrono::NaiveDate> = if let Some(d) = filter.start_date {
-            param_idx += 1;
-            conditions.push(format!("l.transaction_date >= ${}", param_idx));
-            Some(d)
-        } else {
-            None
-        };
-
-        let end_param: Option<chrono::NaiveDate> = if let Some(d) = filter.end_date {
-            param_idx += 1;
-            conditions.push(format!("l.transaction_date <= ${}", param_idx));
-            Some(d)
-        } else {
-            None
-        };
-
-        let where_clause = if conditions.is_empty() {
+        let (conds, params) = build_filter_conditions(filter);
+        let where_clause = if conds.is_empty() {
             String::new()
         } else {
-            format!("WHERE {}", conditions.join(" AND "))
+            format!("WHERE {}", conds.join(" AND "))
         };
 
-        // Count query
-        let count_sql = format!(
-            "SELECT COUNT(*) FROM ar_ap_ledger l {where_clause}"
-        );
-        let mut count_q =
-            sqlx::query_scalar::<sqlx::Postgres, i64>(sqlx::AssertSqlSafe(count_sql));
-        if let Some(pt) = pt_param {
-            count_q = count_q.bind(pt);
-        }
-        if let Some(pid) = pid_param {
-            count_q = count_q.bind(pid);
-        }
-        if let Some(ref k) = kw_param {
-            count_q = count_q.bind(k);
-        }
-        if let Some(ref p) = per_param {
-            count_q = count_q.bind(p);
-        }
-        if let Some(d) = start_param {
-            count_q = count_q.bind(d);
-        }
-        if let Some(d) = end_param {
-            count_q = count_q.bind(d);
-        }
+        // Count query（无 JOIN）
+        let count_sql = format!("SELECT COUNT(*) FROM ar_ap_ledger l {where_clause}");
+        let count_q = sqlx::query_scalar::<sqlx::Postgres, i64>(sqlx::AssertSqlSafe(count_sql));
+        let count_q = bind_filter!(count_q, &params);
         let total = count_q.fetch_one(&mut *executor).await? as u64;
 
-        // Data query with party name JOIN
-        param_idx += 1;
-        let limit_idx = param_idx;
-        param_idx += 1;
-        let offset_idx = param_idx;
+        // Data query with party name JOIN + 上游单号 + 产品聚合
+        let limit_n = params.len() + 1;
+        let offset_n = params.len() + 2;
 
         let data_sql = format!(
             r#"SELECT l.id, l.party_type, l.party_id,
@@ -249,34 +289,15 @@ impl ArApLedgerRepo {
                LEFT JOIN suppliers s ON l.party_type = 2 AND s.supplier_id = l.party_id AND s.deleted_at IS NULL
                {where_clause}
                ORDER BY l.transaction_date DESC, l.id DESC
-               LIMIT ${} OFFSET ${}"#,
-            limit_idx, offset_idx
+               LIMIT ${limit_n} OFFSET ${offset_n}"#,
         );
-        let mut data_q =
-            sqlx::query_as::<sqlx::Postgres, ArApLedgerRow>(sqlx::AssertSqlSafe(data_sql));
-        if let Some(pt) = pt_param {
-            data_q = data_q.bind(pt);
-        }
-        if let Some(pid) = pid_param {
-            data_q = data_q.bind(pid);
-        }
-        if let Some(ref k) = kw_param {
-            data_q = data_q.bind(k);
-        }
-        if let Some(ref p) = per_param {
-            data_q = data_q.bind(p);
-        }
-        if let Some(d) = start_param {
-            data_q = data_q.bind(d);
-        }
-        if let Some(d) = end_param {
-            data_q = data_q.bind(d);
-        }
-        data_q = data_q
+        let data_q = sqlx::query_as::<sqlx::Postgres, ArApLedgerRow>(sqlx::AssertSqlSafe(data_sql));
+        let data_q = bind_filter!(data_q, &params);
+        let items = data_q
             .bind(page.page_size as i64)
-            .bind(page.offset() as i64);
-
-        let items = data_q.fetch_all(executor).await?;
+            .bind(page.offset() as i64)
+            .fetch_all(executor)
+            .await?;
         Ok((items, total))
     }
 
@@ -288,78 +309,11 @@ impl ArApLedgerRepo {
         executor: PgExecutor<'_>,
         filter: &ArApLedgerFilter,
     ) -> Result<Vec<ArApLedgerDetailRow>> {
-        let mut conditions: Vec<String> = Vec::new();
-        let mut param_idx: u32 = 0;
-
-        let pt_param: Option<CounterpartyType> = if let Some(pt) = filter.party_type {
-            param_idx += 1;
-            conditions.push(format!("l.party_type = ${}", param_idx));
-            Some(pt)
-        } else {
-            None
-        };
-
-        let pid_param: Option<i64> = if let Some(pid) = filter.party_id {
-            param_idx += 1;
-            conditions.push(format!("l.party_id = ${}", param_idx));
-            Some(pid)
-        } else {
-            None
-        };
-
-        if filter.outstanding_only {
-            conditions.push("l.amount - l.amount_applied > 0".to_string());
-        }
-
-        let kw_param: Option<String> = if let Some(ref kw) = filter.keyword {
-            let trimmed = kw.trim();
-            if trimmed.is_empty() {
-                None
-            } else {
-                param_idx += 1;
-                conditions.push(format!(
-                    "(EXISTS(SELECT 1 FROM customers c WHERE c.customer_id = l.party_id AND c.customer_name ILIKE ${p}) \
-                      OR EXISTS(SELECT 1 FROM suppliers s WHERE s.supplier_id = l.party_id AND s.supplier_name ILIKE ${p}))",
-                    p = param_idx
-                ));
-                Some(format!("%{trimmed}%"))
-            }
-        } else {
-            None
-        };
-
-        let per_param: Option<String> = if let Some(ref p) = filter.period {
-            if !p.trim().is_empty() {
-                param_idx += 1;
-                conditions.push(format!("l.period = ${}", param_idx));
-                Some(p.clone())
-            } else {
-                None
-            }
-        } else {
-            None
-        };
-
-        let start_param: Option<chrono::NaiveDate> = if let Some(d) = filter.start_date {
-            param_idx += 1;
-            conditions.push(format!("l.transaction_date >= ${}", param_idx));
-            Some(d)
-        } else {
-            None
-        };
-
-        let end_param: Option<chrono::NaiveDate> = if let Some(d) = filter.end_date {
-            param_idx += 1;
-            conditions.push(format!("l.transaction_date <= ${}", param_idx));
-            Some(d)
-        } else {
-            None
-        };
-
-        let where_clause = if conditions.is_empty() {
+        let (conds, params) = build_filter_conditions(filter);
+        let where_clause = if conds.is_empty() {
             String::new()
         } else {
-            format!("WHERE {}", conditions.join(" AND "))
+            format!("WHERE {}", conds.join(" AND "))
         };
 
         let sql = format!(
@@ -412,26 +366,8 @@ impl ArApLedgerRepo {
               ORDER BY transaction_date DESC, ledger_id"#
         );
 
-        let mut q = sqlx::query_as::<sqlx::Postgres, ArApLedgerDetailRow>(sqlx::AssertSqlSafe(sql));
-        if let Some(pt) = pt_param {
-            q = q.bind(pt);
-        }
-        if let Some(pid) = pid_param {
-            q = q.bind(pid);
-        }
-        if let Some(ref k) = kw_param {
-            q = q.bind(k);
-        }
-        if let Some(ref p) = per_param {
-            q = q.bind(p);
-        }
-        if let Some(d) = start_param {
-            q = q.bind(d);
-        }
-        if let Some(d) = end_param {
-            q = q.bind(d);
-        }
-
+        let q = sqlx::query_as::<sqlx::Postgres, ArApLedgerDetailRow>(sqlx::AssertSqlSafe(sql));
+        let q = bind_filter!(q, &params);
         let items = q.fetch_all(executor).await?;
         Ok(items)
     }
@@ -442,80 +378,18 @@ impl ArApLedgerRepo {
         filter: &ArApLedgerFilter,
         today: chrono::NaiveDate,
     ) -> Result<LedgerSummary> {
-        let mut conditions: Vec<String> = Vec::new();
-        let mut param_idx = 0u32;
-
-        let pt_param: Option<CounterpartyType> = if let Some(pt) = filter.party_type {
-            param_idx += 1;
-            conditions.push(format!("l.party_type = ${}", param_idx));
-            Some(pt)
-        } else {
-            None
-        };
-        let pid_param: Option<i64> = if let Some(pid) = filter.party_id {
-            param_idx += 1;
-            conditions.push(format!("l.party_id = ${}", param_idx));
-            Some(pid)
-        } else {
-            None
-        };
-        if filter.outstanding_only {
-            conditions.push("l.amount - l.amount_applied > 0".to_string());
-        }
-        let kw_param: Option<String> = if let Some(ref kw) = filter.keyword {
-            let trimmed = kw.trim();
-            if trimmed.is_empty() {
-                None
-            } else {
-                param_idx += 1;
-                conditions.push(format!(
-                    "(EXISTS(SELECT 1 FROM customers c WHERE c.customer_id = l.party_id AND c.customer_name ILIKE ${p}) \
-                      OR EXISTS(SELECT 1 FROM suppliers s WHERE s.supplier_id = l.party_id AND s.supplier_name ILIKE ${p}))",
-                    p = param_idx
-                ));
-                Some(format!("%{trimmed}%"))
-            }
-        } else {
-            None
-        };
-        let per_param: Option<String> = if let Some(ref p) = filter.period {
-            if !p.trim().is_empty() {
-                param_idx += 1;
-                conditions.push(format!("l.period = ${}", param_idx));
-                Some(p.clone())
-            } else {
-                None
-            }
-        } else {
-            None
-        };
-        let start_param: Option<chrono::NaiveDate> = if let Some(d) = filter.start_date {
-            param_idx += 1;
-            conditions.push(format!("l.transaction_date >= ${}", param_idx));
-            Some(d)
-        } else {
-            None
-        };
-        let end_param: Option<chrono::NaiveDate> = if let Some(d) = filter.end_date {
-            param_idx += 1;
-            conditions.push(format!("l.transaction_date <= ${}", param_idx));
-            Some(d)
-        } else {
-            None
-        };
-
-        // today / today+7 用于 SELECT 里的逾期与 7 天内到期 CASE
-        param_idx += 1;
-        let today_idx = param_idx;
-        param_idx += 1;
-        let today7_idx = param_idx;
-        let today7 = today + chrono::Duration::days(7);
-
-        let where_clause = if conditions.is_empty() {
+        let (conds, params) = build_filter_conditions(filter);
+        let where_clause = if conds.is_empty() {
             String::new()
         } else {
-            format!("WHERE {}", conditions.join(" AND "))
+            format!("WHERE {}", conds.join(" AND "))
         };
+
+        // today / today+7 用于 SELECT 里的逾期与 7 天内到期 CASE（编号紧随 filter 参数之后）
+        let today_idx = params.len() + 1;
+        let today7_idx = params.len() + 2;
+        let today7 = today + chrono::Duration::days(7);
+
 
         let sql = format!(
             r#"SELECT
@@ -530,27 +404,9 @@ impl ArApLedgerRepo {
                FROM ar_ap_ledger l {where_clause}"#
         );
 
-        let mut q = sqlx::query_as::<sqlx::Postgres, LedgerSummary>(sqlx::AssertSqlSafe(sql));
-        if let Some(pt) = pt_param {
-            q = q.bind(pt);
-        }
-        if let Some(pid) = pid_param {
-            q = q.bind(pid);
-        }
-        if let Some(ref k) = kw_param {
-            q = q.bind(k);
-        }
-        if let Some(ref p) = per_param {
-            q = q.bind(p);
-        }
-        if let Some(d) = start_param {
-            q = q.bind(d);
-        }
-        if let Some(d) = end_param {
-            q = q.bind(d);
-        }
-        q = q.bind(today);
-        q = q.bind(today7);
+        let q = sqlx::query_as::<sqlx::Postgres, LedgerSummary>(sqlx::AssertSqlSafe(sql));
+        let q = bind_filter!(q, &params);
+        let q = q.bind(today).bind(today7);
 
         let summary = q.fetch_one(executor).await?;
         Ok(summary)

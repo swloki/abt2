@@ -15,7 +15,9 @@
 - `list_ledger_details(filter) -> Vec<ArApLedgerDetailRow>` — 台账明细（产品行项目级，导出明细表用，不分页）
 - `ledger_summary(filter) -> LedgerSummary` — 台账汇总（顶部统计卡片用，按 due_date 聚合）
 
-**`ArApLedgerFilter`**：`party_type`、`party_id`、`outstanding_only`、`period`、`start_date`/`end_date`、`keyword`（往来方名称模糊搜，`ILIKE` + `EXISTS` 子查询）
+**`ArApLedgerFilter`**：`party_type`、`party_id`、`outstanding_only`、`period`、`start_date`/`end_date`、`keyword`（往来方名称）、`doc_no`（发生单号）、`product_code`/`product_name`（产品，EXISTS 三来源行项目）、`rep_name`（销售经理/采购员，EXISTS `users.display_name`）。条件拼装集中在 `build_filter_conditions`（`query_with_party`/`summary`/`query_details` 三处共用，`bind_filter!` 宏按 `FilterArg` 枚举绑定 `$N`），消除原先三处重复的条件拼装。
+
+**前端筛选**（AR/AP 对称）：发生日期范围、客户/供应商名称、发生单号、产品编码、产品名称、销售经理/采购员，各一输入框，HTMX `change/keyup delay:300ms` 触发；「只看未清」toggle 与导出按钮均用 `hx-include="#xx-filter-form input:not([type=hidden])"` 携带全部当前筛选。
 
 **`LedgerSummary`**（按 filter 聚合，逾期基准 = `due_date`）：
 - `total_amount`（应收/应付总额）

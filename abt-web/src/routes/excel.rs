@@ -35,6 +35,20 @@ pub struct ExportForm {
     /// 台账明细导出：仅未清项
     #[serde(default)]
     pub outstanding_only: Option<bool>,
+    /// 台账明细导出：发生单号模糊筛
+    #[serde(default)]
+    pub doc_no: Option<String>,
+    /// 台账明细导出：产品名称模糊筛
+    #[serde(default)]
+    pub product_name: Option<String>,
+    /// 台账明细导出：销售经理/采购员模糊筛
+    #[serde(default)]
+    pub rep_name: Option<String>,
+    /// 台账明细导出：发生日期范围
+    #[serde(default)]
+    pub start_date: Option<chrono::NaiveDate>,
+    #[serde(default)]
+    pub end_date: Option<chrono::NaiveDate>,
 }
 
 // ── TypedPath 路由定义 ──
@@ -443,6 +457,12 @@ fn build_ledger_filter(form: &ExportForm) -> abt_core::fms::ar_ap::ArApLedgerFil
     abt_core::fms::ar_ap::ArApLedgerFilter {
         keyword: form.keyword.clone(),
         outstanding_only: form.outstanding_only.unwrap_or(false),
+        doc_no: form.doc_no.clone(),
+        product_code: form.product_code.clone(),
+        product_name: form.product_name.clone(),
+        rep_name: form.rep_name.clone(),
+        start_date: form.start_date,
+        end_date: form.end_date,
         ..Default::default()
     }
 }

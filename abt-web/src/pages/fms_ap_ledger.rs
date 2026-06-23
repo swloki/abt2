@@ -21,11 +21,17 @@ use abt_macros::require_permission;
 
 // ── Query params ──
 
-#[derive(Deserialize, Debug, Default)]
+#[derive(Deserialize, Debug, Default, Clone)]
 pub struct ListQuery {
     pub page: Option<u32>,
     pub keyword: Option<String>,
     pub outstanding_only: Option<bool>,
+    pub start_date: Option<chrono::NaiveDate>,
+    pub end_date: Option<chrono::NaiveDate>,
+    pub doc_no: Option<String>,
+    pub product_code: Option<String>,
+    pub product_name: Option<String>,
+    pub rep_name: Option<String>,
 }
 
 // ── Helpers ──
@@ -232,37 +238,58 @@ fn ledger_table(items: &[ArApLedgerRow], today: chrono::NaiveDate, total: u64, p
     }
 }
 
+fn filter_input(input_type: &str, name: &str, placeholder: &str, value: &str) -> Markup {
+    html! {
+        input
+            type=(input_type)
+            name=(name)
+            class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
+            placeholder=(placeholder)
+            value=(value);
+    }
+}
+
 fn filter_and_table(
     result: &PaginatedResult<ArApLedgerRow>,
-    keyword_val: &str,
+    q: &ListQuery,
     outstanding_only: bool,
     today: chrono::NaiveDate,
     query_string: &str,
 ) -> Markup {
     let active_cls = "inline-flex items-center gap-1.5 px-4 py-1.5 text-sm font-semibold cursor-pointer bg-bg text-accent rounded-sm";
     let inactive_cls = "inline-flex items-center gap-1.5 px-4 py-1.5 text-sm cursor-pointer bg-transparent border-none text-muted rounded-sm hover:text-fg transition-colors";
+    let keyword = q.keyword.as_deref().unwrap_or("");
+    let start = q.start_date.map(|d| d.format("%Y-%m-%d").to_string()).unwrap_or_default();
+    let end = q.end_date.map(|d| d.format("%Y-%m-%d").to_string()).unwrap_or_default();
 
     html! {
         form id="ap-filter-form"
             class="flex items-center gap-3 mb-5 flex-wrap"
             hx-get=(ApLedgerPath::PATH)
-            hx-trigger="change, keyup changed delay:300ms from:.search-input"
+            hx-trigger="change, keyup changed delay:300ms"
             hx-target="#data-card"
             hx-select="#data-card"
             hx-swap="outerHTML"
             hx-push-url="true"
         {
             input type="hidden" name="outstanding_only" value=(outstanding_only);
-            div class="relative flex-1 max-w-xs icon:absolute icon:left-3 icon:top-1/2 icon:-translate-y-1/2 icon:w-4 icon:h-4 icon:text-muted"
+            div class="relative flex-1 min-w-[200px] max-w-xs icon:absolute icon:left-3 icon:top-1/2 icon:-translate-y-1/2 icon:w-4 icon:h-4 icon:text-muted"
             {
                 (icon::search_icon(""))
                 input
                     class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input"
                     type="text"
                     name="keyword"
-                    placeholder="搜索供应商名称…"
-                    value=(keyword_val);
+                    placeholder="供应商名称"
+                    value=(keyword);
             }
+            (filter_input("date", "start_date", "开始日期", &start))
+            span class="text-muted text-sm self-center" { "—" }
+            (filter_input("date", "end_date", "结束日期", &end))
+            (filter_input("text", "doc_no", "发生单号", q.doc_no.as_deref().unwrap_or("")))
+            (filter_input("text", "product_code", "产品编码", q.product_code.as_deref().unwrap_or("")))
+            (filter_input("text", "product_name", "产品名称", q.product_name.as_deref().unwrap_or("")))
+            (filter_input("text", "rep_name", "采购员", q.rep_name.as_deref().unwrap_or("")))
             div class="inline-flex bg-surface border border-border-soft rounded-md p-[3px] gap-0.5"
             {
                 a   class=(if outstanding_only { active_cls } else { inactive_cls })
@@ -272,7 +299,7 @@ fn filter_and_table(
                     hx-select="#data-card"
                     hx-swap="outerHTML"
                     hx-push-url="true"
-                    hx-include="input[name=keyword]"
+                    hx-include="#ap-filter-form input:not([type=hidden])"
                 { "只看未清" }
                 a   class=(if !outstanding_only { active_cls } else { inactive_cls })
                     hx-get=(ApLedgerPath::PATH)
@@ -281,7 +308,7 @@ fn filter_and_table(
                     hx-select="#data-card"
                     hx-swap="outerHTML"
                     hx-push-url="true"
-                    hx-include="input[name=keyword]"
+                    hx-include="#ap-filter-form input:not([type=hidden])"
                 { "全部" }
             }
         }
@@ -315,12 +342,17 @@ pub async fn get_list(
     let page_size = 20u32;
     let today = chrono::Utc::now().date_naive();
     let outstanding_only = q.outstanding_only.unwrap_or(true);
-    let keyword_val = q.keyword.as_deref().unwrap_or("").to_string();
 
     let filter = ArApLedgerFilter {
         party_type: Some(CounterpartyType::Supplier),
         outstanding_only,
-        keyword: if keyword_val.is_empty() { None } else { Some(keyword_val.clone()) },
+        keyword: opt_string(&q.keyword),
+        doc_no: opt_string(&q.doc_no),
+        product_code: opt_string(&q.product_code),
+        product_name: opt_string(&q.product_name),
+        rep_name: opt_string(&q.rep_name),
+        start_date: q.start_date,
+        end_date: q.end_date,
         ..Default::default()
     };
 
@@ -329,8 +361,14 @@ pub async fn get_list(
         .unwrap_or_else(|_| PaginatedResult::new(vec![], 0, page, page_size));
 
     let mut parts: Vec<String> = Vec::new();
-    if !keyword_val.is_empty() { parts.push(format!("keyword={}", url_encode(&keyword_val))); }
+    push_param(&mut parts, "keyword", &q.keyword);
     if outstanding_only { parts.push("outstanding_only=true".into()); }
+    if let Some(d) = q.start_date { parts.push(format!("start_date={d}")); }
+    if let Some(d) = q.end_date { parts.push(format!("end_date={d}")); }
+    push_param(&mut parts, "doc_no", &q.doc_no);
+    push_param(&mut parts, "product_code", &q.product_code);
+    push_param(&mut parts, "product_name", &q.product_name);
+    push_param(&mut parts, "rep_name", &q.rep_name);
     let query_string = if parts.is_empty() { String::new() } else { format!("?{}", parts.join("&")) };
 
     let content = html! {
@@ -343,7 +381,7 @@ pub async fn get_list(
             ({
                 filter_and_table(
                     &result,
-                    &keyword_val,
+                    &q,
                     outstanding_only,
                     today,
                     &query_string,
@@ -367,4 +405,19 @@ fn url_encode(s: &str) -> String {
         }
     }
     out
+}
+
+/// Option<String> → 空字符串归一为 None
+fn opt_string(s: &Option<String>) -> Option<String> {
+    s.as_deref().filter(|s| !s.is_empty()).map(str::to_string)
+}
+
+/// 把非空字符串参数加入 query parts（URL 编码），供分页保持筛选
+fn push_param(parts: &mut Vec<String>, key: &str, val: &Option<String>) {
+    if let Some(v) = val {
+        let v = v.trim();
+        if !v.is_empty() {
+            parts.push(format!("{}={}", key, url_encode(v)));
+        }
+    }
 }

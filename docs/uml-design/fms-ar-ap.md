@@ -71,7 +71,7 @@
 - 枚举 `DocumentType::{GlEntry, SalesInvoice, PurchaseInvoice}`、`DomainEventType::ExpensePaymentGenerated`
 - 前端 14 个页面（GL / 发票 / 费用报销）+ `routes/gl.rs` + 侧边栏「总账管理」模块
 
-**已知留口**：① 销售立账 `tax_rate_id=None`（不含税 AR，待 `SalesOrderItem` 加税率字段）；② 发票删除后 `cancel` 红冲随之消失（台账无反向冲销，核销侧 `unsettle` 可补救）——**采购退货（#85 `PurchaseReturnSettledHandler`）/ 销售退货（#86 `SalesReturnReceivedHandler`）的反向冲减已补齐**；委外按 `iqc_passed_qty` 合格量立账，不良品在源头排除，**无需对称退货冲减**（事后索赔扣款走 `ar_ap_adjustment`）；③ 幂等为 SELECT 查重（`UNIQUE` 约束未加）；④ 收/付款单创建页选业务单据的 `source_type` 交互待完善。
+**已知留口**：① 销售立账 `tax_rate_id=None`（不含税 AR，待 `SalesOrderItem` 加税率字段）；② 发票删除后 `cancel` 红冲随之消失（台账无反向冲销，核销侧 `unsettle` 可补救）——**采购退货（#85 `PurchaseReturnSettledHandler`）/ 销售退货（#86 `SalesReturnReceivedHandler`）的反向冲减已补齐**；委外按 `iqc_passed_qty` 合格量立账，不良品在源头排除，**无需对称退货冲减**（事后索赔扣款走 `ar_ap_adjustment`）；③ 幂等已根治：`ar_ap_ledger` 加 partial unique index `(source_type, source_id) WHERE source_type <> 11`（migration 070，排除委外 `OutsourcingOrder` 分次收货多行），`ArApLedgerRepo::insert` 改 `ON CONFLICT DO NOTHING` 原子幂等（#89）；委外保留按 `transaction_date` 的应用层防重；④ 收/付款单创建页选业务单据的 `source_type` 交互待完善。
 
 ## 台账明细与导出（2026-06）
 

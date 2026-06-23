@@ -19,8 +19,15 @@ use abt_core::fms::enums::CounterpartyType;
 async fn customer_id() -> i64 { 135 }
 async fn supplier_id() -> i64 { 129 }
 
-// 用唯一 source_id 避免与历史/其他测试数据冲突
-fn uid(seed: i64) -> i64 { 9_990_000 + seed }
+// 用微秒时间戳生成强唯一 source_id，避免与历史/其他测试数据冲突
+// （#89 加 partial UNIQUE 后，确定性 id 会与 dev 库历史残留冲突）
+fn uid(seed: i64) -> i64 {
+    let micros = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_micros() as i64;
+    micros.wrapping_add(seed)
+}
 
 // ════════════════════════════════════════════════════════════════════════════
 //  k1 AR 台账 + 收款核销闭环（发货 Debit → 收款 Credit → settle）
@@ -61,6 +68,7 @@ async fn k1_ar_ledger_settle_cycle() {
         },
     )
     .await
+    .unwrap()
     .unwrap();
 
     // 立收款台账（CashJournal Credit 600，部分核销）
@@ -149,6 +157,7 @@ async fn k2_ap_ledger_settle_cycle() {
         },
     )
     .await
+    .unwrap()
     .unwrap();
 
     // 立付款台账（CashJournal Debit 400，全额核销）

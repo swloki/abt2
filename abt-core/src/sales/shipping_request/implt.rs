@@ -600,7 +600,7 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
                 let doc_no = existing.doc_number.clone();
                 let desc = format!("销售发货 {}", doc_no);
 
-                ArApLedgerRepo::insert(
+                let _ = ArApLedgerRepo::insert(
                     db,
                     &ArApLedgerInsert {
                         party_type: CounterpartyType::Customer,

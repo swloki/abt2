@@ -327,6 +327,24 @@ impl ArApService for ArApServiceImpl {
         Ok(Self::compute_aging(rows, req.as_of_date, &req.buckets))
     }
 
+    // ---- 详情（drawer） ----
+
+    async fn get_ledger_detail(
+        &self,
+        _ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        id: i64,
+    ) -> Result<Option<(ArApLedgerRow, Vec<LedgerDetailItem>)>> {
+        let row = ArApLedgerRepo::get_detail_row(db, id).await?;
+        match row {
+            Some(r) => {
+                let items = ArApLedgerRepo::get_detail_items(db, r.source_type, r.source_id).await?;
+                Ok(Some((r, items)))
+            }
+            None => Ok(None),
+        }
+    }
+
     // ---- 未清项查询 ----
 
     async fn list_open_invoices(

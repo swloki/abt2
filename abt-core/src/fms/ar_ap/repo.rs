@@ -412,6 +412,94 @@ impl ArApLedgerRepo {
         Ok(summary)
     }
 
+    /// 按 id 查询单条台账行（含 party_name/upstream/product_summary，drawer 详情用）
+    pub async fn get_detail_row(
+        executor: PgExecutor<'_>,
+        id: i64,
+    ) -> Result<Option<ArApLedgerRow>> {
+        let row = sqlx::query_as::<sqlx::Postgres, ArApLedgerRow>(sqlx::AssertSqlSafe(format!(
+            r#"SELECT l.id, l.party_type, l.party_id,
+                      COALESCE(c.customer_name, s.supplier_name, 'Unknown') AS party_name,
+                      l.source_type, l.source_id, l.source_doc_no,
+                      l.direction, l.amount, l.amount_applied,
+                      l.amount - l.amount_applied AS amount_outstanding,
+                      l.currency, l.transaction_date, l.due_date, l.period, l.description,
+                      COALESCE(
+                        (SELECT po.doc_number FROM arrival_notices an
+                         JOIN purchase_orders po ON po.id = an.purchase_order_id AND po.deleted_at IS NULL
+                         WHERE an.id = l.source_id AND l.source_type = 16),
+                        (SELECT so.doc_number FROM shipping_requests sr
+                         JOIN sales_orders so ON so.id = sr.order_id AND so.deleted_at IS NULL
+                         WHERE sr.id = l.source_id AND l.source_type = 3)
+                      ) AS upstream_doc_no,
+                      COALESCE(
+                        (SELECT string_agg(DISTINCT p.pdt_name, '、')
+                         FROM arrival_notice_items ani JOIN products p ON p.product_id = ani.product_id
+                         WHERE ani.notice_id = l.source_id AND l.source_type = 16),
+                        (SELECT p.pdt_name FROM outsourcing_orders oo JOIN products p ON p.product_id = oo.product_id
+                         WHERE oo.id = l.source_id AND l.source_type = 11),
+                        (SELECT string_agg(DISTINCT p.pdt_name, '、')
+                         FROM shipping_request_items sri JOIN products p ON p.product_id = sri.product_id
+                         WHERE sri.shipping_request_id = l.source_id AND l.source_type = 3)
+                      ) AS product_summary
+               FROM ar_ap_ledger l
+               LEFT JOIN customers c ON l.party_type = 1 AND c.customer_id = l.party_id AND c.deleted_at IS NULL
+               LEFT JOIN suppliers s ON l.party_type = 2 AND s.supplier_id = l.party_id AND s.deleted_at IS NULL
+               WHERE l.id = $1"#
+        )))
+        .bind(id)
+        .fetch_optional(executor)
+        .await?;
+        Ok(row)
+    }
+
+    /// 查询台账对应的产品行项目清单（drawer 详情用，按 source_type 分流）
+    pub async fn get_detail_items(
+        executor: PgExecutor<'_>,
+        source_type: DocumentType,
+        source_id: i64,
+    ) -> Result<Vec<LedgerDetailItem>> {
+        let sql = match source_type {
+            DocumentType::ArrivalNotice => {
+                // 采购入库 — 来料明细 × 产品 × PO 单价
+                r#"SELECT p.product_code, p.pdt_name AS product_name,
+                          ani.accepted_qty AS quantity,
+                          COALESCE(poi.unit_price, 0) AS unit_price,
+                          COALESCE(ani.accepted_qty * poi.unit_price, 0) AS line_amount
+                   FROM arrival_notice_items ani
+                   JOIN products p ON p.product_id = ani.product_id
+                   LEFT JOIN purchase_order_items poi ON poi.id = ani.order_item_id
+                   WHERE ani.notice_id = $1 AND ani.accepted_qty > 0"#
+            }
+            DocumentType::OutsourcingOrder => {
+                // 委外 — 单产品（加工费）
+                r#"SELECT p.product_code, p.pdt_name AS product_name,
+                          oo.completed_qty AS quantity,
+                          oo.unit_price,
+                          oo.completed_qty * oo.unit_price AS line_amount
+                   FROM outsourcing_orders oo
+                   JOIN products p ON p.product_id = oo.product_id
+                   WHERE oo.id = $1"#
+            }
+            _ => {
+                // 销售发货 — 发货明细 × 产品 × SO 单价
+                r#"SELECT p.product_code, p.pdt_name AS product_name,
+                          sri.shipped_qty AS quantity,
+                          COALESCE(soi.unit_price, 0) AS unit_price,
+                          COALESCE(sri.shipped_qty * soi.unit_price, 0) AS line_amount
+                   FROM shipping_request_items sri
+                   JOIN products p ON p.product_id = sri.product_id
+                   LEFT JOIN sales_order_items soi ON soi.id = sri.order_item_id
+                   WHERE sri.shipping_request_id = $1 AND sri.shipped_qty > 0"#
+            }
+        };
+        let rows = sqlx::query_as::<sqlx::Postgres, LedgerDetailItem>(sqlx::AssertSqlSafe(sql))
+            .bind(source_id)
+            .fetch_all(executor)
+            .await?;
+        Ok(rows)
+    }
+
     /// 查询某往来方的未清发票（用于核销选择）
     pub async fn list_open_invoices(
         executor: PgExecutor<'_>,

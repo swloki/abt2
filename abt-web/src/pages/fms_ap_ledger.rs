@@ -5,17 +5,18 @@ use maud::{html, Markup};
 use rust_decimal::Decimal;
 use serde::Deserialize;
 
-use abt_core::fms::ar_ap::model::{ArApLedgerFilter, ArApLedgerRow, LedgerSummary};
+use abt_core::fms::ar_ap::model::{ArApLedgerFilter, ArApLedgerRow, LedgerDetailItem, LedgerSummary};
 use abt_core::fms::ar_ap::ArApService;
 use abt_core::fms::enums::CounterpartyType;
 use abt_core::shared::types::PaginatedResult;
 
+use crate::components::drawer::drawer_with_footer;
 use crate::components::export_button;
 use crate::components::icon;
 use crate::components::pagination::pagination;
 use crate::errors::Result;
 use crate::layout::page::admin_page;
-use crate::routes::fms::ApLedgerPath;
+use crate::routes::fms::{ApLedgerDetailPath, ApLedgerPath};
 use crate::utils::RequestContext;
 use abt_macros::require_permission;
 
@@ -123,14 +124,20 @@ fn summary_cards(s: &LedgerSummary) -> Markup {
 
 // ── Table ──
 
-fn ledger_row(item: &ArApLedgerRow, today: chrono::NaiveDate) -> Markup {
+fn ledger_row(item: &ArApLedgerRow, today: chrono::NaiveDate, detail_path: &str) -> Markup {
     let outstanding = item.amount - item.amount_applied;
     let status = row_status(item, today);
-    let row_cls = if outstanding <= Decimal::ZERO { "text-fg-3" } else { "" };
+    let row_cls = if outstanding <= Decimal::ZERO { "text-fg-3 cursor-pointer" } else { "cursor-pointer" };
     let outstanding_cls = if outstanding > Decimal::ZERO { "text-fg" } else { "text-fg-3" };
+    let detail_url = format!("{detail_path}?id={}", item.id);
 
     html! {
-        tr class=(row_cls) {
+        tr class=(row_cls)
+            hx-get=(detail_url)
+            hx-target="#ap-drawer-content"
+            hx-swap="innerHTML"
+            _="on 'htmx:afterRequest' add .open to #ap-drawer"
+        {
             td class="px-4 py-3 text-sm whitespace-nowrap" {
                 (item.transaction_date.format("%Y-%m-%d"))
             }
@@ -181,7 +188,7 @@ fn ledger_row(item: &ArApLedgerRow, today: chrono::NaiveDate) -> Markup {
     }
 }
 
-fn ledger_table(items: &[ArApLedgerRow], today: chrono::NaiveDate, total: u64, page: u32, page_size: u32, query_string: &str) -> Markup {
+fn ledger_table(items: &[ArApLedgerRow], today: chrono::NaiveDate, total: u64, page: u32, page_size: u32, query_string: &str, detail_path: &str) -> Markup {
     let total_pages = ((total as f64) / (page_size as f64)).ceil() as u32;
     html! {
         div class="data-card mt-4" {
@@ -212,7 +219,7 @@ fn ledger_table(items: &[ArApLedgerRow], today: chrono::NaiveDate, total: u64, p
                         }
                     }
                     tbody class="divide-y divide-border-soft" {
-                        @for item in items { (ledger_row(item, today)) }
+                        @for item in items { (ledger_row(item, today, detail_path)) }
                         @if items.is_empty() {
                             tr {
                                 td colspan="10" class="px-4 py-12 text-center text-muted text-sm" {
@@ -262,6 +269,7 @@ fn filter_and_table(
     outstanding_only: bool,
     today: chrono::NaiveDate,
     query_string: &str,
+    detail_path: &str,
 ) -> Markup {
     let active_cls = "inline-flex items-center px-3 py-1 text-sm font-semibold cursor-pointer bg-bg text-accent rounded-sm";
     let inactive_cls = "inline-flex items-center px-3 py-1 text-sm cursor-pointer bg-transparent border-none text-muted rounded-sm hover:text-fg transition-colors";
@@ -337,6 +345,7 @@ fn filter_and_table(
                 result.page,
                 result.page_size,
                 query_string,
+                detail_path,
             )
         })
         }
@@ -403,6 +412,21 @@ pub async fn get_list(
                     outstanding_only,
                     today,
                     &query_string,
+                    ApLedgerDetailPath::PATH,
+                )
+            })
+            ({
+                drawer_with_footer(
+                    "ap-drawer",
+                    "应付台账详情",
+                    html! { div id="ap-drawer-content" {} },
+                    html! {
+                        button
+                            type="button"
+                            class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
+                            _="on click remove .open from closest .drawer-overlay"
+                        { "关闭" }
+                    },
                 )
             })
         }
@@ -410,6 +434,99 @@ pub async fn get_list(
 
     let page_html = admin_page(is_htmx, "应付台账", &claims, "finance", ApLedgerPath::PATH, "财务管理", None, content, &nav_filter);
     Ok(Html(page_html.into_string()))
+}
+
+// ── Detail handler（drawer）──
+
+#[derive(Deserialize, Debug)]
+pub(crate) struct DetailQuery {
+    id: i64,
+}
+
+fn detail_field(label: &str, value: &str) -> Markup {
+    html! {
+        div class="flex flex-col gap-0.5" {
+            span class="text-xs text-fg-2" { (label) }
+            span class="text-sm text-fg font-medium" { (value) }
+        }
+    }
+}
+
+#[require_permission("FMS", "read")]
+pub async fn get_detail(
+    _path: ApLedgerDetailPath,
+    ctx: RequestContext,
+    Query(q): Query<DetailQuery>,
+) -> Result<Html<String>> {
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let svc = state.ar_ap_service();
+
+    let detail = svc
+        .get_ledger_detail(&service_ctx, &mut conn, q.id)
+        .await?;
+
+    let content = match detail {
+        Some((row, items)) => {
+            let upstream = row.upstream_doc_no.clone().unwrap_or_else(|| "—".into());
+            let due_str = row.due_date.map(|d| d.format("%Y-%m-%d").to_string()).unwrap_or_else(|| "—".into());
+            let outstanding = row.amount - row.amount_applied;
+            let product_summ = row.product_summary.clone().unwrap_or_else(|| "—".into());
+            let transaction_str = row.transaction_date.format("%Y-%m-%d").to_string();
+            let amount_str = format!("¥{:.2}", row.amount);
+            let applied_str = format!("¥{:.2}", row.amount_applied);
+            let outstanding_str = format!("¥{:.2}", outstanding);
+            html! {
+                div {
+                    h3 class="text-sm font-semibold text-fg mb-3" { "基本信息" }
+                    div class="grid grid-cols-2 gap-3 mb-5" {
+                        (detail_field("往来方", &row.party_name))
+                        (detail_field("发生单号", &row.source_doc_no))
+                        (detail_field("采购单号", &upstream))
+                        (detail_field("发生日期", &transaction_str))
+                        (detail_field("到期日", &due_str))
+                        (detail_field("应付金额", &amount_str))
+                        (detail_field("已核销", &applied_str))
+                        (detail_field("未清余额", &outstanding_str))
+                        (detail_field("产品", &product_summ))
+                    }
+                    h3 class="text-sm font-semibold text-fg mb-3" { "产品明细" }
+                    @if items.is_empty() {
+                        p class="text-muted text-sm" { "无产品明细" }
+                    } @else {
+                        div class="overflow-x-auto" {
+                            table class="data-table w-full text-sm" {
+                                thead {
+                                    tr class="border-b border-border-soft" {
+                                        th class="px-3 py-2 text-left text-xs font-medium text-fg-2 uppercase" { "产品编码" }
+                                        th class="px-3 py-2 text-left text-xs font-medium text-fg-2 uppercase" { "名称" }
+                                        th class="px-3 py-2 text-right text-xs font-medium text-fg-2 uppercase" { "数量" }
+                                        th class="px-3 py-2 text-right text-xs font-medium text-fg-2 uppercase" { "单价" }
+                                        th class="px-3 py-2 text-right text-xs font-medium text-fg-2 uppercase" { "行金额" }
+                                    }
+                                }
+                                tbody class="divide-y divide-border-soft" {
+                                    @for item in items {
+                                        tr {
+                                            td class="px-3 py-2 font-mono text-xs" { (item.product_code) }
+                                            td class="px-3 py-2 text-xs" { (item.product_name) }
+                                            td class="px-3 py-2 text-right font-mono text-xs tabular-nums" { (fmt_amount(item.quantity)) }
+                                            td class="px-3 py-2 text-right font-mono text-xs tabular-nums" { "¥" (fmt_amount(item.unit_price)) }
+                                            td class="px-3 py-2 text-right font-mono text-xs tabular-nums font-semibold" { "¥" (fmt_amount(item.line_amount)) }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        None => html! {
+            div class="text-center text-muted py-8" { "未找到该台账记录" }
+        },
+    };
+
+    Ok(Html(content.into_string()))
 }
 
 fn url_encode(s: &str) -> String {

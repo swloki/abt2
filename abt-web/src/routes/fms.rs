@@ -52,6 +52,14 @@ pub struct ArLedgerPath;
 #[typed_path("/admin/fms/ap-ledger")]
 pub struct ApLedgerPath;
 
+#[derive(TypedPath, Deserialize, Serialize, Clone)]
+#[typed_path("/admin/fms/ar-ledger/detail")]
+pub struct ArLedgerDetailPath;
+
+#[derive(TypedPath, Deserialize, Serialize, Clone)]
+#[typed_path("/admin/fms/ap-ledger/detail")]
+pub struct ApLedgerDetailPath;
+
 // AR/AP Aging
 #[derive(TypedPath, Deserialize, Serialize, Clone)]
 #[typed_path("/admin/fms/ar-aging")]
@@ -101,6 +109,8 @@ pub fn router() -> Router<AppState> {
         // AR/AP Ledger
         .route(ArLedgerPath::PATH, get(crate::pages::fms_ar_ledger::get_list))
         .route(ApLedgerPath::PATH, get(crate::pages::fms_ap_ledger::get_list))
+        .route(ArLedgerDetailPath::PATH, get(crate::pages::fms_ar_ledger::get_detail))
+        .route(ApLedgerDetailPath::PATH, get(crate::pages::fms_ap_ledger::get_detail))
         // AR/AP Aging
         .route(ArAgingPath::PATH, get(crate::pages::fms_ar_aging::get_page))
         .route(ApAgingPath::PATH, get(crate::pages::fms_ap_aging::get_page))

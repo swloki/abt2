@@ -180,6 +180,18 @@ pub struct ArApLedgerDetailRow {
     pub transaction_date: NaiveDate,
 }
 
+/// 台账明细行项目（drawer 详情用：一个单据的产品明细）
+#[derive(Debug, Clone, sqlx::FromRow, serde::Serialize)]
+pub struct LedgerDetailItem {
+    pub product_code: String,
+    /// 产品名称（products.pdt_name）
+    pub product_name: String,
+    pub quantity: Decimal,
+    pub unit_price: Decimal,
+    /// 行金额 = quantity × unit_price
+    pub line_amount: Decimal,
+}
+
 /// 往来方余额
 #[derive(Debug, Clone, sqlx::FromRow, serde::Serialize)]
 pub struct PartyBalance {

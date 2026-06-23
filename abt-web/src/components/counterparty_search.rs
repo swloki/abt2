@@ -21,50 +21,45 @@ pub fn counterparty_search_input(
     placeholder: &str,
     value: &str,
 ) -> Markup {
+    let q_id = format!("{}-q", panel_id);
+    let list_id = format!("{}-list", panel_id);
     html! {
-        div class="relative"
-            _=(format!("on click from elsewhere remove .show from #{}", panel_id))
+        div class="relative w-40"
+            _=(format!("on click from elsewhere add .hidden to #{}", panel_id))
         {
-            // 隐藏 input（提交 form 用）
             input type="hidden" name="keyword" id=(input_id) value=(value);
-            // 只读显示框（不能输入，点击弹出面板）
+            // 只读显示框
             div
-                class="flex items-center border border-border rounded-sm bg-white cursor-pointer text-sm transition-colors duration-150 hover:border-accent"
-                _=(format!("on click toggle .show on #{} then if #{} is .show send focus to #{}", panel_id, panel_id, format!("{}-q", panel_id)))
+                class="flex items-center w-full border border-border rounded-sm bg-white cursor-pointer text-sm transition-colors duration-150 hover:border-accent"
+                _=(format!("on click toggle .hidden on #{} then remove .hidden from #{} end", panel_id, panel_id))
             {
                 div id=(dropdown_id)
-                    class=(format!("flex-1 pl-2.5 pr-1 py-1.5 text-sm truncate {}",
+                    class=(format!("flex-1 pl-2.5 pr-1 py-1.5 truncate {}",
                         if value.is_empty() { "text-muted" } else { "text-fg" }))
                 {
                     @if value.is_empty() { (placeholder) } @else { (value) }
                 }
-                span class="px-1.5 text-muted text-xs transition-transform"
-                    _=(format!("on click halt the event then toggle .show on #{} then toggle .rotate-180 on me", panel_id))
-                { "▾" }
+                span class="px-2 py-1.5 text-muted text-xs pointer-events-none" { "▾" }
             }
             // 弹出搜索面板
-            div id=(panel_id) class="absolute left-0 top-full mt-0.5 w-64 bg-white border border-border rounded-sm shadow-[var(--shadow-card)] z-30 hidden"
+            div id=(panel_id) class="absolute left-0 top-full mt-0.5 w-72 bg-white border border-border rounded-sm shadow-[var(--shadow-card)] z-30 hidden"
                 _="on click halt"
             {
-                // 面板内搜索框
                 div class="flex items-center gap-2 p-2 border-b border-border-soft" {
                     (icon::search_icon("w-3.5 h-3.5 text-muted shrink-0"))
                     input
-                        class="flex-1 py-1 text-sm bg-transparent text-fg outline-none"
+                        class="flex-1 py-1 text-sm bg-transparent text-fg outline-none min-w-0"
                         type="text"
-                        id=(format!("{}-q", panel_id))
+                        id=(q_id)
                         placeholder=(format!("搜索{}…", placeholder))
                         hx-get=(search_path)
                         hx-trigger="keyup changed delay:200ms, load"
-                        hx-include=(format!("#{}", format!("{}-q", panel_id)))
-                        hx-target=(format!("#{}", format!("{}-list", panel_id)))
+                        hx-include=(format!("#{}", q_id))
+                        hx-target=(format!("#{}", list_id))
                         hx-swap="innerHTML"
                         autocomplete="off";
                 }
-                // 面板内结果列表
-                div id=(format!("{}-list", panel_id))
-                    class="max-h-[200px] overflow-y-auto"
-                {}
+                div id=(list_id) class="max-h-[240px] overflow-y-auto" {}
             }
         }
     }
@@ -83,7 +78,7 @@ pub fn render_counterparty_results(items: &[CounterpartyResult], input_id: &str,
                         "on click put '{}' into #{}'s value
                          then put '{}' into #{}'s innerHTML
                          then remove .text-muted from #{}
-                         then remove .show from #{}",
+                         then add .hidden to #{}",
                         item.name, input_id,
                         item.name, display_id,
                         display_id,

@@ -20,6 +20,7 @@ use crate::components::icon;
 use crate::errors::Result;
 use crate::layout::page::admin_page;
 use crate::routes::order::*;
+use crate::routes::shipping::ShippingCreatePath;
 use crate::utils::RequestContext;
 use crate::utils::fmt_qty;
 use abt_macros::require_permission;
@@ -708,7 +709,7 @@ fn order_detail_page(
                     )
                 } {
                     a   class="inline-flex items-center gap-2 py-[6px] px-3 text-[13px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
-                        href="#"
+                        href=(format!("{}?order_id={}", ShippingCreatePath::PATH, o.id))
                     { (icon::truck_icon("w-4 h-4")) "创建发货申请" }
                 }
                 @if o.status == SalesOrderStatus::Draft {

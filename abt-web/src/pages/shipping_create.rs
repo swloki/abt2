@@ -781,7 +781,7 @@ fn shipping_edit_page(
                 }
                 div class="overflow-y-auto flex-1 min-h-0 p-6 p-0" {
                     div class="flex gap-4 border-b border-border-soft" {
-                        input type="hidden" name="customer_id" {}
+                        input type="hidden" id="order-search-customer-id" name="customer_id" {}
                         div class="flex-1 flex flex-col gap-[4px]" {
                             label class="text-xs font-medium text-fg-2" { "搜索订单" }
                             input
@@ -794,14 +794,14 @@ fn shipping_edit_page(
                                 hx-sync="this:replace"
                                 hx-target="#shipping-order-results"
                                 hx-swap="innerHTML"
-                                hx-include=".product-search-bar input" {}
+                                hx-include="#order-search-customer-id" {}
                         }
                     }
                     div id="shipping-order-results"
                         class="max-h-[400px] overflow-y-auto"
                         hx-get=(ShippingOrderSearchPath::PATH)
-                        hx-trigger="intersect once"
-                        hx-include=".product-search-bar input"
+                        hx-trigger="intersect"
+                        hx-include="#order-search-customer-id"
                         hx-swap="innerHTML"
                     {
                         div class="flex items-center justify-center p-8 text-muted" { "加载中…" }
@@ -1164,7 +1164,7 @@ fn shipping_create_page(
                 }
                 div class="overflow-y-auto flex-1 min-h-0 p-6 p-0" {
                     div class="flex gap-4 border-b border-border-soft" {
-                        input type="hidden" name="customer_id" {}
+                        input type="hidden" id="order-search-customer-id" name="customer_id" {}
                         div class="flex-1 flex flex-col gap-[4px]" {
                             label class="text-xs font-medium text-fg-2" { "搜索订单" }
                             input
@@ -1177,14 +1177,14 @@ fn shipping_create_page(
                                 hx-sync="this:replace"
                                 hx-target="#shipping-order-results"
                                 hx-swap="innerHTML"
-                                hx-include=".product-search-bar input" {}
+                                hx-include="#order-search-customer-id" {}
                         }
                     }
                     div id="shipping-order-results"
                         class="max-h-[400px] overflow-y-auto"
                         hx-get=(ShippingOrderSearchPath::PATH)
-                        hx-trigger="intersect once"
-                        hx-include=".product-search-bar input"
+                        hx-trigger="intersect"
+                        hx-include="#order-search-customer-id"
                         hx-swap="innerHTML"
                     {
                         div class="flex items-center justify-center p-8 text-muted" { "加载中…" }

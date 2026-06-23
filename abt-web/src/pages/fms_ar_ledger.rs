@@ -263,9 +263,11 @@ fn filter_and_table(
 
     let has_filter = q.start_date.is_some() || q.end_date.is_some()
         || q.doc_no.as_deref().is_some_and(|s| !s.is_empty())
-        || q.product_code.as_deref().is_some_and(|s| !s.is_empty())
-        || q.product_name.as_deref().is_some_and(|s| !s.is_empty())
         || q.rep_name.as_deref().is_some_and(|s| !s.is_empty());
+    let panel_cls = if has_filter { "grid grid-cols-2 gap-2 mt-2 p-3 bg-surface border border-border-soft rounded-md" }
+                    else { "grid grid-cols-2 gap-2 mt-2 p-3 bg-surface border border-border-soft rounded-md hidden" };
+    let arrow_cls = if has_filter { "filter-arrow inline-block transition-transform rotate-180" }
+                    else { "filter-arrow inline-block transition-transform" };
 
     html! {
         div id="data-card" {
@@ -279,8 +281,8 @@ fn filter_and_table(
             hx-push-url="true"
         {
             input type="hidden" name="outstanding_only" value=(outstanding_only);
-            // 主搜索行
-            div class="flex items-center gap-3"
+            // 主行：搜索框 + 产品编码/名称 + toggle
+            div class="flex items-center gap-2"
             {
                 div class="relative flex-1 icon:absolute icon:left-3 icon:top-1/2 icon:-translate-y-1/2 icon:w-4 icon:h-4 icon:text-muted"
                 {
@@ -294,6 +296,10 @@ fn filter_and_table(
                         placeholder="搜索客户名称"
                         value=(keyword);
                 }
+                input type="text" id="product_code" name="product_code" hx-preserve
+                    class=(format!("{} w-28 ", ti)) placeholder="产品编码" value=(q.product_code.as_deref().unwrap_or(""));
+                input type="text" id="product_name" name="product_name" hx-preserve
+                    class=(format!("{} w-32 ", ti)) placeholder="产品名称" value=(q.product_name.as_deref().unwrap_or(""));
                 div class="inline-flex bg-surface border border-border-soft rounded-md p-[3px] gap-0.5"
                 {
                     a class=(if outstanding_only { active_cls } else { inactive_cls })
@@ -308,39 +314,32 @@ fn filter_and_table(
                     { "全部" }
                 }
             }
-            // 可折叠筛选面板（<details>：无筛选时折叠，有筛选时自动展开）
-            details class="mt-3" open[has_filter]
+            // 筛选折叠按钮
+            button type="button"
+                class="text-xs text-fg-2 hover:text-fg cursor-pointer select-none border-none bg-transparent p-0 mt-2 inline-flex items-center gap-1"
+                _="on click toggle .hidden on #ar-filter-panel then toggle .rotate-180 on .filter-arrow"
             {
-                summary class="text-xs text-fg-2 cursor-pointer hover:text-fg select-none w-fit"
-                {
-                    @if has_filter { "筛选条件 ▾" } @else { "筛选 ▸" }
+                "筛选条件 "
+                span class=(arrow_cls) { "▾" }
+            }
+            // 折叠面板
+            div id="ar-filter-panel" class=(panel_cls)
+            {
+                label class="flex flex-col gap-1" {
+                    span class="text-xs text-fg-2" { "开始日期" }
+                    input type="date" id="start_date" name="start_date" hx-preserve class=(ti) value=(start);
                 }
-                div class="grid grid-cols-2 md:grid-cols-3 gap-2 mt-2 p-3 bg-surface border border-border-soft rounded-md"
-                {
-                    label class="flex flex-col gap-1" {
-                        span class="text-xs text-fg-2" { "开始日期" }
-                        input type="date" id="start_date" name="start_date" hx-preserve class=(ti) value=(start);
-                    }
-                    label class="flex flex-col gap-1" {
-                        span class="text-xs text-fg-2" { "结束日期" }
-                        input type="date" id="end_date" name="end_date" hx-preserve class=(ti) value=(end);
-                    }
-                    label class="flex flex-col gap-1" {
-                        span class="text-xs text-fg-2" { "发生单号" }
-                        input type="text" id="doc_no" name="doc_no" hx-preserve class=(ti) placeholder="模糊搜索" value=(q.doc_no.as_deref().unwrap_or(""));
-                    }
-                    label class="flex flex-col gap-1" {
-                        span class="text-xs text-fg-2" { "产品编码" }
-                        input type="text" id="product_code" name="product_code" hx-preserve class=(ti) placeholder="模糊搜索" value=(q.product_code.as_deref().unwrap_or(""));
-                    }
-                    label class="flex flex-col gap-1" {
-                        span class="text-xs text-fg-2" { "产品名称" }
-                        input type="text" id="product_name" name="product_name" hx-preserve class=(ti) placeholder="模糊搜索" value=(q.product_name.as_deref().unwrap_or(""));
-                    }
-                    label class="flex flex-col gap-1" {
-                        span class="text-xs text-fg-2" { "销售经理" }
-                        input type="text" id="rep_name" name="rep_name" hx-preserve class=(ti) placeholder="模糊搜索" value=(q.rep_name.as_deref().unwrap_or(""));
-                    }
+                label class="flex flex-col gap-1" {
+                    span class="text-xs text-fg-2" { "结束日期" }
+                    input type="date" id="end_date" name="end_date" hx-preserve class=(ti) value=(end);
+                }
+                label class="flex flex-col gap-1" {
+                    span class="text-xs text-fg-2" { "发生单号" }
+                    input type="text" id="doc_no" name="doc_no" hx-preserve class=(ti) placeholder="模糊搜索" value=(q.doc_no.as_deref().unwrap_or(""));
+                }
+                label class="flex flex-col gap-1" {
+                    span class="text-xs text-fg-2" { "销售经理" }
+                    input type="text" id="rep_name" name="rep_name" hx-preserve class=(ti) placeholder="模糊搜索" value=(q.rep_name.as_deref().unwrap_or(""));
                 }
             }
         }

@@ -78,11 +78,13 @@ pub fn render_counterparty_results(items: &[CounterpartyResult], input_id: &str,
                         "on click put '{}' into #{}'s value
                          then put '{}' into #{}'s innerHTML
                          then remove .text-muted from #{}
-                         then add .hidden to #{}",
+                         then add .hidden to #{}
+                         then trigger change on #{}",
                         item.name, input_id,
                         item.name, display_id,
                         display_id,
-                        panel_id
+                        panel_id,
+                        input_id
                     ))
                 {
                     div class="font-medium" { (item.name) }

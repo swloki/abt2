@@ -69,6 +69,13 @@ pub trait UserService: Send + Sync {
         ctx: &ServiceContext, db: PgExecutor<'_>,
     ) -> Result<Vec<UserWithRoles>>;
 
+    /// 按部门编码列表查询用户（如 ["CAIGOU", "SHENGCHAN"]）
+    async fn list_users_by_departments(
+        &self,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
+        department_codes: &[&str],
+    ) -> Result<Vec<UserWithRoles>>;
+
     async fn get_users_by_ids(
         &self,
         ctx: &ServiceContext, db: PgExecutor<'_>,

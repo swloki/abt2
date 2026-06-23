@@ -17,6 +17,141 @@ const SETTLEMENT_COLUMNS: &str = "id, payment_source_type, payment_source_id, in
 // ArApLedgerRepo
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// 筛选条件构造（query_with_party / summary / query_details 三处共用）
+// ---------------------------------------------------------------------------
+
+/// 筛选参数值（异构类型，由 bind_filter! 按类型绑定到 $N 占位符）
+pub(crate) enum FilterArg {
+    PartyType(CounterpartyType),
+    PartyId(i64),
+    Text(String),
+    Date(chrono::NaiveDate),
+}
+
+/// 按 build_filter_conditions 返回的 params 顺序绑定到 sqlx query
+macro_rules! bind_filter {
+    ($q:expr, $params:expr) => {{
+        let mut q = $q;
+        for p in $params {
+            q = match p {
+                FilterArg::PartyType(v) => q.bind(*v),
+                FilterArg::PartyId(v) => q.bind(*v),
+                FilterArg::Text(v) => q.bind(v.as_str()),
+                FilterArg::Date(v) => q.bind(*v),
+            };
+        }
+        q
+    }};
+}
+
+/// 产品字段（product_code / pdt_name）EXISTS 子查询：匹配三种来源的行项目产品
+fn product_field_cond(field: &str, n: usize) -> String {
+    format!(
+        "EXISTS(\
+         SELECT 1 FROM shipping_request_items sri JOIN products p ON p.product_id = sri.product_id \
+           WHERE sri.shipping_request_id = l.source_id AND l.source_type = 3 AND p.{field} ILIKE ${n} \
+         UNION ALL SELECT 1 FROM arrival_notice_items ani JOIN products p ON p.product_id = ani.product_id \
+           WHERE ani.notice_id = l.source_id AND l.source_type = 16 AND p.{field} ILIKE ${n} \
+         UNION ALL SELECT 1 FROM outsourcing_orders oo JOIN products p ON p.product_id = oo.product_id \
+           WHERE oo.id = l.source_id AND l.source_type = 11 AND p.{field} ILIKE ${n})",
+        field = field,
+        n = n
+    )
+}
+
+/// 销售经理/采购员（users.display_name）EXISTS：销售发货→销售经理、采购入库→采购员
+fn rep_cond(n: usize) -> String {
+    format!(
+        "EXISTS(\
+         SELECT 1 FROM shipping_requests sr JOIN sales_orders so ON so.id = sr.order_id \
+           JOIN users u ON u.user_id = so.sales_rep_id \
+           WHERE sr.id = l.source_id AND l.source_type = 3 AND u.display_name ILIKE ${n} \
+         UNION ALL SELECT 1 FROM arrival_notices an JOIN purchase_orders po ON po.id = an.purchase_order_id \
+           JOIN users u ON u.user_id = po.operator_id \
+           WHERE an.id = l.source_id AND l.source_type = 16 AND u.display_name ILIKE ${n})",
+        n = n
+    )
+}
+
+/// 由 ArApLedgerFilter 构造 WHERE 条件片段与绑定参数。
+/// 条件 SQL 中参数编号 ${n} 按绑定顺序 1,2,3...；调用方用 bind_filter! 绑定 params，
+/// LIMIT/OFFSET 或其它附加参数编号从 params.len()+1 起。
+pub(crate) fn build_filter_conditions(
+    filter: &ArApLedgerFilter,
+) -> (Vec<String>, Vec<FilterArg>) {
+    let mut conds: Vec<String> = Vec::new();
+    let mut params: Vec<FilterArg> = Vec::new();
+
+    if let Some(pt) = filter.party_type {
+        params.push(FilterArg::PartyType(pt));
+        conds.push(format!("l.party_type = ${}", params.len()));
+    }
+    if let Some(pid) = filter.party_id {
+        params.push(FilterArg::PartyId(pid));
+        conds.push(format!("l.party_id = ${}", params.len()));
+    }
+    if filter.outstanding_only {
+        conds.push("l.amount - l.amount_applied > 0".into());
+    }
+    if let Some(ref kw) = filter.keyword {
+        let t = kw.trim();
+        if !t.is_empty() {
+            params.push(FilterArg::Text(format!("%{t}%")));
+            let n = params.len();
+            conds.push(format!(
+                "(EXISTS(SELECT 1 FROM customers c WHERE c.customer_id = l.party_id AND c.customer_name ILIKE ${n}) \
+                  OR EXISTS(SELECT 1 FROM suppliers s WHERE s.supplier_id = l.party_id AND s.supplier_name ILIKE ${n}))"
+            ));
+        }
+    }
+    if let Some(ref d) = filter.doc_no {
+        let t = d.trim();
+        if !t.is_empty() {
+            params.push(FilterArg::Text(format!("%{t}%")));
+            conds.push(format!("l.source_doc_no ILIKE ${}", params.len()));
+        }
+    }
+    if let Some(ref code) = filter.product_code {
+        let t = code.trim();
+        if !t.is_empty() {
+            params.push(FilterArg::Text(format!("%{t}%")));
+            conds.push(product_field_cond("product_code", params.len()));
+        }
+    }
+    if let Some(ref name) = filter.product_name {
+        let t = name.trim();
+        if !t.is_empty() {
+            params.push(FilterArg::Text(format!("%{t}%")));
+            conds.push(product_field_cond("pdt_name", params.len()));
+        }
+    }
+    if let Some(ref rep) = filter.rep_name {
+        let t = rep.trim();
+        if !t.is_empty() {
+            params.push(FilterArg::Text(format!("%{t}%")));
+            conds.push(rep_cond(params.len()));
+        }
+    }
+    if let Some(ref p) = filter.period {
+        let t = p.trim();
+        if !t.is_empty() {
+            params.push(FilterArg::Text(t.to_string()));
+            conds.push(format!("l.period = ${}", params.len()));
+        }
+    }
+    if let Some(d) = filter.start_date {
+        params.push(FilterArg::Date(d));
+        conds.push(format!("l.transaction_date >= ${}", params.len()));
+    }
+    if let Some(d) = filter.end_date {
+        params.push(FilterArg::Date(d));
+        conds.push(format!("l.transaction_date <= ${}", params.len()));
+    }
+
+    (conds, params)
+}
+
 pub struct ArApLedgerRepo;
 
 impl ArApLedgerRepo {
@@ -107,114 +242,77 @@ impl ArApLedgerRepo {
         let mut conditions: Vec<String> = Vec::new();
         let mut param_idx: u32 = 0;
 
-        // party_type filter
         let pt_param: Option<CounterpartyType> = if let Some(pt) = filter.party_type {
             param_idx += 1;
             conditions.push(format!("l.party_type = ${}", param_idx));
             Some(pt)
-        } else {
-            None
-        };
+        } else { None };
 
-        // party_id filter
         let pid_param: Option<i64> = if let Some(pid) = filter.party_id {
             param_idx += 1;
             conditions.push(format!("l.party_id = ${}", param_idx));
             Some(pid)
-        } else {
-            None
-        };
+        } else { None };
 
-        // outstanding only
         if filter.outstanding_only {
             conditions.push("l.amount - l.amount_applied > 0".to_string());
         }
 
-        // keyword filter（往来方名称模糊搜，用 EXISTS 子查询避免依赖外层 JOIN — count 查询无 JOIN）
         let kw_param: Option<String> = if let Some(ref kw) = filter.keyword {
-            let trimmed = kw.trim();
-            if trimmed.is_empty() {
-                None
-            } else {
-                param_idx += 1;
-                conditions.push(format!(
-                    "(EXISTS(SELECT 1 FROM customers c WHERE c.customer_id = l.party_id AND c.customer_name ILIKE ${p}) \
-                      OR EXISTS(SELECT 1 FROM suppliers s WHERE s.supplier_id = l.party_id AND s.supplier_name ILIKE ${p}))",
-                    p = param_idx
-                ));
-                Some(format!("%{trimmed}%"))
-            }
-        } else {
-            None
-        };
+            let t = kw.trim();
+            if !t.is_empty() {
+                param_idx += 1; let n = param_idx;
+                conditions.push(format!("(EXISTS(SELECT 1 FROM customers c WHERE c.customer_id=l.party_id AND c.customer_name ILIKE ${n}) OR EXISTS(SELECT 1 FROM suppliers s WHERE s.supplier_id=l.party_id AND s.supplier_name ILIKE ${n}))"));
+                Some(format!("%{t}%"))
+            } else { None }
+        } else { None };
 
-        // period filter
+        let doc_param: Option<String> = if let Some(ref d) = filter.doc_no {
+            let t = d.trim();
+            if !t.is_empty() { param_idx += 1; conditions.push(format!("l.source_doc_no ILIKE ${}", param_idx)); Some(format!("%{t}%")) }
+            else { None }
+        } else { None };
+        let pcode_param: Option<String> = if let Some(ref c) = filter.product_code {
+            let t = c.trim();
+            if !t.is_empty() { param_idx += 1; let n = param_idx as usize; conditions.push(product_field_cond("product_code", n)); Some(format!("%{t}%")) }
+            else { None }
+        } else { None };
+        let pname_param: Option<String> = if let Some(ref n) = filter.product_name {
+            let t = n.trim();
+            if !t.is_empty() { param_idx += 1; let m = param_idx as usize; conditions.push(product_field_cond("pdt_name", m)); Some(format!("%{t}%")) }
+            else { None }
+        } else { None };
+        let rep_param: Option<String> = if let Some(ref r) = filter.rep_name {
+            let t = r.trim();
+            if !t.is_empty() { param_idx += 1; let n = param_idx as usize; conditions.push(rep_cond(n)); Some(format!("%{t}%")) }
+            else { None }
+        } else { None };
         let per_param: Option<String> = if let Some(ref p) = filter.period {
-            if !p.trim().is_empty() {
-                param_idx += 1;
-                conditions.push(format!("l.period = ${}", param_idx));
-                Some(p.clone())
-            } else {
-                None
-            }
-        } else {
-            None
-        };
+            if !p.trim().is_empty() { param_idx += 1; conditions.push(format!("l.period = ${}", param_idx)); Some(p.clone()) } else { None }
+        } else { None };
 
-        // date range
         let start_param: Option<chrono::NaiveDate> = if let Some(d) = filter.start_date {
-            param_idx += 1;
-            conditions.push(format!("l.transaction_date >= ${}", param_idx));
-            Some(d)
-        } else {
-            None
-        };
-
+            param_idx += 1; conditions.push(format!("l.transaction_date >= ${}", param_idx)); Some(d)
+        } else { None };
         let end_param: Option<chrono::NaiveDate> = if let Some(d) = filter.end_date {
-            param_idx += 1;
-            conditions.push(format!("l.transaction_date <= ${}", param_idx));
-            Some(d)
-        } else {
-            None
-        };
+            param_idx += 1; conditions.push(format!("l.transaction_date <= ${}", param_idx)); Some(d)
+        } else { None };
 
-        let where_clause = if conditions.is_empty() {
-            String::new()
-        } else {
-            format!("WHERE {}", conditions.join(" AND "))
-        };
+        let where_clause = if conditions.is_empty() { String::new() } else { format!("WHERE {}", conditions.join(" AND ")) };
 
-        // Count query
-        let count_sql = format!(
-            "SELECT COUNT(*) FROM ar_ap_ledger l {where_clause}"
-        );
-        let mut count_q =
-            sqlx::query_scalar::<sqlx::Postgres, i64>(sqlx::AssertSqlSafe(count_sql));
-        if let Some(pt) = pt_param {
-            count_q = count_q.bind(pt);
-        }
-        if let Some(pid) = pid_param {
-            count_q = count_q.bind(pid);
-        }
-        if let Some(ref k) = kw_param {
-            count_q = count_q.bind(k);
-        }
-        if let Some(ref p) = per_param {
-            count_q = count_q.bind(p);
-        }
-        if let Some(d) = start_param {
-            count_q = count_q.bind(d);
-        }
-        if let Some(d) = end_param {
-            count_q = count_q.bind(d);
-        }
+        let count_sql = format!("SELECT COUNT(*) FROM ar_ap_ledger l {w}", w = where_clause);
+        let mut count_q = sqlx::query_scalar::<sqlx::Postgres, i64>(sqlx::AssertSqlSafe(count_sql));
+        if let Some(pt) = pt_param { count_q = count_q.bind(pt); }
+        if let Some(pid) = pid_param { count_q = count_q.bind(pid); }
+        if let Some(ref k) = kw_param { count_q = count_q.bind(k); }
+        if let Some(ref d) = doc_param { count_q = count_q.bind(d); }
+        if let Some(ref c) = pcode_param { count_q = count_q.bind(c); }
+        if let Some(ref n) = pname_param { count_q = count_q.bind(n); }
+        if let Some(ref r) = rep_param { count_q = count_q.bind(r); }
         let total = count_q.fetch_one(&mut *executor).await? as u64;
 
-        // Data query with party name JOIN
-        param_idx += 1;
-        let limit_idx = param_idx;
-        param_idx += 1;
-        let offset_idx = param_idx;
+        param_idx += 1; let limit_idx = param_idx;
+        param_idx += 1; let offset_idx = param_idx;
 
         let data_sql = format!(
             r#"SELECT l.id, l.party_type, l.party_id,
@@ -222,41 +320,124 @@ impl ArApLedgerRepo {
                       l.source_type, l.source_id, l.source_doc_no,
                       l.direction, l.amount, l.amount_applied,
                       l.amount - l.amount_applied AS amount_outstanding,
-                      l.currency, l.transaction_date, l.due_date, l.period, l.description
+                      l.currency, l.transaction_date, l.due_date, l.period, l.description,
+                      COALESCE(
+                        (SELECT po.doc_number FROM arrival_notices an
+                         JOIN purchase_orders po ON po.id = an.purchase_order_id AND po.deleted_at IS NULL
+                         WHERE an.id = l.source_id AND l.source_type = 16),
+                        (SELECT so.doc_number FROM shipping_requests sr
+                         JOIN sales_orders so ON so.id = sr.order_id AND so.deleted_at IS NULL
+                         WHERE sr.id = l.source_id AND l.source_type = 3)
+                      ) AS upstream_doc_no,
+                      COALESCE(
+                        (SELECT string_agg(DISTINCT p.pdt_name, '、')
+                         FROM arrival_notice_items ani
+                         JOIN products p ON p.product_id = ani.product_id
+                         WHERE ani.notice_id = l.source_id AND l.source_type = 16),
+                        (SELECT p.pdt_name FROM outsourcing_orders oo
+                         JOIN products p ON p.product_id = oo.product_id
+                         WHERE oo.id = l.source_id AND l.source_type = 11),
+                        (SELECT string_agg(DISTINCT p.pdt_name, '、')
+                         FROM shipping_request_items sri
+                         JOIN products p ON p.product_id = sri.product_id
+                         WHERE sri.shipping_request_id = l.source_id AND l.source_type = 3)
+                      ) AS product_summary
                FROM ar_ap_ledger l
                LEFT JOIN customers c ON l.party_type = 1 AND c.customer_id = l.party_id AND c.deleted_at IS NULL
                LEFT JOIN suppliers s ON l.party_type = 2 AND s.supplier_id = l.party_id AND s.deleted_at IS NULL
-               {where_clause}
+               {w}
                ORDER BY l.transaction_date DESC, l.id DESC
-               LIMIT ${} OFFSET ${}"#,
-            limit_idx, offset_idx
+               LIMIT ${li} OFFSET ${oi}"#,
+            w = where_clause,
+            li = limit_idx,
+            oi = offset_idx,
         );
-        let mut data_q =
-            sqlx::query_as::<sqlx::Postgres, ArApLedgerRow>(sqlx::AssertSqlSafe(data_sql));
-        if let Some(pt) = pt_param {
-            data_q = data_q.bind(pt);
-        }
-        if let Some(pid) = pid_param {
-            data_q = data_q.bind(pid);
-        }
-        if let Some(ref k) = kw_param {
-            data_q = data_q.bind(k);
-        }
-        if let Some(ref p) = per_param {
-            data_q = data_q.bind(p);
-        }
-        if let Some(d) = start_param {
-            data_q = data_q.bind(d);
-        }
-        if let Some(d) = end_param {
-            data_q = data_q.bind(d);
-        }
-        data_q = data_q
-            .bind(page.page_size as i64)
-            .bind(page.offset() as i64);
-
+        let mut data_q = sqlx::query_as::<sqlx::Postgres, ArApLedgerRow>(sqlx::AssertSqlSafe(data_sql));
+        if let Some(pt) = pt_param { data_q = data_q.bind(pt); }
+        if let Some(pid) = pid_param { data_q = data_q.bind(pid); }
+        if let Some(ref k) = kw_param { data_q = data_q.bind(k); }
+        if let Some(ref d) = doc_param { data_q = data_q.bind(d); }
+        if let Some(ref c) = pcode_param { data_q = data_q.bind(c); }
+        if let Some(ref n) = pname_param { data_q = data_q.bind(n); }
+        if let Some(ref r) = rep_param { data_q = data_q.bind(r); }
+        if let Some(ref p) = per_param { data_q = data_q.bind(p); }
+        if let Some(d) = start_param { data_q = data_q.bind(d); }
+        if let Some(d) = end_param { data_q = data_q.bind(d); }
+        data_q = data_q.bind(page.page_size as i64).bind(page.offset() as i64);
         let items = data_q.fetch_all(executor).await?;
         Ok((items, total))
+    }
+
+    /// 查询台账明细（产品行项目级，导出明细表用，不分页）
+    ///
+    /// 用 CTE 先按 filter 筛出 ar_ap_ledger 行 + 往来方名称，再 UNION ALL 三种来源
+    /// 的行项目级明细：采购入库(多产品/PO单价)、委外(单产品/主表单价)、销售发货(多产品/SO单价)。
+    pub async fn query_details(
+        executor: PgExecutor<'_>,
+        filter: &ArApLedgerFilter,
+    ) -> Result<Vec<ArApLedgerDetailRow>> {
+        let (conds, params) = build_filter_conditions(filter);
+        let where_clause = if conds.is_empty() {
+            String::new()
+        } else {
+            format!("WHERE {}", conds.join(" AND "))
+        };
+
+        let sql = format!(
+            r#"WITH filtered AS (
+                SELECT l.id, l.source_type, l.source_id, l.source_doc_no, l.transaction_date, l.amount,
+                       COALESCE(c.customer_name, s.supplier_name, 'Unknown') AS party_name
+                FROM ar_ap_ledger l
+                LEFT JOIN customers c ON l.party_type = 1 AND c.customer_id = l.party_id AND c.deleted_at IS NULL
+                LEFT JOIN suppliers s ON l.party_type = 2 AND s.supplier_id = l.party_id AND s.deleted_at IS NULL
+                {where_clause}
+              )
+              SELECT f.id AS ledger_id, f.party_name, f.source_doc_no,
+                     po.doc_number AS upstream_doc_no, 16::SMALLINT AS source_type,
+                     p.product_code, p.pdt_name AS product_name,
+                     ani.accepted_qty AS quantity,
+                     COALESCE(poi.unit_price, 0) AS unit_price,
+                     COALESCE(ani.accepted_qty * poi.unit_price, 0) AS line_amount,
+                     f.transaction_date
+              FROM filtered f
+              JOIN arrival_notices an ON an.id = f.source_id AND f.source_type = 16
+              LEFT JOIN purchase_orders po ON po.id = an.purchase_order_id
+              JOIN arrival_notice_items ani ON ani.notice_id = an.id AND ani.accepted_qty > 0
+              LEFT JOIN purchase_order_items poi ON poi.id = ani.order_item_id
+              JOIN products p ON p.product_id = ani.product_id
+              UNION ALL
+              SELECT f.id, f.party_name, f.source_doc_no,
+                     NULL, 11::SMALLINT,
+                     p.product_code, p.pdt_name,
+                     COALESCE(f.amount / NULLIF(oo.unit_price, 0), 0) AS quantity,
+                     oo.unit_price AS unit_price,
+                     f.amount AS line_amount,
+                     f.transaction_date
+              FROM filtered f
+              JOIN outsourcing_orders oo ON oo.id = f.source_id AND f.source_type = 11
+              JOIN products p ON p.product_id = oo.product_id
+              UNION ALL
+              SELECT f.id, f.party_name, f.source_doc_no,
+                     so.doc_number, 3::SMALLINT,
+                     p.product_code, p.pdt_name,
+                     sri.shipped_qty AS quantity,
+                     COALESCE(soi.unit_price, 0) AS unit_price,
+                     COALESCE(sri.shipped_qty * soi.unit_price, 0) AS line_amount,
+                     f.transaction_date
+              FROM filtered f
+              JOIN shipping_requests sr ON sr.id = f.source_id AND f.source_type = 3
+              LEFT JOIN sales_orders so ON so.id = sr.order_id
+              JOIN shipping_request_items sri ON sri.shipping_request_id = sr.id AND sri.shipped_qty > 0
+              LEFT JOIN sales_order_items soi ON soi.id = sri.order_item_id
+              JOIN products p ON p.product_id = sri.product_id
+              ORDER BY transaction_date DESC, ledger_id"#,
+            where_clause = where_clause,
+        );
+
+        let q = sqlx::query_as::<sqlx::Postgres, ArApLedgerDetailRow>(sqlx::AssertSqlSafe(sql));
+        let q = bind_filter!(q, &params);
+        let items = q.fetch_all(executor).await?;
+        Ok(items)
     }
 
     /// 台账汇总（按 filter 聚合：总额/未清/逾期/7天内到期，逾期基准=due_date）
@@ -265,118 +446,129 @@ impl ArApLedgerRepo {
         filter: &ArApLedgerFilter,
         today: chrono::NaiveDate,
     ) -> Result<LedgerSummary> {
-        let mut conditions: Vec<String> = Vec::new();
-        let mut param_idx = 0u32;
-
-        let pt_param: Option<CounterpartyType> = if let Some(pt) = filter.party_type {
-            param_idx += 1;
-            conditions.push(format!("l.party_type = ${}", param_idx));
-            Some(pt)
-        } else {
-            None
-        };
-        let pid_param: Option<i64> = if let Some(pid) = filter.party_id {
-            param_idx += 1;
-            conditions.push(format!("l.party_id = ${}", param_idx));
-            Some(pid)
-        } else {
-            None
-        };
-        if filter.outstanding_only {
-            conditions.push("l.amount - l.amount_applied > 0".to_string());
-        }
-        let kw_param: Option<String> = if let Some(ref kw) = filter.keyword {
-            let trimmed = kw.trim();
-            if trimmed.is_empty() {
-                None
-            } else {
-                param_idx += 1;
-                conditions.push(format!(
-                    "(EXISTS(SELECT 1 FROM customers c WHERE c.customer_id = l.party_id AND c.customer_name ILIKE ${p}) \
-                      OR EXISTS(SELECT 1 FROM suppliers s WHERE s.supplier_id = l.party_id AND s.supplier_name ILIKE ${p}))",
-                    p = param_idx
-                ));
-                Some(format!("%{trimmed}%"))
-            }
-        } else {
-            None
-        };
-        let per_param: Option<String> = if let Some(ref p) = filter.period {
-            if !p.trim().is_empty() {
-                param_idx += 1;
-                conditions.push(format!("l.period = ${}", param_idx));
-                Some(p.clone())
-            } else {
-                None
-            }
-        } else {
-            None
-        };
-        let start_param: Option<chrono::NaiveDate> = if let Some(d) = filter.start_date {
-            param_idx += 1;
-            conditions.push(format!("l.transaction_date >= ${}", param_idx));
-            Some(d)
-        } else {
-            None
-        };
-        let end_param: Option<chrono::NaiveDate> = if let Some(d) = filter.end_date {
-            param_idx += 1;
-            conditions.push(format!("l.transaction_date <= ${}", param_idx));
-            Some(d)
-        } else {
-            None
-        };
-
-        // today / today+7 用于 SELECT 里的逾期与 7 天内到期 CASE
-        param_idx += 1;
-        let today_idx = param_idx;
-        param_idx += 1;
-        let today7_idx = param_idx;
-        let today7 = today + chrono::Duration::days(7);
-
-        let where_clause = if conditions.is_empty() {
+        let (conds, params) = build_filter_conditions(filter);
+        let where_clause = if conds.is_empty() {
             String::new()
         } else {
-            format!("WHERE {}", conditions.join(" AND "))
+            format!("WHERE {}", conds.join(" AND "))
         };
+
+        // today / today+7 用于 SELECT 里的逾期与 7 天内到期 CASE（编号紧随 filter 参数之后）
+        let today_idx = params.len() + 1;
+        let today7_idx = params.len() + 2;
+        let today7 = today + chrono::Duration::days(7);
+
 
         let sql = format!(
             r#"SELECT
                 COALESCE(SUM(l.amount), 0) AS total_amount,
                 COALESCE(SUM(l.amount - l.amount_applied), 0) AS total_outstanding,
-                COALESCE(SUM(CASE WHEN l.due_date IS NOT NULL AND l.due_date < ${today_idx}
+                COALESCE(SUM(CASE WHEN l.due_date IS NOT NULL AND l.due_date < ${t}
                                   AND l.amount - l.amount_applied > 0
                              THEN l.amount - l.amount_applied ELSE 0 END), 0) AS total_overdue,
-                COALESCE(SUM(CASE WHEN l.due_date IS NOT NULL AND l.due_date BETWEEN ${today_idx} AND ${today7_idx}
+                COALESCE(SUM(CASE WHEN l.due_date IS NOT NULL AND l.due_date BETWEEN ${t} AND ${t7}
                                   AND l.amount - l.amount_applied > 0
                              THEN l.amount - l.amount_applied ELSE 0 END), 0) AS due_within_7d
-               FROM ar_ap_ledger l {where_clause}"#
+               FROM ar_ap_ledger l {w}"#,
+            t = today_idx,
+            t7 = today7_idx,
+            w = where_clause,
         );
 
-        let mut q = sqlx::query_as::<sqlx::Postgres, LedgerSummary>(sqlx::AssertSqlSafe(sql));
-        if let Some(pt) = pt_param {
-            q = q.bind(pt);
-        }
-        if let Some(pid) = pid_param {
-            q = q.bind(pid);
-        }
-        if let Some(ref k) = kw_param {
-            q = q.bind(k);
-        }
-        if let Some(ref p) = per_param {
-            q = q.bind(p);
-        }
-        if let Some(d) = start_param {
-            q = q.bind(d);
-        }
-        if let Some(d) = end_param {
-            q = q.bind(d);
-        }
-        q = q.bind(today);
-        q = q.bind(today7);
+        let q = sqlx::query_as::<sqlx::Postgres, LedgerSummary>(sqlx::AssertSqlSafe(sql));
+        let q = bind_filter!(q, &params);
+        let q = q.bind(today).bind(today7);
 
         let summary = q.fetch_one(executor).await?;
         Ok(summary)
+    }
+
+    /// 按 id 查询单条台账行（含 party_name/upstream/product_summary，drawer 详情用）
+    pub async fn get_detail_row(
+        executor: PgExecutor<'_>,
+        id: i64,
+    ) -> Result<Option<ArApLedgerRow>> {
+        let row = sqlx::query_as::<sqlx::Postgres, ArApLedgerRow>(sqlx::AssertSqlSafe(format!(
+            r#"SELECT l.id, l.party_type, l.party_id,
+                      COALESCE(c.customer_name, s.supplier_name, 'Unknown') AS party_name,
+                      l.source_type, l.source_id, l.source_doc_no,
+                      l.direction, l.amount, l.amount_applied,
+                      l.amount - l.amount_applied AS amount_outstanding,
+                      l.currency, l.transaction_date, l.due_date, l.period, l.description,
+                      COALESCE(
+                        (SELECT po.doc_number FROM arrival_notices an
+                         JOIN purchase_orders po ON po.id = an.purchase_order_id AND po.deleted_at IS NULL
+                         WHERE an.id = l.source_id AND l.source_type = 16),
+                        (SELECT so.doc_number FROM shipping_requests sr
+                         JOIN sales_orders so ON so.id = sr.order_id AND so.deleted_at IS NULL
+                         WHERE sr.id = l.source_id AND l.source_type = 3)
+                      ) AS upstream_doc_no,
+                      COALESCE(
+                        (SELECT string_agg(DISTINCT p.pdt_name, '、')
+                         FROM arrival_notice_items ani JOIN products p ON p.product_id = ani.product_id
+                         WHERE ani.notice_id = l.source_id AND l.source_type = 16),
+                        (SELECT p.pdt_name FROM outsourcing_orders oo JOIN products p ON p.product_id = oo.product_id
+                         WHERE oo.id = l.source_id AND l.source_type = 11),
+                        (SELECT string_agg(DISTINCT p.pdt_name, '、')
+                         FROM shipping_request_items sri JOIN products p ON p.product_id = sri.product_id
+                         WHERE sri.shipping_request_id = l.source_id AND l.source_type = 3)
+                      ) AS product_summary
+               FROM ar_ap_ledger l
+               LEFT JOIN customers c ON l.party_type = 1 AND c.customer_id = l.party_id AND c.deleted_at IS NULL
+               LEFT JOIN suppliers s ON l.party_type = 2 AND s.supplier_id = l.party_id AND s.deleted_at IS NULL
+               WHERE l.id = $1"#
+        )))
+        .bind(id)
+        .fetch_optional(executor)
+        .await?;
+        Ok(row)
+    }
+
+    /// 查询台账对应的产品行项目清单（drawer 详情用，按 source_type 分流）
+    pub async fn get_detail_items(
+        executor: PgExecutor<'_>,
+        source_type: DocumentType,
+        source_id: i64,
+    ) -> Result<Vec<LedgerDetailItem>> {
+        let sql = match source_type {
+            DocumentType::ArrivalNotice => {
+                // 采购入库 — 来料明细 × 产品 × PO 单价
+                r#"SELECT p.product_code, p.pdt_name AS product_name,
+                          ani.accepted_qty AS quantity,
+                          COALESCE(poi.unit_price, 0) AS unit_price,
+                          COALESCE(ani.accepted_qty * poi.unit_price, 0) AS line_amount
+                   FROM arrival_notice_items ani
+                   JOIN products p ON p.product_id = ani.product_id
+                   LEFT JOIN purchase_order_items poi ON poi.id = ani.order_item_id
+                   WHERE ani.notice_id = $1 AND ani.accepted_qty > 0"#
+            }
+            DocumentType::OutsourcingOrder => {
+                // 委外 — 单产品（加工费）
+                r#"SELECT p.product_code, p.pdt_name AS product_name,
+                          oo.completed_qty AS quantity,
+                          oo.unit_price,
+                          oo.completed_qty * oo.unit_price AS line_amount
+                   FROM outsourcing_orders oo
+                   JOIN products p ON p.product_id = oo.product_id
+                   WHERE oo.id = $1"#
+            }
+            _ => {
+                // 销售发货 — 发货明细 × 产品 × SO 单价
+                r#"SELECT p.product_code, p.pdt_name AS product_name,
+                          sri.shipped_qty AS quantity,
+                          COALESCE(soi.unit_price, 0) AS unit_price,
+                          COALESCE(sri.shipped_qty * soi.unit_price, 0) AS line_amount
+                   FROM shipping_request_items sri
+                   JOIN products p ON p.product_id = sri.product_id
+                   LEFT JOIN sales_order_items soi ON soi.id = sri.order_item_id
+                   WHERE sri.shipping_request_id = $1 AND sri.shipped_qty > 0"#
+            }
+        };
+        let rows = sqlx::query_as::<sqlx::Postgres, LedgerDetailItem>(sqlx::AssertSqlSafe(sql))
+            .bind(source_id)
+            .fetch_all(executor)
+            .await?;
+        Ok(rows)
     }
 
     /// 查询某往来方的未清发票（用于核销选择）

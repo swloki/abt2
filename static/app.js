@@ -198,6 +198,15 @@ window.entityPickerSelect = function (el) {
     }
 };
 
+// ===== Counterparty Search (搜索型 select 控件辅助函数) =====
+// 从 Hyperscript 调用：call cpSearch(path, inputId, listId)
+// 发 GET 请求搜索往来方，结果填入 #listId
+window.cpSearch = function(searchPath, inputId, listId) {
+    var val = (document.getElementById(inputId) || {}).value || '';
+    htmx.ajax('GET', searchPath + '?q=' + encodeURIComponent(val),
+        {target: '#' + listId, swap: 'innerHTML'});
+};
+
 // ===== Purchase Order Line Calculation =====
 
 window.formatMoney = function(v) {

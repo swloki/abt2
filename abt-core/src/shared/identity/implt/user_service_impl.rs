@@ -263,6 +263,18 @@ impl UserService for UserServiceImpl {
         Ok(result)
     }
 
+    async fn list_users_by_departments(
+        &self,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
+        department_codes: &[&str],
+    ) -> Result<Vec<UserWithRoles>> {
+        let user_ids = IdentityRepo::list_user_ids_by_department_codes(&mut *db, department_codes).await?;
+        if user_ids.is_empty() {
+            return Ok(Vec::new());
+        }
+        self.get_users_by_ids(_ctx, db, user_ids).await
+    }
+
     async fn get_users_by_ids(
         &self,
         _ctx: &ServiceContext, db: PgExecutor<'_>,

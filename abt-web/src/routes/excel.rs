@@ -29,6 +29,26 @@ use abt_macros::require_permission;
 pub struct ExportForm {
     pub bom_id: Option<i64>,
     pub product_code: Option<String>,
+    /// 台账明细导出：往来方名称模糊筛
+    #[serde(default)]
+    pub keyword: Option<String>,
+    /// 台账明细导出：仅未清项
+    #[serde(default)]
+    pub outstanding_only: Option<bool>,
+    /// 台账明细导出：发生单号模糊筛
+    #[serde(default)]
+    pub doc_no: Option<String>,
+    /// 台账明细导出：产品名称模糊筛
+    #[serde(default)]
+    pub product_name: Option<String>,
+    /// 台账明细导出：销售经理/采购员模糊筛
+    #[serde(default)]
+    pub rep_name: Option<String>,
+    /// 台账明细导出：发生日期范围
+    #[serde(default)]
+    pub start_date: Option<String>,
+    #[serde(default)]
+    pub end_date: Option<String>,
 }
 
 // ── TypedPath 路由定义 ──
@@ -254,6 +274,7 @@ pub async fn post_export_start(
     // 根据 export_type 检查对应资源权限
     let (resource, action) = match path.export_type.as_str() {
         "warehouse-location" => ("WAREHOUSE", "read"),
+        "ap-ledger-detail" | "ar-ledger-detail" => ("FMS", "read"),
         _ => ("PRODUCT", "read"),
     };
     crate::permissions::check_permission(&ctx, resource, action).await?;
@@ -409,7 +430,40 @@ async fn execute_export(
             let bytes = exporter.export().await?;
             Ok((bytes, "BOM清单(无人工成本)".to_string()))
         }
+        "ap-ledger-detail" => {
+            let exporter = abt_core::shared::excel::LedgerDetailExporter::new(
+                pool.clone(),
+                abt_core::fms::enums::CounterpartyType::Supplier,
+                build_ledger_filter(&form),
+            );
+            let bytes = exporter.export().await?;
+            Ok((bytes, "应付台账明细".to_string()))
+        }
+        "ar-ledger-detail" => {
+            let exporter = abt_core::shared::excel::LedgerDetailExporter::new(
+                pool.clone(),
+                abt_core::fms::enums::CounterpartyType::Customer,
+                build_ledger_filter(&form),
+            );
+            let bytes = exporter.export().await?;
+            Ok((bytes, "应收台账明细".to_string()))
+        }
         _ => anyhow::bail!("未知的导出类型: {}", export_type),
+    }
+}
+
+/// 从导出表单构造台账筛选条件（AP/AR 明细导出共用）
+fn build_ledger_filter(form: &ExportForm) -> abt_core::fms::ar_ap::ArApLedgerFilter {
+    abt_core::fms::ar_ap::ArApLedgerFilter {
+        keyword: form.keyword.clone(),
+        outstanding_only: form.outstanding_only.unwrap_or(false),
+        doc_no: form.doc_no.clone(),
+        product_code: form.product_code.clone(),
+        product_name: form.product_name.clone(),
+        rep_name: form.rep_name.clone(),
+        start_date: form.start_date.as_deref().and_then(|s| s.trim().parse().ok()),
+        end_date: form.end_date.as_deref().and_then(|s| s.trim().parse().ok()),
+        ..Default::default()
     }
 }
 

@@ -283,22 +283,26 @@ fn filter_and_table(
             // ── filter-card 容器 ──
             div class="border border-border-soft rounded-md bg-white mb-4"
             {
-                // 主筛选行：label+input 水平排列
-                div class="flex items-center gap-3 px-4 py-3 flex-wrap"
+                // 主筛选行
+                div class="flex items-center gap-2.5 px-3 py-2.5 flex-wrap"
                 {
-                    // 客户搜索
-                    div class="relative flex-1 min-w-[180px] max-w-xs icon:absolute icon:left-2.5 icon:top-1/2 icon:-translate-y-1/2 icon:w-3.5 icon:h-3.5 icon:text-muted" {
+                    // 产品名称 — 主搜索（最左边，flex-1）
+                    div class="relative flex-1 min-w-[160px] icon:absolute icon:left-2.5 icon:top-1/2 icon:-translate-y-1/2 icon:w-3.5 icon:h-3.5 icon:text-muted" {
                         (icon::search_icon(""))
                         input class="w-full pl-8 pr-3 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-colors duration-150 focus:border-accent search-input"
+                            type="text" name="product_name" id="product_name" hx-preserve
+                            placeholder="产品名称" value=(q.product_name.as_deref().unwrap_or(""));
+                    }
+                    // 客户
+                    div class="relative w-36 icon:absolute icon:left-2 icon:top-1/2 icon:-translate-y-1/2 icon:w-3 icon:h-3 icon:text-muted" {
+                        (icon::search_icon(""))
+                        input class="w-full pl-7 pr-2 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-colors duration-150 focus:border-accent"
                             type="text" name="keyword" id="ar-keyword" hx-preserve
                             placeholder="客户" value=(keyword);
                     }
                     // 产品编码
                     input type="text" id="product_code" name="product_code" hx-preserve
-                        class=(format!("{} w-28 ", ti)) placeholder="产品编码" value=(q.product_code.as_deref().unwrap_or(""));
-                    // 产品名称
-                    input type="text" id="product_name" name="product_name" hx-preserve
-                        class=(format!("{} w-32 ", ti)) placeholder="产品名称" value=(q.product_name.as_deref().unwrap_or(""));
+                        class=(format!("{} w-24 ", ti)) placeholder="产品编码" value=(q.product_code.as_deref().unwrap_or(""));
                     // toggle
                     div class="inline-flex bg-surface border border-border-soft rounded-md p-[3px] gap-0.5"
                     {

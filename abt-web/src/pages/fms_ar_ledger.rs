@@ -294,15 +294,15 @@ fn filter_and_table(
                             placeholder="产品名称" value=(q.product_name.as_deref().unwrap_or(""));
                     }
                     // 客户
-                    div class="relative w-36 icon:absolute icon:left-2.5 icon:top-1/2 icon:-translate-y-1/2 icon:w-3 icon:h-3 icon:text-muted" {
+                    div class="relative w-40 icon:absolute icon:left-2.5 icon:top-1/2 icon:-translate-y-1/2 icon:w-3.5 icon:h-3.5 icon:text-muted" {
                         (icon::search_icon(""))
-                        input class="w-full pl-7 pr-2 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-colors duration-150 focus:border-accent"
+                        input class="w-full pl-8 pr-3 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-colors duration-150 focus:border-accent"
                             type="text" name="keyword" id="ar-keyword" hx-preserve
                             placeholder="客户" value=(keyword);
                     }
                     // 产品编码
                     input type="text" id="product_code" name="product_code" hx-preserve
-                        class=(format!("{} w-24 ", ti)) placeholder="产品编码" value=(q.product_code.as_deref().unwrap_or(""));
+                        class=(format!("{} w-32 ", ti)) placeholder="产品编码" value=(q.product_code.as_deref().unwrap_or(""));
                     // toggle
                     div class="inline-flex bg-surface border border-border-soft rounded-md p-[3px] gap-0.5"
                     {

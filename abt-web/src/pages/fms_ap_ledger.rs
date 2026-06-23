@@ -13,7 +13,6 @@ use abt_core::fms::enums::CounterpartyType;
 use abt_core::shared::types::PaginatedResult;
 
 use crate::components::drawer::drawer_with_footer;
-use crate::components::entity_picker::{self, EntityPickerConfig};
 use crate::components::export_button;
 use crate::components::icon;
 use crate::components::pagination::pagination;
@@ -296,10 +295,9 @@ fn filter_and_table(
                             type="text" name="product_name" id="product_name" hx-preserve
                             placeholder="产品名称" value=(q.product_name.as_deref().unwrap_or(""));
                     }
-                    // 供应商（entity_picker）
-                    (crate::components::entity_picker::entity_picker_field(
-                        "keyword", "ap-keyword-val", "ap-keyword-display", "ap-supplier-modal",
-                        "供应商", false, keyword
+                    // 供应商（搜索型 select）
+                    (crate::components::counterparty_search::counterparty_search_input(
+                        "ap-keyword", "ap-supplier-dd", ApSupplierSearchPath::PATH, "供应商", keyword, "ap-filter-form"
                     ))
                     // 产品编码
                     input type="text" id="product_code" name="product_code" hx-preserve
@@ -445,20 +443,6 @@ pub async fn get_list(
                 )
             })
             ({
-                entity_picker::entity_picker_modal(&EntityPickerConfig {
-                    modal_id: "ap-supplier-modal",
-                    title: "选择供应商",
-                    search_label: "供应商名称",
-                    search_placeholder: "搜索供应商…",
-                    search_path: ApSupplierSearchPath::PATH,
-                    search_param: "keyword",
-                    target_id: "ap-keyword-val",
-                    display_id: "ap-keyword-display",
-                    event_name: "",
-                    extra_include: None,
-                })
-            })
-            ({
                 drawer_with_footer(
                     "ap-drawer",
                     "应付台账详情",
@@ -594,7 +578,7 @@ pub async fn search_supplier(
         .unwrap_or_default();
 
     Ok(Html(crate::components::counterparty_search::render_counterparty_results(
-        &items, "未找到匹配供应商",
+        &items, "ap-keyword", "ap-supplier-dd", "ap-filter-form", "未找到匹配供应商",
     ).into_string()))
 }
 

@@ -46,19 +46,18 @@ impl CashJournalService for CashJournalServiceImpl {
         if req.amount <= rust_decimal::Decimal::ZERO {
             return Err(DomainError::validation("amount must be greater than zero"));
         }
-        if req.lines.is_empty() {
-            return Err(DomainError::validation("at least one journal line is required"));
-        }
 
-        // Header amount must equal sum of line debit (and credit) totals
-        let (total_debit, total_credit) = req.lines.iter().fold(
-            (rust_decimal::Decimal::ZERO, rust_decimal::Decimal::ZERO),
-            |(d, c), l| (d + l.debit_amount, c + l.credit_amount),
-        );
-        if total_debit != req.amount || total_credit != req.amount {
-            return Err(DomainError::validation(
-                "header amount must equal line debit and credit totals",
-            ));
+        // 借贷分录可选：简单收付款单不带分录；仅当提供分录时校验 header 金额 == 借/贷合计
+        if !req.lines.is_empty() {
+            let (total_debit, total_credit) = req.lines.iter().fold(
+                (rust_decimal::Decimal::ZERO, rust_decimal::Decimal::ZERO),
+                |(d, c), l| (d + l.debit_amount, c + l.credit_amount),
+            );
+            if total_debit != req.amount || total_credit != req.amount {
+                return Err(DomainError::validation(
+                    "header amount must equal line debit and credit totals",
+                ));
+            }
         }
 
         let doc_number = new_document_sequence_service(self.pool.clone())
@@ -69,9 +68,11 @@ impl CashJournalService for CashJournalServiceImpl {
             .await
             ?;
 
-        CashJournalLineRepo::batch_insert(db, id, &req.lines)
-            .await
-            ?;
+        if !req.lines.is_empty() {
+            CashJournalLineRepo::batch_insert(db, id, &req.lines)
+                .await
+                ?;
+        }
 
         new_state_machine_service(self.pool.clone())
             .transition(ctx, db, "JournalStatus", id, "Draft", None)
@@ -118,12 +119,12 @@ impl CashJournalService for CashJournalServiceImpl {
             .await
             ?;
 
-        // Step 4: Validate balanced entry with non-zero totals
-        if total_debit != total_credit {
-            return Err(DomainError::business_rule("UnbalancedEntry"));
-        }
-        if total_debit == rust_decimal::Decimal::ZERO {
-            return Err(DomainError::business_rule("ZeroEntry"));
+        // Step 4: 仅当存在分录时校验借贷平衡；无分录（简单收付款单）直接放行
+        // （金额 > 0 已在 create 校验，header amount 即收付款金额）
+        if total_debit != rust_decimal::Decimal::ZERO || total_credit != rust_decimal::Decimal::ZERO {
+            if total_debit != total_credit {
+                return Err(DomainError::business_rule("UnbalancedEntry"));
+            }
         }
 
         // Step 5: State transition

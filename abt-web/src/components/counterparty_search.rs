@@ -54,7 +54,7 @@ pub fn counterparty_search_input(
                         placeholder=(format!("搜索{}…", placeholder))
                         autocomplete="off"
                         _=(format!(
-                            "on keyup debounced 200ms call cpSearch('{s}', me.id, '{li}')",
+                            "on keyup debounced at 200ms call cpSearch('{s}', me.id, '{li}')",
                             s = search_path, li = list_id
                         ));
                 }

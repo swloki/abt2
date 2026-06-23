@@ -60,8 +60,8 @@ pub enum DocumentType {
     StockReceipt = 43,
     // WMS — 出库单
     StockShipment = 44,
-    // FMS 财务 — 台账调整
-    LedgerAdjustment = 45,
+    // FMS — 应收应付调整单
+    ArApAdjustment = 45,
 }
 
 impl DocumentType {
@@ -111,7 +111,7 @@ impl DocumentType {
             42 => Some(Self::FlowCard),
             43 => Some(Self::StockReceipt),
             44 => Some(Self::StockShipment),
-            45 => Some(Self::LedgerAdjustment),
+            45 => Some(Self::ArApAdjustment),
             _ => None,
         }
     }
@@ -179,7 +179,7 @@ impl DocumentType {
             Self::StockReceipt => "RK",
             // WMS — 出库单
             Self::StockShipment => "CK",
-            Self::LedgerAdjustment => "ADJ",
+            Self::ArApAdjustment => "ADJ",
         }
     }
 }

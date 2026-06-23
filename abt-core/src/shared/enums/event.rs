@@ -97,6 +97,8 @@ pub enum DomainEventType {
     CycleCountReviewRequested = 69,
     // WMS — 安全库存预警
     LowStockAlert = 70,
+    // FMS — 应收应付调整单过账
+    ArApAdjustmentPosted = 71,
 }
 
 impl DomainEventType {
@@ -147,6 +149,7 @@ impl DomainEventType {
             68 => Some(Self::ArrivalInspected),
             69 => Some(Self::CycleCountReviewRequested),
             70 => Some(Self::LowStockAlert),
+            71 => Some(Self::ArApAdjustmentPosted),
             _ => None,
         }
     }

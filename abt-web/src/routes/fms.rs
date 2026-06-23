@@ -68,6 +68,27 @@ pub struct ArLedgerDetailPath;
 #[typed_path("/admin/fms/ap-ledger/detail")]
 pub struct ApLedgerDetailPath;
 
+// AR/AP Adjustment
+#[derive(TypedPath, Deserialize, Serialize, Clone)]
+#[typed_path("/admin/fms/ar-adjustments")]
+pub struct ArAdjustmentListPath;
+
+#[derive(TypedPath, Deserialize, Serialize, Clone)]
+#[typed_path("/admin/fms/ar-adjustments/create")]
+pub struct ArAdjustmentCreatePath;
+
+#[derive(TypedPath, Deserialize, Serialize, Clone)]
+#[typed_path("/admin/fms/ap-adjustments")]
+pub struct ApAdjustmentListPath;
+
+#[derive(TypedPath, Deserialize, Serialize, Clone)]
+#[typed_path("/admin/fms/ap-adjustments/create")]
+pub struct ApAdjustmentCreatePath;
+
+#[derive(TypedPath, Deserialize, Serialize, Clone)]
+#[typed_path("/admin/fms/adjustments/balance")]
+pub struct AdjustmentBalancePath;
+
 // AR/AP Aging
 #[derive(TypedPath, Deserialize, Serialize, Clone)]
 #[typed_path("/admin/fms/ar-aging")]
@@ -121,6 +142,12 @@ pub fn router() -> Router<AppState> {
         .route(ApLedgerDetailPath::PATH, get(crate::pages::fms_ap_ledger::get_detail))
         .route(ApSupplierSearchPath::PATH, get(crate::pages::fms_ap_ledger::search_supplier))
         .route(ArCustomerSearchPath::PATH, get(crate::pages::fms_ar_ledger::search_customer))
+        // AR/AP Adjustment
+        .route(ArAdjustmentListPath::PATH, get(crate::pages::fms_adjustment_list::get_ar_list))
+        .route(ArAdjustmentCreatePath::PATH, get(crate::pages::fms_adjustment_create::get_ar_create).post(crate::pages::fms_adjustment_create::create_ar))
+        .route(ApAdjustmentListPath::PATH, get(crate::pages::fms_adjustment_list::get_ap_list))
+        .route(ApAdjustmentCreatePath::PATH, get(crate::pages::fms_adjustment_create::get_ap_create).post(crate::pages::fms_adjustment_create::create_ap))
+        .route(AdjustmentBalancePath::PATH, get(crate::pages::fms_adjustment_create::get_balance))
         // AR/AP Aging
         .route(ArAgingPath::PATH, get(crate::pages::fms_ar_aging::get_page))
         .route(ApAgingPath::PATH, get(crate::pages::fms_ap_aging::get_page))

@@ -7,7 +7,6 @@ use serde::Deserialize;
 
 use abt_core::fms::ar_ap::model::{ArApLedgerFilter, ArApLedgerRow, LedgerDetailItem, LedgerSummary};
 use abt_core::fms::ar_ap::ArApService;
-use abt_core::fms::cash_journal::CashJournalService;
 use abt_core::shared::identity::UserService;
 use abt_core::fms::enums::CounterpartyType;
 use abt_core::shared::types::PaginatedResult;
@@ -18,7 +17,7 @@ use crate::components::icon;
 use crate::components::pagination::pagination;
 use crate::errors::Result;
 use crate::layout::page::admin_page;
-use crate::routes::fms::{ApLedgerDetailPath, ApLedgerPath, ApSupplierSearchPath};
+use crate::routes::fms::{ApLedgerDetailPath, ApLedgerPath};
 use crate::utils::RequestContext;
 use abt_macros::require_permission;
 
@@ -275,11 +274,10 @@ fn filter_and_table(
         form id="ap-filter-form"
             class="mb-4"
             hx-get=(ApLedgerPath::PATH)
-            hx-trigger="change, keyup changed delay:300ms"
+            hx-trigger="change, keyup changed delay:300ms from:.search-input"
             hx-target="#data-card"
             hx-select="#data-card"
             hx-swap="outerHTML"
-            hx-push-url="true"
         {
             input type="hidden" name="outstanding_only" value=(outstanding_only);
             // ── filter-card 容器 ──
@@ -295,24 +293,24 @@ fn filter_and_table(
                             type="text" name="product_name" id="product_name" hx-preserve
                             placeholder="产品名称" value=(q.product_name.as_deref().unwrap_or(""));
                     }
-                    // 供应商（搜索型 select）
-                    (crate::components::counterparty_search::counterparty_search_input(
-                        "ap-keyword", "ap-keyword-display", "ap-supplier-panel", ApSupplierSearchPath::PATH, "供应商", keyword
+                    // 供应商（纯 HTMX 搜索控件，自身 URL）
+                    (crate::components::supplier_search::supplier_search_field(
+                        "ap-keyword", "ap-keyword-display", "ap-supplier-panel", "ap-supplier-results", "keyword", keyword, "供应商"
                     ))
                     // 产品编码
                     input type="text" id="product_code" name="product_code" hx-preserve
-                        class=(format!("{} w-32 ", ti)) placeholder="产品编码" value=(q.product_code.as_deref().unwrap_or(""));
+                        class=(format!("{} w-32 search-input", ti)) placeholder="产品编码" value=(q.product_code.as_deref().unwrap_or(""));
                     // toggle
                     div class="inline-flex bg-surface border border-border-soft rounded-md p-[3px] gap-0.5"
                     {
                         a class=(if outstanding_only { active_cls } else { inactive_cls })
                             hx-get=(ApLedgerPath::PATH) hx-vals=r#"{"outstanding_only":"true"}"#
-                            hx-target="#data-card" hx-select="#data-card" hx-swap="outerHTML" hx-push-url="true"
+                            hx-target="#data-card" hx-select="#data-card" hx-swap="outerHTML"
                             hx-include="#ap-filter-form input:not([type=hidden])"
                         { "只看未清" }
                         a class=(if !outstanding_only { active_cls } else { inactive_cls })
                             hx-get=(ApLedgerPath::PATH) hx-vals=r#"{"outstanding_only":"false"}"#
-                            hx-target="#data-card" hx-select="#data-card" hx-swap="outerHTML" hx-push-url="true"
+                            hx-target="#data-card" hx-select="#data-card" hx-swap="outerHTML"
                             hx-include="#ap-filter-form input:not([type=hidden])"
                         { "全部" }
                     }
@@ -555,29 +553,6 @@ pub async fn get_detail(
     };
 
     Ok(Html(content.into_string()))
-}
-
-// ── Supplier search（autocomplete dropdown）──
-
-#[derive(Deserialize, Debug)]
-pub(crate) struct SupplierSearchParams { pub q: Option<String> }
-
-pub async fn search_supplier(
-    _path: ApSupplierSearchPath,
-    ctx: RequestContext,
-    Query(q): Query<SupplierSearchParams>,
-) -> Result<Html<String>> {
-    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
-    let svc = state.cash_journal_service();
-    let kw = q.q.as_deref().unwrap_or("");
-    let items: Vec<abt_core::fms::cash_journal::model::CounterpartyResult> = svc
-        .search_counterparties(&service_ctx, &mut conn, CounterpartyType::Supplier, kw, 50)
-        .await
-        .unwrap_or_default();
-
-    Ok(Html(crate::components::counterparty_search::render_counterparty_results(
-        &items, "ap-keyword", "ap-keyword-display", "ap-supplier-panel", "未找到匹配供应商",
-    ).into_string()))
 }
 
 fn url_encode(s: &str) -> String {

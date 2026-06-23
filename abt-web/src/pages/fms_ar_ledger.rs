@@ -7,7 +7,6 @@ use serde::Deserialize;
 
 use abt_core::fms::ar_ap::model::{ArApLedgerFilter, ArApLedgerRow, LedgerDetailItem, LedgerSummary};
 use abt_core::fms::ar_ap::ArApService;
-use abt_core::fms::cash_journal::CashJournalService;
 use abt_core::shared::identity::UserService;
 use abt_core::fms::enums::CounterpartyType;
 use abt_core::shared::types::PaginatedResult;
@@ -18,7 +17,7 @@ use crate::components::icon;
 use crate::components::pagination::pagination;
 use crate::errors::Result;
 use crate::layout::page::admin_page;
-use crate::routes::fms::{ArCustomerSearchPath, ArLedgerDetailPath, ArLedgerPath};
+use crate::routes::fms::{ArLedgerDetailPath, ArLedgerPath};
 use crate::utils::RequestContext;
 use abt_macros::require_permission;
 
@@ -276,7 +275,7 @@ fn filter_and_table(
         form id="ar-filter-form"
             class="mb-4"
             hx-get=(ArLedgerPath::PATH)
-            hx-trigger="change, keyup changed delay:300ms"
+            hx-trigger="change, keyup changed delay:300ms from:.search-input"
             hx-target="#data-card"
             hx-select="#data-card"
             hx-swap="outerHTML"
@@ -297,12 +296,12 @@ fn filter_and_table(
                             placeholder="产品名称" value=(q.product_name.as_deref().unwrap_or(""));
                     }
                     // 客户（搜索型 select）
-                    (crate::components::counterparty_search::counterparty_search_input(
-                        "ar-keyword", "ar-keyword-display", "ar-customer-panel", ArCustomerSearchPath::PATH, "客户", keyword
+                    (crate::components::customer_search::customer_search_field(
+                        "ar-keyword", "ar-keyword-display", "ar-customer-panel", "ar-customer-results", "keyword", keyword, "客户"
                     ))
                     // 产品编码
                     input type="text" id="product_code" name="product_code" hx-preserve
-                        class=(format!("{} w-32 ", ti)) placeholder="产品编码" value=(q.product_code.as_deref().unwrap_or(""));
+                        class=(format!("{} w-32 search-input", ti)) placeholder="产品编码" value=(q.product_code.as_deref().unwrap_or(""));
                     // toggle
                     div class="inline-flex bg-surface border border-border-soft rounded-md p-[3px] gap-0.5"
                     {
@@ -556,28 +555,6 @@ pub async fn get_detail(
     Ok(Html(content.into_string()))
 }
 
-// ── Customer search（autocomplete dropdown）──
-
-#[derive(Deserialize, Debug)]
-pub(crate) struct CustomerSearchParams { pub q: Option<String> }
-
-pub async fn search_customer(
-    _path: ArCustomerSearchPath,
-    ctx: RequestContext,
-    Query(q): Query<CustomerSearchParams>,
-) -> Result<Html<String>> {
-    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
-    let svc = state.cash_journal_service();
-    let kw = q.q.as_deref().unwrap_or("");
-    let items: Vec<abt_core::fms::cash_journal::model::CounterpartyResult> = svc
-        .search_counterparties(&service_ctx, &mut conn, CounterpartyType::Customer, kw, 50)
-        .await
-        .unwrap_or_default();
-
-    Ok(Html(crate::components::counterparty_search::render_counterparty_results(
-        &items, "ar-keyword", "ar-keyword-display", "ar-customer-panel", "未找到匹配客户",
-    ).into_string()))
-}
 
 /// 简单 URL 编码（分页 query_string 用，保留 keyword 中文）
 fn url_encode(s: &str) -> String {

@@ -46,16 +46,9 @@ pub async fn get_stock_in_create(
 ) -> Result<Html<String>> {
  let is_htmx = ctx.is_htmx();
  let nav_filter = ctx.nav_filter().await;
- let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
+ let RequestContext { claims, .. } = ctx;
 
- let supplier_svc = state.supplier_service();
- let suppliers = supplier_svc
- .list(&service_ctx, &mut conn, abt_core::master_data::supplier::model::SupplierQuery::default(), PageParams::new(1, 500))
- .await
- .map(|r| r.items)
- .unwrap_or_default();
-
- let content = stock_in_create_content(&suppliers);
+ let content = stock_in_create_content();
  let page_html = admin_page(
  is_htmx, "新建入库单", &claims, "inventory", StockInCreatePath::PATH, "库存管理", None, content, &nav_filter,
  );
@@ -711,9 +704,7 @@ pub async fn create_stock_in(
 
 // ── Components ──
 
-fn stock_in_create_content(
- suppliers: &[abt_core::master_data::supplier::model::Supplier],
-) -> Markup {
+fn stock_in_create_content() -> Markup {
  html! {
     div {
         // ── Back Link ──
@@ -935,7 +926,6 @@ fn stock_in_create_content(
         crate::components::purchase_order_picker::purchase_order_picker_modal(
             "po-picker",
             StockInConfirmPosPath::PATH,
-            suppliers,
         )
     })
     // ── 工单选择弹窗（可复用组件，生产入库用；选中 fill #wo-id-hidden + trigger change → HTMX POST confirm-wo）──

@@ -203,7 +203,8 @@ window.entityPickerSelect = function (el) {
 // 发 GET 请求搜索往来方，结果填入 #listId
 window.cpSearch = function(searchPath, inputId, listId) {
     var val = (document.getElementById(inputId) || {}).value || '';
-    htmx.ajax('GET', searchPath + '?q=' + encodeURIComponent(val),
+    var sep = searchPath.indexOf('?') >= 0 ? '&' : '?';
+    htmx.ajax('GET', searchPath + sep + 'q=' + encodeURIComponent(val),
         {target: '#' + listId, swap: 'innerHTML'});
 };
 

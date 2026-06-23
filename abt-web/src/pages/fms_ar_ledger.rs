@@ -245,24 +245,6 @@ fn ledger_table(items: &[ArApLedgerRow], today: chrono::NaiveDate, total: u64, p
     }
 }
 
-fn filter_input(input_type: &str, name: &str, label: &str, value: &str) -> Markup {
-    html! {
-        label
-            class="flex flex-col gap-1"
-            for=(name)
-        {
-            span class="text-xs font-medium text-fg-2 whitespace-nowrap" { (label) }
-            input
-                type=(input_type)
-                id=(name)
-                name=(name)
-                hx-preserve
-                class="w-full px-3 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
-                value=(value);
-        }
-    }
-}
-
 /// 筛选区 + 表格（HTMX 局部刷新 #data-card）
 fn filter_and_table(
     result: &PaginatedResult<ArApLedgerRow>,
@@ -277,11 +259,12 @@ fn filter_and_table(
     let keyword = q.keyword.as_deref().unwrap_or("");
     let start = q.start_date.clone().unwrap_or_default();
     let end = q.end_date.clone().unwrap_or_default();
+    let ti = "px-3 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-colors duration-150 focus:border-accent";
 
     html! {
         div id="data-card" {
         form id="ar-filter-form"
-            class="data-card p-4 mb-4"
+            class="mb-4"
             hx-get=(ArLedgerPath::PATH)
             hx-trigger="change, keyup changed delay:300ms"
             hx-target="#data-card"
@@ -290,14 +273,14 @@ fn filter_and_table(
             hx-push-url="true"
         {
             input type="hidden" name="outstanding_only" value=(outstanding_only);
-            // 主搜索行：客户名称 + 只看未清 toggle
-            div class="flex items-center gap-3 mb-3"
+            // 主搜索行
+            div class="flex items-center gap-3 mb-2"
             {
-                div class="relative flex-1 max-w-sm icon:absolute icon:left-3 icon:top-1/2 icon:-translate-y-1/2 icon:w-4 icon:h-4 icon:text-muted"
+                div class="relative flex-1 icon:absolute icon:left-3 icon:top-1/2 icon:-translate-y-1/2 icon:w-4 icon:h-4 icon:text-muted"
                 {
                     (icon::search_icon(""))
                     input
-                        class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input"
+                        class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-colors duration-150 focus:border-accent search-input"
                         type="text"
                         name="keyword"
                         id="ar-keyword"
@@ -305,37 +288,32 @@ fn filter_and_table(
                         placeholder="搜索客户名称"
                         value=(keyword);
                 }
-                div class="inline-flex bg-surface border border-border-soft rounded-md p-[3px] gap-0.5 ml-auto"
+                div class="inline-flex bg-surface border border-border-soft rounded-md p-[3px] gap-0.5"
                 {
-                    a   class=(if outstanding_only { active_cls } else { inactive_cls })
-                        hx-get=(ArLedgerPath::PATH)
-                        hx-vals=r#"{"outstanding_only":"true"}"#
-                        hx-target="#data-card"
-                        hx-select="#data-card"
-                        hx-swap="outerHTML"
-                        hx-push-url="true"
+                    a class=(if outstanding_only { active_cls } else { inactive_cls })
+                        hx-get=(ArLedgerPath::PATH) hx-vals=r#"{"outstanding_only":"true"}"#
+                        hx-target="#data-card" hx-select="#data-card" hx-swap="outerHTML" hx-push-url="true"
                         hx-include="#ar-filter-form input:not([type=hidden])"
                     { "只看未清" }
-                    a   class=(if !outstanding_only { active_cls } else { inactive_cls })
-                        hx-get=(ArLedgerPath::PATH)
-                        hx-vals=r#"{"outstanding_only":"false"}"#
-                        hx-target="#data-card"
-                        hx-select="#data-card"
-                        hx-swap="outerHTML"
-                        hx-push-url="true"
+                    a class=(if !outstanding_only { active_cls } else { inactive_cls })
+                        hx-get=(ArLedgerPath::PATH) hx-vals=r#"{"outstanding_only":"false"}"#
+                        hx-target="#data-card" hx-select="#data-card" hx-swap="outerHTML" hx-push-url="true"
                         hx-include="#ar-filter-form input:not([type=hidden])"
                     { "全部" }
                 }
             }
-            // 高级筛选网格
-            div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-x-3 gap-y-2"
+            // 高级筛选行
+            div class="flex items-center gap-2 flex-wrap"
             {
-                (filter_input("date", "start_date", "开始日期", &start))
-                (filter_input("date", "end_date", "结束日期", &end))
-                (filter_input("text", "doc_no", "发生单号", q.doc_no.as_deref().unwrap_or("")))
-                (filter_input("text", "product_code", "产品编码", q.product_code.as_deref().unwrap_or("")))
-                (filter_input("text", "product_name", "产品名称", q.product_name.as_deref().unwrap_or("")))
-                (filter_input("text", "rep_name", "销售经理", q.rep_name.as_deref().unwrap_or("")))
+                span class="text-xs text-fg-3 whitespace-nowrap" { "日期" }
+                input type="date" id="start_date" name="start_date" hx-preserve class=(ti) value=(start);
+                span class="text-fg-3" { "—" }
+                input type="date" id="end_date" name="end_date" hx-preserve class=(ti) value=(end);
+                span class="text-fg-3 mx-1 select-none" { "|" }
+                input type="text" id="doc_no" name="doc_no" hx-preserve class=(ti) placeholder="发生单号" value=(q.doc_no.as_deref().unwrap_or(""));
+                input type="text" id="product_code" name="product_code" hx-preserve class=(ti) placeholder="产品编码" value=(q.product_code.as_deref().unwrap_or(""));
+                input type="text" id="product_name" name="product_name" hx-preserve class=(ti) placeholder="产品名称" value=(q.product_name.as_deref().unwrap_or(""));
+                input type="text" id="rep_name" name="rep_name" hx-preserve class=(ti) placeholder="销售经理" value=(q.rep_name.as_deref().unwrap_or(""));
             }
         }
         ({

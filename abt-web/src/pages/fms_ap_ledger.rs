@@ -406,7 +406,8 @@ pub async fn get_list(
     let result = svc.list_ledger(&service_ctx, &mut conn, filter, abt_core::shared::types::PageParams::new(page, page_size)).await
         .unwrap_or_else(|_| PaginatedResult::new(vec![], 0, page, page_size));
 
-    let buyers: Vec<String> = state.user_service().list_users_with_roles(&service_ctx, &mut conn).await
+    let buyers: Vec<String> = state.user_service()
+        .list_users_by_departments(&service_ctx, &mut conn, &["CAIGOU", "SHENGCHAN"]).await
         .unwrap_or_default().into_iter()
         .filter(|u: &abt_core::shared::identity::model::UserWithRoles| u.user.is_active)
         .filter_map(|u: abt_core::shared::identity::model::UserWithRoles| u.user.display_name)

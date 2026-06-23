@@ -556,6 +556,40 @@ impl IdentityRepo {
         let rows = sqlx::query(
             "SELECT d.department_id, d.department_name, d.department_code, d.description, d.is_active, d.is_default, d.created_at, d.updated_at \
              FROM departments d \
+             JOIN user_departments ud ON ud.department_id = d.department_id \
+             WHERE ud.user_id = $1 AND d.is_active = true"
+        )
+        .bind(user_id)
+        .fetch_all(executor)
+        .await?;
+
+        rows.iter().map(Self::row_to_department).collect::<std::result::Result<Vec<_>, _>>()
+    }
+
+    /// 查询指定部门编码列表下的用户 ID
+    pub async fn list_user_ids_by_department_codes(
+        executor: &mut sqlx::postgres::PgConnection,
+        department_codes: &[&str],
+    ) -> Result<Vec<i64>> {
+        let ids: Vec<i64> = sqlx::query_scalar(
+            "SELECT ud.user_id FROM user_departments ud \
+             JOIN departments d ON d.department_id = ud.department_id \
+             WHERE d.department_code = ANY($1)"
+        )
+        .bind(department_codes.to_vec())
+        .fetch_all(executor)
+        .await?;
+        Ok(ids)
+    }
+
+    #[allow(dead_code)]
+    pub async fn get_user_departments_old(
+        executor: &mut sqlx::postgres::PgConnection,
+        user_id: i64,
+    ) -> Result<Vec<Department>> {
+        let rows = sqlx::query(
+            "SELECT d.department_id, d.department_name, d.department_code, d.description, d.is_active, d.is_default, d.created_at, d.updated_at \
+             FROM departments d \
              INNER JOIN user_departments ud ON d.department_id = ud.department_id \
              WHERE ud.user_id = $1 AND d.is_active = true \
              ORDER BY d.department_id"

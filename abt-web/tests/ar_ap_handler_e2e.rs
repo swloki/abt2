@@ -271,3 +271,202 @@ async fn k3_outsourcing_receive_to_ap_ledger() {
     assert_eq!(ledger.direction, abt_core::fms::ar_ap::enums::LedgerDirection::Credit);
     assert_eq!(ledger.amount, recv_qty * order.unit_price);
 }
+
+// ════════════════════════════════════════════════════════════════════════════
+//  k4 采购退货结算冲减应付（Issue #85）：
+//  PO → 来料收货 → 退货单 → PurchaseReturnSettled 事件 → 反向 AP 台账（Debit）+ 幂等
+// ════════════════════════════════════════════════════════════════════════════
+
+#[tokio::test]
+#[serial_test::serial]
+async fn k4_purchase_return_settled_reverses_ap_ledger() {
+    let app = TestApp::new().await;
+    let ctx = ServiceContext::new(1);
+
+    // 1) 采购订单 → submit
+    let items = po_items(&[(&PRODUCT.to_string(), "k4-PO", "10", "3.00")]);
+    let body = format!("supplier_id={SUPPLIER_ID}&order_date=2026-06-24&items_json={items}&currency=CNY");
+    let resp = app.post_htmx("/admin/purchase/orders/create", &body).await;
+    assert!(resp.is_ok(), "创建采购订单 FAIL: {}", resp.status);
+    let po_id = redirect_id(&resp);
+    let _ = app.post_htmx(&format!("/admin/purchase/orders/{po_id}/submit"), "").await;
+
+    // 2) 来料通知 → receive → inspect → 手动跑 ArrivalAcceptedHandler
+    //    （cargo test 不启 EventProcessor；handler 同时更新 received_qty=10 与立 AP Credit）
+    let po_items_rows = app.state.purchase_order_service()
+        .list_items(&ctx, &mut app.state.pool.acquire().await.unwrap(), po_id)
+        .await.unwrap();
+    let po_item_id = po_items_rows[0].id;
+    let arr_items = arrival_items(
+        &po_items_rows.iter()
+            .map(|it| (it.product_id.to_string(), "10".into(), it.id.to_string()))
+            .collect::<Vec<_>>(),
+    );
+    let body = format!(
+        "purchase_order_id={po_id}&supplier_id={SUPPLIER_ID}&arrival_date=2026-06-24&warehouse_id={WH}&items_json={arr_items}"
+    );
+    let resp = app.post_htmx("/admin/wms/arrivals/create", &body).await;
+    assert!(resp.is_ok(), "创建来料通知 FAIL: {}", resp.status);
+    let arr_id = redirect_id(&resp);
+    let _ = app.post_htmx(&format!("/admin/wms/arrivals/{arr_id}"), "action=receive").await;
+    let _ = app.post_htmx(&format!("/admin/wms/arrivals/{arr_id}"), "action=inspect").await;
+
+    use abt_core::purchase::arrival_handler::ArrivalAcceptedHandler;
+    use abt_core::shared::event_bus::registry::EventHandler;
+    use abt_core::shared::event_bus::model::DomainEvent;
+    use abt_core::shared::enums::event::{DomainEventType, EventStatus};
+    let arrival_event = DomainEvent {
+        id: 0, event_type: DomainEventType::ArrivalInspected, event_version: 1,
+        aggregate_type: "ArrivalNotice".into(), aggregate_id: arr_id,
+        payload: serde_json::json!({"arrival_notice_id": arr_id, "doc_number": "test-k4"}),
+        operator_id: 1, idempotency_key: format!("test-k4-arr-{arr_id}"),
+        trace_id: None, request_id: None, status: EventStatus::Pending,
+        retry_count: 0, failure_reason: None, processed_at: None, created_at: chrono::Utc::now(),
+    };
+    ArrivalAcceptedHandler::new(app.state.pool.clone()).handle(&arrival_event).await.expect("arrival handler FAIL");
+
+    // 3) 创建退货单（退 4 × 3.00 = 12）
+    use abt_core::purchase::return_order::{PurchaseReturnService, model::{CreatePurchaseReturnRequest, CreateReturnItemRequest}};
+    let mut conn = app.state.pool.acquire().await.unwrap();
+    let ret_id = app.state.purchase_return_service().create(
+        &ctx, &mut conn,
+        CreatePurchaseReturnRequest {
+            order_id: po_id,
+            supplier_id: SUPPLIER_ID,
+            return_date: chrono::Local::now().date_naive(),
+            return_reason: "k4 test".into(),
+            remark: "".into(),
+            items: vec![CreateReturnItemRequest {
+                order_item_id: po_item_id,
+                product_id: PRODUCT,
+                returned_qty: Decimal::from(4),
+                unit_price: Decimal::from(3),
+            }],
+        },
+        Some(format!("k4-ret-{po_id}")),
+    ).await.expect("创建退货单 FAIL");
+    drop(conn);
+
+    // 4) 构造 PurchaseReturnSettled 事件 → 调退货 handler（写反向 AP Debit）
+    use abt_core::purchase::return_settlement_handler::PurchaseReturnSettledHandler;
+    let handler = PurchaseReturnSettledHandler::new(app.state.pool.clone());
+    let event = DomainEvent {
+        id: 0, event_type: DomainEventType::PurchaseReturnSettled, event_version: 1,
+        aggregate_type: "PurchaseReturn".into(), aggregate_id: ret_id,
+        payload: serde_json::json!({"reconciliation_id": 0, "reconciliation_doc_number": "test-k4"}),
+        operator_id: 1, idempotency_key: format!("test-k4-ret-{ret_id}"),
+        trace_id: None, request_id: None, status: EventStatus::Pending,
+        retry_count: 0, failure_reason: None, processed_at: None, created_at: chrono::Utc::now(),
+    };
+    handler.handle(&event).await.expect("return handler FAIL");
+
+    // 5) 断言反向 AP 台账（PurchaseReturn Debit，金额 12 = 4 × 3.00）
+    let ledger = ledger_by_source(&app, DocumentType::PurchaseReturn, ret_id).await
+        .expect("❌ 退货 handler 未生成反向 AP 台账");
+    assert_eq!(ledger.party_id, SUPPLIER_ID);
+    assert_eq!(ledger.direction, abt_core::fms::ar_ap::enums::LedgerDirection::Debit);
+    assert_eq!(ledger.amount, Decimal::from(12));
+
+    // 6) 幂等：再次调用不重复写（COUNT 仍为 1）
+    handler.handle(&event).await.expect("return handler 2nd FAIL");
+    let mut conn = app.state.pool.acquire().await.unwrap();
+    let count: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM ar_ap_ledger WHERE source_type=$1 AND source_id=$2",
+    )
+    .bind(DocumentType::PurchaseReturn)
+    .bind(ret_id)
+    .fetch_one(&mut *conn).await.unwrap();
+    assert_eq!(count, 1, "❌ 退货 handler 幂等失败，重复写入台账");
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+//  k5 销售退货完成冲减应收（Issue #86）：
+//  销售订单 → 发货（立 AR Debit）→ 销售退货单 → SalesReturnReceived 事件 → 反向 AR（Credit）+ 幂等
+// ════════════════════════════════════════════════════════════════════════════
+
+#[tokio::test]
+#[serial_test::serial]
+async fn k5_sales_return_received_reverses_ar_ledger() {
+    let app = TestApp::new().await;
+    let ctx = ServiceContext::new(1);
+
+    // 1) 销售订单 + 确认
+    let so_body = format!(
+        "customer_id={CUSTOMER_ID}&contact_id={CONTACT_ID}&items_json={}",
+        so_items(&[(&PRODUCT.to_string(), "10", "1.00")])
+    );
+    let resp = app.post_htmx("/admin/orders/create", &so_body).await;
+    assert!(resp.is_ok(), "创建销售订单 FAIL: {}", resp.status);
+    let so_id = redirect_id(&resp);
+    let _ = app.post_htmx(&format!("/admin/orders/{so_id}/confirm"), "").await;
+
+    // 取 order_item_id
+    let so_svc = app.state.sales_order_service();
+    let mut conn = app.state.pool.acquire().await.unwrap();
+    let so_items_rows = so_svc.list_items(&ctx, &mut conn, so_id).await.unwrap();
+    let order_item_id = so_items_rows[0].id;
+    drop(conn);
+
+    // 2) 发货 → confirm → pick → ship（立 AR Debit，金额 10 × 1.00 = 10）
+    let body = format!(
+        "customer_id={CUSTOMER_ID}&order_id={so_id}&items_json={}",
+        ship_items(&[(order_item_id, "10")])
+    );
+    let resp = app.post_htmx("/admin/shipping/create", &body).await;
+    assert!(resp.is_ok(), "创建发货单 FAIL: {}", resp.status);
+    let ship_id = redirect_id(&resp);
+    let _ = app.post_htmx(&format!("/admin/shipping/{ship_id}/confirm"), "").await;
+    let _ = app.post_htmx(&format!("/admin/shipping/{ship_id}/pick"), "").await;
+    let _ = app.post_htmx(&format!("/admin/shipping/{ship_id}/ship"), "").await;
+
+    // 3) 创建销售退货单（退 4 × 1.00 = 4）
+    use abt_core::sales::sales_return::{SalesReturnService, CreateReturnReq, CreateReturnItemReq, ReturnDisposition};
+    let ret_id = app.state.sales_return_service().create(
+        &ctx, &mut app.state.pool.acquire().await.unwrap(),
+        CreateReturnReq {
+            order_id: so_id,
+            shipping_request_id: ship_id,
+            customer_id: CUSTOMER_ID,
+            return_reason: "k5 test".into(),
+            items: vec![CreateReturnItemReq {
+                order_item_id,
+                returned_qty: Decimal::from(4),
+                disposition: ReturnDisposition::Restock,
+            }],
+        },
+    ).await.expect("创建销售退货单 FAIL");
+
+    // 4) 构造 SalesReturnReceived 事件 → 调 handler（写反向 AR Credit）
+    use abt_core::sales::sales_return_received_handler::SalesReturnReceivedHandler;
+    use abt_core::shared::event_bus::registry::EventHandler;
+    use abt_core::shared::event_bus::model::DomainEvent;
+    use abt_core::shared::enums::event::{DomainEventType, EventStatus};
+    let handler = SalesReturnReceivedHandler::new(app.state.pool.clone());
+    let event = DomainEvent {
+        id: 0, event_type: DomainEventType::SalesReturnReceived, event_version: 1,
+        aggregate_type: "SalesReturn".into(), aggregate_id: ret_id,
+        payload: serde_json::json!({"return_id": ret_id, "order_id": so_id}),
+        operator_id: 1, idempotency_key: format!("test-k5-ret-{ret_id}"),
+        trace_id: None, request_id: None, status: EventStatus::Pending,
+        retry_count: 0, failure_reason: None, processed_at: None, created_at: chrono::Utc::now(),
+    };
+    handler.handle(&event).await.expect("sales return handler FAIL");
+
+    // 5) 断言反向 AR 台账（SalesReturn Credit，金额 4 = 4 × 1.00）
+    let ledger = ledger_by_source(&app, DocumentType::SalesReturn, ret_id).await
+        .expect("❌ 销售退货 handler 未生成反向 AR 台账");
+    assert_eq!(ledger.party_id, CUSTOMER_ID);
+    assert_eq!(ledger.direction, abt_core::fms::ar_ap::enums::LedgerDirection::Credit);
+    assert_eq!(ledger.amount, Decimal::from(4));
+
+    // 6) 幂等：再次调用不重复写（COUNT 仍为 1）
+    handler.handle(&event).await.expect("sales return handler 2nd FAIL");
+    let mut conn = app.state.pool.acquire().await.unwrap();
+    let count: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM ar_ap_ledger WHERE source_type=$1 AND source_id=$2",
+    )
+    .bind(DocumentType::SalesReturn)
+    .bind(ret_id)
+    .fetch_one(&mut *conn).await.unwrap();
+    assert_eq!(count, 1, "❌ 销售退货 handler 幂等失败，重复写入台账");
+}

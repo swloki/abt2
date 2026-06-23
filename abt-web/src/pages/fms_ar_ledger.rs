@@ -7,6 +7,7 @@ use serde::Deserialize;
 
 use abt_core::fms::ar_ap::model::{ArApLedgerFilter, ArApLedgerRow, LedgerDetailItem, LedgerSummary};
 use abt_core::fms::ar_ap::ArApService;
+use abt_core::fms::cash_journal::CashJournalService;
 use abt_core::shared::identity::UserService;
 use abt_core::fms::enums::CounterpartyType;
 use abt_core::shared::types::PaginatedResult;
@@ -17,7 +18,7 @@ use crate::components::icon;
 use crate::components::pagination::pagination;
 use crate::errors::Result;
 use crate::layout::page::admin_page;
-use crate::routes::fms::{ArLedgerDetailPath, ArLedgerPath};
+use crate::routes::fms::{ArCustomerSearchPath, ArLedgerDetailPath, ArLedgerPath};
 use crate::utils::RequestContext;
 use abt_macros::require_permission;
 
@@ -295,12 +296,22 @@ fn filter_and_table(
                             type="text" name="product_name" id="product_name" hx-preserve
                             placeholder="产品名称" value=(q.product_name.as_deref().unwrap_or(""));
                     }
-                    // 客户
-                    div class="relative w-40 icon:absolute icon:left-2.5 icon:top-1/2 icon:-translate-y-1/2 icon:w-3.5 icon:h-3.5 icon:text-muted" {
-                        (icon::search_icon(""))
+                    // 客户（autocomplete）
+                    div class="relative w-40" {
+                        div class="relative icon:absolute icon:left-2.5 icon:top-1/2 icon:-translate-y-1/2 icon:w-3.5 icon:h-3.5 icon:text-muted z-10" {
+                            (icon::search_icon(""))
+                        }
                         input class="w-full pl-8 pr-3 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-colors duration-150 focus:border-accent"
                             type="text" name="keyword" id="ar-keyword" hx-preserve
-                            placeholder="客户" value=(keyword);
+                            placeholder="客户" value=(keyword)
+                            hx-get=(ArCustomerSearchPath::PATH)
+                            hx-trigger="keyup changed delay:200ms"
+                            hx-include="next #ar-customer-dd-q"
+                            hx-target="#ar-customer-dd"
+                            hx-swap="innerHTML"
+                            autocomplete="off";
+                        input type="hidden" id="ar-customer-dd-q" name="keyword" value=(keyword);
+                        div id="ar-customer-dd" class="absolute left-0 top-full mt-0.5 w-60 max-h-[200px] overflow-y-auto bg-white border border-border rounded-sm shadow-[var(--shadow-card)] z-20" {}
                     }
                     // 产品编码
                     input type="text" id="product_code" name="product_code" hx-preserve
@@ -555,6 +566,42 @@ pub async fn get_detail(
     };
 
     Ok(Html(content.into_string()))
+}
+
+// ── Customer search（autocomplete dropdown）──
+
+#[derive(Deserialize, Debug)]
+pub(crate) struct CustomerSearchParams { pub keyword: Option<String> }
+
+pub async fn search_customer(
+    _path: ArCustomerSearchPath,
+    ctx: RequestContext,
+    Query(q): Query<CustomerSearchParams>,
+) -> Result<Html<String>> {
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let svc = state.cash_journal_service();
+    let kw = q.keyword.as_deref().unwrap_or("");
+    if kw.is_empty() {
+        return Ok(Html(String::new()));
+    }
+    let items: Vec<abt_core::fms::cash_journal::model::CounterpartyResult> = svc
+        .search_counterparties(&service_ctx, &mut conn, CounterpartyType::Customer, kw, 15)
+        .await
+        .unwrap_or_default();
+
+    let html_content = html! {
+        @if items.is_empty() {
+            div class="px-3 py-2 text-xs text-muted" { "未找到匹配客户" }
+        } @else {
+            @for item in &items {
+                div class="px-3 py-1.5 text-sm cursor-pointer hover:bg-accent-bg border-b border-border-soft"
+                    data-val=(item.name.clone())
+                    _="on click put me.dataset.val into #ar-keyword's value then put '' into #ar-customer-dd's innerHTML"
+                { (item.name) " · " span class="text-xs text-muted" { (item.code) } }
+            }
+        }
+    };
+    Ok(Html(html_content.into_string()))
 }
 
 /// 简单 URL 编码（分页 query_string 用，保留 keyword 中文）

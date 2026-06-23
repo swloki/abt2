@@ -10,8 +10,6 @@ use crate::fms::cash_journal::model::*;
 use crate::fms::cash_journal::repo::{CashJournalLineRepo, CashJournalRepo};
 use crate::fms::cash_journal::service::CashJournalService;
 use crate::fms::enums::{CounterpartyType, JournalType};
-use crate::gl::entry::{model::GlEntryLineInput, new_gl_entry_service, service::GlEntryService};
-use crate::gl::mapping::{new_gl_mapping_service, service::GlMappingService};
 use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService, RecordAuditLogReq};
 use crate::shared::document_sequence::service::DocumentSequenceService;
 use crate::shared::document_sequence::new_document_sequence_service;
@@ -35,84 +33,6 @@ pub struct CashJournalServiceImpl {
 impl CashJournalServiceImpl {
     pub fn new(pool: PgPool) -> Self {
         Self { pool }
-    }
-
-    /// 收付款确认后按 JournalType 推导借贷分录，过账到 GL。
-    /// - SalesReceipt (Inflow):    借 default_bank / 贷 default_ar
-    /// - PurchasePayment (Outflow): 借 default_ap / 贷 default_bank
-    /// - Expense:    跳过（由 expense.generate_payment_journal 过账）
-    /// - Payroll/Other: 跳过（无对方科目映射）
-    async fn post_cash_journal_gl(
-        &self,
-        ctx: &ServiceContext,
-        db: PgExecutor<'_>,
-        journal: &CashJournal,
-    ) -> Result<()> {
-        let map = new_gl_mapping_service(self.pool.clone());
-
-        // 取第一条明细的辅助核算维度（收付款单边凭证通常一致）
-        let lines_db = CashJournalLineRepo::get_by_journal_id(db, journal.id).await?;
-        let (cc, pc) = lines_db
-            .first()
-            .map(|l| (l.cost_center, l.profit_center))
-            .unwrap_or((None, None));
-
-        let (debit_acct, credit_acct) = match journal.journal_type {
-            JournalType::SalesReceipt => {
-                let bank_acct = map.resolve(ctx, db, "default_bank", None).await?;
-                let ar = map.resolve(ctx, db, "default_ar", None).await?;
-                (bank_acct, ar) // 借银行 / 贷应收
-            }
-            JournalType::PurchasePayment => {
-                let bank_acct = map.resolve(ctx, db, "default_bank", None).await?;
-                let ap = map.resolve(ctx, db, "default_ap", None).await?;
-                (ap, bank_acct) // 借应付 / 贷银行
-            }
-            JournalType::Expense | JournalType::Payroll | JournalType::Other => {
-                // Expense 由 generate_payment_journal 过账；Payroll/Other 无对方科目映射
-                tracing::info!(
-                    journal_id = journal.id,
-                    jt = ?journal.journal_type,
-                    "跳过 GL 过账"
-                );
-                return Ok(());
-            }
-        };
-
-        let amt = journal.amount;
-        let gl_lines = vec![
-            GlEntryLineInput {
-                account_id: debit_acct,
-                debit: amt,
-                credit: Decimal::ZERO,
-                cost_center: cc,
-                profit_center: pc,
-                project_id: None,
-                memo: format!("收付款 {}", journal.doc_number),
-            },
-            GlEntryLineInput {
-                account_id: credit_acct,
-                debit: Decimal::ZERO,
-                credit: amt,
-                cost_center: cc,
-                profit_center: pc,
-                project_id: None,
-                memo: format!("收付款 {}", journal.doc_number),
-            },
-        ];
-
-        new_gl_entry_service(self.pool.clone())
-            .post_from_source(
-                ctx,
-                db,
-                DocumentType::CashJournal,
-                journal.id,
-                journal.transaction_date,
-                format!("收付款确认 {}", journal.doc_number),
-                gl_lines,
-            )
-            .await?;
-        Ok(())
     }
 }
 
@@ -238,17 +158,15 @@ impl CashJournalService for CashJournalServiceImpl {
                 )
             .await?;
 
-        // 业财一体：收付款确认后同事务过账到 GL（硬错误，? 传播 → 过账失败整 confirm 回滚）
-        // - SalesReceipt/PurchasePayment：单边凭证（借/贷 default_bank + 对方往来科目）
-        // - Expense：由 expense.generate_payment_journal 统一过账，此处跳过
-        // - Payroll/Other：暂无对方科目映射，跳过（留后续里程碑）
-        self.post_cash_journal_gl(ctx, db, &journal).await?;
-
         // 业财一体：生成 AR/AP 台账记录 + 自动核销（同事务）
         match journal.journal_type {
             JournalType::SalesReceipt => {
-                let is_invoice_source = journal.source_type == DocumentType::SalesInvoice
-                    || journal.source_type == DocumentType::PurchaseInvoice;
+                let is_auto_settle_source = matches!(
+                    journal.source_type,
+                    DocumentType::ShippingRequest
+                        | DocumentType::ArrivalNotice
+                        | DocumentType::OutsourcingOrder
+                );
                 let party_type = CounterpartyType::Customer;
                 let party_id = journal.counterparty_id;
 
@@ -263,21 +181,17 @@ impl CashJournalService for CashJournalServiceImpl {
                 .filter(|c| !c.is_empty())
                 .unwrap_or_else(|| "CNY".to_string());
 
-                let map = new_gl_mapping_service(self.pool.clone());
-                let ar_account = map.resolve(ctx, db, "default_ar", None).await?;
-
                 // 台账：AR 减少（Credit）
                 ArApLedgerRepo::insert(
                     db,
                     &ArApLedgerInsert {
                         party_type,
                         party_id,
-                        account_id: ar_account,
                         source_type: DocumentType::CashJournal,
                         source_id: journal.id,
                         source_doc_no: &journal.doc_number,
-                        against_type: if is_invoice_source { Some(journal.source_type) } else { None },
-                        against_id: if is_invoice_source { Some(journal.source_id) } else { None },
+                        against_type: if is_auto_settle_source { Some(journal.source_type) } else { None },
+                        against_id: if is_auto_settle_source { Some(journal.source_id) } else { None },
                         direction: LedgerDirection::Credit,  // AR 减少
                         amount: journal.amount,
                         currency: &currency,
@@ -285,7 +199,6 @@ impl CashJournalService for CashJournalServiceImpl {
                         transaction_date: journal.transaction_date,
                         due_date: None,
                         period: &journal.period,
-                        gl_entry_id: None,
                         description: &format!("收款确认 {}", journal.doc_number),
                         operator_id: ctx.operator_id,
                     },
@@ -293,7 +206,7 @@ impl CashJournalService for CashJournalServiceImpl {
                 .await?;
 
                 // 自动核销：如果源单据是发票
-                if is_invoice_source {
+                if is_auto_settle_source {
                     new_ar_ap_service(self.pool.clone())
                         .settle(ctx, db, SettleReq {
                             payment_source_type: DocumentType::CashJournal,
@@ -306,8 +219,12 @@ impl CashJournalService for CashJournalServiceImpl {
                 }
             }
             JournalType::PurchasePayment => {
-                let is_invoice_source = journal.source_type == DocumentType::SalesInvoice
-                    || journal.source_type == DocumentType::PurchaseInvoice;
+                let is_auto_settle_source = matches!(
+                    journal.source_type,
+                    DocumentType::ShippingRequest
+                        | DocumentType::ArrivalNotice
+                        | DocumentType::OutsourcingOrder
+                );
                 let party_type = CounterpartyType::Supplier;
                 let party_id = journal.counterparty_id;
 
@@ -322,21 +239,17 @@ impl CashJournalService for CashJournalServiceImpl {
                 .filter(|c| !c.is_empty())
                 .unwrap_or_else(|| "CNY".to_string());
 
-                let map = new_gl_mapping_service(self.pool.clone());
-                let ap_account = map.resolve(ctx, db, "default_ap", None).await?;
-
                 // 台账：AP 减少（Debit）
                 ArApLedgerRepo::insert(
                     db,
                     &ArApLedgerInsert {
                         party_type,
                         party_id,
-                        account_id: ap_account,
                         source_type: DocumentType::CashJournal,
                         source_id: journal.id,
                         source_doc_no: &journal.doc_number,
-                        against_type: if is_invoice_source { Some(journal.source_type) } else { None },
-                        against_id: if is_invoice_source { Some(journal.source_id) } else { None },
+                        against_type: if is_auto_settle_source { Some(journal.source_type) } else { None },
+                        against_id: if is_auto_settle_source { Some(journal.source_id) } else { None },
                         direction: LedgerDirection::Debit,  // AP 减少
                         amount: journal.amount,
                         currency: &currency,
@@ -344,7 +257,6 @@ impl CashJournalService for CashJournalServiceImpl {
                         transaction_date: journal.transaction_date,
                         due_date: None,
                         period: &journal.period,
-                        gl_entry_id: None,
                         description: &format!("付款确认 {}", journal.doc_number),
                         operator_id: ctx.operator_id,
                     },
@@ -352,7 +264,7 @@ impl CashJournalService for CashJournalServiceImpl {
                 .await?;
 
                 // 自动核销
-                if is_invoice_source {
+                if is_auto_settle_source {
                     new_ar_ap_service(self.pool.clone())
                         .settle(ctx, db, SettleReq {
                             payment_source_type: DocumentType::CashJournal,

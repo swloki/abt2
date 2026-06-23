@@ -530,11 +530,6 @@ impl AppState {
     ) -> impl abt_core::fms::cash_journal::CashJournalService {
         abt_core::fms::cash_journal::new_cash_journal_service(self.pool.clone())
     }
-    pub fn expense_service(
-        &self,
-    ) -> impl abt_core::fms::expense::ExpenseReimbursementService {
-        abt_core::fms::expense::new_expense_service(self.pool.clone())
-    }
     pub fn write_off_service(&self) -> impl abt_core::fms::write_off::WriteOffService {
         abt_core::fms::write_off::new_write_off_service(self.pool.clone())
     }
@@ -545,25 +540,6 @@ impl AppState {
         &self,
     ) -> impl abt_core::fms::cost_accounting::CostAccountingService {
         abt_core::fms::cost_accounting::new_cost_accounting_service()
-    }
-    // ── GL (General Ledger) Services ──
-    pub fn gl_account_service(&self) -> impl abt_core::gl::account::GlAccountService {
-        abt_core::gl::account::new_gl_account_service(self.pool.clone())
-    }
-    pub fn gl_period_service(&self) -> impl abt_core::gl::period::GlPeriodService {
-        abt_core::gl::period::new_gl_period_service(self.pool.clone())
-    }
-    pub fn gl_entry_service(&self) -> impl abt_core::gl::entry::GlEntryService {
-        abt_core::gl::entry::new_gl_entry_service(self.pool.clone())
-    }
-    pub fn gl_mapping_service(&self) -> impl abt_core::gl::mapping::GlMappingService {
-        abt_core::gl::mapping::new_gl_mapping_service(self.pool.clone())
-    }
-    pub fn sales_invoice_service(&self) -> impl abt_core::gl::sales_invoice::SalesInvoiceService {
-        abt_core::gl::sales_invoice::new_sales_invoice_service(self.pool.clone())
-    }
-    pub fn purchase_invoice_service(&self) -> impl abt_core::gl::purchase_invoice::PurchaseInvoiceService {
-        abt_core::gl::purchase_invoice::new_purchase_invoice_service(self.pool.clone())
     }
 
     /// 生成下一个 task_id

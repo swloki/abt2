@@ -45,3 +45,23 @@
 ## 数据流
 
 销售/采购发票过账（`Posted`）→ 插入 `ar_ap_ledger`（Debit 应收 / Credit 应付）→ 台账/账龄展示 → 收款/付款核销（`settle`）→ 累加 `amount_applied` → 未清余额归零即「已结清」。
+
+## 业财一体（Phase 1 + Phase 2 完成，2026-06）
+
+业务单据**直接**驱动往来台账，不经发票实体、不经 GL 凭证：
+
+- **销售发货** `ShippingRequest::ship()` → 直接 insert AR 台账（`source_type=ShippingRequest`，Debit，金额=Σ发货量×订单售价）
+- **采购入库** `ArrivalAcceptedHandler`（来料检验通过事件）→ 直接 insert AP 台账（`source_type=ArrivalNotice`，Credit）
+- **委外收货** `OutsourcingOrder::receive()` → 直接 insert AP 台账（`source_type=OutsourcingOrder`，加工费=`iqc_qty × unit_price`）
+- **收付款核销** `CashJournal::confirm()` → 台账冲销方向（收款 Credit / 付款 Debit）+ `settle` 自动核销（业务单据 ↔ 收付款）
+
+`ar_ap_ledger` 自包含：`amount_applied` 自记核销，`outstanding()` = `amount − amount_applied`；`settle()` 基于 `source_type` 匹配核销，不依赖任何外部单据表。
+
+**已物理删除**（migration `067` 删 ar_ap 的 GL 列；`068` 删表/枚举/权限）：
+- 发票模块 `gl/{sales_invoice,purchase_invoice,invoice}` + 表 `sales_invoices` / `purchase_invoices` 及其 items
+- 纯 GL `gl/{account,entry,mapping,period}` + 表 `gl_accounts` / `gl_entries` / `gl_entry_lines` / `gl_account_mappings` / `accounting_periods`
+- expense 费用报销 `fms/expense` + 表 `expense_reimbursements` 及其 items / attachments
+- 枚举 `DocumentType::{GlEntry, SalesInvoice, PurchaseInvoice}`、`DomainEventType::ExpensePaymentGenerated`
+- 前端 14 个页面（GL / 发票 / 费用报销）+ `routes/gl.rs` + 侧边栏「总账管理」模块
+
+**已知留口**：① 销售立账 `tax_rate_id=None`（不含税 AR，待 `SalesOrderItem` 加税率字段）；② 发票删除后 `cancel` 红冲随之消失（台账无反向冲销，核销侧 `unsettle` 可补救）；③ 幂等为 SELECT 查重（`UNIQUE` 约束未加）；④ 收/付款单创建页选业务单据的 `source_type` 交互待完善。

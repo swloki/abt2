@@ -5,9 +5,9 @@ use crate::fms::enums::CounterpartyType;
 use crate::shared::enums::document_type::DocumentType;
 use crate::shared::types::{PageParams, PgExecutor, Result};
 
-pub(crate) const LEDGER_COLUMNS: &str = "id, party_type, party_id, account_id, source_type, source_id, source_doc_no, \
+pub(crate) const LEDGER_COLUMNS: &str = "id, party_type, party_id, source_type, source_id, source_doc_no, \
     against_type, against_id, direction, amount, amount_applied, currency, exchange_rate, \
-    transaction_date, due_date, period, gl_entry_id, description, operator_id, created_at";
+    transaction_date, due_date, period, description, operator_id, created_at";
 
 const SETTLEMENT_COLUMNS: &str = "id, payment_source_type, payment_source_id, invoice_source_type, \
     invoice_source_id, amount, payment_ledger_id, invoice_ledger_id, exchange_gain_loss, \
@@ -24,15 +24,14 @@ impl ArApLedgerRepo {
     pub async fn insert(executor: PgExecutor<'_>, row: &ArApLedgerInsert<'_>) -> Result<i64> {
         let id: i64 = sqlx::query_scalar::<sqlx::Postgres, i64>(
             r#"INSERT INTO ar_ap_ledger
-               (party_type, party_id, account_id, source_type, source_id, source_doc_no,
+               (party_type, party_id, source_type, source_id, source_doc_no,
                 against_type, against_id, direction, amount, currency, exchange_rate,
-                transaction_date, due_date, period, gl_entry_id, description, operator_id)
-               VALUES ($1,$2,$3,$4,$5,$6, $7,$8,$9,$10,$11,$12, $13,$14,$15,$16,$17,$18)
+                transaction_date, due_date, period, description, operator_id)
+               VALUES ($1,$2,$3,$4,$5,$6, $7,$8,$9,$10,$11,$12, $13,$14,$15,$16)
                RETURNING id"#,
         )
         .bind(row.party_type)
         .bind(row.party_id)
-        .bind(row.account_id)
         .bind(row.source_type)
         .bind(row.source_id)
         .bind(row.source_doc_no)
@@ -45,7 +44,6 @@ impl ArApLedgerRepo {
         .bind(row.transaction_date)
         .bind(row.due_date)
         .bind(row.period)
-        .bind(row.gl_entry_id)
         .bind(row.description)
         .bind(row.operator_id)
         .fetch_one(executor)
@@ -221,13 +219,11 @@ impl ArApLedgerRepo {
         let data_sql = format!(
             r#"SELECT l.id, l.party_type, l.party_id,
                       COALESCE(c.customer_name, s.supplier_name, 'Unknown') AS party_name,
-                      a.code AS account_code, a.name AS account_name,
                       l.source_type, l.source_id, l.source_doc_no,
                       l.direction, l.amount, l.amount_applied,
                       l.amount - l.amount_applied AS amount_outstanding,
                       l.currency, l.transaction_date, l.due_date, l.period, l.description
                FROM ar_ap_ledger l
-               JOIN gl_accounts a ON a.id = l.account_id
                LEFT JOIN customers c ON l.party_type = 1 AND c.customer_id = l.party_id AND c.deleted_at IS NULL
                LEFT JOIN suppliers s ON l.party_type = 2 AND s.supplier_id = l.party_id AND s.deleted_at IS NULL
                {where_clause}
@@ -399,7 +395,6 @@ impl ArApLedgerRepo {
                WHERE l.party_type = $1 AND l.party_id = $2
                  AND l.amount - l.amount_applied > 0
                  AND l.direction = CASE WHEN $1 = 1 THEN 1 ELSE 2 END
-                 AND l.source_type IN (46, 47)
                ORDER BY l.due_date ASC NULLS LAST, l.id ASC"#,
         )
         .bind(party_type)
@@ -541,7 +536,6 @@ impl ArApLedgerRepo {
 pub struct ArApLedgerInsert<'a> {
     pub party_type: CounterpartyType,
     pub party_id: i64,
-    pub account_id: i64,
     pub source_type: DocumentType,
     pub source_id: i64,
     pub source_doc_no: &'a str,
@@ -554,7 +548,6 @@ pub struct ArApLedgerInsert<'a> {
     pub transaction_date: chrono::NaiveDate,
     pub due_date: Option<chrono::NaiveDate>,
     pub period: &'a str,
-    pub gl_entry_id: Option<i64>,
     pub description: &'a str,
     pub operator_id: i64,
 }

@@ -306,6 +306,7 @@ classDiagram
         +get(ctx, id) Result~PurchaseReconciliation~
         +confirm(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
         +list_items(ctx: &ServiceContext, db: PgExecutor, reconciliation_id) Result~Vec~PurchaseReconItem~~
+        +preview(ctx: &ServiceContext, db: PgExecutor, supplier_id, period) Result~Vec~PurchaseReconPreviewItem~~
         +list(ctx, filter) PaginatedResult~PurchaseReconciliation~
     }
 

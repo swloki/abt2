@@ -10,6 +10,9 @@ use crate::sales::sales_order::{new_sales_order_service, service::SalesOrderServ
 use crate::sales::shipping_request::model::*;
 use crate::sales::shipping_request::repo::{ShippingRequestItemRepo, ShippingRequestRepo};
 use crate::sales::shipping_request::service::ShippingRequestService;
+use crate::fms::ar_ap::enums::LedgerDirection;
+use crate::fms::ar_ap::repo::{ArApLedgerInsert, ArApLedgerRepo};
+use crate::fms::enums::CounterpartyType;
 use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService, RecordAuditLogReq};
 use crate::shared::cost_entry::{new_cost_entry_service, service::CostEntryService};
 use crate::shared::cost_entry::model::EntryRequest;
@@ -552,6 +555,74 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
             new_cost_entry_service(self.pool.clone())
                 .create_entries(ctx, db, cost_entries)
                 .await?;
+        }
+
+        // 业财一体：发货即立 AR 台账（直接 insert，不经发票实体）
+        // 幂等：同一发货单不重复立账
+        let dup_ledger: Option<i64> = sqlx::query_scalar::<sqlx::Postgres, i64>(
+            "SELECT id FROM ar_ap_ledger WHERE source_type = $1 AND source_id = $2 LIMIT 1",
+        )
+        .bind(DocumentType::ShippingRequest)
+        .bind(id)
+        .fetch_optional(&mut *db)
+        .await?;
+
+        if dup_ledger.is_none() {
+            // 应收金额 = Σ 发货明细数量 × 订单行售价
+            let ar_amount: Decimal = shipping_items
+                .iter()
+                .filter_map(|si| {
+                    order_items
+                        .iter()
+                        .find(|oi| oi.id == si.order_item_id)
+                        .map(|oi| si.requested_qty * oi.unit_price)
+                })
+                .sum();
+
+            if ar_amount > Decimal::ZERO {
+                // 到期日由客户 payment_terms 推导
+                let (customer_currency, payment_terms): (Option<String>, Option<String>) =
+                    sqlx::query_as::<sqlx::Postgres, (Option<String>, Option<String>)>(
+                        "SELECT currency, payment_terms FROM customers WHERE customer_id = $1 AND deleted_at IS NULL",
+                    )
+                    .bind(existing.customer_id)
+                    .fetch_optional(&mut *db)
+                    .await?
+                    .unwrap_or((None, None));
+                let due_days =
+                    crate::fms::ar_ap::payment_terms::parse_payment_terms_days(payment_terms.as_deref());
+                let today = chrono::Local::now().date_naive();
+                let due_date = today + chrono::Duration::days(due_days);
+                let currency = customer_currency
+                    .filter(|c| !c.is_empty())
+                    .unwrap_or_else(|| "CNY".to_string());
+                let period = chrono::Utc::now().format("%Y-%m").to_string();
+                let doc_no = existing.doc_number.clone();
+                let desc = format!("销售发货 {}", doc_no);
+
+                ArApLedgerRepo::insert(
+                    db,
+                    &ArApLedgerInsert {
+                        party_type: CounterpartyType::Customer,
+                        party_id: existing.customer_id,
+                        source_type: DocumentType::ShippingRequest,
+                        source_id: id,
+                        source_doc_no: &doc_no,
+                        against_type: None,
+                        against_id: None,
+                        direction: LedgerDirection::Debit,
+                        amount: ar_amount,
+                        currency: &currency,
+                        exchange_rate: Decimal::ONE,
+                        transaction_date: today,
+                        due_date: Some(due_date),
+                        period: &period,
+                        description: &desc,
+                        operator_id: ctx.operator_id,
+                    },
+                )
+                .await?;
+            }
         }
 
         new_state_machine_service(self.pool.clone())

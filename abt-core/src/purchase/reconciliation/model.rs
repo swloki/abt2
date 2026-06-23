@@ -51,3 +51,20 @@ pub struct PurchaseReconciliationQuery {
     pub period: Option<String>,
     pub status: Option<PurchaseReconStatus>,
 }
+
+// ---------------------------------------------------------------------------
+// Preview DTO（创建页只读预览，口径与 create 落库一致）
+// ---------------------------------------------------------------------------
+
+/// 待对账明细预览项（某供应商某期间内「未对账已收货」的订单明细）
+#[derive(Debug, Clone)]
+pub struct PurchaseReconPreviewItem {
+    pub order_id: i64,
+    pub order_item_id: i64,
+    pub product_id: i64,
+    pub received_qty: Decimal,
+    pub returned_qty: Decimal,
+    pub returned_amount: Decimal,
+    pub unit_price: Decimal,
+    pub amount: Decimal,
+}

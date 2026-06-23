@@ -8,7 +8,6 @@ use super::service::ArApService;
 use crate::fms::enums::CounterpartyType;
 use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService, RecordAuditLogReq};
 use crate::shared::enums::audit::AuditAction;
-use crate::shared::enums::document_type::DocumentType;
 use crate::shared::types::{DomainError, PageParams, PaginatedResult, PgExecutor, Result, ServiceContext};
 
 pub struct ArApServiceImpl {
@@ -18,42 +17,6 @@ pub struct ArApServiceImpl {
 impl ArApServiceImpl {
     pub fn new(pool: PgPool) -> Self {
         Self { pool }
-    }
-
-    /// 更新发票表（sales_invoices / purchase_invoices）的 outstanding_amount 和 paid_amount
-    async fn update_invoice_outstanding(
-        &self,
-        db: PgExecutor<'_>,
-        invoice_type: DocumentType,
-        invoice_id: i64,
-    ) -> Result<()> {
-        let settled = ArApSettlementRepo::sum_settled_by_invoice(db, invoice_type, invoice_id).await?;
-        match invoice_type {
-            DocumentType::SalesInvoice => {
-                sqlx::query::<sqlx::Postgres>(
-                    r#"UPDATE sales_invoices
-                       SET paid_amount = $1, outstanding_amount = total - $1, updated_at = NOW()
-                       WHERE id = $2 AND deleted_at IS NULL"#,
-                )
-                .bind(settled)
-                .bind(invoice_id)
-                .execute(db)
-                .await?;
-            }
-            DocumentType::PurchaseInvoice => {
-                sqlx::query::<sqlx::Postgres>(
-                    r#"UPDATE purchase_invoices
-                       SET paid_amount = $1, outstanding_amount = total - $1, updated_at = NOW()
-                       WHERE id = $2 AND deleted_at IS NULL"#,
-                )
-                .bind(settled)
-                .bind(invoice_id)
-                .execute(db)
-                .await?;
-            }
-            _ => {}
-        }
-        Ok(())
     }
 
     /// 计算账龄分析结果
@@ -228,11 +191,7 @@ impl ArApService for ArApServiceImpl {
         )
         .await?;
 
-        // 6. Update invoice table (sales_invoices / purchase_invoices)
-        self.update_invoice_outstanding(db, req.invoice_source_type, req.invoice_source_id)
-            .await?;
-
-        // 7. Audit log
+        // 6. Audit log
         new_audit_log_service(self.pool.clone())
             .record(
                 ctx,
@@ -287,10 +246,6 @@ impl ArApService for ArApServiceImpl {
                     .await?;
             }
         }
-
-        // Update invoice table
-        self.update_invoice_outstanding(db, settlement.invoice_source_type, settlement.invoice_source_id)
-            .await?;
 
         // Delete settlement record
         ArApSettlementRepo::delete(db, settlement_id).await?;

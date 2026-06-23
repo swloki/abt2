@@ -17,6 +17,10 @@ pub struct PreconListPath;
 pub struct PreconCreatePath;
 
 #[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/purchase/reconciliations/preview")]
+pub struct PreconPreviewPath;
+
+#[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/purchase/reconciliations/{id}")]
 pub struct PreconDetailPath {
     pub id: i64,
@@ -34,6 +38,7 @@ pub fn router() -> Router<AppState> {
     Router::new()
         .route(PreconListPath::PATH, get(purchase_recon_list::get_precon_list))
 .route(PreconCreatePath::PATH, get(purchase_recon_create::get_precon_create).post(purchase_recon_create::create_precon))
+        .route(PreconPreviewPath::PATH, get(purchase_recon_create::get_precon_preview))
         .route(PreconDetailPath::PATH, get(purchase_recon_detail::get_precon_detail))
         .route(PreconConfirmPath::PATH, post(purchase_recon_detail::confirm_precon))
 }

@@ -7,14 +7,12 @@ use rust_decimal::Decimal;
 use abt_core::fms::cash_journal::CashJournalService;
 use abt_core::fms::cash_journal::model::CashJournal;
 use abt_core::fms::enums::{CashDirection, JournalType};
-use abt_core::fms::expense::ExpenseReimbursementService;
-use abt_core::fms::expense::model::ExpenseReimbursement;
 
 use crate::components::icon;
 use crate::errors::Result;
 use crate::layout::page::admin_page;
 use crate::routes::fms::{
-    CostAnalysisPath, ExpenseCreatePath, ExpenseListPath, FmsDashboardPath, JournalCreatePath,
+    CostAnalysisPath, FmsDashboardPath, JournalCreatePath,
     JournalListPath, WriteoffListPath,
 };
 use crate::utils::RequestContext;
@@ -32,7 +30,6 @@ pub async fn get_dashboard(
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
 
     let journal_svc = state.cash_journal_service();
-    let expense_svc = state.expense_service();
 
     let now = Utc::now();
     let current_period = now.format("%Y-%m").to_string();
@@ -46,11 +43,6 @@ pub async fn get_dashboard(
             net_balance: Decimal::ZERO,
             currency: "CNY".to_string(),
         });
-
-    let (pending_count, pending_amount) = expense_svc
-        .pending_summary(&service_ctx, &mut conn)
-        .await
-        .unwrap_or((0i64, Decimal::ZERO));
 
     let distribution = journal_svc
         .distribution_by_type(&service_ctx, &mut conn, current_period.clone())
@@ -67,25 +59,9 @@ pub async fn get_dashboard(
         .await
         .unwrap_or_default();
 
-    let pending_expenses = expense_svc
-        .list(&service_ctx, &mut conn,
-            abt_core::fms::expense::model::ExpenseFilter {
-                status: vec![
-                    abt_core::fms::enums::ExpenseStatus::Submitted,
-                    abt_core::fms::enums::ExpenseStatus::SupervisorApproved,
-                    abt_core::fms::enums::ExpenseStatus::FinanceApproved,
-                ],
-                ..Default::default()
-            },
-            abt_core::shared::types::PageParams::new(1, 5),
-        )
-        .await
-        .map(|r| r.items)
-        .unwrap_or_default();
-
     let content = fms_dashboard_page(
-        &current_period, now, &balance, pending_count, pending_amount,
-        &distribution, &trend, &recent_journals, &pending_expenses,
+        &current_period, now, &balance,
+        &distribution, &trend, &recent_journals,
     );
     let page_html = admin_page(
         is_htmx, "财务管理", &claims, "finance", FmsDashboardPath::PATH,
@@ -151,17 +127,13 @@ fn stat_card(title: &str, value: &str, sub: Markup, icon_svg: Markup, icon_cls: 
 
 // ── Page ──
 
-#[allow(clippy::too_many_arguments)]
 fn fms_dashboard_page(
     current_period: &str,
     now: chrono::DateTime<Utc>,
     balance: &abt_core::fms::cash_journal::model::BalanceSummary,
-    pending_count: i64,
-    pending_amount: Decimal,
     distribution: &[(i16, Decimal)],
     trend: &[(String, Decimal, Decimal)],
     journals: &[CashJournal],
-    expenses: &[ExpenseReimbursement],
 ) -> Markup {
     let dist_max = distribution.iter().map(|(_, v)| *v).max().unwrap_or(Decimal::ONE);
     let dist_max = if dist_max == Decimal::ZERO { Decimal::ONE } else { dist_max };
@@ -250,18 +222,6 @@ fn fms_dashboard_page(
                     "bg-warn-100 text-warn",
                 )
             })
-            ({
-                stat_card(
-                    "待审报销",
-                    &pending_count.to_string(),
-                    html! {
-                        "金额合计 " span class = "font-semibold text-purple" {
-                        (format!("¥{}万", fmt_wan(pending_amount))) }
-                    },
-                    icon::dollar_icon("w-5 h-5"),
-                    "bg-purple-100 text-purple",
-                )
-            })
         }
         // ── Quick Entry ──
         div class="mb-6" {
@@ -277,15 +237,6 @@ fn fms_dashboard_page(
                         "录入现金收支",
                         "CashJournal",
                         "blue",
-                    )
-                })
-                ({
-                    quick_entry_card(
-                        ExpenseCreatePath::PATH,
-                        "费用报销",
-                        "提交报销申请",
-                        "Expense",
-                        "purple",
                     )
                 })
                 ({
@@ -308,8 +259,8 @@ fn fms_dashboard_page(
                 })
             }
         }
-        // ── Two-Column: Recent Journals + Pending Expenses ──
-        div class="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-6" {
+        // ── Recent Journals ──
+        div class="mb-6" {
             // Recent Journals
             div class="data-card overflow-hidden" {
                 div class="px-4 py-3 border-b border-border-soft text-sm font-semibold text-fg flex items-center justify-between"
@@ -350,46 +301,6 @@ fn fms_dashboard_page(
                                     div class="text-xs text-muted font-mono" {
                                         (j.transaction_date.format("%m-%d"))
                                     }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            // Pending Expenses
-            div class="data-card overflow-hidden" {
-                div class="px-4 py-3 border-b border-border-soft text-sm font-semibold text-fg flex items-center justify-between"
-                {
-                    span class="flex items-center gap-2" {
-                        (icon::alert_triangle_icon("w-4 h-4"))
-                        " 待审批报销"
-                    }
-                    a   href=(ExpenseListPath::PATH)
-                        class="text-xs text-accent font-medium hover:underline"
-                    { "查看全部 →" }
-                }
-                div class="p-2" {
-                    @if expenses.is_empty() {
-                        div class="text-center py-8 text-sm text-muted" { "暂无待审批报销" }
-                    } @else {
-                        @for e in expenses {
-                            div class="flex items-center gap-3 px-3 py-2.5 rounded-sm hover:bg-accent-bg transition-colors"
-                            {
-                                div class="w-8 h-8 rounded-full grid place-items-center shrink-0 text-xs font-bold text-white bg-accent"
-                                { (e.doc_number.chars().next().unwrap_or('—')) }
-                                div class="flex-1 min-w-0" {
-                                    div class="text-sm font-medium text-fg truncate" {
-                                        (e.remark.as_str())
-                                    }
-                                    div class="text-xs text-muted font-mono" { (e.doc_number) }
-                                }
-                                div class="text-right shrink-0" {
-                                    div class="text-sm font-bold font-mono text-fg" {
-                                        (format!("¥{:.2}", e.total_amount))
-                                    }
-                                    span
-                                        class="inline-flex items-center rounded-full text-xs font-medium px-2 py-0.5 bg-warn-bg text-warn"
-                                    { "待审批" }
                                 }
                             }
                         }

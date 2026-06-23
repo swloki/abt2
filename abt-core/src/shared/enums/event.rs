@@ -64,8 +64,6 @@ pub enum DomainEventType {
     PurchaseReturnSettled = 46,
     // OM — Outsourcing
     OutsourcingCancelled = 47,
-    // FMS — additional events
-    ExpensePaymentGenerated = 48,
     // Master Data — 工艺路线子域
     RoutingCreated = 49,
     RoutingUpdated = 50,
@@ -134,7 +132,6 @@ impl DomainEventType {
             45 => Some(Self::PaymentRequestApproved),
             46 => Some(Self::PurchaseReturnSettled),
             47 => Some(Self::OutsourcingCancelled),
-            48 => Some(Self::ExpensePaymentGenerated),
             49 => Some(Self::RoutingCreated), 50 => Some(Self::RoutingUpdated),
             51 => Some(Self::RoutingDeleted), 52 => Some(Self::BomRoutingChanged),
             53 => Some(Self::LaborProcessDictCreated), 54 => Some(Self::LaborProcessDictUpdated),

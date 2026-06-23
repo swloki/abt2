@@ -385,8 +385,8 @@ impl ReconciliationService for ReconciliationServiceImpl {
                 CreateCashJournalReq {
                     journal_type: crate::fms::enums::JournalType::SalesReceipt,
                     direction: crate::fms::enums::CashDirection::Inflow,
-                    amount: Decimal::ZERO,
-                    counterparty: crate::fms::enums::CounterpartyRef::Customer(0),
+                    amount: existing.confirmed_amount,
+                    counterparty: crate::fms::enums::CounterpartyRef::Customer(existing.customer_id),
                     source_type: DocumentType::Reconciliation,
                     source_id: id,
                     bank_account: String::new(),

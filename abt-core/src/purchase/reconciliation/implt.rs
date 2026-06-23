@@ -4,7 +4,7 @@ use serde_json::json;
 use sqlx::postgres::PgPool;
 use chrono::NaiveDate;
 
-use super::model::{PurchaseReconciliation, PurchaseReconciliationQuery};
+use super::model::{PurchaseReconciliation, PurchaseReconPreviewItem, PurchaseReconciliationQuery};
 use super::repo::{NewReconItem, PurchaseReconItemRepo, PurchaseReconciliationRepo};
 use super::service::PurchaseReconciliationService;
 use crate::purchase::enums::{InvoiceStatus, PurchaseOrderStatus, PurchaseReconStatus, PurchaseReturnStatus};
@@ -60,30 +60,7 @@ impl PurchaseReconciliationService for PurchaseReconciliationServiceImpl {
             .await?;
 
         // 2. 解析期间字符串（格式 YYYY-MM），查询该供应商当期未对账的已收货订单明细
-        let (year, month) = period.split_once('-')
-            .and_then(|(y, m)| {
-                let y: i32 = y.parse().ok()?;
-                let m: u32 = m.parse().ok()?;
-                Some((y, m))
-            })
-            .ok_or_else(|| DomainError::validation(
-                format!("期间格式错误，应为 YYYY-MM，实际: {}", period)
-            ))?;
-
-        if !(1..=12).contains(&month) {
-            return Err(DomainError::validation(format!("月份无效: {}", month)));
-        }
-
-        let period_start = NaiveDate::from_ymd_opt(year, month, 1)
-            .ok_or_else(|| DomainError::validation(format!("无效的期间: {}", period)))?;
-        let period_end = if month == 12 {
-            NaiveDate::from_ymd_opt(year + 1, 1, 1)
-        } else {
-            NaiveDate::from_ymd_opt(year, month + 1, 1)
-        }
-        .unwrap()
-        .pred_opt()
-        .unwrap();
+        let (period_start, period_end) = parse_period(&period)?;
 
         let order_items = PurchaseOrderItemRepo::list_unreconciled_received_by_supplier(
             &mut *db,
@@ -388,4 +365,75 @@ impl PurchaseReconciliationService for PurchaseReconciliationServiceImpl {
 
         Ok(())
     }
+
+    async fn preview(
+        &self,
+        _ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        supplier_id: i64,
+        period: String,
+    ) -> Result<Vec<PurchaseReconPreviewItem>> {
+        // period 格式非法时宽松降级为空（严格校验留给 create 提交时）
+        let (period_start, period_end) = match parse_period(&period) {
+            Ok(p) => p,
+            Err(_) => return Ok(vec![]),
+        };
+
+        let order_items = PurchaseOrderItemRepo::list_unreconciled_received_by_supplier(
+            &mut *db,
+            supplier_id,
+            period_start,
+            period_end,
+        )
+        .await
+        .map_err(|e| DomainError::Internal(e.into()))?;
+
+        Ok(order_items
+            .iter()
+            .map(|item| {
+                let amount = item.received_qty * item.unit_price;
+                PurchaseReconPreviewItem {
+                    order_id: item.order_id,
+                    order_item_id: item.id,
+                    product_id: item.product_id,
+                    received_qty: item.received_qty,
+                    returned_qty: item.returned_qty,
+                    returned_amount: item.returned_qty * item.unit_price,
+                    unit_price: item.unit_price,
+                    amount,
+                }
+            })
+            .collect())
+    }
+}
+
+/// 解析 `YYYY-MM` 期间字符串为 (月初, 月末) `NaiveDate`。
+fn parse_period(period: &str) -> Result<(NaiveDate, NaiveDate)> {
+    let (year, month) = period
+        .split_once('-')
+        .and_then(|(y, m)| {
+            let y: i32 = y.parse().ok()?;
+            let m: u32 = m.parse().ok()?;
+            Some((y, m))
+        })
+        .ok_or_else(|| {
+            DomainError::validation(format!("期间格式错误，应为 YYYY-MM，实际: {}", period))
+        })?;
+
+    if !(1..=12).contains(&month) {
+        return Err(DomainError::validation(format!("月份无效: {}", month)));
+    }
+
+    let period_start = NaiveDate::from_ymd_opt(year, month, 1)
+        .ok_or_else(|| DomainError::validation(format!("无效的期间: {}", period)))?;
+    let period_end = if month == 12 {
+        NaiveDate::from_ymd_opt(year + 1, 1, 1)
+    } else {
+        NaiveDate::from_ymd_opt(year, month + 1, 1)
+    }
+    .unwrap()
+    .pred_opt()
+    .unwrap();
+
+    Ok((period_start, period_end))
 }

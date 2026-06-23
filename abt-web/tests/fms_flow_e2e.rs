@@ -72,11 +72,7 @@ async fn create_isolated_customer(app: &TestApp, ctx: &ServiceContext, tag: &str
 use abt_core::shared::types::ServiceContext;
 use abt_core::shared::enums::document_type::DocumentType;
 use abt_core::fms::enums::{
-    CashDirection, CounterpartyRef, ExpenseStatus, ExpenseType, JournalStatus, JournalType,
-};
-use abt_core::fms::expense::{
-    model::{CreateExpenseReq, ExpenseItemInput},
-    ExpenseReimbursementService,
+    CashDirection, CounterpartyRef, JournalStatus, JournalType,
 };
 use abt_core::fms::cash_journal::{
     model::{CashJournalLineInput, CreateCashJournalReq},
@@ -88,94 +84,6 @@ use abt_core::master_data::customer::{
     model::{CreateCustomerReq, CustomerCategory},
     CustomerService,
 };
-
-// ════════════════════════════════════════════════════════════════════════════
-//  k1 报销付款链：create → submit → approve → generate_payment_journal
-// ════════════════════════════════════════════════════════════════════════════
-
-#[tokio::test]
-async fn k1_expense_submit_approve_pay_chain() {
-    let app = TestApp::new().await;
-    let ctx = ServiceContext::new(1);
-    let mut conn = app.state.pool.acquire().await.unwrap();
-    let svc = app.state.expense_service();
-
-    let today = chrono::Utc::now().date_naive();
-    let id = svc
-        .create(
-            &ctx,
-            &mut conn,
-            CreateExpenseReq {
-                applicant_id: 1,
-                department_id: None,
-                expense_date: today,
-                remark: "e2e k1".into(),
-                sheet_count: 1,
-                has_invoice: true,
-                attachments: vec![],
-                items: vec![ExpenseItemInput {
-                    expense_type: ExpenseType::Office,
-                    amount: Decimal::from(120),
-                    description: "办公用品".into(),
-                    receipt_no: None,
-                    cost_center: None,
-                    profit_center: None,
-                    occurrence_date: None,
-                    has_invoice: true,
-                }],
-            },
-        )
-        .await
-        .expect("create expense");
-
-    // submit: Draft → Submitted
-    svc.submit(&ctx, &mut conn, id).await.expect("submit");
-    assert_eq!(
-        svc.get(&ctx, &mut conn, id).await.unwrap().status,
-        ExpenseStatus::Submitted
-    );
-
-    // supervisor_approve: Submitted → SupervisorApproved
-    svc.supervisor_approve(&ctx, &mut conn, id,
-        abt_core::fms::expense::model::SupervisorApproveReq { remark: None },
-    ).await.expect("supervisor_approve");
-    assert_eq!(
-        svc.get(&ctx, &mut conn, id).await.unwrap().status,
-        ExpenseStatus::SupervisorApproved
-    );
-
-    // finance_approve: SupervisorApproved → FinanceApproved
-    svc.finance_approve(&ctx, &mut conn, id,
-        abt_core::fms::expense::model::FinanceApproveReq { remark: None },
-    ).await.expect("finance_approve");
-    assert_eq!(
-        svc.get(&ctx, &mut conn, id).await.unwrap().status,
-        ExpenseStatus::FinanceApproved
-    );
-
-    // approve (GM): FinanceApproved → Approved
-    svc.approve(&ctx, &mut conn, id).await.expect("approve");
-    assert_eq!(
-        svc.get(&ctx, &mut conn, id).await.unwrap().status,
-        ExpenseStatus::Approved
-    );
-
-    // pay: Approved → Paid + 建 CashJournal
-    svc.pay(&ctx, &mut conn, id, abt_core::fms::expense::model::PayReq {
-        payment_bank: "工商银行".into(),
-        payment_remark: "e2e test payment".into(),
-        payment_date: chrono::Utc::now().date_naive(),
-    }).await.expect("pay");
-    assert_eq!(
-        svc.get(&ctx, &mut conn, id).await.unwrap().status,
-        ExpenseStatus::Paid
-    );
-
-    // 断言付款日记账已生成
-    let cj_svc = app.state.cash_journal_service();
-    let recent = cj_svc.list_recent(&ctx, &mut conn, 1).await.unwrap();
-    assert!(!recent.is_empty(), "cash journal should be created");
-}
 
 // ════════════════════════════════════════════════════════════════════════════
 //  k2 收款核销链：cash_journal.create(SalesReceipt) → confirm → write_off

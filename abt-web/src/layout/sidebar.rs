@@ -292,7 +292,6 @@ fn modules() -> Vec<NavModule> {
             items: vec![
                 NavItem { name: "财务总览", path: "/admin/fms", icon: NavIcon::Home, permission: Some(("FMS", "read")) },
                 NavItem { name: "出纳日记账", path: "/admin/fms/journals", icon: NavIcon::File, permission: Some(("FMS", "read")) },
-                NavItem { name: "费用报销", path: "/admin/fms/expenses", icon: NavIcon::Payment, permission: Some(("FMS", "read")) },
                 NavItem { name: "核销管理", path: "/admin/fms/writeoffs", icon: NavIcon::Check, permission: Some(("FMS", "read")) },
                 NavItem { name: "应收台账", path: "/admin/fms/ar-ledger", icon: NavIcon::File, permission: Some(("FMS", "read")) },
                 NavItem { name: "应付台账", path: "/admin/fms/ap-ledger", icon: NavIcon::File, permission: Some(("FMS", "read")) },
@@ -300,18 +299,6 @@ fn modules() -> Vec<NavModule> {
                 NavItem { name: "应付账龄", path: "/admin/fms/ap-aging", icon: NavIcon::File, permission: Some(("FMS", "read")) },
                 NavItem { name: "核销记录", path: "/admin/fms/settlement", icon: NavIcon::Check, permission: Some(("FMS", "read")) },
                 NavItem { name: "成本核算", path: "/admin/fms/cost-analysis", icon: NavIcon::DollarSign, permission: Some(("COST", "read")) },
-            ],
-        },
-        NavModule {
-            id: "gl",
-            name: "总账管理",
-            items: vec![
-                NavItem { name: "科目表", path: "/admin/gl/accounts", icon: NavIcon::Grid, permission: Some(("GL", "read")) },
-                NavItem { name: "凭证管理", path: "/admin/gl/entries", icon: NavIcon::ClipboardDoc, permission: Some(("GL", "read")) },
-                NavItem { name: "销售发票", path: "/admin/gl/sales-invoices", icon: NavIcon::File, permission: Some(("GL", "read")) },
-                NavItem { name: "采购发票", path: "/admin/gl/purchase-invoices", icon: NavIcon::File, permission: Some(("GL", "read")) },
-                NavItem { name: "试算平衡表", path: "/admin/gl/trial-balance", icon: NavIcon::DollarSign, permission: Some(("GL", "read")) },
-                NavItem { name: "会计期间", path: "/admin/gl/periods", icon: NavIcon::Calendar, permission: Some(("GL", "read")) },
             ],
         },
         NavModule {

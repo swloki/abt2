@@ -17,6 +17,9 @@ use crate::purchase::enums::PurchaseOrderStatus;
 use crate::purchase::order::repo::{PurchaseOrderItemRepo, PurchaseOrderRepo};
 use crate::purchase::settings::repo::PurchaseSettingsRepo;
 use crate::purchase::settings::model::PurchaseSettings;
+use crate::fms::ar_ap::enums::LedgerDirection;
+use crate::fms::ar_ap::repo::{ArApLedgerInsert, ArApLedgerRepo};
+use crate::fms::enums::CounterpartyType;
 
 /// 来料检验通过 Handler
 ///
@@ -171,6 +174,67 @@ impl EventHandler for ArrivalAcceptedHandler {
                 to = ?target_status,
                 "PO status updated by ArrivalInspected handler"
             );
+        }
+
+        // 业财一体：入库即立 AP 台账（直接 insert，不经发票实体）
+        // 幂等：同一来料通知不重复立账
+        let dup_ledger: Option<i64> = sqlx::query_scalar::<sqlx::Postgres, i64>(
+            "SELECT id FROM ar_ap_ledger WHERE source_type = $1 AND source_id = $2 LIMIT 1",
+        )
+        .bind(DocumentType::ArrivalNotice)
+        .bind(arrival_notice_id)
+        .fetch_optional(&mut *conn)
+        .await?;
+
+        if dup_ledger.is_none() {
+            // 来料明细（accepted_qty）
+            let arrival_items: Vec<(i64, Decimal)> = sqlx::query_as::<sqlx::Postgres, (i64, Decimal)>(
+                "SELECT product_id, accepted_qty FROM arrival_notice_items WHERE notice_id = $1 AND accepted_qty > 0",
+            )
+            .bind(arrival_notice_id)
+            .fetch_all(&mut *conn)
+            .await?;
+
+            // 应付金额 = Σ accepted_qty × PO unit_price（po_items 已在上方查询）
+            let ap_amount: Decimal = arrival_items
+                .iter()
+                .filter_map(|(pid, qty)| {
+                    po_items
+                        .iter()
+                        .find(|p| p.product_id == *pid)
+                        .map(|p| *qty * p.unit_price)
+                })
+                .sum();
+
+            if ap_amount > Decimal::ZERO {
+                let period = chrono::Utc::now().format("%Y-%m").to_string();
+                let today = chrono::Local::now().date_naive();
+                let doc_no = format!("AN-{}", arrival_notice_id);
+                let desc = format!("采购入库 {}", doc_no);
+
+                ArApLedgerRepo::insert(
+                    &mut *conn,
+                    &ArApLedgerInsert {
+                        party_type: CounterpartyType::Supplier,
+                        party_id: po.supplier_id,
+                        source_type: DocumentType::ArrivalNotice,
+                        source_id: arrival_notice_id,
+                        source_doc_no: &doc_no,
+                        against_type: None,
+                        against_id: None,
+                        direction: LedgerDirection::Credit,
+                        amount: ap_amount,
+                        currency: "CNY",
+                        exchange_rate: Decimal::ONE,
+                        transaction_date: today,
+                        due_date: None,
+                        period: &period,
+                        description: &desc,
+                        operator_id: ctx.operator_id,
+                    },
+                )
+                .await?;
+            }
         }
 
         Ok(())

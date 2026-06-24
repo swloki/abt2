@@ -12,8 +12,8 @@ use abt_core::qms::rma::model::CreateRmaReq;
 use abt_core::qms::rma::RmaService;
 use abt_core::sales::sales_order::model::SalesOrderQuery;
 use abt_core::sales::sales_order::SalesOrderService;
-use abt_core::sales::shipping_request::model::ShippingQuery;
-use abt_core::sales::shipping_request::ShippingRequestService;
+use abt_core::wms::outbound::model::ShippingQuery;
+use abt_core::wms::outbound::ShippingRequestService;
 use abt_core::shared::types::PageParams;
 
 use crate::components::icon;
@@ -150,7 +150,7 @@ pub async fn create(
 
 // ── Page rendering ──
 
-fn rma_create_page(customers: &[Customer], products: &[Product], sales_orders: &[abt_core::sales::sales_order::model::SalesOrder], shipping_requests: &[abt_core::sales::shipping_request::model::ShippingRequest]) -> Markup {
+fn rma_create_page(customers: &[Customer], products: &[Product], sales_orders: &[abt_core::sales::sales_order::model::SalesOrder], shipping_requests: &[abt_core::wms::outbound::model::ShippingRequest]) -> Markup {
  html! {
     div {
         // ── Page header ──

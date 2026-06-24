@@ -7,7 +7,7 @@ use maud::{html, Markup};
 use abt_core::sales::reconciliation::model::*;
 use abt_core::sales::reconciliation::ReconciliationService;
 use abt_core::sales::sales_order::SalesOrderService;
-use abt_core::sales::shipping_request::ShippingRequestService;
+use abt_core::wms::outbound::ShippingRequestService;
 use abt_core::master_data::customer::CustomerService;
 use abt_core::master_data::product::ProductService;
 use abt_core::shared::identity::UserService;

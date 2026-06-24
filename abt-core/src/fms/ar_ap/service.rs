@@ -6,6 +6,17 @@ use crate::shared::types::{PageParams, PaginatedResult, PgExecutor, Result, Serv
 
 #[async_trait]
 pub trait ArApService: Send + Sync {
+    // ---- 业财一体立账入口（跨域经 trait，禁止直访 ArApLedgerRepo）----
+
+    /// 业务单据驱动立账。封装幂等 insert（ON CONFLICT (source_type, source_id)）。
+    /// 返回 `Some(id)` = 新建 / `None` = 已存在幂等跳过。
+    async fn post_entry(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        req: PostLedgerEntryReq,
+    ) -> Result<Option<i64>>;
+
     // ---- 台账查询 ----
 
     /// 查询应收应付台账（分页，含往来方名称和科目信息）

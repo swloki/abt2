@@ -894,6 +894,45 @@ impl SalesOrderService for SalesOrderServiceImpl {
         Ok(new_status)
     }
 
+    async fn record_shipment(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        order_id: i64,
+        lines: &[ShipmentLineQty],
+    ) -> Result<SalesOrderStatus> {
+        // 累加各行已发数量（update_shipped_qty 为 += 语义）
+        for line in lines {
+            self.item_repo
+                .update_shipped_qty(db, line.order_item_id, line.shipped_qty)
+                .await?;
+        }
+        // 复用头状态重算（幂等：仅状态变化才走状态机 transition + update）
+        self.recalc_header_status(ctx, db, order_id).await
+    }
+
+    async fn delivery_status(
+        &self,
+        _ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        order_id: i64,
+    ) -> Result<DeliveryStatus> {
+        let items = self.item_repo.find_by_order_id(db, order_id).await?;
+        if items.is_empty() {
+            return Ok(DeliveryStatus::None);
+        }
+        let total: Decimal = items.iter().map(|i| i.quantity).sum();
+        let shipped: Decimal = items.iter().map(|i| i.shipped_qty).sum();
+        let status = if shipped <= Decimal::ZERO {
+            DeliveryStatus::None
+        } else if shipped >= total {
+            DeliveryStatus::Full
+        } else {
+            DeliveryStatus::Partial
+        };
+        Ok(status)
+    }
+
     async fn reconcile_fulfillment_status(
         &self,
         ctx: &ServiceContext, db: PgExecutor<'_>,

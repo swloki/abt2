@@ -11,7 +11,7 @@ use abt_core::master_data::customer::CustomerService;
 use abt_core::sales::sales_order::SalesOrderService;
 use abt_core::sales::sales_return::model::*;
 use abt_core::sales::sales_return::SalesReturnService;
-use abt_core::sales::shipping_request::ShippingRequestService;
+use abt_core::wms::outbound::ShippingRequestService;
 use abt_core::shared::types::{PageParams, PgExecutor, ServiceContext};
 
 use crate::components::icon;

@@ -358,6 +358,21 @@ pub struct SalesOrderItemInput {
     pub delivery_date: Option<NaiveDate>,
 }
 
+/// wms 出库后回写订单行的数量增量（累加语义，供 SalesOrderService::record_shipment 调用）
+#[derive(Debug, Clone)]
+pub struct ShipmentLineQty {
+    pub order_item_id: i64,
+    pub shipped_qty: Decimal,
+}
+
+/// 只读发货状态（按订单行 Σshipped_qty vs Σquantity 推导，供销售订单详情页展示）
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DeliveryStatus {
+    None,
+    Partial,
+    Full,
+}
+
 /// 履行计划行实体
 #[derive(Debug, Clone, sqlx::FromRow)]
 pub struct FulfillmentPlanLine {

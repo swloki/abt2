@@ -14,8 +14,8 @@ use abt_core::sales::sales_return::model::{
  CreateReturnItemReq, CreateReturnReq, ReturnDisposition,
 };
 use abt_core::sales::sales_return::SalesReturnService;
-use abt_core::sales::shipping_request::model::ShippingQuery;
-use abt_core::sales::shipping_request::ShippingRequestService;
+use abt_core::wms::outbound::model::ShippingQuery;
+use abt_core::wms::outbound::ShippingRequestService;
 use abt_core::shared::types::PageParams;
 
 use crate::components::icon;

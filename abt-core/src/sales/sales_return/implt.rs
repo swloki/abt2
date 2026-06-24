@@ -7,7 +7,7 @@ use crate::sales::sales_order::repo::SalesOrderItemRepo;
 use crate::sales::sales_return::model::*;
 use crate::sales::sales_return::repo::{SalesReturnItemRepo, SalesReturnRepo};
 use crate::sales::sales_return::service::SalesReturnService;
-use crate::sales::shipping_request::{new_shipping_request_service, service::ShippingRequestService};
+use crate::wms::outbound::{new_shipping_request_service, service::ShippingRequestService};
 use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService, RecordAuditLogReq};
 use crate::shared::cost_entry::{new_cost_entry_service, service::CostEntryService};
 use crate::shared::cost_entry::model::EntryRequest;
@@ -51,7 +51,7 @@ impl SalesReturnService for SalesReturnServiceImpl {
     ) -> Result<i64> {
         // Validate shipping request is Shipped
         let shipping = new_shipping_request_service(self.pool.clone()).find_by_id(ctx, db, req.shipping_request_id).await?;
-        if shipping.status != crate::sales::shipping_request::model::ShippingStatus::Shipped {
+        if shipping.status != crate::wms::outbound::model::ShippingStatus::Shipped {
             return Err(DomainError::business_rule(
                 "Shipping request must be Shipped to create return",
             ));

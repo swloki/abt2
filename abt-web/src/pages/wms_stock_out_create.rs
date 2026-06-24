@@ -12,8 +12,8 @@ use abt_core::master_data::customer::CustomerService;
 use abt_core::shared::types::{DomainError, PageParams};
 use abt_core::shared::enums::DocumentType;
 use abt_core::shared::document_sequence::DocumentSequenceService;
-use abt_core::sales::shipping_request::ShippingRequestService;
-use abt_core::sales::shipping_request::model::ShippingStatus;
+use abt_core::wms::outbound::ShippingRequestService;
+use abt_core::wms::outbound::model::ShippingStatus;
 use abt_core::wms::warehouse::WarehouseService;
 use abt_core::wms::inventory_transaction::InventoryTransactionService;
 use abt_core::wms::inventory_transaction::model::RecordTransactionReq;
@@ -122,7 +122,7 @@ pub async fn confirm_shipping(
 
     // 客户名批量解析
     let mut customer_ids: Vec<i64> = Vec::new();
-    let mut shippings: Vec<abt_core::sales::shipping_request::model::ShippingRequest> = Vec::new();
+    let mut shippings: Vec<abt_core::wms::outbound::model::ShippingRequest> = Vec::new();
     for id in &ids {
         if let Ok(s) = svc.find_by_id(&service_ctx, &mut conn, *id).await {
             customer_ids.push(s.customer_id);

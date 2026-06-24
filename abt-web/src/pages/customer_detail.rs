@@ -8,7 +8,7 @@ use abt_core::master_data::customer::CustomerService;
 use abt_core::master_data::customer::model::*;
 use abt_core::sales::quotation::{QuotationService, model::{QuotationQuery, QuotationStatus}};
 use abt_core::sales::sales_order::{SalesOrderService, model::{SalesOrderQuery, SalesOrderStatus}};
-use abt_core::sales::shipping_request::{ShippingRequestService, model::{ShippingQuery, ShippingStatus}};
+use abt_core::wms::outbound::{ShippingRequestService, model::{ShippingQuery, ShippingStatus}};
 use abt_core::sales::sales_return::{SalesReturnService, model::{ReturnQuery, ReturnStatus}};
 use abt_core::shared::types::{PageParams, PgExecutor};
 

@@ -26,6 +26,16 @@ pub struct ListQuery {
     pub keyword: Option<String>,
 }
 
+fn currency_symbol(currency: &str) -> String {
+    match currency.to_uppercase().as_str() {
+        "CNY" => "¥".to_string(),
+        "USD" => "$".to_string(),
+        "EUR" => "€".to_string(),
+        "HKD" => "HK$".to_string(),
+        other => format!("{other} "),
+    }
+}
+
 fn fmt_amount(amount: Decimal) -> String {
     format!("{amount:.2}")
 }
@@ -44,7 +54,7 @@ fn adjustment_row(item: &AdjustmentRow) -> Markup {
                 span class=(format!("inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium {dir_cls}"))
                 { (dir_label) }
             }
-            td class="px-4 py-3 text-sm font-mono tabular-nums text-right" { "¥" (fmt_amount(item.amount)) }
+            td class="px-4 py-3 text-sm font-mono tabular-nums text-right" { (currency_symbol(&item.currency)) (fmt_amount(item.amount)) }
             td class="px-4 py-3 text-sm text-fg-2" { (item.int_order_no.as_deref().unwrap_or("—")) }
             td class="px-4 py-3 text-sm text-fg-2" { (item.ext_order_no.as_deref().unwrap_or("—")) }
             td class="px-4 py-3 text-sm text-fg-2 max-w-[200px] truncate" { (item.description.as_str()) }

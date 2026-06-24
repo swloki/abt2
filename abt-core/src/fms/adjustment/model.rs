@@ -51,6 +51,10 @@ pub struct CreateAdjustmentReq {
     pub ext_order_no: Option<String>,
     /// 简要说明
     pub description: String,
+    /// 币种（默认 CNY）— issue #69
+    pub currency: String,
+    /// 汇率（CNY 固定 1）— issue #69
+    pub exchange_rate: Decimal,
 }
 
 // ---------------------------------------------------------------------------

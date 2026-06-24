@@ -273,11 +273,12 @@ pub async fn create_receipt(
  axum::Form(form): axum::Form<ReceiptCreateForm>,
 ) -> Result<impl IntoResponse> {
  let RequestContext {
- mut conn,
  state,
  service_ctx,
  ..
  } = ctx;
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
  let svc = state.production_receipt_service();
  let req = abt_core::mes::production_receipt::CreateReceiptReq {
  work_order_id: form.work_order_id,
@@ -290,7 +291,9 @@ pub async fn create_receipt(
  receipt_date: form.receipt_date,
  remark: form.remark,
  };
- let _id = svc.create(&service_ctx, &mut conn, req).await?;
+ let _id = svc.create(&service_ctx, &mut tx, req).await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
  Ok(axum::response::Response::builder()
  .header("HX-Redirect", ReceiptListPath::PATH)
  .body(axum::body::Body::empty())

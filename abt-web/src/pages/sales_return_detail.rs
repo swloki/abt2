@@ -139,17 +139,16 @@ pub async fn confirm_return(
  path: ConfirmReturnPath,
  ctx: RequestContext,
 ) -> Result<impl IntoResponse> {
- let RequestContext {
- mut conn,
- state,
- service_ctx,
- ..
- } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
 
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
  state
  .sales_return_service()
- .approve(&service_ctx, &mut conn, path.id)
+ .approve(&service_ctx, &mut tx, path.id)
  .await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let redirect = ReturnDetailPath { id: path.id }.to_string();
  Ok(([("HX-Redirect", redirect)], Html(String::new())))
@@ -160,17 +159,16 @@ pub async fn receive_return(
  path: ReceiveReturnPath,
  ctx: RequestContext,
 ) -> Result<impl IntoResponse> {
- let RequestContext {
- mut conn,
- state,
- service_ctx,
- ..
- } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
 
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
  state
  .sales_return_service()
- .receive(&service_ctx, &mut conn, path.id)
+ .receive(&service_ctx, &mut tx, path.id)
  .await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let redirect = ReturnDetailPath { id: path.id }.to_string();
  Ok(([("HX-Redirect", redirect)], Html(String::new())))
@@ -181,17 +179,16 @@ pub async fn inspect_return(
  path: InspectReturnPath,
  ctx: RequestContext,
 ) -> Result<impl IntoResponse> {
- let RequestContext {
- mut conn,
- state,
- service_ctx,
- ..
- } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
 
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
  state
  .sales_return_service()
- .inspect(&service_ctx, &mut conn, path.id)
+ .inspect(&service_ctx, &mut tx, path.id)
  .await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let redirect = ReturnDetailPath { id: path.id }.to_string();
  Ok(([("HX-Redirect", redirect)], Html(String::new())))
@@ -202,17 +199,16 @@ pub async fn complete_return(
  path: CompleteReturnPath,
  ctx: RequestContext,
 ) -> Result<impl IntoResponse> {
- let RequestContext {
- mut conn,
- state,
- service_ctx,
- ..
- } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
 
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
  state
  .sales_return_service()
- .complete(&service_ctx, &mut conn, path.id)
+ .complete(&service_ctx, &mut tx, path.id)
  .await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let redirect = ReturnDetailPath { id: path.id }.to_string();
  Ok(([("HX-Redirect", redirect)], Html(String::new())))
@@ -223,17 +219,16 @@ pub async fn reject_return(
  path: RejectReturnPath,
  ctx: RequestContext,
 ) -> Result<impl IntoResponse> {
- let RequestContext {
- mut conn,
- state,
- service_ctx,
- ..
- } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
 
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
  state
  .sales_return_service()
- .reject(&service_ctx, &mut conn, path.id)
+ .reject(&service_ctx, &mut tx, path.id)
  .await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let redirect = ReturnDetailPath { id: path.id }.to_string();
  Ok(([("HX-Redirect", redirect)], Html(String::new())))

@@ -178,9 +178,13 @@ pub async fn get_detail(path: JournalDetailPath, ctx: RequestContext) -> Result<
 
 #[require_permission("FMS", "update")]
 pub async fn confirm(path: JournalConfirmPath, ctx: RequestContext) -> Result<impl IntoResponse> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
  let svc = state.cash_journal_service();
- svc.confirm(&service_ctx, &mut conn, path.id, None).await?;
+ svc.confirm(&service_ctx, &mut tx, path.id, None).await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
  let redirect = JournalDetailPath { id: path.id }.to_string();
  Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }

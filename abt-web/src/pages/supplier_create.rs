@@ -74,12 +74,14 @@ pub async fn post_supplier_create(
  axum::Form(form): axum::Form<SupplierCreateForm>,
 ) -> Result<impl IntoResponse> {
  let RequestContext {
- mut conn,
  state,
  service_ctx,
  ..
  } = ctx;
  let svc = state.supplier_service();
+
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let category = SupplierCategory::from_i16(form.category)
  .ok_or_else(|| abt_core::shared::types::DomainError::validation("无效的供应类别"))?;
@@ -94,7 +96,7 @@ pub async fn post_supplier_create(
  remark: form.remark.filter(|s| !s.is_empty()),
  currency: form.currency.filter(|s| !s.is_empty()),
  };
- let supplier_id = svc.create(&service_ctx, &mut conn, create_req).await?;
+ let supplier_id = svc.create(&service_ctx, &mut tx, create_req).await?;
  // Add contact if provided
  if let Some(contact_name) = form.contact_name.filter(|s| !s.is_empty()) {
  let contact_req = CreateContactReq {
@@ -104,7 +106,7 @@ pub async fn post_supplier_create(
  position: form.contact_position.filter(|s| !s.is_empty()),
  is_primary: true,
  };
- svc.add_contact(&service_ctx, &mut conn, supplier_id, contact_req)
+ svc.add_contact(&service_ctx, &mut tx, supplier_id, contact_req)
  .await?;
  }
 
@@ -120,9 +122,12 @@ pub async fn post_supplier_create(
  account_number,
  is_default: form.is_default.is_some(),
  };
- svc.add_bank_account(&service_ctx, &mut conn, supplier_id, bank_req)
+ svc.add_bank_account(&service_ctx, &mut tx, supplier_id, bank_req)
  .await?;
  }
+
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let redirect = SupplierDetailPath { id: supplier_id }.to_string();
  Ok(([("HX-Redirect", redirect)], Html(String::new())))

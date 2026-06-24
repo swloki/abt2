@@ -91,11 +91,12 @@ pub async fn create(
  axum::Form(form): axum::Form<ResultCreateForm>,
 ) -> Result<impl IntoResponse> {
  let RequestContext {
- mut conn,
  state,
  service_ctx,
  ..
  } = ctx;
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let source_type = InspectionSourceType::from_i16(form.source_type).ok_or_else(|| {
  abt_core::shared::types::DomainError::Validation("无效来源类型".into())
@@ -114,7 +115,7 @@ pub async fn create(
  };
 
  let svc = state.inspection_result_service();
- let id = svc.create(&service_ctx, &mut conn, req).await?;
+ let id = svc.create(&service_ctx, &mut tx, req).await?;
 
  // Parse check results JSON and record result if provided
  let result_type = abt_core::qms::enums::InspectionResultType::from_i16(form.result);
@@ -137,9 +138,12 @@ pub async fn create(
  inspector_id: form.inspector_id.unwrap_or(1),
  inspection_date,
  };
- let _gate = svc.record_result(&service_ctx, &mut conn, id, record_req).await?;
+ let _gate = svc.record_result(&service_ctx, &mut tx, id, record_req).await?;
  }
  }
+
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  Ok(
  axum::response::Response::builder()

@@ -61,8 +61,11 @@ pub async fn post_supplier_edit(
  ctx: RequestContext,
  axum::Form(form): axum::Form<SupplierEditForm>,
 ) -> Result<impl IntoResponse> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
  let svc = state.supplier_service();
+
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let category = SupplierCategory::from_i16(form.category)
  .ok_or_else(|| abt_core::shared::types::DomainError::validation("无效的供应类别"))?;
@@ -80,7 +83,9 @@ pub async fn post_supplier_edit(
  remark: form.remark.filter(|s| !s.is_empty()),
  currency: form.currency.filter(|s| !s.is_empty()),
  };
- svc.update(&service_ctx, &mut conn, path.id, req).await?;
+ svc.update(&service_ctx, &mut tx, path.id, req).await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let redirect = SupplierDetailPath { id: path.id }.to_string();
  Ok(([("HX-Redirect", redirect)], Html(String::new())))

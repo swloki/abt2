@@ -177,8 +177,11 @@ pub async fn update_product(
  ctx: RequestContext,
  axum::Form(form): axum::Form<ProductEditForm>,
 ) -> crate::errors::Result<impl IntoResponse> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
  let svc = state.product_service();
+
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let owner_department_id = form
  .owner_department_id
@@ -213,7 +216,9 @@ pub async fn update_product(
  }),
  };
 
- svc.update(&service_ctx, &mut conn, path.id, req).await?;
+ svc.update(&service_ctx, &mut tx, path.id, req).await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let redirect = ProductDetailPath { id: path.id }.to_string();
  Ok(([("HX-Redirect", redirect)], Html(String::new())))

@@ -177,12 +177,7 @@ pub async fn create_quotation(
  ctx: RequestContext,
  axum::Form(form): axum::Form<QuotationCreateForm>,
 ) -> Result<impl IntoResponse> {
- let RequestContext {
- mut conn,
- state,
- service_ctx,
- ..
- } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
  let svc = state.quotation_service();
 
  let valid_until = chrono::NaiveDate::parse_from_str(&form.valid_until, "%Y-%m-%d")
@@ -234,7 +229,11 @@ pub async fn create_quotation(
  remark: form.remark,
  };
 
- let id = svc.create(&service_ctx, &mut conn, create_req).await?;
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+ let id = svc.create(&service_ctx, &mut tx, create_req).await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let redirect = QuotationDetailPath { id }.to_string();
  Ok(([("HX-Redirect", redirect)], Html(String::new())))

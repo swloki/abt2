@@ -92,11 +92,13 @@ pub async fn post_routing_create(
  axum::Form(form): axum::Form<RoutingCreateForm>,
 ) -> Result<impl IntoResponse> {
  let RequestContext {
- mut conn,
  state,
  service_ctx,
  ..
  } = ctx;
+
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  if form.name.trim().is_empty() {
  return Err(DomainError::validation("路线名称不能为空").into());
@@ -129,7 +131,9 @@ pub async fn post_routing_create(
  };
 
  let svc = state.routing_service();
- let id = svc.create(&service_ctx, &mut conn, create_req).await?;
+ let id = svc.create(&service_ctx, &mut tx, create_req).await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let redirect = RoutingDetailPath { id }.to_string();
  Ok(([("HX-Redirect", redirect)], Html(String::new())))

@@ -52,6 +52,51 @@ impl ShippingRequestServiceImpl {
             pool,
         }
     }
+
+    /// 草稿明细的 product_id 解析：前端基于「选订单行」提交，product_id 隐含于 order_item。
+    /// 若未显式传 product_id，则按 order_item_id 反查 sales_order_items 填充；
+    /// 最终 product_id 仍为 0 则报错（杜绝 product_id=0 脏数据，见 SR-2026-06-000043 事故）。
+    async fn resolve_draft_items(
+        &self,
+        db: PgExecutor<'_>,
+        order_id: Option<i64>,
+        items: &[CreateDraftItemReq],
+    ) -> Result<Vec<ShippingItemInput>> {
+        let order_items = if let Some(oid) = order_id {
+            self.order_item_repo.find_by_order_id(db, oid).await?
+        } else {
+            Vec::new()
+        };
+        let item_inputs: Vec<ShippingItemInput> = items
+            .iter()
+            .enumerate()
+            .map(|(i, item)| {
+                let product_id = item
+                    .product_id
+                    .or_else(|| {
+                        order_items
+                            .iter()
+                            .find(|oi| oi.id == item.order_item_id.unwrap_or(0))
+                            .map(|oi| oi.product_id)
+                    })
+                    .unwrap_or(0);
+                ShippingItemInput {
+                    line_no: (i + 1) as i32,
+                    order_item_id: item.order_item_id.unwrap_or(0),
+                    product_id,
+                    warehouse_id: item.warehouse_id,
+                    requested_qty: item.requested_qty,
+                    description: item.description.clone(),
+                }
+            })
+            .collect();
+        if item_inputs.iter().any(|i| i.product_id == 0) {
+            return Err(DomainError::validation(
+                "发货明细必须关联订单行或指定商品（product_id 缺失，无法确定发货商品）",
+            ));
+        }
+        Ok(item_inputs)
+    }
 }
 
 #[async_trait::async_trait]
@@ -193,21 +238,9 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
             )
             .await?;
 
-        // 如果有明细行，写入
+        // 如果有明细行，写入（product_id 由 resolve_draft_items 反查填充并校验）
         if !req.items.is_empty() {
-            let item_inputs: Vec<ShippingItemInput> = req
-                .items
-                .iter()
-                .enumerate()
-                .map(|(i, item)| ShippingItemInput {
-                    line_no: (i + 1) as i32,
-                    order_item_id: item.order_item_id.unwrap_or(0),
-                    product_id: item.product_id.unwrap_or(0),
-                    warehouse_id: item.warehouse_id,
-                    requested_qty: item.requested_qty,
-                    description: item.description.clone(),
-                })
-                .collect();
+            let item_inputs = self.resolve_draft_items(db, req.order_id, &req.items).await?;
             self.item_repo.create_batch(db, id, &item_inputs).await?;
         }
 
@@ -283,22 +316,12 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
             )
             .await?;
 
-        // 如果传了 items，全量替换明细行
+        // 如果传了 items，全量替换明细行（product_id 由 resolve_draft_items 反查填充并校验）
         if let Some(items) = req.items {
             self.item_repo.delete_by_shipping_request_id(db, id).await?;
             if !items.is_empty() {
-                let item_inputs: Vec<ShippingItemInput> = items
-                    .iter()
-                    .enumerate()
-                    .map(|(i, item)| ShippingItemInput {
-                        line_no: (i + 1) as i32,
-                        order_item_id: item.order_item_id.unwrap_or(0),
-                        product_id: item.product_id.unwrap_or(0),
-                        warehouse_id: item.warehouse_id,
-                        requested_qty: item.requested_qty,
-                        description: item.description.clone(),
-                    })
-                    .collect();
+                let order_id_for_items = req.order_id.or(existing.order_id);
+                let item_inputs = self.resolve_draft_items(db, order_id_for_items, &items).await?;
                 self.item_repo.create_batch(db, id, &item_inputs).await?;
             }
         }

@@ -165,15 +165,18 @@ pub async fn post_requisition_action(
  ctx: RequestContext,
  axum::Form(form): axum::Form<RequisitionActionForm>,
 ) -> crate::errors::Result<axum::response::Response> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
  let svc = state.material_requisition_service();
 
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+
  match form.action.as_str() {
- "confirm" => svc.confirm(&service_ctx, &mut conn, path.id).await?,
- "cancel" => svc.cancel(&service_ctx, &mut conn, path.id).await?,
+ "confirm" => svc.confirm(&service_ctx, &mut tx, path.id).await?,
+ "cancel" => svc.cancel(&service_ctx, &mut tx, path.id).await?,
  "issue" => {
  // 快速发料：实发数量 = 需求数量
- let items = MaterialRequisitionRepo::get_items(&mut conn, path.id)
+ let items = MaterialRequisitionRepo::get_items(&mut tx, path.id)
  .await
  .map_err(|e| abt_core::shared::types::DomainError::Internal(e.into()))?;
  let issue_items: Vec<IssueItemReq> = items.iter()
@@ -183,13 +186,16 @@ pub async fn post_requisition_action(
  bin_id: None,
  })
  .collect();
- svc.issue(&service_ctx, &mut conn, IssueMaterialReq {
+ svc.issue(&service_ctx, &mut tx, IssueMaterialReq {
  id: path.id,
  items: issue_items,
  }).await?;
  }
  _ => {}
  }
+
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let redirect_url = RequisitionDetailPath { id: path.id }.to_string();
  let mut resp = axum::response::Response::default();

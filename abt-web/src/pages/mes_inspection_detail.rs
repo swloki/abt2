@@ -140,9 +140,13 @@ pub async fn get_inspection_detail(path: InspectionDetailPath, ctx: RequestConte
 pub async fn record_result(
  path: InspectionRecordResultPath, ctx: RequestContext, axum::Form(form): axum::Form<RecordResultForm>,
 ) -> Result<impl IntoResponse> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
  let result = abt_core::mes::enums::InspectionResultType::from_i16(form.result)
  .ok_or_else(|| abt_core::shared::types::DomainError::Validation("无效检验结果".into()))?;
- state.production_inspection_service().record_result(&service_ctx, &mut conn, path.inspection_id, result).await?;
+ let mut tx = state.pool.begin().await
+ .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+ state.production_inspection_service().record_result(&service_ctx, &mut tx, path.inspection_id, result).await?;
+ tx.commit().await
+ .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
  Ok(axum::response::Response::builder().header("HX-Redirect", &format!("/admin/mes/inspections/{}", path.inspection_id)).body(axum::body::Body::empty()).unwrap())
 }

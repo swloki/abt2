@@ -92,7 +92,7 @@ pub async fn update_quotation(
  ctx: RequestContext,
  axum::Form(form): axum::Form<QuotationEditForm>,
 ) -> Result<impl IntoResponse> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
  let svc = state.quotation_service();
 
  if form.customer_id == 0 {
@@ -150,7 +150,11 @@ pub async fn update_quotation(
  items: Some(items),
  };
 
- svc.update(&service_ctx, &mut conn, path.id, req).await?;
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+ svc.update(&service_ctx, &mut tx, path.id, req).await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let redirect = QuotationDetailPath { id: path.id }.to_string();
  Ok(([("HX-Redirect", redirect)], Html(String::new())))

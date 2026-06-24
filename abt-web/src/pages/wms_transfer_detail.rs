@@ -93,15 +93,21 @@ pub async fn post_transfer_action(
  ctx: RequestContext,
  axum::Form(form): axum::Form<TransferActionForm>,
 ) -> crate::errors::Result<axum::response::Response> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
  let svc = state.transfer_service();
 
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+
  match form.action.as_str() {
- "dispatch" => svc.dispatch(&service_ctx, &mut conn, path.id).await?,
- "complete" => svc.complete(&service_ctx, &mut conn, path.id).await?,
- "cancel" => svc.cancel(&service_ctx, &mut conn, path.id).await?,
+ "dispatch" => svc.dispatch(&service_ctx, &mut tx, path.id).await?,
+ "complete" => svc.complete(&service_ctx, &mut tx, path.id).await?,
+ "cancel" => svc.cancel(&service_ctx, &mut tx, path.id).await?,
  _ => {}
  }
+
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let redirect_url = TransferDetailPath { id: path.id }.to_string();
  let mut resp = axum::response::Response::default();

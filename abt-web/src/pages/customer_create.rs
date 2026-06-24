@@ -90,8 +90,11 @@ pub async fn post_customer_create(
  ctx: RequestContext,
  Form(form): Form<CreateCustomerForm>,
 ) -> Result<impl IntoResponse> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
  let svc = state.customer_service();
+
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let category = form
  .category
@@ -121,7 +124,7 @@ pub async fn post_customer_create(
  remark: form.remark.filter(|s| !s.is_empty()),
  };
 
- let id = svc.create(&service_ctx, &mut conn, req).await?;
+ let id = svc.create(&service_ctx, &mut tx, req).await?;
 
  // 如果提供了联系人信息，自动创建主要联系人
  if let Some(contact_name) = form.contact_name.filter(|s| !s.is_empty()) {
@@ -134,8 +137,11 @@ pub async fn post_customer_create(
  fixed_phone: form.contact_fixed_phone.filter(|s| !s.is_empty()),
  is_primary: true,
  };
- svc.add_contact(&service_ctx, &mut conn, id, contact_req).await?;
+ svc.add_contact(&service_ctx, &mut tx, id, contact_req).await?;
  }
+
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let redirect = match form.action.as_deref() {
  Some("continue") => CreateCustomerPath.to_string(),

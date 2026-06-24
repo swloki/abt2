@@ -81,18 +81,24 @@ pub async fn post_cycle_count_action(
  ctx: RequestContext,
  axum::Form(form): axum::Form<CycleCountActionForm>,
 ) -> crate::errors::Result<axum::response::Response> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
  let svc = state.cycle_count_service();
 
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+
  match form.action.as_str() {
- "start" => svc.start_count(&service_ctx, &mut conn, path.id).await?,
- "complete" => svc.complete(&service_ctx, &mut conn, path.id).await?,
- "adjust" => svc.adjust(&service_ctx, &mut conn, path.id).await?,
- "approve" => svc.approve(&service_ctx, &mut conn, path.id).await?,
- "reject" => svc.reject(&service_ctx, &mut conn, path.id).await?,
- "cancel" => svc.cancel(&service_ctx, &mut conn, path.id).await?,
+ "start" => svc.start_count(&service_ctx, &mut tx, path.id).await?,
+ "complete" => svc.complete(&service_ctx, &mut tx, path.id).await?,
+ "adjust" => svc.adjust(&service_ctx, &mut tx, path.id).await?,
+ "approve" => svc.approve(&service_ctx, &mut tx, path.id).await?,
+ "reject" => svc.reject(&service_ctx, &mut tx, path.id).await?,
+ "cancel" => svc.cancel(&service_ctx, &mut tx, path.id).await?,
  _ => {}
  }
+
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let redirect_url = CycleCountDetailPath { id: path.id }.to_string();
  let mut resp = axum::response::Response::default();

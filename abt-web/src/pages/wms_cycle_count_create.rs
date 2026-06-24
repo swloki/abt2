@@ -102,7 +102,7 @@ pub async fn create_cycle_count(
  ctx: RequestContext,
  axum::Form(form): axum::Form<CreateCycleCountForm>,
 ) -> Result<axum::response::Response> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
  let svc = state.cycle_count_service();
 
  let count_date = chrono::NaiveDate::parse_from_str(&form.count_date, "%Y-%m-%d")
@@ -136,11 +136,15 @@ pub async fn create_cycle_count(
  items,
  };
 
- let id = svc.create(&service_ctx, &mut conn, req).await?;
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+ let id = svc.create(&service_ctx, &mut tx, req).await?;
 
  if form.action.as_deref() == Some("start") {
- svc.start_count(&service_ctx, &mut conn, id).await?;
+ svc.start_count(&service_ctx, &mut tx, id).await?;
  }
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let redirect = CycleCountListPath.to_string();
  Ok(([("HX-Redirect", redirect)], Html(String::new())).into_response())

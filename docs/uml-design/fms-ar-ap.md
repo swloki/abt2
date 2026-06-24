@@ -62,6 +62,8 @@
 - **委外收货** `OutsourcingOrder::receive()` → 直接 insert AP 台账（`source_type=OutsourcingOrder`，加工费=`iqc_qty × unit_price`）
 - **收付款核销** `CashJournal::confirm()` → 台账冲销方向（收款 Credit / 付款 Debit）+ `settle` 自动核销（业务单据 ↔ 收付款）
 
+> **事务边界（强制）**：上述"业务单据驱动台账"的 web handler（如 `ship_shipping`）是多步写（改 `shipped_qty` → 释放预留 → 出库 `SalesShipment` → COGS → AR 立账 → 状态机），**必须用 `pool.begin()` + `commit()` 事务包裹**（参考 `mes_receipt_detail::confirm_receipt` 范式），禁止直接用 `RequestContext.conn`（`acquire` 即 autocommit）。否则 `ship()` 中途失败时已提交步骤无法回滚，产生脏数据残留。事故案例：SO-2026-06-000170 / SR-2026-06-000043，发货明细 `product_id=0` 触发出库可用量预检报错，`shipped_qty` 已提交但库存/COGS/AR/状态全未动，发货单卡在 Picking 却显示已发数量，应收入账缺失。
+
 `ar_ap_ledger` 自包含：`amount_applied` 自记核销，`outstanding()` = `amount − amount_applied`；`settle()` 基于 `source_type` 匹配核销，不依赖任何外部单据表。
 
 **已物理删除**（migration `067` 删 ar_ap 的 GL 列；`068` 删表/枚举/权限）：

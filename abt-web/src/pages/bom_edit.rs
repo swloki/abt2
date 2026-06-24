@@ -309,16 +309,19 @@ pub async fn delete_node(
  ctx: RequestContext,
 ) -> Result<impl IntoResponse> {
  let RequestContext {
- mut conn,
  state,
  service_ctx,
  ..
  } = ctx;
 
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
  let node_svc = state.bom_node_service();
  node_svc
- .delete_node(&service_ctx, &mut conn, path.id, path.node_id)
+ .delete_node(&service_ctx, &mut tx, path.id, path.node_id)
  .await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  Ok(([("HX-Trigger", "nodeUpdated")], Html(String::new())))
 }
@@ -412,16 +415,19 @@ pub async fn save_as(
  axum::Form(form): axum::Form<SaveAsForm>,
 ) -> Result<impl IntoResponse> {
  let RequestContext {
- mut conn,
  state,
  service_ctx,
  ..
  } = ctx;
 
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
  let cmd_svc = state.bom_command_service();
  let new_id = cmd_svc
- .save_as(&service_ctx, &mut conn, path.id, form.new_name)
+ .save_as(&service_ctx, &mut tx, path.id, form.new_name)
  .await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let redirect = BomEditPath { id: new_id }.to_string();
  Ok(([("HX-Redirect", redirect)], Html(String::new())))

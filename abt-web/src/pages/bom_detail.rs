@@ -71,16 +71,20 @@ pub async fn publish_bom(
  path: BomPublishPath,
  ctx: RequestContext,
 ) -> crate::errors::Result<impl axum::response::IntoResponse> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
  let query_svc = state.bom_query_service();
- let bom = query_svc.get(&service_ctx, &mut conn, path.id).await?;
+ let bom = query_svc.get(&service_ctx, &mut tx, path.id).await?;
 
  let cmd_svc = state.bom_command_service();
  if bom.status == BomStatus::Published {
- cmd_svc.unpublish(&service_ctx, &mut conn, path.id).await?;
+ cmd_svc.unpublish(&service_ctx, &mut tx, path.id).await?;
  } else {
- cmd_svc.publish(&service_ctx, &mut conn, path.id).await?;
+ cmd_svc.publish(&service_ctx, &mut tx, path.id).await?;
  }
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let redirect = BomDetailPath { id: path.id }.to_string();
  Ok(([("HX-Redirect", redirect)], Html(String::new())))

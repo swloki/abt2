@@ -146,8 +146,12 @@ pub async fn confirm_plan(
  path: PlanConfirmPath,
  ctx: RequestContext,
 ) -> Result<impl IntoResponse> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
- state.production_plan_service().confirm(&service_ctx, &mut conn, path.plan_id).await?;
+ let RequestContext { state, service_ctx, .. } = ctx;
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+ state.production_plan_service().confirm(&service_ctx, &mut tx, path.plan_id).await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let redirect = PlanDetailPath { id: path.plan_id }.to_string();
  Ok(([("HX-Redirect", redirect)], Html(String::new())))
@@ -158,11 +162,15 @@ pub async fn release_plan(
  path: PlanReleasePath,
  ctx: RequestContext,
 ) -> Result<impl IntoResponse> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
  state
  .production_plan_service()
- .release_to_work_orders(&service_ctx, &mut conn, path.plan_id)
+ .release_to_work_orders(&service_ctx, &mut tx, path.plan_id)
  .await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let redirect = PlanDetailPath { id: path.plan_id }.to_string();
  Ok(([("HX-Redirect", redirect)], Html(String::new())))
@@ -174,11 +182,15 @@ pub async fn schedule_plan(
  path: PlanSchedulePath,
  ctx: RequestContext,
 ) -> Result<impl IntoResponse> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
  state
  .production_plan_service()
- .schedule(&service_ctx, &mut conn, path.plan_id)
+ .schedule(&service_ctx, &mut tx, path.plan_id)
  .await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let redirect = PlanDetailPath { id: path.plan_id }.to_string();
  Ok(([("HX-Redirect", redirect)], Html(String::new())))
@@ -196,7 +208,7 @@ pub async fn generate_work_orders(
  ctx: RequestContext,
  axum::Form(form): axum::Form<GenerateForm>,
 ) -> Result<impl IntoResponse> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
 
  let items: Vec<WorkOrderPlanItem> = serde_json::from_str(&form.items_json).map_err(|e| {
  crate::errors::WebError::from(abt_core::shared::types::DomainError::Validation(format!(
@@ -204,10 +216,14 @@ pub async fn generate_work_orders(
  )))
  })?;
 
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
  state
  .production_plan_service()
- .generate_work_orders(&service_ctx, &mut conn, path.plan_id, items)
+ .generate_work_orders(&service_ctx, &mut tx, path.plan_id, items)
  .await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let redirect = format!("/admin/mes/plans/{}?tab=planning", path.plan_id);
  Ok(axum::response::Response::builder()
@@ -235,9 +251,19 @@ pub async fn release_all_work_orders(
 
  let mut successful = Vec::new();
  for wo in &draft_orders {
- match wo_svc.release(&service_ctx, &mut conn, wo.id, wo.version).await {
- Ok(()) => successful.push(wo.id),
- Err(e) => tracing::warn!(work_order_id = wo.id, error = %e, "release-all failed"),
+ // 每个工单 release 独立事务：保留「部分成功」语义，单个失败仅回滚该工单不影响其他
+ let mut tx = state.pool.begin().await
+ .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+ match wo_svc.release(&service_ctx, &mut tx, wo.id, wo.version).await {
+ Ok(()) => {
+ tx.commit().await
+ .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+ successful.push(wo.id);
+ }
+ Err(e) => {
+ tracing::warn!(work_order_id = wo.id, error = %e, "release-all failed");
+ // tx drop 自动回滚该工单
+ }
  }
  }
 
@@ -274,15 +300,28 @@ pub async fn generate_and_release(
  let plan_svc = state.production_plan_service();
  let wo_svc = state.work_order_service();
 
+ // 生成工单：一个事务（批量生成，全有全无）
+ let mut tx = state.pool.begin().await
+ .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
  let wo_ids = plan_svc
- .generate_work_orders(&service_ctx, &mut conn, path.plan_id, items)
+ .generate_work_orders(&service_ctx, &mut tx, path.plan_id, items)
  .await?;
+ tx.commit().await
+ .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  for wo_id in &wo_ids {
- if let Ok(wo) = wo_svc.find_by_id(&service_ctx, &mut conn, *wo_id).await
- && let Err(e) = wo_svc.release(&service_ctx, &mut conn, *wo_id, wo.version).await
- {
- tracing::warn!(work_order_id = wo_id, error = %e, "generate-and-release: release failed");
+ if let Ok(wo) = wo_svc.find_by_id(&service_ctx, &mut conn, *wo_id).await {
+ // 每个工单 release 独立事务：部分成功语义，单个失败仅回滚该工单
+ let mut tx = state.pool.begin().await
+ .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+ match wo_svc.release(&service_ctx, &mut tx, *wo_id, wo.version).await {
+ Ok(()) => {
+ if let Err(e) = tx.commit().await {
+ tracing::warn!(work_order_id = wo_id, error = %e, "generate-and-release: commit failed");
+ }
+ }
+ Err(e) => tracing::warn!(work_order_id = wo_id, error = %e, "generate-and-release: release failed"),
+ }
  }
  }
 

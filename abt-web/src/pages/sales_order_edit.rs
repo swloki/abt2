@@ -92,7 +92,7 @@ pub async fn update_order(
  ctx: RequestContext,
  axum::Form(form): axum::Form<OrderEditForm>,
 ) -> Result<impl IntoResponse> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
  let svc = state.sales_order_service();
 
  if form.customer_id == 0 {
@@ -140,7 +140,11 @@ pub async fn update_order(
  remark: form.remark,
  };
 
- svc.update(&service_ctx, &mut conn, path.id, req, items).await?;
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+ svc.update(&service_ctx, &mut tx, path.id, req, items).await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let redirect = OrderDetailPath { id: path.id }.to_string();
  Ok(([("HX-Redirect", redirect)], Html(String::new())))

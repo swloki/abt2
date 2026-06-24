@@ -99,7 +99,7 @@ pub async fn update_warehouse(
  ctx: RequestContext,
  Form(form): Form<crate::pages::wms_warehouse_create::WarehouseCreateForm>,
 ) -> crate::errors::Result<impl IntoResponse> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
  let svc = state.warehouse_service();
 
  let warehouse_type = WarehouseType::from_i16(form.warehouse_type)
@@ -121,7 +121,11 @@ pub async fn update_warehouse(
  status: None,
  };
 
- svc.update(&service_ctx, &mut conn, path.id, req).await?;
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+ svc.update(&service_ctx, &mut tx, path.id, req).await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let redirect = WarehouseDetailPath { id: path.id }.to_string();
  Ok(([("HX-Redirect", redirect)], Html(String::new())))
@@ -132,10 +136,14 @@ pub async fn delete_warehouse(
  path: WarehouseDeletePath,
  ctx: RequestContext,
 ) -> crate::errors::Result<impl IntoResponse> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
  let svc = state.warehouse_service();
 
- svc.delete(&service_ctx, &mut conn, path.id).await?;
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+ svc.delete(&service_ctx, &mut tx, path.id).await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  Ok(([("HX-Redirect", WarehouseListPath::PATH)], Html(String::new())))
 }
@@ -159,7 +167,7 @@ pub async fn create_zone(
  ctx: RequestContext,
  Form(form): Form<ZoneForm>,
 ) -> crate::errors::Result<impl IntoResponse> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
  let svc = state.warehouse_service();
 
  let zone_type = form.zone_type
@@ -174,9 +182,15 @@ pub async fn create_zone(
  remark: form.remark.filter(|s| !s.is_empty()),
  };
 
- svc.create_zone(&service_ctx, &mut conn, path.id, req).await?;
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+ svc.create_zone(&service_ctx, &mut tx, path.id, req).await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  // Re-render zones table
+ let mut conn = state.pool.acquire().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
  let zones = svc.list_zones(&service_ctx, &mut conn, path.id).await?;
  Ok((
  StatusCode::OK,
@@ -202,7 +216,7 @@ pub async fn update_zone(
  ctx: RequestContext,
  Form(form): Form<ZoneForm>,
 ) -> crate::errors::Result<impl IntoResponse> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
  let svc = state.warehouse_service();
 
  let zone_type = form.zone_type
@@ -216,7 +230,11 @@ pub async fn update_zone(
  remark: form.remark.filter(|s| !s.is_empty()),
  };
 
- svc.update_zone(&service_ctx, &mut conn, path.zone_id, req).await?;
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+ svc.update_zone(&service_ctx, &mut tx, path.zone_id, req).await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  Ok((StatusCode::OK, [("HX-Trigger", "zoneChanged")], Html(String::new())))
 }
@@ -226,10 +244,14 @@ pub async fn delete_zone(
  path: WarehouseZonePath,
  ctx: RequestContext,
 ) -> crate::errors::Result<impl IntoResponse> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
  let svc = state.warehouse_service();
 
- svc.delete_zone(&service_ctx, &mut conn, path.zone_id).await?;
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+ svc.delete_zone(&service_ctx, &mut tx, path.zone_id).await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  Ok((StatusCode::OK, [("HX-Trigger", "zoneChanged")], Html(String::new())))
 }

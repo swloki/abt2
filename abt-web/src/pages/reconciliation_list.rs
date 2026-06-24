@@ -147,10 +147,14 @@ pub async fn delete_reconciliation(
  path: ReconciliationDeletePath,
  ctx: RequestContext,
 ) -> Result<impl IntoResponse> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
 
  let reconciliation_svc = state.reconciliation_service();
- reconciliation_svc.delete(&service_ctx, &mut conn, path.id).await?;
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+ reconciliation_svc.delete(&service_ctx, &mut tx, path.id).await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let redirect = ReconciliationListPath::PATH.to_string();
  Ok(([("HX-Redirect", redirect)], Html(String::new())))

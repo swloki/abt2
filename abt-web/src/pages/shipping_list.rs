@@ -164,10 +164,14 @@ pub async fn delete_shipping(
  path: ShippingDeletePath,
  ctx: RequestContext,
 ) -> Result<impl IntoResponse> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
 
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
  let shipping_svc = state.shipping_service();
- shipping_svc.delete(&service_ctx, &mut conn, path.id).await?;
+ shipping_svc.delete(&service_ctx, &mut tx, path.id).await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let redirect = ShippingListPath::PATH.to_string();
  Ok(([("HX-Redirect", redirect)], Html(String::new())))

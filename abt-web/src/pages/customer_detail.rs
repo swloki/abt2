@@ -265,8 +265,11 @@ pub async fn create_contact(
  ctx: RequestContext,
  Form(form): Form<ContactForm>,
 ) -> crate::errors::Result<impl IntoResponse> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
  let svc = state.customer_service();
+
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let req = CreateContactReq {
  contact_name: form.contact_name,
@@ -278,7 +281,9 @@ pub async fn create_contact(
  is_primary: form.is_primary.unwrap_or(false),
  };
 
- svc.add_contact(&service_ctx, &mut conn, path.id, req).await?;
+ svc.add_contact(&service_ctx, &mut tx, path.id, req).await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let redirect = format!("/admin/customers/{}", path.id);
  Ok(([("HX-Redirect", redirect)], Html(String::new())))
@@ -289,11 +294,15 @@ pub async fn delete_contact(
  path: DeleteContactPath,
  ctx: RequestContext,
 ) -> crate::errors::Result<impl IntoResponse> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
  let svc = state.customer_service();
 
- svc.delete_contact(&service_ctx, &mut conn, path.cid, path.contact_id)
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+ svc.delete_contact(&service_ctx, &mut tx, path.cid, path.contact_id)
  .await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let detail = CustomerDetailPath { id: path.cid };
  Ok(([("HX-Redirect", detail.to_string())], Html(String::new())))
@@ -305,8 +314,11 @@ pub async fn create_address(
  ctx: RequestContext,
  Form(form): Form<AddressForm>,
 ) -> crate::errors::Result<impl IntoResponse> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
  let svc = state.customer_service();
+
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let req = CreateAddressReq {
  address_type: form.address_type,
@@ -319,7 +331,9 @@ pub async fn create_address(
  is_default: form.is_default.unwrap_or(false),
  };
 
- svc.add_address(&service_ctx, &mut conn, path.id, req).await?;
+ svc.add_address(&service_ctx, &mut tx, path.id, req).await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let redirect = format!("/admin/customers/{}", path.id);
  Ok(([("HX-Redirect", redirect)], Html(String::new())))
@@ -330,11 +344,15 @@ pub async fn delete_address(
  path: DeleteAddressPath,
  ctx: RequestContext,
 ) -> crate::errors::Result<impl IntoResponse> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
  let svc = state.customer_service();
 
- svc.delete_address(&service_ctx, &mut conn, path.cid, path.address_id)
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+ svc.delete_address(&service_ctx, &mut tx, path.cid, path.address_id)
  .await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let detail = CustomerDetailPath { id: path.cid };
  Ok(([("HX-Redirect", detail.to_string())], Html(String::new())))

@@ -222,7 +222,7 @@ pub async fn create_return(
  ctx: RequestContext,
  Form(form): Form<ReturnCreateForm>,
 ) -> Result<impl IntoResponse> {
- let RequestContext { claims: _, mut conn, state, service_ctx, .. } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
 
  if form.customer_id == 0 {
  return Err(DomainError::validation("请选择客户").into());
@@ -268,7 +268,11 @@ pub async fn create_return(
  };
 
  let svc = state.sales_return_service();
- let return_id = svc.create(&service_ctx, &mut conn, req).await?;
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+ let return_id = svc.create(&service_ctx, &mut tx, req).await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let redirect = ReturnDetailPath { id: return_id }.to_string();
  Ok(([("HX-Redirect", redirect)], Html(String::new())))

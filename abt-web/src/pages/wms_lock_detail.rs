@@ -88,14 +88,20 @@ pub async fn post_lock_action(
  ctx: RequestContext,
  axum::Form(form): axum::Form<LockActionForm>,
 ) -> crate::errors::Result<axum::response::Response> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
  let svc = state.inventory_lock_service();
 
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+
  match form.action.as_str() {
- "release" => svc.release(&service_ctx, &mut conn, path.id).await?,
- "cancel" => svc.cancel(&service_ctx, &mut conn, path.id).await?,
+ "release" => svc.release(&service_ctx, &mut tx, path.id).await?,
+ "cancel" => svc.cancel(&service_ctx, &mut tx, path.id).await?,
  _ => {}
  }
+
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let redirect_url = LockDetailPath { id: path.id }.to_string();
  let mut resp = axum::response::Response::default();

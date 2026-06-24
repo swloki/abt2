@@ -126,10 +126,14 @@ pub async fn confirm_po(
  path: POConfirmPath,
  ctx: RequestContext,
 ) -> Result<impl IntoResponse> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
  let svc = state.purchase_order_service();
 
- svc.confirm(&service_ctx, &mut conn, path.id, None).await?;
+ svc.confirm(&service_ctx, &mut tx, path.id, None).await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let redirect = PODetailPath { id: path.id }.to_string();
  Ok(([("HX-Redirect", redirect)], Html(String::new())))
@@ -140,10 +144,14 @@ pub async fn cancel_po(
  path: POCancelPath,
  ctx: RequestContext,
 ) -> Result<impl IntoResponse> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
  let svc = state.purchase_order_service();
 
- svc.cancel(&service_ctx, &mut conn, path.id, None).await?;
+ svc.cancel(&service_ctx, &mut tx, path.id, None).await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let redirect = PODetailPath { id: path.id }.to_string();
  Ok(([("HX-Redirect", redirect)], Html(String::new())))
@@ -154,9 +162,13 @@ pub async fn submit_po(
  axum::extract::Path(id): axum::extract::Path<i64>,
  ctx: RequestContext,
 ) -> Result<impl IntoResponse> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
  let svc = state.purchase_order_service();
- svc.submit(&service_ctx, &mut conn, id, None).await?;
+ svc.submit(&service_ctx, &mut tx, id, None).await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
  let redirect = PODetailPath { id }.to_string();
  Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }
@@ -166,9 +178,13 @@ pub async fn approve_po_order(
  axum::extract::Path(id): axum::extract::Path<i64>,
  ctx: RequestContext,
 ) -> Result<impl IntoResponse> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
  let svc = state.purchase_order_service();
- svc.approve_po(&service_ctx, &mut conn, id, None).await?;
+ svc.approve_po(&service_ctx, &mut tx, id, None).await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
  let redirect = PODetailPath { id }.to_string();
  Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }
@@ -178,9 +194,13 @@ pub async fn reject_po(
  axum::extract::Path(id): axum::extract::Path<i64>,
  ctx: RequestContext,
 ) -> Result<impl IntoResponse> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
  let svc = state.purchase_order_service();
- svc.reject(&service_ctx, &mut conn, id, "退回修改".to_string(), None).await?;
+ svc.reject(&service_ctx, &mut tx, id, "退回修改".to_string(), None).await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
  let redirect = PODetailPath { id }.to_string();
  Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }
@@ -209,7 +229,7 @@ pub async fn update_po_items(
  ctx: RequestContext,
  axum::Form(form): axum::Form<ItemChangesForm>,
 ) -> Result<impl IntoResponse> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
  let svc = state.purchase_order_service();
 
  let raw_changes: Vec<ChangeItem> = serde_json::from_str(&form.changes_json)
@@ -246,7 +266,11 @@ pub async fn update_po_items(
  }
  }).collect();
 
- svc.update_items_after_confirm(&service_ctx, &mut conn, id, changes, None).await?;
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+ svc.update_items_after_confirm(&service_ctx, &mut tx, id, changes, None).await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let redirect = PODetailPath { id }.to_string();
  Ok(([("HX-Redirect", redirect)], Html(String::new())))
@@ -262,14 +286,18 @@ pub async fn merge_po(
  ctx: RequestContext,
  axum::Form(form): axum::Form<MergeForm>,
 ) -> Result<impl IntoResponse> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
  let svc = state.purchase_order_service();
 
  let order_ids: Vec<i64> = form.order_ids.split(',')
  .filter_map(|s| s.trim().parse().ok())
  .collect();
 
- let target_id = svc.merge_orders(&service_ctx, &mut conn, order_ids, None).await?;
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+ let target_id = svc.merge_orders(&service_ctx, &mut tx, order_ids, None).await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
  let redirect = PODetailPath { id: target_id }.to_string();
  Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }

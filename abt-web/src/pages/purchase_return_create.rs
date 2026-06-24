@@ -179,7 +179,6 @@ pub async fn create_pr(
  axum::Form(form): axum::Form<PRCreateForm>,
 ) -> Result<impl IntoResponse> {
  let RequestContext {
- mut conn,
  state,
  service_ctx,
  ..
@@ -189,9 +188,11 @@ pub async fn create_pr(
  return Err(DomainError::validation("请选择采购订单").into());
  }
 
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
  let order_svc = state.purchase_order_service();
  let order = order_svc
- .get(&service_ctx, &mut conn, form.order_id)
+ .get(&service_ctx, &mut tx, form.order_id)
  .await?;
 
  let return_date = chrono::NaiveDate::parse_from_str(&form.return_date, "%Y-%m-%d")
@@ -230,7 +231,9 @@ pub async fn create_pr(
  };
 
  let svc = state.purchase_return_service();
- let id = svc.create(&service_ctx, &mut conn, create_req, None).await?;
+ let id = svc.create(&service_ctx, &mut tx, create_req, None).await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let redirect = PRDetailPath { id }.to_string();
  Ok(([("HX-Redirect", redirect)], Html(String::new())))

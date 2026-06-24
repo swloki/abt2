@@ -1,3 +1,4 @@
+use rust_decimal::Decimal;
 use sqlx::Postgres;
 
 use super::model::*;
@@ -149,5 +150,24 @@ impl PickListItemRepo {
             .fetch_all(&mut *executor)
             .await?;
         Ok(rows)
+    }
+
+    /// 录入拣货结果：更新 picked_qty；bin_id 传 None 时保留原值（COALESCE）。
+    pub async fn update_picked(
+        &self,
+        executor: PgExecutor<'_>,
+        pick_list_item_id: i64,
+        picked_qty: Decimal,
+        bin_id: Option<i64>,
+    ) -> Result<()> {
+        sqlx::query(
+            "UPDATE pick_list_items SET picked_qty = $2, bin_id = COALESCE($3, bin_id) WHERE id = $1",
+        )
+        .bind(pick_list_item_id)
+        .bind(picked_qty)
+        .bind(bin_id)
+        .execute(&mut *executor)
+        .await?;
+        Ok(())
     }
 }

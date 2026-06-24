@@ -24,7 +24,7 @@ use crate::shared::state_machine::{new_state_machine_service, service::StateMach
 use crate::shared::types::{PgExecutor, DomainError, PageParams, PaginatedResult, ServiceContext, Result};
 use crate::wms::enums::TransactionType;
 use crate::wms::inventory_transaction::{
-    model::RecordTransactionReq, new_inventory_transaction_service, service::InventoryTransactionService,
+    model::{InventoryTransaction, RecordTransactionReq}, new_inventory_transaction_service, service::InventoryTransactionService,
 };
 use crate::wms::pick_list::{new_pick_list_service, service::PickListService};
 
@@ -446,13 +446,12 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
             return Err(DomainError::business_rule("Only Confirmed shipping requests can be picked"));
         }
 
-        // 生成拣货单（Phase 3，#93）— 拣货可追溯，记录 picked_qty/bin
-        // MVP：自动满拣并完成（picked_qty=requested_qty）；前端后续支持人工拣货时拆分 generate/complete
+        // 生成拣货单（Draft，留待人工录入 picked_qty/bin 后 complete_pick）。
+        // 旧 MVP 自动满拣（complete）已移除：Doc Hub 拣货 drawer 调
+        // PickListService::record_pick_items + complete_pick 完成人工拣货。
+        // 需要一键自动满拣时由调用方在 generate 后直接 complete_pick（快速拣货）。
         let pick_list_id = new_pick_list_service(self.pool.clone())
             .generate_from_outbound(ctx, db, id)
-            .await?;
-        new_pick_list_service(self.pool.clone())
-            .complete_pick(ctx, db, pick_list_id)
             .await?;
 
         new_state_machine_service(self.pool.clone())
@@ -471,7 +470,7 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
                         entity_type: "ShippingRequest",
                         entity_id: id,
                         action: AuditAction::Transition,
-                        changes: Some(serde_json::json!({ "from": "Confirmed", "to": "Picking" })),
+                        changes: Some(serde_json::json!({ "from": "Confirmed", "to": "Picking", "pick_list_id": pick_list_id })),
                         context: None,
                     },
                 )
@@ -678,5 +677,91 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
         shipping_request_id: i64,
     ) -> Result<Vec<ShippingRequestItem>> {
         self.item_repo.find_by_shipping_request_id(db, shipping_request_id).await
+    }
+
+    async fn hub_summary(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        id: i64,
+    ) -> Result<ShippingHubSummary> {
+        let items = self.item_repo.find_by_shipping_request_id(db, id).await?;
+        let pending_pick_qty: rust_decimal::Decimal =
+            items.iter().map(|i| i.requested_qty).sum();
+        let shipped_qty: rust_decimal::Decimal =
+            items.iter().map(|i| i.shipped_qty).sum();
+
+        // 已拣量来自 PickList（容错：查不到记 0，不阻塞摘要）
+        let pick_svc = new_pick_list_service(self.pool.clone());
+        let picked_qty: rust_decimal::Decimal = match pick_svc.find_by_outbound(ctx, db, id).await {
+            Ok(Some(pl)) => match pick_svc.list_items(ctx, db, pl.id).await {
+                Ok(pl_items) => pl_items.iter().map(|i| i.picked_qty).sum(),
+                Err(e) => {
+                    tracing::warn!(error = %e, "hub_summary: list pick items failed, recorded as 0");
+                    rust_decimal::Decimal::ZERO
+                }
+            },
+            Ok(None) => rust_decimal::Decimal::ZERO,
+            Err(e) => {
+                tracing::warn!(error = %e, "hub_summary: find pick list failed, recorded as 0");
+                rust_decimal::Decimal::ZERO
+            }
+        };
+
+        // 缺货判定：任一明细 ATP < 待发量（requested - shipped）即缺货
+        let txn_svc = new_inventory_transaction_service(self.pool.clone());
+        let mut shortage = None;
+        for item in &items {
+            let remaining = item.requested_qty - item.shipped_qty;
+            if remaining <= rust_decimal::Decimal::ZERO {
+                continue;
+            }
+            match txn_svc
+                .query_available(ctx, db, item.product_id, Some(item.warehouse_id))
+                .await
+            {
+                Ok(atp) if atp < remaining => {
+                    shortage = Some(ShortageSignal {
+                        product_id: item.product_id,
+                        product_name: format!("产品 #{}", item.product_id),
+                        requested_qty: item.requested_qty,
+                        available_qty: atp,
+                    });
+                    break;
+                }
+                Ok(_) => {}
+                Err(e) => {
+                    tracing::warn!(error = %e, product_id = item.product_id, "hub_summary: query_available failed");
+                }
+            }
+        }
+
+        Ok(ShippingHubSummary {
+            pending_pick_qty,
+            picked_qty,
+            shipped_qty,
+            shortage,
+        })
+    }
+
+    async fn list_transactions(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        id: i64,
+        page: PageParams,
+    ) -> Result<PaginatedResult<InventoryTransaction>> {
+        // 本单库存事务：source_type="shipping"（与 ship() record 的 source_type 对齐）
+        let txns = new_inventory_transaction_service(self.pool.clone())
+            .find_by_source(ctx, db, "shipping", id)
+            .await?;
+        let total = txns.len() as u64;
+        let start = (page.page as usize).saturating_sub(1) * page.page_size as usize;
+        let items: Vec<InventoryTransaction> = txns
+            .into_iter()
+            .skip(start)
+            .take(page.page_size as usize)
+            .collect();
+        Ok(PaginatedResult::new(items, total, page.page, page.page_size))
     }
 }

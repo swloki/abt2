@@ -65,6 +65,14 @@ pub struct CancelShippingPath {
     pub id: i64,
 }
 
+/// Doc Hub disclosure 懒加载：拣货单 / 库存事务片段
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/wms/shipping/{id}/fragments/{block}")]
+pub struct ShippingFragmentPath {
+    pub id: i64,
+    pub block: String,
+}
+
 #[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/wms/shipping/customer-contacts")]
 pub struct ShippingCustomerContactsPath;
@@ -89,6 +97,7 @@ pub fn router() -> Router<AppState> {
         .route(PickShippingPath::PATH, post(shipping_detail::pick_shipping))
         .route(ShipShippingPath::PATH, post(shipping_detail::ship_shipping))
         .route(CancelShippingPath::PATH, post(shipping_detail::cancel_shipping))
+        .route(ShippingFragmentPath::PATH, get(shipping_detail::get_shipping_fragment))
         // 旧路径 /admin/shipping/* → /admin/wms/shipping/* 重定向（服务旧书签）
         .route(
             "/admin/shipping",

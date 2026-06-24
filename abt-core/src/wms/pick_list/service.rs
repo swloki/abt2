@@ -48,4 +48,14 @@ pub trait PickListService: Send + Sync {
         filter: PickListQuery,
         page: PageParams,
     ) -> Result<PaginatedResult<PickList>>;
+
+    /// 录入拣货明细（人工拣货：picked_qty / bin_id）。Doc Hub 拣货 drawer 提交。
+    /// 仅 Draft 可录入；不自动完成，调用方后续 complete_pick（消化 #93 followup P1 item 5）。
+    async fn record_pick_items(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        id: i64,
+        items: Vec<PickItemInput>,
+    ) -> Result<()>;
 }

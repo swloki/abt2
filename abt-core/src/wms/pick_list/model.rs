@@ -119,6 +119,14 @@ pub struct PickListItemInput {
     pub picked_qty: Decimal,
 }
 
+/// 拣货明细录入（人工拣货：picked_qty / bin_id）。Doc Hub 拣货 drawer 提交。
+#[derive(Debug, Clone)]
+pub struct PickItemInput {
+    pub pick_list_item_id: i64,
+    pub picked_qty: Decimal,
+    pub bin_id: Option<i64>,
+}
+
 /// 创建拣货单参数（repo 层）
 pub struct CreatePickListParams<'a> {
     pub doc_number: &'a str,

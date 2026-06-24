@@ -9,6 +9,10 @@ use abt_core::master_data::product::ProductService;
 use abt_core::sales::sales_order::SalesOrderService;
 use abt_core::wms::outbound::model::*;
 use abt_core::wms::outbound::ShippingRequestService;
+use abt_core::wms::pick_list::PickListService;
+use abt_core::wms::pick_list::model::{PickList, PickListItem, PickListStatus};
+use abt_core::wms::inventory_transaction::model::InventoryTransaction;
+use abt_core::shared::types::pagination::{PageParams, PaginatedResult};
 use abt_core::shared::identity::UserService;
 use abt_core::wms::warehouse::WarehouseService;
 
@@ -98,7 +102,16 @@ pub async fn get_shipping_detail(
  }
  }
 
- let content = shipping_detail_page(&shipping, &items, &customer_name, &order_number, &operator_name, &product_details, &warehouse_names);
+ let hub_summary = shipping_svc
+     .hub_summary(&service_ctx, &mut conn, path.id)
+     .await
+     .unwrap_or(ShippingHubSummary {
+         pending_pick_qty: rust_decimal::Decimal::ZERO,
+         picked_qty: rust_decimal::Decimal::ZERO,
+         shipped_qty: rust_decimal::Decimal::ZERO,
+         shortage: None,
+     });
+ let content = shipping_detail_page(&shipping, &items, &customer_name, &order_number, &operator_name, &product_details, &warehouse_names, &hub_summary);
  let page_html = admin_page(
  is_htmx, "发货详情", &claims, "sales",
  &format!("{}/{}", ShippingListPath::PATH, path.id),
@@ -253,6 +266,7 @@ fn shipping_detail_page(
  operator_name: &str,
  product_details: &HashMap<i64, ProductDetail>,
  warehouse_names: &HashMap<i64, String>,
+ hub_summary: &ShippingHubSummary,
 ) -> Markup {
  let (status_text, status_class) = status_label(s.status);
 
@@ -274,11 +288,45 @@ fn shipping_detail_page(
                         )
                     }) { (status_text) }
                 }
-                div class="text-[13px] text-muted" {
-                    "来源订单："
-                    @if let Some(oid) = s.order_id {
-                        a href=(format!("/admin/orders/{oid}")) { (order_number) }
-                    } @else { (order_number) }
+                // 来源链 + 缺货徽章（Doc Hub）
+                div class="flex items-center gap-3 mt-3 flex-wrap" {
+                    @if let Some(shortage) = &hub_summary.shortage {
+                        span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-danger-bg text-danger text-xs font-semibold" {
+                            (icon::circle_alert_icon("w-3.5 h-3.5"))
+                            "缺货 · " (shortage.product_name)
+                        }
+                    }
+                    div class="flex items-center gap-2 text-xs text-muted bg-surface border border-border-soft rounded-md px-3 py-1.5 flex-wrap min-w-0" {
+                        span class="font-medium" { "来源链" }
+                        @if let Some(oid) = s.order_id {
+                            a class="text-accent font-mono" href=(format!("/admin/orders/{oid}")) { (order_number) }
+                            span class="text-border" { "→" }
+                        }
+                        span class="text-fg font-mono font-semibold" { (s.doc_number) }
+                    }
+                }
+                // 摘要带 stat-strip（待拣 / 已拣 / 已发 / 库存）
+                div class="flex items-stretch bg-bg border border-border-soft rounded-lg mt-4 overflow-hidden" {
+                    div class="flex-1 px-5 py-3 flex flex-col gap-0.5 border-r border-border-soft" {
+                        span class="font-mono text-lg font-bold text-fg tabular-nums" { (fmt_qty(hub_summary.pending_pick_qty)) }
+                        span class="text-xs text-muted font-medium" { "待拣" }
+                    }
+                    div class="flex-1 px-5 py-3 flex flex-col gap-0.5 border-r border-border-soft" {
+                        span class="font-mono text-lg font-bold text-success tabular-nums" { (fmt_qty(hub_summary.picked_qty)) }
+                        span class="text-xs text-muted font-medium" { "已拣" }
+                    }
+                    div class="flex-1 px-5 py-3 flex flex-col gap-0.5 border-r border-border-soft" {
+                        span class="font-mono text-lg font-bold text-fg tabular-nums" { (fmt_qty(hub_summary.shipped_qty)) }
+                        span class="text-xs text-muted font-medium" { "已发" }
+                    }
+                    div class="flex-1 px-5 py-3 flex flex-col gap-0.5" {
+                        @if hub_summary.shortage.is_some() {
+                            span class="font-mono text-lg font-bold text-danger tabular-nums" { "缺货" }
+                        } @else {
+                            span class="font-mono text-lg font-bold text-success tabular-nums" { "充足" }
+                        }
+                        span class="text-xs text-muted font-medium" { "库存" }
+                    }
                 }
             }
             div class="flex gap-3" {
@@ -317,11 +365,8 @@ fn shipping_detail_page(
         }
         // ── Workflow Steps ──
         (workflow_steps(s.status))
-        // ── Shipping Info ──
-        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]" {
-            div class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" {
-                "发货信息"
-            }
+        // ── 发货信息 disclosure ──
+        (doc_disclosure("d-info", "发货信息", &format!("客户 {} · 承运商 {}", customer_name, s.carrier.as_str()), html! {
             div class="grid gap-4" {
                 div class="flex flex-col gap-1" {
                     span class="text-xs text-muted font-medium" { "客户名称" }
@@ -356,9 +401,9 @@ fn shipping_detail_page(
                     span class="text-sm text-fg font-medium" { (operator_name) }
                 }
             }
-        }
-        // ── Items Table ──
-        div class="data-card" {
+        }))
+        // ── 发货明细 disclosure ──
+        (doc_disclosure("d-items", "发货明细", &format!("{} 行", items.len()), html! {
             div class="overflow-x-auto" {
                 table class="data-table" {
                     thead {
@@ -383,7 +428,10 @@ fn shipping_detail_page(
                     }
                 }
             }
-        }
+        }))
+        // ── 拣货单 / 库存事务 disclosure（懒加载）──
+        (doc_disclosure_lazy("d-pick", "拣货单", "拣货明细", &ShippingFragmentPath { id: s.id, block: "pick".to_string() }.to_string()))
+        (doc_disclosure_lazy("d-txn", "库存事务", "本单库存流水", &ShippingFragmentPath { id: s.id, block: "transactions".to_string() }.to_string()))
         // ── Remarks ──
         @if !s.remark.is_empty() {
             div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)] mt-6"
@@ -396,6 +444,139 @@ fn shipping_detail_page(
         }
     }
 }
+}
+
+/// Doc Hub 折叠区块：header（标题+摘要+chevron）+ 可折叠 body。点击 toggle .hidden。
+fn doc_disclosure(id: &str, title: &str, summary: &str, body: Markup) -> Markup {
+    html! {
+        div class="bg-bg border border-border-soft rounded-lg mb-3 shadow-xs overflow-hidden" id=(id) {
+            div class="flex items-center gap-3 px-5 py-4 cursor-pointer select-none hover:bg-surface-raised transition-colors"
+                _="on click toggle .hidden on next .di-body" {
+                span class="text-sm font-semibold text-fg shrink-0" { (title) }
+                span class="text-xs text-muted font-mono flex-1 min-w-0 truncate" { (summary) }
+                (icon::chevron_down_icon("w-4 h-4 text-muted shrink-0"))
+            }
+            div class="di-body hidden px-5 pb-5 pt-4 border-t border-border-soft" { (body) }
+        }
+    }
+}
+
+/// Doc Hub 懒加载 disclosure：header hx-get 拉片段，body 默认空
+fn doc_disclosure_lazy(id: &str, title: &str, summary: &str, frag_url: &str) -> Markup {
+    html! {
+        div class="bg-bg border border-border-soft rounded-lg mb-3 shadow-xs overflow-hidden" id=(id) {
+            div class="flex items-center gap-3 px-5 py-4 cursor-pointer select-none hover:bg-surface-raised transition-colors"
+                hx-get=(frag_url)
+                hx-target="next .di-body"
+                hx-swap="innerHTML"
+                _="on click toggle .hidden on next .di-body" {
+                span class="text-sm font-semibold text-fg shrink-0" { (title) }
+                span class="text-xs text-muted font-mono flex-1 min-w-0 truncate" { (summary) }
+                (icon::chevron_down_icon("w-4 h-4 text-muted shrink-0"))
+            }
+            div class="di-body hidden px-5 pb-5 pt-4 border-t border-border-soft" {}
+        }
+    }
+}
+
+/// Doc Hub disclosure 懒加载端点：按 block 返回拣货单 / 库存事务片段
+#[require_permission("SHIPPING", "read")]
+pub async fn get_shipping_fragment(path: ShippingFragmentPath, ctx: RequestContext) -> Result<Html<String>> {
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let body = match path.block.as_str() {
+        "pick" => {
+            let pl = state.pick_list_service()
+                .find_by_outbound(&service_ctx, &mut conn, path.id)
+                .await.unwrap_or(None);
+            let items = if let Some(ref p) = pl {
+                state.pick_list_service().list_items(&service_ctx, &mut conn, p.id).await.unwrap_or_default()
+            } else { Vec::new() };
+            render_pick_body(pl.as_ref(), &items)
+        }
+        "transactions" => {
+            let res = state.shipping_service()
+                .list_transactions(&service_ctx, &mut conn, path.id, PageParams::new(1, 50))
+                .await.unwrap_or_else(|_| PaginatedResult::empty(1, 50));
+            render_txn_body(&res.items)
+        }
+        other => return Err(abt_core::shared::types::error::DomainError::validation(format!("未知区块: {other}")).into()),
+    };
+    Ok(Html(body.into_string()))
+}
+
+fn render_pick_body(pl: Option<&PickList>, items: &[PickListItem]) -> Markup {
+    match pl {
+        None => html! { div class="text-sm text-muted py-2" { "尚未生成拣货单（发货单确认并开始拣货后生成）" } },
+        Some(p) => html! {
+            div {
+                div class="text-sm text-fg-2 mb-3" {
+                    "拣货单 "
+                    span class="font-mono font-semibold text-fg" { (p.doc_number) }
+                    " · "
+                    (pick_status_label(p.status))
+                }
+                table class="w-full border-collapse" {
+                    thead {
+                        tr {
+                            th class="text-left text-xs font-semibold text-muted py-2 px-2 border-b border-border-soft" { "产品" }
+                            th class="text-right text-xs font-semibold text-muted py-2 px-2 border-b border-border-soft" { "申请" }
+                            th class="text-right text-xs font-semibold text-muted py-2 px-2 border-b border-border-soft" { "已拣" }
+                            th class="text-left text-xs font-semibold text-muted py-2 px-2 border-b border-border-soft" { "库位" }
+                        }
+                    }
+                    tbody {
+                        @for it in items {
+                            tr class="border-b border-border-soft last:border-b-0" {
+                                td class="py-2 px-2 text-sm" { "产品 #" (it.product_id) }
+                                td class="py-2 px-2 text-sm font-mono text-right" { (fmt_qty(it.requested_qty)) }
+                                td class="py-2 px-2 text-sm font-mono text-right" { (fmt_qty(it.picked_qty)) }
+                                td class="py-2 px-2 text-sm font-mono text-muted" { (it.bin_id.map(|b| b.to_string()).unwrap_or_else(|| "—".into())) }
+                            }
+                        }
+                    }
+                }
+                @if p.status == PickListStatus::Draft {
+                    div class="mt-3 text-xs text-muted" { "提示：前往仓库作业中心「待拣货」录入拣货数量并完成拣货。" }
+                }
+            }
+        },
+    }
+}
+
+fn render_txn_body(txns: &[InventoryTransaction]) -> Markup {
+    if txns.is_empty() {
+        return html! { div class="text-sm text-muted py-2" { "暂无库存事务（发货后此处显示扣减流水）" } };
+    }
+    html! {
+        table class="w-full border-collapse" {
+            thead {
+                tr {
+                    th class="text-left text-xs font-semibold text-muted py-2 px-2 border-b border-border-soft" { "时间" }
+                    th class="text-left text-xs font-semibold text-muted py-2 px-2 border-b border-border-soft" { "类型" }
+                    th class="text-left text-xs font-semibold text-muted py-2 px-2 border-b border-border-soft" { "产品" }
+                    th class="text-right text-xs font-semibold text-muted py-2 px-2 border-b border-border-soft" { "数量" }
+                }
+            }
+            tbody {
+                @for t in txns {
+                    tr class="border-b border-border-soft last:border-b-0" {
+                        td class="py-2 px-2 text-sm font-mono text-muted" { (t.created_at.format("%m-%d %H:%M").to_string()) }
+                        td class="py-2 px-2 text-sm text-fg-2" { (format!("{:?}", t.transaction_type)) }
+                        td class="py-2 px-2 text-sm font-mono" { "#" (t.product_id) }
+                        td class=(format!("py-2 px-2 text-sm font-mono text-right {}", if t.quantity >= rust_decimal::Decimal::ZERO { "text-success" } else { "text-danger" })) { (fmt_qty(t.quantity)) }
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn pick_status_label(s: PickListStatus) -> &'static str {
+    match s {
+        PickListStatus::Draft => "拣货中",
+        PickListStatus::Picked => "已拣货",
+        PickListStatus::Cancelled => "已取消",
+    }
 }
 
 fn item_row(

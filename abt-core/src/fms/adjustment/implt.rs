@@ -132,7 +132,8 @@ impl AdjustmentService for AdjustmentServiceImpl {
                 operator_id: ctx.operator_id,
             },
         )
-        .await?;
+        .await?
+        .ok_or_else(|| DomainError::business_rule("ar_ap ledger insert conflicted"))?;
 
         // 6. 回填 ledger_id
         AdjustmentRepo::update_ledger_id(db, id, ledger_id).await?;

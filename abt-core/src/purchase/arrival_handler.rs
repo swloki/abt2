@@ -212,7 +212,7 @@ impl EventHandler for ArrivalAcceptedHandler {
                 let doc_no = format!("AN-{}", arrival_notice_id);
                 let desc = format!("采购入库 {}", doc_no);
 
-                ArApLedgerRepo::insert(
+                let _ = ArApLedgerRepo::insert(
                     &mut *conn,
                     &ArApLedgerInsert {
                         party_type: CounterpartyType::Supplier,

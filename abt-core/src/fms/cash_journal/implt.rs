@@ -183,7 +183,7 @@ impl CashJournalService for CashJournalServiceImpl {
                 .unwrap_or_else(|| "CNY".to_string());
 
                 // 台账：AR 减少（Credit）
-                ArApLedgerRepo::insert(
+                let _ = ArApLedgerRepo::insert(
                     db,
                     &ArApLedgerInsert {
                         party_type,
@@ -241,7 +241,7 @@ impl CashJournalService for CashJournalServiceImpl {
                 .unwrap_or_else(|| "CNY".to_string());
 
                 // 台账：AP 减少（Debit）
-                ArApLedgerRepo::insert(
+                let _ = ArApLedgerRepo::insert(
                     db,
                     &ArApLedgerInsert {
                         party_type,

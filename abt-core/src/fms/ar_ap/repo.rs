@@ -155,14 +155,17 @@ pub(crate) fn build_filter_conditions(
 pub struct ArApLedgerRepo;
 
 impl ArApLedgerRepo {
-    /// 插入一条台账记录，返回 id
-    pub async fn insert(executor: PgExecutor<'_>, row: &ArApLedgerInsert<'_>) -> Result<i64> {
-        let id: i64 = sqlx::query_scalar::<sqlx::Postgres, i64>(
+    /// 插入一条台账记录。原子幂等：`(source_type, source_id)` 冲突时 DO NOTHING 返回 None
+    ///（依赖 migration 070 的 partial unique index，排除 OutsourcingOrder=11）。
+    /// 返回 `Some(id)` 表示新建，`None` 表示已存在（冲突跳过）。
+    pub async fn insert(executor: PgExecutor<'_>, row: &ArApLedgerInsert<'_>) -> Result<Option<i64>> {
+        let id: Option<i64> = sqlx::query_scalar::<sqlx::Postgres, i64>(
             r#"INSERT INTO ar_ap_ledger
                (party_type, party_id, source_type, source_id, source_doc_no,
                 against_type, against_id, direction, amount, currency, exchange_rate,
                 transaction_date, due_date, period, description, operator_id)
                VALUES ($1,$2,$3,$4,$5,$6, $7,$8,$9,$10,$11,$12, $13,$14,$15,$16)
+               ON CONFLICT (source_type, source_id) WHERE source_type <> 11 DO NOTHING
                RETURNING id"#,
         )
         .bind(row.party_type)
@@ -181,7 +184,7 @@ impl ArApLedgerRepo {
         .bind(row.period)
         .bind(row.description)
         .bind(row.operator_id)
-        .fetch_one(executor)
+        .fetch_optional(executor)
         .await?;
         Ok(id)
     }
@@ -225,18 +228,7 @@ impl ArApLedgerRepo {
         description: &str,
         operator_id: i64,
     ) -> Result<Option<i64>> {
-        // 幂等：同一来源不重复立账
-        let dup: Option<i64> = sqlx::query_scalar::<sqlx::Postgres, i64>(
-            "SELECT id FROM ar_ap_ledger WHERE source_type = $1 AND source_id = $2 LIMIT 1",
-        )
-        .bind(source_type)
-        .bind(source_id)
-        .fetch_optional(&mut *db)
-        .await?;
-        if dup.is_some() {
-            return Ok(None);
-        }
-
+        // 幂等由 ArApLedgerRepo::insert 的 ON CONFLICT 兜底（partial unique index，migration 070）
         let currency = Self::fetch_party_currency(db, party_type, party_id).await?;
         let period = chrono::Utc::now().format("%Y-%m").to_string();
         let today = chrono::Local::now().date_naive();
@@ -262,7 +254,7 @@ impl ArApLedgerRepo {
             },
         )
         .await?;
-        Ok(Some(id))
+        Ok(id)
     }
 
     /// 更新 amount_applied（核销/反核销时调用）

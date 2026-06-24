@@ -600,7 +600,7 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
 
         if dup_ledger.is_none() {
             let doc_no = format!("Outsourcing-{}", req.id);
-            ArApLedgerRepo::insert(
+            let _ = ArApLedgerRepo::insert(
                 db,
                 &ArApLedgerInsert {
                     party_type: CounterpartyType::Supplier,

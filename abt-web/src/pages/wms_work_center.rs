@@ -99,9 +99,9 @@ fn todo_card(
 ) -> Markup {
     let has_todo = count > 0;
     let card_class = if has_todo {
-        "data-card relative flex flex-col items-center gap-3 p-6 text-center cursor-pointer border-accent/40 bg-accent/5 hover:-translate-y-0.5 hover:shadow-md transition-all"
+        "relative flex flex-col items-center gap-3 p-6 text-center cursor-pointer rounded-md border border-accent/30 bg-accent/5 hover:border-accent/50 hover:-translate-y-0.5 hover:shadow-md transition-all"
     } else {
-        "data-card relative flex flex-col items-center gap-3 p-6 text-center cursor-pointer opacity-60 hover:opacity-100 transition-all"
+        "relative flex flex-col items-center gap-3 p-6 text-center cursor-pointer rounded-md border border-border bg-bg opacity-85 hover:opacity-100 transition-all"
     };
     html! {
         a href=(path) class=(card_class) {
@@ -138,12 +138,12 @@ fn urgent_card(
 ) -> Markup {
     // match 臂字面量 — UnoCSS 扫描器能识别（区别于 format! 拼接）
     let (border_cls, color_cls) = match level {
-        "danger" => ("border-danger", "bg-danger-bg text-danger"),
-        _ => ("border-warn", "bg-warn-bg text-warn"),
+        "danger" => ("border-l-danger", "bg-danger-bg text-danger"),
+        _ => ("border-l-warn", "bg-warn-bg text-warn"),
     };
     html! {
         a href=(path)
-            class=(format!("data-card flex items-center gap-3 p-4 cursor-pointer border-l-4 {border_cls} hover:-translate-y-0.5 hover:shadow-md transition-all")) {
+            class=(format!("flex items-center gap-3 p-4 cursor-pointer rounded-md border border-border-soft border-l-4 {border_cls} bg-bg hover:-translate-y-0.5 hover:shadow-md transition-all")) {
             div class=(format!("w-9 h-9 rounded-md grid place-items-center flex-shrink-0 {color_cls}")) { (icon_markup) }
             div class="flex-1 min-w-0" {
                 div class="text-sm font-semibold text-fg truncate" { (label) }

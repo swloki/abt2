@@ -10,9 +10,10 @@ tdocker/abt-grpc
 .context
 .claude
 .superpowers
+.orca
 sql/
 dist/
-scripts/convert-labor-excel/convert-labor-excel.exe
+*.exe
 graphify-out
 sessions/
 backup/

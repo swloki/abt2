@@ -232,7 +232,7 @@ impl ArrivalNoticeService for ArrivalNoticeServiceImpl {
                 ctx, db,
                 vec![EntryRequest {
                     entity_type: CostEntityType::PurchaseOrder,
-                    entity_id: req.id,
+                    entity_id: notice.purchase_order_id.unwrap_or(req.id),
                     cost_type: CostType::Material,
                     debit_amount: total_accepted,
                     credit_amount: total_accepted,

@@ -4,10 +4,14 @@ use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
 use serde::Deserialize;
 use rust_decimal::Decimal;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
+use abt_core::shared::idempotency::IdempotencyService;
 use abt_core::wms::arrival_notice::ArrivalNoticeService;
-use abt_core::wms::arrival_notice::model::ArrivalNoticeFilter;
+use abt_core::wms::arrival_notice::model::{
+    ArrivalNoticeFilter, CreateArrivalNoticeItemReq, CreateArrivalNoticeReq, InspectArrivalNoticeReq,
+    InspectItemReq, ReceiveArrivalNoticeReq, ReceiveItemReq,
+};
 use abt_core::purchase::order::PurchaseOrderService;
 use abt_core::purchase::order::model::PurchaseOrderQuery;
 use abt_core::master_data::supplier::SupplierService;
@@ -18,12 +22,13 @@ use abt_core::mes::work_order::WorkOrderService;
 use abt_core::wms::inventory_transaction::model::RecordTransactionReq;
 use abt_core::wms::enums::{ArrivalStatus, TransactionType};
 use abt_core::master_data::product::ProductService;
-use abt_core::shared::types::{DomainError, PageParams};
+use abt_core::shared::types::{context::ServiceContext, DomainError, PageParams, PgExecutor};
 use abt_core::shared::enums::DocumentType;
 use abt_core::shared::document_sequence::DocumentSequenceService;
 
 use crate::components::icon;
 use crate::errors::Result;
+use crate::state::AppState;
 use crate::layout::page::admin_page;
 use crate::routes::wms_stock_in::{StockInCreatePath, StockInListPath, StockInItemRowPath, StockInConfirmPosPath, StockInConfirmWoPath};
 use crate::utils::{RequestContext, empty_as_none};
@@ -578,6 +583,7 @@ pub struct StockInCreateForm {
  pub delivery_no: Option<String>,
  pub remark: Option<String>,
  pub items_json: String,
+ pub idempotency_key: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -602,104 +608,280 @@ pub async fn create_stock_in(
  ctx: RequestContext,
  axum::Form(form): axum::Form<StockInCreateForm>,
 ) -> Result<impl IntoResponse> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
- let svc = state.inventory_transaction_service();
+ let RequestContext { state, service_ctx, .. } = ctx;
 
  let web_items: Vec<StockInItemWeb> = serde_json::from_str(&form.items_json)
- .map_err(|e| DomainError::validation(format!("无效物料数据: {e}")))?;
-
+  .map_err(|e| DomainError::validation(format!("无效物料数据: {e}")))?;
  if web_items.is_empty() {
- return Err(DomainError::validation("请至少添加一个物料").into());
+  return Err(DomainError::validation("请至少添加一个物料").into());
  }
 
  let transaction_type = match form.transaction_type.as_str() {
- "ProductionReceipt" => TransactionType::ProductionReceipt,
- _ => TransactionType::PurchaseReceipt,
+  "ProductionReceipt" => TransactionType::ProductionReceipt,
+  _ => TransactionType::PurchaseReceipt,
  };
+ let remark = form.remark.clone().filter(|s| !s.is_empty());
 
- let source_type = match form.source_type.as_str() {
- "arrival" => "arrival_notice",
- "purchase" => "purchase_order",
- other => other,
- };
+ // 多步写（来料通知编排 + 库存入库），必须事务包裹：半失败整体回滚，
+ // 避免「库存已入但 PO 回写/台账未动」残留（事故类比 SO-2026-06-000170）
+ let mut tx = state
+  .pool
+  .begin()
+  .await
+  .map_err(|e| DomainError::Internal(e.into()))?;
 
- let remark = form.remark.filter(|s| !s.is_empty());
- // 手动物料无来源单 → 0；有来源的明细行自带 per-item source_id（PO/工单）
- let source_id: i64 = 0;
- // 入库单号：通过 DocumentSequenceService 生成规范编号（RK-YYYY-MM-SEQ）
- let doc_number = state.document_sequence_service()
- .next_number(&service_ctx, &mut conn, DocumentType::StockReceipt)
- .await?;
- // 来源单号：记录来源单据的单号（如采购单号 PO-xxx、来料通知单号 AN-xxx）
- let source_doc_number = form.source_ref
- .as_ref()
- .filter(|s| !s.is_empty())
- .cloned();
+ // 幂等防护：同一 idempotency_key（前端表单加载生成）重复提交只执行一次，
+ // 防双击/网络重试导致重复建来料通知+重复入库。try_claim 在事务内，业务失败回滚则记录也回滚（允许重试）。
+ if !state
+  .idempotency_service()
+  .try_claim(&service_ctx, &mut tx, &form.idempotency_key)
+  .await?
+ {
+  return Ok(([("HX-Redirect", StockInListPath.to_string())], Html(String::new())));
+ }
 
- let warehouse_svc = state.warehouse_service();
-
- // 每行物料独立仓库 + 库位，逐条记录一笔库存事务
- for item in &web_items {
- let product_id: i64 = item.product_id.parse()
- .map_err(|_| DomainError::validation("无效产品ID"))?;
- let quantity: Decimal = item.quantity.parse()
- .map_err(|_| DomainError::validation("无效数量"))?;
- let bin_id: Option<i64> = item.bin_id.as_ref()
- .and_then(|s| s.parse().ok());
- // 每行目标仓库（必填）；缺省库区时按该仓库自动取默认库区
- let warehouse_id: i64 = item.warehouse_id.as_deref()
- .and_then(|s| s.parse().ok())
- .ok_or_else(|| DomainError::validation("请为每行物料选择目标仓库"))?;
- let zone_id = warehouse_svc
- .get_or_create_default_zone(&service_ctx, &mut conn, warehouse_id)
- .await
- .ok()
- .map(|z| z.id);
- let default_bin_id: Option<i64> = if let Some(zid) = zone_id {
- warehouse_svc
- .list_bins(&service_ctx, &mut conn, zid, None, 1, 1)
- .await
- .ok()
- .and_then(|r| r.items.first().map(|b| b.id))
+ if form.source_type == "purchase" {
+  // 采购入库走「来料通知」回写闭环：自动建来料通知 + 收货 + 检验通过，
+  // 复用 ArrivalAcceptedHandler 回写 PO received_qty/状态 + 立应付台账
+  handle_purchase_stock_in(
+   &state, &service_ctx, &mut tx, &web_items, transaction_type, &form, remark.as_deref(),
+  )
+  .await?;
  } else {
- None
- };
- // 来源：每条物料优先自带所属来源单（多 PO 场景），缺省回退全局（生产入库等）
- let item_source_id: i64 = item.source_id.as_deref()
- .and_then(|s| s.parse().ok())
- .unwrap_or(source_id);
- // 关联单号必填：每行物料必须有来源单号（PO 单号 / 工单号），手动物料手填关联单号
- let item_source_doc = item.source_doc_number.clone()
- .filter(|s| !s.is_empty())
- .or_else(|| source_doc_number.clone())
- .ok_or_else(|| DomainError::validation("每行物料必须填写关联单号"))?;
-
- if quantity <= Decimal::ZERO {
- return Err(DomainError::validation("入库数量必须大于0").into());
+  // arrival/work_order/manual：保持原有直接 record() 入库
+  handle_direct_stock_in(
+   &state, &service_ctx, &mut tx, &web_items, transaction_type, &form, remark.as_deref(),
+  )
+  .await?;
  }
 
- let req = RecordTransactionReq {
- doc_number: Some(doc_number.clone()),
- delivery_no: form.delivery_no.clone(),
- source_doc_number: Some(item_source_doc),
- transaction_type,
- product_id,
- warehouse_id,
- zone_id,
- bin_id: bin_id.or(default_bin_id),
- batch_no: None,
- quantity,
- unit_cost: None,
- source_type: source_type.to_string(),
- source_id: item_source_id,
- remark: remark.clone(),
- };
-
- svc.record(&service_ctx, &mut conn, req).await?;
- }
+ tx.commit().await.map_err(|e| DomainError::Internal(e.into()))?;
 
  let redirect = StockInListPath.to_string();
  Ok(([("HX-Redirect", redirect)], Html(String::new())))
+}
+
+/// arrival/work_order/manual 来源：保持原有直接 record() 入库逻辑（仅改为事务内执行）。
+async fn handle_direct_stock_in(
+ state: &AppState,
+ ctx: &ServiceContext,
+ db: PgExecutor<'_>,
+ web_items: &[StockInItemWeb],
+ transaction_type: TransactionType,
+ form: &StockInCreateForm,
+ remark: Option<&str>,
+) -> Result<()> {
+ let inv_svc = state.inventory_transaction_service();
+ let warehouse_svc = state.warehouse_service();
+ let source_type = match form.source_type.as_str() {
+  "arrival" => "arrival_notice",
+  "purchase" => "purchase_order",
+  other => other,
+ };
+ // 入库单号：RK-YYYY-MM-SEQ
+ let doc_number = state
+  .document_sequence_service()
+  .next_number(ctx, db, DocumentType::StockReceipt)
+  .await?;
+ let source_doc = form.source_ref.as_ref().filter(|s| !s.is_empty()).cloned();
+
+ for item in web_items {
+  // 来源：每条物料优先自带所属来源单（多 PO 场景），缺省回退全局（生产/手动物料）
+  let item_source_id: i64 = item.source_id.as_deref().and_then(|s| s.parse().ok()).unwrap_or(0);
+  let item_source_doc = item
+   .source_doc_number
+   .clone()
+   .filter(|s| !s.is_empty())
+   .or_else(|| source_doc.clone())
+   .ok_or_else(|| DomainError::validation("每行物料必须填写关联单号"))?;
+
+  record_stock_in_item(
+   &inv_svc, &warehouse_svc, ctx, db, item, transaction_type, &doc_number, &form.delivery_no,
+   source_type, item_source_id, &item_source_doc, remark,
+  )
+  .await?;
+ }
+ Ok(())
+}
+
+/// 采购入库闭环：按 PO 分组，每组建来料通知 + 收货 + 检验通过（触发 ArrivalAcceptedHandler
+/// 回写 PO received_qty/状态 + 立应付台账），再逐行 record 库存（source 关联来料通知）。
+async fn handle_purchase_stock_in(
+ state: &AppState,
+ ctx: &ServiceContext,
+ db: PgExecutor<'_>,
+ web_items: &[StockInItemWeb],
+ transaction_type: TransactionType,
+ form: &StockInCreateForm,
+ remark: Option<&str>,
+) -> Result<()> {
+ let po_svc = state.purchase_order_service();
+ let arrival_svc = state.arrival_notice_service();
+ let inv_svc = state.inventory_transaction_service();
+ let warehouse_svc = state.warehouse_service();
+
+ // 入库单号（RK-YYYY-MM-SEQ，所有库存流水共用）
+ let doc_number = state
+  .document_sequence_service()
+  .next_number(ctx, db, DocumentType::StockReceipt)
+  .await?;
+
+ // 1. 校验 + 按 PO id 分组
+ let mut groups: BTreeMap<i64, Vec<&StockInItemWeb>> = BTreeMap::new();
+ for item in web_items {
+  let po_id: i64 = item
+   .source_id
+   .as_deref()
+   .and_then(|s| s.parse().ok())
+   .ok_or_else(|| DomainError::validation("采购入库每行必须指定来源采购订单"))?;
+  groups.entry(po_id).or_default().push(item);
+ }
+
+ // 2. 每个 PO：建来料通知 → 收货 → 检验通过 → 逐行入库
+ for (po_id, items) in &groups {
+  let po = po_svc.get(ctx, db, *po_id).await?;
+  let po_items = po_svc.list_items(ctx, db, *po_id).await?;
+  // product_id → order_item_id（取同 product 首个明细；handler 台账按 product_id 匹配单价，不受影响）
+  let prod_to_oi: HashMap<i64, i64> = po_items.iter().map(|p| (p.product_id, p.id)).collect();
+
+  // 来料通知头仓库/库区：取该组首行仓库（仅用于区域默认，库存按 per-item 精确入库）
+  let head_wh: i64 = items
+   .first()
+   .and_then(|it| it.warehouse_id.as_deref())
+   .and_then(|s| s.parse().ok())
+   .ok_or_else(|| DomainError::validation("请为每行物料选择目标仓库"))?;
+  let head_zone = warehouse_svc.get_or_create_default_zone(ctx, db, head_wh).await.ok().map(|z| z.id);
+
+  // 同 PO 内按 product_id 聚合 declared_qty（简化来料明细）
+  let mut declared: BTreeMap<i64, Decimal> = BTreeMap::new();
+  for it in items {
+   let pid: i64 = it.product_id.parse().map_err(|_| DomainError::validation("无效产品ID"))?;
+   let qty: Decimal = it.quantity.parse().map_err(|_| DomainError::validation("无效数量"))?;
+   *declared.entry(pid).or_insert(Decimal::ZERO) += qty;
+  }
+
+  // 建来料通知（Draft）
+  let notice_id = arrival_svc
+   .create(
+    ctx, db,
+    CreateArrivalNoticeReq {
+     purchase_order_id: Some(*po_id),
+     supplier_id: po.supplier_id,
+     arrival_date: chrono::Local::now().date_naive(),
+     warehouse_id: head_wh,
+     zone_id: head_zone,
+     delivery_note: form.delivery_no.clone(),
+     remark: remark.unwrap_or("").to_string(),
+     items: declared
+      .iter()
+      .map(|(pid, qty)| CreateArrivalNoticeItemReq {
+       order_item_id: prod_to_oi.get(pid).copied(),
+       product_id: *pid,
+       declared_qty: *qty,
+       batch_no: None,
+      })
+      .collect(),
+    },
+   )
+   .await?;
+
+  // 收货 + 检验通过（received/accepted = declared_qty；采购入库默认免质检，QMS 无结果自动通过）
+  let an_items = arrival_svc.list_items(ctx, db, notice_id).await?;
+  let prod_to_an: HashMap<i64, i64> = an_items.iter().map(|i| (i.product_id, i.id)).collect();
+  let mut recv_items: Vec<ReceiveItemReq> = Vec::with_capacity(declared.len());
+  let mut insp_items: Vec<InspectItemReq> = Vec::with_capacity(declared.len());
+  for (pid, qty) in &declared {
+   let item_id = *prod_to_an.get(pid).ok_or_else(|| {
+    DomainError::validation(format!("来料通知 #{notice_id} 缺少产品 #{pid} 的明细"))
+   })?;
+   recv_items.push(ReceiveItemReq { item_id, received_qty: *qty, batch_no: None });
+   insp_items.push(InspectItemReq { item_id, accepted_qty: *qty });
+  }
+  arrival_svc
+   .receive(ctx, db, ReceiveArrivalNoticeReq { id: notice_id, items: recv_items })
+   .await?;
+  arrival_svc
+   .inspect(ctx, db, InspectArrivalNoticeReq { id: notice_id, items: insp_items })
+   .await?;
+
+  // 逐行入库（source 关联来料通知）
+  for it in items {
+   let source_doc = it
+    .source_doc_number
+    .clone()
+    .filter(|s| !s.is_empty())
+    .unwrap_or_else(|| format!("AN-{notice_id}"));
+   record_stock_in_item(
+    &inv_svc, &warehouse_svc, ctx, db, it, transaction_type, &doc_number, &form.delivery_no,
+    "arrival_notice", notice_id, &source_doc, remark,
+   )
+   .await?;
+  }
+ }
+ Ok(())
+}
+
+/// 解析单行物料的 product/数量/仓库/库位，并记一笔库存事务。
+/// source_type/source_id/source_doc 由调用方决定（采购闭环用 arrival_notice，其他来源用原值）。
+#[allow(clippy::too_many_arguments)]
+async fn record_stock_in_item(
+ inv_svc: &impl InventoryTransactionService,
+ warehouse_svc: &impl WarehouseService,
+ ctx: &ServiceContext,
+ db: PgExecutor<'_>,
+ item: &StockInItemWeb,
+ transaction_type: TransactionType,
+ doc_number: &str,
+ delivery_no: &Option<String>,
+ source_type: &str,
+ source_id: i64,
+ source_doc: &str,
+ remark: Option<&str>,
+) -> Result<()> {
+ let product_id: i64 = item.product_id.parse().map_err(|_| DomainError::validation("无效产品ID"))?;
+ let quantity: Decimal = item.quantity.parse().map_err(|_| DomainError::validation("无效数量"))?;
+ if quantity <= Decimal::ZERO {
+  return Err(DomainError::validation("入库数量必须大于0").into());
+ }
+ let bin_id: Option<i64> = item.bin_id.as_ref().and_then(|s| s.parse().ok());
+ let warehouse_id: i64 = item
+  .warehouse_id
+  .as_deref()
+  .and_then(|s| s.parse().ok())
+  .ok_or_else(|| DomainError::validation("请为每行物料选择目标仓库"))?;
+ let zone_id = warehouse_svc.get_or_create_default_zone(ctx, db, warehouse_id).await.ok().map(|z| z.id);
+ let default_bin_id: Option<i64> = if let Some(zid) = zone_id {
+  warehouse_svc
+   .list_bins(ctx, db, zid, None, 1, 1)
+   .await
+   .ok()
+   .and_then(|r| r.items.first().map(|b| b.id))
+ } else {
+  None
+ };
+
+ inv_svc
+  .record(
+   ctx, db,
+   RecordTransactionReq {
+    doc_number: Some(doc_number.to_string()),
+    delivery_no: delivery_no.clone(),
+    source_doc_number: Some(source_doc.to_string()),
+    transaction_type,
+    product_id,
+    warehouse_id,
+    zone_id,
+    bin_id: bin_id.or(default_bin_id),
+    batch_no: None,
+    quantity,
+    unit_cost: None,
+    source_type: source_type.to_string(),
+    source_id,
+    remark: remark.map(|s| s.to_string()),
+   },
+  )
+  .await?;
+ Ok(())
 }
 
 // ── Components ──
@@ -721,8 +903,15 @@ fn stock_in_create_content() -> Markup {
             class="space-y-3"
             hx-post=(StockInCreatePath::PATH)
             hx-swap="none"
+            hx-disabled-elt="#stockin-submit-btn"
             onsubmit="return wmsStockInCollectItems()"
         {
+            // 幂等键：页面加载时生成一次，双击/重试同一 key → 后端只入库一次
+            input
+                type="hidden"
+                name="idempotency_key"
+                _="on load js me.value = crypto.randomUUID?.() || (Date.now()+Math.random()).toString(36) end"
+                {}
             // ── Strategy Tip ──
             div class="flex items-center rounded-md mb-6 gap-3 px-4 py-3 bg-[rgba(82,196,26,0.05)] border border-[rgba(82,196,26,0.15)]"
             {
@@ -907,6 +1096,7 @@ fn stock_in_create_content() -> Markup {
                     { "保存草稿" }
                     button
                         type="submit"
+                        id="stockin-submit-btn"
                         class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
                     { (icon::check_circle_icon("w-4 h-4")) "确认入库" }
                 }

@@ -73,4 +73,14 @@ impl IdempotencyService for IdempotencyServiceImpl {
 
         Ok(deleted)
     }
+
+    async fn try_claim(
+        &self,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
+        key: &str,
+    ) -> Result<bool> {
+        IdempotencyRepo::try_claim(&mut *db, key)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))
+    }
 }

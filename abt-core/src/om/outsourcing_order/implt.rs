@@ -29,7 +29,8 @@ use crate::qms::inspection_specification::{
 use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService, RecordAuditLogReq};
 use crate::shared::cost_entry::model::EntryRequest;
 use crate::fms::ar_ap::enums::LedgerDirection;
-use crate::fms::ar_ap::repo::{ArApLedgerInsert, ArApLedgerRepo};
+use crate::fms::ar_ap::model::PostLedgerEntryReq;
+use crate::fms::ar_ap::{new_ar_ap_service, service::ArApService};
 use crate::fms::enums::CounterpartyType;
 use crate::shared::cost_entry::{new_cost_entry_service, service::CostEntryService};
 use crate::shared::document_link::model::LinkRequest;
@@ -585,44 +586,32 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
             )
             .await?;
 
-        // 业财一体：委外收货直接立 AP 台账（加工费 = iqc_qty × unit_price，不走采购发票）
-        // 幂等：同一委外单同日不重复立账
+        // 业财一体：委外收货立 AP 台账（加工费 = iqc_qty × unit_price）。
+        // 经 ArApService::post_entry（ON CONFLICT 幂等），一单一账（migration 072 让 source_type=11 纳入 DB unique）
         let today = chrono::Local::now().date_naive();
         let ledger_period = chrono::Utc::now().format("%Y-%m").to_string();
-        let dup_ledger: Option<i64> = sqlx::query_scalar::<sqlx::Postgres, i64>(
-            "SELECT id FROM ar_ap_ledger WHERE source_type = $1 AND source_id = $2 AND transaction_date = $3 LIMIT 1",
-        )
-        .bind(DocumentType::OutsourcingOrder)
-        .bind(req.id)
-        .bind(today)
-        .fetch_optional(&mut *db)
-        .await?;
-
-        if dup_ledger.is_none() {
-            let doc_no = format!("Outsourcing-{}", req.id);
-            let _ = ArApLedgerRepo::insert(
+        let doc_no = format!("Outsourcing-{}", req.id);
+        new_ar_ap_service(self.pool.clone())
+            .post_entry(
+                ctx,
                 db,
-                &ArApLedgerInsert {
+                PostLedgerEntryReq {
                     party_type: CounterpartyType::Supplier,
                     party_id: order.supplier_id,
                     source_type: DocumentType::OutsourcingOrder,
                     source_id: req.id,
-                    source_doc_no: &doc_no,
-                    against_type: None,
-                    against_id: None,
+                    source_doc_no: doc_no.clone(),
                     direction: LedgerDirection::Credit,
                     amount: outsourcing_cost,
-                    currency: "CNY",
+                    currency: "CNY".to_string(),
                     exchange_rate: Decimal::ONE,
                     transaction_date: today,
                     due_date: None,
-                    period: &ledger_period,
-                    description: &format!("委外加工费 {}", doc_no),
-                    operator_id: ctx.operator_id,
+                    period: ledger_period,
+                    description: format!("委外加工费 {}", doc_no),
                 },
             )
             .await?;
-        }
 
         // 审计
         new_audit_log_service(self.pool.clone())

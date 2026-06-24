@@ -517,6 +517,11 @@ impl AppState {
     ) -> impl abt_core::shared::document_sequence::DocumentSequenceService {
         abt_core::shared::document_sequence::new_document_sequence_service(self.pool.clone())
     }
+    pub fn idempotency_service(
+        &self,
+    ) -> impl abt_core::shared::idempotency::IdempotencyService {
+        abt_core::shared::idempotency::new_idempotency_service(self.pool.clone())
+    }
 
     pub fn mes_demand_service(
         &self,

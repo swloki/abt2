@@ -100,4 +100,24 @@ impl IdempotencyRepo {
 
         Ok(result.rows_affected())
     }
+
+    /// HTTP 请求幂等：纯 INSERT ON CONFLICT，rows_affected > 0 = 首次。
+    /// 不重置状态（区别于 check_and_mark 的事件处理幂等，HTTP 同步请求无 crash 残留）；
+    /// 设 expires_at = 1 小时后，由 cleanup_expired 清理。适合并发请求（双击/重试）。
+    pub async fn try_claim(
+        executor: &mut sqlx::postgres::PgConnection,
+        key: &str,
+    ) -> Result<bool> {
+        let result = sqlx::query!(
+            r#"
+            INSERT INTO idempotency_records (idempotency_key, event_id, handler_name, status, expires_at)
+            VALUES ($1, 0, 'http_request', 'Claimed', now() + interval '1 hour')
+            ON CONFLICT (idempotency_key) DO NOTHING
+            "#,
+            key,
+        )
+        .execute(executor)
+        .await?;
+        Ok(result.rows_affected() > 0)
+    }
 }

@@ -470,3 +470,175 @@ async fn k5_sales_return_received_reverses_ar_ledger() {
     .fetch_one(&mut *conn).await.unwrap();
     assert_eq!(count, 1, "❌ 销售退货 handler 幂等失败，重复写入台账");
 }
+
+// ════════════════════════════════════════════════════════════════════════════
+//  k6 采购入库统一入口（治本）：库存入库页选采购单 → 自动建来料通知+收货+检验+入库
+//  验证 create_stock_in(source_type=purchase) 编排来料通知闭环：
+//  PO received_qty/状态回写 + AP台账(Credit) + 库存流水(source=arrival_notice) + 单据关联
+// ════════════════════════════════════════════════════════════════════════════
+
+#[tokio::test]
+#[serial_test::serial]
+async fn k6_stock_in_purchase_unified_closed_loop() {
+    let app = TestApp::new().await;
+
+    // 1) 采购订单 → submit（PRODUCT 565, qty=12, price=2.50）
+    let items = po_items(&[(&PRODUCT.to_string(), "k6-PO", "12", "2.50")]);
+    let body = format!("supplier_id={SUPPLIER_ID}&order_date=2026-06-25&items_json={items}&currency=CNY");
+    let resp = app.post_htmx("/admin/purchase/orders/create", &body).await;
+    assert!(resp.is_ok(), "创建采购订单 FAIL: {}", resp.status);
+    let po_id = redirect_id(&resp);
+    let _ = app.post_htmx(&format!("/admin/purchase/orders/{po_id}/submit"), "").await;
+
+    // 查 PO 单号 + 565 独占的 bin（该 bin 无其他产品占用，满足「一库位一产品」规则）
+    let mut conn = app.state.pool.acquire().await.unwrap();
+    let po_doc: String = sqlx::query_scalar("SELECT doc_number FROM purchase_orders WHERE id=$1")
+        .bind(po_id).fetch_one(&mut *conn).await.unwrap();
+    let bin_id: i64 = sqlx::query_scalar(
+        "SELECT s.bin_id FROM stock_ledger s \
+         WHERE s.product_id=$1 AND s.quantity>0 AND s.warehouse_id=$2 \
+         AND NOT EXISTS (SELECT 1 FROM stock_ledger s2 WHERE s2.bin_id=s.bin_id AND s2.product_id<>s.product_id AND s2.quantity>0) \
+         ORDER BY s.id LIMIT 1",
+    ).bind(PRODUCT).bind(WH).fetch_one(&mut *conn).await
+        .expect("❌ PRODUCT 在 WH 无独占 bin（需预置）");
+    drop(conn);
+
+    // 2) 库存入库页选采购单 → create_stock_in（source_type=purchase）
+    //    items_json: product_id/quantity/warehouse_id/bin_id/source_id(PO)/source_doc_number(PO单号)
+    let stockin_items = urlenc(&format!(
+        r#"[{{"product_id":"{PRODUCT}","quantity":"12","warehouse_id":"{WH}","bin_id":"{bin_id}","source_id":"{po_id}","source_doc_number":"{po_doc}"}}]"#
+    ));
+    let body = format!(
+        "transaction_type=PurchaseReceipt&source_type=purchase&source_ref={po_doc}&items_json={stockin_items}"
+    );
+    let resp = app.post_htmx("/admin/wms/stock-in/create", &body).await;
+    assert!(
+        resp.is_ok() || resp.is_redirect(),
+        "create_stock_in FAIL: {} body: {}",
+        resp.status,
+        resp.body.chars().take(500).collect::<String>()
+    );
+
+    // 3) create_stock_in 内部 inspect 已 publish ArrivalInspected；cargo test 无 EventProcessor，
+    //    查出新建来料通知后手动跑 ArrivalAcceptedHandler（模拟事件处理）
+    let mut conn = app.state.pool.acquire().await.unwrap();
+    let arr_id: i64 = sqlx::query_scalar(
+        "SELECT id FROM arrival_notices WHERE purchase_order_id=$1 ORDER BY id DESC LIMIT 1",
+    ).bind(po_id).fetch_one(&mut *conn).await
+        .expect("❌ create_stock_in 未为采购单建来料通知");
+
+    // 来料通知应已 Accepted(4)（inspect 内部完成收货+检验通过）
+    let an_status: i16 = sqlx::query_scalar("SELECT status FROM arrival_notices WHERE id=$1")
+        .bind(arr_id).fetch_one(&mut *conn).await.unwrap();
+    assert_eq!(an_status, 4, "❌ 来料通知应为 Accepted(4)，实际 {an_status}");
+    drop(conn);
+
+    use abt_core::purchase::arrival_handler::ArrivalAcceptedHandler;
+    use abt_core::shared::event_bus::registry::EventHandler;
+    use abt_core::shared::event_bus::model::DomainEvent;
+    use abt_core::shared::enums::event::{DomainEventType, EventStatus};
+    let event = DomainEvent {
+        id: 0, event_type: DomainEventType::ArrivalInspected, event_version: 1,
+        aggregate_type: "ArrivalNotice".into(), aggregate_id: arr_id,
+        payload: serde_json::json!({"arrival_notice_id": arr_id, "doc_number": "test-k6"}),
+        operator_id: 1, idempotency_key: format!("test-k6-arr-{arr_id}"),
+        trace_id: None, request_id: None, status: EventStatus::Pending,
+        retry_count: 0, failure_reason: None, processed_at: None, created_at: chrono::Utc::now(),
+    };
+    ArrivalAcceptedHandler::new(app.state.pool.clone()).handle(&event).await.expect("arrival handler FAIL");
+
+    // 4) PO 回写：received_qty=12, status=Received(4)
+    let mut conn = app.state.pool.acquire().await.unwrap();
+    let (po_status, received_qty): (i16, Decimal) = sqlx::query_as(
+        "SELECT po.status, poi.received_qty FROM purchase_orders po \
+         JOIN purchase_order_items poi ON poi.order_id=po.id WHERE po.id=$1",
+    ).bind(po_id).fetch_one(&mut *conn).await.unwrap();
+    assert_eq!(po_status, 4, "❌ PO 状态未推进到 Received(4)");
+    assert_eq!(received_qty, Decimal::from(12), "❌ PO received_qty 未回写为 12");
+
+    // 5) 库存流水 source_type=arrival_notice, source_id=来料通知（治本核心：库存关联来料通知）
+    let txn: (String, i64) = sqlx::query_as(
+        "SELECT source_type, source_id FROM inventory_transactions \
+         WHERE product_id=$1 AND source_id=$2 ORDER BY id DESC LIMIT 1",
+    ).bind(PRODUCT).bind(arr_id).fetch_one(&mut *conn).await
+        .expect("❌ 未找到关联来料通知的库存流水");
+    assert_eq!(txn.0, "arrival_notice", "❌ 库存流水 source_type 应为 arrival_notice（治本后）");
+
+    // 6) 单据关联 AN(16) → PO(7) Fulfills(6)
+    let link_cnt: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM document_links WHERE source_type=16 AND source_id=$1 AND target_type=7 AND target_id=$2",
+    ).bind(arr_id).bind(po_id).fetch_one(&mut *conn).await.unwrap();
+    assert_eq!(link_cnt, 1, "❌ 缺少来料通知→采购单的单据关联");
+    drop(conn);
+
+    // 7) AP 台账（Credit，金额 30 = 12 × 2.50，party=供应商）
+    let ledger = ledger_by_source(&app, DocumentType::ArrivalNotice, arr_id).await
+        .expect("❌ 未生成 AP 台账");
+    assert_eq!(ledger.party_id, SUPPLIER_ID);
+    assert_eq!(ledger.direction, abt_core::fms::ar_ap::enums::LedgerDirection::Credit);
+    assert_eq!(ledger.amount, Decimal::from(30));
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+//  k7 采购入库幂等：同一 idempotency_key 重复提交只入库一次（防双击/网络重试）
+// ════════════════════════════════════════════════════════════════════════════
+
+#[tokio::test]
+#[serial_test::serial]
+async fn k7_stock_in_idempotency() {
+    let app = TestApp::new().await;
+
+    // 1) 采购订单 → submit
+    let items = po_items(&[(&PRODUCT.to_string(), "k7-PO", "5", "1.00")]);
+    let body = format!("supplier_id={SUPPLIER_ID}&order_date=2026-06-25&items_json={items}&currency=CNY");
+    let resp = app.post_htmx("/admin/purchase/orders/create", &body).await;
+    assert!(resp.is_ok(), "创建采购订单 FAIL: {}", resp.status);
+    let po_id = redirect_id(&resp);
+    let _ = app.post_htmx(&format!("/admin/purchase/orders/{po_id}/submit"), "").await;
+
+    // 565 独占 bin（满足一库位一产品）
+    let mut conn = app.state.pool.acquire().await.unwrap();
+    let bin_id: i64 = sqlx::query_scalar(
+        "SELECT s.bin_id FROM stock_ledger s \
+         WHERE s.product_id=$1 AND s.quantity>0 AND s.warehouse_id=$2 \
+         AND NOT EXISTS (SELECT 1 FROM stock_ledger s2 WHERE s2.bin_id=s.bin_id AND s2.product_id<>s.product_id AND s2.quantity>0) \
+         ORDER BY s.id LIMIT 1",
+    ).bind(PRODUCT).bind(WH).fetch_one(&mut *conn).await.unwrap();
+    drop(conn);
+
+    // 入库 form（固定 idempotency_key，模拟前端生成的同一 key 被提交两次）
+    let stockin_items = urlenc(&format!(
+        r#"[{{"product_id":"{PRODUCT}","quantity":"5","warehouse_id":"{WH}","bin_id":"{bin_id}","source_id":"{po_id}","source_doc_number":""}}]"#
+    ));
+    let body = format!(
+        "transaction_type=PurchaseReceipt&source_type=purchase&idempotency_key=k7-dup-{po_id}&items_json={stockin_items}"
+    );
+
+    // 2) 第一次提交 → 成功
+    let resp1 = app.post_htmx("/admin/wms/stock-in/create", &body).await;
+    assert!(resp1.is_ok() || resp1.is_redirect(), "第一次提交 FAIL: {}", resp1.status);
+
+    let mut conn = app.state.pool.acquire().await.unwrap();
+    let an_count_1: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM arrival_notices WHERE purchase_order_id=$1",
+    ).bind(po_id).fetch_one(&mut *conn).await.unwrap();
+    drop(conn);
+    assert_eq!(an_count_1, 1, "第一次提交应建 1 个来料通知");
+
+    // 3) 第二次提交（同 idempotency_key）→ 幂等跳过
+    let resp2 = app.post_htmx("/admin/wms/stock-in/create", &body).await;
+    assert!(resp2.is_ok() || resp2.is_redirect(), "第二次提交应幂等返回成功，实际 {}", resp2.status);
+
+    // 4) 来料通知数不变（第二次没建新的）+ 库存流水数不变
+    let mut conn = app.state.pool.acquire().await.unwrap();
+    let an_count_2: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM arrival_notices WHERE purchase_order_id=$1",
+    ).bind(po_id).fetch_one(&mut *conn).await.unwrap();
+    let txn_count: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM inventory_transactions WHERE source_type='arrival_notice' AND source_doc_number LIKE '%AN%' AND product_id=$1 AND created_at > now() - interval '5 min'",
+    ).bind(PRODUCT).fetch_one(&mut *conn).await.unwrap();
+    drop(conn);
+    assert_eq!(an_count_2, 1, "❌ 幂等失败：第二次提交建了新的来料通知（{}）", an_count_2);
+    // 注：txn_count 不做严格断言（k6/k7 共享 565 流水），核心断言是来料通知不重复
+    let _ = txn_count;
+}

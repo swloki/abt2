@@ -127,12 +127,6 @@ fn modules() -> Vec<NavModule> {
                     permission: Some(("SALES_ORDER", "read")),
                 },
                 NavItem {
-                    name: "发货申请",
-                    path: "/admin/shipping",
-                    icon: NavIcon::Truck,
-                    permission: Some(("SHIPPING", "read")),
-                },
-                NavItem {
                     name: "销售退货",
                     path: "/admin/returns",
                     icon: NavIcon::Return,
@@ -234,7 +228,7 @@ fn modules() -> Vec<NavModule> {
                 NavItem { name: "库存查询", path: "/admin/wms/stock", icon: NavIcon::Search, permission: Some(("INVENTORY", "read")) },
                 NavItem { name: "低库存预警", path: "/admin/wms/low-stock", icon: NavIcon::AlertTriangle, permission: Some(("INVENTORY", "read")) },
                 NavItem { name: "入库管理", path: "/admin/wms/stock-in", icon: NavIcon::ArrowDown, permission: Some(("INVENTORY", "read")) },
-                NavItem { name: "出库管理", path: "/admin/wms/stock-out", icon: NavIcon::ArrowUp, permission: Some(("INVENTORY", "read")) },
+                NavItem { name: "出库管理", path: "/admin/wms/shipping", icon: NavIcon::ArrowUp, permission: Some(("SHIPPING", "read")) },
                 NavItem { name: "来料通知", path: "/admin/wms/arrivals", icon: NavIcon::Truck, permission: Some(("INVENTORY", "read")) },
                 NavItem { name: "库存调拨", path: "/admin/wms/transfers", icon: NavIcon::Switch, permission: Some(("INVENTORY", "read")) },
                 NavItem { name: "领料单", path: "/admin/wms/requisitions", icon: NavIcon::ClipboardDoc, permission: Some(("INVENTORY", "read")) },

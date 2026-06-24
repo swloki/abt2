@@ -36,7 +36,6 @@ pub mod wms_warehouse;
 pub mod wms_bin;
 pub mod wms_stock;
 pub mod wms_stock_in;
-pub mod wms_stock_out;
 pub mod wms_arrival;
 pub mod wms_transfer;
 pub mod wms_requisition;
@@ -109,7 +108,6 @@ pub fn router(state: AppState) -> Router {
                 .merge(wms_bin::router())
                 .merge(wms_stock::router())
                 .merge(wms_stock_in::router())
-                .merge(wms_stock_out::router())
                 .merge(wms_arrival::router())
                 .merge(wms_transfer::router())
                 .merge(wms_requisition::router())

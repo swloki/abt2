@@ -2,6 +2,7 @@
 
 use super::model::*;
 use crate::shared::types::{PgExecutor,PageParams, PaginatedResult, ServiceContext, Result};
+use crate::wms::inventory_transaction::model::InventoryTransaction;
 
 #[async_trait]
 pub trait ShippingRequestService: Send + Sync {
@@ -60,4 +61,21 @@ pub trait ShippingRequestService: Send + Sync {
         filter: ShippingQuery,
         page: PageParams,
     ) -> Result<PaginatedResult<ShippingRequest>>;
+
+    /// Hub 摘要带数据（首屏轻量查询，含缺货 ATP 判定）
+    async fn hub_summary(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        id: i64,
+    ) -> Result<ShippingHubSummary>;
+
+    /// 本单相关的库存事务流水（disclosure 懒加载）
+    async fn list_transactions(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        id: i64,
+        page: PageParams,
+    ) -> Result<PaginatedResult<InventoryTransaction>>;
 }

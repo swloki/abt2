@@ -214,4 +214,40 @@ impl PickListService for PickListServiceImpl {
     ) -> Result<PaginatedResult<PickList>> {
         self.repo.list(db, &filter, &page).await
     }
+
+    async fn record_pick_items(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        id: i64,
+        items: Vec<PickItemInput>,
+    ) -> Result<()> {
+        let existing = self
+            .repo
+            .find_by_id(db, id)
+            .await?
+            .ok_or_else(|| DomainError::not_found("PickList"))?;
+        if existing.status != PickListStatus::Draft {
+            return Err(DomainError::business_rule("只有 Draft 状态的拣货单可录入拣货明细"));
+        }
+        for it in &items {
+            self.item_repo
+                .update_picked(db, it.pick_list_item_id, it.picked_qty, it.bin_id)
+                .await?;
+        }
+        new_audit_log_service(self.pool.clone())
+            .record(
+                ctx,
+                db,
+                RecordAuditLogReq {
+                    entity_type: "PickList",
+                    entity_id: id,
+                    action: AuditAction::Update,
+                    changes: Some(serde_json::json!({ "items_recorded": items.len() })),
+                    context: None,
+                },
+            )
+            .await?;
+        Ok(())
+    }
 }

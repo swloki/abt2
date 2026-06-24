@@ -200,3 +200,21 @@ pub struct ShippingItemInput {
     pub requested_qty: Decimal,
     pub description: String,
 }
+
+/// 发货单 Hub 摘要带数据（首屏轻量查询，含缺货 ATP 判定）
+#[derive(Debug, Clone)]
+pub struct ShippingHubSummary {
+    pub pending_pick_qty: Decimal,        // 待拣 Σ requested_qty
+    pub picked_qty: Decimal,              // 已拣 Σ picked_qty（来自 PickList）
+    pub shipped_qty: Decimal,             // 已发 Σ shipped_qty
+    pub shortage: Option<ShortageSignal>, // 缺货红点；None = 无缺货
+}
+
+/// 缺货信号（ATP < 待发量）。product_name 为 MVP 占位，前端可按 product_id 解析真实名。
+#[derive(Debug, Clone)]
+pub struct ShortageSignal {
+    pub product_id: i64,
+    pub product_name: String,
+    pub requested_qty: Decimal,
+    pub available_qty: Decimal, // ATP 口径（InventoryTransactionService::query_available）
+}

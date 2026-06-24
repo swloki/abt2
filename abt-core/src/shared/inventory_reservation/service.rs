@@ -48,6 +48,14 @@ pub trait InventoryReservationService: Send + Sync {
         warehouse_id: Option<i64>,
     ) -> Result<Decimal>;
 
+    /// 按 product_id 查询 Active 预留明细（JOIN 来源单据 + 客户），供前端展示
+    async fn list_active_by_product(
+        &self,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
+        product_id: i64,
+        warehouse_id: Option<i64>,
+    ) -> Result<Vec<super::model::ReservationDetail>>;
+
     /// 按来源单据查询每行实际 Active 预留量，返回 HashMap<source_line_id, qty>。
     /// confirm 预留后调用，用于计算每行 shortage（= required - actual_reserved）。
     async fn reserved_qty_by_source(

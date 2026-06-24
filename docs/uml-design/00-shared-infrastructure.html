@@ -364,6 +364,7 @@ classDiagram
         +cancel(ctx: &ServiceContext, db: PgExecutor, id: i64) Result
         +total_reserved(ctx: &ServiceContext, db: PgExecutor, product_id, warehouse_id?) Result~Decimal~
         +reserved_qty_by_source(ctx: &ServiceContext, db: PgExecutor, source_type: DocumentType, source_id: i64) Result~HashMap~i64, Decimal~~
+        +list_active_by_product(ctx: &ServiceContext, db: PgExecutor, product_id, warehouse_id?) Result~Vec~ReservationDetail~~
     }
 
     class CostEntryService {

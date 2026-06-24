@@ -257,6 +257,14 @@ impl AppState {
         abt_core::wms::stock_ledger::new_stock_ledger_service(self.pool.clone())
     }
 
+    pub fn inventory_reservation_service(
+        &self,
+    ) -> impl abt_core::shared::inventory_reservation::InventoryReservationService {
+        abt_core::shared::inventory_reservation::new_inventory_reservation_service(
+            self.pool.clone(),
+        )
+    }
+
     pub fn strategy_service(&self) -> impl abt_core::wms::strategy::StrategyService {
         abt_core::wms::strategy::new_strategy_service(self.pool.clone())
     }

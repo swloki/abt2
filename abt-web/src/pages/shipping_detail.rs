@@ -301,14 +301,14 @@ fn shipping_detail_page(
                 }
                 @if s.status == ShippingStatus::Picking {
                     button
-                        class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-success text-white"
+                        class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-success text-white"
                         hx-post=(ShipShippingPath { id: s.id }.to_string())
                         hx-confirm="确认已发出？"
                     { "确认发出" }
                 }
                 @if matches!(s.status, ShippingStatus::Draft | ShippingStatus::Confirmed) {
                     button
-                        class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-danger text-white border-none hover:opacity-90"
+                        class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-danger text-white border-none hover:opacity-90"
                         hx-post=(CancelShippingPath { id: s.id }.to_string())
                         hx-confirm="确认取消此发货单？"
                     { "取消" }

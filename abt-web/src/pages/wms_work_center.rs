@@ -99,24 +99,24 @@ fn todo_card(
 ) -> Markup {
     let has_todo = count > 0;
     let card_class = if has_todo {
-        "relative flex flex-col items-center gap-3 p-6 text-center cursor-pointer rounded-md border border-accent/30 bg-accent/5 hover:border-accent/50 hover:-translate-y-0.5 hover:shadow-md transition-all"
+        "relative flex flex-col items-center justify-center gap-4 p-8 min-h-[208px] text-center cursor-pointer rounded-md border border-accent/30 bg-accent/5 hover:border-accent/50 hover:-translate-y-0.5 hover:shadow-md transition-all"
     } else {
-        "relative flex flex-col items-center gap-3 p-6 text-center cursor-pointer rounded-md border border-border bg-bg opacity-85 hover:opacity-100 transition-all"
+        "relative flex flex-col items-center justify-center gap-4 p-8 min-h-[208px] text-center cursor-pointer rounded-md border border-border bg-bg opacity-85 hover:opacity-100 transition-all"
     };
     html! {
         a href=(path) class=(card_class) {
             div class="relative" {
-                div class=(format!("w-11 h-11 rounded-md grid place-items-center {icon_class}")) { (icon_markup) }
+                div class=(format!("w-14 h-14 rounded-lg grid place-items-center {icon_class}")) { (icon_markup) }
                 @if has_todo {
-                    span class="absolute -top-1.5 -right-1.5 min-w-[22px] h-[22px] px-1 rounded-full bg-danger text-white text-xs font-bold flex items-center justify-center font-mono tabular-nums leading-none animate-pulse" {
+                    span class="absolute -top-1.5 -right-1.5 min-w-[24px] h-[24px] px-1 rounded-full bg-danger text-white text-sm font-bold flex items-center justify-center font-mono tabular-nums leading-none animate-pulse" {
                         (count)
                     }
                 }
             }
-            div class="text-sm font-semibold text-fg" { (title) }
+            div class="text-base font-semibold text-fg" { (title) }
             @if has_todo {
-                div class=(format!("text-lg font-bold font-mono tabular-nums leading-tight {count_class}")) {
-                    (count) " 笔待处理"
+                div class=(format!("text-2xl font-bold font-mono tabular-nums leading-tight {count_class}")) {
+                    (count) " 笔"
                 }
             } @else {
                 div class="text-sm font-medium text-muted" { "当前无待办" }

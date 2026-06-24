@@ -212,6 +212,10 @@ impl AppState {
         abt_core::wms::warehouse::new_warehouse_service(self.pool.clone())
     }
 
+    pub fn wms_work_center_service(&self) -> impl abt_core::wms::work_center::WorkCenterService {
+        abt_core::wms::work_center::new_work_center_service(self.pool.clone())
+    }
+
     // ── WMS (Inventory Management) Services ──
 
     pub fn arrival_notice_service(

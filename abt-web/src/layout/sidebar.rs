@@ -222,6 +222,7 @@ fn modules() -> Vec<NavModule> {
             id: "inventory",
             name: "库存管理",
             items: vec![
+                NavItem { name: "作业中心", path: "/admin/wms/work-center", icon: NavIcon::Grid, permission: Some(("INVENTORY", "read")) },
                 NavItem { name: "库存总览", path: "/admin/wms", icon: NavIcon::Home, permission: Some(("INVENTORY", "read")) },
                 NavItem { name: "仓库管理", path: "/admin/wms/warehouses", icon: NavIcon::Building, permission: Some(("WAREHOUSE", "read")) },
                 NavItem { name: "库位管理", path: "/admin/wms/bins", icon: NavIcon::Database, permission: Some(("LOCATION", "read")) },

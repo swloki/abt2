@@ -357,7 +357,7 @@ fn page_header() -> Markup {
     div class="flex items-center justify-between mb-6" {
         div {
             h1 class="text-xl font-bold text-fg tracking-tight" { "采购需求池" }
-            p class="text-muted" class="text-sm" style="margin-top:var(--space-1)" {
+            p class="text-muted text-sm" style="margin-top:var(--space-1)" {
                 "销售订单确认后产生的外购需求，按物料聚合展示。可选择需求创建采购订单草稿。"
             }
         }
@@ -485,8 +485,7 @@ fn stat_mini_cards(stats: &Stats) -> Markup {
         }
         div class="flex items-center gap-3 bg-bg border border-border-soft rounded-lg px-5 py-4 shadow-[var(--shadow-card)]"
         {
-            div class="w-[38px] h-[38px] rounded-md grid place-items-center shrink-0"
-                class="text-accent"
+            div class="w-[38px] h-[38px] rounded-md grid place-items-center shrink-0 text-accent"
                 style="background:#dbeafe"
             { (icon::cube_icon("w-[18px] h-[18px]")) }
             div {
@@ -498,8 +497,7 @@ fn stat_mini_cards(stats: &Stats) -> Markup {
         }
         div class="flex items-center gap-3 bg-bg border border-border-soft rounded-lg px-5 py-4 shadow-[var(--shadow-card)]"
         {
-            div class="w-[38px] h-[38px] rounded-md grid place-items-center shrink-0"
-                class="text-success"
+            div class="w-[38px] h-[38px] rounded-md grid place-items-center shrink-0 text-success"
                 style="background:#dcfce7"
             { (icon::check_circle_icon("w-[18px] h-[18px]")) }
             div {
@@ -511,8 +509,7 @@ fn stat_mini_cards(stats: &Stats) -> Markup {
         }
         div class="flex items-center gap-3 bg-bg border border-border-soft rounded-lg px-5 py-4 shadow-[var(--shadow-card)]"
         {
-            div class="w-[38px] h-[38px] rounded-md grid place-items-center shrink-0"
-                class="text-warn"
+            div class="w-[38px] h-[38px] rounded-md grid place-items-center shrink-0 text-warn"
                 style="background:#fef3c7"
             { (icon::clock_icon("w-[18px] h-[18px]")) }
             div {
@@ -729,7 +726,7 @@ fn material_row(m: &MaterialAggSummary) -> Markup {
         id=(format!("expand-mat-{pid}"))
     {
         div class="px-6 py-4" {
-            table class="data-table" class="text-[13px]" {
+            table class="data-table text-[13px]" {
                 thead {
                     tr {
                         th class="w-10" {
@@ -748,7 +745,7 @@ fn material_row(m: &MaterialAggSummary) -> Markup {
                 }
                 tbody id=(format!("expand-tbody-{pid}")) {
                     tr {
-                        td colspan="7" class="text-center text-muted" class="p-3" {
+                        td colspan="7" class="text-center text-muted p-3" {
                             "点击物料信息展开加载..."
                         }
                     }
@@ -765,7 +762,7 @@ fn demand_expand_rows(demands: &[DemandSummary]) -> Markup {
  html! {
     @if demands.is_empty() {
         tr {
-            td colspan="7" class="text-center text-muted" class="p-3" { "暂无需求明细" }
+            td colspan="7" class="text-center text-muted p-3" { "暂无需求明细" }
         }
     }
     @for d in demands { (demand_expand_row(d)) }
@@ -791,7 +788,7 @@ fn demand_expand_row(d: &DemandSummary) -> Markup {
                 data-product-name=(d.product_name)
                 data-product-code=(d.product_code);
         }
-        td class="font-mono tabular-nums" class="text-xs" { (d.id) }
+        td class="font-mono tabular-nums text-xs" { (d.id) }
         td {
             a   class="text-accent font-medium cursor-pointer"
                 href=(OrderDetailPath { id: d.order_id }.to_string())
@@ -897,7 +894,7 @@ fn detail_row(d: &DemandSummary) -> Markup {
                 input type="checkbox" class="demand-cb" disabled;
             }
         }
-        td class="font-mono tabular-nums" class="text-xs" { (d.id) }
+        td class="font-mono tabular-nums text-xs" { (d.id) }
         td class="font-mono tabular-nums" { (d.product_code) }
         td { (d.product_name) }
         td {

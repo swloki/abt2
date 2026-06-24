@@ -126,6 +126,17 @@ impl InventoryReservationService for InventoryReservationServiceImpl {
             .map_err(|e| DomainError::Internal(e.into()))
     }
 
+    async fn list_active_by_product(
+        &self,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
+        product_id: i64,
+        warehouse_id: Option<i64>,
+    ) -> Result<Vec<super::model::ReservationDetail>> {
+        InventoryReservationRepo::list_active_by_product(&mut *db, product_id, warehouse_id)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))
+    }
+
     async fn reserved_qty_by_source(
         &self,
         _ctx: &ServiceContext, db: PgExecutor<'_>,

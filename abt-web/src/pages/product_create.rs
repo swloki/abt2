@@ -297,8 +297,7 @@ fn product_create_page(source: Option<&Product>, categories: &[CategoryTree]) ->
                         textarea
                             name="remark"
                             placeholder="请输入备注信息…"
-                            class="w-full resize-y"
-                            class="min-h-[80px]" {}
+                            class="w-full resize-y min-h-[80px]" {}
                     }
                 }
             }

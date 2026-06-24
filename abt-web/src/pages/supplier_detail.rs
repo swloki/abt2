@@ -224,7 +224,7 @@ fn supplier_detail_page(
             }
         }
         // ── Basic Info Card ──
-        div class="bg-white border border-border-soft rounded p-5" class="mb-5" {
+        div class="bg-white border border-border-soft rounded p-5 mb-5" {
             div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 border-b border-border-soft"
             { "基本信息" }
             div class="flex py-2 text-sm" {
@@ -256,7 +256,7 @@ fn supplier_detail_page(
             }
             div class="flex py-2 text-sm" {
                 span class="w-[90px] shrink-0 text-muted" { "税号" }
-                span class="detail-value font-mono tabular-nums" class="text-xs" {
+                span class="detail-value font-mono tabular-nums text-xs" {
                     (supplier.tax_number.as_deref().unwrap_or("—"))
                 }
             }
@@ -294,7 +294,7 @@ fn supplier_detail_page(
             (bank_accounts_card(bank_accounts, &detail_path, can_delete))
         }
         // ── Purchase History Section (placeholder) ──
-        div class="bg-white border border-border-soft rounded p-5" class="mt-5" {
+        div class="bg-white border border-border-soft rounded p-5 mt-5" {
             div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 border-b border-border-soft"
             { "采购历史" }
             div class="text-center p-6 text-muted text-sm" { "暂无采购记录" }

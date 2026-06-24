@@ -3,7 +3,7 @@ pub mod model;
 pub mod repo;
 pub mod service;
 
-pub use model::{InventoryReservation, ReserveRequest};
+pub use model::{InventoryReservation, ReservationDetail, ReserveRequest};
 pub use service::InventoryReservationService;
 
 use sqlx::PgPool;

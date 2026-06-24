@@ -148,7 +148,7 @@ fn supplier_create_page() -> Markup {
 
         form id="supplier-form" hx-post=(SupplierCreatePath::PATH) hx-swap="none" {
             // ── Section: 基本信息 ──
-            div class="data-card" class="mb-4" {
+            div class="data-card mb-4" {
                 div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
                 { "基本信息" }
                 div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
@@ -223,7 +223,7 @@ fn supplier_create_page() -> Markup {
                 }
             }
             // ── Section: 联系人信息 ──
-            div class="data-card" class="mb-4" {
+            div class="data-card mb-4" {
                 div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
                 { "联系人信息" }
                 div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
@@ -252,7 +252,7 @@ fn supplier_create_page() -> Markup {
                 }
             }
             // ── Section: 银行账户信息 ──
-            div class="data-card" class="mb-4" {
+            div class="data-card mb-4" {
                 div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
                 { "银行账户信息" }
                 div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
@@ -286,7 +286,7 @@ fn supplier_create_page() -> Markup {
                 }
             }
             // ── Section: 其他 ──
-            div class="data-card" class="mb-4" {
+            div class="data-card mb-4" {
                 div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
                 { "其他" }
                 div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
@@ -295,8 +295,7 @@ fn supplier_create_page() -> Markup {
                         textarea
                             name="remark"
                             placeholder="请输入备注信息…"
-                            class="w-full resize-y"
-                            class="min-h-[80px]" {}
+                            class="w-full resize-y min-h-[80px]" {}
                     }
                 }
             }

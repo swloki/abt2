@@ -236,7 +236,7 @@ fn pay_create_page(
             // ── 供应商信息 ──
             (supplier_section(suppliers, None, &[], &[]))
             // ── 付款信息 ──
-            div class="data-card" class="mb-4" {
+            div class="data-card mb-4" {
                 div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
                 { "付款信息" }
                 div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
@@ -297,42 +297,33 @@ fn pay_create_page(
                         textarea
                             name="remark"
                             placeholder="输入付款申请相关备注信息…"
-                            class="w-full resize-y"
-                            class="rounded-sm"
-                            class="min-h-[80px] border border-border text-sm"
+                            class="w-full resize-y rounded-sm min-h-[80px] border border-border text-sm"
                             style="padding:8px 12px;font-family:inherit" {}
                     }
                 }
             }
             // ── 三单匹配校验 ──
-            div class="data-card" class="mb-4" {
+            div class="data-card mb-4" {
                 div class="flex items-center justify-between mb-4" {
-                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
-                        class="m-0 p-0 border-none"
+                    div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft m-0 p-0 border-none"
                     { "三单匹配校验" }
                     span
-                        class="items-center font-semibold"
-                        class="rounded-sm"
-                        class="inline-flex text-xs"
+                        class="items-center font-semibold rounded-sm inline-flex text-xs"
                         style="gap:6px;padding:4px 12px;background:#fef9c3;color:#a16207;border:1px solid #fde68a"
                     { (icon::clock_icon("w-3.5 h-3.5")) "待验证" }
                 }
-                div class="grid" class="grid grid-cols-3 gap-4" {
+                div class="grid grid grid-cols-3 gap-4" {
                     // 验收单
-                    div class="flex items-center bg-surface"
-                        class="gap-3 rounded-sm"
-                        class="px-4 py-3 border border-border-soft"
+                    div class="flex items-center bg-surface gap-3 rounded-sm px-4 py-3 border border-border-soft"
                     {
                         (icon::check_circle_icon("w-5 h-5"))
                         div {
                             div class="text-sm font-semibold text-fg" { "验收单" }
-                            div class="text-success" class="text-xs" { "已匹配" }
+                            div class="text-success text-xs" { "已匹配" }
                         }
                     }
                     // 发票
-                    div class="flex items-center bg-surface"
-                        class="gap-3 rounded-sm"
-                        class="px-4 py-3 border border-border-soft"
+                    div class="flex items-center bg-surface gap-3 rounded-sm px-4 py-3 border border-border-soft"
                     {
                         (icon::clock_icon("w-5 h-5"))
                         div {
@@ -341,14 +332,12 @@ fn pay_create_page(
                         }
                     }
                     // 对账单
-                    div class="flex items-center bg-surface"
-                        class="gap-3 rounded-sm"
-                        class="px-4 py-3 border border-border-soft"
+                    div class="flex items-center bg-surface gap-3 rounded-sm px-4 py-3 border border-border-soft"
                     {
                         (icon::check_circle_icon("w-5 h-5"))
                         div {
                             div class="text-sm font-semibold text-fg" { "对账单" }
-                            div class="text-success" class="text-xs" { "已匹配" }
+                            div class="text-success text-xs" { "已匹配" }
                         }
                     }
                 }
@@ -390,7 +379,7 @@ fn supplier_section(
  let default_account = bank_accounts.first();
 
  html! {
-    div class="data-card" class="mb-4" {
+    div class="data-card mb-4" {
         div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
         { "供应商信息" }
         div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
@@ -441,9 +430,7 @@ fn supplier_section(
                         })
                         readonly {}
                     input type="hidden" name="bank_account_id" value=(acct.id) {}
-                    div class="bg-surface text-muted grid"
-                        class="p-3 rounded-sm gap-4"
-                        class="mt-2 border border-border-soft text-xs"
+                    div class="bg-surface text-muted grid p-3 rounded-sm gap-4 mt-2 border border-border-soft text-xs"
                         style="grid-template-columns:1fr 1fr 1fr"
                     {
                         div {

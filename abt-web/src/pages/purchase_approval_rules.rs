@@ -250,7 +250,7 @@ fn ladder_vis(rules: &[PurchaseApprovalRule]) -> Markup {
                 }
             }
             // Labels below bars
-            div class="flex justify-between p-0" class="text-xs" style="color:var(--text-muted)" {
+            div class="flex justify-between p-0 text-xs" style="color:var(--text-muted)" {
                 span { (crate::utils::fmt_qty(min_all)) }
                 @for rule in rules {
                     @if rule.is_active && rule.max_amount.is_some() {
@@ -260,10 +260,10 @@ fn ladder_vis(rules: &[PurchaseApprovalRule]) -> Markup {
             }
         }
         // Legend
-        div class="flex flex-wrap" class="gap-4" style="padding:var(--space-2) var(--space-4)" {
+        div class="flex flex-wrap gap-4" style="padding:var(--space-2) var(--space-4)" {
             @for (i, rule) in rules.iter().enumerate() {
                 @if rule.is_active {
-                    div class="flex items-center" class="text-xs" class="gap-1" {
+                    div class="flex items-center text-xs gap-1" {
                         span
                             style=({
                                 format!(
@@ -407,8 +407,8 @@ fn row_tr(rule: &PurchaseApprovalRule) -> Markup {
 
 fn empty_state() -> Markup {
  html! {
-    div class="text-center" class="p-12 text-muted" {
-        p class="m-0" class="text-lg" { "暂无审批规则" }
+    div class="text-center p-12 text-muted" {
+        p class="m-0 text-lg" { "暂无审批规则" }
         p class="mt-2 text-sm" { "点击「+ 新建规则」添加金额阶梯审批规则" }
     }
 }
@@ -547,7 +547,7 @@ fn rule_form(action_url: &str, rule: Option<&PurchaseApprovalRule>) -> Markup {
                             label
                                 class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap"
                             { "启用状态" }
-                            label class="flex items-center cursor-pointer" class="gap-2" {
+                            label class="flex items-center cursor-pointer gap-2" {
                                 input type="checkbox" name="is_active" checked[active] {}
                                 ;
                                 " 启用"

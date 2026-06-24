@@ -948,9 +948,7 @@ fn price_drawer_content(product: &Product, current_price: &Decimal, history: &[P
                     name="remark"
                     placeholder="调价原因（如：原材料上涨、供应商调价、季度促销等）"
                     rows="2"
-                    class="resize-none w-full text-[13px] text-fg"
-                    class="rounded-md"
-                    class="border border-border"
+                    class="resize-none w-full text-[13px] text-fg rounded-md border border-border"
                     style="padding:8px 12px;font-family:var(--font-body)" {}
             }
         }

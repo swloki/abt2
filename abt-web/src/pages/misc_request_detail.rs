@@ -265,8 +265,7 @@ fn misc_detail_page(
             }
         }
         // ── Amount Summary ──
-        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]"
-            class="mt-6"
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)] mt-6"
         {
             div class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" {
                 "金额汇总"
@@ -275,8 +274,7 @@ fn misc_detail_page(
                 div class="flex flex-col gap-1" {
                     span class="text-xs text-muted font-medium" { "总金额" }
                     span
-                        class="text-sm text-fg font-medium font-mono tabular-nums"
-                        class="font-semibold"
+                        class="text-sm text-fg font-medium font-mono tabular-nums font-semibold"
                         style="font-size:1.125rem"
                     { (format!("{:.2}", total_amount)) }
                 }
@@ -284,8 +282,7 @@ fn misc_detail_page(
         }
         // ── Remarks ──
         @if !req.remark.is_empty() {
-            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]"
-                class="mt-6"
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)] mt-6"
             {
                 div class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" {
                     "备注"

@@ -948,8 +948,7 @@ fn product_edit_page(product: &Product) -> Markup {
                         textarea
                             name="remark"
                             placeholder="请输入备注信息…"
-                            class="w-full resize-y"
-                            class="min-h-[80px]"
+                            class="w-full resize-y min-h-[80px]"
                         { (remark_val) }
                     }
                 }

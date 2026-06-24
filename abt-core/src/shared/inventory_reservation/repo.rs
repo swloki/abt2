@@ -126,6 +126,38 @@ impl InventoryReservationRepo {
         Ok(total)
     }
 
+    /// 按 product_id 查询 Active 预留明细（JOIN 销售订单 + 客户），用于前端「被占用」明细展示。
+    /// warehouse_id 为 None 时跨所有仓库汇总。非销售订单来源的单号/客户为 None。
+    pub async fn list_active_by_product(
+        executor: &mut sqlx::postgres::PgConnection,
+        product_id: i64,
+        warehouse_id: Option<i64>,
+    ) -> Result<Vec<super::model::ReservationDetail>> {
+        let items = sqlx::query_as::<_, super::model::ReservationDetail>(
+            r#"
+            SELECT ir.id, ir.reserved_qty, ir.reservation_type, ir.source_type,
+                   ir.source_id, ir.source_line_id, ir.status, ir.created_at,
+                   so.doc_number   AS source_doc_number,
+                   so.status       AS source_status,
+                   c.customer_name AS customer_name
+            FROM inventory_reservations ir
+            LEFT JOIN sales_orders so ON so.id = ir.source_id AND ir.source_type = 2
+            LEFT JOIN customers c    ON c.customer_id = so.customer_id
+            WHERE ir.product_id = $1
+              AND ir.status = $3
+              AND ($2::bigint IS NULL OR ir.warehouse_id = $2)
+            ORDER BY ir.created_at DESC
+            "#,
+        )
+        .bind(product_id)
+        .bind(warehouse_id)
+        .bind(ReservationStatus::Active)
+        .fetch_all(&mut *executor)
+        .await?;
+
+        Ok(items)
+    }
+
     /// 按来源单据查询每行的实际 Active 预留总量。
     /// 返回 HashMap<source_line_id, reserved_qty>，用于 confirm 后计算 shortage。
     pub async fn reserved_qty_by_source(

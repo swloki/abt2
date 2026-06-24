@@ -175,8 +175,8 @@ fn hx_include_expr(cfg: &EntityPickerConfig) -> String {
 pub fn entity_picker_results(items: &[EntityPickerItem]) -> Markup {
  html! {
     @if items.is_empty() {
-        div class="text-center" class="p-12 text-muted" {
-            p class="m-0" class="text-sm" { "未找到匹配结果" }
+        div class="text-center p-12 text-muted" {
+            p class="m-0 text-sm" { "未找到匹配结果" }
         }
     } @else {
         div class="py-2" {

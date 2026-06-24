@@ -258,7 +258,7 @@ fn pq_create_page(
             input type="hidden" id="items-json" name="items_json" value="[]";
             input type="hidden" id="form-action" name="action" value="submit";
             // ── Supplier Selection ──
-            div class="data-card" class="mb-4" {
+            div class="data-card mb-4" {
                 div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
                 { "供应商信息" }
                 div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
@@ -295,7 +295,7 @@ fn pq_create_page(
                 }
             }
             // ── Quote Info ──
-            div class="data-card" class="mb-4" {
+            div class="data-card mb-4" {
                 div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
                 { "报价信息" }
                 div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
@@ -345,11 +345,10 @@ fn pq_create_page(
                 }
             }
             // ── Line Items ──
-            div class="data-card" class="p-0 overflow-hidden mb-4" {
-                div class="flex justify-between items-center" class="px-5 pt-5 pb-3" {
+            div class="data-card p-0 overflow-hidden mb-4" {
+                div class="flex justify-between items-center px-5 pt-5 pb-3" {
                     span
-                        class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
-                        class="m-0 p-0 border-none"
+                        class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft m-0 p-0 border-none"
                     { "报价产品明细" }
                     button
                         type="button"
@@ -358,7 +357,7 @@ fn pq_create_page(
                     { (icon::plus_icon("w-3.5 h-3.5")) "添加产品" }
                 }
                 div class="overflow-x-auto" {
-                    table class="data-table" class="min-w-[900px]" {
+                    table class="data-table min-w-[900px]" {
                         thead {
                             tr {
                                 th class="w-9 text-center" { "#" }
@@ -368,7 +367,7 @@ fn pq_create_page(
                                 th class="w-[100px] text-right" { "最小订购量" }
                                 th class="w-[90px] text-right" { "交货天数" }
                                 th class="w-[80px] text-center" { "币种" }
-                                th class="text-center" class="w-14" { "首选" }
+                                th class="text-center w-14" { "首选" }
                                 th class="w-9" {}
                             }
                         }
@@ -384,15 +383,13 @@ fn pq_create_page(
                 }
             }
             // ── Remark ──
-            div class="data-card" class="mb-4" {
+            div class="data-card mb-4" {
                 div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
                 { "备注" }
                 textarea
                     name="remark"
                     placeholder="输入报价相关备注信息…"
-                    class="w-full resize-y"
-                    class="rounded-sm"
-                    class="min-h-[80px] border border-border text-sm"
+                    class="w-full resize-y rounded-sm min-h-[80px] border border-border text-sm"
                     style="padding:8px 12px;font-family:inherit" {}
             }
             // ── Action Bar ──
@@ -470,44 +467,32 @@ fn item_row_fragment(product: &abt_core::master_data::product::model::Product) -
         td { (product.pdt_name) }
         td {
             input
-                class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] num-input"
+                class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] num-input w-[110px] text-right text-[13px] font-mono rounded-sm px-2 py-[5px] border border-border"
                 type="number"
                 step="any"
                 placeholder="0.00"
-                class="w-[110px] text-right text-[13px] font-mono"
-                class="rounded-sm"
-                class="px-2 py-[5px] border border-border"
                 name="item_unit_price" {}
         }
         td {
             input
-                class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] num-input"
+                class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] num-input w-[90px] text-right text-[13px] font-mono rounded-sm px-2 py-[5px] border border-border"
                 type="number"
                 step="any"
                 placeholder="—"
-                class="w-[90px] text-right text-[13px] font-mono"
-                class="rounded-sm"
-                class="px-2 py-[5px] border border-border"
                 name="item_min_order_qty" {}
         }
         td {
             input
-                class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] num-input"
+                class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] num-input w-[80px] text-right text-[13px] font-mono rounded-sm px-2 py-[5px] border border-border"
                 type="number"
                 step="any"
                 placeholder="—"
-                class="w-[80px] text-right text-[13px] font-mono"
-                class="rounded-sm"
-                class="px-2 py-[5px] border border-border"
                 name="item_lead_time_days" {}
         }
         td {
             input
-                class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]"
+                class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] text-center text-[13px] rounded-sm px-2 py-[5px] border border-border"
                 type="text"
-                class="text-center text-[13px]"
-                class="rounded-sm"
-                class="px-2 py-[5px] border border-border"
                 style="width:70px"
                 name="item_currency"
                 value="CNY" {}

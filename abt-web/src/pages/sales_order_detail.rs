@@ -107,6 +107,21 @@ pub async fn get_order_detail(
  }
  }
 
+ // 各产品的预留量（用于缺口表「被占用」徽标：reserved>0 才显示）
+ let reserved_map: HashMap<i64, Decimal> = {
+ let product_ids: Vec<i64> = plan_lines.iter().map(|p| p.product_id).collect();
+ if product_ids.is_empty() {
+ HashMap::new()
+ } else {
+ stock_svc
+ .query_projected_qty_batch(&service_ctx, &mut conn, &product_ids, None)
+ .await
+ .unwrap_or_default()
+ .into_iter()
+ .map(|(k, v)| (k, v.reserved))
+ .collect()
+ }
+ };
  // 查询该订单关联的需求池（demand）真实状态，用于「需求状态」列
  // 无 demand → 已满足（库存已锁定，无需补货）；有 demand → 按 demand.status 显示
  let demand_svc = state.sales_demand_service();
@@ -159,7 +174,7 @@ pub async fn get_order_detail(
  let content = order_detail_page(
  &order, &items, &plan_lines,
  &customer_name, &contact, &sales_rep,
- &product_names, &product_codes, &atp_map, &demand_map,
+ &product_names, &product_codes, &atp_map, &demand_map, &reserved_map,
  producing_count, purchasing_count, path.id,
  );
  let page_html = admin_page(
@@ -417,6 +432,7 @@ fn fulfillment_workbench(
  product_codes: &HashMap<i64, String>,
  atp_map: &HashMap<i64, Decimal>,
  demand_map: &HashMap<i64, DemandStatus>,
+ reserved_map: &HashMap<i64, Decimal>,
  order_id: i64,
 ) -> Markup {
  if plan_lines.is_empty() {
@@ -458,9 +474,6 @@ fn fulfillment_workbench(
                     href=(format!("/admin/purchase/demand-pool?order_id={}", order_id))
                     title="查看本订单的采购需求"
                 { (icon::clipboard_document_icon("w-3.5 h-3.5")) "采购需求池" }
-                button
-                    class="inline-flex items-center gap-1 py-[5px] px-3 text-xs rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover font-medium cursor-pointer transition-all duration-150"
-                { (icon::truck_icon("w-3.5 h-3.5")) "创建发货单" }
             }
         }
         // ── 需求流转状态卡片 ──
@@ -514,6 +527,7 @@ fn fulfillment_workbench(
                             product_codes,
                             atp_map,
                             demand_map,
+                            reserved_map,
                         )
                     })
                 }
@@ -529,6 +543,7 @@ fn fulfill_plan_row(
  codes: &HashMap<i64, String>,
  atp_map: &HashMap<i64, Decimal>,
  demand_map: &HashMap<i64, DemandStatus>,
+ reserved_map: &HashMap<i64, Decimal>,
 ) -> Markup {
  let p_name = names.get(&pl.product_id).map(|s| s.as_str()).unwrap_or("—");
  let p_code = codes.get(&pl.product_id).map(|s| s.as_str()).unwrap_or("—");
@@ -572,8 +587,7 @@ fn fulfill_plan_row(
  // ProductionPlan
  Some(html! {
     a   href=(format!("/admin/mes/plans/{}", doc_id))
-        class="text-accent font-medium cursor-pointer font-mono tabular-nums"
-        class="text-xs"
+        class="text-accent font-medium cursor-pointer font-mono tabular-nums text-xs"
     { (format!("PP-{}", doc_id)) }
 })
  }
@@ -581,8 +595,7 @@ fn fulfill_plan_row(
  // PurchaseOrder
  Some(html! {
     a   href=(format!("/admin/purchase/orders/{}", doc_id))
-        class="text-accent font-medium cursor-pointer font-mono tabular-nums"
-        class="text-xs"
+        class="text-accent font-medium cursor-pointer font-mono tabular-nums text-xs"
     { (format!("PO-{}", doc_id)) }
 })
  }
@@ -590,8 +603,7 @@ fn fulfill_plan_row(
  // WorkOrder
  Some(html! {
     a   href=(format!("/admin/mes/orders/{}", doc_id))
-        class="text-accent font-medium cursor-pointer font-mono tabular-nums"
-        class="text-xs"
+        class="text-accent font-medium cursor-pointer font-mono tabular-nums text-xs"
     { (format!("WO-{}", doc_id)) }
 })
  }
@@ -599,8 +611,7 @@ fn fulfill_plan_row(
  // OutsourcingOrder
  Some(html! {
     a   href=(format!("/admin/om/outsourcing/{}", doc_id))
-        class="text-accent font-medium cursor-pointer font-mono tabular-nums"
-        class="text-xs"
+        class="text-accent font-medium cursor-pointer font-mono tabular-nums text-xs"
     { (format!("OM-{}", doc_id)) }
 })
  }
@@ -620,7 +631,12 @@ fn fulfill_plan_row(
     {
         td {
             div {
-                span class="block font-medium text-fg text-sm" { (p_name) }
+                span class="block font-medium text-fg text-sm" {
+                    (p_name)
+                    @if reserved_map.get(&pl.product_id).copied().unwrap_or(Decimal::ZERO) > Decimal::ZERO {
+                        (crate::components::reservation_detail::reservation_detail_badge(pl.product_id))
+                    }
+                }
                 span class="block text-xs text-muted mt-0.5 font-mono tabular-nums" { (p_code) }
             }
         }
@@ -639,7 +655,7 @@ fn fulfill_plan_row(
             }
         }
         td {
-            div class="flex items-center" class="gap-2" {
+            div class="flex items-center gap-2" {
                 div class="flex-1 overflow-hidden"
                     style="background:#e5e7eb;height:6px;border-radius:3px"
                 {
@@ -689,6 +705,7 @@ fn order_detail_page(
  product_codes: &HashMap<i64, String>,
  atp_map: &HashMap<i64, Decimal>,
  demand_map: &HashMap<i64, DemandStatus>,
+ reserved_map: &HashMap<i64, Decimal>,
  producing_count: usize,
  purchasing_count: usize,
  order_id: i64,
@@ -872,13 +889,15 @@ fn order_detail_page(
                 product_codes,
                 atp_map,
                 demand_map,
+                reserved_map,
                 order_id,
             )
         })
+        // ── 预留明细 Drawer（共享；缺口表「被占用」徽标触发）──
+        (crate::components::reservation_detail::reservation_detail_drawer())
         // ── Remarks ──
         @if !o.remark.is_empty() {
-            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]"
-                class="mt-6"
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)] mt-6"
             {
                 div class="text-sm font-semibold text-fg mb-4" { "备注" }
                 p class="text-muted" { (o.remark.as_str()) }

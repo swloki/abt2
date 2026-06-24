@@ -177,7 +177,7 @@ fn routing_create_page(
         {
             input type="hidden" name="steps_json";
             // ── Section: 基本信息 ──
-            div class="data-card" class="mb-4" {
+            div class="data-card mb-4" {
                 div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
                 { "基本信息" }
                 div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
@@ -197,13 +197,12 @@ fn routing_create_page(
                         textarea
                             name="description"
                             placeholder="请输入描述信息…"
-                            class="w-full resize-y"
-                            class="min-h-[80px]" {}
+                            class="w-full resize-y min-h-[80px]" {}
                     }
                 }
             }
             // ── Section: 工序步骤 ──
-            div class="data-card" class="p-0 overflow-hidden mb-4" {
+            div class="data-card p-0 overflow-hidden mb-4" {
                 div class="p-5 pb-3 flex justify-between items-center" {
                     span class="flex items-center gap-2 text-sm font-semibold text-fg m-0 p-0" {
                         "工序步骤"
@@ -215,7 +214,7 @@ fn routing_create_page(
                     { (icon::plus_icon("w-3.5 h-3.5")) "添加工序" }
                 }
                 div class="overflow-x-auto" {
-                    table class="data-table" class="min-w-[800px]" {
+                    table class="data-table min-w-[800px]" {
                         thead {
                             tr {
                                 th class="w-[60px] text-center" { "排序" }

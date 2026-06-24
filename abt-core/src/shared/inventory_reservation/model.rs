@@ -35,3 +35,22 @@ pub struct ReserveRequest {
     pub priority: i32,
     pub expires_at: Option<DateTime<Utc>>,
 }
+
+/// 预留明细（按产品查询，JOIN 来源单据与客户，供前端「被占用」明细展示）
+#[derive(Debug, Clone, sqlx::FromRow)]
+pub struct ReservationDetail {
+    pub id: i64,
+    pub reserved_qty: Decimal,
+    pub reservation_type: ReservationType,
+    pub source_type: DocumentType,
+    pub source_id: i64,
+    pub source_line_id: Option<i64>,
+    pub status: ReservationStatus,
+    pub created_at: DateTime<Utc>,
+    /// 来源单据单号（当前仅 JOIN 销售订单 source_type=2；非销售订单来源为 None）
+    pub source_doc_number: Option<String>,
+    /// 来源单据状态（i16，展示层按 source_type 映射文案）
+    pub source_status: Option<i16>,
+    /// 客户名称（来源为销售订单时）
+    pub customer_name: Option<String>,
+}

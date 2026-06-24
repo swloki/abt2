@@ -9,9 +9,9 @@ pub fn error_page(title: &str, message: &str) -> Markup {
     html! {
         div class="flex items-center justify-center min-h-[60vh]" {
             div class="text-center" {
-                h1 class="text-2xl font-bold" class="text-fg" { (title) }
-                p class="mt-2" class="text-muted" { (message) }
-                a href="/admin" class="mt-4 inline-block" class="text-accent" { "返回首页" }
+                h1 class="text-2xl font-bold text-fg" { (title) }
+                p class="mt-2 text-muted" { (message) }
+                a href="/admin" class="mt-4 inline-block text-accent" { "返回首页" }
             }
         }
     }

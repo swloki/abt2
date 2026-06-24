@@ -205,22 +205,21 @@ pub async fn release_order(
  path: OrderReleasePath,
  ctx: RequestContext,
 ) -> Result<impl IntoResponse> {
- let RequestContext {
- mut conn,
- state,
- service_ctx,
- ..
- } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
  let svc = state.work_order_service();
- let order = svc.find_by_id(&service_ctx, &mut conn, path.order_id).await?;
+ let order = svc.find_by_id(&service_ctx, &mut tx, path.order_id).await?;
 
  if order.status == WorkOrderStatus::Released {
  let redirect = OrderDetailPath { id: path.order_id }.to_string();
  return Ok(([("HX-Redirect", redirect)], Html(String::new())));
  }
 
- svc.release(&service_ctx, &mut conn, path.order_id, order.version)
+ svc.release(&service_ctx, &mut tx, path.order_id, order.version)
  .await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
  let redirect = OrderDetailPath { id: path.order_id }.to_string();
  Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }
@@ -230,14 +229,11 @@ pub async fn unrelease_order(
  path: OrderUnreleasePath,
  ctx: RequestContext,
 ) -> Result<impl IntoResponse> {
- let RequestContext {
- mut conn,
- state,
- service_ctx,
- ..
- } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
  let svc = state.work_order_service();
- let order = svc.find_by_id(&service_ctx, &mut conn, path.order_id).await?;
+ let order = svc.find_by_id(&service_ctx, &mut tx, path.order_id).await?;
 
  // 幂等：已是草稿则直接重定向
  if order.status == WorkOrderStatus::Draft {
@@ -245,8 +241,10 @@ pub async fn unrelease_order(
  return Ok(([("HX-Redirect", redirect)], Html(String::new())));
  }
 
- svc.unrelease(&service_ctx, &mut conn, path.order_id, order.version)
+ svc.unrelease(&service_ctx, &mut tx, path.order_id, order.version)
  .await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
  let redirect = OrderDetailPath { id: path.order_id }.to_string();
  Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }
@@ -256,22 +254,21 @@ pub async fn close_order(
  path: OrderClosePath,
  ctx: RequestContext,
 ) -> Result<impl IntoResponse> {
- let RequestContext {
- mut conn,
- state,
- service_ctx,
- ..
- } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
  let svc = state.work_order_service();
- let order = svc.find_by_id(&service_ctx, &mut conn, path.order_id).await?;
+ let order = svc.find_by_id(&service_ctx, &mut tx, path.order_id).await?;
 
  if order.status == WorkOrderStatus::Closed {
  let redirect = OrderDetailPath { id: path.order_id }.to_string();
  return Ok(([("HX-Redirect", redirect)], Html(String::new())));
  }
 
- svc.close(&service_ctx, &mut conn, path.order_id, order.version)
+ svc.close(&service_ctx, &mut tx, path.order_id, order.version)
  .await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
  let redirect = OrderDetailPath { id: path.order_id }.to_string();
  Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }
@@ -281,22 +278,21 @@ pub async fn cancel_order(
  path: OrderCancelPath,
  ctx: RequestContext,
 ) -> Result<impl IntoResponse> {
- let RequestContext {
- mut conn,
- state,
- service_ctx,
- ..
- } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
  let svc = state.work_order_service();
- let order = svc.find_by_id(&service_ctx, &mut conn, path.order_id).await?;
+ let order = svc.find_by_id(&service_ctx, &mut tx, path.order_id).await?;
 
  if order.status == WorkOrderStatus::Cancelled {
  let redirect = OrderDetailPath { id: path.order_id }.to_string();
  return Ok(([("HX-Redirect", redirect)], Html(String::new())));
  }
 
- svc.cancel(&service_ctx, &mut conn, path.order_id, order.version)
+ svc.cancel(&service_ctx, &mut tx, path.order_id, order.version)
  .await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
  let redirect = OrderDetailPath { id: path.order_id }.to_string();
  Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }

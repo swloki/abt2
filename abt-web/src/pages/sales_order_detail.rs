@@ -176,10 +176,14 @@ pub async fn confirm_order(
  path: ConfirmOrderPath,
  ctx: RequestContext,
 ) -> Result<impl IntoResponse> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
  let svc = state.sales_order_service();
 
- svc.confirm(&service_ctx, &mut conn, path.id).await?;
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+ svc.confirm(&service_ctx, &mut tx, path.id).await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let redirect = OrderDetailPath { id: path.id }.to_string();
  Ok(([("HX-Redirect", redirect)], Html(String::new())))
@@ -190,10 +194,14 @@ pub async fn complete_order(
  path: CompleteOrderPath,
  ctx: RequestContext,
 ) -> Result<impl IntoResponse> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
  let svc = state.sales_order_service();
 
- svc.complete(&service_ctx, &mut conn, path.id).await?;
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+ svc.complete(&service_ctx, &mut tx, path.id).await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let redirect = OrderDetailPath { id: path.id }.to_string();
  Ok(([("HX-Redirect", redirect)], Html(String::new())))
@@ -204,10 +212,14 @@ pub async fn cancel_order(
  path: CancelOrderPath,
  ctx: RequestContext,
 ) -> Result<impl IntoResponse> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
  let svc = state.sales_order_service();
 
- svc.cancel(&service_ctx, &mut conn, path.id).await?;
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+ svc.cancel(&service_ctx, &mut tx, path.id).await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let redirect = OrderDetailPath { id: path.id }.to_string();
  Ok(([("HX-Redirect", redirect)], Html(String::new())))

@@ -187,7 +187,7 @@ pub async fn create_arrival(
  ctx: RequestContext,
  axum::Form(form): axum::Form<ArrivalCreateForm>,
 ) -> Result<impl IntoResponse> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
  let svc = state.arrival_notice_service();
 
  let arrival_date = chrono::NaiveDate::parse_from_str(&form.arrival_date, "%Y-%m-%d")
@@ -229,7 +229,11 @@ pub async fn create_arrival(
  items,
  };
 
- let id = svc.create(&service_ctx, &mut conn, req).await?;
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+ let id = svc.create(&service_ctx, &mut tx, req).await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let redirect = format!("{}/{}", ArrivalListPath::PATH, id);
  Ok(([("HX-Redirect", redirect)], Html(String::new())))

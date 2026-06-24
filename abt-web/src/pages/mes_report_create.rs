@@ -188,6 +188,7 @@ pub async fn search_batch(
  let wo = wo_svc.find_by_id(&service_ctx, &mut conn, wo_id).await.ok();
 
  // 工单已下达但无批次 → 自动创建默认批次（按工单计划量）
+ // 独立事务：best-effort，失败回滚不残留，用户可从工单详情页手动创建
  if batches.is_empty()
  && let Some(ref w) = wo
  && matches!(w.status, WorkOrderStatus::Released | WorkOrderStatus::InProduction)
@@ -198,8 +199,15 @@ pub async fn search_batch(
  batch_qty: w.planned_qty,
  team_id: None,
  };
- if let Err(_e) = batch_svc.create(&service_ctx, &mut conn, req).await {
- // 自动创建失败（权限/业务规则），用户可从工单详情页手动创建
+ let mut tx = state.pool.begin().await
+ .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+ match batch_svc.create(&service_ctx, &mut tx, req).await {
+ Ok(_) => {
+ let _ = tx.commit().await;
+ }
+ Err(_e) => {
+ tracing::warn!(error = %_e, "auto-create default batch failed (best-effort)");
+ }
  }
  batches = batch_svc
  .list_by_work_order(&service_ctx, &mut conn, wo_id)

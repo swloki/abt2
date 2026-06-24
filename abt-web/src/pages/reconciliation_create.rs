@@ -90,12 +90,16 @@ pub async fn post_reconciliation_create(
  ctx: RequestContext,
  axum::Form(form): axum::Form<ReconciliationCreateForm>,
 ) -> Result<impl IntoResponse> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
 
  let reconciliation_svc = state.reconciliation_service();
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
  let id = reconciliation_svc
- .create(&service_ctx, &mut conn, form.customer_id, form.period)
+ .create(&service_ctx, &mut tx, form.customer_id, form.period)
  .await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let detail_path = ReconciliationDetailPath { id };
  Ok((

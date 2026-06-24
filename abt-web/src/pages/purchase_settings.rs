@@ -69,7 +69,7 @@ pub async fn update_purchase_settings(
  ctx: RequestContext,
  axum::Form(form): axum::Form<SettingsForm>,
 ) -> Result<impl IntoResponse> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
  let svc = state.purchase_settings_service();
 
  let req = UpdatePurchaseSettingsRequest {
@@ -87,7 +87,11 @@ pub async fn update_purchase_settings(
  ),
  };
 
- svc.update(&service_ctx, &mut conn, req).await?;
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+ svc.update(&service_ctx, &mut tx, req).await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let redirect = PurchaseSettingsPath.to_string();
  Ok(([("HX-Redirect", redirect)], Html(String::new())))

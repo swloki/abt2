@@ -201,16 +201,19 @@ pub async fn post_arrival_action(
  ctx: RequestContext,
  axum::Form(form): axum::Form<ArrivalActionForm>,
 ) -> crate::errors::Result<axum::response::Response> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
  let svc = state.arrival_notice_service();
+
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  match form.action.as_str() {
  "cancel" => {
- svc.cancel(&service_ctx, &mut conn, path.id).await?;
+ svc.cancel(&service_ctx, &mut tx, path.id).await?;
  }
  "receive" => {
  // 快速收货：实收数量 = 申报数量
- let items = ArrivalNoticeRepo::get_items(&mut conn, path.id)
+ let items = ArrivalNoticeRepo::get_items(&mut tx, path.id)
  .await
  .map_err(|e| abt_core::shared::types::DomainError::Internal(e.into()))?;
  let receive_items: Vec<ReceiveItemReq> = items.iter()
@@ -220,14 +223,14 @@ pub async fn post_arrival_action(
  batch_no: None,
  })
  .collect();
- svc.receive(&service_ctx, &mut conn, ReceiveArrivalNoticeReq {
+ svc.receive(&service_ctx, &mut tx, ReceiveArrivalNoticeReq {
  id: path.id,
  items: receive_items,
  }).await?;
  }
  "inspect" => {
  // 快速检验：合格数量 = 实收数量（全部接收）
- let items = ArrivalNoticeRepo::get_items(&mut conn, path.id)
+ let items = ArrivalNoticeRepo::get_items(&mut tx, path.id)
  .await
  .map_err(|e| abt_core::shared::types::DomainError::Internal(e.into()))?;
  let inspect_items: Vec<InspectItemReq> = items.iter()
@@ -236,13 +239,16 @@ pub async fn post_arrival_action(
  accepted_qty: item.received_qty,
  })
  .collect();
- svc.inspect(&service_ctx, &mut conn, InspectArrivalNoticeReq {
+ svc.inspect(&service_ctx, &mut tx, InspectArrivalNoticeReq {
  id: path.id,
  items: inspect_items,
  }).await?;
  }
  _ => {}
  }
+
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let redirect_url = ArrivalDetailPath { id: path.id }.to_string();
  let mut resp = axum::response::Response::default();

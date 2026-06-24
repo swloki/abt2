@@ -62,7 +62,10 @@ pub async fn create_order(
  _path: OrderCreatePath, ctx: RequestContext,
  axum::Form(form): axum::Form<OrderCreateForm>,
 ) -> Result<impl IntoResponse> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
+
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let product_id: i64 = form.product_id.parse()
  .map_err(|_| DomainError::Validation("无效产品ID".into()))?;
@@ -75,7 +78,7 @@ pub async fn create_order(
 
  // 解析来源单据关联
  let (sales_order_id, plan_item_id) = resolve_source(
- &state, &service_ctx, &mut conn,
+ &state, &service_ctx, &mut tx,
  form.source_type.as_deref(),
  form.source_sales_order_id.as_deref(),
  form.source_plan_id.as_deref(),
@@ -95,7 +98,9 @@ pub async fn create_order(
  sales_order_id,
  remark: form.remark,
  };
- let _id = svc.create(&service_ctx, &mut conn, req).await?;
+ let _id = svc.create(&service_ctx, &mut tx, req).await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
  Ok(axum::response::Response::builder().header("HX-Redirect", OrderListPath::PATH).body(axum::body::Body::empty()).unwrap())
 }
 async fn resolve_source(

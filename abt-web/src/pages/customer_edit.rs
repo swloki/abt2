@@ -108,12 +108,14 @@ pub async fn post_customer_edit(
  Form(form): Form<EditCustomerForm>,
 ) -> Result<impl IntoResponse> {
  let RequestContext {
- mut conn,
  state,
  service_ctx,
  ..
  } = ctx;
  let svc = state.customer_service();
+
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let category = form
  .category
@@ -147,7 +149,7 @@ pub async fn post_customer_edit(
  remark: form.remark.filter(|s| !s.is_empty()),
  };
 
- svc.update(&service_ctx, &mut conn, path.id, req)
+ svc.update(&service_ctx, &mut tx, path.id, req)
  .await?;
 
  // 更新或创建主联系人
@@ -164,7 +166,7 @@ pub async fn post_customer_edit(
  fixed_phone: form.contact_fixed_phone.filter(|s| !s.is_empty()),
  is_primary: None,
  };
- svc.update_contact(&service_ctx, &mut conn, path.id, cid, contact_req)
+ svc.update_contact(&service_ctx, &mut tx, path.id, cid, contact_req)
  .await?;
  } else {
  // 新建联系人
@@ -177,10 +179,13 @@ pub async fn post_customer_edit(
  fixed_phone: form.contact_fixed_phone.filter(|s| !s.is_empty()),
  is_primary: true,
  };
- svc.add_contact(&service_ctx, &mut conn, path.id, contact_req)
+ svc.add_contact(&service_ctx, &mut tx, path.id, contact_req)
  .await?;
  }
  }
+
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let redirect = CustomerDetailPath { id: path.id }.to_string();
  Ok(([("HX-Redirect", redirect)], Html(String::new())))

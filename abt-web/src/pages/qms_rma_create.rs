@@ -109,11 +109,12 @@ pub async fn create(
  axum::Form(form): axum::Form<RmaCreateForm>,
 ) -> Result<impl IntoResponse> {
  let RequestContext {
- mut conn,
  state,
  service_ctx,
  ..
  } = ctx;
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let severity = Severity::from_i16(form.severity).ok_or_else(|| {
  abt_core::shared::types::DomainError::Validation("无效严重程度".into())
@@ -135,7 +136,9 @@ pub async fn create(
  };
 
  let svc = state.rma_service();
- let _id = svc.create(&service_ctx, &mut conn, req).await?;
+ let _id = svc.create(&service_ctx, &mut tx, req).await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  Ok(
  axum::response::Response::builder()

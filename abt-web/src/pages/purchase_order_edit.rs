@@ -135,13 +135,14 @@ pub async fn update_po(
  axum::Form(form): axum::Form<POEditForm>,
 ) -> Result<impl IntoResponse> {
  let RequestContext {
- mut conn,
  state,
  service_ctx,
  ..
  } = ctx;
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
  let svc = state.purchase_order_service();
- let existing_order = svc.get(&service_ctx, &mut conn, path.id).await?;
+ let existing_order = svc.get(&service_ctx, &mut tx, path.id).await?;
 
  if form.supplier_id == 0 {
  return Err(DomainError::validation("请选择供应商").into());
@@ -211,8 +212,10 @@ pub async fn update_po(
  discount_amount: existing_order.discount_amount,
  };
 
- svc.update(&service_ctx, &mut conn, path.id, req, items)
+ svc.update(&service_ctx, &mut tx, path.id, req, items)
  .await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let redirect = PODetailPath { id: path.id }.to_string();
  Ok(([("HX-Redirect", redirect)], Html(String::new())))

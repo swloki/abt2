@@ -176,7 +176,7 @@ pub async fn create_order(
  ctx: RequestContext,
  axum::Form(form): axum::Form<OrderCreateForm>,
 ) -> Result<impl IntoResponse> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
  let svc = state.sales_order_service();
 
  if form.customer_id == 0 {
@@ -225,7 +225,11 @@ pub async fn create_order(
  remark: form.remark,
  };
 
- let id = svc.create(&service_ctx, &mut conn, create_req).await?;
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+ let id = svc.create(&service_ctx, &mut tx, create_req).await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let redirect = OrderDetailPath { id }.to_string();
  Ok(([("HX-Redirect", redirect)], Html(String::new())))

@@ -138,10 +138,14 @@ pub async fn delete_quotation(
  path: DeleteQuotationPath,
  ctx: RequestContext,
 ) -> Result<impl IntoResponse> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
  let svc = state.quotation_service();
 
- svc.delete(&service_ctx, &mut conn, path.id).await?;
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+ svc.delete(&service_ctx, &mut tx, path.id).await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  Ok(([("HX-Redirect", QuotationListPath::PATH)], Html(String::new())))
 }

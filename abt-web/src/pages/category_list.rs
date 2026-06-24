@@ -203,19 +203,23 @@ pub async fn create_category(
  Form(form): Form<CreateCategoryForm>,
 ) -> crate::errors::Result<impl IntoResponse> {
  let RequestContext {
- mut conn,
  state,
  service_ctx,
  ..
  } = ctx;
  let svc = state.category_service();
 
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+
  let req = CreateCategoryReq {
  category_name: form.category_name,
  parent_id: form.parent_id.unwrap_or(0),
  };
 
- svc.create(&service_ctx, &mut conn, req).await?;
+ svc.create(&service_ctx, &mut tx, req).await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  Ok(([("HX-Redirect", CategoryListPath::PATH)], Html(String::new())))
 }
@@ -227,18 +231,22 @@ pub async fn update_category(
  Form(form): Form<UpdateCategoryForm>,
 ) -> crate::errors::Result<impl IntoResponse> {
  let RequestContext {
- mut conn,
  state,
  service_ctx,
  ..
  } = ctx;
  let svc = state.category_service();
 
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+
  let req = UpdateCategoryReq {
  category_name: Some(form.category_name),
  };
 
- svc.update(&service_ctx, &mut conn, path.id, req).await?;
+ svc.update(&service_ctx, &mut tx, path.id, req).await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  Ok(([("HX-Refresh", "true")], Html(String::new())))
 }
@@ -249,14 +257,17 @@ pub async fn delete_category(
  ctx: RequestContext,
 ) -> crate::errors::Result<impl IntoResponse> {
  let RequestContext {
- mut conn,
  state,
  service_ctx,
  ..
  } = ctx;
  let svc = state.category_service();
 
- svc.delete(&service_ctx, &mut conn, path.id).await?;
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+ svc.delete(&service_ctx, &mut tx, path.id).await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  Ok(([("HX-Redirect", CategoryListPath::PATH)], Html(String::new())))
 }

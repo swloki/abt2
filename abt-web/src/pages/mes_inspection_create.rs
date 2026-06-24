@@ -161,7 +161,9 @@ pub async fn get_inspection_create(_path: InspectionCreatePath, ctx: RequestCont
 pub async fn create_inspection(
  _path: InspectionCreatePath, ctx: RequestContext, axum::Form(form): axum::Form<InspectionCreateForm>,
 ) -> Result<impl IntoResponse> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
  let svc = state.production_inspection_service();
  let insp_type = abt_core::mes::enums::InspectionType::from_i16(form.inspection_type)
  .ok_or_else(|| abt_core::shared::types::DomainError::Validation("无效检验类型".into()))?;
@@ -175,6 +177,8 @@ pub async fn create_inspection(
  disposition: form.disposition,
  remark: form.remark,
  };
- let _id = svc.create(&service_ctx, &mut conn, req).await?;
+ let _id = svc.create(&service_ctx, &mut tx, req).await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
  Ok(axum::response::Response::builder().header("HX-Redirect", InspectionListPath::PATH).body(axum::body::Body::empty()).unwrap())
 }

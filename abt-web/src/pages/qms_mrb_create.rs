@@ -89,11 +89,12 @@ pub async fn create(
  axum::Form(form): axum::Form<MrbCreateForm>,
 ) -> Result<impl IntoResponse> {
  let RequestContext {
- mut conn,
  state,
  service_ctx,
  ..
  } = ctx;
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let disposition = MRBDisposition::from_i16(form.disposition).ok_or_else(|| {
  abt_core::shared::types::DomainError::Validation("无效处置方式".into())
@@ -116,7 +117,9 @@ pub async fn create(
  };
 
  let svc = state.mrb_service();
- let _id = svc.create(&service_ctx, &mut conn, req).await?;
+ let _id = svc.create(&service_ctx, &mut tx, req).await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  Ok(
  axum::response::Response::builder()

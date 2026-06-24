@@ -82,12 +82,14 @@ pub async fn post_product_create(
  axum::Form(form): axum::Form<ProductCreateForm>,
 ) -> Result<impl IntoResponse> {
  let RequestContext {
- mut conn,
  state,
  service_ctx,
  ..
  } = ctx;
  let svc = state.product_service();
+
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  // 解析并校验 category_id
  let category_id = form.category_id
@@ -125,11 +127,14 @@ pub async fn post_product_create(
  },
  };
 
- let id = svc.create(&service_ctx, &mut conn, create_req).await?;
+ let id = svc.create(&service_ctx, &mut tx, create_req).await?;
 
  // 关联产品分类
  let cat_svc = state.category_service();
- cat_svc.assign_products(&service_ctx, &mut conn, category_id, vec![id]).await?;
+ cat_svc.assign_products(&service_ctx, &mut tx, category_id, vec![id]).await?;
+
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let redirect = ProductDetailPath { id }.to_string();
  Ok(([("HX-Redirect", redirect)], Html(String::new())))

@@ -113,10 +113,15 @@ pub async fn confirm_shipping(
  path: ConfirmShippingPath,
  ctx: RequestContext,
 ) -> Result<impl IntoResponse> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
 
+ // confirm 是多步写（状态机 + status + 审计），事务包裹防半失败残留
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
  let svc = state.shipping_service();
- svc.confirm(&service_ctx, &mut conn, path.id).await?;
+ svc.confirm(&service_ctx, &mut tx, path.id).await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let redirect = ShippingDetailPath { id: path.id }.to_string();
  Ok(([("HX-Redirect", redirect)], Html(String::new())))
@@ -127,10 +132,15 @@ pub async fn pick_shipping(
  path: PickShippingPath,
  ctx: RequestContext,
 ) -> Result<impl IntoResponse> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
 
+ // pick 是多步写（状态机 + status + 审计），事务包裹防半失败残留
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
  let svc = state.shipping_service();
- svc.pick(&service_ctx, &mut conn, path.id).await?;
+ svc.pick(&service_ctx, &mut tx, path.id).await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let redirect = ShippingDetailPath { id: path.id }.to_string();
  Ok(([("HX-Redirect", redirect)], Html(String::new())))
@@ -141,10 +151,18 @@ pub async fn ship_shipping(
  path: ShipShippingPath,
  ctx: RequestContext,
 ) -> Result<impl IntoResponse> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
 
+ // ship 是多步写：改 shipped_qty → 释放预留 → 出库(SalesShipment) → COGS → AR立账 → 状态机。
+ // 必须事务包裹：半失败时整体回滚，避免「数量已提交但库存/AR/状态未动」的残留
+ // （事故案例 SO-2026-06-000170 / SR-2026-06-000043：product_id=0 触发出库预检报错，
+ // 已提交的 shipped_qty 无法回滚，发货单卡在 Picking 却显示已发数量）
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
  let svc = state.shipping_service();
- svc.ship(&service_ctx, &mut conn, path.id).await?;
+ svc.ship(&service_ctx, &mut tx, path.id).await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let redirect = ShippingDetailPath { id: path.id }.to_string();
  Ok(([("HX-Redirect", redirect)], Html(String::new())))
@@ -155,10 +173,15 @@ pub async fn cancel_shipping(
  path: CancelShippingPath,
  ctx: RequestContext,
 ) -> Result<impl IntoResponse> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
 
+ // cancel 是多步写（状态机 + status + 审计），事务包裹防半失败残留
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
  let svc = state.shipping_service();
- svc.cancel(&service_ctx, &mut conn, path.id).await?;
+ svc.cancel(&service_ctx, &mut tx, path.id).await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let redirect = ShippingDetailPath { id: path.id }.to_string();
  Ok(([("HX-Redirect", redirect)], Html(String::new())))

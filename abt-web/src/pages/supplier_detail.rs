@@ -55,8 +55,11 @@ pub async fn create_supplier_contact(
  ctx: RequestContext,
  Form(form): Form<ContactForm>,
 ) -> crate::errors::Result<impl IntoResponse> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
  let svc = state.supplier_service();
+
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let req = CreateContactReq {
  contact_name: form.contact_name,
@@ -66,7 +69,9 @@ pub async fn create_supplier_contact(
  is_primary: form.is_primary.unwrap_or(false),
  };
 
- svc.add_contact(&service_ctx, &mut conn, path.id, req).await?;
+ svc.add_contact(&service_ctx, &mut tx, path.id, req).await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
  Ok((StatusCode::OK, [("HX-Trigger", "contactChanged")], Html(String::new())))
 }
 
@@ -75,11 +80,15 @@ pub async fn delete_supplier_contact(
  path: SupplierDeleteContactPath,
  ctx: RequestContext,
 ) -> crate::errors::Result<impl IntoResponse> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
  let svc = state.supplier_service();
 
- svc.delete_contact(&service_ctx, &mut conn, path.sid, path.contact_id)
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+ svc.delete_contact(&service_ctx, &mut tx, path.sid, path.contact_id)
  .await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
  Ok((StatusCode::OK, [("HX-Trigger", "contactChanged")], Html(String::new())))
 }
 
@@ -89,8 +98,11 @@ pub async fn create_supplier_bank_account(
  ctx: RequestContext,
  Form(form): Form<BankAccountForm>,
 ) -> crate::errors::Result<impl IntoResponse> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
  let svc = state.supplier_service();
+
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let req = CreateBankAccountReq {
  bank_name: form.bank_name,
@@ -99,7 +111,9 @@ pub async fn create_supplier_bank_account(
  is_default: form.is_default.unwrap_or(false),
  };
 
- svc.add_bank_account(&service_ctx, &mut conn, path.id, req).await?;
+ svc.add_bank_account(&service_ctx, &mut tx, path.id, req).await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
  Ok((StatusCode::OK, [("HX-Trigger", "bankAccountChanged")], Html(String::new())))
 }
 
@@ -108,11 +122,15 @@ pub async fn delete_supplier_bank_account(
  path: SupplierDeleteBankAccountPath,
  ctx: RequestContext,
 ) -> crate::errors::Result<impl IntoResponse> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
  let svc = state.supplier_service();
 
- svc.delete_bank_account(&service_ctx, &mut conn, path.sid, path.account_id)
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+ svc.delete_bank_account(&service_ctx, &mut tx, path.sid, path.account_id)
  .await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
  Ok((StatusCode::OK, [("HX-Trigger", "bankAccountChanged")], Html(String::new())))
 }
 

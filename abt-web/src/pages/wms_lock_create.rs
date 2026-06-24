@@ -66,7 +66,7 @@ pub async fn create_lock(
  ctx: RequestContext,
  axum::Form(form): axum::Form<CreateLockForm>,
 ) -> crate::errors::Result<axum::response::Response> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
  let svc = state.inventory_lock_service();
 
  let product_id = form.product_id.ok_or_else(|| crate::errors::WebError::from(abt_core::shared::types::DomainError::validation("请选择产品")))?;
@@ -83,7 +83,11 @@ pub async fn create_lock(
  customer_id: form.customer_id,
  };
 
- svc.create(&service_ctx, &mut conn, req).await?;
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+ svc.create(&service_ctx, &mut tx, req).await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let mut resp = axum::response::Response::default();
  resp.headers_mut().insert(

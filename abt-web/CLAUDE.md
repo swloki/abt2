@@ -9,6 +9,7 @@ Rust 全栈前端，Axum + Maud + HTMX + Hyperscript + UnoCSS，直接调用 `ab
 - **禁止直接访问数据库** — 所有数据操作必须通过 `abt-core` Service trait（`state.xxx_service()`）完成
 - **禁止** 在 `abt-web` 中使用 `sqlx::query*` 或直接操作 `PgPool`/`PgConnection` 执行查询
 - 如果 `abt-core` 缺少所需接口，应先在 `abt-core` 中补充，**同步更新 `docs/uml-design/` 设计文档**
+- **多步写 handler 必须事务包裹** — 写操作 handler（`create`/`update`/`delete`/`confirm`/`ship`/`pick`/`receive`/`complete`/`settle`/`issue`/`adjust`/`approve`/`reject` 等动词）必须用 `let mut tx = state.pool.begin().await.map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?; ... tx.commit().await.map_err(...)?;` 事务包裹，**禁止直接用 `RequestContext.conn`**（`pool.acquire()` 即 autocommit）。service 写操作是多步的（状态机+status+审计+联动），autocommit 下半失败会留脏数据残留。范本：`pages/shipping_detail.rs::ship_shipping`。事故案例 SO-2026-06-000170（发货 ship 半失败致应收入账缺失）
 
 **路由与组件**
 - **必须使用 `TypedPath`**，禁止硬编码字符串 URL

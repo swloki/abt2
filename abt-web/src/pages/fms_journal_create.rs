@@ -125,7 +125,9 @@ pub async fn create(
     ctx: RequestContext,
     axum::Form(form): axum::Form<JournalCreateForm>,
 ) -> Result<impl IntoResponse> {
-    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let RequestContext { state, service_ctx, .. } = ctx;
+    let mut tx = state.pool.begin().await
+        .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
     let journal_type = JournalType::from_i16(form.journal_type)
         .ok_or_else(|| abt_core::shared::types::DomainError::Validation("无效日记账类型".into()))?;
@@ -167,7 +169,9 @@ pub async fn create(
     };
 
     let svc = state.cash_journal_service();
-    svc.create(&service_ctx, &mut conn, req).await?;
+    svc.create(&service_ctx, &mut tx, req).await?;
+    tx.commit().await
+        .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
     Ok(axum::response::Response::builder()
         .header("HX-Redirect", JournalListPath::PATH)

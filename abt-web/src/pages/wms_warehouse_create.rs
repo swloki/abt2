@@ -63,7 +63,6 @@ pub async fn create_warehouse(
  axum::Form(form): axum::Form<WarehouseCreateForm>,
 ) -> Result<impl IntoResponse> {
  let RequestContext {
- mut conn,
  state,
  service_ctx,
  ..
@@ -90,7 +89,11 @@ pub async fn create_warehouse(
  is_virtual,
  remark: form.remark.filter(|s| !s.is_empty()).unwrap_or_default(),
  };
- let warehouse_id = svc.create(&service_ctx, &mut conn, create_req).await?;
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+ let warehouse_id = svc.create(&service_ctx, &mut tx, create_req).await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let redirect = WarehouseDetailPath { id: warehouse_id }.to_string();
  Ok(([("HX-Redirect", redirect)], Html(String::new())))

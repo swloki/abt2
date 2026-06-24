@@ -208,16 +208,15 @@ pub async fn update_price(
  ctx: RequestContext,
  axum::Form(form): axum::Form<PriceFormData>,
 ) -> Result<impl IntoResponse> {
- let RequestContext {
- mut conn,
- state,
- service_ctx,
- ..
- } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
  let svc = state.supplier_price_service();
  let req = parse_price_form(&form)?;
- svc.update_price(&service_ctx, &mut conn, path.id, req)
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+ svc.update_price(&service_ctx, &mut tx, path.id, req)
  .await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  Ok((
  [

@@ -97,10 +97,14 @@ pub async fn confirm_pr(
  path: PRConfirmPath,
  ctx: RequestContext,
 ) -> Result<impl IntoResponse> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
  let svc = state.purchase_return_service();
 
- svc.confirm(&service_ctx, &mut conn, path.id, None).await?;
+ svc.confirm(&service_ctx, &mut tx, path.id, None).await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let redirect = PRDetailPath { id: path.id }.to_string();
  Ok(([("HX-Redirect", redirect)], Html(String::new())))
@@ -111,10 +115,14 @@ pub async fn cancel_pr(
  path: PRCancelPath,
  ctx: RequestContext,
 ) -> Result<impl IntoResponse> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
  let svc = state.purchase_return_service();
 
- svc.cancel(&service_ctx, &mut conn, path.id, None).await?;
+ svc.cancel(&service_ctx, &mut tx, path.id, None).await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let redirect = PRDetailPath { id: path.id }.to_string();
  Ok(([("HX-Redirect", redirect)], Html(String::new())))

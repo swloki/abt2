@@ -76,10 +76,14 @@ pub async fn approve_misc(
  path: MiscApprovePath,
  ctx: RequestContext,
 ) -> Result<impl IntoResponse> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
  let svc = state.misc_request_service();
 
- svc.approve(&service_ctx, &mut conn, path.id, None).await?;
+ svc.approve(&service_ctx, &mut tx, path.id, None).await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let redirect = MiscDetailPath { id: path.id }.to_string();
  Ok(([("HX-Redirect", redirect)], Html(String::new())))
@@ -90,10 +94,14 @@ pub async fn cancel_misc(
  path: MiscCancelPath,
  ctx: RequestContext,
 ) -> Result<impl IntoResponse> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
  let svc = state.misc_request_service();
 
- svc.cancel(&service_ctx, &mut conn, path.id, None).await?;
+ svc.cancel(&service_ctx, &mut tx, path.id, None).await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let redirect = MiscDetailPath { id: path.id }.to_string();
  Ok(([("HX-Redirect", redirect)], Html(String::new())))

@@ -105,7 +105,6 @@ pub async fn create_precon(
     axum::Form(form): axum::Form<PreconCreateForm>,
 ) -> Result<impl IntoResponse> {
     let RequestContext {
-        mut conn,
         state,
         service_ctx,
         ..
@@ -113,9 +112,13 @@ pub async fn create_precon(
     let svc = state.purchase_reconciliation_service();
 
     // create 按供应商+期间自动拉取该期间「未对账已收货」明细全量纳入（设计文档约束）
+    let mut tx = state.pool.begin().await
+        .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
     let id = svc
-        .create(&service_ctx, &mut conn, form.supplier_id, form.period, None)
+        .create(&service_ctx, &mut tx, form.supplier_id, form.period, None)
         .await?;
+    tx.commit().await
+        .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
     let redirect = PreconDetailPath { id }.to_string();
     Ok(([("HX-Redirect", redirect)], Html(String::new())))

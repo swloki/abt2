@@ -49,7 +49,7 @@ pub async fn update_wms_settings(
     ctx: RequestContext,
     axum::Form(form): axum::Form<SettingsForm>,
 ) -> Result<impl IntoResponse> {
-    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let RequestContext { state, service_ctx, .. } = ctx;
     let svc = state.wms_settings_service();
 
     let threshold = form
@@ -57,10 +57,14 @@ pub async fn update_wms_settings(
         .and_then(|s| s.parse().ok())
         .unwrap_or(rust_decimal::Decimal::ZERO);
 
-    svc.update(&service_ctx, &mut conn, UpdateWmsSettingsReq {
+    let mut tx = state.pool.begin().await
+        .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+    svc.update(&service_ctx, &mut tx, UpdateWmsSettingsReq {
         cycle_count_variance_threshold: threshold,
     })
     .await?;
+    tx.commit().await
+        .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
     let redirect = WmsSettingsPath.to_string();
     Ok(([("HX-Redirect", redirect)], Html(String::new())))

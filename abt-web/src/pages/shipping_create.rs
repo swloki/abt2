@@ -217,7 +217,7 @@ pub async fn post_shipping_create(
  ctx: RequestContext,
  axum::Form(form): axum::Form<ShippingCreateForm>,
 ) -> Result<impl IntoResponse> {
- let RequestContext { claims: _, mut conn, state, service_ctx, .. } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
 
  let svc = state.shipping_service();
 
@@ -254,17 +254,21 @@ pub async fn post_shipping_create(
  items,
  };
 
- let id = svc.create_from_order(&service_ctx, &mut conn, req).await?;
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+ let id = svc.create_from_order(&service_ctx, &mut tx, req).await?;
 
  let carrier = form.carrier.filter(|s| !s.is_empty());
  let remark = form.remark.filter(|s| !s.is_empty());
  if carrier.is_some() || remark.is_some() {
- svc.update(&service_ctx, &mut conn, id, UpdateShippingReq {
+ svc.update(&service_ctx, &mut tx, id, UpdateShippingReq {
  carrier,
  remark,
  ..Default::default()
  }).await?;
  }
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let redirect = ShippingDetailPath { id }.to_string();
  Ok(([("HX-Redirect", redirect)], Html(String::new())))
@@ -317,7 +321,7 @@ pub async fn post_save_draft(
  ctx: RequestContext,
  axum::Form(form): axum::Form<ShippingDraftForm>,
 ) -> Result<impl IntoResponse> {
- let RequestContext { claims: _, mut conn, state, service_ctx, .. } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
  let svc = state.shipping_service();
 
  let expected_ship_date = form.expected_ship_date
@@ -336,9 +340,11 @@ pub async fn post_save_draft(
  })
  .collect();
 
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
  let id = if let Some(draft_id) = form.draft_id {
  // 更新已有草稿
- svc.update_draft(&service_ctx, &mut conn, draft_id, UpdateDraftReq {
+ svc.update_draft(&service_ctx, &mut tx, draft_id, UpdateDraftReq {
  customer_id: Some(form.customer_id),
  order_id: form.order_id,
  expected_ship_date,
@@ -350,7 +356,7 @@ pub async fn post_save_draft(
  draft_id
  } else {
  // 新建草稿
- svc.save_draft(&service_ctx, &mut conn, CreateDraftReq {
+ svc.save_draft(&service_ctx, &mut tx, CreateDraftReq {
  customer_id: form.customer_id,
  order_id: form.order_id,
  expected_ship_date,
@@ -360,6 +366,8 @@ pub async fn post_save_draft(
  items,
  }).await?
  };
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let redirect = ShippingDetailPath { id }.to_string();
  Ok(([("HX-Redirect", redirect)], Html(String::new())))

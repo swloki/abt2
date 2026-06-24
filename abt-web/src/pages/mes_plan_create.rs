@@ -48,7 +48,9 @@ pub async fn create_plan(
  ctx: RequestContext,
  axum::Form(form): axum::Form<PlanCreateForm>,
 ) -> Result<impl IntoResponse> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
  let svc = state.production_plan_service();
 
  let plan_type = match form.plan_type.as_str() {
@@ -72,7 +74,9 @@ pub async fn create_plan(
  items,
  };
 
- let _id = svc.create(&service_ctx, &mut conn, req).await?;
+ let _id = svc.create(&service_ctx, &mut tx, req).await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  Ok(axum::response::Response::builder()
  .header("HX-Redirect", PlanListPath::PATH)

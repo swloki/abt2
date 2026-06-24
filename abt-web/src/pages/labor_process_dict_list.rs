@@ -112,11 +112,13 @@ pub async fn post_process_dict_create(
  axum::Form(form): axum::Form<ProcessDictCreateForm>,
 ) -> crate::errors::Result<impl IntoResponse> {
  let RequestContext {
- mut conn,
  state,
  service_ctx,
  ..
  } = ctx;
+
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  if form.name.trim().is_empty() {
  return Err(DomainError::validation("工序名称不能为空").into());
@@ -129,7 +131,9 @@ pub async fn post_process_dict_create(
  };
 
  let svc = state.labor_process_dict_service();
- let _id = svc.create(&service_ctx, &mut conn, req).await?;
+ let _id = svc.create(&service_ctx, &mut tx, req).await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  Ok((
  [("HX-Redirect", ProcessDictListPath::PATH)],
@@ -143,14 +147,17 @@ pub async fn delete_process_dict(
  ctx: RequestContext,
 ) -> crate::errors::Result<impl IntoResponse> {
  let RequestContext {
- mut conn,
  state,
  service_ctx,
  ..
  } = ctx;
  let svc = state.labor_process_dict_service();
 
- svc.delete(&service_ctx, &mut conn, path.id).await?;
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+ svc.delete(&service_ctx, &mut tx, path.id).await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  Ok((
  [("HX-Trigger", "{\"processDictDeleted\":true}")],

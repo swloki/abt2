@@ -99,7 +99,7 @@ pub async fn create_conversion(
  ctx: RequestContext,
  axum::Form(form): axum::Form<ConversionCreateForm>,
 ) -> Result<impl IntoResponse> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
  let svc = state.form_conversion_service();
 
  let consume_items: Vec<ConversionItemWeb> = serde_json::from_str(&form.consume_json)
@@ -150,7 +150,11 @@ pub async fn create_conversion(
  items,
  };
 
- let _id = svc.create(&service_ctx, &mut conn, req).await?;
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+ let _id = svc.create(&service_ctx, &mut tx, req).await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let redirect = ConversionListPath.to_string();
  Ok(([("HX-Redirect", redirect)], Html(String::new())))

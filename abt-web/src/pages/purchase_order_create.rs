@@ -227,7 +227,6 @@ pub async fn create_po(
  axum::Form(form): axum::Form<POCreateForm>,
 ) -> Result<impl IntoResponse> {
  let RequestContext {
- mut conn,
  state,
  service_ctx,
  ..
@@ -300,7 +299,11 @@ pub async fn create_po(
  items,
  };
 
- let id = svc.create(&service_ctx, &mut conn, create_req, None).await?;
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+ let id = svc.create(&service_ctx, &mut tx, create_req, None).await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let redirect = PODetailPath { id }.to_string();
  Ok(([("HX-Redirect", redirect)], Html(String::new())))

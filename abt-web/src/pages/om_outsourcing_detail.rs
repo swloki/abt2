@@ -198,14 +198,18 @@ pub async fn send_order(
  ctx: RequestContext,
  axum::Form(form): axum::Form<ActionForm>,
 ) -> Result<impl IntoResponse> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
  let svc = state.outsourcing_order_service();
- let order = svc.find_by_id(&service_ctx, &mut conn, path.id).await?;
- svc.send(&service_ctx, &mut conn, abt_core::om::outsourcing_order::SendOutsourcingReq {
+ let order = svc.find_by_id(&service_ctx, &mut tx, path.id).await?;
+ svc.send(&service_ctx, &mut tx, abt_core::om::outsourcing_order::SendOutsourcingReq {
  id: path.id,
  expected_version: order.version,
  remark: form.remark,
  }).await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
  Ok(axum::response::Response::builder()
  .header("HX-Redirect", &OmOutsourcingDetailPath { id: path.id }.to_string())
  .body(axum::body::Body::empty())
@@ -218,12 +222,14 @@ pub async fn receive_order(
  ctx: RequestContext,
  axum::Form(form): axum::Form<ReceiveForm>,
 ) -> Result<impl IntoResponse> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
  let svc = state.outsourcing_order_service();
- let order = svc.find_by_id(&service_ctx, &mut conn, path.id).await?;
+ let order = svc.find_by_id(&service_ctx, &mut tx, path.id).await?;
  let received_qty: Decimal = form.received_qty.parse()
  .map_err(|_| abt_core::shared::types::DomainError::validation("无效收货数量"))?;
- svc.receive(&service_ctx, &mut conn, abt_core::om::outsourcing_order::ReceiveOutsourcingReq {
+ svc.receive(&service_ctx, &mut tx, abt_core::om::outsourcing_order::ReceiveOutsourcingReq {
  id: path.id,
  expected_version: order.version,
  received_qty,
@@ -231,6 +237,8 @@ pub async fn receive_order(
  iqc_passed_qty: None,
  remark: form.remark,
  }).await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
  Ok(axum::response::Response::builder()
  .header("HX-Redirect", &OmOutsourcingDetailPath { id: path.id }.to_string())
  .body(axum::body::Body::empty())
@@ -243,14 +251,18 @@ pub async fn convert_to_internal(
  ctx: RequestContext,
  axum::Form(form): axum::Form<ActionForm>,
 ) -> Result<impl IntoResponse> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
  let svc = state.outsourcing_order_service();
- let order = svc.find_by_id(&service_ctx, &mut conn, path.id).await?;
- svc.convert_to_internal(&service_ctx, &mut conn, abt_core::om::outsourcing_order::ConvertToInternalReq {
+ let order = svc.find_by_id(&service_ctx, &mut tx, path.id).await?;
+ svc.convert_to_internal(&service_ctx, &mut tx, abt_core::om::outsourcing_order::ConvertToInternalReq {
  id: path.id,
  expected_version: order.version,
  remark: form.remark,
  }).await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
  Ok(axum::response::Response::builder()
  .header("HX-Redirect", &OmOutsourcingDetailPath { id: path.id }.to_string())
  .body(axum::body::Body::empty())
@@ -263,14 +275,18 @@ pub async fn cancel_order(
  ctx: RequestContext,
  axum::Form(form): axum::Form<ActionForm>,
 ) -> Result<impl IntoResponse> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
  let svc = state.outsourcing_order_service();
- let order = svc.find_by_id(&service_ctx, &mut conn, path.id).await?;
- svc.cancel(&service_ctx, &mut conn, abt_core::om::outsourcing_order::CancelOutsourcingReq {
+ let order = svc.find_by_id(&service_ctx, &mut tx, path.id).await?;
+ svc.cancel(&service_ctx, &mut tx, abt_core::om::outsourcing_order::CancelOutsourcingReq {
  id: path.id,
  expected_version: order.version,
  remark: form.remark,
  }).await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
  Ok(axum::response::Response::builder()
  .header("HX-Redirect", &OmOutsourcingDetailPath { id: path.id }.to_string())
  .body(axum::body::Body::empty())
@@ -283,16 +299,20 @@ pub async fn record_node(
  ctx: RequestContext,
  axum::Form(form): axum::Form<RecordNodeForm>,
 ) -> Result<impl IntoResponse> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
  let tracking_svc = state.outsourcing_tracking_service();
  let node_type = TrackingNodeType::from_i16(form.node_type)
  .ok_or_else(|| abt_core::shared::types::DomainError::validation("无效节点类型"))?;
- tracking_svc.record_node(&service_ctx, &mut conn, abt_core::om::outsourcing_tracking::RecordNodeReq {
+ tracking_svc.record_node(&service_ctx, &mut tx, abt_core::om::outsourcing_tracking::RecordNodeReq {
  outsourcing_id: path.id,
  node_type,
  tracked_at: None,
  remark: form.remark,
  }).await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
  Ok(axum::response::Response::builder()
  .header("HX-Redirect", &OmOutsourcingDetailPath { id: path.id }.to_string())
  .body(axum::body::Body::empty())

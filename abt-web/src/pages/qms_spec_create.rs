@@ -78,11 +78,12 @@ pub async fn create(
  axum::Form(form): axum::Form<SpecCreateForm>,
 ) -> Result<impl IntoResponse> {
  let RequestContext {
- mut conn,
  state,
  service_ctx,
  ..
  } = ctx;
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let inspection_type = abt_core::qms::enums::InspectionType::from_i16(form.inspection_type)
  .ok_or_else(|| {
@@ -109,7 +110,9 @@ pub async fn create(
  };
 
  let svc = state.inspection_specification_service();
- let _id = svc.create(&service_ctx, &mut conn, req).await?;
+ let _id = svc.create(&service_ctx, &mut tx, req).await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  Ok(
  axum::response::Response::builder()

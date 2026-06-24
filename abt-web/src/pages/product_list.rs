@@ -112,8 +112,11 @@ pub async fn update_product_price(
  ctx: RequestContext,
  Form(form): Form<PriceForm>,
 ) -> crate::errors::Result<impl IntoResponse> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
  let svc = state.product_price_service();
+
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let price_type = form.price_type
  .and_then(|s| s.parse::<i16>().ok())
@@ -125,12 +128,14 @@ pub async fn update_product_price(
 
  svc.update_price(
  &service_ctx,
- &mut conn,
+ &mut tx,
  path.id,
  price_type,
  new_price,
  form.remark.unwrap_or_default(),
  ).await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  Ok(([("HX-Trigger", "{\"closeDrawer\":\"\"}")], Html(String::new())))
 }
@@ -240,7 +245,11 @@ pub async fn delete_product(
  return Ok(Html(html.into_string()).into_response());
  }
 
- svc.delete(&service_ctx, &mut conn, path.id).await?;
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+ svc.delete(&service_ctx, &mut tx, path.id).await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  Ok(([("HX-Redirect", ProductListPath::PATH)], Html(String::new())).into_response())
 }

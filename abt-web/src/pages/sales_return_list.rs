@@ -190,10 +190,14 @@ pub async fn delete_return(
  path: ReturnDeletePath,
  ctx: RequestContext,
 ) -> Result<impl IntoResponse> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
 
  let return_svc = state.sales_return_service();
- return_svc.delete(&service_ctx, &mut conn, path.id).await?;
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+ return_svc.delete(&service_ctx, &mut tx, path.id).await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let redirect = ReturnListPath::PATH.to_string();
  Ok(([("HX-Redirect", redirect)], Html(String::new())))

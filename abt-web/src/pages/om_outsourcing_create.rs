@@ -123,11 +123,12 @@ pub async fn create(
  axum::Form(form): axum::Form<CreateForm>,
 ) -> Result<impl IntoResponse> {
  let RequestContext {
- mut conn,
  state,
  service_ctx,
  ..
  } = ctx;
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
  let svc = state.outsourcing_order_service();
 
  let outsourcing_type = OutsourcingType::from_i16(form.outsourcing_type)
@@ -171,7 +172,7 @@ pub async fn create(
  if !materials.is_empty() {
  use abt_core::master_data::product::ProductService;
  let pids: Vec<i64> = materials.iter().map(|m| m.product_id).collect();
- let prods = state.product_service().get_by_ids(&service_ctx, &mut conn, pids).await?;
+ let prods = state.product_service().get_by_ids(&service_ctx, &mut tx, pids).await?;
  for m in &materials {
  if let Some(p) = prods.iter().find(|p| p.product_id == m.product_id) {
  if let Some(mp) = p.min_pack_qty {
@@ -208,7 +209,9 @@ pub async fn create(
  materials,
  };
 
- let id = svc.create(&service_ctx, &mut conn, req, None).await?;
+ let id = svc.create(&service_ctx, &mut tx, req, None).await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let redirect = OmOutsourcingDetailPath { id }.to_string();
  Ok(([("HX-Redirect", redirect)], Html(String::new())))

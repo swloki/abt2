@@ -118,10 +118,14 @@ pub async fn activate_pq(
  path: PQActivatePath,
  ctx: RequestContext,
 ) -> Result<impl IntoResponse> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
  let svc = state.purchase_quotation_service();
 
- svc.activate(&service_ctx, &mut conn, path.id, None).await?;
+ svc.activate(&service_ctx, &mut tx, path.id, None).await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let redirect = PQDetailPath { id: path.id }.to_string();
  Ok(([("HX-Redirect", redirect)], Html(String::new())))
@@ -132,10 +136,14 @@ pub async fn cancel_pq(
  path: PQCancelPath,
  ctx: RequestContext,
 ) -> Result<impl IntoResponse> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
  let svc = state.purchase_quotation_service();
 
- svc.cancel(&service_ctx, &mut conn, path.id, None).await?;
+ svc.cancel(&service_ctx, &mut tx, path.id, None).await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let redirect = PQDetailPath { id: path.id }.to_string();
  Ok(([("HX-Redirect", redirect)], Html(String::new())))
@@ -146,10 +154,14 @@ pub async fn delete_pq(
  path: PQDeletePath,
  ctx: RequestContext,
 ) -> Result<impl IntoResponse> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
  let svc = state.purchase_quotation_service();
 
- svc.delete(&service_ctx, &mut conn, path.id).await?;
+ svc.delete(&service_ctx, &mut tx, path.id).await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  Ok(([("HX-Redirect", PQListPath.to_string())], Html(String::new())))
 }
@@ -159,10 +171,14 @@ pub async fn convert_pq(
  path: PQConvertPath,
  ctx: RequestContext,
 ) -> Result<impl IntoResponse> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
  let order_svc = state.purchase_order_service();
 
- let order_id = order_svc.create_from_quotation(&service_ctx, &mut conn, path.id, None).await?;
+ let order_id = order_svc.create_from_quotation(&service_ctx, &mut tx, path.id, None).await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let redirect = PODetailPath { id: order_id }.to_string();
  Ok(([("HX-Redirect", redirect)], Html(String::new())))

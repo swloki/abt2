@@ -170,11 +170,12 @@ pub async fn create_pay(
  axum::Form(form): axum::Form<PayCreateForm>,
 ) -> Result<impl IntoResponse> {
  let RequestContext {
- mut conn,
  state,
  service_ctx,
  ..
  } = ctx;
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
  let svc = state.payment_request_service();
 
  let payment_date = chrono::NaiveDate::parse_from_str(&form.payment_date, "%Y-%m-%d")
@@ -204,7 +205,9 @@ pub async fn create_pay(
  remark: form.remark.unwrap_or_default(),
  };
 
- let id = svc.create(&service_ctx, &mut conn, create_req, None).await?;
+ let id = svc.create(&service_ctx, &mut tx, create_req, None).await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let redirect = PayDetailPath { id }.to_string();
  Ok(([("HX-Redirect", redirect)], Html(String::new())))

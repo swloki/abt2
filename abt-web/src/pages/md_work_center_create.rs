@@ -64,17 +64,21 @@ pub async fn post_work_center_create(
  axum::Form(form): axum::Form<WorkCenterForm>,
 ) -> Result<impl IntoResponse> {
  let RequestContext {
- mut conn,
  state,
  service_ctx,
  ..
  } = ctx;
 
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+
  let req = parse_form(&form)?;
  let id = state
  .work_center_service()
- .create(&service_ctx, &mut conn, req)
+ .create(&service_ctx, &mut tx, req)
  .await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let redirect = WorkCenterDetailPath { id }.to_string();
  Ok(([("HX-Redirect", redirect)], Html(String::new())))
@@ -126,17 +130,21 @@ pub async fn post_work_center_update(
  axum::Form(form): axum::Form<WorkCenterForm>,
 ) -> Result<impl IntoResponse> {
  let RequestContext {
- mut conn,
  state,
  service_ctx,
  ..
  } = ctx;
 
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+
  let req = parse_update_form(&form)?;
  state
  .work_center_service()
- .update(&service_ctx, &mut conn, path.id, req)
+ .update(&service_ctx, &mut tx, path.id, req)
  .await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let redirect = WorkCenterDetailPath { id: path.id }.to_string();
  Ok(([("HX-Redirect", redirect)], Html(String::new())))

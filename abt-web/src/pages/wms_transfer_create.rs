@@ -101,7 +101,7 @@ pub async fn create_transfer(
  ctx: RequestContext,
  axum::Form(form): axum::Form<TransferCreateForm>,
 ) -> Result<impl IntoResponse> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let RequestContext { state, service_ctx, .. } = ctx;
  let svc = state.transfer_service();
 
  let from_warehouse_id = form.from_warehouse_id
@@ -135,7 +135,11 @@ pub async fn create_transfer(
  items,
  };
 
- let _id = svc.create(&service_ctx, &mut conn, req).await?;
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+ let _id = svc.create(&service_ctx, &mut tx, req).await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
  let redirect = TransferListPath.to_string();
  Ok(([("HX-Redirect", redirect)], Html(String::new())))

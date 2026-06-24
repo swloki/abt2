@@ -135,7 +135,28 @@ async fn handle(ctx, db, event: ShipmentShipped) {
 - 评审决议点：是否接受「表名保留 + 代码层正名」折中，或坚持物理重命名（高成本）。
 
 ### 5.3 二期：独立拣货单 `PickList`（参照 ERPNext）
-当前 `pick()` 仅空状态切换。二期落独立实体 `pick_lists` / `pick_list_items`，记录 `picked_qty + bin_id + 拣货人`，从 Confirmed 生成、完成后驱动 ship。一期可暂保留状态式 pick。
+
+当前 `pick()` 仅空状态切换（Confirmed → Picking）。二期落独立拣货单，让拣货可追溯、可部分拣、可记录库位。
+
+**数据模型**（migration `071`，需手动 `psql -f`）：
+- `pick_lists`：`id` / `doc_number`（`PK-` 前缀，`DocumentType::PickList`）/ `outbound_id` FK→`shipping_requests` / `status` / `picker_id` / `picked_at` / `operator_id` / timestamps
+- `pick_list_items`：`id` / `pick_list_id` / `line_no` / `outbound_item_id` / `product_id` / `warehouse_id` / `bin_id`(可选) / `requested_qty` / `picked_qty`
+- `DocumentType::PickList = 46`（现有最大 45）
+- 状态机 `PickListStatus`：`Draft(1)` → `Picked(2)` / `Cancelled(3)`
+
+**`PickListService` trait**（`abt-core/src/wms/pick_list/`）：
+- `generate_from_outbound(ctx, db, outbound_id)` — `pick()` 调用，从 outbound 明细生成 pick_list + items（MVP：`picked_qty = requested_qty` 自动满拣，前端后续支持人工调整）
+- `complete_pick(ctx, db, id)` — Draft → Picked
+- `find_by_outbound(ctx, db, outbound_id)` / `list` / `list_items` / `cancel`
+
+**流转**：outbound `confirm` → `pick()` 调 `generate`（生成 pick_list Draft，outbound → Picking）→ 仓库前端录入 `picked_qty`/`bin` → `complete_pick`（Picked）→ `ship()`。MVP 不强依赖前端（自动满拣），前端拣货录入页为 Phase 3 收尾。
+
+**实施任务**（Phase 3，建议 #94 合并后独立 PR）：
+1. migration `071`（pick_lists + pick_list_items + state_machine 配置）+ `DocumentType::PickList` + `PickListStatus`
+2. `wms/pick_list/` 模块（model/repo/service/implt/mod）
+3. outbound `pick()` 集成（调 generate）/ `ship()` 集成（校验 pick_list Picked）
+4. 前端拣货录入页（`/admin/wms/shipping/{id}/pick`，需 Open Design 原型）
+5. cargo clippy + commit
 
 ## 6. stock-out 旁路合并
 

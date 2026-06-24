@@ -137,7 +137,7 @@ fn routing_detail_page(
         div class="bg-white border border-border-soft rounded p-5" {
             div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 border-b border-border-soft"
             { "基本信息" }
-            div class="grid gap-5" class="grid-cols-3" {
+            div class="grid gap-5 grid-cols-3" {
                 ({
                     detail_row(
                         "编码",
@@ -208,7 +208,7 @@ fn routing_detail_page(
             }
         }
         // ── 工序流程 ──
-        div class="bg-white border border-border-soft rounded p-5" class="mt-5" {
+        div class="bg-white border border-border-soft rounded p-5 mt-5" {
             div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 border-b border-border-soft"
             {
                 span { "工序流程" }
@@ -256,8 +256,7 @@ fn routing_detail_page(
             }
         }
         // ── 关联BOM ──
-        div class="bg-white border border-border-soft rounded p-5 routing-bom-card"
-            class="mt-5"
+        div class="bg-white border border-border-soft rounded p-5 routing-bom-card mt-5"
             hx-select=".routing-bom-card"
             hx-target=".routing-bom-card"
             hx-swap="outerHTML"

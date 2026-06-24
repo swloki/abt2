@@ -347,7 +347,7 @@ fn plan_create_page() -> Markup {
  <td><input class="w-full px-2 py-[5px] text-right text-[13px] font-mono tabular-nums border border-border rounded-sm bg-white text-fg outline-none focus:border-accent" type="number" step="any" data-field="planned_qty" placeholder="0" required></td>
  <td><input class="w-full px-2 py-[5px] text-[13px] border border-border rounded-sm bg-white text-fg outline-none focus:border-accent" type="date" data-field="scheduled_start" required></td>
  <td><input class="w-full px-2 py-[5px] text-[13px] border border-border rounded-sm bg-white text-fg outline-none focus:border-accent" type="date" data-field="scheduled_end" required></td>
- <td><input class="w-full px-2 py-[5px] text-[13px] font-mono tabular-nums border border-border rounded-sm bg-white text-fg outline-none focus:border-accent" type="number" step="any" data-field="priority" value="1" class="w-[60px]"></td>
+ <td><input class="w-full px-2 py-[5px] text-[13px] font-mono tabular-nums border border-border rounded-sm bg-white text-fg outline-none focus:border-accent w-[60px]" type="number" step="any" data-field="priority" value="1"></td>
  <td><button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center hover:text-danger" onclick="this.closest('tr').remove()">✕</button></td>
  `;
  tbody.appendChild(tr);

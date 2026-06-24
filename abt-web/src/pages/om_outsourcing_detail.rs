@@ -742,7 +742,7 @@ fn detail_page(
                             }
                             span class="flex gap-[6px] text-xs text-muted" {
                                 "完成数量 "
-                                strong class="font-mono tabular-nums" class="text-success" {
+                                strong class="font-mono tabular-nums text-success" {
                                     (crate::utils::fmt_qty(order.completed_qty))
                                 }
                             }
@@ -754,7 +754,7 @@ fn detail_page(
                             }
                             span class="flex gap-[6px] text-xs text-muted" {
                                 "总金额 "
-                                strong class="font-mono tabular-nums" class="text-accent" {
+                                strong class="font-mono tabular-nums text-accent" {
                                     (format_amount(order.planned_qty * order.unit_price))
                                 }
                             }
@@ -939,7 +939,7 @@ fn detail_page(
                 }
                 div class="overflow-hidden" {
                     div class="overflow-x-auto px-8 pb-5" {
-                        table class="data-table" class="w-full" {
+                        table class="data-table w-full" {
                             thead {
                                 tr {
                                     th { "时间" }
@@ -1056,7 +1056,7 @@ fn detail_page(
             {
                 div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0"
                 {
-                    h2 class="flex items-center" class="gap-2" {
+                    h2 class="flex items-center gap-2" {
                         ({
                             maud::PreEscaped(
                                 r#"<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>"#,
@@ -1076,9 +1076,7 @@ fn detail_page(
                     hx-on::after-request="if(event.detail.xhr.status<400){document.querySelector('#record-node-modal').classList.remove('is-open');this.reset()}"
                 {
                     div class="overflow-y-auto flex-1 min-h-0 p-6" {
-                        div class="text-[13px] text-fg-2"
-                            class="rounded-md mb-6"
-                            class="px-5 py-4"
+                        div class="text-[13px] text-fg-2 rounded-md mb-6 px-5 py-4"
                             style="background:linear-gradient(135deg,rgba(22,163,74,0.04),rgba(22,163,74,0.08));border:1px solid rgba(22,163,74,0.08)"
                         {
                             "当前已完成节点："
@@ -1103,8 +1101,7 @@ fn detail_page(
                                 label { "节点类型" }
                                 select
                                     name="node_type"
-                                    class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]"
-                                    class="w-full"
+                                    class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] w-full"
                                 {
                                     @for nt in all_node_types.iter() {
                                         @let label = node_type_label(nt);
@@ -1117,8 +1114,7 @@ fn detail_page(
                                 input
                                     type="datetime-local"
                                     name="actual_time"
-                                    class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]"
-                                    class="w-full" {}
+                                    class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] w-full" {}
                             }
                             div class="form-field field-full" {
                                 label { "备注" }
@@ -1155,7 +1151,7 @@ fn detail_page(
             {
                 div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0"
                 {
-                    h2 class="flex items-center" class="gap-2" {
+                    h2 class="flex items-center gap-2" {
                         ({
                             maud::PreEscaped(
                                 r#"<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>"#,
@@ -1180,12 +1176,10 @@ fn detail_page(
                     hx-on::after-request="if(event.detail.xhr.status<400){document.querySelector('#receive-modal').classList.remove('is-open');this.reset()}"
                 {
                     div class="overflow-y-auto flex-1 min-h-0 p-6" {
-                        div class="text-[13px] text-fg-2"
-                            class="rounded-md mb-6"
-                            class="px-5 py-4"
+                        div class="text-[13px] text-fg-2 rounded-md mb-6 px-5 py-4"
                             style="background:linear-gradient(135deg,var(--accent-bg),rgba(37,99,235,0.06));border:1px solid rgba(37,99,235,0.08)"
                         {
-                            div class="flex items-center flex-wrap" class="gap-4" {
+                            div class="flex items-center flex-wrap gap-4" {
                                 span {
                                     "委外单 "
                                     strong class="text-fg" { (order.doc_number) }
@@ -1197,13 +1191,12 @@ fn detail_page(
                                 span class="text-border" { "|" }
                                 span {
                                     "计划 "
-                                    span class="font-mono tabular-nums" class="font-bold" {
+                                    span class="font-mono tabular-nums font-bold" {
                                         (order.planned_qty.to_string())
                                     }
                                     " · 已收 "
                                     span
-                                        class="font-mono tabular-nums text-success"
-                                        class="font-bold"
+                                        class="font-mono tabular-nums text-success font-bold"
                                     { (order.completed_qty.to_string()) }
                                 }
                             }
@@ -1220,15 +1213,13 @@ fn detail_page(
                                     name="received_qty"
                                     class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]"
                                     placeholder="请输入数量"
-                                    class="w-full"
                                     required {}
                             }
                             div class="form-field" {
                                 label { "入库仓库" }
                                 select
                                     name="warehouse_id"
-                                    class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]"
-                                    class="w-full"
+                                    class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] w-full"
                                 {
                                     option value="23332" selected { "成品仓（默认）" }
                                 }
@@ -1241,7 +1232,7 @@ fn detail_page(
                                     name="qualified_qty"
                                     class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]"
                                     placeholder="自动填充"
-                                    class="w-full" {}
+                                    {}
                             }
                             div class="form-field" {
                                 label { "IQC 不合格数量" }
@@ -1251,7 +1242,7 @@ fn detail_page(
                                     name="unqualified_qty"
                                     class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]"
                                     placeholder="0"
-                                    class="w-full" {}
+                                    {}
                             }
                             div class="form-field field-full" {
                                 label { "备注" }
@@ -1289,7 +1280,7 @@ fn detail_page(
             {
                 div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0"
                 {
-                    h2 class="flex items-center" class="gap-2" {
+                    h2 class="flex items-center gap-2" {
                         ({
                             maud::PreEscaped(
                                 r#"<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--warn)" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><path d="M12 9v4M12 17h.01"/></svg>"#,
@@ -1313,9 +1304,8 @@ fn detail_page(
                     hx-swap="none"
                     hx-on::after-request="if(event.detail.xhr.status<400){document.querySelector('#convert-modal').classList.remove('is-open');this.reset()}"
                 {
-                    div class="overflow-y-auto flex-1 min-h-0 p-6" class="text-center" class="p-8" {
-                        div class="grid"
-                            class="w-16"
+                    div class="overflow-y-auto flex-1 min-h-0 p-6 text-center p-8" {
+                        div class="grid w-16"
                             style="height:64px;border-radius:50%;background:linear-gradient(135deg,rgba(217,119,6,0.08),rgba(217,119,6,0.15));place-items:center;margin:0 auto var(--space-5)"
                         {
                             ({
@@ -1324,12 +1314,10 @@ fn detail_page(
                                 )
                             })
                         }
-                        p   class="font-bold text-fg"
-                            class="text-lg"
+                        p   class="font-bold text-fg text-lg"
                             style="margin:0 0 var(--space-2)"
                         { "将委外单转为内部生产？" }
-                        p   class="text-muted"
-                            class="text-sm"
+                        p   class="text-muted text-sm"
                             style="margin:0 0 var(--space-6);line-height:1.7"
                         {
                             "系统将自动创建新的内部工单，"
@@ -1374,7 +1362,7 @@ fn detail_page(
             {
                 div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0"
                 {
-                    h2 class="flex items-center" class="gap-2" {
+                    h2 class="flex items-center gap-2" {
                         ({
                             maud::PreEscaped(
                                 r#"<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/></svg>"#,
@@ -1398,9 +1386,8 @@ fn detail_page(
                     hx-swap="none"
                     hx-on::after-request="if(event.detail.xhr.status<400){document.querySelector('#cancel-modal').classList.remove('is-open');this.reset()}"
                 {
-                    div class="overflow-y-auto flex-1 min-h-0 p-6" class="text-center" class="p-8" {
-                        div class="grid"
-                            class="w-16"
+                    div class="overflow-y-auto flex-1 min-h-0 p-6 text-center p-8" {
+                        div class="grid w-16"
                             style="height:64px;border-radius:50%;background:linear-gradient(135deg,rgba(220,38,38,0.08),rgba(220,38,38,0.15));place-items:center;margin:0 auto var(--space-5)"
                         {
                             ({
@@ -1409,12 +1396,10 @@ fn detail_page(
                                 )
                             })
                         }
-                        p   class="font-bold text-fg"
-                            class="text-lg"
+                        p   class="font-bold text-fg text-lg"
                             style="margin:0 0 var(--space-2)"
                         { "确认取消此委外单？" }
-                        p   class="text-muted"
-                            class="text-sm"
+                        p   class="text-muted text-sm"
                             style="margin:0 0 var(--space-6);line-height:1.7"
                         { "仅草稿状态可取消。取消后不可恢复。" }
                         div class="text-left" {

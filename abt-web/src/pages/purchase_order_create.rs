@@ -336,7 +336,7 @@ fn po_create_page(
         form id="po-form" hx-post=(POCreatePath::PATH) hx-swap="none" {
             input type="hidden" id="items-json" name="items_json" value="[]";
             // ── Supplier Selection ──
-            div class="data-card" class="mb-4" {
+            div class="data-card mb-4" {
                 div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
                 { "供应商信息" }
                 div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
@@ -392,7 +392,7 @@ fn po_create_page(
                 div id="supplier-detail" class="mt-3" {}
             }
             // ── Order Info ──
-            div class="data-card" class="mb-4" {
+            div class="data-card mb-4" {
                 div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
                 { "订单信息" }
                 div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
@@ -454,19 +454,16 @@ fn po_create_page(
                         textarea
                             name="remark"
                             placeholder="输入订单相关备注信息…"
-                            class="w-full resize-y"
-                            class="rounded-sm"
-                            class="min-h-[80px] border border-border text-sm"
+                            class="w-full resize-y rounded-sm min-h-[80px] border border-border text-sm"
                             style="padding:8px 12px;font-family:inherit" {}
                     }
                 }
             }
             // ── Line Items ──
-            div class="data-card" class="p-0 overflow-hidden mb-4" {
-                div class="flex justify-between items-center" class="px-5 pt-5 pb-3" {
+            div class="data-card p-0 overflow-hidden mb-4" {
+                div class="flex justify-between items-center px-5 pt-5 pb-3" {
                     span
-                        class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
-                        class="m-0 p-0 border-none"
+                        class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft m-0 p-0 border-none"
                     { "采购产品明细" }
                     button
                         type="button"
@@ -475,7 +472,7 @@ fn po_create_page(
                     { (icon::plus_icon("w-3.5 h-3.5")) "添加产品" }
                 }
                 div class="overflow-x-auto" {
-                    table class="data-table" class="min-w-[900px]" {
+                    table class="data-table min-w-[900px]" {
                         thead {
                             tr {
                                 th class="w-9 text-center" { "#" }
@@ -501,8 +498,8 @@ fn po_create_page(
                         _="on click add .is-open to #product-modal"
                     { (icon::plus_icon("w-3.5 h-3.5")) "添加产品行" }
                 }
-                div class="flex justify-end" class="p-4" class="border-t border-border" {
-                    div class="flex" class="text-sm" class="gap-6" {
+                div class="flex justify-end p-4 border-t border-border" {
+                    div class="flex text-sm gap-6" {
                         div {
                             "不含税: "
                             span id="sum-untaxed" class="font-semibold" { "0.00" }
@@ -513,7 +510,7 @@ fn po_create_page(
                         }
                         div {
                             "含税总计: "
-                            span id="sum-total" class="font-semibold" class="text-accent" { "0.00" }
+                            span id="sum-total" class="font-semibold text-accent" { "0.00" }
                         }
                     }
                 }
@@ -576,11 +573,7 @@ fn po_create_page(
 /// Supplier detail fragment returned by HTMX on supplier select change
 fn supplier_detail_fragment(contact_name: &str, contact_phone: &str, coop_years: i64) -> Markup {
  html! {
-    div class="supplier-info-bar"
-        class="flex bg-surface"
-        class="rounded-sm"
-        class="px-4 py-3 text-sm"
-        class="gap-6 text-fg-2"
+    div class="supplier-info-bar flex bg-surface rounded-sm px-4 py-3 text-sm gap-6 text-fg-2"
     {
         span {
             "联系人: "
@@ -632,13 +625,10 @@ fn item_row_fragment(
         td { (product.pdt_name) }
         td {
             input
-                class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]"
+                class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] text-[13px] rounded-sm px-2 py-[5px] border border-border"
                 type="text"
                 name="description"
                 placeholder="—"
-                class="text-[13px]"
-                class="rounded-sm"
-                class="px-2 py-[5px] border border-border"
                 style="width:190px" {}
         }
         td {
@@ -661,7 +651,7 @@ fn item_row_fragment(
                 placeholder="0.00"
                 style=(input_style) {}
         }
-        td class="line-subtotal font-mono tabular-nums" data-field="subtotal" class="text-right" {
+        td class="line-subtotal font-mono tabular-nums text-right" data-field="subtotal" {
             "0.00"
         }
         td {
@@ -677,12 +667,9 @@ fn item_row_fragment(
         }
         td {
             select
-                class="min-w-[150px] w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]"
+                class="min-w-[150px] w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] text-[13px] rounded-sm px-2 py-[5px] border border-border"
                 name="tax_rate_id"
                 data-field="tax_rate_id"
-                class="text-[13px]"
-                class="rounded-sm"
-                class="px-2 py-[5px] border border-border"
             {
                 option value="" { "—" }
                 @for tr in tax_rates {
@@ -692,12 +679,9 @@ fn item_row_fragment(
         }
         td {
             input
-                class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]"
+                class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)] w-[110px] text-[13px] rounded-sm px-2 py-[5px] border border-border"
                 type="date"
-                name="item_delivery_date"
-                class="w-[110px] text-[13px]"
-                class="rounded-sm"
-                class="px-2 py-[5px] border border-border" {}
+                name="item_delivery_date" {}
         }
         td {
             button

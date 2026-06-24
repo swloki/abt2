@@ -503,8 +503,7 @@ fn node_edit_form_fragment(bom_id: i64, node_id: i64, bom_version: i32, node: &B
                         input type="text" name="remark" value=(node.remark.as_deref().unwrap_or("")) {}
                     }
                 }
-                div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0"
-                    class="pt-4 border-t border-border-soft"
+                div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0 pt-4 border-t border-border-soft"
                 {
                     button
                         type="button"
@@ -669,7 +668,7 @@ fn bom_edit_page(
                 div class="text-center text-muted text-sm py-8" { "暂无组件数据，请点击上方按钮添加根节点" }
             } @else {
                 div class="overflow-x-auto" {
-                    table class="w-full text-[13px]" class="min-w-[900px]" {
+                    table class="w-full text-[13px] min-w-[900px]" {
                         thead {
                             tr {
                                 th class="w-[32px] px-2 py-3 bg-accent" {}
@@ -865,8 +864,7 @@ fn bom_edit_page(
                             }
                             input type="text" name="new_name" required placeholder="输入新的 BOM 名称" {}
                         }
-                        div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0"
-                            class="pt-4 border-t border-border-soft"
+                        div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0 pt-4 border-t border-border-soft"
                         {
                             button
                                 type="button"

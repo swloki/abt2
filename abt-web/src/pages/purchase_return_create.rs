@@ -264,7 +264,7 @@ fn pr_create_page(
         {
             input type="hidden" id="items-json" name="items_json" value="[]";
             // ── 关联单据 ──
-            div class="data-card" class="mb-4" {
+            div class="data-card mb-4" {
                 div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
                 { "关联单据" }
                 div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
@@ -304,7 +304,7 @@ fn pr_create_page(
                 }
             }
             // ── 退货信息 ──
-            div class="data-card" class="mb-4" {
+            div class="data-card mb-4" {
                 div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
                 { "退货信息" }
                 div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
@@ -368,23 +368,19 @@ fn pr_create_page(
                         textarea
                             name="remark"
                             placeholder="输入退货相关备注信息…"
-                            class="w-full resize-y"
-                            class="rounded-sm"
-                            class="min-h-[80px] border border-border text-sm"
+                            class="w-full resize-y rounded-sm min-h-[80px] border border-border text-sm"
                             style="padding:8px 12px;font-family:inherit" {}
                     }
                 }
             }
             // ── 退货产品明细 ──
             div id="pr-items-section"
-                class="data-card"
-                class="p-0 overflow-hidden mb-4"
+                class="data-card p-0 overflow-hidden mb-4"
                 style="display:none"
             {
-                div class="flex justify-between items-center" class="px-5 pt-5 pb-3" {
+                div class="flex justify-between items-center px-5 pt-5 pb-3" {
                     span
-                        class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
-                        class="m-0 p-0 border-none"
+                        class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft m-0 p-0 border-none"
                     { "退货产品明细" }
                 }
                 div class="overflow-x-auto" {

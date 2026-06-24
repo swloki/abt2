@@ -230,8 +230,7 @@ fn precon_detail_page(
             }
         }
         // ── Amount Summary ──
-        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]"
-            class="mt-6"
+        div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)] mt-6"
         {
             div class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" {
                 "金额汇总"
@@ -259,8 +258,7 @@ fn precon_detail_page(
         }
         // ── Remarks ──
         @if !recon.remark.is_empty() {
-            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)]"
-                class="mt-6"
+            div class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-sm)] mt-6"
             {
                 div class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" {
                     "备注"

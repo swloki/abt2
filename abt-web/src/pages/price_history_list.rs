@@ -288,14 +288,14 @@ fn data_card(rows: &[PriceHistoryRow], total: u64, page: u32, total_pages: u32) 
  html! {
     div class="data-card" {
         div class="overflow-x-auto" {
-            table class="data-table" class="w-full" style="table-layout:fixed" {
+            table class="data-table w-full" style="table-layout:fixed" {
                 thead {
                     tr {
                         th class="w-10" { "#" }
                         th class="w-[120px]" { "产品编码" }
                         th style="width:22%" { "产品名称" }
-                        th class="w-[90px]" class="text-right text-[13px]" { "原价格" }
-                        th class="w-[90px]" class="text-right text-[13px]" { "新价格" }
+                        th class="w-[90px] text-right text-[13px]" { "原价格" }
+                        th class="w-[90px] text-right text-[13px]" { "新价格" }
                         th style="width:70px" class="text-right text-[13px]" { "变动" }
                         th class="w-[60px]" { "操作人" }
                         th class="w-[110px]" { "变更时间" }

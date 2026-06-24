@@ -202,4 +202,27 @@ impl ProductionReceiptRepo {
             total_pages,
         })
     }
+
+    /// 按工单 ID 查所有入库单（工作台用，复用 list 的 JOIN）
+    pub async fn list_by_work_order(
+        executor: &mut sqlx::postgres::PgConnection,
+        work_order_id: i64,
+    ) -> Result<Vec<ReceiptListItem>> {
+        let data_sql = "SELECT r.id, r.doc_number, wo.doc_number AS work_order_doc, \
+             r.batch_id, r.product_id, p.pdt_name AS product_name, \
+             r.received_qty, w.name AS warehouse_name, r.status, r.created_at \
+             FROM production_receipts r \
+             LEFT JOIN work_orders wo ON r.work_order_id = wo.id \
+             LEFT JOIN products p ON r.product_id = p.product_id \
+             LEFT JOIN warehouses w ON r.warehouse_id = w.id \
+             WHERE r.work_order_id = $1 AND r.deleted_at IS NULL \
+             ORDER BY r.created_at DESC";
+        let items = sqlx::query_as::<_, ReceiptListItem>(sqlx::AssertSqlSafe(
+            data_sql.to_string(),
+        ))
+        .bind(work_order_id)
+        .fetch_all(&mut *executor)
+        .await?;
+        Ok(items)
+    }
 }

@@ -634,6 +634,29 @@ impl BatchRoutingProgressRepo {
         row.map(|r| Ok(BatchRoutingProgress::from_row(&r)?)).transpose()
     }
 
+    /// 按工单查所有批次工序进度（矩阵一次查全，避免 list_by_batch × N 批次 N+1）
+    pub async fn list_progress_by_work_order(
+        executor: &mut sqlx::postgres::PgConnection,
+        work_order_id: i64,
+    ) -> Result<Vec<BatchRoutingProgress>> {
+        let rows = sqlx::query(
+            r#"
+            SELECT p.id, p.batch_id, p.routing_id, p.status, p.completed_qty, p.defect_qty,
+                   p.started_at, p.completed_at, p.created_at, p.updated_at
+            FROM batch_routing_progress p
+            JOIN production_batches b ON b.id = p.batch_id
+            WHERE b.work_order_id = $1
+            "#,
+        )
+        .bind(work_order_id)
+        .fetch_all(&mut *executor)
+        .await?;
+        rows.iter()
+            .filter_map(|r| BatchRoutingProgress::from_row(r).ok())
+            .map(Ok)
+            .collect()
+    }
+
     /// 按批次查所有工序进度
     pub async fn list_by_batch(
         executor: &mut sqlx::postgres::PgConnection,

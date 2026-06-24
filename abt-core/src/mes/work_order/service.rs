@@ -61,4 +61,27 @@ pub trait WorkOrderService: Send + Sync {
         db: PgExecutor<'_>,
         plan_id: i64,
     ) -> Result<Vec<WorkOrder>>;
+
+    /// 工单工作台聚合视图：单次返回 detail-header + 摘要带 + 6 disclosure 全部数据。
+    async fn get_hub_summary(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        work_order_id: i64,
+    ) -> Result<WorkOrderHubSummary>;
+
+    /// 列表批量物料可用性（降级 2 级：Available / Unavailable）。
+    ///
+    /// 性能优先：仅判 ATP（不查 PO ETA），4 级判定留 `get_hub_summary`。
+    /// 对每个工单的 BOM 快照叶子：`required = node.quantity × planned_qty`，
+    /// `atp = available_atp(product_id, None)`，任一叶子 `atp < required` →
+    /// `Unavailable`（headline = 该物料名），否则 `Available`。
+    /// 已关闭/取消工单：`Available` + None（不计算）。
+    /// 返回 HashMap<work_order_id, (Level, headline)>。
+    async fn compute_availability_batch(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        work_order_ids: &[i64],
+    ) -> Result<std::collections::HashMap<i64, (MaterialAvailabilityLevel, Option<String>)>>;
 }

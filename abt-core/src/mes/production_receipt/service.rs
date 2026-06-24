@@ -31,6 +31,14 @@ pub trait ProductionReceiptService: Send + Sync {
         page: u32,
         page_size: u32,
     ) -> Result<PaginatedResult<ReceiptListItem>>;
+
+    /// 按工单 ID 查所有入库单（工作台聚合用，薄封装 repo）
+    async fn list_by_work_order(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        work_order_id: i64,
+    ) -> Result<Vec<ReceiptListItem>>;
     async fn get_unit_cost(&self, db: PgExecutor<'_>, product_id: i64) -> Result<rust_decimal::Decimal>;
     async fn get_fqc_status(&self, ctx: &ServiceContext, db: PgExecutor<'_>, receipt_id: i64) -> Result<super::model::FqcGate>;
 }

@@ -134,7 +134,6 @@ pub mod mes_order_detail;
 pub mod mes_batch_detail;
 pub mod mes_card_query;
 pub mod mes_schedule_board;
-pub mod mes_material_usage;
 pub mod mes_exception_list;
 pub mod mes_exception_detail;
 pub mod mes_report_list;

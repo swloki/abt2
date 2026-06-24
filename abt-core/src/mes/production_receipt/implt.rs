@@ -284,6 +284,17 @@ impl ProductionReceiptService for ProductionReceiptServiceImpl {
             .map_err(|e| DomainError::Internal(e.into()))
     }
 
+    async fn list_by_work_order(
+        &self,
+        _ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        work_order_id: i64,
+    ) -> Result<Vec<ReceiptListItem>> {
+        ProductionReceiptRepo::list_by_work_order(&mut *db, work_order_id)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))
+    }
+
     async fn get_detail_lookups(
         &self,
         db: PgExecutor<'_>,

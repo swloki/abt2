@@ -309,6 +309,8 @@ classDiagram
     +close(ctx: &ServiceContext, db: PgExecutor, id, expected_version i32) Result~Unit~
     +cancel(ctx: &ServiceContext, db: PgExecutor, id, expected_version i32) Result~Unit~
     +list(filter) PaginatedResult~WorkOrder~
+    +list_by_plan(plan_id) Result~Vec~WorkOrder~~
+    +get_hub_summary(ctx, db, work_order_id) Result~WorkOrderHubSummary~
   }
   class WorkReportService {
     &lt;&lt;interface&gt;&gt;
@@ -345,7 +347,36 @@ classDiagram
     +create(ctx: &ServiceContext, db: PgExecutor, req: CreateReceiptReq) Result~i64~
     +find_by_id(id) Result~ProductionReceipt~
     +confirm(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
+    +list_by_work_order(ctx, db, work_order_id) Result~Vec~ReceiptListItem~~
   }
+  class WorkOrderHubSummary {
+    工单工作台聚合视图：detail-header + 摘要带 + 6 disclosure 全部数据
+    +order: WorkOrder
+    +product_name: String
+    +status_steps: Vec~StatusStep~
+    +source_chain: SourceChain
+    +material_availability: MaterialAvailability
+    +completion_pct / received_qty / in_progress_qty: Decimal
+    +info: HubInfo
+    +material: HubMaterial { requisitions, availability }
+    +matrix: HubRoutingMatrix { routings, rows }
+    +reports: HubReports { items, total_completed, total_defect }
+    +receipts: HubReceipts { items, fqc_passed }
+    +audit_logs: Vec~HubAuditLog~
+  }
+  class MaterialAvailability {
+    +level: MaterialAvailabilityLevel  -- Available / Expected / Late / Unavailable
+    +headline: Option~String~  -- 最严重缺料/迟料物料名
+    +lines: Vec~MaterialAvailabilityLine~  -- 逐 BOM 叶子 required/issued/atp/projected/level
+  }
+  note right of WorkOrderService
+    get_hub_summary: 单次聚合工单工作台全部数据（只读）。
+    material_availability 4 级（对齐 Odoo components_availability）：
+      ATP(现货-硬预留) ≥ 需求 → Available
+      否则 ATP+在途PO ≥ 需求，最晚到货日 ≤ 计划开工 → Expected，否则 Late
+      否则 → Unavailable
+    判据用 ATP（非 projected），projected 仅展示参考。
+  end note
   ProductionPlanService ..> WorkOrderService : release_to_work_orders
   WorkOrderService ..> ProductionBatchService : split batches
   ProductionBatchService ..> WorkReportService : query reports (write is internal to confirm_routing_step)

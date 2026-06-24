@@ -244,16 +244,6 @@ fn mes_dashboard_page(stats: &abt_core::mes::dashboard::model::DashboardStats, d
                 })
                 ({
                     quick_entry_card(
-                        "/admin/mes/material-usage",
-                        "物料消耗",
-                        "BOM用量与倒冲差异",
-                        "green",
-                        0,
-                        "差异率",
-                    )
-                })
-                ({
-                    quick_entry_card(
                         "/admin/mes/exceptions",
                         "生产异常",
                         "暂停/报废/不良追踪",

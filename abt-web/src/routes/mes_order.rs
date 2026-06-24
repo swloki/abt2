@@ -53,28 +53,27 @@ pub struct OrderSplitPath {
 }
 
 #[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/mes/orders/{order_id}/routings/{routing_id}/delete")]
-pub struct OrderRoutingDeletePath {
-    pub order_id: i64,
-    pub routing_id: i64,
-}
-
-#[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/mes/orders/{order_id}/routings/{routing_id}/edit")]
-pub struct OrderRoutingEditPath {
-    pub order_id: i64,
-    pub routing_id: i64,
-}
-
-#[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/mes/orders/{order_id}/routings/apply-from-routing")]
-pub struct OrderRoutingApplyFromRoutingPath {
+#[typed_path("/admin/mes/orders/{order_id}/report")]
+pub struct OrderReportPath {
     pub order_id: i64,
 }
 
 #[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/mes/orders/{order_id}/routings/load-from-recent")]
-pub struct OrderRoutingLoadRecentPath {
+#[typed_path("/admin/mes/orders/{order_id}/requisition")]
+pub struct OrderRequisitionPath {
+    pub order_id: i64,
+}
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/mes/orders/{order_id}/receipt")]
+pub struct OrderReceiptPath {
+    pub order_id: i64,
+}
+
+/// 行内展开：懒加载行详情 `<tr class="row-detail">`（列表页点展开按钮 hx-get）。
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/mes/orders/{order_id}/row-detail")]
+pub struct OrderRowDetailPath {
     pub order_id: i64,
 }
 
@@ -102,10 +101,10 @@ pub fn router() -> Router<AppState> {
         .route(OrderCancelPath::PATH, post(mes_order_detail::cancel_order))
         .route(OrderUnreleasePath::PATH, post(mes_order_detail::unrelease_order))
         .route(OrderSplitPath::PATH, post(mes_order_detail::split_order))
-        .route(OrderRoutingDeletePath::PATH, post(mes_order_detail::delete_routing))
-        .route(OrderRoutingEditPath::PATH, get(mes_order_detail::get_routing_edit).post(mes_order_detail::post_routing_edit))
-        .route(OrderRoutingApplyFromRoutingPath::PATH, post(mes_order_detail::post_apply_from_routing))
-        .route(OrderRoutingLoadRecentPath::PATH, post(mes_order_detail::load_routings_from_recent))
+        .route(OrderReportPath::PATH, post(mes_order_detail::report_routing_step))
+        .route(OrderRequisitionPath::PATH, post(mes_order_detail::create_requisition))
+        .route(OrderReceiptPath::PATH, post(mes_order_detail::create_receipt))
+        .route(OrderRowDetailPath::PATH, get(mes_order_list::get_order_row_detail))
         .route(SourceOrderSearchPath::PATH, get(mes_order_create::search_source_orders))
         .route(SourcePlanSearchPath::PATH, get(mes_order_create::search_source_plans))
 }

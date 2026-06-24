@@ -3,7 +3,7 @@ use axum::Router;
 use axum_extra::routing::TypedPath;
 use serde::Deserialize;
 
-use crate::pages::{mes_receipt_list, mes_receipt_create, mes_receipt_detail, mes_material_usage};
+use crate::pages::{mes_receipt_list, mes_receipt_create, mes_receipt_detail};
 use crate::state::AppState;
 
 // ── Typed Paths ──
@@ -48,14 +48,6 @@ pub struct ReceiptWhZonesPath;
 #[typed_path("/admin/mes/receipts/zn-bins")]
 pub struct ReceiptZnBinsPath;
 
-#[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/mes/material-usage")]
-pub struct MaterialUsagePath;
-
-#[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/mes/material-usage/data")]
-pub struct MaterialUsageDataPath;
-
 // ── Router ──
 
 pub fn router() -> Router<AppState> {
@@ -72,6 +64,4 @@ pub fn router() -> Router<AppState> {
         .route(ReceiptWoSelectedPath::PATH, get(mes_receipt_create::wo_selected))
         .route(ReceiptWhZonesPath::PATH, get(mes_receipt_create::get_wh_zones))
         .route(ReceiptZnBinsPath::PATH, get(mes_receipt_create::get_zn_bins))
-        .route(MaterialUsagePath::PATH, get(mes_material_usage::get_material_usage))
-        .route(MaterialUsageDataPath::PATH, get(mes_material_usage::load_usage_data))
 }

@@ -1,26 +1,19 @@
-use rust_decimal::Decimal;
 use sqlx::postgres::PgPool;
 
 use crate::qms::inspection_result::{new_inspection_result_service, service::InspectionResultService};
 use crate::qms::inspection_result::model::InspectionResultFilter;
 use crate::qms::enums::{InspectionResultType, InspectionSourceType, InspectionStatus};
 use crate::sales::sales_order::model::SalesOrderStatus;
-use crate::sales::sales_order::repo::{SalesOrderItemRepo, SalesOrderRepo};
+use crate::sales::sales_order::model::ShipmentLineQty;
 use crate::sales::sales_order::{new_sales_order_service, service::SalesOrderService};
-use crate::sales::shipping_request::model::*;
-use crate::sales::shipping_request::repo::{ShippingRequestItemRepo, ShippingRequestRepo};
-use crate::sales::shipping_request::service::ShippingRequestService;
-use crate::fms::ar_ap::enums::LedgerDirection;
-use crate::fms::ar_ap::repo::{ArApLedgerInsert, ArApLedgerRepo};
-use crate::fms::enums::CounterpartyType;
+use crate::wms::outbound::model::*;
+use crate::wms::outbound::repo::{ShippingRequestItemRepo, ShippingRequestRepo};
+use crate::wms::outbound::service::ShippingRequestService;
 use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService, RecordAuditLogReq};
-use crate::shared::cost_entry::{new_cost_entry_service, service::CostEntryService};
-use crate::shared::cost_entry::model::EntryRequest;
 use crate::shared::document_link::{new_document_link_service, service::DocumentLinkService};
 use crate::shared::document_link::model::LinkRequest;
 use crate::shared::document_sequence::{new_document_sequence_service, service::DocumentSequenceService};
 use crate::shared::enums::audit::AuditAction;
-use crate::shared::enums::cost::{CostEntityType, CostType};
 use crate::shared::enums::document_type::DocumentType;
 use crate::shared::enums::event::DomainEventType;
 use crate::shared::enums::link_type::LinkType;
@@ -33,12 +26,11 @@ use crate::wms::enums::TransactionType;
 use crate::wms::inventory_transaction::{
     model::RecordTransactionReq, new_inventory_transaction_service, service::InventoryTransactionService,
 };
+use crate::wms::pick_list::{new_pick_list_service, service::PickListService};
 
 pub struct ShippingRequestServiceImpl {
     repo: ShippingRequestRepo,
     item_repo: ShippingRequestItemRepo,
-    order_repo: SalesOrderRepo,
-    order_item_repo: SalesOrderItemRepo,
     pool: PgPool,
 }
 
@@ -47,8 +39,6 @@ impl ShippingRequestServiceImpl {
         Self {
             repo: ShippingRequestRepo,
             item_repo: ShippingRequestItemRepo,
-            order_repo: SalesOrderRepo,
-            order_item_repo: SalesOrderItemRepo,
             pool,
         }
     }
@@ -58,12 +48,15 @@ impl ShippingRequestServiceImpl {
     /// 最终 product_id 仍为 0 则报错（杜绝 product_id=0 脏数据，见 SR-2026-06-000043 事故）。
     async fn resolve_draft_items(
         &self,
+        ctx: &ServiceContext,
         db: PgExecutor<'_>,
         order_id: Option<i64>,
         items: &[CreateDraftItemReq],
     ) -> Result<Vec<ShippingItemInput>> {
         let order_items = if let Some(oid) = order_id {
-            self.order_item_repo.find_by_order_id(db, oid).await?
+            new_sales_order_service(self.pool.clone())
+                .list_items(ctx, db, oid)
+                .await?
         } else {
             Vec::new()
         };
@@ -116,9 +109,8 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
             ));
         }
 
-        let order_items = self
-            .order_item_repo
-            .find_by_order_id(db, req.order_id)
+        let order_items = new_sales_order_service(self.pool.clone())
+            .list_items(ctx, db, req.order_id)
             .await?;
 
         let mut shipping_inputs = Vec::with_capacity(req.items.len());
@@ -240,7 +232,7 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
 
         // 如果有明细行，写入（product_id 由 resolve_draft_items 反查填充并校验）
         if !req.items.is_empty() {
-            let item_inputs = self.resolve_draft_items(db, req.order_id, &req.items).await?;
+            let item_inputs = self.resolve_draft_items(ctx, db, req.order_id, &req.items).await?;
             self.item_repo.create_batch(db, id, &item_inputs).await?;
         }
 
@@ -321,7 +313,7 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
             self.item_repo.delete_by_shipping_request_id(db, id).await?;
             if !items.is_empty() {
                 let order_id_for_items = req.order_id.or(existing.order_id);
-                let item_inputs = self.resolve_draft_items(db, order_id_for_items, &items).await?;
+                let item_inputs = self.resolve_draft_items(ctx, db, order_id_for_items, &items).await?;
                 self.item_repo.create_batch(db, id, &item_inputs).await?;
             }
         }
@@ -454,6 +446,15 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
             return Err(DomainError::business_rule("Only Confirmed shipping requests can be picked"));
         }
 
+        // 生成拣货单（Phase 3，#93）— 拣货可追溯，记录 picked_qty/bin
+        // MVP：自动满拣并完成（picked_qty=requested_qty）；前端后续支持人工拣货时拆分 generate/complete
+        let pick_list_id = new_pick_list_service(self.pool.clone())
+            .generate_from_outbound(ctx, db, id)
+            .await?;
+        new_pick_list_service(self.pool.clone())
+            .complete_pick(ctx, db, pick_list_id)
+            .await?;
+
         new_state_machine_service(self.pool.clone())
             .transition(ctx, db, "ShippingStatus", id, "Picking", None)
             .await?;
@@ -500,12 +501,9 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
             .await?;
 
         for item in &shipping_items {
+            // 发货单自身 shipped_qty（同模块，迁域后仍在 wms::outbound 内）
             self.item_repo
                 .update_shipped_qty(db, item.id, item.requested_qty)
-                .await?;
-
-            self.order_item_repo
-                .update_shipped_qty(db, item.order_item_id, item.requested_qty)
                 .await?;
 
             new_inventory_reservation_service(self.pool.clone())
@@ -544,109 +542,18 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
                 .await?;
         }
 
-        // COGS entries
-        let order_items = self
-            .order_item_repo
-            .find_by_order_id(db, order_id)
+        // 回写销售订单 shipped_qty + 重算头状态（跨域走 SalesOrderService::record_shipment，
+        // 替代原直访 sales_order repo）。AR 台账 / COGS 改由 fms 异步消费 ShipmentShipped 事件立账。
+        let lines: Vec<ShipmentLineQty> = shipping_items
+            .iter()
+            .map(|i| ShipmentLineQty {
+                order_item_id: i.order_item_id,
+                shipped_qty: i.requested_qty,
+            })
+            .collect();
+        new_sales_order_service(self.pool.clone())
+            .record_shipment(ctx, db, order_id, &lines)
             .await?;
-
-        let period = chrono::Utc::now().format("%Y-%m").to_string();
-        let mut cost_entries = Vec::with_capacity(shipping_items.len());
-        for ship_item in &shipping_items {
-            let unit_cost = order_items
-                .iter()
-                .find(|oi| oi.id == ship_item.order_item_id)
-                .map(|oi| oi.unit_cost)
-                .unwrap_or(Decimal::ZERO);
-
-            let cogs_amount = ship_item.requested_qty * unit_cost;
-            cost_entries.push(EntryRequest {
-                entity_type: CostEntityType::SalesOrder,
-                entity_id: order_id,
-                cost_type: CostType::Material,
-                debit_amount: cogs_amount,
-                credit_amount: Decimal::ZERO,
-                cost_center: None,
-                profit_center: None,
-                period: period.clone(),
-                source_type: DocumentType::ShippingRequest,
-                source_id: id,
-            });
-        }
-
-        if !cost_entries.is_empty() {
-            new_cost_entry_service(self.pool.clone())
-                .create_entries(ctx, db, cost_entries)
-                .await?;
-        }
-
-        // 业财一体：发货即立 AR 台账（直接 insert，不经发票实体）
-        // 幂等：同一发货单不重复立账
-        let dup_ledger: Option<i64> = sqlx::query_scalar::<sqlx::Postgres, i64>(
-            "SELECT id FROM ar_ap_ledger WHERE source_type = $1 AND source_id = $2 LIMIT 1",
-        )
-        .bind(DocumentType::ShippingRequest)
-        .bind(id)
-        .fetch_optional(&mut *db)
-        .await?;
-
-        if dup_ledger.is_none() {
-            // 应收金额 = Σ 发货明细数量 × 订单行售价
-            let ar_amount: Decimal = shipping_items
-                .iter()
-                .filter_map(|si| {
-                    order_items
-                        .iter()
-                        .find(|oi| oi.id == si.order_item_id)
-                        .map(|oi| si.requested_qty * oi.unit_price)
-                })
-                .sum();
-
-            if ar_amount > Decimal::ZERO {
-                // 到期日由客户 payment_terms 推导
-                let (customer_currency, payment_terms): (Option<String>, Option<String>) =
-                    sqlx::query_as::<sqlx::Postgres, (Option<String>, Option<String>)>(
-                        "SELECT currency, payment_terms FROM customers WHERE customer_id = $1 AND deleted_at IS NULL",
-                    )
-                    .bind(existing.customer_id)
-                    .fetch_optional(&mut *db)
-                    .await?
-                    .unwrap_or((None, None));
-                let due_days =
-                    crate::fms::ar_ap::payment_terms::parse_payment_terms_days(payment_terms.as_deref());
-                let today = chrono::Local::now().date_naive();
-                let due_date = today + chrono::Duration::days(due_days);
-                let currency = customer_currency
-                    .filter(|c| !c.is_empty())
-                    .unwrap_or_else(|| "CNY".to_string());
-                let period = chrono::Utc::now().format("%Y-%m").to_string();
-                let doc_no = existing.doc_number.clone();
-                let desc = format!("销售发货 {}", doc_no);
-
-                let _ = ArApLedgerRepo::insert(
-                    db,
-                    &ArApLedgerInsert {
-                        party_type: CounterpartyType::Customer,
-                        party_id: existing.customer_id,
-                        source_type: DocumentType::ShippingRequest,
-                        source_id: id,
-                        source_doc_no: &doc_no,
-                        against_type: None,
-                        against_id: None,
-                        direction: LedgerDirection::Debit,
-                        amount: ar_amount,
-                        currency: &currency,
-                        exchange_rate: Decimal::ONE,
-                        transaction_date: today,
-                        due_date: Some(due_date),
-                        period: &period,
-                        description: &desc,
-                        operator_id: ctx.operator_id,
-                    },
-                )
-                .await?;
-            }
-        }
 
         new_state_machine_service(self.pool.clone())
             .transition(ctx, db, "ShippingStatus", id, "Shipped", None)
@@ -654,21 +561,6 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
 
         self.repo
             .update_status(db, id, ShippingStatus::Shipped)
-            .await?;
-
-        // Update SalesOrder status: PartiallyShipped or Shipped
-        let all_fully_shipped = order_items
-            .iter()
-            .all(|oi| oi.shipped_qty >= oi.quantity);
-
-        let new_order_status = if all_fully_shipped {
-            SalesOrderStatus::Shipped
-        } else {
-            SalesOrderStatus::PartiallyShipped
-        };
-
-        self.order_repo
-            .update_status(db, order_id, new_order_status)
             .await?;
 
         new_audit_log_service(self.pool.clone())
@@ -697,6 +589,7 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
                         "shipping_request_id": id,
                         "doc_number": existing.doc_number,
                         "order_id": order_id,
+                        "customer_id": existing.customer_id,
                     }),
                     idempotency_key: None,
                 },

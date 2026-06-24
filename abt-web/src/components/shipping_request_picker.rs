@@ -10,8 +10,8 @@ use serde::Deserialize;
 
 use abt_core::master_data::customer::CustomerService;
 use abt_core::master_data::customer::model::{Customer, CustomerQuery};
-use abt_core::sales::shipping_request::ShippingRequestService;
-use abt_core::sales::shipping_request::model::ShippingQuery;
+use abt_core::wms::outbound::ShippingRequestService;
+use abt_core::wms::outbound::model::ShippingQuery;
 use abt_core::shared::types::PageParams;
 
 use crate::errors::Result;
@@ -39,7 +39,7 @@ pub async fn search_shipping_requests(
     ctx: RequestContext,
     Query(params): Query<SearchShippingParams>,
 ) -> Result<Html<String>> {
-    use abt_core::sales::shipping_request::model::ShippingStatus;
+    use abt_core::wms::outbound::model::ShippingStatus;
     let RequestContext { mut conn, state, service_ctx, .. } = ctx;
     let svc = state.shipping_service();
     let customer_svc = state.customer_service();
@@ -182,10 +182,10 @@ pub fn shipping_request_picker_modal(modal_id: &str, confirm_path: &str, custome
 }
 
 fn shipping_picker_results(
-    items: &[abt_core::sales::shipping_request::model::ShippingRequest],
+    items: &[abt_core::wms::outbound::model::ShippingRequest],
     customer_names: &HashMap<i64, String>,
 ) -> Markup {
-    use abt_core::sales::shipping_request::model::ShippingStatus;
+    use abt_core::wms::outbound::model::ShippingStatus;
     let status_label = |s: &ShippingStatus| -> &'static str {
         match s {
             ShippingStatus::Draft => "草稿",

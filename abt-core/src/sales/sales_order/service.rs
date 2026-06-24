@@ -98,6 +98,24 @@ pub trait SalesOrderService: Send + Sync {
         ctx: &ServiceContext, db: PgExecutor<'_>,
         order_id: i64,
     ) -> Result<u32>;
+
+    /// wms 出库后回写订单行已发数量 + 重算头状态（事务内调用，累加语义）。
+    /// 替代跨模块直访 sales_order repo，供 wms::outbound 的 ship() 调用。
+    async fn record_shipment(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        order_id: i64,
+        lines: &[ShipmentLineQty],
+    ) -> Result<SalesOrderStatus>;
+
+    /// 只读发货状态（按订单行 Σshipped_qty vs Σquantity 推导）
+    async fn delivery_status(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        order_id: i64,
+    ) -> Result<DeliveryStatus>;
 }
 
 /// 分配策略接口 — P1 定义接口，后续实现 FIFO

@@ -132,7 +132,7 @@ fn dashboard_content(claims: &abt_core::shared::identity::model::Claims) -> Mark
                 })
                 ({
                     quick_link_card(
-                        "/admin/shipping",
+                        "/admin/wms/shipping",
                         &icon::truck_icon("w-7 h-7"),
                         "发货申请",
                         "18 单",

@@ -9,8 +9,8 @@ use serde::Deserialize;
 use abt_core::master_data::customer::model::CustomerQuery;
 use abt_core::master_data::customer::CustomerService;
 use abt_core::sales::sales_order::SalesOrderService;
-use abt_core::sales::shipping_request::model::*;
-use abt_core::sales::shipping_request::ShippingRequestService;
+use abt_core::wms::outbound::model::*;
+use abt_core::wms::outbound::ShippingRequestService;
 use abt_core::shared::types::{PageParams, PgExecutor, ServiceContext};
 
 use crate::components::icon;

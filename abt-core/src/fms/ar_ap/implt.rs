@@ -3,7 +3,7 @@ use rust_decimal::Decimal;
 use std::collections::HashMap;
 
 use super::model::*;
-use super::repo::{ArApLedgerRepo, ArApSettlementRepo};
+use super::repo::{ArApLedgerInsert, ArApLedgerRepo, ArApSettlementRepo};
 use super::service::ArApService;
 use crate::fms::enums::CounterpartyType;
 use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService, RecordAuditLogReq};
@@ -70,6 +70,38 @@ impl ArApServiceImpl {
 
 #[async_trait::async_trait]
 impl ArApService for ArApServiceImpl {
+    // ---- 业财一体立账入口 ----
+
+    async fn post_entry(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        req: PostLedgerEntryReq,
+    ) -> Result<Option<i64>> {
+        ArApLedgerRepo::insert(
+            db,
+            &ArApLedgerInsert {
+                party_type: req.party_type,
+                party_id: req.party_id,
+                source_type: req.source_type,
+                source_id: req.source_id,
+                source_doc_no: &req.source_doc_no,
+                against_type: None,
+                against_id: None,
+                direction: req.direction,
+                amount: req.amount,
+                currency: &req.currency,
+                exchange_rate: req.exchange_rate,
+                transaction_date: req.transaction_date,
+                due_date: req.due_date,
+                period: &req.period,
+                description: &req.description,
+                operator_id: ctx.operator_id,
+            },
+        )
+        .await
+    }
+
     // ---- 台账查询 ----
 
     async fn list_ledger(

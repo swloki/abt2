@@ -62,6 +62,8 @@ pub enum DocumentType {
     StockShipment = 44,
     // FMS — 应收应付调整单
     ArApAdjustment = 45,
+    // WMS — 拣货单（Phase 3，#93）
+    PickList = 46,
 }
 
 impl DocumentType {
@@ -112,6 +114,7 @@ impl DocumentType {
             43 => Some(Self::StockReceipt),
             44 => Some(Self::StockShipment),
             45 => Some(Self::ArApAdjustment),
+            46 => Some(Self::PickList),
             _ => None,
         }
     }
@@ -180,6 +183,7 @@ impl DocumentType {
             // WMS — 出库单
             Self::StockShipment => "CK",
             Self::ArApAdjustment => "ADJ",
+            Self::PickList => "PK",
         }
     }
 }

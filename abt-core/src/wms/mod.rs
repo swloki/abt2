@@ -15,5 +15,8 @@ pub mod inventory_cascade;
 pub mod inventory;
 pub mod settings;
 pub mod low_stock_alert;
+pub mod outbound;
+pub mod pick_list;
+pub mod work_center;
 
 pub use enums::*;

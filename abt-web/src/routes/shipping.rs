@@ -1,3 +1,4 @@
+use axum::response::Redirect;
 use axum::routing::{get, post};
 use axum::Router;
 use axum_extra::routing::TypedPath;
@@ -11,65 +12,65 @@ use crate::state::AppState;
 // ── Typed Paths ──
 
 #[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/shipping")]
+#[typed_path("/admin/wms/shipping")]
 pub struct ShippingListPath;
 
 #[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/shipping/create")]
+#[typed_path("/admin/wms/shipping/create")]
 pub struct ShippingCreatePath;
 
 #[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/shipping/{id}/edit")]
+#[typed_path("/admin/wms/shipping/{id}/edit")]
 pub struct ShippingEditPath {
     pub id: i64,
 }
 
 #[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/shipping/draft")]
+#[typed_path("/admin/wms/shipping/draft")]
 pub struct ShippingSaveDraftPath;
 
 #[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/shipping/{id}")]
+#[typed_path("/admin/wms/shipping/{id}")]
 pub struct ShippingDetailPath {
     pub id: i64,
 }
 
 #[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/shipping/{id}/delete")]
+#[typed_path("/admin/wms/shipping/{id}/delete")]
 pub struct ShippingDeletePath {
     pub id: i64,
 }
 
 #[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/shipping/{id}/confirm")]
+#[typed_path("/admin/wms/shipping/{id}/confirm")]
 pub struct ConfirmShippingPath {
     pub id: i64,
 }
 
 #[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/shipping/{id}/pick")]
+#[typed_path("/admin/wms/shipping/{id}/pick")]
 pub struct PickShippingPath {
     pub id: i64,
 }
 
 #[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/shipping/{id}/ship")]
+#[typed_path("/admin/wms/shipping/{id}/ship")]
 pub struct ShipShippingPath {
     pub id: i64,
 }
 
 #[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/shipping/{id}/cancel")]
+#[typed_path("/admin/wms/shipping/{id}/cancel")]
 pub struct CancelShippingPath {
     pub id: i64,
 }
 
 #[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/shipping/customer-contacts")]
+#[typed_path("/admin/wms/shipping/customer-contacts")]
 pub struct ShippingCustomerContactsPath;
 
 #[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/shipping/order-search")]
+#[typed_path("/admin/wms/shipping/order-search")]
 pub struct ShippingOrderSearchPath;
 
 // ── Router ──
@@ -88,4 +89,18 @@ pub fn router() -> Router<AppState> {
         .route(PickShippingPath::PATH, post(shipping_detail::pick_shipping))
         .route(ShipShippingPath::PATH, post(shipping_detail::ship_shipping))
         .route(CancelShippingPath::PATH, post(shipping_detail::cancel_shipping))
+        // 旧路径 /admin/shipping/* → /admin/wms/shipping/* 重定向（服务旧书签）
+        .route(
+            "/admin/shipping",
+            axum::routing::any(|| async { Redirect::permanent("/admin/wms/shipping") }),
+        )
+        .route(
+            "/admin/shipping/{*rest}",
+            axum::routing::any(legacy_shipping_redirect),
+        )
+}
+
+/// 旧发货路径 → wms 出库管理重定向（308 保留 method，POST 旧链接也安全）
+async fn legacy_shipping_redirect(axum::extract::Path(rest): axum::extract::Path<String>) -> Redirect {
+    Redirect::permanent(&format!("/admin/wms/shipping/{rest}"))
 }

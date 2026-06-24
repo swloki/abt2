@@ -6,6 +6,28 @@ use crate::fms::enums::CounterpartyType;
 use crate::shared::enums::document_type::DocumentType;
 
 // ---------------------------------------------------------------------------
+// 立账请求（跨域经 ArApService::post_entry，替代直访 ArApLedgerRepo）
+// ---------------------------------------------------------------------------
+
+/// 业务单据驱动立账请求。幂等由底层 ON CONFLICT (source_type, source_id) 保证。
+#[derive(Debug, Clone)]
+pub struct PostLedgerEntryReq {
+    pub party_type: CounterpartyType,
+    pub party_id: i64,
+    pub source_type: DocumentType,
+    pub source_id: i64,
+    pub source_doc_no: String,
+    pub direction: LedgerDirection,
+    pub amount: Decimal,
+    pub currency: String,
+    pub exchange_rate: Decimal,
+    pub transaction_date: NaiveDate,
+    pub due_date: Option<NaiveDate>,
+    pub period: String,
+    pub description: String,
+}
+
+// ---------------------------------------------------------------------------
 // Entities
 // ---------------------------------------------------------------------------
 

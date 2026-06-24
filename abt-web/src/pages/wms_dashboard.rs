@@ -257,12 +257,12 @@ fn wms_dashboard_content(stats: &DashboardStats) -> Markup {
             })
             ({
                 quick_entry_card(
-                    "/admin/wms/stock-out",
+                    "/admin/wms/shipping",
                     "bg-danger-bg",
                     "text-danger",
                     &icon::upload_icon("w-[22px] h-[22px]"),
                     "出库管理",
-                    "销售出库 / 生产领料",
+                    "销售出库",
                 )
             })
             ({

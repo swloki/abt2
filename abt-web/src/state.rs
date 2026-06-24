@@ -104,6 +104,7 @@ impl AppState {
             use abt_core::mes::demand_handler::MesDemandCreatedHandler;
             use abt_core::sales::sales_order::{SalesDemandConfirmedHandler, SalesDemandRejectedHandler};
             use abt_core::sales::sales_return_received_handler::SalesReturnReceivedHandler;
+            use abt_core::sales::shipment_shipped_handler::ShipmentShippedHandler;
             use abt_core::shared::enums::event::DomainEventType;
 
             let registry = Arc::new(EventHandlerRegistryImpl::new());
@@ -144,6 +145,12 @@ impl AppState {
             registry.register(
                 DomainEventType::SalesReturnReceived,
                 Arc::new(SalesReturnReceivedHandler::new(pool.clone())),
+            );
+
+            // ShipmentShipped — 销售发货出库后，立正向 AR 台账 + COGS（Issue #93）
+            registry.register(
+                DomainEventType::ShipmentShipped,
+                Arc::new(ShipmentShippedHandler::new(pool.clone())),
             );
 
             let dead_letter = Arc::new(DeadLetterServiceImpl::new());
@@ -197,12 +204,16 @@ impl AppState {
 
     pub fn shipping_service(
         &self,
-    ) -> impl abt_core::sales::shipping_request::ShippingRequestService {
-        abt_core::sales::shipping_request::new_shipping_request_service(self.pool.clone())
+    ) -> impl abt_core::wms::outbound::ShippingRequestService {
+        abt_core::wms::outbound::new_shipping_request_service(self.pool.clone())
     }
 
     pub fn warehouse_service(&self) -> impl abt_core::wms::warehouse::WarehouseService {
         abt_core::wms::warehouse::new_warehouse_service(self.pool.clone())
+    }
+
+    pub fn wms_work_center_service(&self) -> impl abt_core::wms::work_center::WorkCenterService {
+        abt_core::wms::work_center::new_work_center_service(self.pool.clone())
     }
 
     // ── WMS (Inventory Management) Services ──

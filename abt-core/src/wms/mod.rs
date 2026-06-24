@@ -16,5 +16,6 @@ pub mod inventory;
 pub mod settings;
 pub mod low_stock_alert;
 pub mod outbound;
+pub mod pick_list;
 
 pub use enums::*;

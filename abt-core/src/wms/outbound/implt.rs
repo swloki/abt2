@@ -26,6 +26,7 @@ use crate::wms::enums::TransactionType;
 use crate::wms::inventory_transaction::{
     model::RecordTransactionReq, new_inventory_transaction_service, service::InventoryTransactionService,
 };
+use crate::wms::pick_list::{new_pick_list_service, service::PickListService};
 
 pub struct ShippingRequestServiceImpl {
     repo: ShippingRequestRepo,
@@ -444,6 +445,15 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
         if existing.status != ShippingStatus::Confirmed {
             return Err(DomainError::business_rule("Only Confirmed shipping requests can be picked"));
         }
+
+        // 生成拣货单（Phase 3，#93）— 拣货可追溯，记录 picked_qty/bin
+        // MVP：自动满拣并完成（picked_qty=requested_qty）；前端后续支持人工拣货时拆分 generate/complete
+        let pick_list_id = new_pick_list_service(self.pool.clone())
+            .generate_from_outbound(ctx, db, id)
+            .await?;
+        new_pick_list_service(self.pool.clone())
+            .complete_pick(ctx, db, pick_list_id)
+            .await?;
 
         new_state_machine_service(self.pool.clone())
             .transition(ctx, db, "ShippingStatus", id, "Picking", None)

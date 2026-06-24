@@ -262,7 +262,6 @@ fn modules() -> Vec<NavModule> {
                 NavItem { name: "计件工资", path: "/admin/mes/wages", icon: NavIcon::DollarSign, permission: Some(("LABOR_COST", "read")) },
                 NavItem { name: "生产报检", path: "/admin/mes/inspections", icon: NavIcon::Eye, permission: Some(("INSPECTION", "read")) },
                 NavItem { name: "完工入库", path: "/admin/mes/receipts", icon: NavIcon::ArrowDown, permission: Some(("WORK_ORDER", "read")) },
-                NavItem { name: "物料消耗", path: "/admin/mes/material-usage", icon: NavIcon::Package, permission: Some(("WORK_ORDER", "read")) },
                 NavItem { name: "生产异常", path: "/admin/mes/exceptions", icon: NavIcon::AlertTriangle, permission: Some(("WORK_ORDER", "read")) },
             ],
         },

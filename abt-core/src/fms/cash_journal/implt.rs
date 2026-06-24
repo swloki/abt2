@@ -47,6 +47,14 @@ impl CashJournalService for CashJournalServiceImpl {
             return Err(DomainError::validation("amount must be greater than zero"));
         }
 
+        // 多币种校验（issue #69）：汇率必须 > 0；CNY 强制汇率 = 1
+        if req.exchange_rate <= rust_decimal::Decimal::ZERO {
+            return Err(DomainError::validation("exchange rate must be greater than zero"));
+        }
+        if req.currency.eq_ignore_ascii_case("CNY") && req.exchange_rate != rust_decimal::Decimal::ONE {
+            return Err(DomainError::validation("CNY exchange rate must be 1"));
+        }
+
         // 借贷分录可选：简单收付款单不带分录；仅当提供分录时校验 header 金额 == 借/贷合计
         if !req.lines.is_empty() {
             let (total_debit, total_credit) = req.lines.iter().fold(
@@ -171,18 +179,7 @@ impl CashJournalService for CashJournalServiceImpl {
                 let party_type = CounterpartyType::Customer;
                 let party_id = journal.counterparty_id;
 
-                // 查询客户币种
-                let currency: String = sqlx::query_scalar::<sqlx::Postgres, Option<String>>(
-                    "SELECT currency FROM customers WHERE customer_id = $1 AND deleted_at IS NULL",
-                )
-                .bind(party_id)
-                .fetch_optional(&mut *db)
-                .await?
-                .flatten()
-                .filter(|c| !c.is_empty())
-                .unwrap_or_else(|| "CNY".to_string());
-
-                // 台账：AR 减少（Credit）
+                // 台账：AR 减少（Credit）— 币种与汇率取自凭证（issue #69）；let _ 忽略幂等冲突（#90 unique index）
                 let _ = ArApLedgerRepo::insert(
                     db,
                     &ArApLedgerInsert {
@@ -195,8 +192,8 @@ impl CashJournalService for CashJournalServiceImpl {
                         against_id: if is_auto_settle_source { Some(journal.source_id) } else { None },
                         direction: LedgerDirection::Credit,  // AR 减少
                         amount: journal.amount,
-                        currency: &currency,
-                        exchange_rate: Decimal::ONE,
+                        currency: &journal.currency,
+                        exchange_rate: journal.exchange_rate,
                         transaction_date: journal.transaction_date,
                         due_date: None,
                         period: &journal.period,
@@ -229,18 +226,7 @@ impl CashJournalService for CashJournalServiceImpl {
                 let party_type = CounterpartyType::Supplier;
                 let party_id = journal.counterparty_id;
 
-                // 查询供应商币种
-                let currency: String = sqlx::query_scalar::<sqlx::Postgres, Option<String>>(
-                    "SELECT currency FROM suppliers WHERE supplier_id = $1 AND deleted_at IS NULL",
-                )
-                .bind(party_id)
-                .fetch_optional(&mut *db)
-                .await?
-                .flatten()
-                .filter(|c| !c.is_empty())
-                .unwrap_or_else(|| "CNY".to_string());
-
-                // 台账：AP 减少（Debit）
+                // 台账：AP 减少（Debit）— 币种与汇率取自凭证（issue #69）；let _ 忽略幂等冲突（#90 unique index）
                 let _ = ArApLedgerRepo::insert(
                     db,
                     &ArApLedgerInsert {
@@ -253,8 +239,8 @@ impl CashJournalService for CashJournalServiceImpl {
                         against_id: if is_auto_settle_source { Some(journal.source_id) } else { None },
                         direction: LedgerDirection::Debit,  // AP 减少
                         amount: journal.amount,
-                        currency: &currency,
-                        exchange_rate: Decimal::ONE,
+                        currency: &journal.currency,
+                        exchange_rate: journal.exchange_rate,
                         transaction_date: journal.transaction_date,
                         due_date: None,
                         period: &journal.period,

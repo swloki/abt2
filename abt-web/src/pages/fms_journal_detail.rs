@@ -38,10 +38,21 @@ fn status_text(s: &JournalStatus) -> (&'static str, &'static str) {
  }
 }
 
-fn fmt_direction_amount(amount: rust_decimal::Decimal, d: &CashDirection) -> String {
+fn currency_symbol(currency: &str) -> String {
+ match currency.to_uppercase().as_str() {
+ "CNY" => "¥".to_string(),
+ "USD" => "$".to_string(),
+ "EUR" => "€".to_string(),
+ "HKD" => "HK$".to_string(),
+ other => format!("{other} "),
+ }
+}
+
+fn fmt_direction_amount(amount: rust_decimal::Decimal, currency: &str, d: &CashDirection) -> String {
+ let sym = currency_symbol(currency);
  match d {
- CashDirection::Inflow => format!("+¥{amount:.2}"),
- CashDirection::Outflow => format!("-¥{amount:.2}"),
+ CashDirection::Inflow => format!("+{sym}{amount:.2}"),
+ CashDirection::Outflow => format!("-{sym}{amount:.2}"),
  }
 }
 
@@ -105,7 +116,11 @@ pub async fn get_detail(path: JournalDetailPath, ctx: RequestContext) -> Result<
                     span
                         class="font-mono tabular-nums font-bold"
                         style=(format!("color:{}", amount_color(&journal.direction)))
-                    { (fmt_direction_amount(journal.amount, &journal.direction)) }
+                    { (fmt_direction_amount(journal.amount, &journal.currency, &journal.direction)) }
+                    @if !journal.currency.eq_ignore_ascii_case("CNY") {
+                        span class="text-xs text-muted font-mono tabular-nums"
+                        { "折合 ¥" (format!("{:.2}", journal.amount_cny())) }
+                    }
                 }
                 div class="flex flex-col gap-1" {
                     label { "银行账户" }

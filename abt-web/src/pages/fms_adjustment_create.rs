@@ -28,10 +28,21 @@ pub struct AdjustmentCreateForm {
     pub party_id: i64,
     pub direction: i16,
     pub amount: String,
+    #[serde(default = "default_currency")]
+    pub currency: String,
+    #[serde(default = "default_exchange_rate")]
+    pub exchange_rate: String,
     pub adjustment_date: String,
     pub int_order_no: Option<String>,
     pub ext_order_no: Option<String>,
     pub description: String,
+}
+
+fn default_currency() -> String {
+    "CNY".to_string()
+}
+fn default_exchange_rate() -> String {
+    "1".to_string()
 }
 
 // ── 余额查询端点（选往来方后 htmx 加载，只读参考）──
@@ -219,14 +230,40 @@ fn adjustment_create_page(
                                 option value="2" { "减少" }
                             }
                         }
-                        // 调整金额(含税)
+                        // 调整金额(含税) + 币种（issue #69 多币种）
                         div class="form-field" {
                             label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
                                 "调整金额(含税) " span class="text-danger" { "*" }
                             }
-                            input type="number" step="any" name="amount" required
-                                class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent font-mono text-right"
-                                placeholder="0.00";
+                            div class="flex gap-2" {
+                                input type="number" step="any" name="amount" id="amount" required
+                                    class="flex-1 min-w-0 px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent font-mono text-right"
+                                    placeholder="0.00" _="on input call adjCalcCny()";
+                                select name="currency" id="currency"
+                                    class="!w-24 shrink-0 px-2 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent"
+                                    _="on change call adjUpdateRate() then call adjCalcCny()"
+                                {
+                                    option value="CNY" selected { "CNY ¥" }
+                                    option value="USD" { "USD $" }
+                                    option value="EUR" { "EUR €" }
+                                    option value="HKD" { "HKD HK$" }
+                                }
+                            }
+                        }
+                        // 汇率（CNY 时只读固定 1，issue #69）
+                        div class="form-field" {
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "汇率" }
+                            input type="number" step="any" min="0" name="exchange_rate" id="exchange_rate"
+                                value="1" readonly
+                                class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-surface text-fg-2 font-mono text-right outline-none"
+                                _="on input call adjCalcCny()";
+                        }
+                        // 折合人民币（只读实时计算，issue #69）
+                        div class="form-field" {
+                            label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "折合人民币" }
+                            div id="amount_cny"
+                                class="w-full px-3 py-2 border border-border-soft rounded-sm text-sm bg-surface text-fg font-mono text-right"
+                            { "¥0.00" }
                         }
                         // 调整日期
                         div class="form-field" {
@@ -281,6 +318,36 @@ fn adjustment_create_page(
                 _="on click trigger submit on #adjustment-create-form"
             { (icon::check_circle_icon("w-4 h-4")) "提交" }
         }
+        // ── 多币种折算（issue #69）──
+        ({
+            maud::PreEscaped(
+                r#"<script>
+function adjUpdateRate() {
+    var cur = document.getElementById('currency').value;
+    var rate = document.getElementById('exchange_rate');
+    if (!rate) return;
+    if (cur === 'CNY') {
+        rate.value = '1';
+        rate.readOnly = true;
+        rate.classList.add('bg-surface', 'text-fg-2');
+        rate.classList.remove('bg-white', 'text-fg');
+    } else {
+        rate.readOnly = false;
+        rate.classList.remove('bg-surface', 'text-fg-2');
+        rate.classList.add('bg-white', 'text-fg');
+    }
+}
+function adjCalcCny() {
+    var amt = parseFloat(document.getElementById('amount').value) || 0;
+    var rate = parseFloat(document.getElementById('exchange_rate').value) || 0;
+    var box = document.getElementById('amount_cny');
+    if (box) box.textContent = '¥' + (amt * rate).toFixed(2);
+}
+adjUpdateRate();
+adjCalcCny();
+</script>"#,
+            )
+        })
     }
 }
 
@@ -327,6 +394,15 @@ async fn do_create(
         .unwrap_or(&form.adjustment_date)
         .to_string();
 
+    // 多币种（issue #69）：CNY 强制汇率 = 1；非 CNY 解析汇率
+    let currency = form.currency.trim().to_uppercase();
+    let exchange_rate = if currency == "CNY" {
+        rust_decimal::Decimal::ONE
+    } else {
+        rust_decimal::Decimal::from_str_exact(form.exchange_rate.trim())
+            .map_err(|_| abt_core::shared::types::DomainError::Validation("无效汇率".into()))?
+    };
+
     let req = CreateAdjustmentReq {
         party_type,
         party_id: form.party_id,
@@ -337,6 +413,8 @@ async fn do_create(
         int_order_no: form.int_order_no.filter(|s| !s.is_empty()),
         ext_order_no: form.ext_order_no.filter(|s| !s.is_empty()),
         description: form.description,
+        currency,
+        exchange_rate,
     };
 
     let svc = state.adjustment_service();

@@ -27,6 +27,10 @@ pub struct CashJournal {
     pub period: String,
     pub status: JournalStatus,
     pub remark: String,
+    /// 币种（ISO 4217 三字母代码，默认 CNY）— issue #69
+    pub currency: String,
+    /// 汇率（折合 CNY，CNY 时固定 1）— issue #69
+    pub exchange_rate: Decimal,
     pub operator_id: i64,
     pub version: i32,
     pub created_at: DateTime<Utc>,
@@ -38,6 +42,11 @@ impl CashJournal {
     /// Reconstruct CounterpartyRef from the two DB columns
     pub fn counterparty(&self) -> CounterpartyRef {
         CounterpartyRef::from_parts(self.counterparty_type, self.counterparty_id)
+    }
+
+    /// 折合人民币金额 = amount × exchange_rate（issue #69，动态计算不落库）
+    pub fn amount_cny(&self) -> Decimal {
+        self.amount * self.exchange_rate
     }
 }
 
@@ -71,6 +80,10 @@ pub struct CreateCashJournalReq {
     pub transaction_date: NaiveDate,
     pub period: String,
     pub remark: String,
+    /// 币种（默认 CNY）— issue #69
+    pub currency: String,
+    /// 汇率（CNY 固定 1，非 CNY 由调用方传入）— issue #69
+    pub exchange_rate: Decimal,
     pub lines: Vec<CashJournalLineInput>,
 }
 

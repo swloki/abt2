@@ -118,6 +118,8 @@ async fn k2_cash_receipt_confirm_and_writeoff() {
                 transaction_date: today,
                 period,
                 remark: "e2e k2".into(),
+                currency: "CNY".into(),
+                exchange_rate: Decimal::ONE,
                 lines: vec![
                     CashJournalLineInput {
                         account_code: "银行存款".into(),
@@ -208,6 +210,8 @@ async fn k3_over_writeoff_rejected() {
                 transaction_date: today,
                 period,
                 remark: "e2e k3".into(),
+                currency: "CNY".into(),
+                exchange_rate: Decimal::ONE,
                 lines: vec![
                     CashJournalLineInput {
                         account_code: "银行存款".into(),

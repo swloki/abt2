@@ -46,11 +46,22 @@ fn status_label(s: &JournalStatus) -> (&'static str, &'static str, &'static str)
  }
 }
 
-fn fmt_amount(amount: rust_decimal::Decimal, direction: &CashDirection) -> String {
+fn currency_symbol(currency: &str) -> String {
+ match currency.to_uppercase().as_str() {
+ "CNY" => "¥".to_string(),
+ "USD" => "$".to_string(),
+ "EUR" => "€".to_string(),
+ "HKD" => "HK$".to_string(),
+ other => format!("{other} "),
+ }
+}
+
+fn fmt_amount(amount: rust_decimal::Decimal, currency: &str, direction: &CashDirection) -> String {
+ let sym = currency_symbol(currency);
  let abs = format!("{amount:.2}");
  match direction {
- CashDirection::Inflow => format!("+¥{abs}"),
- CashDirection::Outflow => format!("-¥{abs}"),
+ CashDirection::Inflow => format!("+{sym}{abs}"),
+ CashDirection::Outflow => format!("-{sym}{abs}"),
  }
 }
 
@@ -373,7 +384,7 @@ fn journal_data_card(result: &PaginatedResult<CashJournal>, params: &JournalQuer
                                         amount_color(&item.direction),
                                     )
                                 })
-                            { (fmt_amount(item.amount, &item.direction)) }
+                            { (fmt_amount(item.amount, &item.currency, &item.direction)) }
                             td { (counterparty_name(item, counterparty_names)) }
                             td class="font-mono tabular-nums text-muted" { (&item.bank_account) }
                             td class="text-xs text-muted" {

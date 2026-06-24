@@ -394,6 +394,8 @@ impl ReconciliationService for ReconciliationServiceImpl {
                     transaction_date: chrono::Local::now().date_naive(),
                     period: chrono::Local::now().format("%Y-%m").to_string(),
                     remark: String::new(),
+                    currency: "CNY".to_string(),
+                    exchange_rate: rust_decimal::Decimal::ONE,
                     lines: vec![],
                 },
             )

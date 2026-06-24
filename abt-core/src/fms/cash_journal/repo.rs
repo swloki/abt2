@@ -6,7 +6,7 @@ use super::super::enums::JournalStatus;
 use super::model::*;
 use crate::shared::types::{DataScope, PageParams};
 
-const JOURNAL_COLUMNS: &str = "id, doc_number, journal_type, direction, amount, counterparty_type, counterparty_id, source_type, source_id, bank_account, transaction_date, period, status, remark, operator_id, version, created_at, updated_at, deleted_at";
+const JOURNAL_COLUMNS: &str = "id, doc_number, journal_type, direction, amount, counterparty_type, counterparty_id, source_type, source_id, bank_account, transaction_date, period, status, remark, currency, exchange_rate, operator_id, version, created_at, updated_at, deleted_at";
 
 const LINE_COLUMNS: &str =
     "id, journal_id, account_code, debit_amount, credit_amount, cost_center, profit_center, remark";
@@ -28,8 +28,9 @@ impl CashJournalRepo {
         let row = sqlx::query_scalar::<sqlx::Postgres, i64>(
             r#"INSERT INTO cash_journals
                (doc_number, journal_type, direction, amount, counterparty_type, counterparty_id,
-                source_type, source_id, bank_account, transaction_date, period, remark, operator_id)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+                source_type, source_id, bank_account, transaction_date, period, remark,
+                currency, exchange_rate, operator_id)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
                RETURNING id"#,
         )
         .bind(doc_number)
@@ -44,6 +45,8 @@ impl CashJournalRepo {
         .bind(req.transaction_date)
         .bind(&req.period)
         .bind(&req.remark)
+        .bind(&req.currency)
+        .bind(req.exchange_rate)
         .bind(operator_id)
         .fetch_one(executor)
         .await?;

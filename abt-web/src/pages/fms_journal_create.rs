@@ -35,6 +35,17 @@ pub struct JournalCreateForm {
     pub period: String,
     pub remark: String,
     pub amount: String,
+    #[serde(default = "default_currency")]
+    pub currency: String,
+    #[serde(default = "default_exchange_rate")]
+    pub exchange_rate: String,
+}
+
+fn default_currency() -> String {
+    "CNY".to_string()
+}
+fn default_exchange_rate() -> String {
+    "1".to_string()
 }
 
 #[derive(Debug, Deserialize)]
@@ -151,6 +162,17 @@ pub async fn create(
     };
     let source_id = form.source_id.unwrap_or(0);
 
+    // 多币种（issue #69）：CNY 强制汇率 = 1；非 CNY 解析汇率
+    let currency = form.currency.trim().to_uppercase();
+    let exchange_rate = if currency == "CNY" {
+        rust_decimal::Decimal::ONE
+    } else {
+        form.exchange_rate
+            .trim()
+            .parse::<rust_decimal::Decimal>()
+            .map_err(|_| abt_core::shared::types::DomainError::Validation("无效汇率".into()))?
+    };
+
     // 出纳日记账简化为简单收付款单：金额取自表单，不再强制借贷分录（write_off 按 header amount 核销）
     let req = CreateCashJournalReq {
         journal_type,
@@ -163,6 +185,8 @@ pub async fn create(
         transaction_date,
         period: form.period,
         remark: form.remark,
+        currency,
+        exchange_rate,
         lines: vec![],
     };
 
@@ -245,7 +269,7 @@ fn journal_create_page() -> Markup {
                                 option value="2" { "流出 (Outflow)" }
                             }
                         }
-                        // 金额
+                        // 金额 + 币种（issue #69 多币种）
                         div class="form-field" {
                             label
                                 class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap"
@@ -253,14 +277,59 @@ fn journal_create_page() -> Markup {
                                 "金额 "
                                 span class="text-danger" { "*" }
                             }
+                            div class="flex gap-2" {
+                                input
+                                    class="flex-1 min-w-0 px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent font-mono text-right"
+                                    type="number"
+                                    step="any"
+                                    min="0"
+                                    name="amount"
+                                    id="amount"
+                                    required
+                                    placeholder="0.00"
+                                    _="on input call cjCalcCny()";
+                                select
+                                    class="!w-24 shrink-0 px-2 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent"
+                                    name="currency"
+                                    id="currency"
+                                    _="on change call cjUpdateRate() then call cjCalcCny()"
+                                {
+                                    option value="CNY" selected { "CNY ¥" }
+                                    option value="USD" { "USD $" }
+                                    option value="EUR" { "EUR €" }
+                                    option value="HKD" { "HKD HK$" }
+                                }
+                            }
+                        }
+                        // 汇率（CNY 时只读固定 1，issue #69）
+                        div class="form-field" {
+                            label
+                                class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap"
+                            {
+                                "汇率"
+                            }
                             input
-                                class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent font-mono text-right"
+                                class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-surface text-fg-2 font-mono text-right outline-none"
                                 type="number"
                                 step="any"
                                 min="0"
-                                name="amount"
-                                required
-                                placeholder="0.00";
+                                name="exchange_rate"
+                                id="exchange_rate"
+                                value="1"
+                                readonly
+                                _="on input call cjCalcCny()";
+                        }
+                        // 折合人民币（只读实时计算，issue #69）
+                        div class="form-field" {
+                            label
+                                class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap"
+                            {
+                                "折合人民币"
+                            }
+                            div
+                                class="w-full px-3 py-2 border border-border-soft rounded-sm text-sm bg-surface text-fg font-mono text-right"
+                                id="amount_cny"
+                            { "¥0.00" }
                         }
                         // 银行账户（预设 + 手动）
                         div class="form-field" {
@@ -432,6 +501,32 @@ fn journal_create_page() -> Markup {
         });
     }
 })();
+
+// ── 多币种折算（issue #69）──
+function cjUpdateRate() {
+    var cur = document.getElementById('currency').value;
+    var rate = document.getElementById('exchange_rate');
+    if (!rate) return;
+    if (cur === 'CNY') {
+        rate.value = '1';
+        rate.readOnly = true;
+        rate.classList.add('bg-surface', 'text-fg-2');
+        rate.classList.remove('bg-white', 'text-fg');
+    } else {
+        rate.readOnly = false;
+        rate.classList.remove('bg-surface', 'text-fg-2');
+        rate.classList.add('bg-white', 'text-fg');
+    }
+}
+function cjCalcCny() {
+    var amt = parseFloat(document.getElementById('amount').value) || 0;
+    var rate = parseFloat(document.getElementById('exchange_rate').value) || 0;
+    var box = document.getElementById('amount_cny');
+    if (box) box.textContent = '¥' + (amt * rate).toFixed(2);
+}
+// 初始化
+cjUpdateRate();
+cjCalcCny();
 </script>"#,
             )
         })

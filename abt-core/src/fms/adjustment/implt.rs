@@ -24,31 +24,6 @@ impl AdjustmentServiceImpl {
     pub fn new(pool: PgPool) -> Self {
         Self { pool }
     }
-
-    /// 查往来方币种（与 cash_journal 一致：客户/供应商表 currency，缺省 CNY）
-    async fn fetch_currency(
-        db: PgExecutor<'_>,
-        party_type: CounterpartyType,
-        party_id: i64,
-    ) -> Result<String> {
-        let sql = match party_type {
-            CounterpartyType::Customer => {
-                "SELECT currency FROM customers WHERE customer_id = $1 AND deleted_at IS NULL"
-            }
-            CounterpartyType::Supplier => {
-                "SELECT currency FROM suppliers WHERE supplier_id = $1 AND deleted_at IS NULL"
-            }
-            _ => return Ok("CNY".to_string()),
-        };
-        let currency: String = sqlx::query_scalar::<sqlx::Postgres, Option<String>>(sql)
-            .bind(party_id)
-            .fetch_optional(&mut *db)
-            .await?
-            .flatten()
-            .filter(|c| !c.is_empty())
-            .unwrap_or_else(|| "CNY".to_string());
-        Ok(currency)
-    }
 }
 
 #[async_trait::async_trait]
@@ -61,6 +36,13 @@ impl AdjustmentService for AdjustmentServiceImpl {
     ) -> Result<i64> {
         if req.amount <= Decimal::ZERO {
             return Err(DomainError::validation("adjustment amount must be greater than zero"));
+        }
+        // 多币种校验（issue #69）：汇率必须 > 0；CNY 强制汇率 = 1
+        if req.exchange_rate <= Decimal::ZERO {
+            return Err(DomainError::validation("exchange rate must be greater than zero"));
+        }
+        if req.currency.eq_ignore_ascii_case("CNY") && req.exchange_rate != Decimal::ONE {
+            return Err(DomainError::validation("CNY exchange rate must be 1"));
         }
         match req.party_type {
             CounterpartyType::Customer | CounterpartyType::Supplier => {}
@@ -76,22 +58,18 @@ impl AdjustmentService for AdjustmentServiceImpl {
             .next_number(ctx, db, DocumentType::ArApAdjustment)
             .await?;
 
-        // 2. 查往来方币种
-        let currency = Self::fetch_currency(db, req.party_type, req.party_id).await?;
-        let exchange_rate = Decimal::ONE;
-
-        // 3. 插入调整单
+        // 2. 插入调整单（币种与汇率取自请求，issue #69）
         let id = AdjustmentRepo::create(
             db,
             &doc_number,
             &req,
-            &currency,
-            exchange_rate,
+            &req.currency,
+            req.exchange_rate,
             ctx.operator_id,
         )
         .await?;
 
-        // 4. 业务方向 → 台账 LedgerDirection（与 cash_journal 一致）
+        // 3. 业务方向 → 台账 LedgerDirection（与 cash_journal 一致）
         let ledger_dir = match (req.party_type, req.direction) {
             (CounterpartyType::Customer, AdjustmentDirection::Increase) => LedgerDirection::Debit,
             (CounterpartyType::Customer, AdjustmentDirection::Decrease) => LedgerDirection::Credit,
@@ -110,7 +88,7 @@ impl AdjustmentService for AdjustmentServiceImpl {
             format!("应收应付调整 {doc_number} {dir_label} — {}", req.description)
         };
 
-        // 5. 写台账（同事务）
+        // 4. 写台账（同事务）— 币种与汇率取自请求（issue #69）
         let ledger_id = ArApLedgerRepo::insert(
             db,
             &ArApLedgerInsert {
@@ -123,8 +101,8 @@ impl AdjustmentService for AdjustmentServiceImpl {
                 against_id: None,
                 direction: ledger_dir,
                 amount: req.amount,
-                currency: &currency,
-                exchange_rate,
+                currency: &req.currency,
+                exchange_rate: req.exchange_rate,
                 transaction_date: req.adjustment_date,
                 due_date: None,
                 period: &req.period,

@@ -58,6 +58,18 @@ pub struct OrderReportPath {
     pub order_id: i64,
 }
 
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/mes/orders/{order_id}/requisition")]
+pub struct OrderRequisitionPath {
+    pub order_id: i64,
+}
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/mes/orders/{order_id}/receipt")]
+pub struct OrderReceiptPath {
+    pub order_id: i64,
+}
+
 /// 行内展开：懒加载行详情 `<tr class="row-detail">`（列表页点展开按钮 hx-get）。
 #[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/mes/orders/{order_id}/row-detail")]
@@ -90,6 +102,8 @@ pub fn router() -> Router<AppState> {
         .route(OrderUnreleasePath::PATH, post(mes_order_detail::unrelease_order))
         .route(OrderSplitPath::PATH, post(mes_order_detail::split_order))
         .route(OrderReportPath::PATH, post(mes_order_detail::report_routing_step))
+        .route(OrderRequisitionPath::PATH, post(mes_order_detail::create_requisition))
+        .route(OrderReceiptPath::PATH, post(mes_order_detail::create_receipt))
         .route(OrderRowDetailPath::PATH, get(mes_order_list::get_order_row_detail))
         .route(SourceOrderSearchPath::PATH, get(mes_order_create::search_source_orders))
         .route(SourcePlanSearchPath::PATH, get(mes_order_create::search_source_plans))

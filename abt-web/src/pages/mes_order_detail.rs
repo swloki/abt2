@@ -7,18 +7,21 @@ use abt_core::mes::enums::{DefectReason, ShiftType, WorkOrderStatus};
 use abt_core::mes::production_batch::{
     ProductionBatchService, SplitReq, StepConfirmationReq,
 };
+use abt_core::mes::production_receipt::{CreateReceiptReq, ProductionReceiptService};
 use abt_core::mes::work_order::{
     HubAuditLog, HubMaterial, HubReceipts, HubReports, HubRoutingMatrix,
     MaterialAvailabilityLevel, RoutingCellStatus, WorkOrder, WorkOrderHubSummary,
     WorkOrderService,
 };
+use abt_core::wms::material_requisition::{CreateManualReq, MaterialRequisitionService};
 
 use crate::components::{disclosure, drawer, icon, material_badge, status_step_bar};
 use crate::errors::Result;
 use crate::layout::page::admin_page;
 use crate::routes::mes_order::{
-    OrderCancelPath, OrderClosePath, OrderDetailPath, OrderListPath, OrderReportPath,
-    OrderReleasePath, OrderSplitPath, OrderUnreleasePath,
+    OrderCancelPath, OrderClosePath, OrderDetailPath, OrderListPath, OrderReceiptPath,
+    OrderRequisitionPath, OrderReportPath, OrderReleasePath, OrderSplitPath,
+    OrderUnreleasePath,
 };
 use crate::utils::RequestContext;
 use abt_macros::require_permission;
@@ -368,6 +371,158 @@ pub async fn report_routing_step(
     Ok(([("HX-Trigger", "reportChanged")], Html(String::new())))
 }
 
+#[derive(Debug, serde::Deserialize)]
+pub struct RequisitionForm {
+    pub warehouse_id: i64,
+    pub requisition_date: chrono::NaiveDate,
+    #[serde(default)]
+    pub remark: Option<String>,
+    /// 行项目物料 ID（按 BOM 可用性行顺序，前端逐行 name="product_id"）
+    #[serde(default)]
+    pub product_id: Vec<i64>,
+    /// 行项目本次申请量（与 product_id 按下标对齐；空行/0 跳过）
+    #[serde(default)]
+    pub requested_qty: Vec<String>,
+}
+
+/// 手动创建领料单（事务包裹 + HX-Trigger 局部刷新）。
+///
+/// 调 `MaterialRequisitionService::create_manual`：按用户在 drawer 中按 BOM 填写的本次
+/// 申请量建单（CreateManualItemReq{product_id, requested_qty}）。成功广播
+/// `requisitionChanged`，物料 disclosure + 摘要带各自监听并自刷新（不 redirect）。
+#[require_permission("WORK_ORDER", "update")]
+pub async fn create_requisition(
+    _path: OrderRequisitionPath,
+    ctx: RequestContext,
+    axum::Form(form): axum::Form<RequisitionForm>,
+) -> Result<impl IntoResponse> {
+    let RequestContext { state, service_ctx, .. } = ctx;
+    let mut tx = state
+        .pool
+        .begin()
+        .await
+        .map_err(|e| abt_core::shared::types::DomainError::Internal(e.into()))?;
+
+    // 行项目对齐收集（product_id 与 requested_qty 等长；前端按 BOM 行数对齐传参，
+    // 缺失项以空串/0 视为不申请并跳过）
+    let parse_qty = |s: &str| -> std::result::Result<rust_decimal::Decimal, abt_core::shared::types::DomainError> {
+        let trimmed = s.trim();
+        if trimmed.is_empty() {
+            return Ok(rust_decimal::Decimal::ZERO);
+        }
+        trimmed.parse::<rust_decimal::Decimal>().map_err(|_| {
+            abt_core::shared::types::DomainError::validation("数量格式错误")
+        })
+    };
+
+    let mut items = Vec::new();
+    let n = form.product_id.len().max(form.requested_qty.len());
+    for i in 0..n {
+        let product_id = form.product_id.get(i).copied();
+        let raw = form.requested_qty.get(i).map(String::as_str).unwrap_or("");
+        let qty = parse_qty(raw)?;
+        // 跳过无 product_id 或申请量 ≤ 0 的行
+        if let Some(pid) = product_id
+            && qty > rust_decimal::Decimal::ZERO
+        {
+            items.push(abt_core::wms::material_requisition::CreateManualItemReq {
+                product_id: pid,
+                requested_qty: qty,
+            });
+        }
+    }
+
+    if items.is_empty() {
+        return Err(abt_core::shared::types::DomainError::validation(
+            "至少填写一项领料申请量",
+        )
+        .into());
+    }
+
+    let req = CreateManualReq {
+        warehouse_id: form.warehouse_id,
+        requisition_date: form.requisition_date,
+        remark: form.remark,
+        items,
+    };
+    let req_svc = state.material_requisition_service();
+    req_svc.create_manual(&service_ctx, &mut tx, req).await?;
+    tx.commit()
+        .await
+        .map_err(|e| abt_core::shared::types::DomainError::Internal(e.into()))?;
+
+    // 广播 requisitionChanged：物料 disclosure + 摘要带各自监听并自刷新
+    Ok(([("HX-Trigger", "requisitionChanged")], Html(String::new())))
+}
+
+#[derive(Debug, serde::Deserialize)]
+pub struct ReceiptForm {
+    pub batch_id: i64,
+    pub warehouse_id: i64,
+    pub received_qty: String,
+    pub receipt_date: chrono::NaiveDate,
+    #[serde(default)]
+    pub remark: Option<String>,
+}
+
+/// 创建并确认入库单（事务包裹 + HX-Trigger 局部刷新）。
+///
+/// 调 `ProductionReceiptService::create` 建单，紧接 `confirm(id)`：触发倒冲 + 成本 +
+/// FQC 门控。FQC 未通过/倒冲失败时 confirm 返回 `DomainError`，事务回滚，错误经 `?`
+/// 上抛回 drawer（drawer 的 hx-on 在请求失败时保留表单不关闭，前端可看到错误提示）。
+/// 成功广播 `receiptChanged`，入库 disclosure + 摘要带各自监听并自刷新（不 redirect）。
+#[require_permission("WORK_ORDER", "update")]
+pub async fn create_receipt(
+    path: OrderReceiptPath,
+    ctx: RequestContext,
+    axum::Form(form): axum::Form<ReceiptForm>,
+) -> Result<impl IntoResponse> {
+    let RequestContext { state, service_ctx, .. } = ctx;
+    let mut tx = state
+        .pool
+        .begin()
+        .await
+        .map_err(|e| abt_core::shared::types::DomainError::Internal(e.into()))?;
+
+    let received_qty = form
+        .received_qty
+        .parse::<rust_decimal::Decimal>()
+        .map_err(|_| abt_core::shared::types::DomainError::validation("入库数量格式错误"))?;
+    if received_qty <= rust_decimal::Decimal::ZERO {
+        return Err(abt_core::shared::types::DomainError::validation("入库数量必须大于 0").into());
+    }
+
+    // 取工单产出产品 ID（入库产品 = 工单 product_id）
+    let wo_svc = state.work_order_service();
+    let order = wo_svc
+        .find_by_id(&service_ctx, &mut tx, path.order_id)
+        .await?;
+
+    let rcpt_svc = state.production_receipt_service();
+    let req = CreateReceiptReq {
+        work_order_id: path.order_id,
+        batch_id: Some(form.batch_id),
+        product_id: order.product_id,
+        received_qty,
+        warehouse_id: form.warehouse_id,
+        zone_id: None,
+        bin_id: None,
+        receipt_date: form.receipt_date,
+        remark: form.remark,
+    };
+    let receipt_id = rcpt_svc.create(&service_ctx, &mut tx, req).await?;
+    // confirm：倒冲 + FQC 门控；失败回滚整事务（含 create 的插入）
+    rcpt_svc
+        .confirm(&service_ctx, &mut tx, receipt_id)
+        .await?;
+    tx.commit()
+        .await
+        .map_err(|e| abt_core::shared::types::DomainError::Internal(e.into()))?;
+
+    // 广播 receiptChanged：入库 disclosure + 摘要带各自监听并自刷新
+    Ok(([("HX-Trigger", "receiptChanged")], Html(String::new())))
+}
+
 // ============================================================================
 // 工作台渲染（hub_page + 各 disclosure body + drawer）
 // ============================================================================
@@ -411,7 +566,7 @@ fn hub_page(summary: &WorkOrderHubSummary, detail_path: &str) -> Markup {
                     summary.material.availability.level,
                     MaterialAvailabilityLevel::Unavailable | MaterialAvailabilityLevel::Late
                 ),
-                None, // P2: 领料 drawer（留待接入 MaterialRequisitionService）
+                requisition_action(order),
                 body_material(&summary.material),
                 detail_path,
                 Some("requisitionChanged"),
@@ -447,7 +602,7 @@ fn hub_page(summary: &WorkOrderHubSummary, detail_path: &str) -> Markup {
                 icon::package_icon("w-4 h-4"),
                 Some(&receipt_summary(&summary.receipts)),
                 false,
-                None, // P2: 入库 drawer（留待接入 ProductionReceiptService）
+                receipt_action(order),
                 body_receipts(&summary.receipts),
                 detail_path,
                 Some("receiptChanged"),
@@ -468,6 +623,10 @@ fn hub_page(summary: &WorkOrderHubSummary, detail_path: &str) -> Markup {
             (split_drawer(order, detail_path))
             // 报工 drawer
             (report_drawer(&summary.matrix, order, detail_path))
+            // 领料 drawer
+            (requisition_drawer(&summary.material, order))
+            // 入库 drawer
+            (receipt_drawer(&summary.matrix, order))
         }
     }
 }
@@ -1187,6 +1346,28 @@ fn report_action(order: &WorkOrder) -> Option<Markup> {
     }
 }
 
+fn requisition_action(order: &WorkOrder) -> Option<Markup> {
+    if matches!(
+        order.status,
+        WorkOrderStatus::Released | WorkOrderStatus::InProduction
+    ) {
+        Some(disclosure::di_action("申请领料", "add .open to #requisition-drawer"))
+    } else {
+        None
+    }
+}
+
+fn receipt_action(order: &WorkOrder) -> Option<Markup> {
+    if matches!(
+        order.status,
+        WorkOrderStatus::Released | WorkOrderStatus::InProduction
+    ) {
+        Some(disclosure::di_action("入库", "add .open to #receipt-drawer"))
+    } else {
+        None
+    }
+}
+
 // ── Drawers ──
 
 /// level → 语义色 token（供 material body 复用）
@@ -1361,4 +1542,132 @@ fn report_drawer(matrix: &HubRoutingMatrix, order: &WorkOrder, _detail_path: &st
         }
     };
     drawer::drawer("report-drawer", "工序报工", "确认报工", "report-form", body)
+}
+
+/// 领料 drawer：目标仓库/期望日期/备注 + 按 BOM 物料明细（每项本次申请量 input）。
+///
+/// 行项来源：`material.availability.lines`（product_id / product_code / product_name /
+/// required_qty）。前端按行顺序生成 name="product_id" 与 name="requested_qty"，handler
+/// 按下标对齐收集（空行/0 跳过）。
+fn requisition_drawer(material: &HubMaterial, order: &WorkOrder) -> Markup {
+    let req_path = OrderRequisitionPath { order_id: order.id }.to_string();
+    let body = html! {
+        form id="requisition-form" hx-post=(&req_path) hx-swap="none"
+            hx-on:htmx:after-request="if(event.detail.successful) document.querySelector('#requisition-drawer').classList.remove('open')"
+        {
+            // 目标仓库
+            div class="mb-4" {
+                label class="block text-xs text-muted font-medium mb-1.5" { "目标仓库 ID" }
+                input name="warehouse_id" type="number" required min="1"
+                    class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white outline-none focus:border-accent font-mono";
+            }
+            // 期望日期
+            div class="mb-4" {
+                label class="block text-xs text-muted font-medium mb-1.5" { "期望领料日期" }
+                input name="requisition_date" type="date" required
+                    class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white outline-none focus:border-accent"
+                    value=(chrono::Local::now().format("%Y-%m-%d").to_string());
+            }
+            // 按 BOM 物料明细
+            div class="mb-4" {
+                div class="text-xs text-muted font-medium mb-2" { "按 BOM 物料明细（填写本次申请量，留空跳过）" }
+                @if material.availability.lines.is_empty() {
+                    p class="text-sm text-muted text-center py-4" { "暂无 BOM 物料明细" }
+                } @else {
+                    div class="flex flex-col gap-2" {
+                        @for line in &material.availability.lines {
+                            div class="flex items-center gap-2 px-3 py-2 bg-surface border border-border-soft rounded-sm" {
+                                input type="hidden" name="product_id" value=(line.product_id);
+                                div class="flex-1 min-w-0" {
+                                    div class="text-sm text-fg truncate" { (line.product_name) }
+                                    div class="text-[11px] text-muted font-mono" {
+                                        (line.product_code) " · 需求 " (crate::utils::fmt_qty(line.required_qty))
+                                        " · ATP " (crate::utils::fmt_qty(line.atp))
+                                    }
+                                }
+                                input name="requested_qty" type="number" min="0" step="any"
+                                    placeholder="0"
+                                    class="w-[96px] px-2 py-1.5 border border-border rounded-sm text-sm bg-white outline-none focus:border-accent font-mono tabular-nums text-right";
+                            }
+                        }
+                    }
+                }
+            }
+            // 备注
+            div class="mb-4" {
+                label class="block text-xs text-muted font-medium mb-1.5" { "备注" }
+                textarea name="remark" rows="2" placeholder="选填"
+                    class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white outline-none focus:border-accent resize-y min-h-[72px]";
+            }
+            div class="flex gap-2 p-3 bg-accent-bg rounded-md text-xs text-fg-2 items-start" {
+                (icon::info_icon("w-[15px] h-[15px] shrink-0 mt-0.5"))
+                span { "提交后创建领料单（草稿态），需在 WMS 领料单列表中确认并发料后扣减库存。" }
+            }
+        }
+    };
+    drawer::drawer("requisition-drawer", "申请领料", "确认申请", "requisition-form", body)
+}
+
+/// 入库 drawer：批次/入库数量/目标仓库/日期/备注。提交即 create + confirm
+/// （倒冲 + FQC 门控）。FQC 未过或倒冲失败由 handler 返回错误，drawer 保留表单。
+fn receipt_drawer(matrix: &HubRoutingMatrix, order: &WorkOrder) -> Markup {
+    let rcpt_path = OrderReceiptPath { order_id: order.id }.to_string();
+    let remaining = (order.planned_qty - order.completed_qty).max(rust_decimal::Decimal::ZERO);
+    let body = html! {
+        form id="receipt-form" hx-post=(&rcpt_path) hx-swap="none"
+            hx-on:htmx:after-request="if(event.detail.successful) document.querySelector('#receipt-drawer').classList.remove('open')"
+        {
+            // 生产批次
+            div class="mb-4" {
+                label class="block text-xs text-muted font-medium mb-1.5" { "生产批次" }
+                select name="batch_id" required
+                    class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white outline-none focus:border-accent"
+                {
+                    option value="" disabled selected { "选择批次" }
+                    @for row in &matrix.rows {
+                        option value=(row.batch.id) {
+                            (row.batch.batch_no.as_str()) " (" (crate::utils::fmt_qty(row.batch.batch_qty)) " 件)"
+                        }
+                    }
+                }
+            }
+            // 入库数量 + 目标仓库
+            div class="grid grid-cols-2 gap-3 mb-4" {
+                div {
+                    label class="block text-xs text-muted font-medium mb-1.5" { "入库数量" }
+                    input name="received_qty" type="number" min="0" step="any" required
+                        class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white outline-none focus:border-accent font-mono";
+                }
+                div {
+                    label class="block text-xs text-muted font-medium mb-1.5" { "目标仓库 ID" }
+                    input name="warehouse_id" type="number" min="1" required
+                        class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white outline-none focus:border-accent font-mono";
+                }
+            }
+            // 工单剩余可入库量（只读展示）
+            div class="mb-4" {
+                label class="block text-xs text-muted font-medium mb-1.5" { "工单剩余可入库量" }
+                input class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-surface text-muted font-mono tabular-nums"
+                    readonly value=(format!("{} 件", crate::utils::fmt_qty(remaining)));
+            }
+            // 入库日期
+            div class="mb-4" {
+                label class="block text-xs text-muted font-medium mb-1.5" { "入库日期" }
+                input name="receipt_date" type="date" required
+                    class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white outline-none focus:border-accent"
+                    value=(chrono::Local::now().format("%Y-%m-%d").to_string());
+            }
+            // 备注
+            div class="mb-4" {
+                label class="block text-xs text-muted font-medium mb-1.5" { "备注" }
+                textarea name="remark" rows="2" placeholder="选填"
+                    class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white outline-none focus:border-accent resize-y min-h-[72px]";
+            }
+            div class="flex gap-2 p-3 bg-accent-bg rounded-md text-xs text-fg-2 items-start" {
+                (icon::info_icon("w-[15px] h-[15px] shrink-0 mt-0.5"))
+                span { "确认后立即建单并执行入库：触发倒冲扣料 + 成本结转 + FQC 门控。若工单含报检工序且 FQC 未通过，入库将被拒绝。" }
+            }
+        }
+    };
+    drawer::drawer("receipt-drawer", "完工入库", "确认入库", "receipt-form", body)
 }

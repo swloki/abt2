@@ -419,7 +419,7 @@ fn stock_filter_bar(
         hx-select="#stock-data-card"
         hx-swap="outerHTML"
         hx-include="#stock-filter-form"
-        hx-push-url="true"
+       
     {
         div class="relative w-[180px] icon:absolute icon:left-3 icon:top-1/2 icon:-translate-y-1/2 icon:w-4 icon:h-4 icon:text-muted"
         {

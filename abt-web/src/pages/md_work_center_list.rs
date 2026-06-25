@@ -114,7 +114,7 @@ fn work_center_list_page(
             hx-target="#data-card"
             hx-select="#data-card"
             hx-swap="outerHTML"
-            hx-push-url="true"
+           
             hx-include="#wc-filter-form"
         {
 

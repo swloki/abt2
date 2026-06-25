@@ -423,7 +423,7 @@ fn product_table_fragment(
             hx-select=".data-card"
             hx-swap="outerHTML"
             hx-include="#filter-form"
-            hx-push-url="true"
+           
         {
             div class="relative w-60" {
                 ({

@@ -405,7 +405,7 @@ fn view_toggle_and_filter(active: &str, params: &DemandPoolQueryParams) -> Marku
                 hx-target="#demand-pool-data-card"
                 hx-select="#demand-pool-data-card"
                 hx-swap="outerHTML"
-                hx-push-url="true"
+               
                 hx-include="#demand-pool-filter-form"
             { (icon::grid_4_icon("w-4 h-4")) "物料汇总" }
             a   class=(detail_cls)
@@ -414,7 +414,7 @@ fn view_toggle_and_filter(active: &str, params: &DemandPoolQueryParams) -> Marku
                 hx-target="#demand-pool-data-card"
                 hx-select="#demand-pool-data-card"
                 hx-swap="outerHTML"
-                hx-push-url="true"
+               
                 hx-include="#demand-pool-filter-form"
             { (icon::rows_icon("w-4 h-4")) "订单行明细" }
         }
@@ -439,7 +439,7 @@ fn view_toggle_and_filter(active: &str, params: &DemandPoolQueryParams) -> Marku
             hx-target="#demand-pool-data-card"
             hx-select="#demand-pool-data-card"
             hx-swap="outerHTML"
-            hx-push-url="true"
+           
         {
             input type="hidden" name="view" value=(active);
             @if let Some(oid) = params.order_id {

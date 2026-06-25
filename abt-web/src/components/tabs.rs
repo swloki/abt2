@@ -83,7 +83,7 @@ fn status_tab(hx_get: &str, hx_target: &str, hx_include: &str, hx_select_oob: &s
         hx-select=(hx_target)
         hx-select-oob=(hx_select_oob)
         hx-swap="outerHTML"
-        hx-push-url="true"
+       
         hx-vals=(vals)
         hx-include=(hx_include)
     {

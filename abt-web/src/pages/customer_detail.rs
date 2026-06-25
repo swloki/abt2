@@ -211,14 +211,24 @@ fn transaction_table_fragment(
 pub async fn get_customer_detail(
  path: CustomerDetailPath,
  ctx: RequestContext,
-
 ) -> crate::errors::Result<Html<String>> {
  let is_htmx = ctx.is_htmx();
+ render_customer_detail_page(ctx, path.id, is_htmx).await
+}
+
+/// 渲染客户详情完整页（`admin_page` 自动判断 is_htmx）。
+///
+/// `get_customer_detail` 与 `get_customer_transactions`（直接访问时）共用，保证交易片段
+/// 端点直接访问也返回完整客户详情页，而非裸表格片段。
+async fn render_customer_detail_page(
+ ctx: RequestContext,
+ cid: i64,
+ is_htmx: bool,
+) -> crate::errors::Result<Html<String>> {
  let nav_filter = ctx.nav_filter().await;
  let can_delete = ctx.has_permission("CUSTOMER", "delete").await;
  let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
  let svc = state.customer_service();
- let cid = path.id;
 
  let customer = svc.get(&service_ctx, &mut conn, cid).await?;
  let contacts = svc.list_contacts(&service_ctx, &mut conn, cid).await?;
@@ -229,7 +239,7 @@ pub async fn get_customer_detail(
  let txn_html = transaction_table_fragment(&txns, 1, TXN_PAGE_SIZE, cid);
 
  let content = customer_detail_page(&customer, &contacts, &addresses, txn_html, can_delete);
- let detail_path_str = CustomerDetailPath { id: path.id }.to_string();
+ let detail_path_str = CustomerDetailPath { id: cid }.to_string();
  let page_html = admin_page(
  is_htmx,
  &format!("{} - 客户详情", customer.name),
@@ -238,7 +248,9 @@ pub async fn get_customer_detail(
  &detail_path_str,
  "销售管理",
  Some(&customer.name),
- content, &nav_filter, );
+ content,
+ &nav_filter,
+ );
 
  Ok(Html(page_html.into_string()))
 }
@@ -249,8 +261,13 @@ pub async fn get_customer_transactions(
  ctx: RequestContext,
  Query(params): Query<TransactionQueryParams>,
 ) -> crate::errors::Result<Html<String>> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let is_htmx = ctx.is_htmx();
  let cid = path.id;
+ // 直接访问 → 完整客户详情页（admin_page 自动判断）；HTMX → 交易表格片段
+ if !is_htmx {
+  return render_customer_detail_page(ctx, cid, false).await;
+ }
+ let RequestContext { mut conn, state, service_ctx, .. } = ctx;
  let page = params.page.unwrap_or(1);
 
  let txns = fetch_transactions(&state, &service_ctx, &mut conn, cid).await;

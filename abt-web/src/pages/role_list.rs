@@ -303,7 +303,7 @@ fn role_list_page(
                 hx-target="#role-list-panel"
                 hx-select="#role-list-panel"
                 hx-swap="outerHTML"
-                hx-push-url="true"
+               
                 hx-trigger="change, keyup changed delay:300ms from:input[name=keyword]"
             {
                 div class="relative flex-1 max-w-xs icon:absolute icon:left-3 icon:top-1/2 icon:-translate-y-1/2 icon:w-4 icon:h-4 icon:text-muted"

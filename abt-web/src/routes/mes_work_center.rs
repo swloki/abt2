@@ -8,8 +8,9 @@ use crate::state::AppState;
 
 // ── Typed Paths ──
 //
-// 工作中心采用「每个 card 一个端点」的单端点模式：首页内联渲染 3 个 card，
-// 每个 card 的 tab/筛选/分页走各自 GET 端点 + hx-select="#wc-xxx-card" 局部刷新；
+// 工作中心采用单端点模式：首页内联渲染 2 个 card（生产需求池 / 工单），
+// 需求池 card 内含 3 个 tab（物料汇总 / 订单行明细 / 订单排期），
+// tab/筛选/分页走各自 GET 端点 + hx-select="#wc-xxx-card" 局部刷新；
 // 写操作 POST 广播 HX-Trigger: woChanged，相关 card 监听自刷新。
 // 工序加载/编辑/删除复用既有 mes_order 端点（广播 routingChanged）。
 
@@ -20,10 +21,6 @@ pub struct WcPath;
 #[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/mes/work-center/demand")]
 pub struct WcDemandPath;
-
-#[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/mes/work-center/schedule")]
-pub struct WcSchedulePath;
 
 #[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/mes/work-center/orders")]
@@ -66,7 +63,6 @@ pub fn router() -> Router<AppState> {
     Router::new()
         .route(WcPath::PATH, get(mes_work_center::get_work_center))
         .route(WcDemandPath::PATH, get(mes_work_center::get_demand_card))
-        .route(WcSchedulePath::PATH, get(mes_work_center::get_schedule_card))
         .route(WcOrdersPath::PATH, get(mes_work_center::get_orders_card))
         .route(
             WcReleaseDrawerPath::PATH,

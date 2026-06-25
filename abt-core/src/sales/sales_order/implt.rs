@@ -88,10 +88,22 @@ fn calc_header_status(items: &[SalesOrderItem]) -> SalesOrderStatus {
     let any_shipped = items.iter().any(|i| i.shipped_qty > Decimal::ZERO);
     let any_open = items.iter().any(|i| i.open_qty() > Decimal::ZERO);
 
+    // 有效行 = 非 Cancelled。从未发货 + 全部 Allocated（库存已补足）→ 待发货
+    let active: Vec<&SalesOrderItem> = items
+        .iter()
+        .filter(|i| i.line_status != SalesOrderLineStatus::Cancelled)
+        .collect();
+    let all_allocated = !active.is_empty()
+        && active
+            .iter()
+            .all(|i| i.line_status == SalesOrderLineStatus::Allocated);
+
     if all_settled && any_shipped {
         SalesOrderStatus::Shipped
     } else if any_shipped && any_open {
         SalesOrderStatus::PartiallyShipped
+    } else if !any_shipped && all_allocated {
+        SalesOrderStatus::ReadyToShip
     } else {
         SalesOrderStatus::Confirmed
     }
@@ -589,6 +601,9 @@ impl SalesOrderService for SalesOrderServiceImpl {
             }
         }
 
+        // 10. 重算头状态：全行 Allocated（库存已补足）则推进到 ReadyToShip，否则保持 Confirmed
+        self.recalc_header_status(ctx, db, id).await?;
+
         Ok(())
     }
 
@@ -651,10 +666,11 @@ impl SalesOrderService for SalesOrderServiceImpl {
 
         if existing.status != SalesOrderStatus::Draft
             && existing.status != SalesOrderStatus::Confirmed
+            && existing.status != SalesOrderStatus::ReadyToShip
             && existing.status != SalesOrderStatus::PartiallyShipped
         {
             return Err(DomainError::business_rule(
-                "Only Draft, Confirmed or PartiallyShipped orders can be cancelled",
+                "Only Draft, Confirmed, ReadyToShip or PartiallyShipped orders can be cancelled",
             ));
         }
 
@@ -662,8 +678,9 @@ impl SalesOrderService for SalesOrderServiceImpl {
             .transition(ctx, db, "SalesOrderStatus", id, "Cancelled", None)
             .await?;
 
-        // 释放所有预留（Confirmed/PartiallyShipped 状态下才可能有预留）
+        // 释放所有预留（Confirmed/ReadyToShip/PartiallyShipped 状态下才可能有预留）
         if existing.status == SalesOrderStatus::Confirmed
+            || existing.status == SalesOrderStatus::ReadyToShip
             || existing.status == SalesOrderStatus::PartiallyShipped
         {
             savepoint(db, "sp_cancel_resv").await.ok();

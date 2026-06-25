@@ -113,6 +113,7 @@ fn status_label(s: SalesOrderStatus) -> (&'static str, &'static str) {
  SalesOrderStatus::Shipped => ("已发货", "status-shipped"),
  SalesOrderStatus::Completed => ("已完成", "status-completed"),
  SalesOrderStatus::Cancelled => ("已取消", "status-cancelled"),
+ SalesOrderStatus::ShippingRequested => ("已申请发货", "status-ready"),
  }
 }
 

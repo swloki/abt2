@@ -14,6 +14,8 @@ use abt_core::wms::outbound::model::ShippingStatus;
 use abt_core::wms::outbound::ShippingRequestService;
 use abt_core::wms::pick_list::{model::PickItemInput, PickListService};
 use abt_core::wms::transfer::TransferService;
+use abt_core::wms::warehouse::model::WarehouseFilter;
+use abt_core::wms::warehouse::WarehouseService;
 use abt_core::wms::work_center::model::{
     PendingTask, Urgency, UrgentSummary, WorkCenterDomain, WorkCenterSummary,
 };
@@ -260,7 +262,8 @@ async fn dispatch_action(
                             .picked_qty
                             .parse::<Decimal>()
                             .map_err(|e| DomainError::validation(format!("拣货数量解析失败: {e}")))?,
-                        bin_id: None,
+                        warehouse_id: parse_opt_i64(&r.warehouse_id, "拣货仓库")?,
+                        bin_id: parse_opt_i64(&r.bin_id, "拣货库位")?,
                     })
                 })
                 .collect::<Result<Vec<_>>>()?;
@@ -303,6 +306,18 @@ fn parse_items_json<T: serde::de::DeserializeOwned>(form: &WorkCenterActionForm)
         .map_err(|e| DomainError::validation(format!("明细解析失败: {e}")))?)
 }
 
+/// 可选整型解析：None / 空串 → None；否则 parse。用于拣货仓库/库位（wcCollectItems 收的是字符串）。
+fn parse_opt_i64(s: &Option<String>, label: &str) -> Result<Option<i64>> {
+    match s {
+        None => Ok(None),
+        Some(v) if v.trim().is_empty() => Ok(None),
+        Some(v) => v
+            .parse::<i64>()
+            .map(Some)
+            .map_err(|e| DomainError::validation(format!("{label}解析失败: {e}")).into()),
+    }
+}
+
 // 行级明细走 hidden items_json（JSON 字符串），字段统一用 String（i.value 为字符串），服务端再 parse
 // 对齐 quotation/sales_order 的 ItemWeb 范式（见 static/app.js lineItemCalc.collectItems）
 #[derive(Debug, Deserialize)]
@@ -316,6 +331,9 @@ struct ReceiveRowJson {
 struct PickRowJson {
     pick_list_item_id: String,
     picked_qty: String,
+    /// 拣货定仓库（master：拣货选仓库/库位）；空 = 不指定
+    warehouse_id: Option<String>,
+    bin_id: Option<String>,
 }
 
 // ── 页面 / 片段渲染 ──
@@ -750,6 +768,13 @@ async fn pick_drawer_body(
     let svc = state.pick_list_service();
     let pl = svc.find_by_id(ctx, db, id).await?;
     let items = svc.list_items(ctx, db, id).await.unwrap_or_default();
+    // 拣货定仓库（master）：列出仓库供每行选择 + 可选库位
+    let warehouses = state
+        .warehouse_service()
+        .list(ctx, db, WarehouseFilter::default(), 1, 200)
+        .await
+        .map(|r| r.items)
+        .unwrap_or_default();
 
     let mut rows = html! {};
     for (idx, it) in items.iter().enumerate() {
@@ -758,6 +783,17 @@ async fn pick_drawer_body(
             tr class="border-b border-border-soft" data-row {
                 td class="py-2 px-2 text-sm text-fg" { "产品 #" (it.product_id) }
                 td class="py-2 px-2 text-sm font-mono text-right" { (fmt_qty(it.requested_qty)) }
+                td class="py-2 px-2" {
+                    select data-k="warehouse_id" name=(format!("items[{idx}][warehouse_id]"))
+                        class="w-full px-2 py-1 border border-border rounded-sm text-xs bg-bg mb-1" {
+                        option value="" { "选择仓库" }
+                        @for w in &warehouses {
+                            option value=(w.id) { (w.name) }
+                        }
+                    }
+                    input type="number" data-k="bin_id" name=(format!("items[{idx}][bin_id]")) placeholder="库位ID 可选"
+                        class="w-full px-2 py-1 border border-border rounded-sm text-xs bg-bg";
+                }
                 td class="py-2 px-2 text-right" {
                     input type="hidden" data-k="pick_list_item_id" name=(format!("items[{idx}][pick_list_item_id]")) value=(it.id);
                     input type="number" data-k="picked_qty" name=(format!("items[{idx}][picked_qty]"))
@@ -779,6 +815,7 @@ async fn pick_drawer_body(
                 tr {
                     th class="text-left text-xs font-semibold text-muted py-2 px-2 border-b border-border-soft" { "产品" }
                     th class="text-right text-xs font-semibold text-muted py-2 px-2 border-b border-border-soft" { "申请" }
+                    th class="text-left text-xs font-semibold text-muted py-2 px-2 border-b border-border-soft" { "仓库 / 库位" }
                     th class="text-right text-xs font-semibold text-muted py-2 px-2 border-b border-border-soft" { "本次拣货" }
                 }
             }

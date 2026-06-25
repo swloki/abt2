@@ -74,6 +74,12 @@ pub struct CancelOrderPath {
     pub id: i64,
 }
 
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/orders/{id}/request-ship")]
+pub struct RequestShipPath {
+    pub id: i64,
+}
+
 // ── Router ──
 
 pub fn router() -> Router<AppState> {
@@ -88,4 +94,5 @@ pub fn router() -> Router<AppState> {
         .route(ConfirmOrderPath::PATH, post(sales_order_detail::confirm_order))
         .route(CompleteOrderPath::PATH, post(sales_order_detail::complete_order))
         .route(CancelOrderPath::PATH, post(sales_order_detail::cancel_order))
+        .route(RequestShipPath::PATH, get(sales_order_detail::get_request_ship_modal).post(sales_order_detail::request_shipment))
 }

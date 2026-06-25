@@ -57,6 +57,7 @@ pub mod mes_batch;
 pub mod mes_report;
 pub mod mes_inspection;
 pub mod mes_receipt;
+pub mod mes_work_center;
 pub mod mes_exception;
 pub mod om;
 pub mod qms;
@@ -132,6 +133,7 @@ pub fn router(state: AppState) -> Router {
                 .merge(mes_inspection::router())
                 .merge(mes_receipt::router())
                 .merge(mes_exception::router())
+                .merge(mes_work_center::router())
                 // ── OM (Outsourcing) ──
                 .merge(om::router())
                 // ── QMS (Quality Management) ──

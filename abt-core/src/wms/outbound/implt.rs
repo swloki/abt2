@@ -1,4 +1,5 @@
 use sqlx::postgres::PgPool;
+use rust_decimal::Decimal;
 
 use crate::qms::inspection_result::{new_inspection_result_service, service::InspectionResultService};
 use crate::qms::inspection_result::model::InspectionResultFilter;
@@ -200,6 +201,115 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
                         context: None,
                     },
                 )
+            .await?;
+
+        Ok(id)
+    }
+
+    async fn request_from_order(
+        &self,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
+        order_id: i64,
+        items: Vec<RequestShippingItemReq>,
+    ) -> Result<i64> {
+        let so_svc = new_sales_order_service(self.pool.clone());
+        let order = so_svc.find_by_id(ctx, db, order_id).await?;
+
+        // 允许 Confirmed/ReadyToShip/PartiallyShipped/ShippingRequested（后者支持追加申请）
+        if !matches!(
+            order.status,
+            SalesOrderStatus::Confirmed
+                | SalesOrderStatus::ReadyToShip
+                | SalesOrderStatus::PartiallyShipped
+                | SalesOrderStatus::ShippingRequested
+        ) {
+            return Err(DomainError::business_rule("订单当前状态不允许申请发货"));
+        }
+
+        let order_items = so_svc.list_items(ctx, db, order_id).await?;
+        let mut shipping_inputs = Vec::with_capacity(items.len());
+        for (i, item) in items.iter().enumerate() {
+            if item.requested_qty <= Decimal::ZERO {
+                return Err(DomainError::validation("申请数量必须大于 0"));
+            }
+            let order_item = order_items
+                .iter()
+                .find(|oi| oi.id == item.order_item_id)
+                .ok_or_else(|| {
+                    DomainError::validation(format!("订单行 {} 不存在", item.order_item_id))
+                })?;
+            let remaining = order_item.quantity - order_item.shipped_qty;
+            if item.requested_qty > remaining {
+                return Err(DomainError::business_rule(format!(
+                    "订单行 {} 申请数量 {} 超过未发数量 {}",
+                    item.order_item_id, item.requested_qty, remaining
+                )));
+            }
+            shipping_inputs.push(ShippingItemInput {
+                line_no: (i + 1) as i32,
+                order_item_id: item.order_item_id,
+                product_id: order_item.product_id,
+                warehouse_id: None, // 销售不指定仓库，仓库拣货时手选
+                requested_qty: item.requested_qty,
+                description: order_item.description.clone(),
+            });
+        }
+
+        let doc_number = new_document_sequence_service(self.pool.clone())
+            .next_number(ctx, db, DocumentType::ShippingRequest)
+            .await?;
+        let id = self
+            .repo
+            .create(
+                db,
+                &CreateShippingRequestParams {
+                    doc_number: &doc_number,
+                    order_id: Some(order_id),
+                    customer_id: order.customer_id,
+                    expected_ship_date: None,
+                    shipping_address: order.delivery_address.as_str(),
+                    carrier: "",
+                    remark: "",
+                    operator_id: ctx.operator_id,
+                },
+            )
+            .await?;
+        self.item_repo.create_batch(db, id, &shipping_inputs).await?;
+
+        new_document_link_service(self.pool.clone())
+            .create_links(
+                ctx, db,
+                vec![LinkRequest {
+                    source_type: DocumentType::ShippingRequest,
+                    source_id: id,
+                    target_type: DocumentType::SalesOrder,
+                    target_id: order_id,
+                    link_type: LinkType::Triggers,
+                }],
+            )
+            .await?;
+
+        // 跳过 Draft → 直接 Confirmed（入 work-center 待发货队列）
+        new_state_machine_service(self.pool.clone())
+            .transition(ctx, db, "ShippingStatus", id, "Confirmed", None)
+            .await
+            .ok();
+        self.repo.update_status(db, id, ShippingStatus::Confirmed).await?;
+
+        // 回写订单状态 → recalc_header_status 叠加判定 ShippingRequested
+        so_svc.recalc_header_status(ctx, db, order_id).await?;
+
+        new_audit_log_service(self.pool.clone())
+            .record(
+                ctx, db,
+                RecordAuditLogReq {
+                    entity_type: "ShippingRequest",
+                    entity_id: id,
+                    action: AuditAction::Create,
+                    changes: Some(serde_json::json!({ "order_id": order_id, "via": "request_from_order" })),
+                    context: None,
+                },
+            )
             .await?;
 
         Ok(id)
@@ -500,6 +610,21 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
             .find_by_shipping_request_id(db, id)
             .await?;
 
+        // 取拣货明细：outbound_item_id → (warehouse_id, bin_id)。
+        // 销售申请时不指定仓库，拣货 drawer 录入；ship 扣库存必须用拣货录入的仓库/库位。
+        let pick_svc = new_pick_list_service(self.pool.clone());
+        let pick_map: std::collections::HashMap<i64, (Option<i64>, Option<i64>)> =
+            match pick_svc.find_by_outbound(ctx, db, id).await {
+                Ok(Some(pl)) => match pick_svc.list_items(ctx, db, pl.id).await {
+                    Ok(items) => items
+                        .into_iter()
+                        .map(|p| (p.outbound_item_id, (p.warehouse_id, p.bin_id)))
+                        .collect(),
+                    Err(_) => std::collections::HashMap::new(),
+                },
+                _ => std::collections::HashMap::new(),
+            };
+
         for item in &shipping_items {
             // 发货单自身 shipped_qty（同模块，迁域后仍在 wms::outbound 内）
             self.item_repo
@@ -516,8 +641,14 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
                 .await?;
 
             // 销售出库：记 SalesShipment 库存事务（负向扣减实物库存）。
-            // 修复：原 ship() 只履行预留 + 记 COGS，未扣实物库存 → 销售发货后台账无变化。
-            // 先 fulfill 释放预留（ATP 回升），再出库扣减，避免与预检冲突。
+            // warehouse_id/bin_id 取自拣货录入（PickListItem），不再用发货明细的（销售申请时为 None）。
+            let (wh_id, bin_id) = pick_map.get(&item.id).cloned().unwrap_or((None, None));
+            let wh_id = wh_id.ok_or_else(|| {
+                DomainError::business_rule(format!(
+                    "发货行 {} 拣货未录入仓库，无法出库",
+                    item.id
+                ))
+            })?;
             new_inventory_transaction_service(self.pool.clone())
                 .record(
                     ctx,
@@ -528,9 +659,9 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
                         source_doc_number: Some(existing.doc_number.clone()),
                         transaction_type: TransactionType::SalesShipment,
                         product_id: item.product_id,
-                        warehouse_id: item.warehouse_id,
+                        warehouse_id: wh_id,
                         zone_id: None,
-                        bin_id: None,
+                        bin_id,
                         batch_no: None,
                         quantity: -item.requested_qty,
                         unit_cost: None,
@@ -718,7 +849,7 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
                 continue;
             }
             match txn_svc
-                .query_available(ctx, db, item.product_id, Some(item.warehouse_id))
+                .query_available(ctx, db, item.product_id, item.warehouse_id)
                 .await
             {
                 Ok(atp) if atp < remaining => {

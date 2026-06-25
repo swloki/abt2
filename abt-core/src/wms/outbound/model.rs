@@ -103,7 +103,7 @@ pub struct ShippingRequestItem {
     pub line_no: i32,
     pub order_item_id: i64,
     pub product_id: i64,
-    pub warehouse_id: i64,
+    pub warehouse_id: Option<i64>,
     pub requested_qty: Decimal,
     pub shipped_qty: Decimal,
     pub description: String,
@@ -135,7 +135,7 @@ pub struct CreateDraftReq {
 pub struct CreateDraftItemReq {
     pub order_item_id: Option<i64>,
     pub product_id: Option<i64>,
-    pub warehouse_id: i64,
+    pub warehouse_id: Option<i64>,
     pub requested_qty: Decimal,
     pub description: String,
 }
@@ -156,7 +156,14 @@ pub struct UpdateDraftReq {
 #[derive(Debug, Clone)]
 pub struct CreateShippingItemReq {
     pub order_item_id: i64,
-    pub warehouse_id: i64,
+    pub warehouse_id: Option<i64>,
+    pub requested_qty: Decimal,
+}
+
+/// 一键申请发货行（订单详情页弹窗提交，销售不指定仓库；仓库由拣货时确定）
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct RequestShippingItemReq {
+    pub order_item_id: i64,
     pub requested_qty: Decimal,
 }
 
@@ -196,7 +203,7 @@ pub struct ShippingItemInput {
     pub line_no: i32,
     pub order_item_id: i64,
     pub product_id: i64,
-    pub warehouse_id: i64,
+    pub warehouse_id: Option<i64>,
     pub requested_qty: Decimal,
     pub description: String,
 }

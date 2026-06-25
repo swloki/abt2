@@ -131,6 +131,7 @@ pub mod mes_plan_detail;
 pub mod mes_order_list;
 pub mod mes_order_create;
 pub mod mes_order_detail;
+pub mod mes_work_center;
 pub mod mes_batch_detail;
 pub mod mes_card_query;
 pub mod mes_schedule_board;

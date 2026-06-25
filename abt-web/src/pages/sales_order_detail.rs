@@ -20,7 +20,7 @@ use crate::components::icon;
 use crate::errors::Result;
 use crate::layout::page::admin_page;
 use crate::routes::order::*;
-use crate::routes::shipping::ShippingCreatePath;
+use abt_core::wms::outbound::ShippingRequestService;
 use crate::utils::RequestContext;
 use crate::utils::fmt_qty;
 use abt_macros::require_permission;
@@ -36,6 +36,7 @@ fn status_label(s: SalesOrderStatus) -> (&'static str, &'static str) {
  SalesOrderStatus::Shipped => ("已发货", "status-shipped"),
  SalesOrderStatus::Completed => ("已完成", "status-completed"),
  SalesOrderStatus::Cancelled => ("已取消", "status-cancelled"),
+ SalesOrderStatus::ShippingRequested => ("已申请发货", "status-ready"),
  }
 }
 
@@ -239,6 +240,141 @@ pub async fn cancel_order(
 
  let redirect = OrderDetailPath { id: path.id }.to_string();
  Ok(([("HX-Redirect", redirect)], Html(String::new())))
+}
+
+// ── 一键申请发货（订单详情页弹窗，销售不选仓库）──
+
+#[derive(Debug, serde::Deserialize)]
+pub struct RequestShipForm {
+ pub items_json: String,
+}
+
+/// HTMX: 返回「申请发货」modal（append 到 body，含 is-open 直接显示）。
+#[require_permission("SHIPPING", "create")]
+pub async fn get_request_ship_modal(
+ path: RequestShipPath,
+ ctx: RequestContext,
+) -> Result<Html<String>> {
+ let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let svc = state.sales_order_service();
+ let product_svc = state.product_service();
+ let order = svc.find_by_id(&service_ctx, &mut conn, path.id).await?;
+ let items = svc.list_items(&service_ctx, &mut conn, path.id).await.unwrap_or_default();
+ let (codes, names) = if items.is_empty() {
+  (HashMap::new(), HashMap::new())
+ } else {
+  let products = product_svc
+   .get_by_ids(&service_ctx, &mut conn, items.iter().map(|i| i.product_id).collect())
+   .await.unwrap_or_default();
+  let c: HashMap<i64, String> = products.iter().map(|p| (p.product_id, p.product_code.clone())).collect();
+  let n: HashMap<i64, String> = products.iter().map(|p| (p.product_id, p.pdt_name.clone())).collect();
+  (c, n)
+ };
+ Ok(Html(request_ship_modal_body(&order, &items, &codes, &names).into_string()))
+}
+
+/// POST: 一键申请发货 → request_from_order（建发货单 Confirmed + 订单 ShippingRequested）。
+#[require_permission("SHIPPING", "create")]
+pub async fn request_shipment(
+ path: RequestShipPath,
+ ctx: RequestContext,
+ axum::Form(form): axum::Form<RequestShipForm>,
+) -> Result<impl IntoResponse> {
+ let RequestContext { state, service_ctx, .. } = ctx;
+ let items: Vec<abt_core::wms::outbound::model::RequestShippingItemReq> = serde_json::from_str(&form.items_json)
+  .map_err(|e| abt_core::shared::types::error::DomainError::validation(format!("无效申请数据: {e}")))?;
+ if items.is_empty() {
+  return Err(abt_core::shared::types::error::DomainError::validation("请至少填写一行数量").into());
+ }
+ let mut tx = state.pool.begin().await
+  .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+ state.shipping_service().request_from_order(&service_ctx, &mut tx, path.id, items).await?;
+ tx.commit().await
+  .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+ let redirect = OrderDetailPath { id: path.id }.to_string();
+ Ok(([("HX-Redirect", redirect)], Html(String::new())))
+}
+
+fn request_ship_modal_body(
+ order: &SalesOrder,
+ items: &[SalesOrderItem],
+ codes: &HashMap<i64, String>,
+ names: &HashMap<i64, String>,
+) -> Markup {
+ html! {
+    div id="request-ship-modal"
+        class="modal-overlay fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-100 pointer-events-auto"
+        _="on click[me is event.target] remove me"
+    {
+        div class="modal bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl" {
+            div class="px-6 py-4 border-b border-border-soft flex justify-between items-center shrink-0" {
+                h2 class="text-base font-semibold text-fg" { "申请发货 · " (order.doc_number) }
+                button type="button" class="bg-transparent border-none cursor-pointer text-xl text-muted p-1"
+                    _="on click remove closest .modal-overlay" { "×" }
+            }
+            form id="request-ship-form" class="flex flex-col flex-1 min-h-0"
+                hx-post=(RequestShipPath { id: order.id }.to_string())
+                hx-swap="none"
+                onsubmit="return collectRequestShipItems()" {
+                div class="overflow-auto flex-1 px-5 py-3" {
+                    table class="data-table" {
+                        thead tr {
+                            th { "产品" }
+                            th class="text-right" { "订单数" }
+                            th class="text-right" { "已发" }
+                            th class="text-right" { "未发" }
+                            th class="text-right" { "本次申请" }
+                        }
+                        tbody {
+                            @for it in items {
+                                @let open = it.open_qty();
+                                tr {
+                                    td {
+                                        div class="font-mono text-xs text-fg-2" { (codes.get(&it.product_id).cloned().unwrap_or_default()) }
+                                        div class="text-sm text-fg truncate max-w-[220px]" {
+                                            (names.get(&it.product_id).cloned().unwrap_or_else(|| format!("#{}", it.product_id)))
+                                        }
+                                    }
+                                    td class="text-right text-sm font-mono" { (fmt_qty(it.quantity)) }
+                                    td class="text-right text-sm font-mono" { (fmt_qty(it.shipped_qty)) }
+                                    td class="text-right text-sm font-mono" { (fmt_qty(open)) }
+                                    td {
+                                        input type="number" name="qty" data-order-item-id=(it.id)
+                                            value=(open.to_string()) max=(open.to_string()) min="0" step="any"
+                                            class="w-[110px] px-2 py-1 border border-border rounded-sm text-sm text-right font-mono";
+                                    }
+                                }
+                            }
+                            @if items.is_empty() {
+                                tr { td colspan="5" class="text-center text-muted py-6" { "无可申请的订单行" } }
+                            }
+                        }
+                    }
+                }
+                input type="hidden" name="items_json" id="request-ship-items-json" value="[]" {};
+                div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3 shrink-0" {
+                    button type="button" class="px-4 py-2 rounded-sm bg-white text-fg-2 border border-border hover:bg-surface text-sm cursor-pointer"
+                        _="on click remove closest .modal-overlay" { "取消" }
+                    button type="submit" class="inline-flex items-center gap-2 px-4 py-2 rounded-sm bg-accent text-accent-on text-sm font-medium cursor-pointer hover:bg-accent-hover"
+                        { (icon::truck_icon("w-4 h-4")) "提交申请" }
+                }
+            }
+        }
+    }
+    (maud::PreEscaped(r#"<script>
+function collectRequestShipItems() {
+  var rows = document.querySelectorAll('#request-ship-form input[name="qty"]');
+  var items = [];
+  rows.forEach(function(r) {
+    var qty = parseFloat(r.value);
+    if (qty > 0) items.push({order_item_id: parseInt(r.dataset.orderItemId), requested_qty: String(qty)});
+  });
+  document.getElementById('request-ship-items-json').value = JSON.stringify(items);
+  if (items.length === 0) { alert('请至少填写一行数量（大于0）'); return false; }
+  return true;
+}
+</script>"#))
+ }
 }
 
 // ── Workflow Steps ──
@@ -739,11 +875,15 @@ fn order_detail_page(
                         SalesOrderStatus::Confirmed
                             | SalesOrderStatus::ReadyToShip
                             | SalesOrderStatus::PartiallyShipped
+                            | SalesOrderStatus::ShippingRequested
                     )
                 } {
-                    a   class="inline-flex items-center gap-2 py-[6px] px-3 text-[13px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
-                        href=(format!("{}?order_id={}", ShippingCreatePath::PATH, o.id))
-                    { (icon::truck_icon("w-4 h-4")) "创建发货申请" }
+                    button
+                        class="inline-flex items-center gap-2 py-[6px] px-3 text-[13px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
+                        hx-get=(RequestShipPath { id: o.id }.to_string())
+                        hx-target="body"
+                        hx-swap="beforeend"
+                    { (icon::truck_icon("w-4 h-4")) "申请发货" }
                 }
                 @if o.status == SalesOrderStatus::Draft {
                     button
@@ -758,6 +898,7 @@ fn order_detail_page(
                         SalesOrderStatus::Draft
                             | SalesOrderStatus::Confirmed
                             | SalesOrderStatus::ReadyToShip
+                            | SalesOrderStatus::ShippingRequested
                     )
                 } {
                     button

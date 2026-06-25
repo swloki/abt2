@@ -248,6 +248,7 @@ fn modules() -> Vec<NavModule> {
             name: "生产管理",
             items: vec![
                 NavItem { name: "生产总览", path: "/admin/mes", icon: NavIcon::Home, permission: Some(("WORK_ORDER", "read")) },
+                NavItem { name: "生产作业中心", path: "/admin/mes/work-center", icon: NavIcon::Grid, permission: Some(("WORK_ORDER", "read")) },
                 NavItem { name: "生产需求池", path: "/admin/mes/demand-pool", icon: NavIcon::Layers, permission: Some(("WORK_ORDER", "read")) },
                 NavItem { name: "生产计划", path: "/admin/mes/plans", icon: NavIcon::Calendar, permission: Some(("WORK_ORDER", "read")) },
                 NavItem { name: "工单管理", path: "/admin/mes/orders", icon: NavIcon::ClipboardDoc, permission: Some(("WORK_ORDER", "read")) },

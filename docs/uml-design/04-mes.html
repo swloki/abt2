@@ -349,6 +349,15 @@ classDiagram
     +confirm(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
     +list_by_work_order(ctx, db, work_order_id) Result~Vec~ReceiptListItem~~
   }
+  class MesWorkCenterService {
+    &lt;&lt;interface&gt;&gt;
+    生产作业中心聚合服务（只读视图，写操作复用各域既有 Service）
+    +summary(ctx: &ServiceContext, db: PgExecutor) Result~MesWorkCenterSummary~
+  }
+  class MesWorkCenterSummary {
+    +pending_release: u64  -- 待下达 Draft+Planned
+    +in_production: u64   -- 生产中 Released+InProduction
+  }
   class WorkOrderHubSummary {
     工单工作台聚合视图：detail-header + 摘要带 + 6 disclosure 全部数据
     +order: WorkOrder
@@ -378,6 +387,7 @@ classDiagram
     判据用 ATP（非 projected），projected 仅展示参考。
   end note
   ProductionPlanService ..> WorkOrderService : release_to_work_orders
+  MesWorkCenterService ..> WorkOrderService : summary 工单计数
   WorkOrderService ..> ProductionBatchService : split batches
   ProductionBatchService ..> WorkReportService : query reports (write is internal to confirm_routing_step)
   WorkOrderService ..> OM.OutsourcingOrderService : outsource

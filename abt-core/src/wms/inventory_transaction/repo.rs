@@ -105,7 +105,14 @@ impl InventoryTransactionRepo {
         if filter.warehouse_id.is_some() { param_idx += 1; conditions.push(format!("warehouse_id = ${param_idx}")); }
         if filter.source_type.is_some() { param_idx += 1; conditions.push(format!("source_type = ${param_idx}")); }
         if filter.source_id.is_some() { param_idx += 1; conditions.push(format!("source_id = ${param_idx}")); }
-        if filter.doc_number.is_some() { param_idx += 1; conditions.push(format!("doc_number ILIKE ${param_idx}")); }
+        if filter.doc_number.is_some() {
+            param_idx += 1;
+            // 同时匹配入库单号(doc_number, RK-) 和来源单号(source_doc_number, PO-)，OR 连接。
+            // Issue #98: 入库管理页常按来源 PO 号搜索，原仅匹配 doc_number(RK) 导致搜不到。
+            conditions.push(format!(
+                "(doc_number ILIKE ${param_idx} OR source_doc_number ILIKE ${param_idx})"
+            ));
+        }
         if filter.product_code.is_some() {
             param_idx += 1;
             conditions.push(format!("product_id IN (SELECT product_id FROM products WHERE product_code ILIKE ${param_idx})"));

@@ -42,6 +42,8 @@ create_stock_in(source_type=purchase)
 - **超收容差**：`ArrivalAcceptedHandler` 校验 `received_qty > quantity×(1+容差%)` 报错 → 整个事务回滚（含来料通知+库存）。
 - **部分入库**：多次入库各建独立来料通知，`recompute_received_qty` 全量 SUM 累计，PO 状态自动流转。
 - **库存来源关联**：库存流水 `source_type="arrival_notice"`、`source_id=来料通知id`（治本后），便于追溯。arrival/work_order/manual 来源保持原有直接 `record()` 逻辑（`handle_direct_stock_in`）。
+- **库位占用校验（同物料合并放行，Issue #98）**：`InventoryTransactionService::record()` 入库前校验目标 bin 是否已被其他产品占用——目标产品**已在该 bin 有库存时放行**（同物料合并，即使 bin 同时混放其他产品），仅阻止"全新物料混入已占用库位"（`stock_ledger/repo.rs::has_stock_in_bin` + `find_other_occupant_in_bin`）。背景：历史默认库位 `DEFAULT-*` 多产品混放，入库页 `suggest_bins`「同物料合并」策略把混放库位置顶推荐，强制排他会阻断正常补货、导致整个入库事务回滚（来料通知+流水+台账全不写入，零痕迹）。
+- **入库流水查询匹配来源单号（Issue #98）**：入库管理页搜索框同时匹配 `doc_number`（入库单号 RK-）和 `source_doc_number`（来源单号 PO-），`(doc_number ILIKE $n OR source_doc_number ILIKE $n)`（`inventory_transaction/repo.rs::query`）。原仅匹配 RK 号导致按 PO 号搜索查不到流水。
 
 ## 枚举值参考（实测）
 
@@ -75,3 +77,15 @@ create_stock_in(source_type=purchase)
 ## CostEntry 归属修正
 
 `inspect` 立的材料成本 `entity_id` 已从来料通知 id 修正为 `notice.purchase_order_id.unwrap_or(req.id)`（PO id），匹配 `entity_type=CostEntityType::PurchaseOrder` 语义（`arrival_notice/implt.rs`）。当前 `fms/cost_accounting/repo.rs` 无 PurchaseOrder 维度成本查询消费，修正是预防性（将来加 PO 成本查询时 entity_id 正确）。
+
+## Issue #98：库位占用校验细化 + 入库查询匹配来源单号
+
+**现象**：合并销售单（多 Demand）生成的采购单（如 PO-2026-06-000455，由 Demand 390+391 合并下发）入库后，入库管理页查不到流水，PO `received_qty` 不变、零来料通知/库存流水痕迹。
+
+**根因**：入库页 `suggest_bins`「同物料合并」策略把默认库位（`DEFAULT-*`，历史混放多产品）置顶推荐，用户选中后 `record()` 的「一库位一产品」硬校验 `find_other_occupant_in_bin` 命中其他产品 → `BusinessRule("库位已被其他产品占用…")` → HTTP 400 → 整个入库事务回滚 → 零痕迹。"仅合并 PO 特有"是归纳偏差（其物料恰在混放默认库位有大量库存被强推荐）；不选库位走 `resolve_default_bin` 解析到专属库位则正常。
+
+**修复**：
+1. **同物料合并放行**：`record()` 校验细化——目标产品已在该 bin 有库存（`StockLedgerRepo::has_stock_in_bin`）时放行，仅阻止"全新物料混入已占用库位"。改动：`inventory_transaction/implt.rs` + 新增 `stock_ledger/repo.rs::has_stock_in_bin`。
+2. **查询匹配来源单号**：`inventory_transaction/repo.rs::query` 搜索条件由 `doc_number ILIKE` 改为 `(doc_number ILIKE OR source_doc_number ILIKE)`，PO 号可搜。
+
+**回归测试**：`abt-web/tests/wms_stock_in_issue98.rs`——i1 同物料合并放行 / i2 新料混入拒绝（排他仍生效）/ i3 PO 号查询匹配。

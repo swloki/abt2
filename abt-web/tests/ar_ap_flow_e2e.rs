@@ -140,7 +140,7 @@ async fn k2_ap_ledger_settle_cycle() {
         &ArApLedgerInsert {
             party_type: CounterpartyType::Supplier,
             party_id: supplier_id().await,
-            source_type: DocumentType::ArrivalNotice,
+            source_type: DocumentType::PurchaseOrder,
             source_id: ap_src,
             source_doc_no: "TEST-AN-001",
             against_type: None,
@@ -169,7 +169,7 @@ async fn k2_ap_ledger_settle_cycle() {
             source_type: DocumentType::CashJournal,
             source_id: pay_src,
             source_doc_no: "TEST-PAY-002",
-            against_type: Some(DocumentType::ArrivalNotice),
+            against_type: Some(DocumentType::PurchaseOrder),
             against_id: Some(ap_src),
             direction: LedgerDirection::Debit,
             amount: Decimal::from(400),
@@ -192,7 +192,7 @@ async fn k2_ap_ledger_settle_cycle() {
         SettleReq {
             payment_source_type: DocumentType::CashJournal,
             payment_source_id: pay_src,
-            invoice_source_type: DocumentType::ArrivalNotice,
+            invoice_source_type: DocumentType::PurchaseOrder,
             invoice_source_id: ap_src,
             amount: Decimal::from(400),
         },

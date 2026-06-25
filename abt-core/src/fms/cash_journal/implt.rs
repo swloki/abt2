@@ -173,7 +173,6 @@ impl CashJournalService for CashJournalServiceImpl {
                 let is_auto_settle_source = matches!(
                     journal.source_type,
                     DocumentType::ShippingRequest
-                        | DocumentType::ArrivalNotice
                         | DocumentType::OutsourcingOrder
                 );
                 let party_type = CounterpartyType::Customer;
@@ -220,7 +219,6 @@ impl CashJournalService for CashJournalServiceImpl {
                 let is_auto_settle_source = matches!(
                     journal.source_type,
                     DocumentType::ShippingRequest
-                        | DocumentType::ArrivalNotice
                         | DocumentType::OutsourcingOrder
                 );
                 let party_type = CounterpartyType::Supplier;

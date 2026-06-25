@@ -15,7 +15,7 @@ fn row_to_model(row: sqlx::postgres::PgRow) -> InspectionResult {
         doc_number: row.get("doc_number"),
         spec_id: row.get("spec_id"),
         source_type: InspectionSourceType::from_i16(row.get::<i16, _>("source_type"))
-            .unwrap_or(InspectionSourceType::ArrivalNotice),
+            .unwrap_or(InspectionSourceType::WorkOrderRouting),
         source_id: row.get("source_id"),
         inspection_type: InspectionType::from_i16(row.get::<i16, _>("inspection_type"))
             .unwrap_or(InspectionType::Iqc),

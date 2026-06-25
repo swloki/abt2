@@ -7,11 +7,6 @@ use rust_decimal::Decimal;
 use std::collections::{BTreeMap, HashMap};
 
 use abt_core::shared::idempotency::IdempotencyService;
-use abt_core::wms::arrival_notice::ArrivalNoticeService;
-use abt_core::wms::arrival_notice::model::{
-    ArrivalNoticeFilter, CreateArrivalNoticeItemReq, CreateArrivalNoticeReq, InspectArrivalNoticeReq,
-    InspectItemReq, ReceiveArrivalNoticeReq, ReceiveItemReq,
-};
 use abt_core::purchase::order::PurchaseOrderService;
 use abt_core::purchase::order::model::PurchaseOrderQuery;
 use abt_core::master_data::supplier::SupplierService;
@@ -20,7 +15,8 @@ use abt_core::wms::inventory_transaction::InventoryTransactionService;
 use abt_core::wms::inventory::InventoryService;
 use abt_core::mes::work_order::WorkOrderService;
 use abt_core::wms::inventory_transaction::model::RecordTransactionReq;
-use abt_core::wms::enums::{ArrivalStatus, TransactionType};
+use abt_core::wms::stock_in::{PoStockInRow, PurchaseStockInService, ReceiveAndStockInReq};
+use abt_core::wms::enums::TransactionType;
 use abt_core::master_data::product::ProductService;
 use abt_core::shared::types::{context::ServiceContext, DomainError, PageParams, PgExecutor};
 use abt_core::shared::enums::DocumentType;
@@ -96,36 +92,12 @@ struct SourceOption {
 #[require_permission("INVENTORY", "create")]
 pub async fn get_source_pick(
  ctx: RequestContext,
- Query(params): Query<SourcePickParams>,
+ Query(_params): Query<SourcePickParams>,
 ) -> Result<Html<String>> {
  let RequestContext { mut conn, state, service_ctx, .. } = ctx;
- let kw = params.keyword.as_deref().unwrap_or("").trim().to_string();
  let supplier_svc = state.supplier_service();
 
- let options: Vec<SourceOption> = if params.source_type == "arrival" {
- let svc = state.arrival_notice_service();
- let filter = ArrivalNoticeFilter {
- doc_number: if kw.is_empty() { None } else { Some(kw.clone()) },
- ..Default::default()
- };
- let notices = svc
- .list(&service_ctx, &mut conn, filter, 1, 50)
- .await
- .map(|r| r.items)
- .unwrap_or_default();
- let names = resolve_supplier_names_map(
- &supplier_svc, &service_ctx, &mut conn,
- notices.iter().map(|n| n.supplier_id).collect(),
- ).await;
- notices.into_iter()
- .filter(|n| matches!(n.status, ArrivalStatus::Accepted | ArrivalStatus::PartiallyAccepted))
- .map(|n| SourceOption {
- id: n.id,
- doc_number: n.doc_number,
- supplier_name: names.get(&n.supplier_id).cloned().unwrap_or_else(|| "-".into()),
- extra: n.arrival_date.to_string(),
- }).collect()
- } else {
+ let options: Vec<SourceOption> = {
  let svc = state.purchase_order_service();
  let result = svc
  .list(&service_ctx, &mut conn, PurchaseOrderQuery::default(), PageParams::new(1, 50))
@@ -194,14 +166,6 @@ pub async fn get_source_items(
  .await?
  .into_iter()
  .map(|it| (it.product_id, it.quantity, it.received_qty))
- .collect()
- }
- "arrival" => {
- let an_svc = state.arrival_notice_service();
- an_svc.list_items(&service_ctx, &mut conn, source_id)
- .await?
- .into_iter()
- .map(|it| (it.product_id, it.declared_qty, it.received_qty))
  .collect()
  }
  _ => Vec::new(),
@@ -491,10 +455,11 @@ fn suggest_bins_fragment(rows: &[(abt_core::wms::warehouse::model::Bin, Option<D
                 })
                 data-bin-id=(bin.id)
                 data-bin-label=(format!("{} {}", bin.code, bin.name))
-                _="on click call wmsStockInPickBin(@data-bin-id, @data-bin-label)"
+                _="on click call wmsPickBin(@data-bin-id, @data-bin-label)"
             {
                 div class="flex-1 min-w-0" {
-                    div class="text-sm font-medium text-fg truncate" { (bin.code) " " (bin.name) }
+                    div class="text-sm font-medium text-fg font-mono truncate" { (bin.code) }
+                    div class="text-xs text-muted truncate mt-0.5" { (bin.name) }
                     @if let Some(q) = qty {
                         div class="text-xs text-success flex items-center gap-1 mt-0.5" {
                             (icon::check_circle_icon("w-3 h-3"))
@@ -711,22 +676,11 @@ async fn handle_purchase_stock_in(
  ctx: &ServiceContext,
  db: PgExecutor<'_>,
  web_items: &[StockInItemWeb],
- transaction_type: TransactionType,
+ _transaction_type: TransactionType,
  form: &StockInCreateForm,
  remark: Option<&str>,
 ) -> Result<()> {
- let po_svc = state.purchase_order_service();
- let arrival_svc = state.arrival_notice_service();
- let inv_svc = state.inventory_transaction_service();
- let warehouse_svc = state.warehouse_service();
-
- // 入库单号（RK-YYYY-MM-SEQ，所有库存流水共用）
- let doc_number = state
-  .document_sequence_service()
-  .next_number(ctx, db, DocumentType::StockReceipt)
-  .await?;
-
- // 1. 校验 + 按 PO id 分组
+ // 1. 按 PO id 分组
  let mut groups: BTreeMap<i64, Vec<&StockInItemWeb>> = BTreeMap::new();
  for item in web_items {
   let po_id: i64 = item
@@ -737,99 +691,55 @@ async fn handle_purchase_stock_in(
   groups.entry(po_id).or_default().push(item);
  }
 
- // 2. 每个 PO：建来料通知 → 收货 → 检验通过 → 逐行入库
+ // 2. 每个 PO：调 PurchaseStockInService 直收入库闭环（record→回写PO received_qty/状态→立应付→成本）。
+ //    幂等由上层 create_stock_in 的 try_claim(form.idempotency_key) 保证，service 内传 None 跳过。
+ let svc = state.purchase_stock_in_service();
  for (po_id, items) in &groups {
-  let po = po_svc.get(ctx, db, *po_id).await?;
-  let po_items = po_svc.list_items(ctx, db, *po_id).await?;
-  // product_id → order_item_id（取同 product 首个明细；handler 台账按 product_id 匹配单价，不受影响）
-  let prod_to_oi: HashMap<i64, i64> = po_items.iter().map(|p| (p.product_id, p.id)).collect();
+  let po_rows: Vec<PoStockInRow> = items
+   .iter()
+   .map(|it| -> Result<PoStockInRow> {
+    Ok(PoStockInRow {
+     order_item_id: 0, // service 内按 product_id 解析（stock-in/create 多 PO 前端只传 product_id）
+     product_id: it.product_id.parse().map_err(|_| DomainError::validation("无效产品ID"))?,
+     received_qty: it.quantity.parse().map_err(|_| DomainError::validation("无效数量"))?,
+     batch_no: None,
+     warehouse_id: it
+      .warehouse_id
+      .as_deref()
+      .and_then(|s| s.parse().ok())
+      .ok_or_else(|| DomainError::validation("请为每行物料选择目标仓库"))?,
+     bin_id: it.bin_id.as_ref().and_then(|s| s.parse().ok()),
+    })
+   })
+   .collect::<Result<Vec<_>>>()?;
 
-  // 来料通知头仓库/库区：取该组首行仓库（仅用于区域默认，库存按 per-item 精确入库）
-  let head_wh: i64 = items
-   .first()
-   .and_then(|it| it.warehouse_id.as_deref())
-   .and_then(|s| s.parse().ok())
-   .ok_or_else(|| DomainError::validation("请为每行物料选择目标仓库"))?;
-  let head_zone = warehouse_svc.get_or_create_default_zone(ctx, db, head_wh).await.ok().map(|z| z.id);
-
-  // 同 PO 内按 product_id 聚合 declared_qty（简化来料明细）
-  let mut declared: BTreeMap<i64, Decimal> = BTreeMap::new();
-  for it in items {
-   let pid: i64 = it.product_id.parse().map_err(|_| DomainError::validation("无效产品ID"))?;
-   let qty: Decimal = it.quantity.parse().map_err(|_| DomainError::validation("无效数量"))?;
-   *declared.entry(pid).or_insert(Decimal::ZERO) += qty;
-  }
-
-  // 建来料通知（Draft）
-  let notice_id = arrival_svc
-   .create(
-    ctx, db,
-    CreateArrivalNoticeReq {
-     purchase_order_id: Some(*po_id),
-     supplier_id: po.supplier_id,
-     arrival_date: chrono::Local::now().date_naive(),
-     warehouse_id: head_wh,
-     zone_id: head_zone,
-     delivery_note: form.delivery_no.clone(),
-     remark: remark.unwrap_or("").to_string(),
-     items: declared
-      .iter()
-      .map(|(pid, qty)| CreateArrivalNoticeItemReq {
-       order_item_id: prod_to_oi.get(pid).copied(),
-       product_id: *pid,
-       declared_qty: *qty,
-       batch_no: None,
-      })
-      .collect(),
-    },
-   )
-   .await?;
-
-  // 收货 + 检验通过（received/accepted = declared_qty；采购入库默认免质检，QMS 无结果自动通过）
-  let an_items = arrival_svc.list_items(ctx, db, notice_id).await?;
-  let prod_to_an: HashMap<i64, i64> = an_items.iter().map(|i| (i.product_id, i.id)).collect();
-  let mut recv_items: Vec<ReceiveItemReq> = Vec::with_capacity(declared.len());
-  let mut insp_items: Vec<InspectItemReq> = Vec::with_capacity(declared.len());
-  for (pid, qty) in &declared {
-   let item_id = *prod_to_an.get(pid).ok_or_else(|| {
-    DomainError::validation(format!("来料通知 #{notice_id} 缺少产品 #{pid} 的明细"))
-   })?;
-   recv_items.push(ReceiveItemReq { item_id, received_qty: *qty, batch_no: None });
-   insp_items.push(InspectItemReq { item_id, accepted_qty: *qty });
-  }
-  arrival_svc
-   .receive(ctx, db, ReceiveArrivalNoticeReq { id: notice_id, items: recv_items })
-   .await?;
-  arrival_svc
-   .inspect(ctx, db, InspectArrivalNoticeReq { id: notice_id, items: insp_items })
-   .await?;
-
-  // 逐行入库（source 关联来料通知）
-  for it in items {
-   let source_doc = it
-    .source_doc_number
-    .clone()
-    .filter(|s| !s.is_empty())
-    .unwrap_or_else(|| format!("AN-{notice_id}"));
-   record_stock_in_item(
-    &inv_svc, &warehouse_svc, ctx, db, it, transaction_type, &doc_number, &form.delivery_no,
-    "arrival_notice", notice_id, &source_doc, remark,
-   )
-   .await?;
-  }
+  svc.receive_and_stock_in(
+   ctx,
+   db,
+   ReceiveAndStockInReq {
+    po_id: *po_id,
+    rows: po_rows,
+    delivery_note: form.delivery_no.clone(),
+    remark: remark.map(|s| s.to_string()),
+    idempotency_key: None,
+   },
+  )
+  .await?;
  }
  Ok(())
 }
 
-/// 解析单行物料的 product/数量/仓库/库位，并记一笔库存事务。
-/// source_type/source_id/source_doc 由调用方决定（采购闭环用 arrival_notice，其他来源用原值）。
+/// 记一笔入库库存事务（标量核心）。record_stock_in_item 与 stock_in_from_notice 共享。
 #[allow(clippy::too_many_arguments)]
-async fn record_stock_in_item(
+pub(crate) async fn record_stock_in_txn(
  inv_svc: &impl InventoryTransactionService,
  warehouse_svc: &impl WarehouseService,
  ctx: &ServiceContext,
  db: PgExecutor<'_>,
- item: &StockInItemWeb,
+ product_id: i64,
+ quantity: Decimal,
+ warehouse_id: i64,
+ bin_id: Option<i64>,
  transaction_type: TransactionType,
  doc_number: &str,
  delivery_no: &Option<String>,
@@ -838,17 +748,9 @@ async fn record_stock_in_item(
  source_doc: &str,
  remark: Option<&str>,
 ) -> Result<()> {
- let product_id: i64 = item.product_id.parse().map_err(|_| DomainError::validation("无效产品ID"))?;
- let quantity: Decimal = item.quantity.parse().map_err(|_| DomainError::validation("无效数量"))?;
  if quantity <= Decimal::ZERO {
   return Err(DomainError::validation("入库数量必须大于0").into());
  }
- let bin_id: Option<i64> = item.bin_id.as_ref().and_then(|s| s.parse().ok());
- let warehouse_id: i64 = item
-  .warehouse_id
-  .as_deref()
-  .and_then(|s| s.parse().ok())
-  .ok_or_else(|| DomainError::validation("请为每行物料选择目标仓库"))?;
  let zone_id = warehouse_svc.get_or_create_default_zone(ctx, db, warehouse_id).await.ok().map(|z| z.id);
  let default_bin_id: Option<i64> = if let Some(zid) = zone_id {
   warehouse_svc
@@ -882,6 +784,37 @@ async fn record_stock_in_item(
   )
   .await?;
  Ok(())
+}
+
+/// 解析单行 web 物料（StockInItemWeb）→ 调 record_stock_in_txn。handle_direct_stock_in 用。
+#[allow(clippy::too_many_arguments)]
+async fn record_stock_in_item(
+ inv_svc: &impl InventoryTransactionService,
+ warehouse_svc: &impl WarehouseService,
+ ctx: &ServiceContext,
+ db: PgExecutor<'_>,
+ item: &StockInItemWeb,
+ transaction_type: TransactionType,
+ doc_number: &str,
+ delivery_no: &Option<String>,
+ source_type: &str,
+ source_id: i64,
+ source_doc: &str,
+ remark: Option<&str>,
+) -> Result<()> {
+ let product_id: i64 = item.product_id.parse().map_err(|_| DomainError::validation("无效产品ID"))?;
+ let quantity: Decimal = item.quantity.parse().map_err(|_| DomainError::validation("无效数量"))?;
+ let bin_id: Option<i64> = item.bin_id.as_ref().and_then(|s| s.parse().ok());
+ let warehouse_id: i64 = item
+  .warehouse_id
+  .as_deref()
+  .and_then(|s| s.parse().ok())
+  .ok_or_else(|| DomainError::validation("请为每行物料选择目标仓库"))?;
+ record_stock_in_txn(
+  inv_svc, warehouse_svc, ctx, db, product_id, quantity, warehouse_id, bin_id, transaction_type,
+  doc_number, delivery_no, source_type, source_id, source_doc, remark,
+ )
+ .await
 }
 
 // ── Components ──

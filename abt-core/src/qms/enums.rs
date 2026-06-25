@@ -81,7 +81,6 @@ define_qms_enum!(InspectionType {
 
 // -- Inspection Source Type --
 define_qms_enum!(InspectionSourceType {
-    ArrivalNotice = 1,
     WorkOrderRouting = 2,
     ShippingRequest = 3,
     OutsourcingOrder = 4,
@@ -160,7 +159,6 @@ impl InspectionSourceType {
     pub fn from_document_type(dt: crate::shared::enums::document_type::DocumentType) -> Option<Self> {
         use crate::shared::enums::document_type::DocumentType;
         match dt {
-            DocumentType::ArrivalNotice => Some(Self::ArrivalNotice),
             DocumentType::WorkReport => Some(Self::WorkOrderRouting),
             DocumentType::ShippingRequest => Some(Self::ShippingRequest),
             DocumentType::OutsourcingOrder => Some(Self::OutsourcingOrder),
@@ -172,7 +170,6 @@ impl InspectionSourceType {
     pub fn to_document_type(self) -> crate::shared::enums::document_type::DocumentType {
         use crate::shared::enums::document_type::DocumentType;
         match self {
-            Self::ArrivalNotice => DocumentType::ArrivalNotice,
             Self::WorkOrderRouting => DocumentType::WorkReport,
             Self::ShippingRequest => DocumentType::ShippingRequest,
             Self::OutsourcingOrder => DocumentType::OutsourcingOrder,

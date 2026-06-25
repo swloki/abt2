@@ -404,3 +404,65 @@ window.wcCollectItems = function (form) {
     var j = form.querySelector('[name="items_json"]');
     if (j) j.value = JSON.stringify(items);
 };
+
+// ── 作业中心 收货 drawer：提交校验 + 库位选择弹窗 ──
+
+// wcReceiveSubmit：收货 form 的 onsubmit 包装——校验（实收>0、仓库必填）→ wcCollectItems → 返回 bool（false 阻止提交）
+window.wcReceiveSubmit = function (form) {
+    var rows = form.querySelectorAll('[data-row]');
+    for (var i = 0; i < rows.length; i++) {
+        var r = rows[i];
+        var qtyEl = r.querySelector('[data-k="received_qty"]');
+        var whEl = r.querySelector('[data-k="warehouse_id"]');
+        var qty = qtyEl ? parseFloat(qtyEl.value) : NaN;
+        var wh = whEl ? whEl.value : '';
+        if (isNaN(qty) || qty <= 0) { alert('每行实收数量必须大于 0'); return false; }
+        if (!wh) { alert('每行必须选择目标仓库'); return false; }
+    }
+    window.wcCollectItems(form);
+    return true;
+};
+
+// wcOpenBinPicker：读当前行 product/warehouse → htmx 加载 suggest_bins → 开 #bin-picker 弹窗
+window.wcOpenBinPicker = function (btn) {
+    var row = btn.closest('[data-row]');
+    if (!row) return;
+    var pidEl = row.querySelector('[data-k="product_id"]');
+    var whEl = row.querySelector('[data-k="warehouse_id"]');
+    var pid = pidEl ? pidEl.value : '';
+    var wh = whEl ? whEl.value : '';
+    if (!wh) { alert('请先为本行选择目标仓库'); return; }
+    if (!pid) { alert('该行缺少产品信息'); return; }
+    window.__binPickerRow = row;
+    htmx.ajax('GET', '/admin/wms/stock-in/create/suggest-bins', {
+        target: '#bin-picker-results',
+        swap: 'innerHTML',
+        values: { product_id: pid, warehouse_id: wh }
+    });
+    document.getElementById('bin-picker').classList.add('is-open');
+};
+
+// wmsPickBin：选定库位 → 填回 window.__binPickerRow 的 bin input + label。
+// 兼容 work-center（data-k="bin_id"）与 stock-in/create（input[name="bin_id"]）两种行结构。
+// suggest_bins_fragment 的库位按钮调用此函数（替代 stock-in 专用的 wmsStockInPickBin）。
+window.wmsPickBin = function (binId, label) {
+    var row = window.__binPickerRow;
+    if (row) {
+        var input = row.querySelector('[data-k="bin_id"], input[name="bin_id"]');
+        var labelEl = row.querySelector('.bin-label');
+        if (input) input.value = binId;
+        if (labelEl) labelEl.textContent = label;
+    }
+    var picker = document.getElementById('bin-picker');
+    if (picker) picker.classList.remove('is-open');
+};
+
+// wcResetBin：仓库 change 时清本行 bin_id + label（纯前端 UI，不发后端请求）
+window.wcResetBin = function (sel) {
+    var row = sel.closest('[data-row]');
+    if (!row) return;
+    var inp = row.querySelector('[data-k="bin_id"]');
+    var lbl = row.querySelector('.bin-label');
+    if (inp) inp.value = '';
+    if (lbl) lbl.textContent = '自动分配';
+};

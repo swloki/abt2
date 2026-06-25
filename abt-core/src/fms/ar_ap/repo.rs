@@ -3,7 +3,7 @@ use rust_decimal::Decimal;
 use super::model::*;
 use crate::fms::enums::CounterpartyType;
 use crate::shared::enums::document_type::DocumentType;
-use crate::shared::types::{PageParams, PgExecutor, Result};
+use crate::shared::types::{DomainError, PageParams, PgExecutor, Result};
 
 pub(crate) const LEDGER_COLUMNS: &str = "id, party_type, party_id, source_type, source_id, source_doc_no, \
     against_type, against_id, direction, amount, amount_applied, currency, exchange_rate, \
@@ -51,8 +51,8 @@ fn product_field_cond(field: &str, n: usize) -> String {
         "EXISTS(\
          SELECT 1 FROM shipping_request_items sri JOIN products p ON p.product_id = sri.product_id \
            WHERE sri.shipping_request_id = l.source_id AND l.source_type = 3 AND p.{field} ILIKE ${n} \
-         UNION ALL SELECT 1 FROM arrival_notice_items ani JOIN products p ON p.product_id = ani.product_id \
-           WHERE ani.notice_id = l.source_id AND l.source_type = 16 AND p.{field} ILIKE ${n} \
+         UNION ALL SELECT 1 FROM purchase_order_items poi JOIN products p ON p.product_id = poi.product_id \
+           WHERE poi.order_id = l.source_id AND l.source_type = 7 AND p.{field} ILIKE ${n} \
          UNION ALL SELECT 1 FROM outsourcing_orders oo JOIN products p ON p.product_id = oo.product_id \
            WHERE oo.id = l.source_id AND l.source_type = 11 AND p.{field} ILIKE ${n})",
         field = field,
@@ -67,9 +67,8 @@ fn rep_cond(n: usize) -> String {
          SELECT 1 FROM shipping_requests sr JOIN sales_orders so ON so.id = sr.order_id \
            JOIN users u ON u.user_id = so.sales_rep_id \
            WHERE sr.id = l.source_id AND l.source_type = 3 AND u.display_name ILIKE ${n} \
-         UNION ALL SELECT 1 FROM arrival_notices an JOIN purchase_orders po ON po.id = an.purchase_order_id \
-           JOIN users u ON u.user_id = po.operator_id \
-           WHERE an.id = l.source_id AND l.source_type = 16 AND u.display_name ILIKE ${n})",
+         UNION ALL SELECT 1 FROM purchase_orders po JOIN users u ON u.user_id = po.operator_id \
+           WHERE po.id = l.source_id AND l.source_type = 7 AND u.display_name ILIKE ${n})",
         n = n
     )
 }
@@ -156,8 +155,8 @@ pub struct ArApLedgerRepo;
 
 impl ArApLedgerRepo {
     /// 插入一条台账记录。原子幂等：`(source_type, source_id)` 冲突时 DO NOTHING 返回 None
-    ///（依赖 migration 070 的 partial unique index，排除 OutsourcingOrder=11）。
-    /// 返回 `Some(id)` 表示新建，`None` 表示已存在（冲突跳过）。
+    ///（依赖 migration 072 全局唯一索引 ar_ap_ledger_source_uniq）。
+    /// 返回 `Some(id)` 表示新建，`None` 表示已存在（冲突跳过；调用方可改调 rewrite_amount_by_source 重算金额）。
     pub async fn insert(executor: PgExecutor<'_>, row: &ArApLedgerInsert<'_>) -> Result<Option<i64>> {
         let id: Option<i64> = sqlx::query_scalar::<sqlx::Postgres, i64>(
             r#"INSERT INTO ar_ap_ledger
@@ -165,7 +164,7 @@ impl ArApLedgerRepo {
                 against_type, against_id, direction, amount, currency, exchange_rate,
                 transaction_date, due_date, period, description, operator_id)
                VALUES ($1,$2,$3,$4,$5,$6, $7,$8,$9,$10,$11,$12, $13,$14,$15,$16)
-               ON CONFLICT (source_type, source_id) WHERE source_type <> 11 DO NOTHING
+               ON CONFLICT (source_type, source_id) DO NOTHING
                RETURNING id"#,
         )
         .bind(row.party_type)
@@ -187,6 +186,33 @@ impl ArApLedgerRepo {
         .fetch_optional(executor)
         .await?;
         Ok(id)
+    }
+
+    /// 按 source 重写台账金额（PO 维度多次部分收货重算应付用）。
+    /// 仅 amount_applied=0（未核销）允许改；已核销或行不存在报错（业务规则，避免污染已对账数据）。
+    pub async fn rewrite_amount_by_source(
+        executor: PgExecutor<'_>,
+        source_type: DocumentType,
+        source_id: i64,
+        new_amount: Decimal,
+    ) -> Result<()> {
+        let affected = sqlx::query(
+            "UPDATE ar_ap_ledger SET amount = $3, updated_at = NOW() \
+             WHERE source_type = $1 AND source_id = $2 AND amount_applied = 0",
+        )
+        .bind(source_type)
+        .bind(source_id)
+        .bind(new_amount)
+        .execute(&mut *executor)
+        .await?
+        .rows_affected();
+        if affected == 0 {
+            return Err(DomainError::business_rule(format!(
+                "台账 source_type={:?} source_id={} 已核销或不存在，不可重写金额",
+                source_type, source_id
+            )));
+        }
+        Ok(())
     }
 
     /// 查往来方币种（customers/suppliers.currency，缺省 CNY）。与 adjustment/cash_journal 口径一致。
@@ -393,18 +419,17 @@ impl ArApLedgerRepo {
                       l.amount - l.amount_applied AS amount_outstanding,
                       l.currency, l.transaction_date, l.due_date, l.period, l.description,
                       COALESCE(
-                        (SELECT po.doc_number FROM arrival_notices an
-                         JOIN purchase_orders po ON po.id = an.purchase_order_id AND po.deleted_at IS NULL
-                         WHERE an.id = l.source_id AND l.source_type = 16),
+                        (SELECT po.doc_number FROM purchase_orders po
+                         WHERE po.id = l.source_id AND l.source_type = 7 AND po.deleted_at IS NULL),
                         (SELECT so.doc_number FROM shipping_requests sr
                          JOIN sales_orders so ON so.id = sr.order_id AND so.deleted_at IS NULL
                          WHERE sr.id = l.source_id AND l.source_type = 3)
                       ) AS upstream_doc_no,
                       COALESCE(
                         (SELECT string_agg(DISTINCT p.pdt_name, '、')
-                         FROM arrival_notice_items ani
-                         JOIN products p ON p.product_id = ani.product_id
-                         WHERE ani.notice_id = l.source_id AND l.source_type = 16),
+                         FROM purchase_order_items poi
+                         JOIN products p ON p.product_id = poi.product_id
+                         WHERE poi.order_id = l.source_id AND l.source_type = 7 AND poi.received_qty > 0),
                         (SELECT p.pdt_name FROM outsourcing_orders oo
                          JOIN products p ON p.product_id = oo.product_id
                          WHERE oo.id = l.source_id AND l.source_type = 11),
@@ -463,19 +488,17 @@ impl ArApLedgerRepo {
                 LEFT JOIN suppliers s ON l.party_type = 2 AND s.supplier_id = l.party_id AND s.deleted_at IS NULL
                 {where_clause}
               )
-              SELECT f.id AS ledger_id, f.party_name, f.source_doc_no,
-                     po.doc_number AS upstream_doc_no, 16::SMALLINT AS source_type,
+              SELECT f.id, f.party_name, f.source_doc_no,
+                     po.doc_number, 7::SMALLINT,
                      p.product_code, p.pdt_name AS product_name,
-                     ani.accepted_qty AS quantity,
+                     poi.received_qty AS quantity,
                      COALESCE(poi.unit_price, 0) AS unit_price,
-                     COALESCE(ani.accepted_qty * poi.unit_price, 0) AS line_amount,
+                     COALESCE(poi.received_qty * poi.unit_price, 0) AS line_amount,
                      f.transaction_date
               FROM filtered f
-              JOIN arrival_notices an ON an.id = f.source_id AND f.source_type = 16
-              LEFT JOIN purchase_orders po ON po.id = an.purchase_order_id
-              JOIN arrival_notice_items ani ON ani.notice_id = an.id AND ani.accepted_qty > 0
-              LEFT JOIN purchase_order_items poi ON poi.id = ani.order_item_id
-              JOIN products p ON p.product_id = ani.product_id
+              JOIN purchase_orders po ON po.id = f.source_id AND f.source_type = 7
+              JOIN purchase_order_items poi ON poi.order_id = po.id AND poi.received_qty > 0
+              JOIN products p ON p.product_id = poi.product_id
               UNION ALL
               SELECT f.id, f.party_name, f.source_doc_no,
                      NULL, 11::SMALLINT,
@@ -567,17 +590,16 @@ impl ArApLedgerRepo {
                       l.amount - l.amount_applied AS amount_outstanding,
                       l.currency, l.transaction_date, l.due_date, l.period, l.description,
                       COALESCE(
-                        (SELECT po.doc_number FROM arrival_notices an
-                         JOIN purchase_orders po ON po.id = an.purchase_order_id AND po.deleted_at IS NULL
-                         WHERE an.id = l.source_id AND l.source_type = 16),
+                        (SELECT po.doc_number FROM purchase_orders po
+                         WHERE po.id = l.source_id AND l.source_type = 7 AND po.deleted_at IS NULL),
                         (SELECT so.doc_number FROM shipping_requests sr
                          JOIN sales_orders so ON so.id = sr.order_id AND so.deleted_at IS NULL
                          WHERE sr.id = l.source_id AND l.source_type = 3)
                       ) AS upstream_doc_no,
                       COALESCE(
                         (SELECT string_agg(DISTINCT p.pdt_name, '、')
-                         FROM arrival_notice_items ani JOIN products p ON p.product_id = ani.product_id
-                         WHERE ani.notice_id = l.source_id AND l.source_type = 16),
+                         FROM purchase_order_items poi JOIN products p ON p.product_id = poi.product_id
+                         WHERE poi.order_id = l.source_id AND l.source_type = 7 AND poi.received_qty > 0),
                         (SELECT p.pdt_name FROM outsourcing_orders oo JOIN products p ON p.product_id = oo.product_id
                          WHERE oo.id = l.source_id AND l.source_type = 11),
                         (SELECT string_agg(DISTINCT p.pdt_name, '、')
@@ -602,16 +624,15 @@ impl ArApLedgerRepo {
         source_id: i64,
     ) -> Result<Vec<LedgerDetailItem>> {
         let sql = match source_type {
-            DocumentType::ArrivalNotice => {
-                // 采购入库 — 来料明细 × 产品 × PO 单价
+            DocumentType::PurchaseOrder => {
+                // 采购入库 — PO 明细 × 产品 × 单价
                 r#"SELECT p.product_code, p.pdt_name AS product_name,
-                          ani.accepted_qty AS quantity,
+                          poi.received_qty AS quantity,
                           COALESCE(poi.unit_price, 0) AS unit_price,
-                          COALESCE(ani.accepted_qty * poi.unit_price, 0) AS line_amount
-                   FROM arrival_notice_items ani
-                   JOIN products p ON p.product_id = ani.product_id
-                   LEFT JOIN purchase_order_items poi ON poi.id = ani.order_item_id
-                   WHERE ani.notice_id = $1 AND ani.accepted_qty > 0"#
+                          COALESCE(poi.received_qty * poi.unit_price, 0) AS line_amount
+                   FROM purchase_order_items poi
+                   JOIN products p ON p.product_id = poi.product_id
+                   WHERE poi.order_id = $1 AND poi.received_qty > 0"#
             }
             DocumentType::OutsourcingOrder => {
                 // 委外 — 单产品（加工费）

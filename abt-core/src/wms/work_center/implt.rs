@@ -1,18 +1,16 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Days, NaiveDate, TimeZone, Utc};
+use rust_decimal::Decimal;
 use sqlx::postgres::PgPool;
 
-use super::model::{PendingTask, Urgency, UrgentSummary, WorkCenterDomain, WorkCenterSummary};
+use super::model::{PendingTask, TaskSourceKind, Urgency, UrgentSummary, WorkCenterDomain, WorkCenterSummary};
 use super::service::WorkCenterService;
 use crate::shared::types::pagination::PageParams;
 use crate::shared::types::{PaginatedResult, PgExecutor, Result, ServiceContext};
-use crate::wms::arrival_notice::{
-    model::ArrivalNoticeFilter, new_arrival_notice_service, service::ArrivalNoticeService,
-};
 use crate::wms::cycle_count::{
     model::CycleCountFilter, new_cycle_count_service, service::CycleCountService,
 };
-use crate::wms::enums::{ArrivalStatus, CycleCountStatus, RequisitionStatus, TransferStatus};
+use crate::wms::enums::{CycleCountStatus, RequisitionStatus, TransferStatus};
 use crate::wms::material_requisition::{
     model::RequisitionFilter, new_material_requisition_service, service::MaterialRequisitionService,
 };
@@ -23,6 +21,16 @@ use crate::wms::pick_list::{
     model::{PickListQuery, PickListStatus}, new_pick_list_service, service::PickListService,
 };
 use crate::wms::transfer::{model::TransferFilter, new_transfer_service, service::TransferService};
+use crate::master_data::customer::{model::CustomerQuery, new_customer_service, CustomerService};
+use crate::master_data::supplier::{model::SupplierQuery, new_supplier_service, SupplierService};
+use crate::wms::warehouse::{model::WarehouseFilter, new_warehouse_service, WarehouseService};
+use crate::mes::work_order::{model::WorkOrderFilter, new_work_order_service, WorkOrderService};
+use crate::mes::WorkOrderStatus;
+use crate::purchase::enums::PurchaseOrderStatus;
+use crate::purchase::order::{model::PurchaseOrderQuery, new_purchase_order_service, PurchaseOrderService};
+use crate::master_data::product::{new_product_service, ProductService};
+use crate::wms::inventory_transaction::{new_inventory_transaction_service, InventoryTransactionService};
+use std::collections::HashMap;
 
 /// 临期阈值：today + N 天内到期视为 `Soon`。MVP 硬编码，后续进 wms/settings。
 const SOON_DAYS: u64 = 2;
@@ -31,9 +39,8 @@ const PICK_TIMEOUT_HOURS: i64 = 4;
 /// 单域拉取上限（与 `PageParams::page_size` clamp 上限对齐）。MVP：pending 超过此值的尾部不展示。
 const FETCH_LIMIT: u32 = 200;
 
-const ALL_DOMAINS: [WorkCenterDomain; 7] = [
+const ALL_DOMAINS: [WorkCenterDomain; 6] = [
     WorkCenterDomain::Arrival,
-    WorkCenterDomain::Inspection,
     WorkCenterDomain::Pick,
     WorkCenterDomain::Outbound,
     WorkCenterDomain::Requisition,
@@ -60,46 +67,89 @@ impl WorkCenterServiceImpl {
         now: DateTime<Utc>,
     ) -> Vec<PendingTask> {
         match domain {
-            // 待收货（Draft）/ 待质检（Inspecting）共用 arrival_notice，仅状态不同
-            WorkCenterDomain::Arrival | WorkCenterDomain::Inspection => {
-                let status = if domain == WorkCenterDomain::Arrival {
-                    ArrivalStatus::Draft
-                } else {
-                    ArrivalStatus::Inspecting
-                };
-                let svc = new_arrival_notice_service(self.pool.clone());
-                match svc
-                    .list(
-                        ctx,
-                        db,
-                        ArrivalNoticeFilter { status: Some(status), ..Default::default() },
-                        1,
-                        FETCH_LIMIT,
-                    )
+            // 待收货：采购 PO（未收完）+ 生产工单（完工未入库）双来源（取消来料通知后统一入口）
+            WorkCenterDomain::Arrival => {
+                let mut tasks = Vec::new();
+
+                // —— 采购待收货：PO status IN (Confirmed, PartiallyReceived) ——
+                let po_svc = new_purchase_order_service(self.pool.clone());
+                if let Ok(r) = po_svc
+                    .list(ctx, db, PurchaseOrderQuery::default(), PageParams::new(1, FETCH_LIMIT))
                     .await
                 {
-                    Ok(r) => r
+                    let pos: Vec<_> = r
                         .items
                         .into_iter()
-                        .map(|a| PendingTask {
-                            doc_id: a.id,
-                            doc_number: a.doc_number,
+                        .filter(|o| matches!(
+                            o.status,
+                            PurchaseOrderStatus::Confirmed | PurchaseOrderStatus::PartiallyReceived
+                        ))
+                        .collect();
+                    let supplier_ids: Vec<i64> = pos.iter().map(|o| o.supplier_id).collect();
+                    let names = resolve_supplier_names(ctx, db, self.pool.clone(), &supplier_ids).await;
+                    for o in pos {
+                        tasks.push(PendingTask {
+                            doc_id: o.id,
+                            doc_number: o.doc_number,
                             domain,
-                            counterparty: format!("供应商 #{}", a.supplier_id),
-                            summary: if domain == WorkCenterDomain::Arrival {
-                                "来料收货".into()
-                            } else {
-                                "待质检".into()
-                            },
-                            expected_at: Some(midnight_utc(a.arrival_date)),
-                            urgency: urgency_from_date(a.arrival_date, today),
-                        })
-                        .collect(),
-                    Err(e) => {
-                        tracing::warn!(domain = "arrival", error = %e, "list_pending fetch failed");
-                        vec![]
+                            source_kind: TaskSourceKind::PurchaseOrder,
+                            counterparty: names
+                                .get(&o.supplier_id)
+                                .cloned()
+                                .unwrap_or_else(|| format!("供应商 #{}", o.supplier_id)),
+                            summary: "采购待收".into(),
+                            expected_at: o.expected_delivery_date.map(midnight_utc),
+                            urgency: o
+                                .expected_delivery_date
+                                .map_or(Urgency::Normal, |d| urgency_from_date(d, today)),
+                        });
                     }
                 }
+
+                // —— 生产待入库：工单 status IN (Released, InProduction) 且 completed_qty > 已入库 ——
+                let wo_svc = new_work_order_service(self.pool.clone());
+                if let Ok(r) = wo_svc
+                    .list(ctx, db, WorkOrderFilter::default(), 1, FETCH_LIMIT)
+                    .await
+                {
+                    let wos: Vec<_> = r
+                        .items
+                        .into_iter()
+                        .filter(|w| matches!(
+                            w.status,
+                            WorkOrderStatus::Released | WorkOrderStatus::InProduction
+                        ))
+                        .collect();
+                    let product_ids: Vec<i64> = wos.iter().map(|w| w.product_id).collect();
+                    let product_names =
+                        resolve_product_names(ctx, db, self.pool.clone(), &product_ids).await;
+                    let inv_svc = new_inventory_transaction_service(self.pool.clone());
+                    for w in wos {
+                        let received: Decimal = inv_svc
+                            .find_by_source(ctx, db, "work_order", w.id)
+                            .await
+                            .unwrap_or_default()
+                            .iter()
+                            .map(|t| t.quantity)
+                            .sum();
+                        if w.completed_qty > received {
+                            tasks.push(PendingTask {
+                                doc_id: w.id,
+                                doc_number: w.doc_number,
+                                domain,
+                                source_kind: TaskSourceKind::WorkOrder,
+                                counterparty: product_names
+                                    .get(&w.product_id)
+                                    .cloned()
+                                    .unwrap_or_else(|| format!("产品 #{}", w.product_id)),
+                                summary: format!("待入库 {}", w.completed_qty - received),
+                                expected_at: Some(midnight_utc(w.scheduled_end)),
+                                urgency: urgency_from_date(w.scheduled_end, today),
+                            });
+                        }
+                    }
+                }
+                tasks
             }
             // 待拣货：无到期日，用 created_at 判超时
             WorkCenterDomain::Pick => {
@@ -120,6 +170,7 @@ impl WorkCenterServiceImpl {
                             doc_id: p.id,
                             doc_number: p.doc_number,
                             domain,
+                            source_kind: TaskSourceKind::PurchaseOrder,
                             counterparty: "拣货作业".into(),
                             summary: "待拣货".into(),
                             expected_at: Some(p.created_at),
@@ -146,13 +197,20 @@ impl WorkCenterServiceImpl {
                         )
                         .await
                     {
+                        let customer_ids: Vec<i64> = r.items.iter().map(|s| s.customer_id).collect();
+                        let names =
+                            resolve_customer_names(ctx, db, self.pool.clone(), &customer_ids).await;
                         for s in r.items {
                             let exp = s.expected_ship_date;
                             tasks.push(PendingTask {
                                 doc_id: s.id,
                                 doc_number: s.doc_number,
                                 domain,
-                                counterparty: format!("客户 #{}", s.customer_id),
+                                source_kind: TaskSourceKind::PurchaseOrder,
+                                counterparty: names
+                                    .get(&s.customer_id)
+                                    .cloned()
+                                    .unwrap_or_else(|| format!("客户 #{}", s.customer_id)),
                                 summary: "发货".into(),
                                 expected_at: exp.map(midnight_utc),
                                 urgency: exp.map_or(Urgency::Normal, |d| urgency_from_date(d, today)),
@@ -177,12 +235,19 @@ impl WorkCenterServiceImpl {
                         )
                         .await
                     {
+                        let wo_ids: Vec<i64> = r.items.iter().map(|m| m.work_order_id).collect();
+                        let won =
+                            resolve_work_order_numbers(ctx, db, self.pool.clone(), &wo_ids).await;
                         for m in r.items {
                             tasks.push(PendingTask {
                                 doc_id: m.id,
                                 doc_number: m.doc_number,
                                 domain,
-                                counterparty: format!("工单 #{}", m.work_order_id),
+                                source_kind: TaskSourceKind::PurchaseOrder,
+                                counterparty: won
+                                    .get(&m.work_order_id)
+                                    .cloned()
+                                    .unwrap_or_else(|| format!("工单 #{}", m.work_order_id)),
                                 summary: "领料".into(),
                                 expected_at: Some(midnight_utc(m.requisition_date)),
                                 urgency: urgency_from_date(m.requisition_date, today),
@@ -207,12 +272,28 @@ impl WorkCenterServiceImpl {
                         )
                         .await
                     {
+                        let wh_ids: Vec<i64> = r
+                            .items
+                            .iter()
+                            .flat_map(|t| [t.from_warehouse_id, t.to_warehouse_id])
+                            .collect();
+                        let whn =
+                            resolve_warehouse_names(ctx, db, self.pool.clone(), &wh_ids).await;
                         for t in r.items {
                             tasks.push(PendingTask {
                                 doc_id: t.id,
                                 doc_number: t.doc_number,
                                 domain,
-                                counterparty: format!("仓 {}→{}", t.from_warehouse_id, t.to_warehouse_id),
+                                source_kind: TaskSourceKind::PurchaseOrder,
+                                counterparty: format!(
+                                    "{}→{}",
+                                    whn.get(&t.from_warehouse_id)
+                                        .cloned()
+                                        .unwrap_or_else(|| format!("#{}", t.from_warehouse_id)),
+                                    whn.get(&t.to_warehouse_id)
+                                        .cloned()
+                                        .unwrap_or_else(|| format!("#{}", t.to_warehouse_id)),
+                                ),
                                 summary: t
                                     .item_count
                                     .map(|c| format!("{c} 项"))
@@ -244,12 +325,19 @@ impl WorkCenterServiceImpl {
                         )
                         .await
                     {
+                        let wh_ids: Vec<i64> = r.items.iter().map(|c| c.warehouse_id).collect();
+                        let whn =
+                            resolve_warehouse_names(ctx, db, self.pool.clone(), &wh_ids).await;
                         for c in r.items {
                             tasks.push(PendingTask {
                                 doc_id: c.id,
                                 doc_number: c.doc_number,
                                 domain,
-                                counterparty: format!("仓 #{}", c.warehouse_id),
+                                source_kind: TaskSourceKind::PurchaseOrder,
+                                counterparty: whn
+                                    .get(&c.warehouse_id)
+                                    .cloned()
+                                    .unwrap_or_else(|| format!("仓 #{}", c.warehouse_id)),
                                 summary: c
                                     .item_count
                                     .map(|x| format!("{x} 项"))
@@ -303,6 +391,114 @@ fn urgency_from_age(created_at: DateTime<Utc>, now: DateTime<Utc>) -> Urgency {
     }
 }
 
+// ── 跨域名称解析（id → 真实名/单号），拉一批 filter 避免 N+1 ──
+
+/// 供应商 id → name
+async fn resolve_supplier_names(
+    ctx: &ServiceContext,
+    db: PgExecutor<'_>,
+    pool: PgPool,
+    ids: &[i64],
+) -> HashMap<i64, String> {
+    if ids.is_empty() {
+        return HashMap::new();
+    }
+    new_supplier_service(pool)
+        .list(ctx, db, SupplierQuery::default(), PageParams::new(1, 500))
+        .await
+        .map(|r| {
+            r.items
+                .into_iter()
+                .filter(|s| ids.contains(&s.id))
+                .map(|s| (s.id, s.name))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// 客户 id → name
+async fn resolve_customer_names(
+    ctx: &ServiceContext,
+    db: PgExecutor<'_>,
+    pool: PgPool,
+    ids: &[i64],
+) -> HashMap<i64, String> {
+    if ids.is_empty() {
+        return HashMap::new();
+    }
+    new_customer_service(pool)
+        .list(ctx, db, CustomerQuery::default(), PageParams::new(1, 500))
+        .await
+        .map(|r| {
+            r.items
+                .into_iter()
+                .filter(|c| ids.contains(&c.id))
+                .map(|c| (c.id, c.name))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// 仓库 id → name
+async fn resolve_warehouse_names(
+    ctx: &ServiceContext,
+    db: PgExecutor<'_>,
+    pool: PgPool,
+    ids: &[i64],
+) -> HashMap<i64, String> {
+    if ids.is_empty() {
+        return HashMap::new();
+    }
+    new_warehouse_service(pool)
+        .list(ctx, db, WarehouseFilter::default(), 1, 500)
+        .await
+        .map(|r| {
+            r.items
+                .into_iter()
+                .filter(|w| ids.contains(&w.id))
+                .map(|w| (w.id, w.name))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// 工单 id → doc_number（WorkOrder 无批量接口，逐个 find_by_id；pending 队列已 top N 截断）
+async fn resolve_work_order_numbers(
+    ctx: &ServiceContext,
+    db: PgExecutor<'_>,
+    pool: PgPool,
+    ids: &[i64],
+) -> HashMap<i64, String> {
+    if ids.is_empty() {
+        return HashMap::new();
+    }
+    let svc = new_work_order_service(pool);
+    let mut map = HashMap::new();
+    for id in ids {
+        if let Ok(wo) = svc.find_by_id(ctx, db, *id).await {
+            map.insert(*id, wo.doc_number);
+        }
+    }
+    map
+}
+
+/// 产品 id → pdt_name（工单待入库的 counterparty 用）
+async fn resolve_product_names(
+    ctx: &ServiceContext,
+    db: PgExecutor<'_>,
+    pool: PgPool,
+    ids: &[i64],
+) -> HashMap<i64, String> {
+    if ids.is_empty() {
+        return HashMap::new();
+    }
+    new_product_service(pool)
+        .get_by_ids(ctx, db, ids.to_vec())
+        .await
+        .map(|r| r.into_iter().map(|p| (p.product_id, p.pdt_name)).collect())
+        .unwrap_or_default()
+}
+
 fn urgency_rank(u: Urgency) -> u8 {
     match u {
         Urgency::Overdue => 2,
@@ -316,14 +512,13 @@ impl WorkCenterService for WorkCenterServiceImpl {
     async fn summary(&self, ctx: &ServiceContext, db: PgExecutor<'_>) -> Result<WorkCenterSummary> {
         let pool = self.pool.clone();
 
-        // 待收货（Draft）/ 待质检（Inspecting）—— arrival_notice
-        let arrival = new_arrival_notice_service(pool.clone());
-        let arrivals_pending = cnt("arrivals", arrival.list(
-            ctx, db, ArrivalNoticeFilter { status: Some(ArrivalStatus::Draft), ..Default::default() }, 1, 1,
-        )).await;
-        let inspections_pending = cnt("inspections", arrival.list(
-            ctx, db, ArrivalNoticeFilter { status: Some(ArrivalStatus::Inspecting), ..Default::default() }, 1, 1,
-        )).await;
+        // 待收货：采购 PO 未收完 + 生产工单完工未入库（双来源，复用 fetch_domain_tasks）
+        let today = Utc::now().date_naive();
+        let now = Utc::now();
+        let arrivals_pending = self
+            .fetch_domain_tasks(ctx, db, WorkCenterDomain::Arrival, today, now)
+            .await
+            .len() as u64;
 
         // 待拣货（Draft）—— pick_list（依赖 migration 071 的 pick_lists 表）
         let picks_pending = cnt("picks", new_pick_list_service(pool.clone()).list(
@@ -371,7 +566,6 @@ impl WorkCenterService for WorkCenterServiceImpl {
 
         Ok(WorkCenterSummary {
             arrivals_pending,
-            inspections_pending,
             picks_pending,
             outbounds_pending,
             requisitions_pending,

@@ -5,8 +5,6 @@ use serde::Deserialize;
 
 use abt_core::shared::types::pagination::{PageParams, PaginatedResult};
 use abt_core::shared::types::{PgExecutor, ServiceContext};
-use abt_core::wms::arrival_notice::model::{ReceiveArrivalNoticeReq, ReceiveItemReq};
-use abt_core::wms::arrival_notice::ArrivalNoticeService;
 use abt_core::wms::enums::{RequisitionStatus, TransferStatus};
 use abt_core::wms::material_requisition::model::{IssueItemReq, IssueMaterialReq};
 use abt_core::wms::material_requisition::MaterialRequisitionService;
@@ -17,17 +15,26 @@ use abt_core::wms::transfer::TransferService;
 use abt_core::wms::warehouse::model::WarehouseFilter;
 use abt_core::wms::warehouse::WarehouseService;
 use abt_core::wms::work_center::model::{
-    PendingTask, Urgency, UrgentSummary, WorkCenterDomain, WorkCenterSummary,
+    PendingTask, TaskSourceKind, Urgency, UrgentSummary, WorkCenterDomain, WorkCenterSummary,
 };
 use abt_core::wms::work_center::WorkCenterService;
+use abt_core::shared::document_sequence::DocumentSequenceService;
+use abt_core::purchase::order::PurchaseOrderService;
+use abt_core::shared::enums::DocumentType;
+use abt_core::wms::enums::TransactionType;
+use abt_core::master_data::customer::CustomerService;
+use abt_core::master_data::product::ProductService;
 use rust_decimal::Decimal;
+use std::collections::HashMap;
 
 use crate::components::icon;
+use abt_core::wms::stock_in::{PoStockInRow, PurchaseStockInService, ReceiveAndStockInReq};
+use abt_core::wms::inventory_transaction::{model::RecordTransactionReq, InventoryTransactionService};
+use abt_core::mes::work_order::WorkOrderService;
 use crate::errors::Result;
 use abt_core::shared::types::error::DomainError;
 use crate::layout::page::admin_page;
 use crate::routes::shipping::ShippingDetailPath;
-use crate::routes::wms_arrival::ArrivalDetailPath;
 use crate::routes::wms_cycle_count::CycleCountDetailPath;
 use crate::routes::wms_requisition::RequisitionDetailPath;
 use crate::routes::wms_transfer::TransferDetailPath;
@@ -45,12 +52,15 @@ pub struct WorkCenterQuery {
     pub id: Option<i64>,
 }
 
-/// 就地操作提交：action 决定分发，id 目标单据，items_json（收货/拣货行级明细，JSON 字符串）
+/// 就地操作提交：action 决定分发，id 目标单据，items_json（收货/拣货行级明细，JSON 字符串）。
+/// idempotency_key 仅收货入库用（防双击重复入库），其他 action 不传 = None。
 #[derive(Debug, Deserialize)]
 pub struct WorkCenterActionForm {
     pub action: String,
     pub id: i64,
     pub items_json: Option<String>,
+    #[serde(default)]
+    pub idempotency_key: Option<String>,
 }
 
 // ── domain ↔ slug / 动作 映射 ──
@@ -58,7 +68,6 @@ pub struct WorkCenterActionForm {
 fn domain_from_str(s: &str) -> Option<WorkCenterDomain> {
     match s {
         "arrival" => Some(WorkCenterDomain::Arrival),
-        "inspection" => Some(WorkCenterDomain::Inspection),
         "pick" => Some(WorkCenterDomain::Pick),
         "outbound" => Some(WorkCenterDomain::Outbound),
         "requisition" => Some(WorkCenterDomain::Requisition),
@@ -71,7 +80,6 @@ fn domain_from_str(s: &str) -> Option<WorkCenterDomain> {
 fn domain_slug(d: WorkCenterDomain) -> &'static str {
     match d {
         WorkCenterDomain::Arrival => "arrival",
-        WorkCenterDomain::Inspection => "inspection",
         WorkCenterDomain::Pick => "pick",
         WorkCenterDomain::Outbound => "outbound",
         WorkCenterDomain::Requisition => "requisition",
@@ -83,7 +91,6 @@ fn domain_slug(d: WorkCenterDomain) -> &'static str {
 fn domain_meta(d: WorkCenterDomain) -> (&'static str, Markup) {
     match d {
         WorkCenterDomain::Arrival => ("待收货", icon::truck_icon("w-4 h-4")),
-        WorkCenterDomain::Inspection => ("待质检", icon::search_icon("w-4 h-4")),
         WorkCenterDomain::Pick => ("待拣货", icon::package_icon("w-4 h-4")),
         WorkCenterDomain::Outbound => ("待发货", icon::upload_icon("w-4 h-4")),
         WorkCenterDomain::Requisition => ("待领料", icon::clipboard_list_icon("w-4 h-4")),
@@ -96,7 +103,6 @@ fn domain_meta(d: WorkCenterDomain) -> (&'static str, Markup) {
 fn domain_count(s: &WorkCenterSummary, d: WorkCenterDomain) -> u64 {
     match d {
         WorkCenterDomain::Arrival => s.arrivals_pending,
-        WorkCenterDomain::Inspection => s.inspections_pending,
         WorkCenterDomain::Pick => s.picks_pending,
         WorkCenterDomain::Outbound => s.outbounds_pending,
         WorkCenterDomain::Requisition => s.requisitions_pending,
@@ -108,7 +114,7 @@ fn domain_count(s: &WorkCenterSummary, d: WorkCenterDomain) -> u64 {
 /// 就地操作 action → 受影响环节（决定提交后刷新哪张卡片）
 fn action_domain(action: &str) -> Result<WorkCenterDomain> {
     Ok(match action {
-        "receive" => WorkCenterDomain::Arrival,
+        "receive_po" | "receive_wo" => WorkCenterDomain::Arrival,
         "pick" => WorkCenterDomain::Pick,
         "ship" => WorkCenterDomain::Outbound,
         "issue" => WorkCenterDomain::Requisition,
@@ -122,9 +128,8 @@ fn action_domain(action: &str) -> Result<WorkCenterDomain> {
 /// 分层约定：abt-core 不硬编码前端 URL，跳转路径在 abt-web 层按 domain + doc_id 拼接。
 fn domain_detail_url(domain: WorkCenterDomain, doc_id: i64) -> Option<String> {
     match domain {
-        WorkCenterDomain::Arrival | WorkCenterDomain::Inspection => {
-            Some(ArrivalDetailPath { id: doc_id }.to_string())
-        }
+        // Arrival（PO/工单）详情按 source_kind 在 render_task_row 拼，这里返回 None
+        WorkCenterDomain::Arrival => None,
         WorkCenterDomain::Outbound => Some(ShippingDetailPath { id: doc_id }.to_string()),
         WorkCenterDomain::Requisition => Some(RequisitionDetailPath { id: doc_id }.to_string()),
         WorkCenterDomain::Transfer => Some(TransferDetailPath { id: doc_id }.to_string()),
@@ -225,28 +230,120 @@ async fn dispatch_action(
     form: &WorkCenterActionForm,
 ) -> Result<()> {
     match form.action.as_str() {
-        "receive" => {
+        "receive_po" => {
+            // 采购 PO 直收入库闭环（取消来料通知后）：receive_and_stock_in 事务内
+            // record 库存 + 回写 PO received_qty/状态 + 立应付 + 成本。幂等由 service 内 try_claim。
             let rows: Vec<ReceiveRowJson> = parse_items_json(form)?;
-            let items: Vec<ReceiveItemReq> = rows
+            let po_rows: Vec<PoStockInRow> = rows
                 .into_iter()
-                .map(|r| -> Result<ReceiveItemReq> {
-                    Ok(ReceiveItemReq {
-                        item_id: r
-                            .item_id
+                .map(|r| -> Result<PoStockInRow> {
+                    Ok(PoStockInRow {
+                        order_item_id: r
+                            .order_item_id
+                            .as_deref()
+                            .filter(|s| !s.is_empty())
+                            .ok_or_else(|| DomainError::validation("缺少订单明细行 order_item_id"))?
                             .parse::<i64>()
-                            .map_err(|e| DomainError::validation(format!("item_id 解析失败: {e}")))?,
+                            .map_err(|e| DomainError::validation(format!("order_item_id 解析失败: {e}")))?,
+                        product_id: r
+                            .product_id
+                            .parse::<i64>()
+                            .map_err(|e| DomainError::validation(format!("product_id 解析失败: {e}")))?,
                         received_qty: r
                             .received_qty
                             .parse::<Decimal>()
                             .map_err(|e| DomainError::validation(format!("收货数量解析失败: {e}")))?,
                         batch_no: r.batch_no.filter(|s| !s.is_empty()),
+                        warehouse_id: r
+                            .warehouse_id
+                            .as_deref()
+                            .filter(|s| !s.is_empty())
+                            .ok_or_else(|| DomainError::validation("每行必须选择目标仓库"))?
+                            .parse::<i64>()
+                            .map_err(|e| DomainError::validation(format!("仓库解析失败: {e}")))?,
+                        bin_id: parse_opt_i64(&r.bin_id, "目标库位")?,
                     })
                 })
                 .collect::<Result<Vec<_>>>()?;
             state
-                .arrival_notice_service()
-                .receive(ctx, db, ReceiveArrivalNoticeReq { id: form.id, items })
+                .purchase_stock_in_service()
+                .receive_and_stock_in(
+                    ctx,
+                    db,
+                    ReceiveAndStockInReq {
+                        po_id: form.id,
+                        rows: po_rows,
+                        delivery_note: None,
+                        remark: None,
+                        idempotency_key: form.idempotency_key.clone(),
+                    },
+                )
                 .await?;
+        }
+        "receive_wo" => {
+            // 生产工单入库：仅 record 库存（source=work_order），不立应付、不回写 completed_qty（报工已累加）
+            let rows: Vec<ReceiveRowJson> = parse_items_json(form)?;
+            let inv_svc = state.inventory_transaction_service();
+            let wh_svc = state.warehouse_service();
+            let wo = state.work_order_service().find_by_id(ctx, db, form.id).await?;
+            let doc_number = state
+                .document_sequence_service()
+                .next_number(ctx, db, DocumentType::StockReceipt)
+                .await?;
+            for r in rows {
+                let product_id = r
+                    .product_id
+                    .parse::<i64>()
+                    .map_err(|e| DomainError::validation(format!("product_id 解析失败: {e}")))?;
+                let qty = r
+                    .received_qty
+                    .parse::<Decimal>()
+                    .map_err(|e| DomainError::validation(format!("收货数量解析失败: {e}")))?;
+                let warehouse_id = r
+                    .warehouse_id
+                    .as_deref()
+                    .filter(|s| !s.is_empty())
+                    .ok_or_else(|| DomainError::validation("必须选择目标仓库"))?
+                    .parse::<i64>()
+                    .map_err(|e| DomainError::validation(format!("仓库解析失败: {e}")))?;
+                let bin_id = parse_opt_i64(&r.bin_id, "目标库位")?;
+                let zone_id = wh_svc
+                    .get_or_create_default_zone(ctx, db, warehouse_id)
+                    .await
+                    .ok()
+                    .map(|z| z.id);
+                let default_bin = if let Some(zid) = zone_id {
+                    wh_svc
+                        .list_bins(ctx, db, zid, None, 1, 1)
+                        .await
+                        .ok()
+                        .and_then(|x| x.items.first().map(|b| b.id))
+                } else {
+                    None
+                };
+                inv_svc
+                    .record(
+                        ctx,
+                        db,
+                        RecordTransactionReq {
+                            doc_number: Some(doc_number.clone()),
+                            delivery_no: None,
+                            source_doc_number: Some(wo.doc_number.clone()),
+                            transaction_type: TransactionType::ProductionReceipt,
+                            product_id,
+                            warehouse_id,
+                            zone_id,
+                            bin_id: bin_id.or(default_bin),
+                            batch_no: r.batch_no.filter(|s| !s.is_empty()),
+                            quantity: qty,
+                            unit_cost: None,
+                            source_type: "work_order".to_string(),
+                            source_id: form.id,
+                            remark: None,
+                        },
+                    )
+                    .await?;
+            }
         }
         "pick" => {
             let rows: Vec<PickRowJson> = parse_items_json(form)?;
@@ -320,11 +417,16 @@ fn parse_opt_i64(s: &Option<String>, label: &str) -> Result<Option<i64>> {
 
 // 行级明细走 hidden items_json（JSON 字符串），字段统一用 String（i.value 为字符串），服务端再 parse
 // 对齐 quotation/sales_order 的 ItemWeb 范式（见 static/app.js lineItemCalc.collectItems）
+/// 收货 drawer 行级明细（直入库：每行带目标仓库/库位，提交走 stock_in_from_notice）
 #[derive(Debug, Deserialize)]
 struct ReceiveRowJson {
-    item_id: String,
+    /// 采购明细行 id（receive_po 必填；receive_wo 工单入库不用 = None）
+    order_item_id: Option<String>,
+    product_id: String,
     received_qty: String,
     batch_no: Option<String>,
+    warehouse_id: Option<String>,
+    bin_id: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -365,7 +467,6 @@ async fn render_full_page(ctx: RequestContext) -> Result<Html<String>> {
         }
         (render_todo_nav(&summary, &urgent))
         (render_card(WorkCenterDomain::Arrival, summary.arrivals_pending, None))
-        (render_card(WorkCenterDomain::Inspection, summary.inspections_pending, None))
         (render_card(WorkCenterDomain::Pick, summary.picks_pending, None))
         (render_card(WorkCenterDomain::Outbound, summary.outbounds_pending, None))
         (render_card(WorkCenterDomain::Requisition, summary.requisitions_pending, None))
@@ -373,6 +474,8 @@ async fn render_full_page(ctx: RequestContext) -> Result<Html<String>> {
         (render_card(WorkCenterDomain::CycleCount, summary.cycle_counts_pending, None))
         // 共享 drawer overlay（各域 GET ?drawer=&id= 把 body 填入 #wc-drawer-body）
         (wc_drawer_shell())
+        // 库位选择弹窗（复用 stock-in/create 的 suggest_bins 端点；收货 drawer 选目标库位）
+        (wc_bin_picker_shell())
     };
 
     let page_html = admin_page(
@@ -400,7 +503,6 @@ fn render_todo_nav(summary: &WorkCenterSummary, urgent: &UrgentSummary) -> Marku
             }
             div class="flex items-center gap-2 flex-wrap" {
                 (nav_chip("arrival", "待收货", summary.arrivals_pending))
-                (nav_chip("inspection", "待质检", summary.inspections_pending))
                 (nav_chip("pick", "待拣货", summary.picks_pending))
                 (nav_chip("outbound", "待发货", summary.outbounds_pending))
                 (nav_chip("requisition", "待领料", summary.requisitions_pending))
@@ -527,18 +629,21 @@ fn render_task_row(t: &PendingTask, domain: WorkCenterDomain) -> Markup {
                 }
             }
             td class="py-3 px-3 text-right" {
-                (render_row_action(domain, t.doc_id))
+                (render_row_action(domain, t.doc_id, t.source_kind))
             }
         }
     }
 }
 
 /// 行内操作入口：拣货/收货/发货/领料/调拨 → hx-get 加载 drawer body；质检/盘点 → 跳详情页
-fn render_row_action(domain: WorkCenterDomain, doc_id: i64) -> Markup {
+fn render_row_action(domain: WorkCenterDomain, doc_id: i64, source_kind: TaskSourceKind) -> Markup {
     let open_hs =
         "on 'htmx:afterRequest'[detail.xhr.status<400] add .open to #wc-drawer-overlay";
     match domain {
-        WorkCenterDomain::Arrival => drawer_btn("收货", "receive", doc_id, icon::truck_icon("w-3 h-3"), open_hs),
+        WorkCenterDomain::Arrival => match source_kind {
+            TaskSourceKind::PurchaseOrder => drawer_btn("收货", "receive_po", doc_id, icon::truck_icon("w-3 h-3"), open_hs),
+            TaskSourceKind::WorkOrder => drawer_btn("入库", "receive_wo", doc_id, icon::package_icon("w-3 h-3"), open_hs),
+        },
         WorkCenterDomain::Pick => drawer_btn("拣货", "pick", doc_id, icon::plus_icon("w-3 h-3"), open_hs),
         WorkCenterDomain::Outbound => drawer_btn("发货", "ship", doc_id, icon::upload_icon("w-3 h-3"), open_hs),
         WorkCenterDomain::Requisition => {
@@ -546,10 +651,6 @@ fn render_row_action(domain: WorkCenterDomain, doc_id: i64) -> Markup {
         }
         WorkCenterDomain::Transfer => {
             drawer_btn("办理", "transfer", doc_id, icon::arrow_right_icon("w-3 h-3"), open_hs)
-        }
-        // 待质检：inspect 5 步联动（IQC+成本+事件）太复杂，跳到货详情
-        WorkCenterDomain::Inspection => {
-            render_jump_action("质检", &ArrivalDetailPath { id: doc_id }.to_string())
         }
         // 待盘点：多状态多动作，跳盘点详情
         WorkCenterDomain::CycleCount => {
@@ -589,12 +690,35 @@ fn wc_drawer_shell() -> Markup {
     }
 }
 
+/// 库位选择弹窗壳：复用 stock-in/create 的 suggest_bins 端点（按产品+仓库 SameMerge 推荐）。
+/// z-[1001] 盖在 drawer overlay（z-[1000]）之上；× / 背景点击关闭。
+fn wc_bin_picker_shell() -> Markup {
+    html! {
+        div id="bin-picker"
+            class="fixed inset-0 z-[1001] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto"
+            _="on click[me is event.target] remove .is-open" {
+            div class="modal bg-bg rounded-xl w-[520px] max-h-[80vh] flex flex-col overflow-hidden shadow-xl" {
+                div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
+                    h2 class="font-bold text-base text-fg" { "选择入库库位" }
+                    button type="button"
+                        class="bg-transparent border-none cursor-pointer text-xl text-muted p-1"
+                        _="on click remove .is-open from #bin-picker" { "×" }
+                }
+                div id="bin-picker-results" class="overflow-y-auto flex-1 min-h-0" {
+                    div class="text-center text-muted py-10 text-sm" { "点击物料行的「自动分配」加载推荐库位…" }
+                }
+            }
+        }
+    }
+}
+
 // ── drawer body（GET ?drawer=&id=）：按 action 渲染表单，提交走单端点 POST ──
 
 async fn render_drawer_body(action: &str, id: i64, ctx: RequestContext) -> Result<Html<String>> {
     let RequestContext { mut conn, state, service_ctx, .. } = ctx;
     let body = match action {
-        "receive" => receive_drawer_body(&state, &service_ctx, &mut conn, id).await?,
+        "receive_po" => po_receive_drawer_body(&state, &service_ctx, &mut conn, id).await?,
+        "receive_wo" => wo_receive_drawer_body(&state, &service_ctx, &mut conn, id).await?,
         "pick" => pick_drawer_body(&state, &service_ctx, &mut conn, id).await?,
         "ship" => ship_drawer_body(&state, &service_ctx, &mut conn, id).await?,
         "issue" => issue_drawer_body(&state, &service_ctx, &mut conn, id).await?,
@@ -690,72 +814,219 @@ fn drawer_footer(submit_label: &str) -> Markup {
     }
 }
 
-async fn receive_drawer_body(
+async fn po_receive_drawer_body(
     state: &AppState,
     ctx: &ServiceContext,
     db: PgExecutor<'_>,
     id: i64,
 ) -> Result<Markup> {
-    let svc = state.arrival_notice_service();
-    let an = svc.get(ctx, db, id).await?;
-    let items = svc.list_items(ctx, db, id).await.unwrap_or_default();
+    let po_svc = state.purchase_order_service();
+    let po = po_svc.get(ctx, db, id).await?;
+    let items = po_svc.list_items(ctx, db, id).await.unwrap_or_default();
+    let warehouses = state
+        .warehouse_service()
+        .list(ctx, db, WarehouseFilter::default(), 1, 200)
+        .await
+        .map(|r| r.items)
+        .unwrap_or_default();
+    let product_map: HashMap<i64, abt_core::master_data::product::model::Product> = state
+        .product_service()
+        .get_by_ids(ctx, db, items.iter().map(|i| i.product_id).collect())
+        .await
+        .unwrap_or_default()
+        .into_iter()
+        .map(|p| (p.product_id, p))
+        .collect();
 
     let mut rows = html! {};
     for (idx, it) in items.iter().enumerate() {
+        let pending = it.quantity - it.received_qty;
+        if pending <= Decimal::ZERO {
+            continue; // 已收完的行跳过
+        }
         rows = html! {
             (rows)
-            tr class="border-b border-border-soft" data-row {
-                td class="py-2 px-2 text-sm text-fg" { "产品 #" (it.product_id) }
-                td class="py-2 px-2 text-sm font-mono text-right" { (fmt_qty(it.declared_qty)) }
-                td class="py-2 px-2 text-right" {
-                    input type="hidden" data-k="item_id" name=(format!("items[{idx}][item_id]")) value=(it.id);
-                    input type="number" data-k="received_qty" name=(format!("items[{idx}][received_qty]"))
-                        value=(fmt_qty(it.declared_qty)) min="0" step="any"
-                        class="w-20 px-2 py-1 border border-border rounded-sm text-sm font-mono text-right bg-bg";
+            div class="border-b border-border-soft py-3" data-row {
+                div class="flex items-start justify-between mb-2 gap-2" {
+                    div class="min-w-0" {
+                        div class="text-sm text-fg font-medium truncate" {
+                            (product_map.get(&it.product_id).map(|p| p.pdt_name.clone()).unwrap_or_else(|| format!("产品 #{}", it.product_id)))
+                        }
+                        div class="text-xs text-muted truncate" {
+                            (product_map.get(&it.product_id).map(|p| p.product_code.clone()).unwrap_or_default())
+                        }
+                    }
+                    span class="text-xs text-muted shrink-0 mt-0.5" { "待收 " (fmt_qty(pending)) }
                 }
-                td class="py-2 px-2" {
-                    input type="text" data-k="batch_no" name=(format!("items[{idx}][batch_no]"))
-                        value={(it.batch_no.as_deref().unwrap_or(""))}
-                        class="w-24 px-2 py-1 border border-border rounded-sm text-sm font-mono bg-bg";
+                input type="hidden" data-k="order_item_id" name=(format!("items[{idx}][order_item_id]")) value=(it.id);
+                input type="hidden" data-k="product_id" name=(format!("items[{idx}][product_id]")) value=(it.product_id);
+                div class="grid grid-cols-2 gap-2 mb-2" {
+                    div {
+                        label class="block text-xs text-muted mb-1" { "实收" }
+                        input type="number" data-k="received_qty" name=(format!("items[{idx}][received_qty]"))
+                            value=(fmt_qty(pending)) min="0" step="any"
+                            class="w-full px-3 py-2 border border-border rounded-sm text-sm font-mono text-right bg-bg";
+                    }
+                    div {
+                        label class="block text-xs text-muted mb-1" { "批次" }
+                        input type="text" data-k="batch_no" name=(format!("items[{idx}][batch_no]"))
+                            class="w-full px-3 py-2 border border-border rounded-sm text-sm font-mono bg-bg";
+                    }
+                }
+                div class="grid grid-cols-2 gap-2" {
+                    div {
+                        label class="block text-xs text-muted mb-1" { "目标仓库 " span class="text-danger" { "*" } }
+                        select data-k="warehouse_id" name=(format!("items[{idx}][warehouse_id]"))
+                            _="on change call wcResetBin(me)"
+                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-bg" {
+                            option value="" disabled selected { "选择仓库" }
+                            @for w in &warehouses {
+                                option value=(w.id) { (w.name) }
+                            }
+                        }
+                    }
+                    div {
+                        label class="block text-xs text-muted mb-1" { "目标库位" }
+                        input type="hidden" data-k="bin_id" name=(format!("items[{idx}][bin_id]")) value="";
+                        button type="button"
+                            _="on click call wcOpenBinPicker(me)"
+                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-bg text-fg-2 hover:bg-surface truncate text-left" {
+                            span class="bin-label" { "自动分配" }
+                        }
+                    }
                 }
             }
         };
     }
 
     let inner = html! {
-        // 收货行级明细 → onsubmit 由 wcCollectItems 收成 items_json
+        // 幂等键：drawer body 加载时生成（防双击重复入库），顶层字段不进 items_json
+        input type="hidden" name="idempotency_key"
+            _="on load js me.value = crypto.randomUUID?.() || (Date.now()+Math.random()).toString(36) end" {};
         input type="hidden" name="items_json" value="[]";
         div class="mb-3" {
-            span class="text-xs text-muted font-medium" { "来料通知 " }
-            span class="text-sm font-mono font-semibold text-fg" { (an.doc_number) }
+            span class="text-xs text-muted font-medium" { "采购订单 " }
+            span class="text-sm font-mono font-semibold text-fg" { (po.doc_number) }
         }
-        // 闭环提示：收货 ≠ 入库（入库在后续质检 Accepted 后）
-        div class="mb-4 p-3 rounded-sm bg-warn-bg border border-warn/30" {
-            p class="text-xs text-warn font-medium leading-relaxed" {
-                "收货后单据进入「待质检」，质检通过后才正式入库并立应付账款。"
+        div class="mb-4 p-3 rounded-sm bg-accent-bg border border-accent/30" {
+            p class="text-xs text-accent font-medium leading-relaxed" {
+                "确认后直接入库，并自动回写采购订单收货量、立应付账款。"
             }
         }
-        table class="w-full border-collapse" {
-            thead {
-                tr {
-                    th class="text-left text-xs font-semibold text-muted py-2 px-2 border-b border-border-soft" { "产品" }
-                    th class="text-right text-xs font-semibold text-muted py-2 px-2 border-b border-border-soft" { "申报" }
-                    th class="text-right text-xs font-semibold text-muted py-2 px-2 border-b border-border-soft" { "实收" }
-                    th class="text-left text-xs font-semibold text-muted py-2 px-2 border-b border-border-soft" { "批次" }
-                }
-            }
-            tbody { (rows) }
-        }
-        (drawer_footer("确认收货"))
+        (rows)
+        (drawer_footer("确认入库"))
     };
     Ok(drawer_form(
-        "收货",
-        "receive",
+        "采购收货入库",
+        "receive_po",
         id,
         WorkCenterDomain::Arrival,
-        "确认收货？收货后进入待质检",
-        "wcCollectItems(this)",
+        "确认收货入库？将直接入库并回写采购订单",
+        "wcReceiveSubmit(this)",
         inner,
+    ))
+}
+
+/// 生产工单入库 drawer：完工产品（completed_qty - 已入库量）上架，仅记库存（不立应付、不回写工单完工量）
+async fn wo_receive_drawer_body(
+    state: &AppState,
+    ctx: &ServiceContext,
+    db: PgExecutor<'_>,
+    id: i64,
+) -> Result<Markup> {
+    let wo = state.work_order_service().find_by_id(ctx, db, id).await?;
+    let product = state.product_service().get(ctx, db, wo.product_id).await?;
+    let received: Decimal = state
+        .inventory_transaction_service()
+        .find_by_source(ctx, db, "work_order", id)
+        .await
+        .unwrap_or_default()
+        .iter()
+        .map(|t| t.quantity)
+        .sum();
+    let pending = wo.completed_qty - received;
+    let warehouses = state
+        .warehouse_service()
+        .list(ctx, db, WarehouseFilter::default(), 1, 200)
+        .await
+        .map(|r| r.items)
+        .unwrap_or_default();
+
+    let body = html! {
+        input type="hidden" name="items_json" value="[]";
+        div class="mb-3" {
+            span class="text-xs text-muted font-medium" { "生产工单 " }
+            span class="text-sm font-mono font-semibold text-fg" { (wo.doc_number) }
+        }
+        div class="mb-3 text-xs text-muted" {
+            "完工 " (fmt_qty(wo.completed_qty)) " · 已入库 " (fmt_qty(received)) " · 待入库 "
+            span class="text-fg font-medium" { (fmt_qty(pending)) }
+        }
+        @if pending <= Decimal::ZERO {
+            div class="mb-4 p-3 rounded-sm bg-warn-bg border border-warn/30" {
+                p class="text-xs text-warn font-medium" { "该工单完工产品已全部入库，无需操作。" }
+            }
+        } @else {
+            div class="border-b border-border-soft py-3" data-row {
+                div class="flex items-start justify-between mb-2 gap-2" {
+                    div class="min-w-0" {
+                        div class="text-sm text-fg font-medium truncate" { (product.pdt_name) }
+                        div class="text-xs text-muted truncate" { (product.product_code) }
+                    }
+                }
+                input type="hidden" data-k="product_id" name="items[0][product_id]" value=(wo.product_id);
+                div class="grid grid-cols-2 gap-2 mb-2" {
+                    div {
+                        label class="block text-xs text-muted mb-1" { "入库量" }
+                        input type="number" data-k="received_qty" name="items[0][received_qty]"
+                            value=(fmt_qty(pending)) min="0" step="any"
+                            class="w-full px-3 py-2 border border-border rounded-sm text-sm font-mono text-right bg-bg";
+                    }
+                    div {
+                        label class="block text-xs text-muted mb-1" { "批次" }
+                        input type="text" data-k="batch_no" name="items[0][batch_no]"
+                            class="w-full px-3 py-2 border border-border rounded-sm text-sm font-mono bg-bg";
+                    }
+                }
+                div class="grid grid-cols-2 gap-2" {
+                    div {
+                        label class="block text-xs text-muted mb-1" { "目标仓库 " span class="text-danger" { "*" } }
+                        select data-k="warehouse_id" name="items[0][warehouse_id]"
+                            _="on change call wcResetBin(me)"
+                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-bg" {
+                            option value="" disabled selected { "选择仓库" }
+                            @for w in &warehouses {
+                                option value=(w.id) { (w.name) }
+                            }
+                        }
+                    }
+                    div {
+                        label class="block text-xs text-muted mb-1" { "目标库位" }
+                        input type="hidden" data-k="bin_id" name="items[0][bin_id]" value="";
+                        button type="button"
+                            _="on click call wcOpenBinPicker(me)"
+                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-bg text-fg-2 hover:bg-surface truncate text-left" {
+                            span class="bin-label" { "自动分配" }
+                        }
+                    }
+                }
+            }
+            div class="mb-4 p-3 rounded-sm bg-accent-bg border border-accent/30" {
+                p class="text-xs text-accent font-medium leading-relaxed" {
+                    "生产入库仅登记库存（不计应付、不回写工单完工量——报工时已累加）。"
+                }
+            }
+            (drawer_footer("确认入库"))
+        }
+    };
+    Ok(drawer_form(
+        "生产入库",
+        "receive_wo",
+        id,
+        WorkCenterDomain::Arrival,
+        "确认生产入库？",
+        "wcReceiveSubmit(this)",
+        body,
     ))
 }
 
@@ -775,30 +1046,45 @@ async fn pick_drawer_body(
         .await
         .map(|r| r.items)
         .unwrap_or_default();
+    let product_map: HashMap<i64, abt_core::master_data::product::model::Product> = state
+        .product_service()
+        .get_by_ids(ctx, db, items.iter().map(|i| i.product_id).collect())
+        .await
+        .unwrap_or_default()
+        .into_iter()
+        .map(|p| (p.product_id, p))
+        .collect();
 
     let mut rows = html! {};
     for (idx, it) in items.iter().enumerate() {
         rows = html! {
             (rows)
             tr class="border-b border-border-soft" data-row {
-                td class="py-2 px-2 text-sm text-fg" { "产品 #" (it.product_id) }
+                td class="py-2 px-2 text-sm text-fg" {
+                    div class="truncate" {
+                        (product_map.get(&it.product_id).map(|p| p.pdt_name.clone()).unwrap_or_else(|| format!("产品 #{}", it.product_id)))
+                    }
+                    div class="text-xs text-muted truncate" {
+                        (product_map.get(&it.product_id).map(|p| p.product_code.clone()).unwrap_or_default())
+                    }
+                }
                 td class="py-2 px-2 text-sm font-mono text-right" { (fmt_qty(it.requested_qty)) }
                 td class="py-2 px-2" {
                     select data-k="warehouse_id" name=(format!("items[{idx}][warehouse_id]"))
-                        class="w-full px-2 py-1 border border-border rounded-sm text-xs bg-bg mb-1" {
+                        class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-bg mb-1" {
                         option value="" { "选择仓库" }
                         @for w in &warehouses {
                             option value=(w.id) { (w.name) }
                         }
                     }
                     input type="number" data-k="bin_id" name=(format!("items[{idx}][bin_id]")) placeholder="库位ID 可选"
-                        class="w-full px-2 py-1 border border-border rounded-sm text-xs bg-bg";
+                        class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-bg";
                 }
                 td class="py-2 px-2 text-right" {
                     input type="hidden" data-k="pick_list_item_id" name=(format!("items[{idx}][pick_list_item_id]")) value=(it.id);
                     input type="number" data-k="picked_qty" name=(format!("items[{idx}][picked_qty]"))
                         value=(fmt_qty(it.picked_qty)) min="0" step="any"
-                        class="w-20 px-2 py-1 border border-border rounded-sm text-sm font-mono text-right bg-bg";
+                        class="w-24 px-3 py-2 border border-border rounded-sm text-sm font-mono text-right bg-bg";
                 }
             }
         };
@@ -841,35 +1127,129 @@ async fn ship_drawer_body(
     id: i64,
 ) -> Result<Markup> {
     let s = state.shipping_service().find_by_id(ctx, db, id).await?;
-    if s.status == ShippingStatus::Picking {
-        let inner = html! {
-            div class="mb-3" {
-                span class="text-xs text-muted font-medium" { "发货单 " }
-                span class="text-sm font-mono font-semibold text-fg" { (s.doc_number) }
-            }
-            p class="text-sm text-muted mb-2" { "拣货已完成。确认发出将扣减库存、立应收账款并回写销售订单。" }
-            (drawer_footer("确认发出"))
-        };
-        Ok(drawer_form(
-            "确认发出",
-            "ship",
-            id,
-            WorkCenterDomain::Outbound,
-            "确认已发出？将扣减库存并立应收",
-            "",
-            inner,
-        ))
-    } else {
+    if s.status != ShippingStatus::Picking {
         // Confirmed 等未拣货：不能直接 ship，跳详情
-        Ok(drawer_message(
+        return Ok(drawer_message(
             "未拣货",
             "发货单",
             &s.doc_number,
             "该单尚未拣货，无法直接发出。请先完成拣货。",
             &ShippingDetailPath { id }.to_string(),
             "去详情页拣货",
-        ))
+        ));
     }
+
+    let items = state.shipping_service().list_items(ctx, db, id).await.unwrap_or_default();
+    let product_map: HashMap<i64, abt_core::master_data::product::model::Product> = state
+        .product_service()
+        .get_by_ids(ctx, db, items.iter().map(|i| i.product_id).collect())
+        .await
+        .unwrap_or_default()
+        .into_iter()
+        .map(|p| (p.product_id, p))
+        .collect();
+    let customer = state.customer_service().get(ctx, db, s.customer_id).await.ok();
+    // 拣货明细：shipping_item.id → (warehouse_id, bin_id, picked_qty)，ship 扣库存即用此仓库/库位
+    let pick_svc = state.pick_list_service();
+    let mut pick_map: HashMap<i64, (Option<i64>, Option<i64>, Decimal)> = HashMap::new();
+    if let Ok(Some(pl)) = pick_svc.find_by_outbound(ctx, db, id).await
+        && let Ok(pick_items) = pick_svc.list_items(ctx, db, pl.id).await
+    {
+        for p in pick_items {
+            pick_map.insert(p.outbound_item_id, (p.warehouse_id, p.bin_id, p.picked_qty));
+        }
+    }
+    let warehouses = state
+        .warehouse_service()
+        .list(ctx, db, WarehouseFilter::default(), 1, 200)
+        .await
+        .map(|r| r.items)
+        .unwrap_or_default();
+    let total_qty: Decimal = items.iter().map(|i| i.requested_qty).sum();
+
+    let mut rows = html! {};
+    for it in &items {
+        let prod = product_map.get(&it.product_id);
+        let prod_name = prod
+            .map(|p| p.pdt_name.clone())
+            .unwrap_or_else(|| format!("产品 #{}", it.product_id));
+        let prod_code = prod.map(|p| p.product_code.clone()).unwrap_or_default();
+        let (pwh, pbin, ppicked) = pick_map
+            .get(&it.id)
+            .cloned()
+            .unwrap_or((None, None, Decimal::ZERO));
+        let wh_label = match pwh {
+            Some(w) => warehouses
+                .iter()
+                .find(|x| x.id == w)
+                .map(|x| x.name.clone())
+                .unwrap_or_else(|| format!("#{w}")),
+            None => "—".to_string(),
+        };
+        rows = html! {
+            (rows)
+            div class="border-b border-border-soft py-3" {
+                div class="flex items-start justify-between mb-1 gap-2" {
+                    div class="min-w-0" {
+                        div class="text-sm text-fg font-medium truncate" { (prod_name) }
+                        div class="text-xs text-muted truncate" { (prod_code) }
+                    }
+                    span class="text-xs text-muted shrink-0 mt-0.5" { "本次 " (fmt_qty(it.requested_qty)) }
+                }
+                div class="text-xs text-muted flex items-center gap-3 flex-wrap" {
+                    span { "申请 " (fmt_qty(it.requested_qty)) }
+                    span { "已发 " (fmt_qty(it.shipped_qty)) }
+                    @if ppicked > Decimal::ZERO {
+                        span { "已拣 " (fmt_qty(ppicked)) }
+                    }
+                }
+                div class="text-xs text-fg-2 mt-1 flex items-center gap-1" {
+                    (icon::package_icon("w-3 h-3"))
+                    "拣货仓 " (wh_label)
+                    @if let Some(b) = pbin { " · 库位 #" (b) }
+                }
+            }
+        };
+    }
+
+    let inner = html! {
+        div class="mb-3 flex items-baseline gap-2 flex-wrap" {
+            span class="text-xs text-muted font-medium" { "发货单 " }
+            span class="text-sm font-mono font-semibold text-fg" { (s.doc_number) }
+        }
+        div class="mb-4 grid grid-cols-2 gap-3 text-xs" {
+            div {
+                span class="text-muted" { "客户 " }
+                span class="text-fg-2" { (customer.as_ref().map(|c| c.name.as_str()).unwrap_or("—")) }
+            }
+            div {
+                span class="text-muted" { "预计发货 " }
+                span class="text-fg-2 font-mono" {
+                    (s.expected_ship_date.map(|d| d.format("%Y-%m-%d").to_string()).unwrap_or_else(|| "—".into()))
+                }
+            }
+        }
+        div class="mb-4 p-3 rounded-sm bg-warn-bg border border-warn/30" {
+            p class="text-xs text-warn font-medium leading-relaxed" {
+                "确认发出将按拣货仓库扣减库存、立应收账款并回写销售订单。"
+            }
+        }
+        (rows)
+        div class="mt-3 flex items-center justify-between text-xs text-muted" {
+            span { "共 " (items.len()) " 项" }
+            span class="font-mono" { "本次发出合计 " (fmt_qty(total_qty)) }
+        }
+        (drawer_footer("确认发出"))
+    };
+    Ok(drawer_form(
+        "确认发出",
+        "ship",
+        id,
+        WorkCenterDomain::Outbound,
+        "确认已发出？将扣减库存并立应收",
+        "",
+        inner,
+    ))
 }
 
 async fn issue_drawer_body(
@@ -882,13 +1262,28 @@ async fn issue_drawer_body(
     let req = req_svc.get(ctx, db, id).await?;
     if req.status == RequisitionStatus::Confirmed {
         let items = req_svc.list_items(ctx, db, id).await.unwrap_or_default();
+        let product_map: HashMap<i64, abt_core::master_data::product::model::Product> = state
+            .product_service()
+            .get_by_ids(ctx, db, items.iter().map(|i| i.product_id).collect())
+            .await
+            .unwrap_or_default()
+            .into_iter()
+            .map(|p| (p.product_id, p))
+            .collect();
         let mut rows = html! {};
         for it in &items {
             rows = html! {
                 (rows)
-                div class="flex items-center justify-between px-3 py-2" {
-                    span class="text-sm text-fg-2" { "产品 #" (it.product_id) }
-                    span class="text-sm font-mono text-muted" { "申请 " (fmt_qty(it.requested_qty)) }
+                div class="flex items-center justify-between px-3 py-2 gap-2" {
+                    div class="min-w-0" {
+                        div class="text-sm text-fg-2 truncate" {
+                            (product_map.get(&it.product_id).map(|p| p.pdt_name.clone()).unwrap_or_else(|| format!("产品 #{}", it.product_id)))
+                        }
+                        div class="text-xs text-muted truncate" {
+                            (product_map.get(&it.product_id).map(|p| p.product_code.clone()).unwrap_or_default())
+                        }
+                    }
+                    span class="text-sm font-mono text-muted shrink-0" { "申请 " (fmt_qty(it.requested_qty)) }
                 }
             };
         }

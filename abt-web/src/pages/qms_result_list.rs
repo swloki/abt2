@@ -74,7 +74,6 @@ fn inspection_type_label(t: &InspectionType) -> (&'static str, &'static str, &'s
 
 fn source_type_label(s: &InspectionSourceType) -> &'static str {
  match s {
- InspectionSourceType::ArrivalNotice => "来料通知",
  InspectionSourceType::WorkOrderRouting => "工单工序",
  InspectionSourceType::ShippingRequest => "发货单",
  InspectionSourceType::OutsourcingOrder => "委外单",
@@ -338,7 +337,6 @@ fn result_table_fragment(
                 name="source_type"
             {
                 option value="" selected[params.source_type.is_none()] { "全部来源" }
-                option value="1" selected[params.source_type == Some(1)] { "来料通知" }
                 option value="2" selected[params.source_type == Some(2)] { "工单工序" }
                 option value="3" selected[params.source_type == Some(3)] { "发货单" }
                 option value="4" selected[params.source_type == Some(4)] { "委外单" }

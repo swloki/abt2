@@ -37,7 +37,6 @@ fn source_type_label(dt: &DocumentType) -> &'static str {
  DocumentType::SalesOrder => "SO",
  DocumentType::ShippingRequest => "SHIP",
  DocumentType::PurchaseOrder => "PO",
- DocumentType::ArrivalNotice => "ARR",
  _ => "OTHER",
  }
 }

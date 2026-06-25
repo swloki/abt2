@@ -456,6 +456,7 @@ fn customer_detail_page(
             div class="bg-white border border-border-soft rounded p-5" {
                 div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 border-b border-border-soft"
                 { "基本信息" }
+                div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6" {
                 div class="flex py-2 text-sm" {
                     span class="w-[90px] shrink-0 text-muted" { "客户全称" }
                     span class="detail-value" { (customer.name) }
@@ -502,6 +503,7 @@ fn customer_detail_page(
                     span class="detail-value" {
                         @if customer.remark.is_empty() { "—" } @else { (&customer.remark) }
                     }
+                }
                 }
             }
             // ── Center: Contacts ──

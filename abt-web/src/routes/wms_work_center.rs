@@ -31,6 +31,20 @@ pub struct WcShipPath {
     pub id: i64,
 }
 
+/// 领料 drawer：GET 返回 drawer body（Confirmed→全量发料 / PartiallyIssued→去详情页），POST 提交 issue
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/wms/work-center/requisition/{id}")]
+pub struct WcIssuePath {
+    pub id: i64,
+}
+
+/// 调拨 drawer：GET 返回 drawer body（按状态分流：Draft→调出 / InTransit→到货确认），POST 提交 dispatch/complete
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/wms/work-center/transfer/{id}")]
+pub struct WcTransferPath {
+    pub id: i64,
+}
+
 pub fn router() -> Router<AppState> {
     Router::new()
         .route(
@@ -48,5 +62,14 @@ pub fn router() -> Router<AppState> {
         .route(
             WcShipPath::PATH,
             get(wms_work_center::get_wc_ship_drawer).post(wms_work_center::post_wc_ship),
+        )
+        .route(
+            WcIssuePath::PATH,
+            get(wms_work_center::get_wc_issue_drawer).post(wms_work_center::post_wc_issue),
+        )
+        .route(
+            WcTransferPath::PATH,
+            get(wms_work_center::get_wc_transfer_drawer)
+                .post(wms_work_center::post_wc_transfer),
         )
 }

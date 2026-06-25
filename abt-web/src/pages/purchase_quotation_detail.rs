@@ -322,7 +322,7 @@ fn pq_detail_page(
             div class="text-base font-semibold text-fg mb-4 pb-3 border-b border-border-soft" {
                 "报价信息"
             }
-            div class="grid gap-4" {
+            div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4" {
                 div class="flex flex-col gap-1" {
                     span class="text-xs text-muted font-medium" { "供应商名称" }
                     span class="text-sm text-fg font-medium" { (ctx.supplier_name) }

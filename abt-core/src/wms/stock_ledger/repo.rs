@@ -73,6 +73,28 @@ impl StockLedgerRepo {
         }))
     }
 
+    /// 查询指定 bin 是否已有该产品的正库存（同物料合并入库放行判断用）。
+    /// 配合 find_other_occupant_in_bin 细化「一库位一产品」校验：
+    /// 目标产品已在该 bin 有库存时允许继续入库（同物料合并），即使 bin 混放其他产品也不拒绝。
+    pub async fn has_stock_in_bin(
+        executor: &mut sqlx::postgres::PgConnection,
+        bin_id: i64,
+        product_id: i64,
+    ) -> Result<bool> {
+        let exists: Option<i64> = sqlx::query_scalar(
+            r#"
+            SELECT 1::BIGINT FROM stock_ledger
+            WHERE bin_id = $1 AND product_id = $2 AND quantity > 0
+            LIMIT 1
+            "#,
+        )
+        .bind(bin_id)
+        .bind(product_id)
+        .fetch_optional(executor)
+        .await?;
+        Ok(exists.is_some())
+    }
+
     pub async fn find_by_location(
         executor: &mut sqlx::postgres::PgConnection,
         product_id: i64,

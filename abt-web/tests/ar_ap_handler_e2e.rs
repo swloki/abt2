@@ -509,7 +509,7 @@ async fn k6_stock_in_purchase_unified_closed_loop() {
         r#"[{{"product_id":"{PRODUCT}","quantity":"12","warehouse_id":"{WH}","bin_id":"{bin_id}","source_id":"{po_id}","source_doc_number":"{po_doc}"}}]"#
     ));
     let body = format!(
-        "transaction_type=PurchaseReceipt&source_type=purchase&source_ref={po_doc}&items_json={stockin_items}"
+        "transaction_type=PurchaseReceipt&source_type=purchase&source_ref={po_doc}&idempotency_key=k6-{po_id}&items_json={stockin_items}"
     );
     let resp = app.post_htmx("/admin/wms/stock-in/create", &body).await;
     assert!(

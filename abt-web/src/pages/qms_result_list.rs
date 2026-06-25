@@ -288,7 +288,7 @@ fn result_table_fragment(
             hx-select="#result-data-card"
             hx-swap="outerHTML"
             hx-include="closest form"
-            hx-push-url="true"
+           
         {
             div class="relative w-60" {
                 ({

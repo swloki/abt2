@@ -423,7 +423,7 @@ fn view_toggle_and_filter(view_mode: &str, params: &DemandPoolQueryParams) -> Ma
                 hx-target="#demand-pool-data-card"
                 hx-select="#demand-pool-data-card"
                 hx-swap="outerHTML"
-                hx-push-url="true"
+               
                 hx-include="#mes-filter-form"
             { (icon::grid_4_icon("w-4 h-4")) "物料汇总" }
             button
@@ -434,7 +434,7 @@ fn view_toggle_and_filter(view_mode: &str, params: &DemandPoolQueryParams) -> Ma
                 hx-target="#demand-pool-data-card"
                 hx-select="#demand-pool-data-card"
                 hx-swap="outerHTML"
-                hx-push-url="true"
+               
                 hx-include="#mes-filter-form"
             { (icon::rows_icon("w-4 h-4")) "订单行明细" }
         }
@@ -446,7 +446,7 @@ fn view_toggle_and_filter(view_mode: &str, params: &DemandPoolQueryParams) -> Ma
             hx-target="#demand-pool-data-card"
             hx-select="#demand-pool-data-card"
             hx-swap="outerHTML"
-            hx-push-url="true"
+           
         {
             input type="hidden" name="view" value=(view_mode);
             div class="relative flex-1 max-w-xs icon:absolute icon:left-3 icon:top-1/2 icon:-translate-y-1/2 icon:w-4 icon:h-4 icon:text-muted"

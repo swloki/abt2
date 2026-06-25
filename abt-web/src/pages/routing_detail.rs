@@ -260,7 +260,7 @@ fn routing_detail_page(
             hx-select=".routing-bom-card"
             hx-target=".routing-bom-card"
             hx-swap="outerHTML"
-            hx-push-url="true"
+           
         {
             div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 border-b border-border-soft"
             { "关联BOM" }

@@ -208,7 +208,7 @@ fn plan_table_fragment(
             hx-select="#plan-data-card"
             hx-swap="outerHTML"
             hx-include="#filter-form"
-            hx-push-url="true"
+           
         {
             div class="relative w-60 icon:absolute icon:left-3 icon:top-1/2 icon:-translate-y-1/2 icon:w-4 icon:h-4 icon:text-muted"
             {

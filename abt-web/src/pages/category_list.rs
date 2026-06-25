@@ -420,7 +420,7 @@ fn tree_node(node: &CategoryTree, depth: usize, selected_id: Option<i64>, expand
                 hx-select="#detail-panel"
                 hx-target="#detail-panel"
                 hx-swap="innerHTML"
-                hx-push-url="true"
+               
                 _="on click take .cat-active from .cat-row"
             {
                 span
@@ -457,7 +457,7 @@ fn tree_node(node: &CategoryTree, depth: usize, selected_id: Option<i64>, expand
                 hx-select="#detail-panel"
                 hx-target="#detail-panel"
                 hx-swap="innerHTML"
-                hx-push-url="true"
+               
                 _="on click take .cat-active from .cat-row"
             {
                 span class="w-5 h-5 shrink-0" {}
@@ -565,7 +565,7 @@ fn detail_panel(
                         hx-get=(url)
                         hx-target="#detail-panel"
                         hx-swap="innerHTML"
-                        hx-push-url="true"
+                       
                     {
                         span class="text-sm font-medium text-fg truncate min-w-0" { (name) }
                         span
@@ -584,7 +584,7 @@ fn detail_panel(
         hx-select="#products-section"
         hx-target="#products-section"
         hx-swap="outerHTML"
-        hx-push-url="true"
+       
     {
         div class="flex items-center justify-between mb-4" {
             div {

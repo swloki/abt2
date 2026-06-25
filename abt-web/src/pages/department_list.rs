@@ -21,6 +21,15 @@ pub async fn get_department_list(
  ctx: RequestContext,
 ) -> crate::errors::Result<Html<String>> {
  let is_htmx = ctx.is_htmx();
+ render_department_list_page(ctx, is_htmx).await
+}
+
+/// 渲染部门列表完整页（`admin_page` 自动判断 is_htmx）。`get_department_list` 与
+/// `get_department_detail_fragment`（直接访问时）共用。
+async fn render_department_list_page(
+ ctx: RequestContext,
+ is_htmx: bool,
+) -> crate::errors::Result<Html<String>> {
  let nav_filter = ctx.nav_filter().await;
  let can_create = ctx.has_permission("DEPARTMENT", "create").await;
  let can_delete = ctx.has_permission("DEPARTMENT", "delete").await;
@@ -75,7 +84,9 @@ pub async fn get_department_list(
  DepartmentListPath::PATH,
  "部门管理",
  Some("组织架构"),
- content, &nav_filter, );
+ content,
+ &nav_filter,
+ );
 
  Ok(Html(page_html.into_string()))
 }
@@ -86,6 +97,11 @@ pub async fn get_department_detail_fragment(
  path: DepartmentDetailPath,
  ctx: RequestContext,
 ) -> crate::errors::Result<Html<String>> {
+ let is_htmx = ctx.is_htmx();
+ // 直接访问 → 完整部门列表页（admin_page 自动判断）；HTMX → 详情面板片段
+ if !is_htmx {
+  return render_department_list_page(ctx, false).await;
+ }
  let can_create = ctx.has_permission("DEPARTMENT", "create").await;
  let can_delete = ctx.has_permission("DEPARTMENT", "delete").await;
  let RequestContext {

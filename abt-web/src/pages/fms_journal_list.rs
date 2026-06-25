@@ -281,7 +281,7 @@ fn journal_table_fragment(result: &PaginatedResult<CashJournal>, params: &Journa
             hx-select="#journal-data-card"
             hx-swap="outerHTML"
             hx-include="#journal-filter-form"
-            hx-push-url="true"
+           
         {
             div class="relative flex-1 max-w-xs icon:absolute icon:left-3 icon:top-1/2 icon:-translate-y-1/2 icon:w-4 icon:h-4 icon:text-muted"
             {

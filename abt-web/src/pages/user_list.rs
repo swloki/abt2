@@ -397,7 +397,7 @@ fn user_table_fragment(
             hx-select=".data-card"
             hx-select-oob="#status-tabs,#user-stats,#user-filter-form"
             hx-swap="outerHTML"
-            hx-push-url="true"
+           
             hx-trigger="change, keyup changed delay:300ms from:input[name=keyword], userToggled from:body"
         {
             input type="hidden" name="status" value=(status_filter);

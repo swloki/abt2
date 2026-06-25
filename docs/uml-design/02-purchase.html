@@ -769,8 +769,9 @@ classDiagram
       <div style="font-family: monospace; font-size: 11.5px; color: #ccc; line-height: 1.8;">
         <b>DemandPoolQuery</b> { status?: i16, product_id?: i64, order_id?: i64 }<br>
         <b>DemandSummary</b> { id, order_id, order_no, product_id, product_name, product_code, quantity, required_date?, priority, demand_status, created_at }<br>
-        <b>MaterialAggQuery</b> { product_id?: i64 }<br>
+        <b>MaterialAggQuery</b> { product_id?: i64, keyword?: String, required_date_start?: NaiveDate, required_date_end?: NaiveDate, sort: <b>MaterialSort</b> }<br>
         <b>MaterialAggSummary</b> { product_id, product_name, product_code, total_demand_qty, demand_count, earliest_required_date?, latest_required_date? }<br>
+        <b>MaterialSort</b> { DemandQty(默认,总需求量降序) | NewestOrder(新订单优先,MAX(created_at) DESC) | EarliestDate(到期日优先,MIN(required_date) ASC) } — 物料汇总视图排序下拉<br>
         <b>CreateOrderFromDemandsReq</b> { demand_ids: Vec&lt;i64&gt;, supplier_id: i64, expected_delivery_date?, remark: String }<br>
         <b>CreateDownstreamResult</b> { doc_id, processed_demand_count, skipped_demands: Vec&lt;SkippedDemand&gt;, demand_status: "Confirmed" }
       </div>

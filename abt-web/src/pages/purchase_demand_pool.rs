@@ -5,7 +5,7 @@ use maud::{html, Markup, PreEscaped};
 use serde::Deserialize;
 
 use abt_core::purchase::demand_handler::{
- DemandPoolQuery, DemandSummary, MaterialAggQuery, MaterialAggSummary,
+ DemandPoolQuery, DemandSummary, MaterialAggQuery, MaterialAggSummary, MaterialSort,
  PurchaseDemandService,
 };
 use abt_core::shared::types::PageParams;
@@ -29,6 +29,7 @@ pub struct DemandPoolQueryParams {
  pub keyword: Option<String>,
  pub date_filter: Option<String>,
  pub order_id: Option<i64>,
+ pub sort: Option<String>,
  #[serde(default)]
  pub page: Option<u32>,
 }
@@ -104,8 +105,11 @@ fn material_icon(product_id: i64) -> (String, String, Markup) {
  }
 }
 
-fn material_query_string(keyword: Option<&str>, date_filter: Option<&str>) -> String {
+fn material_query_string(keyword: Option<&str>, date_filter: Option<&str>, sort: &str) -> String {
  let mut q = vec![];
+ if !sort.is_empty() {
+ q.push(format!("sort={sort}"));
+ }
  if let Some(kw) = keyword
  && !kw.is_empty()
  {
@@ -215,6 +219,7 @@ pub async fn get_demand_pool_list(
  keyword: params.keyword.clone(),
  required_date_start: date_start,
  required_date_end: date_end,
+ sort: MaterialSort::default(),
  },
  PageParams::new(1, 1),
  )
@@ -254,6 +259,7 @@ pub async fn get_demand_pool_list(
  keyword: params.keyword.clone(),
  required_date_start: date_start,
  required_date_end: date_end,
+ sort: MaterialSort::from_query(params.sort.as_deref()),
  },
  PageParams::new(page_num, page_size),
  )
@@ -387,6 +393,7 @@ fn view_toggle_and_filter(active: &str, params: &DemandPoolQueryParams) -> Marku
  "inline-flex items-center gap-1.5 px-4 py-1.5 text-sm font-semibold cursor-pointer whitespace-nowrap bg-bg text-accent shadow-[var(--shadow-xs)] rounded-sm"
  };
  let keyword = params.keyword.as_deref().unwrap_or("");
+ let sort_val = MaterialSort::from_query(params.sort.as_deref()).as_query();
  let date_filter_val = params.date_filter.as_deref().unwrap_or("");
 
  html! {
@@ -458,11 +465,24 @@ fn view_toggle_and_filter(active: &str, params: &DemandPoolQueryParams) -> Marku
                 option value="30days" selected[date_filter_val == "30days"] { "近30天到期" }
                 option value="overdue" selected[date_filter_val == "overdue"] { "已逾期" }
             }
+            @if is_material {
+                select
+                    class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none cursor-pointer"
+                    name="sort"
+                {
+                    option value="" selected[sort_val.is_empty()] { "总需求量" }
+                    option value="newest" selected[sort_val == "newest"] { "新订单优先" }
+                    option value="due" selected[sort_val == "due"] { "到期日优先" }
+                }
+            }
         }
 
         form id="demand-pool-filter-form" style="display:none;" {
             input type="hidden" name="keyword" value=(keyword);
             input type="hidden" name="date_filter" value=(date_filter_val);
+            @if is_material {
+                input type="hidden" name="sort" value=(sort_val);
+            }
         }
     }
 }
@@ -623,7 +643,8 @@ fn material_table_fragment(
  result: &abt_core::shared::types::PaginatedResult<MaterialAggSummary>,
  params: &DemandPoolQueryParams,
 ) -> Markup {
- let qs = material_query_string(params.keyword.as_deref(), params.date_filter.as_deref());
+ let sort_val = MaterialSort::from_query(params.sort.as_deref()).as_query();
+ let qs = material_query_string(params.keyword.as_deref(), params.date_filter.as_deref(), sort_val);
 
  html! {
     div class="data-card" id="materialView" {

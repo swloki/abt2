@@ -200,6 +200,7 @@ impl PurchaseDemandRepo {
         // Data
         let offset = ((page.page.saturating_sub(1)) * page.page_size) as i64;
         let limit = page.page_size as i64;
+        let order_clause = query.sort.order_by();
         let data_sql = format!(
             "SELECT product_id, product_name, product_code, \
                     SUM(quantity) AS total_demand_qty, \
@@ -208,7 +209,7 @@ impl PurchaseDemandRepo {
                     MAX(required_date) AS latest_required_date \
              FROM v_purchase_demands WHERE {where_sql} \
              GROUP BY product_id, product_name, product_code \
-             ORDER BY total_demand_qty DESC \
+             ORDER BY {order_clause} \
              LIMIT ${param_idx} OFFSET ${}",
             param_idx + 1
         );

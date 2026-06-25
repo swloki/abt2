@@ -15,6 +15,11 @@ use crate::components::icon;
 use crate::errors::Result;
 use abt_core::shared::types::error::DomainError;
 use crate::layout::page::admin_page;
+use crate::routes::shipping::ShippingDetailPath;
+use crate::routes::wms_arrival::ArrivalDetailPath;
+use crate::routes::wms_cycle_count::CycleCountDetailPath;
+use crate::routes::wms_requisition::RequisitionDetailPath;
+use crate::routes::wms_transfer::TransferDetailPath;
 use crate::routes::wms_work_center::{
     WmsWorkCenterFragmentPath, WmsWorkCenterPath, WmsWorkCenterPickPath,
 };
@@ -57,6 +62,35 @@ fn domain_meta(d: WorkCenterDomain) -> (&'static str, Markup) {
         WorkCenterDomain::Requisition => ("待领料", icon::clipboard_list_icon("w-4 h-4")),
         WorkCenterDomain::Transfer => ("待调拨", icon::arrow_right_icon("w-4 h-4")),
         WorkCenterDomain::CycleCount => ("待盘点", icon::check_circle_icon("w-4 h-4")),
+    }
+}
+
+/// 单据号深链：按环节映射到对应业务域详情页 URL。
+/// 拣货无独立详情页（依附发货/作业中心），返回 None → 单据号渲染为纯文本。
+/// 分层约定：abt-core 不硬编码前端 URL，跳转路径在 abt-web 层按 domain + doc_id 拼接。
+fn domain_detail_url(domain: WorkCenterDomain, doc_id: i64) -> Option<String> {
+    match domain {
+        // 待收货 / 待质检 共用来料通知详情（inspect 在该页触发）
+        WorkCenterDomain::Arrival | WorkCenterDomain::Inspection => {
+            Some(ArrivalDetailPath { id: doc_id }.to_string())
+        }
+        WorkCenterDomain::Outbound => Some(ShippingDetailPath { id: doc_id }.to_string()),
+        WorkCenterDomain::Requisition => Some(RequisitionDetailPath { id: doc_id }.to_string()),
+        WorkCenterDomain::Transfer => Some(TransferDetailPath { id: doc_id }.to_string()),
+        WorkCenterDomain::CycleCount => Some(CycleCountDetailPath { id: doc_id }.to_string()),
+        WorkCenterDomain::Pick => None,
+    }
+}
+
+/// 跳转类操作按钮（质检 / 盘点）：纯链接到对应详情页，次级按钮样式。
+/// 无 hyperscript `_=`（纯 `<a href>` 跳转），避免在链接上 halt 阻止导航。
+fn render_jump_action(label: &str, url: &str) -> Markup {
+    html! {
+        a class="inline-flex items-center gap-1 px-3 py-1.5 rounded-sm bg-surface border border-border-soft text-fg-2 text-xs font-semibold no-underline cursor-pointer hover:bg-accent-bg hover:border-accent hover:text-accent transition-all"
+            href=(url) {
+            (label)
+            (icon::arrow_right_icon("w-3 h-3"))
+        }
     }
 }
 
@@ -393,7 +427,15 @@ fn render_task_row(t: &PendingTask, domain: WorkCenterDomain) -> Markup {
         .unwrap_or_else(|| "—".into());
     html! {
         tr class="border-b border-border-soft last:border-b-0" {
-            td class="py-3 px-3 text-sm font-mono text-accent font-semibold" { (t.doc_number) }
+            td class="py-3 px-3 text-sm font-mono text-accent font-semibold" {
+                @if let Some(url) = domain_detail_url(domain, t.doc_id) {
+                    a class="text-accent no-underline hover:underline cursor-pointer" href=(url) {
+                        (t.doc_number)
+                    }
+                } @else {
+                    (t.doc_number)
+                }
+            }
             td class="py-3 px-3 text-sm text-fg-2" { (t.counterparty) }
             td class="py-3 px-3 text-sm text-muted" { (t.summary) }
             td class="py-3 px-3 text-sm font-mono text-fg-2" { (expected) }
@@ -403,15 +445,30 @@ fn render_task_row(t: &PendingTask, domain: WorkCenterDomain) -> Markup {
                 }
             }
             td class="py-3 px-3 text-right" {
-                @if domain == WorkCenterDomain::Pick {
-                    button type="button"
-                        class="inline-flex items-center gap-1 px-3 py-1.5 rounded-sm bg-accent text-white text-xs font-semibold cursor-pointer border-none hover:opacity-90"
-                        hx-get=(WmsWorkCenterPickPath { id: t.doc_id }.to_string())
-                        hx-target="#pick-drawer-body"
-                        hx-swap="innerHTML"
-                        { (icon::plus_icon("w-3 h-3")) "拣货" }
-                } @else {
-                    span class="text-xs text-muted" { "—" }
+                @match domain {
+                    WorkCenterDomain::Pick => {
+                        button type="button"
+                            class="inline-flex items-center gap-1 px-3 py-1.5 rounded-sm bg-accent text-white text-xs font-semibold cursor-pointer border-none hover:opacity-90"
+                            hx-get=(WmsWorkCenterPickPath { id: t.doc_id }.to_string())
+                            hx-target="#pick-drawer-body"
+                            hx-swap="innerHTML"
+                            { (icon::plus_icon("w-3 h-3")) "拣货" }
+                    }
+                    // 待质检：inspect 是 5 步联动（IQC 门禁+成本+事件），太复杂不就地，跳到货详情
+                    WorkCenterDomain::Inspection => {
+                        (render_jump_action("质检", &ArrivalDetailPath { id: t.doc_id }.to_string()))
+                    }
+                    // 待盘点：多状态多动作（start/count/complete/adjust/approve），不就地，跳盘点详情
+                    WorkCenterDomain::CycleCount => {
+                        (render_jump_action("盘点", &CycleCountDetailPath { id: t.doc_id }.to_string()))
+                    }
+                    // 待收货/待发货/待领料/待调拨：就地 drawer 见后续 PR，当前占位
+                    WorkCenterDomain::Arrival
+                    | WorkCenterDomain::Outbound
+                    | WorkCenterDomain::Requisition
+                    | WorkCenterDomain::Transfer => {
+                        span class="text-xs text-muted" { "—" }
+                    }
                 }
             }
         }

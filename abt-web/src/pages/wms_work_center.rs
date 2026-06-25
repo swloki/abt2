@@ -4,6 +4,8 @@ use maud::{html, Markup};
 use serde::Deserialize;
 
 use abt_core::shared::types::pagination::{PageParams, PaginatedResult};
+use abt_core::wms::outbound::model::ShippingStatus;
+use abt_core::wms::outbound::ShippingRequestService;
 use abt_core::wms::pick_list::{model::PickItemInput, PickListService};
 use abt_core::wms::work_center::model::{
     PendingTask, Urgency, UrgentSummary, WorkCenterDomain, WorkCenterSummary,
@@ -21,7 +23,7 @@ use crate::routes::wms_cycle_count::CycleCountDetailPath;
 use crate::routes::wms_requisition::RequisitionDetailPath;
 use crate::routes::wms_transfer::TransferDetailPath;
 use crate::routes::wms_work_center::{
-    WmsWorkCenterFragmentPath, WmsWorkCenterPath, WmsWorkCenterPickPath,
+    WcShipPath, WmsWorkCenterFragmentPath, WmsWorkCenterPath, WmsWorkCenterPickPath,
 };
 use crate::utils::fmt_qty;
 use crate::utils::RequestContext;
@@ -283,6 +285,95 @@ pub async fn post_pick_items(
     Ok(([("HX-Trigger", r#"{"taskDone":"","closeWcDrawer":""}"#)], Html(String::new())))
 }
 
+/// 发货 drawer body：按实时状态分流——Picking→确认发出表单；否则（Confirmed 未拣货）→提示需先拣货 + 跳详情。
+/// ship 前必须 pick（shipping_detail 仅 Picking 显示「确认发出」），故 Confirmed 不就地 ship。
+#[require_permission("INVENTORY", "read")]
+pub async fn get_wc_ship_drawer(path: WcShipPath, ctx: RequestContext) -> Result<Html<String>> {
+    let RequestContext {
+        mut conn,
+        state,
+        service_ctx,
+        ..
+    } = ctx;
+    let s = state
+        .shipping_service()
+        .find_by_id(&service_ctx, &mut conn, path.id)
+        .await?;
+
+    let body = html! {
+        div class="flex items-center justify-between px-6 py-5 border-b border-border-soft" {
+            div class="font-bold text-base text-fg" {
+                @if s.status == ShippingStatus::Picking { "确认发出" } @else { "未拣货" }
+            }
+            button type="button"
+                class="w-8 h-8 border-none bg-transparent text-muted cursor-pointer rounded-sm hover:bg-surface hover:text-fg flex items-center justify-center"
+                _="on click remove .open from #wc-drawer-overlay" {
+                (icon::x_icon("w-4 h-4"))
+            }
+        }
+        @if s.status == ShippingStatus::Picking {
+            form id="wc-ship-form" hx-post=(WcShipPath { id: path.id }.to_string())
+                hx-swap="none" hx-confirm="确认已发出？将扣减库存并立应收账款"
+                class="px-6 py-5" {
+                div class="mb-3" {
+                    span class="text-xs text-muted font-medium" { "发货单 " }
+                    span class="text-sm font-mono font-semibold text-fg" { (s.doc_number) }
+                }
+                p class="text-sm text-muted mb-5" {
+                    "拣货已完成。确认发出将扣减库存、立应收账款并回写销售订单。"
+                }
+                div class="flex justify-end gap-3 pt-4 border-t border-border-soft" {
+                    button type="button"
+                        class="px-4 py-2 rounded-sm bg-white text-fg-2 border border-border text-sm font-medium cursor-pointer hover:bg-surface"
+                        _="on click remove .open from #wc-drawer-overlay" { "取消" }
+                    button type="submit"
+                        class="px-4 py-2 rounded-sm bg-success text-white text-sm font-medium cursor-pointer border-none hover:opacity-90"
+                        { "确认发出" }
+                }
+            }
+        } @else {
+            // Confirmed 等未拣货状态：不能直接 ship
+            div class="px-6 py-5" {
+                div class="mb-3" {
+                    span class="text-xs text-muted font-medium" { "发货单 " }
+                    span class="text-sm font-mono font-semibold text-fg" { (s.doc_number) }
+                }
+                p class="text-sm text-warn mb-5" { "该单尚未拣货，无法直接发出。请先完成拣货。" }
+                div class="flex justify-end" {
+                    a class="inline-flex items-center gap-1 px-4 py-2 rounded-sm bg-accent text-white text-sm font-medium no-underline cursor-pointer border-none hover:opacity-90"
+                        href=(ShippingDetailPath { id: path.id }.to_string()) {
+                        "去详情页拣货" (icon::arrow_right_icon("w-3.5 h-3.5"))
+                    }
+                }
+            }
+        }
+    };
+    Ok(Html(body.into_string()))
+}
+
+/// 发货提交：ship（事务包裹，6 步联动：扣库存+立应收+SO回写）；广播 taskDone + closeWcDrawer
+#[require_permission("SHIPPING", "update")]
+pub async fn post_wc_ship(path: WcShipPath, ctx: RequestContext) -> Result<impl IntoResponse> {
+    let RequestContext { state, service_ctx, .. } = ctx;
+
+    // ship 多步写事务包裹（范本 shipping_detail::ship_shipping）：半失败回滚，避免数量已提交但库存/AR/状态未动
+    let mut tx = state
+        .pool
+        .begin()
+        .await
+        .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+    state
+        .shipping_service()
+        .ship(&service_ctx, &mut tx, path.id)
+        .await?;
+    tx.commit()
+        .await
+        .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+
+    // 就地联动：发货后该单出列、待发货计数下降；closeWcDrawer 关闭共享 drawer
+    Ok(([("HX-Trigger", r#"{"taskDone":"","closeWcDrawer":""}"#)], Html(String::new())))
+}
+
 #[derive(Debug, Deserialize)]
 pub struct PickRowForm {
     pub pick_list_item_id: i64,
@@ -479,9 +570,18 @@ fn render_task_row(t: &PendingTask, domain: WorkCenterDomain) -> Markup {
                     WorkCenterDomain::CycleCount => {
                         (render_jump_action("盘点", &CycleCountDetailPath { id: t.doc_id }.to_string()))
                     }
-                    // 待收货/待发货/待领料/待调拨：就地 drawer 见后续 PR，当前占位
+                    // 待发货：drawer 按状态分流（Picking→确认发出 / Confirmed→需先拣货）
+                    WorkCenterDomain::Outbound => {
+                        button type="button"
+                            class="inline-flex items-center gap-1 px-3 py-1.5 rounded-sm bg-accent text-white text-xs font-semibold cursor-pointer border-none hover:opacity-90"
+                            hx-get=(WcShipPath { id: t.doc_id }.to_string())
+                            hx-target="#wc-drawer-body"
+                            hx-swap="innerHTML"
+                            _="on 'htmx:afterRequest'[detail.xhr.status<400] add .open to #wc-drawer-overlay"
+                            { (icon::upload_icon("w-3 h-3")) "发货" }
+                    }
+                    // 待收货/待领料/待调拨：就地 drawer 见后续 PR，当前占位
                     WorkCenterDomain::Arrival
-                    | WorkCenterDomain::Outbound
                     | WorkCenterDomain::Requisition
                     | WorkCenterDomain::Transfer => {
                         span class="text-xs text-muted" { "—" }

@@ -24,6 +24,13 @@ pub struct WmsWorkCenterPickPath {
     pub id: i64,
 }
 
+/// 发货 drawer：GET 返回 drawer body（按状态分流：Picking→确认发出 / Confirmed→需先拣货），POST 提交 ship
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/wms/work-center/ship/{id}")]
+pub struct WcShipPath {
+    pub id: i64,
+}
+
 pub fn router() -> Router<AppState> {
     Router::new()
         .route(
@@ -37,5 +44,9 @@ pub fn router() -> Router<AppState> {
         .route(
             WmsWorkCenterPickPath::PATH,
             get(wms_work_center::get_pick_drawer).post(wms_work_center::post_pick_items),
+        )
+        .route(
+            WcShipPath::PATH,
+            get(wms_work_center::get_wc_ship_drawer).post(wms_work_center::post_wc_ship),
         )
 }

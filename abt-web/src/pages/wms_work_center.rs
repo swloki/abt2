@@ -137,24 +137,8 @@ pub async fn get_wms_work_center(_path: WmsWorkCenterPath, ctx: RequestContext) 
         (render_disclosure(WorkCenterDomain::Transfer, summary.transfers_pending))
         (render_disclosure(WorkCenterDomain::CycleCount, summary.cycle_counts_pending))
 
-        // ── 拣货 drawer overlay（body 由 hx-get 填充）──
-        div id="pick-overlay"
-            class="fixed inset-0 bg-slate-900/40 opacity-0 invisible pointer-events-none transition-opacity duration-200 z-[90] open:opacity-100 open:visible open:pointer-events-auto" {
-            div id="pick-drawer"
-                class="fixed top-0 right-0 h-full w-[460px] max-w-[92vw] bg-bg shadow-lg translate-x-full transition-transform duration-300 flex flex-col z-[91]" {
-                div class="flex items-center justify-between px-6 py-5 border-b border-border-soft" {
-                    div class="font-bold text-base text-fg" { "录入拣货" }
-                    button type="button"
-                        class="w-8 h-8 border-none bg-transparent text-muted cursor-pointer rounded-sm hover:bg-surface hover:text-fg flex items-center justify-center"
-                        _="on click closePickDrawer()" {
-                        (icon::x_icon("w-4 h-4"))
-                    }
-                }
-                div id="pick-drawer-body" class="flex-1 overflow-y-auto px-6 py-5" {
-                    // 由 hx-get /admin/wms/work-center/pick/{id} 填充
-                }
-            }
-        }
+        // ── 共享 drawer overlay（各域 GET 端点把「标题+表单+footer」填入 #wc-drawer-body）──
+        (wc_drawer_shell())
     };
 
     let page_html = admin_page(
@@ -210,8 +194,18 @@ pub async fn get_pick_drawer(path: WmsWorkCenterPickPath, ctx: RequestContext) -
         .unwrap_or_default();
 
     let body = html! {
-        form hx-post=(WmsWorkCenterPickPath { id: path.id }.to_string())
-            hx-swap="none" {
+        // 标题栏（含关闭按钮，关闭共享 overlay）
+        div class="flex items-center justify-between px-6 py-5 border-b border-border-soft" {
+            div class="font-bold text-base text-fg" { "录入拣货" }
+            button type="button"
+                class="w-8 h-8 border-none bg-transparent text-muted cursor-pointer rounded-sm hover:bg-surface hover:text-fg flex items-center justify-center"
+                _="on click remove .open from #wc-drawer-overlay" {
+                (icon::x_icon("w-4 h-4"))
+            }
+        }
+        form id="wc-pick-form" hx-post=(WmsWorkCenterPickPath { id: path.id }.to_string())
+            hx-swap="none"
+            class="px-6 py-5" {
             div class="mb-4" {
                 span class="text-xs text-muted font-medium" { "拣货单 " }
                 span class="text-sm font-mono font-semibold text-fg" { (pl.doc_number) }
@@ -242,27 +236,17 @@ pub async fn get_pick_drawer(path: WmsWorkCenterPickPath, ctx: RequestContext) -
             div class="flex justify-end gap-3 mt-5 pt-4 border-t border-border-soft" {
                 button type="button"
                     class="px-4 py-2 rounded-sm bg-white text-fg-2 border border-border text-sm font-medium cursor-pointer hover:bg-surface"
-                    _="on click closePickDrawer()" { "取消" }
+                    _="on click remove .open from #wc-drawer-overlay" { "取消" }
                 button type="submit"
                     class="px-4 py-2 rounded-sm bg-accent text-white text-sm font-medium cursor-pointer border-none hover:opacity-90"
                     { "确认拣货" }
             }
-            // drawer 打开（hyperscript：htmx 填充后调 openPickDrawer 显示 overlay）
         }
-        // htmx afterRequest 打开 drawer（写在脚本里，见 base 布局；此处用 inline 兜底）
-        script { (maud::PreEscaped(
-            "document.addEventListener('htmx:afterRequest', function(e){ \
-               if(e.target && e.target.closest('[hx-target=\"#pick-drawer-body\"]')){ \
-                 var o=document.getElementById('pick-overlay'); \
-                 if(o){ o.classList.add('open'); var d=document.getElementById('pick-drawer'); if(d){ d.classList.remove('translate-x-full'); } } \
-               } \
-             });"
-        ))}
     };
     Ok(Html(body.into_string()))
 }
 
-/// 拣货提交：record_pick_items + complete_pick（事务包裹），HX-Redirect 整页刷新
+/// 拣货提交：record_pick_items + complete_pick（事务包裹）；广播 taskDone 联动刷新 + closeWcDrawer
 #[require_permission("INVENTORY", "update")]
 pub async fn post_pick_items(
     path: WmsWorkCenterPickPath,
@@ -294,8 +278,9 @@ pub async fn post_pick_items(
         .await
         .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
-    let redirect = WmsWorkCenterPath.to_string();
-    Ok(([("HX-Redirect", redirect)], Html(String::new())))
+    // 就地联动（非整页刷新）：taskDone 触发 disclosure 队列 + todo-nav 计数刷新；
+    // closeWcDrawer 关闭共享 drawer。拣货后该单出列、待拣货计数下降，停留本页继续处理
+    Ok(([("HX-Trigger", r#"{"taskDone":"","closeWcDrawer":""}"#)], Html(String::new())))
 }
 
 #[derive(Debug, Deserialize)]
@@ -311,10 +296,40 @@ pub struct PickItemsForm {
 
 // ── 渲染辅助 ──
 
+/// 共享 drawer overlay 壳：页面渲染一次，各域 drawer GET 端点把「标题栏+表单+footer」
+/// 填入 #wc-drawer-body。显隐由 .drawer-overlay 的 .open class 控制（见 uno.config.ts
+/// preflight：默认 display:none，.open 时 display:flex + panel 平移入）。
+///
+/// 关闭路径有二：① 点遮罩背景（on click[me is event.target]）；② drawer 提交后后端
+/// HX-Trigger 广播 closeWcDrawer（on closeWcDrawer from:body）。打开由各域 row 按钮
+/// `_="on 'htmx:afterRequest'[detail.xhr.status<400] add .open to #wc-drawer-overlay"` 完成。
+fn wc_drawer_shell() -> Markup {
+    html! {
+        div id="wc-drawer-overlay"
+            class="drawer-overlay fixed inset-0 z-[1000] flex justify-end bg-[rgba(0,0,0,0.35)]"
+            _="on click[me is event.target] remove .open from me on closeWcDrawer from:body remove .open from me" {
+            div class="drawer-panel bg-white h-full w-[460px] max-w-[92vw] flex flex-col"
+                _="on click js(event) event.stopPropagation() end" {
+                div id="wc-drawer-body" class="flex-1 overflow-y-auto" {
+                    // 由各域 drawer GET 端点填充（标题栏 + 表单 + footer）
+                }
+            }
+        }
+    }
+}
+
 fn render_todo_nav(summary: &WorkCenterSummary, urgent: &UrgentSummary) -> Markup {
     let total = summary.total();
     html! {
-        div class="sticky top-0 z-20 flex items-center gap-4 p-3 mb-4 rounded-lg border border-border-soft bg-bg shadow-xs flex-wrap" {
+        // taskDone 联动：drawer 提交后重拉整页 content，hx-select 取出本 nav 替换自身 → 计数下降、处理完的 chip 消失
+        div id="todo-nav"
+            class="sticky top-0 z-20 flex items-center gap-4 p-3 mb-4 rounded-lg border border-border-soft bg-bg shadow-xs flex-wrap"
+            hx-get=(WmsWorkCenterPath::PATH)
+            hx-select="#todo-nav"
+            hx-target="this"
+            hx-swap="outerHTML"
+            hx-trigger="taskDone from:body"
+            hx-disinherit="hx-select" {
             div class="flex flex-col items-center pr-4 border-r border-border-soft shrink-0" {
                 span class="text-xl font-bold font-mono tabular-nums text-accent leading-tight" { (total) }
                 span class="text-xs text-muted font-medium" { "待办" }
@@ -375,6 +390,7 @@ fn render_disclosure(domain: WorkCenterDomain, count: u64) -> Markup {
                 hx-get=(frag)
                 hx-target="next .di-body"
                 hx-swap="innerHTML"
+                hx-trigger="click, taskDone from:body"
                 _="on click toggle .hidden on next .di-body" {
                 div class="w-8 h-8 rounded-md grid place-items-center shrink-0 bg-surface text-fg-2" { (ic) }
                 span class="text-sm font-semibold text-fg shrink-0" { (label) }
@@ -450,8 +466,9 @@ fn render_task_row(t: &PendingTask, domain: WorkCenterDomain) -> Markup {
                         button type="button"
                             class="inline-flex items-center gap-1 px-3 py-1.5 rounded-sm bg-accent text-white text-xs font-semibold cursor-pointer border-none hover:opacity-90"
                             hx-get=(WmsWorkCenterPickPath { id: t.doc_id }.to_string())
-                            hx-target="#pick-drawer-body"
+                            hx-target="#wc-drawer-body"
                             hx-swap="innerHTML"
+                            _="on 'htmx:afterRequest'[detail.xhr.status<400] add .open to #wc-drawer-overlay"
                             { (icon::plus_icon("w-3 h-3")) "拣货" }
                     }
                     // 待质检：inspect 是 5 步联动（IQC 门禁+成本+事件），太复杂不就地，跳到货详情

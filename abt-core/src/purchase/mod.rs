@@ -17,6 +17,7 @@ pub mod payment_schedule;
 pub mod settings;
 pub mod approval;
 pub mod supplier_price;
+pub mod work_center;
 
 pub use misc_request::MiscellaneousRequestService;
 pub use order::PurchaseOrderService;

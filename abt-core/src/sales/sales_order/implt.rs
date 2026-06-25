@@ -7,6 +7,7 @@ use crate::master_data::product::{new_product_service, service::ProductService};
 use crate::master_data::product::model::AcquireChannel;
 use crate::master_data::bom::{new_bom_query_service, service::BomQueryService};
 use crate::wms::stock_ledger::{new_stock_ledger_service, service::StockLedgerService};
+use crate::wms::outbound::{model::{ShippingQuery, ShippingStatus}, new_shipping_request_service, service::ShippingRequestService};
 use crate::sales::quotation::{new_quotation_service, service::QuotationService};
 use crate::sales::sales_order::model::*;
 use crate::sales::sales_order::repo::{DemandRepo, FulfillmentPlanLineRepo, SalesOrderItemRepo, SalesOrderRepo, savepoint, release_savepoint, rollback_savepoint};
@@ -664,13 +665,16 @@ impl SalesOrderService for SalesOrderServiceImpl {
             .await?
             .ok_or_else(|| DomainError::not_found("SalesOrder"))?;
 
-        if existing.status != SalesOrderStatus::Draft
-            && existing.status != SalesOrderStatus::Confirmed
-            && existing.status != SalesOrderStatus::ReadyToShip
-            && existing.status != SalesOrderStatus::PartiallyShipped
-        {
+        if !matches!(
+            existing.status,
+            SalesOrderStatus::Draft
+                | SalesOrderStatus::Confirmed
+                | SalesOrderStatus::ReadyToShip
+                | SalesOrderStatus::ShippingRequested
+                | SalesOrderStatus::PartiallyShipped
+        ) {
             return Err(DomainError::business_rule(
-                "Only Draft, Confirmed, ReadyToShip or PartiallyShipped orders can be cancelled",
+                "Only Draft, Confirmed, ReadyToShip, ShippingRequested or PartiallyShipped orders can be cancelled",
             ));
         }
 
@@ -678,11 +682,14 @@ impl SalesOrderService for SalesOrderServiceImpl {
             .transition(ctx, db, "SalesOrderStatus", id, "Cancelled", None)
             .await?;
 
-        // 释放所有预留（Confirmed/ReadyToShip/PartiallyShipped 状态下才可能有预留）
-        if existing.status == SalesOrderStatus::Confirmed
-            || existing.status == SalesOrderStatus::ReadyToShip
-            || existing.status == SalesOrderStatus::PartiallyShipped
-        {
+        // 释放所有预留（Confirmed/ReadyToShip/ShippingRequested/PartiallyShipped 状态下才可能有预留）
+        if matches!(
+            existing.status,
+            SalesOrderStatus::Confirmed
+                | SalesOrderStatus::ReadyToShip
+                | SalesOrderStatus::ShippingRequested
+                | SalesOrderStatus::PartiallyShipped
+        ) {
             savepoint(db, "sp_cancel_resv").await.ok();
             if let Err(e) = new_inventory_reservation_service(self.pool.clone())
                 .cancel_by_source(ctx, db, DocumentType::SalesOrder, id)
@@ -885,11 +892,33 @@ impl SalesOrderService for SalesOrderServiceImpl {
 
     async fn recalc_header_status(
         &self,
-        _ctx: &ServiceContext, db: PgExecutor<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         order_id: i64,
     ) -> Result<SalesOrderStatus> {
         let items = self.item_repo.find_by_order_id(db, order_id).await?;
-        let new_status = calc_header_status(&items);
+        let mut new_status = calc_header_status(&items);
+
+        // 叠加：有活跃发货申请（Confirmed/Picking）且未全 Shipped → ShippingRequested。
+        // 申请发货的业务意图优先于 ReadyToShip「库存已补足」中间态。
+        if matches!(new_status, SalesOrderStatus::Confirmed | SalesOrderStatus::ReadyToShip) {
+            let ship_svc = new_shipping_request_service(self.pool.clone());
+            if let Ok(page) = ship_svc
+                .list(
+                    ctx, db,
+                    ShippingQuery { order_id: Some(order_id), ..Default::default() },
+                    PageParams::new(1, 200),
+                )
+                .await
+            {
+                let has_active = page.items.iter().any(|s| matches!(
+                    s.status,
+                    ShippingStatus::Confirmed | ShippingStatus::Picking
+                ));
+                if has_active {
+                    new_status = SalesOrderStatus::ShippingRequested;
+                }
+            }
+        }
 
         // 仅当状态变化时才更新
         let order = self.repo.find_by_id(db, order_id).await?

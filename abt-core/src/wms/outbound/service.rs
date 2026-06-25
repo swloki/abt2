@@ -12,6 +12,15 @@ pub trait ShippingRequestService: Send + Sync {
         req: CreateFromOrderReq,
     ) -> Result<i64>;
 
+    /// 一键申请发货（订单详情页弹窗提交）：各行 warehouse=None（销售不指定仓库），
+    /// 发货单跳过 Draft → 直接 Confirmed（入 work-center 待发货队列），回写订单 ShippingRequested。
+    async fn request_from_order(
+        &self,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
+        order_id: i64,
+        items: Vec<RequestShippingItemReq>,
+    ) -> Result<i64>;
+
     async fn save_draft(
         &self,
         ctx: &ServiceContext, db: PgExecutor<'_>,

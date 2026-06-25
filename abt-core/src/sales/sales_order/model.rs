@@ -14,6 +14,8 @@ pub enum SalesOrderStatus {
     Shipped = 5,
     Completed = 6,
     Cancelled = 7,
+    /// 已申请发货：销售一键申请后，发货单已建（Confirmed）待仓库拣货发货
+    ShippingRequested = 8,
 }
 
 impl SalesOrderStatus {
@@ -26,6 +28,7 @@ impl SalesOrderStatus {
             5 => Some(Self::Shipped),
             6 => Some(Self::Completed),
             7 => Some(Self::Cancelled),
+            8 => Some(Self::ShippingRequested),
             _ => None,
         }
     }
@@ -43,6 +46,7 @@ impl SalesOrderStatus {
             Self::Shipped => "Shipped",
             Self::Completed => "Completed",
             Self::Cancelled => "Cancelled",
+            Self::ShippingRequested => "ShippingRequested",
         }
     }
 }

@@ -5,6 +5,8 @@ use serde::Deserialize;
 
 use abt_core::shared::types::pagination::{PageParams, PaginatedResult};
 use abt_core::wms::pick_list::{model::PickItemInput, PickListService};
+use abt_core::wms::warehouse::WarehouseService;
+use crate::routes::shipping::ShippingDetailPath;
 use abt_core::wms::work_center::model::{
     PendingTask, Urgency, UrgentSummary, WorkCenterDomain, WorkCenterSummary,
 };
@@ -174,6 +176,18 @@ pub async fn get_pick_drawer(path: WmsWorkCenterPickPath, ctx: RequestContext) -
         .list_items(&service_ctx, &mut conn, path.id)
         .await
         .unwrap_or_default();
+    let warehouses = state
+        .warehouse_service()
+        .list(
+            &service_ctx,
+            &mut conn,
+            abt_core::wms::warehouse::model::WarehouseFilter::default(),
+            1,
+            200,
+        )
+        .await
+        .map(|r| r.items)
+        .unwrap_or_default();
 
     let body = html! {
         form hx-post=(WmsWorkCenterPickPath { id: path.id }.to_string())
@@ -187,6 +201,7 @@ pub async fn get_pick_drawer(path: WmsWorkCenterPickPath, ctx: RequestContext) -
                     tr {
                         th class="text-left text-xs font-semibold text-muted py-2 px-2 border-b border-border-soft" { "产品" }
                         th class="text-right text-xs font-semibold text-muted py-2 px-2 border-b border-border-soft" { "申请" }
+                        th class="text-left text-xs font-semibold text-muted py-2 px-2 border-b border-border-soft" { "仓库 / 库位" }
                         th class="text-right text-xs font-semibold text-muted py-2 px-2 border-b border-border-soft" { "本次拣货" }
                     }
                 }
@@ -195,6 +210,18 @@ pub async fn get_pick_drawer(path: WmsWorkCenterPickPath, ctx: RequestContext) -
                         tr class="border-b border-border-soft" {
                             td class="py-2 px-2 text-sm text-fg" { "产品 #" (it.product_id) }
                             td class="py-2 px-2 text-sm font-mono text-right" { (fmt_qty(it.requested_qty)) }
+                            td class="py-2 px-2" {
+                                select name=(format!("items[{idx}][warehouse_id]"))
+                                    class="w-full px-2 py-1 border border-border rounded-sm text-xs bg-bg mb-1"
+                                    required {
+                                    option value="" disabled selected { "选择仓库" }
+                                    @for w in &warehouses {
+                                        option value=(w.id) { (w.name) }
+                                    }
+                                }
+                                input type="number" name=(format!("items[{idx}][bin_id]")) placeholder="库位ID 可选"
+                                    class="w-full px-2 py-1 border border-border rounded-sm text-xs bg-bg";
+                            }
                             td class="py-2 px-2 text-right" {
                                 input type="hidden" name=(format!("items[{idx}][pick_list_item_id]")) value=(it.id);
                                 input type="number" name=(format!("items[{idx}][picked_qty]"))
@@ -250,7 +277,8 @@ pub async fn post_pick_items(
         .map(|r| PickItemInput {
             pick_list_item_id: r.pick_list_item_id,
             picked_qty: r.picked_qty,
-            bin_id: None, // MVP 不录库位
+            warehouse_id: r.warehouse_id,
+            bin_id: r.bin_id,
         })
         .collect();
     svc.record_pick_items(&service_ctx, &mut tx, path.id, items)
@@ -268,6 +296,10 @@ pub async fn post_pick_items(
 pub struct PickRowForm {
     pub pick_list_item_id: i64,
     pub picked_qty: Decimal,
+    #[serde(default, deserialize_with = "crate::utils::empty_as_none")]
+    pub warehouse_id: Option<i64>,
+    #[serde(default, deserialize_with = "crate::utils::empty_as_none")]
+    pub bin_id: Option<i64>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -410,6 +442,10 @@ fn render_task_row(t: &PendingTask, domain: WorkCenterDomain) -> Markup {
                         hx-target="#pick-drawer-body"
                         hx-swap="innerHTML"
                         { (icon::plus_icon("w-3 h-3")) "拣货" }
+                } @else if domain == WorkCenterDomain::Outbound {
+                    a class="inline-flex items-center gap-1 px-3 py-1.5 rounded-sm bg-accent text-white text-xs font-semibold cursor-pointer hover:opacity-90"
+                        href=(ShippingDetailPath { id: t.doc_id }.to_string())
+                        { (icon::plus_icon("w-3 h-3")) "处理" }
                 } @else {
                     span class="text-xs text-muted" { "—" }
                 }

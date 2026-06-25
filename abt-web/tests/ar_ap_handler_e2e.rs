@@ -139,14 +139,14 @@ async fn k1_sales_ship_to_ar_ledger() {
         "customer_id={CUSTOMER_ID}&order_id={so_id}&items_json={}",
         ship_items(&[(order_item_id, "10")])
     );
-    let resp = app.post_htmx("/admin/shipping/create", &body).await;
+    let resp = app.post_htmx("/admin/wms/shipping/create", &body).await;
     assert!(resp.is_ok(), "创建发货单 FAIL: {} body: {}", resp.status, resp.body.chars().take(300).collect::<String>());
     let ship_id = redirect_id(&resp);
     assert!(ship_id > 0, "应返回发货单 id");
 
-    let _ = app.post_htmx(&format!("/admin/shipping/{ship_id}/confirm"), "").await;
-    let _ = app.post_htmx(&format!("/admin/shipping/{ship_id}/pick"), "").await;
-    let resp = app.post_htmx(&format!("/admin/shipping/{ship_id}/ship"), "").await;
+    let _ = app.post_htmx(&format!("/admin/wms/shipping/{ship_id}/confirm"), "").await;
+    let _ = app.post_htmx(&format!("/admin/wms/shipping/{ship_id}/pick"), "").await;
+    let resp = app.post_htmx(&format!("/admin/wms/shipping/{ship_id}/ship"), "").await;
     assert!(resp.is_ok() || resp.is_redirect(), "发货 ship FAIL: {} body: {}", resp.status, resp.body.chars().take(300).collect::<String>());
 
     // 4) 验证 AR 台账（ShippingRequest Debit 应收，金额 = 10 × 1.00 = 10）
@@ -412,12 +412,12 @@ async fn k5_sales_return_received_reverses_ar_ledger() {
         "customer_id={CUSTOMER_ID}&order_id={so_id}&items_json={}",
         ship_items(&[(order_item_id, "10")])
     );
-    let resp = app.post_htmx("/admin/shipping/create", &body).await;
+    let resp = app.post_htmx("/admin/wms/shipping/create", &body).await;
     assert!(resp.is_ok(), "创建发货单 FAIL: {}", resp.status);
     let ship_id = redirect_id(&resp);
-    let _ = app.post_htmx(&format!("/admin/shipping/{ship_id}/confirm"), "").await;
-    let _ = app.post_htmx(&format!("/admin/shipping/{ship_id}/pick"), "").await;
-    let _ = app.post_htmx(&format!("/admin/shipping/{ship_id}/ship"), "").await;
+    let _ = app.post_htmx(&format!("/admin/wms/shipping/{ship_id}/confirm"), "").await;
+    let _ = app.post_htmx(&format!("/admin/wms/shipping/{ship_id}/pick"), "").await;
+    let _ = app.post_htmx(&format!("/admin/wms/shipping/{ship_id}/ship"), "").await;
 
     // 3) 创建销售退货单（退 4 × 1.00 = 4）
     use abt_core::sales::sales_return::{SalesReturnService, CreateReturnReq, CreateReturnItemReq, ReturnDisposition};
@@ -641,4 +641,68 @@ async fn k7_stock_in_idempotency() {
     assert_eq!(an_count_2, 1, "❌ 幂等失败：第二次提交建了新的来料通知（{}）", an_count_2);
     // 注：txn_count 不做严格断言（k6/k7 共享 565 流水），核心断言是来料通知不重复
     let _ = txn_count;
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+//  k5 一键申请发货（销售订单详情页申请 → 仓库 work-center 待发货）
+//  SO 确认 → POST /admin/orders/{id}/request-ship（销售不选仓库）→ 订单 ShippingRequested(8)
+//  + 发货单 Confirmed(2)（跳过 Draft，直接进 work-center 待发货）+ 明细 warehouse_id NULL
+// ════════════════════════════════════════════════════════════════════════════
+
+#[tokio::test]
+#[serial_test::serial]
+async fn k5_one_click_request_ship_to_work_center() {
+    let app = TestApp::new().await;
+    let ctx = ServiceContext::new(1);
+
+    // 1) SO + confirm
+    let so_body = format!(
+        "customer_id={CUSTOMER_ID}&contact_id={CONTACT_ID}&items_json={}",
+        so_items(&[(&PRODUCT.to_string(), "5", "1.00")])
+    );
+    let resp = app.post_htmx("/admin/orders/create", &so_body).await;
+    assert!(resp.is_ok(), "创建销售订单 FAIL: {}", resp.status);
+    let so_id = redirect_id(&resp);
+    assert!(so_id > 0, "应返回 SO id");
+    let _ = app.post_htmx(&format!("/admin/orders/{so_id}/confirm"), "").await;
+
+    // 取 order_item_id
+    let so_svc = app.state.sales_order_service();
+    let mut conn = app.state.pool.acquire().await.unwrap();
+    let order_item_id = so_svc.list_items(&ctx, &mut conn, so_id).await.unwrap()[0].id;
+    drop(conn);
+
+    // 2) 一键申请发货（items_json 不含 warehouse_id，销售不选仓库）
+    let items_json = urlenc(&format!(
+        r#"[{{"order_item_id":{order_item_id},"requested_qty":"5"}}]"#
+    ));
+    let body = format!("items_json={items_json}");
+    let resp = app.post_htmx(&format!("/admin/orders/{so_id}/request-ship"), &body).await;
+    assert!(
+        resp.is_ok() || resp.is_redirect(),
+        "申请发货 FAIL: {} body: {}",
+        resp.status,
+        resp.body.chars().take(300).collect::<String>()
+    );
+
+    // 3) 订单 status=8（ShippingRequested）
+    let mut conn = app.state.pool.acquire().await.unwrap();
+    let so_status: i16 = sqlx::query_scalar("SELECT status FROM sales_orders WHERE id=$1")
+        .bind(so_id).fetch_one(&mut *conn).await.unwrap();
+    assert_eq!(so_status, 8, "❌ 订单应推进到 ShippingRequested(8)，实际 {so_status}");
+
+    // 4) 发货单 status=2（Confirmed，跳过 Draft，直接进 work-center 待发货）
+    let ship_status: i16 = sqlx::query_scalar(
+        "SELECT status FROM shipping_requests WHERE order_id=$1 ORDER BY id DESC LIMIT 1",
+    ).bind(so_id).fetch_one(&mut *conn).await.unwrap();
+    assert_eq!(ship_status, 2, "❌ 发货单应为 Confirmed(2)（跳过 Draft）");
+
+    // 5) 发货明细 warehouse_id NULL（销售不指定仓库，拣货时定）
+    let ship_id: i64 = sqlx::query_scalar(
+        "SELECT id FROM shipping_requests WHERE order_id=$1 ORDER BY id DESC LIMIT 1",
+    ).bind(so_id).fetch_one(&mut *conn).await.unwrap();
+    let wh_id: Option<i64> = sqlx::query_scalar(
+        "SELECT warehouse_id FROM shipping_request_items WHERE shipping_request_id=$1 LIMIT 1",
+    ).bind(ship_id).fetch_one(&mut *conn).await.unwrap();
+    assert!(wh_id.is_none(), "❌ 发货明细仓库应为 NULL（销售不指定仓库），实际 {:?}", wh_id);
 }

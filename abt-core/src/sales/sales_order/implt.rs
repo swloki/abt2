@@ -918,6 +918,21 @@ impl SalesOrderService for SalesOrderServiceImpl {
         order_id: i64,
         lines: &[ShipmentLineQty],
     ) -> Result<SalesOrderStatus> {
+        // 超发前置校验：本次发货量不得超过 SO 行剩余可发量（quantity - shipped - cancelled）。
+        // 否则 chk_soi_open_qty_nonneg 约束会在 UPDATE 时炸成 500（Opaque Internal）；
+        // 这里返明确业务错误。应对「同一 SO 被多张发货单超额占用」等数据不一致场景。
+        let items = self.item_repo.find_by_order_id(db, order_id).await?;
+        for line in lines {
+            if let Some(it) = items.iter().find(|i| i.id == line.order_item_id) {
+                let open = it.quantity - it.shipped_qty - it.cancelled_qty;
+                if line.shipped_qty > open {
+                    return Err(DomainError::business_rule(format!(
+                        "销售订单行 #{} 发货 {} 超过剩余可发量 {}（总量 {}，已发 {}，已取消 {}）",
+                        line.order_item_id, line.shipped_qty, open, it.quantity, it.shipped_qty, it.cancelled_qty
+                    )));
+                }
+            }
+        }
         // 累加各行已发数量（update_shipped_qty 为 += 语义）
         for line in lines {
             self.item_repo

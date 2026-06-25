@@ -75,8 +75,8 @@ async fn fetch_transactions(
  txns.push(TransactionRecord {
  doc_number: o.doc_number.clone(),
  tx_type: TxType::Order,
- status_label: match o.status { SalesOrderStatus::Draft => "草稿", SalesOrderStatus::Confirmed => "已确认", SalesOrderStatus::ReadyToShip => "待发货", SalesOrderStatus::PartiallyShipped => "部分发货", SalesOrderStatus::Shipped => "已发货", SalesOrderStatus::Completed => "已完成", SalesOrderStatus::Cancelled => "已取消" },
- status_class: match o.status { SalesOrderStatus::Draft => "status-draft", SalesOrderStatus::Confirmed => "status-confirmed", SalesOrderStatus::ReadyToShip => "status-ready", SalesOrderStatus::PartiallyShipped => "status-partial", SalesOrderStatus::Shipped => "status-shipped", SalesOrderStatus::Completed => "status-completed", SalesOrderStatus::Cancelled => "status-cancelled" },
+ status_label: match o.status { SalesOrderStatus::Draft => "草稿", SalesOrderStatus::Confirmed => "已确认", SalesOrderStatus::ReadyToShip => "待发货", SalesOrderStatus::PartiallyShipped => "部分发货", SalesOrderStatus::Shipped => "已发货", SalesOrderStatus::Completed => "已完成", SalesOrderStatus::Cancelled => "已取消", SalesOrderStatus::ShippingRequested => "已申请发货" },
+ status_class: match o.status { SalesOrderStatus::Draft => "status-draft", SalesOrderStatus::Confirmed => "status-confirmed", SalesOrderStatus::ReadyToShip => "status-ready", SalesOrderStatus::PartiallyShipped => "status-partial", SalesOrderStatus::Shipped => "status-shipped", SalesOrderStatus::Completed => "status-completed", SalesOrderStatus::Cancelled => "status-cancelled", SalesOrderStatus::ShippingRequested => "status-ready" },
  amount: Some(o.total_amount),
  date: o.created_at.date_naive(),
  });

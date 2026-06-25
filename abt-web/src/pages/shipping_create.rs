@@ -36,6 +36,7 @@ fn order_status_text(s: SalesOrderStatus) -> &'static str {
  SalesOrderStatus::Shipped => "已发货",
  SalesOrderStatus::Completed => "已完成",
  SalesOrderStatus::Cancelled => "已取消",
+ SalesOrderStatus::ShippingRequested => "已申请发货",
  }
 }
 
@@ -239,7 +240,7 @@ pub async fn post_shipping_create(
  let items: Vec<CreateShippingItemReq> = web_items.into_iter().map(|item| {
  CreateShippingItemReq {
  order_item_id: item.order_item_id,
- warehouse_id: item.warehouse_id,
+ warehouse_id: Some(item.warehouse_id),
  requested_qty: item.requested_qty.parse().unwrap_or(rust_decimal::Decimal::ONE),
  }
  }).collect();
@@ -335,7 +336,7 @@ pub async fn post_save_draft(
  .map(|item| CreateDraftItemReq {
  order_item_id: if item.order_item_id > 0 { Some(item.order_item_id) } else { None },
  product_id: None,
- warehouse_id: item.warehouse_id,
+ warehouse_id: Some(item.warehouse_id),
  requested_qty: item.requested_qty.parse().unwrap_or(rust_decimal::Decimal::ONE),
  description: String::new(),
  })

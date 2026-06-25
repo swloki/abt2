@@ -152,19 +152,21 @@ impl PickListItemRepo {
         Ok(rows)
     }
 
-    /// 录入拣货结果：更新 picked_qty；bin_id 传 None 时保留原值（COALESCE）。
+    /// 录入拣货结果：更新 picked_qty；warehouse_id/bin_id 传 None 时保留原值（COALESCE）。
     pub async fn update_picked(
         &self,
         executor: PgExecutor<'_>,
         pick_list_item_id: i64,
         picked_qty: Decimal,
+        warehouse_id: Option<i64>,
         bin_id: Option<i64>,
     ) -> Result<()> {
         sqlx::query(
-            "UPDATE pick_list_items SET picked_qty = $2, bin_id = COALESCE($3, bin_id) WHERE id = $1",
+            "UPDATE pick_list_items SET picked_qty = $2, warehouse_id = COALESCE($3, warehouse_id), bin_id = COALESCE($4, bin_id) WHERE id = $1",
         )
         .bind(pick_list_item_id)
         .bind(picked_qty)
+        .bind(warehouse_id)
         .bind(bin_id)
         .execute(&mut *executor)
         .await?;

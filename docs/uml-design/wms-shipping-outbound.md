@@ -188,3 +188,19 @@ async fn handle(ctx, db, event: ShipmentShipped) {
 - **事件立账最终一致**：AR 台账从「同步直插」改「异步事件」后，存在短窗口台账未立；需保证 handler 幂等（`ar_ap_ledger` partial unique index 已就绪）+ 失败重试 / 死信可见。
 - **回写并发**：`record_shipment` 并发更新 `shipped_qty` 需行级锁或乐观锁，避免部分发货覆盖。
 - **回滚**：Phase 1 若出问题，因物理表 / DocumentType 不变，可回退代码归属而不动数据。
+
+## 10. 销售一键「申请发货」+ ShippingRequested 状态（本期实现）
+
+**背景**：原 `create_from_order` 要求销售在 `/admin/wms/shipping/create` 为每行选仓库（销售不管货物存哪），发货单创建为 Draft（仓库 confirm 前不进 work-center 待发货），订单缺「已申请发货」语义。
+
+**实现**（migration `074` + 代码）：
+- **新状态 `SalesOrderStatus::ShippingRequested = 8`**：销售一键申请后推进到此态。`recalc_header_status` 叠加判定——`calc_header_status` 出 Confirmed/ReadyToShip 时，若该订单有活跃发货单（Confirmed/Picking）且未全 Shipped → ShippingRequested（业务意图优先于「库存已补足」中间态）。
+- **`ShippingRequestService::request_from_order(order_id, items: Vec<RequestShippingItemReq>)`**：订单详情页弹窗调用，各行 `warehouse_id=None`（销售不选仓库），发货单跳过 Draft → 直接 Confirmed（进 work-center 待发货队列），回写订单 ShippingRequested。允许 ShippingRequested 状态重复申请（追加数量）。
+- **`shipping_request_items.warehouse_id` / `pick_list_items.warehouse_id` 改可空**（migration 074 DROP NOT NULL）：销售申请不带仓库，仓库拣货时手选。
+- **拣货 drawer 加仓库+库位 select**（`wms_work_center.rs`）：仓库在拣货时决定从哪个仓库/库位出；`PickItemInput` 加 `warehouse_id`，`update_picked` 回填 `pick_list_items.warehouse_id/bin_id`。
+- **`ship()` 扣库存改从 `PickListItem` 取 warehouse_id/bin_id**（不再用发货明细的 None）：`outbound_item_id → (warehouse_id, bin_id)` 映射，拣货未录仓库时报「拣货未录入仓库，无法出库」兜底。
+- **可行性支撑**：库存预留本就跨仓库（`ReserveRequest.warehouse_id=None`，product 维度 ATP），销售不指定仓库在模型上成立。
+
+**入口**：销售订单详情页「申请发货」按钮（`/admin/orders/{id}/request-ship`，GET 返回 modal + POST 提交）；保留 `/admin/wms/shipping/create` 独立创建页用于复杂场景（指定仓库 / 多订单合并）。work-center 待发货卡片新增「处理」跳转到发货详情。
+
+**验证**：`abt-web/tests/ar_ap_handler_e2e.rs::k5_one_click_request_ship_to_work_center`（申请 → 订单 ShippingRequested(8) + 发货单 Confirmed(2) 跳过 Draft + 明细 warehouse NULL）。

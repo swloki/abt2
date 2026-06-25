@@ -37,6 +37,7 @@ fn order_status_text(s: SalesOrderStatus) -> &'static str {
  SalesOrderStatus::Shipped => "已发货",
  SalesOrderStatus::Completed => "已完成",
  SalesOrderStatus::Cancelled => "已取消",
+ SalesOrderStatus::ShippingRequested => "已申请发货",
  }
 }
 

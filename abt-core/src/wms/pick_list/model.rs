@@ -93,7 +93,7 @@ pub struct PickListItem {
     pub line_no: i32,
     pub outbound_item_id: i64,
     pub product_id: i64,
-    pub warehouse_id: i64,
+    pub warehouse_id: Option<i64>,
     pub bin_id: Option<i64>,
     pub requested_qty: Decimal,
     pub picked_qty: Decimal,
@@ -113,17 +113,18 @@ pub struct PickListItemInput {
     pub line_no: i32,
     pub outbound_item_id: i64,
     pub product_id: i64,
-    pub warehouse_id: i64,
+    pub warehouse_id: Option<i64>,
     pub bin_id: Option<i64>,
     pub requested_qty: Decimal,
     pub picked_qty: Decimal,
 }
 
-/// 拣货明细录入（人工拣货：picked_qty / bin_id）。Doc Hub 拣货 drawer 提交。
+/// 拣货明细录入（人工拣货：picked_qty / warehouse_id / bin_id）。Doc Hub 拣货 drawer 提交。
 #[derive(Debug, Clone)]
 pub struct PickItemInput {
     pub pick_list_item_id: i64,
     pub picked_qty: Decimal,
+    pub warehouse_id: Option<i64>,
     pub bin_id: Option<i64>,
 }
 

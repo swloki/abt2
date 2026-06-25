@@ -388,3 +388,19 @@ window.filterReports = function () {
         tr.style.display = (okKw && okOp && okTeam) ? '' : 'none';
     });
 };
+
+// ── 作业中心 drawer 行级明细收集 ──
+// 收货/拣货 drawer 的多行输入（每行 [data-row]，字段 [data-k="item_id"|"received_qty"|...]）
+// 在 htmx submit 前收成 JSON 塞进 hidden items_json（onsubmit 触发，早于 htmx 的 submit 监听）
+window.wcCollectItems = function (form) {
+    var rows = form.querySelectorAll('[data-row]');
+    var items = Array.prototype.map.call(rows, function (r) {
+        var o = {};
+        r.querySelectorAll('[data-k]').forEach(function (i) {
+            o[i.getAttribute('data-k')] = i.value;
+        });
+        return o;
+    });
+    var j = form.querySelector('[name="items_json"]');
+    if (j) j.value = JSON.stringify(items);
+};

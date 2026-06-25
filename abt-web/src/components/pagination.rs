@@ -121,7 +121,7 @@ pub fn htmx_pagination(
 }
 }
 
-/// Lightweight HTMX pagination: links only have `hx-get`, inheriting hx-target/hx-swap/hx-push-url
+/// Lightweight HTMX pagination: links only have `hx-get`, inheriting hx-target/hx-swap
 /// from an ancestor container that declares them.
 /// `query` carries filter params (e.g. `category_id=3`) so page links preserve the active filter;
 /// pass "" when the filter is encoded in the path itself.

@@ -258,7 +258,7 @@ fn toolbar(from: NaiveDate, to: NaiveDate, active_view: &str) -> Markup {
                 hx-get=(url_for(view))
                 hx-target="#schedule-content"
                 hx-swap="outerHTML"
-                hx-push-url="true"
+               
             { (label) }
         }
     };

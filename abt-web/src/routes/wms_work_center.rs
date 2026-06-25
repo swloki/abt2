@@ -6,36 +6,15 @@ use serde::Deserialize;
 use crate::pages::wms_work_center;
 use crate::state::AppState;
 
+/// 作业中心**唯一端点**：GET（整页 / 懒加载某卡片 / 加载 drawer body），POST（执行就地操作）。
+/// 交互收敛到一个地址：卡片自洽、用 hx-select / hx-select-oob 协调多区更新（见 wms-work-center-hub.md）。
 #[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/wms/work-center")]
 pub struct WmsWorkCenterPath;
 
-/// disclosure 懒加载：某环节的待办队列片段
-#[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/wms/work-center/fragments/{domain}")]
-pub struct WmsWorkCenterFragmentPath {
-    pub domain: String,
-}
-
-/// 拣货 drawer：GET 返回 drawer body（明细录入表单），POST 提交 record_pick_items
-#[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/wms/work-center/pick/{id}")]
-pub struct WmsWorkCenterPickPath {
-    pub id: i64,
-}
-
 pub fn router() -> Router<AppState> {
-    Router::new()
-        .route(
-            WmsWorkCenterPath::PATH,
-            get(wms_work_center::get_wms_work_center),
-        )
-        .route(
-            WmsWorkCenterFragmentPath::PATH,
-            get(wms_work_center::get_domain_fragment),
-        )
-        .route(
-            WmsWorkCenterPickPath::PATH,
-            get(wms_work_center::get_pick_drawer).post(wms_work_center::post_pick_items),
-        )
+    Router::new().route(
+        WmsWorkCenterPath::PATH,
+        get(wms_work_center::get_wms_work_center).post(wms_work_center::post_work_center_action),
+    )
 }

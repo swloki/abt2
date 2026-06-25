@@ -279,7 +279,7 @@ fn filter_and_table(
             hx-target="#data-card"
             hx-select="#data-card"
             hx-swap="outerHTML"
-            hx-push-url="true"
+           
         {
             input type="hidden" name="outstanding_only" value=(outstanding_only);
             // ── filter-card 容器 ──
@@ -308,12 +308,12 @@ fn filter_and_table(
                     {
                         a class=(if outstanding_only { active_cls } else { inactive_cls })
                             hx-get=(ArLedgerPath::PATH) hx-vals=r#"{"outstanding_only":"true"}"#
-                            hx-target="#data-card" hx-select="#data-card" hx-swap="outerHTML" hx-push-url="true"
+                            hx-target="#data-card" hx-select="#data-card" hx-swap="outerHTML"
                             hx-include="#ar-filter-form input:not([type=hidden])"
                         { "只看未清" }
                         a class=(if !outstanding_only { active_cls } else { inactive_cls })
                             hx-get=(ArLedgerPath::PATH) hx-vals=r#"{"outstanding_only":"false"}"#
-                            hx-target="#data-card" hx-select="#data-card" hx-swap="outerHTML" hx-push-url="true"
+                            hx-target="#data-card" hx-select="#data-card" hx-swap="outerHTML"
                             hx-include="#ar-filter-form input:not([type=hidden])"
                         { "全部" }
                     }

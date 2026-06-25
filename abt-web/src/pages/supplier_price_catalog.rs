@@ -314,7 +314,7 @@ fn filter_bar(query: &ListQuery) -> Markup {
         hx-target="#price-data-card"
         hx-select="#price-data-card"
         hx-swap="outerHTML"
-        hx-push-url="true"
+       
         hx-include="#price-filter-form"
     {
 

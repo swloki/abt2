@@ -249,7 +249,7 @@ fn mrb_table_fragment(
             hx-select="#mrb-data-card"
             hx-swap="outerHTML"
             hx-include="closest form"
-            hx-push-url="true"
+           
         {
             div class="relative w-60" {
                 ({

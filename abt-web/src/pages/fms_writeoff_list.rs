@@ -199,7 +199,7 @@ fn writeoff_table_fragment(
             hx-select="#writeoff-data-card"
             hx-swap="outerHTML"
             hx-include="#writeoff-filter-form"
-            hx-push-url="true"
+           
         {
             div class="relative w-[200px]" {
                 ({

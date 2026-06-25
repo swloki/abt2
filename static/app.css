@@ -1234,9 +1234,11 @@ select:disabled {
 .bg-danger-500{background-color:color-mix(in srgb, var(--danger-500) var(--un-bg-opacity), transparent) /* var(--danger-500) */;}
 .bg-danger-bg{background-color:color-mix(in srgb, var(--danger-bg) var(--un-bg-opacity), transparent) /* var(--danger-bg) */;}
 .bg-danger\/10{background-color:color-mix(in srgb, var(--danger) 10%, transparent) /* var(--danger) */;}
+.bg-fg{background-color:color-mix(in srgb, var(--fg) var(--un-bg-opacity), transparent) /* var(--fg) */;}
 .bg-gray-400{background-color:color-mix(in srgb, var(--colors-gray-400) var(--un-bg-opacity), transparent) /* oklch(70.7% 0.022 261.325) */;}
 .bg-green-500{background-color:color-mix(in srgb, var(--colors-green-500) var(--un-bg-opacity), transparent) /* oklch(72.3% 0.219 149.579) */;}
 .bg-indigo-500{background-color:color-mix(in srgb, var(--colors-indigo-500) var(--un-bg-opacity), transparent) /* oklch(58.5% 0.233 277.117) */;}
+.bg-muted{background-color:color-mix(in srgb, var(--muted) var(--un-bg-opacity), transparent) /* var(--muted) */;}
 .bg-orange-500{background-color:color-mix(in srgb, var(--colors-orange-500) var(--un-bg-opacity), transparent) /* oklch(70.5% 0.213 47.604) */;}
 .bg-pink-500{background-color:color-mix(in srgb, var(--colors-pink-500) var(--un-bg-opacity), transparent) /* oklch(65.6% 0.241 354.308) */;}
 .bg-purple{background-color:color-mix(in srgb, var(--purple) var(--un-bg-opacity), transparent) /* var(--purple) */;}

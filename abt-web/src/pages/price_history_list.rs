@@ -227,7 +227,7 @@ fn price_history_page(rows: &[PriceHistoryRow], total: u64, page: u32, total_pag
                 hx-select=".data-card"
                 hx-swap="outerHTML"
                 hx-include="#filter-form"
-                hx-push-url="true"
+               
             {
                 div class="relative flex-1 max-w-xs icon:absolute icon:left-3 icon:top-1/2 icon:-translate-y-1/2 icon:w-4 icon:h-4 icon:text-muted"
                 {

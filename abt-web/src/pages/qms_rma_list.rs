@@ -224,7 +224,7 @@ fn rma_table_fragment(
             hx-select="#rma-data-card"
             hx-swap="outerHTML"
             hx-include="closest form"
-            hx-push-url="true"
+           
         {
             input type="hidden" name="status" value=(selected_status);
             div class="relative w-60" {

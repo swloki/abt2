@@ -215,7 +215,7 @@ fn spec_table_fragment(
             hx-select="#spec-data-card"
             hx-swap="outerHTML"
             hx-include="closest form"
-            hx-push-url="true"
+           
         {
             div class="relative w-60" {
                 ({

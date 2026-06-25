@@ -338,3 +338,53 @@ window.slideDrawerOut = function(panelSelector, overlay) {
         }
     }, 300);
 };
+
+// ── Disclosure drill-down：展开目标区块并 smooth 滚动定位 ──
+// Hyperscript 调用：_="on click call openAndScroll('d-info')"
+// 工单工作台 detail-header 物料徽章 / 摘要带点击 drill-down 用。
+// 注：hyperscript 的 `call #x.scrollIntoView() with {behavior:'smooth',...}` 是非法语法
+// （with 不能跟在 call 方法调用后传 JS 对象），故收敛到此全局函数。
+window.openAndScroll = function (id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.classList.add('open');
+    el.scrollIntoView({behavior: 'smooth', block: 'center'});
+};
+
+// ── 报工记录筛选（工单工作台 d-report）──
+// initReportFilter：从 tbody 行的 data-* 提取去重的工序/班组，填充 select 选项。
+// filterReports：按 关键词(报工人/批次) + 工序 + 班组 三条件筛选行。
+window.initReportFilter = function () {
+    var root = document.querySelector('#d-report');
+    if (!root) return;
+    var rows = root.querySelectorAll('tbody tr');
+    var ops = {}, teams = {};
+    rows.forEach(function (tr) {
+        if (tr.dataset.op) ops[tr.dataset.op] = 1;
+        if (tr.dataset.team) teams[tr.dataset.team] = 1;
+    });
+    var fill = function (selId, map, allLabel) {
+        var sel = document.getElementById(selId);
+        if (!sel) return;
+        var keys = Object.keys(map);
+        sel.innerHTML = '<option value="">' + allLabel + '</option>' +
+            keys.map(function (k) { return '<option value="' + k + '">' + k + '</option>'; }).join('');
+    };
+    fill('rpt-op', ops, '全部工序');
+    fill('rpt-team', teams, '全部班组');
+};
+window.filterReports = function () {
+    var root = document.querySelector('#d-report');
+    if (!root) return;
+    var kw = (document.getElementById('rpt-kw').value || '').toLowerCase();
+    var op = document.getElementById('rpt-op').value;
+    var team = document.getElementById('rpt-team').value;
+    root.querySelectorAll('tbody tr').forEach(function (tr) {
+        var w = (tr.dataset.worker || '').toLowerCase();
+        var b = (tr.dataset.batch || '').toLowerCase();
+        var okKw = !kw || w.indexOf(kw) >= 0 || b.indexOf(kw) >= 0;
+        var okOp = !op || tr.dataset.op === op;
+        var okTeam = !team || tr.dataset.team === team;
+        tr.style.display = (okKw && okOp && okTeam) ? '' : 'none';
+    });
+};

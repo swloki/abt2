@@ -18,6 +18,7 @@ use crate::master_data::product::{new_product_service, service::ProductService};
 use crate::wms::material_requisition::{new_material_requisition_service, service::MaterialRequisitionService};
 use crate::wms::stock_ledger::{new_stock_ledger_service, service::StockLedgerService};
 use crate::mes::production_batch::model::WorkOrderRouting;
+use crate::mes::production_batch::{new_production_batch_service, service::ProductionBatchService};
 use crate::mes::production_batch::repo::{
     BatchRoutingProgressRepo, ProductionBatchRepo, WorkOrderRoutingRepo,
 };
@@ -161,50 +162,16 @@ impl WorkOrderService for WorkOrderServiceImpl {
             .get_bom_routing(ctx, db, product_code.to_string())
             .await?;
 
-        // 先确定每道工序的 (step_no, process_name)：有工艺则映射各工序，否则用单道虚拟默认工序
-        let routing_steps: Vec<WorkOrderRouting> = match routing_detail.as_ref() {
-            Some(detail) if !detail.steps.is_empty() => detail
-                .steps
-                .iter()
-                .map(|step| WorkOrderRouting {
-                    id: 0,
-                    work_order_id: id,
-                    step_no: step.step_order,
-                    process_name: step
-                        .process_name
-                        .clone()
-                        .unwrap_or_else(|| step.process_code.clone()),
-                    work_center_id: step.work_center_id,
-                    standard_time: step.standard_time,
-                    standard_cost: step.standard_cost,
-                    unit_price: step.unit_price,
-                    allowed_loss_rate: step.allowed_loss_rate,
-                    planned_qty: work_order.planned_qty,
-                    is_outsourced: step.is_outsourced,
-                    is_inspection_point: step.is_inspection_point,
-                    product_id: step.product_id,
-                })
-                .collect(),
-            _ => vec![WorkOrderRouting {
-                id: 0,
-                work_order_id: id,
-                step_no: 1,
-                process_name: "生产".to_string(),
-                work_center_id: None,
-                standard_time: None,
-                standard_cost: None,
-                unit_price: None,
-                allowed_loss_rate: None,
-                planned_qty: work_order.planned_qty,
-                is_outsourced: false,
-                is_inspection_point: false,
-                product_id: None,
-            }],
-        };
-
-        WorkOrderRoutingRepo::insert_for_work_order(&mut *db, &routing_steps)
+        // 工单已有工序（generate 时已初始化）则跳过；无则从 BOM 工艺路径初始化（兼容直接创建的旧路径）
+        let existing_routings = WorkOrderRoutingRepo::get_by_work_order_id(&mut *db, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
+        if existing_routings.is_empty() {
+            let routing_id_for_init = routing_detail.as_ref().map(|d| d.routing.id);
+            new_production_batch_service(self.pool.clone())
+                .init_routings_from_template(ctx, db, id, routing_id_for_init, work_order.planned_qty)
+                .await?;
+        }
 
         if let Some(ref detail) = routing_detail {
             WorkOrderRepo::update_routing_id(&mut *db, id, detail.routing.id)
@@ -782,6 +749,7 @@ impl WorkOrderService for WorkOrderServiceImpl {
         let source_chain = SourceChain {
             sales_order_doc: order.source_so_doc.clone(),
             customer_name: order.source_customer.clone(),
+            plan_id: order.source_plan_id,
             plan_doc: order.source_plan_doc.clone(),
             batch_count,
             received_qty,
@@ -1069,6 +1037,7 @@ fn build_routing_matrix(
                         status,
                         completed_qty: prog.map(|p| p.completed_qty).unwrap_or_default(),
                         defect_qty: prog.map(|p| p.defect_qty).unwrap_or_default(),
+                        planned_qty: r.planned_qty,
                     }
                 })
                 .collect();
@@ -1134,7 +1103,7 @@ async fn build_reports(
                 .cloned()
                 .unwrap_or_default();
             HubReportRow {
-                reported_at: Some(r.created_at),
+                report_date: r.report_date,
                 batch_no,
                 op_name,
                 completed_qty: r.completed_qty,

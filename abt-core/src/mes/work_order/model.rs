@@ -88,6 +88,7 @@ pub enum StepState {
 pub struct SourceChain {
     pub sales_order_doc: Option<String>,
     pub customer_name: Option<String>,
+    pub plan_id: Option<i64>,
     pub plan_doc: Option<String>,
     pub batch_count: i64,
     pub received_qty: Decimal,
@@ -177,6 +178,8 @@ pub struct RoutingMatrixCell {
     pub status: RoutingCellStatus,
     pub completed_qty: Decimal,
     pub defect_qty: Decimal,
+    /// 工序计划量（来自 WorkOrderRouting.planned_qty），用作 active 单元格进度分母
+    pub planned_qty: Decimal,
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RoutingCellStatus {
@@ -195,7 +198,7 @@ pub struct HubReports {
 }
 #[derive(Debug, Clone)]
 pub struct HubReportRow {
-    pub reported_at: Option<DateTime<chrono::Utc>>,
+    pub report_date: chrono::NaiveDate,
     pub batch_no: String,
     pub op_name: String,
     pub completed_qty: Decimal,

@@ -18,6 +18,7 @@ use crate::shared::document_sequence::{new_document_sequence_service, service::D
 use crate::shared::types::PgExecutor;
 use crate::shared::enums::DocumentType;
 use crate::mes::work_order::{new_work_order_service, model::CreateWorkOrderReq, service::WorkOrderService};
+use crate::mes::production_batch::{new_production_batch_service, service::ProductionBatchService};
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
 use crate::shared::types::Result;
@@ -343,6 +344,7 @@ impl ProductionPlanService for ProductionPlanServiceImpl {
         }
 
         let work_order_svc = new_work_order_service(self.pool.clone());
+        let batch_svc = new_production_batch_service(self.pool.clone());
         let mut wo_ids = Vec::with_capacity(items.len());
 
         for item in &items {
@@ -363,6 +365,11 @@ impl ProductionPlanService for ProductionPlanServiceImpl {
                         remark: None,
                     },
                 )
+                .await?;
+            // 生成工单即从计划明细指定的工艺路径初始化工序（含默认产出品/单价），
+            // 使 Draft 工单可在下达前就地编辑工序产出品与计件单价。
+            batch_svc
+                .init_routings_from_template(ctx, db, wo_id, item.routing_id, item.planned_qty)
                 .await?;
             wo_ids.push(wo_id);
         }

@@ -40,16 +40,14 @@ pub fn disclosure(
     // 用普通属性赋值（而非 Maud 条件属性语法）以支持带连字符的 hx-trigger。
     let trigger_val = match refresh_trigger {
         Some(t) => format!("{} from:body", t),
-        None => String::new(),
+        // 无刷新事件时显式 "none"：禁用 htmx 自动触发。否则根 div 挂着 hx-get 却配空
+        // hx-trigger，会回退到默认 click，导致点击 head 时事件冒泡触发整块重渲染
+        // （新 DOM 无 .open），disclosure「一闪就关闭」。
+        None => "none".to_string(),
     };
     html! {
         div id=(id)
-            class="disclosure bg-bg border border-border-soft rounded-md mb-3 shadow-[var(--shadow-xs)] overflow-hidden [&.open_.di-body]:block [&.open_.di-chev_svg]:rotate-180"
-            hx-get=(detail_path)
-            hx-select=(format!("#{}", id))
-            hx-swap="outerHTML"
-            hx-disinherit="hx-select"
-            hx-trigger=(trigger_val)
+            class="disclosure bg-bg border border-border-soft rounded-lg mb-3 shadow-[var(--shadow-xs)] overflow-hidden [&.open_.di-body]:block [&.open_.di-chev_svg]:rotate-180"
         {
             // head：点击在最近的 .disclosure 根上 toggle .open
             div class="di-head flex items-center gap-3 px-5 py-4 cursor-pointer select-none hover:bg-surface-raised transition-colors duration-150"
@@ -76,7 +74,14 @@ pub fn disclosure(
                 }
             }
             // body：默认 hidden；根 .disclosure.open 时由根类 [&.open_.di-body]:block 显示
-            div class="di-body hidden px-5 pb-5 border-t border-border-soft" {
+            // 局部刷新挂在 body 上、只换 innerHTML（根与 head 不替换）→ .open 展开态天然保留
+            div id=(format!("{}-body", id)) class="di-body hidden px-5 pb-5 border-t border-border-soft"
+                hx-get=(detail_path)
+                hx-select=(format!("#{}-body", id))
+                hx-swap="innerHTML"
+                hx-trigger=(trigger_val)
+                hx-disinherit="hx-select"
+            {
                 (body)
             }
         }

@@ -5,7 +5,7 @@ use serde::Deserialize;
 
 use abt_core::mes::enums::{DefectReason, ShiftType, WorkOrderStatus};
 use abt_core::mes::production_batch::{
-    ProductionBatchService, SplitReq, StepConfirmationReq,
+    ProductionBatchService, SplitReq, StepConfirmationReq, WorkOrderRouting,
 };
 use abt_core::mes::production_receipt::{CreateReceiptReq, ProductionReceiptService};
 use abt_core::mes::work_order::{
@@ -15,14 +15,16 @@ use abt_core::mes::work_order::{
 };
 use abt_core::wms::material_requisition::{CreateManualReq, MaterialRequisitionService};
 
-use crate::components::{disclosure, drawer, icon, material_badge, status_step_bar};
+use crate::components::{disclosure, drawer, icon, material_badge, product_picker, routing_picker, status_step_bar};
 use crate::errors::Result;
 use crate::layout::page::admin_page;
 use crate::routes::mes_order::{
     OrderCancelPath, OrderClosePath, OrderDetailPath, OrderListPath, OrderReceiptPath,
-    OrderRequisitionPath, OrderReportPath, OrderReleasePath, OrderSplitPath,
-    OrderUnreleasePath,
+    OrderRequisitionPath, OrderReportPath, OrderReleasePath,
+    OrderRoutingApplyFromRoutingPath, OrderRoutingDeletePath, OrderRoutingEditPath,
+    OrderRoutingLoadRecentPath, OrderSplitPath, OrderUnreleasePath,
 };
+use crate::routes::mes_plan::PlanDetailPath;
 use crate::utils::RequestContext;
 use abt_macros::require_permission;
 
@@ -56,8 +58,9 @@ fn status_pill(label: &str, token: &str) -> Markup {
     }
 }
 
-fn fmt_dt(dt: chrono::DateTime<chrono::Utc>) -> String {
-    dt.format("%Y-%m-%d %H:%M").to_string()
+/// 紧凑日期（月-日）—— 用于报工记录等高频列表，对齐原型
+fn fmt_date_short(d: chrono::NaiveDate) -> String {
+    d.format("%m-%d").to_string()
 }
 
 /// RoutingCellStatus → (CSS cell class, 文本前缀)
@@ -86,14 +89,40 @@ pub async fn get_order_detail(
         ..
     } = ctx;
     let wo_svc = state.work_order_service();
+    let batch_svc = state.production_batch_service();
+    let product_svc = state.product_service();
 
-    // 工作台聚合：一次取全（detail-header + 摘要带 + 6 disclosure 全部数据）
+    // 工作台聚合：一次取全（detail-header + 摘要带 + disclosure 全部数据）
     let summary = wo_svc
         .get_hub_summary(&service_ctx, &mut conn, path.id)
         .await?;
 
+    // 工序编辑 disclosure 额外数据：整单是否已报工（控制编辑/删除/加载可见性）+ 产出品名
+    let order_has_report = batch_svc
+        .order_has_any_report(&service_ctx, &mut conn, path.id)
+        .await
+        .unwrap_or(false);
+    use abt_core::master_data::product::ProductService;
+    let routing_product_ids: Vec<i64> = summary
+        .matrix
+        .routings
+        .iter()
+        .filter_map(|r| r.product_id)
+        .collect();
+    let routing_product_names: std::collections::HashMap<i64, String> = if routing_product_ids.is_empty() {
+        std::collections::HashMap::new()
+    } else {
+        product_svc
+            .get_by_ids(&service_ctx, &mut conn, routing_product_ids)
+            .await
+            .unwrap_or_default()
+            .into_iter()
+            .map(|p| (p.product_id, p.pdt_name))
+            .collect()
+    };
+
     let detail_path = OrderDetailPath { id: path.id }.to_string();
-    let content = hub_page(&summary, &detail_path);
+    let content = hub_page(&summary, &detail_path, order_has_report, &routing_product_names);
     let page_html = admin_page(
         is_htmx,
         "工单工作台",
@@ -226,6 +255,24 @@ pub struct SplitForm {
     pub split_qty: String,
     #[serde(default, deserialize_with = "crate::utils::empty_as_none")]
     pub team_id: Option<i64>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+pub struct RoutingEditForm {
+    #[serde(default, deserialize_with = "crate::utils::empty_as_none")]
+    pub product_id: Option<i64>,
+    pub unit_price: rust_decimal::Decimal,
+    #[serde(default, deserialize_with = "crate::utils::empty_as_none")]
+    pub work_center_id: Option<i64>,
+    #[serde(default, deserialize_with = "crate::utils::empty_as_none")]
+    pub standard_time: Option<rust_decimal::Decimal>,
+    #[serde(default)]
+    pub is_outsourced: bool,
+}
+
+#[derive(Debug, serde::Deserialize)]
+pub struct ApplyFromRoutingForm {
+    pub routing_id: i64,
 }
 
 /// 拆批：从工单创建额外的生产批次（事务包裹 + HX-Trigger 局部刷新）。
@@ -531,8 +578,31 @@ pub async fn create_receipt(
 /// 6 个 disclosure + 拆批/报工 drawer。
 ///
 /// `detail_path` — `OrderDetailPath{id}` 字符串，供 disclosure 局部刷新 hx-get 复用。
-fn hub_page(summary: &WorkOrderHubSummary, detail_path: &str) -> Markup {
+fn hub_page(
+    summary: &WorkOrderHubSummary,
+    detail_path: &str,
+    order_has_report: bool,
+    routing_product_names: &std::collections::HashMap<i64, String>,
+) -> Markup {
     let order = &summary.order;
+    // 工序就绪门控：每道工序都配齐产出品 + 单价(>0) 才解锁批次/报工/入库
+    let routing_ready = !summary.matrix.routings.is_empty()
+        && summary.matrix.routings.iter().all(|r| {
+            r.product_id.is_some()
+                && r.unit_price.map_or(false, |p| p > rust_decimal::Decimal::ZERO)
+        });
+    let routing_missing = summary
+        .matrix
+        .routings
+        .iter()
+        .filter(|r| {
+            r.product_id.is_none()
+                || r.unit_price.map_or(true, |p| p <= rust_decimal::Decimal::ZERO)
+        })
+        .count();
+    let matrix_sum = if routing_ready { Some(batch_summary(&summary.matrix)) } else { None };
+    let report_sum = if routing_ready { Some(report_summary(&summary.reports)) } else { None };
+    let receipt_sum = if routing_ready { Some(receipt_summary(&summary.receipts)) } else { None };
     html! {
         div class="hub-page" {
             (back_link())
@@ -556,6 +626,18 @@ fn hub_page(summary: &WorkOrderHubSummary, detail_path: &str) -> Markup {
                 detail_path,
                 None,
             ))
+            // 工序定义（产出品/单价编辑 — Draft/Released/InProduction 且整单未报工可改）
+            (disclosure::disclosure(
+                "d-routing",
+                "工序定义",
+                icon::tool_icon("w-4 h-4"),
+                Some(&format!("{} 工序", summary.matrix.routings.len())),
+                false,
+                None,
+                body_routing(&summary.matrix, summary.order.id, order_has_report, routing_product_names),
+                detail_path,
+                Some("routingChanged"),
+            ))
             // ② 物料 & 领料（缺料时红点 + 异常摘要）
             (disclosure::disclosure(
                 "d-mat",
@@ -576,36 +658,36 @@ fn hub_page(summary: &WorkOrderHubSummary, detail_path: &str) -> Markup {
                 "d-matrix",
                 "批次进度",
                 icon::grid_4_icon("w-4 h-4"),
-                Some(&batch_summary(&summary.matrix)),
+                matrix_sum.as_deref(),
                 false,
-                can_split_action(order),
-                body_matrix(&summary.matrix, order.id),
+                if routing_ready { can_split_action(order) } else { None },
+                if routing_ready { body_matrix(&summary.matrix, order.id) } else { routing_locked_hint(routing_missing) },
                 detail_path,
-                Some("batchChanged"),
+                if routing_ready { Some("batchChanged") } else { None },
             ))
             // ④ 报工记录（报废异常染色）
             (disclosure::disclosure(
                 "d-report",
                 "报工记录",
                 icon::clipboard_list_icon("w-4 h-4"),
-                Some(&report_summary(&summary.reports)),
-                summary.reports.total_defect > rust_decimal::Decimal::ZERO,
-                report_action(order),
-                body_reports(&summary.reports),
+                report_sum.as_deref(),
+                if routing_ready { summary.reports.total_defect > rust_decimal::Decimal::ZERO } else { false },
+                if routing_ready { report_action(order) } else { None },
+                if routing_ready { body_reports(&summary.reports) } else { routing_locked_hint(routing_missing) },
                 detail_path,
-                Some("reportChanged"),
+                if routing_ready { Some("reportChanged") } else { None },
             ))
             // ⑤ 入库 & 质检
             (disclosure::disclosure(
                 "d-rcpt",
                 "入库 & 质检",
                 icon::package_icon("w-4 h-4"),
-                Some(&receipt_summary(&summary.receipts)),
+                receipt_sum.as_deref(),
                 false,
-                receipt_action(order),
-                body_receipts(&summary.receipts),
+                if routing_ready { receipt_action(order) } else { None },
+                if routing_ready { body_receipts(&summary.receipts) } else { routing_locked_hint(routing_missing) },
                 detail_path,
-                Some("receiptChanged"),
+                if routing_ready { Some("receiptChanged") } else { None },
             ))
             // ⑥ 操作日志
             (disclosure::disclosure(
@@ -627,6 +709,27 @@ fn hub_page(summary: &WorkOrderHubSummary, detail_path: &str) -> Markup {
             (requisition_drawer(&summary.material, order))
             // 入库 drawer
             (receipt_drawer(&summary.matrix, order))
+            // 工序编辑 drawer + 产出品/工艺路径 picker modal
+            (routing_edit_drawer(order))
+            (product_picker::product_picker_modal(
+                "routing-product-modal",
+                "routing-product-id",
+                "routing-product-display",
+            ))
+            (routing_picker::routing_picker_modal(
+                "routing-picker-modal",
+                "routing-id-hidden",
+                "routing-name-display",
+            ))
+            form id="routing-apply-form"
+                hx-post=({ OrderRoutingApplyFromRoutingPath { order_id: order.id }.to_string() })
+                hx-trigger="routingSelected from:body"
+                hx-swap="none"
+            {
+                input type="hidden" name="routing_id" id="routing-id-hidden" {};
+                // routing_picker_modal 选中后会 put 工艺名到此元素，需存在（隐藏即可）
+                span id="routing-name-display" class="hidden" {};
+            }
         }
     }
 }
@@ -645,7 +748,7 @@ fn detail_header(summary: &WorkOrderHubSummary, detail_path: &str) -> Markup {
     let order = &summary.order;
     let (status_label, status_token) = wo_status_meta(&order.status);
     html! {
-        div class="detail-header bg-bg border border-border-soft rounded-md p-6 mb-4 shadow-[var(--shadow-card)]" {
+        div class="detail-header bg-bg border border-border-soft rounded-lg p-6 mb-4 shadow-[var(--shadow-card)]" {
             // title-row
             div class="flex items-center justify-between mb-4 gap-4" {
                 div class="flex items-center gap-3 min-w-0" {
@@ -680,12 +783,12 @@ fn detail_header(summary: &WorkOrderHubSummary, detail_path: &str) -> Markup {
             // 状态步骤条
             (status_step_bar::status_step_bar(&summary.status_steps))
             // 物料徽章 + 来源链
-            div class="flex items-center gap-3 mb-5 flex-wrap mt-5" {
+            div class="flex items-center gap-3 mb-5 flex-wrap" {
                 (material_badge::material_badge(&summary.material_availability, "d-mat"))
                 (source_trace(summary))
             }
             // 进度条
-            div class="wo-progress" {
+            div {
                 div class="flex items-center justify-between mb-2 text-sm" {
                     span class="text-muted font-medium" { "完工入库进度" }
                     span class="font-mono font-semibold text-fg tabular-nums" {
@@ -800,7 +903,14 @@ fn source_trace(summary: &WorkOrderHubSummary) -> Markup {
                 span class="text-border" { "→" }
             }
             @if let Some(pdoc) = sc.plan_doc.as_ref() {
-                span class="text-accent font-mono font-medium" { (pdoc) }
+                @if let Some(pid) = sc.plan_id {
+                    a class="text-accent font-mono font-medium hover:underline cursor-pointer"
+                        href=(PlanDetailPath { id: pid }.to_string())
+                        title="查看来源计划"
+                    { (pdoc) }
+                } @else {
+                    span class="text-accent font-mono font-medium" { (pdoc) }
+                }
                 span class="text-border" { "→" }
             }
             span class="text-fg font-mono font-semibold" { (summary.order.doc_number) }
@@ -815,7 +925,7 @@ fn stat_strip(summary: &WorkOrderHubSummary, _detail_path: &str) -> Markup {
     html! {
         // 整体监听 batchChanged/reportChanged/receiptChanged 局部刷新
         div id="stat-strip"
-            class="stat-strip flex bg-bg border border-border-soft rounded-md mb-4 shadow-[var(--shadow-xs)] overflow-hidden"
+            class="stat-strip flex bg-bg border border-border-soft rounded-lg mb-4 shadow-[var(--shadow-xs)] overflow-hidden"
             hx-get=(OrderDetailPath { id: summary.order.id }.to_string())
             hx-trigger="batchChanged from:body, reportChanged from:body, receiptChanged from:body"
             hx-select="#stat-strip"
@@ -824,7 +934,7 @@ fn stat_strip(summary: &WorkOrderHubSummary, _detail_path: &str) -> Markup {
         {
             // 完工入库（点击展开 d-info）
             div class="ss-item flex-1 px-5 py-4 flex flex-col gap-0.5 border-r border-border-soft cursor-pointer hover:bg-surface-raised transition-colors duration-150"
-                _="on click add .open to #d-info then call #d-info.scrollIntoView() with {behavior:'smooth',block:'center'}"
+                _="on click call openAndScroll('d-info')"
             {
                 span class="font-mono text-xl font-bold text-success tabular-nums leading-tight" {
                     (crate::utils::fmt_qty(summary.received_qty))
@@ -840,7 +950,7 @@ fn stat_strip(summary: &WorkOrderHubSummary, _detail_path: &str) -> Markup {
             }
             // 批次（点击展开 d-matrix）
             div class="ss-item flex-1 px-5 py-4 flex flex-col gap-0.5 border-r border-border-soft cursor-pointer hover:bg-surface-raised transition-colors duration-150"
-                _="on click add .open to #d-matrix then call #d-matrix.scrollIntoView() with {behavior:'smooth',block:'center'}"
+                _="on click call openAndScroll('d-matrix')"
             {
                 span class="font-mono text-xl font-bold text-fg tabular-nums leading-tight" {
                     (summary.source_chain.batch_count)
@@ -849,7 +959,7 @@ fn stat_strip(summary: &WorkOrderHubSummary, _detail_path: &str) -> Markup {
             }
             // FQC（点击展开 d-rcpt）
             div class="ss-item flex-1 px-5 py-4 flex flex-col gap-0.5 cursor-pointer hover:bg-surface-raised transition-colors duration-150"
-                _="on click add .open to #d-rcpt then call #d-rcpt.scrollIntoView() with {behavior:'smooth',block:'center'}"
+                _="on click call openAndScroll('d-rcpt')"
             {
                 span class=({
                     format!(
@@ -1070,7 +1180,12 @@ fn body_matrix(matrix: &HubRoutingMatrix, _order_id: i64) -> Markup {
                                 }
                             }
                             // 工序单元格：done→success / active→accent / pending→surface-muted
-                            @for cell in &row.cells {
+                            // 子文本规则（对齐原型）：
+                            //   - done + 报废>0：显示「报废N」
+                            //   - active + 非末道工序：显示「completed/planned」进度比
+                            //   - active + 末道工序：显示「已入库」状态描述
+                            @for (idx, cell) in row.cells.iter().enumerate() {
+                                @let is_last_step = idx + 1 == row.cells.len();
                                 @let (_cls, prefix) = cell_meta(cell.status);
                                 @let token = match cell.status {
                                     RoutingCellStatus::Done => "success",
@@ -1092,9 +1207,17 @@ fn body_matrix(matrix: &HubRoutingMatrix, _order_id: i64) -> Markup {
                                     } @else {
                                         (prefix) " "
                                         (crate::utils::fmt_qty(cell.completed_qty))
-                                        @if cell.defect_qty > rust_decimal::Decimal::ZERO {
+                                        @if matches!(cell.status, RoutingCellStatus::Done) && cell.defect_qty > rust_decimal::Decimal::ZERO {
                                             span class="block text-[10px] font-medium opacity-75 mt-0.5" {
                                                 "报废" (crate::utils::fmt_qty(cell.defect_qty))
+                                            }
+                                        } @else if matches!(cell.status, RoutingCellStatus::Active) {
+                                            span class="block text-[10px] font-medium opacity-75 mt-0.5" {
+                                                @if is_last_step {
+                                                    "已入库"
+                                                } @else {
+                                                    (crate::utils::fmt_qty(cell.completed_qty)) "/" (crate::utils::fmt_qty(cell.planned_qty))
+                                                }
                                             }
                                         }
                                     }
@@ -1117,12 +1240,21 @@ fn body_matrix(matrix: &HubRoutingMatrix, _order_id: i64) -> Markup {
 /// ④ 报工记录（mini-table）
 fn body_reports(reports: &HubReports) -> Markup {
     html! {
+        // 筛选栏（纯前端）：搜索报工人/批次号 + 工序 + 班组。
+        // 选项由 initReportFilter 从 tbody 行的 data-* 动态去重填充；filterReports 按三条件筛选。
+        div class="flex gap-2 mt-4 mb-2 flex-wrap"
+            _="on load call initReportFilter() then on input or change call filterReports()"
+        {
+            input id="rpt-kw" class="w-[200px] px-2.5 py-1.5 border border-border rounded-sm text-sm bg-bg outline-none focus:border-accent" placeholder="搜索 报工人 / 批次号";
+            select id="rpt-op" class="px-2.5 py-1.5 border border-border rounded-sm text-sm bg-bg outline-none focus:border-accent" {}
+            select id="rpt-team" class="px-2.5 py-1.5 border border-border rounded-sm text-sm bg-bg outline-none focus:border-accent" {}
+        }
         table class="w-full border-collapse mt-4" {
             thead {
                 tr {
                     th class="text-left text-[11px] font-semibold text-muted py-2 px-3 border-b border-border-soft" { "时间" }
                     th class="text-left text-[11px] font-semibold text-muted py-2 px-3 border-b border-border-soft" { "批次" }
-                    th class="text-left text-[11px] font-semibold text-muted py-2 px-3 border-b border-soft" { "工序" }
+                    th class="text-left text-[11px] font-semibold text-muted py-2 px-3 border-b border-border-soft" { "工序" }
                     th class="text-left text-[11px] font-semibold text-muted py-2 px-3 border-b border-border-soft" { "完成" }
                     th class="text-left text-[11px] font-semibold text-muted py-2 px-3 border-b border-border-soft" { "报废" }
                     th class="text-left text-[11px] font-semibold text-muted py-2 px-3 border-b border-border-soft" { "报工人" }
@@ -1131,9 +1263,13 @@ fn body_reports(reports: &HubReports) -> Markup {
             }
             tbody {
                 @for r in &reports.items {
-                    tr {
+                    tr data-worker=(r.worker_name.as_str())
+                       data-batch=(r.batch_no.as_str())
+                       data-op=(r.op_name.as_str())
+                       data-team=(r.team_label.as_deref().unwrap_or(""))
+                    {
                         td class="py-3 px-3 text-sm font-mono tabular-nums border-b last:border-b-0 border-border-soft" {
-                            @if let Some(dt) = r.reported_at { (fmt_dt(dt)) } @else { "—" }
+                            (fmt_date_short(r.report_date))
                         }
                         td class="py-3 px-3 text-sm text-accent font-mono border-b last:border-b-0 border-border-soft" {
                             (r.batch_no.as_str())
@@ -1516,7 +1652,7 @@ fn report_drawer(matrix: &HubRoutingMatrix, order: &WorkOrder, _detail_path: &st
             div class="mb-4" {
                 label class="block text-xs text-muted font-medium mb-1.5" { "备注" }
                 textarea name="remark" rows="2" placeholder="选填"
-                    class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white outline-none focus:border-accent resize-y min-h-[72px]";
+                    class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white outline-none focus:border-accent resize-y min-h-[72px]" {}
             }
             // 计件工资实时计算（Hyperscript 调用 calcWage）
             div class="flex items-center justify-between p-3 px-4 bg-accent-bg rounded-md mt-2" {
@@ -1597,7 +1733,7 @@ fn requisition_drawer(material: &HubMaterial, order: &WorkOrder) -> Markup {
             div class="mb-4" {
                 label class="block text-xs text-muted font-medium mb-1.5" { "备注" }
                 textarea name="remark" rows="2" placeholder="选填"
-                    class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white outline-none focus:border-accent resize-y min-h-[72px]";
+                    class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white outline-none focus:border-accent resize-y min-h-[72px]" {}
             }
             div class="flex gap-2 p-3 bg-accent-bg rounded-md text-xs text-fg-2 items-start" {
                 (icon::info_icon("w-[15px] h-[15px] shrink-0 mt-0.5"))
@@ -1661,7 +1797,7 @@ fn receipt_drawer(matrix: &HubRoutingMatrix, order: &WorkOrder) -> Markup {
             div class="mb-4" {
                 label class="block text-xs text-muted font-medium mb-1.5" { "备注" }
                 textarea name="remark" rows="2" placeholder="选填"
-                    class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white outline-none focus:border-accent resize-y min-h-[72px]";
+                    class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white outline-none focus:border-accent resize-y min-h-[72px]" {}
             }
             div class="flex gap-2 p-3 bg-accent-bg rounded-md text-xs text-fg-2 items-start" {
                 (icon::info_icon("w-[15px] h-[15px] shrink-0 mt-0.5"))
@@ -1670,4 +1806,356 @@ fn receipt_drawer(matrix: &HubRoutingMatrix, order: &WorkOrder) -> Markup {
         }
     };
     drawer::drawer("receipt-drawer", "完工入库", "确认入库", "receipt-form", body)
+}
+
+// ============================================================================
+// 工序定义（产出品/单价编辑）— disclosure body + 行 + 编辑 drawer + handlers
+// ============================================================================
+
+/// 工序未就绪时，批次/报工/入库 disclosure 的锁定提示（替代其 body）
+fn routing_locked_hint(missing: usize) -> Markup {
+    html! {
+        div class="mt-4 p-4 rounded-md bg-warn-bg border border-warn/30" {
+            div class="flex items-center gap-2 text-warn font-medium text-sm mb-1.5" {
+                (icon::alert_triangle_icon("w-4 h-4"))
+                "工序定义未完成"
+            }
+            p class="text-sm text-fg-2 m-0 leading-relaxed" {
+                "有 " (missing) " 道工序尚未配置产出品或计件单价。"
+                "请在上方「工序定义」完成配置后，批次流转、报工、入库才会可用。"
+            }
+        }
+    }
+}
+
+/// 工序定义 disclosure body：工序表（产出品/单价/操作）+ 加载按钮（整单未报工时）
+fn body_routing(
+    matrix: &HubRoutingMatrix,
+    order_id: i64,
+    order_has_report: bool,
+    product_names: &std::collections::HashMap<i64, String>,
+) -> Markup {
+    html! {
+        div class="mt-4" {
+            @if !order_has_report {
+                div class="flex justify-end gap-2 mb-3" {
+                    button
+                        class="inline-flex items-center gap-1.5 py-1.5 px-3 rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:text-accent text-xs font-medium cursor-pointer transition-all duration-150"
+                        type="button"
+                        title="选择工艺路径，用其工序步骤替换当前工序"
+                        _="on click add .is-open to #routing-picker-modal"
+                    { (icon::download_icon("w-3.5 h-3.5")) "从工艺路径加载" }
+                    button
+                        class="inline-flex items-center gap-1.5 py-1.5 px-3 rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:text-accent text-xs font-medium cursor-pointer transition-all duration-150"
+                        hx-post=({ OrderRoutingLoadRecentPath { order_id }.to_string() })
+                        hx-swap="none"
+                        hx-confirm="从最近同路径工单批量加载产出品？"
+                    { (icon::copy_icon("w-3.5 h-3.5")) "从最近工单加载" }
+                }
+            }
+            div class="overflow-x-auto" {
+                table class="w-full border-collapse" {
+                    thead {
+                        tr {
+                            th class="text-left text-[11px] font-semibold text-muted py-2 px-3 border-b border-border-soft w-12" { "序号" }
+                            th class="text-left text-[11px] font-semibold text-muted py-2 px-3 border-b border-border-soft" { "工序" }
+                            th class="text-left text-[11px] font-semibold text-muted py-2 px-3 border-b border-border-soft" { "产出品" }
+                            th class="text-right text-[11px] font-semibold text-muted py-2 px-3 border-b border-border-soft" { "计件单价" }
+                            th class="text-right text-[11px] font-semibold text-muted py-2 px-3 border-b border-border-soft" { "操作" }
+                        }
+                    }
+                    tbody {
+                        @for r in &matrix.routings {
+                            (routing_row_fragment(r, order_id, order_has_report, product_names))
+                        }
+                        @if matrix.routings.is_empty() {
+                            tr { td colspan="5" class="text-center text-muted text-sm py-8" { "暂无工序" } }
+                        }
+                    }
+                }
+            }
+            @if order_has_report {
+                p class="text-[11px] text-muted mt-2" { "工单已有报工记录，工序已锁定不可修改。" }
+            }
+        }
+    }
+}
+
+/// 工序单行：序号/工序/产出品/单价/操作（编辑+删除，整单未报工时可改）
+fn routing_row_fragment(
+    r: &WorkOrderRouting,
+    order_id: i64,
+    order_has_report: bool,
+    product_names: &std::collections::HashMap<i64, String>,
+) -> Markup {
+    let pname = r.product_id.and_then(|pid| product_names.get(&pid).cloned());
+    html! {
+        tr id=(format!("routing-row-{}", r.id)) {
+            td class="py-2.5 px-3 text-sm font-mono tabular-nums text-muted border-b border-border-soft" { (r.step_no) }
+            td class="py-2.5 px-3 text-sm font-medium text-fg border-b border-border-soft" { (r.process_name.as_str()) }
+            td class="py-2.5 px-3 text-sm border-b border-border-soft" {
+                @if let Some(pn) = pname.as_deref() {
+                    span class="inline-block max-w-[200px] truncate align-bottom" title=(pn) { (pn) }
+                } @else if let Some(pid) = r.product_id {
+                    span class="text-muted font-mono" { "#" (pid) }
+                } @else {
+                    span class="text-muted" { "—" }
+                }
+            }
+            td class="py-2.5 px-3 text-sm font-mono tabular-nums text-right border-b border-border-soft" {
+                @if let Some(p) = r.unit_price {
+                    "¥" (crate::utils::fmt_qty(p))
+                } @else {
+                    span class="text-muted" { "—" }
+                }
+            }
+            td class="py-2.5 px-3 text-right whitespace-nowrap border-b border-border-soft" {
+                @if !order_has_report {
+                    button
+                        class="text-muted hover:text-accent cursor-pointer border-none bg-transparent p-1 align-middle"
+                        title="编辑产出品/单价"
+                        hx-get=({ OrderRoutingEditPath { order_id, routing_id: r.id }.to_string() })
+                        hx-target="#routing-edit-drawer-body"
+                        hx-swap="innerHTML"
+                        _="on 'htmx:afterRequest'[detail.xhr.status < 400] add .open to #routing-edit-drawer"
+                    { (icon::edit_icon("w-4 h-4")) }
+                    button
+                        class="text-muted hover:text-danger cursor-pointer border-none bg-transparent p-1 ml-1 align-middle"
+                        title="删除该工序"
+                        hx-post=({ OrderRoutingDeletePath { order_id, routing_id: r.id }.to_string() })
+                        hx-confirm="删除该工序并重排后续工序号？"
+                        hx-swap="none"
+                        hx-disabled-elt="this"
+                    { (icon::trash_icon("w-4 h-4")) }
+                } @else {
+                    span class="text-muted text-xs" { "已锁定" }
+                }
+            }
+        }
+    }
+}
+
+/// 工序编辑 drawer（body 由 get_routing_edit 异步填入 #routing-edit-drawer-body）
+fn routing_edit_drawer(_order: &WorkOrder) -> Markup {
+    let body = html! {
+        div id="routing-edit-drawer-body" class="text-sm text-muted text-center py-10" {
+            "点击工序的编辑按钮修改产出品与计件单价"
+        }
+    };
+    drawer::drawer("routing-edit-drawer", "编辑工序", "保存", "routing-edit-form", body)
+}
+
+/// 工序编辑表单：产出品 picker + 工作中心 + 计件单价 + 标准工时 + 委外
+fn routing_edit_form(
+    work_order_id: i64,
+    routing_id: i64,
+    r: &WorkOrderRouting,
+    product_name: &str,
+    work_centers: &[abt_core::master_data::work_center::model::WorkCenter],
+) -> Markup {
+    html! {
+        form id="routing-edit-form"
+            hx-post=({ OrderRoutingEditPath { order_id: work_order_id, routing_id }.to_string() })
+            hx-swap="none"
+            hx-on:htmx:after-request="if(event.detail.successful) document.querySelector('#routing-edit-drawer').classList.remove('open')"
+        {
+            input type="hidden" name="product_id" id="routing-product-id"
+                value=(r.product_id.map(|p| p.to_string()).unwrap_or_default()) {};
+            div class="mb-4" {
+                label class="block text-xs font-medium text-fg-2 mb-1.5" { "产出品" }
+                div class="flex gap-2" {
+                    span id="routing-product-display"
+                        class="flex-1 px-3 py-2 border border-border rounded-sm text-sm bg-surface inline-flex items-center min-h-[38px]"
+                    {
+                        @if product_name.is_empty() {
+                            span class="text-muted" { "点击右侧选择产出品…" }
+                        } @else {
+                            (product_name)
+                        }
+                    }
+                    button type="button"
+                        class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg-2 cursor-pointer hover:bg-surface"
+                        _="on click add .is-open to #routing-product-modal"
+                    { "选择" }
+                }
+            }
+            div class="mb-4" {
+                label class="block text-xs font-medium text-fg-2 mb-1.5" { "工作中心" }
+                select name="work_center_id"
+                    class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white outline-none focus:border-accent"
+                {
+                    option value="" { "—" }
+                    @for wc in work_centers {
+                        option value=(wc.id) selected[r.work_center_id == Some(wc.id)] { (wc.name) }
+                    }
+                }
+            }
+            div class="grid grid-cols-2 gap-3 mb-4" {
+                div {
+                    label class="block text-xs font-medium text-fg-2 mb-1.5" { "计件单价（元/件）" }
+                    input name="unit_price" type="number" step="any" required
+                        class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white outline-none focus:border-accent font-mono"
+                        value=(r.unit_price.map(|p| p.to_string()).unwrap_or_default());
+                }
+                div {
+                    label class="block text-xs font-medium text-fg-2 mb-1.5" { "标准工时（小时）" }
+                    input name="standard_time" type="number" step="any"
+                        class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white outline-none focus:border-accent font-mono"
+                        value=(r.standard_time.map(|t| t.to_string()).unwrap_or_default());
+                }
+            }
+            div class="mb-2" {
+                label class="flex items-center gap-2 cursor-pointer" {
+                    input type="checkbox" name="is_outsourced" value="true"
+                        class="w-4 h-4 accent-accent" checked[r.is_outsourced] {};
+                    span class="text-sm text-fg-2 select-none" { "委外工序" }
+                }
+            }
+        }
+    }
+}
+
+/// 解析单个产出品名（无则 #id 或空串）
+async fn resolve_product_name(
+    state: &crate::state::AppState,
+    ctx: &abt_core::shared::types::context::ServiceContext,
+    db: abt_core::shared::types::PgExecutor<'_>,
+    pid: Option<i64>,
+) -> String {
+    use abt_core::master_data::product::ProductService;
+    match pid {
+        Some(id) => state
+            .product_service()
+            .get_by_ids(ctx, db, vec![id])
+            .await
+            .ok()
+            .and_then(|v| v.into_iter().next())
+            .map(|p| p.pdt_name)
+            .unwrap_or_else(|| format!("#{}", id)),
+        None => String::new(),
+    }
+}
+
+/// GET：返回编辑表单到 #routing-edit-drawer-body
+#[require_permission("WORK_ORDER", "update")]
+pub async fn get_routing_edit(
+    path: OrderRoutingEditPath,
+    ctx: RequestContext,
+) -> Result<Html<String>> {
+    use abt_core::master_data::work_center::WorkCenterService;
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let svc = state.production_batch_service();
+    let routings = svc.list_routings(&service_ctx, &mut conn, path.order_id).await?;
+    let routing = routings
+        .iter()
+        .find(|r| r.id == path.routing_id)
+        .ok_or_else(|| abt_core::shared::types::DomainError::not_found("WorkOrderRouting"))?;
+    let pname = resolve_product_name(&state, &service_ctx, &mut conn, routing.product_id).await;
+    let work_centers = state
+        .work_center_service()
+        .list_active(&service_ctx, &mut conn)
+        .await
+        .unwrap_or_default();
+    Ok(Html(
+        html! {
+            (routing_edit_form(path.order_id, path.routing_id, routing, &pname, &work_centers))
+        }
+        .into_string(),
+    ))
+}
+
+/// POST：保存产出品/单价 → 广播 routingChanged（d-routing 自刷新），失败 OOB 回填表单+错误
+#[require_permission("WORK_ORDER", "update")]
+pub async fn post_routing_edit(
+    path: OrderRoutingEditPath,
+    ctx: RequestContext,
+    axum::Form(form): axum::Form<RoutingEditForm>,
+) -> Result<impl IntoResponse> {
+    use abt_core::master_data::work_center::WorkCenterService;
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let svc = state.production_batch_service();
+    match svc
+        .update_routing(
+            &service_ctx,
+            &mut conn,
+            path.order_id,
+            path.routing_id,
+            form.product_id,
+            form.unit_price,
+            form.work_center_id,
+            form.standard_time,
+            form.is_outsourced,
+        )
+        .await
+    {
+        Ok(_updated) => Ok(([("HX-Trigger", "routingChanged")], Html(String::new()))),
+        Err(e) => {
+            // 失败：OOB 回填表单到 drawer body（保留抽屉）+ 顶部展示错误，不静默丢弃
+            let routings = svc.list_routings(&service_ctx, &mut conn, path.order_id).await?;
+            let routing = routings
+                .iter()
+                .find(|r| r.id == path.routing_id)
+                .ok_or_else(|| abt_core::shared::types::DomainError::not_found("WorkOrderRouting"))?;
+            let pname = resolve_product_name(&state, &service_ctx, &mut conn, routing.product_id).await;
+            let work_centers = state
+                .work_center_service()
+                .list_active(&service_ctx, &mut conn)
+                .await
+                .unwrap_or_default();
+            Ok((
+                [("HX-Trigger", "")],
+                Html(html! {
+                    div hx-swap-oob="innerHTML:#routing-edit-drawer-body" {
+                        div class="mb-3 p-2.5 rounded-sm bg-danger-bg text-danger text-xs" {
+                            (format!("保存失败：{e}"))
+                        }
+                        (routing_edit_form(path.order_id, path.routing_id, routing, &pname, &work_centers))
+                    }
+                }.into_string()),
+            ))
+        }
+    }
+}
+
+/// 删除工序 → 广播 routingChanged
+#[require_permission("WORK_ORDER", "update")]
+pub async fn delete_routing(
+    path: OrderRoutingDeletePath,
+    ctx: RequestContext,
+) -> Result<impl IntoResponse> {
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    state
+        .production_batch_service()
+        .delete_routing(&service_ctx, &mut conn, path.order_id, path.routing_id)
+        .await?;
+    Ok(([("HX-Trigger", "routingChanged")], Html(String::new())))
+}
+
+/// 从工艺路径加载工序模板 → 广播 routingChanged（d-routing 自刷新）
+#[require_permission("WORK_ORDER", "update")]
+pub async fn post_apply_from_routing(
+    path: OrderRoutingApplyFromRoutingPath,
+    ctx: RequestContext,
+    axum::Form(form): axum::Form<ApplyFromRoutingForm>,
+) -> Result<impl IntoResponse> {
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    state
+        .production_batch_service()
+        .load_routings_from_template(&service_ctx, &mut conn, path.order_id, form.routing_id)
+        .await?;
+    Ok(([("HX-Trigger", "routingChanged")], Html(String::new())))
+}
+
+/// 从最近同路径工单加载产出品 → 广播 routingChanged
+#[require_permission("WORK_ORDER", "update")]
+pub async fn load_routings_from_recent(
+    path: OrderRoutingLoadRecentPath,
+    ctx: RequestContext,
+) -> Result<impl IntoResponse> {
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    state
+        .production_batch_service()
+        .load_routings_from_recent(&service_ctx, &mut conn, path.order_id)
+        .await?;
+    Ok(([("HX-Trigger", "routingChanged")], Html(String::new())))
 }

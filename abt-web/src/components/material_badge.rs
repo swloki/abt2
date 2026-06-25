@@ -38,10 +38,7 @@ pub fn material_badge(avail: &MaterialAvailability, target_id: &str) -> Markup {
             })
             title="点击查看物料明细"
             // 纯前端 drill-down：展开目标 disclosure 并滚动定位（不向后端发请求）
-            _=(format!(
-                "on click add .open to #{} then call #{}.scrollIntoView() with {{behavior:'smooth',block:'center'}}",
-                target_id, target_id
-            ))
+            _=(format!("on click call openAndScroll('{}')", target_id))
         {
             (crate::components::icon::info_icon(&format!("w-[14px] h-[14px] text-{}", token)))
             (label)

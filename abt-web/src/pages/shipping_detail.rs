@@ -96,9 +96,10 @@ pub async fn get_shipping_detail(
  let mut warehouse_names = HashMap::new();
  let mut seen_wh = HashSet::new();
  for item in &items {
- if seen_wh.insert(item.warehouse_id)
- && let Ok(wh) = warehouse_svc.get(&service_ctx, &mut conn, item.warehouse_id).await {
- warehouse_names.insert(item.warehouse_id, wh.name);
+ if let Some(wh_id) = item.warehouse_id
+ && seen_wh.insert(wh_id)
+ && let Ok(wh) = warehouse_svc.get(&service_ctx, &mut conn, wh_id).await {
+ warehouse_names.insert(wh_id, wh.name);
  }
  }
 
@@ -589,7 +590,9 @@ fn item_row(
  let product_name = detail.map(|d| d.name.as_str()).unwrap_or("—");
  let spec = detail.and_then(|d| d.spec.as_deref()).unwrap_or("—");
  let unit = detail.and_then(|d| d.unit.as_deref()).unwrap_or("—");
- let warehouse = warehouses.get(&item.warehouse_id).map(|s| s.as_str()).unwrap_or("—");
+ let warehouse = item.warehouse_id
+     .and_then(|id| warehouses.get(&id).map(|s| s.as_str()))
+     .unwrap_or("待定");
 
  html! {
     tr {

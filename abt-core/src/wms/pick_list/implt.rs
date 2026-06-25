@@ -232,7 +232,7 @@ impl PickListService for PickListServiceImpl {
         }
         for it in &items {
             self.item_repo
-                .update_picked(db, it.pick_list_item_id, it.picked_qty, it.bin_id)
+                .update_picked(db, it.pick_list_item_id, it.picked_qty, it.warehouse_id, it.bin_id)
                 .await?;
         }
         new_audit_log_service(self.pool.clone())

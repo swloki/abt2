@@ -108,6 +108,7 @@ fn status_label(s: SalesOrderStatus) -> (&'static str, &'static str) {
  match s {
  SalesOrderStatus::Draft => ("草稿", "status-draft"),
  SalesOrderStatus::Confirmed => ("已确认", "status-confirmed"),
+ SalesOrderStatus::ReadyToShip => ("待发货", "status-ready"),
  SalesOrderStatus::PartiallyShipped => ("部分发货", "status-partial"),
  SalesOrderStatus::Shipped => ("已发货", "status-shipped"),
  SalesOrderStatus::Completed => ("已完成", "status-completed"),
@@ -227,7 +228,7 @@ fn order_table_fragment(
  TabItem { value: String::new(), label: "全部", count: Some(total_count) },
  TabItem { value: "1".into(), label: "草稿", count: None },
  TabItem { value: "2".into(), label: "已确认", count: None },
- TabItem { value: "3".into(), label: "生产中", count: None },
+ TabItem { value: "3".into(), label: "待发货", count: None },
  TabItem { value: "4".into(), label: "部分发货", count: None },
  TabItem { value: "5".into(), label: "已发货", count: None },
  TabItem { value: "6".into(), label: "已完成", count: None },

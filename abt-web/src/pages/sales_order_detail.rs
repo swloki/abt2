@@ -31,6 +31,7 @@ fn status_label(s: SalesOrderStatus) -> (&'static str, &'static str) {
  match s {
  SalesOrderStatus::Draft => ("草稿", "status-draft"),
  SalesOrderStatus::Confirmed => ("已确认", "status-confirmed"),
+ SalesOrderStatus::ReadyToShip => ("待发货", "status-ready"),
  SalesOrderStatus::PartiallyShipped => ("部分发货", "status-progress"),
  SalesOrderStatus::Shipped => ("已发货", "status-shipped"),
  SalesOrderStatus::Completed => ("已完成", "status-completed"),
@@ -246,6 +247,7 @@ fn workflow_steps(current: SalesOrderStatus) -> Markup {
  let steps: &[(&str, SalesOrderStatus)] = &[
  ("草稿", SalesOrderStatus::Draft),
  ("已确认", SalesOrderStatus::Confirmed),
+ ("待发货", SalesOrderStatus::ReadyToShip),
  ("部分发货", SalesOrderStatus::PartiallyShipped),
  ("已发货", SalesOrderStatus::Shipped),
  ("已完成", SalesOrderStatus::Completed),
@@ -734,7 +736,9 @@ fn order_detail_page(
                 @if {
                     matches!(
                         o.status,
-                        SalesOrderStatus::Confirmed | SalesOrderStatus::PartiallyShipped
+                        SalesOrderStatus::Confirmed
+                            | SalesOrderStatus::ReadyToShip
+                            | SalesOrderStatus::PartiallyShipped
                     )
                 } {
                     a   class="inline-flex items-center gap-2 py-[6px] px-3 text-[13px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
@@ -751,7 +755,9 @@ fn order_detail_page(
                 @if {
                     matches!(
                         o.status,
-                        SalesOrderStatus::Draft | SalesOrderStatus::Confirmed
+                        SalesOrderStatus::Draft
+                            | SalesOrderStatus::Confirmed
+                            | SalesOrderStatus::ReadyToShip
                     )
                 } {
                     button

@@ -205,8 +205,8 @@ pub fn status_color(status_class: &str) -> &'static str {
         // orange/warn
         "status-inspecting" | "status-suspended" | "status-partial"
         | "status-warn" | "status-warning" | "status-pill-warn" => "bg-warn-bg text-warn",
-        // purple (purchasing/outsourcing)
-        "status-purple" | "status-outsourcing" => "bg-purple-bg text-purple",
+        // purple (purchasing/outsourcing/ready-to-ship)
+        "status-purple" | "status-outsourcing" | "status-ready" => "bg-purple-bg text-purple",
         // red/danger
         "status-cancelled" | "status-rejected" | "status-defect" | "status-danger"
         | "status-pill-danger" => "bg-danger-bg text-danger",

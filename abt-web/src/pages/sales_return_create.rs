@@ -32,6 +32,7 @@ fn order_status_text(s: SalesOrderStatus) -> &'static str {
  match s {
  SalesOrderStatus::Draft => "草稿",
  SalesOrderStatus::Confirmed => "已确认",
+ SalesOrderStatus::ReadyToShip => "待发货",
  SalesOrderStatus::PartiallyShipped => "部分发货",
  SalesOrderStatus::Shipped => "已发货",
  SalesOrderStatus::Completed => "已完成",

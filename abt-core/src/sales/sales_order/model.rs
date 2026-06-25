@@ -2,12 +2,14 @@ use chrono::{DateTime, NaiveDate, Utc};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
-/// 销售订单状态：6 states per 01-sales.html
+/// 销售订单状态：7 states per 01-sales.html
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(i16)]
 pub enum SalesOrderStatus {
     Draft = 1,
     Confirmed = 2,
+    /// 库存已补足（全行 Allocated）、从未发货，可发货但尚未发货
+    ReadyToShip = 3,
     PartiallyShipped = 4,
     Shipped = 5,
     Completed = 6,
@@ -19,6 +21,7 @@ impl SalesOrderStatus {
         match v {
             1 => Some(Self::Draft),
             2 => Some(Self::Confirmed),
+            3 => Some(Self::ReadyToShip),
             4 => Some(Self::PartiallyShipped),
             5 => Some(Self::Shipped),
             6 => Some(Self::Completed),
@@ -35,6 +38,7 @@ impl SalesOrderStatus {
         match self {
             Self::Draft => "Draft",
             Self::Confirmed => "Confirmed",
+            Self::ReadyToShip => "ReadyToShip",
             Self::PartiallyShipped => "PartiallyShipped",
             Self::Shipped => "Shipped",
             Self::Completed => "Completed",

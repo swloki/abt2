@@ -98,7 +98,6 @@ impl AppState {
                 EventHandlerRegistry, EventHandlerRegistryImpl, EventProcessor,
                 DeadLetterServiceImpl,
             };
-            use abt_core::purchase::arrival_handler::ArrivalAcceptedHandler;
             use abt_core::purchase::return_settlement_handler::PurchaseReturnSettledHandler;
             use abt_core::purchase::demand_handler::PurchaseDemandCreatedHandler;
             use abt_core::mes::demand_handler::MesDemandCreatedHandler;
@@ -127,12 +126,6 @@ impl AppState {
             registry.register(
                 DomainEventType::DemandRejected,
                 Arc::new(SalesDemandRejectedHandler::new(pool.clone())),
-            );
-
-            // ArrivalInspected — 来料检验通过，回写 PO received_qty + 状态
-            registry.register(
-                DomainEventType::ArrivalInspected,
-                Arc::new(ArrivalAcceptedHandler::new(pool.clone())),
             );
 
             // PurchaseReturnSettled — 退货经对账单结算后，写反向 AP 台账冲减应付（Issue #85）
@@ -232,12 +225,6 @@ impl AppState {
 
     // ── WMS (Inventory Management) Services ──
 
-    pub fn arrival_notice_service(
-        &self,
-    ) -> impl abt_core::wms::arrival_notice::ArrivalNoticeService {
-        abt_core::wms::arrival_notice::new_arrival_notice_service(self.pool.clone())
-    }
-
     pub fn inventory_service(&self) -> impl abt_core::wms::inventory::InventoryService {
         abt_core::wms::inventory::new_inventory_service()
     }
@@ -246,6 +233,12 @@ impl AppState {
         &self,
     ) -> impl abt_core::wms::inventory_transaction::InventoryTransactionService {
         abt_core::wms::inventory_transaction::new_inventory_transaction_service(self.pool.clone())
+    }
+
+    pub fn purchase_stock_in_service(
+        &self,
+    ) -> impl abt_core::wms::stock_in::PurchaseStockInService {
+        abt_core::wms::stock_in::new_purchase_stock_in_service(self.pool.clone())
     }
 
     pub fn material_requisition_service(

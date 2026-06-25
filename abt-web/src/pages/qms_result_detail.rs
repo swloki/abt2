@@ -28,7 +28,6 @@ fn inspection_type_label(t: &InspectionType) -> (&'static str, &'static str) {
 
 fn source_type_label(s: &InspectionSourceType) -> &'static str {
  match s {
- InspectionSourceType::ArrivalNotice => "来料通知",
  InspectionSourceType::WorkOrderRouting => "工单工序",
  InspectionSourceType::ShippingRequest => "发货单",
  InspectionSourceType::OutsourcingOrder => "委外单",

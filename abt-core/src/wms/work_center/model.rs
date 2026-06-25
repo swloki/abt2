@@ -1,13 +1,12 @@
 use chrono::{DateTime, Utc};
 
-/// 仓库作业中心待办汇总（7 个业务环节）
+/// 仓库作业中心待办汇总（6 个业务环节；取消来料通知后无「待质检」）
 ///
 /// 各字段 = 该环节"待处理"状态的单据数。语义为执行层待办（非计划层需求），
 /// 参照 Odoo `stock.picking` Operations 看板。
 #[derive(Debug, Clone, Default)]
 pub struct WorkCenterSummary {
-    pub arrivals_pending: u64, // 待收货（ArrivalStatus::Draft）
-    pub inspections_pending: u64, // 待质检（ArrivalStatus::Inspecting）
+    pub arrivals_pending: u64, // 待收货（采购 PO 未收完 + 生产工单完工未入库）
     pub picks_pending: u64, // 待拣货（PickListStatus::Draft）
     pub outbounds_pending: u64, // 待发货（ShippingStatus::Confirmed + Picking）
     pub requisitions_pending: u64, // 待领料（RequisitionStatus::Confirmed + PartiallyIssued）
@@ -19,7 +18,6 @@ impl WorkCenterSummary {
     /// 待办总数
     pub fn total(&self) -> u64 {
         self.arrivals_pending
-            + self.inspections_pending
             + self.picks_pending
             + self.outbounds_pending
             + self.requisitions_pending
@@ -37,7 +35,6 @@ impl WorkCenterSummary {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum WorkCenterDomain {
     Arrival,
-    Inspection,
     Pick,
     Outbound,
     Requisition,
@@ -56,9 +53,17 @@ pub enum Urgency {
     Overdue,
 }
 
+/// 待收货任务来源（Arrival domain 双来源：采购 PO / 生产工单），驱动 drawer 选 PO/工单表单。
+/// 其他 domain 无意义，默认 `PurchaseOrder` 占位。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TaskSourceKind {
+    PurchaseOrder,
+    WorkOrder,
+}
+
 /// 跨域统一待办视图
 ///
-/// 各域实体（ArrivalNotice / PickList / ShippingRequest / ...）在 WorkCenterServiceImpl
+/// 各域实体（PurchaseOrder / WorkOrder / PickList / ShippingRequest / ...）在 WorkCenterServiceImpl
 /// 内映射成此结构，供前端作业中心 disclosure 队列统一渲染。
 /// 跳转路径由前端按 `domain` + `doc_id` 拼接（分层：abt-core 不硬编码前端 URL）。
 #[derive(Debug, Clone)]
@@ -66,9 +71,11 @@ pub struct PendingTask {
     pub doc_id: i64,
     pub doc_number: String,
     pub domain: WorkCenterDomain,
-    /// 客户 / 供应商名（MVP 可填单据号或简单标识，名字解析后续补）
+    /// 任务来源（仅 Arrival domain 有意义：PO/工单；其他 domain 占位 PurchaseOrder）
+    pub source_kind: TaskSourceKind,
+    /// 客户 / 供应商 / 产品名
     pub counterparty: String,
-    /// 一行摘要，如 "3 项 · 320 件"
+    /// 一行摘要，如 "待收 320 件"
     pub summary: String,
     /// 到期日（拣货等无到期日的环节用 created_at 判超时）
     pub expected_at: Option<DateTime<Utc>>,

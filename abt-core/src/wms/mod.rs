@@ -3,7 +3,6 @@ pub mod enums;
 pub mod warehouse;
 pub mod strategy;
 pub mod stock_ledger;
-pub mod arrival_notice;
 pub mod inventory_transaction;
 pub mod material_requisition;
 pub mod backflush;
@@ -18,5 +17,6 @@ pub mod low_stock_alert;
 pub mod outbound;
 pub mod pick_list;
 pub mod work_center;
+pub mod stock_in;
 
 pub use enums::*;

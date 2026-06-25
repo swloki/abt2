@@ -21,7 +21,6 @@ pub enum DocumentType {
     ProductionInspection = 14,
     ProductionReceipt = 15,
     // WMS
-    ArrivalNotice = 16,
     MaterialRequisition = 17,
     Backflush = 18,
     CycleCount = 19,
@@ -84,7 +83,6 @@ impl DocumentType {
             13 => Some(Self::WorkReport),
             14 => Some(Self::ProductionInspection),
             15 => Some(Self::ProductionReceipt),
-            16 => Some(Self::ArrivalNotice),
             17 => Some(Self::MaterialRequisition),
             18 => Some(Self::Backflush),
             19 => Some(Self::CycleCount),
@@ -145,7 +143,6 @@ impl DocumentType {
             Self::ProductionInspection => "PI",
             Self::ProductionReceipt => "PR",
             // WMS
-            Self::ArrivalNotice => "AN",
             Self::MaterialRequisition => "MR",
             Self::Backflush => "BF",
             Self::CycleCount => "CC",

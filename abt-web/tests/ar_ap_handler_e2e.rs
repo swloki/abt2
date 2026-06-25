@@ -65,16 +65,6 @@ fn ship_items(items: &[(i64, &str)]) -> String {
     urlenc(&format!("[{}]", parts.join(",")))
 }
 
-fn arrival_items(items: &[(String, String, String)]) -> String {
-    let parts: Vec<String> = items
-        .iter()
-        .map(|(pid, qty, order_item_id)| {
-            format!(r#"{{"product_id":"{pid}","declared_qty":"{qty}","batch_no":null,"order_item_id":"{order_item_id}"}}"#)
-        })
-        .collect();
-    urlenc(&format!("[{}]", parts.join(",")))
-}
-
 fn redirect_id(resp: &common::TestResponse) -> i64 {
     let loc = resp.hx_redirect().unwrap_or("");
     loc.rsplit('/').next().and_then(|s| s.parse().ok()).unwrap_or(0)
@@ -158,15 +148,16 @@ async fn k1_sales_ship_to_ar_ledger() {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  k2 采购到财务：采购订单 → 来料 → 收货+检验 → AP 台账
+//  k2 采购到财务：采购订单 → PO 直收入库（receive_and_stock_in）→ AP 台账（Credit 应付）
 // ════════════════════════════════════════════════════════════════════════════
 
 #[tokio::test]
 #[serial_test::serial]
 async fn k2_purchase_arrival_to_ap_ledger() {
     let app = TestApp::new().await;
+    let ctx = ServiceContext::new(1);
 
-    // 1) 采购订单 → 提交
+    // 1) 采购订单 → submit
     let items = po_items(&[(&PRODUCT.to_string(), "k2-PO", "20", "2.00")]);
     let body = format!("supplier_id={SUPPLIER_ID}&order_date=2026-06-23&items_json={items}&currency=CNY");
     let resp = app.post_htmx("/admin/purchase/orders/create", &body).await;
@@ -174,57 +165,106 @@ async fn k2_purchase_arrival_to_ap_ledger() {
     let po_id = redirect_id(&resp);
     let _ = app.post_htmx(&format!("/admin/purchase/orders/{po_id}/submit"), "").await;
 
-    // 2) 来料通知（关联 PO）→ receive → inspect（inspect 触发 ArrivalAcceptedHandler 立 AP）
-    let po_items_rows = app.state.purchase_order_service()
-        .list_items(&ServiceContext::new(1), &mut app.state.pool.acquire().await.unwrap(), po_id)
-        .await.unwrap();
-    let arr_items = arrival_items(
-        &po_items_rows.iter()
-            .map(|it| (it.product_id.to_string(), "20".into(), it.id.to_string()))
-            .collect::<Vec<_>>(),
-    );
-    let body = format!(
-        "purchase_order_id={po_id}&supplier_id={SUPPLIER_ID}&arrival_date=2026-06-23&warehouse_id={WH}&items_json={arr_items}"
-    );
-    let resp = app.post_htmx("/admin/wms/arrivals/create", &body).await;
-    assert!(resp.is_ok(), "创建来料通知 FAIL: {} body: {}", resp.status, resp.body.chars().take(300).collect::<String>());
-    let arr_id = redirect_id(&resp);
+    // 2) PO 直收入库（取消来料通知后）：调 PurchaseStockInService 立 AP Credit
+    let mut conn = app.state.pool.acquire().await.unwrap();
+    let po_items_rows = app.state.purchase_order_service().list_items(&ctx, &mut conn, po_id).await.unwrap();
+    let order_item_id = po_items_rows[0].id;
+    drop(conn);
 
-    let _ = app.post_htmx(&format!("/admin/wms/arrivals/{arr_id}"), "action=receive").await;
-    let resp = app.post_htmx(&format!("/admin/wms/arrivals/{arr_id}"), "action=inspect").await;
-    assert!(resp.is_ok() || resp.is_redirect(), "来料检验 FAIL: {} body: {}", resp.status, resp.body.chars().take(300).collect::<String>());
-
-    // ArrivalAcceptedHandler 异步（event processor 后台），cargo test 未启动 processor；
-    // 直接调 handler 模拟事件处理，验证立账逻辑
-    use abt_core::purchase::arrival_handler::ArrivalAcceptedHandler;
-    use abt_core::shared::event_bus::registry::EventHandler;
-    use abt_core::shared::event_bus::model::DomainEvent;
-    use abt_core::shared::enums::event::{DomainEventType, EventStatus};
-    let handler = ArrivalAcceptedHandler::new(app.state.pool.clone());
-    let event = DomainEvent {
-        id: 0,
-        event_type: DomainEventType::ArrivalInspected,
-        event_version: 1,
-        aggregate_type: "ArrivalNotice".into(),
-        aggregate_id: arr_id,
-        payload: serde_json::json!({"arrival_notice_id": arr_id, "doc_number": "test-k2"}),
-        operator_id: 1,
-        idempotency_key: format!("test-k2-{arr_id}"),
-        trace_id: None,
-        request_id: None,
-        status: EventStatus::Pending,
-        retry_count: 0,
-        failure_reason: None,
-        processed_at: None,
-        created_at: chrono::Utc::now(),
+    use abt_core::wms::stock_in::{PoStockInRow, PurchaseStockInService, ReceiveAndStockInReq};
+    let req = ReceiveAndStockInReq {
+        po_id,
+        rows: vec![PoStockInRow {
+            order_item_id, product_id: PRODUCT, received_qty: Decimal::from(20),
+            batch_no: None, warehouse_id: WH, bin_id: Some(BIN),
+        }],
+        delivery_note: None, remark: None,
+        idempotency_key: Some(format!("test-k2-{po_id}")),
     };
-    handler.handle(&event).await.expect("ArrivalAcceptedHandler handle FAIL");
+    let mut tx = app.state.pool.begin().await.unwrap();
+    app.state.purchase_stock_in_service().receive_and_stock_in(&ctx, &mut tx, req).await.expect("receive FAIL");
+    tx.commit().await.unwrap();
 
-    let ledger = ledger_by_source(&app, DocumentType::ArrivalNotice, arr_id).await
-        .expect("❌ arrival handler 未生成 AP 台账");
+    // 3) 验证 AP 台账（PurchaseOrder Credit，金额 40 = 20 × 2.00）
+    let ledger = ledger_by_source(&app, DocumentType::PurchaseOrder, po_id).await
+        .expect("❌ receive_and_stock_in 未生成 AP 台账");
     assert_eq!(ledger.party_id, SUPPLIER_ID);
     assert_eq!(ledger.direction, abt_core::fms::ar_ap::enums::LedgerDirection::Credit);
     assert_eq!(ledger.amount, Decimal::from(40)); // 20 × 2.00
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+//  k8 采购 PO 直收入库（取消来料通知后）：PO → receive_and_stock_in → 入库/回写PO/立应付/成本
+// ════════════════════════════════════════════════════════════════════════════
+
+#[tokio::test]
+#[serial_test::serial]
+async fn k8_purchase_po_direct_stock_in() {
+    let app = TestApp::new().await;
+    let ctx = ServiceContext::new(1);
+
+    // 1) 采购订单 → 提交
+    let items = po_items(&[(&PRODUCT.to_string(), "k8-PO", "20", "2.00")]);
+    let body = format!("supplier_id={SUPPLIER_ID}&order_date=2026-06-26&items_json={items}&currency=CNY");
+    let resp = app.post_htmx("/admin/purchase/orders/create", &body).await;
+    assert!(resp.is_ok(), "创建采购订单 FAIL: {}", resp.status);
+    let po_id = redirect_id(&resp);
+    let _ = app.post_htmx(&format!("/admin/purchase/orders/{po_id}/submit"), "").await;
+
+    // 2) 取 PO 明细 order_item_id
+    let mut conn = app.state.pool.acquire().await.unwrap();
+    let po_items_rows = app.state.purchase_order_service().list_items(&ctx, &mut conn, po_id).await.unwrap();
+    let order_item_id = po_items_rows[0].id;
+    drop(conn);
+
+    // 3) 直接调 PurchaseStockInService（test handle，事务包裹）—— PO 直收入库闭环
+    use abt_core::wms::stock_in::{PoStockInRow, PurchaseStockInService, ReceiveAndStockInReq};
+    let req = ReceiveAndStockInReq {
+        po_id,
+        rows: vec![PoStockInRow {
+            order_item_id,
+            product_id: PRODUCT,
+            received_qty: Decimal::from(20),
+            batch_no: None,
+            warehouse_id: WH,
+            bin_id: Some(BIN),
+        }],
+        delivery_note: None,
+        remark: None,
+        idempotency_key: Some(format!("test-k8-{po_id}")),
+    };
+    let mut tx = app.state.pool.begin().await.unwrap();
+    app.state.purchase_stock_in_service()
+        .receive_and_stock_in(&ctx, &mut tx, req)
+        .await
+        .expect("receive_and_stock_in FAIL");
+    tx.commit().await.unwrap();
+
+    // 4) 验证 PO received_qty 回写 + 状态流转 Received
+    let mut conn = app.state.pool.acquire().await.unwrap();
+    let po_items_after = app.state.purchase_order_service().list_items(&ctx, &mut *conn, po_id).await.unwrap();
+    assert_eq!(po_items_after[0].received_qty, Decimal::from(20), "❌ PO received_qty 未回写");
+    let po = app.state.purchase_order_service().get(&ctx, &mut *conn, po_id).await.unwrap();
+    use abt_core::purchase::enums::PurchaseOrderStatus;
+    assert_eq!(po.status, PurchaseOrderStatus::Received, "❌ PO 状态未流转到 Received");
+
+    // 5) 验证库存流水 source_type=purchase_order
+    let txn: Option<(String,)> = sqlx::query_as(
+        "SELECT source_type FROM inventory_transactions WHERE source_id=$1 AND source_type='purchase_order' ORDER BY id DESC LIMIT 1",
+    )
+    .bind(po_id)
+    .fetch_optional(&mut *conn)
+    .await
+    .unwrap();
+    drop(conn);
+    assert!(txn.is_some(), "❌ 库存流水 source_type 应为 purchase_order");
+
+    // 6) 验证 AP 台账（PurchaseOrder Credit，金额 = 20 × 2.00 = 40）
+    let ledger = ledger_by_source(&app, DocumentType::PurchaseOrder, po_id).await
+        .expect("❌ receive_and_stock_in 未生成 AP 台账");
+    assert_eq!(ledger.party_id, SUPPLIER_ID);
+    assert_eq!(ledger.direction, abt_core::fms::ar_ap::enums::LedgerDirection::Credit);
+    assert_eq!(ledger.amount, Decimal::from(40));
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -291,39 +331,29 @@ async fn k4_purchase_return_settled_reverses_ap_ledger() {
     let po_id = redirect_id(&resp);
     let _ = app.post_htmx(&format!("/admin/purchase/orders/{po_id}/submit"), "").await;
 
-    // 2) 来料通知 → receive → inspect → 手动跑 ArrivalAcceptedHandler
-    //    （cargo test 不启 EventProcessor；handler 同时更新 received_qty=10 与立 AP Credit）
+    // 2) PO 直收入库（取消来料通知后）：调 PurchaseStockInService，立 AP Credit + 回写 received_qty=10
     let po_items_rows = app.state.purchase_order_service()
         .list_items(&ctx, &mut app.state.pool.acquire().await.unwrap(), po_id)
         .await.unwrap();
     let po_item_id = po_items_rows[0].id;
-    let arr_items = arrival_items(
-        &po_items_rows.iter()
-            .map(|it| (it.product_id.to_string(), "10".into(), it.id.to_string()))
-            .collect::<Vec<_>>(),
-    );
-    let body = format!(
-        "purchase_order_id={po_id}&supplier_id={SUPPLIER_ID}&arrival_date=2026-06-24&warehouse_id={WH}&items_json={arr_items}"
-    );
-    let resp = app.post_htmx("/admin/wms/arrivals/create", &body).await;
-    assert!(resp.is_ok(), "创建来料通知 FAIL: {}", resp.status);
-    let arr_id = redirect_id(&resp);
-    let _ = app.post_htmx(&format!("/admin/wms/arrivals/{arr_id}"), "action=receive").await;
-    let _ = app.post_htmx(&format!("/admin/wms/arrivals/{arr_id}"), "action=inspect").await;
 
-    use abt_core::purchase::arrival_handler::ArrivalAcceptedHandler;
+    use abt_core::wms::stock_in::{PoStockInRow, PurchaseStockInService, ReceiveAndStockInReq};
+    let req = ReceiveAndStockInReq {
+        po_id,
+        rows: vec![PoStockInRow {
+            order_item_id: po_item_id, product_id: PRODUCT, received_qty: Decimal::from(10),
+            batch_no: None, warehouse_id: WH, bin_id: Some(BIN),
+        }],
+        delivery_note: None, remark: None,
+        idempotency_key: Some(format!("test-k4-{po_id}")),
+    };
+    let mut tx = app.state.pool.begin().await.unwrap();
+    app.state.purchase_stock_in_service().receive_and_stock_in(&ctx, &mut tx, req).await.expect("receive FAIL");
+    tx.commit().await.unwrap();
+
     use abt_core::shared::event_bus::registry::EventHandler;
     use abt_core::shared::event_bus::model::DomainEvent;
     use abt_core::shared::enums::event::{DomainEventType, EventStatus};
-    let arrival_event = DomainEvent {
-        id: 0, event_type: DomainEventType::ArrivalInspected, event_version: 1,
-        aggregate_type: "ArrivalNotice".into(), aggregate_id: arr_id,
-        payload: serde_json::json!({"arrival_notice_id": arr_id, "doc_number": "test-k4"}),
-        operator_id: 1, idempotency_key: format!("test-k4-arr-{arr_id}"),
-        trace_id: None, request_id: None, status: EventStatus::Pending,
-        retry_count: 0, failure_reason: None, processed_at: None, created_at: chrono::Utc::now(),
-    };
-    ArrivalAcceptedHandler::new(app.state.pool.clone()).handle(&arrival_event).await.expect("arrival handler FAIL");
 
     // 3) 创建退货单（退 4 × 3.00 = 12）
     use abt_core::purchase::return_order::{PurchaseReturnService, model::{CreatePurchaseReturnRequest, CreateReturnItemRequest}};
@@ -519,33 +549,8 @@ async fn k6_stock_in_purchase_unified_closed_loop() {
         resp.body.chars().take(500).collect::<String>()
     );
 
-    // 3) create_stock_in 内部 inspect 已 publish ArrivalInspected；cargo test 无 EventProcessor，
-    //    查出新建来料通知后手动跑 ArrivalAcceptedHandler（模拟事件处理）
-    let mut conn = app.state.pool.acquire().await.unwrap();
-    let arr_id: i64 = sqlx::query_scalar(
-        "SELECT id FROM arrival_notices WHERE purchase_order_id=$1 ORDER BY id DESC LIMIT 1",
-    ).bind(po_id).fetch_one(&mut *conn).await
-        .expect("❌ create_stock_in 未为采购单建来料通知");
-
-    // 来料通知应已 Accepted(4)（inspect 内部完成收货+检验通过）
-    let an_status: i16 = sqlx::query_scalar("SELECT status FROM arrival_notices WHERE id=$1")
-        .bind(arr_id).fetch_one(&mut *conn).await.unwrap();
-    assert_eq!(an_status, 4, "❌ 来料通知应为 Accepted(4)，实际 {an_status}");
-    drop(conn);
-
-    use abt_core::purchase::arrival_handler::ArrivalAcceptedHandler;
-    use abt_core::shared::event_bus::registry::EventHandler;
-    use abt_core::shared::event_bus::model::DomainEvent;
-    use abt_core::shared::enums::event::{DomainEventType, EventStatus};
-    let event = DomainEvent {
-        id: 0, event_type: DomainEventType::ArrivalInspected, event_version: 1,
-        aggregate_type: "ArrivalNotice".into(), aggregate_id: arr_id,
-        payload: serde_json::json!({"arrival_notice_id": arr_id, "doc_number": "test-k6"}),
-        operator_id: 1, idempotency_key: format!("test-k6-arr-{arr_id}"),
-        trace_id: None, request_id: None, status: EventStatus::Pending,
-        retry_count: 0, failure_reason: None, processed_at: None, created_at: chrono::Utc::now(),
-    };
-    ArrivalAcceptedHandler::new(app.state.pool.clone()).handle(&event).await.expect("arrival handler FAIL");
+    // 3) create_stock_in 走 PurchaseStockInService 直收入库闭环（事务内 record 库存 + 回写 PO +
+    //    立应付 + 成本）。取消来料通知后不再建来料通知、不依赖 ArrivalAcceptedHandler（同步完成）。
 
     // 4) PO 回写：received_qty=12, status=Received(4)
     let mut conn = app.state.pool.acquire().await.unwrap();
@@ -556,23 +561,17 @@ async fn k6_stock_in_purchase_unified_closed_loop() {
     assert_eq!(po_status, 4, "❌ PO 状态未推进到 Received(4)");
     assert_eq!(received_qty, Decimal::from(12), "❌ PO received_qty 未回写为 12");
 
-    // 5) 库存流水 source_type=arrival_notice, source_id=来料通知（治本核心：库存关联来料通知）
+    // 5) 库存流水 source_type=purchase_order, source_id=po_id（治本核心：库存关联 PO）
     let txn: (String, i64) = sqlx::query_as(
         "SELECT source_type, source_id FROM inventory_transactions \
-         WHERE product_id=$1 AND source_id=$2 ORDER BY id DESC LIMIT 1",
-    ).bind(PRODUCT).bind(arr_id).fetch_one(&mut *conn).await
-        .expect("❌ 未找到关联来料通知的库存流水");
-    assert_eq!(txn.0, "arrival_notice", "❌ 库存流水 source_type 应为 arrival_notice（治本后）");
-
-    // 6) 单据关联 AN(16) → PO(7) Fulfills(6)
-    let link_cnt: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM document_links WHERE source_type=16 AND source_id=$1 AND target_type=7 AND target_id=$2",
-    ).bind(arr_id).bind(po_id).fetch_one(&mut *conn).await.unwrap();
-    assert_eq!(link_cnt, 1, "❌ 缺少来料通知→采购单的单据关联");
+         WHERE product_id=$1 AND source_type='purchase_order' AND source_id=$2 ORDER BY id DESC LIMIT 1",
+    ).bind(PRODUCT).bind(po_id).fetch_one(&mut *conn).await
+        .expect("❌ 未找到关联 PO 的库存流水");
+    assert_eq!(txn.0, "purchase_order", "❌ 库存流水 source_type 应为 purchase_order");
     drop(conn);
 
-    // 7) AP 台账（Credit，金额 30 = 12 × 2.50，party=供应商）
-    let ledger = ledger_by_source(&app, DocumentType::ArrivalNotice, arr_id).await
+    // 6) AP 台账（PurchaseOrder Credit，金额 30 = 12 × 2.50，party=供应商）
+    let ledger = ledger_by_source(&app, DocumentType::PurchaseOrder, po_id).await
         .expect("❌ 未生成 AP 台账");
     assert_eq!(ledger.party_id, SUPPLIER_ID);
     assert_eq!(ledger.direction, abt_core::fms::ar_ap::enums::LedgerDirection::Credit);
@@ -614,33 +613,28 @@ async fn k7_stock_in_idempotency() {
         "transaction_type=PurchaseReceipt&source_type=purchase&idempotency_key=k7-dup-{po_id}&items_json={stockin_items}"
     );
 
-    // 2) 第一次提交 → 成功
+    // 2) 第一次提交 → 成功（走 PurchaseStockInService 直收入库）
     let resp1 = app.post_htmx("/admin/wms/stock-in/create", &body).await;
     assert!(resp1.is_ok() || resp1.is_redirect(), "第一次提交 FAIL: {}", resp1.status);
 
     let mut conn = app.state.pool.acquire().await.unwrap();
-    let an_count_1: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM arrival_notices WHERE purchase_order_id=$1",
+    let recv_1: Decimal = sqlx::query_scalar(
+        "SELECT poi.received_qty FROM purchase_order_items poi WHERE poi.order_id=$1",
     ).bind(po_id).fetch_one(&mut *conn).await.unwrap();
     drop(conn);
-    assert_eq!(an_count_1, 1, "第一次提交应建 1 个来料通知");
+    assert_eq!(recv_1, Decimal::from(5), "第一次提交后 received_qty 应为 5");
 
     // 3) 第二次提交（同 idempotency_key）→ 幂等跳过
     let resp2 = app.post_htmx("/admin/wms/stock-in/create", &body).await;
     assert!(resp2.is_ok() || resp2.is_redirect(), "第二次提交应幂等返回成功，实际 {}", resp2.status);
 
-    // 4) 来料通知数不变（第二次没建新的）+ 库存流水数不变
+    // 4) received_qty 不变（幂等：第二次没重复累加）
     let mut conn = app.state.pool.acquire().await.unwrap();
-    let an_count_2: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM arrival_notices WHERE purchase_order_id=$1",
+    let recv_2: Decimal = sqlx::query_scalar(
+        "SELECT poi.received_qty FROM purchase_order_items poi WHERE poi.order_id=$1",
     ).bind(po_id).fetch_one(&mut *conn).await.unwrap();
-    let txn_count: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM inventory_transactions WHERE source_type='arrival_notice' AND source_doc_number LIKE '%AN%' AND product_id=$1 AND created_at > now() - interval '5 min'",
-    ).bind(PRODUCT).fetch_one(&mut *conn).await.unwrap();
     drop(conn);
-    assert_eq!(an_count_2, 1, "❌ 幂等失败：第二次提交建了新的来料通知（{}）", an_count_2);
-    // 注：txn_count 不做严格断言（k6/k7 共享 565 流水），核心断言是来料通知不重复
-    let _ = txn_count;
+    assert_eq!(recv_2, Decimal::from(5), "❌ 幂等失败：第二次提交重复累加 received_qty（{}）", recv_2);
 }
 
 // ════════════════════════════════════════════════════════════════════════════

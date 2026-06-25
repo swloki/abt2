@@ -13,6 +13,7 @@ pub mod payment_request_create;
 pub mod payment_request_detail;
 pub mod payment_request_list;
 pub mod purchase_dashboard;
+pub mod purchase_work_center;
 pub mod purchase_demand_pool;
 pub mod purchase_demand_pool_create;
 pub mod purchase_order_create;

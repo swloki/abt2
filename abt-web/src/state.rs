@@ -220,6 +220,12 @@ impl AppState {
         abt_core::mes::work_center::new_mes_work_center_service(self.pool.clone())
     }
 
+    pub fn purchase_work_center_service(
+        &self,
+    ) -> impl abt_core::purchase::work_center::PurchaseWorkCenterService {
+        abt_core::purchase::work_center::new_purchase_work_center_service(self.pool.clone())
+    }
+
     pub fn pick_list_service(&self) -> impl abt_core::wms::pick_list::PickListService {
         abt_core::wms::pick_list::new_pick_list_service(self.pool.clone())
     }

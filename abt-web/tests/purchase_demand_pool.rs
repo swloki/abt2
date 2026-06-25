@@ -85,3 +85,29 @@ async fn demand_pool_order_id_htmx_fragment() {
     assert!(!resp.body_contains("<html"), "HTMX 应返回片段");
     assert!(resp.body_contains("订单 #128"));
 }
+
+// ── 排序下拉：物料汇总视图 sort 参数渲染 ──
+
+#[tokio::test]
+async fn demand_pool_material_sort_newest() {
+    // sort=newest 渲染物料汇总排序下拉，含「新订单优先」选项
+    let app = TestApp::new().await;
+    let resp = app.get("/admin/purchase/demand-pool?view=material&sort=newest").await;
+    assert!(resp.is_ok(), "status {}", resp.status);
+    assert!(
+        resp.body_contains("新订单优先"),
+        "sort=newest 时应渲染「新订单优先」选项"
+    );
+}
+
+#[tokio::test]
+async fn demand_pool_material_sort_due() {
+    // sort=due 渲染物料汇总排序下拉，含「到期日优先」选项
+    let app = TestApp::new().await;
+    let resp = app.get("/admin/purchase/demand-pool?view=material&sort=due").await;
+    assert!(resp.is_ok(), "status {}", resp.status);
+    assert!(
+        resp.body_contains("到期日优先"),
+        "sort=due 时应渲染「到期日优先」选项"
+    );
+}

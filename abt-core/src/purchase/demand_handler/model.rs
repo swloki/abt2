@@ -32,12 +32,55 @@ pub struct DemandSummary {
     pub cascade_from_product_name: Option<String>, // BOM 级联来源成品名称（Odoo origin 等价）
     pub created_at: DateTime<Utc>,
 }
+/// 物料汇总视图排序方式
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum MaterialSort {
+    /// 总需求量降序（默认）
+    #[default]
+    DemandQty,
+    /// 新订单优先：最近确认进来的订单需求排前（MAX(created_at) DESC）
+    NewestOrder,
+    /// 到期日优先：最早到期排前（MIN(required_date) ASC）
+    EarliestDate,
+}
+
+impl MaterialSort {
+    /// 从 query string 解析（"newest"→NewestOrder, "due"→EarliestDate, 其余→DemandQty）
+    pub fn from_query(s: Option<&str>) -> Self {
+        match s {
+            Some("newest") => Self::NewestOrder,
+            Some("due") => Self::EarliestDate,
+            _ => Self::DemandQty,
+        }
+    }
+
+    /// 转 query string 值（默认返回空串，不进 URL，与 date_filter 一致）
+    pub fn as_query(self) -> &'static str {
+        match self {
+            Self::DemandQty => "",
+            Self::NewestOrder => "newest",
+            Self::EarliestDate => "due",
+        }
+    }
+
+    /// ORDER BY 子句（白名单字面量，无注入风险）
+    pub fn order_by(self) -> &'static str {
+        match self {
+            Self::DemandQty => "total_demand_qty DESC",
+            // SELECT 未取 created_at 裸列，GROUP BY 后必须用聚合表达式
+            Self::NewestOrder => "MAX(created_at) DESC NULLS LAST",
+            Self::EarliestDate => "MIN(required_date) ASC NULLS LAST",
+        }
+    }
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct MaterialAggQuery {
     pub product_id: Option<i64>,
     pub keyword: Option<String>,              // 模糊搜索物料名称/编码
     pub required_date_start: Option<NaiveDate>, // 日期范围起点
     pub required_date_end: Option<NaiveDate>,   // 日期范围终点
+    pub sort: MaterialSort,                    // 排序方式（默认总需求量）
 }
 
 /// 物料聚合摘要（物料维度 — 采购员主要操作视图）

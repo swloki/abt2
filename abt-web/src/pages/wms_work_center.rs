@@ -4,6 +4,8 @@ use maud::{html, Markup};
 use serde::Deserialize;
 
 use abt_core::shared::types::pagination::{PageParams, PaginatedResult};
+use abt_core::wms::arrival_notice::model::{ReceiveArrivalNoticeReq, ReceiveItemReq};
+use abt_core::wms::arrival_notice::ArrivalNoticeService;
 use abt_core::wms::enums::{RequisitionStatus, TransferStatus};
 use abt_core::wms::material_requisition::model::{IssueItemReq, IssueMaterialReq};
 use abt_core::wms::material_requisition::MaterialRequisitionService;
@@ -27,8 +29,8 @@ use crate::routes::wms_cycle_count::CycleCountDetailPath;
 use crate::routes::wms_requisition::RequisitionDetailPath;
 use crate::routes::wms_transfer::TransferDetailPath;
 use crate::routes::wms_work_center::{
-    WcIssuePath, WcShipPath, WcTransferPath, WmsWorkCenterFragmentPath, WmsWorkCenterPath,
-    WmsWorkCenterPickPath,
+    WcIssuePath, WcReceivePath, WcShipPath, WcTransferPath, WmsWorkCenterFragmentPath,
+    WmsWorkCenterPath, WmsWorkCenterPickPath,
 };
 use crate::utils::fmt_qty;
 use crate::utils::RequestContext;
@@ -573,6 +575,135 @@ pub async fn post_wc_transfer(
     Ok(([("HX-Trigger", r#"{"taskDone":"","closeWcDrawer":""}"#)], Html(String::new())))
 }
 
+/// 收货 drawer body：行级收货量（默认申报量）+ 批次号。顶部警示收货后待质检才入库（闭环安全提示）。
+#[require_permission("INVENTORY", "read")]
+pub async fn get_wc_receive_drawer(path: WcReceivePath, ctx: RequestContext) -> Result<Html<String>> {
+    let RequestContext {
+        mut conn,
+        state,
+        service_ctx,
+        ..
+    } = ctx;
+    let svc = state.arrival_notice_service();
+    let an = svc.get(&service_ctx, &mut conn, path.id).await?;
+    let items = svc
+        .list_items(&service_ctx, &mut conn, path.id)
+        .await
+        .unwrap_or_default();
+
+    let body = html! {
+        div class="flex items-center justify-between px-6 py-5 border-b border-border-soft" {
+            div class="font-bold text-base text-fg" { "收货" }
+            button type="button"
+                class="w-8 h-8 border-none bg-transparent text-muted cursor-pointer rounded-sm hover:bg-surface hover:text-fg flex items-center justify-center"
+                _="on click remove .open from #wc-drawer-overlay" {
+                (icon::x_icon("w-4 h-4"))
+            }
+        }
+        form id="wc-receive-form" hx-post=(WcReceivePath { id: path.id }.to_string())
+            hx-swap="none"
+            class="px-6 py-5" {
+            div class="mb-3" {
+                span class="text-xs text-muted font-medium" { "来料通知 " }
+                span class="text-sm font-mono font-semibold text-fg" { (an.doc_number) }
+            }
+            // 闭环提示：收货 ≠ 入库（入库在后续质检 Accepted 后）
+            div class="mb-4 p-3 rounded-sm bg-warn-bg border border-warn/30" {
+                p class="text-xs text-warn font-medium leading-relaxed" {
+                    "收货后单据进入「待质检」，质检通过后才正式入库并立应付账款。"
+                }
+            }
+            table class="w-full border-collapse" {
+                thead {
+                    tr {
+                        th class="text-left text-xs font-semibold text-muted py-2 px-2 border-b border-border-soft" { "产品" }
+                        th class="text-right text-xs font-semibold text-muted py-2 px-2 border-b border-border-soft" { "申报" }
+                        th class="text-right text-xs font-semibold text-muted py-2 px-2 border-b border-border-soft" { "实收" }
+                        th class="text-left text-xs font-semibold text-muted py-2 px-2 border-b border-border-soft" { "批次" }
+                    }
+                }
+                tbody {
+                    @for (idx, it) in items.iter().enumerate() {
+                        tr class="border-b border-border-soft" {
+                            td class="py-2 px-2 text-sm text-fg" { "产品 #" (it.product_id) }
+                            td class="py-2 px-2 text-sm font-mono text-right" { (fmt_qty(it.declared_qty)) }
+                            td class="py-2 px-2 text-right" {
+                                input type="hidden" name=(format!("items[{idx}][item_id]")) value=(it.id);
+                                input type="number" name=(format!("items[{idx}][received_qty]"))
+                                    value=(fmt_qty(it.declared_qty)) min="0" step="any"
+                                    class="w-20 px-2 py-1 border border-border rounded-sm text-sm font-mono text-right bg-bg";
+                            }
+                            td class="py-2 px-2" {
+                                input type="text" name=(format!("items[{idx}][batch_no]"))
+                                    value=(it.batch_no.as_deref().unwrap_or(""))
+                                    class="w-24 px-2 py-1 border border-border rounded-sm text-sm font-mono bg-bg";
+                            }
+                        }
+                    }
+                }
+            }
+            div class="flex justify-end gap-3 mt-5 pt-4 border-t border-border-soft" {
+                button type="button"
+                    class="px-4 py-2 rounded-sm bg-white text-fg-2 border border-border text-sm font-medium cursor-pointer hover:bg-surface"
+                    _="on click remove .open from #wc-drawer-overlay" { "取消" }
+                button type="submit"
+                    class="px-4 py-2 rounded-sm bg-accent text-white text-sm font-medium cursor-pointer border-none hover:opacity-90"
+                    { "确认收货" }
+            }
+        }
+    };
+    Ok(Html(body.into_string()))
+}
+
+/// 收货提交：receive（事务包裹，Draft→Received，设 received_qty；正式入库在后续 inspect）；广播 taskDone + closeWcDrawer
+#[require_permission("INVENTORY", "update")]
+pub async fn post_wc_receive(
+    path: WcReceivePath,
+    ctx: RequestContext,
+    axum::Form(form): axum::Form<ReceiveForm>,
+) -> Result<impl IntoResponse> {
+    let RequestContext { state, service_ctx, .. } = ctx;
+    let svc = state.arrival_notice_service();
+
+    let mut tx = state
+        .pool
+        .begin()
+        .await
+        .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+    let items: Vec<ReceiveItemReq> = form
+        .items
+        .into_iter()
+        .map(|r| ReceiveItemReq {
+            item_id: r.item_id,
+            received_qty: r.received_qty,
+            batch_no: r.batch_no.filter(|s| !s.is_empty()),
+        })
+        .collect();
+    svc.receive(
+        &service_ctx,
+        &mut tx,
+        ReceiveArrivalNoticeReq { id: path.id, items },
+    )
+    .await?;
+    tx.commit()
+        .await
+        .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+
+    Ok(([("HX-Trigger", r#"{"taskDone":"","closeWcDrawer":""}"#)], Html(String::new())))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ReceiveRowForm {
+    pub item_id: i64,
+    pub received_qty: Decimal,
+    pub batch_no: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ReceiveForm {
+    pub items: Vec<ReceiveRowForm>,
+}
+
 #[derive(Debug, Deserialize)]
 pub struct WcTransferActionForm {
     pub action: String,
@@ -804,9 +935,15 @@ fn render_task_row(t: &PendingTask, domain: WorkCenterDomain) -> Markup {
                             _="on 'htmx:afterRequest'[detail.xhr.status<400] add .open to #wc-drawer-overlay"
                             { (icon::arrow_right_icon("w-3 h-3")) "办理" }
                     }
-                    // 待收货：就地 drawer 见 PR5，当前占位
+                    // 待收货：drawer 行级收货量 + 批次
                     WorkCenterDomain::Arrival => {
-                        span class="text-xs text-muted" { "—" }
+                        button type="button"
+                            class="inline-flex items-center gap-1 px-3 py-1.5 rounded-sm bg-accent text-white text-xs font-semibold cursor-pointer border-none hover:opacity-90"
+                            hx-get=(WcReceivePath { id: t.doc_id }.to_string())
+                            hx-target="#wc-drawer-body"
+                            hx-swap="innerHTML"
+                            _="on 'htmx:afterRequest'[detail.xhr.status<400] add .open to #wc-drawer-overlay"
+                            { (icon::truck_icon("w-3 h-3")) "收货" }
                     }
                 }
             }

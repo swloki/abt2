@@ -45,6 +45,13 @@ pub struct WcTransferPath {
     pub id: i64,
 }
 
+/// 收货 drawer：GET 返回 drawer body（行级收货量 + 批次），POST 提交 receive
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/wms/work-center/receive/{id}")]
+pub struct WcReceivePath {
+    pub id: i64,
+}
+
 pub fn router() -> Router<AppState> {
     Router::new()
         .route(
@@ -71,5 +78,9 @@ pub fn router() -> Router<AppState> {
             WcTransferPath::PATH,
             get(wms_work_center::get_wc_transfer_drawer)
                 .post(wms_work_center::post_wc_transfer),
+        )
+        .route(
+            WcReceivePath::PATH,
+            get(wms_work_center::get_wc_receive_drawer).post(wms_work_center::post_wc_receive),
         )
 }

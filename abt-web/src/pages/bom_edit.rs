@@ -793,7 +793,7 @@ fn bom_edit_page(
         // ── Edit Node Modal (content loaded via HTMX) ──
         // 节点编辑 modal 容器（slot）：GET node-edit 返回完整 modal_shell，innerHTML 进此容器，afterSettle 打开子 #bom-edit-modal
         div id="bom-edit-slot"
-            _="on htmx:afterSettle[me is event.target] add .is-open to #bom-edit-modal\non keydown[event.key is 'Escape'] from body remove .is-open from #bom-edit-modal" {}
+            _="on 'htmx:afterSettle'[#bom-edit-modal] add .is-open to #bom-edit-modal\non keydown[event.key is 'Escape' and #bom-edit-modal] from body remove .is-open from #bom-edit-modal" {}
         // ── Delete Confirm ──
         ({
             crate::components::confirm_dialog::confirm_dialog(

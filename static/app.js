@@ -1,3 +1,5 @@
+htmx.config.disableInheritance=true;
+
 // ── Smooth scroll to anchor (nav_chip 锚点条) ──
 // hyperscript 不支持 JS 可选链 ?./对象字面量，故滚动逻辑放此，hyperscript 只 call 函数名。
 window.scrollToAnchor = function (sel) {

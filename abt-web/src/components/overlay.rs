@@ -16,7 +16,7 @@ use maud::{Markup, html};
 ///   （原生 keydown 事件可靠；区别于 `from:body` 监听 htmx 自定义事件不可靠）。
 fn overlay_hs(open_class: &str) -> String {
     format!(
-        "on htmx:afterSettle[me is event.target] add .{open_class}\non keydown[event.key is 'Escape'] from body remove .{open_class}"
+        "on 'htmx:afterSettle'[me is event.target] add .{open_class}\non keydown[event.key is 'Escape'] from body remove .{open_class}"
     )
 }
 

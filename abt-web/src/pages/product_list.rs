@@ -366,7 +366,7 @@ fn product_list_page(
                 "price-drawer-form",
                 html! {
                     div id = "price-drawer-body" _ =
-                    "on htmx:afterSettle add .open to #price-drawer" {}
+                    "on 'htmx:afterSettle' add .open to #price-drawer" {}
                 },
             )
         })

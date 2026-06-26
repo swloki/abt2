@@ -896,7 +896,7 @@ fn render_drawer_overlay(overlay_id: &str, _drawer_id: &str, body_id: &str, titl
             }
         }
         div id=(body_id) class="flex-1 overflow-y-auto px-6 py-5"
-            _=(format!("on htmx:afterSettle add .open to #{}", overlay_id)) {}
+            _=(format!("on 'htmx:afterSettle' add .open to #{}", overlay_id)) {}
     })
 }
 

@@ -107,7 +107,7 @@ fn work_center_content(summary: &MesWorkCenterSummary) -> Markup {
         // 工序编辑 modal 容器（slot）：GET edit 返回完整 modal_shell（外壳+body），innerHTML 进此容器；
         // afterSettle 在 slot 触发（slot 静态、listener 预注册）→ 打开子 #routing-edit-modal。
         div id="routing-edit-slot"
-            _="on htmx:afterSettle[me is event.target] add .is-open to #routing-edit-modal\non keydown[event.key is 'Escape'] from body remove .is-open from #routing-edit-modal" {}
+            _="on 'htmx:afterSettle'[#routing-edit-modal] add .is-open to #routing-edit-modal\non keydown[event.key is 'Escape' and #routing-edit-modal] from body remove .is-open from #routing-edit-modal" {}
         // 产出品 picker（ID 与 mes_order_detail::routing_edit_form 写死的约定一致）
         (product_picker::product_picker_modal("routing-product-modal", "routing-product-id", "routing-product-display"))
     }
@@ -1929,6 +1929,6 @@ fn render_drawer_overlay(overlay_id: &str, _drawer_id: &str, body_id: &str, titl
             }
         }
         div id=(body_id) class="flex-1 overflow-y-auto px-6 py-5"
-            _=(format!("on htmx:afterSettle add .open to #{}", overlay_id)) {}
+            _=(format!("on 'htmx:afterSettle' add .open to #{}", overlay_id)) {}
     })
 }

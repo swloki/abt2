@@ -102,7 +102,6 @@ fn transfer_table_fragment(
  result: &abt_core::shared::types::pagination::PaginatedResult<InventoryTransfer>,
  params: &TransferQueryParams,
 ) -> Markup {
- let query = build_query_string(params);
  let active_value = params.status.map(|s| s.to_string()).unwrap_or_default();
  let total_count = result.total;
 
@@ -175,7 +174,8 @@ fn transfer_table_fragment(
         ({
             pagination(
                 TransferListPath::PATH,
-                &query,
+                "#transfer-data-card",
+                "#transfer-filter-form",
                 result.total,
                 result.page,
                 result.total_pages,
@@ -225,15 +225,4 @@ fn transfer_row(t: &InventoryTransfer) -> Markup {
         }
     }
 }
-}
-
-fn build_query_string(params: &TransferQueryParams) -> String {
- let mut q = vec![];
- if let Some(s) = params.status {
- q.push(format!("status={s}"));
- }
- if let Some(ref d) = params.doc_number {
- q.push(format!("doc_number={d}"));
- }
- q.join("&")
 }

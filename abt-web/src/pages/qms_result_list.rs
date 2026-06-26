@@ -154,33 +154,6 @@ fn build_filter(params: &ResultQueryParams) -> InspectionResultFilter {
  }
 }
 
-fn build_query_string(params: &ResultQueryParams) -> String {
- let mut q = vec![];
- if let Some(ref v) = params.keyword
- && !v.is_empty() {
- q.push(format!("keyword={v}"));
- }
- if let Some(ref v) = params.inspection_type {
- q.push(format!("inspection_type={v}"));
- }
- if let Some(ref v) = params.result {
- q.push(format!("result={v}"));
- }
- if let Some(v) = params.source_type {
- q.push(format!("source_type={v}"));
- }
- if let Some(ref v) = params.status {
- q.push(format!("status={v}"));
- }
- if let Some(ref v) = params.date_from {
- q.push(format!("date_from={v}"));
- }
- if let Some(ref v) = params.date_to {
- q.push(format!("date_to={v}"));
- }
- q.join("&")
-}
-
 // ── Handlers ──
 
 #[require_permission("QMS", "read")]
@@ -354,7 +327,7 @@ fn result_table_fragment(
                 value=(params.date_to.as_deref().unwrap_or(""));
         }
         // ── Data Table ──
-        (result_data_card(result, product_names, params))
+        (result_data_card(result, product_names))
     }
 }
 }
@@ -362,9 +335,7 @@ fn result_table_fragment(
 fn result_data_card(
  result: &PaginatedResult<InspectionResult>,
  product_names: &HashMap<i64, String>,
- params: &ResultQueryParams,
 ) -> Markup {
- let query = build_query_string(params);
  html! {
     div class="data-card" id="result-data-card" {
         div class="overflow-x-auto" {
@@ -464,7 +435,8 @@ fn result_data_card(
         ({
             pagination(
                 ResultListPath::PATH,
-                &query,
+                "#result-data-card",
+                "#filter-form",
                 result.total,
                 result.page,
                 result.total_pages,

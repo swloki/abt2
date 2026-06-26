@@ -90,29 +90,6 @@ async fn resolve_wh_names<S: WarehouseService>(
  map
 }
 
-fn build_query_string(params: &StockInQueryParams) -> String {
- let mut q = vec![];
- if let Some(ref v) = params.doc_number {
- q.push(format!("doc_number={v}"));
- }
- if let Some(ref v) = params.product_code {
- q.push(format!("product_code={v}"));
- }
- if let Some(ref tt) = params.transaction_type {
- q.push(format!("transaction_type={tt}"));
- }
- if let Some(wid) = params.warehouse_id {
- q.push(format!("warehouse_id={wid}"));
- }
- if let Some(ref ds) = params.date_start {
- q.push(format!("date_start={ds}"));
- }
- if let Some(ref de) = params.date_end {
- q.push(format!("date_end={de}"));
- }
- q.join("&")
-}
-
 // ── Handlers ──
 
 #[require_permission("INVENTORY", "read")]
@@ -210,7 +187,6 @@ fn stock_in_table_fragment(
  warehouses: &[abt_core::wms::warehouse::model::Warehouse],
  params: &StockInQueryParams,
 ) -> Markup {
- let _query = build_query_string(params);
  let total_count = result.total;
 
  let tabs = &[
@@ -359,10 +335,8 @@ fn stock_in_data_card(
  operator_names: &HashMap<i64, String>,
  wh_names: &HashMap<i64, String>,
  _warehouses: &[abt_core::wms::warehouse::model::Warehouse],
- params: &StockInQueryParams,
+ _params: &StockInQueryParams,
 ) -> Markup {
- let query = build_query_string(params);
-
  html! {
     div class="data-card" id="stock-in-data-card" {
         div class="overflow-x-auto" {
@@ -458,7 +432,8 @@ fn stock_in_data_card(
         ({
             pagination(
                 StockInListPath::PATH,
-                &query,
+                "#stock-in-data-card",
+                "#stock-in-filter-form",
                 result.total,
                 result.page,
                 result.total_pages,

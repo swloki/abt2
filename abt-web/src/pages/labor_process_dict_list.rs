@@ -204,7 +204,6 @@ fn process_dict_table_fragment(
  params: &ProcessDictQueryParams,
  can_delete: bool,
 ) -> Markup {
- let query = build_query_string(params);
  let total_count = result.total;
 
  html! {
@@ -223,6 +222,7 @@ fn process_dict_table_fragment(
                     class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input"
                     type="text"
                     name="keyword"
+                    id="process-dict-keyword"
                     placeholder="搜索工序编码或名称…"
                     value=(params.keyword.as_deref().unwrap_or(""))
                     hx-get=(ProcessDictListPath::PATH)
@@ -262,7 +262,8 @@ fn process_dict_table_fragment(
             ({
                 pagination(
                     ProcessDictListPath::PATH,
-                    &query,
+                    "#process-dict-table",
+                    "#process-dict-keyword",
                     result.total,
                     result.page,
                     result.total_pages,
@@ -386,11 +387,3 @@ fn process_dict_form_page(_existing: Option<&LaborProcessDict>) -> Markup {
 }
 
 // ── Helpers ──
-
-fn build_query_string(params: &ProcessDictQueryParams) -> String {
- let mut q = vec![];
- if let Some(ref kw) = params.keyword {
- q.push(format!("keyword={kw}"));
- }
- q.join("&")
-}

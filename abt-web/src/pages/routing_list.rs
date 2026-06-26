@@ -150,7 +150,6 @@ fn routing_table_fragment(
  params: &RoutingQueryParams,
  can_delete: bool,
 ) -> Markup {
- let query = build_query_string(params);
  let total_count = result.total;
 
  html! {
@@ -169,6 +168,7 @@ fn routing_table_fragment(
                     class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input"
                     type="text"
                     name="keyword"
+                    id="routing-keyword"
                     placeholder="搜索工艺路线名称…"
                     value=(params.keyword.as_deref().unwrap_or(""))
                     hx-get=(RoutingListPath::PATH)
@@ -179,7 +179,7 @@ fn routing_table_fragment(
             }
         }
         // ── Data Table ──
-        div class="data-card" {
+        div class="data-card" id="routing-data-card" {
             div class="overflow-x-auto" {
                 table class="data-table" {
                     thead {
@@ -205,7 +205,8 @@ fn routing_table_fragment(
             ({
                 pagination(
                     RoutingListPath::PATH,
-                    &query,
+                    "#routing-data-card",
+                    "#routing-keyword",
                     result.total,
                     result.page,
                     result.total_pages,
@@ -258,11 +259,3 @@ fn routing_row(r: &Routing, can_delete: bool) -> Markup {
 }
 
 // ── Helpers ──
-
-fn build_query_string(params: &RoutingQueryParams) -> String {
- let mut q = vec![];
- if let Some(ref kw) = params.keyword {
- q.push(format!("keyword={kw}"));
- }
- q.join("&")
-}

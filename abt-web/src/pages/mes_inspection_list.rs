@@ -140,20 +140,14 @@ fn inspection_table_fragment(
                     value=(params.keyword.as_deref().unwrap_or(""));
             }
         }
-        (inspection_data_card(result, params))
+        (inspection_data_card(result))
     }
 }
 }
 
 fn inspection_data_card(
  result: &PaginatedResult<InspectionListItem>,
- params: &InspectionQueryParams,
 ) -> Markup {
- let mut qs = vec![];
- if let Some(k) = &params.keyword { qs.push(format!("keyword={k}")); }
- if let Some(t) = &params.inspection_type { qs.push(format!("inspection_type={t}")); }
- let query = qs.join("&");
-
  html! {
     div class="data-card" id="insp-data-card" {
         div class="overflow-x-auto" {
@@ -216,7 +210,8 @@ fn inspection_data_card(
         ({
             pagination(
                 InspectionListPath::PATH,
-                &query,
+                "#insp-data-card",
+                "#filter-form",
                 result.total,
                 result.page,
                 result.total_pages,

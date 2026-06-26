@@ -164,7 +164,6 @@ fn customer_table_fragment(
  params: &CustomerQueryParams,
  can_delete: bool,
 ) -> Markup {
- let query = build_query_string(params);
  let active_value = params.status.map(|s| s.to_string()).unwrap_or_default();
  let total_count = result.total;
 
@@ -245,7 +244,8 @@ fn customer_table_fragment(
             ({
                 pagination(
                     CustomerListPath::PATH,
-                    &query,
+                    "#customer-data-card",
+                    "#customer-filter-form",
                     result.total,
                     result.page,
                     result.total_pages,
@@ -256,19 +256,6 @@ fn customer_table_fragment(
 }
 }
 
-fn build_query_string(params: &CustomerQueryParams) -> String {
- let mut q = vec![];
- if let Some(ref kw) = params.keyword {
- q.push(format!("keyword={kw}"));
- }
- if let Some(s) = params.status {
- q.push(format!("status={s}"));
- }
- if let Some(c) = params.category {
- q.push(format!("category={c}"));
- }
- q.join("&")
-}
 
 fn customer_row(c: &Customer, can_delete: bool) -> Markup {
  let detail_path = CustomerDetailPath { id: c.id };

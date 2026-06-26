@@ -85,26 +85,6 @@ async fn resolve_operator_names<S: UserService>(
  map
 }
 
-fn build_query_string(params: &PlanQueryParams) -> String {
- let mut q = vec![];
- if let Some(ref v) = params.keyword {
- q.push(format!("keyword={v}"));
- }
- if let Some(ref v) = params.status {
- q.push(format!("status={v}"));
- }
- if let Some(ref v) = params.plan_type {
- q.push(format!("plan_type={v}"));
- }
- if let Some(ref v) = params.date_from {
- q.push(format!("date_from={v}"));
- }
- if let Some(ref v) = params.date_to {
- q.push(format!("date_to={v}"));
- }
- q.join("&")
-}
-
 // ── Handlers ──
 
 #[require_permission("WORK_ORDER", "read")]
@@ -246,16 +226,14 @@ fn plan_table_fragment(
         }
     }
     // ── Data Table ──
-    (plan_data_card(result, operator_names, plan_stats, params))
+    (plan_data_card(result, operator_names, plan_stats))
 }
  }
 fn plan_data_card(
  result: &abt_core::shared::types::PaginatedResult<ProductionPlan>,
  operator_names: &HashMap<i64, String>,
  plan_stats: &HashMap<i64, PlanExtraStats>,
- params: &PlanQueryParams,
 ) -> Markup {
- let query = build_query_string(params);
  html! {
     div class="data-card" id="plan-data-card" {
         div class="overflow-x-auto" {
@@ -342,7 +320,8 @@ fn plan_data_card(
         ({
             pagination(
                 PlanListPath::PATH,
-                &query,
+                "#plan-data-card",
+                "#filter-form",
                 result.total,
                 result.page,
                 result.total_pages,

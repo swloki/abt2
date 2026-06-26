@@ -9,7 +9,7 @@ use abt_core::master_data::category::model::*;
 use abt_core::master_data::category::CategoryService;
 
 use crate::components::icon;
-use crate::components::pagination::htmx_pagination_inherited;
+use crate::components::pagination::pagination;
 use crate::components::modal;
 use crate::layout::page::admin_page;
 use crate::routes::category::{
@@ -579,13 +579,8 @@ fn detail_panel(
 };
 
  let products_section = html! {
-    div class="mb-5"
-        id="products-section"
-        hx-select="#products-section"
-        hx-target="#products-section"
-        hx-swap="outerHTML"
-       
-    {
+    form class="mb-5"
+        id="filter-form" {
         div class="flex items-center justify-between mb-4" {
             div {
                 span class="text-[13px] font-semibold text-fg" { "关联产品" }
@@ -634,9 +629,10 @@ fn detail_panel(
         }
         @if total_pages > 1 {
             ({
-                htmx_pagination_inherited(
-                    "/admin/md/categories",
-                    &format!("category_id={}", category_id),
+                pagination(
+                    CategoryDetailPanelPath { id: category_id }.to_string().as_str(),
+                    "#filter-form",
+                    "#filter-form",
                     total_products,
                     current_page,
                     total_pages,

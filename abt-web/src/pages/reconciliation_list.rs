@@ -38,23 +38,6 @@ pub struct ReconciliationQueryParams {
 
 // ── Helpers ──
 
-fn build_query_string(params: &ReconciliationQueryParams) -> String {
- let mut q = vec![];
- if let Some(ref kw) = params.keyword {
- q.push(format!("keyword={kw}"));
- }
- if let Some(s) = params.status {
- q.push(format!("status={s}"));
- }
- if let Some(c) = params.customer_id {
- q.push(format!("customer_id={c}"));
- }
- if let Some(ref p) = params.period {
- q.push(format!("period={p}"));
- }
- q.join("&")
-}
-
 fn status_label(s: ReconciliationStatus) -> (&'static str, &'static str) {
  match s {
  ReconciliationStatus::Draft => ("草稿", "status-draft"),
@@ -206,7 +189,6 @@ fn reconciliation_table_fragment(
  status_counts: &HashMap<i16, u64>,
  can_delete: bool,
 ) -> Markup {
- let query = build_query_string(params);
  let active_value = params.status.map(|s| s.to_string()).unwrap_or_default();
 
  let total_count: u64 = status_counts.get(&0).copied().unwrap_or(0);
@@ -313,7 +295,8 @@ fn reconciliation_table_fragment(
             ({
                 pagination(
                     ReconciliationListPath::PATH,
-                    &query,
+                    "#reconciliation-data-card",
+                    "#reconciliation-filter-form",
                     result.total,
                     result.page,
                     result.total_pages,

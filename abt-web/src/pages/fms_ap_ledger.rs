@@ -189,7 +189,7 @@ fn ledger_row(item: &ArApLedgerRow, today: chrono::NaiveDate, detail_path: &str)
     }
 }
 
-fn ledger_table(items: &[ArApLedgerRow], today: chrono::NaiveDate, total: u64, page: u32, page_size: u32, query_string: &str, detail_path: &str) -> Markup {
+fn ledger_table(items: &[ArApLedgerRow], today: chrono::NaiveDate, total: u64, page: u32, page_size: u32, detail_path: &str) -> Markup {
     let total_pages = ((total as f64) / (page_size as f64)).ceil() as u32;
     html! {
         div class="data-card mt-4" {
@@ -235,7 +235,8 @@ fn ledger_table(items: &[ArApLedgerRow], today: chrono::NaiveDate, total: u64, p
                 ({
                     pagination(
                         ApLedgerPath::PATH,
-                        query_string,
+                        "#data-card",
+                        "#ap-filter-form",
                         total,
                         page,
                         total_pages,
@@ -251,7 +252,6 @@ fn filter_and_table(
     q: &ListQuery,
     outstanding_only: bool,
     today: chrono::NaiveDate,
-    query_string: &str,
     detail_path: &str,
     buyers: &[String],
 ) -> Markup {
@@ -362,7 +362,6 @@ fn filter_and_table(
                 result.total,
                 result.page,
                 result.page_size,
-                query_string,
                 detail_path,
             )
         })
@@ -413,17 +412,6 @@ pub async fn get_list(
         .filter(|n: &String| !n.is_empty())
         .collect();
 
-    let mut parts: Vec<String> = Vec::new();
-    push_param(&mut parts, "keyword", &q.keyword);
-    if outstanding_only { parts.push("outstanding_only=true".into()); }
-    push_param(&mut parts, "start_date", &q.start_date);
-    push_param(&mut parts, "end_date", &q.end_date);
-    push_param(&mut parts, "doc_no", &q.doc_no);
-    push_param(&mut parts, "product_code", &q.product_code);
-    push_param(&mut parts, "product_name", &q.product_name);
-    push_param(&mut parts, "rep_name", &q.rep_name);
-    let query_string = if parts.is_empty() { String::new() } else { format!("?{}", parts.join("&")) };
-
     let content = html! {
         div {
             div class="flex items-center justify-between mb-6" {
@@ -437,7 +425,6 @@ pub async fn get_list(
                     &q,
                     outstanding_only,
                     today,
-                    &query_string,
                     ApLedgerDetailPath::PATH,
                     &buyers,
                 )
@@ -556,30 +543,7 @@ pub async fn get_detail(
     Ok(Html(content.into_string()))
 }
 
-fn url_encode(s: &str) -> String {
-    use std::fmt::Write;
-    let mut out = String::new();
-    for b in s.bytes() {
-        if b.is_ascii_alphanumeric() || b == b'-' || b == b'_' || b == b'.' || b == b'~' {
-            write!(out, "{}", b as char).unwrap();
-        } else {
-            write!(out, "%{:02X}", b).unwrap();
-        }
-    }
-    out
-}
-
 /// Option<String> → 空字符串归一为 None
 fn opt_string(s: &Option<String>) -> Option<String> {
     s.as_deref().filter(|s| !s.is_empty()).map(str::to_string)
-}
-
-/// 把非空字符串参数加入 query parts（URL 编码），供分页保持筛选
-fn push_param(parts: &mut Vec<String>, key: &str, val: &Option<String>) {
-    if let Some(v) = val {
-        let v = v.trim();
-        if !v.is_empty() {
-            parts.push(format!("{}={}", key, url_encode(v)));
-        }
-    }
 }

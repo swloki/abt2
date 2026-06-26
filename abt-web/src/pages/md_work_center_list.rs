@@ -93,7 +93,6 @@ fn work_center_list_page(
  let page = params.page.unwrap_or(1);
  let page_size = 20u32;
  let total_pages = (total as u32).div_ceil(page_size);
- let query_string = build_query_string(params);
 
  html! {
     div class="flex items-center justify-between mb-6" {
@@ -211,24 +210,9 @@ fn work_center_list_page(
                 }
             }
         }
-        (pagination(WorkCenterListPath::PATH, &query_string, total, page, total_pages))
+        (pagination(WorkCenterListPath::PATH, "#data-card", "#wc-filter-form", total, page, total_pages))
     }
 }
 }
 
 // ── Helpers ──
-
-fn build_query_string(params: &WorkCenterQueryParams) -> String {
- let mut parts = Vec::new();
- if let Some(ref k) = params.keyword
- && !k.is_empty()
- {
- parts.push(format!("keyword={}", k));
- }
- if let Some(ref a) = params.is_active
- && !a.is_empty()
- {
- parts.push(format!("is_active={}", a));
- }
- parts.join("&")
-}

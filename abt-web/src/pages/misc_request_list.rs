@@ -68,23 +68,6 @@ fn build_filter(params: &MiscQueryParams, dept_id_map: &HashMap<String, i64>) ->
  }
 }
 
-fn build_query_string(params: &MiscQueryParams) -> String {
- let mut q = vec![];
- if let Some(ref kw) = params.keyword {
- q.push(format!("keyword={kw}"));
- }
- if let Some(s) = params.status {
- q.push(format!("status={s}"));
- }
- if let Some(ref dept) = params.department {
- q.push(format!("department={dept}"));
- }
- if let Some(ref dr) = params.date_range {
- q.push(format!("date_range={dr}"));
- }
- q.join("&")
-}
-
 async fn resolve_operator_names<S: UserService>(
  svc: &S,
  ctx: &ServiceContext,
@@ -223,7 +206,6 @@ fn misc_table_fragment(
  operator_map: &HashMap<i64, String>,
  dept_name_map: &HashMap<i64, String>,
 ) -> Markup {
- let query = build_query_string(params);
  let active_value = params.status.map(|s| s.to_string()).unwrap_or_default();
  let total_count = result.total;
 
@@ -328,7 +310,8 @@ fn misc_table_fragment(
             ({
                 pagination(
                     MiscListPath::PATH,
-                    &query,
+                    "#misc-data-card",
+                    "#misc-filter-form",
                     result.total,
                     result.page,
                     result.total_pages,

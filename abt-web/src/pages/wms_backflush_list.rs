@@ -92,8 +92,6 @@ fn backflush_table_fragment(
  result: &abt_core::shared::types::pagination::PaginatedResult<BackflushRecord>,
  params: &BackflushQueryParams,
 ) -> Markup {
- let query = build_query_string(params);
-
  html! {
     div class="backflush-list-panel" {
         form
@@ -168,59 +166,14 @@ fn backflush_table_fragment(
             ({
                 pagination(
                     BackflushListPath::PATH,
-                    &query,
+                    "#backflush-data-card",
+                    "#filter-form",
                     result.total,
                     result.page,
                     result.total_pages,
                 )
             })
         }
-    }
-}
-}
-
-fn backflush_data_card(
- result: &abt_core::shared::types::pagination::PaginatedResult<BackflushRecord>,
- params: &BackflushQueryParams,
-) -> Markup {
- let query = build_query_string(params);
-
- html! {
-    div id="backflush-data-card" class="data-card" {
-        div class="overflow-x-auto" {
-            table class="data-table" {
-                thead {
-                    tr {
-                        th { "单据编号" }
-                        th { "关联工单" }
-                        th { "完工产品" }
-                        th class="text-right text-[13px]" { "完工数量" }
-                        th { "倒冲日期" }
-                        th { "状态" }
-                        th { "差异预警" }
-                        th { "操作员" }
-                        th class="!text-right" { "操作" }
-                    }
-                }
-                tbody {
-                    @for r in &result.items { (backflush_row(r)) }
-                    @if result.items.is_empty() {
-                        tr {
-                            td colspan="9" class="text-center text-muted py-8" { "暂无倒冲记录" }
-                        }
-                    }
-                }
-            }
-        }
-        ({
-            pagination(
-                BackflushListPath::PATH,
-                &query,
-                result.total,
-                result.page,
-                result.total_pages,
-            )
-        })
     }
 }
 }
@@ -267,19 +220,4 @@ fn backflush_row(r: &BackflushRecord) -> Markup {
         }
     }
 }
-}
-
-fn build_query_string(params: &BackflushQueryParams) -> String {
- let mut q = vec![];
- if let Some(s) = params.status {
- q.push(format!("status={s}"));
- }
- if let Some(ref v) = params.doc_number
- && !v.is_empty() { q.push(format!("doc_number={v}")); }
- if let Some(ref v) = params.work_order
- && !v.is_empty() { q.push(format!("work_order={v}")); }
- if let Some(p) = params.page {
- q.push(format!("page={p}"));
- }
- q.join("&")
 }

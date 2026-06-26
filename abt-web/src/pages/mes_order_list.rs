@@ -194,7 +194,7 @@ fn order_table_fragment(
                         value=(params.keyword.as_deref().unwrap_or(""));
                 }
             }
-            (order_data_card(result, product_names, availability, params))
+            (order_data_card(result, product_names, availability))
         }
     }
 }
@@ -203,16 +203,7 @@ fn order_data_card(
     result: &abt_core::shared::types::PaginatedResult<abt_core::mes::work_order::WorkOrder>,
     product_names: &HashMap<i64, String>,
     availability: &HashMap<i64, (MaterialAvailabilityLevel, Option<String>)>,
-    params: &OrderQueryParams,
 ) -> Markup {
-    let mut qs = vec![];
-    if let Some(ref k) = params.keyword {
-        qs.push(format!("keyword={k}"));
-    }
-    if let Some(ref s) = params.status {
-        qs.push(format!("status={s}"));
-    }
-    let query = qs.join("&");
     html! {
         div class="data-card" id="order-data-card" {
             div class="overflow-x-auto" {
@@ -242,7 +233,8 @@ fn order_data_card(
             ({
                 pagination(
                     OrderListPath::PATH,
-                    &query,
+                    "#order-data-card",
+                    "#filter-form",
                     result.total,
                     result.page,
                     result.total_pages,

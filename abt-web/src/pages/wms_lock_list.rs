@@ -180,7 +180,6 @@ fn lock_table_fragment(
  operator_map: &std::collections::HashMap<i64, String>,
  customer_map: &std::collections::HashMap<i64, String>,
 ) -> Markup {
- let _query = build_query_string(params);
  let active_value = params.status.map(|s| s.to_string()).unwrap_or_default();
  let total_count = result.total;
 
@@ -259,14 +258,12 @@ fn lock_table_fragment(
 
 fn lock_data_card_fragment(
  result: &abt_core::shared::types::PaginatedResult<InventoryLock>,
- params: &LockQueryParams,
+ _params: &LockQueryParams,
  product_map: &std::collections::HashMap<i64, (String, String)>,
  wh_names: &std::collections::HashMap<i64, String>,
  operator_map: &std::collections::HashMap<i64, String>,
  customer_map: &std::collections::HashMap<i64, String>,
 ) -> Markup {
- let query = build_query_string(params);
-
  html! {
     div class="data-card" id="lock-data-card" {
         div class="overflow-x-auto" {
@@ -308,7 +305,8 @@ fn lock_data_card_fragment(
         ({
             pagination(
                 LockListPath::PATH,
-                &query,
+                "#lock-data-card",
+                "#lock-filter-form",
                 result.total,
                 result.page,
                 result.total_pages,
@@ -372,19 +370,3 @@ fn lock_row(
 }
 }
 
-fn build_query_string(params: &LockQueryParams) -> String {
- let mut q = vec![];
- if let Some(ref v) = params.doc_number {
- q.push(format!("doc_number={v}"));
- }
- if let Some(ref v) = params.product {
- q.push(format!("product={v}"));
- }
- if let Some(s) = params.status {
- q.push(format!("status={s}"));
- }
- if let Some(w) = params.warehouse_id {
- q.push(format!("warehouse_id={w}"));
- }
- if q.is_empty() { String::new() } else { format!("?{}", q.join("&")) }
-}

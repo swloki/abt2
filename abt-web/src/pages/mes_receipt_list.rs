@@ -98,19 +98,14 @@ fn receipt_table_fragment(
                     value=(params.keyword.as_deref().unwrap_or(""));
             }
         }
-        (receipt_data_card(result, params))
+        (receipt_data_card(result))
     }
 }
 }
 
 fn receipt_data_card(
  result: &PaginatedResult<ReceiptListItem>,
- params: &ReceiptQueryParams,
 ) -> Markup {
- let mut qs = vec![];
- if let Some(k) = &params.keyword { qs.push(format!("keyword={k}")); }
- let query = qs.join("&");
-
  html! {
     div class="data-card" id="receipt-data-card" {
         div class="overflow-x-auto" {
@@ -175,7 +170,8 @@ fn receipt_data_card(
         ({
             pagination(
                 ReceiptListPath::PATH,
-                &query,
+                "#receipt-data-card",
+                "#filter-form",
                 result.total,
                 result.page,
                 result.total_pages,

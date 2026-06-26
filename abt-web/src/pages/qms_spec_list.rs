@@ -97,20 +97,6 @@ async fn resolve_product_names<S: ProductService>(
  map
 }
 
-fn build_query_string(params: &SpecQueryParams) -> String {
- let mut q = vec![];
- if let Some(ref v) = params.keyword {
- q.push(format!("keyword={v}"));
- }
- if let Some(ref v) = params.inspection_type {
- q.push(format!("inspection_type={v}"));
- }
- if let Some(ref v) = params.status {
- q.push(format!("status={v}"));
- }
- q.join("&")
-}
-
 // ── Handlers ──
 
 #[require_permission("QMS", "read")]
@@ -261,7 +247,7 @@ fn spec_table_fragment(
             }
         }
         // ── Data Table ──
-        (spec_data_card(result, product_names, params))
+        (spec_data_card(result, product_names))
     }
 }
 }
@@ -269,9 +255,7 @@ fn spec_table_fragment(
 fn spec_data_card(
  result: &PaginatedResult<InspectionSpecification>,
  product_names: &HashMap<i64, String>,
- params: &SpecQueryParams,
 ) -> Markup {
- let query = build_query_string(params);
  html! {
     div class="data-card" id="spec-data-card" {
         div class="overflow-x-auto" {
@@ -357,7 +341,8 @@ fn spec_data_card(
         ({
             pagination(
                 SpecListPath::PATH,
-                &query,
+                "#spec-data-card",
+                "#filter-form",
                 result.total,
                 result.page,
                 result.total_pages,

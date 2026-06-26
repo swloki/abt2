@@ -233,12 +233,13 @@ form class="filter-bar filter-form" id="xxx-filter-form"
 }
 ```
 
-**Pagination**：
+**Pagination**（`components/pagination.rs`，单一组件，status_tabs 同款）：
 
 ```rust
-// 服务端拼接完整 query_string（包含 status、keyword 等），确保分页保持筛选状态
-pagination(ListPath::PATH, &query_string, total, page, total_pages)
+pagination(ListPath::PATH, "#order-data-card", "#filter-form", total, page, total_pages)
 ```
+
+链接自带 `hx-get` + `hx-target` + `hx-select` + `hx-vals={"page":N}` + `hx-include`（status_tabs 同款），page 经 `hx-vals` 传，**无需 hidden input / hyperscript**。`target_sel` 指定替换区域，`form_sel` 指定携带筛选的 form（同页多 form 各传各的）。约定：filter-form `id="filter-form"`；切 tab 由 `status_tabs` 的 `hx-vals` 强制 `page=1`；搜索不带 page → handler 默认 page=1（自动回首页）。详见 [`docs/frontend/htmx-patterns.md` §2.2](../docs/frontend/htmx-patterns.md#2-列表页单端点模式)。
 
 #### 关键约束
 

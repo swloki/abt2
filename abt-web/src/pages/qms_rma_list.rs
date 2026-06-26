@@ -77,26 +77,6 @@ fn parse_severity(s: &str) -> Option<Severity> {
  }
 }
 
-fn build_query_string(params: &RmaQueryParams) -> String {
- let mut q = vec![];
- if let Some(ref v) = params.keyword {
- q.push(format!("keyword={v}"));
- }
- if let Some(ref v) = params.severity {
- q.push(format!("severity={v}"));
- }
- if let Some(ref v) = params.status {
- q.push(format!("status={v}"));
- }
- if let Some(ref v) = params.date_from {
- q.push(format!("date_from={v}"));
- }
- if let Some(ref v) = params.date_to {
- q.push(format!("date_to={v}"));
- }
- q.join("&")
-}
-
 fn build_filter(params: &RmaQueryParams) -> RmaFilter {
  RmaFilter {
  customer_id: None,
@@ -268,7 +248,7 @@ fn rma_table_fragment(
                 value=(params.date_to.as_deref().unwrap_or(""));
         }
         // ── Data Table ──
-        (rma_data_card(result, customer_names, product_names, params))
+        (rma_data_card(result, customer_names, product_names))
     }
 }
 }
@@ -277,9 +257,7 @@ fn rma_data_card(
  result: &abt_core::shared::types::PaginatedResult<abt_core::qms::rma::model::Rma>,
  customer_names: &HashMap<i64, String>,
  product_names: &HashMap<i64, String>,
- params: &RmaQueryParams,
 ) -> Markup {
- let query = build_query_string(params);
  html! {
     div class="data-card" id="rma-data-card" {
         div class="overflow-x-auto" {
@@ -361,7 +339,8 @@ fn rma_data_card(
         ({
             pagination(
                 RmaListPath::PATH,
-                &query,
+                "#rma-data-card",
+                "#filter-form",
                 result.total,
                 result.page,
                 result.total_pages,

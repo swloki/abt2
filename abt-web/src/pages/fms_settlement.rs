@@ -110,7 +110,7 @@ fn settlement_table(items: &[ArApSettlement], total: u64, page: u32, page_size: 
                 }
             }
             @if total > page_size as u64 {
-                (pagination(SettlementListPath::PATH, "", total, page, total_pages))
+                (pagination(SettlementListPath::PATH, "#data-card", "#data-card", total, page, total_pages))
             }
         }
     }

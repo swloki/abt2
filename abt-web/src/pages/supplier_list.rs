@@ -129,7 +129,6 @@ fn supplier_table_fragment(
  can_delete: bool,
  can_edit: bool,
 ) -> Markup {
- let query = build_query_string(params);
  let active_value = params.status.map(|s| s.to_string()).unwrap_or_default();
  let total_count = result.total;
 
@@ -218,7 +217,8 @@ fn supplier_table_fragment(
             ({
                 pagination(
                     SupplierListPath::PATH,
-                    &query,
+                    "#supplier-data-card",
+                    "#supplier-filter-form",
                     result.total,
                     result.page,
                     result.total_pages,
@@ -307,18 +307,4 @@ fn supplier_row(s: &Supplier, can_delete: bool, can_edit: bool) -> Markup {
         }
     }
 }
-}
-
-fn build_query_string(params: &SupplierQueryParams) -> String {
- let mut q = vec![];
- if let Some(ref kw) = params.keyword {
- q.push(format!("keyword={kw}"));
- }
- if let Some(s) = params.status {
- q.push(format!("status={s}"));
- }
- if let Some(c) = params.category {
- q.push(format!("category={c}"));
- }
- q.join("&")
 }

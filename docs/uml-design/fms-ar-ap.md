@@ -127,6 +127,17 @@
 - `create_adjustment(req) -> i64`（创建即过账）
 - `get_adjustment(id)` / `list_adjustments(filter, page) -> PaginatedResult<AdjustmentRow>`
 
+## 采购作业中心消费方（2026-06 新增）
+
+> 消费方：`abt-core/src/purchase/work_center/implt.rs`（`PurchaseWorkCenterServiceImpl`）；详见 `purchase-work-center.md` §3.6 跨域依赖。
+
+采购作业中心行展开聚合经 `ArApService` **只读**读取 AP 数据（不写台账）：
+
+- **PO 立账摘要**（`get_po_hub_summary`）：`list_ledger(ArApLedgerFilter{ party_type=Supplier, party_id=po.supplier_id, doc_no=po.doc_number })` → post-filter `source_type=PurchaseOrder && source_id=po.id` → `SUM(amount)`=已立应付 / `SUM(amount_applied)`=已付。因 `ArApLedgerFilter` 无 `source_id` 字段，靠 `doc_no` 缩范围 + post-filter 精确匹配（R1 契约）。
+- **供应商 AP 余额**（对账付款 / 退货行展开）：`get_party_balance(CounterpartyType::Supplier, supplier_id).total_ap`。
+
+台账写入（PO 收货立账、付款核销）仍由既有 EventHandler（`ArrivalAcceptedHandler` / FMS 付款回调）驱动，作业中心聚合层不参与写。
+
 **前端**（应收/应付各一套入口，侧边栏「应收调整」「应付调整」）：
 - 创建页：往来方选择（entity_picker，复用 journal 的 `search-counterparty`）+ 当前余额只读显示（选往来方后 htmx 查 `ArApService::get_party_balance`）+ 方向/金额/日期/内部订单号/外部订单号/说明；提交后 HX-Redirect 列表
 - 列表页：单端点 + keyword 搜索 + 分页；方向标签（增加绿 / 减少红）

@@ -387,20 +387,20 @@ fn cost_analysis_page(
         // ── 分析Tab ──
         div class="flex gap-1 mb-6 border-b border-border-soft" {
             button
-                class="analysis-tab px-4 py-3 text-sm text-accent font-semibold cursor-pointer whitespace-nowrap relative border-b-2 border-accent -mb-px active"
-                onclick="switchTab('product')"
+                class="analysis-tab px-4 py-3 text-sm cursor-pointer whitespace-nowrap relative border-b-2 -mb-px transition-colors hover:text-fg text-muted border-transparent [&.active]:text-accent [&.active]:font-semibold [&.active]:border-accent active"
+                _="on click take .active from .analysis-tab then add .hidden to .analysis-panel then remove .hidden from #panel-product"
             { "产品成本" }
             button
-                class="analysis-tab px-4 py-3 text-sm text-muted cursor-pointer whitespace-nowrap relative border-b-2 border-transparent -mb-px hover:text-fg transition-colors"
-                onclick="switchTab('order')"
+                class="analysis-tab px-4 py-3 text-sm cursor-pointer whitespace-nowrap relative border-b-2 -mb-px transition-colors hover:text-fg text-muted border-transparent [&.active]:text-accent [&.active]:font-semibold [&.active]:border-accent"
+                _="on click take .active from .analysis-tab then add .hidden to .analysis-panel then remove .hidden from #panel-order"
             { "工单成本" }
             button
-                class="analysis-tab px-4 py-3 text-sm text-muted cursor-pointer whitespace-nowrap relative border-b-2 border-transparent -mb-px hover:text-fg transition-colors"
-                onclick="switchTab('profit')"
+                class="analysis-tab px-4 py-3 text-sm cursor-pointer whitespace-nowrap relative border-b-2 -mb-px transition-colors hover:text-fg text-muted border-transparent [&.active]:text-accent [&.active]:font-semibold [&.active]:border-accent"
+                _="on click take .active from .analysis-tab then add .hidden to .analysis-panel then remove .hidden from #panel-profit"
             { "利润中心 P&L" }
             button
-                class="analysis-tab px-4 py-3 text-sm text-muted cursor-pointer whitespace-nowrap relative border-b-2 border-transparent -mb-px hover:text-fg transition-colors"
-                onclick="switchTab('margin')"
+                class="analysis-tab px-4 py-3 text-sm cursor-pointer whitespace-nowrap relative border-b-2 -mb-px transition-colors hover:text-fg text-muted border-transparent [&.active]:text-accent [&.active]:font-semibold [&.active]:border-accent"
+                _="on click take .active from .analysis-tab then add .hidden to .analysis-panel then remove .hidden from #panel-margin"
             { "毛利分析" }
         }
         // ── 产品成本面板 ──
@@ -476,7 +476,7 @@ fn cost_analysis_page(
             }
         }
         // ── 工单成本面板 ──
-        div id="panel-order" class="analysis-panel" style="display:none" {
+        div id="panel-order" class="analysis-panel hidden" {
             div class="data-card mb-0" {
                 div class="px-4 py-3 border-b border-border-soft text-sm font-semibold text-fg flex items-center justify-between"
                 {
@@ -540,7 +540,7 @@ fn cost_analysis_page(
             }
         }
         // ── 利润中心 P&L 面板 ──
-        div id="panel-profit" class="analysis-panel" style="display:none" {
+        div id="panel-profit" class="analysis-panel hidden" {
             div class="data-card mb-0" {
                 div class="px-4 py-3 border-b border-border-soft text-sm font-semibold text-fg flex items-center justify-between"
                 {
@@ -599,7 +599,7 @@ fn cost_analysis_page(
             }
         }
         // ── 毛利分析面板 ──
-        div id="panel-margin" class="analysis-panel" style="display:none" {
+        div id="panel-margin" class="analysis-panel hidden" {
             div class="data-card mb-0" {
                 div class="px-4 py-3 border-b border-border-soft text-sm font-semibold text-fg flex items-center justify-between"
                 {
@@ -658,22 +658,6 @@ fn cost_analysis_page(
             }
         }
     }
-    ({
-        PreEscaped(
-            r#"<script>
-function switchTab(name) {
- document.querySelectorAll('.analysis-tab').forEach(function(t) {
- t.className = 'analysis-tab px-4 py-3 text-sm text-muted cursor-pointer whitespace-nowrap relative border-b-2 border-transparent -mb-px hover:text-fg transition-colors';
- });
- document.querySelectorAll('.analysis-panel').forEach(function(p) { p.style.display = 'none'; });
- var btn = event.target;
- btn.className = 'analysis-tab px-4 py-3 text-sm text-accent font-semibold cursor-pointer whitespace-nowrap relative border-b-2 border-accent -mb-px active';
- var panel = document.getElementById('panel-' + name);
- if (panel) panel.style.display = '';
-}
-</script>"#,
-        )
-    })
 }
 }
 

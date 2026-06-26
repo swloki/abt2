@@ -132,7 +132,7 @@ htmx_pagination(ListPath::PATH, &query_string, total, page, total_pages, "#data-
 - **`hx-select-oob` 支持逗号分隔** —— 可同时替换多个区域：`hx-select-oob="#status-tabs, #filter-form, #stats-bar"`（见 `pages/user_list.rs:398`、`pages/permission_config.rs:572`）。
 - **`TypedPath::PATH` 需要 trait 在 scope** —— 页面文件用 `XxxPath::PATH` 必须显式 `use axum_extra::routing::TypedPath;`，否则报 `no associated item named PATH`。
 - **`Serialize` 与 `TypedPath` derive 冲突** —— `#[derive(TypedPath, Serialize, Deserialize, Clone)]` 会阻止 `PATH` 常量生成，去掉 `Serialize`。
-- **列表页禁用 `hx-push-url`** —— tab / 搜索 / 分页时 push 地址栏会导致刷新 / 分享 / 回退行为异常。组件层（`tabs.rs` / `pagination.rs`）已不含该属性，**写列表页不要再加**。刷新回默认状态（首个 tab、无搜索）是预期行为。（已知残留：`pages/purchase_work_center.rs` 仍有 9 处手写 `hx-push-url="true"` 待清理，见附录。）
+- **列表页禁用 `hx-push-url`** —— tab / 搜索 / 分页时 push 地址栏会导致刷新 / 分享 / 回退行为异常。组件层（`tabs.rs` / `pagination.rs`）已不含该属性，**写列表页不要再加**。刷新回默认状态（首个 tab、无搜索）是预期行为。
 
 ---
 
@@ -388,7 +388,6 @@ td button hx-post=(delete_path) hx-target="closest tr" hx-swap="outerHTML"
 
 ## 附录：文档债 / 待清理
 
-- **`pages/purchase_work_center.rs` 的 `hx-push-url` 残留** —— 9 处（`:649, 655, 662, 769, 784, 867, 881, 982, 996`），违反 §2.3「列表页禁用 hx-push-url」。这是组件层清理时漏掉的较新页面，待单独清理（改 Rust，需 `cargo clippy` 验证）。
 - **`docs/solutions/` 目录** —— 根 `CLAUDE.md` 声称「记录历史问题解决方案」但目录实际不存在，属文档债。
 
 ---

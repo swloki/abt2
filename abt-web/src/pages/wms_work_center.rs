@@ -88,14 +88,14 @@ fn domain_slug(d: WorkCenterDomain) -> &'static str {
     }
 }
 
-fn domain_meta(d: WorkCenterDomain) -> (&'static str, Markup) {
+fn domain_meta(d: WorkCenterDomain) -> (&'static str, Markup, &'static str) {
     match d {
-        WorkCenterDomain::Arrival => ("待收货", icon::truck_icon("w-4 h-4")),
-        WorkCenterDomain::Pick => ("待拣货", icon::package_icon("w-4 h-4")),
-        WorkCenterDomain::Outbound => ("待发货", icon::upload_icon("w-4 h-4")),
-        WorkCenterDomain::Requisition => ("待领料", icon::clipboard_list_icon("w-4 h-4")),
-        WorkCenterDomain::Transfer => ("待调拨", icon::arrow_right_icon("w-4 h-4")),
-        WorkCenterDomain::CycleCount => ("待盘点", icon::check_circle_icon("w-4 h-4")),
+        WorkCenterDomain::Arrival => ("待收货", icon::truck_icon("w-4 h-4"), "PO / 工单到货核对"),
+        WorkCenterDomain::Pick => ("待拣货", icon::package_icon("w-4 h-4"), "按到期排序"),
+        WorkCenterDomain::Outbound => ("待发货", icon::truck_icon("w-4 h-4"), "已拣待发出"),
+        WorkCenterDomain::Requisition => ("待领料", icon::clipboard_list_icon("w-4 h-4"), "工单领料"),
+        WorkCenterDomain::Transfer => ("待调拨", icon::arrow_left_right_icon("w-4 h-4"), "在途 / 调出确认"),
+        WorkCenterDomain::CycleCount => ("待盘点", icon::check_circle_icon("w-4 h-4"), "盘点录入"),
     }
 }
 
@@ -216,7 +216,7 @@ pub async fn post_work_center_action(
         .unwrap_or_default();
 
     let fragment = html! {
-        (render_card(domain, count, Some(render_task_table(&items, domain))))
+        (render_card(domain, count, &urgent, Some(render_task_table(&items, domain))))
         (render_todo_nav(&summary, &urgent))
     };
     Ok(Html(fragment.into_string()))
@@ -458,20 +458,35 @@ async fn render_full_page(ctx: RequestContext) -> Result<Html<String>> {
         .await
         .unwrap_or_default();
 
+    let today_str = chrono::Local::now().format("%Y-%m-%d").to_string();
+    let shift_name = if claims.display_name.trim().is_empty() {
+        claims.username.as_str()
+    } else {
+        claims.display_name.as_str()
+    };
     let content = html! {
-        div class="flex items-center justify-between mb-4 flex-wrap gap-4" {
-            div {
-                h1 class="text-xl font-bold text-fg tracking-tight" { "仓库作业中心" }
-                p class="text-sm text-muted mt-1" { "按环节展开处理 · 就地操作不跳转" }
+        div class="bg-bg border border-border-soft rounded-lg p-6 mb-4 shadow-card" {
+            div class="flex items-center justify-between mb-5 flex-wrap gap-4" {
+                div {
+                    h1 class="text-xl font-bold text-fg tracking-tight" { "仓库作业中心" }
+                    div class="flex items-center gap-2 mt-1.5" {
+                        span class="inline-flex items-center gap-1.5 bg-surface border border-border-soft rounded-sm px-2.5 py-1 text-xs text-fg-2 font-medium" {
+                            (icon::calendar_icon("w-3.5 h-3.5")) (today_str)
+                        }
+                        span class="inline-flex items-center gap-1.5 bg-surface border border-border-soft rounded-sm px-2.5 py-1 text-xs text-fg-2 font-medium" {
+                            (icon::user_icon("w-3.5 h-3.5")) "当班 " (shift_name)
+                        }
+                    }
+                }
             }
+            (render_todo_nav(&summary, &urgent))
         }
-        (render_todo_nav(&summary, &urgent))
-        (render_card(WorkCenterDomain::Arrival, summary.arrivals_pending, None))
-        (render_card(WorkCenterDomain::Pick, summary.picks_pending, None))
-        (render_card(WorkCenterDomain::Outbound, summary.outbounds_pending, None))
-        (render_card(WorkCenterDomain::Requisition, summary.requisitions_pending, None))
-        (render_card(WorkCenterDomain::Transfer, summary.transfers_pending, None))
-        (render_card(WorkCenterDomain::CycleCount, summary.cycle_counts_pending, None))
+        (render_card(WorkCenterDomain::Arrival, summary.arrivals_pending, &urgent, None))
+        (render_card(WorkCenterDomain::Pick, summary.picks_pending, &urgent, None))
+        (render_card(WorkCenterDomain::Outbound, summary.outbounds_pending, &urgent, None))
+        (render_card(WorkCenterDomain::Requisition, summary.requisitions_pending, &urgent, None))
+        (render_card(WorkCenterDomain::Transfer, summary.transfers_pending, &urgent, None))
+        (render_card(WorkCenterDomain::CycleCount, summary.cycle_counts_pending, &urgent, None))
         // 共享 drawer overlay（各域 GET ?drawer=&id= 把 body 填入 #wc-drawer-body）
         (wc_drawer_shell())
         // 库位选择弹窗（复用 stock-in/create 的 suggest_bins 端点；收货 drawer 选目标库位）
@@ -496,61 +511,72 @@ fn render_todo_nav(summary: &WorkCenterSummary, urgent: &UrgentSummary) -> Marku
     let total = summary.total();
     html! {
         div id="todo-nav"
-            class="sticky top-0 z-20 flex items-center gap-4 p-3 mb-4 rounded-lg border border-border-soft bg-bg shadow-xs flex-wrap" {
+            class="sticky top-0 z-20 flex items-center gap-4 p-3 rounded-lg border border-border-soft bg-bg shadow-xs flex-wrap" {
             div class="flex flex-col items-center pr-4 border-r border-border-soft shrink-0" {
                 span class="text-xl font-bold font-mono tabular-nums text-accent leading-tight" { (total) }
                 span class="text-xs text-muted font-medium" { "待办" }
             }
             div class="flex items-center gap-2 flex-wrap" {
-                (nav_chip("arrival", "待收货", summary.arrivals_pending))
-                (nav_chip("pick", "待拣货", summary.picks_pending))
-                (nav_chip("outbound", "待发货", summary.outbounds_pending))
-                (nav_chip("requisition", "待领料", summary.requisitions_pending))
-                (nav_chip("transfer", "待调拨", summary.transfers_pending))
-                (nav_chip("cycle-count", "待盘点", summary.cycle_counts_pending))
-            }
-            @if urgent.overdue_count > 0 || urgent.soon_count > 0 {
-                div class="flex items-center gap-2 ml-auto" {
-                    @if urgent.overdue_count > 0 {
-                        span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-danger-bg text-danger text-xs font-semibold" {
-                            (icon::circle_alert_icon("w-3 h-3")) (urgent.overdue_count) " 逾期"
-                        }
-                    }
-                    @if urgent.soon_count > 0 {
-                        span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-warn-bg text-warn text-xs font-semibold" {
-                            (icon::bell_icon("w-3 h-3")) (urgent.soon_count) " 临期"
-                        }
-                    }
-                }
+                (nav_chip(WorkCenterDomain::Arrival, summary.arrivals_pending, urgent))
+                (nav_chip(WorkCenterDomain::Pick, summary.picks_pending, urgent))
+                (nav_chip(WorkCenterDomain::Outbound, summary.outbounds_pending, urgent))
+                (nav_chip(WorkCenterDomain::Requisition, summary.requisitions_pending, urgent))
+                (nav_chip(WorkCenterDomain::Transfer, summary.transfers_pending, urgent))
+                (nav_chip(WorkCenterDomain::CycleCount, summary.cycle_counts_pending, urgent))
             }
         }
     }
 }
 
-fn nav_chip(slug: &str, label: &str, count: u64) -> Markup {
+fn nav_chip(domain: WorkCenterDomain, count: u64, urgent: &UrgentSummary) -> Markup {
     if count == 0 {
         return html! {};
     }
+    let slug = domain_slug(domain);
+    let (label, ic, _) = domain_meta(domain);
+    let (overdue, soon) = urgent.of(domain);
+    // 异常染色：overdue>0 → danger；否则 soon>0 → warn；否则中性。计数与脉冲点同色。
+    let (chip_cls, cnt_cls, show_dot) = if overdue > 0 {
+        ("bg-danger-bg border-danger/35 text-danger", "text-danger", true)
+    } else if soon > 0 {
+        ("bg-warn-bg border-warn/35 text-warn", "text-warn", true)
+    } else {
+        ("bg-surface border-border-soft text-fg-2", "text-accent", false)
+    };
     html! {
-        a class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface border border-border-soft text-sm font-semibold text-fg-2 no-underline cursor-pointer hover:bg-accent-bg hover:border-accent hover:text-accent transition-all"
+        a class=(format!("tn-chip inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-sm font-semibold no-underline cursor-pointer hover:opacity-90 transition-all {chip_cls}"))
             href={(format!("#d-{slug}"))}
             _=(format!("on click halt the event then call document.getElementById('d-{slug}').scrollIntoView({{behavior:'smooth',block:'center'}}) then trigger click on #d-{slug}-head")) {
+            (ic)
             (label)
-            span class="font-mono font-bold text-accent" { (count) }
+            span class=(format!("font-mono font-bold {cnt_cls}")) { (count) }
+            @if show_dot {
+                span class="w-[7px] h-[7px] rounded-full bg-current animate-badge-pulse" {}
+            }
         }
     }
 }
 
 /// 自洽卡片：#d-{slug} 整体可被 hx-target=outerHTML 替换。
 /// body=Some → 展开（含队列，操作后回填用）；body=None → 折叠（首屏，点 head 懒加载）。
-fn render_card(domain: WorkCenterDomain, count: u64, body: Option<Markup>) -> Markup {
-    let (label, ic) = domain_meta(domain);
+/// 角标 + 摘要染色由 per-domain urgent 驱动（对齐 components/disclosure.rs 视觉范式 + 原型）。
+fn render_card(domain: WorkCenterDomain, count: u64, urgent: &UrgentSummary, body: Option<Markup>) -> Markup {
+    let (label, ic, hint) = domain_meta(domain);
     let slug = domain_slug(domain);
+    let (overdue, soon) = urgent.of(domain);
     let expand_url = format!("{}?expand={}", WmsWorkCenterPath::PATH, slug);
     let body_cls = if body.is_some() {
         "di-body px-5 pb-5 pt-4 border-t border-border-soft"
     } else {
         "di-body hidden px-5 pb-5 pt-4 border-t border-border-soft"
+    };
+    // 角标：overdue>0 红点，否则 soon>0 橙点（对齐 disclosure.rs:59 dot-alert）
+    let dot = if overdue > 0 {
+        html! { span class="absolute -top-[3px] -right-[3px] w-[9px] h-[9px] rounded-full bg-danger ring-2 ring-bg" {} }
+    } else if soon > 0 {
+        html! { span class="absolute -top-[3px] -right-[3px] w-[9px] h-[9px] rounded-full bg-warn ring-2 ring-bg" {} }
+    } else {
+        html! {}
     };
     html! {
         div id=(format!("d-{slug}")) class="bg-bg border border-border-soft rounded-lg mb-3 shadow-xs overflow-hidden" {
@@ -560,12 +586,26 @@ fn render_card(domain: WorkCenterDomain, count: u64, body: Option<Markup>) -> Ma
                 hx-target=(format!("#d-{slug}-body"))
                 hx-swap="innerHTML"
                 _=(format!("on click toggle .hidden on #d-{slug}-body")) {
-                div class="w-8 h-8 rounded-md grid place-items-center shrink-0 bg-surface text-fg-2" { (ic) }
-                span class="text-sm font-semibold text-fg shrink-0" { (label) }
-                span class="text-xs text-muted font-mono flex-1 min-w-0 truncate" {
-                    @if count > 0 { (count) " 笔待处理" } @else { "当前无待办" }
+                div class="di-icon relative w-[30px] h-[30px] rounded-md flex items-center justify-center shrink-0 bg-surface text-fg-2" {
+                    (ic)
+                    (dot)
                 }
-                (icon::chevron_down_icon("w-4 h-4 text-muted shrink-0"))
+                span class="text-sm font-semibold text-fg shrink-0" { (label) }
+                span class="di-summary text-xs text-muted font-mono flex-1 min-w-0 truncate" {
+                    @if count > 0 {
+                        (count) " 笔"
+                        @if overdue > 0 {
+                            " · " span class="text-danger" { (overdue) " 逾期" }
+                        }
+                        @if soon > 0 {
+                            " · " span class="text-warn" { (soon) " 临期" }
+                        }
+                        " · " (hint)
+                    } @else {
+                        "当前无待办"
+                    }
+                }
+                (icon::chevron_down_icon("w-[18px] h-[18px] text-muted shrink-0"))
             }
             div id=(format!("d-{slug}-body")) class=(body_cls) {
                 @if let Some(b) = body { (b) }
@@ -607,12 +647,18 @@ fn render_task_row(t: &PendingTask, domain: WorkCenterDomain) -> Markup {
         Urgency::Soon => ("临期", "bg-warn-bg text-warn"),
         Urgency::Normal => ("正常", "bg-surface text-muted"),
     };
+    // 整行背景按紧急度染色（对齐原型 tr.overdue / tr.soon）
+    let row_bg = match t.urgency {
+        Urgency::Overdue => "bg-danger-bg",
+        Urgency::Soon => "bg-warn-bg",
+        Urgency::Normal => "",
+    };
     let expected = t
         .expected_at
         .map(|d| d.format("%m-%d").to_string())
         .unwrap_or_else(|| "—".into());
     html! {
-        tr class="border-b border-border-soft last:border-b-0" {
+        tr class=(format!("border-b border-border-soft last:border-b-0 {row_bg}")) {
             td class="py-3 px-3 text-sm font-mono text-accent font-semibold" {
                 @if let Some(url) = domain_detail_url(domain, t.doc_id) {
                     a class="text-accent no-underline hover:underline cursor-pointer" href=(url) { (t.doc_number) }

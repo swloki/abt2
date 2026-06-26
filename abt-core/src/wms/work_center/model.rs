@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use chrono::{DateTime, Utc};
 
 /// 仓库作业中心待办汇总（6 个业务环节；取消来料通知后无「待质检」）
@@ -32,7 +34,7 @@ impl WorkCenterSummary {
 }
 
 /// 作业环节（对应作业中心的一个 disclosure 分区 / 锚点条 chip）
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum WorkCenterDomain {
     Arrival,
     Pick,
@@ -82,9 +84,27 @@ pub struct PendingTask {
     pub urgency: Urgency,
 }
 
-/// 紧急 / 临期汇总（摘要带 + 锚点条染色；消化 #93 followup P1 item 4）
+/// 紧急 / 临期汇总（按环节拆分，驱动锚点条 chip 染色 + disclosure 角标/摘要染色；
+/// 消化 #93 followup P1 item 4）。异常状态下沉到各 domain，无聚合 pill。
 #[derive(Debug, Clone, Default)]
 pub struct UrgentSummary {
-    pub overdue_count: u64,
-    pub soon_count: u64,
+    /// 按 domain 拆分的 (overdue, soon) 计数
+    pub by_domain: HashMap<WorkCenterDomain, (u64, u64)>,
+}
+
+impl UrgentSummary {
+    /// 逾期总数（跨环节）
+    pub fn total_overdue(&self) -> u64 {
+        self.by_domain.values().map(|(o, _)| *o).sum()
+    }
+
+    /// 临期总数（跨环节）
+    pub fn total_soon(&self) -> u64 {
+        self.by_domain.values().map(|(_, s)| *s).sum()
+    }
+
+    /// 某 domain 的 (overdue, soon)
+    pub fn of(&self, d: WorkCenterDomain) -> (u64, u64) {
+        *self.by_domain.get(&d).unwrap_or(&(0, 0))
+    }
 }

@@ -608,19 +608,20 @@ impl WorkCenterService for WorkCenterServiceImpl {
     async fn urgent_summary(&self, ctx: &ServiceContext, db: PgExecutor<'_>) -> Result<UrgentSummary> {
         let today = Utc::now().date_naive();
         let now = Utc::now();
-        let mut overdue = 0u64;
-        let mut soon = 0u64;
+        let mut by_domain = HashMap::new();
         for domain in ALL_DOMAINS {
-            let tasks = self.fetch_domain_tasks(ctx, db, domain, today, now).await;
-            for t in tasks {
+            let mut overdue = 0u64;
+            let mut soon = 0u64;
+            for t in self.fetch_domain_tasks(ctx, db, domain, today, now).await {
                 match t.urgency {
                     Urgency::Overdue => overdue += 1,
                     Urgency::Soon => soon += 1,
                     Urgency::Normal => {}
                 }
             }
+            by_domain.insert(domain, (overdue, soon));
         }
-        Ok(UrgentSummary { overdue_count: overdue, soon_count: soon })
+        Ok(UrgentSummary { by_domain })
     }
 }
 

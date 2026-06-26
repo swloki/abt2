@@ -110,6 +110,10 @@ pub fn arrow_right_icon(c: &str) -> Markup {
     icon("i-lucide-arrow-right", c)
 }
 
+pub fn arrow_left_right_icon(c: &str) -> Markup {
+    icon("i-lucide-arrow-left-right", c)
+}
+
 pub fn arrow_left_icon(c: &str) -> Markup {
     icon("i-lucide-arrow-left", c)
 }

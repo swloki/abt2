@@ -145,29 +145,6 @@ fn build_filter(params: &OutsourcingQueryParams) -> OutsourcingOrderQuery {
  }
 }
 
-fn build_query_string(params: &OutsourcingQueryParams) -> String {
- let mut q = vec![];
- if let Some(ref v) = params.keyword {
- q.push(format!("keyword={v}"));
- }
- if let Some(ref v) = params.status {
- q.push(format!("status={v}"));
- }
- if let Some(ref v) = params.outsourcing_type {
- q.push(format!("outsourcing_type={v}"));
- }
- if let Some(ref v) = params.supplier_id {
- q.push(format!("supplier_id={v}"));
- }
- if let Some(ref v) = params.date_from {
- q.push(format!("date_from={v}"));
- }
- if let Some(ref v) = params.date_to {
- q.push(format!("date_to={v}"));
- }
- q.join("&")
-}
-
 async fn resolve_supplier_names<S: SupplierService>(
  svc: &S,
  ctx: &abt_core::shared::types::ServiceContext,
@@ -447,9 +424,8 @@ fn data_card(
  supplier_names: &HashMap<i64, String>,
  product_names: &HashMap<i64, String>,
  latest_tracking: &HashMap<i64, String>,
- params: &OutsourcingQueryParams,
+ _params: &OutsourcingQueryParams,
 ) -> Markup {
- let query = build_query_string(params);
  html! {
     div class="data-card" id="outsourcing-data-card" {
         div class="overflow-x-auto" {
@@ -550,7 +526,8 @@ fn data_card(
         ({
             pagination(
                 OmOutsourcingListPath::PATH,
-                &query,
+                "#outsourcing-data-card",
+                "#outsourcing-filter-form",
                 result.total,
                 result.page,
                 result.total_pages,

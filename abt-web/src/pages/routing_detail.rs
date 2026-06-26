@@ -10,7 +10,7 @@ use abt_core::shared::types::PageParams;
 use abt_macros::require_permission;
 
 use crate::components::{detail::detail_row, icon};
-use crate::components::pagination::htmx_pagination;
+use crate::components::pagination::pagination;
 use crate::layout::page::admin_page;
 use crate::routes::routing::{RoutingDeletePath, RoutingDetailPath, RoutingListPath};
 use crate::utils::RequestContext;
@@ -256,12 +256,8 @@ fn routing_detail_page(
             }
         }
         // ── 关联BOM ──
-        div class="bg-white border border-border-soft rounded p-5 routing-bom-card mt-5"
-            hx-select=".routing-bom-card"
-            hx-target=".routing-bom-card"
-            hx-swap="outerHTML"
-           
-        {
+        form id="filter-form"
+            class="bg-white border border-border-soft rounded p-5 routing-bom-card mt-5" {
             div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 border-b border-border-soft"
             { "关联BOM" }
             (bom_table_fragment(routing.id, boms))
@@ -298,15 +294,7 @@ fn bom_table_fragment(routing_id: i64, boms: &abt_core::shared::types::Paginated
             }
         }
         ({
-            htmx_pagination(
-                &base_path,
-                "",
-                boms.total,
-                boms.page,
-                boms.total_pages,
-                ".routing-bom-card",
-                "outerHTML",
-            )
+            pagination(&base_path, ".routing-bom-card", "#filter-form", boms.total, boms.page, boms.total_pages)
         })
     }
 }

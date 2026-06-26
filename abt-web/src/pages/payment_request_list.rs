@@ -68,26 +68,6 @@ fn build_filter(params: &PayQueryParams) -> PaymentRequestQuery {
  }
 }
 
-fn build_query_string(params: &PayQueryParams) -> String {
- let mut q = vec![];
- if let Some(ref kw) = params.keyword {
- q.push(format!("keyword={kw}"));
- }
- if let Some(s) = params.status {
- q.push(format!("status={s}"));
- }
- if let Some(sid) = params.supplier_id {
- q.push(format!("supplier_id={sid}"));
- }
- if let Some(ref dr) = params.date_range {
- q.push(format!("date_range={dr}"));
- }
- if let Some(pm) = params.payment_method {
- q.push(format!("payment_method={pm}"));
- }
- q.join("&")
-}
-
 async fn resolve_supplier_names<S: SupplierService>(
  svc: &S,
  ctx: &abt_core::shared::types::ServiceContext,
@@ -233,7 +213,6 @@ fn pay_table_fragment(
  params: &PayQueryParams,
  can_delete: bool,
 ) -> Markup {
- let query = build_query_string(params);
  let active_value = params.status.map(|s| s.to_string()).unwrap_or_default();
  let total_count = result.total;
 
@@ -345,7 +324,8 @@ fn pay_table_fragment(
             ({
                 pagination(
                     PayListPath::PATH,
-                    &query,
+                    "#pay-data-card",
+                    "#pay-filter-form",
                     result.total,
                     result.page,
                     result.total_pages,

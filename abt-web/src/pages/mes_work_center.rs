@@ -332,9 +332,8 @@ fn toggle_cls(active: bool) -> &'static str {
 
 fn render_demand_material(
     result: &abt_core::shared::types::PaginatedResult<MaterialAggSummary>,
-    p: &DemandCardParams,
+    _p: &DemandCardParams,
 ) -> Markup {
-    let qs = demand_query_string("material", p.keyword.as_deref(), p.date_filter.as_deref());
     html! {
         div class="data-card" {
             // 列头
@@ -352,7 +351,7 @@ fn render_demand_material(
             @for item in &result.items {
                 (wc_demand_material_row(item))
             }
-            (pagination(WcDemandPath::PATH, &qs, result.total, result.page, result.total_pages))
+            (pagination(WcDemandPath::PATH, "#wc-demand-card", "#wc-demand-filter-form", result.total, result.page, result.total_pages))
         }
     }
 }
@@ -451,9 +450,8 @@ fn wc_demand_material_row(item: &MaterialAggSummary) -> Markup {
 
 fn render_demand_detail(
     result: &abt_core::shared::types::PaginatedResult<DemandSummary>,
-    p: &DemandCardParams,
+    _p: &DemandCardParams,
 ) -> Markup {
-    let qs = demand_query_string("detail", p.keyword.as_deref(), p.date_filter.as_deref());
     html! {
         div class="data-card batch-scope" {
             div class="overflow-x-auto" {
@@ -483,7 +481,7 @@ fn render_demand_detail(
                 }
             }
             (detail_batch_bar())
-            (pagination(WcDemandPath::PATH, &qs, result.total, result.page, result.total_pages))
+            (pagination(WcDemandPath::PATH, "#wc-demand-card", "#wc-demand-filter-form", result.total, result.page, result.total_pages))
         }
     }
 }
@@ -537,21 +535,6 @@ fn wc_demand_detail_row(item: &DemandSummary) -> Markup {
             td class="py-2.5 px-3" { (demand_status_label(item.demand_status)) }
         }
     }
-}
-
-fn demand_query_string(view: &str, keyword: Option<&str>, date_filter: Option<&str>) -> String {
-    let mut q = vec![format!("view={view}")];
-    if let Some(k) = keyword
-        && !k.is_empty()
-    {
-        q.push(format!("keyword={k}"));
-    }
-    if let Some(d) = date_filter
-        && !d.is_empty()
-    {
-        q.push(format!("date_filter={d}"));
-    }
-    q.join("&")
 }
 
 fn format_date(d: Option<NaiveDate>) -> Markup {
@@ -896,9 +879,8 @@ fn orders_table(
     result: &abt_core::shared::types::PaginatedResult<WorkOrder>,
     product_names: &HashMap<i64, String>,
     availability: &HashMap<i64, (MaterialAvailabilityLevel, Option<String>)>,
-    p: &OrdersCardParams,
+    _p: &OrdersCardParams,
 ) -> Markup {
-    let qs = orders_query_string(p.status.as_deref(), p.keyword.as_deref());
     html! {
         div class="overflow-x-auto" {
             table class="w-full text-sm" {
@@ -924,7 +906,8 @@ fn orders_table(
         }
         (pagination(
             WcOrdersPath::PATH,
-            &qs,
+            "#wc-orders-card",
+            "#wc-orders-filter-form",
             result.total,
             result.page,
             result.total_pages,
@@ -1017,21 +1000,6 @@ fn wo_progress(w: &WorkOrder) -> Markup {
             }
         }
     }
-}
-
-fn orders_query_string(status: Option<&str>, keyword: Option<&str>) -> String {
-    let mut q = vec![];
-    if let Some(s) = status
-        && !s.is_empty()
-    {
-        q.push(format!("status={s}"));
-    }
-    if let Some(k) = keyword
-        && !k.is_empty()
-    {
-        q.push(format!("keyword={k}"));
-    }
-    q.join("&")
 }
 
 // =============================================================================

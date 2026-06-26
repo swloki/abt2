@@ -269,23 +269,6 @@ fn build_filter(params: &ProductQueryParams) -> ProductQuery {
  }
 }
 
-fn build_query_string(params: &ProductQueryParams) -> String {
- let mut q = vec![];
- if let Some(ref v) = params.code {
- q.push(format!("code={v}"));
- }
- if let Some(ref v) = params.name {
- q.push(format!("name={v}"));
- }
- if let Some(s) = params.status {
- q.push(format!("status={s}"));
- }
- if let Some(cid) = params.category_id {
- q.push(format!("category_id={cid}"));
- }
- q.join("&")
-}
-
 // ── Components ──
 
 fn product_list_page(
@@ -410,8 +393,6 @@ fn product_table_fragment(
  can_delete: bool,
  can_edit: bool,
 ) -> Markup {
- let query = build_query_string(params);
-
  html! {
     div class="customer-list-panel" {
         // ── Filter Bar ──
@@ -501,7 +482,8 @@ fn product_table_fragment(
             ({
                 pagination(
                     ProductListPath::PATH,
-                    &query,
+                    ".data-card",
+                    "#filter-form",
                     result.total,
                     result.page,
                     result.total_pages,

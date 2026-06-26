@@ -470,6 +470,7 @@ fn view_toggle_and_filter(view_mode: &str, params: &DemandPoolQueryParams) -> Ma
         }
         // Hidden form for view toggle to preserve keyword/date_filter
         form id="mes-filter-form" class="hidden" {
+            input type="hidden" name="view" value=(view_mode);
             input type="hidden" name="keyword" value=(kw);
             input type="hidden" name="date_filter" value=(df);
         }
@@ -481,10 +482,8 @@ fn view_toggle_and_filter(view_mode: &str, params: &DemandPoolQueryParams) -> Ma
 
 fn material_grid_fragment(
  result: &abt_core::shared::types::PaginatedResult<MaterialAggSummary>,
- params: &DemandPoolQueryParams,
+ _params: &DemandPoolQueryParams,
 ) -> Markup {
- let qs = material_query_string(params.keyword.as_deref(), params.date_filter.as_deref());
-
  html! {
     div class="data-card" {
         // Column header
@@ -505,7 +504,8 @@ fn material_grid_fragment(
         ({
             pagination(
                 MesDemandPoolListPath::PATH,
-                &qs,
+                "#demand-pool-data-card",
+                "#mes-filter-form",
                 result.total,
                 result.page,
                 result.total_pages,
@@ -658,15 +658,8 @@ fn demand_expand_row(d: &DemandSummary) -> Markup {
 
 fn detail_table_fragment(
  result: &abt_core::shared::types::PaginatedResult<DemandSummary>,
- params: &DemandPoolQueryParams,
+ _params: &DemandPoolQueryParams,
 ) -> Markup {
- let qs = detail_query_string(
- params.keyword.as_deref(),
- params.date_filter.as_deref(),
- params.status.as_deref(),
- params.product_id.as_deref(),
- );
-
  html! {
     div class="data-card batch-scope" {
         div class="overflow-x-auto" {
@@ -705,7 +698,8 @@ fn detail_table_fragment(
         ({
             pagination(
                 MesDemandPoolListPath::PATH,
-                &qs,
+                "#demand-pool-data-card",
+                "#mes-filter-form",
                 result.total,
                 result.page,
                 result.total_pages,
@@ -889,51 +883,6 @@ fn urgency_hint(earliest: Option<NaiveDate>) -> Option<(String, &'static str)> {
  None
  }
  })
-}
-
-fn material_query_string(keyword: Option<&str>, date_filter: Option<&str>) -> String {
- let mut q = vec![];
- if let Some(kw) = keyword
- && !kw.is_empty()
- {
- q.push(format!("keyword={kw}"));
- }
- if let Some(df) = date_filter
- && !df.is_empty()
- {
- q.push(format!("date_filter={df}"));
- }
- q.join("&")
-}
-
-fn detail_query_string(
- keyword: Option<&str>,
- date_filter: Option<&str>,
- status: Option<&str>,
- product_id: Option<&str>,
-) -> String {
- let mut q = vec!["view=detail".to_string()];
- if let Some(kw) = keyword
- && !kw.is_empty()
- {
- q.push(format!("keyword={kw}"));
- }
- if let Some(df) = date_filter
- && !df.is_empty()
- {
- q.push(format!("date_filter={df}"));
- }
- if let Some(s) = status
- && !s.is_empty()
- {
- q.push(format!("status={s}"));
- }
- if let Some(pid) = product_id
- && !pid.is_empty()
- {
- q.push(format!("product_id={pid}"));
- }
- q.join("&")
 }
 
 fn format_date(d: Option<NaiveDate>) -> Markup {

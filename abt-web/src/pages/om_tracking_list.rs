@@ -76,23 +76,6 @@ fn parse_node_type(s: &str) -> Option<TrackingNodeType> {
  }
 }
 
-fn build_query_string(params: &TrackingQueryParams) -> String {
- let mut q = vec![];
- if let Some(ref v) = params.keyword {
- q.push(format!("keyword={v}"));
- }
- if let Some(v) = params.supplier_id {
- q.push(format!("supplier_id={v}"));
- }
- if let Some(ref v) = params.node_type {
- q.push(format!("node_type={v}"));
- }
- if let Some(ref v) = params.overdue_status {
- q.push(format!("overdue_status={v}"));
- }
- q.join("&")
-}
-
 fn format_amount(d: rust_decimal::Decimal) -> String {
  let f: f64 = d.try_into().unwrap_or(0.0);
  if f == 0.0 { return "0".to_string(); }
@@ -403,6 +386,7 @@ fn tracking_table_fragment(
     div {
         form
             class="flex items-center gap-3 mb-5 flex-wrap"
+            id="tracking-filter-form"
             hx-get=(OmTrackingListPath::PATH)
             hx-trigger="change, keyup changed delay:300ms from:.search-input"
             hx-target="#tracking-data-card"
@@ -491,9 +475,8 @@ fn tracking_data_card(
  order_map: &HashMap<i64, abt_core::om::outsourcing_order::OutsourcingOrder>,
  supplier_map: &HashMap<i64, String>,
  product_map: &HashMap<i64, String>,
- params: &TrackingQueryParams,
+ _params: &TrackingQueryParams,
 ) -> Markup {
- let query = build_query_string(params);
  html! {
     div class="data-card" id="tracking-data-card" {
         div class="overflow-x-auto" {
@@ -612,7 +595,8 @@ fn tracking_data_card(
         ({
             pagination(
                 OmTrackingListPath::PATH,
-                &query,
+                "#tracking-data-card",
+                "#tracking-filter-form",
                 result.total,
                 result.page,
                 result.total_pages,

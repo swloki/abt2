@@ -133,7 +133,7 @@ fn transaction_list_page(
         }
 
         (transaction_filter_form(params))
-        (transaction_data_card(result, params))
+        (transaction_data_card(result))
     }
 }
 }
@@ -221,10 +221,7 @@ fn transaction_filter_form(params: &TransactionLogQueryParams) -> Markup {
 /// The data-card with table + pagination. This is the HTMX swap target.
 fn transaction_data_card(
  result: &abt_core::shared::types::PaginatedResult<abt_core::wms::inventory::model::TransactionDetailView>,
- params: &TransactionLogQueryParams,
 ) -> Markup {
- let query = build_query_string(params);
-
  html! {
     div id="transaction-data-card" class="data-card" {
         div class="overflow-x-auto" {
@@ -256,7 +253,8 @@ fn transaction_data_card(
         ({
             pagination(
                 TransactionListPath::PATH,
-                &query,
+                "#transaction-data-card",
+                "#transaction-filter-form",
                 result.total,
                 result.page,
                 result.total_pages,
@@ -326,30 +324,4 @@ fn source_type_label(s: &str) -> &str {
  "scrap" => "报废",
  _ => s,
  }
-}
-
-fn build_query_string(params: &TransactionLogQueryParams) -> String {
- let mut q = vec![];
- if let Some(ref v) = params.doc_number
- && !v.is_empty() {
- q.push(format!("doc_number={v}"));
- }
- if let Some(ref v) = params.product
- && !v.is_empty() {
- q.push(format!("product={v}"));
- }
- if let Some(ref tt) = params.transaction_type
- && !tt.is_empty() {
- q.push(format!("transaction_type={tt}"));
- }
- if let Some(w) = params.warehouse_id {
- q.push(format!("warehouse_id={w}"));
- }
- if let Some(ref sd) = params.start_date {
- q.push(format!("start_date={sd}"));
- }
- if let Some(ref ed) = params.end_date {
- q.push(format!("end_date={ed}"));
- }
- if q.is_empty() { String::new() } else { format!("?{}", q.join("&")) }
 }

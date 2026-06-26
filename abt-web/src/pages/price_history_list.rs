@@ -223,8 +223,8 @@ fn price_history_page(rows: &[PriceHistoryRow], total: u64, page: u32, total_pag
                 class="flex items-center gap-3 mb-5 flex-wrap filter-form"
                 hx-get=(PriceHistoryListPath::PATH)
                 hx-trigger="change,keyup changed delay:300ms from:.search-input"
-                hx-target=".data-card"
-                hx-select=".data-card"
+                hx-target="#data-card"
+                hx-select="#data-card"
                 hx-swap="outerHTML"
                 hx-include="#filter-form"
                
@@ -286,7 +286,7 @@ fn price_history_page(rows: &[PriceHistoryRow], total: u64, page: u32, total_pag
 
 fn data_card(rows: &[PriceHistoryRow], total: u64, page: u32, total_pages: u32) -> Markup {
  html! {
-    div class="data-card" {
+    div class="data-card" id="data-card" {
         div class="overflow-x-auto" {
             table class="data-table w-full" style="table-layout:fixed" {
                 thead {
@@ -313,7 +313,7 @@ fn data_card(rows: &[PriceHistoryRow], total: u64, page: u32, total_pages: u32) 
                 }
             }
         }
-        (pagination(PriceHistoryListPath::PATH, "", total, page, total_pages))
+        (pagination(PriceHistoryListPath::PATH, "#data-card", "#filter-form", total, page, total_pages))
     }
 }
 }

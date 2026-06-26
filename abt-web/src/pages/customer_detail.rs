@@ -13,7 +13,7 @@ use abt_core::sales::sales_return::{SalesReturnService, model::{ReturnQuery, Ret
 use abt_core::shared::types::{PageParams, PgExecutor};
 
 use crate::components::icon;
-use crate::components::pagination::htmx_pagination;
+use crate::components::pagination::pagination;
 use crate::layout::page::admin_page;
 use crate::routes::customer::{
  CreateAddressPath, CreateContactPath, CustomerDetailPath, CustomerListPath, CustomerTransactionsPath,
@@ -137,7 +137,8 @@ fn transaction_table_fragment(
  let txn_path = CustomerTransactionsPath { id: customer_id };
 
  html! {
-    div class="bg-white border border-border-soft rounded p-5 mt-5 transaction-panel" {
+    form id="filter-form"
+        class="bg-white border border-border-soft rounded p-5 mt-5 transaction-panel" {
         div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 border-b border-border-soft"
         {
             span { "交易记录" }
@@ -190,14 +191,13 @@ fn transaction_table_fragment(
                 }
             }
             ({
-                htmx_pagination(
+                pagination(
                     txn_path.to_string().as_str(),
-                    "",
+                    ".transaction-panel",
+                    "#filter-form",
                     total,
                     page,
                     total_pages,
-                    "closest .transaction-panel",
-                    "outerHTML",
                 )
             })
         }

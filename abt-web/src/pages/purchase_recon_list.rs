@@ -47,23 +47,6 @@ fn build_filter(params: &PreconQueryParams) -> PurchaseReconciliationQuery {
  }
 }
 
-fn build_query_string(params: &PreconQueryParams) -> String {
- let mut q = vec![];
- if let Some(ref kw) = params.keyword {
- q.push(format!("keyword={kw}"));
- }
- if let Some(s) = params.status {
- q.push(format!("status={s}"));
- }
- if let Some(sid) = params.supplier_id {
- q.push(format!("supplier_id={sid}"));
- }
- if let Some(ref p) = params.period {
- q.push(format!("period={p}"));
- }
- q.join("&")
-}
-
 async fn resolve_supplier_names<S: SupplierService>(
  svc: &S,
  ctx: &abt_core::shared::types::ServiceContext,
@@ -189,7 +172,6 @@ fn precon_table_fragment(
  suppliers: &[abt_core::master_data::supplier::model::Supplier],
  params: &PreconQueryParams,
 ) -> Markup {
- let query = build_query_string(params);
  let active_value = params.status.map(|s| s.to_string()).unwrap_or_default();
  let total_count = result.total;
  let tabs = &[
@@ -285,7 +267,8 @@ fn precon_table_fragment(
             ({
                 pagination(
                     PreconListPath::PATH,
-                    &query,
+                    "#precon-data-card",
+                    "#precon-filter-form",
                     result.total,
                     result.page,
                     result.total_pages,

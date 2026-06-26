@@ -105,43 +105,6 @@ fn material_icon(product_id: i64) -> (String, String, Markup) {
  }
 }
 
-fn material_query_string(keyword: Option<&str>, date_filter: Option<&str>, sort: &str) -> String {
- let mut q = vec![];
- if !sort.is_empty() {
- q.push(format!("sort={sort}"));
- }
- if let Some(kw) = keyword
- && !kw.is_empty()
- {
- q.push(format!("keyword={kw}"));
- }
- if let Some(df) = date_filter
- && !df.is_empty()
- {
- q.push(format!("date_filter={df}"));
- }
- q.join("&")
-}
-
-fn detail_query_string(keyword: Option<&str>, date_filter: Option<&str>, order_id: Option<i64>) -> String {
- let mut q = vec!["view=detail".to_string()];
- if let Some(oid) = order_id {
- q.push(format!("order_id={oid}"));
- }
- if let Some(kw) = keyword
- && !kw.is_empty()
- {
- q.push(format!("keyword={kw}"));
- }
- if let Some(df) = date_filter
- && !df.is_empty()
- {
- q.push(format!("date_filter={df}"));
- }
- q.join("&")
-}
-
-
 // ── Handlers ──
 
 #[require_permission("PURCHASE_ORDER", "read")]
@@ -328,10 +291,10 @@ fn demand_pool_material_page(
  params: &DemandPoolQueryParams,
 ) -> Markup {
  html! {
-    div {
-        (page_header())
+    div id="demand-pool-page" {
+        (page_header("#demand-pool-material-card"))
         (stat_mini_cards(stats))
-        div id="demand-pool-data-card" {
+        div id="demand-pool-material-card" {
             (view_toggle_and_filter("material", params))
             (material_table_fragment(result, params))
         }
@@ -346,10 +309,10 @@ fn demand_pool_detail_page(
  params: &DemandPoolQueryParams,
 ) -> Markup {
  html! {
-    div {
-        (page_header())
+    div id="demand-pool-page" {
+        (page_header("#demand-pool-detail-card"))
         (stat_mini_cards(stats))
-        div id="demand-pool-data-card" {
+        div id="demand-pool-detail-card" {
             (view_toggle_and_filter("detail", params))
             (detail_table_fragment(result, params))
         }
@@ -358,7 +321,7 @@ fn demand_pool_detail_page(
 }
 }
 
-fn page_header() -> Markup {
+fn page_header(card_sel: &str) -> Markup {
  html! {
     div class="flex items-center justify-between mb-6" {
         div {
@@ -371,8 +334,8 @@ fn page_header() -> Markup {
             button
                 class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
                 hx-get=(PurchaseDemandPoolListPath::PATH)
-                hx-target="#demand-pool-data-card"
-                hx-select="#demand-pool-data-card"
+                hx-target=(card_sel)
+                hx-select=(card_sel)
                 hx-swap="outerHTML"
             { (icon::refresh_icon("w-4 h-4")) "刷新" }
         }
@@ -382,6 +345,11 @@ fn page_header() -> Markup {
 
 fn view_toggle_and_filter(active: &str, params: &DemandPoolQueryParams) -> Markup {
  let is_material = active == "material";
+ let card_sel = if is_material {
+    "#demand-pool-material-card"
+ } else {
+    "#demand-pool-detail-card"
+ };
  let material_cls = if is_material {
  "inline-flex items-center gap-1.5 px-4 py-1.5 text-sm font-semibold cursor-pointer whitespace-nowrap bg-bg text-accent shadow-[var(--shadow-xs)] rounded-sm"
  } else {
@@ -402,19 +370,19 @@ fn view_toggle_and_filter(active: &str, params: &DemandPoolQueryParams) -> Marku
             a   class=(material_cls)
                 hx-get=(PurchaseDemandPoolListPath::PATH)
                 hx-vals="{\"view\":\"material\"}"
-                hx-target="#demand-pool-data-card"
-                hx-select="#demand-pool-data-card"
+                hx-target="#demand-pool-page"
+                hx-select="#demand-pool-page"
                 hx-swap="outerHTML"
-               
+
                 hx-include="#demand-pool-filter-form"
             { (icon::grid_4_icon("w-4 h-4")) "物料汇总" }
             a   class=(detail_cls)
                 hx-get=(PurchaseDemandPoolListPath::PATH)
                 hx-vals="{\"view\":\"detail\"}"
-                hx-target="#demand-pool-data-card"
-                hx-select="#demand-pool-data-card"
+                hx-target="#demand-pool-page"
+                hx-select="#demand-pool-page"
                 hx-swap="outerHTML"
-               
+
                 hx-include="#demand-pool-filter-form"
             { (icon::rows_icon("w-4 h-4")) "订单行明细" }
         }
@@ -436,10 +404,10 @@ fn view_toggle_and_filter(active: &str, params: &DemandPoolQueryParams) -> Marku
             class="flex items-center gap-3 mb-5 flex-wrap"
             hx-get=(PurchaseDemandPoolListPath::PATH)
             hx-trigger="change, keyup changed delay:300ms from:.search-input"
-            hx-target="#demand-pool-data-card"
-            hx-select="#demand-pool-data-card"
+            hx-target=(card_sel)
+            hx-select=(card_sel)
             hx-swap="outerHTML"
-           
+
         {
             input type="hidden" name="view" value=(active);
             @if let Some(oid) = params.order_id {
@@ -478,6 +446,7 @@ fn view_toggle_and_filter(active: &str, params: &DemandPoolQueryParams) -> Marku
         }
 
         form id="demand-pool-filter-form" style="display:none;" {
+            input type="hidden" name="view" value=(active);
             input type="hidden" name="keyword" value=(keyword);
             input type="hidden" name="date_filter" value=(date_filter_val);
             @if is_material {
@@ -641,11 +610,8 @@ fn batch_action_bar() -> Markup {
 
 fn material_table_fragment(
  result: &abt_core::shared::types::PaginatedResult<MaterialAggSummary>,
- params: &DemandPoolQueryParams,
+ _params: &DemandPoolQueryParams,
 ) -> Markup {
- let sort_val = MaterialSort::from_query(params.sort.as_deref()).as_query();
- let qs = material_query_string(params.keyword.as_deref(), params.date_filter.as_deref(), sort_val);
-
  html! {
     div class="data-card" id="materialView" {
         (material_table_header())
@@ -656,7 +622,8 @@ fn material_table_fragment(
         ({
             pagination(
                 PurchaseDemandPoolListPath::PATH,
-                &qs,
+                "#demand-pool-material-card",
+                "#demand-pool-filter-form",
                 result.total,
                 result.page,
                 result.total_pages,
@@ -838,10 +805,8 @@ fn demand_expand_row(d: &DemandSummary) -> Markup {
 
 fn detail_table_fragment(
  result: &abt_core::shared::types::PaginatedResult<DemandSummary>,
- params: &DemandPoolQueryParams,
+ _params: &DemandPoolQueryParams,
 ) -> Markup {
- let qs = detail_query_string(params.keyword.as_deref(), params.date_filter.as_deref(), params.order_id);
-
  html! {
     div class="data-card" id="detailView" {
         div class="overflow-x-auto" {
@@ -881,7 +846,8 @@ fn detail_table_fragment(
         ({
             pagination(
                 PurchaseDemandPoolListPath::PATH,
-                &qs,
+                "#demand-pool-detail-card",
+                "#demand-pool-filter-form",
                 result.total,
                 result.page,
                 result.total_pages,

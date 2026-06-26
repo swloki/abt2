@@ -67,7 +67,6 @@ fn adjustment_table(
     total: u64,
     page: u32,
     page_size: u32,
-    query_string: &str,
     list_path: &str,
 ) -> Markup {
     let total_pages = ((total as f64) / (page_size as f64)).ceil() as u32;
@@ -96,7 +95,7 @@ fn adjustment_table(
                 }
             }
             @if total > page_size as u64 {
-                (pagination(list_path, query_string, total, page, total_pages))
+                (pagination(list_path, "#data-card", "#adjustment-filter-form", total, page, total_pages))
             }
         }
     }
@@ -170,12 +169,6 @@ async fn render_list(
         .await
         .unwrap_or_else(|_| PaginatedResult::new(vec![], 0, page, page_size));
 
-    let mut parts: Vec<String> = Vec::new();
-    if !keyword_val.is_empty() {
-        parts.push(format!("keyword={}", url_encode(&keyword_val)));
-    }
-    let query_string = if parts.is_empty() { String::new() } else { format!("?{}", parts.join("&")) };
-
     let content = html! {
         div {
             div class="flex items-center justify-between mb-6" {
@@ -184,12 +177,14 @@ async fn render_list(
                     class="inline-flex items-center gap-2 px-4 py-2 rounded-sm bg-accent text-accent-on text-sm font-medium cursor-pointer hover:bg-accent-hover"
                 { (icon::plus_icon("w-4 h-4")) "新建调整" }
             }
-            form class="flex items-center gap-3 mb-5 flex-wrap"
+            form id="adjustment-filter-form"
+                class="flex items-center gap-3 mb-5 flex-wrap"
                 hx-get=(list_path)
                 hx-trigger="change, keyup changed delay:300ms from:.search-input"
                 hx-target="#data-card"
                 hx-select="#data-card"
                 hx-swap="outerHTML"
+                hx-include="#adjustment-filter-form"
                
             {
                 div class="relative flex-1 max-w-xs icon:absolute icon:left-3 icon:top-1/2 icon:-translate-y-1/2 icon:w-4 icon:h-4 icon:text-muted"
@@ -200,23 +195,10 @@ async fn render_list(
                         value=(keyword_val);
                 }
             }
-            (adjustment_table(&result.items, result.total, result.page, result.page_size, &query_string, list_path))
+            (adjustment_table(&result.items, result.total, result.page, result.page_size, list_path))
         }
     };
 
     let page_html = admin_page(is_htmx, title, &claims, "finance", list_path, "财务管理", None, content, &nav_filter);
     Ok(Html(page_html.into_string()))
-}
-
-fn url_encode(s: &str) -> String {
-    use std::fmt::Write;
-    let mut out = String::new();
-    for b in s.bytes() {
-        if b.is_ascii_alphanumeric() || b == b'-' || b == b'_' || b == b'.' || b == b'~' {
-            write!(out, "{}", b as char).unwrap();
-        } else {
-            write!(out, "%{:02X}", b).unwrap();
-        }
-    }
-    out
 }

@@ -63,22 +63,6 @@ fn build_filter(params: &QuotationQueryParams) -> QuotationQuery {
  }
 }
 
-fn build_query_string(params: &QuotationQueryParams) -> String {
- let mut q = vec![];
- if let Some(ref kw) = params.keyword {
- q.push(format!("keyword={kw}"));
- }
- if let Some(s) = params.status {
- q.push(format!("status={s}"));
- }
- if let Some(c) = params.customer_id {
- q.push(format!("customer_id={c}"));
- }
- if let Some(ref dr) = params.date_range {
- q.push(format!("date_range={dr}"));
- }
- q.join("&")
-}
 
 // ── Status Labels ──
 
@@ -187,7 +171,6 @@ fn quotation_table_fragment(
  params: &QuotationQueryParams,
  can_delete: bool,
 ) -> Markup {
- let query = build_query_string(params);
  let active_value = params.status.map(|s| s.to_string()).unwrap_or_default();
  let total_count = result.total;
 
@@ -285,7 +268,8 @@ fn quotation_table_fragment(
             ({
                 pagination(
                     QuotationListPath::PATH,
-                    &query,
+                    "#quotation-data-card",
+                    "#quotation-filter-form",
                     result.total,
                     result.page,
                     result.total_pages,

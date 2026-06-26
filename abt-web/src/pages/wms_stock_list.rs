@@ -51,32 +51,6 @@ fn build_filter(params: &StockQueryParams, single_product_id: Option<i64>, produ
  }
 }
 
-fn build_query_string(params: &StockQueryParams) -> String {
- let mut q = vec![];
- if let Some(code) = &params.product_code
- && !code.is_empty() {
- q.push(format!("product_code={code}"));
- }
- if let Some(name) = &params.product_name
- && !name.is_empty() {
- q.push(format!("product_name={name}"));
- }
- if let Some(wid) = params.warehouse_id {
- q.push(format!("warehouse_id={wid}"));
- }
- if let Some(zid) = params.zone_id {
- q.push(format!("zone_id={zid}"));
- }
- if params.low_stock == Some(true) {
- q.push("low_stock=true".into());
- }
- if let Some(bn) = &params.batch_no
- && !bn.is_empty() {
- q.push(format!("batch_no={bn}"));
- }
- q.join("&")
-}
-
 /// Look up product IDs matching the code/name search terms.
 /// Returns (single_id_for_filter, all_matching_ids_for_post_filter).
 /// - If exactly one product matches → single_id = Some(id), use it in StockFilter for efficient DB query.
@@ -382,7 +356,7 @@ fn stock_list_page(
         // ── Filter Bar (outside data-card, always visible) ──
         (stock_filter_bar(ctx.warehouses, ctx.zones, ctx.params))
         // ── Data Card (HTMX target) ──
-        (stock_data_card(result, ctx.product_names, ctx.params))
+        (stock_data_card(result, ctx.product_names))
         // ── Detail Drawer ──
         ({
             crate::components::drawer::drawer_with_footer(
@@ -483,10 +457,7 @@ fn stock_filter_bar(
 fn stock_data_card(
  result: &abt_core::shared::types::PaginatedResult<abt_core::wms::stock_ledger::model::StockLedger>,
  product_names: &HashMap<i64, (String, String)>,
- params: &StockQueryParams,
 ) -> Markup {
- let query = build_query_string(params);
-
  html! {
     div id="stock-data-card" class="data-card" {
         div class="overflow-x-auto" {
@@ -549,7 +520,8 @@ fn stock_data_card(
         ({
             pagination(
                 StockListPath::PATH,
-                &query,
+                "#stock-data-card",
+                "#stock-filter-form",
                 result.total,
                 result.page,
                 result.total_pages,

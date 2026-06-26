@@ -199,16 +199,27 @@ form class="filter-bar filter-form" id="xxx-filter-form"
 - **保留筛选输入值**：filter-form 在 `#data-card` 上被 `outerHTML` 刷新时输入框会清空。给需保留的控件加 `hx-preserve`，HTMX 把原节点搬到新 DOM、避免重建丢值。范本：`pages/fms_ap_ledger.rs:293-348`、`pages/fms_ar_ledger.rs:295-348`（日期 / 单号 / 名称等筛选项全部 `hx-preserve`）。
 - 进阶：混合触发源，见 `pages/user_list.rs:401`（搜索输入 + 自定义事件 `userToggled from:body` 都刷新同一 form）
 
-**Pagination**（`components/pagination.rs`）：
+**Pagination**（`components/pagination.rs`）—— 单一组件，`status_tabs` 同款 HTMX 局部刷新（3 个旧组件 `pagination` / `htmx_pagination` / `htmx_pagination_inherited` 已合并为这一个）：
 
 ```rust
-// 推荐：轻量版，链接只有 hx-get，从祖先容器继承 hx-target/hx-swap
-htmx_pagination_inherited(ListPath::PATH, &query_string, total, page, total_pages)
-// 需要显式指定 target/swap 时：
-htmx_pagination(ListPath::PATH, &query_string, total, page, total_pages, "#data-card", "outerHTML")
+// page 经 hx-vals 传，筛选经 hx-include 携带 —— 无 hidden input、无 hyperscript
+pagination(ListPath::PATH, "#order-data-card", "#filter-form", total, page, total_pages)
 ```
 
-分页链接由服务端拼 `query_string`（含 status / keyword）+ `page=N`，**分页保持筛选状态**（`components/pagination.rs:173-183`）。`query` 为空时筛选编码在路径本身（如 `/customers/{id}/transactions`）。
+每个链接自带 `hx-get` + `hx-target=target_sel` + `hx-select=target_sel` + `hx-vals={"page":N}` + `hx-include=form_sel`，与 `status_tabs` 完全对称。点击 → HTMX 局部替换 `target_sel`（URL 不变，列表页禁 `hx-push-url`）。
+
+- `target_sel`：替换目标（如 `"#order-data-card"`、`".transaction-panel"`）
+- `form_sel`：携带筛选的 form 选择器（如 `"#filter-form"`）；同页多 form 各传各的
+
+**约定**：
+
+- filter-form `id="filter-form"`（被 `hx-include` 引用），自身已有 `hx-get` + `hx-target="#data-card"` + `hx-select="#data-card"` + `hx-trigger="change, keyup..."`（搜索用，标准列表页本就有）
+- **切 tab 回第 1 页**：`status_tabs` 的 `hx-vals` 强制 `page=1`（`components/tabs.rs`）
+- **搜索回第 1 页**：filter-form 无 page 字段 → 搜索 submit 不带 page → handler 默认 page=1（自动，无需额外代码）
+
+> **为什么用 a 链接 + hx-vals 而非事件 / hyperscript**：分页链接直接当 htmx 触发器（status_tabs 同款），page 经 `hx-vals` 传是 htmx 原生传参，无需 hidden page input、无 hyperscript、无 app.js 函数。实测备选路径（自定义 `paginate` 事件 + `hx-vals=js:event.detail`、`trigger submit`、`form.requestSubmit()`）在 htmx form 上要么不触发请求、要么改变地址栏 URL（列表页不可接受）。
+>
+> detail 子分页（`customer_detail` / `routing_detail` / `category_list`）：panel 容器即 `form#filter-form`（**无 hx-***，仅作 `hx-include` 取值容器，因 detail 无搜索字段），分页链接 `target_sel` 指向 panel class（如 `.transaction-panel`）。`category_list` 改用专用 `CategoryDetailPanelPath` 端点。
 
 ### 2.2.1 常用 `hx-trigger` 修饰符
 

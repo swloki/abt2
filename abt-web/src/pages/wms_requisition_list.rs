@@ -47,23 +47,6 @@ fn build_filter(params: &RequisitionQueryParams) -> RequisitionFilter {
  }
 }
 
-fn build_query_string(params: &RequisitionQueryParams) -> String {
- let mut q = vec![];
- if let Some(ref v) = params.doc_number {
- q.push(format!("doc_number={v}"));
- }
- if let Some(ref v) = params.work_order {
- q.push(format!("work_order={v}"));
- }
- if let Some(s) = params.status {
- q.push(format!("status={s}"));
- }
- if let Some(wid) = params.warehouse_id {
- q.push(format!("warehouse_id={wid}"));
- }
- q.join("&")
-}
-
 fn status_label(s: RequisitionStatus) -> (&'static str, &'static str) {
  match s {
  RequisitionStatus::Draft => ("草稿", "status-draft"),
@@ -194,7 +177,6 @@ fn requisition_table_fragment(
  warehouses: &[abt_core::wms::warehouse::model::Warehouse],
  params: &RequisitionQueryParams,
 ) -> Markup {
- let _query = build_query_string(params);
  let active_value = params.status.map(|s| s.to_string()).unwrap_or_default();
  let total_count = result.total;
 
@@ -272,9 +254,8 @@ fn requisition_data_card(
  result: &abt_core::shared::types::pagination::PaginatedResult<abt_core::wms::material_requisition::model::MaterialRequisition>,
  warehouse_names: &HashMap<i64, String>,
  operator_names: &HashMap<i64, String>,
- params: &RequisitionQueryParams,
+ _params: &RequisitionQueryParams,
 ) -> Markup {
- let query = build_query_string(params);
  html! {
     div class="data-card" id="requisition-data-card" {
         div class="overflow-x-auto" {
@@ -303,7 +284,8 @@ fn requisition_data_card(
         ({
             pagination(
                 RequisitionListPath::PATH,
-                &query,
+                "#requisition-data-card",
+                "#requisition-filter-form",
                 result.total,
                 result.page,
                 result.total_pages,

@@ -73,7 +73,6 @@ fn build_filter(params: &ConversionQueryParams) -> abt_core::wms::form_conversio
 
 fn conversion_data_card(
  result: &abt_core::shared::types::pagination::PaginatedResult<FormConversion>,
- query: &str,
 ) -> Markup {
  html! {
     div id="conversion-data-card" class="data-card" {
@@ -104,7 +103,8 @@ fn conversion_data_card(
         ({
             pagination(
                 ConversionListPath::PATH,
-                query,
+                "#conversion-data-card",
+                "#conversion-filter-form",
                 result.total,
                 result.page,
                 result.total_pages,
@@ -143,7 +143,6 @@ fn conversion_table_fragment(
  result: &abt_core::shared::types::pagination::PaginatedResult<FormConversion>,
  params: &ConversionQueryParams,
 ) -> Markup {
- let query = build_query_string(params);
  let active_value = params.status.map(|s| s.to_string()).unwrap_or_default();
  let total_count = result.total;
 
@@ -189,7 +188,7 @@ fn conversion_table_fragment(
             }
         }
 
-        (conversion_data_card(result, &query))
+        (conversion_data_card(result))
     }
 }
 }
@@ -233,13 +232,3 @@ fn conversion_row(c: &FormConversion) -> Markup {
 }
 }
 
-fn build_query_string(params: &ConversionQueryParams) -> String {
- let mut q = vec![];
- if let Some(s) = params.status {
- q.push(format!("status={s}"));
- }
- if let Some(ref s) = params.doc_number {
- q.push(format!("doc_number={s}"));
- }
- q.join("&")
-}

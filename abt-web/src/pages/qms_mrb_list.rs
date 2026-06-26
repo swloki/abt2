@@ -121,29 +121,6 @@ async fn resolve_result_doc_numbers<S: InspectionResultService>(
  map
 }
 
-fn build_query_string(params: &MrbQueryParams) -> String {
- let mut q = vec![];
- if let Some(ref v) = params.keyword {
- q.push(format!("keyword={v}"));
- }
- if let Some(v) = params.disposition {
- q.push(format!("disposition={v}"));
- }
- if let Some(v) = params.responsible_party {
- q.push(format!("responsible_party={v}"));
- }
- if let Some(ref v) = params.status {
- q.push(format!("status={v}"));
- }
- if let Some(ref v) = params.date_from {
- q.push(format!("date_from={v}"));
- }
- if let Some(ref v) = params.date_to {
- q.push(format!("date_to={v}"));
- }
- q.join("&")
-}
-
 // ── Handlers ──
 
 #[require_permission("QMS", "read")]
@@ -296,7 +273,7 @@ fn mrb_table_fragment(
                 value=(params.date_to.as_deref().unwrap_or(""));
         }
         // ── Data Table ──
-        (mrb_data_card(result, product_names, result_doc_numbers, params))
+        (mrb_data_card(result, product_names, result_doc_numbers))
     }
 }
 }
@@ -305,9 +282,7 @@ fn mrb_data_card(
  result: &PaginatedResult<Mrb>,
  product_names: &HashMap<i64, String>,
  result_doc_numbers: &HashMap<i64, String>,
- params: &MrbQueryParams,
 ) -> Markup {
- let query = build_query_string(params);
  html! {
     div class="data-card" id="mrb-data-card" {
         div class="overflow-x-auto" {
@@ -403,7 +378,8 @@ fn mrb_data_card(
         ({
             pagination(
                 MrbListPath::PATH,
-                &query,
+                "#mrb-data-card",
+                "#filter-form",
                 result.total,
                 result.page,
                 result.total_pages,

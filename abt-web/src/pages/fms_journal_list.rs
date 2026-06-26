@@ -133,31 +133,6 @@ async fn resolve_counterparty_names(
  names
 }
 
-fn build_query_string(params: &JournalQueryParams) -> String {
- let mut parts = Vec::new();
- if let Some(ref v) = params.keyword {
- parts.push(format!("keyword={v}"));
- }
- if let Some(v) = params.journal_type {
- parts.push(format!("journal_type={v}"));
- }
- if let Some(v) = params.direction {
- parts.push(format!("direction={v}"));
- }
- if let Some(v) = params.status {
- parts.push(format!("status={v}"));
- }
- if let Some(v) = params.page
- && v > 1 {
- parts.push(format!("page={v}"));
- }
- if parts.is_empty() {
- String::new()
- } else {
- format!("?{}", parts.join("&"))
- }
-}
-
 // ── Query Params ──
 
 #[derive(Debug, Deserialize, Clone, Default)]
@@ -319,8 +294,7 @@ fn journal_table_fragment(result: &PaginatedResult<CashJournal>, params: &Journa
 }
 }
 
-fn journal_data_card(result: &PaginatedResult<CashJournal>, params: &JournalQueryParams, counterparty_names: &HashMap<(CounterpartyType, i64), String>) -> Markup {
- let query = build_query_string(params);
+fn journal_data_card(result: &PaginatedResult<CashJournal>, _params: &JournalQueryParams, counterparty_names: &HashMap<(CounterpartyType, i64), String>) -> Markup {
  html! {
     div class="data-card" id="journal-data-card" {
         div class="overflow-x-auto" {
@@ -420,7 +394,8 @@ fn journal_data_card(result: &PaginatedResult<CashJournal>, params: &JournalQuer
         ({
             pagination(
                 JournalListPath::PATH,
-                &query,
+                "#journal-data-card",
+                "#journal-filter-form",
                 result.total,
                 result.page,
                 result.total_pages,

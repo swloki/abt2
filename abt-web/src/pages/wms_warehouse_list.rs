@@ -192,7 +192,6 @@ fn warehouse_table_fragment(
  manager_map: &std::collections::HashMap<i64, String>,
  can_delete: bool,
 ) -> Markup {
- let query = build_query_string(params);
  let active_value = params.status.map(|s| s.to_string()).unwrap_or_default();
  let total_count = result.total;
 
@@ -260,14 +259,13 @@ fn warehouse_table_fragment(
             }
         }
 
-        (warehouse_data_card(result, &query, manager_map, can_delete))
+        (warehouse_data_card(result, manager_map, can_delete))
     }
 }
 }
 
 fn warehouse_data_card(
  result: &abt_core::shared::types::PaginatedResult<Warehouse>,
- query: &str,
  manager_map: &std::collections::HashMap<i64, String>,
  can_delete: bool,
 ) -> Markup {
@@ -301,7 +299,8 @@ fn warehouse_data_card(
         ({
             pagination(
                 WarehouseListPath::PATH,
-                query,
+                "#warehouse-data-card",
+                "#warehouse-filter-form",
                 result.total,
                 result.page,
                 result.total_pages,
@@ -391,21 +390,4 @@ fn warehouse_row(w: &Warehouse, manager_map: &std::collections::HashMap<i64, Str
         }
     }
 }
-}
-
-fn build_query_string(params: &WarehouseQueryParams) -> String {
- let mut q = vec![];
- if let Some(ref v) = params.code {
- q.push(format!("code={v}"));
- }
- if let Some(ref v) = params.name {
- q.push(format!("name={v}"));
- }
- if let Some(s) = params.status {
- q.push(format!("status={s}"));
- }
- if let Some(t) = params.warehouse_type {
- q.push(format!("warehouse_type={t}"));
- }
- q.join("&")
 }

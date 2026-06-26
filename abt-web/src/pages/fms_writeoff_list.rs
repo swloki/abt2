@@ -41,28 +41,6 @@ fn source_type_label(dt: &DocumentType) -> &'static str {
  }
 }
 
-fn build_query_string(params: &WriteoffQueryParams) -> String {
- let mut parts = Vec::new();
- if let Some(v) = params.writeoff_type {
- parts.push(format!("writeoff_type={v}"));
- }
- if let Some(ref v) = params.keyword
- && !v.is_empty() {
- parts.push(format!("keyword={}", v.replace(' ', "%20")));
- }
- if let Some(v) = params.start_date {
- parts.push(format!("start_date={v}"));
- }
- if let Some(v) = params.end_date {
- parts.push(format!("end_date={v}"));
- }
- if let Some(v) = params.page
- && v > 1 {
- parts.push(format!("page={v}"));
- }
- if parts.is_empty() { String::new() } else { format!("?{}", parts.join("&")) }
-}
-
 /// 批量解析操作人姓名
 async fn resolve_operator_names(
  state: &crate::state::AppState,
@@ -231,10 +209,9 @@ fn writeoff_table_fragment(
 
 fn writeoff_data_card(
  result: &PaginatedResult<WriteOff>,
- params: &WriteoffQueryParams,
+ _params: &WriteoffQueryParams,
  operator_names: &HashMap<i64, String>,
 ) -> Markup {
- let query = build_query_string(params);
  html! {
     div class="data-card overflow-hidden" id="writeoff-data-card" {
         div class="overflow-x-auto" {
@@ -311,7 +288,8 @@ fn writeoff_data_card(
         ({
             pagination(
                 WriteoffListPath::PATH,
-                &query,
+                "#writeoff-data-card",
+                "#writeoff-filter-form",
                 result.total,
                 result.page,
                 result.total_pages,

@@ -124,21 +124,14 @@ fn report_table_fragment(
                 name="date_to"
                 value=(params.date_to.as_deref().unwrap_or(""));
         }
-        (report_data_card(result, params))
+        (report_data_card(result))
     }
 }
 }
 
 fn report_data_card(
  result: &PaginatedResult<ReportListItem>,
- params: &ReportQueryParams,
 ) -> Markup {
- let mut qs = vec![];
- if let Some(k) = &params.keyword { qs.push(format!("keyword={k}")); }
- if let Some(d) = &params.date_from { qs.push(format!("date_from={d}")); }
- if let Some(d) = &params.date_to { qs.push(format!("date_to={d}")); }
- let query = qs.join("&");
-
  html! {
     div class="data-card" id="report-data-card" {
         div class="overflow-x-auto" {
@@ -194,7 +187,8 @@ fn report_data_card(
         ({
             pagination(
                 ReportListPath::PATH,
-                &query,
+                "#report-data-card",
+                "#filter-form",
                 result.total,
                 result.page,
                 result.total_pages,

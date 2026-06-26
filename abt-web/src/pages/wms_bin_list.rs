@@ -146,11 +146,8 @@ fn bin_list_page(
 /// The data-card with table + pagination. This is the HTMX swap target.
 fn bin_data_card(
  result: &abt_core::shared::types::PaginatedResult<BinWithWarehouse>,
- params: &BinQueryParams,
  zones: &HashMap<i64, Zone>,
 ) -> Markup {
- let query = build_query_string(params);
-
  html! {
     div id="bin-data-card" class="data-card" {
         div class="overflow-x-auto" {
@@ -182,7 +179,8 @@ fn bin_data_card(
         ({
             pagination(
                 BinListPath::PATH,
-                &query,
+                "#bin-data-card",
+                "#filter-form",
                 result.total,
                 result.page,
                 result.total_pages,
@@ -243,7 +241,7 @@ fn bin_table_fragment(
             }
         }
         // ── Data Table ──
-        (bin_data_card(result, params, zones))
+        (bin_data_card(result, zones))
     }
 }
 }
@@ -295,23 +293,4 @@ fn bin_row(item: &BinWithWarehouse, zones: &HashMap<i64, Zone>) -> Markup {
         }
     }
 }
-}
-
-fn build_query_string(params: &BinQueryParams) -> String {
- let mut q = vec![];
- if let Some(ref v) = params.code
- && !v.trim().is_empty() {
- q.push(format!("code={v}"));
- }
- if let Some(ref v) = params.name
- && !v.trim().is_empty() {
- q.push(format!("name={v}"));
- }
- if let Some(w) = params.warehouse_id {
- q.push(format!("warehouse_id={w}"));
- }
- if let Some(s) = params.status {
- q.push(format!("status={s}"));
- }
- q.join("&")
 }

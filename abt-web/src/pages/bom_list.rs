@@ -145,31 +145,6 @@ fn build_filter(params: &BomQueryParams) -> BomQuery {
  no_material_cost: params.no_material_cost,
  }
 }
-fn build_query_string(params: &BomQueryParams) -> String {
- let mut q = vec![];
- if let Some(ref kw) = params.keyword {
- q.push(format!("keyword={kw}"));
- }
- if let Some(s) = params.status {
- q.push(format!("status={s}"));
- }
- if let Some(c) = params.category_id {
- q.push(format!("category_id={c}"));
- }
- if let Some(ref df) = params.date_from {
- q.push(format!("date_from={df}"));
- }
- if let Some(ref dt) = params.date_to {
- q.push(format!("date_to={dt}"));
- }
- if params.no_labor_cost {
- q.push("no_labor_cost=true".to_string());
- }
- if params.no_material_cost {
- q.push("no_material_cost=true".to_string());
- }
- q.join("&")
-}
 
 struct BomListContext<'a> {
  cat_map: &'a HashMap<i64, String>,
@@ -248,7 +223,6 @@ fn bom_table_fragment(
  params: &BomQueryParams,
  ctx: &BomTableContext,
 ) -> Markup {
- let query = build_query_string(params);
  let active_value = params.status.map(|s| s.to_string()).unwrap_or_default();
  let total_count = result.total;
  let tabs = &[
@@ -377,7 +351,8 @@ fn bom_table_fragment(
             ({
                 pagination(
                     BomListPath::PATH,
-                    &query,
+                    "#bom-data-card",
+                    "#bom-filter-form",
                     result.total,
                     result.page,
                     result.total_pages,

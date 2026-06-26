@@ -12,7 +12,7 @@ use abt_core::shared::identity::model::{Department, Role, UserWithRoles};
 use abt_core::shared::types::{PgExecutor, ServiceContext};
 
 use crate::components::icon;
-use crate::components::pagination;
+use crate::components::pagination::pagination;
 use crate::layout::page::admin_page;
 use crate::components::tabs::{status_tabs_with_oob, TabItem};
 use crate::routes::user::*;
@@ -202,27 +202,6 @@ fn avatar_color_class(name: &str) -> &'static str {
 
 fn initials(name: &str) -> String {
  name.chars().next().map(|c| c.to_string()).unwrap_or_else(|| "?".to_string())
-}
-
-fn build_query_string(params: &UserQueryParams) -> String {
- let mut q = vec![];
- if let Some(ref kw) = params.keyword {
- if !kw.is_empty() {
- q.push(format!("keyword={kw}"));
- }
- }
- if let Some(r) = params.role_id {
- q.push(format!("role_id={r}"));
- }
- if let Some(d) = params.dept_id {
- q.push(format!("dept_id={d}"));
- }
- if let Some(ref s) = params.status {
- if !s.is_empty() {
- q.push(format!("status={s}"));
- }
- }
- q.join("&")
 }
 
 fn data_scope_label(u: &UserWithRoles) -> &'static str {
@@ -460,11 +439,12 @@ fn user_table_fragment(
                     }
                 }
             }
-            // ── Pagination（必须在 .data-card 内：搜索刷新 .data-card 时一并更新分页，保留筛选 query）──
+            // ── Pagination（必须在 .data-card 内：搜索刷新 .data-card 时一并更新分页）──
             ({
-                pagination::pagination(
+                pagination(
                     UserListPath::PATH,
-                    &build_query_string(params),
+                    ".data-card",
+                    "#user-filter-form",
                     total,
                     page,
                     total_pages,

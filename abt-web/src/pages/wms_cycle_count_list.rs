@@ -186,10 +186,8 @@ fn cycle_count_table_fragment(
 
 fn cycle_count_data_card(
  result: &abt_core::shared::types::PaginatedResult<CycleCount>,
- params: &CycleCountQueryParams,
+ _params: &CycleCountQueryParams,
 ) -> Markup {
- let query = build_query_string(params);
-
  html! {
     div class="data-card" id="cycle-count-data-card" {
         div class="overflow-x-auto" {
@@ -220,7 +218,8 @@ fn cycle_count_data_card(
         ({
             pagination(
                 CycleCountListPath::PATH,
-                &query,
+                "#cycle-count-data-card",
+                "#cycle-count-filter-form",
                 result.total,
                 result.page,
                 result.total_pages,
@@ -270,18 +269,4 @@ fn cycle_count_row(item: &CycleCount) -> Markup {
         }
     }
 }
-}
-
-fn build_query_string(params: &CycleCountQueryParams) -> String {
- let mut q = vec![];
- if let Some(ref v) = params.doc_number {
- q.push(format!("doc_number={v}"));
- }
- if let Some(s) = params.status {
- q.push(format!("status={s}"));
- }
- if let Some(w) = params.warehouse_id {
- q.push(format!("warehouse_id={w}"));
- }
- if q.is_empty() { String::new() } else { format!("?{}", q.join("&")) }
 }

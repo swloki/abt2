@@ -10,6 +10,7 @@ use abt_core::wms::warehouse::WarehouseService;
 use abt_core::wms::enums::{BinStatus, WarehouseStatus, WarehouseType, ZoneType};
 
 use crate::components::icon;
+use crate::components::overlay::modal_shell;
 use crate::layout::page::admin_page;
 use crate::routes::wms_warehouse::{
  WarehouseDeletePath, WarehouseDetailPath, WarehouseEditPath, WarehouseListPath,
@@ -508,8 +509,7 @@ fn warehouse_detail_page(
             )
         })
         // ── Zone Edit Modal ──
-        div id="zone-edit-modal"
-            class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto" {}
+        (modal_shell("zone-edit-modal", "z-[1000]", html! {}))
         ({
             maud::PreEscaped(
                 r#"<script>

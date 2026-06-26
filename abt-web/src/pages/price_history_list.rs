@@ -265,7 +265,7 @@ fn price_history_page(rows: &[PriceHistoryRow], total: u64, page: u32, total_pag
         // ── Detail Drawer Overlay ──
         div class="fixed z-[1000] opacity-0"
             id="detail-drawer"
-            _="on click[me is event.target] remove .open"
+            _="on keydown[event.key is 'Escape'] from body remove .open"
         {
             div class="fixed z-[1001] w-[520px] bg-white flex flex-col"
                 _="on click halt the event"

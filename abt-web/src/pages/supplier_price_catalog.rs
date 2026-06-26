@@ -10,6 +10,7 @@ use abt_core::purchase::supplier_price::{
 use abt_core::shared::types::{DomainError, PageParams, PaginatedResult};
 
 use crate::components::icon;
+use crate::components::overlay::modal_shell;
 use crate::errors::Result;
 use crate::layout::page::admin_page;
 use crate::routes::supplier_price_catalog::{
@@ -525,12 +526,9 @@ fn empty_state() -> Markup {
 // ── Modal ──
 
 fn price_modal_shell() -> Markup {
- html! {
-    div class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto"
-        id="price-modal"
-        _="on closePriceModal from body remove .is-open
- on click[me is event.target] remove .is-open" {}
-}
+ modal_shell("price-modal", "z-[1000]", html! {
+    div _="on closePriceModal from body remove .is-open from closest .modal-overlay" {}
+ })
 }
 
 fn price_form(action_url: &str, price: Option<&PriceView>) -> Markup {

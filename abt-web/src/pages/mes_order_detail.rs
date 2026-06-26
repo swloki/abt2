@@ -16,6 +16,7 @@ use abt_core::mes::work_order::{
 use abt_core::wms::material_requisition::{CreateManualReq, MaterialRequisitionService};
 
 use crate::components::{disclosure, drawer, icon, material_badge, product_picker, routing_picker, status_step_bar};
+use crate::components::overlay::modal_shell;
 use crate::errors::Result;
 use crate::layout::page::admin_page;
 use crate::routes::mes_order::{
@@ -860,10 +861,7 @@ fn status_actions(order: &WorkOrder, detail_path: &str) -> Markup {
 
 /// 反下达确认弹窗
 fn unrelease_dialog(unrelease_path: &str, _detail_path: &str) -> Markup {
-    html! {
-        div id="unrelease-dialog"
-            class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto"
-        {
+    modal_shell("unrelease-dialog", "z-[1000]", html! {
             div class="bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl" {
                 div class="px-6 py-5 border-b border-border-soft" { h2 class="m-0" { "确认反下达？" } }
                 div class="overflow-y-auto flex-1 min-h-0 p-6" {
@@ -885,8 +883,7 @@ fn unrelease_dialog(unrelease_path: &str, _detail_path: &str) -> Markup {
                     { "确认反下达" }
                 }
             }
-        }
-    }
+        })
 }
 
 /// 来源链（SO → 计划 → 工单 → 批次/入库）

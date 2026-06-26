@@ -8,6 +8,7 @@ use abt_core::mes::production_plan::ProductionPlanService;
 use abt_core::shared::types::PageParams;
 
 use crate::components::icon;
+use crate::components::overlay::modal_shell;
 use crate::errors::Result;
 use crate::layout::page::admin_page;
 use crate::routes::mes_plan::{PlanCreatePath, PlanListPath, PlanItemRowPath, ProductSearchPath};
@@ -256,18 +257,15 @@ fn plan_create_page() -> Markup {
             }
         }
         // ── Product Picker Modal ──
-        div id="product-picker"
-            class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto"
-            _="on click[me is event.target] remove .is-open
+        (modal_shell("product-picker", "z-[1000]", html! {
+            div class="modal bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl"
+                _="on click halt
  on productSelected
  if window._productPickerTarget
  set t to window._productPickerTarget
  remove .picker-placeholder from (t's querySelector('[data-field=\"product_name\"]'))
  put window._selectedProduct.name into (t's querySelector('[data-field=\"product_name\"]'))
  set (t's querySelector('[data-field=\"product_id\"]'))'s value to window._selectedProduct.id"
-        {
-            div class="modal bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl"
-                _="on click halt"
             {
                 div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0"
                 {
@@ -319,7 +317,7 @@ fn plan_create_page() -> Markup {
                     }
                 }
             }
-        }
+        }))
     }
     ({
         maud::PreEscaped(

@@ -23,6 +23,7 @@ use abt_core::shared::enums::DocumentType;
 use abt_core::shared::document_sequence::DocumentSequenceService;
 
 use crate::components::icon;
+use crate::components::overlay::modal_shell;
 use crate::errors::Result;
 use crate::state::AppState;
 use crate::layout::page::admin_page;
@@ -1060,10 +1061,7 @@ fn stock_in_create_content() -> Markup {
         )
     })
     // ── 库位选择弹窗（按产品+上架策略 SameMerge 推荐，由 wmsStockInOpenBinPicker 触发）──
-    div id="bin-picker"
-        class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto"
-        _="on click[me is event.target] remove .is-open"
-    {
+    (modal_shell("bin-picker", "z-[1000]", html! {
         div class="modal bg-bg rounded-xl w-[520px] max-h-[80vh] flex flex-col overflow-hidden shadow-xl"
         {
             div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0"
@@ -1079,7 +1077,7 @@ fn stock_in_create_content() -> Markup {
                 div class="text-center text-muted py-10 text-sm" { "点击物料行的「自动分配」加载推荐库位…" }
             }
         }
-    }
+    }))
     // ── Page-specific JS（库位级联 + PO 多选 + 库位选择 + 明细收集）──
     script src="/wms-stock-in-create.js" {}
 }

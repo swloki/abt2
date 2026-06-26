@@ -1,5 +1,7 @@
 use maud::{html, Markup};
 
+use super::overlay::modal_shell;
+
 /// 导入 Modal 配置
 pub struct ImportModalConfig {
  pub import_type: &'static str,
@@ -11,11 +13,7 @@ pub struct ImportModalConfig {
 /// modal ID 由 import_type 派生，确保唯一性
 pub fn import_modal(config: &ImportModalConfig) -> Markup {
  let modal_id = format!("import-modal-{}", config.import_type);
- html! {
-    div id=(modal_id)
-        class="fixed z-[1000] grid place-items-center opacity-0"
-        _="on click[me is event.target] remove .is-open"
-    {
+ modal_shell(&modal_id, "z-[1000]", html! {
         div class="modal bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0" {
             div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0"
             {
@@ -32,8 +30,7 @@ pub fn import_modal(config: &ImportModalConfig) -> Markup {
                 }
             }
         }
-    }
-}
+    })
 }
 
 /// 生成导入按钮的 Hyperscript `_` 属性值（供页面文件使用）

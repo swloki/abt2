@@ -1,9 +1,11 @@
+pub mod alert;
 pub mod confirm_dialog;
 pub mod customer_info;
 pub mod disclosure;
 pub mod icon;
 pub mod material_badge;
 pub mod modal;
+pub mod overlay;
 pub mod input_dialog;
 pub mod pagination;
 pub mod status_step_bar;

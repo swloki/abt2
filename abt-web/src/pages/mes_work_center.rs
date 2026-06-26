@@ -31,14 +31,18 @@ use abt_core::shared::types::{DomainError, PageParams};
 
 use std::collections::HashMap;
 
+use crate::components::alert;
 use crate::components::icon;
 use crate::components::material_badge::material_badge_mini;
+use crate::components::overlay::{drawer_shell, modal_shell};
+use crate::components::product_picker;
 use crate::components::routing_picker;
 use crate::components::pagination::pagination;
 use crate::errors::Result;
 use crate::layout::page::admin_page;
 use crate::routes::mes_demand_pool::{MesDemandPoolCreatePath, MesDemandRowsPath};
-use crate::routes::mes_order::{OrderRoutingApplyFromRoutingPath, OrderRoutingLoadRecentPath};
+use crate::routes::mes_order::{OrderRoutingApplyFromRoutingPath, OrderRoutingDeletePath, OrderRoutingLoadRecentPath};
+use crate::pages::mes_order_detail::RoutingEditForm;
 use crate::routes::mes_work_center::*;
 use crate::utils::{empty_as_none, fmt_qty, RequestContext};
 use abt_macros::require_permission;
@@ -97,9 +101,15 @@ fn work_center_content(summary: &MesWorkCenterSummary) -> Markup {
         (render_anchor_nav(summary))
         (render_card_shell("wc-demand-card", WcDemandPath::PATH, "生产需求池", icon::globe_icon("w-[15px] h-[15px]"), Some((summary.pending_release, "danger"))))
         (render_card_shell("wc-orders-card", WcOrdersPath::PATH, "工单", icon::package_icon("w-[15px] h-[15px]"), Some((summary.in_production, "warn"))))
-        (render_drawer_overlay("release-overlay", "release-drawer", "release-drawer-body", "下达生产订单"))
-        (render_drawer_overlay("report-overlay", "report-drawer", "report-drawer-body", "工序报工"))
+        (render_drawer_overlay("release-overlay", "release-drawer", "release-drawer-body", "下达生产订单", "w-[640px]"))
+        (render_drawer_overlay("report-overlay", "report-drawer", "report-drawer-body", "工序报工", "w-[480px]"))
         (routing_picker::routing_picker_modal("routing-picker-modal", "wc-routing-id", "wc-routing-name"))
+        // 工序编辑 modal 容器（slot）：GET edit 返回完整 modal_shell（外壳+body），innerHTML 进此容器；
+        // afterSettle 在 slot 触发（slot 静态、listener 预注册）→ 打开子 #routing-edit-modal。
+        div id="routing-edit-slot"
+            _="on htmx:afterSettle[me is event.target] add .is-open to #routing-edit-modal\non keydown[event.key is 'Escape'] from body remove .is-open from #routing-edit-modal" {}
+        // 产出品 picker（ID 与 mes_order_detail::routing_edit_form 写死的约定一致）
+        (product_picker::product_picker_modal("routing-product-modal", "routing-product-id", "routing-product-display"))
     }
 }
 
@@ -1137,7 +1147,7 @@ fn render_release_drawer_body(
 
         form hx-post=(WcReleasePath { order_id: order.id }.to_string())
             hx-swap="none"
-            _="on 'htmx:afterRequest'[detail.xhr.status < 400] remove .open from #release-overlay" {
+            _="on woChanged from body remove .open from #release-overlay" {
 
             // ① 批次规划 · 生成流转卡（拆批）
             div class="mb-5" {
@@ -1188,7 +1198,7 @@ fn render_release_drawer_body(
                     hx-get=(WcReleaseDrawerPath { order_id: order.id }.to_string())
                     hx-target="this" hx-select="#wc-release-routings" hx-swap="outerHTML"
                     hx-trigger="routingChanged from:body" {
-                    (render_release_routings(routings, wc_map, prod_map))
+                    (render_release_routings(routings, order.id, wc_map, prod_map))
                 }
             }
 
@@ -1222,6 +1232,7 @@ fn render_release_drawer_body(
 
 fn render_release_routings(
     routings: &[WorkOrderRouting],
+    order_id: i64,
     wc_map: &HashMap<i64, String>,
     prod_map: &HashMap<i64, String>,
 ) -> Markup {
@@ -1243,11 +1254,12 @@ fn render_release_routings(
                     th class="text-right py-1.5 px-2 font-semibold" { "单价" }
                     th class="text-center py-1.5 px-2 font-semibold" { "委外" }
                     th class="text-center py-1.5 px-2 font-semibold" { "质检点" }
+                    th class="text-right py-1.5 px-2 font-semibold" { "操作" }
                 }
             }
             tbody {
                 @for r in routings {
-                    (render_release_routing_row(r, wc_map, prod_map))
+                    (render_release_routing_row(r, order_id, wc_map, prod_map))
                 }
             }
         }
@@ -1257,6 +1269,7 @@ fn render_release_routings(
 /// 工序行：产出品/工作中心名称从 map 映射（无则 —）。
 fn render_release_routing_row(
     r: &WorkOrderRouting,
+    order_id: i64,
     wc_map: &HashMap<i64, String>,
     prod_map: &HashMap<i64, String>,
 ) -> Markup {
@@ -1291,6 +1304,228 @@ fn render_release_routing_row(
                     span class="text-accent" { "✓" }
                 } @else {
                     span class="text-muted" { "—" }
+                }
+            }
+            td class="py-1.5 px-2 text-right whitespace-nowrap" {
+                button class="text-muted hover:text-accent cursor-pointer border-none bg-transparent p-1 align-middle"
+                    title="编辑产出品/单价"
+                    hx-get=(WcRoutingEditPath { order_id, routing_id: r.id }.to_string())
+                    hx-target="#routing-edit-slot" hx-swap="innerHTML"
+                    { (icon::edit_icon("w-4 h-4")) }
+                button class="text-muted hover:text-danger cursor-pointer border-none bg-transparent p-1 ml-1 align-middle"
+                    title="删除该工序"
+                    hx-post=(OrderRoutingDeletePath { order_id, routing_id: r.id }.to_string())
+                    hx-confirm="删除该工序并重排后续工序号？"
+                    hx-swap="none"
+                    hx-disabled-elt="this"
+                    { (icon::trash_icon("w-4 h-4")) }
+            }
+        }
+    }
+}
+
+// ── 工序编辑 modal（GET 返回完整 modal_shell swap 进 #routing-edit-slot；POST 保存）──
+// 复用 abt-core update_routing service；与 mes_order_detail 的 drawer 编辑解耦。
+
+#[require_permission("WORK_ORDER", "update")]
+pub async fn get_wc_routing_edit(
+    path: WcRoutingEditPath,
+    ctx: RequestContext,
+) -> Result<Html<String>> {
+    use abt_core::master_data::work_center::WorkCenterService;
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let svc = state.production_batch_service();
+    let routings = svc.list_routings(&service_ctx, &mut conn, path.order_id).await?;
+    let routing = routings
+        .iter()
+        .find(|r| r.id == path.routing_id)
+        .ok_or_else(|| DomainError::not_found("WorkOrderRouting"))?;
+    let pname =
+        resolve_routing_product_name(&state, &service_ctx, &mut conn, routing.product_id).await;
+    let work_centers = new_work_center_service(state.pool.clone())
+        .list_active(&service_ctx, &mut conn)
+        .await
+        .unwrap_or_default();
+    Ok(Html(
+        modal_shell(
+            "routing-edit-modal",
+            "z-[1000]",
+            wc_routing_edit_panel(path.order_id, path.routing_id, routing, &pname, &work_centers, None),
+        )
+        .into_string(),
+    ))
+}
+
+/// POST：保存产出品/单价/工作中心/工时/委外 → 广播 routingChanged（#wc-release-routings 自刷新）；
+/// 失败 OOB 回填完整面板 + alert 到 #routing-edit-modal（modal 保持开）。
+#[require_permission("WORK_ORDER", "update")]
+pub async fn post_wc_routing_edit(
+    path: WcRoutingEditPath,
+    ctx: RequestContext,
+    axum::Form(form): axum::Form<RoutingEditForm>,
+) -> Result<impl IntoResponse> {
+    use abt_core::master_data::work_center::WorkCenterService;
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let svc = state.production_batch_service();
+    match svc
+        .update_routing(
+            &service_ctx,
+            &mut conn,
+            path.order_id,
+            path.routing_id,
+            form.product_id,
+            form.unit_price,
+            form.work_center_id,
+            form.standard_time,
+            form.is_outsourced,
+        )
+        .await
+    {
+        Ok(_updated) => Ok(([("HX-Trigger", "routingChanged")], Html(String::new()))),
+        Err(e) => {
+            let routings = svc.list_routings(&service_ctx, &mut conn, path.order_id).await?;
+            let routing = routings
+                .iter()
+                .find(|r| r.id == path.routing_id)
+                .ok_or_else(|| DomainError::not_found("WorkOrderRouting"))?;
+            let pname = resolve_routing_product_name(&state, &service_ctx, &mut conn, routing.product_id).await;
+            let work_centers = new_work_center_service(state.pool.clone())
+                .list_active(&service_ctx, &mut conn)
+                .await
+                .unwrap_or_default();
+            Ok((
+                [("HX-Trigger", "")],
+                Html(html! {
+                    div hx-swap-oob="innerHTML:#routing-edit-modal" {
+                        (wc_routing_edit_panel(path.order_id, path.routing_id, routing, &pname, &work_centers, Some(&format!("保存失败：{}", friendly_err_msg(&e)))))
+                    }
+                }.into_string()),
+            ))
+        }
+    }
+}
+
+/// 解析单个产出品名（无则 #id 或空串）。
+async fn resolve_routing_product_name(
+    state: &crate::state::AppState,
+    ctx: &abt_core::shared::types::context::ServiceContext,
+    db: abt_core::shared::types::PgExecutor<'_>,
+    pid: Option<i64>,
+) -> String {
+    match pid {
+        Some(id) => state
+            .product_service()
+            .get_by_ids(ctx, db, vec![id])
+            .await
+            .ok()
+            .and_then(|v| v.into_iter().next())
+            .map(|p| p.pdt_name)
+            .unwrap_or_else(|| format!("#{}", id)),
+        None => String::new(),
+    }
+}
+
+/// 剥离 DomainError Display 的类型前缀（Validation/Business rule/...），只留可读消息供 alert 展示。
+fn friendly_err_msg(e: &DomainError) -> String {
+    let s = e.to_string();
+    for p in ["Validation: ", "Business rule: ", "Unauthorized: ", "Permission denied: "] {
+        if let Some(rest) = s.strip_prefix(p) {
+            return rest.to_string();
+        }
+    }
+    s
+}
+
+/// 工序编辑完整 modal 面板（header + form[产出品 picker/工作中心/单价/工时/委外 + footer 取消/保存]）。
+/// 关闭靠保存 form 自身的 afterRequest（成功空 body 判定）+ × / Esc。
+fn wc_routing_edit_panel(
+    work_order_id: i64,
+    routing_id: i64,
+    r: &WorkOrderRouting,
+    product_name: &str,
+    work_centers: &[abt_core::master_data::work_center::model::WorkCenter],
+    error_msg: Option<&str>,
+) -> Markup {
+    html! {
+        div class="bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl" {
+            div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
+                h2 class="text-lg font-semibold m-0" { "编辑工序" }
+                button type="button"
+                    class="text-2xl text-muted hover:text-fg cursor-pointer bg-transparent border-none p-1 leading-none"
+                    _="on click remove .is-open from #routing-edit-modal then empty #routing-edit-modal"
+                    { "×" }
+            }
+            div class="overflow-y-auto flex-1 min-h-0 p-6" {
+                @if let Some(msg) = error_msg {
+                    div class="mb-4" { (alert::alert_error(msg)) }
+                }
+                form id="wc-routing-edit-form"
+                    hx-post=(WcRoutingEditPath { order_id: work_order_id, routing_id }.to_string())
+                    hx-swap="none"
+                    // 成功（200 + 空 body）才关 modal；失败返回 OOB 面板（responseText 非空）保持打开显示 alert。
+                    _="on 'htmx:afterRequest'[detail.xhr.responseText.length == 0] remove .is-open from #routing-edit-modal then empty #routing-edit-modal"
+                {
+                    input type="hidden" name="product_id" id="routing-product-id"
+                        value=(r.product_id.map(|p| p.to_string()).unwrap_or_default()) {};
+                    div class="mb-4" {
+                        label class="block text-xs font-medium text-fg-2 mb-1.5" { "产出品" }
+                        div class="flex gap-2" {
+                            span id="routing-product-display"
+                                class="flex-1 px-3 py-2 border border-border rounded-sm text-sm bg-surface inline-flex items-center min-h-[38px]"
+                            {
+                                @if product_name.is_empty() {
+                                    span class="text-muted" { "点击右侧选择产出品…" }
+                                } @else {
+                                    (product_name)
+                                }
+                            }
+                            button type="button"
+                                class="px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg-2 cursor-pointer hover:bg-surface"
+                                _="on click add .is-open to #routing-product-modal"
+                                { "选择" }
+                        }
+                    }
+                    div class="mb-4" {
+                        label class="block text-xs font-medium text-fg-2 mb-1.5" { "工作中心" }
+                        select name="work_center_id"
+                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white outline-none focus:border-accent"
+                        {
+                            option value="" { "—" }
+                            @for wc in work_centers {
+                                option value=(wc.id) selected[r.work_center_id == Some(wc.id)] { (wc.name) }
+                            }
+                        }
+                    }
+                    div class="grid grid-cols-2 gap-3 mb-4" {
+                        div {
+                            label class="block text-xs font-medium text-fg-2 mb-1.5" { "计件单价（元/件）" }
+                            input name="unit_price" type="number" step="any" required
+                                class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white outline-none focus:border-accent font-mono"
+                                value=(r.unit_price.map(|p| p.to_string()).unwrap_or_default());
+                        }
+                        div {
+                            label class="block text-xs font-medium text-fg-2 mb-1.5" { "标准工时（小时）" }
+                            input name="standard_time" type="number" step="any"
+                                class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white outline-none focus:border-accent font-mono"
+                                value=(r.standard_time.map(|t| t.to_string()).unwrap_or_default());
+                        }
+                    }
+                    div class="mb-2" {
+                        label class="flex items-center gap-2 cursor-pointer" {
+                            input type="checkbox" name="is_outsourced" value="true"
+                                class="w-4 h-4 accent-accent" checked[r.is_outsourced];
+                            span class="text-sm text-fg-2 select-none" { "委外工序" }
+                        }
+                    }
+                    div class="px-6 py-4 border-t border-border-soft flex justify-end gap-3" {
+                        button type="button"
+                            class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150"
+                            _="on click remove .is-open from #routing-edit-modal then empty #routing-edit-modal"
+                            { "取消" }
+                        button type="submit"
+                            class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150"
+                            { "保存" }
+                    }
                 }
             }
         }
@@ -1683,25 +1918,17 @@ fn render_card_shell(
 /// Drawer overlay 壳：背景点击/关闭按钮收起，body 由 `hx-get` 填充。
 ///
 /// 开关：overlay 用 `.drawer-overlay` class，hyperscript toggle `.open`（preflight CSS 驱动显隐+平移，同 components/drawer.rs）。
-fn render_drawer_overlay(overlay_id: &str, drawer_id: &str, body_id: &str, title: &str) -> Markup {
-    html! {
-        div id=(overlay_id)
-            class="drawer-overlay fixed inset-0 z-[90] flex justify-end bg-slate-900/40"
-            _=(format!("on click[me is event.target] remove .open from #{}", overlay_id)) {
-            div id=(drawer_id)
-                class="drawer-panel bg-bg h-full w-[480px] max-w-[92vw] shadow-lg flex flex-col"
-                _="on click halt the event" {
-                div class="flex items-center justify-between px-6 py-5 border-b border-border-soft" {
-                    div class="font-bold text-base text-fg" { (title) }
-                    button type="button"
-                        class="w-8 h-8 border-none bg-transparent text-muted cursor-pointer rounded-sm hover:bg-surface hover:text-fg flex items-center justify-center"
-                        _=(format!("on click remove .open from #{}", overlay_id)) {
-                        (icon::x_icon("w-4 h-4"))
-                    }
-                }
-                div id=(body_id) class="flex-1 overflow-y-auto px-6 py-5"
-                    _=(format!("on htmx:afterSettle add .open to #{}", overlay_id)) {}
+fn render_drawer_overlay(overlay_id: &str, _drawer_id: &str, body_id: &str, title: &str, width_class: &str) -> Markup {
+    drawer_shell(overlay_id, width_class, html! {
+        div class="flex items-center justify-between px-6 py-5 border-b border-border-soft" {
+            div class="font-bold text-base text-fg" { (title) }
+            button type="button"
+                class="w-8 h-8 border-none bg-transparent text-muted cursor-pointer rounded-sm hover:bg-surface hover:text-fg flex items-center justify-center"
+                _=(format!("on click remove .open from #{}", overlay_id)) {
+                (icon::x_icon("w-4 h-4"))
             }
         }
-    }
+        div id=(body_id) class="flex-1 overflow-y-auto px-6 py-5"
+            _=(format!("on htmx:afterSettle add .open to #{}", overlay_id)) {}
+    })
 }

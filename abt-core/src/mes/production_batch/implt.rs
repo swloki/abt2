@@ -604,6 +604,10 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
         if unit_price <= Decimal::ZERO {
             return Err(DomainError::validation("计件单价必须大于 0"));
         }
+        // 守卫 1b：产出品必选（工序产出物料是核心字段）
+        if product_id.is_none() {
+            return Err(DomainError::validation("产出品必选"));
+        }
         let mut tx = self.pool.begin().await
             .map_err(|e| DomainError::Internal(e.into()))?;
 

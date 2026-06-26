@@ -8,6 +8,7 @@ use abt_core::shared::identity::{DepartmentService, UserService};
 use abt_macros::require_permission;
 
 use crate::components::icon;
+use crate::components::overlay::drawer_shell;
 use crate::layout::page::admin_page;
 use crate::routes::department::*;
 use crate::utils::RequestContext;
@@ -308,16 +309,11 @@ fn department_list_page(
             }
         }
         // ── Drawer (create/edit) — uses preflight .drawer-overlay / .drawer-panel ──
-        div class="drawer-overlay fixed inset-0 z-[1000] justify-end bg-[rgba(15,23,42,0.45)]"
-            id="deptDrawer"
-            tabindex="-1"
-            _="on click[me is event.target] remove .open from #deptDrawer on keydown[event.key is 'Escape'] remove .open from #deptDrawer"
-        {
-            div class="drawer-panel bg-white h-full w-[440px] flex flex-col shadow-xl"
-                id="drawerPanel" {
+        (drawer_shell("deptDrawer", "w-[440px]", html! {
+            div id="drawerPanel" class="flex flex-col h-full" {
                 // Content loaded via HTMX
             }
-        }
+        }))
     }
 }
 }

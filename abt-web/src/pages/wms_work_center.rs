@@ -28,6 +28,7 @@ use rust_decimal::Decimal;
 use std::collections::HashMap;
 
 use crate::components::icon;
+use crate::components::overlay::{drawer_shell, modal_shell};
 use abt_core::wms::stock_in::{PoStockInRow, PurchaseStockInService, ReceiveAndStockInReq};
 use abt_core::wms::inventory_transaction::{model::RecordTransactionReq, InventoryTransactionService};
 use abt_core::mes::work_order::WorkOrderService;
@@ -722,27 +723,17 @@ fn drawer_btn(label: &str, action: &str, doc_id: i64, ic: Markup, open_hs: &str)
 }
 
 /// 共享 drawer overlay 壳：页面渲染一次，各域 GET ?drawer=&id= 填 #wc-drawer-body。
-/// 显隐由 .drawer-overlay 的 .open class 控制（uno.config.ts preflight）；× / 背景点击关闭。
+/// 显隐由 .drawer-overlay 的 .open class 控制（uno.config.ts preflight，经 drawer_shell 统一）；× / 背景点击关闭。
 fn wc_drawer_shell() -> Markup {
-    html! {
-        div id="wc-drawer-overlay"
-            class="drawer-overlay fixed inset-0 z-[1000] flex justify-end bg-[rgba(0,0,0,0.35)]"
-            _="on click[me is event.target] remove .open from me" {
-            div class="drawer-panel bg-white h-full w-[460px] max-w-[92vw] flex flex-col"
-                _="on click js(event) event.stopPropagation() end" {
-                div id="wc-drawer-body" class="flex-1 overflow-y-auto" {}
-            }
-        }
-    }
+    drawer_shell("wc-drawer-overlay", "w-[460px]", html! {
+        div id="wc-drawer-body" class="flex-1 overflow-y-auto" {}
+    })
 }
 
 /// 库位选择弹窗壳：复用 stock-in/create 的 suggest_bins 端点（按产品+仓库 SameMerge 推荐）。
 /// z-[1001] 盖在 drawer overlay（z-[1000]）之上；× / 背景点击关闭。
 fn wc_bin_picker_shell() -> Markup {
-    html! {
-        div id="bin-picker"
-            class="fixed inset-0 z-[1001] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto"
-            _="on click[me is event.target] remove .is-open" {
+    modal_shell("bin-picker", "z-[1001]", html! {
             div class="modal bg-bg rounded-xl w-[520px] max-h-[80vh] flex flex-col overflow-hidden shadow-xl" {
                 div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0" {
                     h2 class="font-bold text-base text-fg" { "选择入库库位" }
@@ -754,8 +745,7 @@ fn wc_bin_picker_shell() -> Markup {
                     div class="text-center text-muted py-10 text-sm" { "点击物料行的「自动分配」加载推荐库位…" }
                 }
             }
-        }
-    }
+        })
 }
 
 // ── drawer body（GET ?drawer=&id=）：按 action 渲染表单，提交走单端点 POST ──

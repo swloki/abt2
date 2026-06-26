@@ -9,6 +9,7 @@ use abt_core::shared::identity::{DepartmentService, PermissionService, RoleServi
 use abt_core::shared::identity::model::*;
 
 use crate::components::icon;
+use crate::components::overlay::modal_shell;
 use crate::layout::page::admin_page;
 use crate::routes::user::*;
 use crate::utils::RequestContext;
@@ -731,11 +732,7 @@ fn perm_chip(action: &str) -> Markup {
 // ── Modals ──
 
 fn role_assign_modal(action: &str, all_roles: &[Role], current_ids: &[i64]) -> Markup {
- html! {
-    div id="role-assign-modal"
-        class="modal-overlay fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto"
-        _="on click[me is event.target] remove .is-open"
-    {
+ modal_shell("role-assign-modal", "z-[1000]", html! {
         form
             id="role-assign-form"
             class="bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl"
@@ -789,16 +786,11 @@ fn role_assign_modal(action: &str, all_roles: &[Role], current_ids: &[i64]) -> M
                 { "保存" }
             }
         }
-    }
-}
+    })
 }
 
 fn dept_assign_modal(action: &str, all_depts: &[Department], current_ids: &[i64]) -> Markup {
- html! {
-    div id="dept-assign-modal"
-        class="modal-overlay fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto"
-        _="on click[me is event.target] remove .is-open"
-    {
+ modal_shell("dept-assign-modal", "z-[1000]", html! {
         form
             id="dept-assign-form"
             class="bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl"
@@ -850,16 +842,11 @@ fn dept_assign_modal(action: &str, all_depts: &[Department], current_ids: &[i64]
                 { "保存" }
             }
         }
-    }
-}
+    })
 }
 
 fn reset_password_modal(action: &str) -> Markup {
- html! {
-    div id="reset-pw-modal"
-        class="modal-overlay fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto"
-        _="on click[me is event.target] remove .is-open"
-    {
+ modal_shell("reset-pw-modal", "z-[1000]", html! {
         form
             id="reset-pw-form"
             class="bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl"
@@ -916,6 +903,5 @@ fn reset_password_modal(action: &str) -> Markup {
                 { (icon::check_circle_icon("w-4 h-4")) "确认重置" }
             }
         }
-    }
-}
+    })
 }

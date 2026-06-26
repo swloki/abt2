@@ -1,5 +1,7 @@
 use maud::{Markup, html};
 
+use super::overlay::modal_shell;
+
 /// Input dialog: a modal with a single input field and configurable confirm action.
 ///
 /// Uses `modal-overlay` + `modal modal-sm` structure, toggled via `.is-open` class.
@@ -26,13 +28,8 @@ pub fn input_dialog(
  confirm_label: &str,
  confirm_action: &str,
 ) -> Markup {
- html! {
-    div id=(dialog_id)
-        class="fixed z-[1000] grid place-items-center opacity-0"
-        _="on click[me is event.target] remove .is-open"
-    {
+ modal_shell(dialog_id, "z-[1000]", html! {
         div class="modal bg-bg rounded-xl w-[680px] flex flex-col overflow-hidden opacity-0"
-            _="on click halt the event"
         {
             div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0"
             {
@@ -64,6 +61,6 @@ pub fn input_dialog(
                 { (confirm_label) }
             }
         }
-    }
+    })
 }
-}
+

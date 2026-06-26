@@ -8,6 +8,7 @@ use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
 use serde::Deserialize;
 
+use super::overlay::modal_shell;
 use abt_core::master_data::supplier::model::SupplierQuery;
 use abt_core::master_data::supplier::SupplierService;
 use abt_core::purchase::order::model::PurchaseOrderQuery;
@@ -76,12 +77,8 @@ pub async fn search_purchase_orders(
 /// confirm_path 由调用方传（入库单传 StockInConfirmPosPath）
 pub fn purchase_order_picker_modal(modal_id: &str, confirm_path: &str) -> Markup {
  let close_hs = format!("on click remove .is-open from #{}", modal_id);
- html! {
-    div class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto"
-        id=(modal_id)
-        _=(format!("on click[me is event.target] remove .is-open from #{}", modal_id))
-    {
-        div class="modal bg-bg rounded-xl w-[780px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl"
+ modal_shell(modal_id, "z-[1000]", html! {
+    div class="modal bg-bg rounded-xl w-[780px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl"
         {
             div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0"
             {
@@ -184,8 +181,7 @@ pub fn purchase_order_picker_modal(modal_id: &str, confirm_path: &str) -> Markup
                 }
             }
         }
-    }
-}
+    })
 }
 
 fn po_picker_results(

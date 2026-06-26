@@ -136,14 +136,16 @@ html! {
 
 ### 2. 状态随身 — `hx-vals` 将 Rust 上下文绑定在 HTML 节点
 
-避免依赖全局状态或 DOM 查询：
+避免依赖全局状态或 DOM 查询。`hx-vals` 是 JSON，**必须用序列化生成，禁 `format!` 手拼字符串值**（值含引号会破坏 JSON）：
 
 ```rust
 html! {
-    tr hx-vals=(format!("{{\"item_id\": {id}, \"status\": \"{status}\"}}"))
+    tr hx-vals=(serde_json::json!({ "item_id": id, "status": status }).to_string())
        hx-post=(path) hx-target="this" hx-swap="outerHTML" { ... }
 }
 ```
+
+> 详见 [`docs/frontend/htmx-patterns.md` §1.2](../docs/frontend/htmx-patterns.md)（含 `vals_json()` 辅助函数、现存脆弱写法清单）。
 
 ### 3. 视觉闭环 — `hx-indicator` 将 Loading HTML 写在组件内部
 

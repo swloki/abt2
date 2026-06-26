@@ -19,6 +19,7 @@ use abt_core::shared::types::DomainError;
 use abt_macros::require_permission;
 
 use crate::components::icon;
+use crate::components::overlay::modal_shell;
 use crate::errors::Result;
 use crate::layout::page::admin_page;
 use crate::routes::bom::{
@@ -444,7 +445,7 @@ pub async fn get_node_edit_form(
  let bom = bom_svc.get(&service_ctx, &mut conn, path.id).await?;
  let node = bom.bom_detail.nodes.iter().find(|n| n.id == path.node_id)
  .ok_or_else(|| DomainError::not_found("节点不存在"))?;
- Ok(Html(node_edit_form_fragment(path.id, path.node_id, bom.version, node).into_string()))
+ Ok(Html(modal_shell("bom-edit-modal", "z-[1000]", node_edit_form_fragment(path.id, path.node_id, bom.version, node)).into_string()))
 }
 
 
@@ -724,10 +725,7 @@ fn bom_edit_page(
             }
         }
         // ── Add Node Modal ──
-        div id="bom-add-modal"
-            class="modal-overlay fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto"
-            _="on click[me is event.target] remove .is-open"
-        {
+        (modal_shell("bom-add-modal", "z-[1000]", html! {
             div class="modal bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl"
             {
                 div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0"
@@ -791,11 +789,11 @@ fn bom_edit_page(
                     }
                 }
             }
-        }
+        }))
         // ── Edit Node Modal (content loaded via HTMX) ──
-        div id="bom-edit-modal"
-            class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto"
-            _="on htmx:afterSettle add .is-open\non click[me is event.target] remove .is-open" {}
+        // 节点编辑 modal 容器（slot）：GET node-edit 返回完整 modal_shell，innerHTML 进此容器，afterSettle 打开子 #bom-edit-modal
+        div id="bom-edit-slot"
+            _="on htmx:afterSettle[me is event.target] add .is-open to #bom-edit-modal\non keydown[event.key is 'Escape'] from body remove .is-open from #bom-edit-modal" {}
         // ── Delete Confirm ──
         ({
             crate::components::confirm_dialog::confirm_dialog(
@@ -841,10 +839,7 @@ fn bom_edit_page(
             })
         }
         // ── Save As Modal ──
-        div id="bom-save-as-modal"
-            class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto"
-            _="on click[me is event.target] remove .is-open"
-        {
+        (modal_shell("bom-save-as-modal", "z-[1000]", html! {
             div class="bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl"
             {
                 div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0"
@@ -879,7 +874,7 @@ fn bom_edit_page(
                     }
                 }
             }
-        }
+        }))
         // ── BOM edit page JS ──
         script src="/bom-edit.js?v=20260604" {}
     }
@@ -977,7 +972,7 @@ fn bom_node_row(
                     class=(btn_class)
                     title="编辑"
                     hx-get=(format!("/admin/md/boms/{}/nodes/{}", bom_id, node.id))
-                    hx-target="#bom-edit-modal"
+                    hx-target="#bom-edit-slot"
                     hx-swap="innerHTML"
                 { (icon::edit_icon("w-3.5 h-3.5")) }
                 button

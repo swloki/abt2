@@ -6,6 +6,7 @@ use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
 use serde::Deserialize;
 
+use super::overlay::modal_shell;
 use abt_core::mes::work_order::WorkOrderService;
 
 use crate::errors::Result;
@@ -55,13 +56,8 @@ pub async fn search_work_orders(
 /// 调用方的 hidden 自带 hx-trigger="change" → change 后自动 hx-get/hx-post 加载后续（om 加载工序 / 入库单 confirm-wo 渲染明细）
 pub fn work_order_picker_modal(modal_id: &str, target_id: &str, display_id: &str) -> Markup {
  let close_hs = format!("on click remove .is-open from #{}", modal_id);
- html! {
-    div class="fixed inset-0 z-[1100] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto"
-        id=(modal_id)
-        _=(close_hs)
-    {
-        div class="bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl"
-            _="on click halt the event"
+ modal_shell(modal_id, "z-[1100]", html! {
+    div class="bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl"
         {
             div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0"
             {
@@ -139,8 +135,7 @@ pub fn work_order_picker_modal(modal_id: &str, target_id: &str, display_id: &str
                 }
             }
         }
-    }
-}
+    })
 }
 
 fn wo_picker_results(

@@ -6,6 +6,7 @@ use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
 use serde::Deserialize;
 
+use super::overlay::modal_shell;
 use abt_core::master_data::product::ProductService;
 use abt_core::master_data::product::model::{Product, ProductQuery};
 use abt_core::shared::types::PageParams;
@@ -125,13 +126,8 @@ pub fn product_picker_modal_with_bom_filter(
     } else {
         Markup::default()
     };
-    html! {
-        div class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto"
-            id=(modal_id)
-            _=(close_hs)
-        {
-            div class="bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl"
-                _="on click halt the event"
+    modal_shell(modal_id, "z-[1100]", html! {
+        div class="bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl"
             {
                 // ── Header ──
                 div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0"
@@ -217,8 +213,7 @@ pub fn product_picker_modal_with_bom_filter(
                     }
                 }
             }
-        }
-    }
+        })
 }
 
 /// 产品选择弹窗（选产品→添加表格行模式）
@@ -228,13 +223,8 @@ pub fn product_picker_modal_with_bom_filter(
 pub fn product_picker_modal_with_search(modal_id: &str, item_row_path: &str, tbody_id: &str) -> Markup {
     let close_hs = format!("on click remove .is-open from #{}", modal_id);
     let search_path = ProductSearchPath::PATH;
-    html! {
-        div class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto"
-            id=(modal_id)
-            _=(close_hs)
-        {
-            div class="bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl"
-                _="on click halt the event"
+    modal_shell(modal_id, "z-[1100]", html! {
+        div class="bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl"
             {
                 div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0"
                 {
@@ -307,8 +297,7 @@ pub fn product_picker_modal_with_search(modal_id: &str, item_row_path: &str, tbo
                     }
                 }
             }
-        }
-    }
+        })
 }
 
 /// 渲染产品搜索结果（fill-input 模式：点击行填充 hidden input + 显示名称）

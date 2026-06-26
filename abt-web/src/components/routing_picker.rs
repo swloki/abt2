@@ -6,6 +6,7 @@ use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
 use serde::Deserialize;
 
+use super::overlay::modal_shell;
 use abt_core::master_data::routing::RoutingService;
 use abt_core::master_data::routing::model::RoutingQuery;
 use abt_core::shared::types::PageParams;
@@ -51,14 +52,9 @@ pub async fn search_routings(
 /// 工艺路径选择弹窗（fill-input：选路径→填 hidden target_id + 显示名 + 发 routingSelected + 关弹窗）
 pub fn routing_picker_modal(modal_id: &str, target_id: &str, display_id: &str) -> Markup {
     let close_hs = format!("on click remove .is-open from #{}", modal_id);
-    html! {
-        div class="fixed inset-0 z-[1100] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto"
-            id=(modal_id)
-            _=(close_hs)
+    modal_shell(modal_id, "z-[1100]", html! {
+        div class="bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl"
         {
-            div class="bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl"
-                _="on click halt the event"
-            {
                 div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0"
                 {
                     h2 class="text-lg font-semibold m-0" { "选择工艺路径" }
@@ -106,8 +102,7 @@ pub fn routing_picker_modal(modal_id: &str, target_id: &str, display_id: &str) -
                     }
                 }
             }
-        }
-    }
+        })
 }
 
 fn routing_picker_results(

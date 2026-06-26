@@ -1,5 +1,7 @@
 use maud::{html, Markup};
 
+use super::overlay::modal_shell;
+
 /// Configuration for an entity picker modal.
 pub struct EntityPickerConfig<'a> {
  /// Modal overlay element id, e.g. `"wo-picker"`.
@@ -94,15 +96,8 @@ pub fn entity_picker_field(
 
 /// Renders the search modal overlay. Embed once per picker on the page.
 pub fn entity_picker_modal(cfg: &EntityPickerConfig) -> Markup {
- let open_hs = format!("on click[me is event.target] remove .is-open from #{}", cfg.modal_id);
-
- html! {
-    div class="modal-overlay fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto"
-        id=(cfg.modal_id)
-        _=(open_hs)
-    {
+ modal_shell(cfg.modal_id, "z-[1000]", html! {
         div class="modal bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl"
-            _="on click halt"
         {
             div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0"
             {
@@ -149,8 +144,7 @@ pub fn entity_picker_modal(cfg: &EntityPickerConfig) -> Markup {
                 }
             }
         }
-    }
-}
+    })
 }
 
 /// Build the hx-include expression: always include the modal itself

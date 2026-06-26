@@ -16,6 +16,7 @@ use abt_core::wms::warehouse::WarehouseService;
 use abt_core::shared::types::pagination::PageParams;
 
 use crate::components::icon;
+use crate::components::overlay::modal_shell;
 use crate::errors::Result;
 use crate::layout::page::admin_page;
 use crate::routes::om::{
@@ -979,10 +980,7 @@ fn detail_page(
         // ═══ 收发记录 ═══
         (transactions_section(inventory_records))
         // ── Send Modal（发料 Draft → Sent）──
-        div id="send-modal"
-            class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto"
-            _="on click[me is event.target] remove .is-open"
-        {
+        (modal_shell("send-modal", "z-[1000]", html! {
             div class="bg-bg rounded-xl flex flex-col overflow-hidden shadow-xl"
                 style="width:520px"
             {
@@ -1045,12 +1043,9 @@ fn detail_page(
                     }
                 }
             }
-        }
+        }))
 
-        div id="record-node-modal"
-            class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto"
-            _="on click[me is event.target] remove .is-open"
-        {
+        (modal_shell("record-node-modal", "z-[1000]", html! {
             div class="bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl"
                 style="width:520px"
             {
@@ -1141,12 +1136,9 @@ fn detail_page(
                     }
                 }
             }
-        }
+        }))
         // ── Receive Modal ──
-        div id="receive-modal"
-            class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto"
-            _="on click[me is event.target] remove .is-open"
-        {
+        (modal_shell("receive-modal", "z-[1000]", html! {
             div class="bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl"
             {
                 div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0"
@@ -1269,12 +1261,9 @@ fn detail_page(
                     }
                 }
             }
-        }
+        }))
         // ── Convert Modal ──
-        div id="convert-modal"
-            class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto"
-            _="on click[me is event.target] remove .is-open"
-        {
+        (modal_shell("convert-modal", "z-[1000]", html! {
             div class="bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl"
                 style="width:520px"
             {
@@ -1351,12 +1340,9 @@ fn detail_page(
                     }
                 }
             }
-        }
+        }))
         // ── Cancel Modal ──
-        div id="cancel-modal"
-            class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto"
-            _="on click[me is event.target] remove .is-open"
-        {
+        (modal_shell("cancel-modal", "z-[1000]", html! {
             div class="bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl"
                 style="width:480px"
             {
@@ -1432,7 +1418,7 @@ fn detail_page(
                     }
                 }
             }
-        }
+        }))
     }
 }
 }

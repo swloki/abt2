@@ -717,7 +717,7 @@ fn create_page(
         // ── Material row modal ──
         div id="material-modal"
             class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 is-open:opacity-100 is-open:pointer-events-auto"
-            _="on click[me is event.target] remove .is-open from #material-modal"
+            _="on keydown[event.key is 'Escape'] from body remove .is-open from #material-modal"
         {
             div class="bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl"
                 _="on click halt the event"

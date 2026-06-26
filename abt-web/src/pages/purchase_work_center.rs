@@ -42,6 +42,7 @@ use abt_core::purchase::quotation::model::QuotationComparison;
 use abt_core::purchase::quotation::PurchaseQuotationService;
 use axum::Form;
 use crate::components::icon;
+use crate::components::overlay::drawer_shell;
 use crate::errors::Result;
 use crate::layout::page::admin_page;
 use crate::routes::purchase_work_center::*;
@@ -110,9 +111,9 @@ pub async fn get_work_center(_path: PurchaseWorkCenterPath, ctx: RequestContext)
         (render_card_shell("pc-orders-card", PcOrdersPath::PATH, "采购订单", icon::clipboard_list_icon("w-[15px] h-[15px]"), &orders_meta))
         (render_card_shell("pc-settlement-card", PcSettlementPath::PATH, "对账付款", icon::payment_icon("w-[15px] h-[15px]"), &settle_meta))
         (render_card_shell("pc-returns-card", PcReturnsPath::PATH, "采购退货", icon::return_arrow_icon("w-[15px] h-[15px]"), &returns_meta))
-        (render_drawer_overlay("approve-overlay", "approve-drawer", "approve-drawer-body", "审批采购订单"))
-        (render_drawer_overlay("pay-overlay", "pay-drawer", "pay-drawer-body", "审批付款"))
-        (render_drawer_overlay("convert-po-overlay", "convert-po-drawer", "convert-po-drawer-body", "转采购单"))
+        (render_drawer_overlay("approve-overlay", "approve-drawer", "approve-drawer-body", "审批采购订单", "w-[480px] max-w-[92vw]"))
+        (render_drawer_overlay("pay-overlay", "pay-drawer", "pay-drawer-body", "审批付款", "w-[480px] max-w-[92vw]"))
+        (render_drawer_overlay("convert-po-overlay", "convert-po-drawer", "convert-po-drawer-body", "转采购单", "w-[480px] max-w-[92vw]"))
     };
 
     Ok(Html(
@@ -882,26 +883,21 @@ fn render_card_shell(card_id: &str, src: &str, title: &str, grp_icon: Markup, me
 }
 
 /// Drawer overlay 壳（同 mes_work_center）：背景点击/关闭按钮收起，body 由 `hx-get` 填充。
-fn render_drawer_overlay(overlay_id: &str, drawer_id: &str, body_id: &str, title: &str) -> Markup {
-    html! {
-        div id=(overlay_id)
-            class="fixed inset-0 bg-slate-900/40 opacity-0 invisible pointer-events-none transition-opacity duration-200 z-[90] open:opacity-100 open:visible open:pointer-events-auto"
-            _=(format!("on click[me is event.target] remove .open from #{}", overlay_id)) {
-            div id=(drawer_id)
-                class="fixed top-0 right-0 h-full w-[480px] max-w-[92vw] bg-bg shadow-lg translate-x-full transition-transform duration-300 flex flex-col z-[91] open:translate-x-0"
-                _="on click halt the event" {
-                div class="flex items-center justify-between px-6 py-5 border-b border-border-soft" {
-                    div class="font-bold text-base text-fg" { (title) }
-                    button type="button"
-                        class="w-8 h-8 border-none bg-transparent text-muted cursor-pointer rounded-sm hover:bg-surface hover:text-fg flex items-center justify-center"
-                        _=(format!("on click remove .open from #{}", overlay_id)) {
-                        (icon::x_icon("w-4 h-4"))
-                    }
-                }
-                div id=(body_id) class="flex-1 overflow-y-auto px-6 py-5" {}
+///
+/// 开关：overlay 用 `.drawer-overlay` class，hyperscript toggle `.open`（preflight CSS 驱动显隐+平移，同 components/drawer.rs）。
+fn render_drawer_overlay(overlay_id: &str, _drawer_id: &str, body_id: &str, title: &str, width_class: &str) -> Markup {
+    drawer_shell(overlay_id, width_class, html! {
+        div class="flex items-center justify-between px-6 py-5 border-b border-border-soft" {
+            div class="font-bold text-base text-fg" { (title) }
+            button type="button"
+                class="w-8 h-8 border-none bg-transparent text-muted cursor-pointer rounded-sm hover:bg-surface hover:text-fg flex items-center justify-center"
+                _=(format!("on click remove .open from #{}", overlay_id)) {
+                (icon::x_icon("w-4 h-4"))
             }
         }
-    }
+        div id=(body_id) class="flex-1 overflow-y-auto px-6 py-5"
+            _=(format!("on htmx:afterSettle add .open to #{}", overlay_id)) {}
+    })
 }
 
 /// 供应商名称映射：按 id 批量反查（拉首页 500 条过滤）。

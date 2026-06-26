@@ -10,6 +10,7 @@ use abt_core::shared::types::DomainError;
 use abt_macros::require_permission;
 
 use crate::components::icon;
+use crate::components::overlay::modal_shell;
 use crate::errors::Result;
 use crate::layout::page::admin_page;
 use crate::routes::product::{ProductCopyPath, ProductCreatePath, ProductDetailPath, ProductListPath};
@@ -314,10 +315,7 @@ fn product_create_page(source: Option<&Product>, categories: &[CategoryTree]) ->
             }
         }
         // ── Category Select Modal ──
-        div id="category-modal"
-            class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto"
-            _="on click[me is event.target] remove .is-open"
-        {
+        (modal_shell("category-modal", "z-[1000]", html! {
             div class="bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl"
                 _="on click halt the event"
             {
@@ -348,7 +346,7 @@ fn product_create_page(source: Option<&Product>, categories: &[CategoryTree]) ->
                     }
                 }
             }
-        }
+        }))
         // ── Category Select Scripts ──
         ({
             PreEscaped(

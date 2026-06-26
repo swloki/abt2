@@ -18,6 +18,7 @@ use abt_core::wms::warehouse::model::WarehouseFilter;
 use abt_core::wms::warehouse::WarehouseService;
 
 use crate::components::icon;
+use crate::components::overlay::modal_shell;
 use crate::errors::Result;
 use abt_core::shared::types::DomainError;
 use crate::layout::page::admin_page;
@@ -774,10 +775,7 @@ fn shipping_edit_page(
             { (icon::save_icon("w-4 h-4")) "保存" }
         }
         // ── Order Picker Modal ──
-        div class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto"
-            id="order-modal"
-            _="on click[me is event.target] remove .is-open"
-        {
+        (modal_shell("order-modal", "z-[1000]", html! {
             div class="modal bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl"
                 _="on click halt the event"
             {
@@ -818,7 +816,7 @@ fn shipping_edit_page(
                     }
                 }
             }
-        }
+        }))
         // ── External script + draft restore ──
         script src="/shipping-create.js" {}
         ({
@@ -1157,10 +1155,7 @@ fn shipping_create_page(
             { (icon::save_icon("w-4 h-4")) "保存" }
         }
         // ── Order Picker Modal ──
-        div class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto"
-            id="order-modal"
-            _="on click[me is event.target] remove .is-open"
-        {
+        (modal_shell("order-modal", "z-[1000]", html! {
             div class="modal bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl"
                 _="on click halt the event"
             {
@@ -1201,7 +1196,7 @@ fn shipping_create_page(
                     }
                 }
             }
-        }
+        }))
         // ── External script ──
         script src="/shipping-create.js" {}
         ({

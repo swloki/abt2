@@ -11,6 +11,7 @@ use abt_core::sales::sales_order::{SalesOrderService, model::SalesOrderQuery};
 use abt_core::shared::types::{DomainError, PageParams};
 
 use crate::components::icon;
+use crate::components::overlay::modal_shell;
 use crate::components::product_picker;
 use crate::errors::Result;
 use crate::layout::page::admin_page;
@@ -375,14 +376,10 @@ fn order_create_page(work_centers: &[abt_core::master_data::work_center::WorkCen
 // ── Source Picker Modals ──
 
 fn source_order_modal() -> Markup {
- html! {
-    div class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto"
-        id="so-modal"
-        _="on click remove .is-open from #so-modal"
+ modal_shell("so-modal", "z-[1000]", html! {
+    div class="modal bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl"
+        _="on click halt"
     {
-        div class="modal bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl"
-            _="on click halt"
-        {
             div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0"
             {
                 h2 { "选择销售订单" }
@@ -418,18 +415,14 @@ fn source_order_modal() -> Markup {
             }
         }
     }
-}
+ )
 }
 
 fn source_plan_modal() -> Markup {
- html! {
-    div class="fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto"
-        id="pp-modal"
-        _="on click remove .is-open from #pp-modal"
+ modal_shell("pp-modal", "z-[1000]", html! {
+    div class="modal bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl"
+        _="on click halt"
     {
-        div class="modal bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl"
-            _="on click halt"
-        {
             div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0"
             {
                 h2 { "选择生产计划" }
@@ -465,7 +458,7 @@ fn source_plan_modal() -> Markup {
             }
         }
     }
-}
+ )
 }
 
 // ── Search Result Fragments ──

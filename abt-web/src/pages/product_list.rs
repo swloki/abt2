@@ -15,6 +15,7 @@ use abt_core::master_data::product_watcher::ProductWatcherService;
 use abt_core::shared::types::PageParams;
 
 use crate::components::icon;
+use crate::components::overlay::modal_shell;
 use crate::components::category_select::category_tree_select;
 use crate::components::pagination::pagination;
 use crate::components::import_modal::{self, ImportModalConfig};
@@ -823,11 +824,7 @@ fn bom_ref_card(entry: &UsageEntry) -> Markup {
 }
 
 fn usage_error_dialog(name: &str, total: u64) -> Markup {
- html! {
-    div id="usage-error-dialog"
-        class="error-dialog fixed inset-0 z-[1100] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto is-open"
-        _="on click[me is event.target] remove .is-open"
-    {
+ modal_shell("usage-error-dialog", "z-[1100]", html! {
         div class="bg-bg rounded-xl w-[480px] p-6 shadow-xl" {
             div class="flex justify-center mb-3" { (icon::circle_alert_icon("w-7 h-7")) }
             div class="text-lg font-semibold text-fg text-center mb-2" { "无法删除" }
@@ -844,19 +841,15 @@ fn usage_error_dialog(name: &str, total: u64) -> Markup {
                 button
                     type="button"
                     class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
-                    _="on click remove .is-open from closest .error-dialog"
+                    _="on click remove .is-open from closest .modal-overlay"
                 { "知道了" }
             }
         }
-    }
-}
+    })
 }
 
 fn price_history_table(_product_id: i64, entries: &[PriceLogEntry]) -> Markup {
- html! {
-    div class="history-modal fixed inset-0 z-[1000] grid place-items-center bg-[rgba(15,23,42,0.45)] backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200 [&.is-open]:opacity-100 [&.is-open]:pointer-events-auto is-open"
-        _="on click[me is event.target] remove .is-open"
-    {
+ modal_shell("price-history-modal", "z-[1000]", html! {
         div class="bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl"
         {
             div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0"
@@ -864,7 +857,7 @@ fn price_history_table(_product_id: i64, entries: &[PriceLogEntry]) -> Markup {
                 h2 { "价格变更记录" }
                 button
                     class="text-muted hover:text-fg cursor-pointer bg-transparent border-none"
-                    _="on click remove .is-open from closest .history-modal"
+                    _="on click remove .is-open from closest .modal-overlay"
                 { "×" }
             }
             div class="overflow-y-auto flex-1 min-h-0 p-6" {
@@ -878,12 +871,11 @@ fn price_history_table(_product_id: i64, entries: &[PriceLogEntry]) -> Markup {
                 button
                     type="button"
                     class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
-                    _="on click remove .is-open from closest .history-modal"
+                    _="on click remove .is-open from closest .modal-overlay"
                 { "关闭" }
             }
         }
-    }
-}
+    })
 }
 
 fn price_type_label(pt: PriceType) -> &'static str {

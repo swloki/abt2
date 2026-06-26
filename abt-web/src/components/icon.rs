@@ -25,6 +25,10 @@ pub fn box_icon(c: &str) -> Markup {
     icon("i-lucide-box", c)
 }
 
+pub fn globe_icon(c: &str) -> Markup {
+    icon("i-lucide-globe", c)
+}
+
 pub fn home_icon(c: &str) -> Markup {
     icon("i-lucide-house", c)
 }
@@ -104,6 +108,10 @@ pub fn eye_off_icon(c: &str) -> Markup {
 
 pub fn arrow_right_icon(c: &str) -> Markup {
     icon("i-lucide-arrow-right", c)
+}
+
+pub fn arrow_left_right_icon(c: &str) -> Markup {
+    icon("i-lucide-arrow-left-right", c)
 }
 
 pub fn arrow_left_icon(c: &str) -> Markup {

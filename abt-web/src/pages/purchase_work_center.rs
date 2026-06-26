@@ -957,20 +957,20 @@ fn demand_filter_bar(view: &str, p: &DemandCardParams) -> Markup {
                     hx-get=(PcDemandPath::PATH)
                     hx-vals="{\"view\":\"material\"}"
                     hx-target="#pc-demand-card" hx-select="#pc-demand-card" hx-swap="outerHTML"
-                    hx-push-url="true" hx-include="#pc-demand-filter-form"
+                    hx-include="#pc-demand-filter-form"
                     { "物料汇总" }
                 button class=(toggle_cls(!is_mat)) type="button"
                     hx-get=(PcDemandPath::PATH)
                     hx-vals="{\"view\":\"detail\"}"
                     hx-target="#pc-demand-card" hx-select="#pc-demand-card" hx-swap="outerHTML"
-                    hx-push-url="true" hx-include="#pc-demand-filter-form"
+                    hx-include="#pc-demand-filter-form"
                     { "请购明细" }
             }
             form class="flex items-center gap-2"
                 hx-get=(PcDemandPath::PATH)
                 hx-trigger="change, keyup changed delay:300ms from:.pc-demand-search"
                 hx-target="#pc-demand-card" hx-select="#pc-demand-card" hx-swap="outerHTML"
-                hx-push-url="true" {
+                {
                 input type="hidden" name="view" value=(view);
                 div class="relative" {
                     (icon::search_icon("w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted"));
@@ -1130,7 +1130,7 @@ fn orders_filter_bar(tab: &str, p: &OrdersCardParams) -> Markup {
                 hx-get=(PcOrdersPath::PATH)
                 hx-vals=(format!("{{\"tab\":\"{}\"}}", val))
                 hx-target="#pc-orders-card" hx-select="#pc-orders-card" hx-swap="outerHTML"
-                hx-push-url="true" hx-include="#pc-orders-filter-form"
+                hx-include="#pc-orders-filter-form"
                 { (label) }
         }
     };
@@ -1145,7 +1145,7 @@ fn orders_filter_bar(tab: &str, p: &OrdersCardParams) -> Markup {
                 hx-get=(PcOrdersPath::PATH)
                 hx-trigger="change, keyup changed delay:300ms from:.pc-orders-search"
                 hx-target="#pc-orders-card" hx-select="#pc-orders-card" hx-swap="outerHTML"
-                hx-push-url="true" {
+                {
                 input type="hidden" name="tab" value=(tab);
                 div class="relative" {
                     (icon::search_icon("w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted"));
@@ -1235,7 +1235,7 @@ fn settlement_filter_bar(tab: &str, p: &SettlementCardParams) -> Markup {
                 hx-get=(PcSettlementPath::PATH)
                 hx-vals=(format!("{{\"tab\":\"{}\"}}", val))
                 hx-target="#pc-settlement-card" hx-select="#pc-settlement-card" hx-swap="outerHTML"
-                hx-push-url="true" hx-include="#pc-settlement-filter-form"
+                hx-include="#pc-settlement-filter-form"
                 { (label) }
         }
     };
@@ -1249,7 +1249,7 @@ fn settlement_filter_bar(tab: &str, p: &SettlementCardParams) -> Markup {
                 hx-get=(PcSettlementPath::PATH)
                 hx-trigger="change, keyup changed delay:300ms from:.pc-settlement-search"
                 hx-target="#pc-settlement-card" hx-select="#pc-settlement-card" hx-swap="outerHTML"
-                hx-push-url="true" {
+                {
                 input type="hidden" name="tab" value=(tab);
                 div class="relative" {
                     (icon::search_icon("w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted"));
@@ -1364,7 +1364,7 @@ fn returns_filter_bar(tab: &str, p: &ReturnsCardParams) -> Markup {
                 hx-get=(PcReturnsPath::PATH)
                 hx-vals=(format!("{{\"tab\":\"{}\"}}", val))
                 hx-target="#pc-returns-card" hx-select="#pc-returns-card" hx-swap="outerHTML"
-                hx-push-url="true" hx-include="#pc-returns-filter-form"
+                hx-include="#pc-returns-filter-form"
                 { (label) }
         }
     };
@@ -1378,7 +1378,7 @@ fn returns_filter_bar(tab: &str, p: &ReturnsCardParams) -> Markup {
                 hx-get=(PcReturnsPath::PATH)
                 hx-trigger="change, keyup changed delay:300ms from:.pc-returns-search"
                 hx-target="#pc-returns-card" hx-select="#pc-returns-card" hx-swap="outerHTML"
-                hx-push-url="true" {
+                {
                 input type="hidden" name="tab" value=(tab);
                 div class="relative" {
                     (icon::search_icon("w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted"));

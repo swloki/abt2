@@ -2,6 +2,8 @@
 
 Rust 全栈前端，Axum + Maud + HTMX + Hyperscript + UnoCSS，直接调用 `abt-core` Service trait。
 
+> **本文档是前端强约束入口（必读速查）。** HTMX / 交互的系统性范式（决策树、组合模式、反模式、踩坑固化）见 [`docs/frontend/htmx-patterns.md`](../docs/frontend/htmx-patterns.md)。
+
 ## Constraints（必须遵守）
  **Rust 2024 Maud 陷阱**：字符串 `"xxx-yyy"` 后直接跟属性名（如 `style`）会被 Rust 2024 lexer 解析为 prefix literal，编译报错 `prefix 'yyy' is unknown`。解法：字符串末尾加空格 `"xxx-yyy "`。
 
@@ -210,7 +212,6 @@ pub fn render_component(username: &str, mode: &str) -> Markup {
 // hx-target="#data-card"         → 替换数据区（标准 CSS #id，禁止 closest）
 // hx-select="#data-card"         → 从响应中选取数据区
 // hx-select-oob="#status-tabs"   → 同时替换 tab 栏自身
-// hx-push-url="true"             → 浏览器地址栏反映当前状态
 // hx-vals='{"status": "2"}'      → 携带状态参数
 // hx-include="#filter-form"      → 携带搜索表单参数
 status_tabs_with_param(ListPath::PATH, "#data-card", "#filter-form", tabs, &active_value, "status")
@@ -227,7 +228,6 @@ form class="filter-bar filter-form" id="xxx-filter-form"
     hx-target="#data-card"
     hx-select="#data-card"
     hx-swap="outerHTML"
-    hx-push-url="true"
     hx-include="#xxx-filter-form" {   // 指向自身 id，GET 自动携带所有字段
     // input, select ...
 }
@@ -247,6 +247,8 @@ pagination(ListPath::PATH, &query_string, total, page, total_pages)
 - **`TypedPath::PATH` 需要 trait 在 scope 中**：页面文件必须 `use axum_extra::routing::TypedPath;`，否则报 `no associated item named PATH`
 - **`Serialize` 与 `TypedPath` derive 冲突**：`#[derive(TypedPath, Serialize, ...)]` 会阻止 `PATH` 常量生成，去掉 `Serialize`
 
+> 完整控件签名、扩展 OOB（多区域联动）、`hx-push-url` 禁用理由等见 [`docs/frontend/htmx-patterns.md` §2 列表页单端点模式](../docs/frontend/htmx-patterns.md#2-列表页单端点模式)。
+
 ---
 
 ## 事件驱动解耦 (HX-Trigger)
@@ -255,6 +257,8 @@ pagination(ListPath::PATH, &query_string, total, page, total_pages)
 
 1. 主动组件 POST → 后端响应头 `HX-Trigger: "cartUpdated"`
 2. 被动组件声明 `hx-trigger="cartUpdated from:body"` 指向各自的强类型路径
+
+> 真实案例、JSON 多事件组合、`HX-Trigger` vs `HX-Trigger-After-Settle` 时序决策见 [`docs/frontend/htmx-patterns.md` §4 HX-Trigger 多组件联动](../docs/frontend/htmx-patterns.md#4-hx-trigger-多组件联动核心范式)。
 
 ---
 

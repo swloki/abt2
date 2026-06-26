@@ -1,3 +1,123 @@
+// ── Smooth scroll to anchor (nav_chip 锚点条) ──
+// hyperscript 不支持 JS 可选链 ?./对象字面量，故滚动逻辑放此，hyperscript 只 call 函数名。
+window.scrollToAnchor = function (sel) {
+  var el = document.querySelector(sel);
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+};
+
+
+// ── Release drawer 流转卡增删（work-center 下达 drawer 批次规划）──
+// .split-row 克隆增行；.split-remove 删行（至少保留 1 行）；每次操作后重新编号 splits[idx][batch_qty]
+function renumberSplitRows(container) {
+  container.querySelectorAll('.split-row').forEach(function (row, i) {
+    var input = row.querySelector('.split-qty');
+    if (input) input.name = 'splits[' + i + '][batch_qty]';
+    var label = row.querySelector('.split-label');
+    if (label) label.textContent = '流转卡 ' + (i + 1);
+  });
+}
+
+window.addSplitRow = function (btn) {
+  var container = (btn.closest('form') && btn.closest('form').querySelector('[data-splits]')) || btn.closest('[data-splits]');
+  if (!container) return;
+  var last = container.querySelector('.split-row:last-of-type');
+  if (!last) return;
+  var clone = last.cloneNode(true);
+  var input = clone.querySelector('.split-qty');
+  if (input) input.value = '';
+  container.appendChild(clone);
+  renumberSplitRows(container);
+};
+
+window.removeSplitRow = function (btn) {
+  var row = btn && btn.closest('.split-row');
+  var container = row && row.closest('[data-splits]');
+  if (!container || container.querySelectorAll('.split-row').length <= 1) return;
+  row.remove();
+  renumberSplitRows(container);
+};
+
+
+// ── Demand Batch Action Bar (shared by mes work-center & demand-pool 订单明细 tab) ──
+// 文档流内嵌批量栏：document 级 change/click 委托监听 .demand-cb，实时更新页面上所有
+// .batch-bar（htmx 切 tab 动态出现的栏也能生效，无需 init 时机）。
+// .batch-bar 结构约定：容器带 data-create-path；内含 .batch-count / .batch-create-btn / .batch-clear-btn。
+function updateDemandBatchBars() {
+  document.querySelectorAll('.batch-bar').forEach(function (bar) {
+    // 每个 .batch-bar 按 closest('.batch-scope') 内的 demand-cb 独立计数
+    // （订单明细 tab 一个 scope，每个物料展开区各自一个 scope，互不干扰）
+    var scope = bar.closest('.batch-scope') || document;
+    var checked = scope.querySelectorAll('input[type=checkbox].demand-cb:checked:not([disabled])');
+    var count = checked.length;
+    var createPath = bar.getAttribute('data-create-path');
+    var countEl = bar.querySelector('.batch-count');
+    var btn = bar.querySelector('.batch-create-btn');
+    if (count === 0) { bar.classList.remove('show'); return; }
+    bar.classList.add('show');
+    if (countEl) countEl.textContent = count;
+    if (!btn) return;
+    var ids = [], productIds = new Set(), productName = '', productCode = '';
+    checked.forEach(function (c) {
+      ids.push(c.value);
+      productIds.add(c.getAttribute('data-product-id'));
+      if (!productName) productName = c.getAttribute('data-product-name') || '';
+      if (!productCode) productCode = c.getAttribute('data-product-code') || '';
+    });
+    if (productIds.size > 1) {
+      btn.onclick = function (e) { e.preventDefault(); alert('请选择同一物料的需求进行批量创建生产计划。'); };
+    } else {
+      var pid = productIds.size === 1 ? [...productIds][0] : null;
+      var href = createPath + '?demand_ids=' + ids.join(',');
+      if (pid && pid !== 'null' && pid !== 'undefined') {
+        href += '&product_id=' + pid +
+          '&product_name=' + encodeURIComponent(productName) +
+          '&product_code=' + encodeURIComponent(productCode);
+      }
+      btn.setAttribute('href', href);
+      btn.onclick = null;
+    }
+  });
+}
+
+// 全选 checkbox（订单明细 thead）联动
+window.toggleAllDemands = function (master, table) {
+  var cbs = table.querySelectorAll('input.demand-cb:not([disabled])');
+  cbs.forEach(function (c) {
+    c.checked = master.checked;
+    var tr = c.closest('tr');
+    if (tr) tr.classList.toggle('demand-row-selected', master.checked);
+  });
+  updateDemandBatchBars();
+};
+
+document.addEventListener('change', function (e) {
+  if (e.target.type !== 'checkbox' || !e.target.classList.contains('demand-cb')) return;
+  var tr = e.target.closest('tr');
+  if (tr) tr.classList.toggle('demand-row-selected', e.target.checked);
+  updateDemandBatchBars();
+});
+
+// 展开区懒加载 demand-cb（默认勾选）后，按 scope 刷新就地批量栏
+document.addEventListener('htmx:afterSettle', function (e) {
+  if (e.target && e.target.querySelector && e.target.querySelector('.demand-cb')) {
+    updateDemandBatchBars();
+  }
+});
+
+// 清除选择（document delegate，动态出现的栏也生效）
+document.addEventListener('click', function (e) {
+  if (!e.target.closest('.batch-clear-btn')) return;
+  document.querySelectorAll('input[type=checkbox]').forEach(function (c) {
+    if (!c.disabled && (c.classList.contains('demand-cb') || c.title === '全选')) {
+      c.checked = false;
+      var tr = c.closest('tr');
+      if (tr) tr.classList.remove('demand-row-selected');
+    }
+  });
+  updateDemandBatchBars();
+});
+
+
 // ── Floating Dropdown Positioning ──
 // Positions a dropdown relative to its trigger, auto-flipping when near edges.
 // Usage: call positionDropdown(triggerEl, dropdownEl) when dropdown becomes visible.

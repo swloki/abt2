@@ -16,7 +16,8 @@ use serde::Deserialize;
 use abt_core::master_data::supplier::model::SupplierQuery;
 use abt_core::master_data::supplier::SupplierService;
 use abt_core::purchase::demand_handler::{
-    DemandPoolQuery, DemandSummary, MaterialAggQuery, MaterialAggSummary, PurchaseDemandService,
+    CreateOrderFromDemandsReq, DemandPoolQuery, DemandSummary, MaterialAggQuery,
+    MaterialAggSummary, PurchaseDemandService,
 };
 use abt_core::purchase::enums::{
     PaymentStatus, PurchaseOrderStatus, PurchaseReconStatus, PurchaseReturnStatus,
@@ -29,11 +30,17 @@ use abt_core::purchase::reconciliation::model::{PurchaseReconciliation, Purchase
 use abt_core::purchase::reconciliation::PurchaseReconciliationService;
 use abt_core::purchase::return_order::model::{PurchaseReturn, PurchaseReturnQuery};
 use abt_core::purchase::return_order::PurchaseReturnService;
-use abt_core::purchase::work_center::{PurchaseWorkCenterService, PurchaseWorkCenterSummary};
+use abt_core::purchase::work_center::{
+    PoHubSummary, PurchaseWorkCenterService, PurchaseWorkCenterSummary, ReturnHubSummary,
+    SettlementHubSummary, SettlementReconType, ThreeWayMatchSummary,
+};
 use abt_core::shared::types::{DomainError, PageParams};
 
 use std::collections::HashMap;
 
+use abt_core::purchase::quotation::model::QuotationComparison;
+use abt_core::purchase::quotation::PurchaseQuotationService;
+use axum::Form;
 use crate::components::icon;
 use crate::errors::Result;
 use crate::layout::page::admin_page;
@@ -62,23 +69,50 @@ pub async fn get_work_center(_path: PurchaseWorkCenterPath, ctx: RequestContext)
         .await
         .unwrap_or_default();
 
+    let demand_meta = format!(
+        "{} 条待处理 · 销售订单/请购驱动",
+        summary.pending_demand + summary.pending_misc
+    );
+    let orders_meta = format!(
+        "待审批 {} · 待收货 {} · 部分收货 {}",
+        summary.po_pending_approval, summary.po_pending_receive, summary.po_partial
+    );
+    let settle_meta = format!(
+        "草稿对账 {} · 待审批付款 {}",
+        summary.recon_draft, summary.payment_pending_approval
+    );
+    let returns_meta = format!(
+        "待发货 {} · 已发出 {}",
+        summary.return_pending_ship, summary.return_shipped
+    );
+    let today = chrono::Utc::now().date_naive().format("%Y-%m-%d").to_string();
     let content = html! {
-        // detail-header：标题 + meta + 内嵌锚点条
+        // detail-header：标题 + meta chip + 内嵌锚点条
         div class="bg-bg border border-border-soft rounded-lg p-6 mb-4 shadow-[var(--shadow-card)]" {
             div class="flex items-center justify-between flex-wrap gap-4" {
                 div {
                     h1 class="text-xl font-bold text-fg tracking-tight" { "采购作业中心" }
-                    p class="text-sm text-muted mt-1" { "需求 · 订单 · 对账 · 退货 一屏处理，就地操作" }
+                    div class="flex items-center gap-2 mt-2 flex-wrap" {
+                        span class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-surface border border-border-soft rounded-sm text-xs text-fg-2 font-medium" {
+                            (icon::calendar_icon("w-3.5 h-3.5 text-muted"))
+                            span class="font-mono" { (today) }
+                        }
+                        span class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-surface border border-border-soft rounded-sm text-xs text-fg-2 font-medium" {
+                            (icon::trending_up_icon("w-3.5 h-3.5 text-muted"))
+                            "本周待办 " (summary.total())
+                        }
+                    }
                 }
             }
             (render_anchor_nav(&summary))
         }
-        (render_card_shell("pc-demand-card", PcDemandPath::PATH, "采购需求"))
-        (render_card_shell("pc-orders-card", PcOrdersPath::PATH, "采购订单"))
-        (render_card_shell("pc-settlement-card", PcSettlementPath::PATH, "对账付款"))
-        (render_card_shell("pc-returns-card", PcReturnsPath::PATH, "采购退货"))
+        (render_card_shell("pc-demand-card", PcDemandPath::PATH, "采购需求", icon::package_icon("w-[15px] h-[15px]"), &demand_meta))
+        (render_card_shell("pc-orders-card", PcOrdersPath::PATH, "采购订单", icon::clipboard_list_icon("w-[15px] h-[15px]"), &orders_meta))
+        (render_card_shell("pc-settlement-card", PcSettlementPath::PATH, "对账付款", icon::payment_icon("w-[15px] h-[15px]"), &settle_meta))
+        (render_card_shell("pc-returns-card", PcReturnsPath::PATH, "采购退货", icon::return_arrow_icon("w-[15px] h-[15px]"), &returns_meta))
         (render_drawer_overlay("approve-overlay", "approve-drawer", "approve-drawer-body", "审批采购订单"))
         (render_drawer_overlay("pay-overlay", "pay-drawer", "pay-drawer-body", "审批付款"))
+        (render_drawer_overlay("convert-po-overlay", "convert-po-drawer", "convert-po-drawer-body", "转采购单"))
     };
 
     Ok(Html(
@@ -160,6 +194,7 @@ pub async fn get_demand_card(
             div id="pc-demand-card" {
                 (demand_filter_bar(view, &p))
                 (body)
+                (info_box("物料汇总按物料聚合多个来源（销售订单 / 零星请购）需求，一键转采购单；点击物料行展开查看需求明细。"))
                 div class="px-5 py-3 border-t border-border-soft text-center" {
                     a class="text-sm text-accent font-semibold no-underline" href="/admin/purchase/demand-pool" { "查看全部需求 →" }
                 }
@@ -219,6 +254,7 @@ pub async fn get_orders_card(
             div id="pc-orders-card" {
                 (orders_filter_bar(tab, &p))
                 (orders_table(&result.items, &names, tab))
+                (info_box("按状态（待审批 / 待收货 / 部分收货）筛选，点订单号进详情，行内就地审批 / 登记收货（触发来料通知 → PO 回写 + 立应付台账）。"))
                 div class="px-5 py-3 border-t border-border-soft text-center" {
                     a class="text-sm text-accent font-semibold no-underline" href="/admin/purchase/orders" { "查看全部订单 →" }
                 }
@@ -293,6 +329,7 @@ pub async fn get_settlement_card(
             div id="pc-settlement-card" {
                 (settlement_filter_bar(tab, &p))
                 (body)
+                (info_box("对账单是开票 / PO 闭环 / 退货结算的唯一载体：确认对账时结算关联退货并创建付款申请；付款审批后转 FMS 付款。"))
                 div class="px-5 py-3 border-t border-border-soft text-center" {
                     a class="text-sm text-accent font-semibold no-underline" href="/admin/purchase/reconciliations" { "查看全部对账 →" }
                 }
@@ -350,6 +387,7 @@ pub async fn get_returns_card(
             div id="pc-returns-card" {
                 (returns_filter_bar(tab, &p))
                 (returns_table(&result.items, &names, tab))
+                (info_box("退货发货后状态转 Shipped，进入对账单结算时自动 Shipped→Settled 并反向冲减应付台账。"))
                 div class="px-5 py-3 border-t border-border-soft text-center" {
                     a class="text-sm text-accent font-semibold no-underline" href="/admin/purchase/returns" { "查看全部退货 →" }
                 }
@@ -357,6 +395,276 @@ pub async fn get_returns_card(
         }
         .into_string(),
     ))
+}
+
+// =============================================================================
+// 行展开 row-detail（HTMX hx-swap="afterend" 按需加载单 <tr class="row-detail">）
+// =============================================================================
+
+#[derive(Debug, Deserialize, Clone, Default)]
+pub struct DemandRowsParams {
+    pub product_id: i64,
+}
+
+#[require_permission("PURCHASE_ORDER", "read")]
+pub async fn get_demand_rows(
+    _path: PcDemandRowsPath,
+    ctx: RequestContext,
+    Query(p): Query<DemandRowsParams>,
+) -> Result<Html<String>> {
+    let RequestContext {
+        mut conn,
+        state,
+        service_ctx,
+        ..
+    } = ctx;
+    let result = state
+        .purchase_demand_service()
+        .list_pending_demands(
+            &service_ctx,
+            &mut conn,
+            DemandPoolQuery {
+                product_id: Some(p.product_id),
+                ..Default::default()
+            },
+            PageParams::new(1, 50),
+        )
+        .await?;
+    Ok(Html(demand_expand_rows(&result.items).into_string()))
+}
+
+#[require_permission("PURCHASE_ORDER", "read")]
+pub async fn get_order_row_detail(
+    path: PcOrderRowDetailPath,
+    ctx: RequestContext,
+) -> Result<Html<String>> {
+    let RequestContext {
+        mut conn,
+        state,
+        service_ctx,
+        ..
+    } = ctx;
+    let summary = state
+        .purchase_work_center_service()
+        .get_po_hub_summary(&service_ctx, &mut conn, path.id)
+        .await?;
+    Ok(Html(order_row_detail_tr(&summary).into_string()))
+}
+
+#[require_permission("PURCHASE_ORDER", "read")]
+pub async fn get_settlement_row_detail(
+    path: PcSettlementRowDetailPath,
+    ctx: RequestContext,
+) -> Result<Html<String>> {
+    let RequestContext {
+        mut conn,
+        state,
+        service_ctx,
+        ..
+    } = ctx;
+    let recon_type = SettlementReconType::parse(&path.recon_type)
+        .ok_or_else(|| DomainError::validation(format!("未知对账类型: {}", path.recon_type)))?;
+    let summary = state
+        .purchase_work_center_service()
+        .get_settlement_hub_summary(&service_ctx, &mut conn, recon_type, path.ref_id)
+        .await?;
+    Ok(Html(settlement_row_detail_tr(&summary).into_string()))
+}
+
+#[require_permission("PURCHASE_ORDER", "read")]
+pub async fn get_return_row_detail(
+    path: PcReturnRowDetailPath,
+    ctx: RequestContext,
+) -> Result<Html<String>> {
+    let RequestContext {
+        mut conn,
+        state,
+        service_ctx,
+        ..
+    } = ctx;
+    let summary = state
+        .purchase_work_center_service()
+        .get_return_hub_summary(&service_ctx, &mut conn, path.id)
+        .await?;
+    Ok(Html(return_row_detail_tr(&summary).into_string()))
+}
+
+// ── 转采购单 drawer（就地转单，复用 create_order_from_demands）──
+
+#[require_permission("PURCHASE_ORDER", "read")]
+pub async fn get_convert_po_drawer(
+    path: PcConvertPoDrawerPath,
+    ctx: RequestContext,
+) -> Result<Html<String>> {
+    let RequestContext {
+        mut conn,
+        state,
+        service_ctx,
+        ..
+    } = ctx;
+    let demands = state
+        .purchase_demand_service()
+        .list_pending_demands(
+            &service_ctx,
+            &mut conn,
+            DemandPoolQuery {
+                product_id: Some(path.product_id),
+                ..Default::default()
+            },
+            PageParams::new(1, 100),
+        )
+        .await?;
+    let quotes = state
+        .purchase_quotation_service()
+        .compare(&service_ctx, &mut conn, path.product_id)
+        .await
+        .unwrap_or_default();
+    let supplier_ids: Vec<i64> = quotes.iter().map(|q| q.supplier_id).collect();
+    let names = supplier_names(&state, &service_ctx, &mut conn, &supplier_ids).await;
+    Ok(Html(
+        render_convert_po_body(path.product_id, &demands.items, &quotes, &names).into_string(),
+    ))
+}
+
+#[derive(Debug, Deserialize, Clone, Default)]
+pub struct ConvertPoForm {
+    /// 逗号分隔的 demand id
+    #[serde(default)]
+    pub demand_ids: String,
+    #[serde(default)]
+    pub supplier_id: i64,
+    #[serde(default, deserialize_with = "empty_as_none")]
+    pub expected_delivery_date: Option<String>,
+    #[serde(default)]
+    pub remark: String,
+}
+
+#[require_permission("PURCHASE_ORDER", "update")]
+pub async fn post_convert_po(
+    _path: PcConvertPoPath,
+    ctx: RequestContext,
+    Form(form): Form<ConvertPoForm>,
+) -> Result<impl IntoResponse> {
+    let RequestContext {
+        state,
+        service_ctx,
+        ..
+    } = ctx;
+    let demand_ids: Vec<i64> = form
+        .demand_ids
+        .split(',')
+        .filter_map(|s| s.trim().parse::<i64>().ok())
+        .collect();
+    if demand_ids.is_empty() {
+        return Err(DomainError::validation("demand_ids 不能为空").into());
+    }
+    let expected_delivery_date = form
+        .expected_delivery_date
+        .as_deref()
+        .and_then(|s| chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d").ok());
+    let req = CreateOrderFromDemandsReq {
+        demand_ids,
+        supplier_id: form.supplier_id,
+        expected_delivery_date,
+        remark: form.remark,
+    };
+    let mut tx = state
+        .pool
+        .begin()
+        .await
+        .map_err(|e| DomainError::Internal(e.into()))?;
+    state
+        .purchase_demand_service()
+        .create_order_from_demands(&service_ctx, &mut tx, req)
+        .await?;
+    tx.commit()
+        .await
+        .map_err(|e| DomainError::Internal(e.into()))?;
+    Ok(([("HX-Trigger", "demandChanged, poChanged")], Html(String::new())))
+}
+
+/// 转采购单 drawer body：物料信息 + 供应商报价选择 + 交期/备注 + 提交表单。
+fn render_convert_po_body(
+    product_id: i64,
+    demands: &[DemandSummary],
+    quotes: &[QuotationComparison],
+    supplier_names: &HashMap<i64, String>,
+) -> Markup {
+    let demand_ids: Vec<String> = demands.iter().map(|d| d.id.to_string()).collect();
+    let demand_ids_str = demand_ids.join(",");
+    let product_name = demands
+        .first()
+        .map(|d| d.product_name.as_str())
+        .unwrap_or("—");
+    let product_code = demands
+        .first()
+        .map(|d| d.product_code.as_str())
+        .unwrap_or("");
+    let total_qty: rust_decimal::Decimal = demands.iter().map(|d| d.quantity).sum();
+    html! {
+        div class="mb-4" {
+            div class="font-semibold text-fg text-sm" { (product_name) }
+            div class="text-xs text-muted font-mono" { (product_code) }
+        }
+        div class="grid grid-cols-2 gap-4 mb-4" {
+            (field_readonly("待转需求数", &format!("{}", demands.len())));
+            (field_readonly("总需求量", &fmt_plain(total_qty)));
+        }
+        div class="mb-4" {
+            label class="block text-xs text-muted font-medium mb-1.5" { "选择供应商" }
+            @if quotes.is_empty() {
+                div class="p-3 mb-2 bg-warn-bg border border-border-soft rounded-sm text-xs text-warn leading-relaxed" {
+                    "该物料暂无有效报价，将生成单价待补的 PO 草稿。请输入供应商 ID："
+                }
+                input type="number" name="supplier_id" required
+                    class="w-full px-2.5 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent"
+                    placeholder="供应商 ID" {};
+            } @else {
+                div class="flex flex-col gap-2" {
+                    @for q in quotes {
+                        label class="flex items-center gap-2 p-2.5 border border-border-soft rounded-sm cursor-pointer hover:bg-accent-bg text-sm" {
+                            input type="radio" name="supplier_id" value=(q.supplier_id) required class="cursor-pointer" {};
+                            span class="flex-1 text-fg" {
+                                (supplier_names.get(&q.supplier_id).map(|s| s.as_str()).unwrap_or("未知供应商"))
+                                @if q.is_preferred {
+                                    span class="ml-1 px-1.5 py-0.5 rounded-full bg-success-bg text-success text-[10px] font-semibold" { "优选" }
+                                }
+                            }
+                            span class="font-mono text-fg-2" { (fmt_plain(q.unit_price)) " " (q.currency) }
+                            span class="text-xs text-muted" { "有效期至 " (q.valid_until.format("%Y-%m-%d").to_string()) }
+                        }
+                    }
+                }
+            }
+        }
+        div class="grid grid-cols-2 gap-4 mb-4" {
+            div {
+                label class="block text-xs text-muted font-medium mb-1.5" { "期望交期（可选）" }
+                input type="date" name="expected_delivery_date"
+                    class="w-full px-2.5 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent" {};
+            }
+            div {
+                label class="block text-xs text-muted font-medium mb-1.5" { "备注" }
+                input type="text" name="remark"
+                    class="w-full px-2.5 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent" {};
+            }
+        }
+        div class="p-3 mb-3 bg-surface-raised border border-border-soft rounded-sm text-xs text-muted leading-relaxed" {
+            "提交后生成 PO 草稿：按 " (demands.len()) " 个需求聚合 "
+            (fmt_plain(total_qty)) " " (product_code)
+            "；单价待采购员在 PO 详情补充后 confirm。"
+        }
+        form hx-post=(PcConvertPoPath { product_id }.to_string())
+            hx-target="this" hx-swap="none"
+            _="on 'htmx:afterRequest'[detail.xhr.status < 400] remove .open from #convert-po-overlay then call showToast('PO 草稿已生成，单价待补充')" {
+            input type="hidden" name="demand_ids" value=(demand_ids_str) {};
+            div class="flex justify-end gap-2 pt-3 border-t border-border-soft" {
+                button type="submit" class="inline-flex items-center px-4 py-2 rounded-sm bg-accent text-white text-sm font-semibold border-none cursor-pointer hover:opacity-90" {
+                    "生成 PO 草稿"
+                }
+            }
+        }
+    }
 }
 
 // =============================================================================
@@ -397,27 +705,21 @@ pub async fn get_payment_approve_drawer(
         service_ctx,
         ..
     } = ctx;
-    let svc = state.payment_request_service();
-    // PaymentRequestService 无 get-by-id 时用 list 反查
-    let list = svc
-        .list(
-            &service_ctx,
-            &mut conn,
-            PaymentRequestQuery::default(),
-            PageParams::new(1, 500),
-        )
+    let pay = state
+        .payment_request_service()
+        .get(&service_ctx, &mut conn, path.id)
         .await?;
-    let pay = list
-        .items
-        .into_iter()
-        .find(|x| x.id == path.id)
-        .ok_or_else(|| DomainError::NotFound("付款申请不存在".into()))?;
     let supplier = supplier_names(&state, &service_ctx, &mut conn, &[pay.supplier_id])
         .await
         .get(&pay.supplier_id)
         .cloned()
         .unwrap_or_default();
-    Ok(Html(render_payment_approve_body(&pay, &supplier).into_string()))
+    let three_way = state
+        .purchase_work_center_service()
+        .check_three_way_match(&service_ctx, &mut conn, path.id)
+        .await
+        .unwrap_or_default();
+    Ok(Html(render_payment_approve_body(&pay, &supplier, &three_way).into_string()))
 }
 
 // =============================================================================
@@ -514,19 +816,21 @@ fn render_anchor_nav(s: &PurchaseWorkCenterSummary) -> Markup {
                 span class="text-xs text-muted font-medium" { "待办" }
             }
             div class="flex items-center gap-2 flex-wrap" {
-                (nav_chip("#pc-demand-card", "采购需求", demand_cnt))
-                (nav_chip("#pc-orders-card", "采购订单", order_cnt))
-                (nav_chip("#pc-settlement-card", "对账付款", settle_cnt))
-                (nav_chip("#pc-returns-card", "采购退货", return_cnt))
+                (nav_chip("#pc-demand-card", icon::package_icon("w-3.5 h-3.5"), "采购需求", demand_cnt))
+                (nav_chip("#pc-orders-card", icon::clipboard_list_icon("w-3.5 h-3.5"), "采购订单", order_cnt))
+                (nav_chip("#pc-settlement-card", icon::payment_icon("w-3.5 h-3.5"), "对账付款", settle_cnt))
+                (nav_chip("#pc-returns-card", icon::return_arrow_icon("w-3.5 h-3.5"), "采购退货", return_cnt))
             }
             div class="ml-auto flex items-center gap-2" {
                 @if s.overdue_count > 0 {
                     span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-danger-bg text-danger text-[11px] font-semibold" {
+                        (icon::alert_triangle_icon("w-3 h-3"))
                         (s.overdue_count) " 逾期"
                     }
                 }
                 @if s.soon_count > 0 {
                     span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-warn-bg text-warn text-[11px] font-semibold" {
+                        (icon::clock_icon("w-3 h-3"))
                         (s.soon_count) " 临期"
                     }
                 }
@@ -535,7 +839,7 @@ fn render_anchor_nav(s: &PurchaseWorkCenterSummary) -> Markup {
     }
 }
 
-fn nav_chip(href: &str, label: &str, count: u64) -> Markup {
+fn nav_chip(href: &str, chip_icon: Markup, label: &str, count: u64) -> Markup {
     if count == 0 {
         return html! {};
     }
@@ -543,28 +847,35 @@ fn nav_chip(href: &str, label: &str, count: u64) -> Markup {
         a class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface border border-border-soft text-sm font-semibold text-fg-2 no-underline cursor-pointer hover:bg-accent-bg hover:border-accent hover:text-accent transition-all"
             href=(href)
             _=(format!("on click halt the event then call document.querySelector('{href}')?.scrollIntoView({{behavior:'smooth',block:'center'}})")) {
+            (chip_icon)
             (label)
             span class="font-mono font-bold text-accent" { (count) }
         }
     }
 }
 
-/// Card 外壳：标题栏 + 占位 div（`hx-trigger="load"` 拉 card 端点）。
+/// Card 外壳（grp disclosure 折叠）：grp-head（图标 + 标题 + meta + chevron）+ grp-body（占位 div 懒加载）。
 /// 监听 `poChanged`/`reconChanged`/`returnChanged` 自刷新（写操作后）。
-fn render_card_shell(card_id: &str, src: &str, title: &str) -> Markup {
-    let trigger = format!("load, poChanged from:body, reconChanged from:body, returnChanged from:body");
+fn render_card_shell(card_id: &str, src: &str, title: &str, grp_icon: Markup, meta: &str) -> Markup {
+    let trigger = format!("load, poChanged from:body, reconChanged from:body, returnChanged from:body, demandChanged from:body");
     html! {
-        section class="bg-bg border border-border-soft rounded-lg mb-4 shadow-[var(--shadow-card)] overflow-hidden" {
-            div class="px-5 py-3 border-b border-border-soft" {
-                span class="font-semibold text-fg" { (title) }
+        section class="grp open bg-bg border border-border-soft rounded-lg mb-4 shadow-[var(--shadow-card)] overflow-hidden" {
+            div class="grp-head flex items-center gap-3 px-5 py-3 border-b border-border-soft cursor-pointer hover:bg-surface-raised select-none"
+                _="on click toggle .open on closest .grp" {
+                div class="w-7 h-7 rounded-md grid place-items-center bg-surface text-fg-2 shrink-0" { (grp_icon) }
+                span class="font-semibold text-fg text-sm" { (title) }
+                span class="text-xs text-muted font-mono flex-1 truncate" { (meta) }
+                (icon::chevron_down_icon("w-[18px] h-[18px] text-muted grp-chev"))
             }
-            div id=(card_id)
-                class="p-5 text-sm text-muted"
-                hx-get=(src)
-                hx-trigger=(trigger)
-                hx-target="this"
-                hx-swap="outerHTML" {
-                "加载中…"
+            div class="grp-body" {
+                div id=(card_id)
+                    class="text-sm text-muted"
+                    hx-get=(src)
+                    hx-trigger=(trigger)
+                    hx-target="this"
+                    hx-swap="outerHTML" {
+                    "加载中…"
+                }
             }
         }
     }
@@ -677,45 +988,98 @@ fn demand_filter_bar(view: &str, p: &DemandCardParams) -> Markup {
 
 fn demand_material_table(result: &abt_core::shared::types::PaginatedResult<MaterialAggSummary>) -> Markup {
     html! {
-        div class="overflow-x-auto" {
-            table class="w-full text-sm" {
-                thead {
-                    tr class="bg-surface-raised text-xs text-muted" {
-                        th class="text-left font-semibold py-2 px-5 uppercase tracking-wide" { "物料" }
-                        th class="text-right font-semibold py-2 px-3 uppercase tracking-wide" { "总需求量" }
-                        th class="text-center font-semibold py-2 px-3 uppercase tracking-wide" { "来源数" }
-                        th class="text-left font-semibold py-2 px-3 uppercase tracking-wide" { "需求日期" }
-                        th class="text-right font-semibold py-2 px-5 uppercase tracking-wide" { "操作" }
-                    }
+        div class="p-5" {
+            @if result.items.is_empty() {
+                div class="text-center text-muted py-8" { "暂无待处理需求" }
+            }
+            @for item in &result.items {
+                (demand_mat_row(item))
+            }
+        }
+    }
+}
+
+/// 需求物料卡片行：物料图标 + 名称 + 总需求量（紧急度配色）+ 来源/交期/紧急度提示 + 转采购单 + 点击懒加载明细。
+fn demand_mat_row(item: &MaterialAggSummary) -> Markup {
+    let pid = item.product_id;
+    let (icon_cls, mat_icon) = material_icon(pid);
+    let qty_cls = demand_qty_class(item.total_demand_qty, item.earliest_required_date);
+    let hint = urgency_hint(item.earliest_required_date);
+    let earliest_str = item
+        .earliest_required_date
+        .map(|d| d.format("%m-%d").to_string())
+        .unwrap_or_else(|| "—".into());
+    let latest_str = item
+        .latest_required_date
+        .map(|d| d.format("%m-%d").to_string())
+        .unwrap_or_else(|| "—".into());
+    let rows_url = format!("{}?product_id={}", PcDemandRowsPath::PATH, pid);
+    html! {
+        div class="grid grid-cols-[1fr_auto_auto_auto] items-center gap-6 px-4 py-3 border-b border-border-soft" {
+            // 物料信息（点击懒加载该物料需求明细）
+            div class="flex items-center gap-4 cursor-pointer"
+                hx-get=(rows_url)
+                hx-target=(format!("#pc-demand-expand-{pid}"))
+                hx-swap="innerHTML"
+                hx-trigger="click once"
+                _=(format!("on click toggle .expanded on #pc-demand-toggle-{pid}")) {
+                div class=(format!("w-[40px] h-[40px] rounded-md grid place-items-center shrink-0 {icon_cls}")) { (mat_icon) }
+                div {
+                    div class="font-semibold text-fg text-sm" { (item.product_name) }
+                    div class="text-xs text-muted font-mono" { (item.product_code) }
                 }
-                tbody {
-                    @if result.items.is_empty() {
-                        tr { td colspan="5" class="text-center text-muted py-8" { "暂无待处理需求" } }
-                    }
-                    @for item in &result.items {
-                        tr class="border-b border-border-soft hover:bg-accent-bg" {
-                            td class="py-2.5 px-5" {
-                                div class="font-medium text-fg" { (item.product_name) }
-                                div class="text-xs text-muted font-mono" { (item.product_code) }
-                            }
-                            td class="text-right font-mono py-2.5 px-3" { (fmt_decimal(item.total_demand_qty)) }
-                            td class="text-center font-mono py-2.5 px-3 text-accent" { (item.demand_count) }
-                            td class="py-2.5 px-3 text-muted" {
-                                (fmt_date(item.earliest_required_date))
-                                @if let Some(latest) = item.latest_required_date {
-                                    span class="text-xs" { " → " (fmt_date(Some(latest))) }
-                                }
-                            }
-                            td class="text-right py-2.5 px-5" {
-                                a class="inline-flex items-center px-3 py-1 rounded-sm bg-accent text-white text-xs font-semibold no-underline hover:opacity-90"
-                                    href="/admin/purchase/demand-pool" { "转采购单" }
-                            }
-                        }
+            }
+            // 总需求量（紧急度配色）
+            div class="flex flex-col" {
+                div class=(format!("text-lg font-bold font-mono tabular-nums {qty_cls}")) { (fmt_plain(item.total_demand_qty)) }
+                div class="text-xs text-muted mt-0.5" { "总需求量" }
+            }
+            // 来源数 + 交期 + 紧急度提示
+            div class="flex flex-col" {
+                div class="text-sm font-semibold text-fg" {
+                    (item.demand_count) " 个来源 · " (earliest_str) " → " (latest_str)
+                }
+                @if let Some((hint_text, hint_cls)) = &hint {
+                    div class=(format!("text-xs font-medium {hint_cls}")) { (hint_text) }
+                }
+            }
+            // 转采购单（就地 drawer）
+            div {
+                button class="inline-flex items-center px-3 py-1.5 rounded-sm bg-accent text-white text-xs font-semibold border-none cursor-pointer hover:opacity-90"
+                    hx-get=(PcConvertPoDrawerPath { product_id: pid }.to_string())
+                    hx-target="#convert-po-drawer-body" hx-swap="innerHTML"
+                    _="on 'htmx:afterRequest'[detail.xhr.status < 400] add .open to #convert-po-overlay" { "转采购单" }
+            }
+        }
+        // 展开区（懒加载 demand-rows，.expanded 切换显隐）
+        div class="mat-expand bg-surface-raised border-b border-border-soft" id=(format!("pc-demand-toggle-{pid}")) {
+            div class="p-4" {
+                table class="w-full text-sm" {
+                    tbody id=(format!("pc-demand-expand-{pid}")) {
+                        tr { td colspan="3" class="text-center text-muted py-4" { "点击物料加载需求明细…" } }
                     }
                 }
             }
         }
     }
+}
+
+/// 总需求量着色：交期紧急度优先（≤3天 danger / ≤7天 warn），其次量大（>100 warn），默认 accent。
+fn demand_qty_class(total: rust_decimal::Decimal, earliest: Option<chrono::NaiveDate>) -> &'static str {
+    if let Some(d) = earliest {
+        let today = chrono::Local::now().date_naive();
+        let diff = (d - today).num_days();
+        if diff <= 3 {
+            return "text-danger";
+        }
+        if diff <= 7 {
+            return "text-warn";
+        }
+    }
+    if total > rust_decimal::Decimal::from(100) {
+        return "text-warn";
+    }
+    "text-accent"
 }
 
 fn demand_detail_table(result: &abt_core::shared::types::PaginatedResult<DemandSummary>) -> Markup {
@@ -832,6 +1196,13 @@ fn orders_table(items: &[PurchaseOrder], names: &HashMap<i64, String>, tab: &str
                                     a class="inline-flex items-center px-3 py-1 rounded-sm bg-white text-fg-2 border border-border text-xs font-medium no-underline cursor-pointer hover:bg-surface mr-1"
                                         href=(format!("/admin/purchase/orders/{}", o.id)) { "登记收货" }
                                 }
+                                button class="expand-btn inline-flex items-center justify-center w-[26px] h-[26px] ml-1 border-none bg-transparent text-muted cursor-pointer rounded-sm hover:bg-surface hover:text-fg align-middle transition-all"
+                                    title="展开详情"
+                                    hx-get=(PcOrderRowDetailPath { id: o.id }.to_string())
+                                    hx-target="this" hx-swap="afterend"
+                                    _="on click toggle .open on closest <tr/>" {
+                                    (icon::chevron_right_icon("w-[15px] h-[15px]"))
+                                }
                             }
                         }
                     }
@@ -923,6 +1294,13 @@ fn recon_table(items: &[PurchaseReconciliation], names: &HashMap<i64, String>) -
                                     hx-target="this" hx-swap="none"
                                     _="on 'htmx:afterRequest'[detail.xhr.status < 400] call showToast('对账单已确认')"
                                     { "确认对账" }
+                                button class="expand-btn inline-flex items-center justify-center w-[26px] h-[26px] ml-1 border-none bg-transparent text-muted cursor-pointer rounded-sm hover:bg-surface hover:text-fg align-middle transition-all"
+                                    title="展开详情"
+                                    hx-get=(PcSettlementRowDetailPath { recon_type: "draft".into(), ref_id: r.id }.to_string())
+                                    hx-target="this" hx-swap="afterend"
+                                    _="on click toggle .open on closest <tr/>" {
+                                    (icon::chevron_right_icon("w-[15px] h-[15px]"))
+                                }
                             }
                         }
                     }
@@ -960,6 +1338,13 @@ fn payment_table(items: &[PaymentRequest], names: &HashMap<i64, String>) -> Mark
                                     hx-get=(PcPaymentApproveDrawerPath { id: pay.id }.to_string())
                                     hx-target="#pay-drawer-body" hx-swap="innerHTML"
                                     _="on 'htmx:afterRequest'[detail.xhr.status < 400] add .open to #pay-overlay" { "审批付款" }
+                                button class="expand-btn inline-flex items-center justify-center w-[26px] h-[26px] ml-1 border-none bg-transparent text-muted cursor-pointer rounded-sm hover:bg-surface hover:text-fg align-middle transition-all"
+                                    title="展开详情"
+                                    hx-get=(PcSettlementRowDetailPath { recon_type: "payment".into(), ref_id: pay.id }.to_string())
+                                    hx-target="this" hx-swap="afterend"
+                                    _="on click toggle .open on closest <tr/>" {
+                                    (icon::chevron_right_icon("w-[15px] h-[15px]"))
+                                }
                             }
                         }
                     }
@@ -1039,6 +1424,13 @@ fn returns_table(items: &[PurchaseReturn], names: &HashMap<i64, String>, tab: &s
                                 } @else {
                                     span class="text-xs text-muted" { "待供应商确认" }
                                 }
+                                button class="expand-btn inline-flex items-center justify-center w-[26px] h-[26px] ml-1 border-none bg-transparent text-muted cursor-pointer rounded-sm hover:bg-surface hover:text-fg align-middle transition-all"
+                                    title="展开详情"
+                                    hx-get=(PcReturnRowDetailPath { id: r.id }.to_string())
+                                    hx-target="this" hx-swap="afterend"
+                                    _="on click toggle .open on closest <tr/>" {
+                                    (icon::chevron_right_icon("w-[15px] h-[15px]"))
+                                }
                             }
                         }
                     }
@@ -1101,7 +1493,7 @@ fn render_order_approve_body(o: &PurchaseOrder, supplier: &str) -> Markup {
     }
 }
 
-fn render_payment_approve_body(pay: &PaymentRequest, supplier: &str) -> Markup {
+fn render_payment_approve_body(pay: &PaymentRequest, supplier: &str, three_way: &ThreeWayMatchSummary) -> Markup {
     html! {
         div class="grid grid-cols-2 gap-4" {
             (field_readonly("供应商", supplier));
@@ -1113,6 +1505,31 @@ fn render_payment_approve_body(pay: &PaymentRequest, supplier: &str) -> Markup {
         }
         @if let Some(inv) = &pay.invoice_number {
             div class="mt-2" { (field_readonly("发票号", inv)) }
+        }
+        // 三单匹配校验 ci-row（PO / 入库 / 发票 + 可付款 badge）
+        div class="mt-4" {
+            label class="block text-xs text-muted font-medium mb-1.5" { "三单匹配校验" }
+            div class="flex items-center gap-3 flex-wrap p-2.5 bg-surface-raised border border-border-soft rounded-sm" {
+                (ci_item(three_way.po_matched, "PO 已匹配"))
+                (ci_item(three_way.receipt_matched, "入库已匹配"))
+                (ci_item(three_way.invoice_matched, "发票已匹配"))
+                @if three_way.can_pay {
+                    span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-success-bg text-success text-[11px] font-semibold ml-auto" {
+                        (icon::check_circle_icon("w-3 h-3")) "可付款"
+                    }
+                } @else {
+                    span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-danger-bg text-danger text-[11px] font-semibold ml-auto" {
+                        (icon::alert_triangle_icon("w-3 h-3")) "不可付款"
+                    }
+                }
+            }
+            @if !three_way.differences.is_empty() {
+                div class="mt-2 text-xs text-danger leading-relaxed" {
+                    @for diff in &three_way.differences {
+                        (diff) br;
+                    }
+                }
+            }
         }
         div class="p-3 mt-3 bg-surface-raised border border-border-soft rounded-sm text-xs text-muted leading-relaxed" {
             "审批通过后付款申请转 Approved，等待 FMS 实际付款；FMS 付款成功后自动回写 Paid 并结算应付台账。"
@@ -1156,4 +1573,264 @@ fn is_overdue_or_soon(d: Option<chrono::NaiveDate>) -> bool {
     let today = chrono::Utc::now().date_naive();
     let soon = today.checked_add_days(chrono::Days::new(7)).unwrap_or(today);
     d <= soon
+}
+
+// =============================================================================
+// 行展开 row-detail 渲染（HTMX hx-swap="afterend" 注入单 <tr class="row-detail">）
+// 照 mes_order_list::row_detail_tr 范式：detail-grid 4 列 + detail-actions
+// =============================================================================
+
+/// 纯数字格式化（无 ¥，进度条/数量用）。
+fn fmt_plain(d: rust_decimal::Decimal) -> String {
+    let f: f64 = d.to_string().parse().unwrap_or(0.0);
+    if f.abs() >= 1000.0 {
+        format!("{:.0}", f)
+    } else {
+        format!("{:.1}", f)
+    }
+}
+
+/// 物料图标（按 product_id hash 选语义色 + 图标），对齐 mes_work_center::material_icon。
+fn material_icon(product_id: i64) -> (&'static str, Markup) {
+    match (product_id % 4) as u8 {
+        0 => ("bg-warn-bg text-warn", icon::tool_icon("w-[20px] h-[20px]")),
+        1 => ("bg-purple-bg text-purple", icon::cube_icon("w-[20px] h-[20px]")),
+        2 => ("bg-accent-bg text-accent", icon::briefcase_icon("w-[20px] h-[20px]")),
+        _ => (
+            "bg-success-bg text-success",
+            icon::check_circle_icon("w-[20px] h-[20px]"),
+        ),
+    }
+}
+
+/// 最早需求日期的紧急度提示文案 + 颜色（逾期/临期/正常），对齐 mes_work_center::urgency_hint。
+fn urgency_hint(earliest: Option<chrono::NaiveDate>) -> Option<(String, &'static str)> {
+    let d = earliest?;
+    let today = chrono::Local::now().date_naive();
+    let diff = (d - today).num_days();
+    if diff < 0 {
+        Some((format!("⚠ 已逾期 {} 天", diff.abs()), "text-danger"))
+    } else if diff == 0 {
+        Some(("⚠ 今天到期".into(), "text-danger"))
+    } else if diff <= 3 {
+        Some((format!("⚠ {} 天后到期", diff), "text-danger"))
+    } else if diff <= 7 {
+        Some((format!("{} 天后到期", diff), "text-warn"))
+    } else {
+        None
+    }
+}
+
+/// 收货进度条（动态宽度用 style，同 mes wo_progress 既定做法）。
+fn po_progress_bar(p: &abt_core::purchase::work_center::PoProgress) -> Markup {
+    let pct_f: f64 = p.received_pct.to_string().parse().unwrap_or(0.0);
+    let bar_color = if pct_f < 30.0 {
+        "bg-muted"
+    } else if pct_f <= 70.0 {
+        "bg-accent"
+    } else {
+        "bg-success"
+    };
+    html! {
+        div class="flex flex-col gap-[3px]" {
+            div class="w-[96px] h-[6px] bg-border-soft rounded-[3px] overflow-hidden" {
+                div class=(format!("h-full rounded-[3px] {bar_color} transition-all duration-150"))
+                    style=(format!("width:{}%", pct_f as u32)) {}
+            }
+            div class="text-[11px] text-muted font-mono tabular-nums" {
+                (format!("{:.0}%", pct_f)) " · " (fmt_plain(p.received_qty)) "/"
+                (fmt_plain(p.ordered_qty))
+            }
+        }
+    }
+}
+
+/// info-box 说明条（card 底部业务说明）。
+fn info_box(text: &str) -> Markup {
+    html! {
+        div class="flex gap-2 m-5 mt-3 p-3 bg-surface-raised border border-border-soft rounded-sm text-xs text-muted leading-relaxed" {
+            (icon::info_icon("w-[15px] h-[15px] shrink-0 mt-[2px]"))
+            span { (text) }
+        }
+    }
+}
+
+/// ci-row 就绪态项（✓ ok / ✗ missing）。
+fn ci_item(ok: bool, label: &str) -> Markup {
+    let (cls, ic) = if ok {
+        ("text-success", icon::check_circle_icon("w-3 h-3"))
+    } else {
+        ("text-danger", icon::x_icon("w-3 h-3"))
+    };
+    html! {
+        span class=(format!("inline-flex items-center gap-1 text-[11px] font-medium {cls}")) {
+            (ic) (label)
+        }
+    }
+}
+
+/// detail-grid 标签块（label + 值 Markup）。
+fn detail_block(label: &str, value: Markup) -> Markup {
+    html! {
+        div {
+            div class="text-[11px] text-muted font-medium mb-1.5 uppercase tracking-wide" { (label) }
+            div class="text-sm text-fg leading-relaxed" { (value) }
+        }
+    }
+}
+
+/// hub-link（详情跳转 + 箭头）。
+fn hub_link(href: &str, text: &str) -> Markup {
+    html! {
+        a class="inline-flex items-center gap-1 text-sm text-accent font-semibold no-underline"
+            href=(href) {
+            (text) (icon::arrow_right_icon("w-3.5 h-3.5"))
+        }
+    }
+}
+
+/// 订单行展开详情。
+fn order_row_detail_tr(s: &PoHubSummary) -> Markup {
+    html! {
+        tr class="row-detail" {
+            td colspan="6" class="p-0 border-none bg-surface-raised" {
+                div class="p-5 border-t border-dashed border-border-soft border-b border-border-soft" {
+                    div class="grid grid-cols-4 gap-5 mb-4" {
+                        (detail_block("来源链", html! {
+                            @if s.source_chain.sales_order_docs.is_empty() {
+                                span class="text-muted" { "—" }
+                            } @else {
+                                @for doc in &s.source_chain.sales_order_docs {
+                                    span class="font-mono text-accent" { (doc) " " }
+                                }
+                            }
+                        }))
+                        (detail_block("收货进度", po_progress_bar(&s.progress)))
+                        (detail_block("金额 / 交期", html! {
+                            (fmt_decimal(s.order.total_amount)) br;
+                            span class="text-xs text-muted" {
+                                "交期 " (fmt_date(s.order.expected_delivery_date))
+                                " · " (s.progress.item_count) " 行"
+                            }
+                        }))
+                        (detail_block("应付台账", html! {
+                            "已立 " (fmt_decimal(s.ap_summary.ap_amount)) br;
+                            "已付 " (fmt_decimal(s.ap_summary.paid_amount))
+                        }))
+                    }
+                    div class="flex items-center gap-2 pt-3 border-t border-border-soft flex-wrap" {
+                        (hub_link(&format!("/admin/purchase/orders/{}", s.order.id), "订单详情"))
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// 对账付款行展开详情（draft / payment 两套 grid）。
+fn settlement_row_detail_tr(s: &SettlementHubSummary) -> Markup {
+    html! {
+        tr class="row-detail" {
+            td colspan="5" class="p-0 border-none bg-surface-raised" {
+                div class="p-5 border-t border-dashed border-border-soft border-b border-border-soft" {
+                    @if let Some(d) = &s.draft_recon {
+                        div class="grid grid-cols-4 gap-5 mb-4" {
+                            (detail_block("对账明细", html! {
+                                (d.item_count) " 行明细" br;
+                                "总额 " (fmt_decimal(d.total_amount))
+                            }))
+                            (detail_block("退货结算", html! {
+                                "待结算退货 " (d.pending_returns_count) " 笔" br;
+                                "金额 " (fmt_decimal(d.pending_returns_amount))
+                            }))
+                            (detail_block("差额", html! { (fmt_decimal(d.difference)) }))
+                            (detail_block("应付余额", html! { (fmt_decimal(d.ap_outstanding)) }))
+                        }
+                        div class="flex items-center gap-2 pt-3 border-t border-border-soft flex-wrap" {
+                            (hub_link("/admin/purchase/reconciliations", "对账详情"))
+                        }
+                    } @else if let Some(p) = &s.pending_payment {
+                        div class="grid grid-cols-4 gap-5 mb-4" {
+                            (detail_block("来源对账单", html! {
+                                span class="font-mono" { (p.source_recon_doc.as_deref().unwrap_or("—")) }
+                            }))
+                            (detail_block("付款金额", html! {
+                                (fmt_decimal(p.amount)) br;
+                                span class="text-xs text-muted" { (p.payment_method) }
+                            }))
+                            (detail_block("发票", html! {
+                                (p.invoice_number.as_deref().unwrap_or("—")) br;
+                                @if let Some(amt) = p.invoice_amount {
+                                    span class="text-xs text-muted" { (fmt_decimal(amt)) }
+                                }
+                            }))
+                            (detail_block("三单匹配", html! {
+                                div class="flex flex-col gap-1" {
+                                    (ci_item(p.three_way_match.po_matched, "PO 已匹配"))
+                                    (ci_item(p.three_way_match.receipt_matched, "入库已匹配"))
+                                    (ci_item(p.three_way_match.invoice_matched, "发票已匹配"))
+                                }
+                            }))
+                        }
+                        @if !p.three_way_match.differences.is_empty() {
+                            div class="mt-3 text-xs text-danger" {
+                                @for diff in &p.three_way_match.differences {
+                                    (diff) br;
+                                }
+                            }
+                        }
+                        div class="flex items-center gap-2 pt-3 border-t border-border-soft flex-wrap" {
+                            (hub_link("/admin/purchase/payments", "付款详情"))
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// 退货行展开详情。
+fn return_row_detail_tr(s: &ReturnHubSummary) -> Markup {
+    html! {
+        tr class="row-detail" {
+            td colspan="5" class="p-0 border-none bg-surface-raised" {
+                div class="p-5 border-t border-dashed border-border-soft border-b border-border-soft" {
+                    div class="grid grid-cols-4 gap-5 mb-4" {
+                        (detail_block("来源订单", html! {
+                            span class="font-mono text-accent" { (s.source_po_doc) } br;
+                            span class="text-xs text-muted" { "状态 " (s.source_po_status) }
+                        }))
+                        (detail_block("退货明细", html! {
+                            (s.item_count) " 行 · " (fmt_plain(s.total_qty))
+                        }))
+                        (detail_block("金额", html! { (fmt_decimal(s.return_order.total_amount)) }))
+                        (detail_block("结算", html! {
+                            span class="text-muted" { (s.settlement_hint) }
+                        }))
+                    }
+                    div class="flex items-center gap-2 pt-3 border-t border-border-soft flex-wrap" {
+                        (hub_link(&format!("/admin/purchase/returns/{}", s.return_order.id), "退货详情"))
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// 需求物料行懒加载的需求明细 rows（注入展开 tbody，照 mes demand_expand_rows）。
+fn demand_expand_rows(items: &[DemandSummary]) -> Markup {
+    html! {
+        @for d in items {
+            tr class="bg-accent-bg/30" {
+                td class="py-1.5 px-4 font-mono text-xs text-accent" {
+                    (d.order_no.as_deref().unwrap_or("—"))
+                }
+                td class="py-1.5 px-3 text-right font-mono text-xs" { (fmt_plain(d.quantity)) }
+                td class="py-1.5 px-3 font-mono text-xs text-muted" { (fmt_date(d.required_date)) }
+            }
+        }
+        @if items.is_empty() {
+            tr { td colspan="3" class="text-center text-muted py-4" { "暂无需求明细" } }
+        }
+    }
 }

@@ -33,6 +33,45 @@ pub struct PcSettlementPath;
 #[typed_path("/admin/purchase/work-center/returns")]
 pub struct PcReturnsPath;
 
+// ── 行展开 row-detail GET（HTMX 按需加载，返回单 <tr class="row-detail">）──
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/purchase/work-center/demand-rows")]
+pub struct PcDemandRowsPath;
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/purchase/work-center/orders/{id}/row-detail")]
+pub struct PcOrderRowDetailPath {
+    pub id: i64,
+}
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/purchase/work-center/settlement/{recon_type}/{ref_id}/row-detail")]
+pub struct PcSettlementRowDetailPath {
+    pub recon_type: String,
+    pub ref_id: i64,
+}
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/purchase/work-center/returns/{id}/row-detail")]
+pub struct PcReturnRowDetailPath {
+    pub id: i64,
+}
+
+// ── 转采购单 drawer（就地转单，复用 create_order_from_demands）──
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/purchase/work-center/products/{product_id}/convert-po-drawer")]
+pub struct PcConvertPoDrawerPath {
+    pub product_id: i64,
+}
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/purchase/work-center/products/{product_id}/convert-po")]
+pub struct PcConvertPoPath {
+    pub product_id: i64,
+}
+
 // ── Drawer GET（就地操作表单）──
 
 #[derive(TypedPath, Deserialize, Clone)]
@@ -90,6 +129,30 @@ pub fn router() -> Router<AppState> {
         .route(
             PcReturnsPath::PATH,
             get(purchase_work_center::get_returns_card),
+        )
+        .route(
+            PcDemandRowsPath::PATH,
+            get(purchase_work_center::get_demand_rows),
+        )
+        .route(
+            PcOrderRowDetailPath::PATH,
+            get(purchase_work_center::get_order_row_detail),
+        )
+        .route(
+            PcSettlementRowDetailPath::PATH,
+            get(purchase_work_center::get_settlement_row_detail),
+        )
+        .route(
+            PcReturnRowDetailPath::PATH,
+            get(purchase_work_center::get_return_row_detail),
+        )
+        .route(
+            PcConvertPoDrawerPath::PATH,
+            get(purchase_work_center::get_convert_po_drawer),
+        )
+        .route(
+            PcConvertPoPath::PATH,
+            post(purchase_work_center::post_convert_po),
         )
         .route(
             PcOrderApproveDrawerPath::PATH,

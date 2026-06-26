@@ -207,6 +207,18 @@ select:disabled {
 .drawer-overlay.open { display: flex !important; opacity: 1 !important; }
 .drawer-overlay .drawer-panel { transform: translateX(100%) !important; transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1) !important; }
 .drawer-overlay.open .drawer-panel { transform: translateX(0) !important; }
+
+/* 作业中心 grp 分组折叠（.open 切换 grp-body 显隐 + chevron 旋转）*/
+.grp > .grp-body { display: none; }
+.grp.open > .grp-body { display: block; }
+.grp-chev { transition: transform var(--motion-base) var(--ease-standard); }
+.grp.open > .grp-head .grp-chev { transform: rotate(180deg); }
+/* 行展开 chevron（tr.open 时旋转 90°）*/
+.expand-btn svg { transition: transform var(--motion-base) var(--ease-standard); }
+tr.open .expand-btn svg { transform: rotate(90deg); }
+/* 需求物料行懒加载展开区（.expanded 切换显隐）*/
+.mat-expand { display: none; }
+.mat-expand.expanded { display: block; }
 `,
     },
   ],
@@ -214,7 +226,7 @@ select:disabled {
   // Custom variants: prefix matches state class (not pseudo-class)
   variants: [
     (matcher) => {
-      const map = { 'act:': '.active', 'show:': '.show', 'is-open:': '.is-open', 'is-visible:': '.is-visible', 'expanded:': '.expanded', 'toast-dismiss:': '.toast-dismiss' };
+      const map = { 'act:': '.active', 'show:': '.show', 'is-open:': '.is-open', 'is-visible:': '.is-visible', 'expanded:': '.expanded', 'open:': '.open', 'toast-dismiss:': '.toast-dismiss' };
       for (const [prefix, cls] of Object.entries(map)) {
         if (matcher.startsWith(prefix)) {
           return { matcher: matcher.slice(prefix.length), selector: (s) => `${s}${cls}` };

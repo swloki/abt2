@@ -201,6 +201,8 @@ pub fn new_audit_log_service(pool: PgPool) -> impl AuditLogService {
 
 ### Web Frontend Patterns
 
+> **Authoritative source for HTMX / interaction patterns:** [`docs/frontend/htmx-patterns.md`](docs/frontend/htmx-patterns.md) (decision trees, composition modes, anti-patterns, gotchas). This section keeps the English cross-cutting constraints and the Surreal→Hyperscript migration table; for full worked examples, the attribute quick-reference, and the `HX-Trigger` vs `HX-Trigger-After-Settle` timing decision, refer to the authoritative doc.
+
 #### Data Access Layer (Mandatory)
 
 **`abt-web` is forbidden from direct database access.** All data operations must go through `abt-core` Service traits:

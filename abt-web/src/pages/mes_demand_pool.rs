@@ -4,7 +4,7 @@ use axum::extract::Query;
 use axum::response::Html;
 use axum_extra::routing::TypedPath;
 use chrono::NaiveDate;
-use maud::{html, Markup, PreEscaped};
+use maud::{html, Markup};
 use serde::Deserialize;
 
 use abt_core::mes::demand_handler::{
@@ -335,8 +335,6 @@ fn demand_pool_page(
                 ViewData::Detail { result } => { (detail_table_fragment(result, params)) }
             }
         }
-        // Batch action bar
-        (batch_action_bar())
     }
 }
 }
@@ -534,7 +532,7 @@ fn material_row(item: &MaterialAggSummary) -> Markup {
  let qty_cls = demand_qty_class(item.total_demand_qty, item.earliest_required_date);
 
  // Material icon (color varies by product_id hash)
- let (icon_bg, icon_color, mat_icon) = material_icon(pid);
+ let (icon_bg, icon_color, mat_icon) = material_icon(item.earliest_required_date, item.total_demand_qty);
 
  html! {
     div class="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-6 p-4 px-6 border-b border-border-soft"
@@ -547,8 +545,7 @@ fn material_row(item: &MaterialAggSummary) -> Markup {
             hx-trigger="click once"
             _=(format!("on click toggle .expanded on #expand-mat-{pid}"))
         {
-            div class="w-[40px] h-[40px] rounded-md grid place-items-center shrink-0"
-                style=(format!("background:{};color:{}", icon_bg, icon_color))
+            div class=(format!("w-[40px] h-[40px] rounded-md grid place-items-center shrink-0 {} {}", icon_bg, icon_color))
             { (mat_icon) }
             div {
                 div class="font-semibold text-fg text-sm" { (item.product_name) }
@@ -582,7 +579,7 @@ fn material_row(item: &MaterialAggSummary) -> Markup {
         }
     }
     // Expandable demand detail
-    div class="hidden expanded:block bg-surface-raised border-b border-border-soft"
+    div class="hidden expanded:block bg-surface-raised border-b border-border-soft batch-scope"
         id=(format!("expand-mat-{pid}"))
     {
         div class="p-4" {
@@ -612,6 +609,7 @@ fn material_row(item: &MaterialAggSummary) -> Markup {
                     }
                 }
             }
+            (detail_batch_bar())
         }
     }
 }
@@ -632,22 +630,26 @@ fn demand_expand_rows(items: &[DemandSummary]) -> Markup {
 
 fn demand_expand_row(d: &DemandSummary) -> Markup {
  html! {
-    tr class="bg-[rgba(37,99,235,0.04)]" {
-        td {
+    tr class="bg-[rgba(37,99,235,0.04)] [&_td]:py-2.5" {
+        td class="px-2" {
             div class="flex items-center justify-center" {
-                input type="checkbox" class="demand-cb" value=(d.id) checked;
+                input type="checkbox" class="demand-cb"
+                    value=(d.id) checked
+                    data-product-id=(d.product_id)
+                    data-product-name=(d.product_name)
+                    data-product-code=(d.product_code);
             }
         }
-        td class="font-mono tabular-nums text-xs" { (d.id) }
-        td {
+        td class="font-mono tabular-nums text-xs px-2" { (d.id) }
+        td class="px-2" {
             a   class="text-accent font-medium cursor-pointer text-xs"
                 href=(format!("/admin/orders/{}", d.order_id))
             { (d.order_no.as_deref().unwrap_or("—")) }
         }
-        td class="text-right text-[13px] font-mono tabular-nums" { (fmt_qty(d.quantity)) }
-        td class="font-mono tabular-nums" { (format_date(d.required_date)) }
-        td { (priority_label(d.priority)) }
-        td { (demand_status_label(d.demand_status)) }
+        td class="text-right text-[13px] font-mono tabular-nums px-2" { (fmt_qty(d.quantity)) }
+        td class="font-mono tabular-nums px-2" { (format_date(d.required_date)) }
+        td class="px-2" { (priority_label(d.priority)) }
+        td class="px-2" { (demand_status_label(d.demand_status)) }
     }
 }
 }
@@ -666,7 +668,7 @@ fn detail_table_fragment(
  );
 
  html! {
-    div class="data-card" {
+    div class="data-card batch-scope" {
         div class="overflow-x-auto" {
             table class="data-table" {
                 thead {
@@ -699,6 +701,7 @@ fn detail_table_fragment(
                 }
             }
         }
+        (detail_batch_bar())
         ({
             pagination(
                 MesDemandPoolListPath::PATH,
@@ -710,6 +713,25 @@ fn detail_table_fragment(
         })
     }
 }
+}
+
+/// 订单明细批量栏（文档流内嵌，对齐原型 .batch-bar）。勾选 demand-cb 后由 app.js 显示。
+fn detail_batch_bar() -> Markup {
+    html! {
+        div class="batch-bar hidden show:flex items-center gap-4 mt-3 px-4 py-3 rounded-md bg-fg text-white text-sm"
+            data-create-path=(MesDemandPoolCreatePath::PATH)
+        {
+            span {
+                "已选 "
+                span class="batch-count inline-block px-2 rounded-full bg-white/15 font-mono font-bold" { "0" }
+                " 条需求 · 可合并为生产订单"
+            }
+            a class="batch-create-btn ml-auto inline-flex items-center gap-2 py-[5px] px-3 text-[13px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover font-medium cursor-pointer transition-all duration-150 no-underline"
+                href=(MesDemandPoolCreatePath::PATH) { "合并为生产订单" }
+            button class="batch-clear-btn inline-flex items-center gap-2 py-[5px] px-3 text-[13px] rounded-sm border border-[rgba(255,255,255,0.15)] text-[rgba(255,255,255,0.7)] hover:text-white hover:bg-[rgba(255,255,255,0.1)] bg-transparent font-medium cursor-pointer transition-all duration-150"
+                type="button" { "清除选择" }
+        }
+    }
 }
 
 fn detail_row(item: &DemandSummary) -> Markup {
@@ -787,149 +809,65 @@ fn detail_row(item: &DemandSummary) -> Markup {
 }
 }
 
-// ── Batch Action Bar ──
-
-fn batch_action_bar() -> Markup {
- html! {
-    div class="fixed bottom-6 left-1/2 -translate-x-1/2 hidden show:flex bg-[var(--fg)] text-white rounded-lg p-3 px-6 z-[100] items-center gap-5 text-sm shadow-[0_12px_40px_rgba(15,23,42,0.25)]"
-        id="batchBar"
-    {
-        span {
-            "已选择 "
-            span class="batch-count" id="batchCount" { "0" }
-            " 条需求"
-        }
-        a   class="inline-flex items-center gap-2 py-[5px] px-3 text-[13px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover font-medium cursor-pointer transition-all duration-150 shadow-[0_2px_8px_rgba(37,99,235,0.3)]"
-            type="button"
-            id="batchCreateBtn"
-            href=(MesDemandPoolCreatePath::PATH)
-            data-base-path=(MesDemandPoolCreatePath::PATH)
-        { "创建生产计划" }
-        button
-            class="inline-flex items-center gap-2 py-[5px] px-3 text-[13px] rounded-sm border border-[rgba(255,255,255,0.15)] text-[rgba(255,255,255,0.7)] hover:text-white hover:bg-[rgba(255,255,255,0.1)] bg-transparent font-medium cursor-pointer transition-all duration-150"
-            type="button"
-            id="batchClearBtn"
-        { "清除选择" }
-    }
-
-    ({
-        PreEscaped(
-            r#"<script>
- function toggleAllDemands(master, table) {
- var cbs = table.querySelectorAll('input.demand-cb:not([disabled])');
- cbs.forEach(function(c) {
- c.checked = master.checked;
- var tr = c.closest('tr');
- if (tr) { tr.classList.toggle('demand-row-selected', master.checked); }
- });
- updateBatchBar();
- }
- document.addEventListener('change', function(e) {
- if (e.target.type === 'checkbox' && e.target.classList.contains('demand-cb')) {
- var tr = e.target.closest('tr');
- if (tr) { tr.classList.toggle('demand-row-selected', e.target.checked); }
- updateBatchBar();
- }
- });
- function updateBatchBar() {
- var checked = document.querySelectorAll('input[type=checkbox].demand-cb:checked:not([disabled])');
- var count = checked.length;
- var bar = document.getElementById('batchBar');
- var btn = document.getElementById('batchCreateBtn');
- if (count > 0) {
- var ids = [];
- var productIds = new Set();
- var productName = '';
- var productCode = '';
- checked.forEach(function(c) {
- ids.push(c.value);
- productIds.add(c.getAttribute('data-product-id'));
- if (!productName) { productName = c.getAttribute('data-product-name') || ''; }
- if (!productCode) { productCode = c.getAttribute('data-product-code') || ''; }
- });
- bar.classList.add('show');
- document.getElementById('batchCount').textContent = count;
- var basePath = btn.getAttribute('data-base-path');
- if (productIds.size > 1) {
- btn.onclick = function(e) { e.preventDefault(); alert('请选择同一物料的需求进行批量创建生产计划。'); };
- } else {
- var pid = [...productIds][0];
- var href = basePath + '?demand_ids=' + ids.join(',');
- if (pid && pid !== 'null' && pid !== 'undefined') {
- href += '&product_id=' + pid +
- '&product_name=' + encodeURIComponent(productName) +
- '&product_code=' + encodeURIComponent(productCode);
- }
- btn.href = href;
- btn.onclick = null;
- }
- } else {
- bar.classList.remove('show');
- }
- }
- document.getElementById('batchClearBtn').addEventListener('click', function() {
- document.querySelectorAll('input[type=checkbox]').forEach(function(c) {
- if (!c.disabled && (c.classList.contains('demand-cb') || c.title === '全选')) {
- c.checked = false;
- var tr = c.closest('tr');
- if (tr) { tr.classList.remove('demand-row-selected'); }
- }
- });
- document.getElementById('batchBar').classList.remove('show');
- });
- </script>"#,
-        )
-    })
-}
-}
-
 // ── Helpers ──
 
 /// Returns (icon_bg_color, icon_text_color, icon_markup) based on product_id hash
-fn material_icon(product_id: i64) -> (String, String, Markup) {
- let variant = (product_id % 4) as u8;
- match variant {
- 0 => (
- "#fef3c7".into(),
- "var(--warn)".into(),
- icon::tool_icon("w-[20px] h-[20px]"),
- ),
- 1 => (
- "#ede9fe".into(),
- "#7c3aed".into(),
- icon::cube_icon("w-[20px] h-[20px]"),
- ),
- 2 => (
- "#dbeafe".into(),
- "var(--accent)".into(),
- icon::briefcase_icon("w-[20px] h-[20px]"),
- ),
- _ => (
- "#dcfce7".into(),
- "var(--success)".into(),
- icon::check_circle_icon("w-[20px] h-[20px]"),
- ),
- }
+/// 需求紧急度档位（物料图标底色 / 总需求量字色共用），对齐原型按紧急度着色。
+enum DemandTier {
+    Danger,
+    Warn,
+    Accent,
+}
+
+fn demand_tier(earliest: Option<NaiveDate>, total: rust_decimal::Decimal) -> DemandTier {
+    if let Some(d) = earliest {
+        let today = chrono::Local::now().date_naive();
+        let diff = (d - today).num_days();
+        if diff <= 3 {
+            return DemandTier::Danger;
+        }
+        if diff <= 7 {
+            return DemandTier::Warn;
+        }
+    }
+    if total > rust_decimal::Decimal::from(100) {
+        return DemandTier::Warn;
+    }
+    DemandTier::Accent
+}
+
+/// 物料图标（按紧急度着色，与右侧总需求量同档），返回 (bg_cls, text_cls, icon)。
+fn material_icon(
+    earliest: Option<NaiveDate>,
+    total: rust_decimal::Decimal,
+) -> (String, String, Markup) {
+    match demand_tier(earliest, total) {
+        DemandTier::Danger => (
+            "bg-danger-bg".into(),
+            "text-danger".into(),
+            icon::tool_icon("w-[20px] h-[20px]"),
+        ),
+        DemandTier::Warn => (
+            "bg-warn-bg".into(),
+            "text-warn".into(),
+            icon::cube_icon("w-[20px] h-[20px]"),
+        ),
+        DemandTier::Accent => (
+            "bg-accent-bg".into(),
+            "text-accent".into(),
+            icon::check_circle_icon("w-[20px] h-[20px]"),
+        ),
+    }
 }
 
 /// Determine quantity display color class based on total qty and earliest date
 fn demand_qty_class(total: rust_decimal::Decimal, earliest: Option<NaiveDate>) -> String {
- // Check urgency first
- if let Some(d) = earliest {
- let today = chrono::Local::now().date_naive();
- let diff = (d - today).num_days();
- if diff <= 3 {
- return "text-danger".into();
- }
- if diff <= 7 {
- return "text-warn".into();
- }
- }
- // Check magnitude
- if total > rust_decimal::Decimal::from(100) {
- return "text-warn".into();
- }
- "text-accent".into()
+    match demand_tier(earliest, total) {
+        DemandTier::Danger => "text-danger",
+        DemandTier::Warn => "text-warn",
+        DemandTier::Accent => "text-accent",
+    }
+    .into()
 }
 
 /// Urgency hint text and CSS class for earliest required date

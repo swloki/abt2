@@ -25,6 +25,10 @@ pub fn box_icon(c: &str) -> Markup {
     icon("i-lucide-box", c)
 }
 
+pub fn globe_icon(c: &str) -> Markup {
+    icon("i-lucide-globe", c)
+}
+
 pub fn home_icon(c: &str) -> Markup {
     icon("i-lucide-house", c)
 }

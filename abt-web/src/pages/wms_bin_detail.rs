@@ -290,16 +290,16 @@ fn bin_detail_page(
             // ── Tabs ──
             div class="flex gap-1 mb-5 border-b border-border-soft pb-0" {
                 button
-                    class="py-2 px-4 text-sm font-medium cursor-pointer border-none bg-transparent text-accent border-b-2 border-accent whitespace-nowrap active"
-                    onclick="switchTab('info',this)"
+                    class="detail-tab py-2 px-4 text-sm font-medium cursor-pointer border-none bg-transparent border-b-2 whitespace-nowrap text-muted border-transparent [&.active]:text-accent [&.active]:border-accent active"
+                    _="on click take .active from .detail-tab then add .hidden to .tab-panel then remove .hidden from #tab-info"
                 { "基本信息" }
                 button
-                    class="py-2 px-4 text-sm font-medium cursor-pointer border-none bg-transparent text-muted border-b-2 border-transparent whitespace-nowrap"
-                    onclick="switchTab('stock',this)"
+                    class="detail-tab py-2 px-4 text-sm font-medium cursor-pointer border-none bg-transparent border-b-2 whitespace-nowrap text-muted border-transparent [&.active]:text-accent [&.active]:border-accent"
+                    _="on click take .active from .detail-tab then add .hidden to .tab-panel then remove .hidden from #tab-stock"
                 { "库存明细" }
                 button
-                    class="py-2 px-4 text-sm font-medium cursor-pointer border-none bg-transparent text-muted border-b-2 border-transparent whitespace-nowrap"
-                    onclick="switchTab('history',this)"
+                    class="detail-tab py-2 px-4 text-sm font-medium cursor-pointer border-none bg-transparent border-b-2 whitespace-nowrap text-muted border-transparent [&.active]:text-accent [&.active]:border-accent"
+                    _="on click take .active from .detail-tab then add .hidden to .tab-panel then remove .hidden from #tab-history"
                 { "操作历史" }
             }
             // ── Tab: 基本信息 ──
@@ -436,7 +436,7 @@ fn bin_detail_page(
                 }
             }
             // ── Tab: 库存明细 ──
-            div.tab-panel id="tab-stock" style="display:none" {
+            div.tab-panel.hidden id="tab-stock" {
                 div class="data-card" {
                     div class="overflow-x-auto" {
                         table class="data-table" {
@@ -519,7 +519,7 @@ fn bin_detail_page(
                 }
             }
             // ── Tab: 操作历史 ──
-            div.tab-panel id="tab-history" style="display:none" {
+            div.tab-panel.hidden id="tab-history" {
                 div class="data-card" {
                     div class="overflow-x-auto" {
                         table class="data-table" {
@@ -595,23 +595,6 @@ fn bin_detail_page(
                         }
                     }
                 }
-            }
-            // ── Tab switch script ──
-            script {
-                r#"
- function switchTab(tabId, btn) {
- document.querySelectorAll('.tab-panel').forEach(function(p) {
- p.style.display = 'none';
- });
- document.querySelectorAll('.detail-tab').forEach(function(t) {
- t.style.color = 'var(--muted)';
- t.style.borderBottomColor = 'transparent';
- });
- document.getElementById('tab-' + tabId).style.display = '';
- btn.style.color = 'var(--accent)';
- btn.style.borderBottomColor = 'var(--accent)';
- }
- "#
             }
         }
     }

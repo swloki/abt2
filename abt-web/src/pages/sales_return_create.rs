@@ -26,21 +26,6 @@ use crate::routes::sales_return::*;
 use crate::utils::RequestContext;
 use abt_macros::require_permission;
 
-// ── Helpers ──
-
-fn order_status_text(s: SalesOrderStatus) -> &'static str {
- match s {
- SalesOrderStatus::Draft => "草稿",
- SalesOrderStatus::Confirmed => "已确认",
- SalesOrderStatus::ReadyToShip => "待发货",
- SalesOrderStatus::PartiallyShipped => "部分发货",
- SalesOrderStatus::Shipped => "已发货",
- SalesOrderStatus::Completed => "已完成",
- SalesOrderStatus::Cancelled => "已取消",
- SalesOrderStatus::ShippingRequested => "已申请发货",
- }
-}
-
 // ── Form & Query Structs ──
 
 #[derive(Debug, Deserialize)]
@@ -119,7 +104,7 @@ pub async fn get_orders(
 
  let customer_id = match params.customer_id {
  Some(id) if id > 0 => id,
- _ => return Ok(Html(order_search_empty().into_string())),
+ _ => return Ok(Html(empty_order_select("请先选择客户").into_string())),
  };
 
  // 1. Fetch orders via SalesOrderService::list
@@ -157,7 +142,7 @@ pub async fn get_orders(
  .collect();
 
  if orders.is_empty() {
- return Ok(Html(order_search_empty().into_string()));
+ return Ok(Html(empty_order_select("无可用订单").into_string()));
  }
 
  let order_ids: Vec<i64> = orders.iter().map(|o| o.id).collect();
@@ -213,7 +198,7 @@ pub async fn get_orders(
  }
 
  Ok(Html(
- order_search_results(&orders, &items_map, &product_map, &shipping_map).into_string(),
+ order_select(&orders, &items_map, &product_map, &shipping_map).into_string(),
  ))
 }
 
@@ -283,7 +268,6 @@ pub async fn create_return(
 // ── Components ──
 
 fn return_create_page(customers: &[abt_core::master_data::customer::model::Customer]) -> Markup {
- let customers_json = serde_json::to_string(&customers.iter().map(|c| serde_json::json!({"id":c.id,"name":c.name})).collect::<Vec<_>>()).unwrap_or_default();
 
  html! {
     div id="return-app" class="p-6" {
@@ -321,6 +305,12 @@ fn return_create_page(customers: &[abt_core::master_data::customer::model::Custo
                         select
                             class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]"
                             id="customer-select"
+                            hx-get=(ReturnOrdersPath::PATH)
+                            hx-trigger="change"
+                            hx-target="#order-select"
+                            hx-swap="outerHTML"
+                            hx-vals="js:{customer_id: event.target.value}"
+                            _="on change set #f-customer-id's value to my value"
                         {
                             option value="" { "请选择客户" }
                             @for c in customers {
@@ -337,6 +327,7 @@ fn return_create_page(customers: &[abt_core::master_data::customer::model::Custo
                             class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]"
                             id="order-select"
                             disabled
+                            _="on change call onOrderChange()"
                         {
                             option value="" { "请先选择客户" }
                         }
@@ -498,45 +489,12 @@ fn return_create_page(customers: &[abt_core::master_data::customer::model::Custo
                 format!(
                     r#"<script>
 (function(){{
-const customersJson = {customers_json};
 let selectedOrder = null;
-let orderCache = {{}};
-
-// Customer select → load orders
-document.getElementById('customer-select').addEventListener('change', function() {{
- const cid = this.value;
- document.getElementById('f-customer-id').value = cid;
- const oSel = document.getElementById('order-select');
- oSel.innerHTML = '<option value="">加载中...</option>';
- oSel.disabled = true;
- if (!cid) {{ oSel.innerHTML = '<option value="">请先选择客户</option>'; return; }}
- fetch('{orders_path}?customer_id=' + cid)
- .then(r => r.text())
- .then(html => {{
- const div = document.createElement('div');
- div.innerHTML = html;
- const items = div.querySelectorAll('.product-select-item');
- oSel.innerHTML = '<option value="">请选择销售订单</option>';
- items.forEach(el => {{
- const btn = el.querySelector('[data-order]');
- if (btn) {{
- const data = JSON.parse(btn.dataset.order);
- const opt = document.createElement('option');
- opt.value = data.id;
- opt.textContent = data.doc_number;
- opt.dataset.order = btn.dataset.order;
- oSel.appendChild(opt);
- orderCache[data.id] = data;
- }}
- }});
- oSel.disabled = false;
- if (items.length === 0) oSel.innerHTML = '<option value="">无可用订单</option>';
- }});
-}}),
 
 // Order select → show info + populate items
-document.getElementById('order-select').addEventListener('change', function() {{
- const opt = this.options[this.selectedIndex];
+function onOrderChange() {{
+ const sel = document.getElementById('order-select');
+ const opt = sel.options[sel.selectedIndex];
  const info = document.getElementById('linked-info');
  const section = document.getElementById('items-section');
  if (!opt || !opt.value) {{
@@ -555,7 +513,7 @@ document.getElementById('order-select').addEventListener('change', function() {{
  info.classList.remove('hidden-initial');
  section.classList.remove('hidden-initial');
  populateItems(data.items);
-}});
+}}
 
 function populateItems(items) {{
  const tbody = document.getElementById('line-items-body');
@@ -664,6 +622,7 @@ window.addReturnRow = addReturnRow;
 window.removeRow = removeRow;
 window.handleSubmit = handleSubmit;
 window.handleSaveDraft = handleSaveDraft;
+window.onOrderChange = onOrderChange;
 
 // File upload
 (function(){{
@@ -688,8 +647,6 @@ window.handleSaveDraft = handleSaveDraft;
 }})();
 }})();
 </script>"#,
-                    customers_json = customers_json,
-                    orders_path = ReturnOrdersPath::PATH,
                     chevron = r#"<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>"#,
                 ),
             )
@@ -698,61 +655,54 @@ window.handleSaveDraft = handleSaveDraft;
 }
 }
 
-fn order_search_results(
- orders: &[abt_core::sales::sales_order::model::SalesOrder],
- items_map: &std::collections::HashMap<i64, Vec<abt_core::sales::sales_order::model::SalesOrderItem>>,
- product_map: &std::collections::HashMap<i64, &abt_core::master_data::product::model::Product>,
- shipping_map: &std::collections::HashMap<i64, i64>,
+fn order_select(
+    orders: &[abt_core::sales::sales_order::model::SalesOrder],
+    items_map: &std::collections::HashMap<i64, Vec<abt_core::sales::sales_order::model::SalesOrderItem>>,
+    product_map: &std::collections::HashMap<i64, &abt_core::master_data::product::model::Product>,
+    shipping_map: &std::collections::HashMap<i64, i64>,
 ) -> Markup {
- html! {
-    div class="py-2" {
-        @for order in orders {
-            @let status_text = order_status_text(order.status);
-            @let order_date = order.order_date.format("%Y-%m-%d").to_string();
-            @let total = order.total_amount.to_string();
-            @let shipping_id = shipping_map.get(&order.id).copied().unwrap_or(0);
-            @let items_json = serde_json::json!(
-                { "id" : order.id, "doc_number" : & order.doc_number, "shipping_id" :
-                shipping_id, "items" : items_map.get(& order.id).map(| items | items
-                .iter().map(| item | { let product = product_map.get(& item.product_id);
-                serde_json::json!({ "order_item_id" : item.id, "product_id" : item
-                .product_id, "product_code" : product.map(| p | p.product_code.as_str())
-                .unwrap_or(""), "product_name" : product.map(| p | p.pdt_name.as_str())
-                .unwrap_or_else(|| item.description.as_str()), "unit" : product.map(| p |
-                p.unit.as_str()).unwrap_or(""), "order_qty" : item.quantity.to_string(),
-                "unit_price" : item.unit_price.to_string(), }) }).collect::< Vec < _ >>
-                ()).unwrap_or_default() }
-            )
-                .to_string();
-
-            div class="flex items-center justify-between p-3 border-b border-border-soft" {
-                div class="product-select-info" {
-                    div class="text-sm font-medium text-fg" { (order.doc_number) }
-                    div class="text-xs text-muted flex items-center gap-[6px] flex-wrap" {
-                        span { (order_date) }
-                        span class="text-border" { "·" }
-                        span { (status_text) }
-                        span class="text-border" { "·" }
-                        span { "¥" (total) }
-                    }
+    html! {
+        select id="order-select"
+            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]"
+            _="on change call onOrderChange()"
+        {
+            option value="" { "请选择销售订单" }
+            @for order in orders {
+                @let order_date = order.order_date.format("%Y-%m-%d").to_string();
+                @let total = order.total_amount.to_string();
+                @let shipping_id = shipping_map.get(&order.id).copied().unwrap_or(0);
+                @let items_json = serde_json::json!({
+                    "id": order.id,
+                    "doc_number": &order.doc_number,
+                    "shipping_id": shipping_id,
+                    "items": items_map.get(&order.id).map(|items| items.iter().map(|item| {
+                        let product = product_map.get(&item.product_id);
+                        serde_json::json!({
+                            "order_item_id": item.id,
+                            "product_id": item.product_id,
+                            "product_code": product.map(|p| p.product_code.as_str()).unwrap_or(""),
+                            "product_name": product.map(|p| p.pdt_name.as_str()).unwrap_or_else(|| item.description.as_str()),
+                            "unit": product.map(|p| p.unit.as_str()).unwrap_or(""),
+                            "order_qty": item.quantity.to_string(),
+                            "unit_price": item.unit_price.to_string(),
+                        })
+                    }).collect::<Vec<_>>()).unwrap_or_default()
+                }).to_string();
+                option value=(order.id) data-order=(items_json) {
+                    (order.doc_number) " · " (order_date) " · ¥" (total)
                 }
-                button
-                    type="button"
-                    class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)] icon:w-4 icon:h-4"
-                    data-order=(items_json)
-                    onclick="selectOrder(JSON.parse(this.dataset.order))"
-                { "选择" }
             }
         }
     }
 }
-}
 
-fn order_search_empty() -> Markup {
- html! {
-    div class="flex items-center justify-center p-8 text-muted" {
-        (icon::package_icon("w-8 h-8"))
-        p class="mt-2 text-sm" { "请先选择客户，或未找到匹配的订单" }
+fn empty_order_select(msg: &str) -> Markup {
+    html! {
+        select id="order-select"
+            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]"
+            _="on change call onOrderChange()"
+        {
+            option value="" { (msg) }
+        }
     }
-}
 }

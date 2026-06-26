@@ -44,6 +44,7 @@
 - 标题：仓库作业中心 + 当班员 + 日期
 - **待办通知锚点条** `todo-nav`（sticky 吸顶）：左侧总待办数 + 横向环节 chip 列表。**只显示 `count > 0` 的环节**（无待办的环节不露脸，少即是多）；每个 chip 带计数 + 异常染色（逾期红 / 临期橙）+ 脉冲点。点击 chip → `toggleAndScroll` 平滑滚动并展开对应 disclosure。替代原「您有 N 项待办」单一数字
 - 就地操作后（`taskDone` 事件）整条重拉：计数下降、处理完毕的 chip 自动消失
+- **异常信息架构下沉**：逾期/临期**不**汇总成独立聚合 pill，而是下沉到三处——① chip 染色（逾期 danger / 临期 warn）+ 脉冲点；② disclosure 图标右上角角标（红点 overdue / 橙点 soon）；③ disclosure 摘要文案「N 笔 · X 逾期 · Y 临期 · hint」。`UrgentSummary` 按环节拆分驱动（见 §4.2）
 - **无状态步骤条、无来源链**（WorkCenter 不是单据，是聚合视图）
 
 ### 2.2 Disclosure 层（7 环节，懒加载队列）
@@ -115,9 +116,16 @@ pub struct PendingTask {
     pub doc_hub_path: String,           // 跳 Doc Hub 看单据全貌
 }
 
+/// 紧急 / 临期汇总（按环节拆分，驱动 chip 染色 + disclosure 角标/摘要染色）。
+/// 异常状态下沉到各 domain，无聚合 pill（见 §2.1）。
 pub struct UrgentSummary {
-    pub overdue_count: u64,             // 逾期
-    pub soon_count: u64,                // today+N 内临期
+    /// 按 domain 拆分的 (overdue, soon)
+    pub by_domain: HashMap<WorkCenterDomain, (u64, u64)>,
+}
+impl UrgentSummary {
+    pub fn total_overdue(&self) -> u64;                          // 跨环节逾期总数
+    pub fn total_soon(&self) -> u64;                             // 跨环节临期总数
+    pub fn of(&self, d: WorkCenterDomain) -> (u64, u64);         // 某 domain 的 (overdue, soon)
 }
 ```
 

@@ -93,6 +93,27 @@ pub struct SkippedDemand {
     pub reason: String,
 }
 
+/// 从需求直接创建 Draft 工单请求（扁平化：废弃 PP 层，需求→工单直达）
+#[derive(Debug, Clone)]
+pub struct CreateWorkOrdersFromDemandsReq {
+    pub demand_ids: Vec<i64>,
+    pub remark: Option<String>,
+    /// 每条需求的排程参数 — 可选，不填则使用默认排程
+    pub items: Option<Vec<PlanDemandItemReq>>,
+    /// 默认排程参数（当 items 未提供时使用）
+    pub default_scheduled_start: Option<NaiveDate>,
+    pub default_scheduled_end: Option<NaiveDate>,
+}
+
+/// 创建工单结果（扁平化：按 product 聚合，可能生成多个 Draft 工单）
+#[derive(Debug, Clone)]
+pub struct CreateWorkOrdersResult {
+    pub wo_ids: Vec<i64>,
+    pub processed_demand_count: usize,
+    pub skipped_demands: Vec<SkippedDemand>,
+    pub demand_status: String,
+}
+
 /// 乐观锁返回的已锁定需求数据
 #[derive(Debug, Clone, sqlx::FromRow)]
 pub struct LockedDemand {

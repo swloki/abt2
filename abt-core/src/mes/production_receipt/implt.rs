@@ -8,7 +8,6 @@ use super::repo::ProductionReceiptRepo;
 use super::service::ProductionReceiptService;
 use crate::mes::production_batch::repo::{ProductionBatchRepo, WorkOrderRoutingRepo};
 use crate::mes::work_order::repo::WorkOrderRepo;
-use crate::mes::production_plan::repo::ProductionPlanRepo;
 use crate::qms::enums::{InspectionResultType, InspectionSourceType, InspectionStatus};
 use crate::qms::inspection_result::{new_inspection_result_service, model::InspectionResultFilter, service::InspectionResultService};
 use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService, RecordAuditLogReq};
@@ -247,7 +246,7 @@ impl ProductionReceiptService for ProductionReceiptServiceImpl {
                 Err(e) => return Err(DomainError::Internal(e.into())),
             }
 
-            // 预留释放 + PlanItem 完成（仅当所有批次终态时）
+            // 预留释放（仅当所有批次终态时；扁平化：已废弃 PlanItem 状态传播）
             new_inventory_reservation_service(self.pool.clone())
                 .cancel_by_source(
                     ctx, db,
@@ -255,20 +254,8 @@ impl ProductionReceiptService for ProductionReceiptServiceImpl {
                     receipt.work_order_id,
                 )
                 .await?;
-            ProductionPlanRepo::update_item_status_by_work_order(
-                &mut *db,
-                receipt.work_order_id,
-                PlanItemStatus::Completed,
-            ).await?;
         }
 
-
-        // 7d. Plan: 重新计算状态
-        if let Some(plan_id) = ProductionPlanRepo::find_plan_id_by_work_order(
-            &mut *db, receipt.work_order_id,
-        ).await? {
-            ProductionPlanRepo::recalculate_plan_status(&mut *db, plan_id).await?;
-        }
         Ok(())
     }
 

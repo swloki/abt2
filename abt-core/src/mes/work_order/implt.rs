@@ -4,11 +4,10 @@ use sqlx::Row;
 use rust_decimal::Decimal;
 use std::collections::{HashMap, HashSet};
 
-use super::super::enums::{PlanItemStatus, RoutingStatus, WorkOrderStatus};
+use super::super::enums::{RoutingStatus, WorkOrderStatus};
 use super::model::*;
 use super::repo::WorkOrderRepo;
 use super::service::WorkOrderService;
-use crate::mes::production_plan::repo::ProductionPlanRepo;
 use crate::mes::production_receipt::{new_production_receipt_service, service::ProductionReceiptService};
 use crate::mes::work_report::{new_work_report_service, service::WorkReportService};
 use crate::master_data::bom::{new_bom_query_service, service::BomQueryService};
@@ -412,22 +411,7 @@ impl WorkOrderService for WorkOrderServiceImpl {
             return Err(DomainError::ConcurrentConflict);
         }
 
-        // 9. 回滚关联 PlanItem 状态：Released → Planned
-        if let Some(plan_item_id) = work_order.plan_item_id
-            && let Err(_e) = sqlx::query(
-                "UPDATE production_plan_items SET status = $2 WHERE id = $1 AND status IN ($3, $4)",
-            )
-            .bind(plan_item_id)
-            .bind(PlanItemStatus::Planned)
-            .bind(PlanItemStatus::Released)
-            .bind(PlanItemStatus::InProduction)
-            .execute(&mut *db)
-            .await
-        {
-            // PlanItem 状态回滚失败不影响反下达主流程
-        }
-
-        // 10. 发布领域事件
+        // 9. 发布领域事件（扁平化：已废弃 PlanItem 状态回滚，WO 状态机自洽）
         new_domain_event_bus(self.pool.clone())
             .publish(
                 ctx, db,
@@ -623,21 +607,6 @@ impl WorkOrderService for WorkOrderServiceImpl {
                 RecordAuditLogReq::new("WorkOrder", id, AuditAction::Delete),
             )
             .await?;
-
-        // 状态传播：PlanItem → Cancelled + 重新计算 Plan 状态
-        ProductionPlanRepo::update_item_status_by_work_order(
-            &mut *db,
-            id,
-            PlanItemStatus::Cancelled,
-        ).await?;
-
-        if let Some(plan_id) = ProductionPlanRepo::find_plan_id_by_work_order(
-            &mut *db, id,
-        ).await? {
-            ProductionPlanRepo::recalculate_plan_status(
-                &mut *db, plan_id,
-            ).await?;
-        }
 
         Ok(())
     }

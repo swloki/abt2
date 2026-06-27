@@ -66,11 +66,9 @@ impl WorkOrderRepo {
                 FROM batch_routing_progress brp
                 JOIN production_batches pb ON pb.id = brp.batch_id
                 WHERE pb.work_order_id = wo.id AND pb.deleted_at IS NULL AND brp.status = 3) AS completed_steps,
-                   pp.id AS source_plan_id, pp.doc_number AS source_plan_doc,
+                   NULL::bigint AS source_plan_id, NULL::text AS source_plan_doc,
                    so.doc_number AS source_so_doc, c.customer_name AS source_customer
             FROM work_orders wo
-            LEFT JOIN production_plan_items ppi ON ppi.id = wo.plan_item_id
-            LEFT JOIN production_plans pp ON pp.id = ppi.plan_id
             LEFT JOIN sales_orders so ON so.id = wo.sales_order_id
             LEFT JOIN customers c ON c.customer_id = so.customer_id
             WHERE wo.id = $1 AND wo.deleted_at IS NULL
@@ -161,12 +159,10 @@ impl WorkOrderRepo {
              (SELECT COUNT(DISTINCT brp.routing_id)::int FROM batch_routing_progress brp \
               JOIN production_batches pb ON pb.id = brp.batch_id \
               WHERE pb.work_order_id = wo.id AND pb.deleted_at IS NULL AND brp.status = 3) AS completed_steps, \
-             pp.id AS source_plan_id, pp.doc_number AS source_plan_doc, \
+             NULL::bigint AS source_plan_id, NULL::text AS source_plan_doc, \
              so.doc_number AS source_so_doc, c.customer_name AS source_customer \
              FROM work_orders wo \
              LEFT JOIN products p ON p.product_id = wo.product_id \
-             LEFT JOIN production_plan_items ppi ON ppi.id = wo.plan_item_id \
-             LEFT JOIN production_plans pp ON pp.id = ppi.plan_id \
              LEFT JOIN sales_orders so ON so.id = wo.sales_order_id \
              LEFT JOIN customers c ON c.customer_id = so.customer_id \
              WHERE {where_sql} \

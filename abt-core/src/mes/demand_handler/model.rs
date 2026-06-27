@@ -53,21 +53,6 @@ pub struct MaterialAggSummary {
     pub latest_required_date: Option<NaiveDate>,
 }
 
-/// 从需求创建生产计划请求
-#[derive(Debug, Clone)]
-pub struct CreatePlanFromDemandsReq {
-    pub demand_ids: Vec<i64>,
-    pub plan_type: i16,
-    pub plan_date: NaiveDate,
-    pub remark: Option<String>,
-    /// 每条需求的排程参数 — 可选，不填则使用默认排程
-    pub items: Option<Vec<PlanDemandItemReq>>,
-    /// 默认排程参数（当 items 未提供时使用）
-    // TODO: P5 接入产品主数据 Lead Time，当前使用全局配置默认值
-    pub default_scheduled_start: Option<NaiveDate>,
-    pub default_scheduled_end: Option<NaiveDate>,
-}
-
 /// 单条需求的排程参数
 #[derive(Debug, Clone, serde::Deserialize)]
 pub struct PlanDemandItemReq {
@@ -75,15 +60,6 @@ pub struct PlanDemandItemReq {
     pub scheduled_start: NaiveDate,
     pub scheduled_end: NaiveDate,
     pub priority: i32,
-}
-
-/// 创建下游单据的统一响应
-#[derive(Debug, Clone)]
-pub struct CreateDownstreamResult {
-    pub doc_id: i64,
-    pub processed_demand_count: usize,
-    pub skipped_demands: Vec<SkippedDemand>,
-    pub demand_status: String,
 }
 
 /// 被跳过的需求

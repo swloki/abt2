@@ -1065,7 +1065,6 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .pl-\[42px\]{padding-left:42px;}
 .pl-11{padding-left:calc(var(--spacing) * 11);}
 .pl-3\.5{padding-left:calc(var(--spacing) * 3.5);}
-.pl-6{padding-left:calc(var(--spacing) * 6);}
 .pl-7{padding-left:calc(var(--spacing) * 7);}
 .pl-8{padding-left:calc(var(--spacing) * 8);}
 .pl-9{padding-left:calc(var(--spacing) * 9);}
@@ -1325,7 +1324,6 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .act\:before\:bg-accent.active::before{background-color:color-mix(in srgb, var(--accent) var(--un-bg-opacity), transparent) /* var(--accent) */;}
 .before\:bg-\[linear-gradient\(180deg\,var\(--success\)_0\%\,var\(--success\)_38\%\,var\(--accent\)_50\%\,var\(--border\)_55\%\,var\(--border-soft\)_100\%\)\]::before{background-image:linear-gradient(180deg,var(--success) 0%,var(--success) 38%,var(--accent) 50%,var(--border) 55%,var(--border-soft) 100%);}
 .before\:bg-accent::before{background-color:color-mix(in srgb, var(--accent) var(--un-bg-opacity), transparent) /* var(--accent) */;}
-.before\:bg-border-soft::before{background-color:color-mix(in srgb, var(--border-soft) var(--un-bg-opacity), transparent) /* var(--border-soft) */;}
 .after\:bg-white::after{background-color:color-mix(in srgb, var(--colors-white) var(--un-bg-opacity), transparent) /* #fff */;}
 .group.is-open .group-\[\.is-open\]\:opacity-100,
 .\[\&\.is-open\]\:opacity-100.is-open,
@@ -1805,12 +1803,9 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .act\:before\:left-\[-4px\].active::before{left:-4px;}
 .act\:before\:top-1\/2.active::before{top:50%;}
 .before\:bottom-\[18px\]::before{bottom:18px;}
-.before\:bottom-1::before{bottom:calc(var(--spacing) * 1);}
 .before\:left-\[17px\]::before{left:17px;}
-.before\:left-\[7px\]::before{left:7px;}
 .before\:left-0::before{left:calc(var(--spacing) * 0);}
 .before\:top-\[18px\]::before{top:18px;}
-.before\:top-1::before{top:calc(var(--spacing) * 1);}
 .before\:top-1\/2::before{top:50%;}
 .after\:left-0\.5::after{left:calc(var(--spacing) * 0.5);}
 .after\:top-0\.5::after{top:calc(var(--spacing) * 0.5);}

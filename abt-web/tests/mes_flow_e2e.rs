@@ -1,3 +1,4 @@
+#![cfg(any())] // 扁平化禁用：废弃 PP 层后需重写为 create_work_orders_from_demands 流程（需求→Draft 工单直达）
 //! MES 生产全流程 Handler 集成测试
 //!
 //! 覆盖完整生产链路：

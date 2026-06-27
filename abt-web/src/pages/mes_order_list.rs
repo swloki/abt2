@@ -434,11 +434,6 @@ fn row_detail_tr(summary: &abt_core::mes::work_order::WorkOrderHubSummary) -> Ma
                     }
                     span class="text-muted mx-1" { "→" }
                 }
-                @if let (Some(pid), Some(pdoc)) =
-                    (order.source_plan_id, summary.source_chain.plan_doc.as_deref())
-                {
-                    a class="text-accent font-medium" href=(format!("/admin/mes/plans/{}", pid)) { (pdoc) }
-                }
                 @if let Some(cust) = summary.source_chain.customer_name.as_deref() {
                     br;
                     span class="text-[11px] text-muted" { "客户：" (cust) }

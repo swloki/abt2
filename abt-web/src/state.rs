@@ -482,12 +482,6 @@ impl AppState {
 
     // ── MES (Production) Services ──
 
-    pub fn production_plan_service(
-        &self,
-    ) -> impl abt_core::mes::production_plan::ProductionPlanService {
-        abt_core::mes::production_plan::new_production_plan_service(self.pool.clone())
-    }
-
     pub fn work_order_service(&self) -> impl abt_core::mes::work_order::WorkOrderService {
         abt_core::mes::work_order::new_work_order_service(self.pool.clone())
     }

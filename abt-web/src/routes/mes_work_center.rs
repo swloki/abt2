@@ -61,14 +61,14 @@ pub struct WcRoutingEditPath {
     pub routing_id: i64,
 }
 
-/// 创建生产计划 drawer body（物料汇总行「创建生产计划」就地打开）。
+/// 创建工单 drawer body（物料汇总行「创建工单」就地打开）。
 #[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/mes/work-center/create-plan-drawer/{product_id}")]
 pub struct WcCreatePlanDrawerPath {
     pub product_id: i64,
 }
 
-/// 创建生产计划提交（复用 MesDemandService.create_plan_from_demands）。
+/// 创建工单提交（调 MesDemandService.create_work_orders_from_demands）。
 #[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/mes/work-center/create-plan/{product_id}")]
 pub struct WcCreatePlanPath {

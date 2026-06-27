@@ -431,7 +431,7 @@ fn render_demand_material(
     }
 }
 
-/// 物料汇总行：点击物料信息区展开（懒加载该物料需求明细），行尾「创建生产计划」。
+/// 物料汇总行：点击物料信息区展开（懒加载该物料需求明细），行尾「创建工单」。
 fn wc_demand_material_row(item: &MaterialAggSummary) -> Markup {
     let pid = item.product_id;
     let hint = urgency_hint(item.earliest_required_date);
@@ -1055,7 +1055,7 @@ fn order_status_meta(s: &SalesOrderStatus) -> (&'static str, &'static str) {
     }
 }
 
-/// 创建生产计划 drawer body：加载该物料 pending 需求 + 精简表单（就地创建，不跳转）。
+/// 创建工单 drawer body：加载该物料 pending 需求 + 精简表单（就地创建，不跳转）。
 #[require_permission("WORK_ORDER", "read")]
 pub async fn get_create_plan_drawer(
     path: WcCreatePlanDrawerPath,
@@ -1095,8 +1095,8 @@ pub async fn get_create_plan_drawer(
     ))
 }
 
-/// 创建生产计划 drawer 表单（精简版）：物料标题 + 只读需求列表（全部纳入）+
-/// 计划类型/日期 + 统一开工/完工 + 取消/创建草稿/创建并下达。
+/// 创建工单 drawer 表单（精简版）：物料标题 + 只读需求列表（全部纳入）+
+/// 开工/完工日期 + 取消/创建。
 fn render_create_plan_drawer_body(
     product_id: i64,
     product_name: &str,

@@ -125,7 +125,7 @@ pub async fn get_demand_pool_list(
  0
  };
 
- // Stat: demands with status InProgress (已创建生产计划)
+ // Stat: demands with status InProgress (已创建工单)
  let planned_count = svc
  .list_pending_demands(
  &service_ctx,
@@ -315,7 +315,7 @@ fn demand_pool_page(
         div class="flex items-center justify-between mb-6" {
             div {
                 h1 class="text-xl font-bold text-fg tracking-tight" { "生产需求池" }
-                p class="text-muted text-sm mt-1" { "销售订单确认后产生的自制需求，按物料聚合展示。可选择需求创建生产计划草稿。" }
+                p class="text-muted text-sm mt-1" { "销售订单确认后产生的自制需求，按物料聚合展示。可选择需求创建 Draft 工单。" }
             }
             div class="flex gap-3" {
                 button
@@ -577,7 +577,7 @@ fn material_row(item: &MaterialAggSummary) -> Markup {
         div class="flex gap-2" {
             a   class="inline-flex items-center gap-1.5 py-[5px] px-3 text-[13px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
                 href=(format!("{}?product_id={}", MesDemandPoolCreatePath::PATH, pid))
-            { "创建生产计划" }
+            { "创建工单" }
         }
     }
     // Expandable demand detail
@@ -902,7 +902,7 @@ fn demand_status_label(status: i16) -> Markup {
  let (label, cls) = match status {
  1 => ("待处理", "status-pill-muted"),
  2 => ("已确认", "status-pill-info"),
- 3 => ("已创建生产计划", "status-pill-warn"),
+ 3 => ("已创建工单", "status-pill-warn"),
  4 => ("已完成", "status-pill-success"),
  5 => ("已拒绝", "status-pill-danger"),
  _ => ("未知", "status-pill-muted"),

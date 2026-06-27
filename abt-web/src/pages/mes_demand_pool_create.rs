@@ -1,4 +1,4 @@
-//! MES 生产需求池 → 创建生产计划页面
+//! MES 生产需求池 → 创建工单页面
 
 use axum::extract::Query;
 use axum::response::{Html, IntoResponse};
@@ -7,10 +7,9 @@ use maud::{html, Markup, PreEscaped};
 use serde::Deserialize;
 
 use abt_core::mes::demand_handler::{
- CreatePlanFromDemandsReq, DemandPoolQuery, DemandSummary, MesDemandService, PlanDemandItemReq,
+ CreateWorkOrdersFromDemandsReq, DemandPoolQuery, DemandSummary, MesDemandService, PlanDemandItemReq,
 };
-use abt_core::mes::enums::PlanStatus;
-use abt_core::mes::production_plan::ProductionPlanService;
+use abt_core::mes::work_order::WorkOrderService;
 use abt_core::shared::types::{DomainError, PageParams};
 
 use crate::components::icon;
@@ -18,7 +17,6 @@ use crate::errors::Result;
 use crate::layout::page::admin_page;
 use crate::routes::mes_demand_pool::*;
 use crate::routes::order::OrderDetailPath;
-use crate::routes::mes_plan::PlanDetailPath;
 use crate::utils::{fmt_qty, RequestContext};
 use abt_macros::require_permission;
 
@@ -36,8 +34,6 @@ pub struct DemandPoolCreateParams {
 
 #[derive(Debug, Deserialize)]
 pub struct CreatePlanForm {
- pub plan_type: i16,
- pub plan_date: String,
  pub remark: Option<String>,
  pub default_scheduled_start: Option<String>,
  pub default_scheduled_end: Option<String>,
@@ -118,12 +114,12 @@ pub async fn get_demand_pool_create(
 
  let page_html = admin_page(
  is_htmx,
- "创建生产计划",
+ "创建工单",
  &claims,
  "production",
  MesDemandPoolCreatePath::PATH,
  "生产管理",
- Some("创建生产计划"),
+ Some("创建工单"),
  content,
  &nav_filter,
  );
@@ -155,9 +151,6 @@ pub async fn create_plan_from_demands(
  return Err(DomainError::validation("请至少选择一条生产需求").into());
  }
 
- let plan_date = chrono::NaiveDate::parse_from_str(&form.plan_date, "%Y-%m-%d")
- .map_err(|e| DomainError::validation(format!("无效计划日期格式: {e}")))?;
-
  let default_scheduled_start = form
  .default_scheduled_start
  .as_deref()
@@ -187,40 +180,38 @@ pub async fn create_plan_from_demands(
  .transpose()
  .map_err(|e| DomainError::validation(format!("无效排程参数JSON: {e}")))?;
 
- let create_req = CreatePlanFromDemandsReq {
+ let create_req = CreateWorkOrdersFromDemandsReq {
  demand_ids,
- plan_type: form.plan_type,
- plan_date,
  remark: form.remark,
  items,
  default_scheduled_start,
  default_scheduled_end,
  };
 
- // 整个流程必须在同一事务中：乐观锁(状态1→2) → 创建计划 → 更新 target_doc → 发布事件。
+ // 整个流程必须在同一事务中：乐观锁(状态1→2) → 创建 Draft 工单 → 更新 target_doc → 发布事件。
  // 任一步骤失败需整体回滚，避免需求成为孤儿状态（status=2 但无 target_doc）。
  let mut tx = state.pool.begin().await
  .map_err(|e| DomainError::Internal(e.into()))?;
 
  let svc = state.mes_demand_service();
  let result = svc
- .create_plan_from_demands(&service_ctx, &mut tx, create_req)
+ .create_work_orders_from_demands(&service_ctx, &mut tx, create_req)
  .await?;
 
- // 创建并下达：自动确认 + 下达（同一事务）
+ // 创建并下达：逐个 release 工单（同一事务）
  if form.action.as_deref() == Some("release") {
- let plan_svc = state.production_plan_service();
- let plan = plan_svc.find_by_id(&service_ctx, &mut tx, result.doc_id).await?;
- if plan.status == PlanStatus::Draft {
- plan_svc.confirm(&service_ctx, &mut tx, result.doc_id).await?;
+ let wo_svc = state.work_order_service();
+ for &wo_id in &result.wo_ids {
+ let wo = wo_svc.find_by_id(&service_ctx, &mut tx, wo_id).await?;
+ wo_svc.release(&service_ctx, &mut tx, wo_id, wo.version).await?;
  }
- plan_svc.release_to_work_orders(&service_ctx, &mut tx, result.doc_id).await?;
  }
 
  tx.commit().await
  .map_err(|e| DomainError::Internal(e.into()))?;
 
- let redirect = PlanDetailPath { id: result.doc_id }.to_string();
+ // 扁平化：重定向回需求池（PP 详情已废弃）
+ let redirect = MesDemandPoolListPath.to_string();
  Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }
 
@@ -233,7 +224,6 @@ fn create_page_content(
  product_name: &str,
  product_code: &str,
 ) -> Markup {
- let today = chrono::Local::now().format("%Y-%m-%d").to_string();
  let default_start = chrono::Local::now()
  .checked_add_days(chrono::Days::new(1))
  .map(|d| d.format("%Y-%m-%d").to_string())
@@ -274,12 +264,12 @@ fn create_page_content(
                 a   class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150"
                     href=(format!("{}?restore=true", MesDemandPoolListPath::PATH))
                 { (icon::arrow_left_icon("w-4 h-4")) "返回需求池" }
-                h1 class="text-xl font-bold text-fg tracking-tight" { "从需求创建生产计划" }
+                h1 class="text-xl font-bold text-fg tracking-tight" { "从需求创建工单" }
                 div class="text-[13px] text-muted mt-1" {
                     span
                         class="inline-flex items-center gap-[5px] rounded-full text-[11px] font-medium whitespace-nowrap bg-surface text-muted px-2 py-0.5 mr-1.5 bg-warn-100 text-warn"
                     { "生产需求池 · 按物料聚合" }
-                    "将生产需求池中的自制需求聚合为生产计划草稿"
+                    "将生产需求池中的自制需求聚合为 Draft 工单（扁平化：废弃 PP 层）"
                 }
             }
         }
@@ -295,7 +285,7 @@ fn create_page_content(
             // ── Section 1: Plan Info ──
             div class="form-section" {
                 div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
-                { (icon::sliders_icon("w-[18px] h-[18px]")) "计划信息" }
+                { (icon::sliders_icon("w-[18px] h-[18px]")) "物料信息" }
                 div class="grid grid-cols-2 gap-4 gap-x-6 mb-6" {
                     div class="form-field" {
                         label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
@@ -317,32 +307,6 @@ fn create_page_content(
                             type="text"
                             readonly
                             value=(product_code) {}
-                    }
-                    div class="form-field" {
-                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
-                            "计划类型 "
-                            span class="text-danger" { "*" }
-                        }
-                        select
-                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]"
-                            name="plan_type"
-                            required
-                        {
-                            option value="1" selected { "按单生产 (MTO)" }
-                            option value="2" { "按库存备货 (MTS)" }
-                        }
-                    }
-                    div class="form-field" {
-                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
-                            "计划日期 "
-                            span class="text-danger" { "*" }
-                        }
-                        input
-                            class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg transition-all duration-150 outline-none focus:border-accent focus:shadow-[var(--shadow-focus)]"
-                            type="date"
-                            name="plan_date"
-                            value=(today)
-                            required {}
                     }
                 }
             }

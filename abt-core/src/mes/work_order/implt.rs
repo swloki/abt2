@@ -4,17 +4,19 @@ use sqlx::Row;
 use rust_decimal::Decimal;
 use std::collections::{HashMap, HashSet};
 
-use super::super::enums::{PlanItemStatus, RoutingStatus, WorkOrderStatus};
+use super::super::enums::{RoutingStatus, WorkOrderStatus};
 use super::model::*;
 use super::repo::WorkOrderRepo;
 use super::service::WorkOrderService;
-use crate::mes::production_plan::repo::ProductionPlanRepo;
 use crate::mes::production_receipt::{new_production_receipt_service, service::ProductionReceiptService};
 use crate::mes::work_report::{new_work_report_service, service::WorkReportService};
 use crate::master_data::bom::{new_bom_query_service, service::BomQueryService};
 use crate::master_data::work_center::{new_work_center_service, service::WorkCenterService};
 use crate::master_data::routing::{new_routing_service, service::RoutingService};
 use crate::master_data::product::{new_product_service, service::ProductService};
+use crate::master_data::work_calendar::{
+    model::CreateBookingReq, new_work_calendar_service, service::WorkCalendarService,
+};
 use crate::wms::material_requisition::{new_material_requisition_service, service::MaterialRequisitionService};
 use crate::wms::stock_ledger::{new_stock_ledger_service, service::StockLedgerService};
 use crate::mes::production_batch::model::WorkOrderRouting;
@@ -412,22 +414,7 @@ impl WorkOrderService for WorkOrderServiceImpl {
             return Err(DomainError::ConcurrentConflict);
         }
 
-        // 9. 回滚关联 PlanItem 状态：Released → Planned
-        if let Some(plan_item_id) = work_order.plan_item_id
-            && let Err(_e) = sqlx::query(
-                "UPDATE production_plan_items SET status = $2 WHERE id = $1 AND status IN ($3, $4)",
-            )
-            .bind(plan_item_id)
-            .bind(PlanItemStatus::Planned)
-            .bind(PlanItemStatus::Released)
-            .bind(PlanItemStatus::InProduction)
-            .execute(&mut *db)
-            .await
-        {
-            // PlanItem 状态回滚失败不影响反下达主流程
-        }
-
-        // 10. 发布领域事件
+        // 9. 发布领域事件（扁平化：已废弃 PlanItem 状态回滚，WO 状态机自洽）
         new_domain_event_bus(self.pool.clone())
             .publish(
                 ctx, db,
@@ -624,21 +611,6 @@ impl WorkOrderService for WorkOrderServiceImpl {
             )
             .await?;
 
-        // 状态传播：PlanItem → Cancelled + 重新计算 Plan 状态
-        ProductionPlanRepo::update_item_status_by_work_order(
-            &mut *db,
-            id,
-            PlanItemStatus::Cancelled,
-        ).await?;
-
-        if let Some(plan_id) = ProductionPlanRepo::find_plan_id_by_work_order(
-            &mut *db, id,
-        ).await? {
-            ProductionPlanRepo::recalculate_plan_status(
-                &mut *db, plan_id,
-            ).await?;
-        }
-
         Ok(())
     }
 
@@ -663,16 +635,6 @@ impl WorkOrderService for WorkOrderServiceImpl {
         .await
         .map_err(|e| DomainError::Internal(e.into()))?;
         Ok(row.map(|r| r.0))
-    }
-    async fn list_by_plan(
-        &self,
-        _ctx: &ServiceContext,
-        db: PgExecutor<'_>,
-        plan_id: i64,
-    ) -> Result<Vec<WorkOrder>> {
-        WorkOrderRepo::list_by_plan(&mut *db, plan_id)
-            .await
-            .map_err(|e| DomainError::Internal(e.into()))
     }
 
     /// 工单工作台聚合视图（`get_hub_summary`）。
@@ -886,83 +848,205 @@ impl WorkOrderService for WorkOrderServiceImpl {
         &self,
         ctx: &ServiceContext,
         db: PgExecutor<'_>,
-        work_order_ids: &[i64],
+        orders: &[WorkOrder],
     ) -> Result<HashMap<i64, (MaterialAvailabilityLevel, Option<String>)>> {
+        use crate::master_data::product::model::Product;
+        use crate::shared::inventory_reservation::repo::InventoryReservationRepo;
         let mut result: HashMap<i64, (MaterialAvailabilityLevel, Option<String>)> =
             HashMap::new();
-        if work_order_ids.is_empty() {
+        if orders.is_empty() {
             return Ok(result);
         }
 
-        for &wo_id in work_order_ids {
-            let order = match WorkOrderRepo::get_by_id(&mut *db, wo_id).await {
-                Ok(Some(o)) => o,
-                Ok(None) => continue, // 已被硬删除，跳过
-                Err(e) => return Err(DomainError::Internal(e.into())),
-            };
-
-            // 已关闭/取消工单不计算（列表展示为空徽章）
-            if matches!(order.status, WorkOrderStatus::Closed | WorkOrderStatus::Cancelled) {
-                result.insert(wo_id, (MaterialAvailabilityLevel::Available, None));
+        let bom_svc = new_bom_query_service(self.pool.clone());
+        // 阶段 1：每工单取 BOM 快照，提取叶子 (pid, qty, code)（leaf_nodes 借用 snapshot，需提取 owned）
+        let mut wo_leaves: HashMap<i64, Vec<(i64, Decimal, Option<String>)>> = HashMap::new();
+        for order in orders {
+            // 已关闭/取消 / 无 BOM 快照：直接 Available，不计算
+            if matches!(order.status, WorkOrderStatus::Closed | WorkOrderStatus::Cancelled)
+                || order.bom_snapshot_id.is_none()
+            {
+                result.insert(order.id, (MaterialAvailabilityLevel::Available, None));
                 continue;
             }
-
-            let snap_id = match order.bom_snapshot_id {
-                Some(id) => id,
-                None => {
-                    result.insert(wo_id, (MaterialAvailabilityLevel::Available, None));
-                    continue;
-                }
-            };
-            let snapshot = new_bom_query_service(self.pool.clone())
-                .get_snapshot_by_id(ctx, db, snap_id)
+            let snapshot = bom_svc
+                .get_snapshot_by_id(ctx, db, order.bom_snapshot_id.unwrap())
                 .await?;
-            let leaf_nodes = match snapshot.as_ref() {
-                Some(snap) => snap.bom_detail.leaf_nodes(),
+            let leaves: Vec<(i64, Decimal, Option<String>)> = match snapshot.as_ref() {
+                Some(snap) => snap
+                    .bom_detail
+                    .leaf_nodes()
+                    .iter()
+                    .map(|n| (n.product_id, n.quantity, n.product_code.clone()))
+                    .collect(),
                 None => {
-                    result.insert(wo_id, (MaterialAvailabilityLevel::Available, None));
+                    result.insert(order.id, (MaterialAvailabilityLevel::Available, None));
                     continue;
                 }
             };
-            if leaf_nodes.is_empty() {
-                result.insert(wo_id, (MaterialAvailabilityLevel::Available, None));
+            if leaves.is_empty() {
+                result.insert(order.id, (MaterialAvailabilityLevel::Available, None));
                 continue;
             }
+            wo_leaves.insert(order.id, leaves);
+        }
 
-            // 预取叶子物料名（headline 命中物料时用）
-            let leaf_pids: Vec<i64> =
-                leaf_nodes.iter().map(|n| n.product_id).collect();
-            let leaf_products: HashMap<i64, crate::master_data::product::model::Product> =
-                new_product_service(self.pool.clone())
-                    .get_by_ids(ctx, db, leaf_pids.clone())
-                    .await?
-                    .into_iter()
-                    .map(|p| (p.product_id, p))
-                    .collect();
+        // 阶段 2：批量预取所有叶子物料名 + ATP（消除 N+1：原本每叶子一次 query → 两次 batch query）
+        let all_pids: Vec<i64> = wo_leaves
+            .values()
+            .flatten()
+            .map(|(pid, _, _)| *pid)
+            .collect::<HashSet<_>>()
+            .into_iter()
+            .collect();
+        let leaf_products: HashMap<i64, Product> = new_product_service(self.pool.clone())
+            .get_by_ids(ctx, db, all_pids.clone())
+            .await?
+            .into_iter()
+            .map(|p| (p.product_id, p))
+            .collect();
+        let atp_map = InventoryReservationRepo::available_atp_batch(&mut *db, &all_pids, None)
+            .await?;
 
-            // 逐叶子判定：首个 atp < required 即 Unavailable（headline=该物料名）
+        // 阶段 3：每工单 compute level（纯内存，无 query）
+        for order in orders {
+            let Some(leaves) = wo_leaves.get(&order.id) else {
+                continue;
+            };
             let mut level = MaterialAvailabilityLevel::Available;
             let mut headline: Option<String> = None;
-            for node in &leaf_nodes {
-                let required = node.quantity * order.planned_qty;
-                let atp =
-                    InventoryReservationRepo::available_atp(&mut *db, node.product_id, None)
-                        .await?;
+            for (pid, qty, code) in leaves {
+                let required = *qty * order.planned_qty;
+                let atp = atp_map.get(pid).copied().unwrap_or(Decimal::ZERO);
                 if atp < required {
                     level = MaterialAvailabilityLevel::Unavailable;
-                    let name = leaf_products
-                        .get(&node.product_id)
-                        .map(|p| p.pdt_name.clone())
-                        .or_else(|| node.product_code.clone())
-                        .unwrap_or_else(|| format!("P{}", node.product_id));
-                    headline = Some(name);
-                    break; // 任一缺料即可定级，无需继续
+                    headline = Some(
+                        leaf_products
+                            .get(pid)
+                            .map(|p| p.pdt_name.clone())
+                            .or_else(|| code.clone())
+                            .unwrap_or_else(|| format!("P{}", pid)),
+                    );
+                    break; // 任一缺料即可定级
                 }
             }
-            result.insert(wo_id, (level, headline));
+            result.insert(order.id, (level, headline));
         }
 
         Ok(result)
+    }
+
+    /// 排程：以工单为单位，工序级排程 → work_center_bookings（对标 Odoo _plan_workorders）
+    async fn schedule(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        work_order_id: i64,
+    ) -> Result<ScheduleResult> {
+        let wo = self.find_by_id(ctx, db, work_order_id).await?;
+
+        let product_svc = new_product_service(self.pool.clone());
+        let routing_svc = new_routing_service(self.pool.clone());
+        let wc_svc = new_work_center_service(self.pool.clone());
+        let cal_svc = new_work_calendar_service(self.pool.clone());
+
+        let product = product_svc.get(ctx, db, wo.product_id).await?;
+        let routing_detail = routing_svc
+            .get_bom_routing(ctx, db, product.product_code.clone())
+            .await
+            .ok()
+            .flatten();
+        let Some(routing) = routing_detail else {
+            return Ok(ScheduleResult {
+                scheduled_items: 0,
+                bookings_created: 0,
+                warnings: vec![format!("产品 {} 无工艺路线，跳过排程", product.product_code)],
+            });
+        };
+        if routing.steps.is_empty() {
+            return Ok(ScheduleResult {
+                scheduled_items: 0,
+                bookings_created: 0,
+                warnings: vec![format!("产品 {} 工艺路线无工序", product.product_code)],
+            });
+        }
+
+        // 正向排程：从 max(计划开工日 8:00, 当前时间) 开始
+        let start_dt = wo.scheduled_start.and_hms_opt(8, 0, 0).unwrap().and_utc();
+        let mut current = std::cmp::max(start_dt, chrono::Utc::now());
+        let mut bookings_created = 0usize;
+        let mut warnings = Vec::new();
+
+        for step in &routing.steps {
+            let Some(wc_id) = step.work_center_id else {
+                warnings.push(format!(
+                    "工序 {}(步骤{}) 无工作中心",
+                    step.process_name.as_deref().unwrap_or("?"),
+                    step.step_order
+                ));
+                continue;
+            };
+            let wc = match wc_svc.get(ctx, db, wc_id).await {
+                Ok(w) => w,
+                Err(_) => {
+                    warnings.push(format!("工作中心 {} 不存在", wc_id));
+                    continue;
+                }
+            };
+
+            // Odoo 时长公式: setup + cleanup + cycle × std_time × 100 / efficiency
+            let std_time = step.standard_time.unwrap_or(Decimal::ZERO);
+            let capacity = if wc.default_capacity > Decimal::ZERO {
+                wc.default_capacity
+            } else {
+                Decimal::ONE
+            };
+            let cycle_number = (wo.planned_qty / capacity).ceil();
+            let efficiency = if wc.time_efficiency.is_zero() {
+                Decimal::from(100)
+            } else {
+                wc.time_efficiency
+            };
+            let duration = wc.setup_time
+                + wc.cleanup_time
+                + cycle_number * std_time * Decimal::from(100) / efficiency;
+
+            // 在工作中心日历上找可用时段
+            let slot = cal_svc.find_available_slot(db, wc_id, current, duration).await?;
+            match slot {
+                Some((slot_start, slot_end)) => {
+                    cal_svc
+                        .create_booking(
+                            ctx,
+                            db,
+                            CreateBookingReq {
+                                work_center_id: wc_id,
+                                work_order_id: wo.id,
+                                plan_item_id: None,
+                                date_from: slot_start,
+                                date_to: slot_end,
+                                duration_minutes: duration,
+                            },
+                        )
+                        .await?;
+                    bookings_created += 1;
+                    current = slot_end;
+                }
+                None => {
+                    warnings.push(format!(
+                        "工序 {} 在工作中心 {} 上 90 天内无可用时段",
+                        step.process_name.as_deref().unwrap_or("?"),
+                        wc.name
+                    ));
+                }
+            }
+        }
+
+        Ok(ScheduleResult {
+            scheduled_items: 1,
+            bookings_created,
+            warnings,
+        })
     }
 }
 

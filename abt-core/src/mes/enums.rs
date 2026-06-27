@@ -71,28 +71,6 @@ macro_rules! define_mes_enum {
     };
 }
 
-// -- Production Plan --
-define_mes_enum!(PlanType {
-    Mto = 1,
-    Mts = 2,
-});
-
-define_mes_enum!(PlanStatus {
-    Draft = 1,
-    Confirmed = 2,
-    InProgress = 3,
-    Completed = 4,
-    Cancelled = 5,
-});
-
-define_mes_enum!(PlanItemStatus {
-    Planned = 1,
-    Released = 2,
-    InProduction = 3,
-    Completed = 4,
-    Cancelled = 5,
-});
-
 // -- Work Order --
 define_mes_enum!(WorkOrderStatus {
     Draft = 1,

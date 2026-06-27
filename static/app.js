@@ -8,14 +8,19 @@ window.scrollToAnchor = function (sel) {
 };
 
 
-// ── Release drawer 流转卡增删（work-center 下达 drawer 批次规划）──
+// ── Release drawer 生产批次增删（work-center 下达 drawer 批次规划）──
 // .split-row 克隆增行；.split-remove 删行（至少保留 1 行）；每次操作后重新编号 splits[idx][batch_qty]
 function renumberSplitRows(container) {
-  container.querySelectorAll('.split-row').forEach(function (row, i) {
+  var rows = container.querySelectorAll('.split-row');
+  var single = rows.length <= 1;
+  rows.forEach(function (row, i) {
     var input = row.querySelector('.split-qty');
     if (input) input.name = 'splits[' + i + '][batch_qty]';
     var label = row.querySelector('.split-label');
-    if (label) label.textContent = '流转卡 ' + (i + 1);
+    if (label) label.textContent = '生产批次 ' + (i + 1);
+    // 仅 1 行时禁用删除（至少保留 1 行）；多行时启用
+    var rm = row.querySelector('.split-remove');
+    if (rm) rm.disabled = single;
   });
 }
 

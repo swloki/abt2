@@ -25,7 +25,6 @@ use crate::routes::mes_order::{
     OrderRoutingApplyFromRoutingPath, OrderRoutingDeletePath, OrderRoutingEditPath,
     OrderRoutingLoadRecentPath, OrderSplitPath, OrderUnreleasePath,
 };
-use crate::routes::mes_plan::PlanDetailPath;
 use crate::utils::RequestContext;
 use abt_macros::require_permission;
 
@@ -896,17 +895,6 @@ fn source_trace(summary: &WorkOrderHubSummary) -> Markup {
                 span class="text-accent font-mono font-medium" { (so) }
                 @if let Some(c) = sc.customer_name.as_ref() {
                     span class="text-muted" { "(" (c) ")" }
-                }
-                span class="text-border" { "→" }
-            }
-            @if let Some(pdoc) = sc.plan_doc.as_ref() {
-                @if let Some(pid) = sc.plan_id {
-                    a class="text-accent font-mono font-medium hover:underline cursor-pointer"
-                        href=(PlanDetailPath { id: pid }.to_string())
-                        title="查看来源计划"
-                    { (pdoc) }
-                } @else {
-                    span class="text-accent font-mono font-medium" { (pdoc) }
                 }
                 span class="text-border" { "→" }
             }

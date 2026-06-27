@@ -8,7 +8,6 @@ use crate::mes::enums::BatchStatus;
 /// Dashboard 5个统计卡片
 #[derive(Debug, Clone, FromRow)]
 pub struct DashboardStats {
-    pub plan_count: i64,
     pub active_order_count: i64,
     pub active_batch_count: i64,
     pub pending_receipt_count: i64,
@@ -18,7 +17,6 @@ pub struct DashboardStats {
 /// 快捷入口统计
 #[derive(Debug, Clone)]
 pub struct QuickEntryStats {
-    pub plan_total: i64,
     pub order_active: i64,
     pub batch_active: i64,
     pub report_month: i64,

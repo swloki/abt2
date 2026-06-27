@@ -8,6 +8,26 @@ use crate::shared::types::pagination::{PageParams, PaginatedResult};
 
 use super::model::*;
 
+/// 物料汇总排序 → ORDER BY 子句（白名单匹配，sort 来自前端受控下拉，防注入）
+fn material_order_by(sort: Option<&str>) -> &'static str {
+    match sort {
+        Some("urgency") | Some("earliest") => "earliest_required_date ASC NULLS LAST",
+        Some("qty") => "total_demand_qty DESC",
+        Some("demand_count") => "demand_count DESC",
+        _ => "total_demand_qty DESC",
+    }
+}
+
+/// 订单行明细排序 → ORDER BY 子句（白名单匹配，防注入）
+fn demand_order_by(sort: Option<&str>) -> &'static str {
+    match sort {
+        Some("urgency") => "priority DESC, required_date ASC NULLS LAST",
+        Some("qty") => "quantity DESC",
+        Some("earliest") | Some("demand_count") => "required_date ASC NULLS LAST",
+        _ => "required_date ASC NULLS LAST, priority DESC",
+    }
+}
+
 pub struct MesDemandRepo;
 
 impl MesDemandRepo {
@@ -104,9 +124,10 @@ impl MesDemandRepo {
         // Data
         let offset = ((page.page.saturating_sub(1)) * page.page_size) as i64;
         let limit = page.page_size as i64;
+        let order_by = demand_order_by(query.sort.as_deref());
         let data_sql = format!(
             "SELECT * FROM v_production_demands WHERE {where_sql} \
-             ORDER BY required_date ASC NULLS LAST, priority DESC \
+             ORDER BY {order_by} \
              LIMIT ${param_idx} OFFSET ${}",
             param_idx + 1
         );
@@ -198,6 +219,7 @@ impl MesDemandRepo {
         // Data
         let offset = ((page.page.saturating_sub(1)) * page.page_size) as i64;
         let limit = page.page_size as i64;
+        let order_by = material_order_by(query.sort.as_deref());
         let data_sql = format!(
             "SELECT product_id, product_name, product_code, \
                     SUM(quantity) AS total_demand_qty, \
@@ -206,7 +228,7 @@ impl MesDemandRepo {
                     MAX(required_date) AS latest_required_date \
              FROM v_production_demands WHERE {where_sql} \
              GROUP BY product_id, product_name, product_code \
-             ORDER BY total_demand_qty DESC \
+             ORDER BY {order_by} \
              LIMIT ${param_idx} OFFSET ${}",
             param_idx + 1
         );

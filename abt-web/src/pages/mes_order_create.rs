@@ -4,7 +4,6 @@ use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
 use serde::Deserialize;
 
-use abt_core::mes::production_plan::{ProductionPlanService, model::PlanFilter};
 use abt_core::mes::work_order::WorkOrderService;
 use abt_core::master_data::work_center::WorkCenterService;
 use abt_core::sales::sales_order::{SalesOrderService, model::SalesOrderQuery};
@@ -15,7 +14,7 @@ use crate::components::overlay::modal_shell;
 use crate::components::product_picker;
 use crate::errors::Result;
 use crate::layout::page::admin_page;
-use crate::routes::mes_order::{OrderCreatePath, OrderListPath, SourceOrderSearchPath, SourcePlanSearchPath};
+use crate::routes::mes_order::{OrderCreatePath, OrderListPath, SourceOrderSearchPath};
 use crate::utils::RequestContext;
 use abt_macros::require_permission;
 
@@ -28,10 +27,9 @@ pub struct OrderCreateForm {
  pub scheduled_end: String,
  pub work_center_id: Option<String>,
  pub remark: Option<String>,
- /// 来源单据类型: None / "sales_order" / "production_plan"
+ /// 来源单据类型: None / "sales_order"（扁平化：已废弃生产计划来源）
  pub source_type: Option<String>,
  pub source_sales_order_id: Option<String>,
- pub source_plan_id: Option<String>,
 }
 
 // ── Search Params ──
@@ -82,7 +80,7 @@ pub async fn create_order(
  &state, &service_ctx, &mut tx,
  form.source_type.as_deref(),
  form.source_sales_order_id.as_deref(),
- form.source_plan_id.as_deref(),
+ None,
  product_id,
  ).await?;
 
@@ -105,39 +103,21 @@ pub async fn create_order(
  Ok(axum::response::Response::builder().header("HX-Redirect", OrderListPath::PATH).body(axum::body::Body::empty()).unwrap())
 }
 async fn resolve_source(
- state: &crate::state::AppState,
- ctx: &abt_core::shared::types::ServiceContext,
- db: abt_core::shared::types::PgExecutor<'_>,
+ _state: &crate::state::AppState,
+ _ctx: &abt_core::shared::types::ServiceContext,
+ _db: abt_core::shared::types::PgExecutor<'_>,
  source_type: Option<&str>,
  so_id_str: Option<&str>,
- plan_id_str: Option<&str>,
- product_id: i64,
+ _plan_id_str: Option<&str>,
+ _product_id: i64,
 ) -> Result<(Option<i64>, Option<i64>)> {
+ // 扁平化：已废弃「生产计划」来源，仅保留销售订单关联（plan_item_id 永远 None）
  match source_type {
  Some("sales_order") => {
  let so_id = so_id_str
  .filter(|s| !s.is_empty())
  .and_then(|s| s.parse::<i64>().ok());
  Ok((so_id, None))
- }
- Some("production_plan") => {
- let plan_id = plan_id_str
- .filter(|s| !s.is_empty())
- .and_then(|s| s.parse::<i64>().ok());
- if let Some(pid) = plan_id {
- // 在生产计划项中查找匹配产品的 item
- let plan_svc = state.production_plan_service();
- let items = plan_svc.list_items(ctx, db, pid).await?;
- let matching = items.iter().find(|i| i.product_id == product_id);
- match matching {
- Some(item) => Ok((None, Some(item.id))),
- None => Err(DomainError::validation(
- "所选生产计划中无匹配当前产品的计划项"
- ).into()),
- }
- } else {
- Ok((None, None))
- }
  }
  _ => Ok((None, None)),
  }
@@ -161,28 +141,6 @@ pub async fn search_source_orders(
  PageParams::new(1, 20),
  ).await?;
  Ok(Html(source_order_results(&result.items).into_string()))
-}
-
-/// 搜索生产计划（来源单据选择器）
-pub async fn search_source_plans(
- ctx: RequestContext,
- Query(params): Query<SourceSearchParams>,
-) -> Result<Html<String>> {
- let RequestContext { mut conn, state, service_ctx, .. } = ctx;
- let svc = state.production_plan_service();
- let keyword = params.keyword.filter(|s| !s.is_empty());
- let result = svc.list(
- &service_ctx, &mut conn,
- PlanFilter {
- status: None,
- plan_type: None,
- keyword,
- date_from: None,
- date_to: None,
- },
- 1, 20,
- ).await?;
- Ok(Html(source_plan_results(&result.items).into_string()))
 }
 
 // ── Page ──
@@ -278,11 +236,10 @@ fn order_create_page(work_centers: &[abt_core::master_data::work_center::WorkCen
                         select
                             class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
                             name="source_type"
-                            _="on change hide #source-order-field then hide #source-plan-field then if my value is 'sales_order' show #source-order-field else if my value is 'production_plan' show #source-plan-field"
+                            _="on change hide #source-order-field then if my value is 'sales_order' show #source-order-field"
                         {
                             option value="" { "无" }
                             option value="sales_order" { "销售订单" }
-                            option value="production_plan" { "生产计划" }
                         }
                     }
                     div class="form-field col-span-2 hidden" id="source-order-field" {
@@ -307,28 +264,6 @@ fn order_create_page(work_centers: &[abt_core::master_data::work_center::WorkCen
                                 type="button"
                                 class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
                                 _="on click set #source_sales_order_id's value to '' then put '点击选择销售订单…' into #so-display"
-                            { "清除" }
-                        }
-                    }
-                    div class="form-field col-span-2 hidden" id="source-plan-field" {
-                        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" {
-                            "关联生产计划"
-                        }
-                        div class="flex gap-2" {
-                            input type="hidden" name="source_plan_id" id="source_plan_id";
-                            div class="flex-1 px-3 py-2 border border-border rounded-sm text-sm bg-white text-muted cursor-pointer outline-none transition-all duration-150 focus:border-accent"
-                                id="pp-display"
-                                _="on click add .is-open to #pp-modal"
-                            { "点击选择生产计划…" }
-                            button
-                                type="button"
-                                class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
-                                _="on click add .is-open to #pp-modal"
-                            { "选择" }
-                            button
-                                type="button"
-                                class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
-                                _="on click set #source_plan_id's value to '' then put '点击选择生产计划…' into #pp-display"
                             { "清除" }
                         }
                     }
@@ -368,7 +303,6 @@ fn order_create_page(work_centers: &[abt_core::master_data::work_center::WorkCen
             )
         })
         (source_order_modal())
-        (source_plan_modal())
     }
 }
 }
@@ -418,49 +352,6 @@ fn source_order_modal() -> Markup {
  )
 }
 
-fn source_plan_modal() -> Markup {
- modal_shell("pp-modal", "z-[1000]", html! {
-    div class="modal bg-bg rounded-xl w-[680px] max-h-[85vh] flex flex-col overflow-hidden shadow-xl"
-        _="on click halt"
-    {
-            div class="px-6 py-5 border-b border-border-soft flex justify-between items-center shrink-0"
-            {
-                h2 { "选择生产计划" }
-                button
-                    class="bg-transparent border-none cursor-pointer text-xl text-muted p-1"
-                    _="on click remove .is-open from #pp-modal"
-                { "\u{00d7}" }
-            }
-            div class="overflow-y-auto flex-1 min-h-0 p-0" {
-                div class="flex gap-4 border-b border-border-soft" {
-                    div class="flex-1 flex flex-col gap-[4px]" {
-                        label class="text-xs font-medium text-fg-2" { "计划编号 / 关键词" }
-                        input
-                            class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
-                            type="text"
-                            name="keyword"
-                            placeholder="输入计划编号搜索…"
-                            hx-get=(SourcePlanSearchPath::PATH)
-                            hx-trigger="keyup changed delay:300ms"
-                            hx-sync="this:replace"
-                            hx-target="#pp-search-results"
-                            hx-swap="innerHTML" {}
-                    }
-                }
-                div id="pp-search-results"
-                    class="overflow-y-auto max-h-[320px]"
-                    hx-get=(SourcePlanSearchPath::PATH)
-                    hx-trigger="intersect once"
-                    hx-swap="innerHTML"
-                {
-                    div class="flex items-center justify-center text-muted p-8" { "加载中…" }
-                }
-            }
-        }
-    }
- )
-}
-
 // ── Search Result Fragments ──
 
 fn source_order_results(orders: &[abt_core::sales::sales_order::model::SalesOrder]) -> Markup {
@@ -493,32 +384,3 @@ fn source_order_results(orders: &[abt_core::sales::sales_order::model::SalesOrde
 }
 }
 
-fn source_plan_results(plans: &[abt_core::mes::production_plan::model::ProductionPlan]) -> Markup {
- let click_hs = "on click set #source_plan_id's value to my @data-pid then put my @data-label into #pp-display then set #pp-display's style.color to 'inherit' then remove .is-open from #pp-modal";
- html! {
-    @if plans.is_empty() {
-        div class="text-center text-muted py-12" {
-            p class="m-0 text-sm" { "未找到匹配的生产计划" }
-        }
-    } @else {
-        div class="py-2" {
-            @for p in plans {
-                div class="flex items-center justify-between p-3 border-b border-border-soft"
-                    data-pid=(p.id)
-                    data-label=(format!("{} ({})", p.doc_number, p.plan_date.format("%Y-%m-%d")))
-                    _=(click_hs)
-                {
-                    div class="product-select-info" {
-                        div class="text-sm font-medium text-fg" { (p.doc_number) }
-                        div class="text-xs text-muted flex items-center gap-[6px] flex-wrap" {
-                            span { (p.plan_date.format("%Y-%m-%d")) }
-                            span class="text-border" { "\u{00b7}" }
-                            span { (format!("{:?}", p.status)) }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-}

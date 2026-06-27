@@ -46,17 +46,7 @@ fn mes_dashboard_page(stats: &abt_core::mes::dashboard::model::DashboardStats, d
             }
         }
         // ── Stat Cards ──
-        div class="grid grid-cols-5 gap-5 mb-6" {
-            div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-md" {
-                div class="w-11 h-11 rounded-md grid place-items-center shrink-0 bg-[linear-gradient(135deg,#e6f4ff,#d6e8ff)] text-accent"
-                { (icon::file_text_icon("w-5 h-5")) }
-                div {
-                    div class="text-2xl font-bold font-mono tabular-nums text-fg" {
-                        (stats.plan_count)
-                    }
-                    div class="text-sm text-muted mt-1" { "本月生产计划" }
-                }
-            }
+        div class="grid grid-cols-4 gap-5 mb-6" {
             div class="flex items-center gap-4 p-5 bg-bg border border-border-soft rounded-md" {
                 div class="w-11 h-11 rounded-md grid place-items-center shrink-0 bg-[linear-gradient(135deg,#f0fff0,#e0ffe0)] text-success"
                 { (icon::tool_icon("w-5 h-5")) }
@@ -140,16 +130,6 @@ fn mes_dashboard_page(stats: &abt_core::mes::dashboard::model::DashboardStats, d
                         "purple",
                         0,
                         "条待处理",
-                    )
-                })
-                ({
-                    quick_entry_card(
-                        "/admin/mes/plans",
-                        "生产计划",
-                        "MTO/MTS 双轨排产",
-                        "blue",
-                        qs.plan_total,
-                        "条计划",
                     )
                 })
                 ({

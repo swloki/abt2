@@ -60,6 +60,16 @@ pub struct WorkOrderFilter {
     pub date_to: Option<NaiveDate>,
     /// 按产品编码模糊筛选（ILIKE）
     pub product_code: Option<String>,
+    /// 按工作中心筛选（排期视图）
+    pub work_center_id: Option<i64>,
+}
+
+/// 排程结果（工序级排程，对标 Odoo _plan_workorders）
+#[derive(Debug, Clone, Default, serde::Serialize)]
+pub struct ScheduleResult {
+    pub scheduled_items: usize,
+    pub bookings_created: usize,
+    pub warnings: Vec<String>,
 }
 
 // ============================================================================

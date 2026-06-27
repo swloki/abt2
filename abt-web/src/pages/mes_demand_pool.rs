@@ -125,7 +125,7 @@ pub async fn get_demand_pool_list(
  0
  };
 
- // Stat: demands with status InProgress (已创建生产计划)
+ // Stat: demands with status InProgress (已创建工单)
  let planned_count = svc
  .list_pending_demands(
  &service_ctx,
@@ -194,6 +194,7 @@ pub async fn get_demand_pool_list(
  keyword: params.keyword.clone(),
  required_date_start: date_start,
  required_date_end: date_end,
+ sort: None,
  };
  let result = svc
  .list_pending_demands(&service_ctx, &mut conn, query, page_params)
@@ -212,6 +213,7 @@ pub async fn get_demand_pool_list(
  keyword: params.keyword.clone(),
  required_date_start: date_start,
  required_date_end: date_end,
+ sort: None,
  },
  page_params,
  )
@@ -313,7 +315,7 @@ fn demand_pool_page(
         div class="flex items-center justify-between mb-6" {
             div {
                 h1 class="text-xl font-bold text-fg tracking-tight" { "生产需求池" }
-                p class="text-muted text-sm mt-1" { "销售订单确认后产生的自制需求，按物料聚合展示。可选择需求创建生产计划草稿。" }
+                p class="text-muted text-sm mt-1" { "销售订单确认后产生的自制需求，按物料聚合展示。可选择需求创建 Draft 工单。" }
             }
             div class="flex gap-3" {
                 button
@@ -575,7 +577,7 @@ fn material_row(item: &MaterialAggSummary) -> Markup {
         div class="flex gap-2" {
             a   class="inline-flex items-center gap-1.5 py-[5px] px-3 text-[13px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
                 href=(format!("{}?product_id={}", MesDemandPoolCreatePath::PATH, pid))
-            { "创建生产计划" }
+            { "创建工单" }
         }
     }
     // Expandable demand detail
@@ -718,10 +720,10 @@ fn detail_batch_bar() -> Markup {
             span {
                 "已选 "
                 span class="batch-count inline-block px-2 rounded-full bg-white/15 font-mono font-bold" { "0" }
-                " 条需求 · 可合并为生产订单"
+                " 条需求 · 可创建工单"
             }
             a class="batch-create-btn ml-auto inline-flex items-center gap-2 py-[5px] px-3 text-[13px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover font-medium cursor-pointer transition-all duration-150 no-underline"
-                href=(MesDemandPoolCreatePath::PATH) { "合并为生产订单" }
+                href=(MesDemandPoolCreatePath::PATH) { "创建工单" }
             button class="batch-clear-btn inline-flex items-center gap-2 py-[5px] px-3 text-[13px] rounded-sm border border-[rgba(255,255,255,0.15)] text-[rgba(255,255,255,0.7)] hover:text-white hover:bg-[rgba(255,255,255,0.1)] bg-transparent font-medium cursor-pointer transition-all duration-150"
                 type="button" { "清除选择" }
         }
@@ -900,7 +902,7 @@ fn demand_status_label(status: i16) -> Markup {
  let (label, cls) = match status {
  1 => ("待处理", "status-pill-muted"),
  2 => ("已确认", "status-pill-info"),
- 3 => ("已创建生产计划", "status-pill-warn"),
+ 3 => ("已创建工单", "status-pill-warn"),
  4 => ("已完成", "status-pill-success"),
  5 => ("已拒绝", "status-pill-danger"),
  _ => ("未知", "status-pill-muted"),

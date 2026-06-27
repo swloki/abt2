@@ -35,7 +35,7 @@ async fn create_wo(app: &TestApp, qty: &str) -> i64 {
     let mut conn = app.state.pool.acquire().await.unwrap();
     let result = svc
         .list(&ServiceContext::new(1), &mut conn, WorkOrderFilter {
-            status: None, product_id: None, keyword: None, date_from: None, date_to: None, product_code: None,
+            status: None, product_id: None, keyword: None, date_from: None, date_to: None, product_code: None, work_center_id: None,
         }, 1, 1)
         .await
         .unwrap();
@@ -321,9 +321,4 @@ async fn source_order_search_returns_ok() {
     assert!(resp.is_ok(), "source order search should return 200");
 }
 
-#[tokio::test]
-async fn source_plan_search_returns_ok() {
-    let app = TestApp::new().await;
-    let resp = app.get("/api/mes/source-plans/search?keyword=").await;
-    assert!(resp.is_ok(), "source plan search should return 200");
-}
+// source_plan_search_returns_ok 已删除：扁平化移除了 search_source_plans / SourcePlanSearchPath（PP 来源）

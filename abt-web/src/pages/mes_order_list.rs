@@ -83,6 +83,7 @@ pub async fn get_order_list(
         date_from: None,
         date_to: None,
         product_code: None,
+        work_center_id: None,
     };
     let result = svc
         .list(&service_ctx, &mut conn, filter, params.page.unwrap_or(1), 20)
@@ -98,9 +99,8 @@ pub async fn get_order_list(
     };
 
     // 批量物料可用性（列表降级 2 级）— 已关闭/取消工单返回 Available+None
-    let wo_ids: Vec<i64> = result.items.iter().map(|i| i.id).collect();
     let availability = svc
-        .compute_availability_batch(&service_ctx, &mut conn, &wo_ids)
+        .compute_availability_batch(&service_ctx, &mut conn, &result.items)
         .await?;
 
     let content = order_list_page(&result, &product_names, &availability, &params, can_create);
@@ -433,11 +433,6 @@ fn row_detail_tr(summary: &abt_core::mes::work_order::WorkOrderHubSummary) -> Ma
                         span { (sodoc) }
                     }
                     span class="text-muted mx-1" { "→" }
-                }
-                @if let (Some(pid), Some(pdoc)) =
-                    (order.source_plan_id, summary.source_chain.plan_doc.as_deref())
-                {
-                    a class="text-accent font-medium" href=(format!("/admin/mes/plans/{}", pid)) { (pdoc) }
                 }
                 @if let Some(cust) = summary.source_chain.customer_name.as_deref() {
                     br;

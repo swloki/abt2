@@ -107,10 +107,6 @@ pub struct OrderRowDetailPath {
 #[typed_path("/api/mes/source-orders/search")]
 pub struct SourceOrderSearchPath;
 
-#[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/api/mes/source-plans/search")]
-pub struct SourcePlanSearchPath;
-
 // ── Router ──
 
 pub fn router() -> Router<AppState> {
@@ -145,5 +141,4 @@ pub fn router() -> Router<AppState> {
         )
         .route(OrderRowDetailPath::PATH, get(mes_order_list::get_order_row_detail))
         .route(SourceOrderSearchPath::PATH, get(mes_order_create::search_source_orders))
-        .route(SourcePlanSearchPath::PATH, get(mes_order_create::search_source_plans))
 }

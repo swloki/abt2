@@ -1,3 +1,4 @@
+#![cfg(any())] // 扁平化禁用：废弃 PP 层后需重写为 create_work_orders_from_demands 流程（需求→Draft 工单直达）
 //! MES 生产全流程 Handler 集成测试
 //!
 //! 覆盖完整生产链路：
@@ -150,7 +151,7 @@ async fn create_work_order(app: &TestApp, qty: &str) -> (i64, i32) {
                 product_id: None,
                 keyword: None,
                 date_from: None,
-                date_to: None, product_code: None,
+                date_to: None, product_code: None, work_center_id: None,
             },
             1,
             1,

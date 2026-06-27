@@ -235,16 +235,6 @@ fn batch_detail_page(
                         { (wo.doc_number) }
                     }
                 }
-                @if let (Some(pid), Some(pdoc)) = (wo.source_plan_id, wo.source_plan_doc.as_ref()) {
-                    div class="flex flex-col gap-0.5" {
-                        span class="text-xs text-muted" { "计划" }
-                        span class="text-sm text-fg font-medium" {
-                            a   href=(format!("/admin/mes/plans/{}", pid))
-                                class="text-accent font-medium cursor-pointer"
-                            { (pdoc) }
-                        }
-                    }
-                }
                 div class="flex flex-col gap-0.5" {
                     span class="text-xs text-muted" { "产品" }
                     span class="text-sm text-fg font-medium truncate" title=(product_name) {

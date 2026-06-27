@@ -23,10 +23,6 @@ pub struct WcPath;
 pub struct WcDemandPath;
 
 #[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/mes/work-center/orders")]
-pub struct WcOrdersPath;
-
-#[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/mes/work-center/orders/{order_id}/release-drawer")]
 pub struct WcReleaseDrawerPath {
     pub order_id: i64,
@@ -65,13 +61,33 @@ pub struct WcRoutingEditPath {
     pub routing_id: i64,
 }
 
+/// 创建工单 drawer body（物料汇总行「创建工单」就地打开）。
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/mes/work-center/create-plan-drawer/{product_id}")]
+pub struct WcCreatePlanDrawerPath {
+    pub product_id: i64,
+}
+
+/// 创建工单提交（调 MesDemandService.create_work_orders_from_demands）。
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/mes/work-center/create-plan/{product_id}")]
+pub struct WcCreatePlanPath {
+    pub product_id: i64,
+}
+
+/// 销售订单详情 modal（drawer 内订单号点击就地查看，不跳转）。
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/mes/work-center/order-detail-modal/{order_id}")]
+pub struct WcOrderDetailModalPath {
+    pub order_id: i64,
+}
+
 // ── Router ──
 
 pub fn router() -> Router<AppState> {
     Router::new()
         .route(WcPath::PATH, get(mes_work_center::get_work_center))
         .route(WcDemandPath::PATH, get(mes_work_center::get_demand_card))
-        .route(WcOrdersPath::PATH, get(mes_work_center::get_orders_card))
         .route(
             WcReleaseDrawerPath::PATH,
             get(mes_work_center::get_release_drawer),
@@ -86,5 +102,14 @@ pub fn router() -> Router<AppState> {
         .route(
             WcRoutingEditPath::PATH,
             get(mes_work_center::get_wc_routing_edit).post(mes_work_center::post_wc_routing_edit),
+        )
+        .route(
+            WcCreatePlanDrawerPath::PATH,
+            get(mes_work_center::get_create_plan_drawer),
+        )
+        .route(WcCreatePlanPath::PATH, post(mes_work_center::create_plan))
+        .route(
+            WcOrderDetailModalPath::PATH,
+            get(mes_work_center::get_order_detail_modal),
         )
 }

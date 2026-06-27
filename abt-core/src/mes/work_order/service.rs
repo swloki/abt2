@@ -77,4 +77,13 @@ pub trait WorkOrderService: Send + Sync {
         db: PgExecutor<'_>,
         orders: &[super::model::WorkOrder],
     ) -> Result<std::collections::HashMap<i64, (MaterialAvailabilityLevel, Option<String>)>>;
+
+    /// 排程：以工单为单位，工序级排程 → work_center_bookings（对标 Odoo _plan_workorders）
+    /// 工作日历 + 产能 + 时段冲突检查 + 自动创建 booking。
+    async fn schedule(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        work_order_id: i64,
+    ) -> Result<ScheduleResult>;
 }

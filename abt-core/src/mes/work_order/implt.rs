@@ -14,6 +14,9 @@ use crate::master_data::bom::{new_bom_query_service, service::BomQueryService};
 use crate::master_data::work_center::{new_work_center_service, service::WorkCenterService};
 use crate::master_data::routing::{new_routing_service, service::RoutingService};
 use crate::master_data::product::{new_product_service, service::ProductService};
+use crate::master_data::work_calendar::{
+    model::CreateBookingReq, new_work_calendar_service, service::WorkCalendarService,
+};
 use crate::wms::material_requisition::{new_material_requisition_service, service::MaterialRequisitionService};
 use crate::wms::stock_ledger::{new_stock_ledger_service, service::StockLedgerService};
 use crate::mes::production_batch::model::WorkOrderRouting;
@@ -931,6 +934,119 @@ impl WorkOrderService for WorkOrderServiceImpl {
         }
 
         Ok(result)
+    }
+
+    /// 排程：以工单为单位，工序级排程 → work_center_bookings（对标 Odoo _plan_workorders）
+    async fn schedule(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        work_order_id: i64,
+    ) -> Result<ScheduleResult> {
+        let wo = self.find_by_id(ctx, db, work_order_id).await?;
+
+        let product_svc = new_product_service(self.pool.clone());
+        let routing_svc = new_routing_service(self.pool.clone());
+        let wc_svc = new_work_center_service(self.pool.clone());
+        let cal_svc = new_work_calendar_service(self.pool.clone());
+
+        let product = product_svc.get(ctx, db, wo.product_id).await?;
+        let routing_detail = routing_svc
+            .get_bom_routing(ctx, db, product.product_code.clone())
+            .await
+            .ok()
+            .flatten();
+        let Some(routing) = routing_detail else {
+            return Ok(ScheduleResult {
+                scheduled_items: 0,
+                bookings_created: 0,
+                warnings: vec![format!("产品 {} 无工艺路线，跳过排程", product.product_code)],
+            });
+        };
+        if routing.steps.is_empty() {
+            return Ok(ScheduleResult {
+                scheduled_items: 0,
+                bookings_created: 0,
+                warnings: vec![format!("产品 {} 工艺路线无工序", product.product_code)],
+            });
+        }
+
+        // 正向排程：从 max(计划开工日 8:00, 当前时间) 开始
+        let start_dt = wo.scheduled_start.and_hms_opt(8, 0, 0).unwrap().and_utc();
+        let mut current = std::cmp::max(start_dt, chrono::Utc::now());
+        let mut bookings_created = 0usize;
+        let mut warnings = Vec::new();
+
+        for step in &routing.steps {
+            let Some(wc_id) = step.work_center_id else {
+                warnings.push(format!(
+                    "工序 {}(步骤{}) 无工作中心",
+                    step.process_name.as_deref().unwrap_or("?"),
+                    step.step_order
+                ));
+                continue;
+            };
+            let wc = match wc_svc.get(ctx, db, wc_id).await {
+                Ok(w) => w,
+                Err(_) => {
+                    warnings.push(format!("工作中心 {} 不存在", wc_id));
+                    continue;
+                }
+            };
+
+            // Odoo 时长公式: setup + cleanup + cycle × std_time × 100 / efficiency
+            let std_time = step.standard_time.unwrap_or(Decimal::ZERO);
+            let capacity = if wc.default_capacity > Decimal::ZERO {
+                wc.default_capacity
+            } else {
+                Decimal::ONE
+            };
+            let cycle_number = (wo.planned_qty / capacity).ceil();
+            let efficiency = if wc.time_efficiency.is_zero() {
+                Decimal::from(100)
+            } else {
+                wc.time_efficiency
+            };
+            let duration = wc.setup_time
+                + wc.cleanup_time
+                + cycle_number * std_time * Decimal::from(100) / efficiency;
+
+            // 在工作中心日历上找可用时段
+            let slot = cal_svc.find_available_slot(db, wc_id, current, duration).await?;
+            match slot {
+                Some((slot_start, slot_end)) => {
+                    cal_svc
+                        .create_booking(
+                            ctx,
+                            db,
+                            CreateBookingReq {
+                                work_center_id: wc_id,
+                                work_order_id: wo.id,
+                                plan_item_id: None,
+                                date_from: slot_start,
+                                date_to: slot_end,
+                                duration_minutes: duration,
+                            },
+                        )
+                        .await?;
+                    bookings_created += 1;
+                    current = slot_end;
+                }
+                None => {
+                    warnings.push(format!(
+                        "工序 {} 在工作中心 {} 上 90 天内无可用时段",
+                        step.process_name.as_deref().unwrap_or("?"),
+                        wc.name
+                    ));
+                }
+            }
+        }
+
+        Ok(ScheduleResult {
+            scheduled_items: 1,
+            bookings_created,
+            warnings,
+        })
     }
 }
 

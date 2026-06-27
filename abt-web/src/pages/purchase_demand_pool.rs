@@ -14,7 +14,6 @@ use crate::components::icon;
 use crate::components::pagination::pagination;
 use crate::errors::Result;
 use crate::layout::page::admin_page;
-use crate::routes::mes_plan::PlanDetailPath;
 use crate::routes::order::OrderDetailPath;
 use crate::routes::purchase_demand_pool::*;
 use crate::routes::purchase_order::PODetailPath;
@@ -910,10 +909,10 @@ fn detail_row(d: &DemandSummary) -> Markup {
                     a   class="text-accent font-medium cursor-pointer"
                         href=(PODetailPath { id: doc_id }.to_string())
                     { "PO-" (doc_id) }
-                } @else if doc_type == 12 {
+                } @else if doc_type == 10 {
                     a   class="text-accent font-medium cursor-pointer"
-                        href=(PlanDetailPath { id: doc_id }.to_string())
-                    { "PP-" (doc_id) }
+                        href=(OrderDetailPath { id: doc_id }.to_string())
+                    { "WO-" (doc_id) }
                 } @else { "—" }
             } @else {
                 span class="text-muted" { "—" }

@@ -105,7 +105,7 @@ fn work_center_content(summary: &MesWorkCenterSummary) -> Markup {
         (render_card_shell("wc-demand-card", WcDemandPath::PATH, "生产需求池", icon::globe_icon("w-[15px] h-[15px]"), Some((summary.pending_release, "danger")),
             Some(html! { (summary.pending_release) " 张待下达 · 销售订单驱动 · 就地「转化为工单」" })))
         (render_drawer_overlay("release-overlay", "release-drawer", "release-drawer-body", "下达工单", "w-[640px]"))
-        (render_drawer_overlay("create-plan-overlay", "create-plan-drawer", "create-plan-drawer-body", "创建生产计划", "w-[680px]"))
+        (render_drawer_overlay("create-plan-overlay", "create-plan-drawer", "create-plan-drawer-body", "创建工单", "w-[680px]"))
         (render_drawer_overlay("report-overlay", "report-drawer", "report-drawer-body", "工序报工", "w-[480px]"))
         // 创建计划完成事件桥接：planCreated → 切到订单排期 tab 重新加载需求池 card + 展开 card（看新建 Draft 工单）
         div hx-get=(format!("{}?view=schedule", WcDemandPath::PATH))
@@ -492,7 +492,7 @@ fn wc_demand_material_row(item: &MaterialAggSummary) -> Markup {
                     hx-target="#create-plan-drawer-body" hx-swap="innerHTML"
                     _="on click halt the event" {
                     (icon::plus_icon("w-3.5 h-3.5"))
-                    "创建生产计划"
+                    "创建工单"
                 }
             }
         }
@@ -1160,19 +1160,11 @@ fn render_create_plan_drawer_body(
                     }
                 }
             }
-            // 排程参数
-            div class="grid grid-cols-3 gap-3 mb-6" {
+            // 排程参数（扁平化：开工/完工日期，计划类型/计划日期已废弃）
+            div class="grid grid-cols-2 gap-3 mb-6" {
                 div {
-                    label class="block text-xs text-fg-2 mb-1" { "计划类型" }
-                    select name="plan_type"
-                        class="w-full px-2 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent" {
-                        option value="1" selected { "按单生产 (MTO)" }
-                        option value="2" { "按库存备货 (MTS)" }
-                    }
-                }
-                div {
-                    label class="block text-xs text-fg-2 mb-1" { "计划日期" }
-                    input type="date" name="plan_date" value=(today) required
+                    label class="block text-xs text-fg-2 mb-1" { "开工日期" }
+                    input type="date" name="default_scheduled_start" value=(today)
                         class="w-full px-2 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent";
                 }
                 div {
@@ -1199,8 +1191,7 @@ fn render_create_plan_drawer_body(
 
 #[derive(Debug, Deserialize)]
 pub struct WcCreatePlanForm {
-    pub plan_type: i16,
-    pub plan_date: String,
+    pub default_scheduled_start: Option<String>,
     pub default_scheduled_end: Option<String>,
     pub demand_ids: String,
 }
@@ -1227,6 +1218,13 @@ pub async fn create_plan(
     if demand_ids.is_empty() {
         return Err(DomainError::validation("请至少选择一条生产需求").into());
     }
+    let default_scheduled_start = form
+        .default_scheduled_start
+        .as_deref()
+        .filter(|s| !s.is_empty())
+        .map(|s| chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d"))
+        .transpose()
+        .map_err(|e| DomainError::validation(format!("无效开工日期: {e}")))?;
     let default_scheduled_end = form
         .default_scheduled_end
         .as_deref()
@@ -1239,7 +1237,7 @@ pub async fn create_plan(
         demand_ids,
         remark: None,
         items: None,
-        default_scheduled_start: None,
+        default_scheduled_start,
         default_scheduled_end,
     };
 
@@ -1256,7 +1254,7 @@ pub async fn create_plan(
     tx.commit()
         .await
         .map_err(|e| DomainError::Internal(e.into()))?;
-    // 广播 planCreated：drawer 关闭（form afterRequest）+ 需求池 card 切到订单排期 tab 重新加载（看新建 Draft 工单）
+    // 广播 planCreated：drawer 关闭（form afterRequest）+ 需求池 card 切到工单 tab 重新加载（看新建 Draft 工单）
     Ok(([("HX-Trigger", "planCreated")], Html(String::new())))
 }
 

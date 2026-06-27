@@ -19,9 +19,10 @@ use crate::components::{disclosure, drawer, icon, material_badge, product_picker
 use crate::components::overlay::modal_shell;
 use crate::errors::Result;
 use crate::layout::page::admin_page;
+use crate::toast::{toast_response, ToastType};
 use crate::routes::mes_order::{
     OrderCancelPath, OrderClosePath, OrderDetailPath, OrderListPath, OrderReceiptPath,
-    OrderRequisitionPath, OrderReportPath, OrderReleasePath,
+    OrderRequisitionPath, OrderReportPath, OrderReleasePath, OrderSchedulePath,
     OrderRoutingApplyFromRoutingPath, OrderRoutingDeletePath, OrderRoutingEditPath,
     OrderRoutingLoadRecentPath, OrderSplitPath, OrderUnreleasePath,
 };
@@ -570,6 +571,60 @@ pub async fn create_receipt(
     Ok(([("HX-Trigger", "receiptChanged")], Html(String::new())))
 }
 
+/// 工序级排程（事务包裹 + Toast 反馈）。
+///
+/// 调 `WorkOrderService::schedule`：按 BOM 工艺路径逐工序计算时长
+/// （setup + cleanup + cycle × std_time × 100 / 效率），在工作中心日历上找可用时段并建
+/// booking。schedule 非幂等（重复调用追加 booking），故前端 `hx-confirm` 提示。结果
+/// （bookings_created / warnings）按分支拼 Toast：全成功→Success；部分警告→Warning 汇总；
+/// 未创建→Warning 原因。
+#[require_permission("WORK_ORDER", "update")]
+pub async fn schedule_order(
+    path: OrderSchedulePath,
+    ctx: RequestContext,
+) -> Result<impl IntoResponse> {
+    let RequestContext { state, service_ctx, claims, .. } = ctx;
+    let mut tx = state
+        .pool
+        .begin()
+        .await
+        .map_err(|e| abt_core::shared::types::DomainError::Internal(e.into()))?;
+    let result = state
+        .work_order_service()
+        .schedule(&service_ctx, &mut tx, path.order_id)
+        .await?;
+    tx.commit()
+        .await
+        .map_err(|e| abt_core::shared::types::DomainError::Internal(e.into()))?;
+
+    // Toast 文案为纯文本（render_single_toast 经 maud 转义 HTML）
+    let (msg, ttype) = if result.bookings_created > 0 && result.warnings.is_empty() {
+        (
+            format!(
+                "排程完成：已创建 {} 条工序预约，可在「排程看板」查看",
+                result.bookings_created
+            ),
+            ToastType::Success,
+        )
+    } else if result.bookings_created > 0 {
+        (
+            format!(
+                "排程完成：创建 {} 条预约；{} 项警告：{}",
+                result.bookings_created,
+                result.warnings.len(),
+                result.warnings.join("；")
+            ),
+            ToastType::Warning,
+        )
+    } else {
+        (
+            format!("未创建工序预约：{}", result.warnings.join("；")),
+            ToastType::Warning,
+        )
+    };
+    Ok(toast_response(claims.sub, msg, ttype))
+}
+
 // ============================================================================
 // 工作台渲染（hub_page + 各 disclosure body + drawer）
 // ============================================================================
@@ -814,6 +869,7 @@ fn status_actions(order: &WorkOrder, detail_path: &str) -> Markup {
     use WorkOrderStatus::*;
     let close_path = OrderClosePath { order_id: order.id }.to_string();
     let release_path = OrderReleasePath { order_id: order.id }.to_string();
+    let schedule_path = OrderSchedulePath { order_id: order.id }.to_string();
     let unrelease_path = OrderUnreleasePath { order_id: order.id }.to_string();
     let cancel_path = OrderCancelPath { order_id: order.id }.to_string();
     html! {
@@ -825,8 +881,13 @@ fn status_actions(order: &WorkOrder, detail_path: &str) -> Markup {
                 hx-disabled-elt="this"
             { (icon::rocket_icon("w-4 h-4")) "下达工单" }
         }
-        // 拆批 + 反下达 + 关闭（Released/InProduction）
+        // 排程 + 拆批 + 反下达 + 关闭（Released/InProduction）
         @if matches!(order.status, Released | InProduction) {
+            button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150"
+                hx-post=(&schedule_path)
+                hx-confirm="对此工单进行工序级排程（按工作中心日历/产能/时段冲突计算工序时长），将在排程看板创建工作中心预约。重复排程会追加新预约，请确认。"
+                hx-disabled-elt="this"
+            { (icon::calendar_icon("w-4 h-4")) "排程" }
             button class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150"
                 type="button"
                 _="on click add .open to #split-drawer"

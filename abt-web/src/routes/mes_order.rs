@@ -59,6 +59,12 @@ pub struct OrderReportPath {
 }
 
 #[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/mes/orders/{order_id}/schedule")]
+pub struct OrderSchedulePath {
+    pub order_id: i64,
+}
+
+#[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/mes/orders/{order_id}/requisition")]
 pub struct OrderRequisitionPath {
     pub order_id: i64,
@@ -124,6 +130,7 @@ pub fn router() -> Router<AppState> {
         .route(OrderUnreleasePath::PATH, post(mes_order_detail::unrelease_order))
         .route(OrderSplitPath::PATH, post(mes_order_detail::split_order))
         .route(OrderReportPath::PATH, post(mes_order_detail::report_routing_step))
+        .route(OrderSchedulePath::PATH, post(mes_order_detail::schedule_order))
         .route(OrderRequisitionPath::PATH, post(mes_order_detail::create_requisition))
         .route(OrderReceiptPath::PATH, post(mes_order_detail::create_receipt))
         .route(

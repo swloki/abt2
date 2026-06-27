@@ -1441,6 +1441,11 @@ fn render_release_drawer_body(
             }
 
             div class="flex justify-end gap-3 pt-4 border-t border-border-soft" {
+                @if routings.is_empty() {
+                    span class="text-xs text-danger mr-auto self-center" {
+                        "⚠ 工序为空，请先在上方「② 工序生成」加载工序后再下达"
+                    }
+                }
                 button type="button"
                     class="px-4 py-2 rounded-sm bg-white text-fg-2 border border-border text-sm cursor-pointer hover:bg-surface"
                     _="on click remove .open from #release-overlay" { "取消" }
@@ -1759,8 +1764,8 @@ fn wc_routing_edit_panel(
 fn render_split_row(idx: usize, qty: Decimal) -> Markup {
     html! {
         div class="split-row flex items-center gap-2 mb-2" {
-            span class="text-xs text-muted w-14 split-label" { "生产批次" (idx + 1) }
-            input class="split-qty flex-1 px-2 py-1 border border-border rounded-sm text-sm font-mono text-right bg-white outline-none focus:border-accent"
+            span class="text-xs text-muted w-20 whitespace-nowrap split-label" { "生产批次" (idx + 1) }
+            input class="split-qty w-24 px-2 py-1 border border-border rounded-sm text-sm font-mono text-right bg-white outline-none focus:border-accent"
                 type="number" step="0.01 " min="0"
                 name=(format!("splits[{idx}][batch_qty]")) value=(fmt_qty(qty));
             span class="text-xs text-muted" { "件" }
@@ -1920,6 +1925,17 @@ pub async fn release_order(
 
     // ① 下达（幂等：已 Released/InProduction 跳过状态转换）
     if order.status != WorkOrderStatus::Released && order.status != WorkOrderStatus::InProduction {
+        // 工序非空校验：报工强依赖工序，无工序下达会形成无法报工的死状态。
+        // 用户需先在 drawer「② 工序生成」手动从 Routing / 最近工单加载工序。
+        let routings = batch_svc
+            .list_routings(&service_ctx, &mut tx, path.order_id)
+            .await?;
+        if routings.is_empty() {
+            return Err(DomainError::business_rule(
+                "工单尚无工序，请先在「② 工序生成」从 Routing 加载工序后再下达",
+            )
+            .into());
+        }
         wo_svc
             .release(&service_ctx, &mut tx, path.order_id, order.version)
             .await?;

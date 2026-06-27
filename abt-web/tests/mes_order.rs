@@ -43,6 +43,28 @@ async fn create_wo(app: &TestApp, qty: &str) -> i64 {
 }
 
 async fn release_wo(app: &TestApp, wo_id: i64) {
+    // release 校验工序非空（报工强依赖工序）：测试 helper 先插一道默认工序
+    use abt_core::mes::production_batch::model::WorkOrderRouting;
+    use abt_core::mes::production_batch::repo::WorkOrderRoutingRepo;
+    let mut conn = app.state.pool.acquire().await.unwrap();
+    if WorkOrderRoutingRepo::get_by_work_order_id(&mut conn, wo_id).await.unwrap().is_empty() {
+        WorkOrderRoutingRepo::insert_for_work_order(&mut conn, &[WorkOrderRouting {
+            id: 0,
+            work_order_id: wo_id,
+            step_no: 1,
+            process_name: "生产".to_string(),
+            work_center_id: None,
+            standard_time: None,
+            standard_cost: None,
+            unit_price: None,
+            allowed_loss_rate: None,
+            planned_qty: Decimal::from(50),
+            is_outsourced: false,
+            is_inspection_point: false,
+            product_id: None,
+        }]).await.unwrap();
+    }
+    drop(conn);
     let resp = app.post_htmx(&format!("/admin/mes/orders/{wo_id}/release"), "").await;
     assert!(resp.is_ok() || resp.is_redirect(), "release FAIL: {} body: {}", resp.status, resp.body.chars().take(200).collect::<String>());
 }
@@ -98,7 +120,7 @@ async fn create_invalid_date_returns_400() {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  下达 → 工序自动创建
+//  下达（工序需手动加载，无工序下达会被拦截）
 // ════════════════════════════════════════════════════════════════════════════
 
 #[tokio::test]
@@ -110,18 +132,14 @@ async fn release_transitions_draft_to_released() {
 }
 
 #[tokio::test]
-async fn release_creates_routing_steps() {
+async fn release_rejects_when_no_routings() {
+    // release 不再自动初始化工序：无工序下达应被拦截（报工强依赖工序）
     let app = TestApp::new().await;
     let wo_id = create_wo(&app, "30").await;
-    release_wo(&app, wo_id).await;
-
-    let batch_svc = app.state.production_batch_service();
-    let mut conn = app.state.pool.acquire().await.unwrap();
-    let routings = batch_svc.list_routings(&ServiceContext::new(1), &mut conn, wo_id).await.unwrap();
-    assert!(!routings.is_empty(), "released WO must have routing steps");
-    // 至少有一道工序（step_no 从 1 开始）
-    assert_eq!(routings[0].step_no, 1);
-    assert!(!routings[0].process_name.is_empty());
+    let resp = app.post_htmx(&format!("/admin/mes/orders/{wo_id}/release"), "").await;
+    assert!(resp.status.is_client_error(), "release without routings must be rejected, got {}", resp.status);
+    // 工单仍为 Draft（未发生状态转换）
+    assert_eq!(get_work_order(&app, wo_id).await.status, WorkOrderStatus::Draft);
 }
 
 #[tokio::test]

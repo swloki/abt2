@@ -763,9 +763,9 @@ classDiagram
           <h4 style="color: #e5c07b; margin: 0 0 6px 0; font-size: 12px;">实体归属与快照语义</h4>
           <div style="font-family: monospace; font-size: 11px; color: #ccc; line-height: 1.8;">
             <b style="color:#e5c07b;">WorkOrderRouting</b> = 工单级工序快照（Layer 2，定义+参数）<br>
-            &bull; <span style="color:#98c379;">生成即初始化</span>：generate_work_orders 建 Draft 工单时即从工艺路径复制工序（含产出品 product_id / 计件单价 unit_price）<br>
+            &bull; <span style="color:#98c379;">手动加载</span>：Draft 工单工序初始为空，由用户在下达 drawer「从 Routing 加载」/「从最近工单加载」（含产出品 product_id / 计件单价 unit_price）<br>
             &bull; <span style="color:#98c379;">首报工前可编辑</span>：Draft/Released/InProduction 且整单未报工时，可改产出品/单价/工作中心/委外、删除工序、从工艺路径或最近工单加载<br>
-            &bull; release 兼容补全：直接创建的 Draft 工单若工序为空，下达时按 BOM 工艺路径补全（不覆盖已有）<br>
+            &bull; release 校验非空：下达时校验工单已有工序（报工强依赖工序），无工序下达会被拦截，不再自动补全<br>
             &bull; <span style="color:#98c379;">三层工序模型（已实现）</span>：执行进度迁移至 BatchRoutingProgress<br>
             &bull; Layer 1: master_data.routings（工序模板）<br>
             &bull; Layer 2: work_order_routings（工单工序快照）<br>
@@ -810,7 +810,7 @@ classDiagram
           &nbsp;&nbsp;绝不做 read-modify-write<br><br>
           <span style="color:#e5c07b;">③ 快照语义</span> — 工艺路线<br>
           &nbsp;&nbsp;WorkOrderRouting 即为快照载体<br>
-          &nbsp;&nbsp;generate 生成 Draft 工单时即从工艺路径复制工序；release 仅在工序为空时补全<br>
+          &nbsp;&nbsp;Draft 工单工序初始为空，用户在下达 drawer 手动从工艺路径加载；release 校验工序非空（不再自动补全）<br>
           &nbsp;&nbsp;首报工前可编辑（产出品/单价），报工后锁定；routing_id 仅作溯源引用
         </div>
       </div>

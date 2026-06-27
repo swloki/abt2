@@ -20,7 +20,6 @@ use crate::master_data::work_calendar::{
 use crate::wms::material_requisition::{new_material_requisition_service, service::MaterialRequisitionService};
 use crate::wms::stock_ledger::{new_stock_ledger_service, service::StockLedgerService};
 use crate::mes::production_batch::model::WorkOrderRouting;
-use crate::mes::production_batch::{new_production_batch_service, service::ProductionBatchService};
 use crate::mes::production_batch::repo::{
     BatchRoutingProgressRepo, ProductionBatchRepo, WorkOrderRoutingRepo,
 };
@@ -93,7 +92,7 @@ impl WorkOrderService for WorkOrderServiceImpl {
 
     /// 下达工单：Draft/Planned -> Released
     /// - BOM 快照（冻结用料清单）
-    /// - 从 Routing 创建工序（或虚拟默认工序）
+    /// - 工序由用户在下达 drawer 手动从 Routing 加载（release 不再自动初始化）
     /// - 创建 ProductionBatch
     /// - backflush 模式：不预留、不创建领料单
     async fn release(
@@ -159,27 +158,8 @@ impl WorkOrderService for WorkOrderServiceImpl {
             None
         };
 
-        // 5. 工序创建：从 Routing 映射，或虚拟默认工序
-        let routing_detail = new_routing_service(self.pool.clone())
-            .get_bom_routing(ctx, db, product_code.to_string())
-            .await?;
-
-        // 工单已有工序（generate 时已初始化）则跳过；无则从 BOM 工艺路径初始化（兼容直接创建的旧路径）
-        let existing_routings = WorkOrderRoutingRepo::get_by_work_order_id(&mut *db, id)
-            .await
-            .map_err(|e| DomainError::Internal(e.into()))?;
-        if existing_routings.is_empty() {
-            let routing_id_for_init = routing_detail.as_ref().map(|d| d.routing.id);
-            new_production_batch_service(self.pool.clone())
-                .init_routings_from_template(ctx, db, id, routing_id_for_init, work_order.planned_qty)
-                .await?;
-        }
-
-        if let Some(ref detail) = routing_detail {
-            WorkOrderRepo::update_routing_id(&mut *db, id, detail.routing.id)
-                .await
-                .map_err(|e| DomainError::Internal(e.into()))?;
-        }
+        // 5. 工序：由用户在下达 drawer 手动从 Routing 加载，release 不再自动初始化
+        //    （无工序下达会被 release_order 校验拦截：报工强依赖工序，不可留空）
 
         // 6. 根据产品 material_consumption_mode 分流
         let consumption_mode = product.meta.material_consumption_mode;
@@ -254,7 +234,7 @@ impl WorkOrderService for WorkOrderServiceImpl {
                         "product_id": work_order.product_id,
                         "planned_qty": work_order.planned_qty,
                         "bom_snapshot_id": bom_snapshot_id,
-                        "has_routing": routing_detail.is_some(),
+                        "has_routing": work_order.routing_id.is_some(),
                     }),
                     idempotency_key: None,
                 },

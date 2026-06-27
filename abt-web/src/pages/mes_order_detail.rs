@@ -150,11 +150,24 @@ pub async fn release_order(
         .await
         .map_err(|e| abt_core::shared::types::DomainError::Internal(e.into()))?;
     let svc = state.work_order_service();
+    let batch_svc = state.production_batch_service();
     let order = svc.find_by_id(&service_ctx, &mut tx, path.order_id).await?;
 
     if order.status == WorkOrderStatus::Released {
         let redirect = OrderDetailPath { id: path.order_id }.to_string();
         return Ok(([("HX-Redirect", redirect)], Html(String::new())));
+    }
+
+    // 工序非空校验：报工强依赖工序，无工序下达会形成无法报工的死状态。
+    // 用户需先在工单工作台 drawer「② 工序生成」手动从 Routing 加载工序。
+    let routings = batch_svc
+        .list_routings(&service_ctx, &mut tx, path.order_id)
+        .await?;
+    if routings.is_empty() {
+        return Err(abt_core::shared::types::DomainError::business_rule(
+            "工单尚无工序，请先在「② 工序生成」从 Routing 加载工序后再下达",
+        )
+        .into());
     }
 
     svc.release(&service_ctx, &mut tx, path.order_id, order.version)

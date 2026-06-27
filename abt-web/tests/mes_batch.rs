@@ -38,6 +38,26 @@ async fn create_wo_and_release(app: &TestApp, qty: &str) -> i64 {
         .await
         .unwrap();
     let wo_id = result.items.first().unwrap().id;
+    // release 校验工序非空：先插一道默认工序（报工测试需 step_no=1）
+    use abt_core::mes::production_batch::model::WorkOrderRouting;
+    use abt_core::mes::production_batch::repo::WorkOrderRoutingRepo;
+    let planned = qty.parse::<Decimal>().unwrap_or(Decimal::from(100));
+    WorkOrderRoutingRepo::insert_for_work_order(&mut conn, &[WorkOrderRouting {
+        id: 0,
+        work_order_id: wo_id,
+        step_no: 1,
+        process_name: "生产".to_string(),
+        work_center_id: None,
+        standard_time: None,
+        standard_cost: None,
+        unit_price: None,
+        allowed_loss_rate: None,
+        planned_qty: planned,
+        is_outsourced: false,
+        is_inspection_point: false,
+        product_id: None,
+    }]).await.unwrap();
+    drop(conn);
     app.post_htmx(&format!("/admin/mes/orders/{wo_id}/release"), "").await;
     wo_id
 }

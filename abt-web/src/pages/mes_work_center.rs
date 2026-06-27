@@ -2344,7 +2344,7 @@ fn render_batch_drawer_body(
         @if can_report {
             form hx-post=(WcBatchReportPath { batch_id: batch.id }.to_string())
                 hx-swap="none"
-                _="on 'htmx:afterRequest'[detail.xhr.status < 400] remove .open from #batch-overlay" {
+                _="on batchChanged from body remove .open from #batch-overlay" {
                 div class="text-sm font-semibold text-fg mb-2" { "报工" }
                 div class="mb-3" {
                     label class="block text-xs text-fg-2 mb-1" { "工序" }
@@ -2410,7 +2410,7 @@ fn render_batch_drawer_body(
             div class="flex flex-wrap gap-2" {
                 @if can_suspend {
                     form hx-post=(WcBatchSuspendPath { batch_id: batch.id }.to_string()) hx-swap="none"
-                        _="on 'htmx:afterRequest'[detail.xhr.status < 400] remove .open from #batch-overlay" {
+                        _="on batchChanged from body remove .open from #batch-overlay" {
                         input type="hidden" name="reason" value="手动暂停";
                         button type="submit" class="px-3 py-1.5 rounded-sm border border-border text-xs font-medium text-fg-2 cursor-pointer hover:bg-warn-bg hover:border-warn hover:text-warn transition-all"
                             hx-confirm="暂停该批次？" { "暂停" }
@@ -2418,20 +2418,20 @@ fn render_batch_drawer_body(
                 }
                 @if can_resume {
                     form hx-post=(WcBatchResumePath { batch_id: batch.id }.to_string()) hx-swap="none"
-                        _="on 'htmx:afterRequest'[detail.xhr.status < 400] remove .open from #batch-overlay" {
+                        _="on batchChanged from body remove .open from #batch-overlay" {
                         button type="submit" class="px-3 py-1.5 rounded-sm border border-border text-xs font-medium text-fg-2 cursor-pointer hover:bg-accent-bg hover:border-accent hover:text-accent transition-all" { "恢复生产" }
                     }
                 }
                 @if can_advance {
                     form hx-post=(WcBatchAdvancePath { batch_id: batch.id }.to_string()) hx-swap="none"
-                        _="on 'htmx:afterRequest'[detail.xhr.status < 400] remove .open from #batch-overlay" {
+                        _="on batchChanged from body remove .open from #batch-overlay" {
                         button type="submit" class="px-3 py-1.5 rounded-sm border border-border text-xs font-medium text-fg-2 cursor-pointer hover:bg-accent-bg hover:border-accent hover:text-accent transition-all"
                             hx-confirm="推进该批次到待入库状态？" { "推进入库" }
                     }
                 }
                 @if can_scrap {
                     form hx-post=(WcBatchScrapPath { batch_id: batch.id }.to_string()) hx-swap="none"
-                        _="on 'htmx:afterRequest'[detail.xhr.status < 400] remove .open from #batch-overlay" {
+                        _="on batchChanged from body remove .open from #batch-overlay" {
                         input type="hidden" name="reason" value="手动报废";
                         button type="submit" class="px-3 py-1.5 rounded-sm border border-border text-xs font-medium text-fg-2 cursor-pointer hover:bg-danger-bg hover:border-danger hover:text-danger transition-all"
                             hx-confirm="报废该批次？此操作不可撤销" { "报废" }

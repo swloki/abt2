@@ -6,7 +6,6 @@
 pub mod enums;
 pub mod demand_handler;
 
-pub mod production_plan;
 pub mod work_order;
 pub mod production_batch;
 pub mod work_report;

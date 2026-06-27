@@ -321,9 +321,4 @@ async fn source_order_search_returns_ok() {
     assert!(resp.is_ok(), "source order search should return 200");
 }
 
-#[tokio::test]
-async fn source_plan_search_returns_ok() {
-    let app = TestApp::new().await;
-    let resp = app.get("/api/mes/source-plans/search?keyword=").await;
-    assert!(resp.is_ok(), "source plan search should return 200");
-}
+// source_plan_search_returns_ok 已删除：扁平化移除了 search_source_plans / SourcePlanSearchPath（PP 来源）

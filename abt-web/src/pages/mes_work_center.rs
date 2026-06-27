@@ -18,9 +18,10 @@ use abt_core::mes::demand_handler::{
     CreateWorkOrdersFromDemandsReq, DemandPoolQuery, DemandSummary, MaterialAggQuery,
     MaterialAggSummary, MesDemandService,
 };
-use abt_core::mes::enums::{ShiftType, WorkOrderStatus};
+use abt_core::mes::enums::{BatchStatus, ShiftType, WorkOrderStatus};
 use abt_core::mes::production_batch::{
-    ProductionBatch, ProductionBatchService, SplitReq, StepConfirmationReq, WorkOrderRouting,
+    BatchListFilter, BatchListItem, ProductionBatch, ProductionBatchService, SplitReq,
+    StepConfirmationReq, WorkOrderRouting,
 };
 use abt_core::mes::work_center::{MesWorkCenterService, MesWorkCenterSummary};
 use abt_core::sales::sales_order::{SalesOrder, SalesOrderItem, SalesOrderService, SalesOrderStatus};
@@ -107,6 +108,7 @@ fn work_center_content(summary: &MesWorkCenterSummary) -> Markup {
         (render_drawer_overlay("release-overlay", "release-drawer", "release-drawer-body", "下达工单", "w-[640px]"))
         (render_drawer_overlay("create-plan-overlay", "create-plan-drawer", "create-plan-drawer-body", "创建工单", "w-[680px]"))
         (render_drawer_overlay("report-overlay", "report-drawer", "report-drawer-body", "工序报工", "w-[480px]"))
+        (render_drawer_overlay("batch-overlay", "batch-drawer", "batch-drawer-body", "批次处理", "w-[640px]"))
         // 创建计划完成事件桥接：planCreated → 切到订单排期 tab 重新加载需求池 card + 展开 card（看新建 Draft 工单）
         div hx-get=(format!("{}?view=schedule", WcDemandPath::PATH))
             hx-trigger="planCreated from:body"
@@ -143,6 +145,9 @@ pub struct DemandCardParams {
     /// 工单 tab：工单状态（InProduction/Released/Closed）
     #[serde(default, deserialize_with = "empty_as_none")]
     pub wo_status: Option<String>,
+    /// 批次 tab：批次状态（Pending/InProgress/Suspended/PendingReceipt/Completed/Cancelled）
+    #[serde(default, deserialize_with = "empty_as_none")]
+    pub batch_status: Option<String>,
     /// 工单 tab：物料可用性（Available/Expected/Late/Unavailable）
     #[serde(default, deserialize_with = "empty_as_none")]
     pub availability: Option<String>,
@@ -222,6 +227,27 @@ pub async fn get_demand_card(
             &result, &product_names,
             WcDemandPath::PATH, "#wc-demand-card", "#wc-demand-filter-form"
         )) }
+    } else if view == "batches" {
+        // 批次 tab：跨工单列出所有生产批次（工单下达 + 拆批后产生）
+        let batch_svc = state.production_batch_service();
+        let status = p.batch_status.as_deref().and_then(parse_batch_status);
+        let page = p.page.unwrap_or(1);
+        let result = batch_svc
+            .list_batches(
+                &service_ctx,
+                &mut conn,
+                BatchListFilter {
+                    status,
+                    keyword: p.keyword.clone(),
+                },
+                page,
+                10,
+            )
+            .await?;
+        html! { (batches_table(
+            &result,
+            WcDemandPath::PATH, "#wc-demand-card", "#wc-demand-filter-form"
+        )) }
     } else {
         let svc = state.mes_demand_service();
         let page = p.page.unwrap_or(1);
@@ -264,7 +290,12 @@ pub async fn get_demand_card(
 
     Ok(Html(
         html! {
-            div id="wc-demand-card" {
+            div id="wc-demand-card"
+                hx-get=(WcDemandPath::PATH)
+                hx-trigger="batchChanged from:body"
+                hx-vals=(serde_json::json!({ "view": view }).to_string())
+                hx-include="#wc-demand-filter-form"
+                hx-select="#wc-demand-card" hx-swap="outerHTML" {
                 (demand_filter_bar(view, &p))
                 (body)
             }
@@ -296,10 +327,13 @@ fn demand_filter_bar(
     let df = p.date_filter.as_deref().unwrap_or("");
     let ss = p.sched_status.as_deref().unwrap_or("");
     let wos = p.wo_status.as_deref().unwrap_or("");
+    let bs = p.batch_status.as_deref().unwrap_or("");
     let avail = p.availability.as_deref().unwrap_or("");
     let sort = p.sort.as_deref().unwrap_or("");
     let placeholder = if view == "schedule" || view == "orders" {
         "搜索工单号/产品"
+    } else if view == "batches" {
+        "搜索流转卡/批次号"
     } else {
         "搜索物料/订单"
     };
@@ -324,6 +358,11 @@ fn demand_filter_bar(
                 hx-target="#wc-demand-card" hx-select="#wc-demand-card" hx-swap="outerHTML"
                 hx-include="#wc-demand-filter-form"
                 { (icon::package_icon("w-4 h-4")) "工单" }
+            button class=(toggle_cls(view == "batches")) type="button"
+                hx-get=(WcDemandPath::PATH) hx-vals="{\"view\":\"batches\"}"
+                hx-target="#wc-demand-card" hx-select="#wc-demand-card" hx-swap="outerHTML"
+                hx-include="#wc-demand-filter-form"
+                { (icon::box_icon("w-4 h-4")) "批次" }
             @if view == "material" || view == "detail" {
                 a class="ml-auto text-xs text-accent font-semibold no-underline"
                     href="/admin/mes/demand-pool" { "完整需求池 →" }
@@ -367,6 +406,18 @@ fn demand_filter_bar(
                     option value="overdue" selected[df == "overdue"] { "已逾期" }
                     option value="this_week" selected[df == "this_week"] { "本周开工" }
                 }
+            } @else if view == "batches" {
+                // 批次筛选：状态
+                select class="px-2 py-1.5 border border-border rounded-sm text-sm bg-white text-fg cursor-pointer"
+                    name="batch_status" {
+                    option value="" selected[bs.is_empty()] { "全部状态" }
+                    option value="Pending" selected[bs == "Pending"] { "待开工" }
+                    option value="InProgress" selected[bs == "InProgress"] { "进行中" }
+                    option value="Suspended" selected[bs == "Suspended"] { "已暂停" }
+                    option value="PendingReceipt" selected[bs == "PendingReceipt"] { "待入库" }
+                    option value="Completed" selected[bs == "Completed"] { "已完工" }
+                    option value="Cancelled" selected[bs == "Cancelled"] { "已取消" }
+                }
             } @else {
                 select class="px-2 py-1.5 border border-border rounded-sm text-sm bg-white text-fg cursor-pointer"
                     name="date_filter" {
@@ -391,6 +442,7 @@ fn demand_filter_bar(
             input type="hidden" name="date_filter" value=(df);
             input type="hidden" name="sched_status" value=(ss);
             input type="hidden" name="wo_status" value=(wos);
+            input type="hidden" name="batch_status" value=(bs);
             input type="hidden" name="availability" value=(avail);
             input type="hidden" name="sort" value=(sort);
         }
@@ -738,6 +790,19 @@ fn wo_status_meta(s: &WorkOrderStatus) -> (&'static str, &'static str) {
     }
 }
 
+/// 批次状态 → (标签, 语义色 token)。批次 tab 共用。
+fn batch_status_meta(s: &BatchStatus) -> (&'static str, &'static str) {
+    use BatchStatus::*;
+    match s {
+        Pending => ("待开工", "muted"),
+        InProgress => ("进行中", "accent"),
+        Suspended => ("已暂停", "warn"),
+        PendingReceipt => ("待入库", "purple"),
+        Completed => ("已完工", "success"),
+        Cancelled => ("已取消", "danger"),
+    }
+}
+
 /// 批量解析工单产品名（失败容错返回空 map）。
 async fn resolve_product_names(
     product_svc: &impl ProductService,
@@ -760,6 +825,19 @@ fn parse_wo_status(s: &str) -> Option<WorkOrderStatus> {
         "Released" => Some(Released),
         "InProduction" => Some(InProduction),
         "Closed" => Some(Closed),
+        _ => None,
+    }
+}
+
+fn parse_batch_status(s: &str) -> Option<BatchStatus> {
+    use BatchStatus::*;
+    match s {
+        "Pending" => Some(Pending),
+        "InProgress" => Some(InProgress),
+        "Suspended" => Some(Suspended),
+        "PendingReceipt" => Some(PendingReceipt),
+        "Completed" => Some(Completed),
+        "Cancelled" => Some(Cancelled),
         _ => None,
     }
 }
@@ -842,11 +920,13 @@ fn orders_row(
                 }
             }
             td class="py-2.5 px-5 text-right whitespace-nowrap" {
-                button class="inline-flex items-center gap-1 px-2.5 py-1 rounded-sm border border-border text-xs font-medium text-fg cursor-pointer hover:bg-accent-bg hover:border-accent hover:text-accent transition-all"
-                    hx-get=(WcReleaseDrawerPath { order_id: w.id }.to_string())
-                    hx-target="#release-drawer-body" hx-swap="innerHTML"
-                    _="on click halt the event" {
-                    "下达"
+                @if matches!(w.status, WorkOrderStatus::Draft | WorkOrderStatus::Planned) {
+                    button class="inline-flex items-center gap-1 px-2.5 py-1 rounded-sm border border-border text-xs font-medium text-fg cursor-pointer hover:bg-accent-bg hover:border-accent hover:text-accent transition-all"
+                        hx-get=(WcReleaseDrawerPath { order_id: w.id }.to_string())
+                        hx-target="#release-drawer-body" hx-swap="innerHTML"
+                        _="on click halt the event" {
+                        "下达"
+                    }
                 }
                 button class="inline-flex items-center justify-center w-[26px] h-[26px] border-none bg-transparent text-muted cursor-pointer rounded-sm hover:bg-surface hover:text-fg align-middle transition-all"
                     title="展开详情"
@@ -854,6 +934,96 @@ fn orders_row(
                     hx-target="this" hx-swap="afterend"
                     _="on click toggle .open on closest <tr/>" {
                     (icon::chevron_right_icon("w-[15px] h-[15px]"))
+                }
+            }
+        }
+    }
+}
+
+// ── 批次 tab 渲染（跨工单列出所有生产批次）──
+
+fn batches_table(
+    result: &abt_core::shared::types::PaginatedResult<BatchListItem>,
+    list_path: &str,
+    card_sel: &str,
+    form_sel: &str,
+) -> Markup {
+    html! {
+        div class="overflow-x-auto" {
+            table class="w-full text-sm" {
+                thead {
+                    tr class="bg-surface-raised text-xs text-muted" {
+                        th class="text-left font-semibold py-2 px-5 uppercase tracking-wide" { "流转卡/批次" }
+                        th class="text-left font-semibold py-2 px-3 uppercase tracking-wide" { "产品" }
+                        th class="text-left font-semibold py-2 px-3 uppercase tracking-wide" { "工单" }
+                        th class="text-left font-semibold py-2 px-3 uppercase tracking-wide" { "进度" }
+                        th class="text-left font-semibold py-2 px-3 uppercase tracking-wide" { "状态" }
+                        th class="text-right font-semibold py-2 px-5 uppercase tracking-wide" { "操作" }
+                    }
+                }
+                tbody {
+                    @if result.items.is_empty() {
+                        tr { td colspan="6" class="text-center text-muted py-8" { "暂无批次（工单下达并拆批后在此显示）" } }
+                    }
+                    @for b in &result.items {
+                        (batch_row(b))
+                    }
+                }
+            }
+        }
+        (pagination(list_path, card_sel, form_sel, result.total, result.page, result.total_pages))
+    }
+}
+
+fn batch_row(b: &BatchListItem) -> Markup {
+    let (slabel, stoken) = batch_status_meta(&b.status);
+    let pct = if b.batch_qty > Decimal::ZERO {
+        let p = b.completed_qty / b.batch_qty * Decimal::from(100);
+        if p > Decimal::from(100) { Decimal::from(100) } else { p }
+    } else {
+        Decimal::ZERO
+    };
+    let pct_str = fmt_qty(pct);
+    html! {
+        tr class="border-b border-border-soft hover:bg-accent-bg" {
+            td class="py-2.5 px-5" {
+                div class="font-mono font-medium text-fg" { (b.card_sn.as_str()) }
+                div class="text-xs text-muted font-mono" { (b.batch_no.as_str()) }
+            }
+            td class="py-2.5 px-3" {
+                div class="font-medium text-fg" { (b.product_name.as_deref().unwrap_or("—")) }
+            }
+            td class="py-2.5 px-3 font-mono text-xs text-accent" {
+                (b.wo_doc_number.as_deref().unwrap_or("—"))
+            }
+            td class="py-2.5 px-3" {
+                div class="flex flex-col gap-[3px]" {
+                    div class="w-[80px] h-[6px] bg-border-soft rounded-[3px] overflow-hidden" {
+                        div class="h-full rounded-[3px] bg-accent transition-all duration-150"
+                            style=(format!("width:{}%", pct_str)) {}
+                    }
+                    div class="text-[11px] text-muted font-mono tabular-nums" {
+                        (fmt_qty(b.completed_qty)) "/" (fmt_qty(b.batch_qty))
+                        @if let Some(cur) = b.current_step_name.as_deref() {
+                            " · " (cur)
+                        }
+                    }
+                }
+            }
+            td class="py-2.5 px-3" {
+                span class=(format!(
+                    "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap bg-{stoken}-bg text-{stoken}"
+                )) {
+                    span class=(format!("inline-block w-1.5 h-1.5 rounded-full bg-{stoken}")) {}
+                    (slabel)
+                }
+            }
+            td class="py-2.5 px-5 text-right whitespace-nowrap" {
+                button class="inline-flex items-center gap-1 px-2.5 py-1 rounded-sm border border-border text-xs font-medium text-fg cursor-pointer hover:bg-accent-bg hover:border-accent hover:text-accent transition-all"
+                    hx-get=(WcBatchDrawerPath { batch_id: b.id }.to_string())
+                    hx-target="#batch-drawer-body" hx-swap="innerHTML"
+                    _="on click halt the event" {
+                    "处理"
                 }
             }
         }
@@ -2083,6 +2253,333 @@ pub async fn report_step(
         .await
         .map_err(|e| DomainError::Internal(e.into()))?;
     Ok(([("HX-Trigger", "woChanged")], Html(String::new())))
+}
+
+// =============================================================================
+// 批次 tab：drawer body + 各操作 handler（batch 维度，不跳转）
+// =============================================================================
+
+#[derive(Debug, Deserialize)]
+pub struct BatchReportForm {
+    pub step_no: i32,
+    pub worker_id: i64,
+    pub shift: ShiftType,
+    pub completed_qty: String,
+    #[serde(default)]
+    pub defect_qty: String,
+    #[serde(default)]
+    pub work_hours: String,
+    pub report_date: chrono::NaiveDate,
+    #[serde(default)]
+    pub remark: Option<String>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+pub struct BatchReasonForm {
+    #[serde(default)]
+    pub reason: String,
+}
+
+/// 批次处理 drawer body：批次信息 + 工序进度 + 报工表单 + 状态操作（按 BatchStatus 门控）。
+#[require_permission("WORK_ORDER", "read")]
+pub async fn get_batch_drawer(
+    path: WcBatchDrawerPath,
+    ctx: RequestContext,
+) -> Result<Html<String>> {
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let batch_svc = state.production_batch_service();
+    let wo_svc = state.work_order_service();
+    let batch = batch_svc.find_by_id(&service_ctx, &mut conn, path.batch_id).await?;
+    let order = wo_svc.find_by_id(&service_ctx, &mut conn, batch.work_order_id).await?;
+    let product_name = wo_svc
+        .get_product_name(&mut conn, batch.product_id)
+        .await?
+        .unwrap_or_else(|| format!("#{}", batch.product_id));
+    let routings = batch_svc
+        .list_routings(&service_ctx, &mut conn, batch.work_order_id)
+        .await
+        .unwrap_or_default();
+    Ok(Html(
+        render_batch_drawer_body(&batch, &order, &product_name, &routings).into_string(),
+    ))
+}
+
+fn render_batch_drawer_body(
+    batch: &ProductionBatch,
+    order: &WorkOrder,
+    product_name: &str,
+    routings: &[WorkOrderRouting],
+) -> Markup {
+    let (slabel, stoken) = batch_status_meta(&batch.status);
+    let can_report = matches!(batch.status, BatchStatus::Pending | BatchStatus::InProgress);
+    let can_suspend = matches!(batch.status, BatchStatus::InProgress);
+    let can_resume = matches!(batch.status, BatchStatus::Suspended);
+    let can_scrap = matches!(batch.status, BatchStatus::InProgress | BatchStatus::Suspended);
+    let can_advance = matches!(batch.status, BatchStatus::InProgress | BatchStatus::Suspended);
+    let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+    html! {
+        // 批次信息头
+        div class="mb-5 pb-4 border-b border-border-soft" {
+            div class="flex items-center gap-2 mb-1" {
+                span class="text-xs text-muted" { "流转卡" }
+                span class="font-mono font-semibold text-fg" { (batch.card_sn.as_str()) }
+                span class=(format!("ml-auto inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-{stoken}-bg text-{stoken}")) {
+                    span class=(format!("inline-block w-1.5 h-1.5 rounded-full bg-{stoken}")) {}
+                    (slabel)
+                }
+            }
+            div class="text-sm text-fg-2" {
+                (product_name) " · " (fmt_qty(batch.batch_qty)) " 件"
+            }
+            div class="text-xs text-muted font-mono mt-1" {
+                "工单 " (order.doc_number.as_str()) " · 批次号 " (batch.batch_no.as_str())
+            }
+            div class="text-xs text-muted mt-1" {
+                "进度 " (fmt_qty(batch.completed_qty)) "/" (fmt_qty(batch.batch_qty))
+                " 件 · 当前工序 " (batch.current_step) "/" (routings.len() as i32)
+            }
+        }
+
+        // 报工表单（仅 Pending/InProgress）
+        @if can_report {
+            form hx-post=(WcBatchReportPath { batch_id: batch.id }.to_string())
+                hx-swap="none"
+                _="on 'htmx:afterRequest'[detail.xhr.status < 400] remove .open from #batch-overlay" {
+                div class="text-sm font-semibold text-fg mb-2" { "报工" }
+                div class="mb-3" {
+                    label class="block text-xs text-fg-2 mb-1" { "工序" }
+                    select name="step_no" class="w-full px-2 py-1.5 border border-border rounded-sm text-sm bg-white outline-none focus:border-accent" {
+                        @for r in routings {
+                            option value=(r.step_no) selected[r.step_no == batch.current_step] {
+                                (r.step_no) ". " (r.process_name.as_str())
+                            }
+                        }
+                    }
+                }
+                div class="grid grid-cols-2 gap-3 mb-3" {
+                    div {
+                        label class="block text-xs text-fg-2 mb-1" { "本次完成量" }
+                        input type="number" step="0.01" min="0" name="completed_qty"
+                            class="w-full px-2 py-1.5 border border-border rounded-sm text-sm font-mono text-right bg-white outline-none focus:border-accent" {};
+                    }
+                    div {
+                        label class="block text-xs text-fg-2 mb-1" { "不良量" }
+                        input type="number" step="0.01" min="0" name="defect_qty" value="0"
+                            class="w-full px-2 py-1.5 border border-border rounded-sm text-sm font-mono text-right bg-white outline-none focus:border-accent" {};
+                    }
+                }
+                div class="grid grid-cols-3 gap-3 mb-3" {
+                    div {
+                        label class="block text-xs text-fg-2 mb-1" { "报工人 ID" }
+                        input type="number" name="worker_id"
+                            class="w-full px-2 py-1.5 border border-border rounded-sm text-sm font-mono bg-white outline-none focus:border-accent" {};
+                    }
+                    div {
+                        label class="block text-xs text-fg-2 mb-1" { "班次" }
+                        select name="shift" class="w-full px-2 py-1.5 border border-border rounded-sm text-sm bg-white outline-none focus:border-accent" {
+                            option value="1" selected { "白班" }
+                            option value="2" { "夜班" }
+                        }
+                    }
+                    div {
+                        label class="block text-xs text-fg-2 mb-1" { "工时(h)" }
+                        input type="number" step="0.1" min="0" name="work_hours" value="8"
+                            class="w-full px-2 py-1.5 border border-border rounded-sm text-sm font-mono text-right bg-white outline-none focus:border-accent" {};
+                    }
+                }
+                div class="mb-3" {
+                    label class="block text-xs text-fg-2 mb-1" { "报工日期" }
+                    input type="date" name="report_date" value=(today)
+                        class="w-full px-2 py-1.5 border border-border rounded-sm text-sm bg-white outline-none focus:border-accent" {};
+                }
+                div class="flex justify-end" {
+                    button type="submit"
+                        class="px-3.5 py-2 rounded-sm bg-accent text-accent-on border-none text-sm font-medium cursor-pointer hover:bg-accent-hover" {
+                        "确认报工"
+                    }
+                }
+            }
+        }
+
+        // 状态操作（按 BatchStatus 门控）
+        div class="mt-5 pt-4 border-t border-border-soft" {
+            div class="text-sm font-semibold text-fg mb-2" { "状态操作" }
+            @if !can_suspend && !can_resume && !can_advance && !can_scrap {
+                div class="text-xs text-muted" { "当前状态无可执行操作" }
+            }
+            div class="flex flex-wrap gap-2" {
+                @if can_suspend {
+                    form hx-post=(WcBatchSuspendPath { batch_id: batch.id }.to_string()) hx-swap="none"
+                        _="on 'htmx:afterRequest'[detail.xhr.status < 400] remove .open from #batch-overlay" {
+                        input type="hidden" name="reason" value="手动暂停";
+                        button type="submit" class="px-3 py-1.5 rounded-sm border border-border text-xs font-medium text-fg-2 cursor-pointer hover:bg-warn-bg hover:border-warn hover:text-warn transition-all"
+                            hx-confirm="暂停该批次？" { "暂停" }
+                    }
+                }
+                @if can_resume {
+                    form hx-post=(WcBatchResumePath { batch_id: batch.id }.to_string()) hx-swap="none"
+                        _="on 'htmx:afterRequest'[detail.xhr.status < 400] remove .open from #batch-overlay" {
+                        button type="submit" class="px-3 py-1.5 rounded-sm border border-border text-xs font-medium text-fg-2 cursor-pointer hover:bg-accent-bg hover:border-accent hover:text-accent transition-all" { "恢复生产" }
+                    }
+                }
+                @if can_advance {
+                    form hx-post=(WcBatchAdvancePath { batch_id: batch.id }.to_string()) hx-swap="none"
+                        _="on 'htmx:afterRequest'[detail.xhr.status < 400] remove .open from #batch-overlay" {
+                        button type="submit" class="px-3 py-1.5 rounded-sm border border-border text-xs font-medium text-fg-2 cursor-pointer hover:bg-accent-bg hover:border-accent hover:text-accent transition-all"
+                            hx-confirm="推进该批次到待入库状态？" { "推进入库" }
+                    }
+                }
+                @if can_scrap {
+                    form hx-post=(WcBatchScrapPath { batch_id: batch.id }.to_string()) hx-swap="none"
+                        _="on 'htmx:afterRequest'[detail.xhr.status < 400] remove .open from #batch-overlay" {
+                        input type="hidden" name="reason" value="手动报废";
+                        button type="submit" class="px-3 py-1.5 rounded-sm border border-border text-xs font-medium text-fg-2 cursor-pointer hover:bg-danger-bg hover:border-danger hover:text-danger transition-all"
+                            hx-confirm="报废该批次？此操作不可撤销" { "报废" }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// 批次报工：confirm_routing_step（batch_id + step_no），广播 batchChanged。
+#[require_permission("WORK_ORDER", "update")]
+pub async fn batch_report(
+    path: WcBatchReportPath,
+    ctx: RequestContext,
+    axum::Form(form): axum::Form<BatchReportForm>,
+) -> Result<impl IntoResponse> {
+    let RequestContext { state, service_ctx, .. } = ctx;
+    let completed_qty = form
+        .completed_qty
+        .parse::<Decimal>()
+        .map_err(|_| DomainError::validation("完成量格式错误"))?;
+    let defect_qty = form.defect_qty.parse::<Decimal>().unwrap_or(Decimal::ZERO);
+    let work_hours = form.work_hours.parse::<Decimal>().unwrap_or(Decimal::ZERO);
+    let req = StepConfirmationReq {
+        step_no: form.step_no,
+        worker_id: form.worker_id,
+        shift: form.shift,
+        completed_qty,
+        defect_qty,
+        defect_reason: None,
+        work_hours,
+        report_date: form.report_date,
+        remark: form.remark,
+    };
+    let mut tx = state
+        .pool
+        .begin()
+        .await
+        .map_err(|e| DomainError::Internal(e.into()))?;
+    state
+        .production_batch_service()
+        .confirm_routing_step(&service_ctx, &mut tx, path.batch_id, form.step_no, req)
+        .await?;
+    tx.commit()
+        .await
+        .map_err(|e| DomainError::Internal(e.into()))?;
+    Ok(([("HX-Trigger", "batchChanged")], Html(String::new())))
+}
+
+/// 批次暂停（InProgress → Suspended），广播 batchChanged。
+#[require_permission("WORK_ORDER", "update")]
+pub async fn batch_suspend(
+    path: WcBatchSuspendPath,
+    ctx: RequestContext,
+    axum::Form(form): axum::Form<BatchReasonForm>,
+) -> Result<impl IntoResponse> {
+    let RequestContext { state, service_ctx, .. } = ctx;
+    let reason = if form.reason.trim().is_empty() {
+        "手动暂停".to_string()
+    } else {
+        form.reason
+    };
+    let mut tx = state
+        .pool
+        .begin()
+        .await
+        .map_err(|e| DomainError::Internal(e.into()))?;
+    state
+        .production_batch_service()
+        .suspend(&service_ctx, &mut tx, path.batch_id, reason)
+        .await?;
+    tx.commit()
+        .await
+        .map_err(|e| DomainError::Internal(e.into()))?;
+    Ok(([("HX-Trigger", "batchChanged")], Html(String::new())))
+}
+
+/// 批次恢复（Suspended → InProgress），广播 batchChanged。
+#[require_permission("WORK_ORDER", "update")]
+pub async fn batch_resume(
+    path: WcBatchResumePath,
+    ctx: RequestContext,
+) -> Result<impl IntoResponse> {
+    let RequestContext { state, service_ctx, .. } = ctx;
+    let mut tx = state
+        .pool
+        .begin()
+        .await
+        .map_err(|e| DomainError::Internal(e.into()))?;
+    state
+        .production_batch_service()
+        .resume(&service_ctx, &mut tx, path.batch_id)
+        .await?;
+    tx.commit()
+        .await
+        .map_err(|e| DomainError::Internal(e.into()))?;
+    Ok(([("HX-Trigger", "batchChanged")], Html(String::new())))
+}
+
+/// 批次报废（InProgress/Suspended → Cancelled），广播 batchChanged。
+#[require_permission("WORK_ORDER", "update")]
+pub async fn batch_scrap(
+    path: WcBatchScrapPath,
+    ctx: RequestContext,
+    axum::Form(form): axum::Form<BatchReasonForm>,
+) -> Result<impl IntoResponse> {
+    let RequestContext { state, service_ctx, .. } = ctx;
+    let reason = if form.reason.trim().is_empty() {
+        "手动报废".to_string()
+    } else {
+        form.reason
+    };
+    let mut tx = state
+        .pool
+        .begin()
+        .await
+        .map_err(|e| DomainError::Internal(e.into()))?;
+    state
+        .production_batch_service()
+        .scrap(&service_ctx, &mut tx, path.batch_id, reason)
+        .await?;
+    tx.commit()
+        .await
+        .map_err(|e| DomainError::Internal(e.into()))?;
+    Ok(([("HX-Trigger", "batchChanged")], Html(String::new())))
+}
+
+/// 批次推进入库（InProgress/Suspended → PendingReceipt），广播 batchChanged。
+#[require_permission("WORK_ORDER", "update")]
+pub async fn batch_advance(
+    path: WcBatchAdvancePath,
+    ctx: RequestContext,
+) -> Result<impl IntoResponse> {
+    let RequestContext { state, service_ctx, .. } = ctx;
+    let mut tx = state
+        .pool
+        .begin()
+        .await
+        .map_err(|e| DomainError::Internal(e.into()))?;
+    state
+        .production_batch_service()
+        .advance_to_receipt(&service_ctx, &mut tx, path.batch_id)
+        .await?;
+    tx.commit()
+        .await
+        .map_err(|e| DomainError::Internal(e.into()))?;
+    Ok(([("HX-Trigger", "batchChanged")], Html(String::new())))
 }
 
 // =============================================================================

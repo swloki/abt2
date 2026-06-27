@@ -903,6 +903,7 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .hover\:text-accent:hover{color:color-mix(in srgb, var(--accent) var(--un-text-opacity), transparent) /* var(--accent) */;}
 .hover\:text-danger:hover{color:color-mix(in srgb, var(--danger) var(--un-text-opacity), transparent) /* var(--danger) */;}
 .hover\:text-fg:hover{color:color-mix(in srgb, var(--fg) var(--un-text-opacity), transparent) /* var(--fg) */;}
+.hover\:text-warn:hover{color:color-mix(in srgb, var(--warn) var(--un-text-opacity), transparent) /* var(--warn) */;}
 .hover\:text-white:hover{color:color-mix(in srgb, var(--colors-white) var(--un-text-opacity), transparent) /* #fff */;}
 .hover\:text-white\/60:hover{color:color-mix(in srgb, var(--colors-white) 60%, transparent) /* #fff */;}
 .hover\:text-white\/85:hover{color:color-mix(in srgb, var(--colors-white) 85%, transparent) /* #fff */;}
@@ -1155,7 +1156,9 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .hover\:border-border-soft:hover{border-color:color-mix(in srgb, var(--border-soft) var(--un-border-opacity), transparent) /* var(--border-soft) */;}
 .hover\:border-border:hover{border-color:color-mix(in srgb, var(--border) var(--un-border-opacity), transparent) /* var(--border) */;}
 .hover\:border-danger-200:hover{border-color:color-mix(in srgb, var(--danger-200) var(--un-border-opacity), transparent) /* var(--danger-200) */;}
+.hover\:border-danger:hover{border-color:color-mix(in srgb, var(--danger) var(--un-border-opacity), transparent) /* var(--danger) */;}
 .hover\:border-slate-300:hover{border-color:color-mix(in srgb, var(--slate-300) var(--un-border-opacity), transparent) /* var(--slate-300) */;}
+.hover\:border-warn:hover{border-color:color-mix(in srgb, var(--warn) var(--un-border-opacity), transparent) /* var(--warn) */;}
 .focus\:border-accent:focus{border-color:color-mix(in srgb, var(--accent) var(--un-border-opacity), transparent) /* var(--accent) */;}
 .border-l-\[3px\]{border-left-color:color-mix(in oklab, 3px var(--un-border-left-opacity), transparent) /* 3px */;}
 .border-l-accent{border-left-color:color-mix(in srgb, var(--accent) var(--un-border-left-opacity), transparent) /* var(--accent) */;--un-border-left-opacity:var(--un-border-opacity);}
@@ -1318,6 +1321,7 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .hover\:bg-surface:hover{background-color:color-mix(in srgb, var(--surface) var(--un-bg-opacity), transparent) /* var(--surface) */;}
 .hover\:bg-surface\/60:hover{background-color:color-mix(in srgb, var(--surface) 60%, transparent) /* var(--surface) */;}
 .hover\:bg-warn-100:hover{background-color:color-mix(in srgb, var(--warn-100) var(--un-bg-opacity), transparent) /* var(--warn-100) */;}
+.hover\:bg-warn-bg:hover{background-color:color-mix(in srgb, var(--warn-bg) var(--un-bg-opacity), transparent) /* var(--warn-bg) */;}
 .hover\:bg-white\/\[0\.06\]:hover{background-color:color-mix(in srgb, var(--colors-white) 0.06, transparent) /* #fff */;}
 .hover\:bg-white\/30:hover{background-color:color-mix(in srgb, var(--colors-white) 30%, transparent) /* #fff */;}
 .hover\:bg-white\/40:hover{background-color:color-mix(in srgb, var(--colors-white) 40%, transparent) /* #fff */;}

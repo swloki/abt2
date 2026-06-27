@@ -82,6 +82,45 @@ pub struct WcOrderDetailModalPath {
     pub order_id: i64,
 }
 
+// ── 批次 tab：batch 维度 drawer + 操作（报工/暂停/恢复/报废/推进入库）──
+
+/// 批次处理 drawer body（批次 tab 行尾「处理」按钮就地打开，不跳转）。
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/mes/work-center/batches/{batch_id}/drawer")]
+pub struct WcBatchDrawerPath {
+    pub batch_id: i64,
+}
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/mes/work-center/batches/{batch_id}/report")]
+pub struct WcBatchReportPath {
+    pub batch_id: i64,
+}
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/mes/work-center/batches/{batch_id}/suspend")]
+pub struct WcBatchSuspendPath {
+    pub batch_id: i64,
+}
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/mes/work-center/batches/{batch_id}/resume")]
+pub struct WcBatchResumePath {
+    pub batch_id: i64,
+}
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/mes/work-center/batches/{batch_id}/scrap")]
+pub struct WcBatchScrapPath {
+    pub batch_id: i64,
+}
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/mes/work-center/batches/{batch_id}/advance")]
+pub struct WcBatchAdvancePath {
+    pub batch_id: i64,
+}
+
 // ── Router ──
 
 pub fn router() -> Router<AppState> {
@@ -112,4 +151,10 @@ pub fn router() -> Router<AppState> {
             WcOrderDetailModalPath::PATH,
             get(mes_work_center::get_order_detail_modal),
         )
+        .route(WcBatchDrawerPath::PATH, get(mes_work_center::get_batch_drawer))
+        .route(WcBatchReportPath::PATH, post(mes_work_center::batch_report))
+        .route(WcBatchSuspendPath::PATH, post(mes_work_center::batch_suspend))
+        .route(WcBatchResumePath::PATH, post(mes_work_center::batch_resume))
+        .route(WcBatchScrapPath::PATH, post(mes_work_center::batch_scrap))
+        .route(WcBatchAdvancePath::PATH, post(mes_work_center::batch_advance))
 }

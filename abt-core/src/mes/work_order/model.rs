@@ -60,6 +60,8 @@ pub struct WorkOrderFilter {
     pub date_to: Option<NaiveDate>,
     /// 按产品编码模糊筛选（ILIKE）
     pub product_code: Option<String>,
+    /// 按工作中心筛选（排期视图）
+    pub work_center_id: Option<i64>,
 }
 
 // ============================================================================

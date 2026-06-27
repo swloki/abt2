@@ -12,6 +12,7 @@ pub struct DemandPoolQuery {
     pub keyword: Option<String>,              // 模糊搜索物料名称/编码
     pub required_date_start: Option<NaiveDate>, // 日期范围起点
     pub required_date_end: Option<NaiveDate>,   // 日期范围终点
+    pub sort: Option<String>,                   // 排序：urgency/qty/earliest/demand_count
 }
 
 /// 需求摘要（订单行维度）
@@ -37,6 +38,7 @@ pub struct MaterialAggQuery {
     pub keyword: Option<String>,              // 模糊搜索物料名称/编码
     pub required_date_start: Option<NaiveDate>, // 日期范围起点
     pub required_date_end: Option<NaiveDate>,   // 日期范围终点
+    pub sort: Option<String>,                   // 排序：urgency/qty/earliest/demand_count
 }
 
 /// 物料聚合摘要（物料维度 — 计划员操作入口）

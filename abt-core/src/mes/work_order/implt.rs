@@ -886,80 +886,89 @@ impl WorkOrderService for WorkOrderServiceImpl {
         &self,
         ctx: &ServiceContext,
         db: PgExecutor<'_>,
-        work_order_ids: &[i64],
+        orders: &[WorkOrder],
     ) -> Result<HashMap<i64, (MaterialAvailabilityLevel, Option<String>)>> {
+        use crate::master_data::product::model::Product;
+        use crate::shared::inventory_reservation::repo::InventoryReservationRepo;
         let mut result: HashMap<i64, (MaterialAvailabilityLevel, Option<String>)> =
             HashMap::new();
-        if work_order_ids.is_empty() {
+        if orders.is_empty() {
             return Ok(result);
         }
 
-        for &wo_id in work_order_ids {
-            let order = match WorkOrderRepo::get_by_id(&mut *db, wo_id).await {
-                Ok(Some(o)) => o,
-                Ok(None) => continue, // 已被硬删除，跳过
-                Err(e) => return Err(DomainError::Internal(e.into())),
-            };
-
-            // 已关闭/取消工单不计算（列表展示为空徽章）
-            if matches!(order.status, WorkOrderStatus::Closed | WorkOrderStatus::Cancelled) {
-                result.insert(wo_id, (MaterialAvailabilityLevel::Available, None));
+        let bom_svc = new_bom_query_service(self.pool.clone());
+        // 阶段 1：每工单取 BOM 快照，提取叶子 (pid, qty, code)（leaf_nodes 借用 snapshot，需提取 owned）
+        let mut wo_leaves: HashMap<i64, Vec<(i64, Decimal, Option<String>)>> = HashMap::new();
+        for order in orders {
+            // 已关闭/取消 / 无 BOM 快照：直接 Available，不计算
+            if matches!(order.status, WorkOrderStatus::Closed | WorkOrderStatus::Cancelled)
+                || order.bom_snapshot_id.is_none()
+            {
+                result.insert(order.id, (MaterialAvailabilityLevel::Available, None));
                 continue;
             }
-
-            let snap_id = match order.bom_snapshot_id {
-                Some(id) => id,
-                None => {
-                    result.insert(wo_id, (MaterialAvailabilityLevel::Available, None));
-                    continue;
-                }
-            };
-            let snapshot = new_bom_query_service(self.pool.clone())
-                .get_snapshot_by_id(ctx, db, snap_id)
+            let snapshot = bom_svc
+                .get_snapshot_by_id(ctx, db, order.bom_snapshot_id.unwrap())
                 .await?;
-            let leaf_nodes = match snapshot.as_ref() {
-                Some(snap) => snap.bom_detail.leaf_nodes(),
+            let leaves: Vec<(i64, Decimal, Option<String>)> = match snapshot.as_ref() {
+                Some(snap) => snap
+                    .bom_detail
+                    .leaf_nodes()
+                    .iter()
+                    .map(|n| (n.product_id, n.quantity, n.product_code.clone()))
+                    .collect(),
                 None => {
-                    result.insert(wo_id, (MaterialAvailabilityLevel::Available, None));
+                    result.insert(order.id, (MaterialAvailabilityLevel::Available, None));
                     continue;
                 }
             };
-            if leaf_nodes.is_empty() {
-                result.insert(wo_id, (MaterialAvailabilityLevel::Available, None));
+            if leaves.is_empty() {
+                result.insert(order.id, (MaterialAvailabilityLevel::Available, None));
                 continue;
             }
+            wo_leaves.insert(order.id, leaves);
+        }
 
-            // 预取叶子物料名（headline 命中物料时用）
-            let leaf_pids: Vec<i64> =
-                leaf_nodes.iter().map(|n| n.product_id).collect();
-            let leaf_products: HashMap<i64, crate::master_data::product::model::Product> =
-                new_product_service(self.pool.clone())
-                    .get_by_ids(ctx, db, leaf_pids.clone())
-                    .await?
-                    .into_iter()
-                    .map(|p| (p.product_id, p))
-                    .collect();
+        // 阶段 2：批量预取所有叶子物料名 + ATP（消除 N+1：原本每叶子一次 query → 两次 batch query）
+        let all_pids: Vec<i64> = wo_leaves
+            .values()
+            .flatten()
+            .map(|(pid, _, _)| *pid)
+            .collect::<HashSet<_>>()
+            .into_iter()
+            .collect();
+        let leaf_products: HashMap<i64, Product> = new_product_service(self.pool.clone())
+            .get_by_ids(ctx, db, all_pids.clone())
+            .await?
+            .into_iter()
+            .map(|p| (p.product_id, p))
+            .collect();
+        let atp_map = InventoryReservationRepo::available_atp_batch(&mut *db, &all_pids, None)
+            .await?;
 
-            // 逐叶子判定：首个 atp < required 即 Unavailable（headline=该物料名）
+        // 阶段 3：每工单 compute level（纯内存，无 query）
+        for order in orders {
+            let Some(leaves) = wo_leaves.get(&order.id) else {
+                continue;
+            };
             let mut level = MaterialAvailabilityLevel::Available;
             let mut headline: Option<String> = None;
-            for node in &leaf_nodes {
-                let required = node.quantity * order.planned_qty;
-                let atp =
-                    InventoryReservationRepo::available_atp(&mut *db, node.product_id, None)
-                        .await?;
+            for (pid, qty, code) in leaves {
+                let required = *qty * order.planned_qty;
+                let atp = atp_map.get(pid).copied().unwrap_or(Decimal::ZERO);
                 if atp < required {
                     level = MaterialAvailabilityLevel::Unavailable;
-                    let name = leaf_products
-                        .get(&node.product_id)
-                        .map(|p| p.pdt_name.clone())
-                        .or_else(|| node.product_code.clone())
-                        .unwrap_or_else(|| format!("P{}", node.product_id));
-                    headline = Some(name);
-                    break; // 任一缺料即可定级，无需继续
+                    headline = Some(
+                        leaf_products
+                            .get(pid)
+                            .map(|p| p.pdt_name.clone())
+                            .or_else(|| code.clone())
+                            .unwrap_or_else(|| format!("P{}", pid)),
+                    );
+                    break; // 任一缺料即可定级
                 }
             }
-            result.insert(wo_id, (level, headline));
+            result.insert(order.id, (level, headline));
         }
 
         Ok(result)

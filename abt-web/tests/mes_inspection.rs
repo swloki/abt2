@@ -25,7 +25,7 @@ async fn create_wo(app: &TestApp) -> i64 {
     let mut conn = app.state.pool.acquire().await.unwrap();
     let result = svc
         .list(&ServiceContext::new(1), &mut conn, WorkOrderFilter {
-            status: None, product_id: None, keyword: None, date_from: None, date_to: None, product_code: None,
+            status: None, product_id: None, keyword: None, date_from: None, date_to: None, product_code: None, work_center_id: None,
         }, 1, 1)
         .await
         .unwrap();

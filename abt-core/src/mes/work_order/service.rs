@@ -82,6 +82,6 @@ pub trait WorkOrderService: Send + Sync {
         &self,
         ctx: &ServiceContext,
         db: PgExecutor<'_>,
-        work_order_ids: &[i64],
+        orders: &[super::model::WorkOrder],
     ) -> Result<std::collections::HashMap<i64, (MaterialAvailabilityLevel, Option<String>)>>;
 }

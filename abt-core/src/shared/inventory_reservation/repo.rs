@@ -235,6 +235,56 @@ impl InventoryReservationRepo {
         Ok(atp)
     }
 
+    /// 批量 ATP（多 product 一次查询，消除 compute_availability 的 N+1）：
+    /// stock_ledger 现货 - inventory_reservations 硬预留。未命中的 product ATP=0。
+    pub async fn available_atp_batch(
+        executor: &mut sqlx::postgres::PgConnection,
+        product_ids: &[i64],
+        warehouse_id: Option<i64>,
+    ) -> Result<std::collections::HashMap<i64, Decimal>> {
+        use sqlx::Row;
+        use std::collections::HashMap;
+        if product_ids.is_empty() {
+            return Ok(HashMap::new());
+        }
+        let stock_rows = sqlx::query(
+            r#"SELECT product_id, COALESCE(SUM(quantity - reserved_qty), 0) AS qty
+               FROM stock_ledger
+               WHERE product_id = ANY($1) AND ($2::bigint IS NULL OR warehouse_id = $2)
+               GROUP BY product_id"#,
+        )
+        .bind(product_ids)
+        .bind(warehouse_id)
+        .fetch_all(&mut *executor)
+        .await?;
+        let mut stock: HashMap<i64, Decimal> = HashMap::new();
+        for r in stock_rows {
+            stock.insert(r.try_get("product_id")?, r.try_get("qty")?);
+        }
+        let resv_rows = sqlx::query(
+            r#"SELECT product_id, COALESCE(SUM(reserved_qty), 0) AS qty
+               FROM inventory_reservations
+               WHERE product_id = ANY($1) AND ($2::bigint IS NULL OR warehouse_id = $2) AND status = $3
+               GROUP BY product_id"#,
+        )
+        .bind(product_ids)
+        .bind(warehouse_id)
+        .bind(ReservationStatus::Active)
+        .fetch_all(&mut *executor)
+        .await?;
+        let mut resv: HashMap<i64, Decimal> = HashMap::new();
+        for r in resv_rows {
+            resv.insert(r.try_get("product_id")?, r.try_get("qty")?);
+        }
+        let mut result: HashMap<i64, Decimal> = HashMap::new();
+        for &pid in product_ids {
+            let s = stock.get(&pid).copied().unwrap_or(Decimal::ZERO);
+            let r = resv.get(&pid).copied().unwrap_or(Decimal::ZERO);
+            result.insert(pid, s - r);
+        }
+        Ok(result)
+    }
+
     /// 按来源取消全部 Active 预留
     pub async fn cancel_by_source(
         executor: &mut sqlx::postgres::PgConnection,

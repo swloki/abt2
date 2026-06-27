@@ -194,6 +194,7 @@ pub async fn get_demand_pool_list(
  keyword: params.keyword.clone(),
  required_date_start: date_start,
  required_date_end: date_end,
+ sort: None,
  };
  let result = svc
  .list_pending_demands(&service_ctx, &mut conn, query, page_params)
@@ -212,6 +213,7 @@ pub async fn get_demand_pool_list(
  keyword: params.keyword.clone(),
  required_date_start: date_start,
  required_date_end: date_end,
+ sort: None,
  },
  page_params,
  )

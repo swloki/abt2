@@ -11,6 +11,7 @@
 - **代码导航**：优先使用 `lsp`（definition / references / hover / type_definition），禁止用文本搜索代替 LSP 查找定义和引用
 - **禁止截图**：模型暂不支持图片输入，禁止使用 `agent-browser screenshot` / `screenshot --full` 等截图命令进行验证。页面验证改用 `snapshot -i`（无障碍树文本）+ `get text @eN`（元素文本）
 - **CDP 浏览器**：agent-browser 必须通过 `--cdp 9222` 连接用户已开启的 Chrome 实例。禁止无头模式，禁止 `agent-browser close` / `close --all`（不要关闭用户的浏览器）
+- **技能先行**：使用 agent-browser 前必须先用 Skill 工具加载 `agent-browser` 技能（snapshot-and-ref 工作流、交互、表单、并行会话等），禁止凭记忆直接调用命令
 
  **前端开发**
 - **编写 `abt-web/` 组件前，必须先读 `abt-web/CLAUDE.md`**（组件化三原则、抗碎片化实践等约束）

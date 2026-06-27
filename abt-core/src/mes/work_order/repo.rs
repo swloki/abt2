@@ -142,6 +142,10 @@ impl WorkOrderRepo {
             param_idx += 1;
             where_clauses.push(format!("wo.scheduled_end <= ${param_idx}"));
         }
+        if filter.work_center_id.is_some() {
+            param_idx += 1;
+            where_clauses.push(format!("wo.work_center_id = ${param_idx}"));
+        }
 
         let where_sql = where_clauses.join(" AND ");
         let limit_idx = param_idx + 1;
@@ -185,6 +189,11 @@ impl WorkOrderRepo {
             count_q = count_q.bind(pattern.clone());
             data_q = data_q.bind(pattern);
         }
+        if let Some(ref v) = filter.product_code {
+            let pattern = format!("%{v}%");
+            count_q = count_q.bind(pattern.clone());
+            data_q = data_q.bind(pattern);
+        }
         if let Some(v) = filter.date_from {
             count_q = count_q.bind(v);
             data_q = data_q.bind(v);
@@ -193,10 +202,9 @@ impl WorkOrderRepo {
             count_q = count_q.bind(v);
             data_q = data_q.bind(v);
         }
-        if let Some(ref v) = filter.product_code {
-            let pattern = format!("%{v}%");
-            count_q = count_q.bind(pattern.clone());
-            data_q = data_q.bind(pattern);
+        if let Some(v) = filter.work_center_id {
+            count_q = count_q.bind(v);
+            data_q = data_q.bind(v);
         }
 
         data_q = data_q.bind(page_size as i64).bind(offset as i64);

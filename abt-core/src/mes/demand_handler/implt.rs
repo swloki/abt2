@@ -89,11 +89,13 @@ impl MesDemandService for MesDemandServiceImpl {
             req.plan_date + chrono::Duration::days(7)
         });
 
-        // 3. 按 (product_id, source_id) 聚合 — 每个销售订单独立计划项，保留可追溯性
-        let mut aggregated: HashMap<(i64, i64), (Decimal, &LockedDemand)> = HashMap::new();
+        // 3. 按 product_id 聚合 — 一个物料一个计划项（合并该物料所有销售订单需求），
+        //    后续 generate_work_orders 生成一个工单；数量分批交给工单下达流转卡（ProductionBatch）。
+        //    sales_order_id 关联首个 SO（ERPNext combine_items 合并语义）。
+        let mut aggregated: HashMap<i64, (Decimal, &LockedDemand)> = HashMap::new();
         for d in &locked {
             aggregated
-                .entry((d.product_id, d.source_id))
+                .entry(d.product_id)
                 .and_modify(|(qty, _first)| *qty += d.required_qty)
                 .or_insert((d.required_qty, d));
         }

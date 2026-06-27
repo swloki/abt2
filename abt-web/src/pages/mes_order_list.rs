@@ -83,6 +83,7 @@ pub async fn get_order_list(
         date_from: None,
         date_to: None,
         product_code: None,
+        work_center_id: None,
     };
     let result = svc
         .list(&service_ctx, &mut conn, filter, params.page.unwrap_or(1), 20)
@@ -98,9 +99,8 @@ pub async fn get_order_list(
     };
 
     // 批量物料可用性（列表降级 2 级）— 已关闭/取消工单返回 Available+None
-    let wo_ids: Vec<i64> = result.items.iter().map(|i| i.id).collect();
     let availability = svc
-        .compute_availability_batch(&service_ctx, &mut conn, &wo_ids)
+        .compute_availability_batch(&service_ctx, &mut conn, &result.items)
         .await?;
 
     let content = order_list_page(&result, &product_names, &availability, &params, can_create);

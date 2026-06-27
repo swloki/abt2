@@ -366,6 +366,14 @@ Modal 内的 Hyperscript 有几个高频陷阱：
 - **`halt the event` 在 `<a href>` 上会阻止跳转** —— 行内链接要阻止冒泡，用内联 JS `js(event) event.stopPropagation() end`，不要用 `halt`。
 - **`put <val> into <input>` 静默失败** —— `put` 设 input 的 `innerHTML` 无效（input 没有 children）。填 input 值用 `set #id's value to <val>`。
 - **关闭最近 overlay** —— `remove .is-open from closest .modal-overlay`，注意 `closest` 必须用 query 语法（`.modal-overlay` 或 `<div/>`），不能裸写标签名。
+- **form/容器的 `htmx:afterRequest` 监听被子元素 hx-\* 冒泡误触发** —— form 上挂 `on 'htmx:afterRequest'[...] remove .open`（提交成功后关 drawer），form 内子元素（如 `<a hx-get>` 拉详情弹窗、`<button hx-get>`）发起的请求也会冒泡到 form，**误触发关闭**。`htmx:afterRequest` 是 bubbles 的 CustomEvent，从 trigger 元素冒泡到祖先，form 监听它就会被波及。**守卫加 `detail.elt is me`**：
+  ```rust
+  // ✗ 子元素的 hx-get 也会触发，误关 drawer
+  _="on 'htmx:afterRequest'[detail.xhr.status < 400] remove .open from #create-plan-overlay"
+  // ✓ 只有 form 自身（hx-post）发起的请求才关；子元素 detail.elt ≠ form 被过滤
+  _="on 'htmx:afterRequest'[detail.xhr.status < 400 and detail.elt is me] remove .open from #create-plan-overlay"
+  ```
+  真实案例：`mes_work_center.rs` 创建计划 drawer 内订单号 `<a hx-get>` 拉订单详情 modal，结果点击订单号把 drawer 也关了（afterRequest 冒泡到 form）。同理 report/release drawer 内若有 hx-get 子元素也要防。
 
 完整 Hyperscript 命令速查见 [`abt-web/CLAUDE.md`](../../abt-web/CLAUDE.md) 的 Hyperscript 参考手册。
 

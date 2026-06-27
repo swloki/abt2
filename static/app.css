@@ -903,6 +903,7 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .hover\:text-accent:hover{color:color-mix(in srgb, var(--accent) var(--un-text-opacity), transparent) /* var(--accent) */;}
 .hover\:text-danger:hover{color:color-mix(in srgb, var(--danger) var(--un-text-opacity), transparent) /* var(--danger) */;}
 .hover\:text-fg:hover{color:color-mix(in srgb, var(--fg) var(--un-text-opacity), transparent) /* var(--fg) */;}
+.hover\:text-success:hover{color:color-mix(in srgb, var(--success) var(--un-text-opacity), transparent) /* var(--success) */;}
 .hover\:text-warn:hover{color:color-mix(in srgb, var(--warn) var(--un-text-opacity), transparent) /* var(--warn) */;}
 .hover\:text-white:hover{color:color-mix(in srgb, var(--colors-white) var(--un-text-opacity), transparent) /* #fff */;}
 .hover\:text-white\/60:hover{color:color-mix(in srgb, var(--colors-white) 60%, transparent) /* #fff */;}
@@ -1158,6 +1159,7 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .hover\:border-danger-200:hover{border-color:color-mix(in srgb, var(--danger-200) var(--un-border-opacity), transparent) /* var(--danger-200) */;}
 .hover\:border-danger:hover{border-color:color-mix(in srgb, var(--danger) var(--un-border-opacity), transparent) /* var(--danger) */;}
 .hover\:border-slate-300:hover{border-color:color-mix(in srgb, var(--slate-300) var(--un-border-opacity), transparent) /* var(--slate-300) */;}
+.hover\:border-success:hover{border-color:color-mix(in srgb, var(--success) var(--un-border-opacity), transparent) /* var(--success) */;}
 .hover\:border-warn:hover{border-color:color-mix(in srgb, var(--warn) var(--un-border-opacity), transparent) /* var(--warn) */;}
 .focus\:border-accent:focus{border-color:color-mix(in srgb, var(--accent) var(--un-border-opacity), transparent) /* var(--accent) */;}
 .border-l-\[3px\]{border-left-color:color-mix(in oklab, 3px var(--un-border-left-opacity), transparent) /* 3px */;}
@@ -1317,6 +1319,7 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .hover\:bg-danger-bg:hover{background-color:color-mix(in srgb, var(--danger-bg) var(--un-bg-opacity), transparent) /* var(--danger-bg) */;}
 .hover\:bg-danger\/9:hover{background-color:color-mix(in srgb, var(--danger) 9%, transparent) /* var(--danger) */;}
 .hover\:bg-slate-50:hover{background-color:color-mix(in srgb, var(--slate-50) var(--un-bg-opacity), transparent) /* var(--slate-50) */;}
+.hover\:bg-success-bg:hover{background-color:color-mix(in srgb, var(--success-bg) var(--un-bg-opacity), transparent) /* var(--success-bg) */;}
 .hover\:bg-surface-raised:hover{background-color:color-mix(in srgb, var(--surface-raised) var(--un-bg-opacity), transparent) /* var(--surface-raised) */;}
 .hover\:bg-surface:hover{background-color:color-mix(in srgb, var(--surface) var(--un-bg-opacity), transparent) /* var(--surface) */;}
 .hover\:bg-surface\/60:hover{background-color:color-mix(in srgb, var(--surface) 60%, transparent) /* var(--surface) */;}
@@ -1876,6 +1879,9 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 }
 .space-y-1{
 :where(&>:not(:last-child)){--un-space-y-reverse:0;margin-block-start:calc(calc(var(--spacing) * 1) * var(--un-space-y-reverse));margin-block-end:calc(calc(var(--spacing) * 1) * calc(1 - var(--un-space-y-reverse)));}
+}
+.space-y-2{
+:where(&>:not(:last-child)){--un-space-y-reverse:0;margin-block-start:calc(calc(var(--spacing) * 2) * var(--un-space-y-reverse));margin-block-end:calc(calc(var(--spacing) * 2) * calc(1 - var(--un-space-y-reverse)));}
 }
 .space-y-3{
 :where(&>:not(:last-child)){--un-space-y-reverse:0;margin-block-start:calc(calc(var(--spacing) * 3) * var(--un-space-y-reverse));margin-block-end:calc(calc(var(--spacing) * 3) * calc(1 - var(--un-space-y-reverse)));}

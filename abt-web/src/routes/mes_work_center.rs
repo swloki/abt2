@@ -121,6 +121,41 @@ pub struct WcBatchAdvancePath {
     pub batch_id: i64,
 }
 
+/// 批次开工（Pending → InProgress）。
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/mes/work-center/batches/{batch_id}/start")]
+pub struct WcBatchStartPath {
+    pub batch_id: i64,
+}
+
+/// 批次领料 drawer body（按工序产出品领料，产出品驱动）。
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/mes/work-center/batches/{batch_id}/requisition-drawer")]
+pub struct WcBatchReqDrawerPath {
+    pub batch_id: i64,
+}
+
+/// 批次领料提交（create_for_routing_step）。
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/mes/work-center/batches/{batch_id}/requisition")]
+pub struct WcBatchReqPath {
+    pub batch_id: i64,
+}
+
+/// 批次入库 drawer body。
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/mes/work-center/batches/{batch_id}/receipt-drawer")]
+pub struct WcBatchReceiptDrawerPath {
+    pub batch_id: i64,
+}
+
+/// 批次入库提交（ProductionReceipt.create+confirm）。
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/mes/work-center/batches/{batch_id}/receipt")]
+pub struct WcBatchReceiptPath {
+    pub batch_id: i64,
+}
+
 // ── Router ──
 
 pub fn router() -> Router<AppState> {
@@ -157,4 +192,15 @@ pub fn router() -> Router<AppState> {
         .route(WcBatchResumePath::PATH, post(mes_work_center::batch_resume))
         .route(WcBatchScrapPath::PATH, post(mes_work_center::batch_scrap))
         .route(WcBatchAdvancePath::PATH, post(mes_work_center::batch_advance))
+        .route(WcBatchStartPath::PATH, post(mes_work_center::batch_start))
+        .route(
+            WcBatchReqDrawerPath::PATH,
+            get(mes_work_center::get_batch_req_drawer),
+        )
+        .route(WcBatchReqPath::PATH, post(mes_work_center::batch_requisition))
+        .route(
+            WcBatchReceiptDrawerPath::PATH,
+            get(mes_work_center::get_batch_receipt_drawer),
+        )
+        .route(WcBatchReceiptPath::PATH, post(mes_work_center::batch_receipt))
 }

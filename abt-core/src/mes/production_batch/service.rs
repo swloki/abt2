@@ -33,6 +33,13 @@ pub trait ProductionBatchService: Send + Sync {
         ctx: &ServiceContext, db: PgExecutor<'_>,
         batch_id: i64,
     ) -> Result<()>;
+    /// 开工：Pending → InProgress，置 actual_start
+    async fn start_batch(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        batch_id: i64,
+    ) -> Result<()>;
     async fn suspend(
         &self,
         ctx: &ServiceContext, db: PgExecutor<'_>,

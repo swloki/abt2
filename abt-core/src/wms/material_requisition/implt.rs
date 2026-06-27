@@ -5,8 +5,10 @@ use sqlx::postgres::PgPool;
 use super::model::{CreateManualReq, IssueMaterialReq, MaterialRequisition, MaterialReqItem, RequisitionFilter, ReturnMaterialReq};
 use super::repo::MaterialRequisitionRepo;
 use super::service::MaterialRequisitionService;
+use crate::mes::production_batch::{new_production_batch_service, service::ProductionBatchService};
 use crate::mes::work_order::{new_work_order_service, service::WorkOrderService};
 use crate::master_data::bom::{new_bom_query_service, service::BomQueryService};
+use crate::master_data::product::{new_product_service, service::ProductService};
 use crate::wms::backflush::resolve_warehouse_id;
 use crate::shared::document_link::model::LinkRequest;
 use crate::shared::types::PgExecutor;
@@ -106,6 +108,113 @@ impl MaterialRequisitionService for MaterialRequisitionServiceImpl {
         )
         .await?;
 
+        Ok(requisition.id)
+    }
+
+    /// 工序级领料（产出品驱动，Issue #122）
+    async fn create_for_routing_step(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        work_order_id: i64,
+        routing_id: i64,
+        batch_id: Option<i64>,
+    ) -> Result<i64> {
+        // 1. 取工序产出品（跨模块走 ProductionBatchService trait，不直访问 repo）
+        let batch_svc = new_production_batch_service(self.pool.clone());
+        let routing = batch_svc
+            .list_routings(ctx, db, work_order_id)
+            .await?
+            .into_iter()
+            .find(|r| r.id == routing_id)
+            .ok_or_else(|| DomainError::not_found("WorkOrderRouting"))?;
+        let output_product_id = routing.product_id.ok_or_else(|| {
+            DomainError::BusinessRule("该工序未配置产出品，无法工序级领料".into())
+        })?;
+
+        // 2. 产出品 code → 已发布 BOM
+        let product_code = new_product_service(self.pool.clone())
+            .get_by_ids(ctx, db, vec![output_product_id])
+            .await?
+            .into_iter()
+            .next()
+            .map(|p| p.product_code)
+            .ok_or_else(|| DomainError::not_found("Product"))?;
+        let bom_svc = new_bom_query_service(self.pool.clone());
+        let bom_id = bom_svc
+            .find_published_bom_by_product_code(ctx, db, &product_code)
+            .await?
+            .ok_or_else(|| {
+                DomainError::BusinessRule(
+                    "该工序产出品无已发布 BOM，无法工序级领料（散料请走完工倒冲）".into(),
+                )
+            })?;
+
+        // 3. 取产出品 BOM 的叶子组件（原料；半成品由对应工序/工单处理，不在此领）
+        let leaf_nodes = bom_svc.get_leaf_nodes(ctx, db, bom_id).await?;
+        if leaf_nodes.is_empty() {
+            return Err(DomainError::BusinessRule("产出品 BOM 无组件".into()));
+        }
+
+        // 4. 数量基数：batch_id 优先，否则工单 planned_qty
+        let base_qty = if let Some(bid) = batch_id {
+            batch_svc.find_by_id(ctx, db, bid).await?.batch_qty
+        } else {
+            new_work_order_service(self.pool.clone())
+                .find_by_id(ctx, db, work_order_id)
+                .await?
+                .planned_qty
+        };
+
+        // 5. 建领料单
+        let doc_number = new_document_sequence_service(self.pool.clone())
+            .next_number(ctx, db, DocumentType::MaterialRequisition)
+            .await
+            .unwrap_or_else(|_| format!("MR{}", chrono::Local::now().format("%Y%m%d%H%M%S")));
+        let requisition_date = chrono::Local::now().date_naive();
+        let warehouse_id = resolve_warehouse_id(db).await?;
+        let requisition = MaterialRequisitionRepo::insert(
+            &mut *db,
+            &doc_number,
+            work_order_id,
+            requisition_date,
+            warehouse_id,
+            ctx.operator_id,
+        )
+        .await
+        .map_err(|e| DomainError::Internal(e.into()))?;
+
+        // 6. items 挂 operation_id=routing_id + batch_id（产出品驱动核心：接线 migration 045 预留字段）
+        for node in &leaf_nodes {
+            let required_qty = node.quantity * base_qty;
+            MaterialRequisitionRepo::insert_item(
+                &mut *db,
+                requisition.id,
+                node.product_id,
+                required_qty,
+                Some(routing_id),
+                batch_id,
+            )
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?;
+        }
+
+        // 7. 单据关联
+        new_document_link_service(self.pool.clone())
+            .create_links(
+                ctx,
+                db,
+                vec![LinkRequest {
+                    source_type: DocumentType::MaterialRequisition,
+                    source_id: requisition.id,
+                    target_type: DocumentType::WorkOrder,
+                    target_id: work_order_id,
+                    link_type: LinkType::Fulfills,
+                }],
+            )
+            .await?;
+
+        tracing::info!(work_order_id, routing_id, batch_id, bom_id, "routing-step requisition created");
         Ok(requisition.id)
     }
 

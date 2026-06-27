@@ -817,6 +817,42 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
         Ok(())
     }
 
+    /// 开工批次：Pending → InProgress，置 actual_start（对标 Odoo button_start / 三 ERP "开始"）
+    async fn start_batch(
+        &self,
+        _ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        batch_id: i64,
+    ) -> Result<()> {
+        let batch = ProductionBatchRepo::get_by_id(&mut *db, batch_id)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?
+            .ok_or_else(|| DomainError::not_found("ProductionBatch"))?;
+
+        if batch.status != BatchStatus::Pending {
+            return Err(DomainError::InvalidStateTransition {
+                from: batch.status.to_string(),
+                to: "InProgress".to_string(),
+            });
+        }
+
+        ProductionBatchRepo::update_status(&mut *db, batch_id, BatchStatus::InProgress)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?;
+
+        sqlx::query(
+            "UPDATE production_batches SET actual_start = NOW() WHERE id = $1 AND actual_start IS NULL",
+        )
+        .bind(batch_id)
+        .execute(&mut *db)
+        .await
+        .map_err(|e| DomainError::Internal(e.into()))?;
+
+        tracing::info!(batch_id, "batch started");
+
+        Ok(())
+    }
+
     /// 暂停批次
     async fn suspend(
         &self,

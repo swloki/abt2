@@ -23,6 +23,8 @@ use abt_core::mes::production_batch::{
     BatchListFilter, BatchListItem, ProductionBatch, ProductionBatchService, SplitReq,
     StepConfirmationReq, WorkOrderRouting,
 };
+use abt_core::mes::production_receipt::{CreateReceiptReq, ProductionReceiptService};
+use abt_core::wms::material_requisition::MaterialRequisitionService;
 use abt_core::mes::work_center::{MesWorkCenterService, MesWorkCenterSummary};
 use abt_core::sales::sales_order::{SalesOrder, SalesOrderItem, SalesOrderService, SalesOrderStatus};
 use abt_core::master_data::customer::CustomerService;
@@ -109,6 +111,8 @@ fn work_center_content(summary: &MesWorkCenterSummary) -> Markup {
         (render_drawer_overlay("create-plan-overlay", "create-plan-drawer", "create-plan-drawer-body", "创建工单", "w-[680px]"))
         (render_drawer_overlay("report-overlay", "report-drawer", "report-drawer-body", "工序报工", "w-[480px]"))
         (render_drawer_overlay("batch-overlay", "batch-drawer", "batch-drawer-body", "批次处理", "w-[640px]"))
+        (render_drawer_overlay("batch-req-overlay", "batch-req-drawer", "batch-req-drawer-body", "批次领料", "w-[640px]"))
+        (render_drawer_overlay("batch-receipt-overlay", "batch-receipt-drawer", "batch-receipt-drawer-body", "完工入库", "w-[480px]"))
         // 创建计划完成事件桥接：planCreated → 切到订单排期 tab 重新加载需求池 card + 展开 card（看新建 Draft 工单）
         div hx-get=(format!("{}?view=schedule", WcDemandPath::PATH))
             hx-trigger="planCreated from:body"
@@ -2311,11 +2315,14 @@ fn render_batch_drawer_body(
     routings: &[WorkOrderRouting],
 ) -> Markup {
     let (slabel, stoken) = batch_status_meta(&batch.status);
-    let can_report = matches!(batch.status, BatchStatus::Pending | BatchStatus::InProgress);
+    let can_start = matches!(batch.status, BatchStatus::Pending);
+    let can_report = matches!(batch.status, BatchStatus::InProgress);
+    let can_req = matches!(batch.status, BatchStatus::Pending | BatchStatus::InProgress);
     let can_suspend = matches!(batch.status, BatchStatus::InProgress);
     let can_resume = matches!(batch.status, BatchStatus::Suspended);
     let can_scrap = matches!(batch.status, BatchStatus::InProgress | BatchStatus::Suspended);
     let can_advance = matches!(batch.status, BatchStatus::InProgress | BatchStatus::Suspended);
+    let can_receipt = matches!(batch.status, BatchStatus::PendingReceipt);
     let today = chrono::Local::now().format("%Y-%m-%d").to_string();
     html! {
         // 批次信息头
@@ -2404,10 +2411,29 @@ fn render_batch_drawer_body(
         // 状态操作（按 BatchStatus 门控）
         div class="mt-5 pt-4 border-t border-border-soft" {
             div class="text-sm font-semibold text-fg mb-2" { "状态操作" }
-            @if !can_suspend && !can_resume && !can_advance && !can_scrap {
+            @if !can_start && !can_req && !can_suspend && !can_resume && !can_advance && !can_scrap && !can_receipt {
                 div class="text-xs text-muted" { "当前状态无可执行操作" }
             }
             div class="flex flex-wrap gap-2" {
+                @if can_start {
+                    form hx-post=(WcBatchStartPath { batch_id: batch.id }.to_string()) hx-swap="none"
+                        _="on batchChanged from body remove .open from #batch-overlay" {
+                        button type="submit" class="px-3 py-1.5 rounded-sm bg-accent text-accent-on border-none text-xs font-medium cursor-pointer hover:bg-accent-hover transition-all"
+                            hx-confirm="开工该批次（待开工 → 进行中）？" { "开工" }
+                    }
+                }
+                @if can_req {
+                    button class="px-3 py-1.5 rounded-sm border border-border text-xs font-medium text-fg-2 cursor-pointer hover:bg-accent-bg hover:border-accent hover:text-accent transition-all"
+                        hx-get=(WcBatchReqDrawerPath { batch_id: batch.id }.to_string())
+                        hx-target="#batch-req-drawer-body" hx-swap="innerHTML"
+                        _="on click halt the event" { "领料" }
+                }
+                @if can_receipt {
+                    button class="px-3 py-1.5 rounded-sm border border-border text-xs font-medium text-fg-2 cursor-pointer hover:bg-success-bg hover:border-success hover:text-success transition-all"
+                        hx-get=(WcBatchReceiptDrawerPath { batch_id: batch.id }.to_string())
+                        hx-target="#batch-receipt-drawer-body" hx-swap="innerHTML"
+                        _="on click halt the event" { "入库" }
+                }
                 @if can_suspend {
                     form hx-post=(WcBatchSuspendPath { batch_id: batch.id }.to_string()) hx-swap="none"
                         _="on batchChanged from body remove .open from #batch-overlay" {
@@ -2576,6 +2602,264 @@ pub async fn batch_advance(
         .production_batch_service()
         .advance_to_receipt(&service_ctx, &mut tx, path.batch_id)
         .await?;
+    tx.commit()
+        .await
+        .map_err(|e| DomainError::Internal(e.into()))?;
+    Ok(([("HX-Trigger", "batchChanged")], Html(String::new())))
+}
+
+/// 批次开工：Pending → InProgress（start_batch），广播 batchChanged。
+#[require_permission("WORK_ORDER", "update")]
+pub async fn batch_start(
+    path: WcBatchStartPath,
+    ctx: RequestContext,
+) -> Result<impl IntoResponse> {
+    let RequestContext { state, service_ctx, .. } = ctx;
+    let mut tx = state
+        .pool
+        .begin()
+        .await
+        .map_err(|e| DomainError::Internal(e.into()))?;
+    state
+        .production_batch_service()
+        .start_batch(&service_ctx, &mut tx, path.batch_id)
+        .await?;
+    tx.commit()
+        .await
+        .map_err(|e| DomainError::Internal(e.into()))?;
+    Ok(([("HX-Trigger", "batchChanged")], Html(String::new())))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct BatchReqForm {
+    pub routing_id: i64,
+}
+
+/// 批次领料 drawer body：列工单工序（有产出品可领料）。
+#[require_permission("WORK_ORDER", "read")]
+pub async fn get_batch_req_drawer(
+    path: WcBatchReqDrawerPath,
+    ctx: RequestContext,
+) -> Result<Html<String>> {
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let batch_svc = state.production_batch_service();
+    let wo_svc = state.work_order_service();
+    let batch = batch_svc.find_by_id(&service_ctx, &mut conn, path.batch_id).await?;
+    let order = wo_svc.find_by_id(&service_ctx, &mut conn, batch.work_order_id).await?;
+    let routings = batch_svc
+        .list_routings(&service_ctx, &mut conn, batch.work_order_id)
+        .await
+        .unwrap_or_default();
+    Ok(Html(render_batch_req_drawer_body(&batch, &order, &routings).into_string()))
+}
+
+fn render_batch_req_drawer_body(
+    batch: &ProductionBatch,
+    order: &WorkOrder,
+    routings: &[WorkOrderRouting],
+) -> Markup {
+    html! {
+        // 批次信息头
+        div class="mb-5 pb-4 border-b border-border-soft" {
+            div class="text-xs text-muted" { "流转卡" }
+            div class="font-mono font-semibold text-fg" { (batch.card_sn.as_str()) }
+            div class="text-xs text-muted font-mono mt-1" {
+                "工单 " (order.doc_number.as_str()) " · 本批 " (fmt_qty(batch.batch_qty)) " 件"
+            }
+        }
+        // 说明：按工序产出品领料
+        div class="flex items-start gap-2 text-xs text-fg-2 bg-accent-bg rounded-sm px-3 py-2 mb-4" {
+            (icon::info_icon("w-4 h-4 shrink-0 mt-0.5 text-accent"))
+            span { "按工序产出品领料：自动展开该工序产出品的子 BOM 原料，数量按本批 "
+                (fmt_qty(batch.batch_qty)) " 件计算。产出品无 BOM 的工序（散料）走完工倒冲。"
+            }
+        }
+        // 工序列表
+        div class="space-y-2" {
+            @if routings.is_empty() {
+                div class="text-xs text-muted text-center py-4" { "该工单尚无工序" }
+            }
+            @for r in routings {
+                div class="flex items-center justify-between p-3 border border-border-soft rounded-sm" {
+                    div {
+                        div class="text-sm font-medium text-fg" {
+                            (r.step_no) ". " (r.process_name.as_str())
+                        }
+                        div class="text-xs text-muted mt-0.5" {
+                            @match r.product_id {
+                                Some(pid) => { "产出品 #" (pid) " · 按子 BOM 领料" }
+                                None => { "未配置产出品 · 散料（走倒冲）" }
+                            }
+                        }
+                    }
+                    @if r.product_id.is_some() {
+                        form hx-post=(WcBatchReqPath { batch_id: batch.id }.to_string()) hx-swap="none"
+                            _="on batchChanged from body remove .open from #batch-req-overlay" {
+                            input type="hidden" name="routing_id" value=(r.id);
+                            button type="submit"
+                                class="px-3 py-1.5 rounded-sm bg-accent text-accent-on border-none text-xs font-medium cursor-pointer hover:bg-accent-hover transition-all" {
+                                "领料"
+                            }
+                        }
+                    } @else {
+                        span class="text-xs text-muted" { "—" }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// 批次领料提交：create_for_routing_step（产出品→子BOM→operation_id），广播 batchChanged。
+#[require_permission("WORK_ORDER", "update")]
+pub async fn batch_requisition(
+    path: WcBatchReqPath,
+    ctx: RequestContext,
+    axum::Form(form): axum::Form<BatchReqForm>,
+) -> Result<impl IntoResponse> {
+    let RequestContext { state, service_ctx, .. } = ctx;
+    let mut tx = state
+        .pool
+        .begin()
+        .await
+        .map_err(|e| DomainError::Internal(e.into()))?;
+    let batch_svc = state.production_batch_service();
+    let batch = batch_svc.find_by_id(&service_ctx, &mut tx, path.batch_id).await?;
+    state
+        .material_requisition_service()
+        .create_for_routing_step(
+            &service_ctx,
+            &mut tx,
+            batch.work_order_id,
+            form.routing_id,
+            Some(path.batch_id),
+        )
+        .await?;
+    tx.commit()
+        .await
+        .map_err(|e| DomainError::Internal(e.into()))?;
+    Ok(([("HX-Trigger", "batchChanged")], Html(String::new())))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct BatchReceiptForm {
+    pub warehouse_id: i64,
+    pub received_qty: String,
+    pub receipt_date: chrono::NaiveDate,
+    #[serde(default)]
+    pub remark: Option<String>,
+}
+
+/// 批次入库 drawer body。
+#[require_permission("WORK_ORDER", "read")]
+pub async fn get_batch_receipt_drawer(
+    path: WcBatchReceiptDrawerPath,
+    ctx: RequestContext,
+) -> Result<Html<String>> {
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let batch_svc = state.production_batch_service();
+    let wo_svc = state.work_order_service();
+    let batch = batch_svc.find_by_id(&service_ctx, &mut conn, path.batch_id).await?;
+    let order = wo_svc.find_by_id(&service_ctx, &mut conn, batch.work_order_id).await?;
+    let product_name = wo_svc
+        .get_product_name(&mut conn, order.product_id)
+        .await?
+        .unwrap_or_else(|| format!("#{}", order.product_id));
+    Ok(Html(render_batch_receipt_drawer_body(&batch, &order, &product_name).into_string()))
+}
+
+fn render_batch_receipt_drawer_body(
+    batch: &ProductionBatch,
+    order: &WorkOrder,
+    product_name: &str,
+) -> Markup {
+    let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+    html! {
+        div class="mb-5 pb-4 border-b border-border-soft" {
+            div class="text-xs text-muted" { "流转卡" }
+            div class="font-mono font-semibold text-fg" { (batch.card_sn.as_str()) }
+            div class="text-sm text-fg-2 mt-1" { (product_name) }
+            div class="text-xs text-muted font-mono mt-0.5" { "工单 " (order.doc_number.as_str()) }
+        }
+        form hx-post=(WcBatchReceiptPath { batch_id: batch.id }.to_string())
+            hx-swap="none"
+            _="on batchChanged from body remove .open from #batch-receipt-overlay" {
+            div class="grid grid-cols-2 gap-3 mb-3" {
+                div {
+                    label class="block text-xs text-fg-2 mb-1" { "入库数量" }
+                    input type="number" step="0.01" min="0" name="received_qty" value=(fmt_qty(batch.batch_qty))
+                        class="w-full px-2 py-1.5 border border-border rounded-sm text-sm font-mono text-right bg-white outline-none focus:border-accent";
+                }
+                div {
+                    label class="block text-xs text-fg-2 mb-1" { "目标仓库 ID" }
+                    input type="number" name="warehouse_id" required
+                        class="w-full px-2 py-1.5 border border-border rounded-sm text-sm font-mono bg-white outline-none focus:border-accent";
+                }
+            }
+            div class="mb-3" {
+                label class="block text-xs text-fg-2 mb-1" { "入库日期" }
+                input type="date" name="receipt_date" value=(today)
+                    class="w-full px-2 py-1.5 border border-border rounded-sm text-sm bg-white outline-none focus:border-accent";
+            }
+            div class="mb-3" {
+                label class="block text-xs text-fg-2 mb-1" { "备注" }
+                input type="text" name="remark"
+                    class="w-full px-2 py-1.5 border border-border rounded-sm text-sm bg-white outline-none focus:border-accent";
+            }
+            div class="flex items-start gap-2 text-xs text-fg-2 bg-accent-bg rounded-sm px-3 py-2 mb-3" {
+                (icon::info_icon("w-4 h-4 shrink-0 mt-0.5 text-accent"))
+                span { "入库触发倒冲（按 BOM 扣原材料）+ 成本归集 + FQC 门控。" }
+            }
+            div class="flex justify-end" {
+                button type="submit"
+                    class="px-3.5 py-2 rounded-sm bg-accent text-accent-on border-none text-sm font-medium cursor-pointer hover:bg-accent-hover" {
+                    "确认入库"
+                }
+            }
+        }
+    }
+}
+
+/// 批次入库：ProductionReceipt.create+confirm（倒冲 + 成本 + FQC），广播 batchChanged。
+#[require_permission("WORK_ORDER", "update")]
+pub async fn batch_receipt(
+    path: WcBatchReceiptPath,
+    ctx: RequestContext,
+    axum::Form(form): axum::Form<BatchReceiptForm>,
+) -> Result<impl IntoResponse> {
+    let RequestContext { state, service_ctx, .. } = ctx;
+    let mut tx = state
+        .pool
+        .begin()
+        .await
+        .map_err(|e| DomainError::Internal(e.into()))?;
+    let received_qty = form
+        .received_qty
+        .parse::<Decimal>()
+        .map_err(|_| DomainError::validation("入库数量格式错误"))?;
+    if received_qty <= Decimal::ZERO {
+        return Err(DomainError::validation("入库数量必须大于 0").into());
+    }
+    let batch_svc = state.production_batch_service();
+    let batch = batch_svc.find_by_id(&service_ctx, &mut tx, path.batch_id).await?;
+    let order = state
+        .work_order_service()
+        .find_by_id(&service_ctx, &mut tx, batch.work_order_id)
+        .await?;
+    let rcpt_svc = state.production_receipt_service();
+    let req = CreateReceiptReq {
+        work_order_id: batch.work_order_id,
+        batch_id: Some(path.batch_id),
+        product_id: order.product_id,
+        received_qty,
+        warehouse_id: form.warehouse_id,
+        zone_id: None,
+        bin_id: None,
+        receipt_date: form.receipt_date,
+        remark: form.remark,
+    };
+    let receipt_id = rcpt_svc.create(&service_ctx, &mut tx, req).await?;
+    rcpt_svc.confirm(&service_ctx, &mut tx, receipt_id).await?;
     tx.commit()
         .await
         .map_err(|e| DomainError::Internal(e.into()))?;

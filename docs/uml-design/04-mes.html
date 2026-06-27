@@ -42,27 +42,6 @@ mermaid.initialize({startOnLoad:true,theme:'dark',themeVariables:{darkMode:true,
   <div class="zoom-container" id="zoomContainer">
     <div class="mermaid">
 classDiagram
-  class PlanType {
-    &lt;&lt;enumeration&gt;&gt;
-    MTO
-    MTS
-  }
-  class PlanStatus {
-    &lt;&lt;enumeration&gt;&gt;
-    Draft
-    Confirmed
-    InProgress
-    Completed
-    Cancelled
-  }
-  class PlanItemStatus {
-    &lt;&lt;enumeration&gt;&gt;
-    Planned
-    Released
-    InProduction
-    Completed
-    Cancelled
-  }
   class WorkOrderStatus {
     &lt;&lt;enumeration&gt;&gt;
     Draft
@@ -118,37 +97,9 @@ classDiagram
     OperatorError
     ProcessIssue
   }
-  class ProductionPlan {
-    +id: i64
-    +doc_number: String
-    +plan_date: Date
-    +plan_type: PlanType
-    +status: PlanStatus
-    +remark: String
-    +operator_id: i64
-    +created_at: Timestamp
-    +updated_at: Timestamp
-    +deleted_at: Option~Timestamp~
-  }
-  class ProductionPlanItem {
-    +id: i64
-    +plan_id: i64
-    +product_id: i64
-    +planned_qty: Decimal
-    +scheduled_start: Date
-    +scheduled_end: Date
-    +sales_order_id: Option~i64~
-    +sales_order_item_id: Option~i64~
-    +bom_snapshot_id: Option~i64~
-    +routing_id: Option~i64~
-    +work_center_id: Option~i64~
-    +priority: i32
-    +status: PlanItemStatus
-  }
   class WorkOrder {
     +id: i64
     +doc_number: String
-    +plan_item_id: Option~i64~
     +product_id: i64
     +bom_snapshot_id: Option~i64~
     +routing_id: Option~i64~
@@ -285,21 +236,8 @@ classDiagram
     +created_at: Timestamp
     +updated_at: Timestamp
   }
-  ProductionPlan "1" *-- "0..*" ProductionPlanItem
   WorkOrder "1" *-- "0..*" WorkOrderRouting
   WorkOrder "1" *-- "0..*" ProductionBatch
-  class ProductionPlanService {
-    &lt;&lt;interface&gt;&gt;
-    +create(ctx: &ServiceContext, db: PgExecutor, req) Result~i64~
-    +find_by_id(id) Result~ProductionPlan~
-    +confirm(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
-    +pre_validate(ctx: &ServiceContext, db: PgExecutor, plan_id) Result~Vec~ReleaseValidation~~
-    +release_to_work_orders(ctx: &ServiceContext, db: PgExecutor, plan_id) Result~BatchReleaseResult~
-    +generate_work_orders(ctx: &ServiceContext, db: PgExecutor, plan_id, items: Vec~WorkOrderPlanItem~) Result~Vec~i64~~
-    +mark_in_progress(db: PgExecutor, plan_id) Result~Unit~
-    +schedule_v1(ctx: &ServiceContext, db: PgExecutor, plan_id) Result~Unit~
-    +list(filter) PaginatedResult~ProductionPlan~
-  }
   class WorkOrderService {
     &lt;&lt;interface&gt;&gt;
     +create(ctx: &ServiceContext, db: PgExecutor, req) Result~i64~
@@ -309,7 +247,8 @@ classDiagram
     +close(ctx: &ServiceContext, db: PgExecutor, id, expected_version i32) Result~Unit~
     +cancel(ctx: &ServiceContext, db: PgExecutor, id, expected_version i32) Result~Unit~
     +list(filter) PaginatedResult~WorkOrder~
-    +list_by_plan(plan_id) Result~Vec~WorkOrder~~
+    +pre_validate(ctx: &ServiceContext, db: PgExecutor, work_order_id) Result~ReleaseValidation~
+    +schedule(ctx: &ServiceContext, db: PgExecutor, work_order_id) Result~ScheduleResult~
     +get_hub_summary(ctx, db, work_order_id) Result~WorkOrderHubSummary~
   }
   class WorkReportService {
@@ -386,7 +325,6 @@ classDiagram
       否则 → Unavailable
     判据用 ATP（非 projected），projected 仅展示参考。
   end note
-  ProductionPlanService ..> WorkOrderService : release_to_work_orders
   MesWorkCenterService ..> WorkOrderService : summary 工单计数
   WorkOrderService ..> ProductionBatchService : split batches
   ProductionBatchService ..> WorkReportService : query reports (write is internal to confirm_routing_step)
@@ -397,7 +335,6 @@ classDiagram
   ProductionBatchService ..> QMS.InspectionResultService : FQC hard gate
     WorkOrderService ..> MasterData.BomService : BOM explosion
     WorkOrderService ..> MasterData.ProductService : product info
-    ProductionPlanService ..> MasterData.ProductService : product info
     BatchReleaseResult *-- ReleaseValidation
     ReleaseValidation *-- MaterialShortage
     ProductionReceiptService ..> MasterData.ProductService : product info
@@ -409,7 +346,7 @@ classDiagram
     +total: i32
   }
   class ReleaseValidation {
-    +plan_item_id: i64
+    +work_order_id: i64
     +product_id: i64
     +has_routing: bool
     +has_published_bom: bool
@@ -472,7 +409,7 @@ classDiagram
     <div style="background: rgba(198,120,221,0.1); padding: 12px; border-radius: 6px; margin-bottom: 20px;">
       <h3 style="margin: 0 0 8px 0; color: #c678dd;">核心业务流</h3>
       <div style="font-family: monospace; font-size: 12px; color: #e0e0e0; line-height: 2;">
-        <span style="color:#e5c07b;">ProductionPlan</span> 生产计划
+        <span style="color:#e5c07b;">Demand</span> 销售需求
         <span style="color:#6bc76b;">→</span>
         <span style="color:#e5c07b;">WorkOrder</span> 工单
         <span style="color:#6bc76b;">→</span>
@@ -489,63 +426,16 @@ classDiagram
         <span style="color:#56b6c2;">↗ ProductionInspection</span> 生产报检
       </div>
     </div>
-    <!-- Row 1: ProductionPlan + WorkOrder -->
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
-      <!-- ProductionPlan -->
-      <div style="border: 2px solid #6c8bef; border-radius: 8px; padding: 14px; background: rgba(108,139,239,0.05);">
-        <h4 style="color: #6c8bef; margin: 0 0 6px 0;">ProductionPlan 生产计划</h4>
-        <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">兼容按单生产(MTO)与按库存备货(MTS)双轨制排产</p>
-        <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11.5px;">
-          <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">ProductionPlan</span> {<br>
-          &nbsp;&nbsp;id: i64 <span style="color:#888;">PK</span><br>
-          &nbsp;&nbsp;doc_number: String <span style="color:#888;">// PP-2026-05-xxxxx</span><br>
-          &nbsp;&nbsp;plan_date: Date<br>
-          &nbsp;&nbsp;plan_type: PlanType<br>
-          &nbsp;&nbsp;status: PlanStatus<br>
-          &nbsp;&nbsp;remark: String<br>
-          &nbsp;&nbsp;operator_id: i64<br>
-          &nbsp;&nbsp;created_at: Timestamp<br>
-          &nbsp;&nbsp;updated_at: Timestamp<br>
-          &nbsp;&nbsp;deleted_at: Timestamp?<br>
-          }<br><br>
-          <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">ProductionPlanItem</span> {<br>
-          &nbsp;&nbsp;id: i64 <span style="color:#888;">PK</span><br>
-          &nbsp;&nbsp;plan_id: i64 <span style="color:#888;">FK→production_plans</span><br>
-          &nbsp;&nbsp;product_id: i64 <span style="color:#888;">FK→products</span><br>
-          &nbsp;&nbsp;planned_qty: Decimal(18,6)<br>
-          &nbsp;&nbsp;scheduled_start: Date<br>
-          &nbsp;&nbsp;scheduled_end: Date<br>
-          &nbsp;&nbsp;sales_order_id: i64? <span style="color:#888;">FK→sales_orders (MTO)</span><br>
-          &nbsp;&nbsp;sales_order_item_id: i64? <span style="color:#888;">// 具体行号</span><br>
-          &nbsp;&nbsp;bom_snapshot_id: i64? <span style="color:#888;">FK→bom_snapshots BOM发布快照（不可变）</span><br>
-          &nbsp;&nbsp;routing_id: i64? <span style="color:#888;">溯源引用（快照已固化至 work_order_routings）</span><br>
-          &nbsp;&nbsp;work_center_id: i64? <span style="color:#888;">// 生产中心</span><br>
-          &nbsp;&nbsp;priority: i32<br>
-          &nbsp;&nbsp;status: PlanItemStatus<br>
-          }<br><br>
-          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">PlanType</span> {<br>
-          &nbsp;&nbsp;MTO <span style="color:#888;">// 按单生产</span><br>
-          &nbsp;&nbsp;MTS <span style="color:#888;">// 按库存备货</span><br>
-          &nbsp;&nbsp;}<br>
-          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">PlanStatus</span> {<br>
-          &nbsp;&nbsp;DRAFT, CONFIRMED, IN_PROGRESS<br>
-          &nbsp;&nbsp;COMPLETED, CANCELLED<br>
-          &nbsp;&nbsp;}<br>
-          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">PlanItemStatus</span> {<br>
-          &nbsp;&nbsp;PLANNED, RELEASED, IN_PRODUCTION<br>
-          &nbsp;&nbsp;COMPLETED, CANCELLED<br>
-          &nbsp;&nbsp;}
-        </div>
-      </div>
+    <!-- Row 1: WorkOrder（扁平化：需求直达工单，已废弃生产订单 PP 层） -->
+    <div style="display: grid; grid-template-columns: 1fr; gap: 16px; margin-bottom: 20px;">
       <!-- WorkOrder -->
       <div style="border: 2px solid #6bc76b; border-radius: 8px; padding: 14px; background: rgba(107,199,107,0.05);">
         <h4 style="color: #6bc76b; margin: 0 0 6px 0;">WorkOrder 工单</h4>
-        <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">计划层实体：定义生产什么、用哪个 BOM/工艺路线、计划数量与排程。执行跟踪由 ProductionBatch 负责</p>
+        <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">扁平化后的生产指令+执行容器：需求直达生成 Draft 工单（定义生产什么/BOM/工艺/数量/排程）；下达后拆批执行由 ProductionBatch 负责</p>
         <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11.5px;">
           <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">WorkOrder</span> {<br>
           &nbsp;&nbsp;id: i64 <span style="color:#888;">PK</span><br>
           &nbsp;&nbsp;doc_number: String <span style="color:#888;">// WO-2026-05-xxxxx</span><br>
-          &nbsp;&nbsp;plan_item_id: i64? <span style="color:#888;">FK→production_plan_items</span><br>
           &nbsp;&nbsp;product_id: i64 <span style="color:#888;">FK→products</span><br>
           &nbsp;&nbsp;bom_snapshot_id: i64? <span style="color:#888;">FK→bom_snapshots BOM发布快照（不可变）</span><br>
           &nbsp;&nbsp;routing_id: i64? <span style="color:#888;">溯源引用（快照已固化至 work_order_routings）</span><br>
@@ -1059,9 +949,9 @@ classDiagram
         &nbsp;&nbsp;/// 按物料聚合查询（物料维度 — 计划员主要操作入口）<br>
         &nbsp;&nbsp;async fn list_material_aggregated(ctx, db, query: MaterialAggQuery, page) → PaginatedResult&lt;MaterialAggSummary&gt;<br>
         <br>
-        &nbsp;&nbsp;/// 从选中的需求创建生产计划草稿<br>
-        &nbsp;&nbsp;/// 乐观锁并发控制 + 按 product_id 聚合 + 同事务发布 DemandConfirmed 事件<br>
-        &nbsp;&nbsp;async fn create_plan_from_demands(ctx, db, req: CreatePlanFromDemandsReq) → CreateDownstreamResult<br>
+        &nbsp;&nbsp;/// 从选中的需求直接创建 Draft 工单（扁平化：废弃 PP 层，需求→工单直达）<br>
+        &nbsp;&nbsp;/// 乐观锁并发控制 + 按 product_id 聚合 + 同事务发布 DemandConfirmed 事件（target=WorkOrder）<br>
+        &nbsp;&nbsp;async fn create_work_orders_from_demands(ctx, db, req: CreateWorkOrdersFromDemandsReq) → CreateWorkOrdersResult<br>
         }
       </div>
     </div>
@@ -1069,11 +959,11 @@ classDiagram
     <div style="margin-bottom: 16px;">
       <h4 style="color: #e5a655; margin: 0 0 6px 0; font-size: 13px;">请求模型</h4>
       <div style="font-family: monospace; font-size: 11.5px; color: #ccc; line-height: 1.8;">
-        <b>CreatePlanFromDemandsReq</b> {<br>
-        &nbsp;&nbsp;demand_ids: Vec&lt;i64&gt;, plan_type: i16, plan_date: NaiveDate, remark?: String,<br>
+        <b>CreateWorkOrdersFromDemandsReq</b> {<br>
+        &nbsp;&nbsp;demand_ids: Vec&lt;i64&gt;, remark?: String,<br>
         &nbsp;&nbsp;items?: Vec&lt;PlanDemandItemReq&gt;, &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;// 每条需求的排程参数（可选）<br>
-        &nbsp;&nbsp;default_scheduled_start?: NaiveDate, &nbsp;&nbsp;// 默认 = plan_date<br>
-        &nbsp;&nbsp;default_scheduled_end?: NaiveDate &nbsp;&nbsp;&nbsp;&nbsp;// 默认 = plan_date + 7天（TODO: P5 接入 Lead Time）<br>
+        &nbsp;&nbsp;default_scheduled_start?: NaiveDate, &nbsp;&nbsp;// 默认 = 今天<br>
+        &nbsp;&nbsp;default_scheduled_end?: NaiveDate &nbsp;&nbsp;&nbsp;&nbsp;// 默认 = 今天 + 7天（TODO: P5 接入 Lead Time）<br>
         }<br>
         <b>PlanDemandItemReq</b> { demand_id, scheduled_start, scheduled_end, priority }
       </div>
@@ -1108,7 +998,7 @@ classDiagram
     </div>
 
     <div>
-      <h4 style="color: #e5a655; margin: 0 0 6px 0; font-size: 13px;">create_plan_from_demands 流程</h4>
+      <h4 style="color: #e5a655; margin: 0 0 6px 0; font-size: 13px;">create_work_orders_from_demands 流程（扁平化：需求直达 Draft 工单）</h4>
       <div style="font-family: monospace; font-size: 11.5px; color: #ccc; line-height: 1.8;">
         <span style="color:#e06c75;"><b>⚠ 事务要求：</b>调用方必须在事务中调用此方法（tx.begin() → 传 &amp;mut tx）。<br>
         步骤 1 的乐观锁会把 status 从 Pending→Confirmed，若后续步骤失败需整体回滚，<br>
@@ -1116,14 +1006,13 @@ classDiagram
         <br>
         1. 乐观锁：UPDATE demands SET status=Confirmed WHERE id=ANY($1) AND status=Pending AND acquire_channel=1 RETURNING *<br>
         2. 计算被跳过的需求（不在 RETURNING 集合中的 demand_ids）<br>
-        3. 按 product_id 聚合成功锁定的需求<br>
-        4. 构建 CreatePlanItemReq：排程参数从 items 映射或使用默认值<br>
-        5. 调用 ProductionPlanService::create 创建生产计划草稿<br>
-        6. 逐条更新 target_doc (doc_type=ProductionPlan, doc_id=plan_id)<br>
-        7. 逐条发布 DemandConfirmed 事件（同事务内）<br>
-        8. 返回 CreateDownstreamResult（含 doc_id、处理数、跳过列表）<br>
-        <b>后续流程（已有实现）</b>：<br>
-        计划员审核 → ProductionPlanService::generate_work_orders → 生成草稿工单（同时初始化工序，可编辑产出品/单价）→ WorkOrderService::release<br>
+        3. 按 product_id 聚合成功锁定的需求（同物料数量累加，关联首个 SO）<br>
+        4. 每个聚合组调 WorkOrderService::create 生成 Draft 工单（plan_item_id=None，填 source_so_doc / source_customer）<br>
+        5. 逐条更新 target_doc (doc_type=WorkOrder, doc_id=wo_id)<br>
+        6. 逐条发布 DemandConfirmed 事件（target_doc_type=WorkOrder，同事务内）<br>
+        7. 返回 CreateWorkOrdersResult（含 wo_ids、处理数、跳过列表）<br>
+        <b>后续流程</b>：<br>
+        work-center 工单 card 待下达视图 → 下达 drawer 拆批/排程/加载工序 → WorkOrderService::release<br>
         → 工单完工 → ProductionReceiptService 入库 → DemandService::fulfill → 需求完成
       </div>
     </div>
@@ -1133,13 +1022,11 @@ classDiagram
       <div style="font-family: monospace; font-size: 11.5px; color: #ccc; line-height: 1.8;">
         新建工单页面支持可选的来源单据关联，确保上下游数据链路可追溯：<br>
         <br>
-        &bull; <b>来源类型选择</b>：无 / 销售订单 / 生产计划（select 切换，Hyperscript 控制显隐）<br>
+        &bull; <b>来源类型选择</b>：无 / 销售订单（扁平化后已移除「生产计划」来源，工单由需求池直达生成）<br>
         &bull; <b>销售订单</b>：弹窗搜索（/api/mes/source-orders/search）→ 选中后写入 sales_order_id<br>
-        &bull; <b>生产计划</b>：弹窗搜索（/api/mes/source-plans/search）→ 选中后自动匹配同产品 plan_item → 写入 plan_item_id<br>
-        &bull; <b>校验</b>：选生产计划但无匹配产品的 plan_item → 返回 Validation 错误<br>
         <br>
-        <b>数据模型</b>：work_orders 已有 sales_order_id 和 plan_item_id 字段，无需迁移。<br>
-        <b>列表展示</b>：WorkOrderRepo::get_by_id JOIN plan_item→plan、sales_order→customer 展示来源单据编号和客户。
+        <b>数据模型</b>：work_orders 用 sales_order_id 关联来源（plan_item_id 已废弃）。<br>
+        <b>列表展示</b>：WorkOrderRepo::get_by_id JOIN sales_order→customer 展示来源单据编号和客户。
       </div>
     </div>
 

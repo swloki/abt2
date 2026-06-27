@@ -15,14 +15,13 @@ use rust_decimal::Decimal;
 use serde::Deserialize;
 
 use abt_core::mes::demand_handler::{
-    CreatePlanFromDemandsReq, DemandPoolQuery, DemandSummary, MaterialAggQuery,
+    CreateWorkOrdersFromDemandsReq, DemandPoolQuery, DemandSummary, MaterialAggQuery,
     MaterialAggSummary, MesDemandService,
 };
 use abt_core::mes::enums::{ShiftType, WorkOrderStatus};
 use abt_core::mes::production_batch::{
     ProductionBatch, ProductionBatchService, SplitReq, StepConfirmationReq, WorkOrderRouting,
 };
-use abt_core::mes::production_plan::ProductionPlanService;
 use abt_core::mes::work_center::{MesWorkCenterService, MesWorkCenterSummary};
 use abt_core::sales::sales_order::{SalesOrder, SalesOrderItem, SalesOrderService, SalesOrderStatus};
 use abt_core::master_data::customer::CustomerService;
@@ -104,8 +103,8 @@ fn work_center_content(summary: &MesWorkCenterSummary) -> Markup {
         }
         (render_anchor_nav(summary))
         (render_card_shell("wc-demand-card", WcDemandPath::PATH, "生产需求池", icon::globe_icon("w-[15px] h-[15px]"), Some((summary.pending_release, "danger")),
-            Some(html! { (summary.pending_release) " 张待下达 · 销售订单驱动 · 就地「转化为生产订单」" })))
-        (render_drawer_overlay("release-overlay", "release-drawer", "release-drawer-body", "下达生产订单", "w-[640px]"))
+            Some(html! { (summary.pending_release) " 张待下达 · 销售订单驱动 · 就地「转化为工单」" })))
+        (render_drawer_overlay("release-overlay", "release-drawer", "release-drawer-body", "下达工单", "w-[640px]"))
         (render_drawer_overlay("create-plan-overlay", "create-plan-drawer", "create-plan-drawer-body", "创建生产计划", "w-[680px]"))
         (render_drawer_overlay("report-overlay", "report-drawer", "report-drawer-body", "工序报工", "w-[480px]"))
         // 创建计划完成事件桥接：planCreated → 切到订单排期 tab 重新加载需求池 card + 展开 card（看新建 Draft 工单）
@@ -1374,9 +1373,9 @@ pub struct WcCreatePlanForm {
     pub demand_ids: String,
 }
 
-/// 创建生产计划提交：建 PP → 生成 1 个 Draft 工单（该物料所有需求合并到一个工单）。
-/// 数量分批不在这一步做 —— 交给工单下达时流转卡（ProductionBatch）拆分
-///（与 ERPNext/Odoo/OFBiz 一致：一个需求一个工单，批次/流转卡是数量维度的执行拆分，见 docs/solutions/mes-wo-vs-batch-modeling.md）。
+/// 转化为工单提交：需求直达生成 Draft 工单（该物料所有需求合并到一个工单，扁平化：废弃 PP 层）。
+/// 数量分批不在这一步做 —— 交给工单下达时生产批次（ProductionBatch）拆分
+///（与 ERPNext/Odoo/OFBiz 一致：一个需求一个工单，批次是数量维度的执行拆分，见 docs/solutions/mes-wo-vs-batch-modeling.md）。
 #[require_permission("WORK_ORDER", "create")]
 pub async fn create_plan(
     _path: WcCreatePlanPath,
@@ -1396,8 +1395,6 @@ pub async fn create_plan(
     if demand_ids.is_empty() {
         return Err(DomainError::validation("请至少选择一条生产需求").into());
     }
-    let plan_date = chrono::NaiveDate::parse_from_str(&form.plan_date, "%Y-%m-%d")
-        .map_err(|e| DomainError::validation(format!("无效计划日期: {e}")))?;
     let default_scheduled_end = form
         .default_scheduled_end
         .as_deref()
@@ -1406,49 +1403,24 @@ pub async fn create_plan(
         .transpose()
         .map_err(|e| DomainError::validation(format!("无效完工日期: {e}")))?;
 
-    let create_req = CreatePlanFromDemandsReq {
+    let create_req = CreateWorkOrdersFromDemandsReq {
         demand_ids,
-        plan_type: form.plan_type,
-        plan_date,
         remark: None,
         items: None,
         default_scheduled_start: None,
         default_scheduled_end,
     };
 
-    // 单事务：建 PP → 合并该物料所有 plan_item 总量 → 生成 1 个 Draft 工单（不 release）
+    // 单事务：需求直达生成 Draft 工单（扁平化：废弃 PP 层，一个物料一个工单，不 release）
     let mut tx = state
         .pool
         .begin()
         .await
         .map_err(|e| DomainError::Internal(e.into()))?;
-    let result = state
+    let _result = state
         .mes_demand_service()
-        .create_plan_from_demands(&service_ctx, &mut tx, create_req)
+        .create_work_orders_from_demands(&service_ctx, &mut tx, create_req)
         .await?;
-    let plan_svc = state.production_plan_service();
-    let plan_items = plan_svc
-        .list_items(&service_ctx, &mut tx, result.doc_id)
-        .await?;
-    if let Some(first) = plan_items.first() {
-        let total_qty: Decimal = plan_items.iter().map(|i| i.planned_qty).sum();
-        plan_svc
-            .generate_work_orders(
-                &service_ctx,
-                &mut tx,
-                result.doc_id,
-                vec![abt_core::mes::production_plan::model::WorkOrderPlanItem {
-                    plan_item_id: first.id,
-                    product_id: first.product_id,
-                    planned_qty: total_qty,
-                    scheduled_start: first.scheduled_start,
-                    scheduled_end: first.scheduled_end,
-                    routing_id: None,
-                    work_center_id: None,
-                }],
-            )
-            .await?;
-    }
     tx.commit()
         .await
         .map_err(|e| DomainError::Internal(e.into()))?;

@@ -193,52 +193,7 @@ pub async fn get_demand_card(
     }
     let view = p.view.as_deref().unwrap_or("material");
 
-    let body = if view == "schedule" {
-        // 订单排期：待下达工单（Draft/Planned）按排期集中展示，行内「下达」入口。
-        let wo_svc = state.work_order_service();
-        let product_svc = state.product_service();
-        let today = chrono::Local::now().date_naive();
-        let (date_from, date_to) = parse_schedule_date_filter(p.date_filter.as_deref(), today);
-        let mk_filter = |status: WorkOrderStatus| WorkOrderFilter {
-            status: Some(status),
-            keyword: p.keyword.clone(),
-            date_from,
-            date_to,
-            ..Default::default()
-        };
-        // sched_status：Draft→只取待下达；Planned→只取已排期；None→Draft+Planned 合并
-        let mut orders: Vec<WorkOrder> = match p.sched_status.as_deref() {
-            Some("Planned") => wo_svc
-                .list(&service_ctx, &mut conn, mk_filter(WorkOrderStatus::Planned), 1, 100)
-                .await
-                .map(|r| r.items)
-                .unwrap_or_default(),
-            Some("Draft") => wo_svc
-                .list(&service_ctx, &mut conn, mk_filter(WorkOrderStatus::Draft), 1, 100)
-                .await
-                .map(|r| r.items)
-                .unwrap_or_default(),
-            _ => {
-                let mut o = wo_svc
-                    .list(&service_ctx, &mut conn, mk_filter(WorkOrderStatus::Draft), 1, 100)
-                    .await
-                    .map(|r| r.items)
-                    .unwrap_or_default();
-                let mut pl = wo_svc
-                    .list(&service_ctx, &mut conn, mk_filter(WorkOrderStatus::Planned), 1, 100)
-                    .await
-                    .map(|r| r.items)
-                    .unwrap_or_default();
-                o.append(&mut pl);
-                o
-            }
-        };
-        // 排期视图按计划开工日升序
-        orders.sort_by_key(|w| w.scheduled_start);
-        let product_names =
-            resolve_product_names(&product_svc, &service_ctx, &mut conn, &orders).await;
-        html! { (render_schedule_table(&orders, &product_names)) }
-    } else if view == "orders" {
+    let body = if view == "orders" {
         // 工单 tab：status（生产中/已下达/已完工）是 DB 字段，直接读不实时算；分页 list
         let wo_svc = state.work_order_service();
         let product_svc = state.product_service();
@@ -330,22 +285,6 @@ fn parse_date_filter(df: Option<&str>) -> (Option<NaiveDate>, Option<NaiveDate>)
     }
 }
 
-/// 排期视图时间筛选 → (date_from, date_to)，作用于工单 scheduled_start / scheduled_end。
-fn parse_schedule_date_filter(
-    df: Option<&str>,
-    today: NaiveDate,
-) -> (Option<NaiveDate>, Option<NaiveDate>) {
-    match df {
-        Some("this_week") => (Some(today), Some(today + chrono::TimeDelta::days(7))),
-        Some("overdue") => (None, Some(today - chrono::TimeDelta::days(1))),
-        Some("next_week") => (
-            Some(today + chrono::TimeDelta::days(7)),
-            Some(today + chrono::TimeDelta::days(14)),
-        ),
-        _ => (None, None),
-    }
-}
-
 /// 平铺 tab 栏 + 筛选表单（统一 hx-get WcDemandPath + hx-select #wc-demand-card）。
 /// - 第一行：底部下划线式平铺 tab（物料汇总[可合并]/订单行明细/订单排期）+ mat/det 右侧「完整需求池」链接
 /// - 第二行：筛选表单（mat/det：搜索+日期+排序；schedule：搜索+工作中心+状态+时间）
@@ -380,12 +319,6 @@ fn demand_filter_bar(
                 hx-target="#wc-demand-card" hx-select="#wc-demand-card" hx-swap="outerHTML"
                 hx-include="#wc-demand-filter-form"
                 { (icon::rows_icon("w-4 h-4")) "订单行明细" }
-            button class=(toggle_cls(view == "schedule")) type="button"
-                hx-get=(WcDemandPath::PATH)
-                hx-vals="{\"view\":\"schedule\"}"
-                hx-target="#wc-demand-card" hx-select="#wc-demand-card" hx-swap="outerHTML"
-                hx-include="#wc-demand-filter-form"
-                { (icon::calendar_icon("w-4 h-4")) "订单排期" }
             button class=(toggle_cls(view == "orders")) type="button"
                 hx-get=(WcDemandPath::PATH) hx-vals="{\"view\":\"orders\"}"
                 hx-target="#wc-demand-card" hx-select="#wc-demand-card" hx-swap="outerHTML"
@@ -409,28 +342,15 @@ fn demand_filter_bar(
                     type="text" name="keyword" placeholder=(placeholder)
                     value=(kw);
             }
-            @if view == "schedule" {
-                // 排期筛选：状态 / 时间
-                select class="px-2 py-1.5 border border-border rounded-sm text-sm bg-white text-fg cursor-pointer"
-                    name="sched_status" {
-                    option value="" selected[ss.is_empty()] { "全部状态" }
-                    option value="Draft" selected[ss == "Draft"] { "待下达" }
-                    option value="Planned" selected[ss == "Planned"] { "已排期" }
-                }
-                select class="px-2 py-1.5 border border-border rounded-sm text-sm bg-white text-fg cursor-pointer"
-                    name="date_filter" {
-                    option value="" selected[df.is_empty()] { "全部时间" }
-                    option value="this_week" selected[df == "this_week"] { "本周开工" }
-                    option value="overdue" selected[df == "overdue"] { "已逾期" }
-                    option value="next_week" selected[df == "next_week"] { "下周开工" }
-                }
-            } @else if view == "orders" {
-                // 工单筛选：状态 / 物料可用性 / 时间
+            @if view == "orders" {
+                // 工单筛选：状态（含待下达/已排期）/ 物料可用性 / 时间
                 select class="px-2 py-1.5 border border-border rounded-sm text-sm bg-white text-fg cursor-pointer"
                     name="wo_status" {
                     option value="" selected[wos.is_empty()] { "全部状态" }
-                    option value="InProduction" selected[wos == "InProduction"] { "生产中" }
+                    option value="Draft" selected[wos == "Draft"] { "待下达" }
+                    option value="Planned" selected[wos == "Planned"] { "已排期" }
                     option value="Released" selected[wos == "Released"] { "已下达" }
+                    option value="InProduction" selected[wos == "InProduction"] { "生产中" }
                     option value="Closed" selected[wos == "Closed"] { "已完工" }
                 }
                 select class="px-2 py-1.5 border border-border rounded-sm text-sm bg-white text-fg cursor-pointer"
@@ -805,95 +725,7 @@ fn demand_status_label(status: i16) -> Markup {
     }
 }
 
-// ── 订单排期渲染（并入需求池第 3 tab，由 get_demand_card 的 schedule 分支调用）──
-
-fn render_schedule_table(
-    orders: &[WorkOrder],
-    product_names: &HashMap<i64, String>,
-) -> Markup {
-    html! {
-        @if orders.is_empty() {
-            div class="p-8 text-center text-sm text-muted" { "暂无待下达工单" }
-        } @else {
-            div class="overflow-x-auto" {
-                table class="w-full text-sm" {
-                    thead {
-                        tr class="bg-surface-raised text-xs text-muted" {
-                            th class="text-left font-semibold py-2 px-5 uppercase tracking-wide" { "订单号" }
-                            th class="text-left font-semibold py-2 px-3 uppercase tracking-wide" { "产品" }
-                            th class="text-right font-semibold py-2 px-3 uppercase tracking-wide" { "数量" }
-                            th class="text-left font-semibold py-2 px-3 uppercase tracking-wide" { "计划开工→完工" }
-                            th class="text-left font-semibold py-2 px-3 uppercase tracking-wide" { "状态" }
-                            th class="text-right font-semibold py-2 px-5 uppercase tracking-wide" { "操作" }
-                        }
-                    }
-                    tbody {
-                        @for w in orders {
-                            (schedule_row(w, product_names))
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-fn schedule_row(
-    w: &WorkOrder,
-    product_names: &HashMap<i64, String>,
-) -> Markup {
-    let pn = product_names
-        .get(&w.product_id)
-        .map(|s| s.as_str())
-        .unwrap_or("—");
-    let (slabel, stoken) = wo_status_meta(&w.status);
-    let today = chrono::Local::now().date_naive();
-    let overdue = w.scheduled_end < today;
-    let row_cls = if overdue {
-        "border-b border-border-soft bg-warn-bg hover:bg-warn-bg"
-    } else {
-        "border-b border-border-soft hover:bg-accent-bg"
-    };
-    html! {
-        tr class=(row_cls) {
-            td class="py-2.5 px-5 font-mono tabular-nums text-accent font-medium" { (w.doc_number) }
-            td class="py-2.5 px-3 text-fg font-medium" { (pn) }
-            td class="py-2.5 px-3 text-right font-mono tabular-nums" { (fmt_qty(w.planned_qty)) }
-            td class="py-2.5 px-3 text-fg-2 font-mono" {
-                (w.scheduled_start.format("%m-%d")) " → " (w.scheduled_end.format("%m-%d"))
-                @if overdue {
-                    span class="text-danger" { " · 逾期" }
-                }
-            }
-            td class="py-2.5 px-3" {
-                @if overdue {
-                    span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap bg-danger-bg text-danger" {
-                        span class="inline-block w-1.5 h-1.5 rounded-full bg-danger" {}
-                        "逾期"
-                    }
-                } @else {
-                    span class=(format!(
-                        "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap bg-{stoken}-bg text-{stoken}"
-                    )) {
-                        span class=(format!("inline-block w-1.5 h-1.5 rounded-full bg-{stoken}")) {}
-                        (slabel)
-                    }
-                }
-            }
-            td class="py-2.5 px-5 text-right" {
-                button class="inline-flex items-center gap-1.5 py-[5px] px-3 text-[13px] rounded-md bg-accent text-accent-on border-none hover:bg-accent-hover font-medium cursor-pointer transition-all duration-150 shadow-sm hover:shadow"
-                    hx-get=(WcReleaseDrawerPath { order_id: w.id }.to_string())
-                    hx-target="#release-drawer-body" hx-swap="innerHTML"
-                    _="on click halt the event" {
-                    (icon::rocket_icon("w-3.5 h-3.5"))
-                    "下达"
-                }
-            }
-        }
-    }
-}
-
-/// 工单状态 → (标签, 语义色 token)。工单 card / 订单排期共用。
+/// 工单状态 → (标签, 语义色 token)。工单 card 共用。
 fn wo_status_meta(s: &WorkOrderStatus) -> (&'static str, &'static str) {
     use WorkOrderStatus::*;
     match s {

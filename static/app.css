@@ -1317,7 +1317,6 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .hover\:bg-surface:hover{background-color:color-mix(in srgb, var(--surface) var(--un-bg-opacity), transparent) /* var(--surface) */;}
 .hover\:bg-surface\/60:hover{background-color:color-mix(in srgb, var(--surface) 60%, transparent) /* var(--surface) */;}
 .hover\:bg-warn-100:hover{background-color:color-mix(in srgb, var(--warn-100) var(--un-bg-opacity), transparent) /* var(--warn-100) */;}
-.hover\:bg-warn-bg:hover{background-color:color-mix(in srgb, var(--warn-bg) var(--un-bg-opacity), transparent) /* var(--warn-bg) */;}
 .hover\:bg-white\/\[0\.06\]:hover{background-color:color-mix(in srgb, var(--colors-white) 0.06, transparent) /* #fff */;}
 .hover\:bg-white\/30:hover{background-color:color-mix(in srgb, var(--colors-white) 30%, transparent) /* #fff */;}
 .hover\:bg-white\/40:hover{background-color:color-mix(in srgb, var(--colors-white) 40%, transparent) /* #fff */;}
@@ -1711,7 +1710,6 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .hover\:shadow-\[var\(--shadow-sm\)\]:hover{--un-shadow:var(--shadow-sm);box-shadow:var(--un-inset-shadow), var(--un-inset-ring-shadow), var(--un-ring-offset-shadow), var(--un-ring-shadow), var(--un-shadow);}
 .hover\:shadow-md:hover{--un-shadow:0 4px 6px -1px var(--un-shadow-color, rgb(0 0 0 / 0.1)),0 2px 4px -2px var(--un-shadow-color, rgb(0 0 0 / 0.1));box-shadow:var(--un-inset-shadow), var(--un-inset-ring-shadow), var(--un-ring-offset-shadow), var(--un-ring-shadow), var(--un-shadow);}
 .hover\:shadow-sm:hover{--un-shadow:0 1px 3px 0 var(--un-shadow-color, rgb(0 0 0 / 0.1)),0 1px 2px -1px var(--un-shadow-color, rgb(0 0 0 / 0.1));box-shadow:var(--un-inset-shadow), var(--un-inset-ring-shadow), var(--un-ring-offset-shadow), var(--un-ring-shadow), var(--un-shadow);}
-.hover\:shadow:hover{--un-shadow:0 1px 3px 0 var(--un-shadow-color, rgb(0 0 0 / 0.1)),0 1px 2px -1px var(--un-shadow-color, rgb(0 0 0 / 0.1));box-shadow:var(--un-inset-shadow), var(--un-inset-ring-shadow), var(--un-ring-offset-shadow), var(--un-ring-shadow), var(--un-shadow);}
 .focus\:shadow-\[0_0_0_3px_rgba\(22\,119\,255\,0\.15\)\]:focus{--un-shadow:0 0 0 3px var(--un-shadow-color, rgba(22, 119, 255, 0.15));box-shadow:var(--un-inset-shadow), var(--un-inset-ring-shadow), var(--un-ring-offset-shadow), var(--un-ring-shadow), var(--un-shadow);}
 .focus\:shadow-\[var\(--shadow-focus\)\]:focus{--un-shadow:var(--shadow-focus);box-shadow:var(--un-inset-shadow), var(--un-inset-ring-shadow), var(--un-ring-offset-shadow), var(--un-ring-shadow), var(--un-shadow);}
 .after\:shadow-\[0_1px_3px_rgba\(0\,0\,0\,0\.15\)\]::after{--un-shadow:0 1px 3px var(--un-shadow-color, rgba(0, 0, 0, 0.15));box-shadow:var(--un-inset-shadow), var(--un-inset-ring-shadow), var(--un-ring-offset-shadow), var(--un-ring-shadow), var(--un-shadow);}

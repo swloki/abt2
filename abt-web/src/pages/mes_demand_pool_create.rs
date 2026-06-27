@@ -7,10 +7,9 @@ use maud::{html, Markup, PreEscaped};
 use serde::Deserialize;
 
 use abt_core::mes::demand_handler::{
- CreatePlanFromDemandsReq, DemandPoolQuery, DemandSummary, MesDemandService, PlanDemandItemReq,
+ CreateWorkOrdersFromDemandsReq, DemandPoolQuery, DemandSummary, MesDemandService, PlanDemandItemReq,
 };
-use abt_core::mes::enums::PlanStatus;
-use abt_core::mes::production_plan::ProductionPlanService;
+use abt_core::mes::work_order::WorkOrderService;
 use abt_core::shared::types::{DomainError, PageParams};
 
 use crate::components::icon;
@@ -18,7 +17,6 @@ use crate::errors::Result;
 use crate::layout::page::admin_page;
 use crate::routes::mes_demand_pool::*;
 use crate::routes::order::OrderDetailPath;
-use crate::routes::mes_plan::PlanDetailPath;
 use crate::utils::{fmt_qty, RequestContext};
 use abt_macros::require_permission;
 
@@ -155,9 +153,6 @@ pub async fn create_plan_from_demands(
  return Err(DomainError::validation("请至少选择一条生产需求").into());
  }
 
- let plan_date = chrono::NaiveDate::parse_from_str(&form.plan_date, "%Y-%m-%d")
- .map_err(|e| DomainError::validation(format!("无效计划日期格式: {e}")))?;
-
  let default_scheduled_start = form
  .default_scheduled_start
  .as_deref()
@@ -187,40 +182,38 @@ pub async fn create_plan_from_demands(
  .transpose()
  .map_err(|e| DomainError::validation(format!("无效排程参数JSON: {e}")))?;
 
- let create_req = CreatePlanFromDemandsReq {
+ let create_req = CreateWorkOrdersFromDemandsReq {
  demand_ids,
- plan_type: form.plan_type,
- plan_date,
  remark: form.remark,
  items,
  default_scheduled_start,
  default_scheduled_end,
  };
 
- // 整个流程必须在同一事务中：乐观锁(状态1→2) → 创建计划 → 更新 target_doc → 发布事件。
+ // 整个流程必须在同一事务中：乐观锁(状态1→2) → 创建 Draft 工单 → 更新 target_doc → 发布事件。
  // 任一步骤失败需整体回滚，避免需求成为孤儿状态（status=2 但无 target_doc）。
  let mut tx = state.pool.begin().await
  .map_err(|e| DomainError::Internal(e.into()))?;
 
  let svc = state.mes_demand_service();
  let result = svc
- .create_plan_from_demands(&service_ctx, &mut tx, create_req)
+ .create_work_orders_from_demands(&service_ctx, &mut tx, create_req)
  .await?;
 
- // 创建并下达：自动确认 + 下达（同一事务）
+ // 创建并下达：逐个 release 工单（同一事务）
  if form.action.as_deref() == Some("release") {
- let plan_svc = state.production_plan_service();
- let plan = plan_svc.find_by_id(&service_ctx, &mut tx, result.doc_id).await?;
- if plan.status == PlanStatus::Draft {
- plan_svc.confirm(&service_ctx, &mut tx, result.doc_id).await?;
+ let wo_svc = state.work_order_service();
+ for &wo_id in &result.wo_ids {
+ let wo = wo_svc.find_by_id(&service_ctx, &mut tx, wo_id).await?;
+ wo_svc.release(&service_ctx, &mut tx, wo_id, wo.version).await?;
  }
- plan_svc.release_to_work_orders(&service_ctx, &mut tx, result.doc_id).await?;
  }
 
  tx.commit().await
  .map_err(|e| DomainError::Internal(e.into()))?;
 
- let redirect = PlanDetailPath { id: result.doc_id }.to_string();
+ // 扁平化：重定向回需求池（PP 详情已废弃）
+ let redirect = MesDemandPoolListPath.to_string();
  Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }
 

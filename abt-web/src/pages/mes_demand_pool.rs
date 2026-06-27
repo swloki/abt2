@@ -720,10 +720,10 @@ fn detail_batch_bar() -> Markup {
             span {
                 "已选 "
                 span class="batch-count inline-block px-2 rounded-full bg-white/15 font-mono font-bold" { "0" }
-                " 条需求 · 可合并为生产订单"
+                " 条需求 · 可创建工单"
             }
             a class="batch-create-btn ml-auto inline-flex items-center gap-2 py-[5px] px-3 text-[13px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover font-medium cursor-pointer transition-all duration-150 no-underline"
-                href=(MesDemandPoolCreatePath::PATH) { "合并为生产订单" }
+                href=(MesDemandPoolCreatePath::PATH) { "创建工单" }
             button class="batch-clear-btn inline-flex items-center gap-2 py-[5px] px-3 text-[13px] rounded-sm border border-[rgba(255,255,255,0.15)] text-[rgba(255,255,255,0.7)] hover:text-white hover:bg-[rgba(255,255,255,0.1)] bg-transparent font-medium cursor-pointer transition-all duration-150"
                 type="button" { "清除选择" }
         }

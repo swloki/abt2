@@ -82,3 +82,39 @@ async fn wc_batch_advance_nonexistent_404() {
         .await;
     assert_eq!(resp.status, axum::http::StatusCode::NOT_FOUND);
 }
+
+/// batch start 不存在批次 → 404
+#[tokio::test]
+async fn wc_batch_start_nonexistent_404() {
+    let app = TestApp::new().await;
+    let resp = app
+        .post_htmx("/admin/mes/work-center/batches/99999999/start", "")
+        .await;
+    assert_eq!(resp.status, axum::http::StatusCode::NOT_FOUND);
+}
+
+/// batch requisition 不存在批次 → 404
+#[tokio::test]
+async fn wc_batch_requisition_nonexistent_404() {
+    let app = TestApp::new().await;
+    let resp = app
+        .post_htmx(
+            "/admin/mes/work-center/batches/99999999/requisition",
+            "routing_id=1",
+        )
+        .await;
+    assert_eq!(resp.status, axum::http::StatusCode::NOT_FOUND);
+}
+
+/// batch receipt 不存在批次 → 404
+#[tokio::test]
+async fn wc_batch_receipt_nonexistent_404() {
+    let app = TestApp::new().await;
+    let resp = app
+        .post_htmx(
+            "/admin/mes/work-center/batches/99999999/receipt",
+            "warehouse_id=1&received_qty=1&receipt_date=2026-06-28",
+        )
+        .await;
+    assert_eq!(resp.status, axum::http::StatusCode::NOT_FOUND);
+}

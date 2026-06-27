@@ -54,13 +54,6 @@ pub trait WorkOrderService: Send + Sync {
         page: u32,
         page_size: u32,
     ) -> Result<PaginatedResult<WorkOrder>>;
-    /// 按生产计划 ID 查询关联工单
-    async fn list_by_plan(
-        &self,
-        ctx: &ServiceContext,
-        db: PgExecutor<'_>,
-        plan_id: i64,
-    ) -> Result<Vec<WorkOrder>>;
 
     /// 工单工作台聚合视图：单次返回 detail-header + 摘要带 + 6 disclosure 全部数据。
     async fn get_hub_summary(

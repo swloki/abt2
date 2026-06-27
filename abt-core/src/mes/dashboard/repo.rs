@@ -8,7 +8,6 @@ impl DashboardRepo {
     pub async fn get_stats(executor: &mut sqlx::postgres::PgConnection) -> Result<DashboardStats> {
         let stats = sqlx::query_as::<_, DashboardStats>(
             "SELECT \
-             (SELECT COUNT(*) FROM production_plans) AS plan_count, \
              (SELECT COUNT(*) FROM work_orders WHERE status IN (2,3)) AS active_order_count, \
              (SELECT COUNT(*) FROM production_batches WHERE status IN (1,2,3,4)) AS active_batch_count, \
              (SELECT COUNT(*) FROM production_receipts WHERE status = 1) AS pending_receipt_count, \
@@ -92,9 +91,6 @@ impl DashboardRepo {
     pub async fn get_quick_entry_stats(
         executor: &mut sqlx::postgres::PgConnection,
     ) -> Result<QuickEntryStats> {
-        let plan_total: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM production_plans")
-            .fetch_one(&mut *executor)
-            .await?;
         let order_active: (i64,) =
             sqlx::query_as("SELECT COUNT(*) FROM work_orders WHERE status IN (2,3)")
                 .fetch_one(&mut *executor)
@@ -123,7 +119,6 @@ impl DashboardRepo {
                 .await?;
 
         Ok(QuickEntryStats {
-            plan_total: plan_total.0,
             order_active: order_active.0,
             batch_active: batch_active.0,
             report_month: report_month.0,

@@ -297,42 +297,6 @@ impl WorkOrderRepo {
         .await?;
         Ok(())
     }
-    /// 按生产计划 ID 查询关联工单（通过 plan_item_id JOIN production_plan_items）
-    pub async fn list_by_plan(
-        executor: &mut sqlx::postgres::PgConnection,
-        plan_id: i64,
-    ) -> Result<Vec<WorkOrder>> {
-        let rows = sqlx::query(
-            r#"
-            SELECT wo.id, wo.doc_number, wo.plan_item_id, wo.product_id, wo.bom_snapshot_id, wo.routing_id,
-                   wo.planned_qty, wo.scheduled_start, wo.scheduled_end, wo.status, wo.work_center_id,
-                   wo.sales_order_id, wo.version, wo.remark, wo.operator_id, wo.created_at, wo.updated_at,
-                   wo.completed_qty, wo.scrap_qty, wo.deleted_at,
-                   (SELECT COUNT(*)::int FROM work_order_routings r WHERE r.work_order_id = wo.id) AS total_steps,
-                   (SELECT COUNT(DISTINCT brp.routing_id)::int
-                    FROM batch_routing_progress brp
-                    JOIN production_batches pb ON pb.id = brp.batch_id
-                    WHERE pb.work_order_id = wo.id AND pb.deleted_at IS NULL AND brp.status = 3) AS completed_steps,
-                   pp.id AS source_plan_id, pp.doc_number AS source_plan_doc,
-                   so.doc_number AS source_so_doc, c.customer_name AS source_customer
-            FROM work_orders wo
-            LEFT JOIN production_plan_items ppi ON ppi.id = wo.plan_item_id
-            LEFT JOIN production_plans pp ON pp.id = ppi.plan_id
-            LEFT JOIN sales_orders so ON so.id = wo.sales_order_id
-            LEFT JOIN customers c ON c.customer_id = so.customer_id
-            WHERE wo.plan_item_id IN (SELECT id FROM production_plan_items WHERE plan_id = $1)
-              AND wo.deleted_at IS NULL
-            ORDER BY wo.id
-            "#,
-        )
-        .bind(plan_id)
-        .fetch_all(&mut *executor)
-        .await?;
-
-        rows.iter()
-            .map(|r| WorkOrder::from_row(r).map_err(Into::into))
-            .collect()
-    }
 
     /// 条件状态更新（无乐观锁，用于事务内传播）。
     /// 仅当当前状态匹配 from 时才更新为 to，返回是否实际更新。

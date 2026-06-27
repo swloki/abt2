@@ -633,16 +633,6 @@ impl WorkOrderService for WorkOrderServiceImpl {
         .map_err(|e| DomainError::Internal(e.into()))?;
         Ok(row.map(|r| r.0))
     }
-    async fn list_by_plan(
-        &self,
-        _ctx: &ServiceContext,
-        db: PgExecutor<'_>,
-        plan_id: i64,
-    ) -> Result<Vec<WorkOrder>> {
-        WorkOrderRepo::list_by_plan(&mut *db, plan_id)
-            .await
-            .map_err(|e| DomainError::Internal(e.into()))
-    }
 
     /// 工单工作台聚合视图（`get_hub_summary`）。
     ///

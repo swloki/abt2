@@ -167,6 +167,12 @@ p { margin: 0; }
 .cat-row.cat-active { background-color: var(--accent-bg); }
 .cat-row.cat-active::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--accent); border-top-right-radius: 0.125rem; }
 .cat-row.cat-active > .cat-name { color: var(--accent); font-weight: 600; }
+/* rail-item: 侧边栏第一级（Icon Rail）模块激活态——背景 + 左竖条 + 文字/icon 色联动。
+   单 class 便于 hyperscript take .active 整体切换；important 压住基础 class 的 hover，
+   避免激活态下 hover 闪烁。icon 用后代选择器着 accent（act:icon: 嵌套不可靠，见 uno variants）。 */
+.rail-item.active { color: #fff !important; background-color: rgba(37, 99, 235, 0.15) !important; }
+.rail-item.active::before { content: ''; position: absolute; left: -4px; top: 50%; transform: translateY(-50%); width: 3px; height: 20px; background: var(--accent); border-top-right-radius: 0.125rem; }
+.rail-item.active [class*=i-lucide] { color: var(--accent); }
 /* Global select: custom chevron (matches prototype .filter-select) */
 select {
   appearance: none;

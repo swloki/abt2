@@ -2351,7 +2351,7 @@ fn render_batch_drawer_body(
         @if can_report {
             form hx-post=(WcBatchReportPath { batch_id: batch.id }.to_string())
                 hx-swap="none"
-                _="on batchChanged from body remove .open from #batch-overlay" {
+                hx-on:htmx:after-request="if(event.detail.successful) document.querySelector('#batch-overlay').classList.remove('open')" {
                 div class="text-sm font-semibold text-fg mb-2" { "报工" }
                 div class="mb-3" {
                     label class="block text-xs text-fg-2 mb-1" { "工序" }
@@ -2417,7 +2417,7 @@ fn render_batch_drawer_body(
             div class="flex flex-wrap gap-2" {
                 @if can_start {
                     form hx-post=(WcBatchStartPath { batch_id: batch.id }.to_string()) hx-swap="none"
-                        _="on batchChanged from body remove .open from #batch-overlay" {
+                        hx-on:htmx:after-request="if(event.detail.successful) document.querySelector('#batch-overlay').classList.remove('open')" {
                         button type="submit" class="px-3 py-1.5 rounded-sm bg-accent text-accent-on border-none text-xs font-medium cursor-pointer hover:bg-accent-hover transition-all"
                             hx-confirm="开工该批次（待开工 → 进行中）？" { "开工" }
                     }
@@ -2436,7 +2436,7 @@ fn render_batch_drawer_body(
                 }
                 @if can_suspend {
                     form hx-post=(WcBatchSuspendPath { batch_id: batch.id }.to_string()) hx-swap="none"
-                        _="on batchChanged from body remove .open from #batch-overlay" {
+                        hx-on:htmx:after-request="if(event.detail.successful) document.querySelector('#batch-overlay').classList.remove('open')" {
                         input type="hidden" name="reason" value="手动暂停";
                         button type="submit" class="px-3 py-1.5 rounded-sm border border-border text-xs font-medium text-fg-2 cursor-pointer hover:bg-warn-bg hover:border-warn hover:text-warn transition-all"
                             hx-confirm="暂停该批次？" { "暂停" }
@@ -2444,20 +2444,20 @@ fn render_batch_drawer_body(
                 }
                 @if can_resume {
                     form hx-post=(WcBatchResumePath { batch_id: batch.id }.to_string()) hx-swap="none"
-                        _="on batchChanged from body remove .open from #batch-overlay" {
+                        hx-on:htmx:after-request="if(event.detail.successful) document.querySelector('#batch-overlay').classList.remove('open')" {
                         button type="submit" class="px-3 py-1.5 rounded-sm border border-border text-xs font-medium text-fg-2 cursor-pointer hover:bg-accent-bg hover:border-accent hover:text-accent transition-all" { "恢复生产" }
                     }
                 }
                 @if can_advance {
                     form hx-post=(WcBatchAdvancePath { batch_id: batch.id }.to_string()) hx-swap="none"
-                        _="on batchChanged from body remove .open from #batch-overlay" {
+                        hx-on:htmx:after-request="if(event.detail.successful) document.querySelector('#batch-overlay').classList.remove('open')" {
                         button type="submit" class="px-3 py-1.5 rounded-sm border border-border text-xs font-medium text-fg-2 cursor-pointer hover:bg-accent-bg hover:border-accent hover:text-accent transition-all"
                             hx-confirm="推进该批次到待入库状态？" { "推进入库" }
                     }
                 }
                 @if can_scrap {
                     form hx-post=(WcBatchScrapPath { batch_id: batch.id }.to_string()) hx-swap="none"
-                        _="on batchChanged from body remove .open from #batch-overlay" {
+                        hx-on:htmx:after-request="if(event.detail.successful) document.querySelector('#batch-overlay').classList.remove('open')" {
                         input type="hidden" name="reason" value="手动报废";
                         button type="submit" class="px-3 py-1.5 rounded-sm border border-border text-xs font-medium text-fg-2 cursor-pointer hover:bg-danger-bg hover:border-danger hover:text-danger transition-all"
                             hx-confirm="报废该批次？此操作不可撤销" { "报废" }
@@ -2694,7 +2694,7 @@ fn render_batch_req_drawer_body(
                     }
                     @if r.product_id.is_some() {
                         form hx-post=(WcBatchReqPath { batch_id: batch.id }.to_string()) hx-swap="none"
-                            _="on batchChanged from body remove .open from #batch-req-overlay" {
+                            hx-on:htmx:after-request="if(event.detail.successful) document.querySelector('#batch-req-overlay').classList.remove('open')" {
                             input type="hidden" name="routing_id" value=(r.id);
                             button type="submit"
                                 class="px-3 py-1.5 rounded-sm bg-accent text-accent-on border-none text-xs font-medium cursor-pointer hover:bg-accent-hover transition-all" {
@@ -2783,7 +2783,7 @@ fn render_batch_receipt_drawer_body(
         }
         form hx-post=(WcBatchReceiptPath { batch_id: batch.id }.to_string())
             hx-swap="none"
-            _="on batchChanged from body remove .open from #batch-receipt-overlay" {
+            hx-on:htmx:after-request="if(event.detail.successful) document.querySelector('#batch-receipt-overlay').classList.remove('open')" {
             div class="grid grid-cols-2 gap-3 mb-3" {
                 div {
                     label class="block text-xs text-fg-2 mb-1" { "入库数量" }

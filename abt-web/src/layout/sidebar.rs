@@ -553,14 +553,15 @@ pub fn sidebar(claims: &Claims, active_module: &str, current_path: &str, filter:
                             @let is_initial_active = active_mod
                                 .is_some_and(|am| m.id == am.id);
                             @let hx_url = format!("/sidebar/body/{}", m.id);
+                            // 激活态视觉统一由 preflight `.rail-item.active` 驱动（背景+竖条+文字/icon 联动），
+                            // 这样初始渲染（带 active）与点击切换（hyperscript take .active）走同一条路径，
+                            // 避免旧双分支下「未激活分支无 act: 样式 → 点击后无激活态」的根因。
+                            @let rail_cls = format!(
+                                "rail-item{} w-[44px] flex flex-col items-center gap-[3px] py-2 px-0 pb-[6px] border-none bg-transparent rounded-sm text-white/40 cursor-pointer transition-all duration-150 relative hover:text-white/85 hover:bg-white/[0.06]",
+                                if is_initial_active { " active" } else { "" }
+                            );
                             button
-                                class=({
-                                    if is_initial_active {
-                                        "rail-item active w-[44px] flex flex-col items-center gap-[3px] py-2 px-0 pb-[6px] border-none bg-transparent rounded-sm text-white cursor-pointer transition-all duration-150 relative act:bg-[rgba(37,99,235,0.15)] act:before:content-[''] act:before:absolute act:before:left-[-4px] act:before:top-1/2 act:before:-translate-y-1/2 act:before:w-[3px] act:before:h-5 act:before:bg-accent act:before:rounded-r-sm icon:text-accent"
-                                    } else {
-                                        "rail-item w-[44px] flex flex-col items-center gap-[3px] py-2 px-0 pb-[6px] border-none bg-transparent rounded-sm text-white/40 cursor-pointer transition-all duration-150 relative hover:text-white/85 hover:bg-white/[0.06]"
-                                    }
-                                })
+                                class=(rail_cls)
                                 hx-get=(hx_url)
                                 hx-target=".sidebar-body"
                                 hx-swap="innerHTML"

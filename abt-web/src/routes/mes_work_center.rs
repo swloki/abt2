@@ -156,6 +156,14 @@ pub struct WcBatchReceiptPath {
     pub batch_id: i64,
 }
 
+/// 批次工序缺料明细（齐套徽章展开）。
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/mes/work-center/batches/{batch_id}/routings/{routing_id}/shortage")]
+pub struct WcBatchShortagePath {
+    pub batch_id: i64,
+    pub routing_id: i64,
+}
+
 // ── Router ──
 
 pub fn router() -> Router<AppState> {
@@ -203,4 +211,8 @@ pub fn router() -> Router<AppState> {
             get(mes_work_center::get_batch_receipt_drawer),
         )
         .route(WcBatchReceiptPath::PATH, post(mes_work_center::batch_receipt))
+        .route(
+            WcBatchShortagePath::PATH,
+            get(mes_work_center::get_batch_shortage),
+        )
 }

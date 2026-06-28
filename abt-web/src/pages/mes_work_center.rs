@@ -2110,6 +2110,25 @@ pub async fn release_order(
             )
             .into());
         }
+        // #124 加强：每道工序必须配置产出品 + 计件单价（工序级领料依赖产出品）
+        for r in &routings {
+            if r.product_id.is_none() {
+                return Err(DomainError::BusinessRule(format!(
+                    "工序 {}「{}」未配置产出品，无法下达（请先编辑工序配上产出品）",
+                    r.step_no,
+                    r.process_name
+                ))
+                .into());
+            }
+            if r.unit_price.is_none() || r.unit_price == Some(Decimal::ZERO) {
+                return Err(DomainError::BusinessRule(format!(
+                    "工序 {}「{}」未配置计件单价，无法下达",
+                    r.step_no,
+                    r.process_name
+                ))
+                .into());
+            }
+        }
         wo_svc
             .release(&service_ctx, &mut tx, path.order_id, order.version)
             .await?;
@@ -2303,8 +2322,35 @@ pub async fn get_batch_drawer(
         .list_routings(&service_ctx, &mut conn, batch.work_order_id)
         .await
         .unwrap_or_default();
+    // 每道工序产出品的物料齐套（#124 工序级齐套）
+    let mut step_avails: HashMap<i64, abt_core::mes::work_order::MaterialAvailability> =
+        HashMap::new();
+    for r in &routings {
+        if r.product_id.is_some()
+            && let Ok(avail) = wo_svc
+                .compute_step_availability(
+                    &service_ctx,
+                    &mut conn,
+                    batch.work_order_id,
+                    r.id,
+                    Some(batch.id),
+                )
+                .await
+        {
+            step_avails.insert(r.id, avail);
+        }
+    }
+    // 工作中心 id→name
+    let wc_map: HashMap<i64, String> = new_work_center_service(state.pool.clone())
+        .list_active(&service_ctx, &mut conn)
+        .await
+        .unwrap_or_default()
+        .into_iter()
+        .map(|wc| (wc.id, wc.name))
+        .collect();
     Ok(Html(
-        render_batch_drawer_body(&batch, &order, &product_name, &routings).into_string(),
+        render_batch_drawer_body(&batch, &order, &product_name, &routings, &step_avails, &wc_map)
+            .into_string(),
     ))
 }
 
@@ -2313,20 +2359,18 @@ fn render_batch_drawer_body(
     order: &WorkOrder,
     product_name: &str,
     routings: &[WorkOrderRouting],
+    step_avails: &HashMap<i64, abt_core::mes::work_order::MaterialAvailability>,
+    wc_map: &HashMap<i64, String>,
 ) -> Markup {
     let (slabel, stoken) = batch_status_meta(&batch.status);
     let can_start = matches!(batch.status, BatchStatus::Pending);
-    let can_report = matches!(batch.status, BatchStatus::InProgress);
-    let can_req = matches!(batch.status, BatchStatus::Pending | BatchStatus::InProgress);
     let can_suspend = matches!(batch.status, BatchStatus::InProgress);
     let can_resume = matches!(batch.status, BatchStatus::Suspended);
     let can_scrap = matches!(batch.status, BatchStatus::InProgress | BatchStatus::Suspended);
-    let can_advance = matches!(batch.status, BatchStatus::InProgress | BatchStatus::Suspended);
     let can_receipt = matches!(batch.status, BatchStatus::PendingReceipt);
-    let today = chrono::Local::now().format("%Y-%m-%d").to_string();
     html! {
         // 批次信息头
-        div class="mb-5 pb-4 border-b border-border-soft" {
+        div class="mb-4 pb-3 border-b border-border-soft" {
             div class="flex items-center gap-2 mb-1" {
                 span class="text-xs text-muted" { "流转卡" }
                 span class="font-mono font-semibold text-fg" { (batch.card_sn.as_str()) }
@@ -2335,132 +2379,212 @@ fn render_batch_drawer_body(
                     (slabel)
                 }
             }
-            div class="text-sm text-fg-2" {
-                (product_name) " · " (fmt_qty(batch.batch_qty)) " 件"
-            }
-            div class="text-xs text-muted font-mono mt-1" {
-                "工单 " (order.doc_number.as_str()) " · 批次号 " (batch.batch_no.as_str())
-            }
-            div class="text-xs text-muted mt-1" {
-                "进度 " (fmt_qty(batch.completed_qty)) "/" (fmt_qty(batch.batch_qty))
-                " 件 · 当前工序 " (batch.current_step) "/" (routings.len() as i32)
+            div class="text-xs text-muted leading-relaxed" {
+                (product_name) " · " (fmt_qty(batch.batch_qty)) " 件 · 工单 " (order.doc_number.as_str())
+                br;
+                "进度 " (fmt_qty(batch.completed_qty)) "/" (fmt_qty(batch.batch_qty)) " 件 · 工序 " (batch.current_step) "/" (routings.len() as i32)
             }
         }
 
-        // 报工表单（仅 Pending/InProgress）
-        @if can_report {
-            form hx-post=(WcBatchReportPath { batch_id: batch.id }.to_string())
-                hx-swap="none"
-                hx-on:htmx:after-request="if(event.detail.successful) document.querySelector('#batch-overlay').classList.remove('open')" {
-                div class="text-sm font-semibold text-fg mb-2" { "报工" }
-                div class="mb-3" {
-                    label class="block text-xs text-fg-2 mb-1" { "工序" }
-                    select name="step_no" class="w-full px-2 py-1.5 border border-border rounded-sm text-sm bg-white outline-none focus:border-accent" {
-                        @for r in routings {
-                            option value=(r.step_no) selected[r.step_no == batch.current_step] {
-                                (r.step_no) ". " (r.process_name.as_str())
-                            }
-                        }
+        // 工序流转矩阵（#124 v1 矩阵）
+        div class="overflow-x-auto mb-4" {
+            table class="w-full text-sm" {
+                thead {
+                    tr class="bg-surface-raised text-xs text-muted" {
+                        th class="text-left font-semibold py-2 px-3" { "工序" }
+                        th class="text-left font-semibold py-2 px-3" { "①齐套分析" }
+                        th class="text-left font-semibold py-2 px-3" { "②领料" }
+                        th class="text-left font-semibold py-2 px-3" { "③报工" }
                     }
                 }
-                div class="grid grid-cols-2 gap-3 mb-3" {
-                    div {
-                        label class="block text-xs text-fg-2 mb-1" { "本次完成量" }
-                        input type="number" step="0.01" min="0" name="completed_qty"
-                            class="w-full px-2 py-1.5 border border-border rounded-sm text-sm font-mono text-right bg-white outline-none focus:border-accent" {};
+                tbody {
+                    @if routings.is_empty() {
+                        tr { td colspan="4" class="text-center text-muted py-6" { "该工单尚无工序" } }
                     }
-                    div {
-                        label class="block text-xs text-fg-2 mb-1" { "不良量" }
-                        input type="number" step="0.01" min="0" name="defect_qty" value="0"
-                            class="w-full px-2 py-1.5 border border-border rounded-sm text-sm font-mono text-right bg-white outline-none focus:border-accent" {};
-                    }
-                }
-                div class="grid grid-cols-3 gap-3 mb-3" {
-                    div {
-                        label class="block text-xs text-fg-2 mb-1" { "报工人 ID" }
-                        input type="number" name="worker_id"
-                            class="w-full px-2 py-1.5 border border-border rounded-sm text-sm font-mono bg-white outline-none focus:border-accent" {};
-                    }
-                    div {
-                        label class="block text-xs text-fg-2 mb-1" { "班次" }
-                        select name="shift" class="w-full px-2 py-1.5 border border-border rounded-sm text-sm bg-white outline-none focus:border-accent" {
-                            option value="1" selected { "白班" }
-                            option value="2" { "夜班" }
-                        }
-                    }
-                    div {
-                        label class="block text-xs text-fg-2 mb-1" { "工时(h)" }
-                        input type="number" step="0.1" min="0" name="work_hours" value="8"
-                            class="w-full px-2 py-1.5 border border-border rounded-sm text-sm font-mono text-right bg-white outline-none focus:border-accent" {};
-                    }
-                }
-                div class="mb-3" {
-                    label class="block text-xs text-fg-2 mb-1" { "报工日期" }
-                    input type="date" name="report_date" value=(today)
-                        class="w-full px-2 py-1.5 border border-border rounded-sm text-sm bg-white outline-none focus:border-accent" {};
-                }
-                div class="flex justify-end" {
-                    button type="submit"
-                        class="px-3.5 py-2 rounded-sm bg-accent text-accent-on border-none text-sm font-medium cursor-pointer hover:bg-accent-hover" {
-                        "确认报工"
+                    @for r in routings {
+                        (render_batch_matrix_row(batch, r, step_avails, wc_map))
                     }
                 }
             }
         }
 
-        // 状态操作（按 BatchStatus 门控）
-        div class="mt-5 pt-4 border-t border-border-soft" {
-            div class="text-sm font-semibold text-fg mb-2" { "状态操作" }
-            @if !can_start && !can_req && !can_suspend && !can_resume && !can_advance && !can_scrap && !can_receipt {
-                div class="text-xs text-muted" { "当前状态无可执行操作" }
+        // 底部状态操作 + 入库
+        div class="pt-3 border-t border-border-soft flex flex-wrap items-center gap-2" {
+            @if can_start {
+                form hx-post=(WcBatchStartPath { batch_id: batch.id }.to_string()) hx-swap="none"
+                    hx-on:htmx:after-request="if(event.detail.successful) document.querySelector('#batch-overlay').classList.remove('open')" {
+                    button type="submit" class="px-3 py-1.5 rounded-sm bg-accent text-accent-on border-none text-xs font-medium cursor-pointer hover:bg-accent-hover"
+                        hx-confirm="开工该批次？" { "开工" }
+                }
             }
-            div class="flex flex-wrap gap-2" {
-                @if can_start {
-                    form hx-post=(WcBatchStartPath { batch_id: batch.id }.to_string()) hx-swap="none"
-                        hx-on:htmx:after-request="if(event.detail.successful) document.querySelector('#batch-overlay').classList.remove('open')" {
-                        button type="submit" class="px-3 py-1.5 rounded-sm bg-accent text-accent-on border-none text-xs font-medium cursor-pointer hover:bg-accent-hover transition-all"
-                            hx-confirm="开工该批次（待开工 → 进行中）？" { "开工" }
-                    }
+            @if can_suspend {
+                form hx-post=(WcBatchSuspendPath { batch_id: batch.id }.to_string()) hx-swap="none"
+                    hx-on:htmx:after-request="if(event.detail.successful) document.querySelector('#batch-overlay').classList.remove('open')" {
+                    input type="hidden" name="reason" value="手动暂停";
+                    button type="submit" class="px-3 py-1.5 rounded-sm border border-border text-xs font-medium text-fg-2 cursor-pointer hover:bg-warn-bg hover:text-warn"
+                        hx-confirm="暂停？" { "暂停" }
                 }
-                @if can_req {
-                    button class="px-3 py-1.5 rounded-sm border border-border text-xs font-medium text-fg-2 cursor-pointer hover:bg-accent-bg hover:border-accent hover:text-accent transition-all"
-                        hx-get=(WcBatchReqDrawerPath { batch_id: batch.id }.to_string())
-                        hx-target="#batch-req-drawer-body" hx-swap="innerHTML"
-                        _="on click halt the event" { "领料" }
+            }
+            @if can_resume {
+                form hx-post=(WcBatchResumePath { batch_id: batch.id }.to_string()) hx-swap="none"
+                    hx-on:htmx:after-request="if(event.detail.successful) document.querySelector('#batch-overlay').classList.remove('open')" {
+                    button type="submit" class="px-3 py-1.5 rounded-sm border border-border text-xs font-medium text-fg-2 cursor-pointer hover:bg-accent-bg hover:text-accent" { "恢复" }
                 }
+            }
+            @if can_scrap {
+                form hx-post=(WcBatchScrapPath { batch_id: batch.id }.to_string()) hx-swap="none"
+                    hx-on:htmx:after-request="if(event.detail.successful) document.querySelector('#batch-overlay').classList.remove('open')" {
+                    input type="hidden" name="reason" value="手动报废";
+                    button type="submit" class="px-3 py-1.5 rounded-sm border border-border text-xs font-medium text-fg-2 cursor-pointer hover:bg-danger-bg hover:text-danger"
+                        hx-confirm="报废？不可撤销" { "报废" }
+                }
+            }
+            div class="ml-auto flex items-center gap-2" {
                 @if can_receipt {
-                    button class="px-3 py-1.5 rounded-sm border border-border text-xs font-medium text-fg-2 cursor-pointer hover:bg-success-bg hover:border-success hover:text-success transition-all"
+                    button class="px-3 py-1.5 rounded-sm bg-success text-white border-none text-xs font-medium cursor-pointer hover:opacity-90"
                         hx-get=(WcBatchReceiptDrawerPath { batch_id: batch.id }.to_string())
                         hx-target="#batch-receipt-drawer-body" hx-swap="innerHTML"
                         _="on click halt the event" { "入库" }
+                } @else {
+                    span class="text-xs text-muted" { "工序全部报工后可入库" }
                 }
-                @if can_suspend {
-                    form hx-post=(WcBatchSuspendPath { batch_id: batch.id }.to_string()) hx-swap="none"
-                        hx-on:htmx:after-request="if(event.detail.successful) document.querySelector('#batch-overlay').classList.remove('open')" {
-                        input type="hidden" name="reason" value="手动暂停";
-                        button type="submit" class="px-3 py-1.5 rounded-sm border border-border text-xs font-medium text-fg-2 cursor-pointer hover:bg-warn-bg hover:border-warn hover:text-warn transition-all"
-                            hx-confirm="暂停该批次？" { "暂停" }
+            }
+        }
+    }
+}
+
+/// 物料可用性四级 → (标签, 语义色 token)。
+fn avail_meta(level: &abt_core::mes::work_order::MaterialAvailabilityLevel) -> (&'static str, &'static str) {
+    use abt_core::mes::work_order::MaterialAvailabilityLevel::*;
+    match level {
+        Available => ("✅ 齐套", "success"),
+        Expected => ("🟡 在途", "warning"),
+        Late => ("🟠 迟料", "warn"),
+        Unavailable => ("🔴 欠缺", "danger"),
+    }
+}
+
+/// 矩阵行：工序 | 齐套徽章 | 领料 | 报工（#124）。
+fn render_batch_matrix_row(
+    batch: &ProductionBatch,
+    r: &WorkOrderRouting,
+    step_avails: &HashMap<i64, abt_core::mes::work_order::MaterialAvailability>,
+    wc_map: &HashMap<i64, String>,
+) -> Markup {
+    use abt_core::mes::work_order::MaterialAvailabilityLevel;
+    let wc_name = r
+        .work_center_id
+        .and_then(|id| wc_map.get(&id))
+        .map(String::as_str)
+        .unwrap_or("—");
+    let (alabel, atoken, shortage_n) = match step_avails.get(&r.id) {
+        Some(a) => {
+            let n = a
+                .lines
+                .iter()
+                .filter(|l| matches!(l.level, MaterialAvailabilityLevel::Unavailable | MaterialAvailabilityLevel::Late))
+                .count();
+            let (lb, tk) = avail_meta(&a.level);
+            (lb, tk, n)
+        }
+        None => ("散料", "muted", 0),
+    };
+    let report_state = if r.step_no < batch.current_step {
+        "✅ 已完成"
+    } else if r.step_no == batch.current_step && matches!(batch.status, BatchStatus::InProgress) {
+        "🔵 进行中"
+    } else {
+        "—"
+    };
+    let can_act = matches!(batch.status, BatchStatus::Pending | BatchStatus::InProgress);
+    html! {
+        tr class="border-b border-border-soft align-top" {
+            td class="py-2.5 px-3" {
+                div class="font-medium text-fg" { (r.step_no) ". " (r.process_name.as_str()) }
+                div class="text-xs text-muted mt-0.5" { (wc_name) }
+            }
+            td class="py-2.5 px-3" {
+                @if shortage_n > 0 {
+                    button class=(format!("inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap bg-{atoken}-bg text-{atoken} cursor-pointer hover:opacity-80 transition-opacity"))
+                        hx-get=(WcBatchShortagePath { batch_id: batch.id, routing_id: r.id }.to_string())
+                        hx-target=(format!("#batch-shortage-{}-{}", batch.id, r.id))
+                        hx-swap="innerHTML"
+                        _="on click halt the event" {
+                        (alabel) " 欠" (shortage_n) "项 ▾"
+                    }
+                    div id=(format!("batch-shortage-{}-{}", batch.id, r.id)) class="mt-2" {}
+                } @else {
+                    span class=(format!("inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap bg-{atoken}-bg text-{atoken}")) { (alabel) }
+                }
+            }
+            td class="py-2.5 px-3" {
+                @if can_act {
+                    button class="text-xs px-2 py-1 rounded-sm border border-border text-fg-2 hover:bg-accent-bg hover:text-accent cursor-pointer transition-all"
+                        hx-get=(WcBatchReqDrawerPath { batch_id: batch.id }.to_string())
+                        hx-target="#batch-req-drawer-body" hx-swap="innerHTML"
+                        _="on click halt the event" {
+                        "领料"
+                    }
+                } @else {
+                    span class="text-xs text-muted" { "—" }
+                }
+            }
+            td class="py-2.5 px-3 text-xs text-fg-2" { (report_state) }
+        }
+    }
+}
+
+/// 批次工序缺料明细（#124）：展开该工序产出品子 BOM 的物料可用性明细。
+#[require_permission("WORK_ORDER", "read")]
+pub async fn get_batch_shortage(
+    path: WcBatchShortagePath,
+    ctx: RequestContext,
+) -> Result<Html<String>> {
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let batch_svc = state.production_batch_service();
+    let batch = batch_svc.find_by_id(&service_ctx, &mut conn, path.batch_id).await?;
+    let avail = state
+        .work_order_service()
+        .compute_step_availability(
+            &service_ctx,
+            &mut conn,
+            batch.work_order_id,
+            path.routing_id,
+            Some(path.batch_id),
+        )
+        .await?;
+    Ok(Html(render_shortage_detail(&avail).into_string()))
+}
+
+/// 缺料明细表（物料×需求×库存×在途×状态）。
+fn render_shortage_detail(avail: &abt_core::mes::work_order::MaterialAvailability) -> Markup {
+    html! {
+        div class="rounded-sm border border-border-soft overflow-hidden" {
+            table class="w-full text-xs" {
+                thead {
+                    tr class="bg-surface text-muted" {
+                        th class="text-left font-medium py-1.5 px-2" { "物料" }
+                        th class="text-right font-medium py-1.5 px-2" { "需求" }
+                        th class="text-right font-medium py-1.5 px-2" { "库存" }
+                        th class="text-right font-medium py-1.5 px-2" { "在途" }
+                        th class="text-right font-medium py-1.5 px-2" { "状态" }
                     }
                 }
-                @if can_resume {
-                    form hx-post=(WcBatchResumePath { batch_id: batch.id }.to_string()) hx-swap="none"
-                        hx-on:htmx:after-request="if(event.detail.successful) document.querySelector('#batch-overlay').classList.remove('open')" {
-                        button type="submit" class="px-3 py-1.5 rounded-sm border border-border text-xs font-medium text-fg-2 cursor-pointer hover:bg-accent-bg hover:border-accent hover:text-accent transition-all" { "恢复生产" }
-                    }
-                }
-                @if can_advance {
-                    form hx-post=(WcBatchAdvancePath { batch_id: batch.id }.to_string()) hx-swap="none"
-                        hx-on:htmx:after-request="if(event.detail.successful) document.querySelector('#batch-overlay').classList.remove('open')" {
-                        button type="submit" class="px-3 py-1.5 rounded-sm border border-border text-xs font-medium text-fg-2 cursor-pointer hover:bg-accent-bg hover:border-accent hover:text-accent transition-all"
-                            hx-confirm="推进该批次到待入库状态？" { "推进入库" }
-                    }
-                }
-                @if can_scrap {
-                    form hx-post=(WcBatchScrapPath { batch_id: batch.id }.to_string()) hx-swap="none"
-                        hx-on:htmx:after-request="if(event.detail.successful) document.querySelector('#batch-overlay').classList.remove('open')" {
-                        input type="hidden" name="reason" value="手动报废";
-                        button type="submit" class="px-3 py-1.5 rounded-sm border border-border text-xs font-medium text-fg-2 cursor-pointer hover:bg-danger-bg hover:border-danger hover:text-danger transition-all"
-                            hx-confirm="报废该批次？此操作不可撤销" { "报废" }
+                tbody {
+                    @for line in &avail.lines {
+                        @let (lb, tk) = avail_meta(&line.level);
+                        tr class="border-t border-border-soft" {
+                            td class="py-1.5 px-2" {
+                                div class="text-fg" { (line.product_name.as_str()) }
+                                div class="text-muted font-mono" { (line.product_code.as_str()) }
+                            }
+                            td class="py-1.5 px-2 text-right font-mono" { (fmt_qty(line.required_qty)) }
+                            td class="py-1.5 px-2 text-right font-mono" { (fmt_qty(line.atp)) }
+                            td class="py-1.5 px-2 text-right font-mono" { (fmt_qty(line.projected)) }
+                            td class="py-1.5 px-2 text-right" {
+                                span class=(format!("inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium whitespace-nowrap bg-{tk}-bg text-{tk}")) { (lb) }
+                            }
+                        }
                     }
                 }
             }

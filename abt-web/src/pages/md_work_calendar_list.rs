@@ -37,7 +37,7 @@ pub async fn get_work_calendar_list(
  is_htmx,
  "工作日历管理",
  &claims,
- "md",
+ "production",
  WorkCalendarListPath::PATH,
  "工程",
  Some(WorkCalendarListPath::PATH),

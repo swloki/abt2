@@ -61,7 +61,7 @@ pub async fn get_routing_list(
  is_htmx,
  "工艺路线管理",
  &claims,
- "md",
+ "production",
  RoutingListPath::PATH,
  "主数据管理",
  Some("工艺路线管理"),

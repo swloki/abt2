@@ -14,5 +14,6 @@ pub trait RoutingService: Send + Sync {
     async fn set_bom_routing(&self, ctx: &ServiceContext, db: PgExecutor<'_>, product_code: String, routing_id: i64) -> Result<()>;
     async fn get_bom_routing(&self, ctx: &ServiceContext, db: PgExecutor<'_>, product_code: String) -> Result<Option<RoutingDetail>>;
     async fn list_boms_by_routing(&self, ctx: &ServiceContext, db: PgExecutor<'_>, routing_id: i64) -> Result<Vec<BomRouting>>;
-    async fn paginate_boms_by_routing(&self, ctx: &ServiceContext, db: PgExecutor<'_>, routing_id: i64, page: PageParams) -> Result<PaginatedResult<BomRouting>>;
+    async fn paginate_boms_by_routing(&self, ctx: &ServiceContext, db: PgExecutor<'_>, routing_id: i64, keyword: Option<String>, page: PageParams) -> Result<PaginatedResult<BomRouting>>;
+    async fn delete_bom_routing(&self, ctx: &ServiceContext, db: PgExecutor<'_>, product_code: String) -> Result<()>;
 }

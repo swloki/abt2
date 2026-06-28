@@ -13,7 +13,7 @@ use crate::components::export_button;
 use crate::components::pagination::pagination;
 use crate::layout::page::admin_page;
 use crate::routes::labor_process_dict::{
- ProcessDictCreatePath, ProcessDictDeletePath, ProcessDictListPath,
+ ProcessDictCreatePath, ProcessDictDeletePath, ProcessDictEditPath, ProcessDictListPath,
 };
 use crate::utils::{empty_as_none, RequestContext};
 use abt_macros::require_permission;
@@ -49,6 +49,7 @@ pub async fn get_process_dict_list(
  let is_htmx = ctx.is_htmx();
  let nav_filter = ctx.nav_filter().await;
  let can_create = ctx.has_permission("LABOR_PROCESS_DICT", "create").await;
+ let can_edit = ctx.has_permission("LABOR_PROCESS_DICT", "update").await;
  let can_delete = ctx.has_permission("LABOR_PROCESS_DICT", "delete").await;
  let RequestContext {
  mut conn,
@@ -67,7 +68,7 @@ pub async fn get_process_dict_list(
  let result = svc.list(&service_ctx, &mut conn, filter, page).await?;
 
 
- let content = process_dict_list_page(&result, &params, can_create, can_delete);
+ let content = process_dict_list_page(&result, &params, can_create, can_edit, can_delete);
  let page_html = admin_page(
  is_htmx,
  "工序字典管理",
@@ -141,6 +142,65 @@ pub async fn post_process_dict_create(
  ))
 }
 
+#[require_permission("LABOR_PROCESS_DICT", "update")]
+pub async fn get_process_dict_edit(
+ path: ProcessDictEditPath,
+ ctx: RequestContext,
+) -> crate::errors::Result<Html<String>> {
+ let is_htmx = ctx.is_htmx();
+ let nav_filter = ctx.nav_filter().await;
+ let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
+ let pd = state.labor_process_dict_service().get(&service_ctx, &mut conn, path.id).await?;
+ let content = process_dict_form_page(Some(&pd));
+ let edit_path_str = ProcessDictEditPath { id: path.id }.to_string();
+ let page_html = admin_page(
+ is_htmx,
+ "编辑工序",
+ &claims,
+ "production",
+ &edit_path_str,
+ "主数据管理",
+ Some("编辑工序"),
+ content, &nav_filter, );
+
+ Ok(Html(page_html.into_string()))
+}
+
+#[require_permission("LABOR_PROCESS_DICT", "update")]
+pub async fn post_process_dict_update(
+ path: ProcessDictEditPath,
+ ctx: RequestContext,
+ axum::Form(form): axum::Form<ProcessDictCreateForm>,
+) -> crate::errors::Result<impl IntoResponse> {
+ let RequestContext {
+ state,
+ service_ctx,
+ ..
+ } = ctx;
+
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+
+ if form.name.trim().is_empty() {
+ return Err(DomainError::validation("工序名称不能为空").into());
+ }
+
+ let req = UpdateLaborProcessDictReq {
+ name: Some(form.name.trim().to_string()),
+ description: form.description.filter(|d| !d.trim().is_empty()),
+ sort_order: form.sort_order,
+ };
+
+ state.labor_process_dict_service().update(&service_ctx, &mut tx, path.id, req).await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+
+ Ok((
+ [("HX-Redirect", ProcessDictListPath::PATH)],
+ Html(String::new()),
+ ))
+}
+
 #[require_permission("LABOR_PROCESS_DICT", "delete")]
 pub async fn delete_process_dict(
  path: ProcessDictDeletePath,
@@ -171,6 +231,7 @@ fn process_dict_list_page(
  result: &abt_core::shared::types::PaginatedResult<LaborProcessDict>,
  params: &ProcessDictQueryParams,
  can_create: bool,
+ can_edit: bool,
  can_delete: bool,
 ) -> Markup {
  html! {
@@ -194,7 +255,7 @@ fn process_dict_list_page(
             }
         }
         // ── Tabs + Filter + Data Table (HTMX panel) ──
-        (process_dict_table_fragment(result, params, can_delete))
+        (process_dict_table_fragment(result, params, can_edit, can_delete))
     }
 }
 }
@@ -202,6 +263,7 @@ fn process_dict_list_page(
 fn process_dict_table_fragment(
  result: &abt_core::shared::types::PaginatedResult<LaborProcessDict>,
  params: &ProcessDictQueryParams,
+ can_edit: bool,
  can_delete: bool,
 ) -> Markup {
  let total_count = result.total;
@@ -248,7 +310,7 @@ fn process_dict_table_fragment(
                         }
                     }
                     tbody {
-                        @for item in &result.items { (process_dict_row(item, can_delete)) }
+                        @for item in &result.items { (process_dict_row(item, can_edit, can_delete)) }
                         @if result.items.is_empty() {
                             tr {
                                 td colspan="6" class="text-center text-muted text-sm py-8" {
@@ -274,8 +336,9 @@ fn process_dict_table_fragment(
 }
 }
 
-fn process_dict_row(item: &LaborProcessDict, can_delete: bool) -> Markup {
+fn process_dict_row(item: &LaborProcessDict, can_edit: bool, can_delete: bool) -> Markup {
  let delete_path = ProcessDictDeletePath { id: item.id };
+ let edit_path = ProcessDictEditPath { id: item.id };
 
  html! {
     tr {
@@ -301,8 +364,12 @@ fn process_dict_row(item: &LaborProcessDict, can_delete: bool) -> Markup {
             }
         }
         td {
-            div class="row-actions flex items-center gap-1 justify-end opacity-0 transition-opacity duration-150 [&_a]:w-[28px] [&_a]:h-[28px] [&_a]:grid [&_a]:place-items-center [&_a]:rounded-sm [&_a]:cursor-pointer [&_a]:bg-surface [&_a]:hover:bg-accent-bg icon:w-3.5 icon:h-3.5"
+            div class="row-actions flex items-center gap-1 justify-end opacity-0 transition-opacity duration-150 [&_a]:w-[28px] [&_a]:h-[28px] [&_a]:grid [&_a]:place-items-center [&_a]:rounded-sm [&_a]:cursor-pointer [&_a]:bg-surface [&_a]:hover:bg-accent-bg [&_a]:no-underline [&_a]:text-fg-2 icon:w-3.5 icon:h-3.5"
             {
+                @if can_edit {
+                    a href=(edit_path.to_string()) title="编辑"
+                        { (icon::edit_icon("w-3.5 h-3.5")) }
+                }
                 @if can_delete {
                     button
                         type="button"
@@ -325,7 +392,17 @@ fn process_dict_row(item: &LaborProcessDict, can_delete: bool) -> Markup {
 }
 }
 
-fn process_dict_form_page(_existing: Option<&LaborProcessDict>) -> Markup {
+fn process_dict_form_page(existing: Option<&LaborProcessDict>) -> Markup {
+ let title = if existing.is_some() { "编辑工序" } else { "新建工序" };
+ let action = match existing {
+ Some(pd) => ProcessDictEditPath { id: pd.id }.to_string(),
+ None => ProcessDictCreatePath::PATH.to_string(),
+ };
+ let name_value = existing.map(|p| p.name.as_str()).unwrap_or("");
+ let code_value = existing.map(|p| p.code.as_str()).unwrap_or("自动生成");
+ let sort_value = existing.map(|p| p.sort_order).unwrap_or(0);
+ let description_value = existing.and_then(|p| p.description.clone()).unwrap_or_default();
+
  html! {
     div {
         // ── Page Header ──
@@ -333,10 +410,10 @@ fn process_dict_form_page(_existing: Option<&LaborProcessDict>) -> Markup {
             a   class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150"
                 href=(ProcessDictListPath::PATH)
             { (icon::arrow_left_icon("w-4 h-4")) "返回工序字典" }
-            h1 class="text-xl font-bold text-fg tracking-tight" { "新建工序" }
+            h1 class="text-xl font-bold text-fg tracking-tight" { (title) }
         }
 
-        form hx-post=(ProcessDictCreatePath::PATH) hx-swap="none" {
+        form hx-post=(action) hx-swap="none" {
             // ── Section: 基本信息 ──
             div class="data-card mb-4" {
                 div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-2 border-b border-border-soft"
@@ -347,11 +424,11 @@ fn process_dict_form_page(_existing: Option<&LaborProcessDict>) -> Markup {
                             "工序名称 "
                             span class="text-danger" { "*" }
                         }
-                        input type="text" name="name" required placeholder="请输入工序名称，如：车削、铣削" {}
+                        input type="text" name="name" required placeholder="请输入工序名称，如：车削、铣削" value=(name_value) {}
                     }
                     div class="form-field" {
                         label { "工序编码" }
-                        input type="text" value="自动生成" readonly class="bg-surface text-muted" {}
+                        input type="text" value=(code_value) readonly class="bg-surface text-muted" {}
                     }
                     div class="form-field" {
                         label { "排序" }
@@ -359,7 +436,7 @@ fn process_dict_form_page(_existing: Option<&LaborProcessDict>) -> Markup {
                             type="number"
                             step="any"
                             name="sort_order"
-                            value="0"
+                            value=(sort_value)
                             placeholder="数字越小排越前" {}
                     }
                     div class="form-field field-full" {
@@ -367,7 +444,7 @@ fn process_dict_form_page(_existing: Option<&LaborProcessDict>) -> Markup {
                         textarea
                             name="description"
                             placeholder="请输入描述信息…"
-                            class="w-full resize-y min-h-[80px]" {}
+                            class="w-full resize-y min-h-[80px]" { (description_value) }
                     }
                 }
             }

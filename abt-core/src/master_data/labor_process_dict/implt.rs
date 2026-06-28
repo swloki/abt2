@@ -30,6 +30,12 @@ impl LaborProcessDictService for LaborProcessDictServiceImpl {
             .await
     }
 
+    async fn get(&self, _ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<LaborProcessDict> {
+        self.repo.find_by_id(db, id)
+            .await?
+            .ok_or_else(|| DomainError::not_found("LaborProcessDict"))
+    }
+
     async fn create(&self, ctx: &ServiceContext, db: PgExecutor<'_>, req: CreateLaborProcessDictReq) -> Result<i64> {
         let code = new_document_sequence_service(self.pool.clone())
             .next_number(ctx, db, DocumentType::LaborProcessDict).await?;

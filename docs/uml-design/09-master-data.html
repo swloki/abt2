@@ -623,6 +623,7 @@ classDiagram
 
   class Routing {
     +id: i64
+    +code: String
     +name: String
     +description: Option~String~
     +operator_id: i64
@@ -649,6 +650,7 @@ classDiagram
     +operator_id: Option~i64~
     +created_at: DateTime
     +updated_at: Option~DateTime~
+    +product_name: Option~String~
   }
 
   class LaborProcessDict {
@@ -768,11 +770,14 @@ classDiagram
     +set_bom_routing(ctx: &ServiceContext, db: PgExecutor, product_code: String, routing_id: i64) Result~Unit~
     +get_bom_routing(ctx: &ServiceContext, db: PgExecutor, product_code: String) Result~Option~RoutingDetail~
     +list_boms_by_routing(ctx: &ServiceContext, db: PgExecutor, routing_id: i64) Result~Vec~BomRouting~
+    +paginate_boms_by_routing(ctx: &ServiceContext, db: PgExecutor, routing_id: i64, keyword: Option~String~, page: PageParams) PaginatedResult~BomRouting~
+    +delete_bom_routing(ctx: &ServiceContext, db: PgExecutor, product_code: String) Result~Unit~
   }
 
   class LaborProcessDictService {
     &lt;&lt;interface&gt;&gt;
     +list(ctx: &ServiceContext, db: PgExecutor, query: ListLaborProcessDictQuery) PaginatedResult~LaborProcessDict~
+    +get(ctx: &ServiceContext, db: PgExecutor, id) Result~LaborProcessDict~
     +create(ctx: &ServiceContext, db: PgExecutor, req: CreateLaborProcessDictReq) Result~i64~
     +update(ctx: &ServiceContext, db: PgExecutor, req: UpdateLaborProcessDictReq) Result~Unit~
     +delete(ctx: &ServiceContext, db: PgExecutor, id) Result~u64~
@@ -1679,6 +1684,7 @@ classDiagram
           &nbsp;&nbsp;<span style="color:#888;">// ctx: &amp;ServiceContext, db: PgExecutor</span><br>
           &nbsp;&nbsp;list(ctx, db, query: ListLaborProcessDictQuery)<br>
           &nbsp;&nbsp;&nbsp;&nbsp;→ PaginatedResult&lt;LaborProcessDict&gt;<br>
+          &nbsp;&nbsp;get(ctx, db, id) → LaborProcessDict<br>
           &nbsp;&nbsp;create(ctx, db, req) → i64<br>
           &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">// code = next_number(ctx, db, "PROC")</span><br>
           &nbsp;&nbsp;update(ctx, db, req)<br>
@@ -1837,7 +1843,7 @@ classDiagram
         &nbsp;&nbsp;<span style="color:#56b6c2;">ReadOnly</span> — list, get_detail, find_matching_routing, get_bom_routing, list_boms_by_routing<br>
         <span style="color:#c678dd;">LaborProcessDictService</span><br>
         &nbsp;&nbsp;<span style="color:#56b6c2;">IndependentTx</span> — create, update, delete（软删除）<br>
-        &nbsp;&nbsp;<span style="color:#56b6c2;">ReadOnly</span> — list<br>
+        &nbsp;&nbsp;<span style="color:#56b6c2;">ReadOnly</span> — list, get<br>
         <span style="color:#56b6c2;">BomLaborProcessService</span><br>
         &nbsp;&nbsp;<span style="color:#56b6c2;">IndependentTx</span> — create, update, delete（软删除）<br>
         &nbsp;&nbsp;<span style="color:#56b6c2;">ReadOnly</span> — list

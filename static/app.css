@@ -854,6 +854,8 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .text-sm{font-size:var(--text-sm-fontSize);line-height:var(--un-leading, var(--text-sm-lineHeight));}
 .text-xl{font-size:var(--text-xl-fontSize);line-height:var(--un-leading, var(--text-xl-lineHeight));}
 .text-xs{font-size:var(--text-xs-fontSize);line-height:var(--un-leading, var(--text-xs-lineHeight));}
+.\[\&_a\]\:text-fg-2 a,
+.text-fg-2{color:color-mix(in srgb, var(--fg-2) var(--un-text-opacity), transparent) /* var(--fg-2) */;}
 .\[\&_svg\]\:text-accent svg,
 .\[\&\.active\]\:text-accent.active,
 .act\:text-accent.active,
@@ -885,7 +887,6 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .text-danger-400{color:color-mix(in srgb, var(--danger-400) var(--un-text-opacity), transparent) /* var(--danger-400) */;}
 .text-danger-500{color:color-mix(in srgb, var(--danger-500) var(--un-text-opacity), transparent) /* var(--danger-500) */;}
 .text-danger-800{color:color-mix(in srgb, var(--danger-800) var(--un-text-opacity), transparent) /* var(--danger-800) */;}
-.text-fg-2{color:color-mix(in srgb, var(--fg-2) var(--un-text-opacity), transparent) /* var(--fg-2) */;}
 .text-info{color:color-mix(in srgb, var(--info) var(--un-text-opacity), transparent) /* var(--info) */;}
 .text-purple{color:color-mix(in srgb, var(--purple) var(--un-text-opacity), transparent) /* var(--purple) */;}
 .text-purple-600{color:color-mix(in srgb, var(--colors-purple-600) var(--un-text-opacity), transparent) /* oklch(55.8% 0.288 302.321) */;}
@@ -1575,6 +1576,7 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .min-w-\[80px\]{min-width:80px;}
 .min-w-\[900px\]{min-width:900px;}
 .min-w-\[950px\]{min-width:950px;}
+.min-w-\[960px\]{min-width:960px;}
 .min-w-0{min-width:calc(var(--spacing) * 0);}
 .min-w-80{min-width:calc(var(--spacing) * 80);}
 .w-\[1000px\]{width:1000px;}

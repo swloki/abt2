@@ -1781,6 +1781,7 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .-top-0\.5{top:calc(var(--spacing) * -0.5);}
 .bottom-0{bottom:calc(var(--spacing) * 0);}
 .bottom-1\.5{bottom:calc(var(--spacing) * 1.5);}
+.bottom-4{bottom:calc(var(--spacing) * 4);}
 .bottom-6{bottom:calc(var(--spacing) * 6);}
 .icon\:left-3 [class*=i-lucide],
 .left-3{left:calc(var(--spacing) * 3);}

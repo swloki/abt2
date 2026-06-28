@@ -623,7 +623,7 @@ fn render_demand_detail(
 /// 订单明细批量栏（文档流内嵌，对齐原型 .batch-bar）。勾选 demand-cb 后由 app.js 显示。
 fn detail_batch_bar() -> Markup {
     html! {
-        div class="batch-bar hidden show:flex items-center gap-4 mt-3 px-4 py-3 rounded-md bg-fg text-white text-sm"
+        div class="batch-bar hidden show:flex items-center gap-4 fixed bottom-4 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-md bg-fg text-white text-sm shadow-lg"
             data-create-path=(MesDemandPoolCreatePath::PATH)
         {
             span {

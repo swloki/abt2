@@ -4,7 +4,9 @@ use super::model::*;
 use super::repo::RoutingRepo;
 use super::service::RoutingService;
 use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService, RecordAuditLogReq};
+use crate::shared::document_sequence::{new_document_sequence_service, service::DocumentSequenceService};
 use crate::shared::enums::audit::AuditAction;
+use crate::shared::enums::document_type::DocumentType;
 use crate::shared::enums::event::DomainEventType;
 use crate::shared::event_bus::{new_domain_event_bus, service::DomainEventBus};
 use crate::shared::event_bus::EventPublishRequest;
@@ -61,7 +63,10 @@ impl RoutingService for RoutingServiceImpl {
         db: PgExecutor<'_>,
         req: CreateRoutingReq,
     ) -> Result<i64> {
-        let id = self.repo.create(db, &req, ctx.operator_id).await?;
+        let code = new_document_sequence_service(self.pool.clone())
+            .next_number(ctx, db, DocumentType::Routing)
+            .await?;
+        let id = self.repo.create(db, &code, &req, ctx.operator_id).await?;
 
         self.repo.insert_steps(db, id, &req.steps).await?;
 
@@ -281,8 +286,48 @@ impl RoutingService for RoutingServiceImpl {
         _ctx: &ServiceContext,
         db: PgExecutor<'_>,
         routing_id: i64,
+        keyword: Option<String>,
         page: PageParams,
     ) -> Result<PaginatedResult<BomRouting>> {
-        self.repo.paginate_boms_by_routing(db, routing_id, &page).await
+        self.repo.paginate_boms_by_routing(db, routing_id, keyword.as_deref(), &page).await
+    }
+
+    async fn delete_bom_routing(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        product_code: String,
+    ) -> Result<()> {
+        self.repo.delete_bom_routing(db, &product_code).await?;
+
+        new_audit_log_service(self.pool.clone())
+            .record(
+                ctx,
+                db,
+                RecordAuditLogReq {
+                    entity_type: "BomRouting",
+                    entity_id: 0,
+                    action: AuditAction::Delete,
+                    changes: None,
+                    context: None,
+                },
+            )
+            .await?;
+
+        new_domain_event_bus(self.pool.clone())
+            .publish(
+                ctx,
+                db,
+                EventPublishRequest {
+                    event_type: DomainEventType::BomRoutingChanged,
+                    aggregate_type: "BomRouting".to_string(),
+                    aggregate_id: 0,
+                    payload: serde_json::json!({ "product_code": product_code, "action": "unbind" }),
+                    idempotency_key: None,
+                },
+            )
+            .await?;
+
+        Ok(())
     }
 }

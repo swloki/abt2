@@ -5,6 +5,7 @@ use rust_decimal::Decimal;
 #[derive(Debug, Clone, sqlx::FromRow)]
 pub struct Routing {
     pub id: i64,
+    pub code: String,
     pub name: String,
     pub description: Option<String>,
     pub operator_id: Option<i64>,
@@ -53,6 +54,9 @@ pub struct BomRouting {
     pub operator_id: Option<i64>,
     pub created_at: Option<DateTime<Utc>>,
     pub updated_at: Option<DateTime<Utc>>,
+    /// 关联产品名称（JOIN products.pdt_name，LEFT JOIN 可能为 None）
+    #[sqlx(default)]
+    pub product_name: Option<String>,
 }
 
 /// 创建工艺路线请求

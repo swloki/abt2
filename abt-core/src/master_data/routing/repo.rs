@@ -7,12 +7,13 @@ use crate::shared::types::{PageParams, PaginatedResult};
 pub struct RoutingRepo;
 
 impl RoutingRepo {
-    pub async fn create(&self, executor: PgExecutor<'_>, req: &CreateRoutingReq, operator_id: i64) -> Result<i64> {
+    pub async fn create(&self, executor: PgExecutor<'_>, code: &str, req: &CreateRoutingReq, operator_id: i64) -> Result<i64> {
         let id = sqlx::query_scalar::<sqlx::Postgres, i64>(
-            r#"INSERT INTO routings (name, description, operator_id)
-               VALUES ($1, $2, $3)
+            r#"INSERT INTO routings (code, name, description, operator_id)
+               VALUES ($1, $2, $3, $4)
                RETURNING id"#,
         )
+        .bind(code)
         .bind(&req.name)
         .bind(&req.description)
         .bind(operator_id)
@@ -86,7 +87,7 @@ impl RoutingRepo {
 
     pub async fn find_by_id(&self, executor: PgExecutor<'_>, id: i64) -> Result<Option<Routing>> {
         let row = sqlx::query_as::<sqlx::Postgres, Routing>(
-            "SELECT id, name, description, operator_id, created_at, updated_at, deleted_at FROM routings WHERE id = $1 AND deleted_at IS NULL",
+            "SELECT id, code, name, description, operator_id, created_at, updated_at, deleted_at FROM routings WHERE id = $1 AND deleted_at IS NULL",
         )
         .bind(id)
         .fetch_optional(executor)
@@ -130,7 +131,7 @@ impl RoutingRepo {
         let offset_idx = param_idx;
 
         let data_sql = format!(
-            "SELECT id, name, description, operator_id, created_at, updated_at, deleted_at FROM routings WHERE {where_clause} ORDER BY id DESC LIMIT ${limit_idx} OFFSET ${offset_idx}",
+            "SELECT id, code, name, description, operator_id, created_at, updated_at, deleted_at FROM routings WHERE {where_clause} ORDER BY id DESC LIMIT ${limit_idx} OFFSET ${offset_idx}",
         );
         let mut data_q = sqlx::query_as::<sqlx::Postgres, Routing>(sqlx::AssertSqlSafe(data_sql));
         if let Some(ref v) = keyword_param { data_q = data_q.bind(v); }
@@ -187,7 +188,7 @@ impl RoutingRepo {
 
     pub async fn get_bom_routing(&self, executor: PgExecutor<'_>, product_code: &str) -> Result<Option<BomRouting>> {
         let row = sqlx::query_as::<sqlx::Postgres, BomRouting>(
-            "SELECT id, product_code, routing_id, operator_id, created_at, updated_at FROM bom_routings WHERE product_code = $1",
+            "SELECT b.id, b.product_code, b.routing_id, b.operator_id, b.created_at, b.updated_at, p.pdt_name AS product_name FROM bom_routings b LEFT JOIN products p ON b.product_code = p.product_code WHERE b.product_code = $1",
         )
         .bind(product_code)
         .fetch_optional(executor)
@@ -203,29 +204,46 @@ impl RoutingRepo {
         Ok(())
     }
 
-    pub async fn paginate_boms_by_routing(&self, executor: PgExecutor<'_>, routing_id: i64, page: &PageParams) -> Result<PaginatedResult<BomRouting>> {
-        let total: i64 = sqlx::query_scalar(
-            "SELECT COUNT(*) FROM bom_routings WHERE routing_id = $1",
-        )
-        .bind(routing_id)
-        .fetch_one(&mut *executor)
-        .await?;
+    pub async fn paginate_boms_by_routing(&self, executor: PgExecutor<'_>, routing_id: i64, keyword: Option<&str>, page: &PageParams) -> Result<PaginatedResult<BomRouting>> {
+        let mut conditions = vec!["b.routing_id = $1".to_string()];
+        let mut param_idx = 1u32;
+        let keyword_param = if let Some(kw) = keyword.filter(|s| !s.trim().is_empty()) {
+            param_idx += 1;
+            conditions.push(format!("(b.product_code ILIKE ${param_idx} OR p.pdt_name ILIKE ${param_idx})"));
+            Some(format!("%{}%", kw.trim()))
+        } else {
+            None
+        };
+        let where_clause = conditions.join(" AND ");
 
-        let items = sqlx::query_as::<sqlx::Postgres, BomRouting>(
-            "SELECT id, product_code, routing_id, operator_id, created_at, updated_at FROM bom_routings WHERE routing_id = $1 ORDER BY id DESC LIMIT $2 OFFSET $3",
-        )
-        .bind(routing_id)
-        .bind(page.page_size as i64)
-        .bind(page.offset() as i64)
-        .fetch_all(executor)
-        .await?;
+        let count_sql = format!(
+            "SELECT COUNT(*) FROM bom_routings b LEFT JOIN products p ON b.product_code = p.product_code WHERE {where_clause}"
+        );
+        let mut count_q = sqlx::query_scalar::<sqlx::Postgres, i64>(sqlx::AssertSqlSafe(count_sql));
+        count_q = count_q.bind(routing_id);
+        if let Some(ref v) = keyword_param { count_q = count_q.bind(v); }
+        let total = count_q.fetch_one(&mut *executor).await? as u64;
 
-        Ok(PaginatedResult::new(items, total as u64, page.page, page.page_size))
+        param_idx += 1;
+        let limit_idx = param_idx;
+        param_idx += 1;
+        let offset_idx = param_idx;
+
+        let data_sql = format!(
+            "SELECT b.id, b.product_code, b.routing_id, b.operator_id, b.created_at, b.updated_at, p.pdt_name AS product_name FROM bom_routings b LEFT JOIN products p ON b.product_code = p.product_code WHERE {where_clause} ORDER BY b.id DESC LIMIT ${limit_idx} OFFSET ${offset_idx}",
+        );
+        let mut data_q = sqlx::query_as::<sqlx::Postgres, BomRouting>(sqlx::AssertSqlSafe(data_sql));
+        data_q = data_q.bind(routing_id);
+        if let Some(ref v) = keyword_param { data_q = data_q.bind(v); }
+        data_q = data_q.bind(page.page_size as i64).bind(page.offset() as i64);
+        let items = data_q.fetch_all(executor).await?;
+
+        Ok(PaginatedResult::new(items, total, page.page, page.page_size))
     }
 
     pub async fn list_boms_by_routing(&self, executor: PgExecutor<'_>, routing_id: i64) -> Result<Vec<BomRouting>> {
         let rows = sqlx::query_as::<sqlx::Postgres, BomRouting>(
-            "SELECT id, product_code, routing_id, operator_id, created_at, updated_at FROM bom_routings WHERE routing_id = $1",
+            "SELECT b.id, b.product_code, b.routing_id, b.operator_id, b.created_at, b.updated_at, p.pdt_name AS product_name FROM bom_routings b LEFT JOIN products p ON b.product_code = p.product_code WHERE b.routing_id = $1",
         )
         .bind(routing_id)
         .fetch_all(executor)

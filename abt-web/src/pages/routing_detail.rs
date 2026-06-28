@@ -1,7 +1,8 @@
 use axum::extract::Query;
 use axum::response::Html;
-use maud::{Markup, html};
+use maud::{Markup, html, PreEscaped};
 
+use abt_core::master_data::product::ProductService;
 use abt_core::master_data::routing::RoutingService;
 use abt_core::master_data::routing::model::*;
 use abt_core::shared::identity::UserService;
@@ -11,15 +12,32 @@ use abt_macros::require_permission;
 
 use crate::components::{detail::detail_row, icon};
 use crate::components::pagination::pagination;
+use crate::components::product_picker;
 use crate::layout::page::admin_page;
-use crate::routes::routing::{RoutingDeletePath, RoutingDetailPath, RoutingListPath};
+use crate::routes::routing::{
+    RoutingBindBomPath, RoutingBomListPath, RoutingCopyPath, RoutingDeletePath, RoutingDetailPath,
+    RoutingEditPath, RoutingListPath, RoutingUnbindBomPath,
+};
 use crate::utils::RequestContext;
 
 // ── Query Params ──
 
 #[derive(Debug, serde::Deserialize, Clone, Default)]
-pub(crate) struct BomPageParams {
+pub struct BomPageParams {
+ #[serde(default)]
  pub page: Option<u32>,
+ #[serde(default)]
+ pub keyword: Option<String>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+pub struct BindBomForm {
+ pub product_id: i64,
+}
+
+#[derive(Debug, serde::Deserialize)]
+pub struct UnbindBomForm {
+ pub product_code: String,
 }
 
 // ── Handlers ──
@@ -37,7 +55,7 @@ pub async fn get_routing_detail(
 
  let detail = svc.get_detail(&service_ctx, &mut conn, path.id).await?;
  let bom_page = PageParams::new(qp.page.unwrap_or(1), 10);
- let boms = svc.paginate_boms_by_routing(&service_ctx, &mut conn, path.id, bom_page).await?;
+ let boms = svc.paginate_boms_by_routing(&service_ctx, &mut conn, path.id, qp.keyword.clone(), bom_page).await?;
 
  let creator_name = if let Some(uid) = detail.routing.operator_id {
  state.user_service()
@@ -50,7 +68,7 @@ pub async fn get_routing_detail(
  None
  };
 
- let content = routing_detail_page(&detail, &boms, &creator_name);
+ let content = routing_detail_page(&detail, &boms, &qp.keyword, &creator_name);
  let detail_path_str = RoutingDetailPath { id: path.id }.to_string();
  let page_html = admin_page(
  is_htmx,
@@ -65,20 +83,58 @@ pub async fn get_routing_detail(
  Ok(Html(page_html.into_string()))
 }
 
-#[require_permission("ROUTING", "update")]
-pub async fn update_routing(
- _path: RoutingDetailPath,
- _ctx: RequestContext,
+#[require_permission("ROUTING", "read")]
+pub async fn get_routing_bom_list(
+ path: RoutingBomListPath,
+ ctx: RequestContext,
+ Query(qp): Query<BomPageParams>,
 ) -> crate::errors::Result<Html<String>> {
- Ok(Html("<p>Update routing placeholder</p>".into()))
+ let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let svc = state.routing_service();
+ let page = PageParams::new(qp.page.unwrap_or(1), 10);
+ let boms = svc.paginate_boms_by_routing(&service_ctx, &mut conn, path.id, qp.keyword.clone(), page).await?;
+ Ok(Html(bom_list_fragment(path.id, &qp.keyword, &boms).into_string()))
 }
 
+#[require_permission("ROUTING", "update")]
+pub async fn bind_bom(
+ path: RoutingBindBomPath,
+ ctx: RequestContext,
+ axum::Form(form): axum::Form<BindBomForm>,
+) -> crate::errors::Result<Html<String>> {
+ let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let product = state.product_service().get(&service_ctx, &mut conn, form.product_id).await?;
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+ state.routing_service().set_bom_routing(&service_ctx, &mut tx, product.product_code.clone(), path.id).await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+ let boms = state.routing_service().paginate_boms_by_routing(&service_ctx, &mut conn, path.id, None, PageParams::new(1, 10)).await?;
+ Ok(Html(bom_list_fragment(path.id, &None, &boms).into_string()))
+}
+
+#[require_permission("ROUTING", "update")]
+pub async fn unbind_bom(
+ path: RoutingUnbindBomPath,
+ ctx: RequestContext,
+ axum::Form(form): axum::Form<UnbindBomForm>,
+) -> crate::errors::Result<Html<String>> {
+ let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+ state.routing_service().delete_bom_routing(&service_ctx, &mut tx, form.product_code).await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+ let boms = state.routing_service().paginate_boms_by_routing(&service_ctx, &mut conn, path.id, None, PageParams::new(1, 10)).await?;
+ Ok(Html(bom_list_fragment(path.id, &None, &boms).into_string()))
+}
 
 // ── Components ──
 
 fn routing_detail_page(
  detail: &RoutingDetail,
  boms: &abt_core::shared::types::PaginatedResult<BomRouting>,
+ keyword: &Option<String>,
  creator_name: &Option<String>,
 ) -> Markup {
  let routing = &detail.routing;
@@ -114,13 +170,13 @@ fn routing_detail_page(
                     href=(format!("{list_path}?restore=true"))
                 { (icon::arrow_left_icon("w-4 h-4")) " 返回列表" }
                 a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
-                    href="#"
+                    href=(RoutingEditPath { id: routing.id }.to_string())
                 { (icon::edit_icon("w-4 h-4")) " 编辑" }
                 a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
-                    href="#"
+                    href=(RoutingCopyPath { id: routing.id }.to_string())
                 { (icon::copy_icon("w-4 h-4")) " 复制" }
                 button
-                    class="inline-flex items-center gap-2 rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-danger text-white border-none hover:opacity-90"
+                    class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-danger text-white border-none hover:opacity-90"
                     hx-confirm=({
                         format!(
                             "确定要删除工艺路线 {} 吗？此操作不可撤销。",
@@ -128,13 +184,12 @@ fn routing_detail_page(
                         )
                     })
                     hx-post=(delete_path.to_string())
-                    hx-target="body"
-                    hx-swap="outerHTML"
+                    hx-swap="none"
                 { (icon::trash_icon("w-4 h-4")) " 删除" }
             }
         }
         // ── 基本信息 ──
-        div class="bg-white border border-border-soft rounded p-5" {
+        div class="data-card" {
             div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 border-b border-border-soft"
             { "基本信息" }
             div class="grid gap-5 grid-cols-3" {
@@ -142,7 +197,7 @@ fn routing_detail_page(
                     detail_row(
                         "编码",
                         html! {
-                            span class = "font-mono tabular-nums" { (routing.id) }
+                            span class = "font-mono tabular-nums" { (routing.code) }
                         },
                     )
                 })
@@ -208,7 +263,7 @@ fn routing_detail_page(
             }
         }
         // ── 工序流程 ──
-        div class="bg-white border border-border-soft rounded p-5 mt-5" {
+        div class="data-card" {
             div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 border-b border-border-soft"
             {
                 span { "工序流程" }
@@ -256,47 +311,122 @@ fn routing_detail_page(
             }
         }
         // ── 关联BOM ──
-        form id="filter-form"
-            class="bg-white border border-border-soft rounded p-5 routing-bom-card mt-5" {
+        div class="data-card routing-bom-card" {
             div class="flex items-center justify-between text-sm font-semibold mb-4 pb-2 border-b border-border-soft"
-            { "关联BOM" }
-            (bom_table_fragment(routing.id, boms))
+            {
+                span { "关联BOM" }
+                button type="button" onclick="openBomPicker()"
+                    class="inline-flex items-center gap-1 py-1.5 px-3 rounded-sm bg-accent text-accent-on text-xs font-medium cursor-pointer border-none hover:bg-accent-hover"
+                { (icon::plus_icon("w-3.5 h-3.5")) "添加BOM" }
+            }
+            (bom_list_fragment(routing.id, keyword, boms))
         }
+        // 产品选择弹窗（关联 BOM 用）+ 桥接 hidden input/display（picker 选中后填这俩，JS 读 product_id 触发 bind）
+        input type="hidden" id="bind-product-id";
+        span id="bind-product-display" class="hidden" {};
+        (product_picker::product_picker_modal("routing-bom-modal", "bind-product-id", "bind-product-display"))
+        (bom_picker_js(routing.id))
     }
 }
 }
-fn bom_table_fragment(routing_id: i64, boms: &abt_core::shared::types::PaginatedResult<BomRouting>) -> Markup {
- let base_path = RoutingDetailPath { id: routing_id }.to_string();
+// ── 关联 BOM 列表片段（自包含 #routing-bom-list，搜索/分页/bind/unbind 都刷新它）──
+
+fn bom_list_fragment(
+ routing_id: i64,
+ keyword: &Option<String>,
+ boms: &abt_core::shared::types::PaginatedResult<BomRouting>,
+) -> Markup {
+ let list_path = RoutingBomListPath { id: routing_id }.to_string();
+ let unbind_path = RoutingUnbindBomPath { id: routing_id }.to_string();
  html! {
-    @if boms.items.is_empty() {
-        div class="text-center p-6 text-muted text-sm" { "暂无关联BOM" }
-    } @else {
-        table class="data-table" {
-            thead {
-                tr {
-                    th class="w-[60px]" { "ID" }
-                    th { "产品编码" }
-                    th style="width:160px" { "关联时间" }
-                }
-            }
-            tbody {
-                @for bom in &boms.items {
+    div id="routing-bom-list" {
+        div class="mb-3" {
+            input type="text" name="keyword" id="routing-bom-keyword"
+                class="w-full max-w-xs px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
+                placeholder="按产品名称或编码搜索…"
+                value=(keyword.as_deref().unwrap_or(""))
+                hx-get=(&list_path)
+                hx-trigger="keyup changed delay:300ms"
+                hx-target="#routing-bom-list"
+                hx-select="#routing-bom-list"
+                hx-swap="outerHTML"
+                hx-include="this";
+        }
+        @if boms.items.is_empty() {
+            div class="text-center p-6 text-muted text-sm" { "暂无关联BOM" }
+        } @else {
+            table class="data-table" {
+                thead {
                     tr {
-                        td class="font-mono tabular-nums" { (bom.id) }
-                        td class="font-mono tabular-nums" { (bom.product_code) }
-                        td {
-                            @if let Some(dt) = bom.created_at { (dt.format("%Y-%m-%d %H:%M")) } @else {
-                                "—"
+                        th { "产品编码" }
+                        th { "产品名称" }
+                        th style="width:160px" { "关联时间" }
+                        th class="w-[80px]" { "操作" }
+                    }
+                }
+                tbody {
+                    @for bom in &boms.items {
+                        tr {
+                            td class="font-mono tabular-nums" { (bom.product_code) }
+                            td { (bom.product_name.as_deref().unwrap_or("—")) }
+                            td {
+                                @if let Some(dt) = bom.created_at { (dt.format("%Y-%m-%d %H:%M")) } @else { "—" }
+                            }
+                            td {
+                                button type="button"
+                                    class="text-danger text-xs hover:underline cursor-pointer bg-transparent border-none"
+                                    hx-post=(&unbind_path)
+                                    hx-vals=(serde_json::json!({ "product_code": bom.product_code }).to_string())
+                                    hx-confirm=(format!("确定取消产品 {} 的工艺路线关联吗？", bom.product_code))
+                                    hx-target="#routing-bom-list"
+                                    hx-select="#routing-bom-list"
+                                    hx-swap="outerHTML"
+                                { "取消" }
                             }
                         }
                     }
                 }
             }
+            ({
+                pagination(&list_path, "#routing-bom-list", "#routing-bom-keyword", boms.total, boms.page, boms.total_pages)
+            })
         }
-        ({
-            pagination(&base_path, ".routing-bom-card", "#filter-form", boms.total, boms.page, boms.total_pages)
-        })
     }
 }
 }
+
+/// 产品选择弹窗桥接 JS（打开弹窗 + 选中后 POST bind 刷新列表）
+fn bom_picker_js(routing_id: i64) -> Markup {
+ let bind_path = RoutingBindBomPath { id: routing_id }.to_string();
+ html! {
+    script {
+        (PreEscaped(
+            format!(
+                r#"
+function openBomPicker() {{
+ const modal = document.getElementById('routing-bom-modal');
+ modal.querySelectorAll('.product-search-input').forEach(i => i.value = '');
+ modal.classList.add('is-open');
+ htmx.ajax('GET', '/api/products/search', {{
+ target: '#product-search-results', swap: 'innerHTML',
+ values: {{ target_id: 'bind-product-id', display_id: 'bind-product-display', modal_id: 'routing-bom-modal', name: '', code: '' }}
+ }});
+}}
+document.body.addEventListener('productSelected', () => {{
+ const pid = document.querySelector('#bind-product-id').value;
+ if (pid) {{
+ htmx.ajax('POST', '{bind_path}', {{
+ target: '#routing-bom-list', swap: 'outerHTML',
+ values: {{ product_id: pid }}
+ }});
+ }}
+}});
+"#,
+                bind_path = bind_path,
+            ),
+        ))
+    }
+ }
+}
+
 // ── Helpers ──

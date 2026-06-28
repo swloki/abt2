@@ -167,7 +167,7 @@ fn work_center_form_page(wc: Option<&WorkCenter>) -> Markup {
     }
 
     form
-        class="bg-bg border border-border-soft rounded-md p-5 mb-5 shadow-[var(--shadow-card)] form-card"
+        class="data-card form-card"
         hx-post={
             @if is_edit { ({
                 WorkCenterEditPath {

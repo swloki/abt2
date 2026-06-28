@@ -23,6 +23,12 @@ pub struct _ProcessDictDetailPath {
 }
 
 #[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/md/process-dicts/{id}/edit")]
+pub struct ProcessDictEditPath {
+    pub id: i64,
+}
+
+#[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/md/process-dicts/{id}/delete")]
 pub struct ProcessDictDeletePath {
     pub id: i64,
@@ -40,6 +46,11 @@ pub fn router() -> Router<AppState> {
             ProcessDictCreatePath::PATH,
             get(labor_process_dict_list::get_process_dict_create)
                 .post(labor_process_dict_list::post_process_dict_create),
+        )
+        .route(
+            ProcessDictEditPath::PATH,
+            get(labor_process_dict_list::get_process_dict_edit)
+                .post(labor_process_dict_list::post_process_dict_update),
         )
         .route(
             ProcessDictDeletePath::PATH,

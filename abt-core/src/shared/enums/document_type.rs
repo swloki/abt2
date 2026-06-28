@@ -171,7 +171,7 @@ impl DocumentType {
             Self::PurchaseReconciliation => "PRC",
             // Master Data — 工艺路线子域
             Self::LaborProcessDict => "LPD",
-            Self::Routing => "RTG",
+            Self::Routing => "RT",
             Self::BomLaborProcess => "BLP",
             // MES — 生产批次
             Self::ProductionBatch => "PB",

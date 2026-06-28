@@ -14,8 +14,7 @@ use crate::components::import_modal::{self, ImportModalConfig};
 use crate::components::export_button;
 use crate::components::pagination::pagination;
 use crate::routes::routing::{
- RoutingDeletePath, RoutingDetailPath, RoutingListPath,
- RoutingCreatePath,
+ RoutingCreatePath, RoutingDeletePath, RoutingDetailPath, RoutingEditPath, RoutingListPath,
 };
 use crate::utils::{empty_as_none, RequestContext};
 use abt_macros::require_permission;
@@ -40,6 +39,7 @@ pub async fn get_routing_list(
  let is_htmx = ctx.is_htmx();
  let nav_filter = ctx.nav_filter().await;
  let can_create = ctx.has_permission("ROUTING", "create").await;
+ let can_edit = ctx.has_permission("ROUTING", "update").await;
  let can_delete = ctx.has_permission("ROUTING", "delete").await;
  let RequestContext {
  mut conn,
@@ -56,7 +56,7 @@ pub async fn get_routing_list(
  let page = PageParams::new(params.page.unwrap_or(1), 20);
 
  let result = svc.list(&service_ctx, &mut conn, filter, page).await?;
- let content = routing_list_page(&result, &params, can_create, can_delete);
+ let content = routing_list_page(&result, &params, can_create, can_edit, can_delete);
  let page_html = admin_page(
  is_htmx,
  "工艺路线管理",
@@ -100,6 +100,7 @@ fn routing_list_page(
  result: &abt_core::shared::types::PaginatedResult<Routing>,
  params: &RoutingQueryParams,
  can_create: bool,
+ can_edit: bool,
  can_delete: bool,
 ) -> Markup {
  html! {
@@ -130,7 +131,7 @@ fn routing_list_page(
             }
         }
         // ── Tabs + Filter + Data Table (HTMX panel) ──
-        (routing_table_fragment(result, params, can_delete))
+        (routing_table_fragment(result, params, can_edit, can_delete))
         // ── Import Modal ──
         ({
             import_modal::import_modal(
@@ -148,6 +149,7 @@ fn routing_list_page(
 fn routing_table_fragment(
  result: &abt_core::shared::types::PaginatedResult<Routing>,
  params: &RoutingQueryParams,
+ can_edit: bool,
  can_delete: bool,
 ) -> Markup {
  let total_count = result.total;
@@ -184,6 +186,7 @@ fn routing_table_fragment(
                 table class="data-table" {
                     thead {
                         tr {
+                            th class="w-[140px]" { "编码" }
                             th { "路线名称" }
                             th { "描述" }
                             th { "创建时间" }
@@ -191,10 +194,10 @@ fn routing_table_fragment(
                         }
                     }
                     tbody {
-                        @for r in &result.items { (routing_row(r, can_delete)) }
+                        @for r in &result.items { (routing_row(r, can_edit, can_delete)) }
                         @if result.items.is_empty() {
                             tr {
-                                td colspan="4" class="text-center text-muted text-sm py-8" {
+                                td colspan="5" class="text-center text-muted text-sm py-8" {
                                     "暂无工艺路线数据"
                                 }
                             }
@@ -217,12 +220,16 @@ fn routing_table_fragment(
 }
 }
 
-fn routing_row(r: &Routing, can_delete: bool) -> Markup {
+fn routing_row(r: &Routing, can_edit: bool, can_delete: bool) -> Markup {
  let detail_path = RoutingDetailPath { id: r.id };
+ let edit_path = RoutingEditPath { id: r.id };
  let delete_path = RoutingDeletePath { id: r.id };
 
  html! {
     tr class="cursor-pointer" {
+        td onclick=(format!("location.href='{}'", detail_path)) {
+            code class="text-xs font-mono bg-surface px-1.5 py-0.5 rounded-sm" { (r.code) }
+        }
         td onclick=(format!("location.href='{}'", detail_path)) {
             strong { (r.name) }
         }
@@ -241,6 +248,12 @@ fn routing_row(r: &Routing, can_delete: bool) -> Markup {
                     title="查看"
                     href=(detail_path)
                 { (icon::eye_icon("w-4 h-4")) }
+                @if can_edit {
+                    a   class="w-[28px] h-[28px] border-none bg-surface rounded-sm grid place-items-center cursor-pointer"
+                        title="编辑"
+                        href=(edit_path)
+                    { (icon::edit_icon("w-4 h-4")) }
+                }
                 @if can_delete {
                     button
                         type="button"

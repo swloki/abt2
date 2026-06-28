@@ -10,14 +10,18 @@ use abt_core::master_data::labor_process_dict::model::LaborProcessDictQuery;
 use abt_core::master_data::product::ProductService;
 use abt_core::master_data::routing::RoutingService;
 use abt_core::master_data::work_center::WorkCenterService;
-use abt_core::master_data::routing::model::{CreateRoutingReq, RoutingStepInput};
+use abt_core::master_data::routing::model::{
+    CreateRoutingReq, RoutingDetail, RoutingStep, RoutingStepInput, UpdateRoutingReq,
+};
 use abt_core::shared::types::{DomainError, PageParams};
 use abt_macros::require_permission;
 
 use crate::components::icon;
 use crate::errors::Result;
 use crate::layout::page::admin_page;
-use crate::routes::routing::{RoutingCreatePath, RoutingDetailPath, RoutingListPath};
+use crate::routes::routing::{
+    RoutingCopyPath, RoutingCreatePath, RoutingDetailPath, RoutingEditPath, RoutingListPath,
+};
 use crate::utils::RequestContext;
 
 // ── Form request ──
@@ -48,6 +52,119 @@ struct StepWeb {
  is_outsourced: bool,
 }
 
+// ── Form mode ──
+
+#[derive(Clone, Copy, PartialEq)]
+enum FormMode {
+ New,
+ Edit,
+ Copy,
+}
+
+/// JS 端步骤行回填结构（字段名与注入的 JS `steps` 数组对齐，供编辑/复制预填）
+#[derive(serde::Serialize)]
+struct JsStep {
+ process_code: String,
+ is_required: bool,
+ remark: String,
+ product_id: String,
+ work_center_id: String,
+ unit_price: String,
+ standard_time: String,
+ is_outsourced: bool,
+}
+
+impl JsStep {
+ fn from_step(s: &RoutingStep) -> Self {
+ Self {
+ process_code: s.process_code.clone(),
+ is_required: s.is_required,
+ remark: s.remark.clone().unwrap_or_default(),
+ product_id: s.product_id.map(|id| id.to_string()).unwrap_or_default(),
+ work_center_id: s.work_center_id.map(|id| id.to_string()).unwrap_or_default(),
+ unit_price: s.unit_price.map(|d| d.to_string()).unwrap_or_default(),
+ standard_time: s.standard_time.map(|d| d.to_string()).unwrap_or_default(),
+ is_outsourced: s.is_outsourced,
+ }
+ }
+}
+
+/// 解析 steps_json → RoutingStepInput，含产出品/计件单价校验（create 与 update 共用）
+fn parse_steps(form: &RoutingCreateForm) -> crate::errors::Result<Vec<RoutingStepInput>> {
+ let web_steps: Vec<StepWeb> = serde_json::from_str(&form.steps_json)
+ .map_err(|e| DomainError::validation(format!("无效工序数据: {e}")))?;
+
+ if web_steps.is_empty() {
+ return Err(DomainError::validation("至少需要一道工序步骤").into());
+ }
+
+ let steps: Vec<RoutingStepInput> = web_steps
+ .into_iter()
+ .enumerate()
+ .map(|(i, s)| RoutingStepInput {
+ process_code: s.process_code,
+ step_order: (i + 1) as i32,
+ is_required: s.is_required,
+ remark: s.remark.filter(|r| !r.trim().is_empty()),
+ product_id: s.product_id,
+ work_center_id: s.work_center_id,
+ unit_price: s.unit_price.and_then(|v| v.trim().parse::<rust_decimal::Decimal>().ok()),
+ standard_time: s.standard_time.and_then(|v| v.trim().parse::<rust_decimal::Decimal>().ok()),
+ is_outsourced: s.is_outsourced,
+ ..Default::default()
+ })
+ .collect();
+ // BOM 人工成本依赖 routing 模板的产出品 + 计件单价，提交前校验非空
+ for (i, s) in steps.iter().enumerate() {
+ if s.product_id.is_none() {
+ return Err(DomainError::validation(format!("工序 {} 未配置产出品（BOM 人工成本与工序级领料依赖）", i + 1)).into());
+ }
+ if s.unit_price.is_none_or(|p| p <= rust_decimal::Decimal::ZERO) {
+ return Err(DomainError::validation(format!("工序 {} 未配置计件单价（BOM 人工成本依据）", i + 1)).into());
+ }
+ }
+
+ Ok(steps)
+}
+
+/// 加载工序步骤下拉数据（工序字典 / 产出品 / 工作中心），create/edit/copy 共用
+async fn load_step_options(
+ state: &crate::state::AppState,
+ service_ctx: &abt_core::shared::types::ServiceContext,
+ db: abt_core::shared::types::PgExecutor<'_>,
+) -> crate::errors::Result<(
+ Vec<abt_core::master_data::labor_process_dict::model::LaborProcessDict>,
+ Vec<abt_core::master_data::product::model::Product>,
+ Vec<abt_core::master_data::work_center::model::WorkCenter>,
+)> {
+ let processes = state
+ .labor_process_dict_service()
+ .list(service_ctx, db, LaborProcessDictQuery::default(), PageParams::new(1, 500))
+ .await?
+ .items;
+ let products = state
+ .product_service()
+ .list(
+ service_ctx,
+ db,
+ abt_core::master_data::product::model::ProductQuery {
+ name: None,
+ code: None,
+ status: None,
+ owner_department_id: None,
+ category_id: None,
+ },
+ PageParams::new(1, 500),
+ )
+ .await?
+ .items;
+ let work_centers = abt_core::master_data::work_center::new_work_center_service(state.pool.clone())
+ .list_active(service_ctx, db)
+ .await
+ .unwrap_or_default();
+ Ok((processes, products, work_centers))
+}
+
 // ── Handlers ──
 
 #[require_permission("ROUTING", "create")]
@@ -65,23 +182,8 @@ pub async fn get_routing_create(
  ..
  } = ctx;
 
- let lpd_svc = state.labor_process_dict_service();
- let processes = lpd_svc
- .list(
- &service_ctx,
- &mut conn,
- LaborProcessDictQuery::default(),
- PageParams::new(1, 500),
- )
- .await?;
- let products = state.product_service()
- .list(&service_ctx, &mut conn,
- abt_core::master_data::product::model::ProductQuery { name: None, code: None, status: None, owner_department_id: None, category_id: None },
- PageParams::new(1, 500))
- .await?;
- let work_centers = abt_core::master_data::work_center::new_work_center_service(state.pool.clone())
- .list_active(&service_ctx, &mut conn).await.unwrap_or_default();
- let content = routing_create_page(&processes.items, &products.items, &work_centers);
+ let (processes, products, work_centers) = load_step_options(&state, &service_ctx, &mut conn).await?;
+ let content = routing_form_page(&processes, &products, &work_centers, None, FormMode::New);
  let page_html = admin_page(
  is_htmx,
  "新建工艺路线",
@@ -90,6 +192,69 @@ pub async fn get_routing_create(
  RoutingCreatePath::PATH,
  "主数据管理",
  Some("新建工艺路线"),
+ content, &nav_filter, );
+
+ Ok(Html(page_html.into_string()))
+}
+
+#[require_permission("ROUTING", "update")]
+pub async fn get_routing_edit(
+ path: RoutingEditPath,
+ ctx: RequestContext,
+) -> Result<Html<String>> {
+ let is_htmx = ctx.is_htmx();
+ let nav_filter = ctx.nav_filter().await;
+ let RequestContext {
+ mut conn,
+ state,
+ service_ctx,
+ claims,
+ ..
+ } = ctx;
+
+ let detail = state.routing_service().get_detail(&service_ctx, &mut conn, path.id).await?;
+ let (processes, products, work_centers) = load_step_options(&state, &service_ctx, &mut conn).await?;
+ let edit_path_str = RoutingEditPath { id: path.id }.to_string();
+ let content = routing_form_page(&processes, &products, &work_centers, Some(&detail), FormMode::Edit);
+ let page_html = admin_page(
+ is_htmx,
+ "编辑工艺路线",
+ &claims,
+ "production",
+ &edit_path_str,
+ "主数据管理",
+ Some("编辑工艺路线"),
+ content, &nav_filter, );
+
+ Ok(Html(page_html.into_string()))
+}
+
+#[require_permission("ROUTING", "create")]
+pub async fn get_routing_copy(
+ path: RoutingCopyPath,
+ ctx: RequestContext,
+) -> Result<Html<String>> {
+ let is_htmx = ctx.is_htmx();
+ let nav_filter = ctx.nav_filter().await;
+ let RequestContext {
+ mut conn,
+ state,
+ service_ctx,
+ claims,
+ ..
+ } = ctx;
+
+ let detail = state.routing_service().get_detail(&service_ctx, &mut conn, path.id).await?;
+ let (processes, products, work_centers) = load_step_options(&state, &service_ctx, &mut conn).await?;
+ let content = routing_form_page(&processes, &products, &work_centers, Some(&detail), FormMode::Copy);
+ let page_html = admin_page(
+ is_htmx,
+ "复制工艺路线",
+ &claims,
+ "production",
+ RoutingCreatePath::PATH,
+ "主数据管理",
+ Some("复制工艺路线"),
  content, &nav_filter, );
 
  Ok(Html(page_html.into_string()))
@@ -114,38 +279,7 @@ pub async fn post_routing_create(
  return Err(DomainError::validation("路线名称不能为空").into());
  }
 
- let web_steps: Vec<StepWeb> = serde_json::from_str(&form.steps_json)
- .map_err(|e| DomainError::validation(format!("无效工序数据: {e}")))?;
-
- if web_steps.is_empty() {
- return Err(DomainError::validation("至少需要一道工序步骤").into());
- }
-
- let steps: Vec<RoutingStepInput> = web_steps
- .into_iter()
- .enumerate()
- .map(|(i, s)| RoutingStepInput {
- process_code: s.process_code,
- step_order: (i + 1) as i32,
- is_required: s.is_required,
- remark: s.remark.filter(|r| !r.trim().is_empty()),
- product_id: s.product_id,
- work_center_id: s.work_center_id,
- unit_price: s.unit_price.and_then(|v| v.trim().parse::<rust_decimal::Decimal>().ok()),
- standard_time: s.standard_time.and_then(|v| v.trim().parse::<rust_decimal::Decimal>().ok()),
- is_outsourced: s.is_outsourced,
- ..Default::default()
- })
- .collect();
- // BOM 人工成本依赖 routing 模板的产出品 + 计件单价，发布前校验非空
- for (i, s) in steps.iter().enumerate() {
- if s.product_id.is_none() {
- return Err(DomainError::validation(format!("工序 {} 未配置产出品（BOM 人工成本与工序级领料依赖）", i + 1)).into());
- }
- if s.unit_price.is_none_or(|p| p <= rust_decimal::Decimal::ZERO) {
- return Err(DomainError::validation(format!("工序 {} 未配置计件单价（BOM 人工成本依据）", i + 1)).into());
- }
- }
+ let steps = parse_steps(&form)?;
 
  let create_req = CreateRoutingReq {
  name: form.name.trim().to_string(),
@@ -162,12 +296,48 @@ pub async fn post_routing_create(
  Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }
 
+#[require_permission("ROUTING", "update")]
+pub async fn post_routing_update(
+ path: RoutingEditPath,
+ ctx: RequestContext,
+ axum::Form(form): axum::Form<RoutingCreateForm>,
+) -> Result<impl IntoResponse> {
+ let RequestContext {
+ state,
+ service_ctx,
+ ..
+ } = ctx;
+
+ let mut tx = state.pool.begin().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+
+ if form.name.trim().is_empty() {
+ return Err(DomainError::validation("路线名称不能为空").into());
+ }
+
+ let steps = parse_steps(&form)?;
+ let req = UpdateRoutingReq {
+ name: Some(form.name.trim().to_string()),
+ description: form.description.filter(|d| !d.trim().is_empty()),
+ steps: Some(steps),
+ };
+
+ state.routing_service().update(&service_ctx, &mut tx, path.id, req).await?;
+ tx.commit().await
+     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+
+ let redirect = RoutingDetailPath { id: path.id }.to_string();
+ Ok(([("HX-Redirect", redirect)], Html(String::new())))
+}
+
 // ── Components ──
 
-fn routing_create_page(
+fn routing_form_page(
  processes: &[abt_core::master_data::labor_process_dict::model::LaborProcessDict],
  products: &[abt_core::master_data::product::model::Product],
  work_centers: &[abt_core::master_data::work_center::model::WorkCenter],
+ existing: Option<&RoutingDetail>,
+ mode: FormMode,
 ) -> Markup {
  let process_map: HashMap<&str, &str> = processes
  .iter()
@@ -190,6 +360,46 @@ fn routing_create_page(
  .collect();
  let work_center_map_json = serde_json::to_string(&work_center_map).unwrap_or_else(|_| "{}".into());
 
+ // 回填字段（编辑/复制模式预填；新建模式为空 + code 自动生成）
+ let name_value: String = match (existing, mode) {
+ (Some(d), FormMode::Copy) => format!("{}-副本", d.routing.name),
+ (Some(d), _) => d.routing.name.clone(),
+ (None, _) => String::new(),
+ };
+ let code_value: String = match existing {
+ Some(d) => d.routing.code.clone(),
+ None => "自动生成".to_string(),
+ };
+ let description_value = existing
+ .and_then(|d| d.routing.description.clone())
+ .unwrap_or_default();
+ // 工序步骤：编辑/复制回填现有步骤，新建给一行空步骤
+ let steps_json = match existing {
+ Some(d) => serde_json::to_string(&d.steps.iter().map(JsStep::from_step).collect::<Vec<_>>())
+ .unwrap_or_else(|_| "[]".into()),
+ None => serde_json::to_string(&[JsStep {
+ process_code: String::new(),
+ is_required: true,
+ remark: String::new(),
+ product_id: String::new(),
+ work_center_id: String::new(),
+ unit_price: String::new(),
+ standard_time: String::new(),
+ is_outsourced: false,
+ }])
+ .unwrap_or_else(|_| "[]".into()),
+ };
+ let title: &str = match mode {
+ FormMode::New => "新建工艺路线",
+ FormMode::Edit => "编辑工艺路线",
+ FormMode::Copy => "复制工艺路线",
+ };
+ // 编辑提交到 /routings/{id}/edit（update）；新建/复制提交到 /routings/new（create）
+ let post_url: String = match (existing, mode) {
+ (Some(d), FormMode::Edit) => RoutingEditPath { id: d.routing.id }.to_string(),
+ _ => RoutingCreatePath::PATH.to_string(),
+ };
+
  html! {
     div id="routing-app" {
         // ── Page Header ──
@@ -197,12 +407,12 @@ fn routing_create_page(
             a   class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150"
                 href=(format!("{}?restore=true", RoutingListPath::PATH))
             { (icon::arrow_left_icon("w-4 h-4")) "返回工艺路线列表" }
-            h1 class="text-xl font-bold text-fg tracking-tight" { "新建工艺路线" }
+            h1 class="text-xl font-bold text-fg tracking-tight" { (title) }
         }
 
         form
             id="routing-form"
-            hx-post=(RoutingCreatePath::PATH)
+            hx-post=(post_url)
             hx-swap="none"
             onsubmit="syncFromDom(); document.querySelector('#routing-form input[name=steps_json]').value = getStepsJson()"
         {
@@ -217,18 +427,18 @@ fn routing_create_page(
                             "路线名称 "
                             span class="text-danger" { "*" }
                         }
-                        input type="text" name="name" required placeholder="请输入路线名称" {}
+                        input type="text" name="name" required placeholder="请输入路线名称" value=(name_value) {}
                     }
                     div class="form-field" {
                         label { "路线编码" }
-                        input type="text" value="自动生成" readonly class="bg-surface text-muted" {}
+                        input type="text" value=(code_value) readonly class="bg-surface text-muted" {}
                     }
                     div class="form-field field-full" {
                         label { "描述" }
                         textarea
                             name="description"
                             placeholder="请输入描述信息…"
-                            class="w-full resize-y min-h-[80px]" {}
+                            class="w-full resize-y min-h-[80px]" { (description_value) }
                     }
                 }
             }
@@ -245,19 +455,18 @@ fn routing_create_page(
                     { (icon::plus_icon("w-3.5 h-3.5")) "添加工序" }
                 }
                 div class="overflow-x-auto" {
-                    table class="data-table min-w-[800px]" {
+                    table class="data-table min-w-[960px]" {
                         thead {
                             tr {
-                                th class="w-[60px] text-center" { "排序" }
-                                th class="w-[200px]" { "工序代码" }
-                                th class="w-[160px]" { "工序名称" }
-                                th class="w-[180px]" { "产出品" }
-                                th class="w-[150px]" { "工作中心" }
+                                th class="w-[50px] text-center" { "排序" }
+                                th class="w-[200px]" { "工序名称" }
+                                th class="w-[200px]" { "产出品" }
+                                th class="w-[140px]" { "工作中心" }
                                 th class="w-[100px]" { "计件单价" }
                                 th class="w-[90px]" { "标准工时" }
-                                th class="w-[60px] text-center" { "委外" }
-                                th class="w-[60px] text-center" { "必经" }
-                                th { "备注" }
+                                th class="w-[50px] text-center" { "委外" }
+                                th class="w-[50px] text-center" { "必经" }
+                                th class="w-[200px]" { "备注" }
                                 th class="w-[50px]" {}
                             }
                         }
@@ -284,6 +493,14 @@ fn routing_create_page(
             }
         }
     }
+    // 产品选择弹窗（步骤行产出品共用，openProductPicker 动态指向当前行）
+    ({
+        crate::components::product_picker::product_picker_modal(
+            "routing-product-modal",
+            "routing-product-target",
+            "routing-product-display",
+        )
+    })
     // TODO: Rewrite routingForm() to a proper vanilla JS module with DOM-based state reading
     script {
         ({
@@ -293,9 +510,7 @@ fn routing_create_page(
 const processMap = {process_map_json};
 const productMap = {product_map_json};
 const workCenterMap = {work_center_map_json};
-let steps = [
- {{ process_code: '', is_required: true, remark: '', product_id: '', work_center_id: '', unit_price: '', standard_time: '', is_outsourced: false }}
-];
+let steps = {steps_json};
 
 function getStepsJson() {{
  return JSON.stringify(
@@ -339,9 +554,10 @@ function syncFromDom() {{
  const selects = row.querySelectorAll('select');
  const checkboxes = row.querySelectorAll('input[type="checkbox"]');
  const inputs = row.querySelectorAll('input[type="number"], input[type="text"]');
+ const productInput = row.querySelector('.step-product-id');
  if (selects[0]) steps[idx].process_code = selects[0].value;
- if (selects[1]) steps[idx].product_id = selects[1].value;
- if (selects[2]) steps[idx].work_center_id = selects[2].value;
+ if (selects[1]) steps[idx].work_center_id = selects[1].value;
+ if (productInput) steps[idx].product_id = productInput.value;
  if (checkboxes[0]) steps[idx].is_outsourced = checkboxes[0].checked;
  if (checkboxes[1]) steps[idx].is_required = checkboxes[1].checked;
  if (inputs[0]) steps[idx].unit_price = inputs[0].value;
@@ -356,12 +572,7 @@ function renderSteps() {{
  let opts = '<option value="">-- 请选择 --</option>';
  for (let code in processMap) {{
  let sel = step.process_code === code ? ' selected' : '';
- opts += '<option value="' + code + '"' + sel + '>' + code + ' - ' + processMap[code] + '</option>';
- }}
- let popts = '<option value="">-- 无 --</option>';
- for (let pid in productMap) {{
- let sel = String(step.product_id) === pid ? ' selected' : '';
- popts += '<option value="' + pid + '"' + sel + '>' + productMap[pid] + '</option>';
+ opts += '<option value="' + code + '"' + sel + '>' + processMap[code] + '</option>';
  }}
  let wcopts = '<option value="">-- 无 --</option>';
  for (let wcid in workCenterMap) {{
@@ -373,14 +584,20 @@ function renderSteps() {{
  let up = step.unit_price || '';
  let st = step.standard_time || '';
  let rem = step.remark || '';
+ let pname = (step.product_id && productMap[step.product_id]) ? productMap[step.product_id] : '';
  html += '<tr>' +
  '<td class="text-muted text-xs text-center">' + (idx + 1) + '</td>' +
  '<td><select onchange="onStepChange(' + idx + ')" class="w-full text-[13px] rounded-sm px-2 py-[5px] border border-border">' + opts + '</select></td>' +
- '<td class="text-[13px] px-2 py-[5px]">' + getProcessName(step.process_code) + '</td>' +
- '<td><select onchange="onStepChange(' + idx + ')" class="w-full text-[13px] rounded-sm px-2 py-[5px] border border-border">' + popts + '</select></td>' +
+ '<td>' +
+ '<input type="hidden" id="step-product-id-' + idx + '" class="step-product-id" value="' + (step.product_id || '') + '">' +
+ '<div class="flex items-center gap-1">' +
+ '<span id="step-product-display-' + idx + '" class="flex-1 text-[13px] truncate ' + (pname ? '' : 'text-muted') + '">' + (pname || '未选择') + '</span>' +
+ '<button type="button" onclick="openProductPicker(' + idx + ')" class="shrink-0 text-xs text-accent px-2 py-[3px] border border-border rounded-sm cursor-pointer hover:bg-accent-bg whitespace-nowrap">' + (pname ? '更换' : '选择') + '</button>' +
+ '</div>' +
+ '</td>' +
  '<td><select onchange="onStepChange(' + idx + ')" class="w-full text-[13px] rounded-sm px-2 py-[5px] border border-border">' + wcopts + '</select></td>' +
- '<td><input type="number" step="0.01" min="0" onchange="onStepChange(' + idx + ')" value="' + up + '" placeholder="0.00" class="w-full text-[13px] rounded-sm px-2 py-[5px] border border-border font-mono text-right"></td>' +
- '<td><input type="number" step="0.01" min="0" onchange="onStepChange(' + idx + ')" value="' + st + '" placeholder="0.00" class="w-full text-[13px] rounded-sm px-2 py-[5px] border border-border font-mono text-right"></td>' +
+ '<td><input type="number" step="any" onchange="onStepChange(' + idx + ')" value="' + up + '" placeholder="0.00" class="w-full text-[13px] rounded-sm px-2 py-[5px] border border-border font-mono text-right"></td>' +
+ '<td><input type="number" step="any" onchange="onStepChange(' + idx + ')" value="' + st + '" placeholder="0.00" class="w-full text-[13px] rounded-sm px-2 py-[5px] border border-border font-mono text-right"></td>' +
  '<td class="text-center"><input type="checkbox" onchange="onStepChange(' + idx + ')" class="cursor-pointer w-[18px] h-[18px] accent-accent"' + chk_out + '></td>' +
  '<td class="text-center"><input type="checkbox" onchange="onStepChange(' + idx + ')" class="cursor-pointer w-[18px] h-[18px] accent-accent"' + chk_req + '></td>' +
  '<td><input type="text" onchange="onStepChange(' + idx + ')" value="' + rem + '" placeholder="备注" class="w-full text-[13px] rounded-sm px-2 py-[5px] border border-border"></td>' +
@@ -394,6 +611,28 @@ function onStepChange(idx) {{
  syncFromDom();
  renderSteps();
 }}
+
+// 产出品选择（步骤行共用一个产品选择弹窗，openProductPicker 动态指向当前行）
+let editingProductIdx = null;
+function openProductPicker(idx) {{
+ editingProductIdx = idx;
+ const modal = document.getElementById('routing-product-modal');
+ modal.querySelector('input[name=target_id]').value = 'step-product-id-' + idx;
+ modal.querySelector('input[name=display_id]').value = 'step-product-display-' + idx;
+ modal.querySelectorAll('.product-search-input').forEach(i => i.value = '');
+ modal.classList.add('is-open');
+ htmx.ajax('GET', '/api/products/search', {{
+ target: '#product-search-results', swap: 'innerHTML',
+ values: {{ target_id: 'step-product-id-' + idx, display_id: 'step-product-display-' + idx, modal_id: 'routing-product-modal', name: '', code: '' }}
+ }});
+}}
+document.body.addEventListener('productSelected', () => {{
+ if (editingProductIdx !== null) {{
+ syncFromDom();
+ editingProductIdx = null;
+ renderSteps();
+ }}
+}});
 
 // 页面加载渲染初始工序行（含工作中心/单价/工时/委外）
 renderSteps();

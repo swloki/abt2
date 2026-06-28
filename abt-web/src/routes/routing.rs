@@ -22,16 +22,39 @@ pub struct RoutingDetailPath {
     pub id: i64,
 }
 
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/md/routings/{id}/edit")]
+pub struct RoutingEditPath {
+    pub id: i64,
+}
 
 #[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/md/routings/{id}")]
-pub struct RoutingUpdatePath {
+#[typed_path("/admin/md/routings/{id}/copy")]
+pub struct RoutingCopyPath {
     pub id: i64,
 }
 
 #[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/md/routings/{id}/delete")]
 pub struct RoutingDeletePath {
+    pub id: i64,
+}
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/md/routings/{id}/boms")]
+pub struct RoutingBomListPath {
+    pub id: i64,
+}
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/md/routings/{id}/bom/bind")]
+pub struct RoutingBindBomPath {
+    pub id: i64,
+}
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/md/routings/{id}/bom/unbind")]
+pub struct RoutingUnbindBomPath {
     pub id: i64,
 }
 
@@ -49,11 +72,15 @@ pub fn router() -> Router<AppState> {
             get(routing_detail::get_routing_detail),
         )
         .route(
-            RoutingUpdatePath::PATH,
-            post(routing_detail::update_routing),
+            RoutingEditPath::PATH,
+            get(routing_create::get_routing_edit).post(routing_create::post_routing_update),
         )
+        .route(RoutingCopyPath::PATH, get(routing_create::get_routing_copy))
         .route(
             RoutingDeletePath::PATH,
             post(routing_list::delete_routing),
         )
+        .route(RoutingBomListPath::PATH, get(routing_detail::get_routing_bom_list))
+        .route(RoutingBindBomPath::PATH, post(routing_detail::bind_bom))
+        .route(RoutingUnbindBomPath::PATH, post(routing_detail::unbind_bom))
 }

@@ -118,3 +118,13 @@ async fn wc_batch_receipt_nonexistent_404() {
         .await;
     assert_eq!(resp.status, axum::http::StatusCode::NOT_FOUND);
 }
+
+/// batch shortage 不存在批次 → 404（#124 工序级齐套展开端点）
+#[tokio::test]
+async fn wc_batch_shortage_nonexistent_404() {
+    let app = TestApp::new().await;
+    let resp = app
+        .get("/admin/mes/work-center/batches/99999999/routings/1/shortage")
+        .await;
+    assert_eq!(resp.status, axum::http::StatusCode::NOT_FOUND);
+}

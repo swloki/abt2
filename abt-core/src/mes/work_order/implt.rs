@@ -916,6 +916,83 @@ impl WorkOrderService for WorkOrderServiceImpl {
         Ok(result)
     }
 
+    /// 工序级齐套（#124）：工序产出品 → 子 BOM leaf_nodes → ATP/在途/ETA 四级 + 缺口明细。
+    async fn compute_step_availability(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        work_order_id: i64,
+        routing_id: i64,
+        batch_id: Option<i64>,
+    ) -> Result<MaterialAvailability> {
+        use crate::master_data::product::model::Product;
+        use crate::mes::production_batch::service::ProductionBatchService;
+        // 1. 工序产出品（跨模块走 ProductionBatchService trait）
+        let batch_svc = crate::mes::production_batch::new_production_batch_service(self.pool.clone());
+        let routing = batch_svc
+            .list_routings(ctx, db, work_order_id)
+            .await?
+            .into_iter()
+            .find(|r| r.id == routing_id)
+            .ok_or_else(|| DomainError::not_found("WorkOrderRouting"))?;
+        let output_pid = routing.product_id.ok_or_else(|| {
+            DomainError::BusinessRule("该工序未配置产出品，无法计算齐套".into())
+        })?;
+
+        // 2. 产出品 code → 已发布 BOM → leaf_nodes
+        let product_code = new_product_service(self.pool.clone())
+            .get_by_ids(ctx, db, vec![output_pid])
+            .await?
+            .into_iter()
+            .next()
+            .map(|p| p.product_code)
+            .ok_or_else(|| DomainError::not_found("Product"))?;
+        let bom_svc = new_bom_query_service(self.pool.clone());
+        let bom_id = bom_svc
+            .find_published_bom_by_product_code(ctx, db, &product_code)
+            .await?
+            .ok_or_else(|| DomainError::BusinessRule("产出品无已发布 BOM".into()))?;
+        let leaf_nodes = bom_svc.get_leaf_nodes(ctx, db, bom_id).await?;
+        if leaf_nodes.is_empty() {
+            return Ok(MaterialAvailability {
+                level: MaterialAvailabilityLevel::Available,
+                headline: None,
+                lines: Vec::new(),
+            });
+        }
+
+        // 3. base_qty（batch 优先）+ scheduled_start
+        let wo = self.find_by_id(ctx, db, work_order_id).await?;
+        let base_qty = if let Some(bid) = batch_id {
+            batch_svc.find_by_id(ctx, db, bid).await?.batch_qty
+        } else {
+            wo.planned_qty
+        };
+        let scheduled_start = wo.scheduled_start;
+
+        // 4. line_products 批量预取
+        let pids: Vec<i64> = leaf_nodes.iter().map(|n| n.product_id).collect();
+        let line_products: HashMap<i64, Product> = new_product_service(self.pool.clone())
+            .get_by_ids(ctx, db, pids)
+            .await?
+            .into_iter()
+            .map(|p| (p.product_id, p))
+            .collect();
+
+        // 5. leaf_refs → 齐套计算（复用 build_availability 的核心）
+        let leaf_refs: Vec<&crate::master_data::bom::model::BomNode> = leaf_nodes.iter().collect();
+        build_availability_from_leaves(
+            ctx,
+            db,
+            self.pool.clone(),
+            &leaf_refs,
+            base_qty,
+            scheduled_start,
+            &line_products,
+        )
+        .await
+    }
+
     /// 排程：以工单为单位，工序级排程 → work_center_bookings（对标 Odoo _plan_workorders）
     async fn schedule(
         &self,
@@ -1388,6 +1465,102 @@ async fn build_availability(
             Some(p) => (p.product_code.clone(), p.pdt_name.clone()),
             None => (
                 node.product_code.clone().unwrap_or_else(|| format!("P{}", node.product_id)),
+                format!("P{}", node.product_id),
+            ),
+        };
+
+        let severity = severity_rank(level);
+        if severity > headline_severity {
+            headline_severity = severity;
+            headline = Some(name.clone());
+        }
+        overall_level = worse_level(overall_level, level);
+
+        lines.push(MaterialAvailabilityLine {
+            product_id: node.product_id,
+            product_code: code,
+            product_name: name,
+            required_qty: required,
+            issued_qty: Decimal::ZERO,
+            atp,
+            projected,
+            level,
+        });
+    }
+
+    Ok(MaterialAvailability {
+        level: overall_level,
+        headline,
+        lines,
+    })
+}
+
+/// 工序级齐套：从 leaf_nodes（产出品子 BOM）算 MaterialAvailability（#124）。
+/// 复用 build_availability 的 ATP/projected/ETA/定级逻辑，区别仅在 leaf_nodes 来源。
+async fn build_availability_from_leaves(
+    ctx: &ServiceContext,
+    db: PgExecutor<'_>,
+    pool: sqlx::PgPool,
+    leaf_nodes: &[&crate::master_data::bom::model::BomNode],
+    planned_qty: Decimal,
+    scheduled_start: chrono::NaiveDate,
+    line_products: &HashMap<i64, crate::master_data::product::model::Product>,
+) -> Result<MaterialAvailability> {
+    use crate::shared::inventory_reservation::repo::InventoryReservationRepo;
+    if leaf_nodes.is_empty() {
+        return Ok(MaterialAvailability {
+            level: MaterialAvailabilityLevel::Available,
+            headline: None,
+            lines: Vec::new(),
+        });
+    }
+    let product_ids: Vec<i64> = leaf_nodes.iter().map(|n| n.product_id).collect();
+
+    let mut atp_map: HashMap<i64, Decimal> = HashMap::new();
+    for &pid in &product_ids {
+        let atp = InventoryReservationRepo::available_atp(&mut *db, pid, None).await?;
+        atp_map.insert(pid, atp);
+    }
+    let projected_map = new_stock_ledger_service(pool.clone())
+        .query_projected_qty_batch(ctx, db, &product_ids, None)
+        .await?;
+    let po_eta_map = query_po_eta_batch(&mut *db, &product_ids).await?;
+
+    let mut lines: Vec<MaterialAvailabilityLine> = Vec::new();
+    let mut overall_level = MaterialAvailabilityLevel::Available;
+    let mut headline: Option<String> = None;
+    let mut headline_severity = 0i32;
+
+    for node in leaf_nodes {
+        let required = node.quantity * planned_qty;
+        let atp = *atp_map.get(&node.product_id).unwrap_or(&Decimal::ZERO);
+        let on_order_po = projected_map
+            .get(&node.product_id)
+            .map(|p| p.on_order_po)
+            .unwrap_or(Decimal::ZERO);
+        let projected = projected_map
+            .get(&node.product_id)
+            .map(|p| p.projected)
+            .unwrap_or(Decimal::ZERO);
+
+        let level = if atp >= required {
+            MaterialAvailabilityLevel::Available
+        } else if atp + on_order_po >= required {
+            match po_eta_map.get(&node.product_id) {
+                Some(eta) if *eta <= scheduled_start => MaterialAvailabilityLevel::Expected,
+                Some(_) => MaterialAvailabilityLevel::Late,
+                None => MaterialAvailabilityLevel::Late,
+            }
+        } else {
+            MaterialAvailabilityLevel::Unavailable
+        };
+
+        let (code, name) = match line_products.get(&node.product_id) {
+            Some(p) => (p.product_code.clone(), p.pdt_name.clone()),
+            None => (
+                node.product_code
+                    .clone()
+                    .unwrap_or_else(|| format!("P{}", node.product_id)),
                 format!("P{}", node.product_id),
             ),
         };

@@ -632,7 +632,8 @@ fn detail_batch_bar() -> Markup {
                 " 条需求 · 可创建工单"
             }
             a class="batch-create-btn ml-auto inline-flex items-center gap-2 py-[5px] px-3 text-[13px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover font-medium cursor-pointer transition-all duration-150 no-underline"
-                href=(MesDemandPoolCreatePath::PATH) { "创建工单" }
+                href=(MesDemandPoolCreatePath::PATH)
+                hx-target="#create-plan-drawer-body" hx-swap="innerHTML" { "创建工单" }
             button class="batch-clear-btn inline-flex items-center gap-2 py-[5px] px-3 text-[13px] rounded-sm border border-[rgba(255,255,255,0.15)] text-[rgba(255,255,255,0.7)] hover:text-white hover:bg-[rgba(255,255,255,0.1)] bg-transparent font-medium cursor-pointer transition-all duration-150"
                 type="button" { "清除选择" }
         }
@@ -1230,10 +1231,17 @@ fn order_status_meta(s: &SalesOrderStatus) -> (&'static str, &'static str) {
 }
 
 /// 创建工单 drawer body：加载该物料 pending 需求 + 精简表单（就地创建，不跳转）。
+#[derive(Debug, Default, Deserialize)]
+pub struct DemandIdsQuery {
+    #[serde(default, deserialize_with = "empty_as_none")]
+    pub demand_ids: Option<String>,
+}
+
 #[require_permission("WORK_ORDER", "read")]
 pub async fn get_create_plan_drawer(
     path: WcCreatePlanDrawerPath,
     ctx: RequestContext,
+    Query(q): Query<DemandIdsQuery>,
 ) -> Result<Html<String>> {
     let RequestContext {
         mut conn,
@@ -1241,7 +1249,7 @@ pub async fn get_create_plan_drawer(
         service_ctx,
         ..
     } = ctx;
-    let demands = state
+    let mut demands = state
         .mes_demand_service()
         .list_pending_demands(
             &service_ctx,
@@ -1255,6 +1263,14 @@ pub async fn get_create_plan_drawer(
         )
         .await?
         .items;
+    // 精确加载勾选的需求（来自批量栏 batch-create-btn 的 demand_ids query）
+    if let Some(ids_str) = q.demand_ids.as_deref() {
+        let ids: std::collections::HashSet<i64> = ids_str
+            .split(',')
+            .filter_map(|s| s.trim().parse().ok())
+            .collect();
+        demands.retain(|d| ids.contains(&d.id));
+    }
     let product_name = demands
         .first()
         .map(|d| d.product_name.as_str())

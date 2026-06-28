@@ -80,8 +80,11 @@ function updateDemandBatchBars() {
           '&product_name=' + encodeURIComponent(productName) +
           '&product_code=' + encodeURIComponent(productCode);
       }
-      btn.setAttribute('href', href);
-      btn.onclick = null;
+      // 改用 drawer 就地创建（不跳转）：hx-get 加载 create-plan-drawer → afterSettle 打开 #create-plan-overlay
+      var drawerUrl = '/admin/mes/work-center/create-plan-drawer/' + pid + '?demand_ids=' + ids.join(',');
+      btn.setAttribute('hx-get', drawerUrl);
+      btn.removeAttribute('href');
+      if (window.htmx) htmx.process(btn);
     }
   });
 }

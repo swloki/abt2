@@ -365,6 +365,7 @@ form onsubmit="lineItemCalc('#order-item-tbody').collectItems()" { ... }
 | 服务端交互 | 表单提交、搜索、分页 | HTMX `hx-post`/`hx-get` |
 | 复杂前端状态 | 拖拽排序、持久化 | 独立 JS 文件 |
 | 数据桥接 | hidden input 传 JSON | JS `lineItemCalc().collectItems()` |
-| 成功导航 | 页面跳转 | 服务端 `HX-Redirect` |
-| 错误提示 | toast 提示 | `htmx:responseError` → Notyf |
+| 成功导航 | 默认广播事件局部刷新 | 服务端 `HX-Trigger`（§4 联动）；**避免 `HX-Redirect`**，仅跨模块整页跳转等必要场景才用 |
+| 错误提示（form 校验） | 字段级回显（强制） | htmx 返回重渲染 form + 字段标红 + 内联错误（§5.6）；**禁止 toast** |
+| 错误提示（非 form 写操作） | toast | `htmx:responseError` → Notyf |
 | 服务端接收 | 表单解析 | `Form<Struct>` + `serde_json::from_str()` |

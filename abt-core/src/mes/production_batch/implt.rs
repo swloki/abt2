@@ -38,25 +38,6 @@ impl ProductionBatchServiceImpl {
     }
 }
 
-/// 无工艺路径时的虚拟默认单道工序（与 release 降级语义一致）
-fn default_routing_step(work_order_id: i64, planned_qty: Decimal) -> WorkOrderRouting {
-    WorkOrderRouting {
-        id: 0,
-        work_order_id,
-        step_no: 1,
-        process_name: "生产".to_string(),
-        work_center_id: None,
-        standard_time: None,
-        standard_cost: None,
-        unit_price: None,
-        allowed_loss_rate: None,
-        planned_qty,
-        is_outsourced: false,
-        is_inspection_point: false,
-        product_id: None,
-    }
-}
-
 #[async_trait]
 impl ProductionBatchService for ProductionBatchServiceImpl {
     /// 创建生产批次（流转卡）
@@ -528,57 +509,6 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
         })
     }
 
-    async fn init_routings_from_template(
-        &self,
-        ctx: &ServiceContext,
-        db: PgExecutor<'_>,
-        work_order_id: i64,
-        routing_id: Option<i64>,
-        planned_qty: Decimal,
-    ) -> Result<()> {
-        use crate::master_data::routing::{new_routing_service, service::RoutingService};
-        // 有工艺路径：按模板映射各工序（含产出品 product_id 与计件单价 unit_price）；
-        // 无路径或空模板：插单道虚拟默认工序。
-        let routing_steps: Vec<WorkOrderRouting> = match routing_id {
-            Some(rid) => {
-                let detail = new_routing_service(self.pool.clone())
-                    .get_detail(ctx, &mut *db, rid)
-                    .await?;
-                if detail.steps.is_empty() {
-                    vec![default_routing_step(work_order_id, planned_qty)]
-                } else {
-                    detail
-                        .steps
-                        .iter()
-                        .map(|step| WorkOrderRouting {
-                            id: 0,
-                            work_order_id,
-                            step_no: step.step_order,
-                            process_name: step
-                                .process_name
-                                .clone()
-                                .unwrap_or_else(|| step.process_code.clone()),
-                            work_center_id: step.work_center_id,
-                            standard_time: step.standard_time,
-                            standard_cost: step.standard_cost,
-                            unit_price: step.unit_price,
-                            allowed_loss_rate: step.allowed_loss_rate,
-                            planned_qty,
-                            is_outsourced: step.is_outsourced,
-                            is_inspection_point: step.is_inspection_point,
-                            product_id: step.product_id,
-                        })
-                        .collect()
-                }
-            }
-            None => vec![default_routing_step(work_order_id, planned_qty)],
-        };
-        WorkOrderRoutingRepo::insert_for_work_order(&mut *db, &routing_steps)
-            .await
-            .map_err(|e| DomainError::Internal(e.into()))?;
-        Ok(())
-    }
-
     async fn update_routing(
         &self,
         ctx: &ServiceContext,
@@ -722,50 +652,10 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
         Ok(inserted)
     }
 
-    async fn load_routings_from_recent(
-        &self, ctx: &ServiceContext, _db: PgExecutor<'_>, work_order_id: i64,
-    ) -> Result<usize> {
-        let mut conn = self.pool.acquire().await.map_err(|e| DomainError::Internal(e.into()))?;
-        let wo = new_work_order_service(self.pool.clone()).find_by_id(ctx, &mut *conn, work_order_id).await?;
-        let routing_id = wo.routing_id.ok_or_else(|| DomainError::business_rule("工单未关联工艺路线"))?;
-        if !matches!(wo.status, WorkOrderStatus::Draft | WorkOrderStatus::Released | WorkOrderStatus::InProduction) {
-            return Err(DomainError::business_rule("工单当前状态不允许加载产出品"));
-        }
-        drop(conn);
-        let mut tx = self.pool.begin().await.map_err(|e| DomainError::Internal(e.into()))?;
-        let src_wo = WorkOrderRoutingRepo::find_recent_source_work_order(&mut *tx, routing_id, work_order_id).await?;
-        let Some(src_id) = src_wo else { return Ok(0); };
-        let src_rows = WorkOrderRoutingRepo::get_by_work_order_id(&mut *tx, src_id).await?;
-        let src: std::collections::HashMap<i32, i64> = src_rows.into_iter()
-            .filter_map(|r| r.product_id.map(|pid| (r.step_no, pid))).collect();
-        let mine = WorkOrderRoutingRepo::get_by_work_order_id(&mut *tx, work_order_id).await?;
-        let mut filled = 0usize;
-        for r in &mine {
-            if r.product_id.is_some() { continue; }
-            if WorkOrderRoutingRepo::has_report(&mut *tx, r.id).await? { continue; }
-            if let Some(pid) = src.get(&r.step_no) {
-                sqlx::query(r#"UPDATE work_order_routings SET product_id = $2 WHERE id = $1"#)
-                    .bind(r.id).bind(pid).execute(&mut *tx).await?;
-                filled += 1;
-            }
-        }
-        if filled > 0 {
-            new_audit_log_service(self.pool.clone())
-                .record(ctx, &mut *tx, RecordAuditLogReq {
-                    entity_type: "WorkOrder", entity_id: work_order_id,
-                    action: AuditAction::Update,
-                    changes: Some(json!(format!("批量加载产出品自工单#{src_id}，{filled}行"))),
-                    context: None,
-                }).await?;
-        }
-        tx.commit().await.map_err(|e| DomainError::Internal(e.into()))?;
-        Ok(filled)
-    }
-
     async fn delete_routing(
         &self,
         ctx: &ServiceContext,
-        db: PgExecutor<'_>,
+        _db: PgExecutor<'_>,
         work_order_id: i64,
         routing_id: i64,
     ) -> Result<()> {
@@ -883,6 +773,42 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
         ProductionBatchRepo::update_status(&mut *db, batch_id, BatchStatus::PendingReceipt)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
+
+        Ok(())
+    }
+
+    /// 开工批次：Pending → InProgress，置 actual_start（对标 Odoo button_start / 三 ERP "开始"）
+    async fn start_batch(
+        &self,
+        _ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        batch_id: i64,
+    ) -> Result<()> {
+        let batch = ProductionBatchRepo::get_by_id(&mut *db, batch_id)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?
+            .ok_or_else(|| DomainError::not_found("ProductionBatch"))?;
+
+        if batch.status != BatchStatus::Pending {
+            return Err(DomainError::InvalidStateTransition {
+                from: batch.status.to_string(),
+                to: "InProgress".to_string(),
+            });
+        }
+
+        ProductionBatchRepo::update_status(&mut *db, batch_id, BatchStatus::InProgress)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?;
+
+        sqlx::query(
+            "UPDATE production_batches SET actual_start = NOW() WHERE id = $1 AND actual_start IS NULL",
+        )
+        .bind(batch_id)
+        .execute(&mut *db)
+        .await
+        .map_err(|e| DomainError::Internal(e.into()))?;
+
+        tracing::info!(batch_id, "batch started");
 
         Ok(())
     }

@@ -480,7 +480,8 @@ Ok(([("HX-Trigger", r#"{"rulesUpdated":"", "closeRuleModal":""}"#)], Html(String
 
 | 目标 | 手段 | 出处 |
 |---|---|---|
-| 跳转页面（列表 / 详情） | 响应头 `HX-Redirect` | `pages/bom_create.rs:96` 等 150+ 处 |
+| **刷新局部（首选）** | 广播事件 `HX-Trigger` + 空 body | §4；新代码默认此方式 |
+| 跳转整页（避免，仅必要场景） | 响应头 `HX-Redirect` | `pages/bom_create.rs:96`（既有 150+ 处，逐步迁移） |
 | 刷新多个区域 | `hx-select-oob="#a,#b"` | `pages/permission_config.rs:572` |
 | 刷新当前组件 | `hx-target="this"` + `hx-swap="outerHTML"` | 三原则 §1.1 |
 | 仅关闭 Modal（不跳转） | `hx-swap="none"` + `on 'htmx:afterRequest' remove .is-open` | `components/modal.rs:21` |
@@ -538,9 +539,9 @@ td button hx-post=(delete_path) hx-target="closest tr" hx-swap="outerHTML"
 
 ### 5.6 校验失败与错误反馈
 
-**现状（统一 toast）**：写操作失败时，`abt-web/src/errors.rs` 把 `DomainError` 统一映射成纯文本消息 + 4xx/5xx（`Validation` / `BusinessRule` / `Duplicate` → 400、`InsufficientStock` → 422、`ConcurrentConflict` → 409，见 `errors.rs:33-61`）。前端全局监听 `htmx:responseError` 读 `responseText` 弹 Notyf toast。**关键**：HTMX 对 4xx/5xx 响应默认不 swap，所以**表单 DOM 原样保留、用户已输入的值不丢** —— 错误反馈是一条 toast，用户看完自己改。
+**兜底机制（非 form 写操作 / 未捕获错误）**：写操作失败时，`abt-web/src/errors.rs` 把 `DomainError` 统一映射成纯文本消息 + 4xx/5xx（`Validation` / `BusinessRule` / `Duplicate` → 400、`InsufficientStock` → 422、`ConcurrentConflict` → 409，见 `errors.rs:33-61`）。前端全局监听 `htmx:responseError` 读 `responseText` 弹 Notyf toast。HTMX 对 4xx/5xx 响应默认不 swap。**注意：form 校验失败不走此机制（toast 无法定位字段、用户感知差），必须用下文字段级回显。**
 
-**推荐增强（字段级错误回显）**：当一条 toast 不足以指明「哪个字段错」时，用**符合三原则**的范式——表单自替换 + 回填值 + 内联标注，**零外部 ID**：
+**强制规范（form 校验失败 → 字段级回显）**：**form 提交校验失败一律用此方式，禁止 toast** —— 让用户直接看到哪个字段错、错在哪。用**符合三原则**的范式——表单自替换 + 回填值 + 内联标注，**零外部 ID**：
 
 ```rust
 // 表单：自身是替换边界（§1.1），不引用任何外部 ID
@@ -555,11 +556,12 @@ form hx-post=(save_path) hx-target="this" hx-swap="outerHTML" {
     button type="submit" { "保存" }
 }
 
-// handler：成功 → 广播事件 / 重定向；失败(4xx) → 返回【同一个表单组件】，
-//          带回填值 + 错误标注。handler 只看入参返回完整片段，逻辑自洽。
+// handler：成功 → 空 body + 事件（关 drawer / 刷新列表）；失败 → 返回【同一个 form】带错误标注。
+//          两分支必须返回同类型 (headers, Html) —— impl IntoResponse 单一类型约束，否则编译不过。
+//          失败也返回 200（不是 4xx）：让 htmx 正常 swap 重渲染 form；走 Err→4xx 纯文本会被全局 toast 吞掉。
 match svc.save(ctx, input).await {
     Ok(_) => Ok(([("HX-Trigger", "xxxChanged")], Html(String::new()))),
-    Err(e) => Ok(Html(render_form(Some(&input), Some(&e)))),  // 回填 + 标错
+    Err(e) => Ok(([("HX-Trigger", "")], Html(render_form(Some(&input), Some(&e))))),  // 回填 + 标错
 }
 ```
 
@@ -571,7 +573,14 @@ match svc.save(ctx, input).await {
 
 > ⚠️ **不用 `HX-Retarget` / `HX-Reswap`**：它们要求后端在响应头里硬编码前端错误容器 ID（`HX-Retarget: #form-errors`），是**后端引用前端外部 ID**，违反「逻辑自洽 + 禁外部 ID」（见核心原则「ID 引用的粒度规则」）。表单自替换范式更干净，优先采用。
 >
-> **现状**：全仓 `HX-Retarget` / `HX-Reswap` 为 0 处；字段级回填表单也尚未铺开，当前写操作失败统一走 toast。新增「需要指明错误字段」的表单时，按本节「表单自替换 + 回填」范式实现。
+> **现状**：全仓 `HX-Retarget` / `HX-Reswap` 为 0 处；字段级回填表单已落地（见下方案例），其余写操作失败仍统一走 toast。新增「需要指明错误字段」的表单时，按本节「表单自替换 + 回填」范式实现。
+
+**已落地案例 — 创建工单 drawer（`mes_work_center.rs::create_plan` + `render_create_plan_drawer_body`）**：
+
+- form 自带 `hx-target="this" hx-swap="outerHTML"`，校验失败时后端返回**重渲染的同一个 form**（带 `errors`），htmx 原地替换 → 字段标红 + 内联错误，用户输入由 handler 回填。
+- **成功/失败分流**：复用 `wc_routing_edit` 范式 —— 成功返回空 body + `HX-Trigger`，失败返回非空 form。form 上 `_="on 'htmx:afterRequest'[detail.xhr.responseText.length == 0 and detail.elt is me] remove .open from #create-plan-overlay"`：仅当响应体为空（成功）才关 drawer；非空（失败重渲染）保持打开。
+- **handler 不返回 Err**：入参校验失败不再 `Err(DomainError::validation)`（那会走全局 toast），而是收集 `HashMap<&str, String>`（字段名→消息，`__all__` 键放非字段特定错误）后返回 `Ok(([("HX-Trigger","")], Html(form)))`。
+- **字段标红**：`field_cls(field, errors)` 按字段是否在 errors 中切 `border-danger focus:border-danger` vs 常规边框；字段下方 `@if let Some(m) = errors.get(field)` 渲染 `<p class="text-danger text-xs">`；`__all__` 错误走顶部 `alert::alert_error`。
 
 ---
 

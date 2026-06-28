@@ -21,7 +21,7 @@ use abt_core::shared::types::context::ServiceContext;
 use chrono::NaiveDate;
 use rust_decimal::Decimal;
 
-const PRODUCT_ID: i64 = 565; // 2835/冷白0.5W（与 mes_flow_e2e.rs 一致；release 时生成默认 1 道工序）
+const PRODUCT_ID: i64 = 565; // 2835/冷白0.5W（与 mes_flow_e2e.rs 一致）
 const MULTI_STEP_PRODUCT_ID: i64 = 4544; // 老款G系列联保灌胶电源，工艺路径 19 道工序（用于删除/重排测试）
 
 /// 创建工单（复用 mes_flow_e2e.rs 逻辑）
@@ -71,9 +71,46 @@ async fn release_work_order(app: &common::TestApp, wo_id: i64) {
     );
 }
 
+/// 按 product 的 BOM routing 加载工序（复刻原 release 自动初始化）：有 routing 则 load 模板步骤，无则插 1 道占位
+async fn seed_routings(app: &common::TestApp, wo_id: i64, product_id: i64, qty: &str) {
+    use abt_core::master_data::product::ProductService;
+    use abt_core::master_data::routing::RoutingService;
+    use abt_core::mes::production_batch::model::WorkOrderRouting;
+    let ctx = ServiceContext::new(1);
+    let mut conn = app.state.pool.acquire().await.unwrap();
+    let product = app.state.product_service().get(&ctx, &mut conn, product_id).await.unwrap();
+    let detail = app.state.routing_service().get_bom_routing(&ctx, &mut conn, product.product_code).await.unwrap();
+    let batch_svc = app.state.production_batch_service();
+    let planned = qty.parse::<Decimal>().unwrap_or(Decimal::from(100));
+    match detail {
+        Some(d) => {
+            batch_svc.load_routings_from_template(&ctx, &mut conn, wo_id, d.routing.id).await.unwrap();
+        }
+        None => {
+            WorkOrderRoutingRepo::insert_for_work_order(&mut conn, &[WorkOrderRouting {
+                id: 0,
+                work_order_id: wo_id,
+                step_no: 1,
+                process_name: "生产".to_string(),
+                work_center_id: None,
+                standard_time: None,
+                standard_cost: None,
+                unit_price: None,
+                allowed_loss_rate: None,
+                planned_qty: planned,
+                is_outsourced: false,
+                is_inspection_point: false,
+                product_id: None,
+            }]).await.unwrap();
+        }
+    }
+    drop(conn);
+}
+
 /// 创建并下达工单，返回 wo_id
 async fn seed_released_work_order(app: &common::TestApp, product_id: i64, qty: &str) -> i64 {
     let (wo_id, _) = create_work_order(app, product_id, qty).await;
+    seed_routings(app, wo_id, product_id, qty).await;
     release_work_order(app, wo_id).await;
     wo_id
 }
@@ -312,20 +349,4 @@ async fn load_routings_from_template_replaces_steps() {
         assert_eq!(r.is_outsourced, s.is_outsourced);
         assert_eq!(r.is_inspection_point, s.is_inspection_point);
     }
-}
-
-#[tokio::test]
-async fn load_routings_from_recent_copies_sibling() {
-    let app = common::TestApp::new().await;
-    let batch_svc = app.state.production_batch_service();
-    let ctx = ServiceContext::new(1);
-    let mut conn = app.state.pool.acquire().await.unwrap();
-    let wo_a = seed_released_work_order(&app, MULTI_STEP_PRODUCT_ID, "910").await;
-    let wo_b = seed_released_work_order(&app, MULTI_STEP_PRODUCT_ID, "911").await;
-    let rs_a = batch_svc.list_routings(&ctx, &mut conn, wo_a).await.unwrap();
-    batch_svc.update_routing(&ctx, &mut conn, wo_a, rs_a[0].id, Some(565), Decimal::new(5,0), None, None, false).await.unwrap();
-    let n = batch_svc.load_routings_from_recent(&ctx, &mut conn, wo_b).await.unwrap();
-    assert!(n >= 1, "应至少复制 1 行，实际 {n}");
-    let rs_b = batch_svc.list_routings(&ctx, &mut conn, wo_b).await.unwrap();
-    assert_eq!(rs_b[0].product_id, Some(565), "B 应从 A 复制产出品");
 }

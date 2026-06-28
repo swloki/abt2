@@ -15,6 +15,8 @@ use crate::components::icon;
 use crate::components::overlay::drawer_shell;
 use crate::layout::page::admin_page;
 use crate::routes::bom::{BomCostDrawerPath, BomCostTempPricePath, BomCostClearTempPath, BomDeletePath, BomDetailPath, BomEditPath, BomLaborCostDrawerPath, BomListPath, BomPublishPath};
+use crate::routes::routing::RoutingListPath;
+use axum_extra::routing::TypedPath;
 use crate::utils::RequestContext;
 
 #[derive(Deserialize)]
@@ -558,6 +560,9 @@ fn cost_drawer_content(report: &BomCostReport, temp_prices: &HashMap<i64, String
  .sum();
  let has_labor_cost_issue = !report.labor_costs.is_empty()
  && report.labor_costs.iter().all(|item| item.unit_price == Decimal::ZERO);
+ // 任意工序单价为 0（含部分缺失）→ 底部提示去 routing 模板配置（BOM 人工成本依赖 routing 模板单价）
+ let has_any_zero_price = !report.labor_costs.is_empty()
+ && report.labor_costs.iter().any(|item| item.unit_price == Decimal::ZERO);
 
  let all_resolved = !has_uncovered_missing && !has_labor_cost_issue;
  let total_card_class = if all_resolved { "total-ok" } else { "total-warn" };
@@ -996,6 +1001,10 @@ fn cost_drawer_content(report: &BomCostReport, temp_prices: &HashMap<i64, String
                 { (format_currency(labor_total)) }
                 @if has_labor_cost_issue {
                     span class="text-[11px] text-danger-500 ml-1" { "（所有工序单价为0）" }
+                }
+                @if has_any_zero_price {
+                    a class="text-[11px] text-accent ml-2 underline hover:text-accent-hover"
+                        href=(RoutingListPath::PATH) { "去工艺路径配置计件单价 →" }
                 }
             }
         }

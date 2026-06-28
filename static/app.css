@@ -906,9 +906,11 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .text-white\/90{color:color-mix(in srgb, var(--colors-white) 90%, transparent) /* #fff */;}
 .hover\:icon\:text-accent [class*=i-lucide]:hover{color:color-mix(in srgb, var(--accent) var(--un-text-opacity), transparent) /* var(--accent) */;}
 .hover\:text-accent-hover:hover{color:color-mix(in srgb, var(--accent-hover) var(--un-text-opacity), transparent) /* var(--accent-hover) */;}
+.hover\:text-accent-on:hover{color:color-mix(in srgb, var(--accent-on) var(--un-text-opacity), transparent) /* var(--accent-on) */;}
 .hover\:text-accent:hover{color:color-mix(in srgb, var(--accent) var(--un-text-opacity), transparent) /* var(--accent) */;}
 .hover\:text-danger:hover{color:color-mix(in srgb, var(--danger) var(--un-text-opacity), transparent) /* var(--danger) */;}
 .hover\:text-fg:hover{color:color-mix(in srgb, var(--fg) var(--un-text-opacity), transparent) /* var(--fg) */;}
+.hover\:text-warn:hover{color:color-mix(in srgb, var(--warn) var(--un-text-opacity), transparent) /* var(--warn) */;}
 .hover\:text-white:hover{color:color-mix(in srgb, var(--colors-white) var(--un-text-opacity), transparent) /* #fff */;}
 .hover\:text-white\/60:hover{color:color-mix(in srgb, var(--colors-white) 60%, transparent) /* #fff */;}
 .hover\:text-white\/85:hover{color:color-mix(in srgb, var(--colors-white) 85%, transparent) /* #fff */;}
@@ -978,6 +980,7 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .mr-1{margin-right:calc(var(--spacing) * 1);}
 .mr-1\.5{margin-right:calc(var(--spacing) * 1.5);}
 .mr-2{margin-right:calc(var(--spacing) * 2);}
+.mr-auto{margin-right:auto;}
 .ms{margin-inline-start:calc(var(--spacing) * 4);}
 .mt-\[12px\]{margin-top:12px;}
 .mt-\[2px\]{margin-top:2px;}
@@ -1095,6 +1098,7 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .text-right{text-align:right;}
 .align-bottom{vertical-align:bottom;}
 .align-middle{vertical-align:middle;}
+.align-top{vertical-align:top;}
 .outline-none{--un-outline-style:none;outline-style:none;}
 .list-none{list-style-type:none;}
 .accent-\[var\(--accent\)\]{accent-color:color-mix(in oklab, var(--accent) var(--un-accent-opacity), transparent) /* var(--accent) */;}
@@ -1135,6 +1139,7 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .border-accent-200{border-color:color-mix(in srgb, var(--accent-200) var(--un-border-opacity), transparent) /* var(--accent-200) */;}
 .border-accent\/12{border-color:color-mix(in srgb, var(--accent) 12%, transparent) /* var(--accent) */;}
 .border-accent\/30{border-color:color-mix(in srgb, var(--accent) 30%, transparent) /* var(--accent) */;}
+.border-accent\/50{border-color:color-mix(in srgb, var(--accent) 50%, transparent) /* var(--accent) */;}
 .border-bg{border-color:color-mix(in srgb, var(--bg) var(--un-border-opacity), transparent) /* var(--bg) */;}
 .border-border{border-color:color-mix(in srgb, var(--border) var(--un-border-opacity), transparent) /* var(--border) */;}
 .border-current\/20{border-color:color-mix(in oklab, currentColor 20%, transparent) /* currentColor */;}
@@ -1162,6 +1167,7 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .hover\:border-danger-200:hover{border-color:color-mix(in srgb, var(--danger-200) var(--un-border-opacity), transparent) /* var(--danger-200) */;}
 .hover\:border-slate-300:hover{border-color:color-mix(in srgb, var(--slate-300) var(--un-border-opacity), transparent) /* var(--slate-300) */;}
 .focus\:border-accent:focus{border-color:color-mix(in srgb, var(--accent) var(--un-border-opacity), transparent) /* var(--accent) */;}
+.focus\:border-danger:focus{border-color:color-mix(in srgb, var(--danger) var(--un-border-opacity), transparent) /* var(--danger) */;}
 .border-l-\[3px\]{border-left-color:color-mix(in oklab, 3px var(--un-border-left-opacity), transparent) /* 3px */;}
 .border-l-accent{border-left-color:color-mix(in srgb, var(--accent) var(--un-border-left-opacity), transparent) /* var(--accent) */;--un-border-left-opacity:var(--un-border-opacity);}
 .border-l-purple{border-left-color:color-mix(in srgb, var(--purple) var(--un-border-left-opacity), transparent) /* var(--purple) */;--un-border-left-opacity:var(--un-border-opacity);}
@@ -1310,6 +1316,7 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .hover\:bg-\[rgba\(37\,99\,235\,0\.14\)\]:hover{background-color:color-mix(in oklab, rgba(37,99,235,0.14) var(--un-bg-opacity), transparent) /* rgba(37,99,235,0.14) */;}
 .hover\:bg-accent-bg:hover{background-color:color-mix(in srgb, var(--accent-bg) var(--un-bg-opacity), transparent) /* var(--accent-bg) */;}
 .hover\:bg-accent-hover:hover{background-color:color-mix(in srgb, var(--accent-hover) var(--un-bg-opacity), transparent) /* var(--accent-hover) */;}
+.hover\:bg-accent:hover{background-color:color-mix(in srgb, var(--accent) var(--un-bg-opacity), transparent) /* var(--accent) */;}
 .hover\:bg-bg:hover{background-color:color-mix(in srgb, var(--bg) var(--un-bg-opacity), transparent) /* var(--bg) */;}
 .hover\:bg-black\/6:hover{background-color:color-mix(in srgb, var(--colors-black) 6%, transparent) /* #000 */;}
 .hover\:bg-danger-100:hover{background-color:color-mix(in srgb, var(--danger-100) var(--un-bg-opacity), transparent) /* var(--danger-100) */;}
@@ -1321,6 +1328,7 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .hover\:bg-surface:hover{background-color:color-mix(in srgb, var(--surface) var(--un-bg-opacity), transparent) /* var(--surface) */;}
 .hover\:bg-surface\/60:hover{background-color:color-mix(in srgb, var(--surface) 60%, transparent) /* var(--surface) */;}
 .hover\:bg-warn-100:hover{background-color:color-mix(in srgb, var(--warn-100) var(--un-bg-opacity), transparent) /* var(--warn-100) */;}
+.hover\:bg-warn-bg:hover{background-color:color-mix(in srgb, var(--warn-bg) var(--un-bg-opacity), transparent) /* var(--warn-bg) */;}
 .hover\:bg-white\/\[0\.06\]:hover{background-color:color-mix(in srgb, var(--colors-white) 0.06, transparent) /* #fff */;}
 .hover\:bg-white\/30:hover{background-color:color-mix(in srgb, var(--colors-white) 30%, transparent) /* #fff */;}
 .hover\:bg-white\/40:hover{background-color:color-mix(in srgb, var(--colors-white) 40%, transparent) /* #fff */;}
@@ -1343,10 +1351,12 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .opacity-75{opacity:75%;}
 .hover\:icon\:opacity-100 [class*=i-lucide]:hover{opacity:100%;}
 .hover\:icon\:opacity-80 [class*=i-lucide]:hover{opacity:80%;}
+.hover\:opacity-80:hover{opacity:80%;}
 .hover\:opacity-90:hover{opacity:90%;}
 .disabled\:opacity-30:disabled{opacity:30%;}
 .disabled\:opacity-50:disabled{opacity:50%;}
 .line-through{text-decoration-line:line-through;}
+.underline{text-decoration-line:underline;}
 .hover\:underline:hover{text-decoration-line:underline;}
 .\[\&_a\]\:no-underline a,
 .no-underline{text-decoration:none;}
@@ -1765,6 +1775,7 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .items-baseline{align-items:baseline;}
 .items-stretch{align-items:stretch;}
 .self-end{align-self:flex-end;}
+.self-center{align-self:center;}
 .box-border{box-sizing:border-box;}
 .inset-0{inset:calc(var(--spacing) * 0);}
 .-left-\[19px\]{left:-19px;}
@@ -1774,6 +1785,7 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .-top-0\.5{top:calc(var(--spacing) * -0.5);}
 .bottom-0{bottom:calc(var(--spacing) * 0);}
 .bottom-1\.5{bottom:calc(var(--spacing) * 1.5);}
+.bottom-4{bottom:calc(var(--spacing) * 4);}
 .bottom-6{bottom:calc(var(--spacing) * 6);}
 .icon\:left-3 [class*=i-lucide],
 .left-3{left:calc(var(--spacing) * 3);}
@@ -1866,6 +1878,9 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 }
 .space-y-1{
 :where(&>:not(:last-child)){--un-space-y-reverse:0;margin-block-start:calc(calc(var(--spacing) * 1) * var(--un-space-y-reverse));margin-block-end:calc(calc(var(--spacing) * 1) * calc(1 - var(--un-space-y-reverse)));}
+}
+.space-y-2{
+:where(&>:not(:last-child)){--un-space-y-reverse:0;margin-block-start:calc(calc(var(--spacing) * 2) * var(--un-space-y-reverse));margin-block-end:calc(calc(var(--spacing) * 2) * calc(1 - var(--un-space-y-reverse)));}
 }
 .space-y-3{
 :where(&>:not(:last-child)){--un-space-y-reverse:0;margin-block-start:calc(calc(var(--spacing) * 3) * var(--un-space-y-reverse));margin-block-end:calc(calc(var(--spacing) * 3) * calc(1 - var(--un-space-y-reverse)));}

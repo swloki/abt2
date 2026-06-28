@@ -78,6 +78,17 @@ pub trait WorkOrderService: Send + Sync {
         orders: &[super::model::WorkOrder],
     ) -> Result<std::collections::HashMap<i64, (MaterialAvailabilityLevel, Option<String>)>>;
 
+    /// 工序级齐套（#124）：按工序产出品子 BOM 算物料可用性 + 缺口明细。
+    /// batch_id 有则按批次量、无则按工单 planned_qty；产出品无 BOM → Available + 空明细。
+    async fn compute_step_availability(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        work_order_id: i64,
+        routing_id: i64,
+        batch_id: Option<i64>,
+    ) -> Result<MaterialAvailability>;
+
     /// 排程：以工单为单位，工序级排程 → work_center_bookings（对标 Odoo _plan_workorders）
     /// 工作日历 + 产能 + 时段冲突检查 + 自动创建 booking。
     async fn schedule(

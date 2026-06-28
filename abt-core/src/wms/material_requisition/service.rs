@@ -15,6 +15,17 @@ pub trait MaterialRequisitionService: Send + Sync {
         work_order_id: i64,
     ) -> Result<i64>;
 
+    /// 工序级领料（产出品驱动，Issue #122）：按工序产出品展开其子 BOM 的叶子组件，
+    /// items 挂 operation_id=routing_id。产出品无 BOM 的工序（散料）不在本单，走完工倒冲。
+    async fn create_for_routing_step(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        work_order_id: i64,
+        routing_id: i64,
+        batch_id: Option<i64>,
+    ) -> Result<i64>;
+
     /// 手动创建领料单（非工单驱动）
     async fn create_manual(
         &self,

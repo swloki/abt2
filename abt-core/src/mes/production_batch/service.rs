@@ -33,6 +33,13 @@ pub trait ProductionBatchService: Send + Sync {
         ctx: &ServiceContext, db: PgExecutor<'_>,
         batch_id: i64,
     ) -> Result<()>;
+    /// 开工：Pending → InProgress，置 actual_start
+    async fn start_batch(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        batch_id: i64,
+    ) -> Result<()>;
     async fn suspend(
         &self,
         ctx: &ServiceContext, db: PgExecutor<'_>,
@@ -53,20 +60,6 @@ pub trait ProductionBatchService: Send + Sync {
         work_order_id: i64,
     ) -> Result<Vec<WorkOrderRouting>>;
 
-    /// 为工单从工艺路径模板初始化工序（仅当工单尚无工序时调用）。
-    ///
-    /// `routing_id` 有则按模板映射各工序（含产出品 `product_id` 与计件单价 `unit_price`），
-    /// 无则插入单道虚拟默认工序。计划生成工单（`generate_work_orders`）时调用，
-    /// 使 Draft 工单一出生即带工序，可在下达前就地编辑产出品/单价。
-    async fn init_routings_from_template(
-        &self,
-        ctx: &ServiceContext,
-        db: PgExecutor<'_>,
-        work_order_id: i64,
-        routing_id: Option<i64>,
-        planned_qty: rust_decimal::Decimal,
-    ) -> Result<()>;
-
     /// 修改工序产出品、计件单价、工作中心、标准工时、委外（单事务，首次报工前可改）
     async fn update_routing(
         &self,
@@ -85,11 +78,6 @@ pub trait ProductionBatchService: Send + Sync {
     async fn load_routings_from_template(
         &self, ctx: &ServiceContext, db: PgExecutor<'_>,
         work_order_id: i64, routing_id: i64,
-    ) -> Result<usize>;
-
-    /// 从最近同 routing_id 且有产出品的工单按 step_no 复制（仅未报工 + 原空行）。返回填充行数
-    async fn load_routings_from_recent(
-        &self, ctx: &ServiceContext, db: PgExecutor<'_>, work_order_id: i64,
     ) -> Result<usize>;
 
     async fn delete_routing(

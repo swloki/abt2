@@ -9,6 +9,7 @@ use abt_core::master_data::labor_process_dict::LaborProcessDictService;
 use abt_core::master_data::labor_process_dict::model::LaborProcessDictQuery;
 use abt_core::master_data::product::ProductService;
 use abt_core::master_data::routing::RoutingService;
+use abt_core::master_data::work_center::WorkCenterService;
 use abt_core::master_data::routing::model::{CreateRoutingReq, RoutingStepInput};
 use abt_core::shared::types::{DomainError, PageParams};
 use abt_macros::require_permission;
@@ -29,15 +30,22 @@ pub struct RoutingCreateForm {
  pub steps_json: String,
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 struct StepWeb {
  process_code: String,
- step_order: i32,
  is_required: bool,
  remark: Option<String>,
- #[serde(default, deserialize_with = "crate::utils::empty_as_none")]
+ // steps_json 是 JSON（integer/null），用 serde default 直接解析；empty_as_none 只接 string 会报「expected string」
+ #[serde(default)]
  product_id: Option<i64>,
+ #[serde(default)]
+ work_center_id: Option<i64>,
+ #[serde(default)]
+ unit_price: Option<String>,
+ #[serde(default)]
+ standard_time: Option<String>,
+ #[serde(default)]
+ is_outsourced: bool,
 }
 
 // ── Handlers ──
@@ -71,7 +79,9 @@ pub async fn get_routing_create(
  abt_core::master_data::product::model::ProductQuery { name: None, code: None, status: None, owner_department_id: None, category_id: None },
  PageParams::new(1, 500))
  .await?;
- let content = routing_create_page(&processes.items, &products.items);
+ let work_centers = abt_core::master_data::work_center::new_work_center_service(state.pool.clone())
+ .list_active(&service_ctx, &mut conn).await.unwrap_or_default();
+ let content = routing_create_page(&processes.items, &products.items, &work_centers);
  let page_html = admin_page(
  is_htmx,
  "新建工艺路线",
@@ -120,9 +130,22 @@ pub async fn post_routing_create(
  is_required: s.is_required,
  remark: s.remark.filter(|r| !r.trim().is_empty()),
  product_id: s.product_id,
+ work_center_id: s.work_center_id,
+ unit_price: s.unit_price.and_then(|v| v.trim().parse::<rust_decimal::Decimal>().ok()),
+ standard_time: s.standard_time.and_then(|v| v.trim().parse::<rust_decimal::Decimal>().ok()),
+ is_outsourced: s.is_outsourced,
  ..Default::default()
  })
  .collect();
+ // BOM 人工成本依赖 routing 模板的产出品 + 计件单价，发布前校验非空
+ for (i, s) in steps.iter().enumerate() {
+ if s.product_id.is_none() {
+ return Err(DomainError::validation(format!("工序 {} 未配置产出品（BOM 人工成本与工序级领料依赖）", i + 1)).into());
+ }
+ if s.unit_price.is_none_or(|p| p <= rust_decimal::Decimal::ZERO) {
+ return Err(DomainError::validation(format!("工序 {} 未配置计件单价（BOM 人工成本依据）", i + 1)).into());
+ }
+ }
 
  let create_req = CreateRoutingReq {
  name: form.name.trim().to_string(),
@@ -144,6 +167,7 @@ pub async fn post_routing_create(
 fn routing_create_page(
  processes: &[abt_core::master_data::labor_process_dict::model::LaborProcessDict],
  products: &[abt_core::master_data::product::model::Product],
+ work_centers: &[abt_core::master_data::work_center::model::WorkCenter],
 ) -> Markup {
  let process_map: HashMap<&str, &str> = processes
  .iter()
@@ -158,6 +182,13 @@ fn routing_create_page(
  .map(|p| (p.product_id.to_string(), p.pdt_name.clone()))
  .collect();
  let product_map_json = serde_json::to_string(&product_map).unwrap_or_else(|_| "{}".into());
+
+ // 工作中心映射（id → name，注入 JS 渲染下拉）
+ let work_center_map: HashMap<String, String> = work_centers
+ .iter()
+ .map(|wc| (wc.id.to_string(), wc.name.clone()))
+ .collect();
+ let work_center_map_json = serde_json::to_string(&work_center_map).unwrap_or_else(|_| "{}".into());
 
  html! {
     div id="routing-app" {
@@ -219,9 +250,13 @@ fn routing_create_page(
                             tr {
                                 th class="w-[60px] text-center" { "排序" }
                                 th class="w-[200px]" { "工序代码" }
-                                th class="w-[180px]" { "工序名称" }
-                                th class="w-[200px]" { "产出品" }
-                                th class="w-[80px] text-center" { "是否必经" }
+                                th class="w-[160px]" { "工序名称" }
+                                th class="w-[180px]" { "产出品" }
+                                th class="w-[150px]" { "工作中心" }
+                                th class="w-[100px]" { "计件单价" }
+                                th class="w-[90px]" { "标准工时" }
+                                th class="w-[60px] text-center" { "委外" }
+                                th class="w-[60px] text-center" { "必经" }
                                 th { "备注" }
                                 th class="w-[50px]" {}
                             }
@@ -257,8 +292,9 @@ fn routing_create_page(
                     r#"
 const processMap = {process_map_json};
 const productMap = {product_map_json};
+const workCenterMap = {work_center_map_json};
 let steps = [
- {{ process_code: '', is_required: true, remark: '', product_id: '' }}
+ {{ process_code: '', is_required: true, remark: '', product_id: '', work_center_id: '', unit_price: '', standard_time: '', is_outsourced: false }}
 ];
 
 function getStepsJson() {{
@@ -271,12 +307,16 @@ function getStepsJson() {{
  is_required: s.is_required,
  remark: s.remark || null,
  product_id: s.product_id && s.product_id !== '' ? Number(s.product_id) : null,
+ work_center_id: s.work_center_id && s.work_center_id !== '' ? Number(s.work_center_id) : null,
+ unit_price: s.unit_price || null,
+ standard_time: s.standard_time || null,
+ is_outsourced: !!s.is_outsourced,
  }}))
  );
 }}
 
 function addStep() {{
- steps.push({{ process_code: '', is_required: true, remark: '', product_id: '' }});
+ steps.push({{ process_code: '', is_required: true, remark: '', product_id: '', work_center_id: '', unit_price: '', standard_time: '', is_outsourced: false }});
  syncFromDom();
  renderSteps();
 }}
@@ -297,12 +337,16 @@ function syncFromDom() {{
  rows.forEach((row, idx) => {{
  if (!steps[idx]) return;
  const selects = row.querySelectorAll('select');
- const checkbox = row.querySelector('input[type="checkbox"]');
- const textInput = row.querySelector('input[type="text"]');
+ const checkboxes = row.querySelectorAll('input[type="checkbox"]');
+ const inputs = row.querySelectorAll('input[type="number"], input[type="text"]');
  if (selects[0]) steps[idx].process_code = selects[0].value;
  if (selects[1]) steps[idx].product_id = selects[1].value;
- if (checkbox) steps[idx].is_required = checkbox.checked;
- if (textInput) steps[idx].remark = textInput.value;
+ if (selects[2]) steps[idx].work_center_id = selects[2].value;
+ if (checkboxes[0]) steps[idx].is_outsourced = checkboxes[0].checked;
+ if (checkboxes[1]) steps[idx].is_required = checkboxes[1].checked;
+ if (inputs[0]) steps[idx].unit_price = inputs[0].value;
+ if (inputs[1]) steps[idx].standard_time = inputs[1].value;
+ if (inputs[2]) steps[idx].remark = inputs[2].value;
  }});
 }}
 
@@ -319,14 +363,27 @@ function renderSteps() {{
  let sel = String(step.product_id) === pid ? ' selected' : '';
  popts += '<option value="' + pid + '"' + sel + '>' + productMap[pid] + '</option>';
  }}
- let chk = step.is_required ? ' checked' : '';
+ let wcopts = '<option value="">-- 无 --</option>';
+ for (let wcid in workCenterMap) {{
+ let sel = String(step.work_center_id) === wcid ? ' selected' : '';
+ wcopts += '<option value="' + wcid + '"' + sel + '>' + workCenterMap[wcid] + '</option>';
+ }}
+ let chk_req = step.is_required ? ' checked' : '';
+ let chk_out = step.is_outsourced ? ' checked' : '';
+ let up = step.unit_price || '';
+ let st = step.standard_time || '';
+ let rem = step.remark || '';
  html += '<tr>' +
  '<td class="text-muted text-xs text-center">' + (idx + 1) + '</td>' +
  '<td><select onchange="onStepChange(' + idx + ')" class="w-full text-[13px] rounded-sm px-2 py-[5px] border border-border">' + opts + '</select></td>' +
  '<td class="text-[13px] px-2 py-[5px]">' + getProcessName(step.process_code) + '</td>' +
  '<td><select onchange="onStepChange(' + idx + ')" class="w-full text-[13px] rounded-sm px-2 py-[5px] border border-border">' + popts + '</select></td>' +
- '<td class="text-center"><input type="checkbox" onchange="onStepChange(' + idx + ')" class="cursor-pointer w-[18px] h-[18px] accent-accent"' + chk + '></td>' +
- '<td><input type="text" onchange="onStepChange(' + idx + ')" placeholder="备注" class="w-full text-[13px] rounded-sm px-2 py-[5px] border border-border"></td>' +
+ '<td><select onchange="onStepChange(' + idx + ')" class="w-full text-[13px] rounded-sm px-2 py-[5px] border border-border">' + wcopts + '</select></td>' +
+ '<td><input type="number" step="0.01" min="0" onchange="onStepChange(' + idx + ')" value="' + up + '" placeholder="0.00" class="w-full text-[13px] rounded-sm px-2 py-[5px] border border-border font-mono text-right"></td>' +
+ '<td><input type="number" step="0.01" min="0" onchange="onStepChange(' + idx + ')" value="' + st + '" placeholder="0.00" class="w-full text-[13px] rounded-sm px-2 py-[5px] border border-border font-mono text-right"></td>' +
+ '<td class="text-center"><input type="checkbox" onchange="onStepChange(' + idx + ')" class="cursor-pointer w-[18px] h-[18px] accent-accent"' + chk_out + '></td>' +
+ '<td class="text-center"><input type="checkbox" onchange="onStepChange(' + idx + ')" class="cursor-pointer w-[18px] h-[18px] accent-accent"' + chk_req + '></td>' +
+ '<td><input type="text" onchange="onStepChange(' + idx + ')" value="' + rem + '" placeholder="备注" class="w-full text-[13px] rounded-sm px-2 py-[5px] border border-border"></td>' +
  '<td><button type="button" class="w-[28px] h-[28px] border-none text-muted rounded-sm cursor-pointer grid place-items-center" onclick="removeStep(' + idx + ')" title="删除"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button></td>' +
  '</tr>';
  }});
@@ -337,6 +394,9 @@ function onStepChange(idx) {{
  syncFromDom();
  renderSteps();
 }}
+
+// 页面加载渲染初始工序行（含工作中心/单价/工时/委外）
+renderSteps();
 "#,
                 ),
             )

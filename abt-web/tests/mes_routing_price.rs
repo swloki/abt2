@@ -350,19 +350,3 @@ async fn load_routings_from_template_replaces_steps() {
         assert_eq!(r.is_inspection_point, s.is_inspection_point);
     }
 }
-
-#[tokio::test]
-async fn load_routings_from_recent_copies_sibling() {
-    let app = common::TestApp::new().await;
-    let batch_svc = app.state.production_batch_service();
-    let ctx = ServiceContext::new(1);
-    let mut conn = app.state.pool.acquire().await.unwrap();
-    let wo_a = seed_released_work_order(&app, MULTI_STEP_PRODUCT_ID, "910").await;
-    let wo_b = seed_released_work_order(&app, MULTI_STEP_PRODUCT_ID, "911").await;
-    let rs_a = batch_svc.list_routings(&ctx, &mut conn, wo_a).await.unwrap();
-    batch_svc.update_routing(&ctx, &mut conn, wo_a, rs_a[0].id, Some(565), Decimal::new(5,0), None, None, false).await.unwrap();
-    let n = batch_svc.load_routings_from_recent(&ctx, &mut conn, wo_b).await.unwrap();
-    assert!(n >= 1, "应至少复制 1 行，实际 {n}");
-    let rs_b = batch_svc.list_routings(&ctx, &mut conn, wo_b).await.unwrap();
-    assert_eq!(rs_b[0].product_id, Some(565), "B 应从 A 复制产出品");
-}

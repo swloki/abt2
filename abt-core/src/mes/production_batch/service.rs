@@ -80,11 +80,6 @@ pub trait ProductionBatchService: Send + Sync {
         work_order_id: i64, routing_id: i64,
     ) -> Result<usize>;
 
-    /// 从最近同 routing_id 且有产出品的工单按 step_no 复制（仅未报工 + 原空行）。返回填充行数
-    async fn load_routings_from_recent(
-        &self, ctx: &ServiceContext, db: PgExecutor<'_>, work_order_id: i64,
-    ) -> Result<usize>;
-
     async fn delete_routing(
         &self,
         ctx: &ServiceContext,

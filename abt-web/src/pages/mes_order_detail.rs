@@ -24,7 +24,7 @@ use crate::routes::mes_order::{
     OrderCancelPath, OrderClosePath, OrderDetailPath, OrderListPath, OrderReceiptPath,
     OrderRequisitionPath, OrderReportPath, OrderReleasePath, OrderSchedulePath,
     OrderRoutingApplyFromRoutingPath, OrderRoutingDeletePath, OrderRoutingEditPath,
-    OrderRoutingLoadRecentPath, OrderSplitPath, OrderUnreleasePath,
+    OrderSplitPath, OrderUnreleasePath,
 };
 use crate::utils::RequestContext;
 use abt_macros::require_permission;
@@ -1904,12 +1904,6 @@ fn body_routing(
                         title="选择工艺路径，用其工序步骤替换当前工序"
                         _="on click add .is-open to #routing-picker-modal"
                     { (icon::download_icon("w-3.5 h-3.5")) "从工艺路径加载" }
-                    button
-                        class="inline-flex items-center gap-1.5 py-1.5 px-3 rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:text-accent text-xs font-medium cursor-pointer transition-all duration-150"
-                        hx-post=({ OrderRoutingLoadRecentPath { order_id }.to_string() })
-                        hx-swap="none"
-                        hx-confirm="从最近同路径工单批量加载产出品？"
-                    { (icon::copy_icon("w-3.5 h-3.5")) "从最近工单加载" }
                 }
             }
             div class="overflow-x-auto" {
@@ -2205,16 +2199,3 @@ pub async fn post_apply_from_routing(
     Ok(([("HX-Trigger", "routingChanged")], Html(String::new())))
 }
 
-/// 从最近同路径工单加载产出品 → 广播 routingChanged
-#[require_permission("WORK_ORDER", "update")]
-pub async fn load_routings_from_recent(
-    path: OrderRoutingLoadRecentPath,
-    ctx: RequestContext,
-) -> Result<impl IntoResponse> {
-    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
-    state
-        .production_batch_service()
-        .load_routings_from_recent(&service_ctx, &mut conn, path.order_id)
-        .await?;
-    Ok(([("HX-Trigger", "routingChanged")], Html(String::new())))
-}

@@ -470,29 +470,6 @@ impl WorkOrderRoutingRepo {
             .collect()
     }
 
-    /// 找同 routing_id、非本单、且已有产出品的最近工单 id（批量复制源）
-    pub async fn find_recent_source_work_order(
-        executor: &mut sqlx::postgres::PgConnection,
-        routing_id: i64,
-        exclude_wo_id: i64,
-    ) -> Result<Option<i64>> {
-        let row: Option<(i64,)> = sqlx::query_as(
-            r#"
-            SELECT wor2.work_order_id
-            FROM work_order_routings wor2
-            JOIN work_orders wo2 ON wo2.id = wor2.work_order_id
-            WHERE wo2.routing_id = $1 AND wo2.id <> $2 AND wor2.product_id IS NOT NULL
-            ORDER BY wo2.created_at DESC
-            LIMIT 1
-            "#,
-        )
-        .bind(routing_id)
-        .bind(exclude_wo_id)
-        .fetch_optional(&mut *executor)
-        .await?;
-        Ok(row.map(|r| r.0))
-    }
-
     /// 批量按工单 ID 查找工序（N+1 修复：calculate_wage 用）
     pub async fn get_by_work_order_ids(
         executor: &mut sqlx::postgres::PgConnection,

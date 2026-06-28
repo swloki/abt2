@@ -47,7 +47,7 @@ use crate::components::pagination::pagination;
 use crate::errors::Result;
 use crate::layout::page::admin_page;
 use crate::routes::mes_demand_pool::{MesDemandPoolCreatePath, MesDemandRowsPath};
-use crate::routes::mes_order::{OrderRoutingApplyFromRoutingPath, OrderRoutingDeletePath, OrderRoutingLoadRecentPath};
+use crate::routes::mes_order::{OrderRoutingApplyFromRoutingPath, OrderRoutingDeletePath};
 use crate::pages::mes_order_detail::RoutingEditForm;
 use crate::routes::mes_work_center::*;
 use crate::utils::{empty_as_none, fmt_qty, RequestContext};
@@ -926,19 +926,13 @@ fn orders_row(
             }
             td class="py-2.5 px-5 text-right whitespace-nowrap" {
                 @if matches!(w.status, WorkOrderStatus::Draft | WorkOrderStatus::Planned) {
-                    button class="inline-flex items-center gap-1 px-2.5 py-1 rounded-sm border border-border text-xs font-medium text-fg cursor-pointer hover:bg-accent-bg hover:border-accent hover:text-accent transition-all"
+                    button class="inline-flex items-center gap-1 px-2.5 py-1 rounded-sm border border-accent/50 text-xs font-medium text-accent cursor-pointer hover:bg-accent hover:text-accent-on hover:border-accent transition-all"
                         hx-get=(WcReleaseDrawerPath { order_id: w.id }.to_string())
                         hx-target="#release-drawer-body" hx-swap="innerHTML"
                         _="on click halt the event" {
+                        (icon::rocket_icon("w-3.5 h-3.5"))
                         "下达"
                     }
-                }
-                button class="inline-flex items-center justify-center w-[26px] h-[26px] border-none bg-transparent text-muted cursor-pointer rounded-sm hover:bg-surface hover:text-fg align-middle transition-all"
-                    title="展开详情"
-                    hx-get=(format!("/admin/mes/orders/{}/row-detail", w.id))
-                    hx-target="this" hx-swap="afterend"
-                    _="on click toggle .open on closest <tr/>" {
-                    (icon::chevron_right_icon("w-[15px] h-[15px]"))
                 }
             }
         }
@@ -1249,28 +1243,14 @@ pub async fn get_create_plan_drawer(
         service_ctx,
         ..
     } = ctx;
-    let mut demands = state
-        .mes_demand_service()
-        .list_pending_demands(
-            &service_ctx,
-            &mut conn,
-            DemandPoolQuery {
-                status: Some(1),
-                product_id: Some(path.product_id),
-                ..Default::default()
-            },
-            PageParams::new(1, 100),
-        )
-        .await?
-        .items;
-    // 精确加载勾选的需求（来自批量栏 batch-create-btn 的 demand_ids query）
-    if let Some(ids_str) = q.demand_ids.as_deref() {
-        let ids: std::collections::HashSet<i64> = ids_str
-            .split(',')
-            .filter_map(|s| s.trim().parse().ok())
-            .collect();
-        demands.retain(|d| ids.contains(&d.id));
-    }
+    let demands = load_demands_for_create_drawer(
+        &state,
+        &service_ctx,
+        &mut conn,
+        path.product_id,
+        q.demand_ids.as_deref(),
+    )
+    .await?;
     let product_name = demands
         .first()
         .map(|d| d.product_name.as_str())
@@ -1280,7 +1260,7 @@ pub async fn get_create_plan_drawer(
         .map(|d| d.product_code.as_str())
         .unwrap_or("—");
     Ok(Html(
-        render_create_plan_drawer_body(path.product_id, product_name, product_code, &demands)
+        render_create_plan_drawer_body(path.product_id, product_name, product_code, &demands, None, None, None)
             .into_string(),
     ))
 }
@@ -1292,12 +1272,18 @@ fn render_create_plan_drawer_body(
     product_name: &str,
     product_code: &str,
     demands: &[DemandSummary],
+    errors: Option<&std::collections::HashMap<&str, String>>,
+    submitted_start: Option<&str>,
+    submitted_end: Option<&str>,
 ) -> Markup {
     let today = chrono::Local::now().format("%Y-%m-%d").to_string();
     let default_end = chrono::Local::now()
         .checked_add_days(chrono::Days::new(10))
         .map(|d| d.format("%Y-%m-%d").to_string())
         .unwrap_or_default();
+    // 回填用户提交值（失败重渲染不丢输入）；初次加载用 today / default_end
+    let start_val = submitted_start.unwrap_or(&today);
+    let end_val = submitted_end.unwrap_or(&default_end);
     let total_qty: Decimal = demands.iter().map(|d| d.quantity).sum();
     let demand_ids_str = demands
         .iter()
@@ -1305,17 +1291,21 @@ fn render_create_plan_drawer_body(
         .collect::<Vec<_>>()
         .join(",");
     html! {
-        // 物料信息
-        div class="mb-6 pb-5 border-b border-border-soft" {
-            div class="text-xs text-muted mb-1" { "物料" }
-            div class="font-semibold text-fg" { (product_name) }
-            div class="text-xs text-muted font-mono mt-1" { (product_code) }
-        }
         form hx-post=(WcCreatePlanPath { product_id }.to_string())
-            hx-swap="none"
-            _="on 'htmx:beforeRequest'[detail.elt is me] add .hidden to #create-plan-error
-                on 'htmx:afterRequest'[detail.xhr.status < 400 and detail.elt is me] remove .open from #create-plan-overlay
-                on 'htmx:afterRequest'[detail.xhr.status >= 400 and detail.elt is me] put detail.xhr.responseText into #create-plan-error then remove .hidden from #create-plan-error" {
+            hx-target="this"
+            hx-swap="outerHTML"
+            // 复用 wc_routing_edit 范式：成功（空 body）才关 overlay；失败重渲染 form（非空）保持打开
+            _="on 'htmx:afterRequest'[detail.xhr.responseText.length == 0 and detail.elt is me] remove .open from #create-plan-overlay" {
+            // 物料信息
+            div class="mb-6 pb-5 border-b border-border-soft" {
+                div class="text-xs text-muted mb-1" { "物料" }
+                div class="font-semibold text-fg" { (product_name) }
+                div class="text-xs text-muted font-mono mt-1" { (product_code) }
+            }
+            // 顶部兜底 alert（非字段特定的通用错误，如未选需求）
+            @if let Some(m) = errors.and_then(|e| e.get("__all__")) {
+                div class="mb-4" { (alert::alert_error(m)) }
+            }
             input type="hidden" name="demand_ids" value=(demand_ids_str);
             // 需求列表（只读，全部纳入计划）
             div class="mb-6" {
@@ -1354,17 +1344,21 @@ fn render_create_plan_drawer_body(
             div class="grid grid-cols-2 gap-3 mb-6" {
                 div {
                     label class="block text-xs text-fg-2 mb-1" { "开工日期" }
-                    input type="date" name="default_scheduled_start" value=(today)
-                        class="w-full px-2 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent";
+                    input type="date" name="default_scheduled_start" value=(start_val)
+                        class=(field_cls("default_scheduled_start", errors));
+                    @if let Some(m) = errors.and_then(|e| e.get("default_scheduled_start")) {
+                        p class="text-danger text-xs mt-1" { (m) }
+                    }
                 }
                 div {
                     label class="block text-xs text-fg-2 mb-1" { "完工日期" }
-                    input type="date" name="default_scheduled_end" value=(default_end)
-                        class="w-full px-2 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent";
+                    input type="date" name="default_scheduled_end" value=(end_val)
+                        class=(field_cls("default_scheduled_end", errors));
+                    @if let Some(m) = errors.and_then(|e| e.get("default_scheduled_end")) {
+                        p class="text-danger text-xs mt-1" { (m) }
+                    }
                 }
             }
-            // 错误区（创建失败时由 afterRequest 填入服务端错误信息）
-            div id="create-plan-error" class="hidden mb-4 p-3 rounded-sm bg-danger-bg text-danger text-sm" {}
             // 操作
             div class="flex justify-end gap-2 pt-4 border-t border-border-soft" {
                 button type="button"
@@ -1379,6 +1373,50 @@ fn render_create_plan_drawer_body(
     }
 }
 
+/// 字段 input class：有错用 danger 边框，否则常规边框（创建工单 drawer 校验失败标红）。
+fn field_cls(
+    field: &str,
+    errors: Option<&std::collections::HashMap<&str, String>>,
+) -> &'static str {
+    match errors.and_then(|e| e.get(field)) {
+        Some(_) => "w-full px-2 py-1.5 border border-danger rounded-sm text-sm bg-white text-fg outline-none focus:border-danger",
+        None => "w-full px-2 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent",
+    }
+}
+
+/// 按 product_id 取 pending 需求，再按 demand_ids 精确过滤。
+/// drawer 初始加载与 create_plan 失败重渲染共用。
+async fn load_demands_for_create_drawer(
+    state: &crate::state::AppState,
+    ctx: &abt_core::shared::types::context::ServiceContext,
+    db: abt_core::shared::types::PgExecutor<'_>,
+    product_id: i64,
+    demand_ids_csv: Option<&str>,
+) -> Result<Vec<DemandSummary>> {
+    let mut demands = state
+        .mes_demand_service()
+        .list_pending_demands(
+            ctx,
+            db,
+            DemandPoolQuery {
+                status: Some(1),
+                product_id: Some(product_id),
+                ..Default::default()
+            },
+            PageParams::new(1, 100),
+        )
+        .await?
+        .items;
+    if let Some(ids_str) = demand_ids_csv.map(str::trim).filter(|s| !s.is_empty()) {
+        let ids: std::collections::HashSet<i64> = ids_str
+            .split(',')
+            .filter_map(|s| s.trim().parse().ok())
+            .collect();
+        demands.retain(|d| ids.contains(&d.id));
+    }
+    Ok(demands)
+}
+
 #[derive(Debug, Deserialize)]
 pub struct WcCreatePlanForm {
     pub default_scheduled_start: Option<String>,
@@ -1391,37 +1429,80 @@ pub struct WcCreatePlanForm {
 ///（与 ERPNext/Odoo/OFBiz 一致：一个需求一个工单，批次是数量维度的执行拆分，见 docs/solutions/mes-wo-vs-batch-modeling.md）。
 #[require_permission("WORK_ORDER", "create")]
 pub async fn create_plan(
-    _path: WcCreatePlanPath,
+    path: WcCreatePlanPath,
     ctx: RequestContext,
     axum::Form(form): axum::Form<WcCreatePlanForm>,
 ) -> Result<impl IntoResponse> {
     let RequestContext {
+        mut conn,
         state,
         service_ctx,
         ..
     } = ctx;
+
+    // 收集字段级校验错误（失败时不走 Err/全局 toast，而是 OOB 重渲染 form 标红）
+    let mut errors: std::collections::HashMap<&str, String> = std::collections::HashMap::new();
+
     let demand_ids: Vec<i64> = form
         .demand_ids
         .split(',')
         .filter_map(|s| s.trim().parse::<i64>().ok())
         .collect();
     if demand_ids.is_empty() {
-        return Err(DomainError::validation("请至少选择一条生产需求").into());
+        errors.insert("__all__", "请至少选择一条生产需求".into());
     }
-    let default_scheduled_start = form
-        .default_scheduled_start
-        .as_deref()
-        .filter(|s| !s.is_empty())
-        .map(|s| chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d"))
-        .transpose()
-        .map_err(|e| DomainError::validation(format!("无效开工日期: {e}")))?;
-    let default_scheduled_end = form
-        .default_scheduled_end
-        .as_deref()
-        .filter(|s| !s.is_empty())
-        .map(|s| chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d"))
-        .transpose()
-        .map_err(|e| DomainError::validation(format!("无效完工日期: {e}")))?;
+
+    let default_scheduled_start = match form.default_scheduled_start.as_deref().filter(|s| !s.is_empty()) {
+        Some(s) => match chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d") {
+            Ok(d) => Some(d),
+            Err(e) => {
+                errors.insert("default_scheduled_start", format!("无效开工日期: {e}"));
+                None
+            }
+        },
+        None => None,
+    };
+    let default_scheduled_end = match form.default_scheduled_end.as_deref().filter(|s| !s.is_empty()) {
+        Some(s) => match chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d") {
+            Ok(d) => Some(d),
+            Err(e) => {
+                errors.insert("default_scheduled_end", format!("无效完工日期: {e}"));
+                None
+            }
+        },
+        None => None,
+    };
+
+    // 开工日期必须早于完工日期：仅当两日期都解析成功时 zip 才为 Some（隐含排除已塞错误的非法日期）
+    if let Some((s, e)) = default_scheduled_start.zip(default_scheduled_end)
+        && s >= e
+    {
+        errors.insert("default_scheduled_end", "完工日期必须晚于开工日期".into());
+    }
+
+    // 校验失败 → OOB 重渲染 form（带 errors），drawer 保持打开
+    if !errors.is_empty() {
+        let demands = load_demands_for_create_drawer(
+            &state,
+            &service_ctx,
+            &mut conn,
+            path.product_id,
+            Some(form.demand_ids.as_str()),
+        )
+        .await?;
+        let product_name = demands.first().map(|d| d.product_name.as_str()).unwrap_or("—");
+        let product_code = demands.first().map(|d| d.product_code.as_str()).unwrap_or("—");
+        let body = render_create_plan_drawer_body(
+            path.product_id,
+            product_name,
+            product_code,
+            &demands,
+            Some(&errors),
+            form.default_scheduled_start.as_deref(),
+            form.default_scheduled_end.as_deref(),
+        );
+        return Ok(([("HX-Trigger", "")], Html(body.into_string())));
+    }
 
     let create_req = CreateWorkOrdersFromDemandsReq {
         demand_ids,
@@ -1437,15 +1518,129 @@ pub async fn create_plan(
         .begin()
         .await
         .map_err(|e| DomainError::Internal(e.into()))?;
-    let _result = state
+    state
         .mes_demand_service()
         .create_work_orders_from_demands(&service_ctx, &mut tx, create_req)
         .await?;
     tx.commit()
         .await
         .map_err(|e| DomainError::Internal(e.into()))?;
-    // 广播 planCreated：drawer 关闭（form afterRequest）+ 需求池 card 切到工单 tab 重新加载（看新建 Draft 工单）
+    // 成功：空 body + HX-Trigger（form afterRequest 判定空 → 关 overlay；planCreated → 切工单 tab 刷新）
     Ok(([("HX-Trigger", "planCreated")], Html(String::new())))
+}
+
+/// 下达 drawer 校验错误（工序行级）：工序整体为空 / 某道工序缺产出品 / 缺计件单价。
+#[derive(Default)]
+struct ReleaseErrors {
+    empty_routings: bool,
+    /// routing_id → 错误消息（含工序号/名）
+    product_missing: HashMap<i64, String>,
+    /// routing_id → 错误消息
+    price_missing: HashMap<i64, String>,
+}
+
+impl ReleaseErrors {
+    fn is_empty(&self) -> bool {
+        !self.empty_routings && self.product_missing.is_empty() && self.price_missing.is_empty()
+    }
+    /// 顶部汇总 alert 文案（存在任一错误时）。
+    fn summary(&self) -> Option<String> {
+        if self.empty_routings {
+            return Some("工单尚无工序，请先在「② 工序生成」从 Routing 加载工序后再下达".into());
+        }
+        let msgs: Vec<&String> = self
+            .product_missing
+            .values()
+            .chain(self.price_missing.values())
+            .collect();
+        if msgs.is_empty() {
+            return None;
+        }
+        let mut combined = String::from("以下工序配置不完整，请点对应行「编辑」补全后再下达：");
+        for m in msgs {
+            combined.push_str("\n• ");
+            combined.push_str(m);
+        }
+        Some(combined)
+    }
+}
+
+/// 下达 drawer 全量数据（get_release_drawer 初始加载与 release_order 失败重渲染共用）。
+struct ReleaseDrawerData {
+    order: WorkOrder,
+    product_name: String,
+    routings: Vec<WorkOrderRouting>,
+    wc_map: HashMap<i64, String>,
+    prod_map: HashMap<i64, String>,
+    level: MaterialAvailabilityLevel,
+    headline: Option<String>,
+    consumption_label: String,
+}
+
+/// 加载下达 drawer 全量数据（order / routings / 工作中心 / 产出品 / 物料齐套 / 倒冲模式）。
+async fn load_release_drawer_data(
+    state: &crate::state::AppState,
+    ctx: &abt_core::shared::types::context::ServiceContext,
+    db: abt_core::shared::types::PgExecutor<'_>,
+    order_id: i64,
+) -> Result<ReleaseDrawerData> {
+    let wo_svc = state.work_order_service();
+    let batch_svc = state.production_batch_service();
+    let product_svc = state.product_service();
+    let order = wo_svc.find_by_id(ctx, db, order_id).await?;
+    let product_name = wo_svc
+        .get_product_name(db, order.product_id)
+        .await?
+        .unwrap_or_else(|| format!("#{}", order.product_id));
+    let routings = batch_svc
+        .list_routings(ctx, db, order_id)
+        .await
+        .unwrap_or_default();
+    let wc_map: HashMap<i64, String> = new_work_center_service(state.pool.clone())
+        .list_active(ctx, db)
+        .await
+        .unwrap_or_default()
+        .into_iter()
+        .map(|wc| (wc.id, wc.name))
+        .collect();
+    let mut pids: Vec<i64> = routings.iter().filter_map(|r| r.product_id).collect();
+    if !pids.contains(&order.product_id) {
+        pids.push(order.product_id);
+    }
+    let products = product_svc
+        .get_by_ids(ctx, db, pids)
+        .await
+        .unwrap_or_default();
+    let prod_map: HashMap<i64, String> = products
+        .iter()
+        .map(|p| (p.product_id, p.pdt_name.clone()))
+        .collect();
+    let avail = wo_svc
+        .compute_availability_batch(ctx, db, std::slice::from_ref(&order))
+        .await
+        .unwrap_or_default();
+    let (level, headline) = avail
+        .get(&order.id)
+        .cloned()
+        .unwrap_or((MaterialAvailabilityLevel::Available, None));
+    let consumption_label = products
+        .iter()
+        .find(|p| p.product_id == order.product_id)
+        .map(|p| match p.meta.material_consumption_mode {
+            abt_core::master_data::product::model::MaterialConsumptionMode::Backflush => "倒冲",
+            abt_core::master_data::product::model::MaterialConsumptionMode::Picking => "领料",
+        })
+        .unwrap_or("倒冲");
+    Ok(ReleaseDrawerData {
+        order,
+        product_name,
+        routings,
+        wc_map,
+        prod_map,
+        level,
+        headline,
+        consumption_label: consumption_label.to_string(),
+    })
 }
 
 /// 下达 drawer body：工单信息 + 工序区（加载/查看）+ 分批规划 + 确认下达 form。
@@ -1460,91 +1655,21 @@ pub async fn get_release_drawer(
         service_ctx,
         ..
     } = ctx;
-    let wo_svc = state.work_order_service();
-    let batch_svc = state.production_batch_service();
-    let product_svc = state.product_service();
-
-    let order = wo_svc.find_by_id(&service_ctx, &mut conn, path.order_id).await?;
-    let product_name = wo_svc
-        .get_product_name(&mut conn, order.product_id)
-        .await?
-        .unwrap_or_else(|| format!("#{}", order.product_id));
-    let routings = batch_svc
-        .list_routings(&service_ctx, &mut conn, path.order_id)
-        .await
-        .unwrap_or_default();
-
-    // 工作中心 id→name（工序表「工作中心」列）
-    let wc_map: HashMap<i64, String> =
-        new_work_center_service(state.pool.clone())
-            .list_active(&service_ctx, &mut conn)
-            .await
-            .unwrap_or_default()
-            .into_iter()
-            .map(|wc| (wc.id, wc.name))
-            .collect();
-
-    // 产出品 id→name（工序表「产出品」列）；顺带取工单产品用于倒冲模式
-    let mut pids: Vec<i64> = routings.iter().filter_map(|r| r.product_id).collect();
-    if !pids.contains(&order.product_id) {
-        pids.push(order.product_id);
-    }
-    let products = product_svc
-        .get_by_ids(&service_ctx, &mut conn, pids)
-        .await
-        .unwrap_or_default();
-    let prod_map: HashMap<i64, String> = products
-        .iter()
-        .map(|p| (p.product_id, p.pdt_name.clone()))
-        .collect();
-
-    // 物料齐套（③ 物料确认 badge）
-    let avail = wo_svc
-        .compute_availability_batch(&service_ctx, &mut conn, &[order.clone()])
-        .await
-        .unwrap_or_default();
-    let (level, headline) = avail
-        .get(&order.id)
-        .cloned()
-        .unwrap_or((MaterialAvailabilityLevel::Available, None));
-
-    // 倒冲/领料模式
-    let consumption_label = products
-        .iter()
-        .find(|p| p.product_id == order.product_id)
-        .map(|p| match p.meta.material_consumption_mode {
-            abt_core::master_data::product::model::MaterialConsumptionMode::Backflush => "倒冲",
-            abt_core::master_data::product::model::MaterialConsumptionMode::Picking => "领料",
-        })
-        .unwrap_or("倒冲");
-
-    Ok(Html(
-        render_release_drawer_body(
-            &order,
-            &product_name,
-            &routings,
-            &wc_map,
-            &prod_map,
-            level,
-            headline.as_deref(),
-            consumption_label,
-        )
-        .into_string(),
-    ))
+    let data = load_release_drawer_data(&state, &service_ctx, &mut conn, path.order_id).await?;
+    Ok(Html(render_release_drawer_body(&data, None).into_string()))
 }
 
 // ── 下达 drawer 渲染 ──
 
-fn render_release_drawer_body(
-    order: &WorkOrder,
-    product_name: &str,
-    routings: &[WorkOrderRouting],
-    wc_map: &HashMap<i64, String>,
-    prod_map: &HashMap<i64, String>,
-    level: MaterialAvailabilityLevel,
-    headline: Option<&str>,
-    consumption_label: &str,
-) -> Markup {
+fn render_release_drawer_body(data: &ReleaseDrawerData, errors: Option<&ReleaseErrors>) -> Markup {
+    let order = &data.order;
+    let product_name = data.product_name.as_str();
+    let routings = data.routings.as_slice();
+    let wc_map = &data.wc_map;
+    let prod_map = &data.prod_map;
+    let level = data.level;
+    let headline = data.headline.as_deref();
+    let consumption_label = data.consumption_label.as_str();
     html! {
         // 工单信息
         div class="mb-5 pb-4 border-b border-border-soft" {
@@ -1556,8 +1681,15 @@ fn render_release_drawer_body(
         }
 
         form hx-post=(WcReleasePath { order_id: order.id }.to_string())
-            hx-swap="none"
-            _="on woChanged from body remove .open from #release-overlay" {
+            hx-target="this"
+            hx-swap="outerHTML"
+            hx-on:htmx:config-request="event.detail.parameters['splits_json'] = window.collectReleaseSplits(event.detail.elt)"
+            // 复用 create_plan 范式：成功（空 body）才关 overlay；失败重渲染 form（非空）保持打开
+            _="on 'htmx:afterRequest'[detail.xhr.responseText.length == 0 and detail.elt is me] remove .open from #release-overlay" {
+            // 顶部兜底 alert（工序为空 / 某工序缺产出品/单价）
+            @if let Some(m) = errors.and_then(|e| e.summary()) {
+                div class="mb-4" { (alert::alert_error(&m)) }
+            }
 
             // ① 批次规划 · 生成生产批次（拆批）
             div class="mb-5" {
@@ -1590,11 +1722,6 @@ fn render_release_drawer_body(
                                 { "从 Routing 加载" }
                         }
                     }
-                    button type="button"
-                        class="text-xs px-2 py-1 rounded-sm border border-border text-fg-2 hover:bg-accent-bg hover:text-accent cursor-pointer transition-all"
-                        hx-post=(OrderRoutingLoadRecentPath { order_id: order.id }.to_string())
-                        hx-swap="none"
-                        { "从最近工单加载" }
                 }
                 // 未绑 Routing 时：picker 选 routing 后提交（routingSelected 触发 form）
                 @if order.routing_id.is_none() {
@@ -1611,7 +1738,7 @@ fn render_release_drawer_body(
                     hx-get=(WcReleaseDrawerPath { order_id: order.id }.to_string())
                     hx-target="this" hx-select="#wc-release-routings" hx-swap="outerHTML"
                     hx-trigger="routingChanged from:body" {
-                    (render_release_routings(routings, order.id, wc_map, prod_map))
+                    (render_release_routings(routings, order.id, wc_map, prod_map, errors))
                 }
             }
 
@@ -1653,6 +1780,7 @@ fn render_release_routings(
     order_id: i64,
     wc_map: &HashMap<i64, String>,
     prod_map: &HashMap<i64, String>,
+    errors: Option<&ReleaseErrors>,
 ) -> Markup {
     if routings.is_empty() {
         return html! {
@@ -1671,13 +1799,12 @@ fn render_release_routings(
                     th class="text-left py-1.5 px-2 font-semibold" { "工作中心" }
                     th class="text-right py-1.5 px-2 font-semibold" { "单价" }
                     th class="text-center py-1.5 px-2 font-semibold" { "委外" }
-                    th class="text-center py-1.5 px-2 font-semibold" { "质检点" }
                     th class="text-right py-1.5 px-2 font-semibold" { "操作" }
                 }
             }
             tbody {
                 @for r in routings {
-                    (render_release_routing_row(r, order_id, wc_map, prod_map))
+                    (render_release_routing_row(r, order_id, wc_map, prod_map, errors))
                 }
             }
         }
@@ -1690,6 +1817,7 @@ fn render_release_routing_row(
     order_id: i64,
     wc_map: &HashMap<i64, String>,
     prod_map: &HashMap<i64, String>,
+    errors: Option<&ReleaseErrors>,
 ) -> Markup {
     let wc_name = r
         .work_center_id
@@ -1701,24 +1829,20 @@ fn render_release_routing_row(
         .and_then(|id| prod_map.get(&id))
         .map(String::as_str)
         .unwrap_or("—");
+    // 该工序是否缺产出品 / 缺单价（标红对应单元格，引导用户点「编辑」补全）
+    let prod_err = errors.and_then(|e| e.product_missing.get(&r.id)).is_some();
+    let price_err = errors.and_then(|e| e.price_missing.get(&r.id)).is_some();
     html! {
         tr class="border-b border-border-soft last:border-b-0" {
             td class="py-1.5 px-2 text-muted font-mono" { (r.step_no) }
             td class="py-1.5 px-2 text-fg" { (r.process_name) }
-            td class="py-1.5 px-2 text-fg-2" { (prod_name) }
+            td class=(if prod_err { "py-1.5 px-2 text-danger bg-danger-bg font-medium" } else { "py-1.5 px-2 text-fg-2" }) { (prod_name) }
             td class="py-1.5 px-2 text-fg-2" { (wc_name) }
-            td class="py-1.5 px-2 text-right font-mono text-fg-2" {
+            td class=(if price_err { "py-1.5 px-2 text-right font-mono text-danger bg-danger-bg font-medium" } else { "py-1.5 px-2 text-right font-mono text-fg-2" }) {
                 (r.unit_price.map(fmt_qty).unwrap_or_else(|| "—".into()))
             }
             td class="py-1.5 px-2 text-center" {
                 @if r.is_outsourced {
-                    span class="text-accent" { "✓" }
-                } @else {
-                    span class="text-muted" { "—" }
-                }
-            }
-            td class="py-1.5 px-2 text-center" {
-                @if r.is_inspection_point {
                     span class="text-accent" { "✓" }
                 } @else {
                     span class="text-muted" { "—" }
@@ -1801,12 +1925,20 @@ pub async fn post_wc_routing_edit(
     {
         Ok(_updated) => Ok(([("HX-Trigger", "routingChanged")], Html(String::new()))),
         Err(e) => {
-            let routings = svc.list_routings(&service_ctx, &mut conn, path.order_id).await?;
-            let routing = routings
-                .iter()
+            let routing = svc
+                .list_routings(&service_ctx, &mut conn, path.order_id)
+                .await?
+                .into_iter()
                 .find(|r| r.id == path.routing_id)
                 .ok_or_else(|| DomainError::not_found("WorkOrderRouting"))?;
-            let pname = resolve_routing_product_name(&state, &service_ctx, &mut conn, routing.product_id).await;
+            // 失败：用用户提交的值覆盖 DB routing，回填进面板（不丢输入）
+            let mut submitted = routing.clone();
+            submitted.product_id = form.product_id;
+            submitted.unit_price = Some(form.unit_price);
+            submitted.work_center_id = form.work_center_id;
+            submitted.standard_time = form.standard_time;
+            submitted.is_outsourced = form.is_outsourced;
+            let pname = resolve_routing_product_name(&state, &service_ctx, &mut conn, form.product_id).await;
             let work_centers = new_work_center_service(state.pool.clone())
                 .list_active(&service_ctx, &mut conn)
                 .await
@@ -1815,7 +1947,7 @@ pub async fn post_wc_routing_edit(
                 [("HX-Trigger", "")],
                 Html(html! {
                     div hx-swap-oob="innerHTML:#routing-edit-modal" {
-                        (wc_routing_edit_panel(path.order_id, path.routing_id, routing, &pname, &work_centers, Some(&format!("保存失败：{}", friendly_err_msg(&e)))))
+                        (wc_routing_edit_panel(path.order_id, path.routing_id, &submitted, &pname, &work_centers, Some(&format!("保存失败：{}", friendly_err_msg(&e)))))
                     }
                 }.into_string()),
             ))
@@ -1957,7 +2089,7 @@ fn render_split_row(idx: usize, qty: Decimal) -> Markup {
             span class="text-xs text-muted w-20 whitespace-nowrap split-label" { "生产批次" (idx + 1) }
             input class="split-qty w-24 px-2 py-1 border border-border rounded-sm text-sm font-mono text-right bg-white outline-none focus:border-accent"
                 type="number" step="0.01 " min="0"
-                name=(format!("splits[{idx}][batch_qty]")) value=(fmt_qty(qty));
+                value=(fmt_qty(qty));
             span class="text-xs text-muted" { "件" }
             button type="button" class="split-remove text-muted hover:text-danger cursor-pointer bg-transparent border-none px-1 text-base leading-none disabled:opacity-30 disabled:cursor-not-allowed"
                 title="删除生产批次"
@@ -2103,74 +2235,61 @@ pub async fn release_order(
     ctx: RequestContext,
     axum::Form(form): axum::Form<SplitMultiForm>,
 ) -> Result<impl IntoResponse> {
-    let RequestContext { state, service_ctx, .. } = ctx;
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let wo_svc = state.work_order_service();
+    let batch_svc = state.production_batch_service();
+
+    // 事务外只读校验：失败重渲染 form 标红（不走 Err/全局 toast）
+    let order = wo_svc.find_by_id(&service_ctx, &mut conn, path.order_id).await?;
+    let mut errors = ReleaseErrors::default();
+    if order.status != WorkOrderStatus::Released && order.status != WorkOrderStatus::InProduction {
+        let routings = batch_svc
+            .list_routings(&service_ctx, &mut conn, path.order_id)
+            .await?;
+        if routings.is_empty() {
+            // 报工强依赖工序，无工序下达会形成无法报工的死状态。
+            errors.empty_routings = true;
+        } else {
+            // #124：每道工序必须配置产出品 + 计件单价（工序级领料依赖产出品）
+            for r in &routings {
+                if r.product_id.is_none() {
+                    errors
+                        .product_missing
+                        .insert(r.id, format!("工序 {}「{}」未配置产出品", r.step_no, r.process_name));
+                }
+                if r.unit_price.is_none() || r.unit_price == Some(Decimal::ZERO) {
+                    errors
+                        .price_missing
+                        .insert(r.id, format!("工序 {}「{}」未配置计件单价", r.step_no, r.process_name));
+                }
+            }
+        }
+    }
+
+    // 校验失败 → 重渲染 release drawer form（工序行产出品/单价标红 + 顶部 alert），保持打开
+    if !errors.is_empty() {
+        let data = load_release_drawer_data(&state, &service_ctx, &mut conn, path.order_id).await?;
+        let body = render_release_drawer_body(&data, Some(&errors));
+        return Ok(([("HX-Trigger", "")], Html(body.into_string())));
+    }
+
+    // 校验通过 → 下达（幂等：已 Released/InProduction 跳过）+ 分批，单事务
     let mut tx = state
         .pool
         .begin()
         .await
         .map_err(|e| DomainError::Internal(e.into()))?;
-    let wo_svc = state.work_order_service();
-    let batch_svc = state.production_batch_service();
-    let order = wo_svc.find_by_id(&service_ctx, &mut tx, path.order_id).await?;
-
-    // ① 下达（幂等：已 Released/InProduction 跳过状态转换）
     if order.status != WorkOrderStatus::Released && order.status != WorkOrderStatus::InProduction {
-        // 工序非空校验：报工强依赖工序，无工序下达会形成无法报工的死状态。
-        // 用户需先在 drawer「② 工序生成」手动从 Routing / 最近工单加载工序。
-        let routings = batch_svc
-            .list_routings(&service_ctx, &mut tx, path.order_id)
-            .await?;
-        if routings.is_empty() {
-            return Err(DomainError::business_rule(
-                "工单尚无工序，请先在「② 工序生成」从 Routing 加载工序后再下达",
-            )
-            .into());
-        }
-        // #124 加强：每道工序必须配置产出品 + 计件单价（工序级领料依赖产出品）
-        for r in &routings {
-            if r.product_id.is_none() {
-                return Err(DomainError::BusinessRule(format!(
-                    "工序 {}「{}」未配置产出品，无法下达（请先编辑工序配上产出品）",
-                    r.step_no,
-                    r.process_name
-                ))
-                .into());
-            }
-            if r.unit_price.is_none() || r.unit_price == Some(Decimal::ZERO) {
-                return Err(DomainError::BusinessRule(format!(
-                    "工序 {}「{}」未配置计件单价，无法下达",
-                    r.step_no,
-                    r.process_name
-                ))
-                .into());
-            }
-        }
         wo_svc
             .release(&service_ctx, &mut tx, path.order_id, order.version)
             .await?;
     }
-
-    // ② 分批（release 后状态为 Released，满足 split_work_order 前置条件）
-    let splits: Vec<SplitReq> = form
-        .splits
-        .into_iter()
-        .filter_map(|s| {
-            let q = s.batch_qty.parse::<Decimal>().ok()?;
-            if q <= Decimal::ZERO {
-                return None;
-            }
-            Some(SplitReq {
-                batch_qty: q,
-                team_id: s.team_id,
-            })
-        })
-        .collect();
+    let splits: Vec<SplitReq> = parse_splits_json(&form.splits_json);
     if !splits.is_empty() {
         batch_svc
             .split_work_order(&service_ctx, &mut tx, path.order_id, splits)
             .await?;
     }
-
     tx.commit()
         .await
         .map_err(|e| DomainError::Internal(e.into()))?;
@@ -2180,17 +2299,37 @@ pub async fn release_order(
 /// 分批：一次事务创建多批（`Vec<SplitReq>`），广播 `woChanged`。
 ///
 /// 既有 `mes_order_detail::split_order` 只建 1 批，工作中心下达 drawer 需一次规划多批，故新建此端点。
-#[derive(Debug, Deserialize)]
-pub struct SplitLineForm {
-    pub batch_qty: String,
-    #[serde(default, deserialize_with = "crate::utils::empty_as_none")]
-    pub team_id: Option<i64>,
-}
-
+/// 分批 form：JS 收集 split 行为 JSON（`[{batch_qty, team_id?}, ...]`）传 `splits_json`。
+/// 用 JSON 桥接而非 `Vec<SplitLineForm>` —— serde_urlencoded 不支持 `Vec<Struct>` 解析，
+/// 旧实现 splits 永远为空导致 split_work_order 被跳过（下达后无批次 bug）。
 #[derive(Debug, Deserialize)]
 pub struct SplitMultiForm {
     #[serde(default)]
-    pub splits: Vec<SplitLineForm>,
+    pub splits_json: String,
+}
+
+/// JSON 桥接中转行（batch_qty 用字符串，handler 再 parse 成 Decimal）。
+#[derive(Debug, Deserialize)]
+struct SplitJsonLine {
+    pub batch_qty: String,
+    #[serde(default)]
+    pub team_id: Option<String>,
+}
+
+/// 解析 splits_json → SplitReq（过滤 qty<=0 的无效行；team_id 空串/非数字→None）。
+fn parse_splits_json(json: &str) -> Vec<SplitReq> {
+    serde_json::from_str::<Vec<SplitJsonLine>>(json)
+        .unwrap_or_default()
+        .into_iter()
+        .filter_map(|l| {
+            let q = l.batch_qty.parse::<Decimal>().ok()?;
+            if q <= Decimal::ZERO {
+                return None;
+            }
+            let team_id = l.team_id.and_then(|t| t.trim().parse::<i64>().ok());
+            Some(SplitReq { batch_qty: q, team_id })
+        })
+        .collect()
 }
 
 #[require_permission("WORK_ORDER", "update")]
@@ -2200,20 +2339,7 @@ pub async fn split_multi(
     axum::Form(form): axum::Form<SplitMultiForm>,
 ) -> Result<impl IntoResponse> {
     let RequestContext { state, service_ctx, .. } = ctx;
-    let splits: Vec<SplitReq> = form
-        .splits
-        .into_iter()
-        .filter_map(|s| {
-            let q = s.batch_qty.parse::<Decimal>().ok()?;
-            if q <= Decimal::ZERO {
-                return None;
-            }
-            Some(SplitReq {
-                batch_qty: q,
-                team_id: s.team_id,
-            })
-        })
-        .collect();
+    let splits: Vec<SplitReq> = parse_splits_json(&form.splits_json);
     if splits.is_empty() {
         return Err(DomainError::validation("至少需要一条有效分批").into());
     }

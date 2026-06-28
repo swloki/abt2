@@ -900,6 +900,7 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .text-white\/90{color:color-mix(in srgb, var(--colors-white) 90%, transparent) /* #fff */;}
 .hover\:icon\:text-accent [class*=i-lucide]:hover{color:color-mix(in srgb, var(--accent) var(--un-text-opacity), transparent) /* var(--accent) */;}
 .hover\:text-accent-hover:hover{color:color-mix(in srgb, var(--accent-hover) var(--un-text-opacity), transparent) /* var(--accent-hover) */;}
+.hover\:text-accent-on:hover{color:color-mix(in srgb, var(--accent-on) var(--un-text-opacity), transparent) /* var(--accent-on) */;}
 .hover\:text-accent:hover{color:color-mix(in srgb, var(--accent) var(--un-text-opacity), transparent) /* var(--accent) */;}
 .hover\:text-danger:hover{color:color-mix(in srgb, var(--danger) var(--un-text-opacity), transparent) /* var(--danger) */;}
 .hover\:text-fg:hover{color:color-mix(in srgb, var(--fg) var(--un-text-opacity), transparent) /* var(--fg) */;}
@@ -1132,6 +1133,7 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .border-accent-200{border-color:color-mix(in srgb, var(--accent-200) var(--un-border-opacity), transparent) /* var(--accent-200) */;}
 .border-accent\/12{border-color:color-mix(in srgb, var(--accent) 12%, transparent) /* var(--accent) */;}
 .border-accent\/30{border-color:color-mix(in srgb, var(--accent) 30%, transparent) /* var(--accent) */;}
+.border-accent\/50{border-color:color-mix(in srgb, var(--accent) 50%, transparent) /* var(--accent) */;}
 .border-bg{border-color:color-mix(in srgb, var(--bg) var(--un-border-opacity), transparent) /* var(--bg) */;}
 .border-border{border-color:color-mix(in srgb, var(--border) var(--un-border-opacity), transparent) /* var(--border) */;}
 .border-current\/20{border-color:color-mix(in oklab, currentColor 20%, transparent) /* currentColor */;}
@@ -1159,6 +1161,7 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .hover\:border-danger-200:hover{border-color:color-mix(in srgb, var(--danger-200) var(--un-border-opacity), transparent) /* var(--danger-200) */;}
 .hover\:border-slate-300:hover{border-color:color-mix(in srgb, var(--slate-300) var(--un-border-opacity), transparent) /* var(--slate-300) */;}
 .focus\:border-accent:focus{border-color:color-mix(in srgb, var(--accent) var(--un-border-opacity), transparent) /* var(--accent) */;}
+.focus\:border-danger:focus{border-color:color-mix(in srgb, var(--danger) var(--un-border-opacity), transparent) /* var(--danger) */;}
 .border-l-\[3px\]{border-left-color:color-mix(in oklab, 3px var(--un-border-left-opacity), transparent) /* 3px */;}
 .border-l-accent{border-left-color:color-mix(in srgb, var(--accent) var(--un-border-left-opacity), transparent) /* var(--accent) */;--un-border-left-opacity:var(--un-border-opacity);}
 .border-l-purple{border-left-color:color-mix(in srgb, var(--purple) var(--un-border-left-opacity), transparent) /* var(--purple) */;--un-border-left-opacity:var(--un-border-opacity);}
@@ -1309,6 +1312,7 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .hover\:bg-\[rgba\(37\,99\,235\,0\.14\)\]:hover{background-color:color-mix(in oklab, rgba(37,99,235,0.14) var(--un-bg-opacity), transparent) /* rgba(37,99,235,0.14) */;}
 .hover\:bg-accent-bg:hover{background-color:color-mix(in srgb, var(--accent-bg) var(--un-bg-opacity), transparent) /* var(--accent-bg) */;}
 .hover\:bg-accent-hover:hover{background-color:color-mix(in srgb, var(--accent-hover) var(--un-bg-opacity), transparent) /* var(--accent-hover) */;}
+.hover\:bg-accent:hover{background-color:color-mix(in srgb, var(--accent) var(--un-bg-opacity), transparent) /* var(--accent) */;}
 .hover\:bg-bg:hover{background-color:color-mix(in srgb, var(--bg) var(--un-bg-opacity), transparent) /* var(--bg) */;}
 .hover\:bg-black\/6:hover{background-color:color-mix(in srgb, var(--colors-black) 6%, transparent) /* #000 */;}
 .hover\:bg-danger-100:hover{background-color:color-mix(in srgb, var(--danger-100) var(--un-bg-opacity), transparent) /* var(--danger-100) */;}
@@ -1349,6 +1353,7 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .disabled\:opacity-30:disabled{opacity:30%;}
 .disabled\:opacity-50:disabled{opacity:50%;}
 .line-through{text-decoration-line:line-through;}
+.underline{text-decoration-line:underline;}
 .hover\:underline:hover{text-decoration-line:underline;}
 .\[\&_a\]\:no-underline a,
 .no-underline{text-decoration:none;}

@@ -9,13 +9,11 @@ window.scrollToAnchor = function (sel) {
 
 
 // ── Release drawer 生产批次增删（work-center 下达 drawer 批次规划）──
-// .split-row 克隆增行；.split-remove 删行（至少保留 1 行）；每次操作后重新编号 splits[idx][batch_qty]
+// .split-row 克隆增行；.split-remove 删行（至少保留 1 行）；重新编号仅更新 label（数量由 collectReleaseSplits 收集成 JSON）
 function renumberSplitRows(container) {
   var rows = container.querySelectorAll('.split-row');
   var single = rows.length <= 1;
   rows.forEach(function (row, i) {
-    var input = row.querySelector('.split-qty');
-    if (input) input.name = 'splits[' + i + '][batch_qty]';
     var label = row.querySelector('.split-label');
     if (label) label.textContent = '生产批次 ' + (i + 1);
     // 仅 1 行时禁用删除（至少保留 1 行）；多行时启用
@@ -42,6 +40,20 @@ window.removeSplitRow = function (btn) {
   if (!container || container.querySelectorAll('.split-row').length <= 1) return;
   row.remove();
   renumberSplitRows(container);
+};
+
+// 收集 split 行为 JSON 字符串（htmx config-request 时注入 splits_json 参数）。
+// serde_urlencoded 不支持 Vec<Struct>，故用 JSON 桥接（同 lineItemCalc 模式）。
+window.collectReleaseSplits = function (form) {
+  var rows = form.querySelectorAll('.split-row');
+  var arr = [];
+  for (var i = 0; i < rows.length; i++) {
+    var q = rows[i].querySelector('.split-qty');
+    if (q && q.value && parseFloat(q.value) > 0) {
+      arr.push({ batch_qty: q.value });
+    }
+  }
+  return JSON.stringify(arr);
 };
 
 

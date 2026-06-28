@@ -96,12 +96,6 @@ pub struct OrderRoutingApplyFromRoutingPath {
     pub order_id: i64,
 }
 
-#[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/mes/orders/{order_id}/routings/load-recent")]
-pub struct OrderRoutingLoadRecentPath {
-    pub order_id: i64,
-}
-
 /// 行内展开：懒加载行详情 `<tr class="row-detail">`（列表页点展开按钮 hx-get）。
 #[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/mes/orders/{order_id}/row-detail")]
@@ -141,10 +135,6 @@ pub fn router() -> Router<AppState> {
         .route(
             OrderRoutingApplyFromRoutingPath::PATH,
             post(mes_order_detail::post_apply_from_routing),
-        )
-        .route(
-            OrderRoutingLoadRecentPath::PATH,
-            post(mes_order_detail::load_routings_from_recent),
         )
         .route(OrderRowDetailPath::PATH, get(mes_order_list::get_order_row_detail))
         .route(SourceOrderSearchPath::PATH, get(mes_order_create::search_source_orders))

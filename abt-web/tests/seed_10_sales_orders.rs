@@ -25,12 +25,12 @@ fn urlenc(s: &str) -> String {
     out
 }
 
-/// 销售订单明细 JSON（URL 编码）：[{product_id, quantity, unit_price}]
-fn so_items(items: &[(&str, &str, &str)]) -> String {
+/// 销售订单明细 JSON（URL 编码）：[{product_id, quantity, unit_price, item_delivery_date}]
+fn so_items(items: &[(&str, &str, &str, &str)]) -> String {
     let parts: Vec<String> = items
         .iter()
-        .map(|(pid, qty, price)| {
-            format!(r#"{{"product_id":"{pid}","quantity":"{qty}","unit_price":"{price}"}}"#)
+        .map(|(pid, qty, price, dd)| {
+            format!(r#"{{"product_id":"{pid}","quantity":"{qty}","unit_price":"{price}","item_delivery_date":"{dd}"}}"#)
         })
         .collect();
     urlenc(&format!("[{}]", parts.join(",")))
@@ -52,9 +52,10 @@ async fn seed_10_sales_orders() {
     let app = TestApp::new().await;
     for i in 1..=10 {
         let qty = (50 + i * 10).to_string(); // 60, 70, ..., 150
+        let delivery_date = format!("2026-07-{}", 10 + i); // 07-11 .. 07-20（需求日期）
         let so_body = format!(
             "customer_id={CUSTOMER_ID}&contact_id={CONTACT_ID}&items_json={}",
-            so_items(&[(&PRODUCT_MADE.to_string(), &qty, "1.00")])
+            so_items(&[(&PRODUCT_MADE.to_string(), &qty, "1.00", &delivery_date)])
         );
         let resp = app.post_htmx("/admin/orders/create", &so_body).await;
         let so_id = redirect_id(&resp);

@@ -40,7 +40,7 @@ pub async fn get_work_center_detail(
  is_htmx,
  &format!("工作中心 {}", wc.code),
  &claims,
- "md",
+ "production",
  &format!("/admin/md/work-centers/{}", path.id),
  "工程",
  Some(&wc.name),

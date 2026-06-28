@@ -72,7 +72,7 @@ pub async fn get_work_center_list(
  is_htmx,
  "工作中心管理",
  &claims,
- "md",
+ "production",
  WorkCenterListPath::PATH,
  "工程",
         Some("工作中心管理"),

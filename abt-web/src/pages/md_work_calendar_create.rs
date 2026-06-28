@@ -38,7 +38,7 @@ pub async fn get_work_calendar_create(
  is_htmx,
  "新建工作日历",
  &claims,
- "md",
+ "production",
  WorkCalendarCreatePath::PATH,
  "工程",
  Some("新建工作日历"),

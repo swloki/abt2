@@ -44,7 +44,7 @@ pub async fn get_work_calendar_detail(
  is_htmx,
  &format!("工作日历 {}", cal.name),
  &claims,
- "md",
+ "production",
  &format!("/admin/md/work-calendars/{}", path.id),
  "工程",
  Some(&cal.name),

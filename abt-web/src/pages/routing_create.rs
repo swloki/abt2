@@ -86,7 +86,7 @@ pub async fn get_routing_create(
  is_htmx,
  "新建工艺路线",
  &claims,
- "md",
+ "production",
  RoutingCreatePath::PATH,
  "主数据管理",
  Some("新建工艺路线"),

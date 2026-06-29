@@ -40,7 +40,7 @@ pub async fn search_routings(
         .list(
             &service_ctx,
             &mut conn,
-            RoutingQuery { keyword: params.keyword.filter(|s| !s.is_empty()) },
+            RoutingQuery { keyword: params.keyword.filter(|s| !s.is_empty()), bom_keyword: None },
             PageParams::new(1, 20),
         )
         .await?;

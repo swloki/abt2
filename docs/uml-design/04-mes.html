@@ -762,9 +762,9 @@ classDiagram
           <h4 style="color: #e5c07b; margin: 0 0 6px 0; font-size: 12px;">实体归属与快照语义</h4>
           <div style="font-family: monospace; font-size: 11px; color: #ccc; line-height: 1.8;">
             <b style="color:#e5c07b;">WorkOrderRouting</b> = 工单级工序快照（Layer 2，定义+参数）<br>
-            &bull; <span style="color:#98c379;">手动加载</span>：Draft 工单工序初始为空，由用户在下达 drawer「从 Routing 加载」/「从最近工单加载」（含产出品 product_id / 计件单价 unit_price）<br>
-            &bull; <span style="color:#98c379;">首报工前可编辑</span>：Draft/Released/InProduction 且整单未报工时，可改产出品/单价/工作中心/委外、删除工序、从工艺路径或最近工单加载<br>
-            &bull; release 校验非空：下达时校验工单已有工序（报工强依赖工序），无工序下达会被拦截，不再自动补全<br>
+            &bull; <span style="color:#98c379;">自动加载</span>：工单创建时（<b style="color:#e5c07b;">WorkOrderService::create</b>）从产品 BOM 关联的工艺路线（bom_routings）自动加载工序快照（含产出品/单价/工作中心/委外），只读不可编辑<br>
+            &bull; <span style="color:#98c379;">属性源自模板</span>：产出品/单价/工作中心/委外由工艺路线模板（routing_steps）定义，工单只复制，不在工单级编辑（ERPNext/Odoo/OFBiz 共识）<br>
+            &bull; release 校验非空：下达时校验工序非空；BOM 未关联工艺路线时工序为空，drawer 引导去「工艺路线管理」关联；release 对无工序老工单兜底补加载<br>
             &bull; <span style="color:#98c379;">三层工序模型（已实现）</span>：执行进度迁移至 BatchRoutingProgress<br>
             &bull; Layer 1: master_data.routings（工序模板）<br>
             &bull; Layer 2: work_order_routings（工单工序快照）<br>
@@ -809,8 +809,8 @@ classDiagram
           &nbsp;&nbsp;绝不做 read-modify-write<br><br>
           <span style="color:#e5c07b;">③ 快照语义</span> — 工艺路线<br>
           &nbsp;&nbsp;WorkOrderRouting 即为快照载体<br>
-          &nbsp;&nbsp;Draft 工单工序初始为空，用户在下达 drawer 手动从工艺路径加载；release 校验工序非空（不再自动补全）<br>
-          &nbsp;&nbsp;首报工前可编辑（产出品/单价），报工后锁定；routing_id 仅作溯源引用
+          &nbsp;&nbsp;工单创建时（create）从 BOM 关联工艺路线自动加载工序快照；BOM 未关联则留空，下达 drawer 引导去关联；release 兜底补加载老工单<br>
+          &nbsp;&nbsp;工单级工序只读（属性源自工艺路线模板），报工后锁定；routing_id 记录来源工艺路线
         </div>
       </div>
       <div style="border: 2px solid #56b6c2; border-radius: 8px; padding: 14px; background: rgba(86,182,194,0.05);">
@@ -1006,7 +1006,7 @@ classDiagram
         1. 乐观锁：UPDATE demands SET status=Confirmed WHERE id=ANY($1) AND status=Pending AND acquire_channel=1 RETURNING *<br>
         2. 计算被跳过的需求（不在 RETURNING 集合中的 demand_ids）<br>
         3. 按 product_id 聚合成功锁定的需求（同物料数量累加，关联首个 SO）<br>
-        4. 每个聚合组调 WorkOrderService::create 生成 Draft 工单（plan_item_id=None，填 source_so_doc / source_customer）<br>
+        4. 每个聚合组调 WorkOrderService::create 生成 Draft 工单（plan_item_id=None，填 source_so_doc / source_customer）；create 内自动从 BOM 关联工艺路线加载工序（无关联则留空）<br>
         5. 逐条更新 target_doc (doc_type=WorkOrder, doc_id=wo_id)<br>
         6. 逐条发布 DemandConfirmed 事件（target_doc_type=WorkOrder，同事务内）<br>
         7. 返回 CreateWorkOrdersResult（含 wo_ids、处理数、跳过列表）<br>

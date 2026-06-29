@@ -61,4 +61,4 @@ pub struct MesWorkCenterSummary {
 
 - 每个 card 一个 GET 端点；card 内 tab/搜索/分页走该端点 + `hx-select="#wc-xxx-card"` + `hx-swap="outerHTML"` 局部刷新。
 - 写操作 POST 广播 `HX-Trigger: woChanged`；需求池 schedule view 与工单 card 监听 `woChanged from:body` 自刷新。
-- 工序加载/编辑复用 `mes_order` 端点（广播 `routingChanged`），下达 drawer 内工序区监听自刷新。
+- 工序由工单创建时从 BOM 关联工艺路线自动加载（`WorkOrderService::create` 内 `try_load_routings_from_bom`），只读不可编辑；BOM 未关联工艺路线时下达 drawer 引导用户去「工艺路线管理」关联。

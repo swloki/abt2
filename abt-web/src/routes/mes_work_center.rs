@@ -53,14 +53,6 @@ pub struct WcReportPath {
     pub order_id: i64,
 }
 
-/// 工序编辑（工作中心下达 drawer 内行内编辑产出品/单价/工作中心/工时/委外）。
-#[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/mes/work-center/orders/{order_id}/routings/{routing_id}/edit")]
-pub struct WcRoutingEditPath {
-    pub order_id: i64,
-    pub routing_id: i64,
-}
-
 /// 创建工单 drawer body（物料汇总行「创建工单」就地打开）。
 #[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/mes/work-center/create-plan-drawer/{product_id}")]
@@ -181,10 +173,6 @@ pub fn router() -> Router<AppState> {
         .route(WcReleasePath::PATH, post(mes_work_center::release_order))
         .route(WcSplitMultiPath::PATH, post(mes_work_center::split_multi))
         .route(WcReportPath::PATH, post(mes_work_center::report_step))
-        .route(
-            WcRoutingEditPath::PATH,
-            get(mes_work_center::get_wc_routing_edit).post(mes_work_center::post_wc_routing_edit),
-        )
         .route(
             WcCreatePlanDrawerPath::PATH,
             get(mes_work_center::get_create_plan_drawer),

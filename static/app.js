@@ -30,6 +30,9 @@ window.addSplitRow = function (btn) {
   var clone = last.cloneNode(true);
   var input = clone.querySelector('.split-qty');
   if (input) input.value = '';
+  // cloneNode 不触发 hyperscript 重新绑定，手动给克隆出的删除按钮挂 click
+  var rm = clone.querySelector('.split-remove');
+  if (rm) rm.addEventListener('click', function () { window.removeSplitRow(rm); });
   container.appendChild(clone);
   renumberSplitRows(container);
 };

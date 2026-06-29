@@ -591,31 +591,31 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
     }
 
     async fn load_routings_from_template(
-        &self, ctx: &ServiceContext, _db: PgExecutor<'_>,
+        &self, ctx: &ServiceContext, db: PgExecutor<'_>,
         work_order_id: i64, routing_id: i64,
     ) -> Result<usize> {
         use crate::master_data::routing::{new_routing_service, service::RoutingService};
-        let mut conn = self.pool.acquire().await.map_err(|e| DomainError::Internal(e.into()))?;
-        let wo = new_work_order_service(self.pool.clone()).find_by_id(ctx, &mut *conn, work_order_id).await?;
+        // 复用调用方传入的连接：WorkOrderService::create / release 在各自事务内调用（同事务原子），
+        // post_apply_from_routing 由 handler 自包事务。不再内部 acquire/begin/commit。
+        let wo = new_work_order_service(self.pool.clone())
+            .find_by_id(ctx, db, work_order_id).await?;
         if !matches!(wo.status, WorkOrderStatus::Draft | WorkOrderStatus::Released | WorkOrderStatus::InProduction) {
             return Err(DomainError::business_rule("工单当前状态不允许加载工艺路径"));
         }
         let planned_qty = wo.planned_qty;
-        drop(conn);
-        let mut tx = self.pool.begin().await.map_err(|e| DomainError::Internal(e.into()))?;
         // 1) 获取工艺路径模板步骤
         let detail = new_routing_service(self.pool.clone())
-            .get_detail(ctx, &mut *tx, routing_id).await?;
+            .get_detail(ctx, db, routing_id).await?;
         // 2) 删除已有工序（跳过已报工的），同时记录被锁定的 step_no
-        let mine = WorkOrderRoutingRepo::get_by_work_order_id(&mut *tx, work_order_id).await?;
+        let mine = WorkOrderRoutingRepo::get_by_work_order_id(&mut *db, work_order_id).await?;
         let mut deleted = 0usize;
         let mut locked_step_nos: std::collections::HashSet<i32> = std::collections::HashSet::new();
         for r in &mine {
-            if WorkOrderRoutingRepo::has_report(&mut *tx, r.id).await? {
+            if WorkOrderRoutingRepo::has_report(&mut *db, r.id).await? {
                 locked_step_nos.insert(r.step_no);
             } else {
                 sqlx::query("DELETE FROM work_order_routings WHERE id = $1")
-                    .bind(r.id).execute(&mut *tx).await?;
+                    .bind(r.id).execute(&mut *db).await?;
                 deleted += 1;
             }
         }
@@ -635,20 +635,19 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
             .bind(step.unit_price).bind(step.allowed_loss_rate)
             .bind(planned_qty).bind(step.is_outsourced).bind(step.is_inspection_point)
             .bind(step.product_id)
-            .execute(&mut *tx).await?;
+            .execute(&mut *db).await?;
             inserted += 1;
         }
         // 4) 审计日志
         if inserted > 0 || deleted > 0 {
             new_audit_log_service(self.pool.clone())
-                .record(ctx, &mut *tx, RecordAuditLogReq {
+                .record(ctx, db, RecordAuditLogReq {
                     entity_type: "WorkOrder", entity_id: work_order_id,
                     action: AuditAction::Update,
                     changes: Some(json!(format!("从工艺路径加载工序（删除{deleted}行，插入{inserted}行，跳过{}行已报工）", locked_step_nos.len()))),
                     context: None,
                 }).await?;
         }
-        tx.commit().await.map_err(|e| DomainError::Internal(e.into()))?;
         Ok(inserted)
     }
 

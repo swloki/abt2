@@ -118,11 +118,24 @@ impl RoutingRepo {
             None
         };
 
+        let bom_keyword_param = if let Some(ref kw) =
+            filter.bom_keyword.as_ref().filter(|s| !s.trim().is_empty())
+        {
+            param_idx += 1;
+            conditions.push(format!(
+                "id IN (SELECT br.routing_id FROM bom_routings br LEFT JOIN products p ON br.product_code = p.product_code WHERE br.product_code ILIKE ${param_idx} OR p.pdt_name ILIKE ${param_idx})"
+            ));
+            Some(format!("%{}%", kw.trim()))
+        } else {
+            None
+        };
+
         let where_clause = conditions.join(" AND ");
 
         let count_sql = format!("SELECT COUNT(*) FROM routings WHERE {where_clause}");
         let mut count_q = sqlx::query_scalar::<sqlx::Postgres, i64>(sqlx::AssertSqlSafe(count_sql));
         if let Some(ref v) = keyword_param { count_q = count_q.bind(v); }
+        if let Some(ref v) = bom_keyword_param { count_q = count_q.bind(v); }
         let total = count_q.fetch_one(&mut *executor).await? as u64;
 
         param_idx += 1;
@@ -135,6 +148,7 @@ impl RoutingRepo {
         );
         let mut data_q = sqlx::query_as::<sqlx::Postgres, Routing>(sqlx::AssertSqlSafe(data_sql));
         if let Some(ref v) = keyword_param { data_q = data_q.bind(v); }
+        if let Some(ref v) = bom_keyword_param { data_q = data_q.bind(v); }
         data_q = data_q.bind(page.page_size as i64).bind(page.offset() as i64);
         let items = data_q.fetch_all(executor).await?;
 

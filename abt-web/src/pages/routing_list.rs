@@ -24,6 +24,7 @@ use abt_macros::require_permission;
 #[derive(Debug, Deserialize, Clone, Default)]
 pub struct RoutingQueryParams {
  pub keyword: Option<String>,
+ pub bom_keyword: Option<String>,
  #[serde(default, deserialize_with = "empty_as_none")]
  pub page: Option<u32>,
 }
@@ -52,6 +53,7 @@ pub async fn get_routing_list(
 
  let filter = RoutingQuery {
  keyword: params.keyword.clone(),
+ bom_keyword: params.bom_keyword.clone(),
  };
  let page = PageParams::new(params.page.unwrap_or(1), 20);
 
@@ -153,6 +155,8 @@ fn routing_table_fragment(
  can_delete: bool,
 ) -> Markup {
  let total_count = result.total;
+ let keyword = params.keyword.as_deref().unwrap_or("");
+ let bom_keyword = params.bom_keyword.as_deref().unwrap_or("");
 
  html! {
     div class="customer-list-panel" {
@@ -163,25 +167,40 @@ fn routing_table_fragment(
                 "全部 "
                 span class="font-bold text-fg" { (total_count) }
             }
-            div class="relative flex-1 max-w-xs icon:absolute icon:left-3 icon:top-1/2 icon:-translate-y-1/2 icon:w-4 icon:h-4 icon:text-muted"
+            form
+                class="filter-form flex items-center gap-3"
+                id="routing-filter-form"
+                hx-get=(RoutingListPath::PATH)
+                hx-trigger="change, keyup changed delay:300ms from:.search-input"
+                hx-target="#data-card"
+                hx-select="#data-card"
+                hx-swap="outerHTML"
+                hx-include="#routing-filter-form"
             {
-                (icon::search_icon("w-4 h-4"))
-                input
-                    class="w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent search-input"
-                    type="text"
-                    name="keyword"
-                    id="routing-keyword"
-                    placeholder="搜索工艺路线名称…"
-                    value=(params.keyword.as_deref().unwrap_or(""))
-                    hx-get=(RoutingListPath::PATH)
-                    hx-trigger="keyup changed delay:300ms"
-                    hx-sync="this:replace"
-                    hx-target="closest .customer-list-panel"
-                    hx-swap="outerHTML";
+                div class="relative flex-1 max-w-xs icon:absolute icon:left-3 icon:top-1/2 icon:-translate-y-1/2 icon:w-4 icon:h-4 icon:text-muted"
+                {
+                    (icon::search_icon("w-4 h-4"))
+                    input
+                        class="search-input w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
+                        type="text"
+                        name="keyword"
+                        placeholder="搜索工艺路线名称…"
+                        value=(keyword);
+                }
+                div class="relative flex-1 max-w-xs icon:absolute icon:left-3 icon:top-1/2 icon:-translate-y-1/2 icon:w-4 icon:h-4 icon:text-muted"
+                {
+                    (icon::search_icon("w-4 h-4"))
+                    input
+                        class="search-input w-full pl-9 pr-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
+                        type="text"
+                        name="bom_keyword"
+                        placeholder="按关联 BOM 产品名/编码筛选…"
+                        value=(bom_keyword);
+                }
             }
         }
         // ── Data Table ──
-        div class="data-card" id="routing-data-card" {
+        div class="data-card" id="data-card" {
             div class="overflow-x-auto" {
                 table class="data-table" {
                     thead {
@@ -208,8 +227,8 @@ fn routing_table_fragment(
             ({
                 pagination(
                     RoutingListPath::PATH,
-                    "#routing-data-card",
-                    "#routing-keyword",
+                    "#data-card",
+                    "#routing-filter-form",
                     result.total,
                     result.page,
                     result.total_pages,

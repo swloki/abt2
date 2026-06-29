@@ -1808,7 +1808,7 @@ classDiagram
         &nbsp;&nbsp;返回 Option&lt;RoutingDetail&gt;（含 routing + steps）<br>
         &nbsp;&nbsp;<span style="color:#56b6c2;">MES 快照时使用原始 step_order</span>，匹配逻辑不改变顺序<br><br>
         <span style="color:#e5a655;">RoutingService.set_bom_routing</span><br>
-        &nbsp;&nbsp;UPSERT bom_routings（product_code 唯一，每个产品只绑定一条路线）<br>
+        &nbsp;&nbsp;UPSERT bom_routings（product_code 唯一，每个产品只绑定一条路线）；若该 BOM 已绑定其他路线，返回 BusinessRule 提示「已关联到路线 X」不静默覆盖<br>
         &nbsp;&nbsp;发布 BomRoutingChanged 事件<br><br>
         <span style="color:#e5a655;">LaborProcessDictService.delete</span><br>
         &nbsp;&nbsp;软删除（SET deleted_at = NOW()）<br>

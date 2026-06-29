@@ -45,6 +45,37 @@ impl WorkOrderServiceImpl {
     pub fn new(pool: PgPool) -> Self {
         Self { pool }
     }
+
+    /// 查产品 BOM 关联的工艺路线：若有关联则把工序模板加载到工单 + 写 `work_order.routing_id`；
+    /// 无关联则跳过（留空，由下达 drawer 引导 + release 兜底）。
+    ///
+    /// 复用调用方传入的连接（同事务原子）：`create` 自动调用、`release` 对无工序老工单兜底。
+    /// 三家 ERP（ERPNext/Odoo/OFBiz）共识——工单工序在创建时从工艺模板复制。
+    async fn try_load_routings_from_bom(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        work_order_id: i64,
+        product_id: i64,
+    ) -> Result<()> {
+        use crate::mes::production_batch::{new_production_batch_service, ProductionBatchService};
+        let product = new_product_service(self.pool.clone())
+            .get(ctx, db, product_id)
+            .await?;
+        if let Some(detail) = new_routing_service(self.pool.clone())
+            .get_bom_routing(ctx, db, product.product_code.clone())
+            .await?
+        {
+            let routing_id = detail.routing.id;
+            new_production_batch_service(self.pool.clone())
+                .load_routings_from_template(ctx, db, work_order_id, routing_id)
+                .await?;
+            WorkOrderRepo::update_routing_id(&mut *db, work_order_id, routing_id)
+                .await
+                .map_err(|e| DomainError::Internal(e.into()))?;
+        }
+        Ok(())
+    }
 }
 
 #[async_trait]
@@ -74,6 +105,10 @@ impl WorkOrderService for WorkOrderServiceImpl {
                 ctx, db,
                 RecordAuditLogReq::new("WorkOrder", work_order.id, AuditAction::Create),
             )
+            .await?;
+
+        // 工序：自动从 BOM 关联的工艺路线加载（无关联则留空，由下达 drawer 引导 + release 兜底）
+        self.try_load_routings_from_bom(ctx, db, work_order.id, req.product_id)
             .await?;
 
         Ok(work_order.id)
@@ -158,8 +193,13 @@ impl WorkOrderService for WorkOrderServiceImpl {
             None
         };
 
-        // 5. 工序：由用户在下达 drawer 手动从 Routing 加载，release 不再自动初始化
-        //    （无工序下达会被 release_order 校验拦截：报工强依赖工序，不可留空）
+        // 5. 工序兜底：改造前创建的无工序老工单（routing_id 为空），若 BOM 有关联 routing 则补加载；
+        //    新工单在 create 时已自动加载（routing_id 已 Some），此处跳过。
+        //    BOM 仍无关联 routing → 工序留空，release_order 校验拦截并引导用户去关联。
+        if work_order.routing_id.is_none() {
+            self.try_load_routings_from_bom(ctx, db, id, work_order.product_id)
+                .await?;
+        }
 
         // 6. 根据产品 material_consumption_mode 分流
         let consumption_mode = product.meta.material_consumption_mode;

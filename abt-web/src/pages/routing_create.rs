@@ -431,7 +431,7 @@ fn routing_form_page(
                     }
                     div class="form-field" {
                         label { "路线编码" }
-                        input type="text" value=(code_value) readonly class="bg-surface text-muted" {}
+                        input type="text" value=(code_value) disabled class="!bg-surface !text-muted cursor-not-allowed" {}
                     }
                     div class="form-field field-full" {
                         label { "描述" }
@@ -482,7 +482,7 @@ fn routing_form_page(
                 }
             }
             // ── Action Bar ──
-            div class="flex items-center justify-end gap-3 pt-4 border-t border-border-soft" {
+            div class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 bg-bg border-t border-border-soft" {
                 a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
                     href=(format!("{}?restore=true", RoutingListPath::PATH))
                 { "取消" }

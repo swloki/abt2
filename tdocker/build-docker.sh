@@ -13,6 +13,8 @@ docker build -f Dockerfile --target builder -t abt-builder2 ..
 echo ">>> 清理临时文件..."
 rm -rf ../.ssh_build
 
-echo ">>> 编译镜像构建完成: abt-builder"
-echo ">>> 启动开发容器: docker run --rm -it abt-builder bash"
-echo ">>> 容器内执行: bash docker-sync.sh"
+echo ">>> 编译镜像构建完成: abt-builder2"
+echo ""
+echo ">>> 单次部署：  docker run --rm abt-builder2"
+echo ">>> CI 常驻：    docker run -d --restart always --name abt-ci -e POLL_INTERVAL=60 abt-builder2 bash tdocker/ci-loop.sh"
+echo ">>> 查看 CI 日志：docker logs -f abt-ci"

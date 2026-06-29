@@ -97,6 +97,8 @@ pub struct RoutingStepInput {
 #[derive(Debug, Clone, Default)]
 pub struct RoutingQuery {
     pub keyword: Option<String>,
+    /// 按关联 BOM 的产品编码/名称过滤（反查：某 BOM 关联了哪些 routing）
+    pub bom_keyword: Option<String>,
 }
 
 /// 工艺路线详情（含步骤）

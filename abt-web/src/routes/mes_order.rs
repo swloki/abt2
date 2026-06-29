@@ -76,26 +76,6 @@ pub struct OrderReceiptPath {
     pub order_id: i64,
 }
 
-#[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/mes/orders/{order_id}/routings/{routing_id}/edit")]
-pub struct OrderRoutingEditPath {
-    pub order_id: i64,
-    pub routing_id: i64,
-}
-
-#[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/mes/orders/{order_id}/routings/{routing_id}/delete")]
-pub struct OrderRoutingDeletePath {
-    pub order_id: i64,
-    pub routing_id: i64,
-}
-
-#[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/mes/orders/{order_id}/routings/apply-from-routing")]
-pub struct OrderRoutingApplyFromRoutingPath {
-    pub order_id: i64,
-}
-
 /// 行内展开：懒加载行详情 `<tr class="row-detail">`（列表页点展开按钮 hx-get）。
 #[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/mes/orders/{order_id}/row-detail")]
@@ -127,15 +107,6 @@ pub fn router() -> Router<AppState> {
         .route(OrderSchedulePath::PATH, post(mes_order_detail::schedule_order))
         .route(OrderRequisitionPath::PATH, post(mes_order_detail::create_requisition))
         .route(OrderReceiptPath::PATH, post(mes_order_detail::create_receipt))
-        .route(
-            OrderRoutingEditPath::PATH,
-            get(mes_order_detail::get_routing_edit).post(mes_order_detail::post_routing_edit),
-        )
-        .route(OrderRoutingDeletePath::PATH, post(mes_order_detail::delete_routing))
-        .route(
-            OrderRoutingApplyFromRoutingPath::PATH,
-            post(mes_order_detail::post_apply_from_routing),
-        )
         .route(OrderRowDetailPath::PATH, get(mes_order_list::get_order_row_detail))
         .route(SourceOrderSearchPath::PATH, get(mes_order_create::search_source_orders))
 }

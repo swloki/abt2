@@ -67,7 +67,7 @@ pub async fn get_md_dashboard(
         .list(
             svc_ctx,
             db,
-            abt_core::master_data::routing::model::RoutingQuery { keyword: None },
+            abt_core::master_data::routing::model::RoutingQuery { keyword: None, bom_keyword: None },
             page,
         )
         .await

@@ -216,6 +216,23 @@ impl RoutingService for RoutingServiceImpl {
             .await?
             .ok_or_else(|| DomainError::not_found("Routing"))?;
 
+        // 唯一性：一个 BOM 只能关联一个 routing。已关联到其他 routing → 报错带名，不静默覆盖。
+        if let Some(existing) = self.repo.get_bom_routing(db, &product_code).await? {
+            if existing.routing_id != routing_id {
+                let existing_name = self
+                    .repo
+                    .find_by_id(db, existing.routing_id)
+                    .await?
+                    .map(|r| r.name)
+                    .unwrap_or_else(|| format!("#{}", existing.routing_id));
+                return Err(DomainError::business_rule(format!(
+                    "该 BOM（{product_code}）已关联到工艺路线「{existing_name}」，请先在那边取消关联后再绑定"
+                )));
+            }
+            // 已关联到当前 routing → 幂等成功（不重复审计/事件）
+            return Ok(());
+        }
+
         self.repo
             .set_bom_routing(db, &product_code, routing_id, ctx.operator_id)
             .await?;

@@ -1,0 +1,2 @@
+# shell 脚本强制 LF 换行（容器内 Linux bash 执行，CRLF 会导致 \r 进参数报错）
+*.sh text eol=lf

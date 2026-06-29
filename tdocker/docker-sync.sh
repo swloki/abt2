@@ -7,7 +7,7 @@ export RUSTUP_DIST_SERVER="https://rsproxy.cn"
 export RUSTUP_UPDATE_ROOT="https://rsproxy.cn/rustup"
 git fetch origin
 git checkout -f .
-git reset --hard origin/master
+git reset --hard origin/main
 
 echo ">>> 构建项目..."
 # DATABASE_URL 从仓库 .env 读取（远程库 119.29.23.115，schema 最新）。

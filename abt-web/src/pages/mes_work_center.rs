@@ -3155,7 +3155,6 @@ pub async fn batch_requisition(
 
 #[derive(Debug, Deserialize)]
 pub struct BatchReceiptForm {
-    pub warehouse_id: i64,
     pub received_qty: String,
     pub receipt_date: chrono::NaiveDate,
     #[serde(default)]
@@ -3216,15 +3215,10 @@ fn render_batch_receipt_modal_body(
                                 class="w-full px-2 py-1.5 border border-border rounded-sm text-sm font-mono text-right bg-white outline-none focus:border-accent";
                         }
                         div {
-                            label class="block text-xs text-fg-2 mb-1" { "目标仓库 ID" }
-                            input type="number" name="warehouse_id" required
-                                class="w-full px-2 py-1.5 border border-border rounded-sm text-sm font-mono bg-white outline-none focus:border-accent";
+                            label class="block text-xs text-fg-2 mb-1" { "入库日期" }
+                            input type="date" name="receipt_date" value=(today)
+                                class="w-full px-2 py-1.5 border border-border rounded-sm text-sm bg-white outline-none focus:border-accent";
                         }
-                    }
-                    div class="mb-3" {
-                        label class="block text-xs text-fg-2 mb-1" { "入库日期" }
-                        input type="date" name="receipt_date" value=(today)
-                            class="w-full px-2 py-1.5 border border-border rounded-sm text-sm bg-white outline-none focus:border-accent";
                     }
                     div class="mb-3" {
                         label class="block text-xs text-fg-2 mb-1" { "备注" }
@@ -3233,7 +3227,7 @@ fn render_batch_receipt_modal_body(
                     }
                     div class="flex items-start gap-2 text-xs text-fg-2 bg-accent-bg rounded-sm px-3 py-2 mb-4" {
                         (icon::info_icon("w-4 h-4 shrink-0 mt-0.5 text-accent"))
-                        span { "入库触发倒冲（按 BOM 扣原材料）+ 成本归集 + FQC 门控。" }
+                        span { "提交后生成入库申请单（草稿），由仓库在「完工入库」确认后触发倒冲（按 BOM 扣原材料）+ 成本归集 + FQC 门控。" }
                     }
                     div class="flex justify-end gap-3 pt-4 border-t border-border-soft" {
                         button type="button"
@@ -3241,7 +3235,7 @@ fn render_batch_receipt_modal_body(
                             _="on click remove .is-open from closest .modal-overlay" { "取消" }
                         button type="submit"
                             class="px-4 py-2 rounded-sm bg-success text-white text-sm font-medium cursor-pointer border-none hover:opacity-90" {
-                            "确认入库"
+                            "提交入库申请"
                         }
                     }
                 }
@@ -3250,7 +3244,7 @@ fn render_batch_receipt_modal_body(
     }
 }
 
-/// 批次入库：ProductionReceipt.create+confirm（倒冲 + 成本 + FQC），广播 batchChanged。
+/// 批次入库申请：ProductionReceipt.create 建 Draft（不填仓库，不 confirm），广播 batchChanged + toast。
 #[require_permission("WORK_ORDER", "update")]
 pub async fn batch_receipt(
     path: WcBatchReceiptPath,
@@ -3282,18 +3276,23 @@ pub async fn batch_receipt(
         batch_id: Some(path.batch_id),
         product_id: order.product_id,
         received_qty,
-        warehouse_id: form.warehouse_id,
+        warehouse_id: None,
         zone_id: None,
         bin_id: None,
         receipt_date: form.receipt_date,
         remark: form.remark,
     };
-    let receipt_id = rcpt_svc.create(&service_ctx, &mut tx, req).await?;
-    rcpt_svc.confirm(&service_ctx, &mut tx, receipt_id).await?;
+    // 两步流程：生产侧只创建 Draft 申请单（不填仓库），由仓库在「完工入库」确认入库
+    let _receipt_id = rcpt_svc.create(&service_ctx, &mut tx, req).await?;
     tx.commit()
         .await
         .map_err(|e| DomainError::Internal(e.into()))?;
-    Ok(([("HX-Trigger", "batchChanged")], Html(String::new())))
+    crate::toast::add_toast(
+        service_ctx.operator_id,
+        "入库申请已提交，待仓库确认",
+        crate::toast::ToastType::Success,
+    );
+    Ok(([("HX-Trigger", "batchChanged, showToast")], Html(String::new())))
 }
 
 // =============================================================================

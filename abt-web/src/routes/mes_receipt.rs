@@ -60,8 +60,8 @@ pub fn router() -> Router<AppState> {
         .route(ReceiptDetailPath::PATH, get(mes_receipt_detail::get_receipt_detail))
         .route(ReceiptConfirmPath::PATH, post(mes_receipt_detail::confirm_receipt))
         .route(ReceiptSearchWoPath::PATH, get(mes_receipt_create::search_wo))
-        .route(ReceiptSearchWhPath::PATH, get(mes_receipt_create::search_wh))
+        .route(ReceiptSearchWhPath::PATH, get(mes_receipt_detail::search_wh))
         .route(ReceiptWoSelectedPath::PATH, get(mes_receipt_create::wo_selected))
-        .route(ReceiptWhZonesPath::PATH, get(mes_receipt_create::get_wh_zones))
-        .route(ReceiptZnBinsPath::PATH, get(mes_receipt_create::get_zn_bins))
+        .route(ReceiptWhZonesPath::PATH, get(mes_receipt_detail::get_wh_zones))
+        .route(ReceiptZnBinsPath::PATH, get(mes_receipt_detail::get_zn_bins))
 }

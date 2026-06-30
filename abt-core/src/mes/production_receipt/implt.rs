@@ -106,7 +106,15 @@ impl ProductionReceiptService for ProductionReceiptServiceImpl {
             .ok_or_else(|| DomainError::not_found("ProductionReceipt"))
     }
 
-    async fn confirm(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()> {
+    async fn confirm(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        id: i64,
+        warehouse_id: i64,
+        zone_id: Option<i64>,
+        bin_id: Option<i64>,
+    ) -> Result<()> {
         let receipt = ProductionReceiptRepo::get_by_id(&mut *db, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
@@ -117,6 +125,11 @@ impl ProductionReceiptService for ProductionReceiptServiceImpl {
                 from: format!("{:?}", receipt.status),
                 to: "Confirmed".to_string(),
             });
+        }
+
+        // 两步流程：仓库确认时必须指定目标仓库（生产侧 create 不填仓库）
+        if warehouse_id <= 0 {
+            return Err(DomainError::validation("确认入库必须指定目标仓库"));
         }
 
         // 1. QMS FQC 条件性门控 — 复用 get_fqc_status 统一门控语义（仅当工单工序含报检点时才要求 FQC）
@@ -139,6 +152,11 @@ impl ProductionReceiptService for ProductionReceiptServiceImpl {
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
 
+        // 写入仓库确认的目标库位（create 时为空，confirm 时由仓管员指定）
+        ProductionReceiptRepo::update_location(&mut *db, id, warehouse_id, zone_id, bin_id)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?;
+
         // 解析产成品库存批次号：流转卡 batch_no 即产成品库存批次号
         // （批次语义统一：完工入库必须透传，保证库存台账可按流转卡/工单追溯产成品）
         let fg_batch_no: Option<String> = match receipt.batch_id {
@@ -154,9 +172,9 @@ impl ProductionReceiptService for ProductionReceiptServiceImpl {
             .record(
                 ctx, db,
                 RecordTransactionReq { doc_number: None, delivery_no: None, source_doc_number: Some(receipt.doc_number.clone()), transaction_type: TransactionType::ProductionReceipt, product_id: receipt.product_id,
-                warehouse_id: receipt.warehouse_id,
-                zone_id: receipt.zone_id,
-                bin_id: receipt.bin_id,
+                warehouse_id,
+                zone_id,
+                bin_id,
                 batch_no: fg_batch_no,
                 quantity: receipt.received_qty,
                 unit_cost: None,
@@ -194,7 +212,7 @@ impl ProductionReceiptService for ProductionReceiptServiceImpl {
         // 4. Backflush — 纳入同一事务（修复：原来用独立连接，倒冲成功但后续失败无法回滚）
         // 传入完工入库单的仓库，倒冲从此仓扣减原料（修复：原 execute 取"系统第一个仓库"且 SQL 列名错误）
         new_backflush_service(self.pool.clone())
-            .execute(ctx, db, receipt.work_order_id, receipt.received_qty, receipt.warehouse_id)
+            .execute(ctx, db, receipt.work_order_id, receipt.received_qty, warehouse_id)
             .await
             .map_err(|e| {
                 DomainError::BusinessRule(format!("倒冲失败，入库已回滚: {e:?}"))
@@ -310,12 +328,15 @@ impl ProductionReceiptService for ProductionReceiptServiceImpl {
         .fetch_optional(&mut *db)
         .await.map_err(|e| DomainError::Internal(e.into()))?;
 
-        let warehouse: Option<(String,)> = sqlx::query_as(
-            "SELECT name FROM warehouses WHERE id = $1",
-        )
-        .bind(receipt.warehouse_id)
-        .fetch_optional(&mut *db)
-        .await.map_err(|e| DomainError::Internal(e.into()))?;
+        let warehouse: Option<(String,)> = if let Some(wid) = receipt.warehouse_id {
+            sqlx::query_as("SELECT name FROM warehouses WHERE id = $1")
+                .bind(wid)
+                .fetch_optional(&mut *db)
+                .await
+                .map_err(|e| DomainError::Internal(e.into()))?
+        } else {
+            None
+        };
 
         Ok(ReceiptDetailLookups {
             wo_doc_number: wo.map(|r| r.0),

@@ -55,7 +55,7 @@ async fn create_receipt_draft() {
     let wo_id = create_and_release_wo(&app, "50").await;
 
     let body = format!(
-        "work_order_id={wo_id}&product_id={PRODUCT_ID}&received_qty=50&warehouse_id={WAREHOUSE_ID}&receipt_date=2026-06-16"
+        "work_order_id={wo_id}&product_id={PRODUCT_ID}&received_qty=50&receipt_date=2026-06-16"
     );
     let resp = app.post_htmx("/admin/mes/receipts/create", &body).await;
     assert!(
@@ -71,7 +71,7 @@ async fn create_receipt_draft() {
     let receipt = svc.find_by_id(&ServiceContext::new(1), &mut conn, receipt_id).await.unwrap();
     assert_eq!(receipt.work_order_id, wo_id);
     assert_eq!(receipt.received_qty, rust_decimal::Decimal::from(50));
-    assert_eq!(receipt.warehouse_id, WAREHOUSE_ID);
+    assert_eq!(receipt.warehouse_id, None);
     // 默认状态 = Draft (1)
     assert_eq!(receipt.status.as_i16(), 1);
 }
@@ -83,7 +83,7 @@ async fn create_receipt_without_product_returns_error() {
 
     // product_id 为空时 handler unwrap_or(0) → Service 层报错（产品不存在）
     let body = format!(
-        "work_order_id={wo_id}&received_qty=10&warehouse_id={WAREHOUSE_ID}&receipt_date=2026-06-16"
+        "work_order_id={wo_id}&received_qty=10&receipt_date=2026-06-16"
     );
     let resp = app.post_htmx("/admin/mes/receipts/create", &body).await;
     // product_id=0 会导致 NotFound 或 Validation 错误
@@ -97,7 +97,7 @@ async fn create_receipt_invalid_date_rejected() {
     let resp = app
         .post_htmx(
             "/admin/mes/receipts/create",
-            "work_order_id=1&received_qty=10&warehouse_id=23320&receipt_date=BAD",
+            "work_order_id=1&received_qty=10&receipt_date=BAD",
         )
         .await;
     // axum Form 反序列化失败返回 422（Unprocessable Entity）
@@ -113,12 +113,12 @@ async fn confirm_receipt_graceful() {
     let app = TestApp::new().await;
     let wo_id = create_and_release_wo(&app, "30").await;
     let body = format!(
-        "work_order_id={wo_id}&product_id={PRODUCT_ID}&received_qty=30&warehouse_id={WAREHOUSE_ID}&receipt_date=2026-06-16"
+        "work_order_id={wo_id}&product_id={PRODUCT_ID}&received_qty=30&receipt_date=2026-06-16"
     );
     app.post_htmx("/admin/mes/receipts/create", &body).await;
     let receipt_id = latest_receipt_id(&app).await;
 
-    let resp = app.post_htmx(&format!("/admin/mes/receipts/{receipt_id}/confirm"), "").await;
+    let resp = app.post_htmx(&format!("/admin/mes/receipts/{receipt_id}/confirm"), &format!("warehouse_id={WAREHOUSE_ID}")).await;
     // 确认可能因 FQC 门控/库存/反冲失败 —— 验证不崩溃
     assert!(
         resp.is_ok() || resp.status.is_client_error(),
@@ -137,7 +137,7 @@ async fn get_fqc_status_does_not_crash() {
     let app = TestApp::new().await;
     let wo_id = create_and_release_wo(&app, "10").await;
     let body = format!(
-        "work_order_id={wo_id}&product_id={PRODUCT_ID}&received_qty=10&warehouse_id={WAREHOUSE_ID}&receipt_date=2026-06-16"
+        "work_order_id={wo_id}&product_id={PRODUCT_ID}&received_qty=10&receipt_date=2026-06-16"
     );
     app.post_htmx("/admin/mes/receipts/create", &body).await;
     let receipt_id = latest_receipt_id(&app).await;
@@ -161,7 +161,7 @@ async fn detail_nonexistent_returns_404() {
 #[tokio::test]
 async fn confirm_nonexistent_returns_404() {
     let app = TestApp::new().await;
-    assert_eq!(app.post_htmx("/admin/mes/receipts/999999/confirm", "").await.status, axum::http::StatusCode::NOT_FOUND);
+    assert_eq!(app.post_htmx("/admin/mes/receipts/999999/confirm", "warehouse_id=1").await.status, axum::http::StatusCode::NOT_FOUND);
 }
 
 // ════════════════════════════════════════════════════════════════════════════

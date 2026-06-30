@@ -118,6 +118,31 @@ impl ProductionReceiptRepo {
         Ok(result.rows_affected() > 0)
     }
 
+    /// 仓库确认（confirm）时写入目标仓库/库区/库位（两步流程：create 不填，confirm 指定）
+    pub async fn update_location(
+        executor: &mut sqlx::postgres::PgConnection,
+        id: i64,
+        warehouse_id: i64,
+        zone_id: Option<i64>,
+        bin_id: Option<i64>,
+    ) -> Result<bool> {
+        let result = sqlx::query!(
+            r#"
+            UPDATE production_receipts
+            SET warehouse_id = $2, zone_id = $3, bin_id = $4, updated_at = NOW()
+            WHERE id = $1
+            "#,
+            id,
+            warehouse_id,
+            zone_id,
+            bin_id,
+        )
+        .execute(&mut *executor)
+        .await?;
+
+        Ok(result.rows_affected() > 0)
+    }
+
     pub async fn set_backflush_triggered(
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,

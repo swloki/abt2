@@ -225,7 +225,7 @@ classDiagram
     +batch_id: Option~i64~
     +product_id: i64
     +received_qty: Decimal
-    +warehouse_id: i64
+    +warehouse_id: Option~i64~
     +zone_id: Option~i64~
     +bin_id: Option~i64~
     +receipt_date: Date
@@ -284,7 +284,7 @@ classDiagram
     &lt;&lt;interface&gt;&gt;
     +create(ctx: &ServiceContext, db: PgExecutor, req: CreateReceiptReq) Result~i64~
     +find_by_id(id) Result~ProductionReceipt~
-    +confirm(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
+    +confirm(ctx: &ServiceContext, db: PgExecutor, id, warehouse_id: i64, zone_id: Option~i64~, bin_id: Option~i64~) Result~Unit~
     +list_by_work_order(ctx, db, work_order_id) Result~Vec~ReceiptListItem~~
   }
   class MesWorkCenterService {
@@ -393,7 +393,7 @@ classDiagram
   note for OutsourcingOrder "Entity owned by OM module. MES references via OM.OutsourcingOrderService. send -> WMS.InventoryTransferService(to virtual) receive -> WMS.InventoryTransferService(from virtual) receive -> QMS.InspectionResultService.create(IQC) Event: MES subscribes OutsourcingReceived handler -> update BatchRoutingProgress.completed_qty for outsourced step -> publish BatchStepCompleted event -> advance ProductionBatch.current_step"
   note for ProductionInspectionService "QMS: MES-specific production inspection QMS module provides unified InspectionResultService IPQC: auto-triggered by WorkOrderRouting.is_inspection_point FQC: triggered before ProductionReceipt"
   note for ProductionBatchService "EXECUTION LAYER: owns completed_qty/scrap_qty/actual_start/actual_end current_step is the routing state machine split_work_order -> DocSeq(ProductionBatch) generate card_sn validate sum(batch_qty) <= work_order.planned_qty confirm_routing_step ATOMIC ENTRY POINT (single transaction) 四层同步累加: IDEMPOTENCY: UNIQUE(batch_id + step_no + worker_id + shift + report_date) on work_reports duplicate -> return existing StepConfirmationResult (no error, terminal UX) 0. Guard: current_step == step_no - 1 (anti-skip) + idempotency check 1. DocSeq(WorkReport) + INSERT work_reports (req: completed_qty, defect_qty, defect_reason?, worker_id, shift, report_date) 2. UPSERT batch_routing_progress SET completed_qty = completed_qty + Δ, defect_qty = defect_qty + Δ (批次工序进度) 3. UPDATE production_batches SET completed_qty = completed_qty + Δ, scrap_qty = scrap_qty + Δ (批次完成量) 4. UPDATE work_orders SET completed_qty = completed_qty + Δ (工单完成量) 5. If is_inspection_point -> create ProductionInspection(IPQC) + suspend batch 6. Update batch.current_step 7. If last step -> auto advance to PendingReceipt 8. Return StepConfirmationResult (batch_status + inspection_triggered + wage_amount) advance_to_receipt -> validate last step completed update batch.status to PendingReceipt suspend -> pause execution retain HARD reservation resume -> resume from suspended state scrap -> mark batch as scrapped release HARD reservation publish BackflushShortageEvent if needed cancel(WO) -> sync release current batch HARD reservation publish WorkOrderCancelled event -> MES handler async cleanup remaining batches avoid long transaction blocking plan layer"
-    note for ProductionReceiptService "confirm -> PRE-CHECK: QMS.InspectionResultService.is_passed(FQC) fail -> DomainError::BusinessRule(Quality gate not passed) block receipt WMS.InventoryTransactionService.record(ProductionReceipt) CostEntry(finished goods cost) BackflushService.execute() -> on failure: publish BackflushShortageEvent to DeadLetter DO NOT block receipt cost diff -> CostEntry(VARIANCE) InvRes.fulfill/cancel(release Hard) FMS: CostAccountingService.get_work_order_cost"
+    note for ProductionReceiptService "TWO-STEP FLOW: create(req without warehouse_id) -> Draft receipt (warehouse_id NULL); 生产侧提交完工入库申请不填仓库 confirm(id, warehouse_id, zone_id?, bin_id?) 由仓库确认指定仓库后触发实际入库 confirm -> PRE-CHECK: QMS.InspectionResultService.is_passed(FQC) fail -> DomainError::BusinessRule(Quality gate not passed) block receipt WMS.InventoryTransactionService.record(ProductionReceipt) CostEntry(finished goods cost) BackflushService.execute() -> on failure: publish BackflushShortageEvent to DeadLetter DO NOT block receipt cost diff -> CostEntry(VARIANCE) InvRes.fulfill/cancel(release Hard) FMS: CostAccountingService.get_work_order_cost"
     note "Convention: Result~T~ = Result&lt;T, DomainError&gt; | Unit = () | ctx = &ServiceContext, db = PgExecutor| 写操作返回 i64 或 Unit | 读操作返回完整实体或 PaginatedResult"
     </div>
   </div>
@@ -545,8 +545,8 @@ classDiagram
           <tr style="border-bottom: 1px solid #333;">
             <td style="padding: 4px 8px;">PendingReceipt</td>
             <td style="padding: 4px 8px;"><span style="color:#6bc76b;">Completed</span></td>
-            <td style="padding: 4px 8px;">ProductionReceipt.confirm</td>
-            <td style="padding: 4px 8px;">QMS FQC 硬门通过</td>
+            <td style="padding: 4px 8px;">ProductionReceipt.confirm（仓库确认）</td>
+            <td style="padding: 4px 8px;">QMS FQC 硬门 + 仓库指定</td>
             <td style="padding: 4px 8px;">入库 + 倒冲 + 释放预留</td>
           </tr>
           <tr style="border-bottom: 1px solid #333;">
@@ -735,7 +735,7 @@ classDiagram
           &nbsp;&nbsp;work_order_id: i64 <span style="color:#888;">FK→work_orders</span><br>
           &nbsp;&nbsp;product_id: i64<br>
           &nbsp;&nbsp;received_qty: Decimal(18,6)<br>
-          &nbsp;&nbsp;warehouse_id: i64<br>
+          &nbsp;&nbsp;warehouse_id: i64? <span style="color:#888;">// 两步：create 空，confirm 指定</span><br>
           &nbsp;&nbsp;zone_id: i64?<br>
           &nbsp;&nbsp;bin_id: i64?<br>
           &nbsp;&nbsp;receipt_date: Date<br>

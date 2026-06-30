@@ -23,7 +23,7 @@ pub trait ProductionReceiptService: Send + Sync {
         receipt: &ProductionReceipt,
     ) -> Result<super::model::ReceiptDetailLookups>;
 
-    async fn confirm(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()>;
+    async fn confirm(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64, warehouse_id: i64, zone_id: Option<i64>, bin_id: Option<i64>) -> Result<()>;
     async fn list(
         &self,
         ctx: &ServiceContext, db: PgExecutor<'_>,

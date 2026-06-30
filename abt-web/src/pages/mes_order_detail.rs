@@ -500,19 +500,17 @@ pub async fn create_requisition(
 #[derive(Debug, serde::Deserialize)]
 pub struct ReceiptForm {
     pub batch_id: i64,
-    pub warehouse_id: i64,
     pub received_qty: String,
     pub receipt_date: chrono::NaiveDate,
     #[serde(default)]
     pub remark: Option<String>,
 }
 
-/// 创建并确认入库单（事务包裹 + HX-Trigger 局部刷新）。
+/// 创建入库申请单（两步流程：生产侧只 create Draft，不 confirm；事务包裹 + HX-Trigger 局部刷新）。
 ///
-/// 调 `ProductionReceiptService::create` 建单，紧接 `confirm(id)`：触发倒冲 + 成本 +
-/// FQC 门控。FQC 未通过/倒冲失败时 confirm 返回 `DomainError`，事务回滚，错误经 `?`
-/// 上抛回 drawer（drawer 的 hx-on 在请求失败时保留表单不关闭，前端可看到错误提示）。
-/// 成功广播 `receiptChanged`，入库 disclosure + 摘要带各自监听并自刷新（不 redirect）。
+/// 调 `ProductionReceiptService::create` 建 Draft 申请单（不填仓库）。仓库在「完工入库」
+/// 确认入库（指定仓库 + 倒冲 + 成本 + FQC 门控）。成功广播 `receiptChanged` + toast，
+/// 入库 disclosure + 摘要带各自监听并自刷新（不 redirect）。
 #[require_permission("WORK_ORDER", "update")]
 pub async fn create_receipt(
     path: OrderReceiptPath,
@@ -546,23 +544,25 @@ pub async fn create_receipt(
         batch_id: Some(form.batch_id),
         product_id: order.product_id,
         received_qty,
-        warehouse_id: form.warehouse_id,
+        warehouse_id: None,
         zone_id: None,
         bin_id: None,
         receipt_date: form.receipt_date,
         remark: form.remark,
     };
-    let receipt_id = rcpt_svc.create(&service_ctx, &mut tx, req).await?;
-    // confirm：倒冲 + FQC 门控；失败回滚整事务（含 create 的插入）
-    rcpt_svc
-        .confirm(&service_ctx, &mut tx, receipt_id)
-        .await?;
+    // 两步流程：生产侧只创建 Draft 申请单（不填仓库），由仓库在「完工入库」确认入库
+    let _receipt_id = rcpt_svc.create(&service_ctx, &mut tx, req).await?;
     tx.commit()
         .await
         .map_err(|e| abt_core::shared::types::DomainError::Internal(e.into()))?;
 
-    // 广播 receiptChanged：入库 disclosure + 摘要带各自监听并自刷新
-    Ok(([("HX-Trigger", "receiptChanged")], Html(String::new())))
+    // toast 提示两步流程：申请已提交，待仓库确认（广播 receiptChanged 局部刷新）
+    crate::toast::add_toast(
+        service_ctx.operator_id,
+        "入库申请已提交，待仓库确认",
+        crate::toast::ToastType::Success,
+    );
+    Ok(([("HX-Trigger", "receiptChanged, showToast")], Html(String::new())))
 }
 
 /// 工序级排程（事务包裹 + Toast 反馈）。
@@ -1763,8 +1763,8 @@ fn requisition_drawer(material: &HubMaterial, order: &WorkOrder) -> Markup {
     drawer::drawer("requisition-drawer", "申请领料", "确认申请", "requisition-form", body)
 }
 
-/// 入库 drawer：批次/入库数量/目标仓库/日期/备注。提交即 create + confirm
-/// （倒冲 + FQC 门控）。FQC 未过或倒冲失败由 handler 返回错误，drawer 保留表单。
+/// 入库 drawer：批次/入库数量/日期/备注。提交即 create Draft 申请单（不 confirm），
+/// 由仓库在「完工入库」确认后触发倒冲 + FQC 门控。
 fn receipt_drawer(matrix: &HubRoutingMatrix, order: &WorkOrder) -> Markup {
     let rcpt_path = OrderReceiptPath { order_id: order.id }.to_string();
     let remaining = (order.planned_qty - order.completed_qty).max(rust_decimal::Decimal::ZERO);
@@ -1786,18 +1786,11 @@ fn receipt_drawer(matrix: &HubRoutingMatrix, order: &WorkOrder) -> Markup {
                     }
                 }
             }
-            // 入库数量 + 目标仓库
-            div class="grid grid-cols-2 gap-3 mb-4" {
-                div {
-                    label class="block text-xs text-muted font-medium mb-1.5" { "入库数量" }
-                    input name="received_qty" type="number" min="0" step="any" required
-                        class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white outline-none focus:border-accent font-mono";
-                }
-                div {
-                    label class="block text-xs text-muted font-medium mb-1.5" { "目标仓库 ID" }
-                    input name="warehouse_id" type="number" min="1" required
-                        class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white outline-none focus:border-accent font-mono";
-                }
+            // 入库数量
+            div class="mb-4" {
+                label class="block text-xs text-muted font-medium mb-1.5" { "入库数量" }
+                input name="received_qty" type="number" min="0" step="any" required
+                    class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white outline-none focus:border-accent font-mono";
             }
             // 工单剩余可入库量（只读展示）
             div class="mb-4" {
@@ -1820,11 +1813,11 @@ fn receipt_drawer(matrix: &HubRoutingMatrix, order: &WorkOrder) -> Markup {
             }
             div class="flex gap-2 p-3 bg-accent-bg rounded-md text-xs text-fg-2 items-start" {
                 (icon::info_icon("w-[15px] h-[15px] shrink-0 mt-0.5"))
-                span { "确认后立即建单并执行入库：触发倒冲扣料 + 成本结转 + FQC 门控。若工单含报检工序且 FQC 未通过，入库将被拒绝。" }
+                span { "提交后生成入库申请单（草稿），由仓库在「完工入库」确认后触发倒冲扣料 + 成本结转 + FQC 门控。" }
             }
         }
     };
-    drawer::drawer("receipt-drawer", "完工入库", "确认入库", "receipt-form", body)
+    drawer::drawer("receipt-drawer", "完工入库", "提交入库申请", "receipt-form", body)
 }
 
 // ============================================================================

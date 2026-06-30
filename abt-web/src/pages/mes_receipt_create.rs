@@ -8,16 +8,13 @@ use abt_core::mes::enums::WorkOrderStatus;
 use abt_core::mes::production_receipt::ProductionReceiptService;
 use abt_core::mes::work_order::model::{WorkOrder, WorkOrderFilter};
 use abt_core::mes::work_order::WorkOrderService;
-use abt_core::wms::warehouse::model::WarehouseFilter;
-use abt_core::wms::warehouse::WarehouseService;
 
 use crate::components::icon;
 use crate::components::entity_picker::{self, EntityPickerConfig, EntityPickerItem};
 use crate::errors::Result;
 use crate::layout::page::admin_page;
 use crate::routes::mes_receipt::{
- ReceiptCreatePath, ReceiptListPath, ReceiptSearchWoPath, ReceiptSearchWhPath,
- ReceiptWhZonesPath, ReceiptWoSelectedPath, ReceiptZnBinsPath,
+ ReceiptCreatePath, ReceiptListPath, ReceiptSearchWoPath, ReceiptWoSelectedPath,
 };
 use crate::utils::RequestContext;
 use abt_macros::require_permission;
@@ -34,15 +31,6 @@ pub struct WoSelectedQuery {
  pub work_order_id: i64,
 }
 
-#[derive(Debug, Deserialize)]
-pub struct WhZonesQuery {
- pub warehouse_id: i64,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct ZnBinsQuery {
- pub zone_id: i64,
-}
 
 // ── Form ──
 
@@ -52,11 +40,6 @@ pub struct ReceiptCreateForm {
  #[serde(default, deserialize_with = "crate::utils::empty_as_none")]
  pub product_id: Option<i64>,
  pub received_qty: rust_decimal::Decimal,
- pub warehouse_id: i64,
- #[serde(default, deserialize_with = "crate::utils::empty_as_none")]
- pub zone_id: Option<i64>,
- #[serde(default, deserialize_with = "crate::utils::empty_as_none")]
- pub bin_id: Option<i64>,
  pub receipt_date: chrono::NaiveDate,
  pub remark: Option<String>,
 }
@@ -155,41 +138,6 @@ pub async fn search_wo(
  Ok(Html(entity_picker::entity_picker_results(&items).into_string()))
 }
 
-// ── HTMX: 搜索仓库 ──
-
-#[require_permission("WORK_ORDER", "read")]
-pub async fn search_wh(
- _path: ReceiptSearchWhPath,
- ctx: RequestContext,
- Query(params): Query<SearchParams>,
-) -> Result<Html<String>> {
- let RequestContext {
- mut conn,
- state,
- service_ctx,
- ..
- } = ctx;
- let wh_svc = state.warehouse_service();
- let kw = params.q.as_deref().unwrap_or("").trim().to_string();
-
- let filter = WarehouseFilter {
- keyword: if kw.is_empty() { None } else { Some(kw) },
- ..Default::default()
- };
- let warehouses = wh_svc
- .list(&service_ctx, &mut conn, filter, 1, 50)
- .await
- .map(|r| r.items)
- .unwrap_or_default();
-
- let items: Vec<EntityPickerItem> = warehouses
- .iter()
- .map(|wh| EntityPickerItem::new(wh.id, wh.name.clone()))
- .collect();
-
- Ok(Html(entity_picker::entity_picker_results(&items).into_string()))
-}
-
 // ── HTMX: 工单选中后级联 — 返回产品名 + 批次下拉 ──
 
 #[require_permission("WORK_ORDER", "read")]
@@ -220,51 +168,6 @@ pub async fn wo_selected(
  ))
 }
 
-// ── HTMX: 仓库选中后级联 — 返回库区下拉 ──
-
-#[require_permission("WORK_ORDER", "read")]
-pub async fn get_wh_zones(
- _path: ReceiptWhZonesPath,
- ctx: RequestContext,
- Query(params): Query<WhZonesQuery>,
-) -> Result<Html<String>> {
- let RequestContext {
- mut conn,
- state,
- service_ctx,
- ..
- } = ctx;
- let wh_svc = state.warehouse_service();
- let zones = wh_svc
- .list_zones(&service_ctx, &mut conn, params.warehouse_id)
- .await
- .unwrap_or_default();
- Ok(Html(zone_select_fragment(&zones).into_string()))
-}
-
-// ── HTMX: 库区选中后级联 — 返回库位下拉 ──
-
-#[require_permission("WORK_ORDER", "read")]
-pub async fn get_zn_bins(
- _path: ReceiptZnBinsPath,
- ctx: RequestContext,
- Query(params): Query<ZnBinsQuery>,
-) -> Result<Html<String>> {
- let RequestContext {
- mut conn,
- state,
- service_ctx,
- ..
- } = ctx;
- let wh_svc = state.warehouse_service();
- let bins = wh_svc
- .list_bins(&service_ctx, &mut conn, params.zone_id, None, 1, 200)
- .await
- .map(|r| r.items)
- .unwrap_or_default();
- Ok(Html(bin_select_fragment(&bins).into_string()))
-}
-
 // ── POST /receipts/create ──
 
 #[require_permission("WORK_ORDER", "create")]
@@ -286,9 +189,9 @@ pub async fn create_receipt(
  batch_id: None,
  product_id: form.product_id.unwrap_or(0),
  received_qty: form.received_qty,
- warehouse_id: form.warehouse_id,
- zone_id: form.zone_id,
- bin_id: form.bin_id,
+ warehouse_id: None,
+ zone_id: None,
+ bin_id: None,
  receipt_date: form.receipt_date,
  remark: form.remark,
  };
@@ -316,18 +219,6 @@ fn receipt_create_content() -> Markup {
  target_id: "work_order_id",
  display_id: "wo-display",
  event_name: "woSelected",
- extra_include: None,
- };
- let wh_picker = EntityPickerConfig {
- modal_id: "wh-picker",
- title: "选择仓库",
- search_label: "仓库名称",
- search_placeholder: "输入仓库名搜索…",
- search_path: ReceiptSearchWhPath::PATH,
- search_param: "q",
- target_id: "warehouse_id",
- display_id: "wh-display",
- event_name: "whSelected",
  extra_include: None,
  };
 
@@ -410,58 +301,6 @@ fn receipt_create_content() -> Markup {
                     }
                 }
             }
-            // ── 目标库位 ──
-            div class="form-section" {
-                div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-3 border-b border-border-soft"
-                { (icon::cube_icon("w-[18px] h-[18px]")) "目标库位" }
-
-                ({
-                    entity_picker::entity_picker_field(
-                        "warehouse_id",
-                        "warehouse_id",
-                        "wh-display",
-                        "wh-picker",
-                        "目标仓库",
-                        true,
-                        "点击选择仓库…",
-                    )
-                })
-                // 仓库选中后级联加载：库区 + 库位
-                div id="zone-bin-area"
-                    hx-get=(ReceiptWhZonesPath::PATH)
-                    hx-trigger="whSelected from:body"
-                    hx-target="this"
-                    hx-swap="outerHTML"
-                    hx-include="#warehouse_id"
-                {
-                    div class="grid grid-cols-2 gap-4 gap-x-6" {
-                        div class="form-field" {
-                            label
-                                class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap"
-                            { "库区" }
-                            select
-                                class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
-                                name="zone_id"
-                                disabled
-                            {
-                                option value="" { "选择仓库后加载" }
-                            }
-                        }
-                        div class="form-field" {
-                            label
-                                class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap"
-                            { "库位" }
-                            select
-                                class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
-                                name="bin_id"
-                                disabled
-                            {
-                                option value="" { "选择库区后加载" }
-                            }
-                        }
-                    }
-                }
-            }
             // ── 备注 ──
             div class="form-section" {
                 div class="flex items-center gap-2 text-sm font-semibold text-fg mb-4 pb-3 border-b border-border-soft"
@@ -491,7 +330,6 @@ fn receipt_create_content() -> Markup {
         }
         // ── 弹窗 ──
         (entity_picker::entity_picker_modal(&wo_picker))
-        (entity_picker::entity_picker_modal(&wh_picker))
     }
 }
 }
@@ -518,77 +356,3 @@ fn wo_cascade_fragment(product_id: i64, product_name: &str) -> Markup {
 }
 }
 
-/// 仓库选中后返回的库区下拉 + 库位占位
-fn zone_select_fragment(zones: &[abt_core::wms::warehouse::model::Zone]) -> Markup {
- html! {
-    div id="zone-bin-area" {
-        div class="grid grid-cols-2 gap-4 gap-x-6" {
-            div class="form-field" {
-                label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "库区" }
-                @if zones.is_empty() {
-                    select
-                        class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
-                        name="zone_id"
-                        disabled
-                    {
-                        option value="" { "该仓库暂无库区" }
-                    }
-                    input type="hidden" name="zone_id" value="";
-                } @else {
-                    select
-                        class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
-                        name="zone_id"
-                        hx-get=(ReceiptZnBinsPath::PATH)
-                        hx-target="#bin-select-wrap"
-                        hx-trigger="change"
-                        hx-swap="outerHTML"
-                        hx-include="this"
-                    {
-                        option value="" selected { "默认库区" }
-                        @for z in zones {
-                            option value=(z.id) { (z.name) }
-                        }
-                    }
-                }
-            }
-            div class="form-field" id="bin-select-wrap" {
-                label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "库位" }
-                select
-                    class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
-                    name="bin_id"
-                    disabled
-                {
-                    option value="" { "选择库区后加载" }
-                }
-            }
-        }
-    }
-}
- }
-/// 库区选中后返回的库位下拉
-fn bin_select_fragment(bins: &[abt_core::wms::warehouse::model::Bin]) -> Markup {
- html! {
-    div class="form-field" id="bin-select-wrap" {
-        label class="block text-xs font-medium text-fg-2 mb-1 whitespace-nowrap" { "库位" }
-        @if bins.is_empty() {
-            select
-                class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
-                name="bin_id"
-                disabled
-            {
-                option value="" { "该库区暂无库位" }
-            }
-        } @else {
-            select
-                class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-white text-fg outline-none transition-all duration-150 focus:border-accent"
-                name="bin_id"
-            {
-                option value="" selected { "自动分配" }
-                @for b in bins {
-                    option value=(b.id) { (b.code) " " (b.name) }
-                }
-            }
-        }
-    }
-}
-}

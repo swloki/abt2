@@ -113,7 +113,7 @@ async fn wc_batch_receipt_nonexistent_404() {
     let resp = app
         .post_htmx(
             "/admin/mes/work-center/batches/99999999/receipt",
-            "warehouse_id=1&received_qty=1&receipt_date=2026-06-28",
+            "received_qty=1&receipt_date=2026-06-28",
         )
         .await;
     assert_eq!(resp.status, axum::http::StatusCode::NOT_FOUND);

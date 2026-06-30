@@ -979,21 +979,20 @@ impl WorkOrderService for WorkOrderServiceImpl {
             DomainError::BusinessRule("该工序未配置产出品，无法计算齐套".into())
         })?;
 
-        // 2. 产出品 code → 已发布 BOM → leaf_nodes
-        let product_code = new_product_service(self.pool.clone())
-            .get_by_ids(ctx, db, vec![output_pid])
-            .await?
-            .into_iter()
-            .next()
-            .map(|p| p.product_code)
-            .ok_or_else(|| DomainError::not_found("Product"))?;
+        // 2. 工单成品 → 成品已发布 BOM → 产出品节点的直接子级（物料清单）
+        let wo = self.find_by_id(ctx, db, work_order_id).await?;
+        let fg_product = new_product_service(self.pool.clone())
+            .get(ctx, db, wo.product_id)
+            .await?;
         let bom_svc = new_bom_query_service(self.pool.clone());
-        let bom_id = bom_svc
-            .find_published_bom_by_product_code(ctx, db, &product_code)
+        let fg_bom_id = bom_svc
+            .find_published_bom_by_product_code(ctx, db, &fg_product.product_code)
             .await?
-            .ok_or_else(|| DomainError::BusinessRule("产出品无已发布 BOM".into()))?;
-        let leaf_nodes = bom_svc.get_leaf_nodes(ctx, db, bom_id).await?;
-        if leaf_nodes.is_empty() {
+            .ok_or_else(|| DomainError::BusinessRule("工单成品无已发布 BOM".into()))?;
+        let material_nodes = bom_svc
+            .get_direct_children_by_product(ctx, db, fg_bom_id, output_pid)
+            .await?;
+        if material_nodes.is_empty() {
             return Ok(MaterialAvailability {
                 level: MaterialAvailabilityLevel::Available,
                 headline: None,
@@ -1002,7 +1001,6 @@ impl WorkOrderService for WorkOrderServiceImpl {
         }
 
         // 3. base_qty（batch 优先）+ scheduled_start
-        let wo = self.find_by_id(ctx, db, work_order_id).await?;
         let base_qty = if let Some(bid) = batch_id {
             batch_svc.find_by_id(ctx, db, bid).await?.batch_qty
         } else {
@@ -1011,7 +1009,7 @@ impl WorkOrderService for WorkOrderServiceImpl {
         let scheduled_start = wo.scheduled_start;
 
         // 4. line_products 批量预取
-        let pids: Vec<i64> = leaf_nodes.iter().map(|n| n.product_id).collect();
+        let pids: Vec<i64> = material_nodes.iter().map(|n| n.product_id).collect();
         let line_products: HashMap<i64, Product> = new_product_service(self.pool.clone())
             .get_by_ids(ctx, db, pids)
             .await?
@@ -1019,13 +1017,13 @@ impl WorkOrderService for WorkOrderServiceImpl {
             .map(|p| (p.product_id, p))
             .collect();
 
-        // 5. leaf_refs → 齐套计算（复用 build_availability 的核心）
-        let leaf_refs: Vec<&crate::master_data::bom::model::BomNode> = leaf_nodes.iter().collect();
+        // 5. material_refs → 齐套计算（复用 build_availability 的核心；直接子级 quantity 相对产出品，× base_qty 即需求）
+        let material_refs: Vec<&crate::master_data::bom::model::BomNode> = material_nodes.iter().collect();
         build_availability_from_leaves(
             ctx,
             db,
             self.pool.clone(),
-            &leaf_refs,
+            &material_refs,
             base_qty,
             scheduled_start,
             &line_products,

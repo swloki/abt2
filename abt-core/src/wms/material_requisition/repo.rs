@@ -257,4 +257,28 @@ impl MaterialRequisitionRepo {
 
         Ok(result.rows_affected())
     }
+
+    /// 查询批次已领料的工序 routing_id 集合（判断工序是否已领料，驱动批次矩阵动作位）。
+    /// 排除已取消的领料单。
+    pub async fn find_routing_ids_by_batch(
+        executor: &mut sqlx::postgres::PgConnection,
+        batch_id: i64,
+    ) -> Result<Vec<i64>> {
+        let ids: Vec<i64> = sqlx::query_scalar(
+            r#"
+            SELECT DISTINCT i.operation_id
+            FROM material_requisition_items i
+            JOIN material_requisitions r ON r.id = i.requisition_id
+            WHERE i.batch_id = $1
+              AND i.operation_id IS NOT NULL
+              AND r.deleted_at IS NULL
+              AND r.status <> $2
+            "#,
+        )
+        .bind(batch_id)
+        .bind(RequisitionStatus::Cancelled)
+        .fetch_all(executor)
+        .await?;
+        Ok(ids)
+    }
 }

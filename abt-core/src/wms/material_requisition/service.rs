@@ -55,6 +55,14 @@ pub trait MaterialRequisitionService: Send + Sync {
         requisition_id: i64,
     ) -> Result<Vec<MaterialReqItem>>;
 
+    /// 查询批次已领料的工序 routing_id 集合（判断工序是否已领料，驱动批次矩阵动作位推进）。
+    async fn list_requisitioned_routing_ids(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        batch_id: i64,
+    ) -> Result<Vec<i64>>;
+
     async fn confirm(
         &self,
         ctx: &ServiceContext, db: PgExecutor<'_>,

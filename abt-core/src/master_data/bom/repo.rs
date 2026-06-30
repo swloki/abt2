@@ -590,6 +590,33 @@ impl BomNodeRepo {
         Ok(nodes)
     }
 
+    /// 在指定 BOM 树中按 product_id 定位节点，返回其**直接子级**（产出品的物料清单）。
+    /// 用于工序级领料/齐套：产出品是成品 BOM 树的中间节点时，取其下一级构成。
+    /// 产出品不在该 BOM 或为叶子节点时返回空 Vec。
+    pub async fn find_direct_children_by_product(
+        &self,
+        executor: PgExecutor<'_>,
+        bom_id: i64,
+        product_id: i64,
+    ) -> Result<Vec<BomNode>> {
+        let nodes = sqlx::query_as::<sqlx::Postgres, BomNode>(
+            sqlx::AssertSqlSafe(format!(r#"SELECT {NODE_COLUMNS}
+               FROM bom_nodes
+               WHERE bom_id = $1
+                 AND parent_id = (
+                   SELECT node_id FROM bom_nodes
+                   WHERE bom_id = $1 AND product_id = $2
+                   ORDER BY node_id LIMIT 1
+                 )
+               ORDER BY order_num, node_id"#)),
+        )
+        .bind(bom_id)
+        .bind(product_id)
+        .fetch_all(executor)
+        .await?;
+        Ok(nodes)
+    }
+
     pub async fn find_root_node(&self, executor: PgExecutor<'_>, bom_id: i64) -> Result<Option<BomNode>> {
         let node = sqlx::query_as::<sqlx::Postgres, BomNode>(
             sqlx::AssertSqlSafe(format!("SELECT {NODE_COLUMNS} FROM bom_nodes WHERE bom_id = $1 AND parent_id = 0 LIMIT 1")),

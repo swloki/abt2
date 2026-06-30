@@ -120,13 +120,6 @@ pub struct WcBatchStartPath {
     pub batch_id: i64,
 }
 
-/// 批次领料 drawer body（按工序产出品领料，产出品驱动）。
-#[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/mes/work-center/batches/{batch_id}/requisition-drawer")]
-pub struct WcBatchReqDrawerPath {
-    pub batch_id: i64,
-}
-
 /// 批次领料提交（create_for_routing_step）。
 #[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/mes/work-center/batches/{batch_id}/requisition")]
@@ -134,10 +127,10 @@ pub struct WcBatchReqPath {
     pub batch_id: i64,
 }
 
-/// 批次入库 drawer body。
+/// 批次入库 modal 表单（GET：加载入库弹窗内容）。
 #[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/mes/work-center/batches/{batch_id}/receipt-drawer")]
-pub struct WcBatchReceiptDrawerPath {
+#[typed_path("/admin/mes/work-center/batches/{batch_id}/receipt-modal")]
+pub struct WcBatchReceiptModalPath {
     pub batch_id: i64,
 }
 
@@ -155,6 +148,40 @@ pub struct WcBatchShortagePath {
     pub batch_id: i64,
     pub routing_id: i64,
 }
+
+/// 批次收料（开工）：Pending → InProgress，复用 start_batch。
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/mes/work-center/batches/{batch_id}/receive")]
+pub struct WcBatchReceivePath {
+    pub batch_id: i64,
+}
+
+/// 批次报废 modal 表单（GET：加载报废弹窗内容）。
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/mes/work-center/batches/{batch_id}/scrap-modal")]
+pub struct WcBatchScrapModalPath {
+    pub batch_id: i64,
+}
+
+/// 批次报废提交（POST：部分报废，不取消批次，仅递增 scrap_qty）。
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/mes/work-center/batches/{batch_id}/scrap-submit")]
+pub struct WcBatchScrapSubmitPath {
+    pub batch_id: i64,
+}
+
+/// 批次工序报工 modal 表单（GET：加载报工弹窗内容，预填 step_no）。
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/mes/work-center/batches/{batch_id}/routings/{step_no}/report-modal")]
+pub struct WcBatchReportModalPath {
+    pub batch_id: i64,
+    pub step_no: i32,
+}
+
+/// 报工工人行（GET ?worker_id=X → 渲染一行进报工表格 tbody，worker_picker add-row 模式）。
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/mes/work-center/worker-row")]
+pub struct WcWorkerRowPath;
 
 // ── Router ──
 
@@ -189,18 +216,31 @@ pub fn router() -> Router<AppState> {
         .route(WcBatchScrapPath::PATH, post(mes_work_center::batch_scrap))
         .route(WcBatchAdvancePath::PATH, post(mes_work_center::batch_advance))
         .route(WcBatchStartPath::PATH, post(mes_work_center::batch_start))
-        .route(
-            WcBatchReqDrawerPath::PATH,
-            get(mes_work_center::get_batch_req_drawer),
-        )
         .route(WcBatchReqPath::PATH, post(mes_work_center::batch_requisition))
         .route(
-            WcBatchReceiptDrawerPath::PATH,
-            get(mes_work_center::get_batch_receipt_drawer),
+            WcBatchReceiptModalPath::PATH,
+            get(mes_work_center::get_batch_receipt_modal),
         )
         .route(WcBatchReceiptPath::PATH, post(mes_work_center::batch_receipt))
         .route(
             WcBatchShortagePath::PATH,
             get(mes_work_center::get_batch_shortage),
         )
+        .route(
+            WcBatchReceivePath::PATH,
+            post(mes_work_center::batch_receive),
+        )
+        .route(
+            WcBatchScrapModalPath::PATH,
+            get(mes_work_center::get_batch_scrap_modal),
+        )
+        .route(
+            WcBatchScrapSubmitPath::PATH,
+            post(mes_work_center::batch_scrap_submit),
+        )
+        .route(
+            WcBatchReportModalPath::PATH,
+            get(mes_work_center::get_batch_report_modal),
+        )
+        .route(WcWorkerRowPath::PATH, get(mes_work_center::get_worker_row))
 }

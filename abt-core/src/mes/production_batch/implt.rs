@@ -276,6 +276,11 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
         let prev_defect = existing_brp.as_ref().map(|b| b.defect_qty).unwrap_or(Decimal::ZERO);
         let was_pending = existing_brp.as_ref().map(|b| b.status) == Some(RoutingStatus::Pending)
             || existing_brp.is_none();
+        // 工序累计完成量/不良量（含本次报工）—— 驱动工序完成判定与 current_step 推进
+        // 对标三家 ERP：工序流转条件 = completed + defect >= batch_qty（好的+坏的=总处理量达标）
+        let new_completed = prev_completed + req.completed_qty;
+        let new_defect = prev_defect + req.defect_qty;
+        let step_completed = new_completed + new_defect >= batch.batch_qty;
 
         // --- e2. 超额容差校验（最后工序，基于批次自身累计而非工单级共享） ---
         if was_inserted {
@@ -356,9 +361,8 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
                 .map_err(|e| DomainError::Internal(e.into()))?;
             }
 
-            // --- g3. 工序完成判定（对标 Odoo button_finish 设 done + date_finished） ---
-            let new_completed = prev_completed + req.completed_qty;
-            if new_completed >= batch.batch_qty {
+            // --- g3. 工序完成判定（完成+不良 >= 批次量；对标 Odoo button_finish） ---
+            if step_completed {
                 BatchRoutingProgressRepo::update_status(
                     &mut *db, brp_id, RoutingStatus::Completed,
                 )
@@ -432,8 +436,8 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
             .map_err(|e| DomainError::Internal(e.into()))?;
         }
 
-        // --- i. 更新 batch.current_step ---
-        if was_inserted {
+        // --- i. 更新 batch.current_step（仅当工序完成才推进 → 支持同工序多人补报） ---
+        if was_inserted && step_completed {
             ProductionBatchRepo::update_current_step(&mut *db, batch_id, step_no)
                 .await
                 .map_err(|e| DomainError::Internal(e.into()))?;
@@ -452,7 +456,7 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
 
         // --- k. 判断是否最后一道工序 → PendingReceipt ---
         let mut batch_status = batch.status;
-        if step_no == max_step && was_inserted {
+        if step_no == max_step && was_inserted && step_completed {
             if !routing.is_inspection_point {
                 ProductionBatchRepo::update_status(
                     &mut *db,
@@ -893,6 +897,55 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
             .cancel_by_source(ctx, db, DocumentType::WorkOrder, batch_id).await?;
 
         tracing::info!(batch_id, reason = %reason, "batch scrapped");
+
+        Ok(())
+    }
+
+    /// 记录部分报废：不改变批次状态，仅递增 scrap_qty。
+    async fn record_scrap(
+        &self,
+        _ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        batch_id: i64,
+        scrap_qty: Decimal,
+        reason: String,
+        notes: Option<String>,
+    ) -> Result<()> {
+        let batch = ProductionBatchRepo::get_by_id(&mut *db, batch_id)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?
+            .ok_or_else(|| DomainError::not_found("ProductionBatch"))?;
+
+        if batch.status != BatchStatus::InProgress && batch.status != BatchStatus::Suspended {
+            return Err(DomainError::InvalidStateTransition {
+                from: batch.status.to_string(),
+                to: "Scrapped (partial)".to_string(),
+            });
+        }
+
+        if scrap_qty <= Decimal::ZERO {
+            return Err(DomainError::validation("报废数量必须大于 0"));
+        }
+
+        let remaining = batch.batch_qty - batch.completed_qty - batch.scrap_qty;
+        if scrap_qty > remaining {
+            return Err(DomainError::validation(format!(
+                "报废数量 {} 超出剩余可报废量 {}",
+                scrap_qty, remaining
+            )));
+        }
+
+        ProductionBatchRepo::atomic_increment_qty(&mut *db, batch_id, Decimal::ZERO, scrap_qty)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?;
+
+        tracing::info!(
+            batch_id,
+            scrap_qty = %scrap_qty,
+            reason = %reason,
+            notes = ?notes,
+            "partial scrap recorded"
+        );
 
         Ok(())
     }

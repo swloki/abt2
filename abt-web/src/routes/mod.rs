@@ -153,6 +153,7 @@ pub fn router(state: AppState) -> Router {
                 .merge(crate::components::customer_search::router())
                 .merge(crate::components::shipping_request_picker::router())
                 .merge(crate::components::material_requisition_picker::router())
+                .merge(crate::components::worker_picker::router())
                 .layer(middleware::from_fn(list_state_middleware))
                 .layer(middleware::from_fn_with_state(
                     state.clone(),

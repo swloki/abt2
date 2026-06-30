@@ -1,5 +1,5 @@
 /* layer: properties */
-@supports ((-webkit-hyphens: none) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color:rgb(from red r g b)))){*, ::before, ::after, ::backdrop{--un-text-opacity:100%;--un-bg-opacity:100%;--un-leading:initial;--un-border-opacity:100%;--un-ring-opacity:100%;--un-accent-opacity:100%;--un-translate-x:initial;--un-translate-y:initial;--un-translate-z:initial;--un-content:"";--un-space-y-reverse:initial;--un-divide-y-reverse:initial;--un-border-style:solid;--un-divide-opacity:100%;--un-border-left-opacity:100%;--un-border-top-opacity:100%;--un-from-opacity:100%;--un-via-opacity:100%;--un-to-opacity:100%;--un-border-spacing-x:0;--un-border-spacing-y:0;--un-scale-x:1;--un-scale-y:1;--un-scale-z:1;--un-ease:initial;}}
+@supports ((-webkit-hyphens: none) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color:rgb(from red r g b)))){*, ::before, ::after, ::backdrop{--un-text-opacity:100%;--un-bg-opacity:100%;--un-leading:initial;--un-border-opacity:100%;--un-ring-opacity:100%;--un-accent-opacity:100%;--un-space-y-reverse:initial;--un-translate-x:initial;--un-translate-y:initial;--un-translate-z:initial;--un-divide-y-reverse:initial;--un-border-style:solid;--un-divide-opacity:100%;--un-border-left-opacity:100%;--un-border-top-opacity:100%;--un-from-opacity:100%;--un-via-opacity:100%;--un-to-opacity:100%;--un-border-spacing-x:0;--un-border-spacing-y:0;--un-scale-x:1;--un-scale-y:1;--un-scale-z:1;--un-ease:initial;--un-content:"";}}
 @property --un-text-opacity{syntax:"<percentage>";inherits:false;initial-value:100%;}
 @property --un-leading{syntax:"*";inherits:false;}
 @property --un-accent-opacity{syntax:"<percentage>";inherits:false;initial-value:100%;}
@@ -103,9 +103,8 @@
 --radius-DEFAULT: var(--radius-md);
 --text-base-fontSize: 1rem;
 --text-base-lineHeight: 1.5rem;
---leading-tight: 1.25;
---spacing-5: var(--space-5);
 --tracking-tight: -0.025em;
+--spacing-5: var(--space-5);
 --fontWeight-normal: 400;
 --container-xs: 20rem;
 --tracking-wide: 0.025em;
@@ -120,6 +119,7 @@
 --colors-teal-500: oklch(70.4% 0.14 182.503);
 --tracking-wider: 0.05em;
 --fontWeight-extrabold: 800;
+--leading-tight: 1.25;
 --leading-normal: 1.5;
 --colors-fg-DEFAULT: var(--fg);
 --colors-accent-900: var(--accent-900);
@@ -1620,6 +1620,7 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .w-\[64px\]{width:64px;}
 .w-\[680px\]{width:680px;}
 .w-\[70px\]{width:70px;}
+.w-\[720px\]{width:720px;}
 .w-\[780px\]{width:780px;}
 .w-\[7px\]{width:7px;}
 .w-\[800px\]{width:800px;}
@@ -1838,6 +1839,7 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .z-\[1000\]{z-index:1000;}
 .z-\[1001\]{z-index:1001;}
 .z-\[1100\]{z-index:1100;}
+.z-\[1200\]{z-index:1200;}
 .z-\[30\],
 .z-30{z-index:30;}
 .z-\[50\],
@@ -1872,6 +1874,7 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .border-collapse{border-collapse:collapse;}
 .border-separate{border-collapse:separate;}
 .border-spacing-\[3px\]{--un-border-spacing-x:3px;--un-border-spacing-y:3px;border-spacing:var(--un-border-spacing-x) var(--un-border-spacing-y);}
+.table-fixed{table-layout:fixed;}
 .tabular-nums{--un-numeric-spacing:tabular-nums;font-variant-numeric:var(--un-ordinal,) var(--un-slashed-zero,) var(--un-numeric-figure,) var(--un-numeric-spacing,) var(--un-numeric-fraction,);}
 .divide-border-soft{
 :where(&>:not(:last-child)){border-color:color-mix(in srgb, var(--border-soft) var(--un-divide-opacity), transparent) /* var(--border-soft) */;}
@@ -1881,9 +1884,6 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 }
 .space-y-1{
 :where(&>:not(:last-child)){--un-space-y-reverse:0;margin-block-start:calc(calc(var(--spacing) * 1) * var(--un-space-y-reverse));margin-block-end:calc(calc(var(--spacing) * 1) * calc(1 - var(--un-space-y-reverse)));}
-}
-.space-y-2{
-:where(&>:not(:last-child)){--un-space-y-reverse:0;margin-block-start:calc(calc(var(--spacing) * 2) * var(--un-space-y-reverse));margin-block-end:calc(calc(var(--spacing) * 2) * calc(1 - var(--un-space-y-reverse)));}
 }
 .space-y-3{
 :where(&>:not(:last-child)){--un-space-y-reverse:0;margin-block-start:calc(calc(var(--spacing) * 3) * var(--un-space-y-reverse));margin-block-end:calc(calc(var(--spacing) * 3) * calc(1 - var(--un-space-y-reverse)));}

@@ -29,6 +29,14 @@ pub trait BomQueryService: Send + Sync {
         ctx: &ServiceContext, db: PgExecutor<'_>,
         bom_id: i64,
     ) -> Result<Vec<BomNode>>;
+    /// 在指定 BOM 树中按 product_id 定位节点，取其**直接子级**（产出品的直接物料清单）。
+    /// 用于工序级领料/齐套分析：产出品是成品 BOM 树的中间节点时取其下一级构成。
+    async fn get_direct_children_by_product(
+        &self,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
+        bom_id: i64,
+        product_id: i64,
+    ) -> Result<Vec<BomNode>>;
     async fn get_snapshots(
         &self,
         ctx: &ServiceContext, db: PgExecutor<'_>,

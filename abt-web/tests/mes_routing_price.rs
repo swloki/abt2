@@ -153,34 +153,6 @@ async fn repo_has_report_false_before_reporting() {
 use abt_core::shared::types::DomainError;
 
 #[tokio::test]
-async fn service_update_routing_saves_both_and_guards() {
-    let app = common::TestApp::new().await;
-    let wo_id = seed_released_work_order(&app, MULTI_STEP_PRODUCT_ID, "800").await;
-    let svc = app.state.production_batch_service();
-    let ctx = ServiceContext::new(1);
-    let mut conn = app.state.pool.acquire().await.unwrap();
-    let rs = svc.list_routings(&ctx, &mut conn, wo_id).await.unwrap();
-    let rid = rs[0].id;
-
-    // 正常：一次保存 product_id + unit_price
-    let updated = svc
-        .update_routing(&ctx, &mut conn, wo_id, rid, Some(565), Decimal::new(7, 0), None, None, false)
-        .await
-        .unwrap();
-    assert_eq!(updated.product_id, Some(565));
-    assert_eq!(updated.unit_price, Some(Decimal::new(7, 0)));
-
-    // 守卫：单价 ≤ 0
-    let err = svc.update_routing(&ctx, &mut conn, wo_id, rid, None, Decimal::ZERO, None, None, false).await.unwrap_err();
-    assert!(matches!(err, DomainError::Validation { .. }), "got {err:?}");
-
-    // 守卫：跨工单
-    let wo_b = seed_released_work_order(&app, MULTI_STEP_PRODUCT_ID, "801").await;
-    let err = svc.update_routing(&ctx, &mut conn, wo_b, rid, None, Decimal::new(3, 0), None, None, false).await.unwrap_err();
-    assert!(matches!(err, DomainError::NotFound { .. }), "got {err:?}");
-}
-
-#[tokio::test]
 async fn service_delete_renumbers_and_blocks_last() {
     let app = common::TestApp::new().await;
     // 用多工序产品（19 道），才能真正覆盖 删除→重排→保留≥1 守卫
@@ -243,11 +215,10 @@ async fn wage_is_frozen_at_report_time() {
         .await
         .unwrap();
 
-    // 设第 1 道工序单价 = 5
+    // 设第 1 道工序单价 = 5（repo 级改单价；service update_routing 已移除）
     let rs = batch_svc.list_routings(&ctx, &mut conn, wo_id).await.unwrap();
     let step1 = rs.iter().find(|r| r.step_no == 1).unwrap();
-    batch_svc
-        .update_routing(&ctx, &mut conn, wo_id, step1.id, None, Decimal::new(5, 0), None, None, false)
+    WorkOrderRoutingRepo::update_unit_price(&mut conn, step1.id, Decimal::new(5, 0))
         .await
         .unwrap();
 
@@ -276,12 +247,13 @@ async fn wage_is_frozen_at_report_time() {
     let wr = reports.iter().find(|r| r.routing_id == step1.id).unwrap();
     assert_eq!(wr.wage_amount, Decimal::new(50, 0), "wage_amount 应已冻结落库");
 
-    // 报工后改该工序单价 → 应被守卫拒绝（不会污染历史工资）
-    let err = batch_svc
-        .update_routing(&ctx, &mut conn, wo_id, step1.id, None, Decimal::new(9, 0), None, None, false)
+    // 报工后改该工序单价 → 已冻结的 wage_amount 不受影响（历史工资不漂移）
+    WorkOrderRoutingRepo::update_unit_price(&mut conn, step1.id, Decimal::new(9, 0))
         .await
-        .unwrap_err();
-    assert!(matches!(err, DomainError::BusinessRule { .. }), "报工后改价应拒绝");
+        .unwrap();
+    let reports_after = WorkReportRepo::list_by_batch(&mut conn, batch_id).await.unwrap();
+    let wr_after = reports_after.iter().find(|r| r.routing_id == step1.id).unwrap();
+    assert_eq!(wr_after.wage_amount, Decimal::new(50, 0), "改单价后历史工资仍冻结为 50");
 }
 
 #[tokio::test]

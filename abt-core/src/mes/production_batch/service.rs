@@ -48,6 +48,17 @@ pub trait ProductionBatchService: Send + Sync {
     ) -> Result<()>;
     async fn resume(&self, ctx: &ServiceContext, db: PgExecutor<'_>, batch_id: i64) -> Result<()>;
     async fn scrap(&self, ctx: &ServiceContext, db: PgExecutor<'_>, batch_id: i64, reason: String) -> Result<()>;
+    /// 记录部分报废：不改变批次状态，仅递增 scrap_qty 并记录原因。
+    /// 与 scrap（整批 Cancel + 释放预留）不同，此方法保持批次在 InProgress/Suspended。
+    async fn record_scrap(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        batch_id: i64,
+        scrap_qty: rust_decimal::Decimal,
+        reason: String,
+        notes: Option<String>,
+    ) -> Result<()>;
     async fn get_product_name(
         &self,
         db: PgExecutor<'_>,

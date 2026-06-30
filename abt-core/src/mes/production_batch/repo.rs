@@ -514,7 +514,7 @@ impl BatchRoutingProgressRepo {
         batch_id: i64,
         routing_id: i64,
     ) -> Result<i64> {
-        let row: Option<(i64,)> = sqlx::query_scalar(
+        let row: Option<i64> = sqlx::query_scalar(
             r#"
             INSERT INTO batch_routing_progress (batch_id, routing_id)
             VALUES ($1, $2)
@@ -527,7 +527,7 @@ impl BatchRoutingProgressRepo {
         .fetch_optional(&mut *executor)
         .await?;
 
-        if let Some((id,)) = row {
+        if let Some(id) = row {
             Ok(id)
         } else {
             let id: i64 = sqlx::query_scalar(
@@ -734,6 +734,9 @@ impl WorkReportRepo {
         executor: &mut sqlx::postgres::PgConnection,
         params: &InsertWorkReportParams<'_>,
     ) -> Result<(WorkReportRow, bool)> {
+        // 原 ON CONFLICT (batch_id, routing_id, worker_id, shift, report_date) 幂等约束已移除
+        // （migration 063），允许同工人同班次同天分批报工。每次报工都插入新记录并累加。
+        // 防重复提交由前端（提交后关闭 modal）+ 后端事务保证。
         let row = sqlx::query(
             r#"
             INSERT INTO work_reports
@@ -741,8 +744,6 @@ impl WorkReportRepo {
                  shift, worker_id, completed_qty, defect_qty, defect_reason,
                  work_hours, remark, operator_id, wage_amount)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
-            ON CONFLICT (batch_id, routing_id, worker_id, shift, report_date)
-            DO NOTHING
             RETURNING id, doc_number, work_order_id, batch_id, routing_id, report_date,
                       shift, worker_id, completed_qty, defect_qty, defect_reason,
                       work_hours, remark, operator_id, wage_amount, created_at, updated_at
@@ -762,36 +763,10 @@ impl WorkReportRepo {
         .bind(params.remark)
         .bind(params.operator_id)
         .bind(params.wage_amount)
-        .fetch_optional(&mut *executor)
+        .fetch_one(&mut *executor)
         .await?;
 
-        match row {
-            Some(r) => {
-                let report = WorkReportRow::from_row(&r)?;
-                Ok((report, true))
-            }
-            None => {
-                let existing = sqlx::query(
-                    r#"
-                    SELECT id, doc_number, work_order_id, batch_id, routing_id, report_date,
-                           shift, worker_id, completed_qty, defect_qty, defect_reason,
-                           work_hours, remark, operator_id, wage_amount, created_at, updated_at
-                    FROM work_reports
-                    WHERE batch_id = $1 AND routing_id = $2 AND worker_id = $3
-                          AND shift = $4 AND report_date = $5
-                    "#,
-                )
-                .bind(params.batch_id)
-                .bind(params.routing_id)
-                .bind(params.worker_id)
-                .bind(params.shift)
-                .bind(params.report_date)
-                .fetch_one(&mut *executor)
-                .await?;
-
-                let report = WorkReportRow::from_row(&existing)?;
-                Ok((report, false))
-            }
-        }
+        let report = WorkReportRow::from_row(&row)?;
+        Ok((report, true))
     }
 }

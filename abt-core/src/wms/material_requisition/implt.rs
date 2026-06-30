@@ -132,38 +132,36 @@ impl MaterialRequisitionService for MaterialRequisitionServiceImpl {
             DomainError::BusinessRule("该工序未配置产出品，无法工序级领料".into())
         })?;
 
-        // 2. 产出品 code → 已发布 BOM
-        let product_code = new_product_service(self.pool.clone())
-            .get_by_ids(ctx, db, vec![output_product_id])
-            .await?
-            .into_iter()
-            .next()
-            .map(|p| p.product_code)
-            .ok_or_else(|| DomainError::not_found("Product"))?;
+        // 2. 工单成品 → 成品已发布 BOM（产出品是成品 BOM 树的中间节点，取其直接子级作为物料清单）
+        let wo = new_work_order_service(self.pool.clone())
+            .find_by_id(ctx, db, work_order_id)
+            .await?;
+        let fg_product = new_product_service(self.pool.clone())
+            .get(ctx, db, wo.product_id)
+            .await?;
         let bom_svc = new_bom_query_service(self.pool.clone());
-        let bom_id = bom_svc
-            .find_published_bom_by_product_code(ctx, db, &product_code)
+        let fg_bom_id = bom_svc
+            .find_published_bom_by_product_code(ctx, db, &fg_product.product_code)
             .await?
             .ok_or_else(|| {
-                DomainError::BusinessRule(
-                    "该工序产出品无已发布 BOM，无法工序级领料（散料请走完工倒冲）".into(),
-                )
+                DomainError::BusinessRule("工单成品无已发布 BOM，无法工序级领料".into())
             })?;
 
-        // 3. 取产出品 BOM 的叶子组件（原料；半成品由对应工序/工单处理，不在此领）
-        let leaf_nodes = bom_svc.get_leaf_nodes(ctx, db, bom_id).await?;
-        if leaf_nodes.is_empty() {
-            return Err(DomainError::BusinessRule("产出品 BOM 无组件".into()));
+        // 3. 在成品 BOM 树中定位产出品节点，取其直接子级（产出品的物料清单）
+        let children = bom_svc
+            .get_direct_children_by_product(ctx, db, fg_bom_id, output_product_id)
+            .await?;
+        if children.is_empty() {
+            return Err(DomainError::BusinessRule(
+                "产出品在成品 BOM 中无直接子级物料，无法工序级领料（散料请走完工倒冲）".into(),
+            ));
         }
 
-        // 4. 数量基数：batch_id 优先，否则工单 planned_qty
+        // 4. 数量基数：batch_id 优先，否则工单 planned_qty（复用前面查到的工单）
         let base_qty = if let Some(bid) = batch_id {
             batch_svc.find_by_id(ctx, db, bid).await?.batch_qty
         } else {
-            new_work_order_service(self.pool.clone())
-                .find_by_id(ctx, db, work_order_id)
-                .await?
-                .planned_qty
+            wo.planned_qty
         };
 
         // 5. 建领料单
@@ -185,7 +183,7 @@ impl MaterialRequisitionService for MaterialRequisitionServiceImpl {
         .map_err(|e| DomainError::Internal(e.into()))?;
 
         // 6. items 挂 operation_id=routing_id + batch_id（产出品驱动核心：接线 migration 045 预留字段）
-        for node in &leaf_nodes {
+        for node in &children {
             let required_qty = node.quantity * base_qty;
             MaterialRequisitionRepo::insert_item(
                 &mut *db,
@@ -214,7 +212,7 @@ impl MaterialRequisitionService for MaterialRequisitionServiceImpl {
             )
             .await?;
 
-        tracing::info!(work_order_id, routing_id, batch_id, bom_id, "routing-step requisition created");
+        tracing::info!(work_order_id, routing_id, batch_id, fg_bom_id, output_product_id, "routing-step requisition created");
         Ok(requisition.id)
     }
 
@@ -248,6 +246,16 @@ impl MaterialRequisitionService for MaterialRequisitionServiceImpl {
         requisition_id: i64,
     ) -> Result<Vec<MaterialReqItem>> {
         MaterialRequisitionRepo::get_items(&mut *db, requisition_id)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))
+    }
+
+    async fn list_requisitioned_routing_ids(
+        &self,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
+        batch_id: i64,
+    ) -> Result<Vec<i64>> {
+        MaterialRequisitionRepo::find_routing_ids_by_batch(&mut *db, batch_id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))
     }

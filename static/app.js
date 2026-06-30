@@ -550,6 +550,25 @@ window.wcCollectItems = function (form) {
     if (j) j.value = JSON.stringify(items);
 };
 
+// wcCollectWorkers：报工 modal 工人表格收集（[data-worker-row] 行，字段 [data-k]）
+// → JSON 字符串 [{worker_id, completed_qty}]，由 hx-on:htmx:config-request 注入 workers_json 参数。
+// worker_id 必须 Number()：后端 WorkerReportItem.worker_id 是 i64，字符串会导致 serde_json 解析失败。
+window.wcCollectWorkers = function (form) {
+    var rows = form.querySelectorAll('[data-worker-row]');
+    var arr = [];
+    for (var i = 0; i < rows.length; i++) {
+        var idEl = rows[i].querySelector('[data-k="worker_id"]');
+        var qtyEl = rows[i].querySelector('[data-k="completed_qty"]');
+        var qty = qtyEl ? (qtyEl.value || '').trim() : '';
+        var defEl = rows[i].querySelector('[data-k="defect_qty"]');
+        var defect = defEl ? (defEl.value || '').trim() : '';
+        if (idEl && idEl.value && qty && parseFloat(qty) > 0) {
+            arr.push({ worker_id: Number(idEl.value), completed_qty: qty, defect_qty: defect || '0' });
+        }
+    }
+    return JSON.stringify(arr);
+};
+
 // ── 作业中心 收货 drawer：提交校验 + 库位选择弹窗 ──
 
 // wcReceiveSubmit：收货 form 的 onsubmit 包装——校验（实收>0、仓库必填）→ wcCollectItems → 返回 bool（false 阻止提交）

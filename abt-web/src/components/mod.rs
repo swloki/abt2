@@ -22,6 +22,7 @@ pub mod work_order_picker;
 pub mod purchase_order_picker;
 pub mod shipping_request_picker;
 pub mod material_requisition_picker;
+pub mod worker_picker;
 pub mod supplier_search;
 pub mod reservation_detail;
 pub mod customer_search;

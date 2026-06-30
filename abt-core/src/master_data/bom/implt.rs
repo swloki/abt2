@@ -140,6 +140,16 @@ impl BomQueryService for BomQueryServiceImpl {
             .await
     }
 
+    async fn get_direct_children_by_product(
+        &self,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
+        bom_id: i64,
+        product_id: i64,
+    ) -> Result<Vec<BomNode>> {
+        self.node_repo.find_direct_children_by_product(db, bom_id, product_id)
+            .await
+    }
+
     async fn get_snapshots(
         &self,
         _ctx: &ServiceContext, db: PgExecutor<'_>,

@@ -101,4 +101,12 @@ pub trait ProductionBatchService: Send + Sync {
         db: PgExecutor<'_>,
         work_order_id: i64,
     ) -> Result<bool>;
+
+    /// 查询某批次各工序的执行进度（写真相源：status/completed_qty/defect_qty）。
+    async fn list_progress_by_batch(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        batch_id: i64,
+    ) -> Result<Vec<BatchRoutingProgress>>;
 }

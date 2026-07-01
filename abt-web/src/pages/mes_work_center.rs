@@ -799,7 +799,7 @@ fn wo_status_meta(s: &WorkOrderStatus) -> (&'static str, &'static str) {
         Planned => ("已排期", "accent"),
         Released => ("已下达", "success"),
         InProduction => ("生产中", "warn"),
-        Closed => ("已关闭", "purple"),
+        Closed => ("已完工", "purple"),
         Cancelled => ("已取消", "danger"),
     }
 }
@@ -943,21 +943,11 @@ fn orders_row(
                         "下达"
                     }
                 }
-                // 关闭（Released/InProduction）— 正常完工归档
-                @if matches!(w.status, Released | InProduction) {
-                    button class="inline-flex items-center gap-1 px-2.5 py-1 rounded-sm border border-border text-xs font-medium text-fg-2 cursor-pointer hover:bg-accent-bg hover:text-accent hover:border-accent transition-all ml-1.5"
-                        hx-post=(WcClosePath { order_id: w.id }.to_string())
-                        hx-confirm="确认关闭此工单？关闭后归档（正常完工）。"
-                        hx-disabled-elt="this" {
-                        (icon::check_circle_icon("w-3.5 h-3.5"))
-                        "关闭"
-                    }
-                }
-                // 取消（非终态）— 废弃，关联需求回池可重新规划
+                // 取消（非终态）— 作废：反向取消领料单 + 释放预留 + 需求回池；已完工不可取消
                 @if matches!(w.status, Draft | Planned | Released | InProduction) {
                     button class="inline-flex items-center gap-1 px-2.5 py-1 rounded-sm border border-danger/40 text-xs font-medium text-danger cursor-pointer hover:bg-danger-bg hover:border-danger transition-all ml-1.5"
                         hx-post=(WcCancelPath { order_id: w.id }.to_string())
-                        hx-confirm="确认取消此工单？取消后废弃，关联需求回池可重新规划。"
+                        hx-confirm="确认取消此工单？\n• 作废工单，反向取消已领物料单并释放库存预留\n• 关联需求回池，可重新规划\n• 已有完工入库单的工单不可取消"
                         hx-disabled-elt="this" {
                         (icon::x_icon("w-3.5 h-3.5"))
                         "取消"
@@ -2262,36 +2252,10 @@ pub async fn report_step(
 }
 
 // =============================================================================
-// 工单级操作（关闭 / 取消）— 就地操作 + 广播 woChanged
+// 工单级操作（取消）— 就地操作 + 广播 woChanged
+// 完工（Closed）由完工入库闭环自动派生（production_receipt confirm → 所有批次终态），
+// 无人工关闭入口（对齐 Odoo：Done 由库存移动闭环触发，非按钮）。
 // =============================================================================
-
-/// 关闭工单：Released/InProduction → Closed。幂等：已 Closed 直接成功。
-#[require_permission("WORK_ORDER", "update")]
-pub async fn close_order(
-    path: WcClosePath,
-    ctx: RequestContext,
-) -> Result<impl IntoResponse> {
-    let RequestContext { state, service_ctx, .. } = ctx;
-    let mut tx = state
-        .pool
-        .begin()
-        .await
-        .map_err(|e| DomainError::Internal(e.into()))?;
-    let svc = state.work_order_service();
-    let order = svc.find_by_id(&service_ctx, &mut tx, path.order_id).await?;
-    if order.status == WorkOrderStatus::Closed {
-        tx.commit()
-            .await
-            .map_err(|e| DomainError::Internal(e.into()))?;
-        return Ok(([("HX-Trigger", "woChanged")], Html(String::new())));
-    }
-    svc.close(&service_ctx, &mut tx, path.order_id, order.version)
-        .await?;
-    tx.commit()
-        .await
-        .map_err(|e| DomainError::Internal(e.into()))?;
-    Ok(([("HX-Trigger", "woChanged")], Html(String::new())))
-}
 
 /// 取消工单：→ Cancelled。幂等：已 Cancelled 直接成功。
 #[require_permission("WORK_ORDER", "update")]

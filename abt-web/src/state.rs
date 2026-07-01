@@ -101,7 +101,7 @@ impl AppState {
             use abt_core::purchase::return_settlement_handler::PurchaseReturnSettledHandler;
             use abt_core::purchase::demand_handler::PurchaseDemandCreatedHandler;
             use abt_core::mes::demand_handler::MesDemandCreatedHandler;
-            use abt_core::sales::sales_order::{SalesDemandConfirmedHandler, SalesDemandRejectedHandler};
+            use abt_core::sales::sales_order::{SalesDemandConfirmedHandler, SalesDemandRejectedHandler, SalesDemandReleasedHandler};
             use abt_core::sales::sales_return_received_handler::SalesReturnReceivedHandler;
             use abt_core::sales::shipment_shipped_handler::ShipmentShippedHandler;
             use abt_core::shared::enums::event::DomainEventType;
@@ -126,6 +126,10 @@ impl AppState {
             registry.register(
                 DomainEventType::DemandRejected,
                 Arc::new(SalesDemandRejectedHandler::new(pool.clone())),
+            );
+            registry.register(
+                DomainEventType::DemandReleased,
+                Arc::new(SalesDemandReleasedHandler::new(pool.clone())),
             );
 
             // PurchaseReturnSettled — 退货经对账单结算后，写反向 AP 台账冲减应付（Issue #85）

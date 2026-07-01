@@ -203,6 +203,17 @@ pub trait DemandService: Send + Sync {
         target_doc_id: i64,
     ) -> Result<()>;
 
+    /// 释放下游单据关联的需求回池（status→Pending + 清 target_doc），
+    /// 并发布 DemandReleased 事件对称回退履行计划行/订单行。
+    /// 供跨模块（MES 工单/采购单）取消时回退需求调用 —— 与 update_target_doc 对称。
+    async fn release_back_to_pool(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        target_doc_type: i16,
+        target_doc_id: i64,
+    ) -> Result<()>;
+
     /// 对账：查询 fulfillment_plan_lines 与 demands 状态不一致的记录
     async fn find_mismatched(
         &self,

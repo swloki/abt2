@@ -14,9 +14,6 @@ use crate::master_data::bom::{new_bom_query_service, service::BomQueryService};
 use crate::master_data::work_center::{new_work_center_service, service::WorkCenterService};
 use crate::master_data::routing::{new_routing_service, service::RoutingService};
 use crate::master_data::product::{new_product_service, service::ProductService};
-use crate::master_data::work_calendar::{
-    model::CreateBookingReq, new_work_calendar_service, service::WorkCalendarService,
-};
 use crate::wms::material_requisition::{new_material_requisition_service, service::MaterialRequisitionService};
 use crate::wms::stock_ledger::{new_stock_ledger_service, service::StockLedgerService};
 use crate::mes::production_batch::model::WorkOrderRouting;
@@ -319,148 +316,6 @@ impl WorkOrderService for WorkOrderServiceImpl {
         Ok(())
     }
 
-    /// 反下达工单：Released -> Draft
-    /// 安全网操作：仅在工单未开工时允许
-    async fn unrelease(
-        &self,
-        ctx: &ServiceContext, db: PgExecutor<'_>,
-        id: i64,
-        expected_version: i32,
-    ) -> Result<()> {
-        // 1. 加载工单，校验状态
-        let work_order = WorkOrderRepo::get_by_id(&mut *db, id)
-            .await
-            .map_err(|e| DomainError::Internal(e.into()))?
-            .ok_or_else(|| DomainError::not_found("WorkOrder"))?;
-
-        if work_order.status != WorkOrderStatus::Released {
-            return Err(DomainError::BusinessRule(
-                "只有已下达状态的工单才能反下达".to_string(),
-            ));
-        }
-
-        // 2. 校验未开工 + 无报工记录
-        let batches = ProductionBatchRepo::list_by_work_order(&mut *db, id)
-            .await
-            .map_err(|e| DomainError::Internal(e.into()))?;
-
-        let has_started = batches.iter().any(|b| b.current_step > 0);
-        if has_started {
-            return Err(DomainError::BusinessRule(
-                "工单已开工，无法反下达".to_string(),
-            ));
-        }
-
-        // 校验无报工记录（双重保险：即使 current_step=0 也可能有孤儿报工）
-        let report_count: i64 = sqlx::query_scalar(
-            "SELECT COUNT(*) FROM work_reports WHERE work_order_id = $1",
-        )
-        .bind(id)
-        .fetch_one(&mut *db)
-        .await
-        .map_err(|e| DomainError::Internal(e.into()))?;
-        if report_count > 0 {
-            return Err(DomainError::BusinessRule(
-                "工单已有报工记录，无法反下达".to_string(),
-            ));
-        }
-
-        // 3. 取消关联的领料单（通过 document_links 双向查找）
-        let requisition_ids = DocumentLinkRepo::find_linked_ids_by_type(
-            &mut *db,
-            DocumentType::WorkOrder,
-            id,
-            DocumentType::MaterialRequisition,
-        )
-        .await?;
-
-        for req_id in requisition_ids {
-            // 领料单取消失败（已取消/已完成）不阻断反下达主流程
-            if let Err(_e) = new_material_requisition_service(self.pool.clone())
-                .cancel(ctx, db, req_id).await
-            {
-                // 已取消或已完成的领料单会报错，继续执行
-            }
-        }
-
-        // 4. 释放库存 HARD 预留（可能没有预留，忽略错误）
-        if let Err(_e) = new_inventory_reservation_service(self.pool.clone())
-            .cancel_by_source(ctx, db, DocumentType::WorkOrder, id).await
-        {
-            // backflush 模式无预留，忽略
-        }
-
-        // 5. 软删除 ProductionBatch（替代物理 DELETE）
-        ProductionBatchRepo::soft_delete_by_work_order(&mut *db, id)
-            .await
-            .map_err(|e| DomainError::Internal(e.into()))?;
-
-        // 6. 删除 batch_routing_progress（执行进度快照，反下达后重建）
-        sqlx::query(
-            "DELETE FROM batch_routing_progress WHERE batch_id IN (SELECT id FROM production_batches WHERE work_order_id = $1)",
-        )
-        .bind(id)
-        .execute(&mut *db)
-        .await
-        .map_err(|e| DomainError::Internal(e.into()))?;
-
-        // 7. 删除 WorkOrderRouting（工序模板快照，反下达后可重建）
-        sqlx::query("DELETE FROM work_order_routings WHERE work_order_id = $1")
-            .bind(id)
-            .execute(&mut *db)
-            .await
-            .map_err(|e| DomainError::Internal(e.into()))?;
-
-        // 7. 清除 bom_snapshot_id 和 routing_id（快照记录保留）
-        sqlx::query(
-            "UPDATE work_orders SET bom_snapshot_id = NULL, routing_id = NULL, updated_at = NOW() WHERE id = $1",
-        )
-        .bind(id)
-        .execute(&mut *db)
-        .await
-        .map_err(|e| DomainError::Internal(e.into()))?;
-
-        // 8. 工单状态 → Draft
-        let updated = WorkOrderRepo::update_status_with_version(
-            &mut *db,
-            id,
-            WorkOrderStatus::Draft,
-            expected_version,
-        )
-        .await
-        .map_err(|e| DomainError::Internal(e.into()))?;
-
-        if !updated {
-            return Err(DomainError::ConcurrentConflict);
-        }
-
-        // 9. 发布领域事件（扁平化：已废弃 PlanItem 状态回滚，WO 状态机自洽）
-        new_domain_event_bus(self.pool.clone())
-            .publish(
-                ctx, db,
-                crate::shared::event_bus::EventPublishRequest {
-                    event_type: crate::shared::enums::event::DomainEventType::WOUnreleased,
-                    aggregate_type: "WorkOrder".to_string(),
-                    aggregate_id: id,
-                    payload: serde_json::json!({
-                        "product_id": work_order.product_id,
-                    }),
-                    idempotency_key: None,
-                },
-            )
-            .await?;
-
-        // 11. 审计日志
-        new_audit_log_service(self.pool.clone())
-            .record(
-                ctx, db,
-                RecordAuditLogReq::new("WorkOrder", id, AuditAction::Transition),
-            )
-            .await?;
-
-        Ok(())
-    }
-
     /// 关闭工单：Released -> Closed
     async fn close(
         &self,
@@ -623,6 +478,20 @@ impl WorkOrderService for WorkOrderServiceImpl {
                 tracing::warn!(req_id, error = %e, "领料单取消失败");
             }
         }
+
+        // 回退关联需求：工单取消 → demand 回 Pending（status=1），清 target_doc 指向，
+        // 需求自动回池可重新规划（与 create_work_orders_from_demands 的 update_target_doc 对称）。
+        sqlx::query(
+            r#"UPDATE demands
+               SET status = 1, target_doc_type = NULL, target_doc_id = NULL, updated_at = NOW()
+               WHERE target_doc_id = $1 AND target_doc_type = $2 AND deleted_at IS NULL"#,
+        )
+        .bind(id)
+        .bind(DocumentType::WorkOrder as i16)
+        .execute(&mut *db)
+        .await
+        .map_err(|e| DomainError::Internal(e.into()))?;
+
         // 审计日志
         new_audit_log_service(self.pool.clone())
             .record(
@@ -1031,118 +900,6 @@ impl WorkOrderService for WorkOrderServiceImpl {
         .await
     }
 
-    /// 排程：以工单为单位，工序级排程 → work_center_bookings（对标 Odoo _plan_workorders）
-    async fn schedule(
-        &self,
-        ctx: &ServiceContext,
-        db: PgExecutor<'_>,
-        work_order_id: i64,
-    ) -> Result<ScheduleResult> {
-        let wo = self.find_by_id(ctx, db, work_order_id).await?;
-
-        let product_svc = new_product_service(self.pool.clone());
-        let routing_svc = new_routing_service(self.pool.clone());
-        let wc_svc = new_work_center_service(self.pool.clone());
-        let cal_svc = new_work_calendar_service(self.pool.clone());
-
-        let product = product_svc.get(ctx, db, wo.product_id).await?;
-        let routing_detail = routing_svc
-            .get_bom_routing(ctx, db, product.product_code.clone())
-            .await
-            .ok()
-            .flatten();
-        let Some(routing) = routing_detail else {
-            return Ok(ScheduleResult {
-                scheduled_items: 0,
-                bookings_created: 0,
-                warnings: vec![format!("产品 {} 无工艺路线，跳过排程", product.product_code)],
-            });
-        };
-        if routing.steps.is_empty() {
-            return Ok(ScheduleResult {
-                scheduled_items: 0,
-                bookings_created: 0,
-                warnings: vec![format!("产品 {} 工艺路线无工序", product.product_code)],
-            });
-        }
-
-        // 正向排程：从 max(计划开工日 8:00, 当前时间) 开始
-        let start_dt = wo.scheduled_start.and_hms_opt(8, 0, 0).unwrap().and_utc();
-        let mut current = std::cmp::max(start_dt, chrono::Utc::now());
-        let mut bookings_created = 0usize;
-        let mut warnings = Vec::new();
-
-        for step in &routing.steps {
-            let Some(wc_id) = step.work_center_id else {
-                warnings.push(format!(
-                    "工序 {}(步骤{}) 无工作中心",
-                    step.process_name.as_deref().unwrap_or("?"),
-                    step.step_order
-                ));
-                continue;
-            };
-            let wc = match wc_svc.get(ctx, db, wc_id).await {
-                Ok(w) => w,
-                Err(_) => {
-                    warnings.push(format!("工作中心 {} 不存在", wc_id));
-                    continue;
-                }
-            };
-
-            // Odoo 时长公式: setup + cleanup + cycle × std_time × 100 / efficiency
-            let std_time = step.standard_time.unwrap_or(Decimal::ZERO);
-            let capacity = if wc.default_capacity > Decimal::ZERO {
-                wc.default_capacity
-            } else {
-                Decimal::ONE
-            };
-            let cycle_number = (wo.planned_qty / capacity).ceil();
-            let efficiency = if wc.time_efficiency.is_zero() {
-                Decimal::from(100)
-            } else {
-                wc.time_efficiency
-            };
-            let duration = wc.setup_time
-                + wc.cleanup_time
-                + cycle_number * std_time * Decimal::from(100) / efficiency;
-
-            // 在工作中心日历上找可用时段
-            let slot = cal_svc.find_available_slot(db, wc_id, current, duration).await?;
-            match slot {
-                Some((slot_start, slot_end)) => {
-                    cal_svc
-                        .create_booking(
-                            ctx,
-                            db,
-                            CreateBookingReq {
-                                work_center_id: wc_id,
-                                work_order_id: wo.id,
-                                plan_item_id: None,
-                                date_from: slot_start,
-                                date_to: slot_end,
-                                duration_minutes: duration,
-                            },
-                        )
-                        .await?;
-                    bookings_created += 1;
-                    current = slot_end;
-                }
-                None => {
-                    warnings.push(format!(
-                        "工序 {} 在工作中心 {} 上 90 天内无可用时段",
-                        step.process_name.as_deref().unwrap_or("?"),
-                        wc.name
-                    ));
-                }
-            }
-        }
-
-        Ok(ScheduleResult {
-            scheduled_items: 1,
-            bookings_created,
-            warnings,
-        })
-    }
 }
 
 // =============================================================================

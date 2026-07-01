@@ -1573,7 +1573,7 @@ fn is_overdue_or_soon(d: Option<chrono::NaiveDate>) -> bool {
 
 // =============================================================================
 // 行展开 row-detail 渲染（HTMX hx-swap="afterend" 注入单 <tr class="row-detail">）
-// 照 mes_order_list::row_detail_tr 范式：detail-grid 4 列 + detail-actions
+// 照 row_detail_tr 范式：detail-grid 4 列 + detail-actions
 // =============================================================================
 
 /// 纯数字格式化（无 ¥，进度条/数量用）。

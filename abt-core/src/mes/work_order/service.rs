@@ -24,15 +24,6 @@ pub trait WorkOrderService: Send + Sync {
         db: PgExecutor<'_>,
         id: i64,
     ) -> Result<()>;
-    /// 反下达工单：Released -> Draft
-    /// 安全网操作：取消领料单、释放库存预留、删除批次和工序
-    async fn unrelease(
-        &self,
-        ctx: &ServiceContext,
-        db: PgExecutor<'_>,
-        id: i64,
-        expected_version: i32,
-    ) -> Result<()>;
     async fn close(
         &self,
         ctx: &ServiceContext, db: PgExecutor<'_>,
@@ -89,12 +80,4 @@ pub trait WorkOrderService: Send + Sync {
         batch_id: Option<i64>,
     ) -> Result<MaterialAvailability>;
 
-    /// 排程：以工单为单位，工序级排程 → work_center_bookings（对标 Odoo _plan_workorders）
-    /// 工作日历 + 产能 + 时段冲突检查 + 自动创建 booking。
-    async fn schedule(
-        &self,
-        ctx: &ServiceContext,
-        db: PgExecutor<'_>,
-        work_order_id: i64,
-    ) -> Result<ScheduleResult>;
 }

@@ -252,12 +252,7 @@ fn modules() -> Vec<NavModule> {
             id: "production",
             name: "生产管理",
             items: vec![
-                NavItem { name: "生产总览", path: "/admin/mes", icon: NavIcon::Home, permission: Some(("WORK_ORDER", "read")) },
                 NavItem { name: "生产作业中心", path: "/admin/mes/work-center", icon: NavIcon::Grid, permission: Some(("WORK_ORDER", "read")) },
-                NavItem { name: "生产需求池", path: "/admin/mes/demand-pool", icon: NavIcon::Layers, permission: Some(("WORK_ORDER", "read")) },
-                NavItem { name: "工单管理", path: "/admin/mes/orders", icon: NavIcon::ClipboardDoc, permission: Some(("WORK_ORDER", "read")) },
-                NavItem { name: "流转卡查询", path: "/admin/mes/cards", icon: NavIcon::Search, permission: Some(("WORK_ORDER", "read")) },
-                NavItem { name: "排程看板", path: "/admin/mes/schedule", icon: NavIcon::Grid, permission: Some(("WORK_ORDER", "read")) },
                 NavItem { name: "报工记录", path: "/admin/mes/reports", icon: NavIcon::Hammer, permission: Some(("WORK_ORDER", "read")) },
                 NavItem { name: "计件工资", path: "/admin/mes/wages", icon: NavIcon::DollarSign, permission: Some(("LABOR_COST", "read")) },
                 NavItem { name: "生产报检", path: "/admin/mes/inspections", icon: NavIcon::Eye, permission: Some(("INSPECTION", "read")) },

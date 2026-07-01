@@ -22,7 +22,7 @@ use maud::{Markup, html};
 /// - `alert` — true 时 icon 容器右上角挂红点（缺料/报废等异常）
 /// - `action_html` — head 内操作按钮（None 时不渲染）；调用方负责 `_="on click halt the event then ..."` 阻止冒泡
 /// - `body` — 展开后的内容
-/// - `detail_path` — 整页端点路径（OrderDetailPath{id}.to_string()），用于局部刷新
+/// - `detail_path` — 整页端点路径字符串（调用方 `TypedPath.to_string()`），用于局部刷新 hx-get 复用
 /// - `refresh_trigger` — 局部刷新事件名（如 `"batchChanged"`）；None 时不挂 hx-trigger
 #[allow(clippy::too_many_arguments)]
 pub fn disclosure(

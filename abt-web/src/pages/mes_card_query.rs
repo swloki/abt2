@@ -311,7 +311,7 @@ fn card_search_result(
                     )
                 })
                 "工单 "
-                a href=(format!("/admin/mes/orders/{}", batch.work_order_id)) class="text-accent" {
+                span class="text-accent" {
                     (wo_doc_number)
                 }
             }

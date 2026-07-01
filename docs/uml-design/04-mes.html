@@ -568,7 +568,7 @@ classDiagram
             <td style="padding: 4px 8px;"><span style="color:#e06c75;">Cancelled</span></td>
             <td style="padding: 4px 8px;">scrap / cancel(WO)</td>
             <td style="padding: 4px 8px;">无未领料 / 在途批次</td>
-            <td style="padding: 4px 8px;">释放 HARD 预留</td>
+            <td style="padding: 4px 8px;">释放 HARD 预留 + 回退 demand（status→Pending，清 target_doc，需求回池可重新规划）</td>
           </tr>
         </tbody>
       </table>

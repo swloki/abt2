@@ -740,8 +740,7 @@ fn fulfill_plan_row(
  (Some(10), Some(doc_id)) => {
  // WorkOrder
  Some(html! {
-    a   href=(format!("/admin/mes/orders/{}", doc_id))
-        class="text-accent font-medium cursor-pointer font-mono tabular-nums text-xs"
+    span class="text-accent font-medium font-mono tabular-nums text-xs"
     { (format!("WO-{}", doc_id)) }
 })
  }

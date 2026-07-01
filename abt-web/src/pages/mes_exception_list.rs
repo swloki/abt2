@@ -156,15 +156,8 @@ fn exception_table_fragment(
                             td {
                                 div class="flex flex-col gap-1" {
                                     @if let Some(ref wo) = item.wo_doc_number {
-                                        span class="text-sm" {
-                                            a   href=({
-                                                    format!(
-                                                        "/admin/mes/orders/{}",
-                                                        item.work_order_id.unwrap_or(0),
-                                                    )
-                                                })
-                                                class="text-accent font-medium hover:underline"
-                                            { (wo) }
+                                        span class="text-sm text-accent font-medium" {
+                                            (wo)
                                         }
                                     }
                                     @if let Some(ref bn) = item.batch_no {

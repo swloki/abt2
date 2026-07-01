@@ -105,6 +105,11 @@ fn work_center_content(summary: &MesWorkCenterSummary) -> Markup {
                 h1 class="text-xl font-bold text-fg tracking-tight" { "生产作业中心" }
                 p class="text-sm text-muted mt-1" { "需求池 · 订单排期 · 工单 一屏处理，就地下达与报工" }
             }
+            a class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-sm border border-border text-sm text-fg-2 hover:bg-accent-bg hover:text-accent hover:border-accent transition-all no-underline cursor-pointer"
+                href=(crate::routes::mes_order::OrderCreatePath::PATH) {
+                (icon::plus_icon("w-3.5 h-3.5"))
+                "手动创建工单"
+            }
         }
         (render_anchor_nav(summary))
         (render_card_shell("wc-demand-card", WcDemandPath::PATH, "生产需求池", icon::globe_icon("w-[15px] h-[15px]"), Some((summary.pending_release, "danger")),
@@ -304,7 +309,7 @@ pub async fn get_demand_card(
         html! {
             div id="wc-demand-card"
                 hx-get=(WcDemandPath::PATH)
-                hx-trigger="batchChanged from:body"
+                hx-trigger="batchChanged from:body, woChanged from:body"
                 hx-vals=(serde_json::json!({ "view": view }).to_string())
                 hx-include="#wc-demand-filter-form"
                 hx-select="#wc-demand-card" hx-swap="outerHTML" {
@@ -329,7 +334,7 @@ fn parse_date_filter(df: Option<&str>) -> (Option<NaiveDate>, Option<NaiveDate>)
 }
 
 /// 平铺 tab 栏 + 筛选表单（统一 hx-get WcDemandPath + hx-select #wc-demand-card）。
-/// - 第一行：底部下划线式平铺 tab（物料汇总[可合并]/订单行明细/订单排期）+ mat/det 右侧「完整需求池」链接
+/// - 第一行：底部下划线式平铺 tab（物料汇总[可合并]/订单行明细/工单/批次）
 /// - 第二行：筛选表单（mat/det：搜索+日期+排序；schedule：搜索+工作中心+状态+时间）
 fn demand_filter_bar(
     view: &str,
@@ -350,7 +355,7 @@ fn demand_filter_bar(
         "搜索物料/订单"
     };
     html! {
-        // 第一行：平铺 tab 栏（底部下划线）+ mat/det 右侧「完整需求池」
+        // 第一行：平铺 tab 栏（底部下划线：物料汇总/订单行明细/工单/批次）
         div class="flex items-center gap-1 flex-wrap px-5 pt-3 border-b border-border-soft" {
             button class=(toggle_cls(view == "material")) type="button"
                 hx-get=(WcDemandPath::PATH)
@@ -375,10 +380,6 @@ fn demand_filter_bar(
                 hx-target="#wc-demand-card" hx-select="#wc-demand-card" hx-swap="outerHTML"
                 hx-include="#wc-demand-filter-form"
                 { (icon::box_icon("w-4 h-4")) "批次" }
-            @if view == "material" || view == "detail" {
-                a class="ml-auto text-xs text-accent font-semibold no-underline"
-                    href="/admin/mes/demand-pool" { "完整需求池 →" }
-            }
         }
         // 第二行：筛选表单（change / keyup 触发刷新）
         form class="flex items-center gap-2 flex-wrap px-5 py-3 border-b border-border-soft"
@@ -908,17 +909,16 @@ fn orders_row(
     w: &WorkOrder,
     product_names: &HashMap<i64, String>,
 ) -> Markup {
+    use WorkOrderStatus::*;
     let pn = product_names
         .get(&w.product_id)
         .map(|s| s.as_str())
         .unwrap_or("—");
     let (slabel, stoken) = wo_status_meta(&w.status);
-    let detail_url = format!("/admin/mes/orders/{}", w.id);
     html! {
         tr class="border-b border-border-soft hover:bg-accent-bg" {
-            td class="py-2.5 px-5 font-mono tabular-nums" {
-                a class="text-accent font-medium" href=(detail_url) { (w.doc_number) }
-            }
+            // 工单号（纯文本，详情页已下线）
+            td class="py-2.5 px-5 font-mono tabular-nums text-accent font-medium" { (w.doc_number) }
             td class="py-2.5 px-3" {
                 div class="font-medium text-fg" { (pn) }
                 div class="text-xs text-muted" { (fmt_qty(w.planned_qty)) " 件" }
@@ -933,13 +933,34 @@ fn orders_row(
                 }
             }
             td class="py-2.5 px-5 text-right whitespace-nowrap" {
-                @if matches!(w.status, WorkOrderStatus::Draft | WorkOrderStatus::Planned) {
-                    button class="inline-flex items-center gap-1 px-2.5 py-1 rounded-sm border border-accent/50 text-xs font-medium text-accent cursor-pointer hover:bg-accent hover:text-accent-on hover:border-accent transition-all"
+                // 下达（Draft/Planned）— 打开下达 drawer
+                @if matches!(w.status, Draft | Planned) {
+                    button class="inline-flex items-center gap-1 px-2.5 py-1 rounded-sm border border-accent/50 text-xs font-medium text-accent cursor-pointer hover:bg-accent hover:text-accent-on hover:border-accent transition-all ml-1.5"
                         hx-get=(WcReleaseDrawerPath { order_id: w.id }.to_string())
                         hx-target="#release-drawer-body" hx-swap="innerHTML"
                         _="on click halt the event" {
                         (icon::rocket_icon("w-3.5 h-3.5"))
                         "下达"
+                    }
+                }
+                // 关闭（Released/InProduction）— 正常完工归档
+                @if matches!(w.status, Released | InProduction) {
+                    button class="inline-flex items-center gap-1 px-2.5 py-1 rounded-sm border border-border text-xs font-medium text-fg-2 cursor-pointer hover:bg-accent-bg hover:text-accent hover:border-accent transition-all ml-1.5"
+                        hx-post=(WcClosePath { order_id: w.id }.to_string())
+                        hx-confirm="确认关闭此工单？关闭后归档（正常完工）。"
+                        hx-disabled-elt="this" {
+                        (icon::check_circle_icon("w-3.5 h-3.5"))
+                        "关闭"
+                    }
+                }
+                // 取消（非终态）— 废弃，关联需求回池可重新规划
+                @if matches!(w.status, Draft | Planned | Released | InProduction) {
+                    button class="inline-flex items-center gap-1 px-2.5 py-1 rounded-sm border border-danger/40 text-xs font-medium text-danger cursor-pointer hover:bg-danger-bg hover:border-danger transition-all ml-1.5"
+                        hx-post=(WcCancelPath { order_id: w.id }.to_string())
+                        hx-confirm="确认取消此工单？取消后废弃，关联需求回池可重新规划。"
+                        hx-disabled-elt="this" {
+                        (icon::x_icon("w-3.5 h-3.5"))
+                        "取消"
                     }
                 }
             }
@@ -1037,7 +1058,7 @@ fn batch_row(b: &BatchListItem) -> Markup {
     }
 }
 
-/// 工单进度条（动态宽度用 style，同 mes_order_list 既定做法）。
+/// 工单进度条（动态宽度用 style，同既有列表页做法）。
 fn wo_progress(w: &WorkOrder) -> Markup {
     let pct = if w.planned_qty > Decimal::ZERO {
         let p = w.completed_qty / w.planned_qty * Decimal::from(100);
@@ -2118,7 +2139,7 @@ pub async fn release_order(
 
 /// 分批：一次事务创建多批（`Vec<SplitReq>`），广播 `woChanged`。
 ///
-/// 既有 `mes_order_detail::split_order` 只建 1 批，工作中心下达 drawer 需一次规划多批，故新建此端点。
+/// 既有 split_order（已随工单详情页下线）只建 1 批，工作中心下达 drawer 需一次规划多批，故新建此端点。
 /// 分批 form：JS 收集 split 行为 JSON（`[{batch_qty, team_id?}, ...]`）传 `splits_json`。
 /// 用 JSON 桥接而非 `Vec<SplitLineForm>` —— serde_urlencoded 不支持 `Vec<Struct>` 解析，
 /// 旧实现 splits 永远为空导致 split_work_order 被跳过（下达后无批次 bug）。
@@ -2233,6 +2254,66 @@ pub async fn report_step(
     state
         .production_batch_service()
         .confirm_routing_step(&service_ctx, &mut tx, form.batch_id, form.step_no, req)
+        .await?;
+    tx.commit()
+        .await
+        .map_err(|e| DomainError::Internal(e.into()))?;
+    Ok(([("HX-Trigger", "woChanged")], Html(String::new())))
+}
+
+// =============================================================================
+// 工单级操作（关闭 / 取消）— 就地操作 + 广播 woChanged
+// =============================================================================
+
+/// 关闭工单：Released/InProduction → Closed。幂等：已 Closed 直接成功。
+#[require_permission("WORK_ORDER", "update")]
+pub async fn close_order(
+    path: WcClosePath,
+    ctx: RequestContext,
+) -> Result<impl IntoResponse> {
+    let RequestContext { state, service_ctx, .. } = ctx;
+    let mut tx = state
+        .pool
+        .begin()
+        .await
+        .map_err(|e| DomainError::Internal(e.into()))?;
+    let svc = state.work_order_service();
+    let order = svc.find_by_id(&service_ctx, &mut tx, path.order_id).await?;
+    if order.status == WorkOrderStatus::Closed {
+        tx.commit()
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?;
+        return Ok(([("HX-Trigger", "woChanged")], Html(String::new())));
+    }
+    svc.close(&service_ctx, &mut tx, path.order_id, order.version)
+        .await?;
+    tx.commit()
+        .await
+        .map_err(|e| DomainError::Internal(e.into()))?;
+    Ok(([("HX-Trigger", "woChanged")], Html(String::new())))
+}
+
+/// 取消工单：→ Cancelled。幂等：已 Cancelled 直接成功。
+#[require_permission("WORK_ORDER", "update")]
+pub async fn cancel_order(
+    path: WcCancelPath,
+    ctx: RequestContext,
+) -> Result<impl IntoResponse> {
+    let RequestContext { state, service_ctx, .. } = ctx;
+    let mut tx = state
+        .pool
+        .begin()
+        .await
+        .map_err(|e| DomainError::Internal(e.into()))?;
+    let svc = state.work_order_service();
+    let order = svc.find_by_id(&service_ctx, &mut tx, path.order_id).await?;
+    if order.status == WorkOrderStatus::Cancelled {
+        tx.commit()
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?;
+        return Ok(([("HX-Trigger", "woChanged")], Html(String::new())));
+    }
+    svc.cancel(&service_ctx, &mut tx, path.order_id, order.version)
         .await?;
     tx.commit()
         .await

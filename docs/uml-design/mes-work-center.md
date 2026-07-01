@@ -28,7 +28,6 @@ MES 作业中心是车间执行入口：一进系统看到「待排产需求 →
 - 需求池 card shell（`#wc-demand-card`，懒加载 `WcDemandPath`）
 - 工单 card shell（`#wc-orders-card`，懒加载 `WcOrdersPath`）
 - 下达 drawer overlay（`release-overlay` / `release-drawer`）
-- 报工 drawer overlay（`report-overlay` / `report-drawer`）
 
 ## 4. 端点契约（TypedPath）
 
@@ -38,10 +37,8 @@ MES 作业中心是车间执行入口：一进系统看到「待排产需求 →
 | `/admin/mes/work-center/demand` | GET | `get_demand_card` | 需求池 card，`view=material\|detail\|schedule` 三 tab + 搜索/日期过滤/分页 |
 | `/admin/mes/work-center/orders` | GET | `get_orders_card` | 工单 card，生产中/已下达 tab + 搜索/物料徽章/进度 |
 | `…/orders/{id}/release-drawer` | GET | `get_release_drawer` | 下达 drawer body |
-| `…/orders/{id}/report-drawer` | GET | `get_report_drawer` | 报工 drawer body |
 | `…/orders/{id}/release` | POST | `release_order` | 下达（release + 分批单事务），广播 `woChanged` |
 | `…/orders/{id}/split-multi` | POST | `split_multi` | 多批分批，广播 `woChanged` |
-| `…/orders/{id}/report` | POST | `report_step` | 工序报工，广播 `woChanged` |
 
 需求池 card 的 `schedule` view 复用 `WorkOrderService.list`（Draft + Planned 合并）+ `render_schedule_table`，行内「下达」入口走 `release-drawer`。
 

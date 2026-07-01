@@ -14,7 +14,7 @@ use crate::components::pagination::pagination;
 use crate::components::tabs::{status_tabs_with_param, TabItem};
 use crate::errors::Result;
 use crate::layout::page::admin_page;
-use crate::routes::mes_inspection::{InspectionCreatePath, InspectionListPath};
+use crate::routes::mes_inspection::InspectionListPath;
 use crate::utils::{empty_as_none, RequestContext};
 use abt_macros::require_permission;
 
@@ -62,32 +62,23 @@ pub async fn get_inspection_list(
 ) -> Result<Html<String>> {
  let is_htmx = ctx.is_htmx();
  let nav_filter = ctx.nav_filter().await;
- let can_create = ctx.has_permission("INSPECTION", "create").await;
  let RequestContext { mut conn, claims, state, service_ctx, .. } = ctx;
  let filter = params.to_filter();
  let page = params.page.unwrap_or(1);
  let svc = state.production_inspection_service();
  let result = svc.list_inspections(&service_ctx, &mut conn, filter, page, 20).await?;
- let content = inspection_list_page(&result, &params, can_create);
+ let content = inspection_list_page(&result, &params);
  Ok(Html(admin_page(is_htmx, "生产报检", &claims, "production", InspectionListPath::PATH, "生产管理", None, content, &nav_filter).into_string()))
 }
 
 fn inspection_list_page(
  result: &PaginatedResult<InspectionListItem>,
  params: &InspectionQueryParams,
- can_create: bool,
 ) -> Markup {
  html! {
     div {
         div class="flex items-center justify-between mb-6" {
             h1 class="text-xl font-bold text-fg tracking-tight" { "生产报检" }
-            div class="flex gap-3" {
-                @if can_create {
-                    a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
-                        href=(InspectionCreatePath::PATH)
-                    { (icon::plus_icon("w-4 h-4")) "新建检验" }
-                }
-            }
         }
         (inspection_table_fragment(result, params))
     }
@@ -161,7 +152,6 @@ fn inspection_data_card(
                         th class="text-right text-[13px]" { "样本" }
                         th class="text-right text-[13px]" { "合格" }
                         th { "结果" }
-                        th class="!text-right" { "操作" }
                     }
                 }
                 tbody {
@@ -194,14 +184,11 @@ fn inspection_data_card(
                                     })
                                 { (rl) }
                             }
-                            td {
-                                a href=(dp) class="text-accent text-xs" { "查看" }
-                            }
                         }
                     }
                     @if result.items.is_empty() {
                         tr {
-                            td colspan="8" class="text-center text-muted py-8" { "暂无检验记录" }
+                            td colspan="7" class="text-center text-muted py-8" { "暂无检验记录" }
                         }
                     }
                 }

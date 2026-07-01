@@ -116,7 +116,6 @@ fn work_center_content(summary: &MesWorkCenterSummary) -> Markup {
             Some(html! { (summary.pending_release) " 张待下达 · 销售订单驱动 · 就地「转化为工单」" })))
         (render_drawer_overlay("release-overlay", "release-drawer", "release-drawer-body", "下达工单", "w-[640px]"))
         (render_drawer_overlay("create-plan-overlay", "create-plan-drawer", "create-plan-drawer-body", "创建工单", "w-[680px]"))
-        (render_drawer_overlay("report-overlay", "report-drawer", "report-drawer-body", "工序报工", "w-[480px]"))
         (render_drawer_overlay("batch-overlay", "batch-drawer", "batch-drawer-body", "批次处理", "w-[640px]"))
         // 完工入库 modal 容器（slot）：GET 返回 modal_shell，innerHTML 进 slot；afterSettle 打开
         div id="batch-receipt-modal-slot"
@@ -1930,128 +1929,6 @@ fn render_split_row(idx: usize, qty: Decimal) -> Markup {
     }
 }
 
-/// 报工 drawer body：批次/工序选择 + 完成量/不良量/报工人/班次/工时/日期 + 确认报工。
-#[require_permission("WORK_ORDER", "read")]
-pub async fn get_report_drawer(
-    path: WcReportDrawerPath,
-    ctx: RequestContext,
-) -> Result<Html<String>> {
-    let RequestContext {
-        mut conn,
-        state,
-        service_ctx,
-        ..
-    } = ctx;
-    let wo_svc = state.work_order_service();
-    let batch_svc = state.production_batch_service();
-
-    let order = wo_svc.find_by_id(&service_ctx, &mut conn, path.order_id).await?;
-    let product_name = wo_svc
-        .get_product_name(&mut conn, order.product_id)
-        .await?
-        .unwrap_or_else(|| format!("#{}", order.product_id));
-    let batches = batch_svc
-        .list_by_work_order(&service_ctx, &mut conn, path.order_id)
-        .await
-        .unwrap_or_default();
-    let routings = batch_svc
-        .list_routings(&service_ctx, &mut conn, path.order_id)
-        .await
-        .unwrap_or_default();
-    let today = chrono::Local::now().date_naive();
-
-    Ok(Html(
-        render_report_drawer_body(&order, &product_name, &batches, &routings, today).into_string(),
-    ))
-}
-
-// ── 报工 drawer 渲染 ──
-
-fn render_report_drawer_body(
-    order: &WorkOrder,
-    product_name: &str,
-    batches: &[ProductionBatch],
-    routings: &[WorkOrderRouting],
-    today: NaiveDate,
-) -> Markup {
-    let today_str = today.format("%Y-%m-%d").to_string();
-    html! {
-        div class="mb-5 pb-4 border-b border-border-soft" {
-            div class="text-xs text-muted mb-0.5" { "工单" }
-            div class="font-mono font-semibold text-fg" { (order.doc_number) }
-            div class="text-sm text-fg-2 mt-1" { (product_name) }
-        }
-        form hx-post=(WcReportPath { order_id: order.id }.to_string())
-            hx-swap="none"
-            _="on 'htmx:afterRequest'[detail.xhr.status < 400] remove .open from #report-overlay" {
-            div class="mb-3" {
-                label class="block text-xs text-fg-2 mb-1" { "批次" }
-                select name="batch_id" class="w-full px-2 py-1.5 border border-border rounded-sm text-sm bg-white outline-none focus:border-accent" {
-                    @if batches.is_empty() {
-                        option value="" { "暂无批次（请先下达并分批）" }
-                    }
-                    @for b in batches {
-                        option value=(b.id) { (b.batch_no) " · " (fmt_qty(b.batch_qty)) " 件" }
-                    }
-                }
-            }
-            div class="mb-3" {
-                label class="block text-xs text-fg-2 mb-1" { "工序" }
-                select name="step_no" class="w-full px-2 py-1.5 border border-border rounded-sm text-sm bg-white outline-none focus:border-accent" {
-                    @for r in routings {
-                        option value=(r.step_no) { (r.step_no) ". " (r.process_name) }
-                    }
-                }
-            }
-            div class="grid grid-cols-2 gap-3 mb-3" {
-                div {
-                    label class="block text-xs text-fg-2 mb-1" { "本次完成量" }
-                    input type="number" step="0.01 " min="0" name="completed_qty"
-                        class="w-full px-2 py-1.5 border border-border rounded-sm text-sm font-mono text-right bg-white outline-none focus:border-accent" {};
-                }
-                div {
-                    label class="block text-xs text-fg-2 mb-1" { "不良量" }
-                    input type="number" step="0.01 " min="0" name="defect_qty" value="0"
-                        class="w-full px-2 py-1.5 border border-border rounded-sm text-sm font-mono text-right bg-white outline-none focus:border-accent" {};
-                }
-            }
-            div class="grid grid-cols-3 gap-3 mb-3" {
-                div {
-                    label class="block text-xs text-fg-2 mb-1" { "报工人 ID" }
-                    input type="number" name="worker_id"
-                        class="w-full px-2 py-1.5 border border-border rounded-sm text-sm font-mono bg-white outline-none focus:border-accent" {};
-                }
-                div {
-                    label class="block text-xs text-fg-2 mb-1" { "班次" }
-                    select name="shift" class="w-full px-2 py-1.5 border border-border rounded-sm text-sm bg-white outline-none focus:border-accent" {
-                        option value="1" selected { "白班" }
-                        option value="2" { "夜班" }
-                    }
-                }
-                div {
-                    label class="block text-xs text-fg-2 mb-1" { "工时(h)" }
-                    input type="number" step="0.1 " min="0" name="work_hours" value="8"
-                        class="w-full px-2 py-1.5 border border-border rounded-sm text-sm font-mono text-right bg-white outline-none focus:border-accent" {};
-                }
-            }
-            div class="mb-4" {
-                label class="block text-xs text-fg-2 mb-1" { "报工日期" }
-                input type="date" name="report_date" value=(today_str)
-                    class="w-full px-2 py-1.5 border border-border rounded-sm text-sm bg-white outline-none focus:border-accent" {};
-            }
-            div class="flex justify-end gap-3 pt-4 border-t border-border-soft" {
-                button type="button"
-                    class="px-4 py-2 rounded-sm bg-white text-fg-2 border border-border text-sm cursor-pointer hover:bg-surface"
-                    _="on click remove .open from #report-overlay" { "取消" }
-                button type="submit" disabled[batches.is_empty()]
-                    class="px-4 py-2 rounded-sm bg-accent text-white text-sm font-medium cursor-pointer border-none hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed" {
-                    "确认报工"
-                }
-            }
-        }
-    }
-}
-
 // =============================================================================
 // 写 handler（完整 — 复用底层 service，事务包裹，HX-Trigger 广播）
 // =============================================================================
@@ -2182,68 +2059,6 @@ pub async fn split_multi(
     state
         .production_batch_service()
         .split_work_order(&service_ctx, &mut tx, path.order_id, splits)
-        .await?;
-    tx.commit()
-        .await
-        .map_err(|e| DomainError::Internal(e.into()))?;
-    Ok(([("HX-Trigger", "woChanged")], Html(String::new())))
-}
-
-/// 报工：`confirm_routing_step`（事务包裹），广播 `woChanged`。
-#[derive(Debug, Deserialize)]
-pub struct ReportStepForm {
-    /// 报工目标批次（drawer 内选择，path 用 order_id）
-    pub batch_id: i64,
-    pub step_no: i32,
-    pub worker_id: i64,
-    pub shift: ShiftType,
-    pub completed_qty: String,
-    #[serde(default)]
-    pub defect_qty: String,
-    #[serde(default)]
-    pub work_hours: String,
-    pub report_date: chrono::NaiveDate,
-    #[serde(default)]
-    pub remark: Option<String>,
-}
-
-#[require_permission("WORK_ORDER", "update")]
-pub async fn report_step(
-    _path: WcReportPath,
-    ctx: RequestContext,
-    axum::Form(form): axum::Form<ReportStepForm>,
-) -> Result<impl IntoResponse> {
-    let RequestContext { state, service_ctx, .. } = ctx;
-    let completed_qty = form
-        .completed_qty
-        .parse::<Decimal>()
-        .map_err(|_| DomainError::validation("完成量格式错误"))?;
-    let defect_qty = form.defect_qty.parse::<Decimal>().unwrap_or(Decimal::ZERO);
-    let work_hours = form
-        .work_hours
-        .parse::<Decimal>()
-        .unwrap_or(Decimal::ZERO);
-
-    let req = StepConfirmationReq {
-        step_no: form.step_no,
-        worker_id: form.worker_id,
-        shift: form.shift,
-        completed_qty,
-        defect_qty,
-        defect_reason: None,
-        work_hours,
-        report_date: form.report_date,
-        remark: form.remark,
-    };
-
-    let mut tx = state
-        .pool
-        .begin()
-        .await
-        .map_err(|e| DomainError::Internal(e.into()))?;
-    state
-        .production_batch_service()
-        .confirm_routing_step(&service_ctx, &mut tx, form.batch_id, form.step_no, req)
         .await?;
     tx.commit()
         .await

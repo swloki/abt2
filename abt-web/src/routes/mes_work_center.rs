@@ -29,12 +29,6 @@ pub struct WcReleaseDrawerPath {
 }
 
 #[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/mes/work-center/orders/{order_id}/report-drawer")]
-pub struct WcReportDrawerPath {
-    pub order_id: i64,
-}
-
-#[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/mes/work-center/orders/{order_id}/release")]
 pub struct WcReleasePath {
     pub order_id: i64,
@@ -44,12 +38,6 @@ pub struct WcReleasePath {
 #[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/mes/work-center/orders/{order_id}/split-multi")]
 pub struct WcSplitMultiPath {
-    pub order_id: i64,
-}
-
-#[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/mes/work-center/orders/{order_id}/report")]
-pub struct WcReportPath {
     pub order_id: i64,
 }
 
@@ -200,13 +188,8 @@ pub fn router() -> Router<AppState> {
             WcReleaseDrawerPath::PATH,
             get(mes_work_center::get_release_drawer),
         )
-        .route(
-            WcReportDrawerPath::PATH,
-            get(mes_work_center::get_report_drawer),
-        )
         .route(WcReleasePath::PATH, post(mes_work_center::release_order))
         .route(WcSplitMultiPath::PATH, post(mes_work_center::split_multi))
-        .route(WcReportPath::PATH, post(mes_work_center::report_step))
         .route(WcCancelPath::PATH, post(mes_work_center::cancel_order))
         .route(
             WcCreatePlanDrawerPath::PATH,

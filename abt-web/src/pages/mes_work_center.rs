@@ -475,7 +475,7 @@ fn render_demand_material(
     _p: &DemandCardParams,
 ) -> Markup {
     html! {
-        div class="data-card" {
+        div class="p-5" {
             // 列头
             div class="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-6 px-6 py-3 bg-surface-raised text-xs font-semibold uppercase tracking-wide text-muted border-b border-border-soft"
             {
@@ -596,7 +596,7 @@ fn render_demand_detail(
     _p: &DemandCardParams,
 ) -> Markup {
     html! {
-        div class="data-card batch-scope" {
+        div class="p-5 batch-scope" {
             div class="overflow-x-auto" {
                 table class="w-full text-sm" {
                     thead {

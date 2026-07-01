@@ -940,17 +940,17 @@ impl PurchaseOrderService for PurchaseOrderServiceImpl {
             return Err(DomainError::validation("合并至少需要两个订单"));
         }
 
-        // 1. 加载所有 PO
-        let mut orders = Vec::new();
-        for &oid in &order_ids {
-            let order = PurchaseOrderRepo::get_by_id(&mut *db, oid)
-                .await
-                .map_err(|e| DomainError::Internal(e.into()))?
-                .ok_or_else(|| DomainError::not_found(ENTITY_DISPLAY))?;
+        // 1. 批量加载所有 PO（一条 ANY 替代逐个 get_by_id 的 N+1）
+        let mut orders = PurchaseOrderRepo::get_by_ids(&mut *db, &order_ids)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?;
+        if orders.len() != order_ids.len() {
+            return Err(DomainError::not_found(ENTITY_DISPLAY));
+        }
+        for order in &orders {
             if order.status != PurchaseOrderStatus::Draft {
                 return Err(DomainError::business_rule("仅 Draft 状态的订单可以合并"));
             }
-            orders.push(order);
         }
 
         // 2. 校验同一供应商
@@ -964,30 +964,28 @@ impl PurchaseOrderService for PurchaseOrderServiceImpl {
         let target_id = orders[0].id;
         let target = orders[0].clone();
 
-        // 4. 合并明细（相同 product + unit_price 合并数量）
+        // 4. 批量合并明细（相同 product + unit_price 合并数量；一条 ANY 替代逐订单 list_by_order_id 的 N+1）
         let mut merged: HashMap<(i64, Decimal), CreateOrderItemRequest> = HashMap::new();
-        for order in &orders {
-            let items = PurchaseOrderItemRepo::list_by_order_id(&mut *db, order.id)
-                .await
-                .map_err(|e| DomainError::Internal(e.into()))?;
-            for item in items {
-                let key = (item.product_id, item.unit_price);
-                merged.entry(key)
-                    .and_modify(|existing| {
-                        existing.quantity += item.quantity;
-                    })
-                    .or_insert(CreateOrderItemRequest {
-                        product_id: item.product_id,
-                        line_no: 0,
-                        description: item.description.clone(),
-                        quantity: item.quantity,
-                        unit_price: item.unit_price,
-                        quotation_item_id: item.quotation_item_id,
-                        expected_delivery_date: item.expected_delivery_date,
-                        discount_pct: item.discount_pct,
-                        tax_rate_id: item.tax_rate_id,
-                    });
-            }
+        let all_items = PurchaseOrderItemRepo::list_by_order_ids(&mut *db, &order_ids)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?;
+        for item in all_items {
+            let key = (item.product_id, item.unit_price);
+            merged.entry(key)
+                .and_modify(|existing| {
+                    existing.quantity += item.quantity;
+                })
+                .or_insert(CreateOrderItemRequest {
+                    product_id: item.product_id,
+                    line_no: 0,
+                    description: item.description.clone(),
+                    quantity: item.quantity,
+                    unit_price: item.unit_price,
+                    quotation_item_id: item.quotation_item_id,
+                    expected_delivery_date: item.expected_delivery_date,
+                    discount_pct: item.discount_pct,
+                    tax_rate_id: item.tax_rate_id,
+                });
         }
 
         // 5. 更新目标 PO 的明细

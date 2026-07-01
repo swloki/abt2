@@ -610,8 +610,7 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
             .find_by_shipping_request_id(db, id)
             .await?;
 
-        // 取拣货明细：outbound_item_id → (warehouse_id, bin_id)。
-        // 销售申请时不指定仓库，拣货 drawer 录入；ship 扣库存必须用拣货录入的仓库/库位。
+        // 仓库/库位取自拣货录入（PickListItem）：outbound_item_id → (warehouse_id, bin_id)
         let pick_svc = new_pick_list_service(self.pool.clone());
         let pick_map: std::collections::HashMap<i64, (Option<i64>, Option<i64>)> =
             match pick_svc.find_by_outbound(ctx, db, id).await {
@@ -625,29 +624,78 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
                 _ => std::collections::HashMap::new(),
             };
 
-        for item in &shipping_items {
-            // 发货单自身 shipped_qty（同模块，迁域后仍在 wms::outbound 内）
+        self.do_ship(ctx, db, &existing, &shipping_items, order_id, &pick_map, "Picking")
+            .await
+    }
+
+    async fn direct_ship(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        id: i64,
+        warehouse_id: i64,
+        bin_id: Option<i64>,
+    ) -> Result<()> {
+        let existing = self
+            .repo
+            .find_by_id(db, id)
+            .await?
+            .ok_or_else(|| DomainError::not_found("ShippingRequest"))?;
+
+        // 直接发：仅未拣（Confirmed）单可用；拣货中（Picking）走 ship()
+        if existing.status != ShippingStatus::Confirmed {
+            return Err(DomainError::business_rule(
+                "只有已确认（未拣）的发货单可直接发出；拣货中的请用「确认发出」",
+            ));
+        }
+
+        let order_id = existing.order_id.ok_or_else(|| {
+            DomainError::business_rule("发货单缺少关联订单，无法发货")
+        })?;
+
+        let shipping_items = self
+            .item_repo
+            .find_by_shipping_request_id(db, id)
+            .await?;
+
+        // 所有行统一用调用方指定的仓库/库位（选仓 drawer传入）
+        let wh_bin: std::collections::HashMap<i64, (Option<i64>, Option<i64>)> = shipping_items
+            .iter()
+            .map(|it| (it.id, (Some(warehouse_id), bin_id)))
+            .collect();
+
+        self.do_ship(ctx, db, &existing, &shipping_items, order_id, &wh_bin, "Confirmed")
+            .await
+    }
+
+    /// 发货核心：扣库存 + 释放预留 + 回写销售订单 + 转 Shipped + 发布 ShipmentShipped 事件。
+    /// `wh_bin`: shipping_item_id → (warehouse_id, bin_id)。ship() 从拣货录入取，direct_ship() 从参数取。
+    /// `from_label`: 审计日志 from（"Picking" / "Confirmed"）。AR/COGS 由 fms 异步消费事件立账，与仓库无关。
+    async fn do_ship(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        existing: &ShippingRequest,
+        shipping_items: &[ShippingRequestItem],
+        order_id: i64,
+        wh_bin: &std::collections::HashMap<i64, (Option<i64>, Option<i64>)>,
+        from_label: &str,
+    ) -> Result<()> {
+        let id = existing.id;
+        for item in shipping_items {
+            // 发货单自身 shipped_qty
             self.item_repo
                 .update_shipped_qty(db, item.id, item.requested_qty)
                 .await?;
 
             new_inventory_reservation_service(self.pool.clone())
-                .fulfill_by_source_line(
-                    ctx,
-                    db,
-                    DocumentType::SalesOrder,
-                    item.order_item_id,
-                )
+                .fulfill_by_source_line(ctx, db, DocumentType::SalesOrder, item.order_item_id)
                 .await?;
 
-            // 销售出库：记 SalesShipment 库存事务（负向扣减实物库存）。
-            // warehouse_id/bin_id 取自拣货录入（PickListItem），不再用发货明细的（销售申请时为 None）。
-            let (wh_id, bin_id) = pick_map.get(&item.id).cloned().unwrap_or((None, None));
+            // 销售出库：SalesShipment 库存事务（负向扣减实物库存）
+            let (wh_id, bin_id) = wh_bin.get(&item.id).cloned().unwrap_or((None, None));
             let wh_id = wh_id.ok_or_else(|| {
-                DomainError::business_rule(format!(
-                    "发货行 {} 拣货未录入仓库，无法出库",
-                    item.id
-                ))
+                DomainError::business_rule(format!("发货行 {} 未指定仓库，无法出库", item.id))
             })?;
             new_inventory_transaction_service(self.pool.clone())
                 .record(
@@ -673,8 +721,7 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
                 .await?;
         }
 
-        // 回写销售订单 shipped_qty + 重算头状态（跨域走 SalesOrderService::record_shipment，
-        // 替代原直访 sales_order repo）。AR 台账 / COGS 改由 fms 异步消费 ShipmentShipped 事件立账。
+        // 回写销售订单 shipped_qty + 重算头状态（跨域 SalesOrderService::record_shipment）
         let lines: Vec<ShipmentLineQty> = shipping_items
             .iter()
             .map(|i| ShipmentLineQty {
@@ -696,16 +743,16 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
 
         new_audit_log_service(self.pool.clone())
             .record(
-                    ctx,
-                    db,
-                    RecordAuditLogReq {
-                        entity_type: "ShippingRequest",
-                        entity_id: id,
-                        action: AuditAction::Transition,
-                        changes: Some(serde_json::json!({ "from": "Picking", "to": "Shipped" })),
-                        context: None,
-                    },
-                )
+                ctx,
+                db,
+                RecordAuditLogReq {
+                    entity_type: "ShippingRequest",
+                    entity_id: id,
+                    action: AuditAction::Transition,
+                    changes: Some(serde_json::json!({ "from": from_label, "to": "Shipped" })),
+                    context: None,
+                },
+            )
             .await?;
 
         new_domain_event_bus(self.pool.clone())
@@ -840,30 +887,44 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
             }
         };
 
-        // 缺货判定：任一明细 ATP < 待发量（requested - shipped）即缺货
+        // 缺货判定：任一明细 ATP < 待发量（requested - shipped）即缺货。
+        // 批量 ATP（按 warehouse 分组，每组一条 query_available_batch），替代逐明细 query_available 的 N+1。
         let txn_svc = new_inventory_transaction_service(self.pool.clone());
-        let mut shortage = None;
+        let mut by_warehouse: std::collections::HashMap<Option<i64>, Vec<&ShippingRequestItem>> =
+            std::collections::HashMap::new();
         for item in &items {
-            let remaining = item.requested_qty - item.shipped_qty;
-            if remaining <= rust_decimal::Decimal::ZERO {
+            if item.requested_qty - item.shipped_qty <= rust_decimal::Decimal::ZERO {
                 continue;
             }
-            match txn_svc
-                .query_available(ctx, db, item.product_id, item.warehouse_id)
+            by_warehouse.entry(item.warehouse_id).or_default().push(item);
+        }
+        let mut shortage = None;
+        'outer: for (wh, wh_items) in by_warehouse {
+            let pids: Vec<i64> = wh_items.iter().map(|i| i.product_id).collect();
+            let atp_map = match txn_svc
+                .query_available_batch(ctx, db, &pids, wh)
                 .await
             {
-                Ok(atp) if atp < remaining => {
+                Ok(m) => m,
+                Err(e) => {
+                    tracing::warn!(error = %e, warehouse_id = wh, "hub_summary: query_available_batch failed");
+                    continue;
+                }
+            };
+            for it in wh_items {
+                let remaining = it.requested_qty - it.shipped_qty;
+                let atp = atp_map
+                    .get(&it.product_id)
+                    .copied()
+                    .unwrap_or(rust_decimal::Decimal::ZERO);
+                if atp < remaining {
                     shortage = Some(ShortageSignal {
-                        product_id: item.product_id,
-                        product_name: format!("产品 #{}", item.product_id),
-                        requested_qty: item.requested_qty,
+                        product_id: it.product_id,
+                        product_name: format!("产品 #{}", it.product_id),
+                        requested_qty: it.requested_qty,
                         available_qty: atp,
                     });
-                    break;
-                }
-                Ok(_) => {}
-                Err(e) => {
-                    tracing::warn!(error = %e, product_id = item.product_id, "hub_summary: query_available failed");
+                    break 'outer;
                 }
             }
         }
@@ -883,17 +944,19 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
         id: i64,
         page: PageParams,
     ) -> Result<PaginatedResult<InventoryTransaction>> {
-        // 本单库存事务：source_type="shipping"（与 ship() record 的 source_type 对齐）
-        let txns = new_inventory_transaction_service(self.pool.clone())
-            .find_by_source(ctx, db, "shipping", id)
-            .await?;
-        let total = txns.len() as u64;
-        let start = (page.page as usize).saturating_sub(1) * page.page_size as usize;
-        let items: Vec<InventoryTransaction> = txns
-            .into_iter()
-            .skip(start)
-            .take(page.page_size as usize)
-            .collect();
-        Ok(PaginatedResult::new(items, total, page.page, page.page_size))
+        // 数据库分页（source_type="shipping"，与 ship() record 的 source_type 对齐），
+        // 替代 find_by_source 拉全量 + 内存 skip/take
+        new_inventory_transaction_service(self.pool.clone())
+            .query(
+                ctx, db,
+                crate::wms::inventory_transaction::model::TransactionFilter {
+                    source_type: Some("shipping".into()),
+                    source_id: Some(id),
+                    ..Default::default()
+                },
+                page.page,
+                page.page_size,
+            )
+            .await
     }
 }

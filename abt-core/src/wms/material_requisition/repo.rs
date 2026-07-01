@@ -110,6 +110,33 @@ impl MaterialRequisitionRepo {
             .collect()
     }
 
+    /// 批量查多个领料单的明细（避免逐个 get_items 的 N+1）。结果含 requisition_id，由调用方分组。
+    pub async fn get_items_by_req_ids(
+        executor: &mut sqlx::postgres::PgConnection,
+        requisition_ids: &[i64],
+    ) -> Result<Vec<MaterialReqItem>> {
+        if requisition_ids.is_empty() {
+            return Ok(Vec::new());
+        }
+        let rows = sqlx::query(
+            r#"
+            SELECT id, requisition_id, product_id, requested_qty, issued_qty, variance_qty, bin_id, operation_id, batch_id
+            FROM material_requisition_items
+            WHERE requisition_id = ANY($1)
+            ORDER BY id
+            "#,
+        )
+        .bind(requisition_ids)
+        .fetch_all(&mut *executor)
+        .await?;
+        rows.iter()
+            .filter_map(|r| MaterialReqItem::from_row(r).ok())
+            .collect::<Vec<_>>()
+            .into_iter()
+            .map(Ok)
+            .collect()
+    }
+
     pub async fn update_status(
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,

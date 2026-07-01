@@ -630,3 +630,57 @@ window.wcResetBin = function (sel) {
     if (inp) inp.value = '';
     if (lbl) lbl.textContent = '自动分配';
 };
+
+// ── WMS 工作中心：待出库批量发货栏（复用 MES .show 显隐范式）──
+// wcUpdateBatchBar：收集 .wc-ship-cb:checked → 填 #wc-batch-bar 的 ids + 计数 + 显隐
+window.wcUpdateBatchBar = function () {
+    var card = document.getElementById('wc-domain-card');
+    if (!card) return;
+    var bar = document.getElementById('wc-batch-bar');
+    if (!bar) return;
+    var checked = card.querySelectorAll('input[type=checkbox].wc-ship-cb:checked');
+    var ids = [];
+    checked.forEach(function (cb) { ids.push(cb.value); });
+    var idsInput = bar.querySelector('input[name="ids"]');
+    if (idsInput) idsInput.value = ids.join(',');
+    var countEl = bar.querySelector('.wc-batch-count');
+    if (countEl) countEl.textContent = ids.length;
+    if (ids.length > 0) { bar.classList.add('show'); } else { bar.classList.remove('show'); }
+    // 全选 checkbox 状态同步（当前页可发单全勾 = 全选）
+    var master = card.querySelector('.wc-select-all');
+    var allShip = card.querySelectorAll('input[type=checkbox].wc-ship-cb');
+    if (master) master.checked = allShip.length > 0 && checked.length === allShip.length;
+};
+
+// wcToggleAll：表头全选 checkbox 联动当前页所有可发单
+window.wcToggleAll = function (master) {
+    var card = document.getElementById('wc-domain-card');
+    if (!card) return;
+    card.querySelectorAll('input[type=checkbox].wc-ship-cb').forEach(function (cb) {
+        cb.checked = master.checked;
+    });
+    window.wcUpdateBatchBar();
+};
+
+// wcClearBatch：清除所有勾选（批量栏「清除」按钮）
+window.wcClearBatch = function () {
+    var card = document.getElementById('wc-domain-card');
+    if (!card) return;
+    card.querySelectorAll('input[type=checkbox].wc-ship-cb:checked').forEach(function (cb) {
+        cb.checked = false;
+    });
+    window.wcUpdateBatchBar();
+};
+
+// 行内 checkbox 变化 → 刷新批量栏
+document.addEventListener('change', function (e) {
+    if (e.target.type !== 'checkbox' || !e.target.classList.contains('wc-ship-cb')) return;
+    window.wcUpdateBatchBar();
+});
+
+// 批量发货/切 tab 后 htmx 替换 #wc-domain-card → 重新初始化批量栏状态
+document.addEventListener('htmx:afterSettle', function (e) {
+    if (e.target && e.target.querySelector && e.target.querySelector('.wc-ship-cb')) {
+        window.wcUpdateBatchBar();
+    }
+});

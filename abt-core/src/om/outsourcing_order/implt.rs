@@ -981,18 +981,17 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
             .map(|l| l.target_id)
             .collect();
 
-        // 每个调拨单 → 库存流水
+        // 每个调拨单 → 库存流水（批量一条 ANY 查询，替代逐个 find_by_source 的 N+1）
         let tx_svc = new_inventory_transaction_service(self.pool.clone());
         // 委外单直接关联的流水（receive 产品入库/物料消耗，source_type=outsourcing_order）
         let mut records = tx_svc
             .find_by_source(ctx, db, "outsourcing_order", outsourcing_id)
             .await?;
-        for tid in transfer_ids {
-            let txns = tx_svc
-                .find_by_source(ctx, db, "inventory_transfer", tid)
-                .await?;
-            records.extend(txns);
-        }
+        let transfer_ids_vec: Vec<i64> = transfer_ids.iter().copied().collect();
+        let transfer_txns = tx_svc
+            .find_by_sources(ctx, db, "inventory_transfer", &transfer_ids_vec)
+            .await?;
+        records.extend(transfer_txns);
 
         // 按时间升序 + 去重
         records.sort_by_key(|r| r.created_at);

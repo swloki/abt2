@@ -537,7 +537,7 @@ fn render_pick_body(pl: Option<&PickList>, items: &[PickListItem]) -> Markup {
                     }
                 }
                 @if p.status == PickListStatus::Draft {
-                    div class="mt-3 text-xs text-muted" { "提示：前往仓库作业中心「待拣货」录入拣货数量并完成拣货。" }
+                    div class="mt-3 text-xs text-muted" { "提示：前往仓库作业中心「待出库」录入拣货数量并完成拣货。" }
                 }
             }
         },

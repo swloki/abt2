@@ -365,29 +365,33 @@ impl ProductionReceiptService for ProductionReceiptServiceImpl {
             return Ok(FqcGate::NotRequired);
         }
 
-        let fqc_results = new_inspection_result_service(self.pool.clone())
-            .list_by_source(
-                ctx, db,
-                InspectionResultFilter {
-                    source_type: Some(InspectionSourceType::ProductionReceipt),
-                    source_id: Some(receipt_id),
-                    ..Default::default()
-                },
-                PageParams { page: 1, page_size: 10000 },
-            )
+        // 用两次轻量 count（list(1,1) 取 total）判定 FQC，替代拉 10000 条 .all()
+        // （原写法 >10000 条会截断导致误判 AllPassed）
+        let insp_svc = new_inspection_result_service(self.pool.clone());
+        let one = PageParams::new(1, 1);
+        let total = insp_svc
+            .list_by_source(ctx, db, InspectionResultFilter {
+                source_type: Some(InspectionSourceType::ProductionReceipt),
+                source_id: Some(receipt_id),
+                ..Default::default()
+            }, one.clone())
             .await
-            .unwrap_or_else(|_| PaginatedResult {
-                items: vec![], total: 0, page: 1, page_size: 10000, total_pages: 0,
-            });
-
-        if fqc_results.items.is_empty() {
+            .map(|p| p.total)
+            .unwrap_or(0);
+        if total == 0 {
             return Ok(FqcGate::PendingInspection);
         }
-
-        let all_passed = fqc_results.items.iter().all(|r| {
-            r.status == InspectionStatus::Completed && r.result == InspectionResultType::Pass
-        });
-
-        Ok(if all_passed { FqcGate::AllPassed } else { FqcGate::HasFailed })
+        let passed = insp_svc
+            .list_by_source(ctx, db, InspectionResultFilter {
+                source_type: Some(InspectionSourceType::ProductionReceipt),
+                source_id: Some(receipt_id),
+                status: Some(InspectionStatus::Completed),
+                result: Some(InspectionResultType::Pass),
+                ..Default::default()
+            }, one.clone())
+            .await
+            .map(|p| p.total)
+            .unwrap_or(0);
+        Ok(if passed == total { FqcGate::AllPassed } else { FqcGate::HasFailed })
     }
 }

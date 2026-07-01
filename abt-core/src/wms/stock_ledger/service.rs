@@ -47,6 +47,15 @@ pub trait StockLedgerService: Send + Sync {
         warehouse_id: Option<i64>,
     ) -> Result<Decimal>;
 
+    /// 批量查询可用量（消除 N+1，单 warehouse；调用方按 warehouse 分组调用）
+    async fn query_available_batch(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        product_ids: &[i64],
+        warehouse_id: Option<i64>,
+    ) -> Result<std::collections::HashMap<i64, Decimal>>;
+
     /// 预计可用量（参考 ERPNext projected_qty 公式）
     /// projected = actual + on_order_po + in_progress_wo - reserved
     async fn query_projected_qty(

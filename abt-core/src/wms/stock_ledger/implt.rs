@@ -65,6 +65,17 @@ impl StockLedgerService for StockLedgerServiceImpl {
             .map_err(|e| DomainError::Internal(e.into()))
     }
 
+    async fn query_available_batch(
+        &self,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
+        product_ids: &[i64],
+        warehouse_id: Option<i64>,
+    ) -> Result<std::collections::HashMap<i64, Decimal>> {
+        StockLedgerRepo::total_available_batch(&mut *db, product_ids, warehouse_id)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))
+    }
+
     async fn query_projected_qty(
         &self,
         _ctx: &ServiceContext,

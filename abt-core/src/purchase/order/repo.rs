@@ -103,6 +103,32 @@ impl PurchaseOrderRepo {
         .await.map_err(Into::into)
     }
 
+    /// 批量加载多个 PO（避免逐个 get_by_id 的 N+1）；不含已软删除/不存在的 id（调用方按 len 校验）。
+    pub async fn get_by_ids(
+        executor: &mut sqlx::postgres::PgConnection,
+        ids: &[i64],
+    ) -> Result<Vec<PurchaseOrder>> {
+        if ids.is_empty() {
+            return Ok(Vec::new());
+        }
+        sqlx::query_as::<_, PurchaseOrder>(
+            r#"
+            SELECT id, doc_number, supplier_id, order_date, expected_delivery_date,
+                   status, total_amount, currency_code, currency_rate,
+                   amount_untaxed, amount_tax, amount_total, discount_amount,
+                   payment_terms, delivery_address, remark,
+                   payment_schedule_generated,
+                   invoice_status, per_billed,
+                   operator_id, created_at, updated_at, deleted_at
+            FROM purchase_orders
+            WHERE id = ANY($1) AND deleted_at IS NULL
+            "#,
+        )
+        .bind(ids)
+        .fetch_all(executor)
+        .await.map_err(Into::into)
+    }
+
     /// 动态条件分页查询（支持 DataScope 行级权限过滤）
     pub async fn query(
         executor: &mut sqlx::postgres::PgConnection,
@@ -355,6 +381,31 @@ impl PurchaseOrderItemRepo {
             "#,
         )
         .bind(order_id)
+        .fetch_all(executor)
+        .await.map_err(Into::into)
+    }
+
+    /// 批量查多个 PO 的明细（避免逐个 list_by_order_id 的 N+1）；结果含 order_id，调用方按需分组。
+    pub async fn list_by_order_ids(
+        executor: &mut sqlx::postgres::PgConnection,
+        order_ids: &[i64],
+    ) -> Result<Vec<PurchaseOrderItem>> {
+        if order_ids.is_empty() {
+            return Ok(Vec::new());
+        }
+        sqlx::query_as::<_, PurchaseOrderItem>(
+            r#"
+            SELECT id, order_id, line_no, product_id, description, quantity, unit_price,
+                   amount, received_qty, inspected_qty, returned_qty, quotation_item_id,
+                   expected_delivery_date,
+                   discount_pct, tax_rate_id, price_subtotal, price_tax, price_total,
+                   qty_invoiced, invoice_status
+            FROM purchase_order_items
+            WHERE order_id = ANY($1)
+            ORDER BY line_no
+            "#,
+        )
+        .bind(order_ids)
         .fetch_all(executor)
         .await.map_err(Into::into)
     }

@@ -133,7 +133,6 @@ pub mod mes_report_list;
 pub mod mes_report_detail;
 pub mod mes_wage_list;
 pub mod mes_inspection_list;
-pub mod mes_inspection_create;
 pub mod mes_inspection_detail;
 pub mod mes_receipt_list;
 pub mod mes_receipt_detail;

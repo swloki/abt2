@@ -110,7 +110,6 @@ fn receipt_data_card(
                         th class="text-right text-[13px]" { "入库数量" }
                         th { "仓库" }
                         th { "状态" }
-                        th class="!text-right" { "操作" }
                     }
                 }
                 tbody {
@@ -145,14 +144,11 @@ fn receipt_data_card(
                                     })
                                 { (sl) }
                             }
-                            td {
-                                a href=(dp) class="text-accent text-xs" { "查看" }
-                            }
                         }
                     }
                     @if result.items.is_empty() {
                         tr {
-                            td colspan="8" class="text-center text-muted py-8" { "暂无入库记录" }
+                            td colspan="7" class="text-center text-muted py-8" { "暂无入库记录" }
                         }
                     }
                 }

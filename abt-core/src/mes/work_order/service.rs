@@ -24,12 +24,6 @@ pub trait WorkOrderService: Send + Sync {
         db: PgExecutor<'_>,
         id: i64,
     ) -> Result<()>;
-    async fn close(
-        &self,
-        ctx: &ServiceContext, db: PgExecutor<'_>,
-        id: i64,
-        expected_version: i32,
-    ) -> Result<()>;
     async fn cancel(
         &self,
         ctx: &ServiceContext, db: PgExecutor<'_>,

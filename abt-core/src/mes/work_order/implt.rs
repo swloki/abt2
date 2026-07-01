@@ -14,6 +14,7 @@ use crate::master_data::bom::{new_bom_query_service, service::BomQueryService};
 use crate::master_data::work_center::{new_work_center_service, service::WorkCenterService};
 use crate::master_data::routing::{new_routing_service, service::RoutingService};
 use crate::master_data::product::{new_product_service, service::ProductService};
+use crate::sales::sales_order::{new_demand_service, service::DemandService};
 use crate::wms::material_requisition::{new_material_requisition_service, service::MaterialRequisitionService};
 use crate::wms::stock_ledger::{new_stock_ledger_service, service::StockLedgerService};
 use crate::mes::production_batch::model::WorkOrderRouting;
@@ -316,93 +317,6 @@ impl WorkOrderService for WorkOrderServiceImpl {
         Ok(())
     }
 
-    /// 关闭工单：Released -> Closed
-    async fn close(
-        &self,
-        ctx: &ServiceContext, db: PgExecutor<'_>,
-        id: i64,
-        expected_version: i32,
-    ) -> Result<()> {
-        let work_order = WorkOrderRepo::get_by_id(&mut *db, id)
-            .await
-            .map_err(|e| DomainError::Internal(e.into()))?
-            .ok_or_else(|| DomainError::not_found("WorkOrder"))?;
-
-        if work_order.status != WorkOrderStatus::Released
-            && work_order.status != WorkOrderStatus::InProduction
-        {
-            return Err(DomainError::InvalidStateTransition {
-                from: work_order.status.to_string(),
-                to: WorkOrderStatus::Closed.to_string(),
-            });
-        }
-
-        let batches = ProductionBatchRepo::list_by_work_order(&mut *db, id)
-            .await
-            .map_err(|e| DomainError::Internal(e.into()))?;
-
-
-        if batches.is_empty() {
-            return Err(DomainError::BusinessRule(
-                "工单无生产批次，不能直接关闭。请先拆批并完成生产。".into(),
-            ));
-        }
-        let has_incomplete = batches.iter().any(|b| {
-            b.status != super::super::enums::BatchStatus::Completed
-                && b.status != super::super::enums::BatchStatus::Cancelled
-        });
-
-        if has_incomplete {
-            return Err(DomainError::BusinessRule(
-                "All production batches must be completed before closing the work order"
-                    .to_string(),
-            ));
-        }
-
-        // 完工率校验（对标 Odoo button_mark_done: 校验完工量达标）
-        let total_completed: Decimal = batches
-            .iter()
-            .filter(|b| b.status == super::super::enums::BatchStatus::Completed)
-            .map(|b| b.completed_qty)
-            .sum();
-        if work_order.planned_qty > Decimal::ZERO {
-            let completion_rate = total_completed / work_order.planned_qty;
-            if completion_rate < Decimal::new(95, 2) {
-                return Err(DomainError::BusinessRule(format!(
-                    "完工率 {}% 低于 95%，无法关闭工单",
-                    (completion_rate * Decimal::from(100)).round()
-                )));
-            }
-        }
-
-        let updated =
-            WorkOrderRepo::update_status_with_version(
-                &mut *db,
-                id,
-                WorkOrderStatus::Closed,
-                expected_version,
-            )
-            .await
-            .map_err(|e| DomainError::Internal(e.into()))?;
-
-        if !updated {
-            return Err(DomainError::ConcurrentConflict);
-        }
-
-        new_inventory_reservation_service(self.pool.clone())
-            .cancel_by_source(ctx, db, DocumentType::WorkOrder, id).await?;
-
-        // 审计日志
-        new_audit_log_service(self.pool.clone())
-            .record(
-                ctx, db,
-                RecordAuditLogReq::new("WorkOrder", id, AuditAction::Transition),
-            )
-            .await?;
-
-        Ok(())
-    }
-
     /// 取消工单：Draft/Planned/Released -> Cancelled
     async fn cancel(
         &self,
@@ -479,18 +393,11 @@ impl WorkOrderService for WorkOrderServiceImpl {
             }
         }
 
-        // 回退关联需求：工单取消 → demand 回 Pending（status=1），清 target_doc 指向，
-        // 需求自动回池可重新规划（与 create_work_orders_from_demands 的 update_target_doc 对称）。
-        sqlx::query(
-            r#"UPDATE demands
-               SET status = 1, target_doc_type = NULL, target_doc_id = NULL, updated_at = NOW()
-               WHERE target_doc_id = $1 AND target_doc_type = $2 AND deleted_at IS NULL"#,
-        )
-        .bind(id)
-        .bind(DocumentType::WorkOrder as i16)
-        .execute(&mut *db)
-        .await
-        .map_err(|e| DomainError::Internal(e.into()))?;
+        // 回退关联需求：走 DemandService.release_back_to_pool（demand 回 Pending + 清 target_doc
+        // + 发 DemandReleased 事件对称回退履行计划行/订单行），与 create_work_orders_from_demands 对称。
+        new_demand_service(self.pool.clone())
+            .release_back_to_pool(ctx, db, DocumentType::WorkOrder as i16, id)
+            .await?;
 
         // 审计日志
         new_audit_log_service(self.pool.clone())
@@ -913,7 +820,7 @@ fn build_status_steps(status: WorkOrderStatus) -> Vec<StatusStep> {
         ("draft", "草稿"),
         ("released", "已下达"),
         ("in_progress", "生产中"),
-        ("closed", "已关闭"),
+        ("closed", "已完工"),
     ];
     let current_idx = match status {
         WorkOrderStatus::Draft | WorkOrderStatus::Planned => 0,

@@ -643,6 +643,15 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
         WorkOrderRoutingRepo::has_any_report(&mut *db, work_order_id).await
     }
 
+    async fn list_progress_by_batch(
+        &self,
+        _ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        batch_id: i64,
+    ) -> Result<Vec<BatchRoutingProgress>> {
+        BatchRoutingProgressRepo::list_by_batch(&mut *db, batch_id).await
+    }
+
     /// 推进到待入库状态
     async fn advance_to_receipt(
         &self,

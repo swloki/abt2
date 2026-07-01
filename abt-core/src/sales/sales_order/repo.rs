@@ -710,6 +710,27 @@ impl DemandRepo {
         Ok(())
     }
 
+    /// 批量释放下游单据关联的所有需求回池（status→Pending，清 target_doc）。
+    /// 用于工单/采购单取消时回退需求 —— 与 update_target_doc 对称。
+    /// 返回被释放需求的 (id, source_line_id, product_id, acquire_channel)，供调用方发事件。
+    pub async fn release_by_target_doc(
+        executor: PgExecutor<'_>,
+        target_doc_type: i16,
+        target_doc_id: i64,
+    ) -> Result<Vec<(i64, Option<i64>, i64, Option<i16>)>> {
+        let rows = sqlx::query_as::<_, (i64, Option<i64>, i64, Option<i16>)>(
+            r#"UPDATE demands
+               SET status = 1, target_doc_type = NULL, target_doc_id = NULL, updated_at = NOW()
+               WHERE target_doc_id = $1 AND target_doc_type = $2 AND deleted_at IS NULL
+               RETURNING id, source_line_id, product_id, acquire_channel"#,
+        )
+        .bind(target_doc_id)
+        .bind(target_doc_type)
+        .fetch_all(executor)
+        .await?;
+        Ok(rows)
+    }
+
     /// 对账查询：查找履行计划行状态与 demand 状态不一致的记录
     pub async fn find_mismatched(
         executor: PgExecutor<'_>,

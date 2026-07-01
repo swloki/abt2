@@ -99,6 +99,8 @@ pub enum DomainEventType {
     LowStockAlert = 70,
     // FMS — 应收应付调整单过账
     ArApAdjustmentPosted = 71,
+    // Sales — Demand 释放回池（下游工单/采购单取消，需求重新可用）
+    DemandReleased = 72,
 }
 
 impl DomainEventType {
@@ -150,6 +152,7 @@ impl DomainEventType {
             69 => Some(Self::CycleCountReviewRequested),
             70 => Some(Self::LowStockAlert),
             71 => Some(Self::ArApAdjustmentPosted),
+            72 => Some(Self::DemandReleased),
             _ => None,
         }
     }

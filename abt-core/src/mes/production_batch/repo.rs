@@ -1,6 +1,5 @@
 //! ProductionBatch + WorkOrderRouting + WorkReport 数据访问层
 
-use chrono::NaiveDate;
 use rust_decimal::Decimal;
 use sqlx::FromRow;
 use crate::shared::types::Result;
@@ -620,49 +619,22 @@ impl BatchRoutingProgressRepo {
 
 pub struct WorkReportRepo;
 
-/// 报工记录行（本地查询模型）
-/// 字段完整对应 work_reports 表结构；部分字段当前未被读取，保留以表达完整行语义。
-#[allow(dead_code)]
-#[derive(Debug, Clone, sqlx::FromRow)]
-pub struct WorkReportRow {
-    pub id: i64,
-    pub doc_number: String,
-    pub work_order_id: i64,
-    pub batch_id: i64,
-    pub routing_id: i64,
-    pub report_date: NaiveDate,
-    pub shift: ShiftType,
-    pub worker_id: i64,
-    pub completed_qty: Decimal,
-    pub defect_qty: Decimal,
-    pub defect_reason: Option<DefectReason>,
-    pub work_hours: Decimal,
-    pub remark: String,
-    pub operator_id: i64,
-    pub wage_amount: Decimal,
-    pub created_at: chrono::DateTime<chrono::Utc>,
-    pub updated_at: chrono::DateTime<chrono::Utc>,
-}
-
 impl WorkReportRepo {
-    /// 幂等插入报工记录
+    /// 插入报工记录，返回 (id, was_inserted)。
+    /// 原 ON CONFLICT 幂等约束已移除（migration 063），允许同工人同班次同天分批报工；
+    /// 每次报工都插入新记录并累加，防重复提交由前端 + 后端事务保证。
     pub async fn insert_or_get_existing(
         executor: &mut sqlx::postgres::PgConnection,
         params: &InsertWorkReportParams<'_>,
-    ) -> Result<(WorkReportRow, bool)> {
-        // 原 ON CONFLICT (batch_id, routing_id, worker_id, shift, report_date) 幂等约束已移除
-        // （migration 063），允许同工人同班次同天分批报工。每次报工都插入新记录并累加。
-        // 防重复提交由前端（提交后关闭 modal）+ 后端事务保证。
-        let row = sqlx::query(
+    ) -> Result<(i64, bool)> {
+        let id: i64 = sqlx::query_scalar(
             r#"
             INSERT INTO work_reports
                 (doc_number, work_order_id, batch_id, routing_id, report_date,
                  shift, worker_id, completed_qty, defect_qty, defect_reason,
                  work_hours, remark, operator_id, wage_amount)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
-            RETURNING id, doc_number, work_order_id, batch_id, routing_id, report_date,
-                      shift, worker_id, completed_qty, defect_qty, defect_reason,
-                      work_hours, remark, operator_id, wage_amount, created_at, updated_at
+            RETURNING id
             "#,
         )
         .bind(params.doc_number)
@@ -682,7 +654,6 @@ impl WorkReportRepo {
         .fetch_one(&mut *executor)
         .await?;
 
-        let report = WorkReportRow::from_row(&row)?;
-        Ok((report, true))
+        Ok((id, true))
     }
 }

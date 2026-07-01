@@ -248,7 +248,7 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
 
         let remark_str = req.remark.as_deref().unwrap_or("");
 
-        let (report, was_inserted) = WorkReportRepo::insert_or_get_existing(
+        let (work_report_id, was_inserted) = WorkReportRepo::insert_or_get_existing(
             &mut *db,
             &InsertWorkReportParams {
                 doc_number: &doc_number,
@@ -270,7 +270,6 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
         .await
         .map_err(|e| DomainError::Internal(e.into()))?;
 
-        let work_report_id = report.id;
         // --- f1. UPSERT batch_routing_progress (batch_id, routing_id) ---
         let brp_id = BatchRoutingProgressRepo::upsert_and_get_id(
             &mut *db, batch_id, routing.id,

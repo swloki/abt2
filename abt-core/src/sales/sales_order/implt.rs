@@ -901,22 +901,23 @@ impl SalesOrderService for SalesOrderServiceImpl {
         // 叠加：有活跃发货申请（Confirmed/Picking）且未全 Shipped → ShippingRequested。
         // 申请发货的业务意图优先于 ReadyToShip「库存已补足」中间态。
         if matches!(new_status, SalesOrderStatus::Confirmed | SalesOrderStatus::ReadyToShip) {
+            // 两次轻量 count（list(1,1) 取 total），替代拉 200 条 .any() 判断（订单发货申请多时浪费）
             let ship_svc = new_shipping_request_service(self.pool.clone());
-            if let Ok(page) = ship_svc
-                .list(
-                    ctx, db,
-                    ShippingQuery { order_id: Some(order_id), ..Default::default() },
-                    PageParams::new(1, 200),
-                )
-                .await
-            {
-                let has_active = page.items.iter().any(|s| matches!(
-                    s.status,
-                    ShippingStatus::Confirmed | ShippingStatus::Picking
-                ));
-                if has_active {
-                    new_status = SalesOrderStatus::ShippingRequested;
+            let one = PageParams::new(1, 1);
+            let mut has_active = false;
+            for &st in &[ShippingStatus::Confirmed, ShippingStatus::Picking] {
+                let active = ship_svc
+                    .list(ctx, db, ShippingQuery { order_id: Some(order_id), status: Some(st), ..Default::default() }, one.clone())
+                    .await
+                    .map(|p| p.total > 0)
+                    .unwrap_or(false);
+                if active {
+                    has_active = true;
+                    break;
                 }
+            }
+            if has_active {
+                new_status = SalesOrderStatus::ShippingRequested;
             }
         }
 
@@ -1001,10 +1002,15 @@ impl SalesOrderService for SalesOrderServiceImpl {
     ) -> Result<u32> {
         let mismatched = DemandRepo::find_mismatched(db, order_id).await?;
 
+        // 批量查所有 mismatched 行的 fp_line（避免逐个 find_by_order_line_id 的 N+1）
+        let order_line_ids: Vec<i64> = mismatched.iter().map(|(fp_id, _)| *fp_id).collect();
+        let fp_lines = FulfillmentPlanLineRepo::find_by_order_line_ids(db, &order_line_ids).await?;
+        let fp_map: std::collections::HashMap<i64, FulfillmentPlanLine> =
+            fp_lines.into_iter().map(|l| (l.order_line_id, l)).collect();
+
         let mut count = 0u32;
         for (fp_id, _demand_id) in &mismatched {
-            let fp = FulfillmentPlanLineRepo::find_by_order_line_id(db, *fp_id).await?;
-            if let Some(line) = fp {
+            if let Some(line) = fp_map.get(fp_id) {
                 if let Err(e) = FulfillmentPlanLineRepo::update_status(
                     db, line.id, FulfillmentLineStatus::Pending, line.version,
                 ).await {

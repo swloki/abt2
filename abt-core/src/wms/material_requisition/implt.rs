@@ -250,6 +250,16 @@ impl MaterialRequisitionService for MaterialRequisitionServiceImpl {
             .map_err(|e| DomainError::Internal(e.into()))
     }
 
+    async fn list_items_by_req_ids(
+        &self,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
+        requisition_ids: &[i64],
+    ) -> Result<Vec<MaterialReqItem>> {
+        MaterialRequisitionRepo::get_items_by_req_ids(&mut *db, requisition_ids)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))
+    }
+
     async fn list_requisitioned_routing_ids(
         &self,
         _ctx: &ServiceContext, db: PgExecutor<'_>,

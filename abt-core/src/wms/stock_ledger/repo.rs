@@ -162,6 +162,44 @@ impl StockLedgerRepo {
         Ok(row.get("total"))
     }
 
+    /// 批量查多个产品的可用量（GROUP BY product_id，避免逐个 total_available 的 N+1）。
+    /// 返回 product_id → 可用量；无库存记录的产品不在 map 中（调用方按 0 处理）。口径与 `total_available` 一致。
+    pub async fn total_available_batch(
+        executor: &mut sqlx::postgres::PgConnection,
+        product_ids: &[i64],
+        warehouse_id: Option<i64>,
+    ) -> Result<std::collections::HashMap<i64, Decimal>> {
+        if product_ids.is_empty() {
+            return Ok(std::collections::HashMap::new());
+        }
+        let rows = sqlx::query(
+            r#"
+            SELECT sl.product_id,
+                COALESCE(SUM(sl.quantity - sl.reserved_qty), 0)
+                - COALESCE((
+                    SELECT SUM(ir.reserved_qty)
+                    FROM inventory_reservations ir
+                    WHERE ir.product_id = sl.product_id
+                      AND ($2::bigint IS NULL OR ir.warehouse_id = $2)
+                      AND ir.status = $3
+                ), 0) AS total
+            FROM stock_ledger sl
+            WHERE sl.product_id = ANY($1) AND ($2::bigint IS NULL OR sl.warehouse_id = $2)
+            GROUP BY sl.product_id
+            "#,
+        )
+        .bind(product_ids)
+        .bind(warehouse_id)
+        .bind(ReservationStatus::Active)
+        .fetch_all(executor)
+        .await?;
+        let mut map = std::collections::HashMap::with_capacity(rows.len());
+        for r in &rows {
+            map.insert(r.get::<i64, _>("product_id"), r.get::<Decimal, _>("total"));
+        }
+        Ok(map)
+    }
+
     /// 预计可用量（参考 ERPNext bin.projected_qty 公式）
     ///
     /// 四维计算（子查询避免笛卡尔积）：

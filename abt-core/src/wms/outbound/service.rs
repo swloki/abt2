@@ -1,4 +1,6 @@
-﻿use async_trait::async_trait;
+﻿use std::collections::HashMap;
+
+use async_trait::async_trait;
 
 use super::model::*;
 use crate::shared::types::{PgExecutor,PageParams, PaginatedResult, ServiceContext, Result};
@@ -52,6 +54,29 @@ pub trait ShippingRequestService: Send + Sync {
     async fn pick(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()>;
 
     async fn ship(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()>;
+
+    /// 直接发货（跳过拣货，未拣 Confirmed 单用）。仓库/库位由调用方传入（选仓 drawer）。
+    /// 与 ship()（Picking→Shipped，仓库从 pick_list 取）共用 do_ship 核心逻辑。
+    async fn direct_ship(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        id: i64,
+        warehouse_id: i64,
+        bin_id: Option<i64>,
+    ) -> Result<()>;
+
+    /// 发货核心（内部共享逻辑，外部请调 direct_ship / ship）。
+    async fn do_ship(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        existing: &ShippingRequest,
+        shipping_items: &[ShippingRequestItem],
+        order_id: i64,
+        wh_bin: &HashMap<i64, (Option<i64>, Option<i64>)>,
+        from_label: &str,
+    ) -> Result<()>;
 
     async fn cancel(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()>;
 

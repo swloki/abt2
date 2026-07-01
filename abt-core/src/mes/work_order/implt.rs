@@ -1316,8 +1316,9 @@ async fn build_material(
     let _ = product; // 成品信息已在调用方用于 info disclosure；availability 基于 BOM 叶子
     use std::collections::HashSet;
 
-    // 1. 领料单
-    let reqs = new_material_requisition_service(pool.clone())
+    // 1. 领料单 + 批量明细（一条 ANY 替代逐个 list_items 的 N+1）
+    let req_svc = new_material_requisition_service(pool.clone());
+    let reqs = req_svc
         .list(
             ctx,
             db,
@@ -1330,18 +1331,15 @@ async fn build_material(
         )
         .await?;
     let mut hub_reqs: Vec<HubRequisition> = Vec::new();
-    // 领料单明细所需 product_id 集合（用于 product_code/name 解析）
+    let req_ids: Vec<i64> = reqs.items.iter().map(|r| r.id).collect();
+    let all_items = req_svc.list_items_by_req_ids(ctx, db, &req_ids).await?;
+    // 领料单明细所需 product_id 集合（用于 product_code/name 解析）+ 按 requisition_id 分组
     let mut line_product_ids: HashSet<i64> = HashSet::new();
     let mut req_item_map: std::collections::HashMap<i64, Vec<crate::wms::material_requisition::model::MaterialReqItem>> =
         std::collections::HashMap::new();
-    for req in &reqs.items {
-        let items = new_material_requisition_service(pool.clone())
-            .list_items(ctx, db, req.id)
-            .await?;
-        for it in &items {
-            line_product_ids.insert(it.product_id);
-        }
-        req_item_map.insert(req.id, items);
+    for it in all_items {
+        line_product_ids.insert(it.product_id);
+        req_item_map.entry(it.requisition_id).or_default().push(it);
     }
     // 批量查 line product 名
     let line_products: HashMap<i64, crate::master_data::product::model::Product> = if line_product_ids.is_empty() {
@@ -1356,12 +1354,11 @@ async fn build_material(
             .collect()
     };
 
-    // 预取每行物料的 ATP（available_atp 为 async，不能在同步 map 内调用）
-    let mut line_atp: HashMap<i64, Decimal> = HashMap::new();
-    for &pid in line_products.keys() {
-        let atp = InventoryReservationRepo::available_atp(&mut *db, pid, None).await?;
-        line_atp.insert(pid, atp);
-    }
+    // 批量预取每行物料的 ATP（available_atp_batch 一条查询替代逐个 available_atp 的 N+1）
+    let line_atp: HashMap<i64, Decimal> = {
+        let pids: Vec<i64> = line_products.keys().copied().collect();
+        InventoryReservationRepo::available_atp_batch(&mut *db, &pids, None).await?
+    };
 
     for req in &reqs.items {
         let items = req_item_map.get(&req.id).cloned().unwrap_or_default();

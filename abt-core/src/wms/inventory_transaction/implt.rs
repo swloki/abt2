@@ -161,6 +161,28 @@ impl InventoryTransactionService for InventoryTransactionServiceImpl {
             .map_err(|e| DomainError::Internal(e.into()))
     }
 
+    async fn find_by_sources(
+        &self,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
+        source_type: &str,
+        source_ids: &[i64],
+    ) -> Result<Vec<InventoryTransaction>> {
+        InventoryTransactionRepo::find_by_sources(&mut *db, source_type, source_ids)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))
+    }
+
+    async fn sum_quantity_by_source(
+        &self,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
+        source_type: &str,
+        source_ids: &[i64],
+    ) -> Result<std::collections::HashMap<i64, Decimal>> {
+        InventoryTransactionRepo::sum_quantity_by_source(&mut *db, source_type, source_ids)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))
+    }
+
     async fn query(
         &self,
         _ctx: &ServiceContext, db: PgExecutor<'_>,
@@ -192,6 +214,16 @@ impl InventoryTransactionService for InventoryTransactionServiceImpl {
     ) -> Result<Decimal> {
         new_stock_ledger_service(self.pool.clone())
             .query_available(ctx, db, product_id, warehouse_id).await
+    }
+
+    async fn query_available_batch(
+        &self,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
+        product_ids: &[i64],
+        warehouse_id: Option<i64>,
+    ) -> Result<std::collections::HashMap<i64, Decimal>> {
+        new_stock_ledger_service(self.pool.clone())
+            .query_available_batch(ctx, db, product_ids, warehouse_id).await
     }
 }
 

@@ -148,6 +148,18 @@ impl WorkReportService for WorkReportServiceImpl {
         .await
         .map_err(|e| DomainError::Internal(e.into()))?;
 
+        // 批量预取所有 work_order 的 routing（一条 ANY 替代逐 report get_by_work_order_id 的 N+1）
+        let wo_ids: std::collections::HashSet<i64> = all_reports.iter().map(|r| r.work_order_id).collect();
+        let wo_ids_vec: Vec<i64> = wo_ids.into_iter().collect();
+        let all_routings = WorkOrderRoutingRepo::get_by_work_order_ids(&mut *db, &wo_ids_vec)
+            .await
+            .ok()
+            .unwrap_or_default();
+        let routing_map = all_routings
+            .iter()
+            .map(|r| ((r.work_order_id, r.id), r))
+            .collect::<std::collections::HashMap<(i64, i64), _>>();
+
         // Group by worker_id
         let mut worker_reports: std::collections::HashMap<i64, Vec<&WorkReport>> = std::collections::HashMap::new();
         for r in &all_reports {
@@ -160,18 +172,9 @@ impl WorkReportService for WorkReportServiceImpl {
             let mut details = Vec::new();
 
             for report in reports {
-                let routings = WorkOrderRoutingRepo::get_by_work_order_id(
-                    &mut *db,
-                    report.work_order_id,
-                )
-                .await
-                .ok()
-                .unwrap_or_default();
-
-                let routing_info = routings.into_iter().find(|r| r.id == report.routing_id);
+                let routing_info = routing_map.get(&(report.work_order_id, report.routing_id));
 
                 let (process_name, unit_price) = routing_info
-                    .as_ref()
                     .map(|r| (r.process_name.clone(), r.unit_price.unwrap_or(Decimal::ZERO)))
                     .unwrap_or_else(|| (String::new(), Decimal::ZERO));
 

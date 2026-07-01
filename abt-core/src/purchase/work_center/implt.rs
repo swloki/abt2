@@ -6,6 +6,7 @@ use super::model::{
     PoSourceChain, PurchaseWorkCenterSummary, ReturnHubSummary, SettlementHubSummary,
     SettlementReconType, ThreeWayMatchSummary,
 };
+use super::repo::PurchaseWorkCenterRepo;
 use super::service::PurchaseWorkCenterService;
 use crate::purchase::demand_handler::{new_purchase_demand_service, MaterialAggQuery, PurchaseDemandService};
 use crate::purchase::enums::{
@@ -33,8 +34,6 @@ use crate::master_data::supplier::{new_supplier_service, SupplierService};
 use crate::shared::document_link::{new_document_link_service, DocumentLinkService};
 use crate::shared::enums::DocumentType;
 
-/// 扫描待收货订单以判定逾期/临期的取样条数（首页近似，避免全表扫描）。
-const RECEIVING_SCAN_SIZE: u32 = 500;
 /// 临期窗口（天）。
 const SOON_WINDOW_DAYS: i64 = 7;
 
@@ -200,28 +199,19 @@ impl PurchaseWorkCenterServiceImpl {
     /// 该供应商待结算（Shipped）退货的笔数 + 金额合计（best-effort）。
     async fn pending_returns(
         &self,
-        ctx: &ServiceContext,
+        _ctx: &ServiceContext,
         db: PgExecutor<'_>,
         supplier_id: i64,
     ) -> (u64, Decimal) {
-        let ret_svc = new_purchase_return_service(self.pool.clone());
-        match ret_svc
-            .list(
-                ctx,
-                db,
-                PurchaseReturnQuery {
-                    supplier_id: Some(supplier_id),
-                    status: Some(PurchaseReturnStatus::Shipped),
-                    ..Default::default()
-                },
-                PageParams::new(1, 200),
-            )
-            .await
+        // SQL COUNT+SUM，替代拉 200 条算金额（>200 会遗漏）
+        match PurchaseWorkCenterRepo::return_stats(
+            db,
+            supplier_id,
+            PurchaseReturnStatus::Shipped.as_i16(),
+        )
+        .await
         {
-            Ok(r) => {
-                let amt = r.items.iter().map(|x| x.total_amount).sum::<Decimal>();
-                (r.total, amt)
-            }
+            Ok((cnt, amt)) => (cnt, amt),
             Err(_) => (0, Decimal::ZERO),
         }
     }
@@ -445,39 +435,16 @@ impl PurchaseWorkCenterService for PurchaseWorkCenterServiceImpl {
         )
         .await;
 
-        // 逾期 / 临期：扫描待收货（Confirmed + PartiallyReceived）订单的期望交货日。
-        // 近似统计（首页前 RECEIVING_SCAN_SIZE 条），查询失败按 0 容错。
+        // 逾期 / 临期：SQL COUNT FILTER（待收货 PO = Confirmed + PartiallyReceived），
+        // 替代原「拉 RECEIVING_SCAN_SIZE × 2 状态到内存按日期 filter」。查询失败按 0 容错。
         let today = chrono::Utc::now().date_naive();
         let soon_limit = today
             .checked_add_days(chrono::Days::new(SOON_WINDOW_DAYS as u64))
             .unwrap_or(today);
-        let scan = PageParams::new(1, RECEIVING_SCAN_SIZE);
-        let mut overdue_count = 0u64;
-        let mut soon_count = 0u64;
-        for st in [PurchaseOrderStatus::Confirmed, PurchaseOrderStatus::PartiallyReceived] {
-            let items = po_svc
-                .list(
-                    ctx,
-                    db,
-                    PurchaseOrderQuery {
-                        status: Some(st),
-                        ..Default::default()
-                    },
-                    scan.clone(),
-                )
+        let (overdue_count, soon_count) =
+            PurchaseWorkCenterRepo::count_po_overdue_soon(db, today, soon_limit)
                 .await
-                .map(|r| r.items)
-                .unwrap_or_default();
-            for o in items {
-                if let Some(d) = o.expected_delivery_date {
-                    if d < today {
-                        overdue_count += 1;
-                    } else if d <= soon_limit {
-                        soon_count += 1;
-                    }
-                }
-            }
-        }
+                .unwrap_or((0, 0));
 
         Ok(PurchaseWorkCenterSummary {
             pending_demand,

@@ -1,5 +1,6 @@
 ﻿use async_trait::async_trait;
 use rust_decimal::Decimal;
+use std::collections::HashMap;
 
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::PgExecutor;
@@ -25,6 +26,22 @@ pub trait InventoryTransactionService: Send + Sync {
         source_type: &str,
         source_id: i64,
     ) -> Result<Vec<InventoryTransaction>>;
+
+    /// 批量查多个 source 的库存流水（避免逐个 `find_by_source` 的 N+1）
+    async fn find_by_sources(
+        &self,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
+        source_type: &str,
+        source_ids: &[i64],
+    ) -> Result<Vec<InventoryTransaction>>;
+
+    /// 批量查询多个 source 的数量总和（`source_id → SUM(quantity)`），避免逐个 `find_by_source` 的 N+1
+    async fn sum_quantity_by_source(
+        &self,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
+        source_type: &str,
+        source_ids: &[i64],
+    ) -> Result<HashMap<i64, Decimal>>;
 
     /// 分页查询库存事务记录
     async fn query(
@@ -52,4 +69,12 @@ pub trait InventoryTransactionService: Send + Sync {
         product_id: i64,
         warehouse_id: Option<i64>,
     ) -> Result<Decimal>;
+
+    /// 批量查可用量（消除 N+1，单 warehouse；调用方按 warehouse 分组）
+    async fn query_available_batch(
+        &self,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
+        product_ids: &[i64],
+        warehouse_id: Option<i64>,
+    ) -> Result<std::collections::HashMap<i64, Decimal>>;
 }

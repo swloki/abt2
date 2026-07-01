@@ -1,4 +1,4 @@
-use sqlx::FromRow;
+use sqlx::{FromRow, Row};
 use crate::shared::types::Result;
 
 use super::model::{InventoryTransaction, RecordTransactionReq, TransactionFilter};
@@ -67,6 +67,67 @@ impl InventoryTransactionRepo {
         rows.iter()
             .map(|r| InventoryTransaction::from_row(r).map_err(Into::into))
             .collect()
+    }
+
+    /// 批量查询多个 source 的库存流水（避免 N+1：一条 `WHERE source_id = ANY(...)` 替代逐个 `find_by_source`）。
+    pub async fn find_by_sources(
+        executor: &mut sqlx::postgres::PgConnection,
+        source_type: &str,
+        source_ids: &[i64],
+    ) -> Result<Vec<InventoryTransaction>> {
+        if source_ids.is_empty() {
+            return Ok(Vec::new());
+        }
+        let rows = sqlx::query(
+            r#"
+            SELECT id, doc_number, delivery_no, source_doc_number, transaction_type, product_id, warehouse_id, zone_id,
+                   bin_id, batch_no, quantity, unit_cost, source_type, source_id,
+                   remark, operator_id, created_at
+            FROM inventory_transactions
+            WHERE source_type = $1 AND source_id = ANY($2)
+            ORDER BY created_at
+            "#,
+        )
+        .bind(source_type)
+        .bind(source_ids)
+        .fetch_all(executor)
+        .await?;
+        rows.iter()
+            .map(|r| InventoryTransaction::from_row(r).map_err(Into::into))
+            .collect()
+    }
+
+    /// 批量查询多个 source 的数量总和（避免 N+1：一条 `GROUP BY` 替代逐个 `find_by_source`）。
+    /// 返回 `source_id → SUM(quantity)`；无记录的 source 不在 map 中（调用方按 0 处理）。
+    pub async fn sum_quantity_by_source(
+        executor: &mut sqlx::postgres::PgConnection,
+        source_type: &str,
+        source_ids: &[i64],
+    ) -> Result<std::collections::HashMap<i64, rust_decimal::Decimal>> {
+        if source_ids.is_empty() {
+            return Ok(std::collections::HashMap::new());
+        }
+        let rows = sqlx::query(
+            r#"
+            SELECT source_id, SUM(quantity) AS total
+            FROM inventory_transactions
+            WHERE source_type = $1 AND source_id = ANY($2)
+            GROUP BY source_id
+            "#,
+        )
+        .bind(source_type)
+        .bind(source_ids)
+        .fetch_all(executor)
+        .await?;
+
+        let mut map = std::collections::HashMap::with_capacity(rows.len());
+        for r in &rows {
+            map.insert(
+                r.try_get::<i64, _>("source_id")?,
+                r.try_get::<rust_decimal::Decimal, _>("total")?,
+            );
+        }
+        Ok(map)
     }
 
 

@@ -519,6 +519,25 @@ impl FulfillmentPlanLineRepo {
         Ok(line)
     }
 
+    /// 批量按订单行ID查询（避免逐个 find_by_order_line_id 的 N+1）。结果含 order_line_id，调用方按需建 map。
+    pub async fn find_by_order_line_ids(
+        executor: PgExecutor<'_>,
+        order_line_ids: &[i64],
+    ) -> Result<Vec<FulfillmentPlanLine>> {
+        if order_line_ids.is_empty() {
+            return Ok(Vec::new());
+        }
+        let rows = sqlx::query_as::<sqlx::Postgres, FulfillmentPlanLine>(
+            sqlx::AssertSqlSafe(format!(
+                "SELECT {FP_COLUMNS} FROM fulfillment_plan_lines WHERE order_line_id = ANY($1)"
+            )),
+        )
+        .bind(order_line_ids)
+        .fetch_all(executor)
+        .await?;
+        Ok(rows)
+    }
+
     /// 更新状态（乐观锁）
     pub async fn update_status(
         executor: PgExecutor<'_>,

@@ -865,8 +865,6 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .\[\&_svg\]\:text-white svg,
 .icon\:text-white [class*=i-lucide],
 .text-white{color:color-mix(in srgb, var(--colors-white) var(--un-text-opacity), transparent) /* #fff */;}
-.act\:text-accent-on.active,
-.text-accent-on{color:color-mix(in srgb, var(--accent-on) var(--un-text-opacity), transparent) /* var(--accent-on) */;}
 .icon\:text-fg [class*=i-lucide],
 .text-fg{color:color-mix(in srgb, var(--fg) var(--un-text-opacity), transparent) /* var(--fg) */;}
 .icon\:text-muted [class*=i-lucide],
@@ -878,6 +876,7 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .text-accent-400{color:color-mix(in srgb, var(--accent-400) var(--un-text-opacity), transparent) /* var(--accent-400) */;}
 .text-accent-500{color:color-mix(in srgb, var(--accent-500) var(--un-text-opacity), transparent) /* var(--accent-500) */;}
 .text-accent-800{color:color-mix(in srgb, var(--accent-800) var(--un-text-opacity), transparent) /* var(--accent-800) */;}
+.text-accent-on{color:color-mix(in srgb, var(--accent-on) var(--un-text-opacity), transparent) /* var(--accent-on) */;}
 .text-accent\/70{color:color-mix(in srgb, var(--accent) 70%, transparent) /* var(--accent) */;}
 .text-border{color:color-mix(in srgb, var(--border) var(--un-text-opacity), transparent) /* var(--border) */;}
 .text-danger-400{color:color-mix(in srgb, var(--danger-400) var(--un-text-opacity), transparent) /* var(--danger-400) */;}
@@ -970,7 +969,6 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .ml-1{margin-left:calc(var(--spacing) * 1);}
 .ml-1\.5{margin-left:calc(var(--spacing) * 1.5);}
 .ml-2{margin-left:calc(var(--spacing) * 2);}
-.ml-3{margin-left:calc(var(--spacing) * 3);}
 .ml-auto{margin-left:auto;}
 .mr{margin-right:calc(var(--spacing) * 4);}
 .mr-1{margin-right:calc(var(--spacing) * 1);}
@@ -1188,8 +1186,6 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .\[\&\.selected\]\:bg-accent-bg.selected,
 .act\:bg-accent-bg.active,
 .bg-accent-bg{background-color:color-mix(in srgb, var(--accent-bg) var(--un-bg-opacity), transparent) /* var(--accent-bg) */;}
-.act\:bg-accent.active,
-.bg-accent{background-color:color-mix(in srgb, var(--accent) var(--un-bg-opacity), transparent) /* var(--accent) */;}
 .act\:bg-success.active,
 .bg-success{background-color:color-mix(in srgb, var(--success) var(--un-bg-opacity), transparent) /* var(--success) */;}
 .bg-\[\{\}\]{background-color:color-mix(in oklab, {} var(--un-bg-opacity), transparent) /* {} */;}
@@ -1230,6 +1226,7 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .bg-\[var\(--red-50\)\]{background-color:color-mix(in oklab, var(--red-50) var(--un-bg-opacity), transparent) /* var(--red-50) */;}
 .bg-\[var\(--slate-100\)\]{background-color:color-mix(in oklab, var(--slate-100) var(--un-bg-opacity), transparent) /* var(--slate-100) */;}
 .bg-\[var\(--slate-50\)\]{background-color:color-mix(in oklab, var(--slate-50) var(--un-bg-opacity), transparent) /* var(--slate-50) */;}
+.bg-accent{background-color:color-mix(in srgb, var(--accent) var(--un-bg-opacity), transparent) /* var(--accent) */;}
 .bg-accent-100{background-color:color-mix(in srgb, var(--accent-100) var(--un-bg-opacity), transparent) /* var(--accent-100) */;}
 .bg-accent-50{background-color:color-mix(in srgb, var(--accent-50) var(--un-bg-opacity), transparent) /* var(--accent-50) */;}
 .bg-accent-bg\/30{background-color:color-mix(in srgb, var(--accent-bg) 30%, transparent) /* var(--accent-bg) */;}
@@ -1331,7 +1328,6 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .hover\:opacity-80:hover{opacity:80%;}
 .hover\:opacity-90:hover{opacity:90%;}
 .disabled\:opacity-30:disabled{opacity:30%;}
-.disabled\:opacity-50:disabled{opacity:50%;}
 .line-through{text-decoration-line:line-through;}
 .underline{text-decoration-line:underline;}
 .hover\:underline:hover{text-decoration-line:underline;}
@@ -1349,7 +1345,6 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .gap-\[10px\]{gap:10px;}
 .gap-\[12px\]{gap:12px;}
 .gap-\[14px\]{gap:14px;}
-.gap-\[16px\]{gap:16px;}
 .gap-\[20px\ 48px\]{gap:20px 48px;}
 .gap-\[2px\]{gap:2px;}
 .gap-\[3px\]{gap:3px;}
@@ -1902,6 +1897,7 @@ tr.open .expand-btn svg { transform: rotate(90deg); }
 .md\:grid-cols-4{grid-template-columns:repeat(4,minmax(0,1fr));}
 }
 @media (min-width: 64rem){
+.lg\:col-span-4{grid-column:span 4/span 4;}
 .lg\:grid-cols-\[1fr_1\.5fr\]{grid-template-columns:1fr 1.5fr;}
 .lg\:grid-cols-2{grid-template-columns:repeat(2,minmax(0,1fr));}
 .lg\:grid-cols-3{grid-template-columns:repeat(3,minmax(0,1fr));}

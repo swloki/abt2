@@ -3,7 +3,7 @@ pub mod implt;
 pub mod model;
 pub mod processor;
 pub mod registry;
-pub mod repo;
+pub(crate) mod repo;
 pub mod service;
 
 pub use model::{DomainEvent, EventPublishRequest, EventQuery};

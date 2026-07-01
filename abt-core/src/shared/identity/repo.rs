@@ -411,28 +411,6 @@ impl IdentityRepo {
             .collect()
     }
 
-    pub async fn get_role_permissions_by_ids(
-        executor: &mut sqlx::postgres::PgConnection,
-        role_ids: &[i64],
-    ) -> Result<Vec<(i64, String, String)>> {
-        let rows = sqlx::query(
-            "SELECT role_id, resource_code, action FROM role_permissions WHERE role_id = ANY($1)"
-        )
-        .bind(role_ids)
-        .fetch_all(&mut *executor)
-        .await?;
-
-        rows.iter()
-            .map(|r| {
-                Ok((
-                    r.try_get("role_id")?,
-                    r.try_get("resource_code")?,
-                    r.try_get("action")?,
-                ))
-            })
-            .collect()
-    }
-
     // -----------------------------------------------------------------------
     // Department
     // -----------------------------------------------------------------------

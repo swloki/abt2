@@ -5,7 +5,6 @@ use maud::{html, Markup, PreEscaped};
 use serde::Deserialize;
 
 use abt_core::mes::production_batch::ProductionBatchService;
-use abt_core::mes::production_batch::repo::BatchRoutingProgressRepo;
 use abt_core::mes::work_order::WorkOrderService;
 use abt_core::mes::work_report::WorkReportService;
 use abt_core::shared::identity::UserService;
@@ -77,7 +76,7 @@ pub async fn search_card(
  let product_name = batch_svc.get_product_name(&mut conn, batch.product_id).await?.unwrap_or_default();
  let routings = batch_svc.list_routings(&service_ctx, &mut conn, batch.work_order_id).await?;
  // 查批次工序执行进度（status/completed_qty/defect_qty 已迁移到 batch_routing_progress）
- let progress_list = BatchRoutingProgressRepo::list_by_batch(&mut conn, batch.id).await?;
+ let progress_list = batch_svc.list_routing_progress(&service_ctx, &mut conn, batch.id).await?;
  let progress_map: std::collections::HashMap<i64, abt_core::mes::production_batch::BatchRoutingProgress> =
  progress_list.into_iter().map(|p| (p.routing_id, p)).collect();
  let reports = report_svc.list_by_batch(&service_ctx, &mut conn, batch.id).await?;

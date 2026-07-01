@@ -7,7 +7,6 @@ use maud::{html, Markup};
 use serde::Deserialize;
 
 use abt_core::mes::enums::{BatchStatus, RoutingStatus, WorkOrderStatus};
-use abt_core::mes::production_batch::repo::BatchRoutingProgressRepo;
 use abt_core::mes::production_batch::{ProductionBatchService, WorkOrderRouting};
 use abt_core::mes::work_order::{WorkOrderFilter, WorkOrderService};
 use abt_core::shared::identity::UserService;
@@ -261,7 +260,7 @@ pub async fn batch_selected(
  let routings = batch_svc
  .list_routings(&service_ctx, &mut conn, batch.work_order_id)
  .await?;
- let completed: HashSet<i64> = BatchRoutingProgressRepo::list_by_batch(&mut *conn, params.batch_id)
+ let completed: HashSet<i64> = batch_svc.list_routing_progress(&service_ctx, &mut conn, params.batch_id)
  .await?
  .into_iter()
  .filter(|p| p.status == RoutingStatus::Completed)

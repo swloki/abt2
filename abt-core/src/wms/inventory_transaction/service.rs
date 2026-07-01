@@ -19,6 +19,13 @@ pub trait InventoryTransactionService: Send + Sync {
         req: RecordTransactionReq,
     ) -> Result<i64>;
 
+    /// 按 id 查单条库存事务（找不到返回 NotFound）
+    async fn find_by_id(
+        &self,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
+        id: i64,
+    ) -> Result<InventoryTransaction>;
+
     /// 按来源查事务记录
     async fn find_by_source(
         &self,

@@ -521,28 +521,6 @@ impl WarehouseRepo {
         })
     }
 
-    /// 按 ID 查询库位
-    pub async fn get_bin_by_id(
-        executor: &mut sqlx::postgres::PgConnection,
-        id: i64,
-    ) -> Result<Option<Bin>> {
-        let row = sqlx::query(
-            r#"
-            SELECT id, zone_id, code, name, row_no, column_no, layer_no,
-                   capacity_limit, allowed_product_types, temperature_req,
-                   status, created_at, updated_at, deleted_at
-            FROM bins
-            WHERE id = $1 AND deleted_at IS NULL
-            "#,
-        )
-        .bind(id)
-        .fetch_optional(&mut *executor)
-        .await?;
-
-        row.map(|r| Bin::from_row(&r).map_err(Into::into)).transpose()
-
-    }
-
     /// 动态 UPDATE 库位，仅 SET 提供的字段
     pub async fn update_bin(
         executor: &mut sqlx::postgres::PgConnection,

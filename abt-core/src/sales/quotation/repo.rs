@@ -57,20 +57,6 @@ impl QuotationRepo {
         Ok(quotation)
     }
 
-    pub async fn find_by_doc_number(
-        &self,
-        executor: PgExecutor<'_>,
-        doc_number: &str,
-    ) -> Result<Option<Quotation>> {
-        let quotation = sqlx::query_as::<sqlx::Postgres, Quotation>(
-            sqlx::AssertSqlSafe(format!("SELECT {QUOTATION_COLUMNS} FROM quotations WHERE doc_number = $1 AND deleted_at IS NULL")),
-        )
-        .bind(doc_number)
-        .fetch_optional(executor)
-        .await?;
-        Ok(quotation)
-    }
-
     #[allow(unused_assignments)]
     pub async fn update(
         &self,

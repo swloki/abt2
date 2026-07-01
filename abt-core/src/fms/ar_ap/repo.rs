@@ -901,42 +901,6 @@ impl ArApSettlementRepo {
         Ok(row)
     }
 
-    /// 查询某发票的所有核销记录
-    pub async fn list_by_invoice(
-        executor: PgExecutor<'_>,
-        invoice_source_type: DocumentType,
-        invoice_source_id: i64,
-    ) -> Result<Vec<ArApSettlement>> {
-        let rows = sqlx::query_as::<sqlx::Postgres, ArApSettlement>(sqlx::AssertSqlSafe(format!(
-            "SELECT {SETTLEMENT_COLUMNS} FROM ar_ap_settlements
-             WHERE invoice_source_type = $1 AND invoice_source_id = $2
-             ORDER BY settlement_date DESC"
-        )))
-        .bind(invoice_source_type)
-        .bind(invoice_source_id)
-        .fetch_all(executor)
-        .await?;
-        Ok(rows)
-    }
-
-    /// 查询某付款的所有核销记录
-    pub async fn list_by_payment(
-        executor: PgExecutor<'_>,
-        payment_source_type: DocumentType,
-        payment_source_id: i64,
-    ) -> Result<Vec<ArApSettlement>> {
-        let rows = sqlx::query_as::<sqlx::Postgres, ArApSettlement>(sqlx::AssertSqlSafe(format!(
-            "SELECT {SETTLEMENT_COLUMNS} FROM ar_ap_settlements
-             WHERE payment_source_type = $1 AND payment_source_id = $2
-             ORDER BY settlement_date DESC"
-        )))
-        .bind(payment_source_type)
-        .bind(payment_source_id)
-        .fetch_all(executor)
-        .await?;
-        Ok(rows)
-    }
-
     /// 分页查询核销记录
     pub async fn query(
         executor: PgExecutor<'_>,
@@ -987,21 +951,4 @@ impl ArApSettlementRepo {
         Ok((items, total))
     }
 
-    /// 计算某发票已核销总额
-    pub async fn sum_settled_by_invoice(
-        executor: PgExecutor<'_>,
-        invoice_source_type: DocumentType,
-        invoice_source_id: i64,
-    ) -> Result<Decimal> {
-        let total: Option<Decimal> = sqlx::query_scalar::<sqlx::Postgres, Decimal>(
-            r#"SELECT COALESCE(SUM(amount), 0)
-               FROM ar_ap_settlements
-               WHERE invoice_source_type = $1 AND invoice_source_id = $2"#,
-        )
-        .bind(invoice_source_type)
-        .bind(invoice_source_id)
-        .fetch_optional(executor)
-        .await?;
-        Ok(total.unwrap_or(Decimal::ZERO))
-    }
 }

@@ -2,8 +2,8 @@ use axum::response::Html;
 use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
 
-use abt_core::wms::inventory_transaction::repo::InventoryTransactionRepo;
 use abt_core::wms::inventory_transaction::model::InventoryTransaction;
+use abt_core::wms::inventory_transaction::InventoryTransactionService;
 use abt_core::wms::warehouse::WarehouseService;
 use abt_core::master_data::product::ProductService;
 use abt_core::shared::identity::UserService;
@@ -46,10 +46,9 @@ pub async fn get_stock_in_detail(
  let nav_filter = ctx.nav_filter().await;
  let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
 
- let txn = InventoryTransactionRepo::get_by_id(&mut conn, path.id)
- .await
- .map_err(|e| abt_core::shared::types::DomainError::Internal(e.into()))?
- .ok_or_else(|| abt_core::shared::types::DomainError::not_found("入库记录不存在"))?;
+ let txn = state.inventory_transaction_service()
+ .find_by_id(&service_ctx, &mut conn, path.id)
+ .await?;
 
  let wh_name = state.warehouse_service()
  .get(&service_ctx, &mut conn, txn.warehouse_id)

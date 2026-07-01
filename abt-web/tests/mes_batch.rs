@@ -39,24 +39,20 @@ async fn create_wo_and_release(app: &TestApp, qty: &str) -> i64 {
         .unwrap();
     let wo_id = result.items.first().unwrap().id;
     // release 校验工序非空：先插一道默认工序（报工测试需 step_no=1）
-    use abt_core::mes::production_batch::model::WorkOrderRouting;
-    use abt_core::mes::production_batch::repo::WorkOrderRoutingRepo;
+    // 直接 SQL 插入（PRODUCT_ID 565 无 routing 模板，service 未暴露"插占位工序"接口）
     let planned = qty.parse::<Decimal>().unwrap_or(Decimal::from(100));
-    WorkOrderRoutingRepo::insert_for_work_order(&mut conn, &[WorkOrderRouting {
-        id: 0,
-        work_order_id: wo_id,
-        step_no: 1,
-        process_name: "生产".to_string(),
-        work_center_id: None,
-        standard_time: None,
-        standard_cost: None,
-        unit_price: None,
-        allowed_loss_rate: None,
-        planned_qty: planned,
-        is_outsourced: false,
-        is_inspection_point: false,
-        product_id: None,
-    }]).await.unwrap();
+    sqlx::query(
+        r#"INSERT INTO work_order_routings
+            (work_order_id, step_no, process_name, work_center_id,
+             standard_time, standard_cost, unit_price, allowed_loss_rate,
+             planned_qty, is_outsourced, is_inspection_point, product_id)
+            VALUES ($1, 1, '生产', NULL, NULL, NULL, NULL, NULL, $2, false, false, NULL)"#,
+    )
+    .bind(wo_id)
+    .bind(planned)
+    .execute(&mut *conn)
+    .await
+    .unwrap();
     drop(conn);
     app.post_htmx(&format!("/admin/mes/orders/{wo_id}/release"), "").await;
     wo_id

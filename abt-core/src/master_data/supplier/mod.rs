@@ -1,5 +1,5 @@
 pub mod model;
-pub mod repo;
+pub(crate) mod repo;
 pub mod service;
 pub mod implt;
 

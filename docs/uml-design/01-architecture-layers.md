@@ -142,7 +142,8 @@ sales_order/
 ```rust
 // sales_order/mod.rs
 pub mod model;
-pub mod repo;
+// repo 仅 crate 内可见（pub(crate)），禁止跨 crate（abt-web）直接访问，必须走 Service trait
+pub(crate) mod repo;
 pub mod service;
 pub mod implt;
 
@@ -227,7 +228,7 @@ async fn confirm(&self, executor: &mut PgExecutor, request_id: Uuid) -> Result<(
 
 | 文件 | 职责 | 导出 |
 |------|------|------|
-| `mod.rs` | 模块声明 + 重新导出 | `pub use` 主要类型 |
+| `mod.rs` | 模块声明 + 重新导出（`repo` 声明为 `pub(crate)`，不对外导出） | `pub use` 主要类型 |
 | `model.rs` | 结构体 + 枚举 | `pub struct` / `pub enum` |
 | `repo.rs` | SQL 查询 | `pub async fn` |
 | `service.rs` | 业务接口 | `#[async_trait] pub trait` |

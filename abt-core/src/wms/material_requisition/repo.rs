@@ -266,25 +266,6 @@ impl MaterialRequisitionRepo {
         })
     }
 
-    pub async fn soft_delete(
-        executor: &mut sqlx::postgres::PgConnection,
-        id: i64,
-    ) -> Result<u64> {
-        let result = sqlx::query(
-            r#"
-            UPDATE material_requisitions
-            SET deleted_at = NOW(), status = $2, updated_at = NOW()
-            WHERE id = $1 AND deleted_at IS NULL
-            "#,
-        )
-        .bind(id)
-        .bind(RequisitionStatus::Cancelled)
-        .execute(&mut *executor)
-        .await?;
-
-        Ok(result.rows_affected())
-    }
-
     /// 查询批次已领料的工序 routing_id 集合（判断工序是否已领料，驱动批次矩阵动作位）。
     /// 排除已取消的领料单。
     pub async fn find_routing_ids_by_batch(

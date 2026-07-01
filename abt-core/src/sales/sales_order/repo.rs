@@ -1,7 +1,6 @@
 use crate::shared::types::PgExecutor;
 use rust_decimal::Decimal;
 use crate::shared::types::{DomainError, Result};
-use sqlx::Row;
 
 use super::model::*;
 use crate::shared::types::{DataScope, PageParams, PaginatedResult};
@@ -264,20 +263,6 @@ impl SalesOrderRepo {
         Ok(PaginatedResult::new(items, total, page.page, page.page_size))
     }
 
-    /// 按 ID 查询订单号（供跨模块 Event Handler 使用）
-    pub async fn find_doc_number_by_id(
-        executor: PgExecutor<'_>,
-        id: i64,
-    ) -> Result<Option<String>> {
-        let row = sqlx::query(
-            "SELECT doc_number FROM sales_orders WHERE id = $1 AND deleted_at IS NULL",
-        )
-        .bind(id)
-        .fetch_optional(executor)
-        .await?;
-
-        Ok(row.map(|r| r.try_get::<String, _>("doc_number")).transpose()?)
-    }
 }
 
 // ---------------------------------------------------------------------------
@@ -638,24 +623,6 @@ impl DemandRepo {
         Ok(demand)
     }
 
-    /// 按来源行查询
-    pub async fn find_by_source_line(
-        executor: PgExecutor<'_>,
-        source_type: i16,
-        source_line_id: i64,
-    ) -> Result<Vec<Demand>> {
-        let demands = sqlx::query_as::<sqlx::Postgres, Demand>(
-            sqlx::AssertSqlSafe(format!(
-                "SELECT {DEMAND_COLUMNS} FROM demands WHERE source_type = $1 AND source_line_id = $2 AND deleted_at IS NULL"
-            )),
-        )
-        .bind(source_type)
-        .bind(source_line_id)
-        .fetch_all(executor)
-        .await?;
-        Ok(demands)
-    }
-
     /// 按来源单据查询所有需求（如某销售订单的所有 demand）
     pub async fn find_by_source(
         executor: PgExecutor<'_>,
@@ -729,33 +696,6 @@ impl DemandRepo {
         .fetch_all(executor)
         .await?;
         Ok(rows)
-    }
-
-    /// 检查是否已存在同来源的 BOM 级联需求
-    /// 参考 Odoo `_make_mo_get_domain`：查已有同源需求避免重复创建
-    pub async fn find_cascade_existing(
-        executor: PgExecutor<'_>,
-        source_id: i64,
-        source_line_id: i64,
-        product_id: i64,
-        cascade_from_product_id: i64,
-    ) -> Result<bool> {
-        let count: i64 = sqlx::query_scalar(
-            r#"SELECT COUNT(*) FROM demands
-               WHERE source_id = $1
-                 AND source_line_id = $2
-                 AND product_id = $3
-                 AND cascade_from_product_id = $4
-                 AND demand_type = 2
-                 AND deleted_at IS NULL"#,
-        )
-        .bind(source_id)
-        .bind(source_line_id)
-        .bind(product_id)
-        .bind(cascade_from_product_id)
-        .fetch_one(executor)
-        .await?;
-        Ok(count > 0)
     }
 
     /// 批量查询已存在的 BOM 级联需求（消除 N+1）

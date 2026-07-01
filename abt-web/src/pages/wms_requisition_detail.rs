@@ -5,7 +5,6 @@ use rust_decimal::Decimal;
 
 use abt_core::wms::enums::RequisitionStatus;
 use abt_core::wms::material_requisition::model::{IssueItemReq, IssueMaterialReq, MaterialRequisition};
-use abt_core::wms::material_requisition::repo::MaterialRequisitionRepo;
 use abt_core::wms::material_requisition::MaterialRequisitionService;
 use abt_core::master_data::product::ProductService;
 use abt_core::wms::warehouse::WarehouseService;
@@ -119,9 +118,7 @@ pub async fn get_requisition_detail(
  let svc = state.material_requisition_service();
 
  let requisition = svc.get(&service_ctx, &mut conn, path.id).await?;
- let items = MaterialRequisitionRepo::get_items(&mut conn, path.id)
- .await
- .map_err(|e| abt_core::shared::types::DomainError::Internal(e.into()))?;
+ let items = svc.list_items(&service_ctx, &mut conn, path.id).await?;
 
  let wh_name = state.warehouse_service()
  .get(&service_ctx, &mut conn, requisition.warehouse_id)
@@ -176,9 +173,7 @@ pub async fn post_requisition_action(
  "cancel" => svc.cancel(&service_ctx, &mut tx, path.id).await?,
  "issue" => {
  // 快速发料：实发数量 = 需求数量
- let items = MaterialRequisitionRepo::get_items(&mut tx, path.id)
- .await
- .map_err(|e| abt_core::shared::types::DomainError::Internal(e.into()))?;
+ let items = svc.list_items(&service_ctx, &mut tx, path.id).await?;
  let issue_items: Vec<IssueItemReq> = items.iter()
  .map(|item| IssueItemReq {
  item_id: item.id,

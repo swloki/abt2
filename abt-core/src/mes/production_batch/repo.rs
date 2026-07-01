@@ -251,19 +251,6 @@ impl ProductionBatchRepo {
         Ok(())
     }
 
-    /// 软删工单下所有批次（替代物理 DELETE，unrelease 用）
-    pub async fn soft_delete_by_work_order(
-        executor: &mut sqlx::postgres::PgConnection,
-        work_order_id: i64,
-    ) -> Result<()> {
-        sqlx::query(
-            r#"UPDATE production_batches SET deleted_at = NOW() WHERE work_order_id = $1 AND deleted_at IS NULL"#,
-        )
-        .bind(work_order_id)
-        .execute(&mut *executor)
-        .await?;
-        Ok(())
-    }
 }
 
 // ===========================================================================
@@ -273,39 +260,6 @@ impl ProductionBatchRepo {
 pub struct WorkOrderRoutingRepo;
 
 impl WorkOrderRoutingRepo {
-    /// 批量插入工单工序（工单级）
-    pub async fn insert_for_work_order(
-        executor: &mut sqlx::postgres::PgConnection,
-        steps: &[WorkOrderRouting],
-    ) -> Result<()> {
-        for step in steps {
-            sqlx::query(
-                r#"
-                INSERT INTO work_order_routings
-                    (work_order_id, step_no, process_name, work_center_id,
-                     standard_time, standard_cost, unit_price, allowed_loss_rate,
-                     planned_qty, is_outsourced, is_inspection_point, product_id)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-                "#,
-            )
-            .bind(step.work_order_id)
-            .bind(step.step_no)
-            .bind(&step.process_name)
-            .bind(step.work_center_id)
-            .bind(step.standard_time)
-            .bind(step.standard_cost)
-            .bind(step.unit_price)
-            .bind(step.allowed_loss_rate)
-            .bind(step.planned_qty)
-            .bind(step.is_outsourced)
-            .bind(step.is_inspection_point)
-            .bind(step.product_id)
-            .execute(&mut *executor)
-            .await?;
-        }
-        Ok(())
-    }
-
     /// 按工单 ID + 工序号查找工序
     pub async fn get_by_work_order_and_step(
         executor: &mut sqlx::postgres::PgConnection,
@@ -347,24 +301,6 @@ impl WorkOrderRoutingRepo {
         .fetch_optional(&mut *executor)
         .await?;
         row.map(|r| Ok(WorkOrderRouting::from_row(&r)?)).transpose()
-    }
-
-    /// 更新单条工序计件单价
-    pub async fn update_unit_price(
-        executor: &mut sqlx::postgres::PgConnection,
-        routing_id: i64,
-        unit_price: Decimal,
-    ) -> Result<()> {
-        sqlx::query(
-            r#"
-            UPDATE work_order_routings SET unit_price = $2 WHERE id = $1
-            "#,
-        )
-        .bind(routing_id)
-        .bind(unit_price)
-        .execute(&mut *executor)
-        .await?;
-        Ok(())
     }
 
     /// 删除单条工序
@@ -657,28 +593,6 @@ impl BatchRoutingProgressRepo {
             .collect()
     }
 
-    /// 按 routing 查所有批次进度（工单工序矩阵用）
-    pub async fn list_by_routing(
-        executor: &mut sqlx::postgres::PgConnection,
-        routing_id: i64,
-    ) -> Result<Vec<BatchRoutingProgress>> {
-        let rows = sqlx::query(
-            r#"
-            SELECT id, batch_id, routing_id, status, completed_qty, defect_qty,
-                   started_at, completed_at, created_at, updated_at
-            FROM batch_routing_progress
-            WHERE routing_id = $1
-            "#,
-        )
-        .bind(routing_id)
-        .fetch_all(&mut *executor)
-        .await?;
-        rows.iter()
-            .filter_map(|r| BatchRoutingProgress::from_row(r).ok())
-            .map(Ok)
-            .collect()
-    }
-
     /// 为新批次初始化所有工序的 progress 记录
     pub async fn init_for_batch(
         executor: &mut sqlx::postgres::PgConnection,
@@ -707,6 +621,8 @@ impl BatchRoutingProgressRepo {
 pub struct WorkReportRepo;
 
 /// 报工记录行（本地查询模型）
+/// 字段完整对应 work_reports 表结构；部分字段当前未被读取，保留以表达完整行语义。
+#[allow(dead_code)]
 #[derive(Debug, Clone, sqlx::FromRow)]
 pub struct WorkReportRow {
     pub id: i64,

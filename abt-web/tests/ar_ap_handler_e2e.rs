@@ -11,7 +11,6 @@ use common::TestApp;
 use rust_decimal::Decimal;
 use abt_core::shared::types::ServiceContext;
 use abt_core::shared::enums::document_type::DocumentType;
-use abt_core::fms::ar_ap::repo::ArApLedgerRepo;
 use abt_core::sales::sales_order::SalesOrderService;
 use abt_core::purchase::order::PurchaseOrderService;
 use abt_core::om::outsourcing_order::OutsourcingOrderService;
@@ -92,7 +91,14 @@ async fn stock_in(app: &TestApp, product_id: i64, qty: i64) {
 /// 查某 source 的台账（验证立账）
 async fn ledger_by_source(app: &TestApp, source_type: DocumentType, source_id: i64) -> Option<abt_core::fms::ar_ap::model::ArApLedger> {
     let mut conn = app.state.pool.acquire().await.unwrap();
-    ArApLedgerRepo::get_open_by_source(&mut conn, source_type, source_id).await.unwrap()
+    sqlx::query_as::<_, abt_core::fms::ar_ap::model::ArApLedger>(
+        "SELECT * FROM ar_ap_ledger WHERE source_type = $1 AND source_id = $2 ORDER BY id DESC LIMIT 1",
+    )
+    .bind(source_type)
+    .bind(source_id)
+    .fetch_optional(&mut *conn)
+    .await
+    .unwrap()
 }
 
 // ════════════════════════════════════════════════════════════════════════════

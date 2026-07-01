@@ -148,6 +148,18 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
             .ok_or_else(|| DomainError::not_found("ProductionBatch"))
     }
 
+    /// 查询批次各工序执行进度（写真相源，用于工序流转进度展示）
+    async fn list_routing_progress(
+        &self,
+        _ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        batch_id: i64,
+    ) -> Result<Vec<BatchRoutingProgress>> {
+        BatchRoutingProgressRepo::list_by_batch(&mut *db, batch_id)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))
+    }
+
     /// 按流转卡序列号查找批次
     async fn find_by_card_sn(
         &self,

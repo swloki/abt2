@@ -116,19 +116,6 @@ impl WorkflowTaskRepo {
         Ok(rows)
     }
 
-    pub async fn find_overdue_pending(
-        pool: &PgPool,
-        limit: i64,
-    ) -> Result<Vec<WorkflowTask>> {
-        let rows = sqlx::query_as::<_, WorkflowTask>(
-            "SELECT id, instance_id, node_id, prev_task_id, assignee_id, status, action, timeout_action, due_at, remind_at, result, created_at, completed_at FROM workflow_tasks WHERE status = 'pending' AND due_at < NOW() ORDER BY due_at ASC LIMIT $1 FOR UPDATE SKIP LOCKED",
-        )
-        .bind(limit)
-        .fetch_all(pool)
-        .await?;
-        Ok(rows)
-    }
-
     /// 事务内版本（Worker 使用）
     pub async fn find_overdue_pending_tx(
         executor: &mut sqlx::postgres::PgConnection,
@@ -205,19 +192,6 @@ impl WorkflowTaskRepo {
         .execute(executor)
         .await?;
         Ok(result.rows_affected())
-    }
-
-    pub async fn find_remindable_pending(
-        pool: &PgPool,
-        limit: i64,
-    ) -> Result<Vec<WorkflowTask>> {
-        let rows = sqlx::query_as::<_, WorkflowTask>(
-            "SELECT id, instance_id, node_id, prev_task_id, assignee_id, status, action, timeout_action, due_at, remind_at, result, created_at, completed_at FROM workflow_tasks WHERE status = 'pending' AND remind_at < NOW() ORDER BY remind_at ASC LIMIT $1 FOR UPDATE SKIP LOCKED",
-        )
-        .bind(limit)
-        .fetch_all(pool)
-        .await?;
-        Ok(rows)
     }
 
     /// 事务内版本（Worker 使用）

@@ -179,12 +179,18 @@ impl ProductionBatchRepo {
                 param_idx += 1;
                 where_clauses.push(format!("pb.batch_no ILIKE ${param_idx}"));
             }
+        if let Some(won) = &filter.work_order_no
+            && !won.is_empty() {
+                param_idx += 1;
+                where_clauses.push(format!("wo.doc_number ILIKE ${param_idx}"));
+            }
 
         let where_sql = where_clauses.join(" AND ");
 
-        // Count query
+        // Count query（LEFT JOIN work_orders：work_order_no 筛选需要 wo.doc_number）
         let count_sql = format!(
-            "SELECT COUNT(*)::bigint FROM production_batches pb WHERE {where_sql}"
+            "SELECT COUNT(*)::bigint FROM production_batches pb \
+             LEFT JOIN work_orders wo ON wo.id = pb.work_order_id WHERE {where_sql}"
         );
         let mut count_query = sqlx::query_scalar::<sqlx::Postgres, i64>(sqlx::AssertSqlSafe(count_sql));
         if let Some(st) = filter.status {
@@ -193,6 +199,10 @@ impl ProductionBatchRepo {
         if let Some(kw) = &filter.keyword
             && !kw.is_empty() {
                 count_query = count_query.bind(format!("%{kw}%"));
+            }
+        if let Some(won) = &filter.work_order_no
+            && !won.is_empty() {
+                count_query = count_query.bind(format!("%{won}%"));
             }
         let total: i64 = count_query.fetch_one(&mut *executor).await?;
 
@@ -220,6 +230,10 @@ impl ProductionBatchRepo {
         if let Some(kw) = &filter.keyword
             && !kw.is_empty() {
                 data_query = data_query.bind(format!("%{kw}%"));
+            }
+        if let Some(won) = &filter.work_order_no
+            && !won.is_empty() {
+                data_query = data_query.bind(format!("%{won}%"));
             }
         data_query = data_query.bind(page_size as i64).bind(offset as i64);
         let items = data_query.fetch_all(&mut *executor).await?;

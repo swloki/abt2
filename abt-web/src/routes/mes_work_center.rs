@@ -28,6 +28,13 @@ pub struct WcReleaseDrawerPath {
     pub order_id: i64,
 }
 
+/// 工单详情 drawer body（工单 tab 工单号点击就地打开，只读详情）。
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/mes/work-center/orders/{order_id}/drawer")]
+pub struct WcOrderDrawerPath {
+    pub order_id: i64,
+}
+
 #[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/mes/work-center/orders/{order_id}/release")]
 pub struct WcReleasePath {
@@ -188,6 +195,7 @@ pub fn router() -> Router<AppState> {
             WcReleaseDrawerPath::PATH,
             get(mes_work_center::get_release_drawer),
         )
+        .route(WcOrderDrawerPath::PATH, get(mes_work_center::get_order_drawer))
         .route(WcReleasePath::PATH, post(mes_work_center::release_order))
         .route(WcSplitMultiPath::PATH, post(mes_work_center::split_multi))
         .route(WcCancelPath::PATH, post(mes_work_center::cancel_order))

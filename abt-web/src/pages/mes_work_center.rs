@@ -81,12 +81,12 @@ pub async fn get_work_center(_path: WcPath, ctx: RequestContext) -> Result<Html<
     Ok(Html(
         admin_page(
             is_htmx,
-            "生产作业中心",
+            "作业中心",
             &claims,
             "production",
             WcPath::PATH,
             "生产管理",
-            Some("生产作业中心"),
+            Some("作业中心"),
             content,
             &nav_filter,
         )
@@ -102,21 +102,27 @@ fn work_center_content(summary: &MesWorkCenterSummary) -> Markup {
     html! {
         div class="flex items-center justify-between mb-4 flex-wrap gap-4" {
             div {
-                h1 class="text-xl font-bold text-fg tracking-tight" { "生产作业中心" }
+                div class="flex items-center gap-2.5" {
+                    h1 class="text-xl font-bold text-fg tracking-tight" { "作业中心" }
+                    span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-accent-bg text-accent text-xs font-semibold" {
+                        span class="font-mono tabular-nums font-bold" { (summary.total()) }
+                        "待办"
+                    }
+                }
                 p class="text-sm text-muted mt-1" { "需求池 · 订单排期 · 工单 一屏处理，就地下达与报工" }
             }
-            a class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-sm border border-border text-sm text-fg-2 hover:bg-accent-bg hover:text-accent hover:border-accent transition-all no-underline cursor-pointer"
+            a class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-sm bg-accent text-accent-on text-sm font-medium no-underline cursor-pointer border-none hover:opacity-90 transition-all"
                 href=(crate::routes::mes_order::OrderCreatePath::PATH) {
                 (icon::plus_icon("w-3.5 h-3.5"))
                 "手动创建工单"
             }
         }
-        (render_anchor_nav(summary))
         (render_card_shell("wc-demand-card", WcDemandPath::PATH, "生产需求池", icon::globe_icon("w-[15px] h-[15px]"), Some((summary.pending_release, "danger")),
             Some(html! { (summary.pending_release) " 张待下达 · 销售订单驱动 · 就地「转化为工单」" })))
         (render_drawer_overlay("release-overlay", "release-drawer", "release-drawer-body", "下达工单", "w-[640px]"))
         (render_drawer_overlay("create-plan-overlay", "create-plan-drawer", "create-plan-drawer-body", "创建工单", "w-[680px]"))
         (render_drawer_overlay("batch-overlay", "batch-drawer", "batch-drawer-body", "批次处理", "w-[640px]"))
+        (render_drawer_overlay("order-overlay", "order-drawer", "order-drawer-body", "工单详情", "w-[720px]"))
         // 完工入库 modal 容器（slot）：GET 返回 modal_shell，innerHTML 进 slot；afterSettle 打开
         div id="batch-receipt-modal-slot"
             _="on 'htmx:afterSettle'[#batch-receipt-modal] add .is-open to #batch-receipt-modal\non keydown[event.key is 'Escape' and #batch-receipt-modal] from body remove .is-open from #batch-receipt-modal" {}
@@ -164,6 +170,9 @@ pub struct DemandCardParams {
     /// 批次 tab：批次状态（Pending/InProgress/Suspended/PendingReceipt/Completed/Cancelled）
     #[serde(default, deserialize_with = "empty_as_none")]
     pub batch_status: Option<String>,
+    /// 批次 tab：工单号模糊搜索（wo.doc_number ILIKE）
+    #[serde(default, deserialize_with = "empty_as_none")]
+    pub wo_no: Option<String>,
     /// 工单 tab：物料可用性（Available/Expected/Late/Unavailable）
     #[serde(default, deserialize_with = "empty_as_none")]
     pub availability: Option<String>,
@@ -200,19 +209,21 @@ pub async fn get_demand_card(
         return Ok(Html(
             admin_page(
                 false,
-                "生产作业中心",
+                "作业中心",
                 &claims,
                 "production",
                 WcPath::PATH,
                 "生产管理",
-                Some("生产作业中心"),
+                Some("作业中心"),
                 work_center_content(&summary),
                 &nav_filter,
             )
             .into_string(),
         ));
     }
-    let view = p.view.as_deref().unwrap_or("material");
+    let view = p.view.as_deref().unwrap_or("detail");
+    // 各 tab 的待处理总数（固定口径，不随筛选变；COUNT 轻量，card 每次刷新都查以保证 badge 实时）
+    let tab_counts = load_tab_counts(&state, &service_ctx, &mut conn).await;
 
     let body = if view == "orders" {
         // 工单 tab：status（生产中/已下达/已完工）是 DB 字段，直接读不实时算；分页 list
@@ -255,6 +266,7 @@ pub async fn get_demand_card(
                 BatchListFilter {
                     status,
                     keyword: p.keyword.clone(),
+                    work_order_no: p.wo_no.clone(),
                 },
                 page,
                 10,
@@ -312,7 +324,7 @@ pub async fn get_demand_card(
                 hx-vals=(serde_json::json!({ "view": view }).to_string())
                 hx-include="#wc-demand-filter-form"
                 hx-select="#wc-demand-card" hx-swap="outerHTML" {
-                (demand_filter_bar(view, &p))
+                (demand_filter_bar(view, &p, &tab_counts))
                 (body)
             }
         }
@@ -332,53 +344,101 @@ fn parse_date_filter(df: Option<&str>) -> (Option<NaiveDate>, Option<NaiveDate>)
     }
 }
 
+/// 各 tab 的待处理总数（固定口径，不随筛选变）。
+struct TabCounts {
+    detail: u64,   // 待处理需求（demand_status=1）
+    material: u64, // 待处理物料聚合数
+    orders: u64,   // 待下达工单（Draft + Planned）
+    batches: u64,  // 待开工批次（Pending）
+}
+
+/// 查各 tab 的待处理总数（COUNT 轻量；card 每次刷新都查，保证 badge 实时）。
+async fn load_tab_counts(
+    state: &crate::state::AppState,
+    ctx: &ServiceContext,
+    db: PgExecutor<'_>,
+) -> TabCounts {
+    use abt_core::mes::enums::BatchStatus;
+    let demand_svc = state.mes_demand_service();
+    let detail = demand_svc
+        .list_pending_demands(ctx, db, DemandPoolQuery { status: Some(1), ..Default::default() }, PageParams::new(1, 1))
+        .await.map(|r| r.total).unwrap_or(0);
+    let material = demand_svc
+        .list_material_aggregated(ctx, db, MaterialAggQuery::default(), PageParams::new(1, 1))
+        .await.map(|r| r.total).unwrap_or(0);
+    let orders = state
+        .mes_work_center_service()
+        .summary(ctx, db).await.map(|s| s.pending_release).unwrap_or(0);
+    let batches = state
+        .production_batch_service()
+        .list_batches(ctx, db, BatchListFilter { status: Some(BatchStatus::Pending), ..Default::default() }, 1, 1)
+        .await.map(|r| r.total).unwrap_or(0);
+    TabCounts { detail, material, orders, batches }
+}
+
+/// tab 标题后的待处理计数 badge（>0 才显示）。
+fn tab_badge(n: u64) -> Markup {
+    if n > 0 {
+        html! {
+            span class="ml-1 inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-accent text-accent-on text-[11px] font-bold font-mono tabular-nums leading-none" {
+                (n)
+            }
+        }
+    } else {
+        html! {}
+    }
+}
+
 /// 平铺 tab 栏 + 筛选表单（统一 hx-get WcDemandPath + hx-select #wc-demand-card）。
 /// - 第一行：底部下划线式平铺 tab（物料汇总[可合并]/订单行明细/工单/批次）
 /// - 第二行：筛选表单（mat/det：搜索+日期+排序；schedule：搜索+工作中心+状态+时间）
 fn demand_filter_bar(
     view: &str,
     p: &DemandCardParams,
+    counts: &TabCounts,
 ) -> Markup {
     let kw = p.keyword.as_deref().unwrap_or("");
     let df = p.date_filter.as_deref().unwrap_or("");
     let ss = p.sched_status.as_deref().unwrap_or("");
     let wos = p.wo_status.as_deref().unwrap_or("");
     let bs = p.batch_status.as_deref().unwrap_or("");
+    let wono = p.wo_no.as_deref().unwrap_or("");
     let avail = p.availability.as_deref().unwrap_or("");
     let sort = p.sort.as_deref().unwrap_or("");
     let placeholder = if view == "schedule" || view == "orders" {
-        "搜索工单号/产品"
+        "搜索工单号/产品/来源订单"
     } else if view == "batches" {
         "搜索流转卡/批次号"
     } else {
         "搜索物料/订单"
     };
     html! {
-        // 第一行：平铺 tab 栏（底部下划线：物料汇总/订单行明细/工单/批次）
+        // 第一行：平铺 tab 栏（底部下划线：订单行明细/物料汇总[可合并]/工单/批次）
         div class="flex items-center gap-1 flex-wrap px-5 pt-3 border-b border-border-soft" {
+            button class=(toggle_cls(view == "detail")) type="button"
+                hx-get=(WcDemandPath::PATH)
+                hx-vals="{\"view\":\"detail\"}"
+                hx-target="#wc-demand-card" hx-select="#wc-demand-card" hx-swap="outerHTML"
+                hx-include="#wc-demand-filter-form"
+                { (icon::rows_icon("w-4 h-4")) "订单行明细" (tab_badge(counts.detail)) }
             button class=(toggle_cls(view == "material")) type="button"
                 hx-get=(WcDemandPath::PATH)
                 hx-vals="{\"view\":\"material\"}"
                 hx-target="#wc-demand-card" hx-select="#wc-demand-card" hx-swap="outerHTML"
                 hx-include="#wc-demand-filter-form"
                 { (icon::grid_4_icon("w-4 h-4")) "物料汇总"
-                  span class="text-[10px] text-muted font-medium ml-0.5" { "可合并" } }
-            button class=(toggle_cls(view == "detail")) type="button"
-                hx-get=(WcDemandPath::PATH)
-                hx-vals="{\"view\":\"detail\"}"
-                hx-target="#wc-demand-card" hx-select="#wc-demand-card" hx-swap="outerHTML"
-                hx-include="#wc-demand-filter-form"
-                { (icon::rows_icon("w-4 h-4")) "订单行明细" }
+                  span class="text-[10px] text-muted font-medium ml-0.5" { "可合并" }
+                  (tab_badge(counts.material)) }
             button class=(toggle_cls(view == "orders")) type="button"
                 hx-get=(WcDemandPath::PATH) hx-vals="{\"view\":\"orders\"}"
                 hx-target="#wc-demand-card" hx-select="#wc-demand-card" hx-swap="outerHTML"
                 hx-include="#wc-demand-filter-form"
-                { (icon::package_icon("w-4 h-4")) "工单" }
+                { (icon::package_icon("w-4 h-4")) "工单" (tab_badge(counts.orders)) }
             button class=(toggle_cls(view == "batches")) type="button"
                 hx-get=(WcDemandPath::PATH) hx-vals="{\"view\":\"batches\"}"
                 hx-target="#wc-demand-card" hx-select="#wc-demand-card" hx-swap="outerHTML"
                 hx-include="#wc-demand-filter-form"
-                { (icon::box_icon("w-4 h-4")) "批次" }
+                { (icon::box_icon("w-4 h-4")) "批次" (tab_badge(counts.batches)) }
         }
         // 第二行：筛选表单（change / keyup 触发刷新）
         form class="flex items-center gap-2 flex-wrap px-5 py-3 border-b border-border-soft"
@@ -430,6 +490,13 @@ fn demand_filter_bar(
                     option value="Completed" selected[bs == "Completed"] { "已完工" }
                     option value="Cancelled" selected[bs == "Cancelled"] { "已取消" }
                 }
+                // 批次筛选：工单号
+                div class="relative" {
+                    (icon::search_icon("w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted"));
+                    input class="wc-search-input w-[250px] pl-8 pr-3 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent"
+                        type="text" name="wo_no" placeholder="搜索工单号"
+                        value=(wono);
+                }
             } @else {
                 select class="px-2 py-1.5 border border-border rounded-sm text-sm bg-white text-fg cursor-pointer"
                     name="date_filter" {
@@ -447,6 +514,15 @@ fn demand_filter_bar(
                     option value="demand_count" selected[sort == "demand_count"] { "按涉及订单数" }
                 }
             }
+            // 重置：清所有筛选回默认（只传 view，不带 keyword/status/date_filter 等）
+            button type="button" class="ml-auto inline-flex items-center gap-1 px-2.5 py-1.5 text-xs text-muted hover:text-fg hover:bg-surface rounded-sm border border-border cursor-pointer transition-all"
+                hx-get=(WcDemandPath::PATH)
+                hx-vals=(serde_json::json!({ "view": view }).to_string())
+                hx-target="#wc-demand-card" hx-select="#wc-demand-card" hx-swap="outerHTML"
+                _="on click halt the event" {
+                (icon::refresh_icon("w-3.5 h-3.5"))
+                "重置"
+            }
         }
         // 隐藏表单：tab 切换时携带所有筛选参数
         form id="wc-demand-filter-form" class="hidden" {
@@ -455,6 +531,7 @@ fn demand_filter_bar(
             input type="hidden" name="sched_status" value=(ss);
             input type="hidden" name="wo_status" value=(wos);
             input type="hidden" name="batch_status" value=(bs);
+            input type="hidden" name="wo_no" value=(wono);
             input type="hidden" name="availability" value=(avail);
             input type="hidden" name="sort" value=(sort);
         }
@@ -916,8 +993,13 @@ fn orders_row(
     let (slabel, stoken) = wo_status_meta(&w.status);
     html! {
         tr class="border-b border-border-soft hover:bg-accent-bg" {
-            // 工单号（纯文本，详情页已下线）
-            td class="py-2.5 px-5 font-mono tabular-nums text-accent font-medium" { (w.doc_number) }
+            // 工单号（点击 → 工单详情 drawer）
+            td class="py-2.5 px-5" {
+                button class="font-mono tabular-nums text-accent font-medium cursor-pointer hover:underline bg-transparent border-none p-0"
+                    hx-get=(WcOrderDrawerPath { order_id: w.id }.to_string())
+                    hx-target="#order-drawer-body" hx-swap="innerHTML"
+                    _="on click halt the event" { (w.doc_number.as_str()) }
+            }
             td class="py-2.5 px-3" {
                 div class="font-medium text-fg" { (pn) }
                 div class="text-xs text-muted" { (fmt_qty(w.planned_qty)) " 件" }
@@ -940,6 +1022,17 @@ fn orders_row(
                         _="on click halt the event" {
                         (icon::rocket_icon("w-3.5 h-3.5"))
                         "下达"
+                    }
+                }
+                // 批次（已下达）— 切到批次 tab 并按当前工单号筛选（钻取入口）
+                @if matches!(w.status, Released | InProduction | Closed) {
+                    button class="inline-flex items-center gap-1 px-2.5 py-1 rounded-sm border border-border text-xs font-medium text-fg cursor-pointer hover:bg-accent-bg hover:border-accent hover:text-accent transition-all ml-1.5"
+                        hx-get=(WcDemandPath::PATH)
+                        hx-vals=(serde_json::json!({ "view": "batches", "wo_no": w.doc_number }).to_string())
+                        hx-target="#wc-demand-card" hx-select="#wc-demand-card" hx-swap="outerHTML"
+                        _="on click halt the event" {
+                        (icon::box_icon("w-3.5 h-3.5"))
+                        "批次"
                     }
                 }
                 // 取消（非终态）— 作废：反向取消领料单 + 释放预留 + 需求回池；已完工不可取消
@@ -1010,8 +1103,16 @@ fn batch_row(b: &BatchListItem) -> Markup {
             td class="py-2.5 px-3" {
                 div class="font-medium text-fg" { (b.product_name.as_deref().unwrap_or("—")) }
             }
-            td class="py-2.5 px-3 font-mono text-xs text-accent" {
-                (b.wo_doc_number.as_deref().unwrap_or("—"))
+            td class="py-2.5 px-3" {
+                @if let Some(wn) = b.wo_doc_number.as_deref() {
+                    button class="text-accent text-xs font-mono cursor-pointer hover:underline bg-transparent border-none p-0"
+                        hx-get=(WcDemandPath::PATH)
+                        hx-vals=(serde_json::json!({ "view": "orders", "keyword": wn }).to_string())
+                        hx-target="#wc-demand-card" hx-select="#wc-demand-card" hx-swap="outerHTML"
+                        _="on click halt the event" { (wn) }
+                } @else {
+                    span class="text-muted text-xs font-mono" { "—" }
+                }
             }
             td class="py-2.5 px-3" {
                 div class="flex flex-col gap-[3px]" {
@@ -1711,6 +1812,149 @@ pub async fn get_release_drawer(
     } = ctx;
     let data = load_release_drawer_data(&state, &service_ctx, &mut conn, path.order_id).await?;
     Ok(Html(render_release_drawer_body(&data, None).into_string()))
+}
+
+/// 工单详情 drawer body（只读）：复用 load_release_drawer_data 全量数据 + 来源销售订单。
+#[require_permission("WORK_ORDER", "read")]
+pub async fn get_order_drawer(
+    path: WcOrderDrawerPath,
+    ctx: RequestContext,
+) -> Result<Html<String>> {
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let data = load_release_drawer_data(&state, &service_ctx, &mut conn, path.order_id).await?;
+    // 来源销售订单：sales_order_id 有值时取单号+客户名（工单从需求转化，需求来自 SO）
+    let source_so: Option<(i64, String, String)> = match data.order.sales_order_id {
+        Some(so_id) => match state
+            .sales_order_service()
+            .find_by_id(&service_ctx, &mut conn, so_id)
+            .await
+        {
+            Ok(o) => {
+                let customer_name = state
+                    .customer_service()
+                    .get_by_ids(&service_ctx, &mut conn, &[o.customer_id])
+                    .await
+                    .unwrap_or_default()
+                    .into_iter()
+                    .next()
+                    .map(|c| c.name)
+                    .unwrap_or_else(|| format!("#{}", o.customer_id));
+                Some((so_id, o.doc_number, customer_name))
+            }
+            Err(_) => None,
+        },
+        None => None,
+    };
+    Ok(Html(render_order_drawer_body(&data, source_so).into_string()))
+}
+
+/// 工单详情 drawer 渲染（只读）：头部摘要 / 来源+排程 / 工艺路线 / 物料 / 备注。
+/// 区块参考 ERPNext Work Order / Odoo MO 详情共识。
+fn render_order_drawer_body(
+    data: &ReleaseDrawerData,
+    source_so: Option<(i64, String, String)>,
+) -> Markup {
+    let order = &data.order;
+    let product_name = data.product_name.as_str();
+    let routings = data.routings.as_slice();
+    let wc_map = &data.wc_map;
+    let prod_map = &data.prod_map;
+    let level = data.level;
+    let headline = data.headline.as_deref();
+    let consumption_label = data.consumption_label.as_str();
+    let bom_name = data.bom_name.as_deref();
+    let bom_code = data.bom_code.as_deref();
+    let bom_id = data.bom_id;
+    let (slabel, stoken) = wo_status_meta(&order.status);
+    html! {
+        // ① 头部摘要
+        div class="mb-5 pb-4 border-b border-border-soft" {
+            div class="flex items-center gap-2 mb-1" {
+                span class="text-xs text-muted" { "工单" }
+                span class="font-mono font-semibold text-fg" { (order.doc_number.as_str()) }
+                span class=(format!("inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap bg-{stoken}-bg text-{stoken}")) {
+                    span class=(format!("inline-block w-1.5 h-1.5 rounded-full bg-{stoken}")) {}
+                    (slabel)
+                }
+            }
+            div class="text-sm text-fg mb-3" { (product_name) }
+            div class="grid grid-cols-3 gap-4 mb-3" {
+                div {
+                    div class="text-xs text-muted mb-1" { "计划量" }
+                    div class="text-sm font-mono font-semibold text-fg" { (fmt_qty(order.planned_qty)) }
+                }
+                div {
+                    div class="text-xs text-muted mb-1" { "已完成" }
+                    div class="text-sm font-mono font-semibold text-success" { (fmt_qty(order.completed_qty)) }
+                }
+                div {
+                    div class="text-xs text-muted mb-1" { "报废" }
+                    div class="text-sm font-mono font-semibold text-danger" { (fmt_qty(order.scrap_qty)) }
+                }
+            }
+            (wo_progress(order))
+        }
+
+        // ② 来源 + 排程
+        div class="mb-5 grid grid-cols-2 gap-x-6 gap-y-4 p-4 bg-surface-raised rounded-md text-sm" {
+            @if let Some((so_id, so_doc, customer)) = &source_so {
+                div {
+                    div class="text-xs text-muted mb-1" { "来源销售订单" }
+                    div class="flex items-center gap-1.5" {
+                        a class="text-accent font-medium cursor-pointer hover:underline"
+                            hx-get=(WcOrderDetailModalPath { order_id: *so_id }.to_string())
+                            hx-target="#wc-order-detail-slot" hx-swap="innerHTML"
+                            _="on click halt the event" { (so_doc.as_str()) }
+                        span class="text-muted text-xs" { (customer.as_str()) }
+                    }
+                }
+            }
+            div {
+                div class="text-xs text-muted mb-1" { "BOM" }
+                @match bom_id {
+                    Some(_) => {
+                        span class="text-fg-2" { (bom_name.unwrap_or("已发布")) }
+                    }
+                    None => {
+                        span class="text-danger" { "未发布 BOM" }
+                    }
+                }
+            }
+            div {
+                div class="text-xs text-muted mb-1" { "计划开工" }
+                div class="text-fg-2 font-mono" { (order.scheduled_start.format("%Y-%m-%d")) }
+            }
+            div {
+                div class="text-xs text-muted mb-1" { "计划完工" }
+                div class="text-fg-2 font-mono" { (order.scheduled_end.format("%Y-%m-%d")) }
+            }
+        }
+
+        // ③ 工艺路线（复用 release drawer 的只读工序表）
+        div class="mb-5" {
+            div class="text-sm font-semibold text-fg mb-2" { "工艺路线" }
+            (render_release_routings(routings, wc_map, prod_map, None))
+        }
+
+        // ④ 物料（齐套徽章 + 倒冲/领料模式 + BOM 编码）
+        div class="mb-5" {
+            div class="text-sm font-semibold text-fg mb-2" { "物料" }
+            div class="flex items-center gap-2 text-xs text-fg-2 bg-surface-raised rounded-sm px-3 py-2" {
+                (material_badge_mini(level, headline))
+                span { (consumption_label) "模式" }
+                @if let Some(code) = bom_code {
+                    span class="text-muted" { "· BOM 编码 " (code) }
+                }
+            }
+        }
+
+        // ⑤ 备注
+        @if !order.remark.is_empty() {
+            div class="p-3 bg-surface-raised rounded-sm text-xs text-fg-2" {
+                span class="text-muted" { "备注：" } (order.remark.as_str())
+            }
+        }
+    }
 }
 
 // ── 下达 drawer 渲染 ──
@@ -3160,18 +3404,6 @@ pub async fn batch_receipt(
 // =============================================================================
 
 /// 锚点条：待办总数 + 待下达 / 生产中 chip（点击锚定对应 card）。
-fn render_anchor_nav(summary: &MesWorkCenterSummary) -> Markup {
-    let total = summary.total();
-    html! {
-        div class="sticky top-0 z-20 flex items-center gap-4 p-3 mb-4 rounded-lg border border-border-soft bg-bg shadow-xs flex-wrap" {
-            div class="flex flex-col items-center pr-4 border-r border-border-soft shrink-0" {
-                span class="text-xl font-bold font-mono tabular-nums text-accent leading-tight" { (total) }
-                span class="text-xs text-muted font-medium" { "待办" }
-            }
-        }
-    }
-}
-
 /// Card 外壳：标题栏 + 占位 div（`hx-trigger="load"` 拉 card 端点内容替换）。
 ///
 /// 占位 div 的 `id` 与 card 端点返回的最外层 div 一致，懒加载与 card 内交互

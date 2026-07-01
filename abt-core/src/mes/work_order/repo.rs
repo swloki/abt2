@@ -126,7 +126,9 @@ impl WorkOrderRepo {
         }
         if filter.keyword.is_some() {
             param_idx += 1;
-            where_clauses.push(format!("wo.doc_number ILIKE ${param_idx}"));
+            // strpos(lower(...)) > 0 而非 ILIKE：PG 默认 collate 对中文子串匹配不稳定，
+            // strpos 按字节匹配中文 UTF-8 序列；两侧 lower() 保留大小写不敏感
+            where_clauses.push(format!("(strpos(lower(wo.doc_number), ${param_idx}) > 0 OR strpos(lower(p.pdt_name), ${param_idx}) > 0 OR strpos(lower(so.doc_number), ${param_idx}) > 0)"));
         }
         if filter.product_code.is_some() {
             param_idx += 1;
@@ -149,7 +151,7 @@ impl WorkOrderRepo {
         let limit_idx = param_idx + 1;
         let offset_idx = param_idx + 2;
 
-        let count_sql = format!("SELECT COUNT(*) as total FROM work_orders wo LEFT JOIN products p ON p.product_id = wo.product_id WHERE {where_sql}");
+        let count_sql = format!("SELECT COUNT(*) as total FROM work_orders wo LEFT JOIN products p ON p.product_id = wo.product_id LEFT JOIN sales_orders so ON so.id = wo.sales_order_id WHERE {where_sql}");
         let data_sql = format!(
             "SELECT wo.id, wo.doc_number, wo.plan_item_id, wo.product_id, wo.bom_snapshot_id, wo.routing_id, \
              wo.planned_qty, wo.scheduled_start, wo.scheduled_end, wo.status, wo.work_center_id, \
@@ -181,9 +183,9 @@ impl WorkOrderRepo {
             data_q = data_q.bind(v);
         }
         if let Some(ref v) = filter.keyword {
-            let pattern = format!("%{v}%");
-            count_q = count_q.bind(pattern.clone());
-            data_q = data_q.bind(pattern);
+            let needle = v.to_lowercase();
+            count_q = count_q.bind(needle.clone());
+            data_q = data_q.bind(needle);
         }
         if let Some(ref v) = filter.product_code {
             let pattern = format!("%{v}%");

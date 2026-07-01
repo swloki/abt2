@@ -118,6 +118,8 @@ pub struct StepConfirmationResult {
 pub struct BatchListFilter {
     pub status: Option<BatchStatus>,
     pub keyword: Option<String>,
+    /// 按工单号模糊筛选（wo.doc_number ILIKE）— 批次 tab 工单号搜索用
+    pub work_order_no: Option<String>,
 }
 
 #[derive(Debug, Clone, sqlx::FromRow)]

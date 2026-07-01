@@ -768,9 +768,7 @@ fn detail_row(item: &DemandSummary) -> Markup {
                         href=(format!("/admin/mes/plans/{}", doc_id))
                     { "PP-" (doc_id) }
                 } @else if doc_type == 10 {
-                    a   class="text-accent font-medium cursor-pointer"
-                        href=(format!("/admin/mes/orders/{}", doc_id))
-                    { "WO-" (doc_id) }
+                    span class="text-accent font-medium" { "WO-" (doc_id) }
                 } @else { "—" }
             } @else { "—" }
         }
@@ -790,9 +788,7 @@ fn detail_row(item: &DemandSummary) -> Markup {
                             href=(format!("/admin/mes/plans/{}", doc_id))
                         { "查看" }
                     } @else if doc_type == 10 {
-                        a   class="text-accent font-medium cursor-pointer"
-                            href=(format!("/admin/mes/orders/{}", doc_id))
-                        { "查看" }
+                        span class="text-accent font-medium" { "查看" }
                     } @else {
                         span class="text-muted" { "—" }
                     }

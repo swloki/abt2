@@ -1,87 +1,20 @@
-use axum::routing::{get, post};
+use axum::routing::get;
 use axum::Router;
 use axum_extra::routing::TypedPath;
 use serde::Deserialize;
 
-use crate::pages::{mes_order_list, mes_order_create, mes_order_detail};
+use crate::pages::mes_order_create;
 use crate::state::AppState;
 
 // ── Typed Paths ──
-
-#[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/mes/orders")]
-pub struct OrderListPath;
+//
+// 工单详情页与列表页已下线（MES 作业收口到 work-center）；
+// 本模块仅保留「手动创建工单」入口（无上游单据）+ 源单据搜索 API。
+// 工单级操作（下达/排程/反下达/关闭/取消/报工/领料/入库）均在 work-center 就地完成。
 
 #[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/mes/orders/create")]
 pub struct OrderCreatePath;
-
-
-#[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/mes/orders/{id}")]
-pub struct OrderDetailPath {
-    pub id: i64,
-}
-
-#[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/mes/orders/{order_id}/release")]
-pub struct OrderReleasePath {
-    pub order_id: i64,
-}
-
-#[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/mes/orders/{order_id}/close")]
-pub struct OrderClosePath {
-    pub order_id: i64,
-}
-
-#[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/mes/orders/{order_id}/cancel")]
-pub struct OrderCancelPath {
-    pub order_id: i64,
-}
-#[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/mes/orders/{order_id}/unrelease")]
-pub struct OrderUnreleasePath {
-    pub order_id: i64,
-}
-
-#[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/mes/orders/{order_id}/split")]
-pub struct OrderSplitPath {
-    pub order_id: i64,
-}
-
-#[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/mes/orders/{order_id}/report")]
-pub struct OrderReportPath {
-    pub order_id: i64,
-}
-
-#[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/mes/orders/{order_id}/schedule")]
-pub struct OrderSchedulePath {
-    pub order_id: i64,
-}
-
-#[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/mes/orders/{order_id}/requisition")]
-pub struct OrderRequisitionPath {
-    pub order_id: i64,
-}
-
-#[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/mes/orders/{order_id}/receipt")]
-pub struct OrderReceiptPath {
-    pub order_id: i64,
-}
-
-/// 行内展开：懒加载行详情 `<tr class="row-detail">`（列表页点展开按钮 hx-get）。
-#[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/mes/orders/{order_id}/row-detail")]
-pub struct OrderRowDetailPath {
-    pub order_id: i64,
-}
 
 #[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/api/mes/source-orders/search")]
@@ -91,22 +24,12 @@ pub struct SourceOrderSearchPath;
 
 pub fn router() -> Router<AppState> {
     Router::new()
-        .route(OrderListPath::PATH, get(mes_order_list::get_order_list))
         .route(
             OrderCreatePath::PATH,
             get(mes_order_create::get_order_create).post(mes_order_create::create_order),
         )
-
-        .route(OrderDetailPath::PATH, get(mes_order_detail::get_order_detail))
-        .route(OrderReleasePath::PATH, post(mes_order_detail::release_order))
-        .route(OrderClosePath::PATH, post(mes_order_detail::close_order))
-        .route(OrderCancelPath::PATH, post(mes_order_detail::cancel_order))
-        .route(OrderUnreleasePath::PATH, post(mes_order_detail::unrelease_order))
-        .route(OrderSplitPath::PATH, post(mes_order_detail::split_order))
-        .route(OrderReportPath::PATH, post(mes_order_detail::report_routing_step))
-        .route(OrderSchedulePath::PATH, post(mes_order_detail::schedule_order))
-        .route(OrderRequisitionPath::PATH, post(mes_order_detail::create_requisition))
-        .route(OrderReceiptPath::PATH, post(mes_order_detail::create_receipt))
-        .route(OrderRowDetailPath::PATH, get(mes_order_list::get_order_row_detail))
-        .route(SourceOrderSearchPath::PATH, get(mes_order_create::search_source_orders))
+        .route(
+            SourceOrderSearchPath::PATH,
+            get(mes_order_create::search_source_orders),
+        )
 }

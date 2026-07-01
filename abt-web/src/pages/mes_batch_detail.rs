@@ -1,4 +1,5 @@
 use axum::response::{Html, IntoResponse};
+use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
 use serde::Deserialize;
 
@@ -63,7 +64,7 @@ pub async fn get_batch_detail(path: BatchDetailPath, ctx: RequestContext) -> Res
  progress_list.iter().map(|p| (p.routing_id, p)).collect();
 
  let content = batch_detail_page(&batch, &product_name, &wo, &routings, &reports, &routing_map, &user_map, &creator_name, &progress_map);
- Ok(Html(admin_page(is_htmx, "批次详情", &claims, "production", &format!("/admin/mes/batches/{}", path.id), "生产管理", Some(&format!("/admin/mes/orders/{}", wo.id)), content, &nav_filter).into_string()))
+ Ok(Html(admin_page(is_htmx, "批次详情", &claims, "production", &format!("/admin/mes/batches/{}", path.id), "生产管理", None, content, &nav_filter).into_string()))
 }
 
 #[require_permission("WORK_ORDER", "update")]
@@ -184,11 +185,10 @@ fn batch_detail_page(
     div class="space-y-5" {
         // 工单上下文条
         a   class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150"
-            href=(format!("/admin/mes/orders/{}", wo.id))
+            href=(crate::routes::mes_work_center::WcPath::PATH)
         {
             (crate::components::icon::chevron_left_icon("w-4 h-4"))
-            "返回工单 "
-            span class="font-mono tabular-nums" { (wo.doc_number.as_str()) }
+            "返回作业中心"
         }
         div class="bg-bg border border-border-soft rounded-xl p-5" {
             div class="flex items-center justify-between mb-4" {
@@ -229,10 +229,8 @@ fn batch_detail_page(
             div class="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-3" {
                 div class="flex flex-col gap-0.5" {
                     span class="text-xs text-muted" { "工单" }
-                    span class="text-sm text-fg font-medium" {
-                        a   href=(format!("/admin/mes/orders/{}", wo.id))
-                            class="text-accent font-medium cursor-pointer"
-                        { (wo.doc_number) }
+                    span class="text-sm text-fg font-medium text-accent" {
+                        (wo.doc_number)
                     }
                 }
                 div class="flex flex-col gap-0.5" {

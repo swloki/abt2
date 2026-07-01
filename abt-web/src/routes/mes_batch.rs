@@ -3,7 +3,7 @@ use axum::Router;
 use axum_extra::routing::TypedPath;
 use serde::Deserialize;
 
-use crate::pages::{mes_batch_detail, mes_card_query, mes_schedule_board};
+use crate::pages::{mes_batch_detail, mes_card_query};
 use crate::state::AppState;
 
 // ── Typed Paths ──
@@ -52,10 +52,6 @@ pub struct CardQueryPath;
 #[typed_path("/admin/mes/cards/search")]
 pub struct CardQuerySearchPath;
 
-#[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/mes/schedule")]
-pub struct ScheduleBoardPath;
-
 // ── Router ──
 
 pub fn router() -> Router<AppState> {
@@ -68,5 +64,4 @@ pub fn router() -> Router<AppState> {
         .route(BatchScrapPath::PATH, post(mes_batch_detail::scrap_batch))
         .route(CardQueryPath::PATH, get(mes_card_query::get_card_query))
         .route(CardQuerySearchPath::PATH, get(mes_card_query::search_card))
-        .route(ScheduleBoardPath::PATH, get(mes_schedule_board::get_schedule_board))
 }

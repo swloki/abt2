@@ -103,16 +103,9 @@ fn exception_detail_page(
                 }
                 div class="flex flex-col gap-1" {
                     label { "关联工单" }
-                    span class="font-mono tabular-nums" {
+                    span class="font-mono tabular-nums text-accent font-medium" {
                         @if let Some(ref wo) = lookups.wo_doc_number {
-                            a   href=({
-                                    format!(
-                                        "/admin/mes/orders/{}",
-                                        exc.work_order_id.unwrap_or(0),
-                                    )
-                                })
-                                class="text-accent font-medium cursor-pointer"
-                            { (wo) }
+                            (wo)
                         } @else { "—" }
                     }
                 }

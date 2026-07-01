@@ -14,7 +14,8 @@ use crate::components::overlay::modal_shell;
 use crate::components::product_picker;
 use crate::errors::Result;
 use crate::layout::page::admin_page;
-use crate::routes::mes_order::{OrderCreatePath, OrderListPath, SourceOrderSearchPath};
+use crate::routes::mes_order::{OrderCreatePath, SourceOrderSearchPath};
+use crate::routes::mes_work_center::WcPath;
 use crate::utils::RequestContext;
 use abt_macros::require_permission;
 
@@ -53,7 +54,7 @@ pub async fn get_order_create(
  .await
  .unwrap_or_default();
  let content = order_create_page(&work_centers);
- Ok(Html(admin_page(is_htmx, "新建工单", &claims, "production", OrderCreatePath::PATH, "生产管理", Some(OrderListPath::PATH), content, &nav_filter).into_string()))
+ Ok(Html(admin_page(is_htmx, "新建工单", &claims, "production", OrderCreatePath::PATH, "生产管理", Some(WcPath::PATH), content, &nav_filter).into_string()))
 }
 
 #[require_permission("WORK_ORDER", "create")]
@@ -100,7 +101,7 @@ pub async fn create_order(
  let _id = svc.create(&service_ctx, &mut tx, req).await?;
  tx.commit().await
      .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
- Ok(axum::response::Response::builder().header("HX-Redirect", OrderListPath::PATH).body(axum::body::Body::empty()).unwrap())
+ Ok(axum::response::Response::builder().header("HX-Redirect", WcPath::PATH).body(axum::body::Body::empty()).unwrap())
 }
 async fn resolve_source(
  _state: &crate::state::AppState,
@@ -150,7 +151,7 @@ fn order_create_page(work_centers: &[abt_core::master_data::work_center::WorkCen
     div {
         // ── Back Link ──
         a   class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150 mb-4"
-            href=(format!("{}?restore=true", OrderListPath::PATH))
+            href=(WcPath::PATH)
         { (icon::chevron_left_icon("w-4 h-4")) "返回工单列表" }
         // ── Page Header ──
         div class="flex items-center justify-between mb-5" {
@@ -285,7 +286,7 @@ fn order_create_page(work_centers: &[abt_core::master_data::work_center::WorkCen
                 div {}
                 div class="flex gap-3" {
                     a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
-                        href=(format!("{}?restore=true", OrderListPath::PATH))
+                        href=(WcPath::PATH)
                     { "取消" }
                     button
                         type="submit"

@@ -63,14 +63,6 @@ pub struct WorkOrderFilter {
     pub work_center_id: Option<i64>,
 }
 
-/// 排程结果（工序级排程，对标 Odoo _plan_workorders）
-#[derive(Debug, Clone, Default, serde::Serialize)]
-pub struct ScheduleResult {
-    pub scheduled_items: usize,
-    pub bookings_created: usize,
-    pub warnings: Vec<String>,
-}
-
 // ============================================================================
 // 工单工作台聚合视图（WorkOrderHubSummary）
 // ============================================================================

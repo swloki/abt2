@@ -15,7 +15,7 @@ use abt_core::wms::inventory_transaction::InventoryTransactionService;
 use abt_core::wms::inventory::InventoryService;
 use abt_core::mes::work_order::WorkOrderService;
 use abt_core::wms::inventory_transaction::model::RecordTransactionReq;
-use abt_core::wms::stock_in::{PoStockInRow, PurchaseStockInService, ReceiveAndStockInReq};
+use abt_core::wms::picking::{model::{PoReceiveRow, ReceivePurchaseReq}, PickingService};
 use abt_core::wms::enums::TransactionType;
 use abt_core::master_data::product::ProductService;
 use abt_core::shared::types::{context::ServiceContext, DomainError, PageParams, PgExecutor};
@@ -694,12 +694,12 @@ async fn handle_purchase_stock_in(
 
  // 2. 每个 PO：调 PurchaseStockInService 直收入库闭环（record→回写PO received_qty/状态→立应付→成本）。
  //    幂等由上层 create_stock_in 的 try_claim(form.idempotency_key) 保证，service 内传 None 跳过。
- let svc = state.purchase_stock_in_service();
+ let svc = state.picking_service();
  for (po_id, items) in &groups {
-  let po_rows: Vec<PoStockInRow> = items
+  let po_rows: Vec<PoReceiveRow> = items
    .iter()
-   .map(|it| -> Result<PoStockInRow> {
-    Ok(PoStockInRow {
+   .map(|it| -> Result<PoReceiveRow> {
+    Ok(PoReceiveRow {
      order_item_id: 0, // service 内按 product_id 解析（stock-in/create 多 PO 前端只传 product_id）
      product_id: it.product_id.parse().map_err(|_| DomainError::validation("无效产品ID"))?,
      received_qty: it.quantity.parse().map_err(|_| DomainError::validation("无效数量"))?,
@@ -714,10 +714,10 @@ async fn handle_purchase_stock_in(
    })
    .collect::<Result<Vec<_>>>()?;
 
-  svc.receive_and_stock_in(
+  svc.receive_purchase(
    ctx,
    db,
-   ReceiveAndStockInReq {
+   ReceivePurchaseReq {
     po_id: *po_id,
     rows: po_rows,
     delivery_note: form.delivery_no.clone(),

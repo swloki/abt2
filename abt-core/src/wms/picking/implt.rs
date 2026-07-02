@@ -1305,4 +1305,172 @@ impl PickingService for PickingServiceImpl {
             .await?;
         Ok(())
     }
+
+    async fn receive_purchase(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        req: super::model::ReceivePurchaseReq,
+    ) -> Result<i64> {
+        use crate::purchase::order::repo::{PurchaseOrderItemRepo, PurchaseOrderRepo};
+        use crate::purchase::settings::repo::PurchaseSettingsRepo;
+        use crate::purchase::settings::model::PurchaseSettings;
+        use crate::purchase::enums::PurchaseOrderStatus;
+        use crate::fms::ar_ap::repo::{ArApLedgerInsert, ArApLedgerRepo};
+        use crate::fms::ar_ap::enums::LedgerDirection;
+        use crate::fms::enums::CounterpartyType;
+        use crate::shared::idempotency::{new_idempotency_service, service::IdempotencyService};
+        use crate::shared::cost_entry::{model::EntryRequest, new_cost_entry_service, service::CostEntryService};
+        use crate::shared::enums::{CostEntityType, CostType};
+        use crate::wms::warehouse::{new_warehouse_service, service::WarehouseService};
+
+        if req.rows.is_empty() {
+            return Err(DomainError::validation("请至少添加一行收货明细"));
+        }
+        // 1. 幂等防护
+        if let Some(key) = req.idempotency_key.as_deref()
+            && !key.is_empty()
+            && !new_idempotency_service(self.pool.clone()).try_claim(ctx, db, key).await?
+        {
+            return Ok(0);
+        }
+        // 2. 读 PO + 明细 + 超收容差设置
+        let po = PurchaseOrderRepo::get_by_id(db, req.po_id).await?
+            .ok_or_else(|| DomainError::not_found(format!("PurchaseOrder #{}", req.po_id)))?;
+        let po_items = PurchaseOrderItemRepo::list_by_order_id(db, req.po_id).await?;
+        let settings = PurchaseSettingsRepo::get(db).await.unwrap_or_else(|_| PurchaseSettings::default());
+
+        let doc_number = new_document_sequence_service(self.pool.clone())
+            .next_number(ctx, db, DocumentType::StockReceipt).await?;
+        let inv_svc = new_inventory_transaction_service(self.pool.clone());
+        let wh_svc = new_warehouse_service(self.pool.clone());
+        let prod_to_oi: std::collections::HashMap<i64, i64> =
+            po_items.iter().map(|i| (i.product_id, i.id)).collect();
+
+        // 建 IncomingPurchase picking（头仓 = 首行仓；行级 source_item_id=order_item_id）
+        let first_wh = req.rows.first().map(|r| r.warehouse_id);
+        let item_reqs: Vec<CreatePickingItemReq> = req.rows.iter().map(|r| CreatePickingItemReq {
+            product_id: r.product_id, batch_no: r.batch_no.clone(), qty_requested: r.received_qty,
+            from_bin_id: r.bin_id, to_bin_id: r.bin_id, operation_id: None, batch_id: None,
+            source_item_id: Some(r.order_item_id), remark: None,
+        }).collect();
+        let picking_req = CreatePickingReq {
+            picking_type: PickingType::IncomingPurchase,
+            source_type: Some("purchase_order".into()),
+            source_id: Some(req.po_id),
+            partner_id: Some(po.supplier_id),
+            from_warehouse_id: first_wh,
+            from_zone_id: None, from_bin_id: None,
+            to_warehouse_id: first_wh, to_zone_id: None, to_bin_id: None,
+            scheduled_date: None, work_order_id: None,
+            remark: req.remark.clone(), items: item_reqs,
+        };
+        let picking = PickingRepo::insert(&mut *db, &doc_number, &picking_req, ctx.operator_id).await?;
+
+        // 3. 逐行：超收校验 → record PurchaseReceipt 流水 → PO received_qty 累加
+        for row in &req.rows {
+            let order_item_id = if row.order_item_id != 0 {
+                row.order_item_id
+            } else {
+                *prod_to_oi.get(&row.product_id).ok_or_else(|| {
+                    DomainError::validation(format!("收货行产品 {} 不属于采购订单 #{}", row.product_id, req.po_id))
+                })?
+            };
+            let item = po_items.iter().find(|i| i.id == order_item_id).ok_or_else(|| {
+                DomainError::validation(format!("收货行 order_item_id={} 不属于采购订单 #{}", order_item_id, req.po_id))
+            })?;
+            let max_qty = item.quantity
+                * (Decimal::ONE + settings.over_delivery_allowance_pct / Decimal::from(100));
+            if item.received_qty + row.received_qty > max_qty {
+                return Err(DomainError::validation(format!(
+                    "订单行 {} 收货数量超过允许上限 {}（含 {}% 容差）",
+                    item.line_no, max_qty, settings.over_delivery_allowance_pct
+                )));
+            }
+            let zone_id = wh_svc.get_or_create_default_zone(ctx, db, row.warehouse_id).await.ok().map(|z| z.id);
+            let default_bin_id = if let Some(zid) = zone_id {
+                wh_svc.list_bins(ctx, db, zid, None, 1, 1).await.ok().and_then(|r| r.items.first().map(|b| b.id))
+            } else { None };
+            inv_svc.record(ctx, db, RecordTransactionReq {
+                doc_number: Some(doc_number.clone()),
+                delivery_no: req.delivery_note.clone(),
+                source_doc_number: Some(po.doc_number.clone()),
+                transaction_type: TransactionType::PurchaseReceipt,
+                product_id: row.product_id,
+                warehouse_id: row.warehouse_id,
+                zone_id,
+                bin_id: row.bin_id.or(default_bin_id),
+                batch_no: row.batch_no.clone(),
+                quantity: row.received_qty,
+                unit_cost: None,
+                source_type: "stock_picking".to_string(),
+                source_id: picking.id,
+                remark: req.remark.clone(),
+            }).await?;
+            PurchaseOrderItemRepo::add_received_qty(db, order_item_id, row.received_qty).await?;
+        }
+
+        // 4. PO 状态流转
+        let po_items_after = PurchaseOrderItemRepo::list_by_order_id(db, req.po_id).await?;
+        let all_received = po_items_after.iter().all(|i| i.received_qty >= i.quantity);
+        let any_received = po_items_after.iter().any(|i| i.received_qty > Decimal::ZERO);
+        let target_status = if all_received {
+            PurchaseOrderStatus::Received
+        } else if any_received {
+            PurchaseOrderStatus::PartiallyReceived
+        } else {
+            return Ok(picking.id);
+        };
+        if po.status != PurchaseOrderStatus::Received && po.status != target_status {
+            let affected = PurchaseOrderRepo::update_status(db, req.po_id, target_status, &po.updated_at).await?;
+            if affected == 0 {
+                return Err(DomainError::ConcurrentConflict);
+            }
+            new_audit_log_service(self.pool.clone())
+                .record(ctx, db, RecordAuditLogReq {
+                    entity_type: "PurchaseOrder", entity_id: req.po_id, action: AuditAction::Transition,
+                    changes: Some(serde_json::json!({
+                        "from": format!("{:?}", po.status), "to": format!("{:?}", target_status),
+                        "trigger": "PickingReceivePurchase",
+                    })),
+                    context: None,
+                }).await?;
+        }
+
+        // 5. 立应付（PO 维度 upsert + rewrite）
+        let ap_amount: Decimal = po_items_after.iter().map(|i| i.received_qty * i.unit_price).sum();
+        if ap_amount > Decimal::ZERO {
+            let period = chrono::Utc::now().format("%Y-%m").to_string();
+            let today = chrono::Local::now().date_naive();
+            let doc_no = po.doc_number.clone();
+            let desc = format!("采购入库 {doc_no}");
+            let inserted = ArApLedgerRepo::insert(db, &ArApLedgerInsert {
+                party_type: CounterpartyType::Supplier, party_id: po.supplier_id,
+                source_type: DocumentType::PurchaseOrder, source_id: req.po_id, source_doc_no: &doc_no,
+                against_type: None, against_id: None, direction: LedgerDirection::Credit,
+                amount: ap_amount, currency: "CNY", exchange_rate: Decimal::ONE,
+                transaction_date: today, due_date: None, period: &period, description: &desc,
+                operator_id: ctx.operator_id,
+            }).await?;
+            if inserted.is_none() {
+                ArApLedgerRepo::rewrite_amount_by_source(db, DocumentType::PurchaseOrder, req.po_id, ap_amount).await?;
+            }
+        }
+
+        // 6. 成本分录
+        let total_received: Decimal = req.rows.iter().map(|r| r.received_qty).sum();
+        if total_received > Decimal::ZERO {
+            let period = chrono::Local::now().format("%Y-%m").to_string();
+            new_cost_entry_service(self.pool.clone())
+                .create_entries(ctx, db, vec![EntryRequest {
+                    entity_type: CostEntityType::PurchaseOrder, entity_id: req.po_id,
+                    cost_type: CostType::Material, debit_amount: total_received, credit_amount: total_received,
+                    cost_center: None, profit_center: None, period,
+                    source_type: DocumentType::PurchaseOrder, source_id: req.po_id,
+                }]).await?;
+        }
+
+        PickingRepo::set_done(&mut *db, picking.id).await?;
+        Ok(picking.id)
+    }
 }

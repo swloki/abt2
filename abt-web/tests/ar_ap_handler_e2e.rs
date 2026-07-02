@@ -154,7 +154,7 @@ async fn k1_sales_ship_to_ar_ledger() {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  k2 采购到财务：采购订单 → PO 直收入库（receive_and_stock_in）→ AP 台账（Credit 应付）
+//  k2 采购到财务：采购订单 → PO 直收入库（receive_purchase）→ AP 台账（Credit 应付）
 // ════════════════════════════════════════════════════════════════════════════
 
 #[tokio::test]
@@ -177,10 +177,10 @@ async fn k2_purchase_arrival_to_ap_ledger() {
     let order_item_id = po_items_rows[0].id;
     drop(conn);
 
-    use abt_core::wms::stock_in::{PoStockInRow, PurchaseStockInService, ReceiveAndStockInReq};
-    let req = ReceiveAndStockInReq {
+    use abt_core::wms::picking::{model::{PoReceiveRow, ReceivePurchaseReq}, PickingService};
+    let req = ReceivePurchaseReq {
         po_id,
-        rows: vec![PoStockInRow {
+        rows: vec![PoReceiveRow {
             order_item_id, product_id: PRODUCT, received_qty: Decimal::from(20),
             batch_no: None, warehouse_id: WH, bin_id: Some(BIN),
         }],
@@ -188,19 +188,19 @@ async fn k2_purchase_arrival_to_ap_ledger() {
         idempotency_key: Some(format!("test-k2-{po_id}")),
     };
     let mut tx = app.state.pool.begin().await.unwrap();
-    app.state.purchase_stock_in_service().receive_and_stock_in(&ctx, &mut tx, req).await.expect("receive FAIL");
+    app.state.picking_service().receive_purchase(&ctx, &mut tx, req).await.expect("receive FAIL");
     tx.commit().await.unwrap();
 
     // 3) 验证 AP 台账（PurchaseOrder Credit，金额 40 = 20 × 2.00）
     let ledger = ledger_by_source(&app, DocumentType::PurchaseOrder, po_id).await
-        .expect("❌ receive_and_stock_in 未生成 AP 台账");
+        .expect("❌ receive_purchase 未生成 AP 台账");
     assert_eq!(ledger.party_id, SUPPLIER_ID);
     assert_eq!(ledger.direction, abt_core::fms::ar_ap::enums::LedgerDirection::Credit);
     assert_eq!(ledger.amount, Decimal::from(40)); // 20 × 2.00
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  k8 采购 PO 直收入库（取消来料通知后）：PO → receive_and_stock_in → 入库/回写PO/立应付/成本
+//  k8 采购 PO 直收入库（取消来料通知后）：PO → receive_purchase → 入库/回写PO/立应付/成本
 // ════════════════════════════════════════════════════════════════════════════
 
 #[tokio::test]
@@ -224,10 +224,10 @@ async fn k8_purchase_po_direct_stock_in() {
     drop(conn);
 
     // 3) 直接调 PurchaseStockInService（test handle，事务包裹）—— PO 直收入库闭环
-    use abt_core::wms::stock_in::{PoStockInRow, PurchaseStockInService, ReceiveAndStockInReq};
-    let req = ReceiveAndStockInReq {
+    use abt_core::wms::picking::{model::{PoReceiveRow, ReceivePurchaseReq}, PickingService};
+    let req = ReceivePurchaseReq {
         po_id,
-        rows: vec![PoStockInRow {
+        rows: vec![PoReceiveRow {
             order_item_id,
             product_id: PRODUCT,
             received_qty: Decimal::from(20),
@@ -240,10 +240,10 @@ async fn k8_purchase_po_direct_stock_in() {
         idempotency_key: Some(format!("test-k8-{po_id}")),
     };
     let mut tx = app.state.pool.begin().await.unwrap();
-    app.state.purchase_stock_in_service()
-        .receive_and_stock_in(&ctx, &mut tx, req)
+    app.state.picking_service()
+        .receive_purchase(&ctx, &mut tx, req)
         .await
-        .expect("receive_and_stock_in FAIL");
+        .expect("receive_purchase FAIL");
     tx.commit().await.unwrap();
 
     // 4) 验证 PO received_qty 回写 + 状态流转 Received
@@ -267,7 +267,7 @@ async fn k8_purchase_po_direct_stock_in() {
 
     // 6) 验证 AP 台账（PurchaseOrder Credit，金额 = 20 × 2.00 = 40）
     let ledger = ledger_by_source(&app, DocumentType::PurchaseOrder, po_id).await
-        .expect("❌ receive_and_stock_in 未生成 AP 台账");
+        .expect("❌ receive_purchase 未生成 AP 台账");
     assert_eq!(ledger.party_id, SUPPLIER_ID);
     assert_eq!(ledger.direction, abt_core::fms::ar_ap::enums::LedgerDirection::Credit);
     assert_eq!(ledger.amount, Decimal::from(40));
@@ -343,10 +343,10 @@ async fn k4_purchase_return_settled_reverses_ap_ledger() {
         .await.unwrap();
     let po_item_id = po_items_rows[0].id;
 
-    use abt_core::wms::stock_in::{PoStockInRow, PurchaseStockInService, ReceiveAndStockInReq};
-    let req = ReceiveAndStockInReq {
+    use abt_core::wms::picking::{model::{PoReceiveRow, ReceivePurchaseReq}, PickingService};
+    let req = ReceivePurchaseReq {
         po_id,
-        rows: vec![PoStockInRow {
+        rows: vec![PoReceiveRow {
             order_item_id: po_item_id, product_id: PRODUCT, received_qty: Decimal::from(10),
             batch_no: None, warehouse_id: WH, bin_id: Some(BIN),
         }],
@@ -354,7 +354,7 @@ async fn k4_purchase_return_settled_reverses_ap_ledger() {
         idempotency_key: Some(format!("test-k4-{po_id}")),
     };
     let mut tx = app.state.pool.begin().await.unwrap();
-    app.state.purchase_stock_in_service().receive_and_stock_in(&ctx, &mut tx, req).await.expect("receive FAIL");
+    app.state.picking_service().receive_purchase(&ctx, &mut tx, req).await.expect("receive FAIL");
     tx.commit().await.unwrap();
 
     use abt_core::shared::event_bus::registry::EventHandler;

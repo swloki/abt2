@@ -30,7 +30,7 @@ use crate::components::icon;
 use crate::components::overlay::{drawer_shell, modal_shell};
 use crate::components::pagination::pagination;
 use crate::components::tabs::{status_tabs_with_oob, TabItem};
-use abt_core::wms::stock_in::{PoStockInRow, PurchaseStockInService, ReceiveAndStockInReq};
+use abt_core::wms::picking::model::{PoReceiveRow, ReceivePurchaseReq};
 use abt_core::wms::inventory_transaction::{model::RecordTransactionReq, InventoryTransactionService};
 use abt_core::mes::work_order::WorkOrderService;
 use crate::errors::Result;
@@ -1400,13 +1400,13 @@ async fn dispatch_action(
 ) -> Result<()> {
     match form.action.as_str() {
         "receive_po" => {
-            // 采购 PO 直收入库闭环（取消来料通知后）：receive_and_stock_in 事务内
+            // 采购 PO 直收入库闭环（取消来料通知后）：receive_purchase 事务内
             // record 库存 + 回写 PO received_qty/状态 + 立应付 + 成本。幂等由 service 内 try_claim。
             let rows: Vec<ReceiveRowJson> = parse_items_json(form)?;
-            let po_rows: Vec<PoStockInRow> = rows
+            let po_rows: Vec<PoReceiveRow> = rows
                 .into_iter()
-                .map(|r| -> Result<PoStockInRow> {
-                    Ok(PoStockInRow {
+                .map(|r| -> Result<PoReceiveRow> {
+                    Ok(PoReceiveRow {
                         order_item_id: r
                             .order_item_id
                             .as_deref()
@@ -1435,11 +1435,11 @@ async fn dispatch_action(
                 })
                 .collect::<Result<Vec<_>>>()?;
             state
-                .purchase_stock_in_service()
-                .receive_and_stock_in(
+                .picking_service()
+                .receive_purchase(
                     ctx,
                     db,
-                    ReceiveAndStockInReq {
+                    ReceivePurchaseReq {
                         po_id: form.id,
                         rows: po_rows,
                         delivery_note: None,

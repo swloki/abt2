@@ -235,12 +235,6 @@ impl AppState {
         abt_core::wms::inventory_transaction::new_inventory_transaction_service(self.pool.clone())
     }
 
-    pub fn purchase_stock_in_service(
-        &self,
-    ) -> impl abt_core::wms::stock_in::PurchaseStockInService {
-        abt_core::wms::stock_in::new_purchase_stock_in_service(self.pool.clone())
-    }
-
     pub fn picking_service(&self) -> impl abt_core::wms::picking::PickingService {
         abt_core::wms::picking::new_picking_service(self.pool.clone())
     }

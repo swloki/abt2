@@ -106,6 +106,26 @@ pub struct PcPaymentApproveDrawerPath {
     pub id: i64,
 }
 
+// ── 详情 drawer GET（就地查看 + 状态操作，对标 MES order-overlay）──
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/purchase/work-center/orders/{id}/detail-drawer")]
+pub struct PcPoDetailDrawerPath {
+    pub id: i64,
+}
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/purchase/work-center/returns/{id}/detail-drawer")]
+pub struct PcReturnDetailDrawerPath {
+    pub id: i64,
+}
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/purchase/work-center/quotations/{id}/detail-drawer")]
+pub struct PcQuotationDetailDrawerPath {
+    pub id: i64,
+}
+
 // ── 写操作 POST（事务包裹，HX-Trigger 广播）──
 
 #[derive(TypedPath, Deserialize, Clone)]
@@ -129,6 +149,63 @@ pub struct PcReconConfirmPath {
 #[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/purchase/work-center/payments/{id}/approve")]
 pub struct PcPaymentApprovePath {
+    pub id: i64,
+}
+
+// ── 详情 drawer 内写操作 POST（事务包裹，HX-Trigger 广播）──
+// PO：Draft 编辑/提交/确认/取消；退货：确认/取消；报价：生效/取消/转PO
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/purchase/work-center/orders/{id}/update")]
+pub struct PcPoUpdatePath {
+    pub id: i64,
+}
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/purchase/work-center/orders/{id}/submit")]
+pub struct PcPoSubmitPath {
+    pub id: i64,
+}
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/purchase/work-center/orders/{id}/confirm")]
+pub struct PcPoConfirmPath {
+    pub id: i64,
+}
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/purchase/work-center/orders/{id}/cancel")]
+pub struct PcPoCancelPath {
+    pub id: i64,
+}
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/purchase/work-center/returns/{id}/confirm")]
+pub struct PcReturnConfirmPath {
+    pub id: i64,
+}
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/purchase/work-center/returns/{id}/cancel")]
+pub struct PcReturnCancelPath {
+    pub id: i64,
+}
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/purchase/work-center/quotations/{id}/activate")]
+pub struct PcQuotationActivatePath {
+    pub id: i64,
+}
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/purchase/work-center/quotations/{id}/cancel")]
+pub struct PcQuotationCancelPath {
+    pub id: i64,
+}
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/purchase/work-center/quotations/{id}/to-po")]
+pub struct PcQuotationToPoPath {
     pub id: i64,
 }
 
@@ -199,6 +276,18 @@ pub fn router() -> Router<AppState> {
             get(purchase_work_center::get_payment_approve_drawer),
         )
         .route(
+            PcPoDetailDrawerPath::PATH,
+            get(purchase_work_center::get_po_detail_drawer),
+        )
+        .route(
+            PcReturnDetailDrawerPath::PATH,
+            get(purchase_work_center::get_return_detail_drawer),
+        )
+        .route(
+            PcQuotationDetailDrawerPath::PATH,
+            get(purchase_work_center::get_quotation_detail_drawer),
+        )
+        .route(
             PcOrderApprovePath::PATH,
             post(purchase_work_center::approve_order),
         )
@@ -213,5 +302,41 @@ pub fn router() -> Router<AppState> {
         .route(
             PcPaymentApprovePath::PATH,
             post(purchase_work_center::approve_payment),
+        )
+        .route(
+            PcPoUpdatePath::PATH,
+            post(purchase_work_center::update_po),
+        )
+        .route(
+            PcPoSubmitPath::PATH,
+            post(purchase_work_center::submit_po),
+        )
+        .route(
+            PcPoConfirmPath::PATH,
+            post(purchase_work_center::confirm_po),
+        )
+        .route(
+            PcPoCancelPath::PATH,
+            post(purchase_work_center::cancel_po),
+        )
+        .route(
+            PcReturnConfirmPath::PATH,
+            post(purchase_work_center::confirm_return),
+        )
+        .route(
+            PcReturnCancelPath::PATH,
+            post(purchase_work_center::cancel_return),
+        )
+        .route(
+            PcQuotationActivatePath::PATH,
+            post(purchase_work_center::activate_quotation),
+        )
+        .route(
+            PcQuotationCancelPath::PATH,
+            post(purchase_work_center::cancel_quotation),
+        )
+        .route(
+            PcQuotationToPoPath::PATH,
+            post(purchase_work_center::quotation_to_po),
         )
 }

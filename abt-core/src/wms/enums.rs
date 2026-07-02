@@ -234,3 +234,35 @@ define_wms_enum!(LowStockAlertStatus {
     Active = 1,
     Acknowledged = 2,
 });
+
+// -- Stock Picking（统一库存作业单据，Issue #146）--
+// picking_type: 区分 5 类业务（方向 + 来源），不消灭业务差异
+define_wms_enum!(PickingType {
+    IncomingPurchase = 1,   // 采购收货（source = purchase_order）
+    IncomingWorkOrder = 2,  // 生产入库（source = work_order）
+    OutgoingSales = 3,      // 销售发货（source = sales_order）
+    InternalTransfer = 4,   // 库存调拨（仓 → 仓）
+    InternalIssue = 5,      // 生产领料（仓 → 工单/工序）
+});
+
+// 统一状态机（4 态，决策点 1 默认：不加 Assigned 预留态）
+// 业务子流程（拣货中/部分发料/在途）用行级 qty_done + 关联子单表达，不新增状态
+define_wms_enum!(PickingStatus {
+    Draft = 1,
+    Confirmed = 2,
+    Done = 3,
+    Cancelled = 4,
+});
+
+impl PickingType {
+    /// 单据号前缀（决策点 4 倾向：按 type 前缀便于人工识别）
+    pub fn doc_prefix(&self) -> &'static str {
+        match self {
+            Self::IncomingPurchase => "RK",
+            Self::IncomingWorkOrder => "SCRK",
+            Self::OutgoingSales => "CK",
+            Self::InternalTransfer => "DB",
+            Self::InternalIssue => "LL",
+        }
+    }
+}

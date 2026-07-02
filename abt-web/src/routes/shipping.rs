@@ -48,18 +48,6 @@ pub struct ConfirmShippingPath {
 }
 
 #[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/wms/shipping/{id}/pick")]
-pub struct PickShippingPath {
-    pub id: i64,
-}
-
-#[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/wms/shipping/{id}/ship")]
-pub struct ShipShippingPath {
-    pub id: i64,
-}
-
-#[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/wms/shipping/{id}/cancel")]
 pub struct CancelShippingPath {
     pub id: i64,
@@ -94,8 +82,6 @@ pub fn router() -> Router<AppState> {
         .route(ShippingCustomerContactsPath::PATH, get(shipping_create::get_customer_contacts))
         .route(ShippingOrderSearchPath::PATH, get(shipping_create::get_order_search))
         .route(ConfirmShippingPath::PATH, post(shipping_detail::confirm_shipping))
-        .route(PickShippingPath::PATH, post(shipping_detail::pick_shipping))
-        .route(ShipShippingPath::PATH, post(shipping_detail::ship_shipping))
         .route(CancelShippingPath::PATH, post(shipping_detail::cancel_shipping))
         .route(ShippingFragmentPath::PATH, get(shipping_detail::get_shipping_fragment))
         // 旧路径 /admin/shipping/* → /admin/wms/shipping/* 重定向（服务旧书签）

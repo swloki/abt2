@@ -11,13 +11,12 @@ use abt_core::wms::picking::{
 };
 use abt_core::wms::outbound::model::{ShippingQuery, ShippingRequest, ShippingStatus};
 use abt_core::wms::outbound::ShippingRequestService;
-use abt_core::wms::pick_list::{model::PickItemInput, PickListService};
 use abt_core::wms::cycle_count::model::{CycleCount, CycleCountFilter, CycleCountItem};
 use abt_core::wms::cycle_count::CycleCountService;
 use abt_core::wms::warehouse::model::{Warehouse, WarehouseFilter};
 use abt_core::wms::warehouse::WarehouseService;
 use abt_core::wms::work_center::model::{
-    OutboundStage, PendingTask, PendingTaskFilter, TaskSourceKind, Urgency, WorkCenterDomain,
+    PendingTask, PendingTaskFilter, TaskSourceKind, Urgency, WorkCenterDomain,
     WorkCenterSummary,
 };
 use abt_core::wms::work_center::WorkCenterService;
@@ -25,7 +24,6 @@ use abt_core::shared::document_sequence::DocumentSequenceService;
 use abt_core::purchase::order::PurchaseOrderService;
 use abt_core::shared::enums::DocumentType;
 use abt_core::wms::enums::TransactionType;
-use abt_core::master_data::customer::CustomerService;
 use abt_core::master_data::product::ProductService;
 use rust_decimal::Decimal;
 use std::collections::HashMap;
@@ -72,7 +70,7 @@ pub struct WorkCenterQuery {
 /// tab 主体每页条数
 const DOMAIN_PAGE_SIZE: u32 = 20;
 
-/// 就地操作提交：action 决定分发，id 目标单据，items_json（收货/拣货行级明细，JSON 字符串）。
+/// 就地操作提交：action 决定分发，id 目标单据，items_json（收货/发料行级明细，JSON 字符串）。
 /// idempotency_key 仅收货入库用（防双击重复入库），其他 action 不传 = None。
 #[derive(Debug, Deserialize)]
 pub struct WorkCenterActionForm {
@@ -156,8 +154,8 @@ fn domain_count(s: &WorkCenterSummary, d: WorkCenterDomain) -> u64 {
 fn action_domain(action: &str) -> Result<WorkCenterDomain> {
     Ok(match action {
         "receive_po" | "receive_wo" => WorkCenterDomain::Arrival,
-        // 拣货操作现在发生在待出库 tab（Picking 阶段就地录入），操作后刷新 Outbound
-        "pick" | "ship" | "batch_ship" | "direct_ship" => WorkCenterDomain::Outbound,
+        // 发货操作（待出库 tab），操作后刷新 Outbound
+        "batch_ship" | "direct_ship" => WorkCenterDomain::Outbound,
         "confirm" | "cancel" | "issue" => WorkCenterDomain::Requisition,
         "transfer_cancel" | "dispatch" | "complete" => WorkCenterDomain::Transfer,
         "cc_start" | "cc_complete" | "cc_cancel" | "cc_adjust" | "cc_approve" | "cc_reject" => {
@@ -1518,39 +1516,13 @@ async fn dispatch_action(
                     .await?;
             }
         }
-        "pick" => {
-            let rows: Vec<PickRowJson> = parse_items_json(form)?;
-            let items: Vec<PickItemInput> = rows
-                .into_iter()
-                .map(|r| -> Result<PickItemInput> {
-                    Ok(PickItemInput {
-                        pick_list_item_id: r
-                            .pick_list_item_id
-                            .parse::<i64>()
-                            .map_err(|e| DomainError::validation(format!("拣货行解析失败: {e}")))?,
-                        picked_qty: r
-                            .picked_qty
-                            .parse::<Decimal>()
-                            .map_err(|e| DomainError::validation(format!("拣货数量解析失败: {e}")))?,
-                        warehouse_id: parse_opt_i64(&r.warehouse_id, "拣货仓库")?,
-                        bin_id: parse_opt_i64(&r.bin_id, "拣货库位")?,
-                    })
-                })
-                .collect::<Result<Vec<_>>>()?;
-            let svc = state.pick_list_service();
-            svc.record_pick_items(ctx, db, form.id, items).await?;
-            svc.complete_pick(ctx, db, form.id).await?;
-        }
-        "ship" => {
-            state.shipping_service().ship(ctx, db, form.id).await?;
-        }
         "direct_ship" => {
-            // 直接发（未拣 Confirmed 单，跳过拣货）：仓库由选仓 drawer 传入
+            // 直接发（Confirmed 待发货单）：仓库由选仓 drawer 传入
             let warehouse_id = parse_warehouse(form)?;
             state.shipping_service().direct_ship(ctx, db, form.id, warehouse_id, None).await?;
         }
         "batch_ship" => {
-            // 批量直接发（待出库未拣单）：循环 direct_ship，外层 tx 任一失败 → 整体回滚
+            // 批量直接发（待发货单）：循环 direct_ship，外层 tx 任一失败 → 整体回滚
             let ids = parse_ids(form)?;
             if ids.is_empty() {
                 return Err(DomainError::validation("未选择待发货单").into());
@@ -1641,7 +1613,7 @@ fn parse_items_json<T: serde::de::DeserializeOwned>(form: &WorkCenterActionForm)
         .map_err(|e| DomainError::validation(format!("明细解析失败: {e}")))?)
 }
 
-/// 可选整型解析：None / 空串 → None；否则 parse。用于拣货仓库/库位（wcCollectItems 收的是字符串）。
+/// 可选整型解析：None / 空串 → None；否则 parse。用于发料仓库/库位（wcCollectItems 收的是字符串）。
 fn parse_opt_i64(s: &Option<String>, label: &str) -> Result<Option<i64>> {
     match s {
         None => Ok(None),
@@ -1663,15 +1635,6 @@ struct ReceiveRowJson {
     product_id: String,
     received_qty: String,
     batch_no: Option<String>,
-    warehouse_id: Option<String>,
-    bin_id: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-struct PickRowJson {
-    pick_list_item_id: String,
-    picked_qty: String,
-    /// 拣货定仓库（master：拣货选仓库/库位）；空 = 不指定
     warehouse_id: Option<String>,
     bin_id: Option<String>,
 }
@@ -2006,9 +1969,7 @@ fn render_task_row(t: &PendingTask, domain: WorkCenterDomain) -> Markup {
         tr class=(format!("border-b border-border-soft last:border-b-0 {row_bg}")) {
             @if domain == WorkCenterDomain::Outbound {
                 td class="py-3 px-3" {
-                    @if t.outbound_stage == Some(OutboundStage::Unpicked) {
-                        input type="checkbox" class="wc-ship-cb" value=(t.doc_id) {};
-                    }
+                    input type="checkbox" class="wc-ship-cb" value=(t.doc_id) {};
                 }
             }
             td class="py-3 px-3 text-sm font-mono text-accent font-semibold" {
@@ -2029,14 +1990,6 @@ fn render_task_row(t: &PendingTask, domain: WorkCenterDomain) -> Markup {
             }
             td class="py-3 px-3 text-sm text-fg-2" { (t.counterparty) }
             td class="py-3 px-3 text-sm text-muted" {
-                @if domain == WorkCenterDomain::Outbound {
-                    @if let Some(stage) = t.outbound_stage {
-                        @let (slabel, scls) = stage_meta(stage);
-                        span class=(format!("inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium mr-1.5 {scls}")) {
-                            (slabel)
-                        }
-                    }
-                }
                 (t.summary)
             }
             td class="py-3 px-3 text-sm font-mono text-muted" { (received) }
@@ -2050,15 +2003,6 @@ fn render_task_row(t: &PendingTask, domain: WorkCenterDomain) -> Markup {
                 (render_row_action(t))
             }
         }
-    }
-}
-
-/// 出库阶段标签 + 染色（待出库队列行内阶段 chip）
-fn stage_meta(s: OutboundStage) -> (&'static str, &'static str) {
-    match s {
-        OutboundStage::Unpicked => ("未拣", "bg-surface text-muted"),
-        OutboundStage::Picking => ("拣货中", "bg-warn-bg text-warn"),
-        OutboundStage::ReadyToShip => ("待发货", "bg-accent-bg text-accent"),
     }
 }
 
@@ -2103,8 +2047,8 @@ fn wc_batch_bar(warehouses: &[Warehouse]) -> Markup {
     }
 }
 
-/// 行内操作入口：收货/拣货/发货/发料/调拨 → hx-get 加载 drawer body；未拣/盘点 → 跳详情页。
-/// Outbound（待出库）按 OutboundStage 分发：Unpicked→跳详情开始拣货、Picking→就地录入拣货、ReadyToShip→就地发货。
+/// 行内操作入口：收货/发货/发料/调拨 → hx-get 加载 drawer body；盘点 → 跳详情页。
+/// Outbound（待发货）：选仓 drawer 直接发货（拣货已移除，Confirmed→Shipped）。
 fn render_row_action(t: &PendingTask) -> Markup {
     let open_hs =
         "on 'htmx:afterRequest'[detail.xhr.status<400] add .open to #wc-drawer-overlay";
@@ -2113,20 +2057,10 @@ fn render_row_action(t: &PendingTask) -> Markup {
             TaskSourceKind::PurchaseOrder => drawer_btn("收货", "receive_po", t.doc_id, icon::truck_icon("w-3 h-3"), open_hs),
             TaskSourceKind::WorkOrder => drawer_btn("入库", "receive_wo", t.doc_id, icon::package_icon("w-3 h-3"), open_hs),
         },
-        WorkCenterDomain::Outbound => match t.outbound_stage {
-            // 已生成拣货单：就地录入拣货（drawer hidden id = pick_list_id）
-            Some(OutboundStage::Picking) => match t.pick_list_id {
-                Some(pl_id) => drawer_btn("录入拣货", "pick", pl_id, icon::plus_icon("w-3 h-3"), open_hs),
-                // 异常防御：Picking 却查不到 pick_list_id，跳详情
-                None => render_jump_action("去拣货", &ShippingDetailPath { id: t.doc_id }.to_string()),
-            },
-            // 拣货完成：就地发货（drawer hidden id = shipping_id = doc_id）
-            Some(OutboundStage::ReadyToShip) => {
-                drawer_btn("发货", "ship", t.doc_id, icon::upload_icon("w-3 h-3"), open_hs)
-            }
-            // Unpicked（Confirmed，未拣货）：直接发货（选仓 drawer，跳过拣货）
-            _ => drawer_btn("直接发货", "direct_ship", t.doc_id, icon::upload_icon("w-3 h-3"), open_hs),
-        },
+        WorkCenterDomain::Outbound => {
+            // 待发货（Confirmed）：选仓 drawer 直接发货（拣货已移除）
+            drawer_btn("直接发货", "direct_ship", t.doc_id, icon::upload_icon("w-3 h-3"), open_hs)
+        }
         WorkCenterDomain::Requisition => {
             drawer_btn("发料", "issue", t.doc_id, icon::clipboard_list_icon("w-3 h-3"), open_hs)
         }
@@ -2190,9 +2124,7 @@ async fn render_drawer_body(action: &str, id: i64, view: Option<&str>, ctx: Requ
     let body = match action {
         "receive_po" => po_receive_drawer_body(&state, &service_ctx, &mut conn, id).await?,
         "receive_wo" => wo_receive_drawer_body(&state, &service_ctx, &mut conn, id).await?,
-        "pick" => pick_drawer_body(&state, &service_ctx, &mut conn, id).await?,
         "direct_ship" => direct_ship_drawer_body(&state, &service_ctx, &mut conn, id).await?,
-        "ship" => ship_drawer_body(&state, &service_ctx, &mut conn, id).await?,
         "issue" => issue_drawer_body(&state, &service_ctx, &mut conn, id).await?,
         "req_detail" => req_detail_drawer_body(&state, &service_ctx, &mut conn, id, view).await?,
         "transfer_detail" => transfer_detail_drawer_body(&state, &service_ctx, &mut conn, id, view).await?,
@@ -2239,7 +2171,7 @@ fn drawer_form(
     }
 }
 
-/// drawer 非操作态（未拣货 / 部分发料）：标题栏 + 警示 + 跳详情链接
+/// drawer 非操作态（部分发料等不可操作状态）：标题栏 + 警示 + 跳详情链接
 fn drawer_message(
     title: &str,
     doc_label: &str,
@@ -2503,96 +2435,6 @@ async fn wo_receive_drawer_body(
     ))
 }
 
-async fn pick_drawer_body(
-    state: &AppState,
-    ctx: &ServiceContext,
-    db: PgExecutor<'_>,
-    id: i64,
-) -> Result<Markup> {
-    let svc = state.pick_list_service();
-    let pl = svc.find_by_id(ctx, db, id).await?;
-    let items = svc.list_items(ctx, db, id).await.unwrap_or_default();
-    // 拣货定仓库（master）：列出仓库供每行选择 + 可选库位
-    let warehouses = state
-        .warehouse_service()
-        .list(ctx, db, WarehouseFilter::default(), 1, 200)
-        .await
-        .map(|r| r.items)
-        .unwrap_or_default();
-    let product_map: HashMap<i64, abt_core::master_data::product::model::Product> = state
-        .product_service()
-        .get_by_ids(ctx, db, items.iter().map(|i| i.product_id).collect())
-        .await
-        .unwrap_or_default()
-        .into_iter()
-        .map(|p| (p.product_id, p))
-        .collect();
-
-    let mut rows = html! {};
-    for (idx, it) in items.iter().enumerate() {
-        rows = html! {
-            (rows)
-            tr class="border-b border-border-soft" data-row {
-                td class="py-2 px-2 text-sm text-fg" {
-                    div class="truncate" {
-                        (product_map.get(&it.product_id).map(|p| p.pdt_name.clone()).unwrap_or_else(|| format!("产品 #{}", it.product_id)))
-                    }
-                    div class="text-xs text-muted truncate" {
-                        (product_map.get(&it.product_id).map(|p| p.product_code.clone()).unwrap_or_default())
-                    }
-                }
-                td class="py-2 px-2 text-sm font-mono text-right" { (fmt_qty(it.requested_qty)) }
-                td class="py-2 px-2" {
-                    select data-k="warehouse_id" name=(format!("items[{idx}][warehouse_id]"))
-                        class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-bg mb-1" {
-                        option value="" { "选择仓库" }
-                        @for w in &warehouses {
-                            option value=(w.id) { (w.name) }
-                        }
-                    }
-                    input type="number" data-k="bin_id" name=(format!("items[{idx}][bin_id]")) placeholder="库位ID 可选"
-                        class="w-full px-3 py-2 border border-border rounded-sm text-sm bg-bg";
-                }
-                td class="py-2 px-2 text-right" {
-                    input type="hidden" data-k="pick_list_item_id" name=(format!("items[{idx}][pick_list_item_id]")) value=(it.id);
-                    input type="number" data-k="picked_qty" name=(format!("items[{idx}][picked_qty]"))
-                        value=(fmt_qty(it.picked_qty)) min="0" step="any"
-                        class="w-24 px-3 py-2 border border-border rounded-sm text-sm font-mono text-right bg-bg";
-                }
-            }
-        };
-    }
-
-    let inner = html! {
-        input type="hidden" name="items_json" value="[]";
-        div class="mb-4" {
-            span class="text-xs text-muted font-medium" { "拣货单 " }
-            span class="text-sm font-mono font-semibold text-fg" { (pl.doc_number) }
-        }
-        table class="w-full border-collapse" {
-            thead {
-                tr {
-                    th class="text-left text-xs font-semibold text-muted py-2 px-2 border-b border-border-soft" { "产品" }
-                    th class="text-right text-xs font-semibold text-muted py-2 px-2 border-b border-border-soft" { "申请" }
-                    th class="text-left text-xs font-semibold text-muted py-2 px-2 border-b border-border-soft" { "仓库 / 库位" }
-                    th class="text-right text-xs font-semibold text-muted py-2 px-2 border-b border-border-soft" { "本次拣货" }
-                }
-            }
-            tbody { (rows) }
-        }
-        (drawer_footer("确认拣货"))
-    };
-    Ok(drawer_form(
-        "录入拣货",
-        "pick",
-        id,
-        WorkCenterDomain::Outbound,
-        "确认拣货？",
-        "wcCollectItems(this)",
-        inner,
-    ))
-}
-
 async fn direct_ship_drawer_body(
     state: &AppState,
     ctx: &ServiceContext,
@@ -2600,13 +2442,13 @@ async fn direct_ship_drawer_body(
     id: i64,
 ) -> Result<Markup> {
     let s = state.shipping_service().find_by_id(ctx, db, id).await?;
-    // 直接发仅对未拣（Confirmed）单；其他状态引导走对应路径
+    // 仅 Confirmed（待发货）单可直发；其他状态引导走详情
     if s.status != ShippingStatus::Confirmed {
         return Ok(drawer_message(
-            "直接发货",
+            "发货",
             "发货单",
             &s.doc_number,
-            "该单不在「未拣」状态，无法直接发出。拣货中的请用「确认发出」。",
+            "该单不在待发货状态，无法直接发出。",
             &ShippingDetailPath { id }.to_string(),
             "去详情页",
         ));
@@ -2674,138 +2516,6 @@ async fn direct_ship_drawer_body(
         id,
         WorkCenterDomain::Outbound,
         "确认直接发出？将从所选仓库扣库存并立应收",
-        "",
-        inner,
-    ))
-}
-
-async fn ship_drawer_body(
-    state: &AppState,
-    ctx: &ServiceContext,
-    db: PgExecutor<'_>,
-    id: i64,
-) -> Result<Markup> {
-    let s = state.shipping_service().find_by_id(ctx, db, id).await?;
-    if s.status != ShippingStatus::Picking {
-        // Confirmed 等未拣货：不能直接 ship，跳详情
-        return Ok(drawer_message(
-            "未拣货",
-            "发货单",
-            &s.doc_number,
-            "该单尚未拣货，无法直接发出。请先完成拣货。",
-            &ShippingDetailPath { id }.to_string(),
-            "去详情页拣货",
-        ));
-    }
-
-    let items = state.shipping_service().list_items(ctx, db, id).await.unwrap_or_default();
-    let product_map: HashMap<i64, abt_core::master_data::product::model::Product> = state
-        .product_service()
-        .get_by_ids(ctx, db, items.iter().map(|i| i.product_id).collect())
-        .await
-        .unwrap_or_default()
-        .into_iter()
-        .map(|p| (p.product_id, p))
-        .collect();
-    let customer = state.customer_service().get(ctx, db, s.customer_id).await.ok();
-    // 拣货明细：shipping_item.id → (warehouse_id, bin_id, picked_qty)，ship 扣库存即用此仓库/库位
-    let pick_svc = state.pick_list_service();
-    let mut pick_map: HashMap<i64, (Option<i64>, Option<i64>, Decimal)> = HashMap::new();
-    if let Ok(Some(pl)) = pick_svc.find_by_outbound(ctx, db, id).await
-        && let Ok(pick_items) = pick_svc.list_items(ctx, db, pl.id).await
-    {
-        for p in pick_items {
-            pick_map.insert(p.outbound_item_id, (p.warehouse_id, p.bin_id, p.picked_qty));
-        }
-    }
-    let warehouses = state
-        .warehouse_service()
-        .list(ctx, db, WarehouseFilter::default(), 1, 200)
-        .await
-        .map(|r| r.items)
-        .unwrap_or_default();
-    let total_qty: Decimal = items.iter().map(|i| i.requested_qty).sum();
-
-    let mut rows = html! {};
-    for it in &items {
-        let prod = product_map.get(&it.product_id);
-        let prod_name = prod
-            .map(|p| p.pdt_name.clone())
-            .unwrap_or_else(|| format!("产品 #{}", it.product_id));
-        let prod_code = prod.map(|p| p.product_code.clone()).unwrap_or_default();
-        let (pwh, pbin, ppicked) = pick_map
-            .get(&it.id)
-            .cloned()
-            .unwrap_or((None, None, Decimal::ZERO));
-        let wh_label = match pwh {
-            Some(w) => warehouses
-                .iter()
-                .find(|x| x.id == w)
-                .map(|x| x.name.clone())
-                .unwrap_or_else(|| format!("#{w}")),
-            None => "—".to_string(),
-        };
-        rows = html! {
-            (rows)
-            div class="border-b border-border-soft py-3" {
-                div class="flex items-start justify-between mb-1 gap-2" {
-                    div class="min-w-0" {
-                        div class="text-sm text-fg font-medium truncate" { (prod_name) }
-                        div class="text-xs text-muted truncate" { (prod_code) }
-                    }
-                    span class="text-xs text-muted shrink-0 mt-0.5" { "本次 " (fmt_qty(it.requested_qty)) }
-                }
-                div class="text-xs text-muted flex items-center gap-3 flex-wrap" {
-                    span { "申请 " (fmt_qty(it.requested_qty)) }
-                    span { "已发 " (fmt_qty(it.shipped_qty)) }
-                    @if ppicked > Decimal::ZERO {
-                        span { "已拣 " (fmt_qty(ppicked)) }
-                    }
-                }
-                div class="text-xs text-fg-2 mt-1 flex items-center gap-1" {
-                    (icon::package_icon("w-3 h-3"))
-                    "拣货仓 " (wh_label)
-                    @if let Some(b) = pbin { " · 库位 #" (b) }
-                }
-            }
-        };
-    }
-
-    let inner = html! {
-        div class="mb-3 flex items-baseline gap-2 flex-wrap" {
-            span class="text-xs text-muted font-medium" { "发货单 " }
-            span class="text-sm font-mono font-semibold text-fg" { (s.doc_number) }
-        }
-        div class="mb-4 grid grid-cols-2 gap-3 text-xs" {
-            div {
-                span class="text-muted" { "客户 " }
-                span class="text-fg-2" { (customer.as_ref().map(|c| c.name.as_str()).unwrap_or("—")) }
-            }
-            div {
-                span class="text-muted" { "预计发货 " }
-                span class="text-fg-2 font-mono" {
-                    (s.expected_ship_date.map(|d| d.format("%Y-%m-%d").to_string()).unwrap_or_else(|| "—".into()))
-                }
-            }
-        }
-        div class="mb-4 p-3 rounded-sm bg-warn-bg border border-warn/30" {
-            p class="text-xs text-warn font-medium leading-relaxed" {
-                "确认发出将按拣货仓库扣减库存、立应收账款并回写销售订单。"
-            }
-        }
-        (rows)
-        div class="mt-3 flex items-center justify-between text-xs text-muted" {
-            span { "共 " (items.len()) " 项" }
-            span class="font-mono" { "本次发出合计 " (fmt_qty(total_qty)) }
-        }
-        (drawer_footer("确认发出"))
-    };
-    Ok(drawer_form(
-        "确认发出",
-        "ship",
-        id,
-        WorkCenterDomain::Outbound,
-        "确认已发出？将扣减库存并立应收",
         "",
         inner,
     ))

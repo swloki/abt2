@@ -58,18 +58,6 @@ pub enum WorkCenterDomain {
     CycleCount,
 }
 
-/// 出库流阶段（仅 Outbound domain 有意义；2026-07 合并待拣货/待发货后新增，
-/// 驱动待出库队列的就地动作分发）。对应 `outbound.pick()` → `complete_pick` → `ship` 生命周期：
-/// - `Unpicked`：发货单 Confirmed，尚未生成拣货单
-/// - `Picking`：已生成拣货单（Draft），拣货录入中
-/// - `ReadyToShip`：拣货完成（PickList Picked），待发出
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum OutboundStage {
-    Unpicked,
-    Picking,
-    ReadyToShip,
-}
-
 /// 待办紧急度（驱动锚点条染色 + 队列排序）
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Urgency {
@@ -91,7 +79,7 @@ pub enum TaskSourceKind {
 
 /// 跨域统一待办视图
 ///
-/// 各域实体（PurchaseOrder / WorkOrder / PickList / ShippingRequest / ...）在 WorkCenterServiceImpl
+/// 各域实体（PurchaseOrder / WorkOrder / ShippingRequest / ...）在 WorkCenterServiceImpl
 /// 内映射成此结构，供前端作业中心 disclosure 队列统一渲染。
 /// 跳转路径由前端按 `domain` + `doc_id` 拼接（分层：abt-core 不硬编码前端 URL）。
 #[derive(Debug, Clone)]
@@ -110,10 +98,6 @@ pub struct PendingTask {
     /// 收到时间（单据 created_at，进入待办的时刻）
     pub received_at: Option<DateTime<Utc>>,
     pub urgency: Urgency,
-    /// 出库阶段（仅 Outbound domain 有意义；其他 domain None）。2026-07 合并待拣货/待发货后新增
-    pub outbound_stage: Option<OutboundStage>,
-    /// 拣货单 ID（仅 Outbound domain 的 Picking/ReadyToShip 阶段有意义，驱动就地拣货 drawer）
-    pub pick_list_id: Option<i64>,
 }
 
 /// 待办队列过滤条件（`list_pending` 用；过滤下推到 `WorkCenterRepo` SQL）。

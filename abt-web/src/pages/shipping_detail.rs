@@ -9,8 +9,6 @@ use abt_core::master_data::product::ProductService;
 use abt_core::sales::sales_order::SalesOrderService;
 use abt_core::wms::outbound::model::*;
 use abt_core::wms::outbound::ShippingRequestService;
-use abt_core::wms::pick_list::PickListService;
-use abt_core::wms::pick_list::model::{PickList, PickListItem, PickListStatus};
 use abt_core::wms::inventory_transaction::model::InventoryTransaction;
 use abt_core::shared::types::pagination::{PageParams, PaginatedResult};
 use abt_core::shared::identity::UserService;
@@ -107,8 +105,7 @@ pub async fn get_shipping_detail(
      .hub_summary(&service_ctx, &mut conn, path.id)
      .await
      .unwrap_or(ShippingHubSummary {
-         pending_pick_qty: rust_decimal::Decimal::ZERO,
-         picked_qty: rust_decimal::Decimal::ZERO,
+         pending_ship_qty: rust_decimal::Decimal::ZERO,
          shipped_qty: rust_decimal::Decimal::ZERO,
          shortage: None,
      });
@@ -142,47 +139,6 @@ pub async fn confirm_shipping(
 }
 
 #[require_permission("SHIPPING", "update")]
-pub async fn pick_shipping(
- path: PickShippingPath,
- ctx: RequestContext,
-) -> Result<impl IntoResponse> {
- let RequestContext { state, service_ctx, .. } = ctx;
-
- // pick 是多步写（状态机 + status + 审计），事务包裹防半失败残留
- let mut tx = state.pool.begin().await
-     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
- let svc = state.shipping_service();
- svc.pick(&service_ctx, &mut tx, path.id).await?;
- tx.commit().await
-     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
-
- let redirect = ShippingDetailPath { id: path.id }.to_string();
- Ok(([("HX-Redirect", redirect)], Html(String::new())))
-}
-
-#[require_permission("SHIPPING", "update")]
-pub async fn ship_shipping(
- path: ShipShippingPath,
- ctx: RequestContext,
-) -> Result<impl IntoResponse> {
- let RequestContext { state, service_ctx, .. } = ctx;
-
- // ship 是多步写：改 shipped_qty → 释放预留 → 出库(SalesShipment) → COGS → AR立账 → 状态机。
- // 必须事务包裹：半失败时整体回滚，避免「数量已提交但库存/AR/状态未动」的残留
- // （事故案例 SO-2026-06-000170 / SR-2026-06-000043：product_id=0 触发出库预检报错，
- // 已提交的 shipped_qty 无法回滚，发货单卡在 Picking 却显示已发数量）
- let mut tx = state.pool.begin().await
-     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
- let svc = state.shipping_service();
- svc.ship(&service_ctx, &mut tx, path.id).await?;
- tx.commit().await
-     .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
-
- let redirect = ShippingDetailPath { id: path.id }.to_string();
- Ok(([("HX-Redirect", redirect)], Html(String::new())))
-}
-
-#[require_permission("SHIPPING", "update")]
 pub async fn cancel_shipping(
  path: CancelShippingPath,
  ctx: RequestContext,
@@ -207,7 +163,6 @@ fn workflow_steps(current: ShippingStatus) -> Markup {
  let steps: &[(&str, ShippingStatus)] = &[
  ("草稿", ShippingStatus::Draft),
  ("已确认", ShippingStatus::Confirmed),
- ("拣货中", ShippingStatus::Picking),
  ("已发货", ShippingStatus::Shipped),
  ];
  let current_idx = steps.iter().position(|(_, s)| *s == current).unwrap_or(0);
@@ -306,15 +261,11 @@ fn shipping_detail_page(
                         span class="text-fg font-mono font-semibold" { (s.doc_number) }
                     }
                 }
-                // 摘要带 stat-strip（待拣 / 已拣 / 已发 / 库存）
+                // 摘要带 stat-strip（待发 / 已发 / 库存）
                 div class="flex items-stretch bg-bg border border-border-soft rounded-lg mt-4 overflow-hidden" {
                     div class="flex-1 px-5 py-3 flex flex-col gap-0.5 border-r border-border-soft" {
-                        span class="font-mono text-lg font-bold text-fg tabular-nums" { (fmt_qty(hub_summary.pending_pick_qty)) }
-                        span class="text-xs text-muted font-medium" { "待拣" }
-                    }
-                    div class="flex-1 px-5 py-3 flex flex-col gap-0.5 border-r border-border-soft" {
-                        span class="font-mono text-lg font-bold text-success tabular-nums" { (fmt_qty(hub_summary.picked_qty)) }
-                        span class="text-xs text-muted font-medium" { "已拣" }
+                        span class="font-mono text-lg font-bold text-fg tabular-nums" { (fmt_qty(hub_summary.pending_ship_qty)) }
+                        span class="text-xs text-muted font-medium" { "待发" }
                     }
                     div class="flex-1 px-5 py-3 flex flex-col gap-0.5 border-r border-border-soft" {
                         span class="font-mono text-lg font-bold text-fg tabular-nums" { (fmt_qty(hub_summary.shipped_qty)) }
@@ -340,20 +291,6 @@ fn shipping_detail_page(
                         hx-post=(ConfirmShippingPath { id: s.id }.to_string())
                         hx-confirm="确认审核此发货单？"
                     { "确认发货" }
-                }
-                @if s.status == ShippingStatus::Confirmed {
-                    button
-                        class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
-                        hx-post=(PickShippingPath { id: s.id }.to_string())
-                        hx-confirm="确认开始拣货？"
-                    { "开始拣货" }
-                }
-                @if s.status == ShippingStatus::Picking {
-                    button
-                        class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-success text-white"
-                        hx-post=(ShipShippingPath { id: s.id }.to_string())
-                        hx-confirm="确认已发出？"
-                    { "确认发出" }
                 }
                 @if matches!(s.status, ShippingStatus::Draft | ShippingStatus::Confirmed) {
                     button
@@ -430,8 +367,7 @@ fn shipping_detail_page(
                 }
             }
         }))
-        // ── 拣货单 / 库存事务 disclosure（懒加载）──
-        (doc_disclosure_lazy("d-pick", "拣货单", "拣货明细", &ShippingFragmentPath { id: s.id, block: "pick".to_string() }.to_string()))
+        // ── 库存事务 disclosure（懒加载）──
         (doc_disclosure_lazy("d-txn", "库存事务", "本单库存流水", &ShippingFragmentPath { id: s.id, block: "transactions".to_string() }.to_string()))
         // ── Remarks ──
         @if !s.remark.is_empty() {
@@ -485,15 +421,6 @@ fn doc_disclosure_lazy(id: &str, title: &str, summary: &str, frag_url: &str) -> 
 pub async fn get_shipping_fragment(path: ShippingFragmentPath, ctx: RequestContext) -> Result<Html<String>> {
     let RequestContext { mut conn, state, service_ctx, .. } = ctx;
     let body = match path.block.as_str() {
-        "pick" => {
-            let pl = state.pick_list_service()
-                .find_by_outbound(&service_ctx, &mut conn, path.id)
-                .await.unwrap_or(None);
-            let items = if let Some(ref p) = pl {
-                state.pick_list_service().list_items(&service_ctx, &mut conn, p.id).await.unwrap_or_default()
-            } else { Vec::new() };
-            render_pick_body(pl.as_ref(), &items)
-        }
         "transactions" => {
             let res = state.shipping_service()
                 .list_transactions(&service_ctx, &mut conn, path.id, PageParams::new(1, 50))
@@ -503,45 +430,6 @@ pub async fn get_shipping_fragment(path: ShippingFragmentPath, ctx: RequestConte
         other => return Err(abt_core::shared::types::error::DomainError::validation(format!("未知区块: {other}")).into()),
     };
     Ok(Html(body.into_string()))
-}
-
-fn render_pick_body(pl: Option<&PickList>, items: &[PickListItem]) -> Markup {
-    match pl {
-        None => html! { div class="text-sm text-muted py-2" { "尚未生成拣货单（发货单确认并开始拣货后生成）" } },
-        Some(p) => html! {
-            div {
-                div class="text-sm text-fg-2 mb-3" {
-                    "拣货单 "
-                    span class="font-mono font-semibold text-fg" { (p.doc_number) }
-                    " · "
-                    (pick_status_label(p.status))
-                }
-                table class="w-full border-collapse" {
-                    thead {
-                        tr {
-                            th class="text-left text-xs font-semibold text-muted py-2 px-2 border-b border-border-soft" { "产品" }
-                            th class="text-right text-xs font-semibold text-muted py-2 px-2 border-b border-border-soft" { "申请" }
-                            th class="text-right text-xs font-semibold text-muted py-2 px-2 border-b border-border-soft" { "已拣" }
-                            th class="text-left text-xs font-semibold text-muted py-2 px-2 border-b border-border-soft" { "库位" }
-                        }
-                    }
-                    tbody {
-                        @for it in items {
-                            tr class="border-b border-border-soft last:border-b-0" {
-                                td class="py-2 px-2 text-sm" { "产品 #" (it.product_id) }
-                                td class="py-2 px-2 text-sm font-mono text-right" { (fmt_qty(it.requested_qty)) }
-                                td class="py-2 px-2 text-sm font-mono text-right" { (fmt_qty(it.picked_qty)) }
-                                td class="py-2 px-2 text-sm font-mono text-muted" { (it.bin_id.map(|b| b.to_string()).unwrap_or_else(|| "—".into())) }
-                            }
-                        }
-                    }
-                }
-                @if p.status == PickListStatus::Draft {
-                    div class="mt-3 text-xs text-muted" { "提示：前往仓库作业中心「待出库」录入拣货数量并完成拣货。" }
-                }
-            }
-        },
-    }
 }
 
 fn render_txn_body(txns: &[InventoryTransaction]) -> Markup {
@@ -569,14 +457,6 @@ fn render_txn_body(txns: &[InventoryTransaction]) -> Markup {
                 }
             }
         }
-    }
-}
-
-fn pick_status_label(s: PickListStatus) -> &'static str {
-    match s {
-        PickListStatus::Draft => "拣货中",
-        PickListStatus::Picked => "已拣货",
-        PickListStatus::Cancelled => "已取消",
     }
 }
 

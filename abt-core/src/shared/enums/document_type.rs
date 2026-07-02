@@ -61,7 +61,9 @@ pub enum DocumentType {
     StockShipment = 44,
     // FMS — 应收应付调整单
     ArApAdjustment = 45,
-    // WMS — 拣货单（Phase 3，#93）
+    // WMS — 拣货单（#93）。#146 阶段 4a 移除拣货概念：pick_list 模块已删、pick_lists 表归档只读。
+    // 枚举值保留以兼容历史 document_links（source_type=46）解码，避免删后查询炸。
+    #[allow(dead_code)]
     PickList = 46,
 }
 

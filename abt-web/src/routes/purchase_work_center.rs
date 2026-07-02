@@ -54,12 +54,6 @@ pub struct PcSettlementRowDetailPath {
     pub ref_id: i64,
 }
 
-#[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/purchase/work-center/returns/{id}/row-detail")]
-pub struct PcReturnRowDetailPath {
-    pub id: i64,
-}
-
 // ── 转采购单 drawer（就地转单，复用 create_order_from_demands）──
 
 #[derive(TypedPath, Deserialize, Clone)]
@@ -236,10 +230,6 @@ pub fn router() -> Router<AppState> {
         .route(
             PcSettlementRowDetailPath::PATH,
             get(purchase_work_center::get_settlement_row_detail),
-        )
-        .route(
-            PcReturnRowDetailPath::PATH,
-            get(purchase_work_center::get_return_row_detail),
         )
         .route(
             PcConvertPoDrawerPath::PATH,

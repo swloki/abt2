@@ -39,7 +39,7 @@ use abt_core::purchase::return_order::model::{
 };
 use abt_core::purchase::return_order::PurchaseReturnService;
 use abt_core::purchase::work_center::{
-    PurchaseWorkCenterService, PurchaseWorkCenterSummary, ReturnHubSummary,
+    PurchaseWorkCenterService, PurchaseWorkCenterSummary,
     SettlementHubSummary, SettlementReconType, ThreeWayMatchSummary,
 };
 use abt_core::shared::types::{DomainError, PageParams};
@@ -627,24 +627,6 @@ pub async fn get_settlement_row_detail(
         .get_settlement_hub_summary(&service_ctx, &mut conn, recon_type, path.ref_id)
         .await?;
     Ok(Html(settlement_row_detail_tr(&summary).into_string()))
-}
-
-#[require_permission("PURCHASE_ORDER", "read")]
-pub async fn get_return_row_detail(
-    path: PcReturnRowDetailPath,
-    ctx: RequestContext,
-) -> Result<Html<String>> {
-    let RequestContext {
-        mut conn,
-        state,
-        service_ctx,
-        ..
-    } = ctx;
-    let summary = state
-        .purchase_work_center_service()
-        .get_return_hub_summary(&service_ctx, &mut conn, path.id)
-        .await?;
-    Ok(Html(return_row_detail_tr(&summary).into_string()))
 }
 
 // ── 转采购单 drawer（就地转单，复用 create_order_from_demands）──
@@ -2724,13 +2706,6 @@ fn returns_table(items: &[PurchaseReturn], names: &HashMap<i64, String>) -> Mark
                                     hx-get=(PcReturnDetailDrawerPath { id: r.id }.to_string())
                                     hx-target="#return-detail-drawer-body" hx-swap="innerHTML"
                                     _="on 'htmx:afterRequest'[detail.xhr.status < 400] add .open to #return-detail-overlay" { "详情" }
-                                button class="expand-btn inline-flex items-center justify-center w-[26px] h-[26px] ml-1 border-none bg-transparent text-muted cursor-pointer rounded-sm hover:bg-surface hover:text-fg align-middle transition-all"
-                                    title="展开详情"
-                                    hx-get=(PcReturnRowDetailPath { id: r.id }.to_string())
-                                    hx-target="this" hx-swap="afterend"
-                                    _="on click toggle .open on closest <tr/>" {
-                                    (icon::chevron_right_icon("w-[15px] h-[15px]"))
-                                }
                             }
                         }
                     }
@@ -3150,39 +3125,6 @@ fn settlement_row_detail_tr(s: &SettlementHubSummary) -> Markup {
                         }
                         div class="flex items-center gap-2 pt-3 border-t border-border-soft flex-wrap" {
                             (hub_link("/admin/purchase/payments", "付款详情"))
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-/// 退货行展开详情。
-fn return_row_detail_tr(s: &ReturnHubSummary) -> Markup {
-    html! {
-        tr class="row-detail" {
-            td colspan="5" class="p-0 border-none bg-surface-raised" {
-                div class="p-5 border-t border-dashed border-border-soft border-b border-border-soft" {
-                    div class="grid grid-cols-4 gap-5 mb-4" {
-                        (detail_block("来源订单", html! {
-                            span class="font-mono text-accent" { (s.source_po_doc) } br;
-                            span class="text-xs text-muted" { "状态 " (s.source_po_status) }
-                        }))
-                        (detail_block("退货明细", html! {
-                            (s.item_count) " 行 · " (fmt_plain(s.total_qty))
-                        }))
-                        (detail_block("金额", html! { (fmt_decimal(s.return_order.total_amount)) }))
-                        (detail_block("结算", html! {
-                            span class="text-muted" { (s.settlement_hint) }
-                        }))
-                    }
-                    div class="flex items-center gap-2 pt-3 border-t border-border-soft flex-wrap" {
-                        button class="inline-flex items-center gap-1 text-sm text-accent font-semibold border-none bg-transparent cursor-pointer hover:underline"
-                            hx-get=(PcReturnDetailDrawerPath { id: s.return_order.id }.to_string())
-                            hx-target="#return-detail-drawer-body" hx-swap="innerHTML"
-                            _="on 'htmx:afterRequest'[detail.xhr.status < 400] add .open to #return-detail-overlay" {
-                            "退货详情" (icon::arrow_right_icon("w-3.5 h-3.5"))
                         }
                     }
                 }

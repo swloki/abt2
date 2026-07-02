@@ -48,12 +48,6 @@ pub struct PcMiscPath;
 pub struct PcDemandRowsPath;
 
 #[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/purchase/work-center/orders/{id}/row-detail")]
-pub struct PcOrderRowDetailPath {
-    pub id: i64,
-}
-
-#[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/purchase/work-center/settlement/{recon_type}/{ref_id}/row-detail")]
 pub struct PcSettlementRowDetailPath {
     pub recon_type: String,
@@ -238,10 +232,6 @@ pub fn router() -> Router<AppState> {
         .route(
             PcDemandRowsPath::PATH,
             get(purchase_work_center::get_demand_rows),
-        )
-        .route(
-            PcOrderRowDetailPath::PATH,
-            get(purchase_work_center::get_order_row_detail),
         )
         .route(
             PcSettlementRowDetailPath::PATH,

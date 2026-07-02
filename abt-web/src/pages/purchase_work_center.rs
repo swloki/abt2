@@ -39,7 +39,7 @@ use abt_core::purchase::return_order::model::{
 };
 use abt_core::purchase::return_order::PurchaseReturnService;
 use abt_core::purchase::work_center::{
-    PoHubSummary, PurchaseWorkCenterService, PurchaseWorkCenterSummary, ReturnHubSummary,
+    PurchaseWorkCenterService, PurchaseWorkCenterSummary, ReturnHubSummary,
     SettlementHubSummary, SettlementReconType, ThreeWayMatchSummary,
 };
 use abt_core::shared::types::{DomainError, PageParams};
@@ -607,24 +607,6 @@ pub async fn get_demand_rows(
         )
         .await?;
     Ok(Html(demand_expand_rows(&result.items).into_string()))
-}
-
-#[require_permission("PURCHASE_ORDER", "read")]
-pub async fn get_order_row_detail(
-    path: PcOrderRowDetailPath,
-    ctx: RequestContext,
-) -> Result<Html<String>> {
-    let RequestContext {
-        mut conn,
-        state,
-        service_ctx,
-        ..
-    } = ctx;
-    let summary = state
-        .purchase_work_center_service()
-        .get_po_hub_summary(&service_ctx, &mut conn, path.id)
-        .await?;
-    Ok(Html(order_row_detail_tr(&summary).into_string()))
 }
 
 #[require_permission("PURCHASE_ORDER", "read")]
@@ -2526,13 +2508,6 @@ fn orders_table(items: &[PurchaseOrder], names: &HashMap<i64, String>) -> Markup
                                         hx-target="#approve-drawer-body" hx-swap="innerHTML"
                                         _="on 'htmx:afterRequest'[detail.xhr.status < 400] add .open to #approve-overlay" { "审批" }
                                 }
-                                button class="expand-btn inline-flex items-center justify-center w-[26px] h-[26px] ml-1 border-none bg-transparent text-muted cursor-pointer rounded-sm hover:bg-surface hover:text-fg align-middle transition-all"
-                                    title="展开详情"
-                                    hx-get=(PcOrderRowDetailPath { id: o.id }.to_string())
-                                    hx-target="this" hx-swap="afterend"
-                                    _="on click toggle .open on closest <tr/>" {
-                                    (icon::chevron_right_icon("w-[15px] h-[15px]"))
-                                }
                             }
                         }
                     }
@@ -3087,30 +3062,6 @@ fn urgency_hint(earliest: Option<chrono::NaiveDate>) -> Option<(String, &'static
     }
 }
 
-/// 收货进度条（动态宽度用 style，同 mes wo_progress 既定做法）。
-fn po_progress_bar(p: &abt_core::purchase::work_center::PoProgress) -> Markup {
-    let pct_f: f64 = p.received_pct.to_string().parse().unwrap_or(0.0);
-    let bar_color = if pct_f < 30.0 {
-        "bg-muted"
-    } else if pct_f <= 70.0 {
-        "bg-accent"
-    } else {
-        "bg-success"
-    };
-    html! {
-        div class="flex flex-col gap-[3px]" {
-            div class="w-[96px] h-[6px] bg-border-soft rounded-[3px] overflow-hidden" {
-                div class=(format!("h-full rounded-[3px] {bar_color} transition-all duration-150"))
-                    style=(format!("width:{}%", pct_f as u32)) {}
-            }
-            div class="text-[11px] text-muted font-mono tabular-nums" {
-                (format!("{:.0}%", pct_f)) " · " (fmt_plain(p.received_qty)) "/"
-                (fmt_plain(p.ordered_qty))
-            }
-        }
-    }
-}
-
 /// ci-row 就绪态项（✓ ok / ✗ missing）。
 fn ci_item(ok: bool, label: &str) -> Markup {
     let (cls, ic) = if ok {
@@ -3141,49 +3092,6 @@ fn hub_link(href: &str, text: &str) -> Markup {
         a class="inline-flex items-center gap-1 text-sm text-accent font-semibold no-underline"
             href=(href) {
             (text) (icon::arrow_right_icon("w-3.5 h-3.5"))
-        }
-    }
-}
-
-/// 订单行展开详情。
-fn order_row_detail_tr(s: &PoHubSummary) -> Markup {
-    html! {
-        tr class="row-detail" {
-            td colspan="6" class="p-0 border-none bg-surface-raised" {
-                div class="p-5 border-t border-dashed border-border-soft border-b border-border-soft" {
-                    div class="grid grid-cols-4 gap-5 mb-4" {
-                        (detail_block("来源链", html! {
-                            @if s.source_chain.sales_order_docs.is_empty() {
-                                span class="text-muted" { "—" }
-                            } @else {
-                                @for doc in &s.source_chain.sales_order_docs {
-                                    span class="font-mono text-accent" { (doc) " " }
-                                }
-                            }
-                        }))
-                        (detail_block("收货进度", po_progress_bar(&s.progress)))
-                        (detail_block("金额 / 交期", html! {
-                            (fmt_decimal(s.order.total_amount)) br;
-                            span class="text-xs text-muted" {
-                                "交期 " (fmt_date(s.order.expected_delivery_date))
-                                " · " (s.progress.item_count) " 行"
-                            }
-                        }))
-                        (detail_block("应付台账", html! {
-                            "已立 " (fmt_decimal(s.ap_summary.ap_amount)) br;
-                            "已付 " (fmt_decimal(s.ap_summary.paid_amount))
-                        }))
-                    }
-                    div class="flex items-center gap-2 pt-3 border-t border-border-soft flex-wrap" {
-                        button class="inline-flex items-center gap-1 text-sm text-accent font-semibold border-none bg-transparent cursor-pointer hover:underline"
-                            hx-get=(PcPoDetailDrawerPath { id: s.order.id }.to_string())
-                            hx-target="#po-detail-drawer-body" hx-swap="innerHTML"
-                            _="on 'htmx:afterRequest'[detail.xhr.status < 400] add .open to #po-detail-overlay" {
-                            "订单详情" (icon::arrow_right_icon("w-3.5 h-3.5"))
-                        }
-                    }
-                }
-            }
         }
     }
 }

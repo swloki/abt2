@@ -93,7 +93,7 @@ PostgreSQL + sqlx（通过 `sqlx::query!` 宏实现编译期检查）。Migratio
 
 ### Key Conventions
 
-- **模块边界**：跨模块调用只允许通过 Service trait 和 Model。禁止跨模块直接访问 Repository 或 Service impl（`implt`）。同模块内部可自由调用自身 Repository
+- **模块边界**：**跨 crate**（如 abt-web → abt-core）调用只允许通过 Service trait 和 Model，禁止直接访问 Repository 或 Service impl（`implt`）。abt-core crate **内部**模块间（同 domain 跨 module、跨 domain）可自由访问 repo——crate 是封装边界，内部紧耦合的业务模块直访 repo 优于强行 Service 化（避免接口膨胀与循环依赖）。同模块内部当然可自由调用自身 Repository
 - **错误处理**：使用 `thiserror` 定义的 `DomainError` 枚举，返回 `Result<T, DomainError>`。Web handler 层将 `DomainError` 映射为 HTTP 响应
 - **禁止静默丢弃错误**：严禁 `let _ = expr.await;` 或 `let _ = result;`。所有错误必须通过 `?` 传播、`map_err` 转换、或 `if let Err(e) { ... }` 显式处理
 - **共享基础设施**：集成共享服务前必须读 `docs/uml-design/README.md`（接口签名、AuditAction / SideEffect / EventPublishRequest 等类型定义、集成规则）

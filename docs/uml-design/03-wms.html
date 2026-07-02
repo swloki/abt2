@@ -466,6 +466,7 @@ classDiagram
   class InventoryTransactionService {
     &lt;&lt;interface&gt;&gt;
     +record(ctx: &ServiceContext, db: PgExecutor, req: RecordTransactionReq) Result~i64~
+    +find_by_id(ctx, db, id) Result~InventoryTransaction~
     +find_by_source(ctx: &ServiceContext, db: PgExecutor, source_type, source_id) Result~Vec~InventoryTransaction~~
     +query_stock(ctx: &ServiceContext, db: PgExecutor, filter: StockFilter) PaginatedResult~StockLedger~
     +query_available(ctx: &ServiceContext, db: PgExecutor, filter: StockFilter) Result~Decimal~

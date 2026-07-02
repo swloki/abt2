@@ -31,24 +31,6 @@ impl PurchaseApprovalRuleRepo {
         .map_err(Into::into)
     }
 
-    /// 查询所有启用的规则
-    pub async fn list_active(
-        executor: &mut sqlx::postgres::PgConnection,
-    ) -> Result<Vec<PurchaseApprovalRule>> {
-        sqlx::query_as::<_, PurchaseApprovalRule>(
-            r#"
-            SELECT id, name, min_amount, max_amount, approver_role, approver_id,
-                   is_active, sort_order, created_at, updated_at, deleted_at
-            FROM purchase_approval_rules
-            WHERE is_active = TRUE AND deleted_at IS NULL
-            ORDER BY sort_order, min_amount
-            "#,
-        )
-        .fetch_all(executor)
-        .await
-        .map_err(Into::into)
-    }
-
     /// 查询所有规则（含停用，管理页用）
     pub async fn list_all(
         executor: &mut sqlx::postgres::PgConnection,

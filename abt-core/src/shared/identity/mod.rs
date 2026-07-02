@@ -4,7 +4,7 @@ pub mod implt;
 pub mod model;
 pub mod permission_cache;
 pub mod permission_service;
-pub mod repo;
+pub(crate) mod repo;
 pub mod role_service;
 pub mod user_service;
 

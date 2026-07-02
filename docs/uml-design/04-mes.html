@@ -263,6 +263,7 @@ classDiagram
     +split_work_order(ctx: &ServiceContext, db: PgExecutor, work_order_id, splits) Result~Vec~i64~~
     +find_by_id(id) Result~ProductionBatch~
     +list_by_work_order(work_order_id) Result~Vec~ProductionBatch~~
+    +list_routing_progress(ctx, db, batch_id) Result~Vec~BatchRoutingProgress~
     +confirm_routing_step(ctx: &ServiceContext, db: PgExecutor, batch_id, step_no, req) Result~StepConfirmationResult~
     +load_routings_from_template(ctx: &ServiceContext, db: PgExecutor, work_order_id, routing_id) Result~usize~
     +delete_routing(ctx: &ServiceContext, db: PgExecutor, work_order_id, routing_id) Result~Unit~

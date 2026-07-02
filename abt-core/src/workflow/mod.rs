@@ -3,7 +3,7 @@ pub mod engine;
 pub mod graph_linter;
 pub mod hooks;
 pub mod model;
-pub mod repo;
+pub(crate) mod repo;
 pub mod service;
 pub mod worker;
 

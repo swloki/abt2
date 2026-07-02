@@ -2,7 +2,7 @@ use crate::shared::types::PgExecutor;
 use rust_decimal::Decimal;
 use crate::shared::types::Result;
 
-use super::model::{LowStockWatchedProduct, WatchedProductWithInventory};
+use super::model::WatchedProductWithInventory;
 use crate::shared::types::pagination::PaginatedResult;
 
 pub struct ProductWatcherRepo;
@@ -98,89 +98,4 @@ impl ProductWatcherRepo {
         Ok(PaginatedResult::new(items, total, page, page_size))
     }
 
-    /// 查询被关注的低库存产品（Worker 用）
-    pub async fn find_watched_low_stock_products(
-        executor: PgExecutor<'_>,
-    ) -> Result<Vec<LowStockWatchedProduct>> {
-        let rows = sqlx::query_as::<_, LowStockWatchedProduct>(
-            r#"
-            SELECT
-                pw.product_id,
-                p.pdt_name AS product_name,
-                sl.quantity AS current_quantity,
-                MIN(COALESCE(pw.safety_stock_override, sl.safety_stock)) AS effective_safety_stock
-            FROM product_watchers pw
-            JOIN products p ON p.product_id = pw.product_id
-            JOIN (
-                SELECT product_id, SUM(quantity) as quantity, MAX(safety_stock) as safety_stock
-                FROM stock_ledger GROUP BY product_id
-            ) sl ON sl.product_id = pw.product_id
-            WHERE sl.quantity < COALESCE(pw.safety_stock_override, sl.safety_stock)
-            GROUP BY pw.product_id, p.pdt_name, sl.quantity
-            "#,
-        )
-        .fetch_all(executor)
-        .await?;
-        Ok(rows)
-    }
-
-    /// 批量查询关注者的告警状态（Worker 用）
-    pub async fn batch_get_alert_status(
-        executor: PgExecutor<'_>,
-        product_ids: &[i64],
-    ) -> Result<Vec<(i64, i64, bool)>> {
-        if product_ids.is_empty() {
-            return Ok(vec![]);
-        }
-        let rows: Vec<(i64, i64, bool)> = sqlx::query_as(
-            "SELECT user_id, product_id, alert_active FROM product_watchers WHERE product_id = ANY($1)",
-        )
-        .bind(product_ids)
-        .fetch_all(executor)
-        .await?;
-        Ok(rows)
-    }
-
-    /// 批量设置告警状态为活跃（Worker 用）
-    pub async fn batch_activate_alerts(
-        executor: PgExecutor<'_>,
-        pairs: &[(i64, i64)],
-    ) -> Result<()> {
-        if pairs.is_empty() {
-            return Ok(());
-        }
-        let user_ids: Vec<i64> = pairs.iter().map(|(uid, _)| *uid).collect();
-        let product_ids: Vec<i64> = pairs.iter().map(|(_, pid)| *pid).collect();
-        sqlx::query(
-            r#"UPDATE product_watchers
-            SET alert_active = true, last_notified_at = now(), updated_at = now()
-            WHERE (user_id, product_id) IN (
-                SELECT * FROM UNNEST($1::bigint[], $2::bigint[])
-            )"#,
-        )
-        .bind(&user_ids)
-        .bind(&product_ids)
-        .execute(executor)
-        .await?;
-        Ok(())
-    }
-
-    /// 批量重置已回升产品的告警状态（Worker 用）
-    pub async fn batch_clear_recovered(
-        executor: PgExecutor<'_>,
-        low_stock_product_ids: &[i64],
-    ) -> Result<u64> {
-        if low_stock_product_ids.is_empty() {
-            return Ok(0);
-        }
-        let result = sqlx::query(
-            r#"UPDATE product_watchers
-            SET alert_active = false, updated_at = now()
-            WHERE alert_active = true AND product_id != ALL($1)"#,
-        )
-        .bind(low_stock_product_ids)
-        .execute(executor)
-        .await?;
-        Ok(result.rows_affected())
-    }
 }

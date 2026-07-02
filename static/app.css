@@ -124,9 +124,9 @@
 --text-3xl-fontSize: 1.875rem;
 --text-3xl-lineHeight: 2.25rem;
 --container-xl: 36rem;
+--colors-purple-600: oklch(55.8% 0.288 302.321);
 --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
 --container-md: 28rem;
---colors-purple-600: oklch(55.8% 0.288 302.321);
 --colors-indigo-500: oklch(58.5% 0.233 277.117);
 --colors-cyan-500: oklch(71.5% 0.143 215.221);
 --colors-gray-400: oklch(70.7% 0.022 261.325);

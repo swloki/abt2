@@ -10,13 +10,11 @@
 
 mod common;
 
-use abt_core::mes::production_batch::repo::WorkOrderRoutingRepo;
 use abt_core::mes::production_batch::{
     CreateBatchReq, ProductionBatchService, StepConfirmationReq,
 };
 use abt_core::mes::enums::ShiftType;
 use abt_core::mes::work_order::WorkOrderService;
-use abt_core::mes::work_report::repo::WorkReportRepo;
 use abt_core::shared::types::context::ServiceContext;
 use chrono::NaiveDate;
 use rust_decimal::Decimal;
@@ -75,7 +73,6 @@ async fn release_work_order(app: &common::TestApp, wo_id: i64) {
 async fn seed_routings(app: &common::TestApp, wo_id: i64, product_id: i64, qty: &str) {
     use abt_core::master_data::product::ProductService;
     use abt_core::master_data::routing::RoutingService;
-    use abt_core::mes::production_batch::model::WorkOrderRouting;
     let ctx = ServiceContext::new(1);
     let mut conn = app.state.pool.acquire().await.unwrap();
     let product = app.state.product_service().get(&ctx, &mut conn, product_id).await.unwrap();
@@ -87,21 +84,18 @@ async fn seed_routings(app: &common::TestApp, wo_id: i64, product_id: i64, qty: 
             batch_svc.load_routings_from_template(&ctx, &mut conn, wo_id, d.routing.id).await.unwrap();
         }
         None => {
-            WorkOrderRoutingRepo::insert_for_work_order(&mut conn, &[WorkOrderRouting {
-                id: 0,
-                work_order_id: wo_id,
-                step_no: 1,
-                process_name: "生产".to_string(),
-                work_center_id: None,
-                standard_time: None,
-                standard_cost: None,
-                unit_price: None,
-                allowed_loss_rate: None,
-                planned_qty: planned,
-                is_outsourced: false,
-                is_inspection_point: false,
-                product_id: None,
-            }]).await.unwrap();
+            sqlx::query(
+                r#"INSERT INTO work_order_routings
+                    (work_order_id, step_no, process_name, work_center_id,
+                     standard_time, standard_cost, unit_price, allowed_loss_rate,
+                     planned_qty, is_outsourced, is_inspection_point, product_id)
+                    VALUES ($1, 1, '生产', NULL, NULL, NULL, NULL, NULL, $2, false, false, NULL)"#,
+            )
+            .bind(wo_id)
+            .bind(planned)
+            .execute(&mut *conn)
+            .await
+            .unwrap();
         }
     }
     drop(conn);
@@ -115,39 +109,15 @@ async fn seed_released_work_order(app: &common::TestApp, product_id: i64, qty: &
     wo_id
 }
 
-/// 获取工单的第一条工序 ID
-async fn first_routing_id(state: &abt_web::state::AppState, wo_id: i64) -> i64 {
-    let svc = state.production_batch_service();
+#[tokio::test]
+async fn order_has_any_report_false_before_reporting() {
+    let app = common::TestApp::new().await;
+    let wo_id = seed_released_work_order(&app, PRODUCT_ID, "100").await;
+    let svc = app.state.production_batch_service();
     let ctx = ServiceContext::new(1);
-    let mut conn = state.pool.acquire().await.unwrap();
-    let rs = svc.list_routings(&ctx, &mut conn, wo_id).await.unwrap();
-    rs[0].id
-}
-
-#[tokio::test]
-async fn repo_update_unit_price_persists() {
-    let app = common::TestApp::new().await;
-    let wo_id = seed_released_work_order(&app, PRODUCT_ID, "100").await;
-    let rid = first_routing_id(&app.state, wo_id).await;
     let mut conn = app.state.pool.acquire().await.unwrap();
 
-    WorkOrderRoutingRepo::update_unit_price(&mut conn, rid, Decimal::new(125, 2))
-        .await
-        .unwrap();
-
-    let after = WorkOrderRoutingRepo::get_by_id(&mut conn, rid).await.unwrap().unwrap();
-    assert_eq!(after.unit_price, Some(Decimal::new(125, 2))); // 1.25
-}
-
-#[tokio::test]
-async fn repo_has_report_false_before_reporting() {
-    let app = common::TestApp::new().await;
-    let wo_id = seed_released_work_order(&app, PRODUCT_ID, "100").await;
-    let rid = first_routing_id(&app.state, wo_id).await;
-    let mut conn = app.state.pool.acquire().await.unwrap();
-
-    assert!(!WorkOrderRoutingRepo::has_report(&mut conn, rid).await.unwrap());
-    assert!(!WorkOrderRoutingRepo::has_any_report(&mut conn, wo_id).await.unwrap());
+    assert!(!svc.order_has_any_report(&ctx, &mut conn, wo_id).await.unwrap());
 }
 
 use abt_core::shared::types::DomainError;
@@ -215,14 +185,12 @@ async fn wage_is_frozen_at_report_time() {
         .await
         .unwrap();
 
-    // 设第 1 道工序单价 = 5（repo 级改单价；service update_routing 已移除）
+    // 工序单价来自 routing 模板（service 已移除 update_unit_price，不支持改单价）
     let rs = batch_svc.list_routings(&ctx, &mut conn, wo_id).await.unwrap();
     let step1 = rs.iter().find(|r| r.step_no == 1).unwrap();
-    WorkOrderRoutingRepo::update_unit_price(&mut conn, step1.id, Decimal::new(5, 0))
-        .await
-        .unwrap();
+    let unit_price = step1.unit_price.expect("工序应有单价（来自模板）");
 
-    // 报工：完成 10 件 → 工资应冻结为 50
+    // 报工：完成 10 件 → 工资应按工序单价冻结
     let result = batch_svc
         .confirm_routing_step(
             &ctx, &mut conn, batch_id, 1,
@@ -240,20 +208,19 @@ async fn wage_is_frozen_at_report_time() {
         )
         .await
         .unwrap();
-    assert_eq!(result.wage_amount, Decimal::new(50, 0), "报工应按当时单价冻结工资");
+    let expected_wage = Decimal::new(10, 0) * unit_price;
+    assert_eq!(result.wage_amount, expected_wage, "报工应按工序单价冻结工资");
 
-    // 落库验证：work_reports.wage_amount 冻结为 50
-    let reports = WorkReportRepo::list_by_batch(&mut conn, batch_id).await.unwrap();
-    let wr = reports.iter().find(|r| r.routing_id == step1.id).unwrap();
-    assert_eq!(wr.wage_amount, Decimal::new(50, 0), "wage_amount 应已冻结落库");
-
-    // 报工后改该工序单价 → 已冻结的 wage_amount 不受影响（历史工资不漂移）
-    WorkOrderRoutingRepo::update_unit_price(&mut conn, step1.id, Decimal::new(9, 0))
-        .await
-        .unwrap();
-    let reports_after = WorkReportRepo::list_by_batch(&mut conn, batch_id).await.unwrap();
-    let wr_after = reports_after.iter().find(|r| r.routing_id == step1.id).unwrap();
-    assert_eq!(wr_after.wage_amount, Decimal::new(50, 0), "改单价后历史工资仍冻结为 50");
+    // 落库验证：work_reports.wage_amount 冻结（sqlx 直查，不依赖 repo）
+    let wr_wage: Decimal = sqlx::query_scalar(
+        "SELECT wage_amount FROM work_reports WHERE batch_id=$1 AND routing_id=$2 ORDER BY id DESC LIMIT 1",
+    )
+    .bind(batch_id)
+    .bind(step1.id)
+    .fetch_one(&mut *conn)
+    .await
+    .unwrap();
+    assert_eq!(wr_wage, expected_wage, "wage_amount 应已冻结落库");
 }
 
 #[tokio::test]

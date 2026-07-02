@@ -8,9 +8,6 @@ use crate::shared::types::{DataScope, PageParams};
 
 const JOURNAL_COLUMNS: &str = "id, doc_number, journal_type, direction, amount, counterparty_type, counterparty_id, source_type, source_id, bank_account, transaction_date, period, status, remark, currency, exchange_rate, operator_id, version, created_at, updated_at, deleted_at";
 
-const LINE_COLUMNS: &str =
-    "id, journal_id, account_code, debit_amount, credit_amount, cost_center, profit_center, remark";
-
 // ---------------------------------------------------------------------------
 // CashJournalRepo
 // ---------------------------------------------------------------------------
@@ -338,19 +335,6 @@ impl CashJournalLineRepo {
             .await?;
         }
         Ok(())
-    }
-
-    pub async fn get_by_journal_id(
-        executor: PgExecutor<'_>,
-        journal_id: i64,
-    ) -> Result<Vec<CashJournalLine>> {
-        let lines = sqlx::query_as::<sqlx::Postgres, CashJournalLine>(sqlx::AssertSqlSafe(
-            format!("SELECT {LINE_COLUMNS} FROM cash_journal_lines WHERE journal_id = $1"),
-        ))
-        .bind(journal_id)
-        .fetch_all(executor)
-        .await?;
-        Ok(lines)
     }
 
     /// Sum total debit and credit for a journal. Returns (total_debit, total_credit).

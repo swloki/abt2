@@ -1,7 +1,7 @@
 pub mod enums;
 pub mod implt;
 pub mod model;
-pub mod repo;
+pub(crate) mod repo;
 pub mod service;
 
 pub use enums::*;

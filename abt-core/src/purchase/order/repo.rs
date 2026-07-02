@@ -481,20 +481,6 @@ impl PurchaseOrderItemRepo {
         Ok(updated)
     }
 
-    /// 取单行明细（超收校验 / 状态判定读当前 received_qty 用）
-    pub async fn get_item_by_id(
-        executor: &mut sqlx::postgres::PgConnection,
-        item_id: i64,
-    ) -> Result<Option<PurchaseOrderItem>> {
-        let row = sqlx::query_as::<sqlx::Postgres, PurchaseOrderItem>(
-            "SELECT * FROM purchase_order_items WHERE id = $1",
-        )
-        .bind(item_id)
-        .fetch_optional(&mut *executor)
-        .await?;
-        Ok(row)
-    }
-
     /// 插入单行（追加模式）
     pub async fn insert_single(
         executor: &mut sqlx::postgres::PgConnection,
@@ -633,19 +619,4 @@ impl PurchaseOrderItemRepo {
         Ok(())
     }
 
-    /// 更新行开票状态
-    pub async fn update_item_invoice_status(
-        executor: &mut sqlx::postgres::PgConnection,
-        item_id: i64,
-        status: crate::purchase::enums::InvoiceStatus,
-    ) -> Result<()> {
-        sqlx::query(
-            "UPDATE purchase_order_items SET invoice_status = $2 WHERE id = $1",
-        )
-        .bind(item_id)
-        .bind(status)
-        .execute(&mut *executor)
-        .await?;
-        Ok(())
-    }
 }

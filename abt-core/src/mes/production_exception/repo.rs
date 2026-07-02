@@ -5,42 +5,6 @@ use sqlx::FromRow;
 pub struct ProductionExceptionRepo;
 
 impl ProductionExceptionRepo {
-    pub async fn insert(
-        executor: &mut sqlx::postgres::PgConnection,
-        params: &CreateExceptionParams<'_>,
-    ) -> Result<ProductionException> {
-        let row = sqlx::query(
-            "INSERT INTO production_exceptions \
-             (doc_number, exception_type, status, severity, reason_category, \
-              work_order_id, batch_id, product_id, current_step, impact_qty, \
-              description, disposition, found_at, finder_id, owner_id, operator_id) \
-             VALUES ($1, $2, 1, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) \
-             RETURNING id, doc_number, exception_type, status, severity, reason_category, \
-              work_order_id, batch_id, product_id, current_step, impact_qty, \
-              description, disposition, found_at, finder_id, owner_id, operator_id, \
-              created_at, updated_at"
-        )
-        .bind(params.doc_number)
-        .bind(params.exception_type)
-        .bind(params.severity)
-        .bind(params.reason_category)
-        .bind(params.work_order_id)
-        .bind(params.batch_id)
-        .bind(params.product_id)
-        .bind(params.current_step)
-        .bind(params.impact_qty)
-        .bind(params.description)
-        .bind(params.disposition)
-        .bind(params.found_at)
-        .bind(params.finder_id)
-        .bind(params.owner_id)
-        .bind(params.operator_id)
-        .fetch_one(&mut *executor)
-        .await?;
-
-        Ok(ProductionException::from_row(&row)?)
-    }
-
     pub async fn get_by_id(
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
@@ -188,28 +152,6 @@ impl ProductionExceptionRepo {
     }
 
     // ── Events ──
-
-    pub async fn insert_event(
-        executor: &mut sqlx::postgres::PgConnection,
-        exception_id: i64,
-        event_type: &str,
-        description: Option<&str>,
-        operator_id: i64,
-    ) -> Result<ExceptionEvent> {
-        let row = sqlx::query(
-            "INSERT INTO production_exception_events (exception_id, event_type, description, operator_id) \
-             VALUES ($1, $2, $3, $4) \
-             RETURNING id, exception_id, event_type, description, operator_id, created_at"
-        )
-        .bind(exception_id)
-        .bind(event_type)
-        .bind(description)
-        .bind(operator_id)
-        .fetch_one(&mut *executor)
-        .await?;
-
-        Ok(ExceptionEvent::from_row(&row)?)
-    }
 
     pub async fn list_events(
         executor: &mut sqlx::postgres::PgConnection,

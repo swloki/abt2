@@ -150,6 +150,17 @@ impl InventoryTransactionService for InventoryTransactionServiceImpl {
         Ok(txn.id)
     }
 
+    async fn find_by_id(
+        &self,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
+        id: i64,
+    ) -> Result<InventoryTransaction> {
+        InventoryTransactionRepo::get_by_id(&mut *db, id)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?
+            .ok_or_else(|| DomainError::not_found("库存事务"))
+    }
+
     async fn find_by_source(
         &self,
         _ctx: &ServiceContext, db: PgExecutor<'_>,

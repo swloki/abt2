@@ -1,6 +1,6 @@
 pub mod model;
 pub mod service;
-pub mod repo;
+pub(crate) mod repo;
 pub mod implt;
 
 pub use service::MesDashboardService;

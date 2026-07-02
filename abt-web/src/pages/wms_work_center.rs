@@ -13,7 +13,7 @@ use abt_core::wms::material_requisition::MaterialRequisitionService;
 use abt_core::wms::outbound::model::ShippingStatus;
 use abt_core::wms::outbound::ShippingRequestService;
 use abt_core::wms::pick_list::{model::PickItemInput, PickListService};
-use abt_core::wms::transfer::TransferService;
+use abt_core::wms::transfer::{InventoryTransfer, TransferFilter, TransferService};
 use abt_core::wms::warehouse::model::{Warehouse, WarehouseFilter};
 use abt_core::wms::warehouse::WarehouseService;
 use abt_core::wms::work_center::model::{
@@ -43,7 +43,7 @@ use crate::layout::page::admin_page;
 use crate::routes::shipping::{ShippingCreatePath, ShippingDetailPath, ShippingListPath};
 use crate::routes::wms_cycle_count::{CycleCountCreatePath, CycleCountDetailPath, CycleCountListPath};
 use crate::routes::wms_requisition::RequisitionCreatePath;
-use crate::routes::wms_transfer::{TransferCreatePath, TransferDetailPath, TransferListPath};
+use crate::routes::wms_transfer::TransferCreatePath;
 use crate::routes::wms_stock_in::{StockInCreatePath, StockInListPath};
 use crate::routes::wms_work_center::WmsWorkCenterPath;
 use crate::utils::fmt_qty;
@@ -159,7 +159,7 @@ fn action_domain(action: &str) -> Result<WorkCenterDomain> {
         // 拣货操作现在发生在待出库 tab（Picking 阶段就地录入），操作后刷新 Outbound
         "pick" | "ship" | "batch_ship" | "direct_ship" => WorkCenterDomain::Outbound,
         "confirm" | "cancel" | "issue" => WorkCenterDomain::Requisition,
-        "dispatch" | "complete" => WorkCenterDomain::Transfer,
+        "transfer_cancel" | "dispatch" | "complete" => WorkCenterDomain::Transfer,
         other => return Err(DomainError::validation(format!("未知作业动作: {other}")).into()),
     })
 }
@@ -173,7 +173,7 @@ fn domain_detail_url(domain: WorkCenterDomain, doc_id: i64) -> Option<String> {
         WorkCenterDomain::Arrival => None,
         WorkCenterDomain::Outbound => Some(ShippingDetailPath { id: doc_id }.to_string()),
         WorkCenterDomain::Requisition => None, // 点单据走 req_detail drawer（阶段 3.1 收口，不再跳 detail 页）
-        WorkCenterDomain::Transfer => Some(TransferDetailPath { id: doc_id }.to_string()),
+        WorkCenterDomain::Transfer => None, // 点单据走 transfer_detail drawer（阶段 3.2 收口）
         WorkCenterDomain::CycleCount => Some(CycleCountDetailPath { id: doc_id }.to_string()),
     }
 }
@@ -198,7 +198,8 @@ fn domain_entries(active: WorkCenterDomain) -> Markup {
         WorkCenterDomain::Outbound => ("新建发货单", ShippingCreatePath::PATH, Some(ShippingListPath::PATH)),
         // 领料单：作业中心内置「待办/全部」二级切换（view_toggle），不再跳独立 list 页
         WorkCenterDomain::Requisition => ("新建领料单", RequisitionCreatePath::PATH, None),
-        WorkCenterDomain::Transfer => ("新建调拨单", TransferCreatePath::PATH, Some(TransferListPath::PATH)),
+        // 调拨：作业中心内置「待办/全部」二级切换（view_toggle），不再跳独立 list 页
+        WorkCenterDomain::Transfer => ("新建调拨单", TransferCreatePath::PATH, None),
         WorkCenterDomain::CycleCount => ("新建盘点单", CycleCountCreatePath::PATH, Some(CycleCountListPath::PATH)),
     };
     html! {
@@ -216,9 +217,11 @@ fn domain_entries(active: WorkCenterDomain) -> Markup {
 /// 二级「待办/全部」视图切换（仅 Requisition domain，阶段 3.1 领料单试点）。
 /// 其他 domain 返回空（暂只有 Requisition 有全部视图）。切 view 走 htmx 局部刷新。
 fn view_toggle(domain: WorkCenterDomain, active_view: &str) -> Markup {
-    if domain != WorkCenterDomain::Requisition {
+    // 仅收口到作业中心的 domain（领料单 3.1 / 调拨 3.2）有「待办/全部」切换
+    if !matches!(domain, WorkCenterDomain::Requisition | WorkCenterDomain::Transfer) {
         return html! {};
     }
+    let slug = domain_slug(domain);
     let base = "inline-flex items-center px-3 py-1 rounded-sm text-xs font-semibold cursor-pointer border transition-all";
     let pending_cls = format!(
         "{base} {}",
@@ -239,12 +242,12 @@ fn view_toggle(domain: WorkCenterDomain, active_view: &str) -> Markup {
     html! {
         div class="flex gap-2 px-4 py-2 border-b border-border-soft" {
             a class=(pending_cls)
-                hx-get=(format!("{}?domain=requisition&view=pending", WmsWorkCenterPath::PATH))
+                hx-get=(format!("{}?domain={slug}&view=pending", WmsWorkCenterPath::PATH))
                 hx-target="#wc-domain-card" hx-select="#wc-domain-card" hx-swap="outerHTML" {
                 "待办"
             }
             a class=(all_cls)
-                hx-get=(format!("{}?domain=requisition&view=all", WmsWorkCenterPath::PATH))
+                hx-get=(format!("{}?domain={slug}&view=all", WmsWorkCenterPath::PATH))
                 hx-target="#wc-domain-card" hx-select="#wc-domain-card" hx-swap="outerHTML" {
                 "全部"
             }
@@ -363,7 +366,7 @@ fn render_requisition_all_row(r: &MaterialRequisition, wh_map: &HashMap<i64, Str
     html! {
         tr class="border-b border-border-soft last:border-b-0" {
             td class="py-3 px-3 text-sm font-mono text-accent font-semibold" {
-                (req_detail_trigger(r.id, view, html! { (r.doc_number) },
+                (doc_detail_trigger("req_detail",r.id, view, html! { (r.doc_number) },
                     "font-mono text-accent font-semibold text-sm bg-transparent border-none p-0 cursor-pointer hover:underline"))
             }
             td class="py-3 px-3 text-sm font-mono text-fg-2" { "WO-" (r.work_order_id) }
@@ -375,7 +378,7 @@ fn render_requisition_all_row(r: &MaterialRequisition, wh_map: &HashMap<i64, Str
                 }
             }
             td class="py-3 px-3 text-right" {
-                (req_detail_trigger(r.id, view, html! { "详情" (icon::arrow_right_icon("w-3 h-3")) },
+                (doc_detail_trigger("req_detail",r.id, view, html! { "详情" (icon::arrow_right_icon("w-3 h-3")) },
                     "inline-flex items-center gap-1 px-3 py-1.5 rounded-sm bg-surface border border-border-soft text-fg-2 text-xs font-semibold cursor-pointer hover:bg-accent-bg hover:border-accent hover:text-accent transition-all"))
             }
         }
@@ -393,11 +396,12 @@ fn requisition_status_label(s: RequisitionStatus) -> (&'static str, &'static str
     }
 }
 
-/// 领料单详情 drawer 触发器（button）：hx-get 加载 req_detail body 到 #wc-drawer-body，
+/// 单据详情 drawer 触发器（button）：hx-get 加载 {drawer} body 到 #wc-drawer-body，
 /// 成功后开 overlay。view 随请求带回（操作 form hidden view 据此回到当前视图）。
-fn req_detail_trigger(id: i64, view: &str, label: Markup, cls: &str) -> Markup {
+/// 领料单 drawer="req_detail"，调拨 drawer="transfer_detail"（阶段 3.2 收口）。
+fn doc_detail_trigger(drawer: &str, id: i64, view: &str, label: Markup, cls: &str) -> Markup {
     let url = format!(
-        "{}?drawer=req_detail&id={id}&view={view}",
+        "{}?drawer={drawer}&id={id}&view={view}",
         WmsWorkCenterPath::PATH
     );
     html! {
@@ -577,6 +581,289 @@ fn req_detail_actions(status: RequisitionStatus, id: i64, view: &str) -> Markup 
     }
 }
 
+// ── 调拨全部视图 + 详情 drawer（阶段 3.2 收口，模式同领料单）──
+
+/// 调拨全部视图（阶段 3.2）：调 transfer_service.list 渲染全状态调拨单表格。
+async fn render_transfer_all_card(
+    state: &AppState,
+    ctx: &ServiceContext,
+    db: PgExecutor<'_>,
+    q: &WorkCenterQuery,
+    page: u32,
+    summary: &WorkCenterSummary,
+    warehouses: &[Warehouse],
+) -> Result<Markup> {
+    let trf_svc = state.transfer_service();
+    let filter = TransferFilter {
+        doc_number: q
+            .keyword
+            .as_deref()
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(String::from),
+        status: None,
+        from_warehouse_id: None,
+        to_warehouse_id: None,
+    };
+    let result = trf_svc
+        .list(ctx, db, filter, page, DOMAIN_PAGE_SIZE)
+        .await?;
+    let wh_map: HashMap<i64, String> =
+        warehouses.iter().map(|w| (w.id, w.name.clone())).collect();
+    let kw = q.keyword.as_deref().unwrap_or("");
+
+    Ok(html! {
+        div id="wc-domain-card" class="bg-bg border border-border-soft rounded-lg mb-4 shadow-card overflow-hidden" {
+            (status_tabs_with_oob(
+                WmsWorkCenterPath::PATH, "#wc-domain-card", "#wc-domain-filter", "",
+                &domain_tabs(summary), domain_slug(WorkCenterDomain::Transfer), "domain",
+            ))
+            (view_toggle(WorkCenterDomain::Transfer, "all"))
+            form id="wc-domain-filter"
+                class="flex items-center gap-3 flex-wrap px-4 py-3 border-b border-border-soft"
+                hx-get=(WmsWorkCenterPath::PATH)
+                hx-trigger="change, keyup changed delay:300ms from:.wc-search-input"
+                hx-target="#wc-domain-card" hx-select="#wc-domain-card" hx-swap="outerHTML"
+                hx-include="#wc-domain-filter" {
+                input type="hidden" name="domain" value="transfer";
+                input type="hidden" name="view" value="all";
+                div class="relative" {
+                    (icon::search_icon("w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted"));
+                    input class="wc-search-input w-[200px] pl-8 pr-3 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent"
+                        type="text" name="keyword" placeholder="搜索单号"
+                        value=(kw);
+                }
+                div class="ml-auto" {
+                    a class="inline-flex items-center gap-1 px-3 py-1.5 rounded-sm bg-accent text-white text-xs font-semibold no-underline cursor-pointer border-none hover:opacity-90"
+                        href=(TransferCreatePath::PATH) {
+                        (icon::plus_icon("w-3 h-3"))
+                        "新建调拨单"
+                    }
+                }
+            }
+            div class="p-4" {
+                (render_transfer_all_table(&result.items, &wh_map))
+                @if result.total_pages > 1 {
+                    div class="mt-3" {
+                        (pagination(
+                            WmsWorkCenterPath::PATH, "#wc-domain-card", "#wc-domain-filter",
+                            result.total, result.page, result.total_pages,
+                        ))
+                    }
+                }
+            }
+        }
+    })
+}
+
+fn render_transfer_all_table(items: &[InventoryTransfer], wh_map: &HashMap<i64, String>) -> Markup {
+    if items.is_empty() {
+        return html! {
+            div class="mt-2 p-4 text-center text-sm text-muted bg-surface rounded-md" { "暂无调拨单" }
+        };
+    }
+    html! {
+        table class="w-full border-collapse mt-2" {
+            thead {
+                tr {
+                    th class="text-left text-xs font-semibold text-muted py-2 px-3 border-b border-border-soft" { "单号" }
+                    th class="text-left text-xs font-semibold text-muted py-2 px-3 border-b border-border-soft" { "来源仓" }
+                    th class="text-left text-xs font-semibold text-muted py-2 px-3 border-b border-border-soft" { "目标仓" }
+                    th class="text-left text-xs font-semibold text-muted py-2 px-3 border-b border-border-soft" { "日期" }
+                    th class="text-left text-xs font-semibold text-muted py-2 px-3 border-b border-border-soft" { "状态" }
+                    th class="text-right text-xs font-semibold text-muted py-2 px-3 border-b border-border-soft" { "操作" }
+                }
+            }
+            tbody {
+                @for t in items {
+                    (render_transfer_all_row(t, wh_map))
+                }
+            }
+        }
+    }
+}
+
+fn render_transfer_all_row(t: &InventoryTransfer, wh_map: &HashMap<i64, String>) -> Markup {
+    let (status_text, status_cls) = transfer_status_label(t.status);
+    let from_wh = wh_map.get(&t.from_warehouse_id).map(|s| s.as_str()).unwrap_or("—");
+    let to_wh = wh_map.get(&t.to_warehouse_id).map(|s| s.as_str()).unwrap_or("—");
+    html! {
+        tr class="border-b border-border-soft last:border-b-0" {
+            td class="py-3 px-3 text-sm font-mono text-accent font-semibold" {
+                (doc_detail_trigger("transfer_detail", t.id, "all", html! { (t.doc_number) },
+                    "font-mono text-accent font-semibold text-sm bg-transparent border-none p-0 cursor-pointer hover:underline"))
+            }
+            td class="py-3 px-3 text-sm text-fg-2" { (from_wh) }
+            td class="py-3 px-3 text-sm text-fg-2" { (to_wh) }
+            td class="py-3 px-3 text-sm font-mono text-muted" { (t.transfer_date.format("%m-%d")) }
+            td class="py-3 px-3" {
+                span class=(format!("inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium {status_cls}")) {
+                    (status_text)
+                }
+            }
+            td class="py-3 px-3 text-right" {
+                (doc_detail_trigger("transfer_detail", t.id, "all", html! { "详情" (icon::arrow_right_icon("w-3 h-3")) },
+                    "inline-flex items-center gap-1 px-3 py-1.5 rounded-sm bg-surface border border-border-soft text-fg-2 text-xs font-semibold cursor-pointer hover:bg-accent-bg hover:border-accent hover:text-accent transition-all"))
+            }
+        }
+    }
+}
+
+/// 调拨状态 → (标签, 语义色 class)。作业中心全部视图 + 详情 drawer 用。
+fn transfer_status_label(s: TransferStatus) -> (&'static str, &'static str) {
+    match s {
+        TransferStatus::Draft => ("草稿", "bg-surface text-muted"),
+        TransferStatus::InTransit => ("在途", "bg-warn-bg text-warn"),
+        TransferStatus::Completed => ("已完成", "bg-accent-bg text-accent"),
+        TransferStatus::Cancelled => ("已取消", "bg-danger-bg text-danger"),
+    }
+}
+
+/// 调拨详情 drawer body（替代独立 detail 页，阶段 3.2 收口）：
+/// 单据头（单号/状态/来源仓→目标仓/日期）+ 行项目（产品/数量）+ 就地操作（取消/调出/完成）。
+async fn transfer_detail_drawer_body(
+    state: &AppState,
+    ctx: &ServiceContext,
+    db: PgExecutor<'_>,
+    id: i64,
+    view: Option<&str>,
+) -> Result<Markup> {
+    let trf_svc = state.transfer_service();
+    let trf = trf_svc.get(ctx, db, id).await?;
+    let items = trf_svc.get_items(ctx, db, id).await.unwrap_or_default();
+    let product_map: HashMap<i64, abt_core::master_data::product::model::Product> = state
+        .product_service()
+        .get_by_ids(ctx, db, items.iter().map(|i| i.product_id).collect())
+        .await
+        .unwrap_or_default()
+        .into_iter()
+        .map(|p| (p.product_id, p))
+        .collect();
+    let from_wh = state
+        .warehouse_service()
+        .get(ctx, db, trf.from_warehouse_id)
+        .await
+        .map(|w| w.name)
+        .unwrap_or_else(|_| "—".into());
+    let to_wh = state
+        .warehouse_service()
+        .get(ctx, db, trf.to_warehouse_id)
+        .await
+        .map(|w| w.name)
+        .unwrap_or_else(|_| "—".into());
+
+    let (status_text, status_cls) = transfer_status_label(trf.status);
+    let view_val = view.unwrap_or("pending");
+
+    let mut rows = html! {};
+    for it in &items {
+        let pname = product_map
+            .get(&it.product_id)
+            .map(|p| p.pdt_name.clone())
+            .unwrap_or_else(|| format!("产品 #{}", it.product_id));
+        let pcode = product_map
+            .get(&it.product_id)
+            .map(|p| p.product_code.clone())
+            .unwrap_or_default();
+        rows = html! {
+            (rows)
+            div class="flex items-center justify-between px-3 py-2 gap-2" {
+                div class="min-w-0" {
+                    div class="text-sm text-fg-2 truncate" { (pname) }
+                    div class="text-xs text-muted truncate" { (pcode) }
+                }
+                span class="text-sm font-mono text-fg shrink-0" { (fmt_qty(it.quantity)) }
+            }
+        };
+    }
+
+    let inner = html! {
+        div class="mb-4 pb-4 border-b border-border-soft" {
+            div class="flex items-center gap-2 mb-3" {
+                span class="text-base font-mono font-bold text-fg" { (trf.doc_number) }
+                span class=(format!("inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium {status_cls}")) {
+                    (status_text)
+                }
+            }
+            div class="grid grid-cols-2 gap-x-4 gap-y-2 text-xs" {
+                div {
+                    span class="text-muted" { "来源仓 " }
+                    span class="text-fg-2" { (from_wh) }
+                }
+                div {
+                    span class="text-muted" { "目标仓 " }
+                    span class="text-fg-2" { (to_wh) }
+                }
+                div {
+                    span class="text-muted" { "调拨日期 " }
+                    span class="font-mono text-fg-2" { (trf.transfer_date.format("%Y-%m-%d")) }
+                }
+            }
+        }
+        div class="mb-2" {
+            div class="text-xs font-semibold text-muted mb-2" { "明细（" (items.len()) " 项）" }
+            div class="rounded-sm border border-border-soft divide-y divide-border-soft" {
+                @if items.is_empty() {
+                    div class="px-3 py-4 text-center text-sm text-muted" { "暂无明细" }
+                } @else {
+                    (rows)
+                }
+            }
+        }
+        (transfer_detail_actions(trf.status, id, view_val))
+    };
+
+    Ok(req_detail_shell("调拨详情", inner))
+}
+
+/// 调拨详情 drawer 操作：Draft→取消/调出，InTransit→完成。各自 form 提交单端点。
+fn transfer_detail_actions(status: TransferStatus, id: i64, view: &str) -> Markup {
+    let open_hs =
+        "on 'htmx:afterRequest'[detail.xhr.status<400] remove .open from #wc-drawer-overlay";
+    let cancel_btn = |confirm: &str| -> Markup {
+        html! {
+            form hx-post=(WmsWorkCenterPath::PATH) hx-target="#wc-domain-card" hx-select="#wc-domain-card"
+                hx-swap="outerHTML" hx-confirm=(confirm) _=(open_hs) class="contents" {
+                input type="hidden" name="action" value="transfer_cancel";
+                input type="hidden" name="id" value=(id);
+                input type="hidden" name="view" value=(view);
+                button type="submit"
+                    class="inline-flex items-center gap-1.5 px-4 py-2 rounded-sm bg-white text-fg-2 border border-border text-sm font-medium cursor-pointer hover:bg-surface" {
+                    (icon::x_icon("w-4 h-4")) "取消单据"
+                }
+            }
+        }
+    };
+    let primary_btn = |label: &str, action: &str, confirm: &str, ic: Markup| -> Markup {
+        html! {
+            form hx-post=(WmsWorkCenterPath::PATH) hx-target="#wc-domain-card" hx-select="#wc-domain-card"
+                hx-swap="outerHTML" hx-confirm=(confirm) _=(open_hs) class="contents" {
+                input type="hidden" name="action" value=(action);
+                input type="hidden" name="id" value=(id);
+                input type="hidden" name="view" value=(view);
+                button type="submit"
+                    class="inline-flex items-center gap-1.5 px-4 py-2 rounded-sm bg-accent text-white text-sm font-medium cursor-pointer border-none hover:opacity-90" {
+                    (ic) (label)
+                }
+            }
+        }
+    };
+    match status {
+        TransferStatus::Draft => html! {
+            div class="flex justify-end gap-3 mt-5 pt-4 border-t border-border-soft" {
+                (cancel_btn("确定取消此调拨单？"))
+                (primary_btn("调出", "dispatch", "确定调出？将从来源仓扣减库存", icon::upload_icon("w-4 h-4")))
+            }
+        },
+        TransferStatus::InTransit => html! {
+            div class="flex justify-end gap-3 mt-5 pt-4 border-t border-border-soft" {
+                (primary_btn("完成调拨", "complete", "确定完成调拨？将入库到目标仓", icon::check_circle_icon("w-4 h-4")))
+            }
+        },
+        _ => html! {},
+    }
+}
+
 // ── Handlers（单端点）──
 
 /// 作业中心唯一 GET：按 query 分支——drawer body / 卡片 body（懒加载）/ 整页
@@ -627,24 +914,25 @@ pub async fn post_work_center_action(
         .map(|r| r.items)
         .unwrap_or_default();
 
-    let fragment: Markup = if domain == WorkCenterDomain::Requisition
-        && form.view.as_deref() == Some("all")
+    let fragment: Markup = if form.view.as_deref() == Some("all")
+        && matches!(domain, WorkCenterDomain::Requisition | WorkCenterDomain::Transfer)
     {
         let q_all = WorkCenterQuery {
-            domain: Some("requisition".into()),
+            domain: Some(domain_slug(domain).into()),
             view: Some("all".into()),
             ..Default::default()
         };
-        let all_card = render_requisition_all_card(
-            &state,
-            &service_ctx,
-            &mut conn,
-            &q_all,
-            1,
-            &summary,
-            &warehouses,
-        )
-        .await?;
+        let all_card = if domain == WorkCenterDomain::Requisition {
+            render_requisition_all_card(
+                &state, &service_ctx, &mut conn, &q_all, 1, &summary, &warehouses,
+            )
+            .await?
+        } else {
+            render_transfer_all_card(
+                &state, &service_ctx, &mut conn, &q_all, 1, &summary, &warehouses,
+            )
+            .await?
+        };
         html! {
             (all_card)
             (total_badge(summary.total(), true))
@@ -856,6 +1144,9 @@ async fn dispatch_action(
                 .issue(ctx, db, IssueMaterialReq { id: form.id, items: issue_items })
                 .await?;
         }
+        "transfer_cancel" => {
+            state.transfer_service().cancel(ctx, db, form.id).await?;
+        }
         "dispatch" => {
             state.transfer_service().dispatch(ctx, db, form.id).await?;
         }
@@ -959,15 +1250,22 @@ async fn render_work_center_page(
         .unwrap_or_default();
 
     // 领料单全部视图（阶段 3.1）：调 material_requisition_service.list 渲染全状态表格
-    let is_req_all =
-        domain == WorkCenterDomain::Requisition && q.view.as_deref() == Some("all");
+    let is_all_view = matches!(domain, WorkCenterDomain::Requisition | WorkCenterDomain::Transfer)
+        && q.view.as_deref() == Some("all");
 
-    // tab 主体内容：待办队列（list_pending） / 领料单全部表格（material_requisition_service.list）
-    let domain_markup: Markup = if is_req_all {
-        render_requisition_all_card(
-            &state, &service_ctx, &mut conn, q, page, &summary, &warehouses,
-        )
-        .await?
+    // tab 主体内容：待办队列（list_pending） / 收口 domain 全部表格（req/transfer list）
+    let domain_markup: Markup = if is_all_view {
+        if domain == WorkCenterDomain::Requisition {
+            render_requisition_all_card(
+                &state, &service_ctx, &mut conn, q, page, &summary, &warehouses,
+            )
+            .await?
+        } else {
+            render_transfer_all_card(
+                &state, &service_ctx, &mut conn, q, page, &summary, &warehouses,
+            )
+            .await?
+        }
     } else {
         let mut filter = filter_from_query(q);
         // source 仅对 Arrival 有意义：切到其他 tab 时旧 filter-form 可能仍携带 source，忽略之
@@ -1248,7 +1546,10 @@ fn render_task_row(t: &PendingTask, domain: WorkCenterDomain) -> Markup {
             }
             td class="py-3 px-3 text-sm font-mono text-accent font-semibold" {
                 @if domain == WorkCenterDomain::Requisition {
-                    (req_detail_trigger(t.doc_id, "pending", html! { (t.doc_number) },
+                    (doc_detail_trigger("req_detail",t.doc_id, "pending", html! { (t.doc_number) },
+                        "font-mono text-accent font-semibold text-sm bg-transparent border-none p-0 cursor-pointer hover:underline"))
+                } @else if domain == WorkCenterDomain::Transfer {
+                    (doc_detail_trigger("transfer_detail",t.doc_id, "pending", html! { (t.doc_number) },
                         "font-mono text-accent font-semibold text-sm bg-transparent border-none p-0 cursor-pointer hover:underline"))
                 } @else if let Some(url) = domain_detail_url(domain, t.doc_id) {
                     a class="text-accent no-underline hover:underline cursor-pointer" href=(url) { (t.doc_number) }
@@ -1423,6 +1724,7 @@ async fn render_drawer_body(action: &str, id: i64, view: Option<&str>, ctx: Requ
         "ship" => ship_drawer_body(&state, &service_ctx, &mut conn, id).await?,
         "issue" => issue_drawer_body(&state, &service_ctx, &mut conn, id).await?,
         "req_detail" => req_detail_drawer_body(&state, &service_ctx, &mut conn, id, view).await?,
+        "transfer_detail" => transfer_detail_drawer_body(&state, &service_ctx, &mut conn, id, view).await?,
         "transfer" => transfer_drawer_body(&state, &service_ctx, &mut conn, id).await?,
         other => return Err(DomainError::validation(format!("未知 drawer 动作: {other}")).into()),
     };

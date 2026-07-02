@@ -110,13 +110,34 @@ pub struct WorkCenterSummary {
 
 **改引用**：`wms_requisition_create.rs` 创建后 redirect + 返回链接从 `RequisitionListPath` 改为 `WmsWorkCenterPath?domain=requisition&view=all`。
 
+### 阶段 3.2a（调拨）实施
+
+调拨与领料单同构（4 状态、cancel/dispatch/complete 操作、行项目仅 `quantity`），机械复制 3.1 模式：
+
+**作业中心 Transfer 域扩展**（`wms_work_center.rs`）：
+- `view_toggle` / `render_work_center_page` / `post_work_center_action` 通用化：支持 Requisition + Transfer 两域的「待办/全部」视图切换（`is_all_view` + 按 domain 选 `render_X_all_card`）。
+- `doc_detail_trigger` 通用化（原 `req_detail_trigger`，加 `drawer` 参数）：领料单 `req_detail`、调拨 `transfer_detail` 共用。
+- 新增 `render_transfer_all_card` / `_table` / `_row` / `transfer_status_label`：调 `transfer_service.list` 渲染全状态调拨单表格（来源仓 / 目标仓 / 日期 / 状态）。
+- 新增 `transfer_detail_drawer_body` + `transfer_detail_actions`（Draft→取消 / 调出，InTransit→完成）：替代独立 detail 页。
+- `dispatch_action` 加 `transfer_cancel`（dispatch/complete 已有）；`action_domain` 加映射。
+- `domain_detail_url` Transfer→`None`；`domain_entries` Transfer 去掉「查看全部」；`render_task_row` Transfer 单号→drawer trigger。
+
+**删除独立页**：`pages/wms_transfer_list.rs`、`pages/wms_transfer_detail.rs` + `TransferListPath` / `TransferDetailPath` 路由 + mod 声明。
+
+**改引用**：`wms_transfer_create.rs` redirect 改 `WmsWorkCenterPath?domain=transfer&view=all`。
+
 ### 后续阶段（待 3.1 试点验证后推广）
 
 | 阶段 | 范围 | 删除页面 |
 |---|---|---|
-| 3.2 | 调拨 transfer + 盘点 cycle_count | list + detail（无跨模块依赖，模式同 3.1） |
+| 3.2a | 调拨 transfer | list + detail（✅ 已完成，模式同 3.1） |
+| 3.2b | 盘点 cycle_count | list + detail（⏳ 待做：`count` 行级录入 + `adjust` 调库存 + `approve`/`reject` 审批，drawer 化工程较大） |
 | 3.3 | 入库 stock_in | list + detail（create 保留 suggest_bins） |
 | 3.4 | 出库 shipping | list（detail 保留销售依赖） |
 | 3.5（可选） | 新建 drawer 化 | 各 create 页 |
 
-> **实施状态（2026-07-02）**：阶段 3.1 领料单收口完成——作业中心承载领料单待办 / 全部视图 + 详情 drawer + 确认 / 取消 / 发料就地操作，独立 list / detail 页与路由已删除，create 页入口收口到作业中心。`cargo clippy -p abt-web` 通过。
+> **实施状态（2026-07-02）**：
+> - **阶段 3.1 领料单**收口完成——作业中心承载待办 / 全部视图 + 详情 drawer + 确认 / 取消 / 发料就地操作，独立 list / detail 页与路由已删除，create 页入口收口到作业中心。
+> - **阶段 3.2a 调拨**收口完成——模式同领料单（通用化 `view_toggle` / `doc_detail_trigger` / `is_all_view`），调拨待办 / 全部视图 + 详情 drawer + 取消 / 调出 / 完成就地操作，独立 list / detail 页与路由已删除。
+> - 阶段 3.2b 盘点因 `count` 行级录入 + `adjust` + `approve`/`reject` 审批复杂，待单独评审 / 会话实施。
+> - `cargo clippy -p abt-web` 通过。

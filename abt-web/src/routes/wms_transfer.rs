@@ -3,14 +3,12 @@ use axum::Router;
 use axum_extra::routing::TypedPath;
 use serde::Deserialize;
 
-use crate::pages::{wms_transfer_list, wms_transfer_create, wms_transfer_detail};
+use crate::pages::wms_transfer_create;
 use crate::state::AppState;
 
 // ── Typed Paths ──
-
-#[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/wms/transfers")]
-pub struct TransferListPath;
+// 调拨 list / detail 页已收口到作业中心（阶段 3.2）：作业中心承载待办/全部视图 + 详情 drawer，
+// 不再有独立 list / detail 路由。Create 路由保留（新建页暂保留跳转，阶段 3.5 再 drawer 化）。
 
 #[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/wms/transfers/create")]
@@ -24,18 +22,10 @@ pub struct TransferProductsPath;
 #[typed_path("/admin/wms/transfers/create/item-row")]
 pub struct TransferItemRowPath;
 
-#[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/wms/transfers/{id}")]
-pub struct TransferDetailPath {
-    pub id: i64,
-}
-
 // ── Router ──
 
 pub fn router() -> Router<AppState> {
     Router::new()
-        .route(TransferListPath::PATH, get(wms_transfer_list::get_transfer_list))
                 .route(TransferItemRowPath::PATH, get(wms_transfer_create::get_item_row))
         .route(TransferCreatePath::PATH, get(wms_transfer_create::get_transfer_create).post(wms_transfer_create::create_transfer))
-        .route(TransferDetailPath::PATH, get(wms_transfer_detail::get_transfer_detail).post(wms_transfer_detail::post_transfer_action))
 }

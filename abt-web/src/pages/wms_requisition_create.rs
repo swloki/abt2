@@ -8,7 +8,7 @@ use rust_decimal::Decimal;
 
 use abt_core::master_data::product::ProductService;
 use abt_core::shared::types::DomainError;
-use abt_core::wms::material_requisition::{CreateManualReq, CreateManualItemReq, MaterialRequisitionService};
+use abt_core::wms::picking::{CreateManualReq, CreateManualItemReq, PickingService};
 use abt_core::wms::warehouse::model::WarehouseFilter;
 use abt_core::wms::warehouse::WarehouseService;
 
@@ -96,7 +96,7 @@ pub async fn create_requisition(
  axum::Form(form): axum::Form<RequisitionCreateForm>,
 ) -> Result<impl IntoResponse> {
  let RequestContext { mut conn, state, service_ctx, .. } = ctx;
- let svc = state.material_requisition_service();
+ let svc = state.picking_service();
 
  let requisition_date = chrono::NaiveDate::parse_from_str(&form.requisition_date, "%Y-%m-%d")
  .map_err(|e| DomainError::validation(format!("Invalid date: {e}")))?;

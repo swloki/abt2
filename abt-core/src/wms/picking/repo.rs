@@ -71,10 +71,10 @@ impl PickingRepo {
             r#"
             INSERT INTO stock_picking_items
                 (picking_id, product_id, batch_no, qty_requested, qty_done,
-                 from_bin_id, to_bin_id, operation_id, source_item_id, remark)
-            VALUES ($1, $2, $3, $4, 0, $5, $6, $7, $8, $9)
+                 from_bin_id, to_bin_id, operation_id, batch_id, source_item_id, remark)
+            VALUES ($1, $2, $3, $4, 0, $5, $6, $7, $8, $9, $10)
             RETURNING id, picking_id, product_id, batch_no, qty_requested, qty_done,
-                      from_bin_id, to_bin_id, operation_id, source_item_id, remark, created_at
+                      from_bin_id, to_bin_id, operation_id, batch_id, source_item_id, remark, created_at
             "#,
         )
         .bind(picking_id)
@@ -84,6 +84,7 @@ impl PickingRepo {
         .bind(item.from_bin_id)
         .bind(item.to_bin_id)
         .bind(item.operation_id)
+        .bind(item.batch_id)
         .bind(item.source_item_id)
         .bind(item.remark.as_deref().unwrap_or(""))
         .fetch_one(&mut *executor)
@@ -124,13 +125,39 @@ impl PickingRepo {
         let rows = sqlx::query(
             r#"
             SELECT id, picking_id, product_id, batch_no, qty_requested, qty_done,
-                   from_bin_id, to_bin_id, operation_id, source_item_id, remark, created_at
+                   from_bin_id, to_bin_id, operation_id, batch_id, source_item_id, remark, created_at
             FROM stock_picking_items
             WHERE picking_id = $1
             ORDER BY id
             "#,
         )
         .bind(picking_id)
+        .fetch_all(&mut *executor)
+        .await?;
+
+        rows.iter()
+            .map(|r| StockPickingItem::from_row(r).map_err(Into::into))
+            .collect()
+    }
+
+    /// 批量查多个作业单据的明细（避免 N+1）
+    pub async fn get_items_by_picking_ids(
+        executor: &mut sqlx::postgres::PgConnection,
+        picking_ids: &[i64],
+    ) -> Result<Vec<StockPickingItem>> {
+        if picking_ids.is_empty() {
+            return Ok(Vec::new());
+        }
+        let rows = sqlx::query(
+            r#"
+            SELECT id, picking_id, product_id, batch_no, qty_requested, qty_done,
+                   from_bin_id, to_bin_id, operation_id, batch_id, source_item_id, remark, created_at
+            FROM stock_picking_items
+            WHERE picking_id = ANY($1)
+            ORDER BY id
+            "#,
+        )
+        .bind(picking_ids)
         .fetch_all(&mut *executor)
         .await?;
 
@@ -180,7 +207,7 @@ impl PickingRepo {
         Ok(result.rows_affected())
     }
 
-    /// 更新明细行级实绩（done 时按 DoneItemReq 写回）
+    /// 更新明细行级实绩（done / issue 时按行写回 qty_done + 库位）
     pub async fn update_item_done(
         executor: &mut sqlx::postgres::PgConnection,
         item_id: i64,
@@ -206,6 +233,32 @@ impl PickingRepo {
         .await?;
 
         Ok(result.rows_affected())
+    }
+
+    /// 查询批次已领料的工序 routing_id 集合（驱动 MES 批次矩阵动作位推进）。
+    /// 仅 InternalIssue + 未取消的 picking。
+    pub async fn find_routing_ids_by_batch(
+        executor: &mut sqlx::postgres::PgConnection,
+        batch_id: i64,
+    ) -> Result<Vec<i64>> {
+        let ids: Vec<i64> = sqlx::query_scalar(
+            r#"
+            SELECT DISTINCT i.operation_id
+            FROM stock_picking_items i
+            JOIN stock_pickings p ON p.id = i.picking_id
+            WHERE i.batch_id = $1
+              AND i.operation_id IS NOT NULL
+              AND p.picking_type = $2
+              AND p.deleted_at IS NULL
+              AND p.status <> $3
+            "#,
+        )
+        .bind(batch_id)
+        .bind(crate::wms::enums::PickingType::InternalIssue)
+        .bind(PickingStatus::Cancelled)
+        .fetch_all(executor)
+        .await?;
+        Ok(ids)
     }
 
     /// 分页查询作业单据列表（自动过滤软删除）

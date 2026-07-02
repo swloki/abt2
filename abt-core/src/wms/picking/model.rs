@@ -48,7 +48,11 @@ pub struct StockPickingItem {
     pub qty_done: Decimal,
     pub from_bin_id: Option<i64>,
     pub to_bin_id: Option<i64>,
+    /// 工序（领料用）
     pub operation_id: Option<i64>,
+    /// 生产批次（MES 工序级领料用，migration 081）
+    #[sqlx(default)]
+    pub batch_id: Option<i64>,
     pub source_item_id: Option<i64>,
     pub remark: String,
     pub created_at: DateTime<Utc>,
@@ -83,11 +87,12 @@ pub struct CreatePickingItemReq {
     pub from_bin_id: Option<i64>,
     pub to_bin_id: Option<i64>,
     pub operation_id: Option<i64>,
+    pub batch_id: Option<i64>,
     pub source_item_id: Option<i64>,
     pub remark: Option<String>,
 }
 
-/// 完成作业单据时的行级实绩（done 按 picking_type 分发：写流水 / 回写来源）
+/// 完成作业单据时的行级实绩（通用 done）
 #[derive(Debug, Clone)]
 pub struct DoneItemReq {
     /// stock_picking_items.id
@@ -107,4 +112,53 @@ pub struct PickingFilter {
     pub source_type: Option<String>,
     pub source_id: Option<i64>,
     pub work_order_id: Option<i64>,
+}
+
+// ── 领料专用请求（从 material_requisition 迁入，字段保持兼容调用方）──
+
+/// 手动创建领料单请求（非工单驱动）
+#[derive(Debug, Clone)]
+pub struct CreateManualReq {
+    pub warehouse_id: i64,
+    pub requisition_date: NaiveDate,
+    pub remark: Option<String>,
+    pub items: Vec<CreateManualItemReq>,
+}
+
+/// 手动创建领料单行项目请求
+#[derive(Debug, Clone)]
+pub struct CreateManualItemReq {
+    pub product_id: i64,
+    pub requested_qty: Decimal,
+}
+
+/// 发料请求（整单）
+#[derive(Debug, Clone)]
+pub struct IssueMaterialReq {
+    pub id: i64,
+    pub items: Vec<IssueItemReq>,
+}
+
+/// 发料请求（行项目）—— item_id 为 stock_picking_items.id，issued_qty 为本次发料量
+#[derive(Debug, Clone)]
+pub struct IssueItemReq {
+    pub item_id: i64,
+    pub issued_qty: Decimal,
+    pub bin_id: Option<i64>,
+}
+
+/// 退料请求 —— requisition_id 语义为 picking_id（保留字段名兼容调用方）
+#[derive(Debug, Clone)]
+pub struct ReturnMaterialReq {
+    pub requisition_id: i64,
+    pub items: Vec<ReturnItemReq>,
+    pub reason: String,
+}
+
+/// 退料行项目请求
+#[derive(Debug, Clone)]
+pub struct ReturnItemReq {
+    pub item_id: i64,
+    pub return_qty: Decimal,
+    pub bin_id: Option<i64>,
 }

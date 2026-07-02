@@ -251,6 +251,10 @@ impl AppState {
         abt_core::wms::material_requisition::new_material_requisition_service(self.pool.clone())
     }
 
+    pub fn picking_service(&self) -> impl abt_core::wms::picking::PickingService {
+        abt_core::wms::picking::new_picking_service(self.pool.clone())
+    }
+
     pub fn backflush_service(&self) -> impl abt_core::wms::backflush::BackflushService {
         abt_core::wms::backflush::new_backflush_service(self.pool.clone())
     }

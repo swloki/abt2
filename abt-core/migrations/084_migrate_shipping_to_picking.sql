@@ -49,7 +49,7 @@ SELECT
     sri.shipped_qty,  -- qty_done（Shipped 行 shipped_qty = requested_qty）
     sri.order_item_id,  -- source_item_id（关联销售订单行）
     COALESCE(NULLIF(sri.description, ''), ''),
-    sri.created_at
+    NOW()
 FROM shipping_request_items sri
 JOIN shipping_requests sr ON sr.id = sri.shipping_request_id
 JOIN stock_pickings sp ON sp.picking_type = 3 AND sp.doc_number = sr.doc_number

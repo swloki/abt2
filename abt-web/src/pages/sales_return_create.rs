@@ -14,8 +14,9 @@ use abt_core::sales::sales_return::model::{
  CreateReturnItemReq, CreateReturnReq, ReturnDisposition,
 };
 use abt_core::sales::sales_return::SalesReturnService;
-use abt_core::wms::outbound::model::ShippingQuery;
-use abt_core::wms::outbound::ShippingRequestService;
+use abt_core::wms::picking::model::PickingFilter;
+use abt_core::wms::picking::PickingService;
+use abt_core::wms::enums::PickingType;
 use abt_core::shared::types::PageParams;
 
 use crate::components::icon;
@@ -177,15 +178,17 @@ pub async fn get_orders(
  products.iter().map(|p| (p.product_id, p)).collect();
 
  // 4. Resolve shipping IDs for these orders (latest per order)
- let shipping_svc = state.shipping_service();
+ let shipping_svc = state.picking_service();
  let mut shipping_map: std::collections::HashMap<i64, i64> = std::collections::HashMap::new();
  for &oid in &order_ids {
  let shippings = shipping_svc
  .list(
  &service_ctx,
  &mut conn,
- ShippingQuery {
- order_id: Some(oid),
+ PickingFilter {
+ source_id: Some(oid),
+ source_type: Some("sales_order".into()),
+ picking_type: Some(PickingType::OutgoingSales),
  ..Default::default()
  },
  PageParams::new(1, 100),

@@ -11,7 +11,7 @@ use abt_core::master_data::customer::CustomerService;
 use abt_core::sales::sales_order::SalesOrderService;
 use abt_core::sales::sales_return::model::*;
 use abt_core::sales::sales_return::SalesReturnService;
-use abt_core::wms::outbound::ShippingRequestService;
+use abt_core::wms::picking::PickingService;
 use abt_core::shared::types::{PageParams, PgExecutor, ServiceContext};
 
 use crate::components::icon;
@@ -89,8 +89,8 @@ async fn count_by_status<S: SalesReturnService>(
  counts
 }
 
-/// Resolve shipping doc_numbers by calling ShippingRequestService::find_by_id for each unique id.
-async fn resolve_shipping_numbers<S: ShippingRequestService>(
+/// Resolve shipping doc_numbers by calling PickingService::find_by_id for each unique id.
+async fn resolve_shipping_numbers<S: PickingService>(
  svc: &S,
  ctx: &ServiceContext,
  db: PgExecutor<'_>,
@@ -141,7 +141,7 @@ pub async fn get_return_list(
 
  let return_svc = state.sales_return_service();
  let customer_svc = state.customer_service();
- let shipping_svc = state.shipping_service();
+ let shipping_svc = state.picking_service();
  let order_svc = state.sales_order_service();
 
  let filter = ReturnQuery {

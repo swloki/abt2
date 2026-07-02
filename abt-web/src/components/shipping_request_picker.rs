@@ -11,8 +11,9 @@ use serde::Deserialize;
 use super::overlay::modal_shell;
 use abt_core::master_data::customer::CustomerService;
 use abt_core::master_data::customer::model::{Customer, CustomerQuery};
-use abt_core::wms::outbound::ShippingRequestService;
-use abt_core::wms::outbound::model::ShippingQuery;
+use abt_core::wms::picking::PickingService;
+use abt_core::wms::picking::model::PickingFilter;
+use abt_core::wms::enums::{PickingStatus, PickingType};
 use abt_core::shared::types::PageParams;
 
 use crate::errors::Result;
@@ -40,28 +41,28 @@ pub async fn search_shipping_requests(
     ctx: RequestContext,
     Query(params): Query<SearchShippingParams>,
 ) -> Result<Html<String>> {
-    use abt_core::wms::outbound::model::ShippingStatus;
     let RequestContext { mut conn, state, service_ctx, .. } = ctx;
-    let svc = state.shipping_service();
+    let svc = state.picking_service();
     let customer_svc = state.customer_service();
-    let query = ShippingQuery {
-        keyword: params.keyword,
-        customer_id: params.customer_id,
-        status: params.status.and_then(ShippingStatus::from_i16),
-        order_id: None,
+    let query = PickingFilter {
+        doc_number: params.keyword,
+        partner_id: params.customer_id,
+        picking_type: Some(PickingType::OutgoingSales),
+        status: params.status.and_then(PickingStatus::from_i16),
+        ..Default::default()
     };
     let result = svc
         .list(&service_ctx, &mut conn, query, PageParams::new(1, 50))
         .await
         .map(|r| r.items)
         .unwrap_or_default();
-    // 仅展示可出库状态（已确认 / 拣货中）
+    // 仅展示待发货（Confirmed）
     let filtered: Vec<_> = result
         .into_iter()
-        .filter(|s| matches!(s.status, ShippingStatus::Confirmed | ShippingStatus::Picking))
+        .filter(|s| matches!(s.status, PickingStatus::Confirmed))
         .collect();
     // 客户名解析（仅取结果中出现的客户）
-    let ids: Vec<i64> = filtered.iter().map(|s| s.customer_id).collect();
+    let ids: Vec<i64> = filtered.iter().filter_map(|s| s.partner_id).collect();
     let names: HashMap<i64, String> = if ids.is_empty() {
         HashMap::new()
     } else {
@@ -134,9 +135,8 @@ pub fn shipping_request_picker_modal(modal_id: &str, confirm_path: &str, custome
                             hx-swap="innerHTML"
                             hx-include=".shipping-search-bar"
                         {
-                            option value="" { "全部可出库" }
+                            option value="" { "全部待发货" }
                             option value="2" { "已确认" }
-                            option value="3" { "拣货中" }
                         }
                     }
                 }
@@ -173,31 +173,28 @@ pub fn shipping_request_picker_modal(modal_id: &str, confirm_path: &str, custome
 }
 
 fn shipping_picker_results(
-    items: &[abt_core::wms::outbound::model::ShippingRequest],
+    items: &[abt_core::wms::picking::model::StockPicking],
     customer_names: &HashMap<i64, String>,
 ) -> Markup {
-    use abt_core::wms::outbound::model::ShippingStatus;
-    let status_label = |s: &ShippingStatus| -> &'static str {
+    let status_label = |s: &PickingStatus| -> &'static str {
         match s {
-            ShippingStatus::Draft => "草稿",
-            ShippingStatus::Confirmed => "已确认",
-            ShippingStatus::Picking => "拣货中",
-            ShippingStatus::Shipped => "已发货",
-            ShippingStatus::Cancelled => "已取消",
+            PickingStatus::Draft => "草稿",
+            PickingStatus::Confirmed => "已确认",
+            PickingStatus::Done => "已发货",
+            PickingStatus::Cancelled => "已取消",
         }
     };
     html! {
         @if items.is_empty() {
             div class="text-center text-muted py-10" {
-                p class="text-sm" { "未找到可出库的发货申请" }
-                p class="text-xs mt-1" { "仅展示「已确认 / 拣货中」状态的发货申请" }
+                p class="text-sm" { "未找到待发货的发货申请" }
+                p class="text-xs mt-1" { "仅展示「已确认」状态的发货申请" }
             }
         } @else {
             @for s in items {
                 @let sl = status_label(&s.status);
-                @let cust = customer_names
-                    .get(&s.customer_id)
-                    .cloned()
+                @let cust = s.partner_id
+                    .and_then(|cid| customer_names.get(&cid).cloned())
                     .unwrap_or_else(|| "-".into());
                 label
                     class="flex items-center gap-3 px-3 py-2 hover:bg-surface cursor-pointer border-b border-border-soft last:border-b-0 transition-colors duration-100"
@@ -214,7 +211,7 @@ fn shipping_picker_results(
                             " · "
                             (sl)
                             " · "
-                            (s.request_date.format("%Y-%m-%d").to_string())
+                            (s.created_at.format("%Y-%m-%d").to_string())
                         }
                     }
                 }

@@ -12,7 +12,7 @@ use abt_core::master_data::product::ProductService;
 use abt_core::sales::reconciliation::model::*;
 use abt_core::sales::reconciliation::ReconciliationService;
 use abt_core::sales::sales_order::SalesOrderService;
-use abt_core::wms::outbound::ShippingRequestService;
+use abt_core::wms::picking::PickingService;
 use abt_core::shared::types::PageParams;
 
 use crate::components::icon;
@@ -159,7 +159,7 @@ pub async fn get_reconciliation_preview(
  };
 
  // Resolve shipping numbers
- let shipping_svc = state.shipping_service();
+ let shipping_svc = state.picking_service();
  let shipping_ids: Vec<i64> = items.iter().map(|i| i.shipping_request_id).collect::<std::collections::HashSet<_>>().into_iter().collect();
  let shipping_numbers: HashMap<i64, String> = {
  let mut map = HashMap::new();

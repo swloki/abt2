@@ -12,8 +12,9 @@ use abt_core::qms::rma::model::CreateRmaReq;
 use abt_core::qms::rma::RmaService;
 use abt_core::sales::sales_order::model::SalesOrderQuery;
 use abt_core::sales::sales_order::SalesOrderService;
-use abt_core::wms::outbound::model::ShippingQuery;
-use abt_core::wms::outbound::ShippingRequestService;
+use abt_core::wms::picking::model::PickingFilter;
+use abt_core::wms::picking::PickingService;
+use abt_core::wms::enums::PickingType;
 use abt_core::shared::types::PageParams;
 
 use crate::components::icon;
@@ -81,9 +82,9 @@ pub async fn get_create(
  .map(|p| p.items)
  .unwrap_or_default();
 
- let shipping_svc = state.shipping_service();
+ let shipping_svc = state.picking_service();
  let shipping_requests = shipping_svc
- .list(&service_ctx, &mut conn, ShippingQuery::default(), PageParams::new(1, 200))
+ .list(&service_ctx, &mut conn, PickingFilter { picking_type: Some(PickingType::OutgoingSales), ..Default::default() }, PageParams::new(1, 200))
  .await
  .map(|p| p.items)
  .unwrap_or_default();
@@ -150,7 +151,7 @@ pub async fn create(
 
 // ── Page rendering ──
 
-fn rma_create_page(customers: &[Customer], products: &[Product], sales_orders: &[abt_core::sales::sales_order::model::SalesOrder], shipping_requests: &[abt_core::wms::outbound::model::ShippingRequest]) -> Markup {
+fn rma_create_page(customers: &[Customer], products: &[Product], sales_orders: &[abt_core::sales::sales_order::model::SalesOrder], shipping_requests: &[abt_core::wms::picking::model::StockPicking]) -> Markup {
  html! {
     div {
         // ── Page header ──

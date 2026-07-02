@@ -71,14 +71,6 @@ pub trait ProductionBatchService: Send + Sync {
         work_order_id: i64,
     ) -> Result<Vec<WorkOrderRouting>>;
 
-    /// 查询批次各工序执行进度（写真相源，用于工序流转进度展示）
-    async fn list_routing_progress(
-        &self,
-        ctx: &ServiceContext,
-        db: PgExecutor<'_>,
-        batch_id: i64,
-    ) -> Result<Vec<BatchRoutingProgress>>;
-
     /// 从工艺路径模板加载工序步骤到工单（删除未报工旧行 → 插入模板步骤）。返回插入行数
     async fn load_routings_from_template(
         &self, ctx: &ServiceContext, db: PgExecutor<'_>,
@@ -109,4 +101,12 @@ pub trait ProductionBatchService: Send + Sync {
         db: PgExecutor<'_>,
         work_order_id: i64,
     ) -> Result<bool>;
+
+    /// 查询某批次各工序的执行进度（写真相源：status/completed_qty/defect_qty）。
+    async fn list_progress_by_batch(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        batch_id: i64,
+    ) -> Result<Vec<BatchRoutingProgress>>;
 }

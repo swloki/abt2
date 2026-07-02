@@ -13,7 +13,7 @@ use crate::components::icon;
 use crate::components::pagination::pagination;
 use crate::errors::Result;
 use crate::layout::page::admin_page;
-use crate::routes::mes_receipt::{ReceiptCreatePath, ReceiptListPath};
+use crate::routes::mes_receipt::ReceiptListPath;
 use crate::utils::{empty_as_none, RequestContext};
 use abt_macros::require_permission;
 
@@ -38,32 +38,23 @@ pub async fn get_receipt_list(
 ) -> Result<Html<String>> {
  let is_htmx = ctx.is_htmx();
  let nav_filter = ctx.nav_filter().await;
- let can_create = ctx.has_permission("WORK_ORDER", "create").await;
  let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
  let svc = state.production_receipt_service();
  let page = params.page.unwrap_or(1);
  let filter = ReceiptListFilter { keyword: params.keyword.clone() };
  let result = svc.list(&service_ctx, &mut conn, filter, page, 20).await?;
- let content = receipt_list_page(&result, &params, can_create);
+ let content = receipt_list_page(&result, &params);
  Ok(Html(admin_page(is_htmx, "完工入库", &claims, "production", ReceiptListPath::PATH, "生产管理", None, content, &nav_filter).into_string()))
 }
 
 fn receipt_list_page(
  result: &PaginatedResult<ReceiptListItem>,
  params: &ReceiptQueryParams,
- can_create: bool,
 ) -> Markup {
  html! {
     div {
         div class="flex items-center justify-between mb-6" {
             h1 class="text-xl font-bold text-fg tracking-tight" { "完工入库" }
-            div class="flex gap-3" {
-                @if can_create {
-                    a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
-                        href=(ReceiptCreatePath::PATH)
-                    { (icon::plus_icon("w-4 h-4")) "新建入库" }
-                }
-            }
         }
         (receipt_table_fragment(result, params))
     }
@@ -119,7 +110,6 @@ fn receipt_data_card(
                         th class="text-right text-[13px]" { "入库数量" }
                         th { "仓库" }
                         th { "状态" }
-                        th class="!text-right" { "操作" }
                     }
                 }
                 tbody {
@@ -154,14 +144,11 @@ fn receipt_data_card(
                                     })
                                 { (sl) }
                             }
-                            td {
-                                a href=(dp) class="text-accent text-xs" { "查看" }
-                            }
                         }
                     }
                     @if result.items.is_empty() {
                         tr {
-                            td colspan="8" class="text-center text-muted py-8" { "暂无入库记录" }
+                            td colspan="7" class="text-center text-muted py-8" { "暂无入库记录" }
                         }
                     }
                 }

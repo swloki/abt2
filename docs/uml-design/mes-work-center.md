@@ -28,22 +28,19 @@ MES 作业中心是车间执行入口：一进系统看到「待排产需求 →
 - 需求池 card shell（`#wc-demand-card`，懒加载 `WcDemandPath`）
 - 工单 card shell（`#wc-orders-card`，懒加载 `WcOrdersPath`）
 - 下达 drawer overlay（`release-overlay` / `release-drawer`）
-- 报工 drawer overlay（`report-overlay` / `report-drawer`）
 
 ## 4. 端点契约（TypedPath）
 
 | 路径 | 方法 | handler | 说明 |
 |---|---|---|---|
 | `/admin/mes/work-center` | GET | `get_work_center` | 首页（2 card shell + drawer） |
-| `/admin/mes/work-center/demand` | GET | `get_demand_card` | 需求池 card，`view=material\|detail\|schedule` 三 tab + 搜索/日期过滤/分页 |
-| `/admin/mes/work-center/orders` | GET | `get_orders_card` | 工单 card，生产中/已下达 tab + 搜索/物料徽章/进度 |
+| `/admin/mes/work-center/demand` | GET | `get_demand_card` | 需求池 card，`view=material\|detail\|orders\|batches` 四 tab + 搜索/筛选/分页 |
+| `…/orders/{id}/drawer` | GET | `get_order_drawer` | 工单详情 drawer body（工单号点击，只读：头部摘要/工艺路线/物料/来源SO） |
 | `…/orders/{id}/release-drawer` | GET | `get_release_drawer` | 下达 drawer body |
-| `…/orders/{id}/report-drawer` | GET | `get_report_drawer` | 报工 drawer body |
 | `…/orders/{id}/release` | POST | `release_order` | 下达（release + 分批单事务），广播 `woChanged` |
 | `…/orders/{id}/split-multi` | POST | `split_multi` | 多批分批，广播 `woChanged` |
-| `…/orders/{id}/report` | POST | `report_step` | 工序报工，广播 `woChanged` |
 
-需求池 card 的 `schedule` view 复用 `WorkOrderService.list`（Draft + Planned 合并）+ `render_schedule_table`，行内「下达」入口走 `release-drawer`。
+工单 tab（`view=orders`）复用 `WorkOrderService.list`，行内「下达」入口走 `release-drawer`，工单号点击走 `drawer` 查看只读详情。
 
 ## 5. MesWorkCenterSummary
 
@@ -62,3 +59,5 @@ pub struct MesWorkCenterSummary {
 - 每个 card 一个 GET 端点；card 内 tab/搜索/分页走该端点 + `hx-select="#wc-xxx-card"` + `hx-swap="outerHTML"` 局部刷新。
 - 写操作 POST 广播 `HX-Trigger: woChanged`；需求池 schedule view 与工单 card 监听 `woChanged from:body` 自刷新。
 - 工序由工单创建时从 BOM 关联工艺路线自动加载（`WorkOrderService::create` 内 `try_load_routings_from_bom`），只读不可编辑；BOM 未关联工艺路线时下达 drawer 引导用户去「工艺路线管理」关联。
+- 工单 tab 工单号点击 → `get_order_drawer` 弹工单详情 drawer（只读，区块参考 ERPNext Work Order / Odoo MO：头部摘要 + 来源销售订单 + 工艺路线 + 物料齐套 + 备注）。
+- 批次 tab 支持工单号搜索（`wo_no` → `BatchListFilter.work_order_no` → `wo.doc_number ILIKE`），按工单筛选其所有生产批次。

@@ -75,3 +75,35 @@ impl EventHandler for SalesDemandRejectedHandler {
         "sales_demand_rejected"
     }
 }
+
+/// DemandReleased 事件处理器 — 工单/采购单取消导致需求回池，
+/// 对称回退履行计划行和订单行到 Pending（与 DemandConfirmed 逆操作）。
+pub struct SalesDemandReleasedHandler {
+    pool: PgPool,
+}
+
+impl SalesDemandReleasedHandler {
+    pub fn new(pool: PgPool) -> Self {
+        Self { pool }
+    }
+}
+
+#[async_trait]
+impl EventHandler for SalesDemandReleasedHandler {
+    async fn handle(&self, event: &DomainEvent) -> Result<()> {
+        let mut conn = self.pool.acquire().await
+            .map_err(|e| crate::shared::types::DomainError::Internal(e.into()))?;
+        let ctx = ServiceContext::system();
+
+        super::implt::handle_demand_released(
+            self.pool.clone(),
+            &ctx,
+            &mut conn,
+            event,
+        ).await
+    }
+
+    fn name(&self) -> &str {
+        "sales_demand_released"
+    }
+}

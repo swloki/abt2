@@ -1381,6 +1381,36 @@ impl DemandService for DemandServiceImpl {
         DemandRepo::update_target_doc(db, id, target_doc_type, target_doc_id).await
     }
 
+    async fn release_back_to_pool(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        target_doc_type: i16,
+        target_doc_id: i64,
+    ) -> Result<()> {
+        let released = DemandRepo::release_by_target_doc(db, target_doc_type, target_doc_id).await?;
+        let event_bus = new_domain_event_bus(self.pool.clone());
+        for (demand_id, order_line_id, product_id, acquire_channel) in released {
+            event_bus.publish(
+                ctx, db,
+                EventPublishRequest {
+                    event_type: DomainEventType::DemandReleased,
+                    aggregate_type: "Demand".to_string(),
+                    aggregate_id: demand_id,
+                    payload: serde_json::json!({
+                        "order_line_id": order_line_id.unwrap_or(0),
+                        "product_id": product_id,
+                        "acquire_channel": acquire_channel.unwrap_or(0),
+                        "target_doc_type": target_doc_type,
+                        "target_doc_id": target_doc_id,
+                    }),
+                    idempotency_key: None,
+                },
+            ).await?;
+        }
+        Ok(())
+    }
+
     async fn find_by_source(
         &self,
         _ctx: &ServiceContext, db: PgExecutor<'_>,
@@ -1479,6 +1509,43 @@ pub async fn handle_demand_rejected(
     ).await?;
 
     tracing::info!("DemandRejected handled: fp_line {} → Pending", fp_line.id);
+
+    Ok(())
+}
+
+/// 处理 DemandReleased 事件 — 下游单据（工单/采购单）取消导致需求回池，
+/// 对称回退履行计划行和订单行到 Pending（与 handle_demand_confirmed 逆操作）。
+/// 幂等：无 order_line_id 或无对应 fp_line 时静默跳过（回池是清理操作，不硬失败）。
+pub async fn handle_demand_released(
+    _pool: PgPool,
+    _ctx: &ServiceContext,
+    db: PgExecutor<'_>,
+    event: &crate::shared::event_bus::model::DomainEvent,
+) -> Result<()> {
+    let payload = &event.payload;
+    let order_line_id: i64 = payload["order_line_id"].as_i64().unwrap_or(0);
+    if order_line_id == 0 {
+        tracing::warn!("DemandReleased without order_line_id, skip fp_line rollback");
+        return Ok(());
+    }
+
+    let fp_line = match FulfillmentPlanLineRepo::find_by_order_line_id(db, order_line_id).await? {
+        Some(l) => l,
+        None => return Ok(()),
+    };
+
+    // 回退到 Pending（与 handle_demand_rejected 一致）
+    FulfillmentPlanLineRepo::update_status(
+        db, fp_line.id, FulfillmentLineStatus::Pending, fp_line.version,
+    ).await?;
+
+    let item_repo = SalesOrderItemRepo;
+    item_repo.batch_update_line_status(
+        db,
+        &[(fp_line.order_line_id, SalesOrderLineStatus::Pending, 1)],
+    ).await?;
+
+    tracing::info!("DemandReleased handled: fp_line {} → Pending", fp_line.id);
 
     Ok(())
 }

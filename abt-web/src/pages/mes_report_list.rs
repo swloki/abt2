@@ -12,7 +12,7 @@ use crate::components::icon;
 use crate::components::pagination::pagination;
 use crate::errors::Result;
 use crate::layout::page::admin_page;
-use crate::routes::mes_report::{ReportCreatePath, ReportListPath};
+use crate::routes::mes_report::ReportListPath;
 use crate::utils::{empty_as_none, RequestContext};
 use abt_macros::require_permission;
 
@@ -50,32 +50,23 @@ pub async fn get_report_list(
 ) -> Result<Html<String>> {
  let is_htmx = ctx.is_htmx();
  let nav_filter = ctx.nav_filter().await;
- let can_create = ctx.has_permission("WORK_ORDER", "create").await;
  let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
  let svc = state.work_report_service();
  let filter = build_filter(&params);
  let page = params.page.unwrap_or(1).max(1);
  let result = svc.list(&service_ctx, &mut conn, filter, page, 20).await?;
- let content = report_list_page(&result, &params, can_create);
+ let content = report_list_page(&result, &params);
  Ok(Html(admin_page(is_htmx, "报工记录", &claims, "production", ReportListPath::PATH, "生产管理", None, content, &nav_filter).into_string()))
 }
 
 fn report_list_page(
  result: &PaginatedResult<ReportListItem>,
  params: &ReportQueryParams,
- can_create: bool,
 ) -> Markup {
  html! {
     div {
         div class="flex items-center justify-between mb-6" {
             h1 class="text-xl font-bold text-fg tracking-tight" { "报工记录" }
-            div class="flex gap-3" {
-                @if can_create {
-                    a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
-                        href=(ReportCreatePath::PATH)
-                    { (icon::plus_icon("w-4 h-4")) "新建报工" }
-                }
-            }
         }
         (report_table_fragment(result, params))
     }
@@ -146,7 +137,6 @@ fn report_data_card(
                         th class="text-right text-[13px]" { "完成" }
                         th class="text-right text-[13px]" { "不良" }
                         th { "班次" }
-                        th class="!text-right" { "操作" }
                     }
                 }
                 tbody {
@@ -171,14 +161,11 @@ fn report_data_card(
                                 (crate::utils::fmt_qty(item.defect_qty))
                             }
                             td { (sl) }
-                            td class="text-right" {
-                                a class="text-accent text-xs hover:underline" href=(dp) { "查看" }
-                            }
                         }
                     }
                     @if result.items.is_empty() {
                         tr {
-                            td colspan="9" class="text-center text-muted text-sm py-8" { "暂无报工记录" }
+                            td colspan="8" class="text-center text-muted text-sm py-8" { "暂无报工记录" }
                         }
                     }
                 }

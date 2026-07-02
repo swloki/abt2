@@ -58,7 +58,7 @@ pub async fn get_batch_detail(path: BatchDetailPath, ctx: RequestContext) -> Res
  .map(|r| (r.id, r.process_name.as_str()))
  .collect();
  // 查询批次工序执行进度（写真相源），用于工序流转进度展示
- let progress_list = svc.list_routing_progress(&service_ctx, &mut conn, batch.id).await?;
+ let progress_list = svc.list_progress_by_batch(&service_ctx, &mut conn, batch.id).await?;
  let progress_map: std::collections::HashMap<i64, &abt_core::mes::production_batch::BatchRoutingProgress> =
  progress_list.iter().map(|p| (p.routing_id, p)).collect();
 

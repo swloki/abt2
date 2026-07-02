@@ -28,9 +28,10 @@ pub struct WcReleaseDrawerPath {
     pub order_id: i64,
 }
 
+/// 工单详情 drawer body（工单 tab 工单号点击就地打开，只读详情）。
 #[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/mes/work-center/orders/{order_id}/report-drawer")]
-pub struct WcReportDrawerPath {
+#[typed_path("/admin/mes/work-center/orders/{order_id}/drawer")]
+pub struct WcOrderDrawerPath {
     pub order_id: i64,
 }
 
@@ -44,19 +45,6 @@ pub struct WcReleasePath {
 #[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/mes/work-center/orders/{order_id}/split-multi")]
 pub struct WcSplitMultiPath {
-    pub order_id: i64,
-}
-
-#[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/mes/work-center/orders/{order_id}/report")]
-pub struct WcReportPath {
-    pub order_id: i64,
-}
-
-/// 关闭工单（Released/InProduction → Closed）。
-#[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/mes/work-center/orders/{order_id}/close")]
-pub struct WcClosePath {
     pub order_id: i64,
 }
 
@@ -207,14 +195,9 @@ pub fn router() -> Router<AppState> {
             WcReleaseDrawerPath::PATH,
             get(mes_work_center::get_release_drawer),
         )
-        .route(
-            WcReportDrawerPath::PATH,
-            get(mes_work_center::get_report_drawer),
-        )
+        .route(WcOrderDrawerPath::PATH, get(mes_work_center::get_order_drawer))
         .route(WcReleasePath::PATH, post(mes_work_center::release_order))
         .route(WcSplitMultiPath::PATH, post(mes_work_center::split_multi))
-        .route(WcReportPath::PATH, post(mes_work_center::report_step))
-        .route(WcClosePath::PATH, post(mes_work_center::close_order))
         .route(WcCancelPath::PATH, post(mes_work_center::cancel_order))
         .route(
             WcCreatePlanDrawerPath::PATH,

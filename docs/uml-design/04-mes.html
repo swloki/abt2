@@ -244,7 +244,6 @@ classDiagram
     +find_by_id(id) Result~WorkOrder~
     +release(ctx: &ServiceContext, db: PgExecutor, id, expected_version i32) Result~Unit~
     +unrelease(ctx: &ServiceContext, db: PgExecutor, id, expected_version i32) Result~Unit~
-    +close(ctx: &ServiceContext, db: PgExecutor, id, expected_version i32) Result~Unit~
     +cancel(ctx: &ServiceContext, db: PgExecutor, id, expected_version i32) Result~Unit~
     +list(filter) PaginatedResult~WorkOrder~
     +pre_validate(ctx: &ServiceContext, db: PgExecutor, work_order_id) Result~ReleaseValidation~
@@ -388,7 +387,7 @@ classDiagram
     +inspection_triggered: bool
     +wage_amount: Decimal
   }
-  note for WorkOrderService "PLANNING LAYER: release -> BOM snapshot + Routing工序 + picking/backflush分流（批次由项目经理手动创建，下达不自动建批） unrelease -> Released→Draft 安全网(取消领料单+释放预留+软删除批次(deleted_at)+删工序记录+删batch_routing_progress) 无报工前置校验 close -> all batches completed InvRes.fulfill/cancel(release remaining) 乐观锁 expected_version 校验 冲突返回 ConcurrentConflict"
+  note for WorkOrderService "PLANNING LAYER: release -> BOM snapshot + Routing工序 + picking/backflush分流（批次由项目经理手动创建，下达不自动建批） unrelease -> Released→Draft 安全网(取消领料单+释放预留+软删除批次(deleted_at)+删工序记录+删batch_routing_progress) 无报工前置校验 完工(Done)自动派生: 无人工 close 入口，ProductionReceipt.confirm 在所有批次终态时自动 InProduction→Closed（对齐 Odoo: Done 由库存移动闭环触发，非按钮） cancel -> Draft/Planned/Released/InProduction→Cancelled 反向取消领料单+释放预留+软删批次 + DemandService.release_back_to_pool 回池(发 DemandReleased 事件对称回退履行计划行/订单行) 已确认完工入库单阻止取消(对齐 Odoo: done 后不可 cancel) 乐观锁 expected_version 校验 冲突返回 ConcurrentConflict"
   note for WorkReportService "READ-ONLY QUERY SERVICE: WorkReport creation is handled atomically by ProductionBatchService.confirm_routing_step find/list methods for reporting and auditing calculate_wage: 返回报工时冻结的 wage_amount（migration 062 起报工落库即冻结，后续改工序单价不影响历史工资；不再实时 (completed_qty + non_operator_defect_qty) * unit_price 重算） DefectReason.affect_wage: MaterialDefect/EquipmentFault/ProcessIssue=true OperatorError=false"
   note for OutsourcingOrder "Entity owned by OM module. MES references via OM.OutsourcingOrderService. send -> WMS.InventoryTransferService(to virtual) receive -> WMS.InventoryTransferService(from virtual) receive -> QMS.InspectionResultService.create(IQC) Event: MES subscribes OutsourcingReceived handler -> update BatchRoutingProgress.completed_qty for outsourced step -> publish BatchStepCompleted event -> advance ProductionBatch.current_step"
   note for ProductionInspectionService "QMS: MES-specific production inspection QMS module provides unified InspectionResultService IPQC: auto-triggered by WorkOrderRouting.is_inspection_point FQC: triggered before ProductionReceipt"

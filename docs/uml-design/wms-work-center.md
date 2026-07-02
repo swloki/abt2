@@ -150,11 +150,12 @@ pub struct WorkCenterSummary {
 | 3.2a | 调拨 transfer | list + detail（✅ 已完成，模式同 3.1） |
 | 3.2b | 盘点 cycle_count | list + detail（✅ 已完成；`count` 录入 UI 原未实现，drawer 沿用只读明细 + start/complete/cancel/adjust/approve/reject 操作） |
 | 3.3 | 入库 stock_in | list + detail（create 保留 suggest_bins） |
-| 3.4 | 出库 shipping | list（detail 保留销售依赖） |
+| 3.4 | 出库 shipping | ✅ 全部视图 + 入口收口（list 页保留：`delete_shipping` 依赖 + 旧路径重定向 + detail 销售依赖；无侧边栏入口，作业中心 Outbound 全部视图承载） |
 | 3.5（可选） | 新建 drawer 化 | 各 create 页 |
 
 > **实施状态（2026-07-02）**：
 > - **阶段 3.1 领料单**收口完成——作业中心承载待办 / 全部视图 + 详情 drawer + 确认 / 取消 / 发料就地操作，独立 list / detail 页与路由已删除，create 页入口收口到作业中心。
 > - **阶段 3.2a 调拨**收口完成——模式同领料单（通用化 `view_toggle` / `doc_detail_trigger` / `is_all_view`），调拨待办 / 全部视图 + 详情 drawer + 取消 / 调出 / 完成就地操作，独立 list / detail 页与路由已删除。
 > - **阶段 3.2b 盘点**收口完成——6 状态 / 6 操作（`cc_` 前缀避免与调拨冲突），盘点待办 / 全部视图 + 详情 drawer（系 / 盘 / 差三量 + start/complete/cancel/adjust/approve/reject），独立 list / detail 页与路由已删除。`count` 录入 UI 既有缺失，drawer 沿用只读明细。
+> - **阶段 3.4 出库**部分收口——作业中心 Outbound 全部视图（`render_shipping_all_card`，调 `shipping_service.list`）+ 入口收口（`view_toggle`，`domain_entries` 去「查看全部」）。shipping **list 页保留**：`shipping_list::delete_shipping` 被 `ShippingDeletePath` 路由引用 + 旧路径 `/admin/shipping` 重定向依赖 list URL；**detail 保留**销售对账 / 退货跨模块依赖（4 处 `ShippingDetailPath`）。两页均已无侧边栏入口，作业中心承载日常作业；物理删 list 需移 `delete_shipping` + 改重定向，工程较大，待后续清理。
 > - `cargo clippy -p abt-web` 通过。

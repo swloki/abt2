@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use axum::response::{Html, IntoResponse};
 use axum_extra::routing::TypedPath;
@@ -7,12 +7,12 @@ use maud::{html, Markup};
 use abt_core::master_data::customer::CustomerService;
 use abt_core::master_data::product::ProductService;
 use abt_core::sales::sales_order::SalesOrderService;
-use abt_core::wms::outbound::model::*;
-use abt_core::wms::outbound::ShippingRequestService;
+use abt_core::wms::picking::model::*;
+use abt_core::wms::picking::PickingService;
+use abt_core::wms::enums::PickingStatus;
 use abt_core::wms::inventory_transaction::model::InventoryTransaction;
 use abt_core::shared::types::pagination::{PageParams, PaginatedResult};
 use abt_core::shared::identity::UserService;
-use abt_core::wms::warehouse::WarehouseService;
 
 use crate::components::icon;
 use crate::errors::Result;
@@ -24,13 +24,12 @@ use abt_macros::require_permission;
 
 // ── Helpers ──
 
-fn status_label(s: ShippingStatus) -> (&'static str, &'static str) {
+fn status_label(s: PickingStatus) -> (&'static str, &'static str) {
  match s {
- ShippingStatus::Draft => ("草稿", "status-draft"),
- ShippingStatus::Confirmed => ("已确认", "status-confirmed"),
- ShippingStatus::Picking => ("拣货中", "status-picking"),
- ShippingStatus::Shipped => ("已发货", "status-shipped"),
- ShippingStatus::Cancelled => ("已取消", "status-cancelled"),
+ PickingStatus::Draft => ("草稿", "status-draft"),
+ PickingStatus::Confirmed => ("已确认", "status-confirmed"),
+ PickingStatus::Done => ("已发货", "status-shipped"),
+ PickingStatus::Cancelled => ("已取消", "status-cancelled"),
  }
 }
 
@@ -52,19 +51,22 @@ pub async fn get_shipping_detail(
  let nav_filter = ctx.nav_filter().await;
  let RequestContext { claims, mut conn, state, service_ctx, .. } = ctx;
 
- let shipping_svc = state.shipping_service();
+ let shipping_svc = state.picking_service();
  let customer_svc = state.customer_service();
  let order_svc = state.sales_order_service();
  let product_svc = state.product_service();
- let warehouse_svc = state.warehouse_service();
+ let _warehouse_svc = state.warehouse_service();
  let user_svc = state.user_service();
  let shipping = shipping_svc.find_by_id(&service_ctx, &mut conn, path.id).await?;
 
  let items = shipping_svc.list_items(&service_ctx, &mut conn, path.id).await.unwrap_or_default();
 
- let customer_name = customer_svc.get(&service_ctx, &mut conn, shipping.customer_id)
- .await.map(|c| c.name).unwrap_or_else(|_| "未知客户".into());
- let order_number = match shipping.order_id {
+ let customer_name = match shipping.partner_id {
+ Some(cid) => customer_svc.get(&service_ctx, &mut conn, cid)
+ .await.map(|c| c.name).unwrap_or_else(|_| "未知客户".into()),
+ None => "未知客户".into(),
+ };
+ let order_number = match shipping.source_id {
  Some(oid) => order_svc.find_by_id(&service_ctx, &mut conn, oid)
  .await.map(|o| o.doc_number).unwrap_or_else(|_| "—".into()),
  None => "—".into(),
@@ -90,16 +92,8 @@ pub async fn get_shipping_detail(
  .unwrap_or_default()
  };
 
- // Resolve warehouse names via warehouse service
- let mut warehouse_names = HashMap::new();
- let mut seen_wh = HashSet::new();
- for item in &items {
- if let Some(wh_id) = item.warehouse_id
- && seen_wh.insert(wh_id)
- && let Ok(wh) = warehouse_svc.get(&service_ctx, &mut conn, wh_id).await {
- warehouse_names.insert(wh_id, wh.name);
- }
- }
+ // 行级仓库已移除（发货仓在 picking 头 from_warehouse_id）；warehouse_names 留空兼容 item_row 签名
+ let warehouse_names: HashMap<i64, String> = HashMap::new();
 
  let hub_summary = shipping_svc
      .hub_summary(&service_ctx, &mut conn, path.id)
@@ -129,7 +123,7 @@ pub async fn confirm_shipping(
  // confirm 是多步写（状态机 + status + 审计），事务包裹防半失败残留
  let mut tx = state.pool.begin().await
      .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
- let svc = state.shipping_service();
+ let svc = state.picking_service();
  svc.confirm(&service_ctx, &mut tx, path.id).await?;
  tx.commit().await
      .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
@@ -148,7 +142,7 @@ pub async fn cancel_shipping(
  // cancel 是多步写（状态机 + status + 审计），事务包裹防半失败残留
  let mut tx = state.pool.begin().await
      .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
- let svc = state.shipping_service();
+ let svc = state.picking_service();
  svc.cancel(&service_ctx, &mut tx, path.id).await?;
  tx.commit().await
      .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
@@ -159,14 +153,14 @@ pub async fn cancel_shipping(
 
 // ── Workflow Steps ──
 
-fn workflow_steps(current: ShippingStatus) -> Markup {
- let steps: &[(&str, ShippingStatus)] = &[
- ("草稿", ShippingStatus::Draft),
- ("已确认", ShippingStatus::Confirmed),
- ("已发货", ShippingStatus::Shipped),
+fn workflow_steps(current: PickingStatus) -> Markup {
+ let steps: &[(&str, PickingStatus)] = &[
+ ("草稿", PickingStatus::Draft),
+ ("已确认", PickingStatus::Confirmed),
+ ("已发货", PickingStatus::Done),
  ];
  let current_idx = steps.iter().position(|(_, s)| *s == current).unwrap_or(0);
- let is_cancelled = current == ShippingStatus::Cancelled;
+ let is_cancelled = current == PickingStatus::Cancelled;
 
  html! {
     div class="flex items-center mt-6 mb-6" {
@@ -215,8 +209,8 @@ fn workflow_steps(current: ShippingStatus) -> Markup {
 // ── Components ──
 
 fn shipping_detail_page(
- s: &ShippingRequest,
- items: &[ShippingRequestItem],
+ s: &StockPicking,
+ items: &[StockPickingItem],
  customer_name: &str,
  order_number: &str,
  operator_name: &str,
@@ -254,7 +248,7 @@ fn shipping_detail_page(
                     }
                     div class="flex items-center gap-2 text-xs text-muted bg-surface border border-border-soft rounded-md px-3 py-1.5 flex-wrap min-w-0" {
                         span class="font-medium" { "来源链" }
-                        @if let Some(oid) = s.order_id {
+                        @if let Some(oid) = s.source_id {
                             a class="text-accent font-mono" href=(format!("/admin/orders/{oid}")) { (order_number) }
                             span class="text-border" { "→" }
                         }
@@ -285,14 +279,14 @@ fn shipping_detail_page(
                 a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:border-[rgba(37,99,235,0.3)] hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
                     href=(format!("{}?restore=true", ShippingListPath::PATH))
                 { "返回列表" }
-                @if s.status == ShippingStatus::Draft {
+                @if s.status == PickingStatus::Draft {
                     button
                         class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-accent text-accent-on border-none hover:bg-accent-hover text-sm font-medium cursor-pointer transition-all duration-150 shadow-[0_1px_2px_rgba(37,99,235,0.2)]"
                         hx-post=(ConfirmShippingPath { id: s.id }.to_string())
                         hx-confirm="确认审核此发货单？"
                     { "确认发货" }
                 }
-                @if matches!(s.status, ShippingStatus::Draft | ShippingStatus::Confirmed) {
+                @if matches!(s.status, PickingStatus::Draft | PickingStatus::Confirmed) {
                     button
                         class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm text-sm font-medium cursor-pointer whitespace-nowrap relative bg-danger text-white border-none hover:opacity-90"
                         hx-post=(CancelShippingPath { id: s.id }.to_string())
@@ -304,34 +298,20 @@ fn shipping_detail_page(
         // ── Workflow Steps ──
         (workflow_steps(s.status))
         // ── 发货信息 disclosure ──
-        (doc_disclosure("d-info", "发货信息", &format!("客户 {} · 承运商 {}", customer_name, s.carrier.as_str()), html! {
+        (doc_disclosure("d-info", "发货信息", &format!("客户 {}", customer_name), html! {
             div class="grid gap-4" {
                 div class="flex flex-col gap-1" {
                     span class="text-xs text-muted font-medium" { "客户名称" }
                     span class="text-sm text-fg font-medium" { (customer_name) }
                 }
                 div class="flex flex-col gap-1" {
-                    span class="text-xs text-muted font-medium" { "收货地址" }
-                    span class="text-sm text-fg font-medium" { (s.shipping_address.as_str()) }
-                }
-                div class="flex flex-col gap-1" {
                     span class="text-xs text-muted font-medium" { "预计发货日期" }
                     span class="text-sm text-fg font-medium font-mono tabular-nums" {
                         ({
-                            s.expected_ship_date
+                            s.scheduled_date
                                 .map(|d| d.format("%Y-%m-%d").to_string())
                                 .unwrap_or_else(|| "—".into())
                         })
-                    }
-                }
-                div class="flex flex-col gap-1" {
-                    span class="text-xs text-muted font-medium" { "承运商" }
-                    span class="text-sm text-fg font-medium" { (s.carrier.as_str()) }
-                }
-                div class="flex flex-col gap-1" {
-                    span class="text-xs text-muted font-medium" { "物流单号" }
-                    span class="text-sm text-fg font-medium font-mono tabular-nums" {
-                        (s.tracking_number.as_str())
                     }
                 }
                 div class="flex flex-col gap-1" {
@@ -422,7 +402,7 @@ pub async fn get_shipping_fragment(path: ShippingFragmentPath, ctx: RequestConte
     let RequestContext { mut conn, state, service_ctx, .. } = ctx;
     let body = match path.block.as_str() {
         "transactions" => {
-            let res = state.shipping_service()
+            let res = state.picking_service()
                 .list_transactions(&service_ctx, &mut conn, path.id, PageParams::new(1, 50))
                 .await.unwrap_or_else(|_| PaginatedResult::empty(1, 50));
             render_txn_body(&res.items)
@@ -461,29 +441,24 @@ fn render_txn_body(txns: &[InventoryTransaction]) -> Markup {
 }
 
 fn item_row(
- item: &ShippingRequestItem,
+ item: &StockPickingItem,
  details: &HashMap<i64, ProductDetail>,
- warehouses: &HashMap<i64, String>,
+ _warehouses: &HashMap<i64, String>,
 ) -> Markup {
  let detail = details.get(&item.product_id);
  let product_code = detail.map(|d| d.code.as_str()).unwrap_or("—");
  let product_name = detail.map(|d| d.name.as_str()).unwrap_or("—");
  let spec = detail.and_then(|d| d.spec.as_deref()).unwrap_or("—");
  let unit = detail.and_then(|d| d.unit.as_deref()).unwrap_or("—");
- let warehouse = item.warehouse_id
-     .and_then(|id| warehouses.get(&id).map(|s| s.as_str()))
-     .unwrap_or("待定");
 
  html! {
     tr {
-        td class="font-mono tabular-nums" { (item.line_no) }
         td class="font-mono tabular-nums" { (product_code) }
         td { (product_name) }
         td { (spec) }
         td { (unit) }
-        td class="text-right text-[13px]" { (fmt_qty(item.requested_qty)) }
-        td class="text-right text-[13px]" { (fmt_qty(item.shipped_qty)) }
-        td { (warehouse) }
+        td class="text-right text-[13px]" { (fmt_qty(item.qty_requested)) }
+        td class="text-right text-[13px]" { (fmt_qty(item.qty_done)) }
     }
 }
 }

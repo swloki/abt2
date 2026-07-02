@@ -59,6 +59,9 @@ pub trait PickingService: Send + Sync {
     /// 取消（Draft / Confirmed → Cancelled）
     async fn cancel(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()>;
 
+    /// 删除（仅 Draft 软删除）
+    async fn delete(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()>;
+
     /// 执行完成（Confirmed → Done）—— 通用入口，按 picking_type 分发业务
     async fn done(
         &self,

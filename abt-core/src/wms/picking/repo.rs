@@ -227,6 +227,20 @@ impl PickingRepo {
         Ok(result.rows_affected())
     }
 
+    /// 软删除（仅 Draft；UPDATE deleted_at）
+    pub async fn soft_delete(
+        executor: &mut sqlx::postgres::PgConnection,
+        id: i64,
+    ) -> Result<u64> {
+        let result = sqlx::query(
+            "UPDATE stock_pickings SET deleted_at = NOW(), updated_at = NOW() WHERE id = $1 AND deleted_at IS NULL",
+        )
+        .bind(id)
+        .execute(&mut *executor)
+        .await?;
+        Ok(result.rows_affected())
+    }
+
     /// 更新明细行级实绩（done / issue 时按行写回 qty_done + 库位）
     pub async fn update_item_done(
         executor: &mut sqlx::postgres::PgConnection,

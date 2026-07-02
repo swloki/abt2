@@ -9,8 +9,9 @@ use serde::Deserialize;
 use abt_core::master_data::customer::model::CustomerQuery;
 use abt_core::master_data::customer::CustomerService;
 use abt_core::sales::sales_order::SalesOrderService;
-use abt_core::wms::outbound::model::*;
-use abt_core::wms::outbound::ShippingRequestService;
+use abt_core::wms::picking::model::*;
+use abt_core::wms::picking::PickingService;
+use abt_core::wms::enums::PickingStatus;
 use abt_core::shared::types::{PageParams, PgExecutor, ServiceContext};
 
 use crate::components::icon;
@@ -38,38 +39,36 @@ pub struct ShippingQueryParams {
 
 // ── Helpers ──
 
-fn status_label(s: ShippingStatus) -> (&'static str, &'static str) {
+fn status_label(s: PickingStatus) -> (&'static str, &'static str) {
  match s {
- ShippingStatus::Draft => ("待审核", "status-draft"),
- ShippingStatus::Confirmed => ("已确认", "status-confirmed"),
- ShippingStatus::Picking => ("拣货中", "status-picking"),
- ShippingStatus::Shipped => ("已发货", "status-shipped"),
- ShippingStatus::Cancelled => ("已取消", "status-cancelled"),
+ PickingStatus::Draft => ("待审核", "status-draft"),
+ PickingStatus::Confirmed => ("已确认", "status-confirmed"),
+ PickingStatus::Done => ("已发货", "status-shipped"),
+ PickingStatus::Cancelled => ("已取消", "status-cancelled"),
  }
 }
 
 /// Compute status counts by calling ShippingRequestService::list for each status with page_size=1.
-async fn count_by_status<S: ShippingRequestService>(
+async fn count_by_status<S: PickingService>(
  svc: &S,
  ctx: &ServiceContext,
  db: PgExecutor<'_>,
  customer_id: Option<i64>,
 ) -> HashMap<i16, u64> {
  let statuses = [
- (ShippingStatus::Draft, 1i16),
- (ShippingStatus::Confirmed, 2),
- (ShippingStatus::Picking, 3),
- (ShippingStatus::Shipped, 4),
- (ShippingStatus::Cancelled, 5),
+ (PickingStatus::Draft, 1i16),
+ (PickingStatus::Confirmed, 2),
+ (PickingStatus::Done, 3),
+ (PickingStatus::Cancelled, 4),
  ];
 
  let mut counts = HashMap::new();
  for (status, code) in statuses {
- let filter = ShippingQuery {
- order_id: None,
+ let filter = PickingFilter {
+ picking_type: Some(abt_core::wms::enums::PickingType::OutgoingSales),
  status: Some(status),
- keyword: None,
- customer_id,
+ partner_id: customer_id,
+ ..Default::default()
  };
  let page = PageParams::new(1, 1);
  if let Ok(result) = svc.list(ctx, db, filter, page).await {
@@ -88,12 +87,12 @@ async fn resolve_order_numbers<S: SalesOrderService>(
  svc: &S,
  ctx: &ServiceContext,
  db: PgExecutor<'_>,
- items: &[ShippingRequest],
+ items: &[StockPicking],
 ) -> HashMap<i64, String> {
  let mut map = HashMap::new();
  let mut seen = HashSet::new();
  for item in items {
- if let Some(oid) = item.order_id {
+ if let Some(oid) = item.source_id {
  if seen.insert(oid)
  && let Ok(order) = svc.find_by_id(ctx, db, oid).await {
  map.insert(oid, order.doc_number);
@@ -117,20 +116,21 @@ pub async fn get_shipping_list(
  let can_delete = ctx.has_permission("SHIPPING", "delete").await;
  let RequestContext { claims, mut conn, state, service_ctx, .. } = ctx;
 
- let shipping_svc = state.shipping_service();
+ let shipping_svc = state.picking_service();
  let customer_svc = state.customer_service();
  let order_svc = state.sales_order_service();
- let filter = ShippingQuery {
- order_id: None,
- status: params.status.and_then(ShippingStatus::from_i16),
- keyword: params.keyword.clone(),
- customer_id: params.customer_id,
+ let filter = PickingFilter {
+ picking_type: Some(abt_core::wms::enums::PickingType::OutgoingSales),
+ status: params.status.and_then(PickingStatus::from_i16),
+ doc_number: params.keyword.clone(),
+ partner_id: params.customer_id,
+ ..Default::default()
  };
  let page = PageParams::new(params.page.unwrap_or(1), 20);
  let result = shipping_svc.list(&service_ctx, &mut conn, filter, page).await?;
 
  let status_counts = count_by_status(&shipping_svc, &service_ctx, &mut conn, params.customer_id).await;
- let customer_names = resolve_customer_names(&customer_svc, &service_ctx, &mut conn, result.items.iter().map(|i| i.customer_id)).await;
+ let customer_names = resolve_customer_names(&customer_svc, &service_ctx, &mut conn, result.items.iter().filter_map(|i| i.partner_id)).await;
  let order_numbers = resolve_order_numbers(&order_svc, &service_ctx, &mut conn, &result.items).await;
 
  let customers = customer_svc
@@ -154,7 +154,7 @@ pub async fn delete_shipping(
 
  let mut tx = state.pool.begin().await
      .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
- let shipping_svc = state.shipping_service();
+ let shipping_svc = state.picking_service();
  shipping_svc.delete(&service_ctx, &mut tx, path.id).await?;
  tx.commit().await
      .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
@@ -167,7 +167,7 @@ pub async fn delete_shipping(
 
 fn shipping_list_page(
  _claims: &abt_core::shared::identity::model::Claims,
- result: &abt_core::shared::types::PaginatedResult<ShippingRequest>,
+ result: &abt_core::shared::types::PaginatedResult<StockPicking>,
  customer_names: &HashMap<i64, String>,
  order_numbers: &HashMap<i64, String>,
  customers: &[abt_core::master_data::customer::model::Customer],
@@ -204,7 +204,7 @@ fn shipping_list_page(
 }
 
 fn shipping_table_fragment(
- result: &abt_core::shared::types::PaginatedResult<ShippingRequest>,
+ result: &abt_core::shared::types::PaginatedResult<StockPicking>,
  customer_names: &HashMap<i64, String>,
  order_numbers: &HashMap<i64, String>,
  customers: &[abt_core::master_data::customer::model::Customer],
@@ -217,17 +217,15 @@ fn shipping_table_fragment(
  let total_count: u64 = status_counts.values().sum();
  let draft_count = status_counts.get(&1).copied();
  let confirmed_count = status_counts.get(&2).copied();
- let picking_count = status_counts.get(&3).copied();
- let shipped_count = status_counts.get(&4).copied();
- let cancelled_count = status_counts.get(&5).copied();
+ let shipped_count = status_counts.get(&3).copied();
+ let cancelled_count = status_counts.get(&4).copied();
 
  let tabs = &[
  TabItem { value: String::new(), label: "全部", count: Some(total_count) },
  TabItem { value: "1".into(), label: "待审核", count: draft_count },
  TabItem { value: "2".into(), label: "已确认", count: confirmed_count },
- TabItem { value: "3".into(), label: "拣货中", count: picking_count },
- TabItem { value: "4".into(), label: "已发货", count: shipped_count },
- TabItem { value: "5".into(), label: "已取消", count: cancelled_count },
+ TabItem { value: "3".into(), label: "已发货", count: shipped_count },
+ TabItem { value: "4".into(), label: "已取消", count: cancelled_count },
  ];
 
  let selected_customer = params.customer_id.map(|id| id.to_string()).unwrap_or_default();
@@ -321,21 +319,21 @@ fn shipping_table_fragment(
 }
 
 fn shipping_row(
- s: &ShippingRequest,
+ s: &StockPicking,
  customer_names: &HashMap<i64, String>,
  order_numbers: &HashMap<i64, String>,
  can_delete: bool,
 ) -> Markup {
  let detail_path = ShippingDetailPath { id: s.id };
  let (status_text, status_class) = status_label(s.status);
- let customer_name = customer_names.get(&s.customer_id).map(|n| n.as_str()).unwrap_or("—");
- let order_num = s.order_id.and_then(|oid| order_numbers.get(&oid).map(|n| n.as_str())).unwrap_or("—");
- let ship_date = s.expected_ship_date.map(|d| d.format("%Y-%m-%d").to_string()).unwrap_or_else(|| "—".into());
+ let customer_name = s.partner_id.as_ref().and_then(|cid| customer_names.get(cid)).map(|n| n.as_str()).unwrap_or("—");
+ let order_num = s.source_id.and_then(|oid| order_numbers.get(&oid).map(|n| n.as_str())).unwrap_or("—");
+ let ship_date = s.scheduled_date.map(|d| d.format("%Y-%m-%d").to_string()).unwrap_or_else(|| "—".into());
  let created = s.created_at.format("%Y-%m-%d %H:%M").to_string();
  let onclick = format!("location.href='{}'", detail_path);
- let is_draft = s.status == ShippingStatus::Draft;
+ let is_draft = s.status == PickingStatus::Draft;
  let delete_path = ShippingDeletePath { id: s.id };
- let order_detail_path = s.order_id.map(|oid| OrderDetailPath { id: oid });
+ let order_detail_path = s.source_id.map(|oid| OrderDetailPath { id: oid });
 
  html! {
     tr {
@@ -357,8 +355,8 @@ fn shipping_row(
             }
         }
         td onclick=(&onclick) { (ship_date) }
-        td onclick=(&onclick) { (s.carrier.as_str()) }
-        td class="font-mono tabular-nums" onclick=(&onclick) { (s.tracking_number.as_str()) }
+        td onclick=(&onclick) { "—" }
+        td class="font-mono tabular-nums" onclick=(&onclick) { "—" }
         td onclick=(&onclick) { (created) }
         td _="on click halt the event" {
             div class="row-actions flex items-center gap-1 justify-end opacity-0 transition-opacity duration-150 [&_a]:w-[28px] [&_a]:h-[28px] [&_a]:grid [&_a]:place-items-center [&_a]:rounded-sm [&_a]:cursor-pointer [&_a]:bg-surface [&_a]:hover:bg-accent-bg icon:w-3.5 icon:h-3.5"

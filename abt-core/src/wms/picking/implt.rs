@@ -185,6 +185,20 @@ impl PickingService for PickingServiceImpl {
         }
     }
 
+    async fn delete(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        id: i64,
+    ) -> Result<()> {
+        let picking = self.get(ctx, db, id).await?;
+        if picking.status != PickingStatus::Draft {
+            return Err(DomainError::business_rule("仅草稿状态的作业单据可以删除"));
+        }
+        PickingRepo::soft_delete(&mut *db, id).await?;
+        Ok(())
+    }
+
     async fn done(
         &self,
         ctx: &ServiceContext,

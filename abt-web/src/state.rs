@@ -245,15 +245,11 @@ impl AppState {
         abt_core::wms::stock_in::new_purchase_stock_in_service(self.pool.clone())
     }
 
-    pub fn material_requisition_service(
-        &self,
-    ) -> impl abt_core::wms::material_requisition::MaterialRequisitionService {
-        abt_core::wms::material_requisition::new_material_requisition_service(self.pool.clone())
-    }
-
     pub fn picking_service(&self) -> impl abt_core::wms::picking::PickingService {
         abt_core::wms::picking::new_picking_service(self.pool.clone())
     }
+
+    // 领料（InternalIssue）已统一到 PickingService（material_requisition 模块已删除）
 
     pub fn backflush_service(&self) -> impl abt_core::wms::backflush::BackflushService {
         abt_core::wms::backflush::new_backflush_service(self.pool.clone())

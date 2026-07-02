@@ -4,7 +4,6 @@ pub mod warehouse;
 pub mod strategy;
 pub mod stock_ledger;
 pub mod inventory_transaction;
-pub mod material_requisition;
 pub mod backflush;
 pub mod cycle_count;
 pub mod transfer;

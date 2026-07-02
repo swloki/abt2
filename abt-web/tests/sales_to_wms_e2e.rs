@@ -23,10 +23,10 @@ use abt_core::master_data::bom::{
     BomCommandService, BomNodeService,
 };
 use abt_core::wms::inventory_transaction::InventoryTransactionService;
-use abt_core::wms::material_requisition::{
-    model::{IssueItemReq, IssueMaterialReq, RequisitionFilter, ReturnItemReq, ReturnMaterialReq},
-    MaterialRequisitionService,
+use abt_core::wms::picking::{
+    IssueItemReq, IssueMaterialReq, PickingFilter, PickingService, ReturnItemReq, ReturnMaterialReq,
 };
+use abt_core::wms::enums::PickingType;
 
 // ── 测试数据常量（dev 库实测可用）──
 const CUSTOMER_ID: i64 = 135;
@@ -527,11 +527,11 @@ async fn k2_picking_chain_and_return() {
     );
 
     // 查 release 生成的领料单 + 13456 明细 item_id
-    let req_svc = app.state.material_requisition_service();
+    let req_svc = app.state.picking_service();
     let ctx = ServiceContext::new(1);
     let mut conn = app.state.pool.acquire().await.unwrap();
     let reqs = req_svc
-        .list(&ctx, &mut conn, RequisitionFilter { work_order_id: Some(wo_id), ..Default::default() }, 1, 10)
+        .list(&ctx, &mut conn, PickingFilter { picking_type: Some(PickingType::InternalIssue), work_order_id: Some(wo_id), ..Default::default() }, 1, 10)
         .await
         .unwrap();
     let req_id = reqs.items.first().expect("Picking 下达应生成领料单").id;
@@ -539,7 +539,7 @@ async fn k2_picking_chain_and_return() {
     let item_id: i64 = {
         let mut c = app.state.pool.acquire().await.unwrap();
         sqlx::query_scalar(
-            "SELECT id FROM material_requisition_items WHERE requisition_id = $1 AND product_id = $2 LIMIT 1",
+            "SELECT id FROM stock_picking_items WHERE picking_id = $1 AND product_id = $2 LIMIT 1",
         )
         .bind(req_id)
         .bind(PICK_LEAF)

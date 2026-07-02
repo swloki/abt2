@@ -6,7 +6,9 @@ use serde::Deserialize;
 use abt_core::shared::types::pagination::{PageParams, PaginatedResult};
 use abt_core::shared::types::{PgExecutor, ServiceContext};
 use abt_core::wms::enums::{RequisitionStatus, TransferStatus};
-use abt_core::wms::material_requisition::model::{IssueItemReq, IssueMaterialReq};
+use abt_core::wms::material_requisition::model::{
+    IssueItemReq, IssueMaterialReq, MaterialRequisition, RequisitionFilter,
+};
 use abt_core::wms::material_requisition::MaterialRequisitionService;
 use abt_core::wms::outbound::model::ShippingStatus;
 use abt_core::wms::outbound::ShippingRequestService;
@@ -38,10 +40,11 @@ use abt_core::mes::work_order::WorkOrderService;
 use crate::errors::Result;
 use abt_core::shared::types::error::DomainError;
 use crate::layout::page::admin_page;
-use crate::routes::shipping::ShippingDetailPath;
-use crate::routes::wms_cycle_count::CycleCountDetailPath;
-use crate::routes::wms_requisition::RequisitionDetailPath;
-use crate::routes::wms_transfer::TransferDetailPath;
+use crate::routes::shipping::{ShippingCreatePath, ShippingDetailPath, ShippingListPath};
+use crate::routes::wms_cycle_count::{CycleCountCreatePath, CycleCountDetailPath, CycleCountListPath};
+use crate::routes::wms_requisition::{RequisitionCreatePath, RequisitionDetailPath, RequisitionListPath};
+use crate::routes::wms_transfer::{TransferCreatePath, TransferDetailPath, TransferListPath};
+use crate::routes::wms_stock_in::{StockInCreatePath, StockInListPath};
 use crate::routes::wms_work_center::WmsWorkCenterPath;
 use crate::utils::fmt_qty;
 use crate::utils::RequestContext;
@@ -61,6 +64,8 @@ pub struct WorkCenterQuery {
     pub urgency: Option<String>,
     /// po / wo（仅待收货环节）
     pub source: Option<String>,
+    /// 视图模式：pending（待办队列，默认）/ all（全量单据表格，阶段 3.1 领料单试点）
+    pub view: Option<String>,
     pub page: Option<u32>,
 }
 
@@ -178,6 +183,209 @@ fn render_jump_action(label: &str, url: &str) -> Markup {
             (label)
             (icon::arrow_right_icon("w-3 h-3"))
         }
+    }
+}
+
+/// 各 domain tab 的收口入口（侧边栏菜单废弃后，作业中心承载「新建 / 查看全部」）。
+/// 跳转各业务保留的 Create / List 路由——list 页本身已是成熟全量视图（状态 tab + 搜索 + 分页），
+/// 不在作业中心内重做（DRY）。新建走 accent 主按钮，查看全部走次级跳转。
+fn domain_entries(active: WorkCenterDomain) -> Markup {
+    let (new_label, new_path, all_path): (&str, &str, &str) = match active {
+        WorkCenterDomain::Arrival => ("新建入库单", StockInCreatePath::PATH, StockInListPath::PATH),
+        WorkCenterDomain::Outbound => ("新建发货单", ShippingCreatePath::PATH, ShippingListPath::PATH),
+        WorkCenterDomain::Requisition => ("新建领料单", RequisitionCreatePath::PATH, RequisitionListPath::PATH),
+        WorkCenterDomain::Transfer => ("新建调拨单", TransferCreatePath::PATH, TransferListPath::PATH),
+        WorkCenterDomain::CycleCount => ("新建盘点单", CycleCountCreatePath::PATH, CycleCountListPath::PATH),
+    };
+    html! {
+        a class="inline-flex items-center gap-1 px-3 py-1.5 rounded-sm bg-accent text-white text-xs font-semibold no-underline cursor-pointer border-none hover:opacity-90"
+            href=(new_path) {
+            (icon::plus_icon("w-3 h-3"))
+            (new_label)
+        }
+        (render_jump_action("查看全部", all_path))
+    }
+}
+
+/// 二级「待办/全部」视图切换（仅 Requisition domain，阶段 3.1 领料单试点）。
+/// 其他 domain 返回空（暂只有 Requisition 有全部视图）。切 view 走 htmx 局部刷新。
+fn view_toggle(domain: WorkCenterDomain, active_view: &str) -> Markup {
+    if domain != WorkCenterDomain::Requisition {
+        return html! {};
+    }
+    let base = "inline-flex items-center px-3 py-1 rounded-sm text-xs font-semibold cursor-pointer border transition-all";
+    let pending_cls = format!(
+        "{base} {}",
+        if active_view == "pending" {
+            "bg-accent text-white border-accent"
+        } else {
+            "bg-white text-fg-2 border-border hover:bg-surface"
+        }
+    );
+    let all_cls = format!(
+        "{base} {}",
+        if active_view == "all" {
+            "bg-accent text-white border-accent"
+        } else {
+            "bg-white text-fg-2 border-border hover:bg-surface"
+        }
+    );
+    html! {
+        div class="flex gap-2 px-4 py-2 border-b border-border-soft" {
+            a class=(pending_cls)
+                hx-get=(format!("{}?domain=requisition&view=pending", WmsWorkCenterPath::PATH))
+                hx-target="#wc-domain-card" hx-select="#wc-domain-card" hx-swap="outerHTML" {
+                "待办"
+            }
+            a class=(all_cls)
+                hx-get=(format!("{}?domain=requisition&view=all", WmsWorkCenterPath::PATH))
+                hx-target="#wc-domain-card" hx-select="#wc-domain-card" hx-swap="outerHTML" {
+                "全部"
+            }
+        }
+    }
+}
+
+/// 领料单全部视图（阶段 3.1）：调 material_requisition_service.list 渲染全状态领料单表格。
+/// 二级「待办/全部」切换 + keyword 搜索 + 表格 + 分页。单据点击跳详情（3.1b 改 drawer）。
+async fn render_requisition_all_card(
+    state: &AppState,
+    ctx: &ServiceContext,
+    db: PgExecutor<'_>,
+    q: &WorkCenterQuery,
+    page: u32,
+    summary: &WorkCenterSummary,
+    warehouses: &[Warehouse],
+) -> Result<Markup> {
+    let req_svc = state.material_requisition_service();
+    let filter = RequisitionFilter {
+        doc_number: q
+            .keyword
+            .as_deref()
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(String::from),
+        status: None,
+        work_order_id: None,
+        warehouse_id: None,
+    };
+    let result = req_svc
+        .list(ctx, db, filter, page, DOMAIN_PAGE_SIZE)
+        .await?;
+    let wh_map: HashMap<i64, String> =
+        warehouses.iter().map(|w| (w.id, w.name.clone())).collect();
+    let kw = q.keyword.as_deref().unwrap_or("");
+
+    Ok(html! {
+        div id="wc-domain-card" class="bg-bg border border-border-soft rounded-lg mb-4 shadow-card overflow-hidden" {
+            (status_tabs_with_oob(
+                WmsWorkCenterPath::PATH, "#wc-domain-card", "#wc-domain-filter", "",
+                &domain_tabs(summary), domain_slug(WorkCenterDomain::Requisition), "domain",
+            ))
+            (view_toggle(WorkCenterDomain::Requisition, "all"))
+            form id="wc-domain-filter"
+                class="flex items-center gap-3 flex-wrap px-4 py-3 border-b border-border-soft"
+                hx-get=(WmsWorkCenterPath::PATH)
+                hx-trigger="change, keyup changed delay:300ms from:.wc-search-input"
+                hx-target="#wc-domain-card" hx-select="#wc-domain-card" hx-swap="outerHTML"
+                hx-include="#wc-domain-filter" {
+                input type="hidden" name="domain" value="requisition";
+                input type="hidden" name="view" value="all";
+                div class="relative" {
+                    (icon::search_icon("w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted"));
+                    input class="wc-search-input w-[200px] pl-8 pr-3 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent"
+                        type="text" name="keyword" placeholder="搜索单号"
+                        value=(kw);
+                }
+                div class="ml-auto" {
+                    a class="inline-flex items-center gap-1 px-3 py-1.5 rounded-sm bg-accent text-white text-xs font-semibold no-underline cursor-pointer border-none hover:opacity-90"
+                        href=(RequisitionCreatePath::PATH) {
+                        (icon::plus_icon("w-3 h-3"))
+                        "新建领料单"
+                    }
+                }
+            }
+            div class="p-4" {
+                (render_requisition_all_table(&result.items, &wh_map))
+                @if result.total_pages > 1 {
+                    div class="mt-3" {
+                        (pagination(
+                            WmsWorkCenterPath::PATH, "#wc-domain-card", "#wc-domain-filter",
+                            result.total, result.page, result.total_pages,
+                        ))
+                    }
+                }
+            }
+        }
+    })
+}
+
+fn render_requisition_all_table(
+    items: &[MaterialRequisition],
+    wh_map: &HashMap<i64, String>,
+) -> Markup {
+    if items.is_empty() {
+        return html! {
+            div class="mt-2 p-4 text-center text-sm text-muted bg-surface rounded-md" { "暂无领料单" }
+        };
+    }
+    html! {
+        table class="w-full border-collapse mt-2" {
+            thead {
+                tr {
+                    th class="text-left text-xs font-semibold text-muted py-2 px-3 border-b border-border-soft" { "单号" }
+                    th class="text-left text-xs font-semibold text-muted py-2 px-3 border-b border-border-soft" { "工单" }
+                    th class="text-left text-xs font-semibold text-muted py-2 px-3 border-b border-border-soft" { "仓库" }
+                    th class="text-left text-xs font-semibold text-muted py-2 px-3 border-b border-border-soft" { "日期" }
+                    th class="text-left text-xs font-semibold text-muted py-2 px-3 border-b border-border-soft" { "状态" }
+                    th class="text-right text-xs font-semibold text-muted py-2 px-3 border-b border-border-soft" { "操作" }
+                }
+            }
+            tbody {
+                @for r in items {
+                    (render_requisition_all_row(r, wh_map))
+                }
+            }
+        }
+    }
+}
+
+fn render_requisition_all_row(r: &MaterialRequisition, wh_map: &HashMap<i64, String>) -> Markup {
+    let (status_text, status_cls) = requisition_status_label(r.status);
+    let wh = wh_map.get(&r.warehouse_id).map(|s| s.as_str()).unwrap_or("—");
+    let detail = RequisitionDetailPath { id: r.id }.to_string();
+    html! {
+        tr class="border-b border-border-soft last:border-b-0" {
+            td class="py-3 px-3 text-sm font-mono text-accent font-semibold" {
+                a class="text-accent no-underline hover:underline cursor-pointer"
+                    href=(detail) { (r.doc_number) }
+            }
+            td class="py-3 px-3 text-sm font-mono text-fg-2" { "WO-" (r.work_order_id) }
+            td class="py-3 px-3 text-sm text-fg-2" { (wh) }
+            td class="py-3 px-3 text-sm font-mono text-muted" { (r.requisition_date.format("%m-%d")) }
+            td class="py-3 px-3" {
+                span class=(format!("inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium {status_cls}")) {
+                    (status_text)
+                }
+            }
+            td class="py-3 px-3 text-right" {
+                a class="inline-flex items-center gap-1 px-3 py-1.5 rounded-sm bg-surface border border-border-soft text-fg-2 text-xs font-semibold no-underline cursor-pointer hover:bg-accent-bg hover:border-accent hover:text-accent transition-all"
+                    href=(detail) {
+                    "详情" (icon::arrow_right_icon("w-3 h-3"))
+                }
+            }
+        }
+    }
+}
+
+/// 领料单状态 → (标签, 语义色 class)。作业中心全部视图用（对齐 list 页 status_label 语义）。
+fn requisition_status_label(s: RequisitionStatus) -> (&'static str, &'static str) {
+    match s {
+        RequisitionStatus::Draft => ("草稿", "bg-surface text-muted"),
+        RequisitionStatus::Confirmed => ("已确认", "bg-accent-bg text-accent"),
+        RequisitionStatus::Issued => ("已发料", "bg-accent-bg text-accent"),
+        RequisitionStatus::Cancelled => ("已取消", "bg-danger-bg text-danger"),
+        RequisitionStatus::PartiallyIssued => ("部分发料", "bg-warn-bg text-warn"),
     }
 }
 
@@ -522,25 +730,8 @@ async fn render_work_center_page(
 
     let svc = state.wms_work_center_service();
     let summary = svc.summary(&service_ctx, &mut conn).await.unwrap_or_default();
-    // tab 主体数据：当前 domain + filter + page
     let domain = active_domain(q);
-    let mut filter = filter_from_query(q);
-    // source 仅对 Arrival 有意义：切到其他 tab 时旧 filter-form 可能仍携带 source，忽略之
-    if domain != WorkCenterDomain::Arrival {
-        filter.source_kind = None;
-    }
     let page = q.page.unwrap_or(1).max(1);
-    // tab 主体数据：数据库分页（list_pending → WorkCenterRepo，只查当前页 20 条）
-    let result = svc
-        .list_pending(
-            &service_ctx,
-            &mut conn,
-            domain,
-            filter,
-            PageParams::new(page, DOMAIN_PAGE_SIZE),
-        )
-        .await
-        .unwrap_or_else(|_| PaginatedResult::empty(page, DOMAIN_PAGE_SIZE));
     let warehouses = state
         .warehouse_service()
         .list(&service_ctx, &mut conn, WarehouseFilter::default(), 1, 200)
@@ -548,9 +739,38 @@ async fn render_work_center_page(
         .map(|r| r.items)
         .unwrap_or_default();
 
+    // 领料单全部视图（阶段 3.1）：调 material_requisition_service.list 渲染全状态表格
+    let is_req_all =
+        domain == WorkCenterDomain::Requisition && q.view.as_deref() == Some("all");
+
+    // tab 主体内容：待办队列（list_pending） / 领料单全部表格（material_requisition_service.list）
+    let domain_markup: Markup = if is_req_all {
+        render_requisition_all_card(
+            &state, &service_ctx, &mut conn, q, page, &summary, &warehouses,
+        )
+        .await?
+    } else {
+        let mut filter = filter_from_query(q);
+        // source 仅对 Arrival 有意义：切到其他 tab 时旧 filter-form 可能仍携带 source，忽略之
+        if domain != WorkCenterDomain::Arrival {
+            filter.source_kind = None;
+        }
+        let result = svc
+            .list_pending(
+                &service_ctx,
+                &mut conn,
+                domain,
+                filter,
+                PageParams::new(page, DOMAIN_PAGE_SIZE),
+            )
+            .await
+            .unwrap_or_else(|_| PaginatedResult::empty(page, DOMAIN_PAGE_SIZE));
+        render_domain_card(domain, &summary, &result, q, &warehouses)
+    };
+
     let content = if is_htmx {
         // htmx 片段：只渲染 tab 主体（顶栏总数 badge 由 POST oob 更新，GET 切 tab 不变）
-        render_domain_card(domain, &summary, &result, q, &warehouses)
+        domain_markup
     } else {
         // 整页：标题 + 总数 badge + tab 主体
         let today_str = chrono::Local::now().format("%Y-%m-%d").to_string();
@@ -570,7 +790,7 @@ async fn render_work_center_page(
                     }
                 }
             }
-            (render_domain_card(domain, &summary, &result, q, &warehouses))
+            (domain_markup)
             // 共享 drawer overlay（各域 GET ?drawer=&id= 把 body 填入 #wc-drawer-body）
             (wc_drawer_shell())
             // 库位选择弹窗（复用 stock-in/create 的 suggest_bins 端点；收货 drawer 选目标库位）
@@ -650,6 +870,8 @@ fn render_domain_card(
                 domain_slug(active),
                 "domain",
             ))
+            // 二级「待办/全部」切换（仅 Requisition，阶段 3.1）
+            (view_toggle(active, "pending"))
             // 过滤表单（紧急度快捷 pill 随表单一并渲染，不再单列）
             (render_domain_filter(active, q, overdue, soon))
             // 队列表格 + 分页
@@ -718,6 +940,8 @@ fn render_domain_filter(active: WorkCenterDomain, q: &WorkCenterQuery, overdue: 
             }
             // 紧急度快捷 pill：点击 = 设紧急度下拉值并触发 change，复用 filter form 的 hx-trigger="change"
             div class="ml-auto flex items-center gap-2" {
+                // 各 domain 收口入口：新建 / 查看全部（侧边栏菜单已废弃，跳转保留的业务路由）
+                (domain_entries(active))
                 @if overdue > 0 {
                     button type="button"
                         class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-danger-bg text-danger border border-danger/30 cursor-pointer hover:bg-danger/15 transition-colors"

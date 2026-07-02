@@ -7,7 +7,8 @@ use crate::sales::sales_order::repo::SalesOrderItemRepo;
 use crate::sales::sales_return::model::*;
 use crate::sales::sales_return::repo::{SalesReturnItemRepo, SalesReturnRepo};
 use crate::sales::sales_return::service::SalesReturnService;
-use crate::wms::outbound::{new_shipping_request_service, service::ShippingRequestService};
+use crate::wms::picking::{new_picking_service, service::PickingService};
+use crate::wms::enums::PickingStatus;
 use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService, RecordAuditLogReq};
 use crate::shared::cost_entry::{new_cost_entry_service, service::CostEntryService};
 use crate::shared::cost_entry::model::EntryRequest;
@@ -50,14 +51,14 @@ impl SalesReturnService for SalesReturnServiceImpl {
         req: CreateReturnReq,
     ) -> Result<i64> {
         // Validate shipping request is Shipped
-        let shipping = new_shipping_request_service(self.pool.clone()).find_by_id(ctx, db, req.shipping_request_id).await?;
-        if shipping.status != crate::wms::outbound::model::ShippingStatus::Shipped {
+        let shipping = new_picking_service(self.pool.clone()).find_by_id(ctx, db, req.shipping_request_id).await?;
+        if shipping.status != PickingStatus::Done {
             return Err(DomainError::business_rule(
                 "Shipping request must be Shipped to create return",
             ));
         }
 
-        if shipping.order_id != Some(req.order_id) {
+        if shipping.source_id != Some(req.order_id) {
             return Err(DomainError::validation(
                 "Shipping request does not belong to the specified order",
             ));

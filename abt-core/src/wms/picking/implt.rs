@@ -1473,4 +1473,147 @@ impl PickingService for PickingServiceImpl {
         PickingRepo::set_done(&mut *db, picking.id).await?;
         Ok(picking.id)
     }
+
+    async fn receive_production(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        id: i64,
+        warehouse_id: i64,
+        zone_id: Option<i64>,
+        bin_id: Option<i64>,
+    ) -> Result<()> {
+        use crate::mes::production_batch::repo::{ProductionBatchRepo, WorkOrderRoutingRepo};
+        use crate::mes::work_order::repo::WorkOrderRepo;
+        use crate::mes::enums::{BatchStatus, WorkOrderStatus};
+        use crate::qms::enums::{InspectionResultType, InspectionSourceType, InspectionStatus};
+        use crate::qms::inspection_result::{new_inspection_result_service, model::InspectionResultFilter, service::InspectionResultService};
+        use crate::shared::cost_entry::{model::EntryRequest, new_cost_entry_service, service::CostEntryService};
+        use crate::shared::enums::{CostEntityType, CostType};
+        use crate::shared::inventory_reservation::{new_inventory_reservation_service, service::InventoryReservationService};
+        use crate::shared::types::pagination::PageParams;
+        use crate::wms::backflush::{new_backflush_service, service::BackflushService};
+        use crate::wms::stock_ledger::repo::StockLedgerRepo;
+
+        let picking = self.get(ctx, db, id).await?;
+        if picking.status != PickingStatus::Confirmed {
+            return Err(DomainError::InvalidStateTransition {
+                from: format!("{:?}", picking.status),
+                to: "Done".to_string(),
+            });
+        }
+        if warehouse_id <= 0 {
+            return Err(DomainError::validation("确认入库必须指定目标仓库"));
+        }
+        let work_order_id = picking.source_id.ok_or_else(|| {
+            DomainError::business_rule("入库 picking 缺少 source_id（work_order_id）")
+        })?;
+        let items = PickingRepo::get_items(&mut *db, id).await?;
+        let item = items.first().ok_or_else(|| DomainError::business_rule("入库 picking 无明细"))?;
+        let product_id = item.product_id;
+        let received_qty = item.qty_requested;
+        let batch_id = item.batch_id;
+
+        // 1. FQC 门（仅当工单工序含报检点时；InspectionResult source_id = picking.id）
+        let wo_routings = WorkOrderRoutingRepo::get_by_work_order_id(&mut *db, work_order_id)
+            .await.unwrap_or_default();
+        let has_inspection_points = wo_routings.iter().any(|r| r.is_inspection_point);
+        if has_inspection_points {
+            let insp_svc = new_inspection_result_service(self.pool.clone());
+            let one = PageParams::new(1, 1);
+            let total = insp_svc.list_by_source(ctx, db, InspectionResultFilter {
+                source_type: Some(InspectionSourceType::ProductionReceipt),
+                source_id: Some(id),
+                ..Default::default()
+            }, one.clone()).await.map(|p| p.total).unwrap_or(0);
+            if total == 0 {
+                return Err(DomainError::business_rule(
+                    "工单含报检工序，完工入库前必须完成 FQC 质检（无检验记录）",
+                ));
+            }
+            let passed = insp_svc.list_by_source(ctx, db, InspectionResultFilter {
+                source_type: Some(InspectionSourceType::ProductionReceipt),
+                source_id: Some(id),
+                status: Some(InspectionStatus::Completed),
+                result: Some(InspectionResultType::Pass),
+                ..Default::default()
+            }, one.clone()).await.map(|p| p.total).unwrap_or(0);
+            if passed != total {
+                return Err(DomainError::business_rule("FQC 质检未全部通过，不允许入库"));
+            }
+        }
+
+        // 解析产成品批次号（流转卡 batch_no 透传）
+        let fg_batch_no: Option<String> = match batch_id {
+            Some(bid) => ProductionBatchRepo::get_by_id(&mut *db, bid)
+                .await.map_err(|e| DomainError::Internal(e.into()))?.map(|b| b.batch_no),
+            None => None,
+        };
+
+        // 2. record ProductionReceipt 流水
+        new_inventory_transaction_service(self.pool.clone())
+            .record(ctx, db, RecordTransactionReq {
+                doc_number: None, delivery_no: None,
+                source_doc_number: Some(picking.doc_number.clone()),
+                transaction_type: TransactionType::ProductionReceipt,
+                product_id, warehouse_id, zone_id, bin_id,
+                batch_no: fg_batch_no, quantity: received_qty, unit_cost: None,
+                source_type: "stock_picking".to_string(), source_id: id, remark: None,
+            }).await?;
+
+        // 3. 成本分录（unit_cost from stock_ledger）
+        let unit_cost = StockLedgerRepo::last_known_unit_cost(&mut *db, product_id).await.unwrap_or(Decimal::ZERO);
+        let total_cost = received_qty * unit_cost;
+        if total_cost > Decimal::ZERO {
+            let period = chrono::Local::now().format("%Y-%m").to_string();
+            new_cost_entry_service(self.pool.clone())
+                .create_entries(ctx, db, vec![EntryRequest {
+                    entity_type: CostEntityType::WorkOrder, entity_id: work_order_id,
+                    cost_type: CostType::Material, debit_amount: total_cost, credit_amount: total_cost,
+                    cost_center: None, profit_center: None, period,
+                    source_type: DocumentType::ProductionReceipt, source_id: id,
+                }]).await?;
+        }
+
+        // 4. Backflush（倒冲原料，同事务）
+        new_backflush_service(self.pool.clone())
+            .execute(ctx, db, work_order_id, received_qty, warehouse_id)
+            .await
+            .map_err(|e| DomainError::business_rule(format!("倒冲失败，入库已回滚: {e:?}")))?;
+
+        // 5. batch Completed
+        if let Some(bid) = batch_id {
+            ProductionBatchRepo::update_status(&mut *db, bid, BatchStatus::Completed)
+                .await.map_err(|e| DomainError::Internal(e.into()))?;
+        }
+
+        // 6. 多批次守卫 → WO InProduction→Closed + 预留释放
+        let all_batches = ProductionBatchRepo::list_by_work_order(&mut *db, work_order_id)
+            .await.map_err(|e| DomainError::Internal(e.into()))?;
+        let has_active_batch = all_batches.iter().any(|b| {
+            b.status != BatchStatus::Completed && b.status != BatchStatus::Cancelled
+        });
+        if !has_active_batch {
+            match WorkOrderRepo::update_status_conditional(
+                &mut *db, work_order_id,
+                WorkOrderStatus::InProduction, WorkOrderStatus::Closed,
+            ).await {
+                Ok(true) => {
+                    new_audit_log_service(self.pool.clone())
+                        .record(ctx, db, RecordAuditLogReq {
+                            entity_type: "WorkOrder".into(), entity_id: work_order_id,
+                            action: AuditAction::Transition, changes: None, context: None,
+                        }).await?;
+                }
+                Ok(false) => {}
+                Err(e) => return Err(DomainError::Internal(e.into())),
+            }
+            new_inventory_reservation_service(self.pool.clone())
+                .cancel_by_source(ctx, db, DocumentType::WorkOrder, work_order_id)
+                .await?;
+        }
+
+        PickingRepo::set_done(&mut *db, id).await?;
+        Ok(())
+    }
 }

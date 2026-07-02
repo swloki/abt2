@@ -214,4 +214,19 @@ pub trait PickingService: Send + Sync {
         db: PgExecutor<'_>,
         req: super::model::ReceivePurchaseReq,
     ) -> Result<i64>;
+
+    // ── 生产入库（IncomingWorkOrder，#146 阶段 5b）──
+
+    /// 生产入库 done（confirm 7 步：FQC 门 → record ProductionReceipt → 成本 → backflush →
+    /// batch Completed → 多批次守卫 WO Closed → 预留释放）。搬自 ProductionReceiptService::confirm。
+    /// `id` = IncomingWorkOrder picking.id（已建，Confirmed）；FQC source_id = picking.id。
+    async fn receive_production(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        id: i64,
+        warehouse_id: i64,
+        zone_id: Option<i64>,
+        bin_id: Option<i64>,
+    ) -> Result<()>;
 }

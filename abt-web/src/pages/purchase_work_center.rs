@@ -128,6 +128,11 @@ pub async fn get_work_center(_path: PurchaseWorkCenterPath, ctx: RequestContext)
         (render_drawer_overlay("po-detail-overlay", "po-detail-drawer", "po-detail-drawer-body", "采购订单详情", "w-[900px] max-w-[92vw]"))
         (render_drawer_overlay("return-detail-overlay", "return-detail-drawer", "return-detail-drawer-body", "退货详情", "w-[680px] max-w-[92vw]"))
         (render_drawer_overlay("quotation-detail-overlay", "quotation-detail-drawer", "quotation-detail-drawer-body", "报价详情", "w-[680px] max-w-[92vw]"))
+        // 转单成功后自动切草稿订单列表：后端广播 convertDone → htmx 原生 hx-get 切订单 card
+        div class="hidden"
+            hx-trigger="convertDone from:body"
+            hx-get=(format!("{}?status=1", PcOrdersPath::PATH))
+            hx-target="#pc-card" hx-swap="outerHTML" {}
     };
 
     Ok(Html(
@@ -794,7 +799,7 @@ async fn convert_demands_to_po(
         .await
         .map_err(|e| DomainError::Internal(e.into()))?;
     invalidate_purchase_summary(state);
-    Ok(([("HX-Trigger", "demandChanged, poChanged")], Html(String::new())))
+    Ok(([("HX-Trigger", "demandChanged, poChanged, convertDone")], Html(String::new())))
 }
 
 #[require_permission("PURCHASE_ORDER", "update")]
@@ -854,7 +859,7 @@ fn render_convert_po_body(
         div class="mb-1.5 text-xs text-muted font-medium" { "选择供应商 *" }
         form hx-post=(PcConvertPoPath { product_id }.to_string())
             hx-target="this" hx-swap="none"
-            _="on 'htmx:afterRequest'[detail.xhr.status < 400] remove .open from #convert-po-overlay then call showToast('PO 草稿已生成，单价待补充')" {
+            _="on 'htmx:afterRequest'[detail.xhr.status < 400] remove .open from #convert-po-overlay then call showToast('PO 草稿已生成，已切到草稿订单列表')" {
             input type="hidden" name="demand_ids" value=(demand_ids_str) {};
             (crate::components::supplier_search::supplier_search_field(
                 "pc-convert-sup", "pc-convert-sup-display", "pc-convert-sup-panel", "pc-convert-sup-results",
@@ -929,7 +934,7 @@ fn render_batch_convert_body(supplier_id: i64, supplier: &str, demands: &[Demand
         }
         form hx-post=(PcBatchConvertPath::PATH)
             hx-target="this" hx-swap="none"
-            _="on 'htmx:afterRequest'[detail.xhr.status < 400] remove .open from #convert-po-overlay then call showToast('PO 草稿已生成，单价待补充')" {
+            _="on 'htmx:afterRequest'[detail.xhr.status < 400] remove .open from #convert-po-overlay then call showToast('PO 草稿已生成，已切到草稿订单列表')" {
             input type="hidden" name="demand_ids" value=(demand_ids_str) {};
             input type="hidden" name="supplier_id" value=(supplier_id) {};
             div class="grid grid-cols-2 gap-4 mb-4" {

@@ -15,7 +15,7 @@ use crate::master_data::work_center::{new_work_center_service, service::WorkCent
 use crate::master_data::routing::{new_routing_service, service::RoutingService};
 use crate::master_data::product::{new_product_service, service::ProductService};
 use crate::sales::sales_order::{new_demand_service, service::DemandService};
-use crate::wms::material_requisition::{new_material_requisition_service, service::MaterialRequisitionService};
+use crate::wms::picking::{new_picking_service, service::PickingService};
 use crate::wms::stock_ledger::{new_stock_ledger_service, service::StockLedgerService};
 use crate::mes::production_batch::model::WorkOrderRouting;
 use crate::mes::production_batch::repo::{
@@ -250,7 +250,7 @@ impl WorkOrderService for WorkOrderServiceImpl {
                     }
 
                     // 创建领料单（含明细行）
-                    new_material_requisition_service(self.pool.clone())
+                    new_picking_service(self.pool.clone())
                         .create_for_work_order(ctx, db, id).await?;
                 }
             }
@@ -385,7 +385,7 @@ impl WorkOrderService for WorkOrderServiceImpl {
         .await?;
 
         for req_id in requisition_ids {
-            if let Err(e) = new_material_requisition_service(self.pool.clone())
+            if let Err(e) = new_picking_service(self.pool.clone())
                 .cancel(ctx, db, req_id)
                 .await
             {
@@ -981,12 +981,12 @@ async fn build_material(
     use std::collections::HashSet;
 
     // 1. 领料单 + 批量明细（一条 ANY 替代逐个 list_items 的 N+1）
-    let req_svc = new_material_requisition_service(pool.clone());
+    let req_svc = new_picking_service(pool.clone());
     let reqs = req_svc
         .list(
             ctx,
             db,
-            crate::wms::material_requisition::model::RequisitionFilter {
+            crate::wms::picking::model::PickingFilter {
                 work_order_id: Some(work_order_id),
                 ..Default::default()
             },
@@ -999,11 +999,11 @@ async fn build_material(
     let all_items = req_svc.list_items_by_req_ids(ctx, db, &req_ids).await?;
     // 领料单明细所需 product_id 集合（用于 product_code/name 解析）+ 按 requisition_id 分组
     let mut line_product_ids: HashSet<i64> = HashSet::new();
-    let mut req_item_map: std::collections::HashMap<i64, Vec<crate::wms::material_requisition::model::MaterialReqItem>> =
+    let mut req_item_map: std::collections::HashMap<i64, Vec<crate::wms::picking::model::StockPickingItem>> =
         std::collections::HashMap::new();
     for it in all_items {
         line_product_ids.insert(it.product_id);
-        req_item_map.entry(it.requisition_id).or_default().push(it);
+        req_item_map.entry(it.picking_id).or_default().push(it);
     }
     // 批量查 line product 名
     let line_products: HashMap<i64, crate::master_data::product::model::Product> = if line_product_ids.is_empty() {
@@ -1026,7 +1026,7 @@ async fn build_material(
 
     for req in &reqs.items {
         let items = req_item_map.get(&req.id).cloned().unwrap_or_default();
-        let total_qty: Decimal = items.iter().map(|i| i.requested_qty).sum();
+        let total_qty: Decimal = items.iter().map(|i| i.qty_requested).sum();
         let hub_items: Vec<HubRequisitionItem> = items
             .iter()
             .map(|i| {
@@ -1039,8 +1039,8 @@ async fn build_material(
                 HubRequisitionItem {
                     product_code: code,
                     product_name: name,
-                    required_qty: i.requested_qty,
-                    issued_qty: i.issued_qty,
+                    required_qty: i.qty_requested,
+                    issued_qty: i.qty_done,
                     available_qty: avail,
                 }
             })

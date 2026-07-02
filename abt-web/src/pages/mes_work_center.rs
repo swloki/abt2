@@ -24,7 +24,7 @@ use abt_core::mes::production_batch::{
     StepConfirmationReq, WorkOrderRouting,
 };
 use abt_core::mes::production_receipt::{CreateReceiptReq, ProductionReceiptService};
-use abt_core::wms::material_requisition::MaterialRequisitionService;
+use abt_core::wms::picking::PickingService;
 use abt_core::mes::work_center::{MesWorkCenterService, MesWorkCenterSummary};
 use abt_core::sales::sales_order::{SalesOrder, SalesOrderItem, SalesOrderService, SalesOrderStatus};
 use abt_core::master_data::customer::CustomerService;
@@ -2416,7 +2416,7 @@ async fn load_batch_drawer_html(
         .collect();
     // 批次已领料的工序集合（驱动矩阵动作位：领料→收料→报工 推进）
     let req_routing_ids: std::collections::HashSet<i64> = state
-        .material_requisition_service()
+        .picking_service()
         .list_requisitioned_routing_ids(service_ctx, conn, batch.id)
         .await
         .unwrap_or_default()
@@ -3234,7 +3234,7 @@ pub async fn batch_requisition(
     let batch_svc = state.production_batch_service();
     let batch = batch_svc.find_by_id(&service_ctx, &mut tx, path.batch_id).await?;
     state
-        .material_requisition_service()
+        .picking_service()
         .create_for_routing_step(
             &service_ctx,
             &mut tx,

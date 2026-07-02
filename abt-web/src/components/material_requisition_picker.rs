@@ -7,12 +7,13 @@ use maud::{html, Markup};
 use serde::Deserialize;
 
 use super::overlay::modal_shell;
-use abt_core::wms::material_requisition::MaterialRequisitionService;
-use abt_core::wms::material_requisition::model::RequisitionFilter;
+use abt_core::wms::enums::{PickingStatus, PickingType};
+use abt_core::wms::picking::{PickingFilter, PickingService, StockPicking};
 
 use crate::errors::Result;
 use crate::utils::RequestContext;
 
+// 路径名保留 /api/material-requisitions/search（前端 hx-get 调用方不变），内部已切 stock_picking
 #[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/api/material-requisitions/search")]
 pub struct MaterialRequisitionSearchPath;
@@ -33,20 +34,25 @@ pub async fn search_material_requisitions(
     ctx: RequestContext,
     Query(params): Query<SearchMrParams>,
 ) -> Result<Html<String>> {
-    use abt_core::wms::enums::RequisitionStatus;
     let RequestContext { mut conn, state, service_ctx, .. } = ctx;
-    let svc = state.material_requisition_service();
-    let status = params.status.and_then(|s| if s == -1 { None } else { RequisitionStatus::from_i16(s) });
+    let svc = state.picking_service();
+    let status = params
+        .status
+        .and_then(|s| if s == -1 { None } else { PickingStatus::from_i16(s) });
     let result = svc
         .list(
-            &service_ctx, &mut conn,
-            RequisitionFilter {
+            &service_ctx,
+            &mut conn,
+            PickingFilter {
                 doc_number: params.keyword.filter(|s| !s.is_empty()),
+                picking_type: Some(PickingType::InternalIssue),
                 status,
+                source_type: None,
+                source_id: None,
                 work_order_id: None,
-                warehouse_id: None,
             },
-            1, 30,
+            1,
+            30,
         )
         .await?;
     let target = params.target_id.as_deref().unwrap_or("mr-id-hidden");
@@ -55,7 +61,6 @@ pub async fn search_material_requisitions(
 }
 
 /// 领料单选择弹窗（fill-input：选领料单→填 hidden target_id + 显示 doc_number + trigger change + 关弹窗）
-/// 调用方的 hidden 自带 hx-trigger="change" → change 后自动 hx-post 加载领料明细（confirm-requisition 渲染明细）
 pub fn material_requisition_picker_modal(modal_id: &str, target_id: &str, display_id: &str) -> Markup {
     let close_hs = format!("on click remove .is-open from #{}", modal_id);
     modal_shell(modal_id, "z-[1100]", html! {
@@ -100,7 +105,7 @@ pub fn material_requisition_picker_modal(modal_id: &str, target_id: &str, displa
                             {
                                 option value="-1" { "全部" }
                                 option value="2" { "已确认" }
-                                option value="5" { "部分发料" }
+                                option value="3" { "已完成" }
                             }
                         }
                     }
@@ -126,19 +131,13 @@ pub fn material_requisition_picker_modal(modal_id: &str, target_id: &str, displa
         })
 }
 
-fn mr_picker_results(
-    items: &[abt_core::wms::material_requisition::MaterialRequisition],
-    target_id: &str,
-    display_id: &str,
-) -> Markup {
-    use abt_core::wms::enums::RequisitionStatus;
-    let status_label = |s: &RequisitionStatus| -> &'static str {
+fn mr_picker_results(items: &[StockPicking], target_id: &str, display_id: &str) -> Markup {
+    let status_label = |s: &PickingStatus| -> &'static str {
         match s {
-            RequisitionStatus::Draft => "草稿",
-            RequisitionStatus::Confirmed => "已确认",
-            RequisitionStatus::Issued => "已发料",
-            RequisitionStatus::Cancelled => "已取消",
-            RequisitionStatus::PartiallyIssued => "部分发料",
+            PickingStatus::Draft => "草稿",
+            PickingStatus::Confirmed => "已确认",
+            PickingStatus::Done => "已完成",
+            PickingStatus::Cancelled => "已取消",
         }
     };
     let click_hs = format!(
@@ -149,7 +148,7 @@ fn mr_picker_results(
         @if items.is_empty() {
             div class="flex flex-col items-center justify-center py-12 text-muted" {
                 p class="mt-2 text-sm" { "未找到匹配的领料单" }
-                p class="text-xs mt-1" { "仅「已确认 / 部分发料」状态可出库" }
+                p class="text-xs mt-1" { "仅「已确认」状态可发料" }
             }
         } @else {
             div class="py-2" {
@@ -164,11 +163,11 @@ fn mr_picker_results(
                             div class="text-sm font-medium text-fg truncate" { (mr.doc_number) }
                             div class="text-xs text-muted" {
                                 "工单 #"
-                                (mr.work_order_id)
+                                (mr.work_order_id.unwrap_or(0))
                                 " · "
                                 (sl)
                                 " · "
-                                (mr.requisition_date.format("%Y-%m-%d").to_string())
+                                (mr.scheduled_date.map(|d| d.format("%Y-%m-%d").to_string()).unwrap_or_else(|| "—".into()))
                             }
                         }
                         span class="text-xs text-accent font-medium shrink-0" { "选择" }

@@ -5,11 +5,10 @@ use serde::Deserialize;
 
 use abt_core::shared::types::pagination::{PageParams, PaginatedResult};
 use abt_core::shared::types::{PgExecutor, ServiceContext};
-use abt_core::wms::enums::{CycleCountStatus, RequisitionStatus, TransferStatus};
-use abt_core::wms::material_requisition::model::{
-    IssueItemReq, IssueMaterialReq, MaterialRequisition, RequisitionFilter,
+use abt_core::wms::enums::{CycleCountStatus, PickingStatus, PickingType, TransferStatus};
+use abt_core::wms::picking::{
+    IssueItemReq, IssueMaterialReq, PickingFilter, PickingService, StockPicking,
 };
-use abt_core::wms::material_requisition::MaterialRequisitionService;
 use abt_core::wms::outbound::model::{ShippingQuery, ShippingRequest, ShippingStatus};
 use abt_core::wms::outbound::ShippingRequestService;
 use abt_core::wms::pick_list::{model::PickItemInput, PickListService};
@@ -262,7 +261,7 @@ fn view_toggle(domain: WorkCenterDomain, active_view: &str) -> Markup {
     }
 }
 
-/// 领料单全部视图（阶段 3.1）：调 material_requisition_service.list 渲染全状态领料单表格。
+/// 领料单全部视图（阶段 3.1）：调 picking_service.list 渲染全状态领料单表格。
 /// 二级「待办/全部」切换 + keyword 搜索 + 表格 + 分页。单据点击跳详情（3.1b 改 drawer）。
 async fn render_requisition_all_card(
     state: &AppState,
@@ -273,17 +272,19 @@ async fn render_requisition_all_card(
     summary: &WorkCenterSummary,
     warehouses: &[Warehouse],
 ) -> Result<Markup> {
-    let req_svc = state.material_requisition_service();
-    let filter = RequisitionFilter {
+    let req_svc = state.picking_service();
+    let filter = PickingFilter {
         doc_number: q
             .keyword
             .as_deref()
             .map(str::trim)
             .filter(|s| !s.is_empty())
             .map(String::from),
+        picking_type: Some(PickingType::InternalIssue),
         status: None,
+        source_type: None,
+        source_id: None,
         work_order_id: None,
-        warehouse_id: None,
     };
     let result = req_svc
         .list(ctx, db, filter, page, DOMAIN_PAGE_SIZE)
@@ -337,7 +338,7 @@ async fn render_requisition_all_card(
 }
 
 fn render_requisition_all_table(
-    items: &[MaterialRequisition],
+    items: &[StockPicking],
     wh_map: &HashMap<i64, String>,
     view: &str,
 ) -> Markup {
@@ -367,18 +368,23 @@ fn render_requisition_all_table(
     }
 }
 
-fn render_requisition_all_row(r: &MaterialRequisition, wh_map: &HashMap<i64, String>, view: &str) -> Markup {
-    let (status_text, status_cls) = requisition_status_label(r.status);
-    let wh = wh_map.get(&r.warehouse_id).map(|s| s.as_str()).unwrap_or("—");
+fn render_requisition_all_row(r: &StockPicking, wh_map: &HashMap<i64, String>, view: &str) -> Markup {
+    let (status_text, status_cls) = picking_status_label(r.status);
+    let wh = wh_map
+        .get(&r.from_warehouse_id.unwrap_or(0))
+        .map(|s| s.as_str())
+        .unwrap_or("—");
     html! {
         tr class="border-b border-border-soft last:border-b-0" {
             td class="py-3 px-3 text-sm font-mono text-accent font-semibold" {
                 (doc_detail_trigger("req_detail",r.id, view, html! { (r.doc_number) },
                     "font-mono text-accent font-semibold text-sm bg-transparent border-none p-0 cursor-pointer hover:underline"))
             }
-            td class="py-3 px-3 text-sm font-mono text-fg-2" { "WO-" (r.work_order_id) }
+            td class="py-3 px-3 text-sm font-mono text-fg-2" { "WO-" (r.work_order_id.unwrap_or(0)) }
             td class="py-3 px-3 text-sm text-fg-2" { (wh) }
-            td class="py-3 px-3 text-sm font-mono text-muted" { (r.requisition_date.format("%m-%d")) }
+            td class="py-3 px-3 text-sm font-mono text-muted" {
+                (r.scheduled_date.map(|d| d.format("%m-%d").to_string()).unwrap_or_else(|| "—".into()))
+            }
             td class="py-3 px-3" {
                 span class=(format!("inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium {status_cls}")) {
                     (status_text)
@@ -393,13 +399,12 @@ fn render_requisition_all_row(r: &MaterialRequisition, wh_map: &HashMap<i64, Str
 }
 
 /// 领料单状态 → (标签, 语义色 class)。作业中心全部视图用（对齐 list 页 status_label 语义）。
-fn requisition_status_label(s: RequisitionStatus) -> (&'static str, &'static str) {
+fn picking_status_label(s: PickingStatus) -> (&'static str, &'static str) {
     match s {
-        RequisitionStatus::Draft => ("草稿", "bg-surface text-muted"),
-        RequisitionStatus::Confirmed => ("已确认", "bg-accent-bg text-accent"),
-        RequisitionStatus::Issued => ("已发料", "bg-accent-bg text-accent"),
-        RequisitionStatus::Cancelled => ("已取消", "bg-danger-bg text-danger"),
-        RequisitionStatus::PartiallyIssued => ("部分发料", "bg-warn-bg text-warn"),
+        PickingStatus::Draft => ("草稿", "bg-surface text-muted"),
+        PickingStatus::Confirmed => ("已确认", "bg-accent-bg text-accent"),
+        PickingStatus::Done => ("已完成", "bg-success-bg text-success"),
+        PickingStatus::Cancelled => ("已取消", "bg-danger-bg text-danger"),
     }
 }
 
@@ -430,7 +435,7 @@ async fn req_detail_drawer_body(
     id: i64,
     view: Option<&str>,
 ) -> Result<Markup> {
-    let req_svc = state.material_requisition_service();
+    let req_svc = state.picking_service();
     let req = req_svc.get(ctx, db, id).await?;
     let items = req_svc.list_items(ctx, db, id).await.unwrap_or_default();
     let product_map: HashMap<i64, abt_core::master_data::product::model::Product> = state
@@ -443,12 +448,12 @@ async fn req_detail_drawer_body(
         .collect();
     let wh_name = state
         .warehouse_service()
-        .get(ctx, db, req.warehouse_id)
+        .get(ctx, db, req.from_warehouse_id.unwrap_or(0))
         .await
         .map(|w| w.name)
         .unwrap_or_else(|_| "—".into());
 
-    let (status_text, status_cls) = requisition_status_label(req.status);
+    let (status_text, status_cls) = picking_status_label(req.status);
     let view_val = view.unwrap_or("pending");
 
     let mut rows = html! {};
@@ -469,8 +474,8 @@ async fn req_detail_drawer_body(
                     div class="text-xs text-muted truncate" { (pcode) }
                 }
                 div class="text-right shrink-0" {
-                    div class="text-sm font-mono text-fg" { "申请 " (fmt_qty(it.requested_qty)) }
-                    div class="text-xs font-mono text-muted" { "实领 " (fmt_qty(it.issued_qty)) }
+                    div class="text-sm font-mono text-fg" { "申请 " (fmt_qty(it.qty_requested)) }
+                    div class="text-xs font-mono text-muted" { "实领 " (fmt_qty(it.qty_done)) }
                 }
             }
         };
@@ -488,7 +493,7 @@ async fn req_detail_drawer_body(
             div class="grid grid-cols-2 gap-x-4 gap-y-2 text-xs" {
                 div {
                     span class="text-muted" { "关联工单 " }
-                    span class="font-mono text-fg-2" { "WO-" (req.work_order_id) }
+                    span class="font-mono text-fg-2" { "WO-" (req.work_order_id.unwrap_or(0)) }
                 }
                 div {
                     span class="text-muted" { "领料仓库 " }
@@ -496,7 +501,9 @@ async fn req_detail_drawer_body(
                 }
                 div {
                     span class="text-muted" { "领料日期 " }
-                    span class="font-mono text-fg-2" { (req.requisition_date.format("%Y-%m-%d")) }
+                    span class="font-mono text-fg-2" {
+                        (req.scheduled_date.map(|d| d.format("%Y-%m-%d").to_string()).unwrap_or_else(|| "—".into()))
+                    }
                 }
             }
         }
@@ -535,7 +542,7 @@ fn req_detail_shell(title: &str, inner: Markup) -> Markup {
 
 /// 详情 drawer 内操作按钮：各自 form 提交单端点（action=confirm/cancel/issue）。
 /// hidden view 携带当前视图，POST 后回到对应 card。class="contents" 让 form 不影响 flex 布局。
-fn req_detail_actions(status: RequisitionStatus, id: i64, view: &str) -> Markup {
+fn req_detail_actions(status: PickingStatus, id: i64, view: &str) -> Markup {
     let open_hs =
         "on 'htmx:afterRequest'[detail.xhr.status<400] remove .open from #wc-drawer-overlay";
     let cancel_btn = |label: &str, confirm: &str| -> Markup {
@@ -567,21 +574,16 @@ fn req_detail_actions(status: RequisitionStatus, id: i64, view: &str) -> Markup 
         }
     };
     match status {
-        RequisitionStatus::Draft => html! {
+        PickingStatus::Draft => html! {
             div class="flex justify-end gap-3 mt-5 pt-4 border-t border-border-soft" {
                 (cancel_btn("取消单据", "确定取消此领料单？"))
                 (primary_btn("确认", "confirm", "确定确认此领料单？", icon::check_circle_icon("w-4 h-4")))
             }
         },
-        RequisitionStatus::Confirmed => html! {
+        PickingStatus::Confirmed => html! {
             div class="flex justify-end gap-3 mt-5 pt-4 border-t border-border-soft" {
                 (cancel_btn("取消单据", "确定取消此领料单？"))
                 (primary_btn("确认发料", "issue", "确认全量发料？将扣减库存并计入工单成本", icon::bolt_icon("w-4 h-4")))
-            }
-        },
-        RequisitionStatus::PartiallyIssued => html! {
-            div class="mt-5 pt-4 border-t border-border-soft" {
-                p class="text-xs text-warn" { "该单已部分发料，续发暂未支持就地操作。" }
             }
         },
         _ => html! {},
@@ -1564,20 +1566,20 @@ async fn dispatch_action(
             }
         }
         "confirm" => {
-            state.material_requisition_service().confirm(ctx, db, form.id).await?;
+            state.picking_service().confirm(ctx, db, form.id).await?;
         }
         "cancel" => {
-            state.material_requisition_service().cancel(ctx, db, form.id).await?;
+            state.picking_service().cancel(ctx, db, form.id).await?;
         }
         "issue" => {
             // 全量发料（仅 Confirmed 安全；issue 记库存事务用绝对量，重复发料会重复扣库存）
-            let req_svc = state.material_requisition_service();
+            let req_svc = state.picking_service();
             let items_db = req_svc.list_items(ctx, db, form.id).await?;
             let issue_items = items_db
                 .iter()
                 .map(|it| IssueItemReq {
                     item_id: it.id,
-                    issued_qty: it.requested_qty,
+                    issued_qty: it.qty_requested,
                     bin_id: None,
                 })
                 .collect::<Vec<_>>();
@@ -1708,7 +1710,7 @@ async fn render_work_center_page(
         .map(|r| r.items)
         .unwrap_or_default();
 
-    // 领料单全部视图（阶段 3.1）：调 material_requisition_service.list 渲染全状态表格
+    // 领料单全部视图（阶段 3.1）：调 picking_service.list 渲染全状态表格
     let is_all_view = matches!(
         domain,
         WorkCenterDomain::Requisition | WorkCenterDomain::Transfer | WorkCenterDomain::CycleCount
@@ -2820,9 +2822,9 @@ async fn issue_drawer_body(
     db: PgExecutor<'_>,
     id: i64,
 ) -> Result<Markup> {
-    let req_svc = state.material_requisition_service();
+    let req_svc = state.picking_service();
     let req = req_svc.get(ctx, db, id).await?;
-    if req.status == RequisitionStatus::Confirmed {
+    if req.status == PickingStatus::Confirmed {
         let items = req_svc.list_items(ctx, db, id).await.unwrap_or_default();
         let product_map: HashMap<i64, abt_core::master_data::product::model::Product> = state
             .product_service()
@@ -2845,7 +2847,7 @@ async fn issue_drawer_body(
                             (product_map.get(&it.product_id).map(|p| p.product_code.clone()).unwrap_or_default())
                         }
                     }
-                    span class="text-sm font-mono text-muted shrink-0" { "申请 " (fmt_qty(it.requested_qty)) }
+                    span class="text-sm font-mono text-muted shrink-0" { "申请 " (fmt_qty(it.qty_requested)) }
                 }
             };
         }

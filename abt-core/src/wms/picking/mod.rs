@@ -4,7 +4,8 @@ pub(crate) mod repo;
 pub mod service;
 
 pub use model::{
-    CreatePickingItemReq, CreatePickingReq, DoneItemReq, PickingFilter, StockPicking,
+    CreateManualItemReq, CreateManualReq, CreatePickingItemReq, CreatePickingReq, DoneItemReq,
+    IssueItemReq, IssueMaterialReq, PickingFilter, ReturnItemReq, ReturnMaterialReq, StockPicking,
     StockPickingItem,
 };
 pub use service::PickingService;

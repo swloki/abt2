@@ -198,7 +198,7 @@ impl DashboardRepo {
              bn.quantity AS per_unit_qty, \
              bn.quantity * COALESCE(wo_batch.completed, 0) AS standard_total, \
              COALESCE(SUM(bi.actual_qty), 0) AS backflush_total, \
-             COALESCE((SELECT SUM(mri.issued_qty) FROM material_requisition_items mri JOIN material_requisitions mr ON mr.id = mri.requisition_id WHERE mr.work_order_id = wo.id AND mri.product_id = bn.product_id AND mr.deleted_at IS NULL), 0) AS picked_qty \
+             COALESCE((SELECT SUM(spi.qty_done) FROM stock_picking_items spi JOIN stock_pickings sp ON sp.id = spi.picking_id WHERE sp.work_order_id = wo.id AND spi.product_id = bn.product_id AND sp.picking_type = 5 AND sp.deleted_at IS NULL AND sp.status <> 4), 0) AS picked_qty \
              FROM work_orders wo \
              JOIN bom_nodes bn ON bn.bom_id = wo.bom_snapshot_id AND bn.parent_id != 0 \
              LEFT JOIN products p ON p.product_id = bn.product_id \

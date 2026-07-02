@@ -160,15 +160,6 @@ impl TransactionType {
     }
 }
 
-// -- Material Requisition --
-define_wms_enum!(RequisitionStatus {
-    Draft = 1,
-    Confirmed = 2,
-    Issued = 3,
-    Cancelled = 4,
-    PartiallyIssued = 5,
-});
-
 // -- Backflush --
 define_wms_enum!(BackflushStatus {
     Draft = 1,

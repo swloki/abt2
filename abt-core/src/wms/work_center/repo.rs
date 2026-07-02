@@ -33,6 +33,8 @@ struct SimpleDomainCfg {
     extra_select: &'static str,
     counterparty: &'static str,
     summary: &'static str,
+    /// 额外 WHERE 片段（仅 Requisition：picking_type 过滤）。其他域空串
+    extra_where: &'static str,
 }
 
 fn simple_cfg(domain: WorkCenterDomain) -> SimpleDomainCfg {
@@ -49,18 +51,20 @@ fn simple_cfg(domain: WorkCenterDomain) -> SimpleDomainCfg {
             extra_select: ", CASE WHEN t.status = 2 THEN 'Unpicked' WHEN pl.status = 1 THEN 'Picking' WHEN pl.status = 2 THEN 'ReadyToShip' ELSE 'Unpicked' END AS stage, pl.id AS pick_list_id",
             counterparty: "c.customer_name",
             summary: "'待出库'",
+            extra_where: "",
         },
         WorkCenterDomain::Requisition => SimpleDomainCfg {
-            table: "material_requisitions",
-            statuses: &[2, 5], // Confirmed, PartiallyIssued
-            expected_display: "t.requisition_date",
-            expected_urgency: "t.requisition_date",
+            table: "stock_pickings",
+            statuses: &[2], // Confirmed（部分发料 picking 仍 Confirmed）
+            expected_display: "t.scheduled_date",
+            expected_urgency: "t.scheduled_date",
             has_deleted_at: true,
             join: "LEFT JOIN work_orders wo ON wo.id = t.work_order_id",
             extra_join: "",
             extra_select: "",
             counterparty: "wo.doc_number",
             summary: "'领料'",
+            extra_where: " AND t.picking_type = 5", // InternalIssue
         },
         WorkCenterDomain::Transfer => SimpleDomainCfg {
             table: "inventory_transfers",
@@ -74,6 +78,7 @@ fn simple_cfg(domain: WorkCenterDomain) -> SimpleDomainCfg {
             extra_select: "",
             counterparty: "(wf.name || '→' || wt.name)",
             summary: "'调拨'",
+            extra_where: "",
         },
         WorkCenterDomain::CycleCount => SimpleDomainCfg {
             table: "cycle_counts",
@@ -86,6 +91,7 @@ fn simple_cfg(domain: WorkCenterDomain) -> SimpleDomainCfg {
             extra_select: "",
             counterparty: "w.name",
             summary: "'盘点'",
+            extra_where: "",
         },
         WorkCenterDomain::Arrival => unreachable!("Arrival 走 UNION 单独处理"),
     }
@@ -120,7 +126,7 @@ impl WorkCenterRepo {
         if cfg.has_deleted_at {
             qb.push("t.deleted_at IS NULL AND ");
         }
-        qb.push("t.status = ANY(").push_bind(cfg.statuses.to_vec()).push(")");
+        qb.push("t.status = ANY(").push_bind(cfg.statuses.to_vec()).push(")").push(cfg.extra_where);
 
         let row = qb.build().fetch_one(&mut *db).await?;
         let total = row.try_get::<i64, _>("total")? as u64;
@@ -161,7 +167,7 @@ impl WorkCenterRepo {
         if cfg.has_deleted_at {
             qb.push("t.deleted_at IS NULL AND ");
         }
-        qb.push("t.status = ANY(").push_bind(cfg.statuses.to_vec()).push(")");
+        qb.push("t.status = ANY(").push_bind(cfg.statuses.to_vec()).push(")").push(cfg.extra_where);
         qb.push(") x WHERE ");
         // keyword（匹配单号或 counterparty）
         if let Some(kw) = filter.keyword.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
@@ -202,7 +208,7 @@ impl WorkCenterRepo {
         if cfg.has_deleted_at {
             qb.push("t.deleted_at IS NULL AND ");
         }
-        qb.push("t.status = ANY(").push_bind(cfg.statuses.to_vec()).push(")");
+        qb.push("t.status = ANY(").push_bind(cfg.statuses.to_vec()).push(")").push(cfg.extra_where);
         qb.push(") x WHERE ");
         if let Some(kw) = filter.keyword.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
             let pat = format!("%{kw}%");

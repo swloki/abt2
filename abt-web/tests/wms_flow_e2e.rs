@@ -446,15 +446,13 @@ use abt_core::wms::cycle_count::{
     model::{CountCycleCountReq, CountItemReq, CreateCycleCountItemReq, CreateCycleCountReq},
     CycleCountService,
 };
-use abt_core::wms::enums::{ConversionStatus, CycleCountStatus, LockStatus, LowStockAlertStatus, RequisitionStatus};
+use abt_core::wms::enums::{ConversionStatus, CycleCountStatus, LockStatus, LowStockAlertStatus, PickingStatus, PickingType};
 use abt_core::wms::form_conversion::{
     model::ConversionFilter, FormConversionService,
 };
 use abt_core::wms::inventory_lock::{InventoryLockService, LockFilter};
 use abt_core::wms::low_stock_alert::{LowStockAlertFilter, LowStockAlertService};
-use abt_core::wms::material_requisition::{
-    model::RequisitionFilter, MaterialRequisitionService,
-};
+use abt_core::wms::picking::{PickingFilter, PickingService};
 use abt_core::wms::settings::{UpdateWmsSettingsReq, WmsSettingsService};
 use chrono::NaiveDate;
 
@@ -927,12 +925,12 @@ fn req_items(items: &[(&str, &str)]) -> String {
     urlenc(&format!("[{}]", parts.join(",")))
 }
 
-async fn find_requisition(app: &TestApp, wh: i64, status: RequisitionStatus) -> Option<i64> {
-    let svc = app.state.material_requisition_service();
+async fn find_requisition(app: &TestApp, _wh: i64, status: PickingStatus) -> Option<i64> {
+    let svc = app.state.picking_service();
     let ctx = ServiceContext::new(1);
     let mut conn = app.state.pool.acquire().await.unwrap();
     let res = svc
-        .list(&ctx, &mut conn, RequisitionFilter { status: Some(status), warehouse_id: Some(wh), ..Default::default() }, 1, 50)
+        .list(&ctx, &mut conn, PickingFilter { picking_type: Some(PickingType::InternalIssue), status: Some(status), ..Default::default() }, 1, 50)
         .await
         .unwrap();
     res.items.first().map(|r| r.id)
@@ -953,19 +951,19 @@ async fn g1_material_requisition_status_flow() {
     let resp = app.post_htmx("/admin/wms/requisitions/create", &body).await;
     assert!(resp.is_ok(), "创建领料 FAIL: {} body: {}", resp.status, resp.body.chars().take(200).collect::<String>());
 
-    let id = find_requisition(&app, wh_a, RequisitionStatus::Draft).await.expect("应存在 Draft 领料单");
+    let id = find_requisition(&app, wh_a, PickingStatus::Draft).await.expect("应存在 Draft 领料单");
 
     // confirm: Draft → Confirmed
     let r = app.post_htmx(&format!("/admin/wms/requisitions/{id}"), "action=confirm").await;
     assert!(r.is_ok() || r.is_redirect(), "确认领料 FAIL: {}", r.status);
-    assert!(matches!(find_requisition_status(&app, id).await, RequisitionStatus::Confirmed));
+    assert!(matches!(find_requisition_status(&app, id).await, PickingStatus::Confirmed));
 
     // issue: Confirmed → Issued，并真实扣减库存 20（修复 zone_id 缺失 + record 自动解析库位）
     let r = app.post_htmx(&format!("/admin/wms/requisitions/{id}"), "action=issue").await;
     assert!(r.is_ok() || r.is_redirect(), "发料 FAIL: {}", r.status);
     assert!(
-        matches!(find_requisition_status(&app, id).await, RequisitionStatus::Issued),
-        "发料后应为 Issued"
+        matches!(find_requisition_status(&app, id).await, PickingStatus::Done),
+        "发料后应为 Done"
     );
     assert_eq!(
         available(&app, PRODUCT_ID, wh_a).await - base,
@@ -974,8 +972,8 @@ async fn g1_material_requisition_status_flow() {
     );
 }
 
-async fn find_requisition_status(app: &TestApp, id: i64) -> RequisitionStatus {
-    let svc = app.state.material_requisition_service();
+async fn find_requisition_status(app: &TestApp, id: i64) -> PickingStatus {
+    let svc = app.state.picking_service();
     let ctx = ServiceContext::new(1);
     let mut conn = app.state.pool.acquire().await.unwrap();
     svc.get(&ctx, &mut conn, id).await.unwrap().status

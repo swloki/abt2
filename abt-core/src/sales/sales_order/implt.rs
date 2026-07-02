@@ -7,7 +7,8 @@ use crate::master_data::product::{new_product_service, service::ProductService};
 use crate::master_data::product::model::AcquireChannel;
 use crate::master_data::bom::{new_bom_query_service, service::BomQueryService};
 use crate::wms::stock_ledger::{new_stock_ledger_service, service::StockLedgerService};
-use crate::wms::outbound::{model::{ShippingQuery, ShippingStatus}, new_shipping_request_service, service::ShippingRequestService};
+use crate::wms::picking::{model::PickingFilter, new_picking_service, service::PickingService};
+use crate::wms::enums::{PickingStatus, PickingType};
 use crate::sales::quotation::{new_quotation_service, service::QuotationService};
 use crate::sales::sales_order::model::*;
 use crate::sales::sales_order::repo::{DemandRepo, FulfillmentPlanLineRepo, SalesOrderItemRepo, SalesOrderRepo, savepoint, release_savepoint, rollback_savepoint};
@@ -898,25 +899,26 @@ impl SalesOrderService for SalesOrderServiceImpl {
         let items = self.item_repo.find_by_order_id(db, order_id).await?;
         let mut new_status = calc_header_status(&items);
 
-        // 叠加：有活跃发货申请（Confirmed/Picking）且未全 Shipped → ShippingRequested。
+        // 叠加：有活跃发货 picking（OutgoingSales, Confirmed）且未全 Done → ShippingRequested。
         // 申请发货的业务意图优先于 ReadyToShip「库存已补足」中间态。
+        // （#146 阶段 4b：shipping_requests → stock_pickings 迁移，改读 picking）
         if matches!(new_status, SalesOrderStatus::Confirmed | SalesOrderStatus::ReadyToShip) {
-            // 两次轻量 count（list(1,1) 取 total），替代拉 200 条 .any() 判断（订单发货申请多时浪费）
-            let ship_svc = new_shipping_request_service(self.pool.clone());
-            let one = PageParams::new(1, 1);
-            let mut has_active = false;
-            for &st in &[ShippingStatus::Confirmed, ShippingStatus::Picking] {
-                let active = ship_svc
-                    .list(ctx, db, ShippingQuery { order_id: Some(order_id), status: Some(st), ..Default::default() }, one.clone())
-                    .await
-                    .map(|p| p.total > 0)
-                    .unwrap_or(false);
-                if active {
-                    has_active = true;
-                    break;
-                }
-            }
-            if has_active {
+            let active = new_picking_service(self.pool.clone())
+                .list(
+                    ctx, db,
+                    PickingFilter {
+                        source_type: Some("sales_order".into()),
+                        source_id: Some(order_id),
+                        picking_type: Some(PickingType::OutgoingSales),
+                        status: Some(PickingStatus::Confirmed),
+                        ..Default::default()
+                    },
+                    1, 1,
+                )
+                .await
+                .map(|p| p.total > 0)
+                .unwrap_or(false);
+            if active {
                 new_status = SalesOrderStatus::ShippingRequested;
             }
         }

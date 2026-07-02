@@ -3,8 +3,9 @@ use rust_decimal::Decimal;
 use sqlx::postgres::PgPool;
 
 use super::model::{
-    CreateManualReq, CreatePickingItemReq, CreatePickingReq, DoneItemReq, IssueMaterialReq,
-    PickingFilter, ReturnMaterialReq, StockPicking, StockPickingItem,
+    CreateFromOrderReq, CreateManualReq, CreatePickingItemReq, CreatePickingReq, DoneItemReq,
+    IssueMaterialReq, PickingFilter, RequestShippingItemReq, ReturnMaterialReq, ShippingHubSummary,
+    ShortageSignal, StockPicking, StockPickingItem,
 };
 use super::repo::PickingRepo;
 use super::service::PickingService;
@@ -26,6 +27,11 @@ use crate::shared::types::pagination::PaginatedResult;
 use crate::shared::types::{PgExecutor, Result};
 use crate::wms::backflush::resolve_warehouse_id;
 use crate::wms::enums::{PickingStatus, PickingType, TransactionType};
+use crate::sales::sales_order::{new_sales_order_service, service::SalesOrderService};
+use crate::sales::sales_order::model::{SalesOrderStatus, ShipmentLineQty};
+use crate::shared::document_sequence::{new_document_sequence_service, service::DocumentSequenceService};
+use crate::shared::enums::event::DomainEventType;
+use crate::shared::event_bus::{new_domain_event_bus, model::EventPublishRequest, service::DomainEventBus};
 use crate::wms::inventory_transaction::model::RecordTransactionReq;
 use crate::wms::inventory_transaction::{new_inventory_transaction_service, service::InventoryTransactionService};
 use crate::wms::stock_ledger::repo::StockLedgerRepo;
@@ -773,5 +779,333 @@ impl PickingService for PickingServiceImpl {
         }
         PickingRepo::set_done(&mut *db, id).await?;
         Ok(())
+    }
+
+    // ── 发货专用（OutgoingSales，从 ShippingRequestService 迁入，#146 阶段 4b）──
+
+    async fn create_from_order(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        req: CreateFromOrderReq,
+    ) -> Result<i64> {
+        let so_svc = new_sales_order_service(self.pool.clone());
+        let order = so_svc.find_by_id(ctx, db, req.order_id).await?;
+        if !matches!(
+            order.status,
+            SalesOrderStatus::Confirmed | SalesOrderStatus::ReadyToShip | SalesOrderStatus::PartiallyShipped
+        ) {
+            return Err(DomainError::business_rule(
+                "订单必须为 Confirmed/ReadyToShip/PartiallyShipped 才能创建发货单",
+            ));
+        }
+        let order_items = so_svc.list_items(ctx, db, req.order_id).await?;
+        let mut item_reqs = Vec::with_capacity(req.items.len());
+        for item in &req.items {
+            let oi = order_items
+                .iter()
+                .find(|oi| oi.id == item.order_item_id)
+                .ok_or_else(|| DomainError::validation(format!("订单行 {} 不存在", item.order_item_id)))?;
+            let remaining = oi.quantity - oi.shipped_qty;
+            if item.requested_qty > remaining {
+                return Err(DomainError::business_rule(format!(
+                    "订单行 {} 申请数量 {} 超过未发数量 {}",
+                    item.order_item_id, item.requested_qty, remaining
+                )));
+            }
+            item_reqs.push(CreatePickingItemReq {
+                product_id: oi.product_id,
+                batch_no: None,
+                qty_requested: item.requested_qty,
+                from_bin_id: None,
+                to_bin_id: None,
+                operation_id: None,
+                batch_id: None,
+                source_item_id: Some(item.order_item_id),
+                remark: None,
+            });
+        }
+        let doc_number = new_document_sequence_service(self.pool.clone())
+            .next_number(ctx, db, DocumentType::ShippingRequest)
+            .await?;
+        let picking_req = CreatePickingReq {
+            picking_type: PickingType::OutgoingSales,
+            source_type: Some("sales_order".into()),
+            source_id: Some(req.order_id),
+            partner_id: Some(order.customer_id),
+            from_warehouse_id: None,
+            from_zone_id: None,
+            from_bin_id: None,
+            to_warehouse_id: None,
+            to_zone_id: None,
+            to_bin_id: None,
+            scheduled_date: req.expected_ship_date,
+            work_order_id: None,
+            remark: req.shipping_address.clone(),
+            items: item_reqs,
+        };
+        let picking = PickingRepo::insert(&mut *db, &doc_number, &picking_req, ctx.operator_id).await?;
+        new_document_link_service(self.pool.clone())
+            .create_links(ctx, db, vec![LinkRequest {
+                source_type: DocumentType::ShippingRequest,
+                source_id: picking.id,
+                target_type: DocumentType::SalesOrder,
+                target_id: req.order_id,
+                link_type: LinkType::Triggers,
+            }])
+            .await?;
+        new_audit_log_service(self.pool.clone())
+            .record(ctx, db, RecordAuditLogReq {
+                entity_type: "StockPicking".into(),
+                entity_id: picking.id,
+                action: AuditAction::Create,
+                changes: Some(serde_json::json!({ "order_id": req.order_id, "picking_type": "OutgoingSales" })),
+                context: None,
+            })
+            .await?;
+        Ok(picking.id)
+    }
+
+    async fn request_from_order(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        order_id: i64,
+        items: Vec<RequestShippingItemReq>,
+    ) -> Result<i64> {
+        let so_svc = new_sales_order_service(self.pool.clone());
+        let order = so_svc.find_by_id(ctx, db, order_id).await?;
+        if !matches!(
+            order.status,
+            SalesOrderStatus::Confirmed | SalesOrderStatus::ReadyToShip
+                | SalesOrderStatus::PartiallyShipped | SalesOrderStatus::ShippingRequested
+        ) {
+            return Err(DomainError::business_rule("订单当前状态不允许申请发货"));
+        }
+        let order_items = so_svc.list_items(ctx, db, order_id).await?;
+        let mut item_reqs = Vec::with_capacity(items.len());
+        for item in &items {
+            if item.requested_qty <= Decimal::ZERO {
+                return Err(DomainError::validation("申请数量必须大于 0"));
+            }
+            let oi = order_items
+                .iter()
+                .find(|oi| oi.id == item.order_item_id)
+                .ok_or_else(|| DomainError::validation(format!("订单行 {} 不存在", item.order_item_id)))?;
+            let remaining = oi.quantity - oi.shipped_qty;
+            if item.requested_qty > remaining {
+                return Err(DomainError::business_rule(format!(
+                    "订单行 {} 申请数量 {} 超过未发数量 {}",
+                    item.order_item_id, item.requested_qty, remaining
+                )));
+            }
+            item_reqs.push(CreatePickingItemReq {
+                product_id: oi.product_id,
+                batch_no: None,
+                qty_requested: item.requested_qty,
+                from_bin_id: None,
+                to_bin_id: None,
+                operation_id: None,
+                batch_id: None,
+                source_item_id: Some(item.order_item_id),
+                remark: None,
+            });
+        }
+        let doc_number = new_document_sequence_service(self.pool.clone())
+            .next_number(ctx, db, DocumentType::ShippingRequest)
+            .await?;
+        let picking_req = CreatePickingReq {
+            picking_type: PickingType::OutgoingSales,
+            source_type: Some("sales_order".into()),
+            source_id: Some(order_id),
+            partner_id: Some(order.customer_id),
+            from_warehouse_id: None,
+            from_zone_id: None,
+            from_bin_id: None,
+            to_warehouse_id: None,
+            to_zone_id: None,
+            to_bin_id: None,
+            scheduled_date: None,
+            work_order_id: None,
+            remark: Some(order.delivery_address.clone()),
+            items: item_reqs,
+        };
+        let picking = PickingRepo::insert(&mut *db, &doc_number, &picking_req, ctx.operator_id).await?;
+        new_document_link_service(self.pool.clone())
+            .create_links(ctx, db, vec![LinkRequest {
+                source_type: DocumentType::ShippingRequest,
+                source_id: picking.id,
+                target_type: DocumentType::SalesOrder,
+                target_id: order_id,
+                link_type: LinkType::Triggers,
+            }])
+            .await?;
+        // 跳 Draft → 直接 Confirmed（入待发货队列）
+        PickingRepo::update_status(&mut *db, picking.id, PickingStatus::Confirmed).await?;
+        // 回写 SO → recalc_header_status 叠加判定 ShippingRequested
+        so_svc.recalc_header_status(ctx, db, order_id).await?;
+        new_audit_log_service(self.pool.clone())
+            .record(ctx, db, RecordAuditLogReq {
+                entity_type: "StockPicking".into(),
+                entity_id: picking.id,
+                action: AuditAction::Create,
+                changes: Some(serde_json::json!({ "order_id": order_id, "via": "request_from_order" })),
+                context: None,
+            })
+            .await?;
+        Ok(picking.id)
+    }
+
+    async fn direct_ship(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        id: i64,
+        warehouse_id: i64,
+        bin_id: Option<i64>,
+    ) -> Result<()> {
+        let picking = self.get(ctx, db, id).await?;
+        if picking.status != PickingStatus::Confirmed {
+            return Err(DomainError::InvalidStateTransition {
+                from: format!("{:?}", picking.status),
+                to: "Done".to_string(),
+            });
+        }
+        let order_id = picking.source_id.ok_or_else(|| {
+            DomainError::business_rule("发货单缺少关联订单，无法发货")
+        })?;
+        // 选仓：销售申请时 from_warehouse=None，发货时填入
+        PickingRepo::update_from_warehouse(&mut *db, id, warehouse_id).await?;
+        let items = PickingRepo::get_items(&mut *db, id).await?;
+        let tx_svc = new_inventory_transaction_service(self.pool.clone());
+        for item in &items {
+            // 行级 qty_done = qty_requested（全发）
+            PickingRepo::update_item_done(&mut *db, item.id, item.qty_requested, None, None, bin_id).await?;
+            // 释放预留
+            new_inventory_reservation_service(self.pool.clone())
+                .fulfill_by_source_line(ctx, db, DocumentType::SalesOrder, item.source_item_id.unwrap_or(0))
+                .await?;
+            // SalesShipment 流水（-qty，source_type="shipping" 保持事件链/handler 兼容）
+            tx_svc
+                .record(ctx, db, RecordTransactionReq {
+                    doc_number: None,
+                    delivery_no: None,
+                    source_doc_number: Some(picking.doc_number.clone()),
+                    transaction_type: TransactionType::SalesShipment,
+                    product_id: item.product_id,
+                    warehouse_id,
+                    zone_id: None,
+                    bin_id,
+                    batch_no: None,
+                    quantity: -item.qty_requested,
+                    unit_cost: None,
+                    source_type: "shipping".to_string(),
+                    source_id: id,
+                    remark: None,
+                })
+                .await?;
+        }
+        PickingRepo::set_done(&mut *db, id).await?;
+        // 回写 SO shipped_qty + recalc（超发校验在 record_shipment 内）
+        let lines: Vec<ShipmentLineQty> = items
+            .iter()
+            .map(|i| ShipmentLineQty { order_item_id: i.source_item_id.unwrap_or(0), shipped_qty: i.qty_requested })
+            .collect();
+        new_sales_order_service(self.pool.clone())
+            .record_shipment(ctx, db, order_id, &lines)
+            .await?;
+        new_audit_log_service(self.pool.clone())
+            .record(ctx, db, RecordAuditLogReq {
+                entity_type: "StockPicking".into(),
+                entity_id: id,
+                action: AuditAction::Transition,
+                changes: Some(serde_json::json!({ "from": "Confirmed", "to": "Done" })),
+                context: None,
+            })
+            .await?;
+        new_domain_event_bus(self.pool.clone())
+            .publish(ctx, db, EventPublishRequest {
+                event_type: DomainEventType::ShipmentShipped,
+                aggregate_type: "StockPicking".to_string(),
+                aggregate_id: id,
+                payload: serde_json::json!({
+                    "shipping_request_id": id,
+                    "doc_number": picking.doc_number,
+                    "order_id": order_id,
+                    "customer_id": picking.partner_id,
+                }),
+                idempotency_key: None,
+            })
+            .await?;
+        Ok(())
+    }
+
+    async fn hub_summary(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        id: i64,
+    ) -> Result<ShippingHubSummary> {
+        let items = PickingRepo::get_items(&mut *db, id).await?;
+        let pending_ship_qty: Decimal = items.iter().map(|i| i.qty_requested).sum();
+        let shipped_qty: Decimal = items.iter().map(|i| i.qty_done).sum();
+        let picking = self.get(ctx, db, id).await?;
+        // 缺货判定：任一明细 ATP < 待发量（requested - done）即缺货。批量 ATP 按 from_warehouse。
+        let txn_svc = new_inventory_transaction_service(self.pool.clone());
+        let pending_pids: Vec<i64> = items
+            .iter()
+            .filter(|i| i.qty_requested - i.qty_done > Decimal::ZERO)
+            .map(|i| i.product_id)
+            .collect();
+        let shortage = if pending_pids.is_empty() {
+            None
+        } else {
+            match txn_svc.query_available_batch(ctx, db, &pending_pids, picking.from_warehouse_id).await {
+                Ok(atp_map) => items.iter().find_map(|it| {
+                    let remaining = it.qty_requested - it.qty_done;
+                    if remaining <= Decimal::ZERO {
+                        return None;
+                    }
+                    let atp = atp_map.get(&it.product_id).copied().unwrap_or(Decimal::ZERO);
+                    if atp < remaining {
+                        Some(ShortageSignal {
+                            product_id: it.product_id,
+                            product_name: format!("产品 #{}", it.product_id),
+                            requested_qty: it.qty_requested,
+                            available_qty: atp,
+                        })
+                    } else {
+                        None
+                    }
+                }),
+                Err(e) => {
+                    tracing::warn!(error = %e, "hub_summary: query_available_batch failed, shortage=None");
+                    None
+                }
+            }
+        };
+        Ok(ShippingHubSummary { pending_ship_qty, shipped_qty, shortage })
+    }
+
+    async fn list_transactions(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        id: i64,
+        page: crate::shared::types::pagination::PageParams,
+    ) -> Result<PaginatedResult<crate::wms::inventory_transaction::model::InventoryTransaction>> {
+        // source_type="shipping"，与 direct_ship record 的 source_type 对齐（事件链/handler 兼容）
+        new_inventory_transaction_service(self.pool.clone())
+            .query(
+                ctx, db,
+                crate::wms::inventory_transaction::model::TransactionFilter {
+                    source_type: Some("shipping".into()),
+                    source_id: Some(id),
+                    ..Default::default()
+                },
+                page.page,
+                page.page_size,
+            )
+            .await
     }
 }

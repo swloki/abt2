@@ -187,6 +187,26 @@ impl PickingRepo {
         Ok(result.rows_affected())
     }
 
+    /// 更新发货仓库（OutgoingSales direct_ship 选仓：销售申请时 from_warehouse=None，发货时填入）
+    pub async fn update_from_warehouse(
+        executor: &mut sqlx::postgres::PgConnection,
+        id: i64,
+        warehouse_id: i64,
+    ) -> Result<u64> {
+        let result = sqlx::query(
+            r#"
+            UPDATE stock_pickings
+            SET from_warehouse_id = $2, updated_at = NOW()
+            WHERE id = $1 AND deleted_at IS NULL
+            "#,
+        )
+        .bind(id)
+        .bind(warehouse_id)
+        .execute(&mut *executor)
+        .await?;
+        Ok(result.rows_affected())
+    }
+
     /// 标记完成：status = Done + done_at = NOW()
     pub async fn set_done(
         executor: &mut sqlx::postgres::PgConnection,

@@ -1,12 +1,13 @@
 use async_trait::async_trait;
 
 use crate::shared::types::context::ServiceContext;
-use crate::shared::types::pagination::PaginatedResult;
+use crate::shared::types::pagination::{PageParams, PaginatedResult};
 use crate::shared::types::{PgExecutor, Result};
 
 use super::model::{
-    CreateManualReq, CreatePickingReq, DoneItemReq, IssueMaterialReq, PickingFilter,
-    ReturnMaterialReq, StockPicking, StockPickingItem,
+    CreateFromOrderReq, CreateManualReq, CreatePickingReq, DoneItemReq, IssueMaterialReq,
+    PickingFilter, RequestShippingItemReq, ReturnMaterialReq, ShippingHubSummary, StockPicking,
+    StockPickingItem,
 };
 
 /// 统一库存作业单据 Service（Issue #146）
@@ -130,4 +131,51 @@ pub trait PickingService: Send + Sync {
 
     /// 调拨完成（Confirmed → Done）：增加目标仓库库存（Transfer 流水正数）
     async fn complete(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()>;
+
+    // ── 发货专用（OutgoingSales，从 ShippingRequestService 迁入，#146 阶段 4b）──
+
+    /// 从订单正式创建发货 picking（Draft，需 confirm）
+    async fn create_from_order(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        req: CreateFromOrderReq,
+    ) -> Result<i64>;
+
+    /// 一键申请发货（订单详情页弹窗）：跳 Draft → 直接 Confirmed，回写 SO ShippingRequested
+    async fn request_from_order(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        order_id: i64,
+        items: Vec<RequestShippingItemReq>,
+    ) -> Result<i64>;
+
+    /// 直接发货（Confirmed → Done）：选仓 + SalesShipment 流水 + 释放预留 + 回写 SO Shipped + 事件。
+    /// 拣货已移除，所有发货走此入口（仓库由选仓 drawer 传入）。
+    async fn direct_ship(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        id: i64,
+        warehouse_id: i64,
+        bin_id: Option<i64>,
+    ) -> Result<()>;
+
+    /// 发货 Hub 摘要（缺货 ATP 判定）
+    async fn hub_summary(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        id: i64,
+    ) -> Result<ShippingHubSummary>;
+
+    /// 发货相关库存流水（懒加载 disclosure）
+    async fn list_transactions(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        id: i64,
+        page: PageParams,
+    ) -> Result<PaginatedResult<crate::wms::inventory_transaction::model::InventoryTransaction>>;
 }

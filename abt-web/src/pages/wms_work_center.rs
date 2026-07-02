@@ -42,7 +42,7 @@ use abt_core::shared::types::error::DomainError;
 use crate::layout::page::admin_page;
 use crate::routes::shipping::{ShippingCreatePath, ShippingDetailPath, ShippingListPath};
 use crate::routes::wms_cycle_count::{CycleCountCreatePath, CycleCountDetailPath, CycleCountListPath};
-use crate::routes::wms_requisition::{RequisitionCreatePath, RequisitionDetailPath, RequisitionListPath};
+use crate::routes::wms_requisition::RequisitionCreatePath;
 use crate::routes::wms_transfer::{TransferCreatePath, TransferDetailPath, TransferListPath};
 use crate::routes::wms_stock_in::{StockInCreatePath, StockInListPath};
 use crate::routes::wms_work_center::WmsWorkCenterPath;
@@ -87,6 +87,9 @@ pub struct WorkCenterActionForm {
     /// 发货仓库（direct_ship / batch_ship 用，选仓 drawer / 批量栏传入）
     #[serde(default)]
     pub warehouse_id: Option<String>,
+    /// 视图（仅 Requisition：pending/all，决定 POST 后重渲染哪个 card）
+    #[serde(default)]
+    pub view: Option<String>,
 }
 
 // ── domain ↔ slug / 动作 映射 ──
@@ -155,7 +158,7 @@ fn action_domain(action: &str) -> Result<WorkCenterDomain> {
         "receive_po" | "receive_wo" => WorkCenterDomain::Arrival,
         // 拣货操作现在发生在待出库 tab（Picking 阶段就地录入），操作后刷新 Outbound
         "pick" | "ship" | "batch_ship" | "direct_ship" => WorkCenterDomain::Outbound,
-        "issue" => WorkCenterDomain::Requisition,
+        "confirm" | "cancel" | "issue" => WorkCenterDomain::Requisition,
         "dispatch" | "complete" => WorkCenterDomain::Transfer,
         other => return Err(DomainError::validation(format!("未知作业动作: {other}")).into()),
     })
@@ -169,7 +172,7 @@ fn domain_detail_url(domain: WorkCenterDomain, doc_id: i64) -> Option<String> {
         // Arrival（PO/工单）详情按 source_kind 在 render_task_row 拼，这里返回 None
         WorkCenterDomain::Arrival => None,
         WorkCenterDomain::Outbound => Some(ShippingDetailPath { id: doc_id }.to_string()),
-        WorkCenterDomain::Requisition => Some(RequisitionDetailPath { id: doc_id }.to_string()),
+        WorkCenterDomain::Requisition => None, // 点单据走 req_detail drawer（阶段 3.1 收口，不再跳 detail 页）
         WorkCenterDomain::Transfer => Some(TransferDetailPath { id: doc_id }.to_string()),
         WorkCenterDomain::CycleCount => Some(CycleCountDetailPath { id: doc_id }.to_string()),
     }
@@ -190,12 +193,13 @@ fn render_jump_action(label: &str, url: &str) -> Markup {
 /// 跳转各业务保留的 Create / List 路由——list 页本身已是成熟全量视图（状态 tab + 搜索 + 分页），
 /// 不在作业中心内重做（DRY）。新建走 accent 主按钮，查看全部走次级跳转。
 fn domain_entries(active: WorkCenterDomain) -> Markup {
-    let (new_label, new_path, all_path): (&str, &str, &str) = match active {
-        WorkCenterDomain::Arrival => ("新建入库单", StockInCreatePath::PATH, StockInListPath::PATH),
-        WorkCenterDomain::Outbound => ("新建发货单", ShippingCreatePath::PATH, ShippingListPath::PATH),
-        WorkCenterDomain::Requisition => ("新建领料单", RequisitionCreatePath::PATH, RequisitionListPath::PATH),
-        WorkCenterDomain::Transfer => ("新建调拨单", TransferCreatePath::PATH, TransferListPath::PATH),
-        WorkCenterDomain::CycleCount => ("新建盘点单", CycleCountCreatePath::PATH, CycleCountListPath::PATH),
+    let (new_label, new_path, all_path): (&str, &str, Option<&str>) = match active {
+        WorkCenterDomain::Arrival => ("新建入库单", StockInCreatePath::PATH, Some(StockInListPath::PATH)),
+        WorkCenterDomain::Outbound => ("新建发货单", ShippingCreatePath::PATH, Some(ShippingListPath::PATH)),
+        // 领料单：作业中心内置「待办/全部」二级切换（view_toggle），不再跳独立 list 页
+        WorkCenterDomain::Requisition => ("新建领料单", RequisitionCreatePath::PATH, None),
+        WorkCenterDomain::Transfer => ("新建调拨单", TransferCreatePath::PATH, Some(TransferListPath::PATH)),
+        WorkCenterDomain::CycleCount => ("新建盘点单", CycleCountCreatePath::PATH, Some(CycleCountListPath::PATH)),
     };
     html! {
         a class="inline-flex items-center gap-1 px-3 py-1.5 rounded-sm bg-accent text-white text-xs font-semibold no-underline cursor-pointer border-none hover:opacity-90"
@@ -203,7 +207,9 @@ fn domain_entries(active: WorkCenterDomain) -> Markup {
             (icon::plus_icon("w-3 h-3"))
             (new_label)
         }
-        (render_jump_action("查看全部", all_path))
+        @if let Some(ap) = all_path {
+            (render_jump_action("查看全部", ap))
+        }
     }
 }
 
@@ -306,7 +312,7 @@ async fn render_requisition_all_card(
                 }
             }
             div class="p-4" {
-                (render_requisition_all_table(&result.items, &wh_map))
+                (render_requisition_all_table(&result.items, &wh_map, "all"))
                 @if result.total_pages > 1 {
                     div class="mt-3" {
                         (pagination(
@@ -323,6 +329,7 @@ async fn render_requisition_all_card(
 fn render_requisition_all_table(
     items: &[MaterialRequisition],
     wh_map: &HashMap<i64, String>,
+    view: &str,
 ) -> Markup {
     if items.is_empty() {
         return html! {
@@ -343,22 +350,21 @@ fn render_requisition_all_table(
             }
             tbody {
                 @for r in items {
-                    (render_requisition_all_row(r, wh_map))
+                    (render_requisition_all_row(r, wh_map, view))
                 }
             }
         }
     }
 }
 
-fn render_requisition_all_row(r: &MaterialRequisition, wh_map: &HashMap<i64, String>) -> Markup {
+fn render_requisition_all_row(r: &MaterialRequisition, wh_map: &HashMap<i64, String>, view: &str) -> Markup {
     let (status_text, status_cls) = requisition_status_label(r.status);
     let wh = wh_map.get(&r.warehouse_id).map(|s| s.as_str()).unwrap_or("—");
-    let detail = RequisitionDetailPath { id: r.id }.to_string();
     html! {
         tr class="border-b border-border-soft last:border-b-0" {
             td class="py-3 px-3 text-sm font-mono text-accent font-semibold" {
-                a class="text-accent no-underline hover:underline cursor-pointer"
-                    href=(detail) { (r.doc_number) }
+                (req_detail_trigger(r.id, view, html! { (r.doc_number) },
+                    "font-mono text-accent font-semibold text-sm bg-transparent border-none p-0 cursor-pointer hover:underline"))
             }
             td class="py-3 px-3 text-sm font-mono text-fg-2" { "WO-" (r.work_order_id) }
             td class="py-3 px-3 text-sm text-fg-2" { (wh) }
@@ -369,10 +375,8 @@ fn render_requisition_all_row(r: &MaterialRequisition, wh_map: &HashMap<i64, Str
                 }
             }
             td class="py-3 px-3 text-right" {
-                a class="inline-flex items-center gap-1 px-3 py-1.5 rounded-sm bg-surface border border-border-soft text-fg-2 text-xs font-semibold no-underline cursor-pointer hover:bg-accent-bg hover:border-accent hover:text-accent transition-all"
-                    href=(detail) {
-                    "详情" (icon::arrow_right_icon("w-3 h-3"))
-                }
+                (req_detail_trigger(r.id, view, html! { "详情" (icon::arrow_right_icon("w-3 h-3")) },
+                    "inline-flex items-center gap-1 px-3 py-1.5 rounded-sm bg-surface border border-border-soft text-fg-2 text-xs font-semibold cursor-pointer hover:bg-accent-bg hover:border-accent hover:text-accent transition-all"))
             }
         }
     }
@@ -389,6 +393,190 @@ fn requisition_status_label(s: RequisitionStatus) -> (&'static str, &'static str
     }
 }
 
+/// 领料单详情 drawer 触发器（button）：hx-get 加载 req_detail body 到 #wc-drawer-body，
+/// 成功后开 overlay。view 随请求带回（操作 form hidden view 据此回到当前视图）。
+fn req_detail_trigger(id: i64, view: &str, label: Markup, cls: &str) -> Markup {
+    let url = format!(
+        "{}?drawer=req_detail&id={id}&view={view}",
+        WmsWorkCenterPath::PATH
+    );
+    html! {
+        button type="button" class=(cls)
+            hx-get=(url) hx-target="#wc-drawer-body" hx-swap="innerHTML"
+            _="on 'htmx:afterRequest'[detail.xhr.status<400] add .open to #wc-drawer-overlay" {
+            (label)
+        }
+    }
+}
+
+/// 领料单详情 drawer body（替代独立 detail 页，阶段 3.1 收口）：
+/// 单据头（单号/状态/工单/仓库/日期）+ 行项目（产品/申请/实领）+ 就地操作（确认/取消/发料）。
+/// 操作按钮各自 form 提交单端点，hidden view 携带当前视图，POST 后重渲染对应 card。
+async fn req_detail_drawer_body(
+    state: &AppState,
+    ctx: &ServiceContext,
+    db: PgExecutor<'_>,
+    id: i64,
+    view: Option<&str>,
+) -> Result<Markup> {
+    let req_svc = state.material_requisition_service();
+    let req = req_svc.get(ctx, db, id).await?;
+    let items = req_svc.list_items(ctx, db, id).await.unwrap_or_default();
+    let product_map: HashMap<i64, abt_core::master_data::product::model::Product> = state
+        .product_service()
+        .get_by_ids(ctx, db, items.iter().map(|i| i.product_id).collect())
+        .await
+        .unwrap_or_default()
+        .into_iter()
+        .map(|p| (p.product_id, p))
+        .collect();
+    let wh_name = state
+        .warehouse_service()
+        .get(ctx, db, req.warehouse_id)
+        .await
+        .map(|w| w.name)
+        .unwrap_or_else(|_| "—".into());
+
+    let (status_text, status_cls) = requisition_status_label(req.status);
+    let view_val = view.unwrap_or("pending");
+
+    let mut rows = html! {};
+    for it in &items {
+        let pname = product_map
+            .get(&it.product_id)
+            .map(|p| p.pdt_name.clone())
+            .unwrap_or_else(|| format!("产品 #{}", it.product_id));
+        let pcode = product_map
+            .get(&it.product_id)
+            .map(|p| p.product_code.clone())
+            .unwrap_or_default();
+        rows = html! {
+            (rows)
+            div class="flex items-center justify-between px-3 py-2 gap-2" {
+                div class="min-w-0" {
+                    div class="text-sm text-fg-2 truncate" { (pname) }
+                    div class="text-xs text-muted truncate" { (pcode) }
+                }
+                div class="text-right shrink-0" {
+                    div class="text-sm font-mono text-fg" { "申请 " (fmt_qty(it.requested_qty)) }
+                    div class="text-xs font-mono text-muted" { "实领 " (fmt_qty(it.issued_qty)) }
+                }
+            }
+        };
+    }
+
+    let inner = html! {
+        // 单据头
+        div class="mb-4 pb-4 border-b border-border-soft" {
+            div class="flex items-center gap-2 mb-3" {
+                span class="text-base font-mono font-bold text-fg" { (req.doc_number) }
+                span class=(format!("inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium {status_cls}")) {
+                    (status_text)
+                }
+            }
+            div class="grid grid-cols-2 gap-x-4 gap-y-2 text-xs" {
+                div {
+                    span class="text-muted" { "关联工单 " }
+                    span class="font-mono text-fg-2" { "WO-" (req.work_order_id) }
+                }
+                div {
+                    span class="text-muted" { "领料仓库 " }
+                    span class="text-fg-2" { (wh_name) }
+                }
+                div {
+                    span class="text-muted" { "领料日期 " }
+                    span class="font-mono text-fg-2" { (req.requisition_date.format("%Y-%m-%d")) }
+                }
+            }
+        }
+        // 行项目
+        div class="mb-2" {
+            div class="text-xs font-semibold text-muted mb-2" { "明细（" (items.len()) " 项）" }
+            div class="rounded-sm border border-border-soft divide-y divide-border-soft" {
+                @if items.is_empty() {
+                    div class="px-3 py-4 text-center text-sm text-muted" { "暂无明细" }
+                } @else {
+                    (rows)
+                }
+            }
+        }
+        // 操作
+        (req_detail_actions(req.status, id, view_val))
+    };
+
+    Ok(req_detail_shell("领料单详情", inner))
+}
+
+/// 详情 drawer 壳：标题栏（含×）+ 内容区（非 form；操作按钮在 inner 内各自 form）。
+fn req_detail_shell(title: &str, inner: Markup) -> Markup {
+    html! {
+        div class="flex items-center justify-between px-6 py-5 border-b border-border-soft" {
+            div class="font-bold text-base text-fg" { (title) }
+            button type="button"
+                class="w-8 h-8 border-none bg-transparent text-muted cursor-pointer rounded-sm hover:bg-surface hover:text-fg flex items-center justify-center"
+                _="on click remove .open from #wc-drawer-overlay" {
+                (icon::x_icon("w-4 h-4"))
+            }
+        }
+        div class="px-6 py-5" { (inner) }
+    }
+}
+
+/// 详情 drawer 内操作按钮：各自 form 提交单端点（action=confirm/cancel/issue）。
+/// hidden view 携带当前视图，POST 后回到对应 card。class="contents" 让 form 不影响 flex 布局。
+fn req_detail_actions(status: RequisitionStatus, id: i64, view: &str) -> Markup {
+    let open_hs =
+        "on 'htmx:afterRequest'[detail.xhr.status<400] remove .open from #wc-drawer-overlay";
+    let cancel_btn = |label: &str, confirm: &str| -> Markup {
+        html! {
+            form hx-post=(WmsWorkCenterPath::PATH) hx-target="#wc-domain-card" hx-select="#wc-domain-card"
+                hx-swap="outerHTML" hx-confirm=(confirm) _=(open_hs) class="contents" {
+                input type="hidden" name="action" value="cancel";
+                input type="hidden" name="id" value=(id);
+                input type="hidden" name="view" value=(view);
+                button type="submit"
+                    class="inline-flex items-center gap-1.5 px-4 py-2 rounded-sm bg-white text-fg-2 border border-border text-sm font-medium cursor-pointer hover:bg-surface" {
+                    (icon::x_icon("w-4 h-4")) (label)
+                }
+            }
+        }
+    };
+    let primary_btn = |label: &str, action: &str, confirm: &str, ic: Markup| -> Markup {
+        html! {
+            form hx-post=(WmsWorkCenterPath::PATH) hx-target="#wc-domain-card" hx-select="#wc-domain-card"
+                hx-swap="outerHTML" hx-confirm=(confirm) _=(open_hs) class="contents" {
+                input type="hidden" name="action" value=(action);
+                input type="hidden" name="id" value=(id);
+                input type="hidden" name="view" value=(view);
+                button type="submit"
+                    class="inline-flex items-center gap-1.5 px-4 py-2 rounded-sm bg-accent text-white text-sm font-medium cursor-pointer border-none hover:opacity-90" {
+                    (ic) (label)
+                }
+            }
+        }
+    };
+    match status {
+        RequisitionStatus::Draft => html! {
+            div class="flex justify-end gap-3 mt-5 pt-4 border-t border-border-soft" {
+                (cancel_btn("取消单据", "确定取消此领料单？"))
+                (primary_btn("确认", "confirm", "确定确认此领料单？", icon::check_circle_icon("w-4 h-4")))
+            }
+        },
+        RequisitionStatus::Confirmed => html! {
+            div class="flex justify-end gap-3 mt-5 pt-4 border-t border-border-soft" {
+                (cancel_btn("取消单据", "确定取消此领料单？"))
+                (primary_btn("确认发料", "issue", "确认全量发料？将扣减库存并计入工单成本", icon::bolt_icon("w-4 h-4")))
+            }
+        },
+        RequisitionStatus::PartiallyIssued => html! {
+            div class="mt-5 pt-4 border-t border-border-soft" {
+                p class="text-xs text-warn" { "该单已部分发料，续发暂未支持就地操作。" }
+            }
+        },
+        _ => html! {},
+    }
+}
+
 // ── Handlers（单端点）──
 
 /// 作业中心唯一 GET：按 query 分支——drawer body / 卡片 body（懒加载）/ 整页
@@ -400,7 +588,7 @@ pub async fn get_wms_work_center(
 ) -> Result<Html<String>> {
     // drawer body：加载某就地操作表单（点行内按钮 hx-get 填入 #wc-drawer-body）
     if let (Some(drawer), Some(id)) = (q.drawer.as_deref(), q.id) {
-        return render_drawer_body(drawer, id, ctx).await;
+        return render_drawer_body(drawer, id, q.view.as_deref(), ctx).await;
     }
     // 否则：tab 主体（非 htmx 整页 / htmx 片段，按 domain + filter + page 渲染）
     render_work_center_page(ctx, &q).await
@@ -429,18 +617,9 @@ pub async fn post_work_center_action(
         .await
         .map_err(|e| DomainError::Internal(e.into()))?;
 
-    // 重渲染当前 tab 主体（受影响 domain，含最新队列 + 分页）+ 顶栏总数 badge（oob）
+    // 重渲染当前 tab 主体（受影响 domain）+ 顶栏总数 badge（oob）。
+    // Requisition 全部视图下的操作：重渲染全部 card（保持视图不跳回待办）；其余渲染待办队列。
     let summary = svc.summary(&service_ctx, &mut conn).await.unwrap_or_default();
-    let result = svc
-        .list_pending(
-            &service_ctx,
-            &mut conn,
-            domain,
-            PendingTaskFilter::default(),
-            PageParams::new(1, DOMAIN_PAGE_SIZE),
-        )
-        .await
-        .unwrap_or_else(|_| PaginatedResult::empty(1, DOMAIN_PAGE_SIZE));
     let warehouses = state
         .warehouse_service()
         .list(&service_ctx, &mut conn, WarehouseFilter::default(), 1, 200)
@@ -448,10 +627,44 @@ pub async fn post_work_center_action(
         .map(|r| r.items)
         .unwrap_or_default();
 
-    let fragment = html! {
-        (render_domain_card(domain, &summary, &result, &WorkCenterQuery::default(), &warehouses))
-        // 顶栏总数 badge：hx-swap-oob 自动替换页面 #wc-total-badge
-        (total_badge(summary.total(), true))
+    let fragment: Markup = if domain == WorkCenterDomain::Requisition
+        && form.view.as_deref() == Some("all")
+    {
+        let q_all = WorkCenterQuery {
+            domain: Some("requisition".into()),
+            view: Some("all".into()),
+            ..Default::default()
+        };
+        let all_card = render_requisition_all_card(
+            &state,
+            &service_ctx,
+            &mut conn,
+            &q_all,
+            1,
+            &summary,
+            &warehouses,
+        )
+        .await?;
+        html! {
+            (all_card)
+            (total_badge(summary.total(), true))
+        }
+    } else {
+        let result = svc
+            .list_pending(
+                &service_ctx,
+                &mut conn,
+                domain,
+                PendingTaskFilter::default(),
+                PageParams::new(1, DOMAIN_PAGE_SIZE),
+            )
+            .await
+            .unwrap_or_else(|_| PaginatedResult::empty(1, DOMAIN_PAGE_SIZE));
+        html! {
+            (render_domain_card(domain, &summary, &result, &WorkCenterQuery::default(), &warehouses))
+            // 顶栏总数 badge：hx-swap-oob 自动替换页面 #wc-total-badge
+            (total_badge(summary.total(), true))
+        }
     };
     Ok(Html(fragment.into_string()))
 }
@@ -620,6 +833,12 @@ async fn dispatch_action(
             for id in ids {
                 state.shipping_service().direct_ship(ctx, db, id, warehouse_id, None).await?;
             }
+        }
+        "confirm" => {
+            state.material_requisition_service().confirm(ctx, db, form.id).await?;
+        }
+        "cancel" => {
+            state.material_requisition_service().cancel(ctx, db, form.id).await?;
         }
         "issue" => {
             // 全量发料（仅 Confirmed 安全；issue 记库存事务用绝对量，重复发料会重复扣库存）
@@ -1028,7 +1247,10 @@ fn render_task_row(t: &PendingTask, domain: WorkCenterDomain) -> Markup {
                 }
             }
             td class="py-3 px-3 text-sm font-mono text-accent font-semibold" {
-                @if let Some(url) = domain_detail_url(domain, t.doc_id) {
+                @if domain == WorkCenterDomain::Requisition {
+                    (req_detail_trigger(t.doc_id, "pending", html! { (t.doc_number) },
+                        "font-mono text-accent font-semibold text-sm bg-transparent border-none p-0 cursor-pointer hover:underline"))
+                } @else if let Some(url) = domain_detail_url(domain, t.doc_id) {
                     a class="text-accent no-underline hover:underline cursor-pointer" href=(url) { (t.doc_number) }
                 } @else {
                     (t.doc_number)
@@ -1191,7 +1413,7 @@ fn wc_bin_picker_shell() -> Markup {
 
 // ── drawer body（GET ?drawer=&id=）：按 action 渲染表单，提交走单端点 POST ──
 
-async fn render_drawer_body(action: &str, id: i64, ctx: RequestContext) -> Result<Html<String>> {
+async fn render_drawer_body(action: &str, id: i64, view: Option<&str>, ctx: RequestContext) -> Result<Html<String>> {
     let RequestContext { mut conn, state, service_ctx, .. } = ctx;
     let body = match action {
         "receive_po" => po_receive_drawer_body(&state, &service_ctx, &mut conn, id).await?,
@@ -1200,6 +1422,7 @@ async fn render_drawer_body(action: &str, id: i64, ctx: RequestContext) -> Resul
         "direct_ship" => direct_ship_drawer_body(&state, &service_ctx, &mut conn, id).await?,
         "ship" => ship_drawer_body(&state, &service_ctx, &mut conn, id).await?,
         "issue" => issue_drawer_body(&state, &service_ctx, &mut conn, id).await?,
+        "req_detail" => req_detail_drawer_body(&state, &service_ctx, &mut conn, id, view).await?,
         "transfer" => transfer_drawer_body(&state, &service_ctx, &mut conn, id).await?,
         other => return Err(DomainError::validation(format!("未知 drawer 动作: {other}")).into()),
     };
@@ -1868,14 +2091,16 @@ async fn issue_drawer_body(
             inner,
         ))
     } else {
-        // PartiallyIssued 等：issue 记绝对量，就地重复发料会重复扣库存 → 跳详情
+        // PartiallyIssued：issue 记绝对量，就地重复发料会重复扣库存。detail 页已收口删除，
+        // 引导回作业中心全部视图（详情 drawer 可查看明细，续发暂未支持）
+        let url = format!("{}?domain=requisition&view=all", WmsWorkCenterPath::PATH);
         Ok(drawer_message(
             "发料",
             "领料单",
             &req.doc_number,
-            "该单已部分发料。继续发料请在详情页操作（避免重复扣库存）。",
-            &RequisitionDetailPath { id }.to_string(),
-            "去详情页发料",
+            "该单已部分发料，就地续发会重复扣库存。可在全部视图查看明细。",
+            &url,
+            "返回作业中心",
         ))
     }
 }

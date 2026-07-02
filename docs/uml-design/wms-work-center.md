@@ -82,4 +82,41 @@ pub struct WorkCenterSummary {
 2. **阶段 2（推广）**：调拨 / 盘点 / 入库 / 出库，模式同阶段 1（机械复制）；路由保留使 suggest_bins、销售依赖均无破坏。
 3. **阶段 3（可选深化）**：作业中心内原生「全部单据」表格 / 详情 drawer 化，视评审而定。
 
-> **实施状态（2026-07-02）**：阶段 1 + 阶段 2 已完成——inventory 侧边栏 5 个菜单（入库管理 / 出库管理 / 领料单 / 库存调拨 / 循环盘点）全部移除；作业中心 5 个 domain tab 均渲染「新建 / 查看全部」入口（`domain_entries`），跳转各业务保留的 Create / List 路由。各业务 list / create / detail 路由与页面保留不动，销售对账 / 退货跨模块链接、作业中心 `suggest_bins` 复用均无破坏。阶段 3 视评审再定。
+> **实施状态（2026-07-02）**：阶段 1 + 阶段 2 已完成——inventory 侧边栏 5 个菜单（入库管理 / 出库管理 / 领料单 / 库存调拨 / 循环盘点）全部移除；作业中心 5 个 domain tab 均渲染「新建 / 查看全部」入口（`domain_entries`），跳转各业务保留的 Create / List 路由。各业务 list / create / detail 路由与页面保留不动，销售对账 / 退货跨模块链接、作业中心 `suggest_bins` 复用均无破坏。阶段 3 已启动，见下文第 8 节。
+
+## 8. 阶段 3：作业中心彻底收口（少即是多，不跳转）
+
+阶段 1+2 仅收口菜单入口（侧边栏 → 作业中心 tab 的「新建 / 查看全部」跳转），各业务 list / detail 页仍独立存在。用户核心诉求升级为**少即是多——在作业中心完成全部工作，不跳转其他页面**。阶段 3 把 list / detail 功能并入作业中心（待办 + 全部 + 详情 drawer + 就地操作），然后**删除独立 list / detail 页**。
+
+### 删页硬约束（决定哪些页能删）
+
+- **出库 `detail` 保留**：被销售对账 / 销售退货跨模块链接（`ShippingDetailPath`，4 处），不可删；作业中心可同时 drawer 展示。
+- **入库 `create` 保留**：其 `suggest_bins` 端点被作业中心库位选择弹窗复用。
+- **领料单 / 调拨 / 盘点 的 list / detail 无跨模块依赖**，可安全删。
+
+### 阶段 3.1（领料单试点）实施
+
+**作业中心 Requisition 域扩展**（`wms_work_center.rs`）：
+- `WorkCenterQuery` 加 `view: Option<String>`（pending / all）；`render_work_center_page` 在 `Requisition + view=all` 时调 `material_requisition_service.list` 渲染全状态表格（keyword 搜索 + 分页）。
+- 二级「待办 / 全部」视图切换（`view_toggle`，仅 Requisition）。
+- **详情 drawer（`req_detail`）替代 detail 页**：`req_detail_drawer_body` 渲染单据头 + 行项目 + 状态 + 就地操作（`req_detail_actions`：Draft → 取消 / 确认；Confirmed → 取消 / 发料；PartiallyIssued → 提示）。待办队列与全部视图点单据均触发 drawer（`req_detail_trigger`），不再跳 detail。
+- `dispatch_action` 扩展 `confirm` / `cancel`（`issue` 已有）；`WorkCenterActionForm` 加 `view`，`post_work_center_action` 据此重渲染对应 card（全部视图下操作不跳回待办）。
+- `domain_detail_url` 的 Requisition 分支改 `None`；`domain_entries` 的 Requisition 不再渲染「查看全部」（`view_toggle` 替代）。
+
+**删除独立页**：
+- 删 `pages/wms_requisition_list.rs`、`pages/wms_requisition_detail.rs`
+- `routes/wms_requisition.rs`：删 `RequisitionListPath` / `RequisitionDetailPath` 及其路由（保留 `RequisitionCreatePath` + `ProductsPath` + `ItemRowPath`）
+- `pages/mod.rs`：移除对应 mod 声明
+
+**改引用**：`wms_requisition_create.rs` 创建后 redirect + 返回链接从 `RequisitionListPath` 改为 `WmsWorkCenterPath?domain=requisition&view=all`。
+
+### 后续阶段（待 3.1 试点验证后推广）
+
+| 阶段 | 范围 | 删除页面 |
+|---|---|---|
+| 3.2 | 调拨 transfer + 盘点 cycle_count | list + detail（无跨模块依赖，模式同 3.1） |
+| 3.3 | 入库 stock_in | list + detail（create 保留 suggest_bins） |
+| 3.4 | 出库 shipping | list（detail 保留销售依赖） |
+| 3.5（可选） | 新建 drawer 化 | 各 create 页 |
+
+> **实施状态（2026-07-02）**：阶段 3.1 领料单收口完成——作业中心承载领料单待办 / 全部视图 + 详情 drawer + 确认 / 取消 / 发料就地操作，独立 list / detail 页与路由已删除，create 页入口收口到作业中心。`cargo clippy -p abt-web` 通过。

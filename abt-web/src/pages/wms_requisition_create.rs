@@ -16,6 +16,7 @@ use crate::components::icon;
 use crate::errors::Result;
 use crate::layout::page::admin_page;
 use crate::routes::wms_requisition::*;
+use crate::routes::wms_work_center::WmsWorkCenterPath;
 use crate::utils::{RequestContext, empty_as_none};
 use abt_macros::require_permission;
 
@@ -114,7 +115,7 @@ pub async fn create_requisition(
  e
  }
  })?;
- let redirect = RequisitionListPath.to_string();
+ let redirect = format!("{}?domain=requisition&view=all", WmsWorkCenterPath::PATH);
  return Ok(([("HX-Redirect", redirect)], Html(String::new())));
  }
 
@@ -137,7 +138,7 @@ pub async fn create_requisition(
 
  let _id = svc.create_manual(&service_ctx, &mut conn, req).await?;
 
- let redirect = RequisitionListPath.to_string();
+ let redirect = format!("{}?domain=requisition&view=all", WmsWorkCenterPath::PATH);
  Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }
 
@@ -149,9 +150,9 @@ fn requisition_create_page(
  html! {
     div {
         // ── Back Link ──
-        a   href=(format!("{}?restore=true", RequisitionListPath::PATH))
+        a   href=(format!("{}?domain=requisition&view=all", WmsWorkCenterPath::PATH))
             class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150 mb-4"
-        { (icon::chevron_left_icon("w-4 h-4")) "返回领料单列表" }
+        { (icon::chevron_left_icon("w-4 h-4")) "返回作业中心" }
         // ── Page Header ──
         div class="flex items-center justify-between mb-5" {
             h1 class="text-xl font-bold text-fg tracking-tight" { "新建领料单" }
@@ -266,7 +267,7 @@ fn requisition_create_page(
             {
                 div {}
                 div class="flex gap-3" {
-                    a   href=(format!("{}?restore=true", RequisitionListPath::PATH))
+                    a   href=(format!("{}?domain=requisition&view=all", WmsWorkCenterPath::PATH))
                         class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
                     { "取消" }
                     button

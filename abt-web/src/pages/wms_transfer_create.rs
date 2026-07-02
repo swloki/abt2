@@ -15,7 +15,8 @@ use abt_core::wms::warehouse::WarehouseService;
 use crate::components::icon;
 use crate::errors::Result;
 use crate::layout::page::admin_page;
-use crate::routes::wms_transfer::{TransferCreatePath, TransferListPath, TransferItemRowPath};
+use crate::routes::wms_transfer::{TransferCreatePath, TransferItemRowPath};
+use crate::routes::wms_work_center::WmsWorkCenterPath;
 use crate::utils::{RequestContext, empty_as_none};
 use abt_macros::require_permission;
 
@@ -141,7 +142,7 @@ pub async fn create_transfer(
  tx.commit().await
      .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
- let redirect = TransferListPath.to_string();
+ let redirect = format!("{}?domain=transfer&view=all", WmsWorkCenterPath::PATH);
  Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }
 

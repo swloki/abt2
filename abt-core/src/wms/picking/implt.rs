@@ -23,7 +23,7 @@ use crate::shared::inventory_reservation::{
 };
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
-use crate::shared::types::pagination::PaginatedResult;
+use crate::shared::types::pagination::{PageParams, PaginatedResult};
 use crate::shared::types::{PgExecutor, Result};
 use crate::wms::backflush::resolve_warehouse_id;
 use crate::wms::enums::{PickingStatus, PickingType, TransactionType};
@@ -121,6 +121,15 @@ impl PickingService for PickingServiceImpl {
             .ok_or_else(|| DomainError::not_found("作业单据"))
     }
 
+    async fn find_by_id(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        id: i64,
+    ) -> Result<StockPicking> {
+        self.get(ctx, db, id).await
+    }
+
     async fn list_items(
         &self,
         _ctx: &ServiceContext,
@@ -135,10 +144,9 @@ impl PickingService for PickingServiceImpl {
         _ctx: &ServiceContext,
         db: PgExecutor<'_>,
         filter: PickingFilter,
-        page: u32,
-        page_size: u32,
+        page: PageParams,
     ) -> Result<PaginatedResult<StockPicking>> {
-        PickingRepo::list(&mut *db, &filter, page, page_size).await
+        PickingRepo::list(&mut *db, &filter, page.page, page.page_size).await
     }
 
     async fn confirm(

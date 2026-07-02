@@ -112,6 +112,7 @@ pub struct PickingFilter {
     pub source_type: Option<String>,
     pub source_id: Option<i64>,
     pub work_order_id: Option<i64>,
+    pub partner_id: Option<i64>,
 }
 
 // ── 领料专用请求（从 material_requisition 迁入，字段保持兼容调用方）──

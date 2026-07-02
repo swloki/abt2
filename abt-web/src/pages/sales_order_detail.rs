@@ -20,7 +20,7 @@ use crate::components::icon;
 use crate::errors::Result;
 use crate::layout::page::admin_page;
 use crate::routes::order::*;
-use abt_core::wms::outbound::ShippingRequestService;
+use abt_core::wms::picking::PickingService;
 use crate::utils::RequestContext;
 use crate::utils::fmt_qty;
 use abt_macros::require_permission;
@@ -281,14 +281,14 @@ pub async fn request_shipment(
  axum::Form(form): axum::Form<RequestShipForm>,
 ) -> Result<impl IntoResponse> {
  let RequestContext { state, service_ctx, .. } = ctx;
- let items: Vec<abt_core::wms::outbound::model::RequestShippingItemReq> = serde_json::from_str(&form.items_json)
+ let items: Vec<abt_core::wms::picking::model::RequestShippingItemReq> = serde_json::from_str(&form.items_json)
   .map_err(|e| abt_core::shared::types::error::DomainError::validation(format!("无效申请数据: {e}")))?;
  if items.is_empty() {
   return Err(abt_core::shared::types::error::DomainError::validation("请至少填写一行数量").into());
  }
  let mut tx = state.pool.begin().await
   .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
- state.shipping_service().request_from_order(&service_ctx, &mut tx, path.id, items).await?;
+ state.picking_service().request_from_order(&service_ctx, &mut tx, path.id, items).await?;
  tx.commit().await
   .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
  let redirect = OrderDetailPath { id: path.id }.to_string();

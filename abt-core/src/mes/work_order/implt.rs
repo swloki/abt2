@@ -990,8 +990,7 @@ async fn build_material(
                 work_order_id: Some(work_order_id),
                 ..Default::default()
             },
-            1,
-            1000,
+            crate::shared::types::pagination::PageParams::new(1, 1000),
         )
         .await?;
     let mut hub_reqs: Vec<HubRequisition> = Vec::new();

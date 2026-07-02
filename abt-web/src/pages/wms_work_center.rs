@@ -282,9 +282,10 @@ async fn render_requisition_all_card(
         source_type: None,
         source_id: None,
         work_order_id: None,
+        partner_id: None,
     };
     let result = req_svc
-        .list(ctx, db, filter, page, DOMAIN_PAGE_SIZE)
+        .list(ctx, db, filter, abt_core::shared::types::pagination::PageParams::new(page, DOMAIN_PAGE_SIZE))
         .await?;
     let wh_map: HashMap<i64, String> =
         warehouses.iter().map(|w| (w.id, w.name.clone())).collect();
@@ -612,9 +613,10 @@ async fn render_transfer_all_card(
         source_type: None,
         source_id: None,
         work_order_id: None,
+        partner_id: None,
     };
     let result = trf_svc
-        .list(ctx, db, filter, page, DOMAIN_PAGE_SIZE)
+        .list(ctx, db, filter, abt_core::shared::types::pagination::PageParams::new(page, DOMAIN_PAGE_SIZE))
         .await?;
     let wh_map: HashMap<i64, String> =
         warehouses.iter().map(|w| (w.id, w.name.clone())).collect();

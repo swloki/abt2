@@ -317,6 +317,10 @@ impl PickingRepo {
             param_idx += 1;
             where_clauses.push(format!("p.work_order_id = ${param_idx}"));
         }
+        if filter.partner_id.is_some() {
+            param_idx += 1;
+            where_clauses.push(format!("p.partner_id = ${param_idx}"));
+        }
 
         let where_sql = where_clauses.join(" AND ");
         let limit_idx = param_idx + 1;
@@ -359,6 +363,10 @@ impl PickingRepo {
             data_q = data_q.bind(v);
         }
         if let Some(v) = filter.work_order_id {
+            count_q = count_q.bind(v);
+            data_q = data_q.bind(v);
+        }
+        if let Some(v) = filter.partner_id {
             count_q = count_q.bind(v);
             data_q = data_q.bind(v);
         }

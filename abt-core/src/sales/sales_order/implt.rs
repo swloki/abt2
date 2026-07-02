@@ -913,7 +913,7 @@ impl SalesOrderService for SalesOrderServiceImpl {
                         status: Some(PickingStatus::Confirmed),
                         ..Default::default()
                     },
-                    1, 1,
+                    PageParams::new(1, 1),
                 )
                 .await
                 .map(|p| p.total > 0)

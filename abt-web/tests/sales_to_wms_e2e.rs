@@ -531,7 +531,7 @@ async fn k2_picking_chain_and_return() {
     let ctx = ServiceContext::new(1);
     let mut conn = app.state.pool.acquire().await.unwrap();
     let reqs = req_svc
-        .list(&ctx, &mut conn, PickingFilter { picking_type: Some(PickingType::InternalIssue), work_order_id: Some(wo_id), ..Default::default() }, 1, 10)
+        .list(&ctx, &mut conn, PickingFilter { picking_type: Some(PickingType::InternalIssue), work_order_id: Some(wo_id), ..Default::default() }, abt_core::shared::types::pagination::PageParams::new(1, 10))
         .await
         .unwrap();
     let req_id = reqs.items.first().expect("Picking 下达应生成领料单").id;

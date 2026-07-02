@@ -33,6 +33,9 @@ pub trait PickingService: Send + Sync {
     /// 查询作业单据（头）
     async fn get(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<StockPicking>;
 
+    /// 按 id 查询（find_by_id 别名，发货调用方兼容）
+    async fn find_by_id(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<StockPicking>;
+
     /// 查询作业单据明细列表
     async fn list_items(
         &self,
@@ -47,8 +50,7 @@ pub trait PickingService: Send + Sync {
         ctx: &ServiceContext,
         db: PgExecutor<'_>,
         filter: PickingFilter,
-        page: u32,
-        page_size: u32,
+        page: PageParams,
     ) -> Result<PaginatedResult<StockPicking>>;
 
     /// 确认（Draft → Confirmed）

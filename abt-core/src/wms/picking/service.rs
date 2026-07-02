@@ -202,4 +202,16 @@ pub trait PickingService: Send + Sync {
         id: i64,
         req: super::model::UpdateDraftReq,
     ) -> Result<()>;
+
+    // ── 采购收货专用（IncomingPurchase，#146 阶段 5a）──
+
+    /// 采购订单直收入库闭环：建 IncomingPurchase picking(Done) + 8 步
+    /// （幂等 claim → 超收校验 → record PurchaseReceipt → PO received_qty → 状态流转 →
+    /// 立应付 upsert → 成本分录 → 审计）。搬自 PurchaseStockInService::receive_and_stock_in。
+    async fn receive_purchase(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        req: super::model::ReceivePurchaseReq,
+    ) -> Result<i64>;
 }

@@ -250,3 +250,26 @@ pub struct ShippingItemInput {
     pub requested_qty: Decimal,
     pub description: String,
 }
+
+// ── 采购收货专用（IncomingPurchase，从 stock_in 迁入，#146 阶段 5a）──
+
+/// 采购收货明细行（按 order_item_id 精确累加 received_qty）
+#[derive(Debug, Clone)]
+pub struct PoReceiveRow {
+    pub order_item_id: i64,
+    pub product_id: i64,
+    pub received_qty: Decimal,
+    pub batch_no: Option<String>,
+    pub warehouse_id: i64,
+    pub bin_id: Option<i64>,
+}
+
+/// 采购收货请求（建 IncomingPurchase picking + done 8 步闭环）
+#[derive(Debug, Clone)]
+pub struct ReceivePurchaseReq {
+    pub po_id: i64,
+    pub rows: Vec<PoReceiveRow>,
+    pub delivery_note: Option<String>,
+    pub remark: Option<String>,
+    pub idempotency_key: Option<String>,
+}

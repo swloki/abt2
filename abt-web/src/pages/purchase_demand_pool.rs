@@ -165,6 +165,7 @@ pub async fn get_demand_pool_list(
  keyword: params.keyword.clone(),
  required_date_start: date_start,
  required_date_end: date_end,
+ supplier_id: None,
  },
  PageParams::new(1, 1),
  )
@@ -206,6 +207,7 @@ pub async fn get_demand_pool_list(
  keyword: params.keyword.clone(),
  required_date_start: date_start,
  required_date_end: date_end,
+ supplier_id: None,
  },
  PageParams::new(page_num, page_size),
  )

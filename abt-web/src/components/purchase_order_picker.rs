@@ -123,7 +123,7 @@ pub fn purchase_order_picker_modal(modal_id: &str, confirm_path: &str) -> Markup
                     label class="text-xs font-medium text-fg-2" { "供应商" }
                     (supplier_search_field(
                         "po-supplier-input", "po-supplier-display", "po-supplier-panel", "po-supplier-results",
-                        "supplier_id", "", "全部供应商",
+                        "supplier_id", "", None, "全部供应商",
                         true,
                         "w-full",
                         Some(&CascadeParams {

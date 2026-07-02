@@ -33,6 +33,14 @@ pub struct PcSettlementPath;
 #[typed_path("/admin/purchase/work-center/returns")]
 pub struct PcReturnsPath;
 
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/purchase/work-center/quotations")]
+pub struct PcQuotationPath;
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/purchase/work-center/misc")]
+pub struct PcMiscPath;
+
 // ── 行展开 row-detail GET（HTMX 按需加载，返回单 <tr class="row-detail">）──
 
 #[derive(TypedPath, Deserialize, Clone)]
@@ -71,6 +79,18 @@ pub struct PcConvertPoDrawerPath {
 pub struct PcConvertPoPath {
     pub product_id: i64,
 }
+
+// ── 批量转采购单（采购明细 tab：选供应商 → 多选同供应商需求 → 一张 PO）──
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/purchase/work-center/batch-convert/{supplier_id}/drawer")]
+pub struct PcBatchConvertDrawerPath {
+    pub supplier_id: i64,
+}
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/purchase/work-center/batch-convert")]
+pub struct PcBatchConvertPath;
 
 // ── Drawer GET（就地操作表单）──
 
@@ -131,6 +151,14 @@ pub fn router() -> Router<AppState> {
             get(purchase_work_center::get_returns_card),
         )
         .route(
+            PcQuotationPath::PATH,
+            get(purchase_work_center::get_quotation_card),
+        )
+        .route(
+            PcMiscPath::PATH,
+            get(purchase_work_center::get_misc_card),
+        )
+        .route(
             PcDemandRowsPath::PATH,
             get(purchase_work_center::get_demand_rows),
         )
@@ -153,6 +181,14 @@ pub fn router() -> Router<AppState> {
         .route(
             PcConvertPoPath::PATH,
             post(purchase_work_center::post_convert_po),
+        )
+        .route(
+            PcBatchConvertDrawerPath::PATH,
+            get(purchase_work_center::get_batch_convert_drawer),
+        )
+        .route(
+            PcBatchConvertPath::PATH,
+            post(purchase_work_center::post_batch_convert),
         )
         .route(
             PcOrderApproveDrawerPath::PATH,

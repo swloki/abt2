@@ -49,6 +49,23 @@ impl PurchaseDemandRepo {
             order_param = -1;
         }
 
+        // 按供应商过滤：product_id ∈ 该供应商「有效报价(Active、未过期)」覆盖的物料
+        // （与 quotation::compare_by_product 口径对称，仅方向相反）。
+        let supplier_param;
+        if let Some(sid) = query.supplier_id {
+            supplier_param = sid;
+            where_clauses.push(format!(
+                "product_id IN (SELECT qi.product_id FROM purchase_quotation_items qi \
+                 JOIN purchase_quotations q ON q.id = qi.quotation_id \
+                 WHERE q.supplier_id = ${p} AND q.status = 2 \
+                 AND q.deleted_at IS NULL AND q.valid_until >= CURRENT_DATE)",
+                p = param_idx
+            ));
+            param_idx += 1;
+        } else {
+            supplier_param = -1;
+        }
+
         // keyword 模糊搜索（ILIKE 绑三次：product_name、product_code、order_no 各一次）
         let keyword_param;
         if let Some(ref kw) = query.keyword {
@@ -96,6 +113,7 @@ impl PurchaseDemandRepo {
         if query.status.is_some() { count_q = count_q.bind(status_param); }
         if query.product_id.is_some() { count_q = count_q.bind(product_param); }
         if query.order_id.is_some() { count_q = count_q.bind(order_param); }
+        if query.supplier_id.is_some() { count_q = count_q.bind(supplier_param); }
         if !keyword_param.is_empty() { count_q = count_q.bind(&keyword_param).bind(&keyword_param).bind(&keyword_param); }
         if query.required_date_start.is_some() { count_q = count_q.bind(date_start_param); }
         if query.required_date_end.is_some() { count_q = count_q.bind(date_end_param); }
@@ -115,6 +133,7 @@ impl PurchaseDemandRepo {
         if query.status.is_some() { data_q = data_q.bind(status_param); }
         if query.product_id.is_some() { data_q = data_q.bind(product_param); }
         if query.order_id.is_some() { data_q = data_q.bind(order_param); }
+        if query.supplier_id.is_some() { data_q = data_q.bind(supplier_param); }
         if !keyword_param.is_empty() { data_q = data_q.bind(&keyword_param).bind(&keyword_param).bind(&keyword_param); }
         if query.required_date_start.is_some() { data_q = data_q.bind(date_start_param); }
         if query.required_date_end.is_some() { data_q = data_q.bind(date_end_param); }
@@ -255,5 +274,19 @@ impl PurchaseDemandRepo {
         .await?;
 
         Ok(result)
+    }
+
+    /// 按 id 集合批量查询需求详情（批量转单 drawer 汇总用；视图含全部 DemandSummary 列）。
+    pub async fn find_by_ids(db: PgExecutor<'_>, ids: &[i64]) -> Result<Vec<DemandSummary>> {
+        if ids.is_empty() {
+            return Ok(Vec::new());
+        }
+        let items = sqlx::query_as::<_, DemandSummary>(
+            "SELECT * FROM v_purchase_demands WHERE id = ANY($1)",
+        )
+        .bind(ids)
+        .fetch_all(&mut *db)
+        .await?;
+        Ok(items)
     }
 }

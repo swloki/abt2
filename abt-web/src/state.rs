@@ -1,6 +1,8 @@
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
+use std::time::Instant;
 
 use crate::config::Config;
+use abt_core::purchase::work_center::PurchaseWorkCenterSummary;
 use abt_core::shared::identity::RolePermissionCache;
 use abt_core::shared::types::{PgPool, PgPoolOptions};
 use abt_core::shared::excel::ImportResult;
@@ -52,6 +54,9 @@ pub struct AppState {
     next_task_id: Arc<AtomicI64>,
     /// 导入并发信号量（限制同时运行的导入任务数）
     pub import_semaphore: Arc<Semaphore>,
+    /// 采购作业中心 summary 缓存：首次/失效时算一次（并行 ~30ms），后续读缓存（0 查询）；
+    /// 写操作（审批/驳回/对账/付款/转单）commit 后 invalidate。TTL 30s 兜底（防遗漏 invalidate）。
+    pub purchase_summary_cache: Arc<RwLock<Option<(Instant, PurchaseWorkCenterSummary)>>>,
 }
 
 impl AppState {
@@ -171,6 +176,7 @@ impl AppState {
             export_files,
             next_task_id: Arc::new(AtomicI64::new(1)),
             import_semaphore: Arc::new(Semaphore::new(5)),
+            purchase_summary_cache: Arc::new(RwLock::new(None)),
         })
     }
 
@@ -625,5 +631,6 @@ impl AppState {
         export_files: Arc::new(DashMap::new()),
         next_task_id: Arc::new(AtomicI64::new(1)),
         import_semaphore: Arc::new(Semaphore::new(5)),
+        purchase_summary_cache: Arc::new(RwLock::new(None)),
     }
 }}

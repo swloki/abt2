@@ -51,6 +51,15 @@ impl PurchaseDemandService for PurchaseDemandServiceImpl {
         PurchaseDemandRepo::find_material_aggregated(db, &query, &page).await
     }
 
+    async fn get_demands_by_ids(
+        &self,
+        _ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        ids: &[i64],
+    ) -> Result<Vec<DemandSummary>> {
+        PurchaseDemandRepo::find_by_ids(db, ids).await
+    }
+
     async fn create_order_from_demands(
         &self,
         ctx: &ServiceContext,

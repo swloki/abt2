@@ -206,3 +206,47 @@ pub struct ShortageSignal {
     pub requested_qty: Decimal,
     pub available_qty: Decimal, // ATP 口径（InventoryTransactionService::query_available）
 }
+
+// ── 草稿专用（OutgoingSales 草稿，从 outbound 迁入，#146 阶段 4b）──
+
+/// 草稿创建请求（宽松校验，仅要求 customer_id）
+#[derive(Debug, Clone)]
+pub struct CreateDraftReq {
+    pub customer_id: i64,
+    pub order_id: Option<i64>,
+    pub expected_ship_date: Option<NaiveDate>,
+    pub shipping_address: Option<String>,
+    pub carrier: Option<String>,
+    pub remark: Option<String>,
+    pub items: Vec<CreateDraftItemReq>,
+}
+
+#[derive(Debug, Clone)]
+pub struct CreateDraftItemReq {
+    pub order_item_id: Option<i64>,
+    pub product_id: Option<i64>,
+    pub warehouse_id: Option<i64>,
+    pub requested_qty: Decimal,
+    pub description: String,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct UpdateDraftReq {
+    pub customer_id: Option<i64>,
+    pub order_id: Option<i64>,
+    pub expected_ship_date: Option<NaiveDate>,
+    pub shipping_address: Option<String>,
+    pub carrier: Option<String>,
+    pub remark: Option<String>,
+    pub items: Option<Vec<CreateDraftItemReq>>,
+}
+
+/// 明细行批量插入输入（草稿 resolve_draft_items 用）
+pub struct ShippingItemInput {
+    pub line_no: i32,
+    pub order_item_id: i64,
+    pub product_id: i64,
+    pub warehouse_id: Option<i64>,
+    pub requested_qty: Decimal,
+    pub description: String,
+}

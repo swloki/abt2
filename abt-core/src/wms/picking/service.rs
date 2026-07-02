@@ -183,4 +183,23 @@ pub trait PickingService: Send + Sync {
         id: i64,
         page: PageParams,
     ) -> Result<PaginatedResult<crate::wms::inventory_transaction::model::InventoryTransaction>>;
+
+    // ── 草稿专用（OutgoingSales 草稿）──
+
+    /// 草稿保存（宽松创建，Draft）
+    async fn save_draft(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        req: super::model::CreateDraftReq,
+    ) -> Result<i64>;
+
+    /// 草稿更新（全量替换字段 + items）
+    async fn update_draft(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        id: i64,
+        req: super::model::UpdateDraftReq,
+    ) -> Result<()>;
 }

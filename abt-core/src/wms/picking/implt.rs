@@ -81,6 +81,50 @@ impl PickingServiceImpl {
             .await?;
         Ok(())
     }
+
+    /// 草稿明细 product_id 反查（from order_item）。product_id=0 报错（杜绝脏数据）。
+    async fn resolve_draft_items(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        order_id: Option<i64>,
+        items: &[super::model::CreateDraftItemReq],
+    ) -> Result<Vec<super::model::ShippingItemInput>> {
+        let order_items = if let Some(oid) = order_id {
+            new_sales_order_service(self.pool.clone()).list_items(ctx, db, oid).await?
+        } else {
+            Vec::new()
+        };
+        let inputs: Vec<super::model::ShippingItemInput> = items
+            .iter()
+            .enumerate()
+            .map(|(i, item)| {
+                let product_id = item
+                    .product_id
+                    .or_else(|| {
+                        order_items
+                            .iter()
+                            .find(|oi| oi.id == item.order_item_id.unwrap_or(0))
+                            .map(|oi| oi.product_id)
+                    })
+                    .unwrap_or(0);
+                super::model::ShippingItemInput {
+                    line_no: (i + 1) as i32,
+                    order_item_id: item.order_item_id.unwrap_or(0),
+                    product_id,
+                    warehouse_id: item.warehouse_id,
+                    requested_qty: item.requested_qty,
+                    description: item.description.clone(),
+                }
+            })
+            .collect();
+        if inputs.iter().any(|i| i.product_id == 0) {
+            return Err(DomainError::validation(
+                "发货明细必须关联订单行或指定商品（product_id 缺失，无法确定发货商品）",
+            ));
+        }
+        Ok(inputs)
+    }
 }
 
 #[async_trait]
@@ -1129,5 +1173,136 @@ impl PickingService for PickingServiceImpl {
                 page.page_size,
             )
             .await
+    }
+
+    async fn save_draft(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        req: super::model::CreateDraftReq,
+    ) -> Result<i64> {
+        let doc_number = new_document_sequence_service(self.pool.clone())
+            .next_number(ctx, db, DocumentType::ShippingRequest)
+            .await?;
+        let item_inputs = if req.items.is_empty() {
+            Vec::new()
+        } else {
+            self.resolve_draft_items(ctx, db, req.order_id, &req.items).await?
+        };
+        // 物流字段拼接存 remark（shipping_address/carrier/remark）
+        let remark = [req.shipping_address.as_deref(), req.carrier.as_deref(), req.remark.as_deref()]
+            .iter()
+            .filter_map(|s| *s)
+            .collect::<Vec<_>>()
+            .join(" | ");
+        let item_reqs: Vec<CreatePickingItemReq> = item_inputs
+            .iter()
+            .map(|i| CreatePickingItemReq {
+                product_id: i.product_id,
+                batch_no: None,
+                qty_requested: i.requested_qty,
+                from_bin_id: None,
+                to_bin_id: None,
+                operation_id: None,
+                batch_id: None,
+                source_item_id: Some(i.order_item_id),
+                remark: None,
+            })
+            .collect();
+        let picking_req = CreatePickingReq {
+            picking_type: PickingType::OutgoingSales,
+            source_type: Some("sales_order".into()),
+            source_id: req.order_id,
+            partner_id: Some(req.customer_id),
+            from_warehouse_id: None,
+            from_zone_id: None,
+            from_bin_id: None,
+            to_warehouse_id: None,
+            to_zone_id: None,
+            to_bin_id: None,
+            scheduled_date: req.expected_ship_date,
+            work_order_id: None,
+            remark: Some(remark),
+            items: item_reqs,
+        };
+        let picking = PickingRepo::insert(&mut *db, &doc_number, &picking_req, ctx.operator_id).await?;
+        if let Some(order_id) = req.order_id {
+            new_document_link_service(self.pool.clone())
+                .create_links(ctx, db, vec![LinkRequest {
+                    source_type: DocumentType::ShippingRequest,
+                    source_id: picking.id,
+                    target_type: DocumentType::SalesOrder,
+                    target_id: order_id,
+                    link_type: LinkType::Triggers,
+                }])
+                .await?;
+        }
+        new_audit_log_service(self.pool.clone())
+            .record(ctx, db, RecordAuditLogReq {
+                entity_type: "StockPicking".into(),
+                entity_id: picking.id,
+                action: AuditAction::Create,
+                changes: Some(serde_json::json!({ "order_id": req.order_id, "customer_id": req.customer_id, "is_draft": true })),
+                context: None,
+            })
+            .await?;
+        Ok(picking.id)
+    }
+
+    async fn update_draft(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        id: i64,
+        req: super::model::UpdateDraftReq,
+    ) -> Result<()> {
+        let existing = self.get(ctx, db, id).await?;
+        if existing.status != PickingStatus::Draft {
+            return Err(DomainError::business_rule("仅草稿状态的发货单可以编辑"));
+        }
+        let remark = [req.shipping_address.as_deref(), req.carrier.as_deref(), req.remark.as_deref()]
+            .iter()
+            .filter_map(|s| *s)
+            .collect::<Vec<_>>()
+            .join(" | ");
+        PickingRepo::update_draft_fields(
+            &mut *db, id,
+            req.order_id,
+            req.customer_id,
+            req.expected_ship_date,
+            &remark,
+        )
+        .await?;
+        if let Some(items) = req.items {
+            PickingRepo::delete_items(&mut *db, id).await?;
+            if !items.is_empty() {
+                let order_id = req.order_id.or(existing.source_id);
+                let item_inputs = self.resolve_draft_items(ctx, db, order_id, &items).await?;
+                for input in item_inputs {
+                    let item_req = CreatePickingItemReq {
+                        product_id: input.product_id,
+                        batch_no: None,
+                        qty_requested: input.requested_qty,
+                        from_bin_id: None,
+                        to_bin_id: None,
+                        operation_id: None,
+                        batch_id: None,
+                        source_item_id: Some(input.order_item_id),
+                        remark: None,
+                    };
+                    PickingRepo::insert_item(&mut *db, id, &item_req).await?;
+                }
+            }
+        }
+        new_audit_log_service(self.pool.clone())
+            .record(ctx, db, RecordAuditLogReq {
+                entity_type: "StockPicking".into(),
+                entity_id: id,
+                action: AuditAction::Update,
+                changes: None,
+                context: None,
+            })
+            .await?;
+        Ok(())
     }
 }

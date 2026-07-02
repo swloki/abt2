@@ -122,4 +122,12 @@ pub trait PickingService: Send + Sync {
         db: PgExecutor<'_>,
         batch_id: i64,
     ) -> Result<Vec<i64>>;
+
+    // ── 调拨专用（InternalTransfer，从 TransferService 迁入）──
+
+    /// 调拨发货（Draft → Confirmed）：扣减源仓库库存（Transfer 流水负数）
+    async fn dispatch(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()>;
+
+    /// 调拨完成（Confirmed → Done）：增加目标仓库库存（Transfer 流水正数）
+    async fn complete(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()>;
 }

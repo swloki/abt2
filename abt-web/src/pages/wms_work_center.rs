@@ -5,14 +5,13 @@ use serde::Deserialize;
 
 use abt_core::shared::types::pagination::{PageParams, PaginatedResult};
 use abt_core::shared::types::{PgExecutor, ServiceContext};
-use abt_core::wms::enums::{CycleCountStatus, PickingStatus, PickingType, TransferStatus};
+use abt_core::wms::enums::{CycleCountStatus, PickingStatus, PickingType};
 use abt_core::wms::picking::{
     IssueItemReq, IssueMaterialReq, PickingFilter, PickingService, StockPicking,
 };
 use abt_core::wms::outbound::model::{ShippingQuery, ShippingRequest, ShippingStatus};
 use abt_core::wms::outbound::ShippingRequestService;
 use abt_core::wms::pick_list::{model::PickItemInput, PickListService};
-use abt_core::wms::transfer::{InventoryTransfer, TransferFilter, TransferService};
 use abt_core::wms::cycle_count::model::{CycleCount, CycleCountFilter, CycleCountItem};
 use abt_core::wms::cycle_count::CycleCountService;
 use abt_core::wms::warehouse::model::{Warehouse, WarehouseFilter};
@@ -602,17 +601,19 @@ async fn render_transfer_all_card(
     summary: &WorkCenterSummary,
     warehouses: &[Warehouse],
 ) -> Result<Markup> {
-    let trf_svc = state.transfer_service();
-    let filter = TransferFilter {
+    let trf_svc = state.picking_service();
+    let filter = PickingFilter {
         doc_number: q
             .keyword
             .as_deref()
             .map(str::trim)
             .filter(|s| !s.is_empty())
             .map(String::from),
+        picking_type: Some(PickingType::InternalTransfer),
         status: None,
-        from_warehouse_id: None,
-        to_warehouse_id: None,
+        source_type: None,
+        source_id: None,
+        work_order_id: None,
     };
     let result = trf_svc
         .list(ctx, db, filter, page, DOMAIN_PAGE_SIZE)
@@ -665,7 +666,7 @@ async fn render_transfer_all_card(
     })
 }
 
-fn render_transfer_all_table(items: &[InventoryTransfer], wh_map: &HashMap<i64, String>) -> Markup {
+fn render_transfer_all_table(items: &[StockPicking], wh_map: &HashMap<i64, String>) -> Markup {
     if items.is_empty() {
         return html! {
             div class="mt-2 p-4 text-center text-sm text-muted bg-surface rounded-md" { "暂无调拨单" }
@@ -692,10 +693,10 @@ fn render_transfer_all_table(items: &[InventoryTransfer], wh_map: &HashMap<i64, 
     }
 }
 
-fn render_transfer_all_row(t: &InventoryTransfer, wh_map: &HashMap<i64, String>) -> Markup {
-    let (status_text, status_cls) = transfer_status_label(t.status);
-    let from_wh = wh_map.get(&t.from_warehouse_id).map(|s| s.as_str()).unwrap_or("—");
-    let to_wh = wh_map.get(&t.to_warehouse_id).map(|s| s.as_str()).unwrap_or("—");
+fn render_transfer_all_row(t: &StockPicking, wh_map: &HashMap<i64, String>) -> Markup {
+    let (status_text, status_cls) = picking_status_label(t.status);
+    let from_wh = wh_map.get(&t.from_warehouse_id.unwrap_or(0)).map(|s| s.as_str()).unwrap_or("—");
+    let to_wh = wh_map.get(&t.to_warehouse_id.unwrap_or(0)).map(|s| s.as_str()).unwrap_or("—");
     html! {
         tr class="border-b border-border-soft last:border-b-0" {
             td class="py-3 px-3 text-sm font-mono text-accent font-semibold" {
@@ -704,7 +705,9 @@ fn render_transfer_all_row(t: &InventoryTransfer, wh_map: &HashMap<i64, String>)
             }
             td class="py-3 px-3 text-sm text-fg-2" { (from_wh) }
             td class="py-3 px-3 text-sm text-fg-2" { (to_wh) }
-            td class="py-3 px-3 text-sm font-mono text-muted" { (t.transfer_date.format("%m-%d")) }
+            td class="py-3 px-3 text-sm font-mono text-muted" {
+                (t.scheduled_date.map(|d| d.format("%m-%d").to_string()).unwrap_or_else(|| "—".into()))
+            }
             td class="py-3 px-3" {
                 span class=(format!("inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium {status_cls}")) {
                     (status_text)
@@ -718,16 +721,6 @@ fn render_transfer_all_row(t: &InventoryTransfer, wh_map: &HashMap<i64, String>)
     }
 }
 
-/// 调拨状态 → (标签, 语义色 class)。作业中心全部视图 + 详情 drawer 用。
-fn transfer_status_label(s: TransferStatus) -> (&'static str, &'static str) {
-    match s {
-        TransferStatus::Draft => ("草稿", "bg-surface text-muted"),
-        TransferStatus::InTransit => ("在途", "bg-warn-bg text-warn"),
-        TransferStatus::Completed => ("已完成", "bg-accent-bg text-accent"),
-        TransferStatus::Cancelled => ("已取消", "bg-danger-bg text-danger"),
-    }
-}
-
 /// 调拨详情 drawer body（替代独立 detail 页，阶段 3.2 收口）：
 /// 单据头（单号/状态/来源仓→目标仓/日期）+ 行项目（产品/数量）+ 就地操作（取消/调出/完成）。
 async fn transfer_detail_drawer_body(
@@ -737,9 +730,9 @@ async fn transfer_detail_drawer_body(
     id: i64,
     view: Option<&str>,
 ) -> Result<Markup> {
-    let trf_svc = state.transfer_service();
+    let trf_svc = state.picking_service();
     let trf = trf_svc.get(ctx, db, id).await?;
-    let items = trf_svc.get_items(ctx, db, id).await.unwrap_or_default();
+    let items = trf_svc.list_items(ctx, db, id).await.unwrap_or_default();
     let product_map: HashMap<i64, abt_core::master_data::product::model::Product> = state
         .product_service()
         .get_by_ids(ctx, db, items.iter().map(|i| i.product_id).collect())
@@ -750,18 +743,18 @@ async fn transfer_detail_drawer_body(
         .collect();
     let from_wh = state
         .warehouse_service()
-        .get(ctx, db, trf.from_warehouse_id)
+        .get(ctx, db, trf.from_warehouse_id.unwrap_or(0))
         .await
         .map(|w| w.name)
         .unwrap_or_else(|_| "—".into());
     let to_wh = state
         .warehouse_service()
-        .get(ctx, db, trf.to_warehouse_id)
+        .get(ctx, db, trf.to_warehouse_id.unwrap_or(0))
         .await
         .map(|w| w.name)
         .unwrap_or_else(|_| "—".into());
 
-    let (status_text, status_cls) = transfer_status_label(trf.status);
+    let (status_text, status_cls) = picking_status_label(trf.status);
     let view_val = view.unwrap_or("pending");
 
     let mut rows = html! {};
@@ -781,7 +774,7 @@ async fn transfer_detail_drawer_body(
                     div class="text-sm text-fg-2 truncate" { (pname) }
                     div class="text-xs text-muted truncate" { (pcode) }
                 }
-                span class="text-sm font-mono text-fg shrink-0" { (fmt_qty(it.quantity)) }
+                span class="text-sm font-mono text-fg shrink-0" { (fmt_qty(it.qty_requested)) }
             }
         };
     }
@@ -805,7 +798,9 @@ async fn transfer_detail_drawer_body(
                 }
                 div {
                     span class="text-muted" { "调拨日期 " }
-                    span class="font-mono text-fg-2" { (trf.transfer_date.format("%Y-%m-%d")) }
+                    span class="font-mono text-fg-2" {
+                        (trf.scheduled_date.map(|d| d.format("%Y-%m-%d").to_string()).unwrap_or_else(|| "—".into()))
+                    }
                 }
             }
         }
@@ -826,7 +821,7 @@ async fn transfer_detail_drawer_body(
 }
 
 /// 调拨详情 drawer 操作：Draft→取消/调出，InTransit→完成。各自 form 提交单端点。
-fn transfer_detail_actions(status: TransferStatus, id: i64, view: &str) -> Markup {
+fn transfer_detail_actions(status: PickingStatus, id: i64, view: &str) -> Markup {
     let open_hs =
         "on 'htmx:afterRequest'[detail.xhr.status<400] remove .open from #wc-drawer-overlay";
     let cancel_btn = |confirm: &str| -> Markup {
@@ -858,13 +853,13 @@ fn transfer_detail_actions(status: TransferStatus, id: i64, view: &str) -> Marku
         }
     };
     match status {
-        TransferStatus::Draft => html! {
+        PickingStatus::Draft => html! {
             div class="flex justify-end gap-3 mt-5 pt-4 border-t border-border-soft" {
                 (cancel_btn("确定取消此调拨单？"))
                 (primary_btn("调出", "dispatch", "确定调出？将从来源仓扣减库存", icon::upload_icon("w-4 h-4")))
             }
         },
-        TransferStatus::InTransit => html! {
+        PickingStatus::Confirmed => html! {
             div class="flex justify-end gap-3 mt-5 pt-4 border-t border-border-soft" {
                 (primary_btn("完成调拨", "complete", "确定完成调拨？将入库到目标仓", icon::check_circle_icon("w-4 h-4")))
             }
@@ -1588,13 +1583,13 @@ async fn dispatch_action(
                 .await?;
         }
         "transfer_cancel" => {
-            state.transfer_service().cancel(ctx, db, form.id).await?;
+            state.picking_service().cancel(ctx, db, form.id).await?;
         }
         "dispatch" => {
-            state.transfer_service().dispatch(ctx, db, form.id).await?;
+            state.picking_service().dispatch(ctx, db, form.id).await?;
         }
         "complete" => {
-            state.transfer_service().complete(ctx, db, form.id).await?;
+            state.picking_service().complete(ctx, db, form.id).await?;
         }
         "cc_start" => {
             state.cycle_count_service().start_count(ctx, db, form.id).await?;
@@ -2890,11 +2885,11 @@ async fn transfer_drawer_body(
     db: PgExecutor<'_>,
     id: i64,
 ) -> Result<Markup> {
-    let trf = state.transfer_service().get(ctx, db, id).await?;
-    let items = state.transfer_service().get_items(ctx, db, id).await.unwrap_or_default();
+    let trf = state.picking_service().get(ctx, db, id).await?;
+    let items = state.picking_service().list_items(ctx, db, id).await.unwrap_or_default();
     let (title, action, hint, btn_label) = match trf.status {
-        TransferStatus::Draft => ("调出", "dispatch", "确认调出将从源仓扣减库存、单据进入在途。", "确认调出"),
-        TransferStatus::InTransit => ("到货确认", "complete", "确认到货将把库存计入目标仓、完成调拨。", "确认到货"),
+        PickingStatus::Draft => ("调出", "dispatch", "确认调出将从源仓扣减库存、单据进入在途。", "确认调出"),
+        PickingStatus::Confirmed => ("到货确认", "complete", "确认到货将把库存计入目标仓、完成调拨。", "确认到货"),
         _ => ("调拨", "complete", "该单当前状态不可就地操作。", "确认"),
     };
     let inner = html! {
@@ -2902,7 +2897,7 @@ async fn transfer_drawer_body(
             span class="text-xs text-muted font-medium" { "调拨单 " }
             span class="text-sm font-mono font-semibold text-fg" { (trf.doc_number) }
         }
-        p class="text-sm text-muted mb-2" { "仓 " (trf.from_warehouse_id) " → " (trf.to_warehouse_id) " · 共 " (items.len()) " 项" }
+        p class="text-sm text-muted mb-2" { "仓 " (trf.from_warehouse_id.unwrap_or(0)) " → " (trf.to_warehouse_id.unwrap_or(0)) " · 共 " (items.len()) " 项" }
         p class="text-sm text-muted mb-5" { (hint) }
         (drawer_footer(btn_label))
     };

@@ -14,11 +14,9 @@ use common::TestApp;
 use rust_decimal::Decimal;
 
 use abt_core::shared::types::ServiceContext;
-use abt_core::wms::enums::TransferStatus;
 use abt_core::wms::inventory::InventoryService;
 use abt_core::wms::inventory_transaction::InventoryTransactionService;
-use abt_core::wms::transfer::TransferService;
-use abt_core::wms::transfer::model::{InventoryTransfer, TransferFilter};
+use abt_core::wms::picking::StockPicking;
 
 const PRODUCT_ID: i64 = 565;
 const PRODUCT_ID_STR: &str = "565";
@@ -102,8 +100,8 @@ async fn log_count(app: &TestApp, product_id: i64) -> usize {
         .len()
 }
 
-async fn get_transfer(app: &TestApp, id: i64) -> InventoryTransfer {
-    let svc = app.state.transfer_service();
+async fn get_transfer(app: &TestApp, id: i64) -> StockPicking {
+    let svc = app.state.picking_service();
     let ctx = ServiceContext::new(1);
     let mut conn = app.state.pool.acquire().await.unwrap();
     svc.get(&ctx, &mut conn, id).await.unwrap()
@@ -116,19 +114,19 @@ fn pick_two_warehouses() -> (i64, i64) {
 }
 
 /// 在 Draft 状态的调拨单中找到 from→to 的那一笔（create 重定向到列表，故需回查 id）。
-async fn find_draft_transfer(app: &TestApp, from_wh: i64, to_wh: i64) -> InventoryTransfer {
-    let svc = app.state.transfer_service();
+async fn find_draft_transfer(app: &TestApp, from_wh: i64, to_wh: i64) -> StockPicking {
+    let svc = app.state.picking_service();
     let ctx = ServiceContext::new(1);
     let mut conn = app.state.pool.acquire().await.unwrap();
-    let filter = TransferFilter {
-        from_warehouse_id: Some(from_wh),
-        to_warehouse_id: Some(to_wh),
+    let filter = PickingFilter {
+        picking_type: Some(PickingType::InternalTransfer),
+        status: Some(PickingStatus::Draft),
         ..Default::default()
     };
     let res = svc.list(&ctx, &mut conn, filter, 1, 50).await.unwrap();
     res.items
         .into_iter()
-        .find(|t| matches!(t.status, TransferStatus::Draft))
+        .find(|t| t.from_warehouse_id == Some(from_wh) && t.to_warehouse_id == Some(to_wh))
         .expect("未找到 Draft 状态的调拨单")
 }
 
@@ -234,7 +232,7 @@ async fn a1_full_inventory_lifecycle() {
     // 状态机：必须抵达 Completed
     let done = get_transfer(&app, draft.id).await;
     assert!(
-        matches!(done.status, TransferStatus::Completed),
+        matches!(done.status, PickingStatus::Done),
         "调拨应已完成，实际状态异常"
     );
 
@@ -388,7 +386,7 @@ async fn c2_transfer_bogus_action_no_crash_and_stays_draft() {
     );
     let after = get_transfer(&app, draft.id).await;
     assert!(
-        matches!(after.status, TransferStatus::Draft),
+        matches!(after.status, PickingStatus::Draft),
         "未知 action 后应保持 Draft"
     );
 }
@@ -786,7 +784,7 @@ async fn i1_transfer_cancel_from_draft() {
     let r = app.post_htmx(&format!("/admin/wms/transfers/{}", draft.id), "action=cancel").await;
     assert!(r.is_ok() || r.is_redirect(), "取消调拨 FAIL: {}", r.status);
     let after = get_transfer(&app, draft.id).await;
-    assert!(matches!(after.status, TransferStatus::Cancelled), "取消后应为 Cancelled");
+    assert!(matches!(after.status, PickingStatus::Cancelled), "取消后应为 Cancelled");
 }
 
 /// 核心层负库存兜底（P0-2）：绕过 web 预检，直接调 record() 传消耗型负数量超可用，

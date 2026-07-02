@@ -52,8 +52,8 @@ use crate::shared::types::Result;
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
 use crate::shared::types::pagination::{PageParams, PaginatedResult};
-use crate::wms::transfer::model::{CreateTransferItemReq, CreateTransferReq};
-use crate::wms::transfer::{new_transfer_service, service::TransferService};
+use crate::wms::picking::{CreatePickingItemReq, CreatePickingReq, new_picking_service, service::PickingService};
+use crate::wms::enums::PickingType;
 use crate::wms::inventory_transaction::model::RecordTransactionReq;
 use crate::wms::inventory_transaction::{new_inventory_transaction_service, service::InventoryTransactionService};
 use crate::wms::enums::TransactionType;
@@ -223,39 +223,51 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
 
         // WMS: 发料到虚拟库位 — 创建调拨单并发货
         let transfer_date = chrono::Utc::now().date_naive();
-        let transfer_items: Vec<CreateTransferItemReq> = materials
+        let transfer_items: Vec<CreatePickingItemReq> = materials
             .iter()
-            .map(|m| CreateTransferItemReq {
+            .map(|m| CreatePickingItemReq {
                 product_id: m.product_id,
-                quantity: m.planned_qty,
+                qty_requested: m.planned_qty,
                 batch_no: None,
+                from_bin_id: None,
+                to_bin_id: None,
+                operation_id: None,
+                batch_id: None,
+                source_item_id: None,
+                remark: None,
             })
             .collect();
         let mut transfer_ids = Vec::new();
         if !transfer_items.is_empty() {
-            let tid = new_transfer_service(self.pool.clone())
+            let tid = new_picking_service(self.pool.clone())
                 .create(
                     ctx,
                     db,
-                    CreateTransferReq {
-                        from_warehouse_id: order.source_warehouse_id
-                            .ok_or_else(|| DomainError::validation("委外单未设置发料源仓库，无法发料"))?,
+                    CreatePickingReq {
+                        picking_type: PickingType::InternalTransfer,
+                        source_type: Some("none".into()),
+                        source_id: None,
+                        partner_id: None,
+                        from_warehouse_id: Some(order.source_warehouse_id
+                            .ok_or_else(|| DomainError::validation("委外单未设置发料源仓库，无法发料"))?),
                         from_zone_id: None,
                         from_bin_id: None,
-                        to_warehouse_id: order.virtual_warehouse_id,
+                        to_warehouse_id: Some(order.virtual_warehouse_id),
                         to_zone_id: None,
                         to_bin_id: None,
-                        transfer_date,
+                        scheduled_date: Some(transfer_date),
+                        work_order_id: None,
+                        remark: None,
                         items: transfer_items,
                     },
                 )
                 .await?;
-            new_transfer_service(self.pool.clone())
+            new_picking_service(self.pool.clone())
                 .dispatch(ctx, db, tid)
                 .await?;
             // complete 让虚拟仓实际收到库存（dispatch 仅扣源仓，complete 才入目标仓），
             // 否则后续 receive 从虚拟仓调回时会报"库存数量不能为负"
-            new_transfer_service(self.pool.clone())
+            new_picking_service(self.pool.clone())
                 .complete(ctx, db, tid)
                 .await?;
             transfer_ids.push(tid);
@@ -737,38 +749,50 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
         let materials = OutsourcingMaterialRepo::list_by_outsourcing_id(&mut *db, req.id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
-        let in_transit_items: Vec<CreateTransferItemReq> = materials
+        let in_transit_items: Vec<CreatePickingItemReq> = materials
             .iter()
             .filter(|m| m.in_transit_qty() > Decimal::ZERO)
-            .map(|m| CreateTransferItemReq {
+            .map(|m| CreatePickingItemReq {
                 product_id: m.product_id,
-                quantity: m.in_transit_qty(),
+                qty_requested: m.in_transit_qty(),
                 batch_no: None,
+                from_bin_id: None,
+                to_bin_id: None,
+                operation_id: None,
+                batch_id: None,
+                source_item_id: None,
+                remark: None,
             })
             .collect();
         let mut convert_transfer_id = None;
         if !in_transit_items.is_empty() {
             let transfer_date = chrono::Utc::now().date_naive();
-            let tid = new_transfer_service(self.pool.clone())
+            let tid = new_picking_service(self.pool.clone())
                 .create(
                     ctx,
                     db,
-                    CreateTransferReq {
-                        from_warehouse_id: order.virtual_warehouse_id,
+                    CreatePickingReq {
+                        picking_type: PickingType::InternalTransfer,
+                        source_type: Some("none".into()),
+                        source_id: None,
+                        partner_id: None,
+                        from_warehouse_id: Some(order.virtual_warehouse_id),
                         from_zone_id: None,
                         from_bin_id: None,
-                        to_warehouse_id: return_warehouse_id,
+                        to_warehouse_id: Some(return_warehouse_id),
                         to_zone_id: None,
                         to_bin_id: None,
-                        transfer_date,
+                        scheduled_date: Some(transfer_date),
+                        work_order_id: None,
+                        remark: None,
                         items: in_transit_items,
                     },
                 )
                 .await?;
-            new_transfer_service(self.pool.clone())
+            new_picking_service(self.pool.clone())
                 .dispatch(ctx, db, tid)
                 .await?;
-            new_transfer_service(self.pool.clone())
+            new_picking_service(self.pool.clone())
                 .complete(ctx, db, tid)
                 .await?;
             convert_transfer_id = Some(tid);

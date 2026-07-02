@@ -259,10 +259,6 @@ impl AppState {
         abt_core::wms::cycle_count::new_cycle_count_service(self.pool.clone())
     }
 
-    pub fn transfer_service(&self) -> impl abt_core::wms::transfer::TransferService {
-        abt_core::wms::transfer::new_transfer_service(self.pool.clone())
-    }
-
     pub fn form_conversion_service(
         &self,
     ) -> impl abt_core::wms::form_conversion::FormConversionService {

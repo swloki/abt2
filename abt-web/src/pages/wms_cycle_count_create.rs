@@ -16,6 +16,7 @@ use crate::components::icon;
 use crate::errors::Result;
 use crate::layout::page::admin_page;
 use crate::routes::wms_cycle_count::*;
+use crate::routes::wms_work_center::WmsWorkCenterPath;
 use crate::utils::{RequestContext, empty_as_none};
 use abt_macros::require_permission;
 
@@ -146,7 +147,7 @@ pub async fn create_cycle_count(
  tx.commit().await
      .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
- let redirect = CycleCountListPath.to_string();
+ let redirect = format!("{}?domain=cycle-count&view=all", WmsWorkCenterPath::PATH);
  Ok(([("HX-Redirect", redirect)], Html(String::new())).into_response())
 }
 
@@ -158,9 +159,9 @@ fn cycle_count_create_page(
  html! {
     div {
         // ── Back Link ──
-        a   href=(format!("{}?restore=true", CycleCountListPath::PATH))
+        a   href=(format!("{}?domain=cycle-count&view=all", WmsWorkCenterPath::PATH))
             class="inline-flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors duration-150 mb-4"
-        { (icon::chevron_left_icon("w-4 h-4")) "返回盘点列表" }
+        { (icon::chevron_left_icon("w-4 h-4")) "返回作业中心" }
         // ── Page Header ──
         div class="flex items-center justify-between mb-5" {
             h1 class="text-xl font-bold text-fg tracking-tight" { "新建盘点" }
@@ -282,7 +283,7 @@ fn cycle_count_create_page(
                 div {}
                 div class="flex gap-3" {
                     a   class="inline-flex items-center gap-2 py-[9px] px-[18px] rounded-sm bg-white text-fg-2 border border-border hover:bg-surface hover:text-accent text-sm font-medium cursor-pointer transition-all duration-150 shadow-xs"
-                        href=(format!("{}?restore=true", CycleCountListPath::PATH))
+                        href=(format!("{}?domain=cycle-count&view=all", WmsWorkCenterPath::PATH))
                     { "取消" }
                     button
                         type="submit"

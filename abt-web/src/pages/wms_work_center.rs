@@ -5,7 +5,7 @@ use serde::Deserialize;
 
 use abt_core::shared::types::pagination::{PageParams, PaginatedResult};
 use abt_core::shared::types::{PgExecutor, ServiceContext};
-use abt_core::wms::enums::{RequisitionStatus, TransferStatus};
+use abt_core::wms::enums::{CycleCountStatus, RequisitionStatus, TransferStatus};
 use abt_core::wms::material_requisition::model::{
     IssueItemReq, IssueMaterialReq, MaterialRequisition, RequisitionFilter,
 };
@@ -14,6 +14,8 @@ use abt_core::wms::outbound::model::ShippingStatus;
 use abt_core::wms::outbound::ShippingRequestService;
 use abt_core::wms::pick_list::{model::PickItemInput, PickListService};
 use abt_core::wms::transfer::{InventoryTransfer, TransferFilter, TransferService};
+use abt_core::wms::cycle_count::model::{CycleCount, CycleCountFilter, CycleCountItem};
+use abt_core::wms::cycle_count::CycleCountService;
 use abt_core::wms::warehouse::model::{Warehouse, WarehouseFilter};
 use abt_core::wms::warehouse::WarehouseService;
 use abt_core::wms::work_center::model::{
@@ -41,7 +43,7 @@ use crate::errors::Result;
 use abt_core::shared::types::error::DomainError;
 use crate::layout::page::admin_page;
 use crate::routes::shipping::{ShippingCreatePath, ShippingDetailPath, ShippingListPath};
-use crate::routes::wms_cycle_count::{CycleCountCreatePath, CycleCountDetailPath, CycleCountListPath};
+use crate::routes::wms_cycle_count::CycleCountCreatePath;
 use crate::routes::wms_requisition::RequisitionCreatePath;
 use crate::routes::wms_transfer::TransferCreatePath;
 use crate::routes::wms_stock_in::{StockInCreatePath, StockInListPath};
@@ -160,6 +162,9 @@ fn action_domain(action: &str) -> Result<WorkCenterDomain> {
         "pick" | "ship" | "batch_ship" | "direct_ship" => WorkCenterDomain::Outbound,
         "confirm" | "cancel" | "issue" => WorkCenterDomain::Requisition,
         "transfer_cancel" | "dispatch" | "complete" => WorkCenterDomain::Transfer,
+        "cc_start" | "cc_complete" | "cc_cancel" | "cc_adjust" | "cc_approve" | "cc_reject" => {
+            WorkCenterDomain::CycleCount
+        }
         other => return Err(DomainError::validation(format!("未知作业动作: {other}")).into()),
     })
 }
@@ -174,7 +179,7 @@ fn domain_detail_url(domain: WorkCenterDomain, doc_id: i64) -> Option<String> {
         WorkCenterDomain::Outbound => Some(ShippingDetailPath { id: doc_id }.to_string()),
         WorkCenterDomain::Requisition => None, // 点单据走 req_detail drawer（阶段 3.1 收口，不再跳 detail 页）
         WorkCenterDomain::Transfer => None, // 点单据走 transfer_detail drawer（阶段 3.2 收口）
-        WorkCenterDomain::CycleCount => Some(CycleCountDetailPath { id: doc_id }.to_string()),
+        WorkCenterDomain::CycleCount => None, // 点单据走 cc_detail drawer（阶段 3.2b 收口）
     }
 }
 
@@ -200,7 +205,8 @@ fn domain_entries(active: WorkCenterDomain) -> Markup {
         WorkCenterDomain::Requisition => ("新建领料单", RequisitionCreatePath::PATH, None),
         // 调拨：作业中心内置「待办/全部」二级切换（view_toggle），不再跳独立 list 页
         WorkCenterDomain::Transfer => ("新建调拨单", TransferCreatePath::PATH, None),
-        WorkCenterDomain::CycleCount => ("新建盘点单", CycleCountCreatePath::PATH, Some(CycleCountListPath::PATH)),
+        // 盘点：作业中心内置「待办/全部」二级切换（view_toggle），不再跳独立 list 页
+        WorkCenterDomain::CycleCount => ("新建盘点单", CycleCountCreatePath::PATH, None),
     };
     html! {
         a class="inline-flex items-center gap-1 px-3 py-1.5 rounded-sm bg-accent text-white text-xs font-semibold no-underline cursor-pointer border-none hover:opacity-90"
@@ -218,7 +224,7 @@ fn domain_entries(active: WorkCenterDomain) -> Markup {
 /// 其他 domain 返回空（暂只有 Requisition 有全部视图）。切 view 走 htmx 局部刷新。
 fn view_toggle(domain: WorkCenterDomain, active_view: &str) -> Markup {
     // 仅收口到作业中心的 domain（领料单 3.1 / 调拨 3.2）有「待办/全部」切换
-    if !matches!(domain, WorkCenterDomain::Requisition | WorkCenterDomain::Transfer) {
+    if !matches!(domain, WorkCenterDomain::Requisition | WorkCenterDomain::Transfer | WorkCenterDomain::CycleCount) {
         return html! {};
     }
     let slug = domain_slug(domain);
@@ -864,6 +870,281 @@ fn transfer_detail_actions(status: TransferStatus, id: i64, view: &str) -> Marku
     }
 }
 
+// ── 盘点全部视图 + 详情 drawer（阶段 3.2b 收口；count 录入 UI 原未实现，drawer 不含录入）──
+
+/// 盘点全部视图（阶段 3.2b）：调 cycle_count_service.list 渲染全状态盘点单表格。
+/// CycleCountFilter 无 doc_number 字段，全部视图暂不提供单号搜索（待 abt-core 补字段）。
+async fn render_cycle_count_all_card(
+    state: &AppState,
+    ctx: &ServiceContext,
+    db: PgExecutor<'_>,
+    _q: &WorkCenterQuery,
+    page: u32,
+    summary: &WorkCenterSummary,
+    _warehouses: &[Warehouse],
+) -> Result<Markup> {
+    let cc_svc = state.cycle_count_service();
+    let filter = CycleCountFilter::default();
+    let result = cc_svc
+        .list(ctx, db, filter, page, DOMAIN_PAGE_SIZE)
+        .await?;
+
+    Ok(html! {
+        div id="wc-domain-card" class="bg-bg border border-border-soft rounded-lg mb-4 shadow-card overflow-hidden" {
+            (status_tabs_with_oob(
+                WmsWorkCenterPath::PATH, "#wc-domain-card", "#wc-domain-filter", "",
+                &domain_tabs(summary), domain_slug(WorkCenterDomain::CycleCount), "domain",
+            ))
+            (view_toggle(WorkCenterDomain::CycleCount, "all"))
+            form id="wc-domain-filter"
+                class="flex items-center gap-3 flex-wrap px-4 py-3 border-b border-border-soft"
+                hx-get=(WmsWorkCenterPath::PATH)
+                hx-target="#wc-domain-card" hx-select="#wc-domain-card" hx-swap="outerHTML"
+                hx-include="#wc-domain-filter" {
+                input type="hidden" name="domain" value="cycle-count";
+                input type="hidden" name="view" value="all";
+                div class="ml-auto" {
+                    a class="inline-flex items-center gap-1 px-3 py-1.5 rounded-sm bg-accent text-white text-xs font-semibold no-underline cursor-pointer border-none hover:opacity-90"
+                        href=(CycleCountCreatePath::PATH) {
+                        (icon::plus_icon("w-3 h-3"))
+                        "新建盘点单"
+                    }
+                }
+            }
+            div class="p-4" {
+                (render_cycle_count_all_table(&result.items))
+                @if result.total_pages > 1 {
+                    div class="mt-3" {
+                        (pagination(
+                            WmsWorkCenterPath::PATH, "#wc-domain-card", "#wc-domain-filter",
+                            result.total, result.page, result.total_pages,
+                        ))
+                    }
+                }
+            }
+        }
+    })
+}
+
+fn render_cycle_count_all_table(items: &[CycleCount]) -> Markup {
+    if items.is_empty() {
+        return html! {
+            div class="mt-2 p-4 text-center text-sm text-muted bg-surface rounded-md" { "暂无盘点单" }
+        };
+    }
+    html! {
+        table class="w-full border-collapse mt-2" {
+            thead {
+                tr {
+                    th class="text-left text-xs font-semibold text-muted py-2 px-3 border-b border-border-soft" { "单号" }
+                    th class="text-left text-xs font-semibold text-muted py-2 px-3 border-b border-border-soft" { "日期" }
+                    th class="text-left text-xs font-semibold text-muted py-2 px-3 border-b border-border-soft" { "状态" }
+                    th class="text-right text-xs font-semibold text-muted py-2 px-3 border-b border-border-soft" { "操作" }
+                }
+            }
+            tbody {
+                @for c in items {
+                    (render_cycle_count_all_row(c))
+                }
+            }
+        }
+    }
+}
+
+fn render_cycle_count_all_row(c: &CycleCount) -> Markup {
+    let (status_text, status_cls) = cc_status_label(c.status);
+    html! {
+        tr class="border-b border-border-soft last:border-b-0" {
+            td class="py-3 px-3 text-sm font-mono text-accent font-semibold" {
+                (doc_detail_trigger("cc_detail", c.id, "all", html! { (c.doc_number) },
+                    "font-mono text-accent font-semibold text-sm bg-transparent border-none p-0 cursor-pointer hover:underline"))
+            }
+            td class="py-3 px-3 text-sm font-mono text-muted" { (c.count_date.format("%m-%d")) }
+            td class="py-3 px-3" {
+                span class=(format!("inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium {status_cls}")) {
+                    (status_text)
+                }
+            }
+            td class="py-3 px-3 text-right" {
+                (doc_detail_trigger("cc_detail", c.id, "all", html! { "详情" (icon::arrow_right_icon("w-3 h-3")) },
+                    "inline-flex items-center gap-1 px-3 py-1.5 rounded-sm bg-surface border border-border-soft text-fg-2 text-xs font-semibold cursor-pointer hover:bg-accent-bg hover:border-accent hover:text-accent transition-all"))
+            }
+        }
+    }
+}
+
+/// 盘点状态 → (标签, 语义色 class)。
+fn cc_status_label(s: CycleCountStatus) -> (&'static str, &'static str) {
+    match s {
+        CycleCountStatus::Draft => ("草稿", "bg-surface text-muted"),
+        CycleCountStatus::Counting => ("盘点中", "bg-warn-bg text-warn"),
+        CycleCountStatus::Completed => ("已完成", "bg-accent-bg text-accent"),
+        CycleCountStatus::Adjusted => ("已调整", "bg-accent-bg text-accent"),
+        CycleCountStatus::Cancelled => ("已取消", "bg-danger-bg text-danger"),
+        CycleCountStatus::PendingReview => ("待审批", "bg-warn-bg text-warn"),
+    }
+}
+
+/// 盘点详情 drawer body（替代独立 detail 页，阶段 3.2b 收口）：
+/// 单据头（单号/状态/仓库/日期/盲盘）+ 行项目（系/盘/差三量）+ 就地操作（start/complete/cancel/adjust/approve/reject）。
+/// 注：count（录入实盘量）UI 原详情页未实现，drawer 沿用——明细只读展示。
+async fn cc_detail_drawer_body(
+    state: &AppState,
+    ctx: &ServiceContext,
+    db: PgExecutor<'_>,
+    id: i64,
+    view: Option<&str>,
+) -> Result<Markup> {
+    let cc_svc = state.cycle_count_service();
+    let cc = cc_svc.get(ctx, db, id).await?;
+    let items: Vec<CycleCountItem> = cc_svc.get_items(ctx, db, id).await.unwrap_or_default();
+    let product_map: HashMap<i64, abt_core::master_data::product::model::Product> = state
+        .product_service()
+        .get_by_ids(ctx, db, items.iter().map(|i| i.product_id).collect())
+        .await
+        .unwrap_or_default()
+        .into_iter()
+        .map(|p| (p.product_id, p))
+        .collect();
+    let wh_name = state
+        .warehouse_service()
+        .get(ctx, db, cc.warehouse_id)
+        .await
+        .map(|w| w.name)
+        .unwrap_or_else(|_| "—".into());
+
+    let (status_text, status_cls) = cc_status_label(cc.status);
+    let view_val = view.unwrap_or("pending");
+
+    let mut rows = html! {};
+    for it in &items {
+        let pname = product_map
+            .get(&it.product_id)
+            .map(|p| p.pdt_name.clone())
+            .unwrap_or_else(|| format!("产品 #{}", it.product_id));
+        let pcode = product_map
+            .get(&it.product_id)
+            .map(|p| p.product_code.clone())
+            .unwrap_or_default();
+        let variance_cls =
+            if it.variance_qty == rust_decimal::Decimal::ZERO { "text-muted" } else { "text-warn" };
+        rows = html! {
+            (rows)
+            div class="flex items-center justify-between px-3 py-2 gap-2" {
+                div class="min-w-0" {
+                    div class="text-sm text-fg-2 truncate" { (pname) }
+                    div class="text-xs text-muted truncate" { (pcode) }
+                }
+                div class="text-right shrink-0 text-xs font-mono" {
+                    div class="text-fg" { "系 " (fmt_qty(it.system_qty)) " · 盘 " (fmt_qty(it.counted_qty)) }
+                    div class=(variance_cls) { "差 " (fmt_qty(it.variance_qty)) }
+                }
+            }
+        };
+    }
+
+    let inner = html! {
+        div class="mb-4 pb-4 border-b border-border-soft" {
+            div class="flex items-center gap-2 mb-3" {
+                span class="text-base font-mono font-bold text-fg" { (cc.doc_number) }
+                span class=(format!("inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium {status_cls}")) {
+                    (status_text)
+                }
+            }
+            div class="grid grid-cols-2 gap-x-4 gap-y-2 text-xs" {
+                div {
+                    span class="text-muted" { "盘点仓库 " }
+                    span class="text-fg-2" { (wh_name) }
+                }
+                div {
+                    span class="text-muted" { "盘点日期 " }
+                    span class="font-mono text-fg-2" { (cc.count_date.format("%Y-%m-%d")) }
+                }
+                @if cc.is_blind {
+                    div {
+                        span class="text-muted" { "模式 " }
+                        span class="text-fg-2" { "盲盘" }
+                    }
+                }
+            }
+        }
+        div class="mb-2" {
+            div class="text-xs font-semibold text-muted mb-2" { "明细（" (items.len()) " 项）" }
+            div class="rounded-sm border border-border-soft divide-y divide-border-soft" {
+                @if items.is_empty() {
+                    div class="px-3 py-4 text-center text-sm text-muted" { "暂无明细" }
+                } @else {
+                    (rows)
+                }
+            }
+        }
+        (cc_detail_actions(cc.status, id, view_val))
+    };
+
+    Ok(req_detail_shell("盘点详情", inner))
+}
+
+/// 盘点详情 drawer 操作：Draft→开始/取消，Counting→完成，Completed→调整/取消，
+/// PendingReview→批准/驳回。各自 form 提交单端点（cc_ 前缀 action）。
+fn cc_detail_actions(status: CycleCountStatus, id: i64, view: &str) -> Markup {
+    let open_hs =
+        "on 'htmx:afterRequest'[detail.xhr.status<400] remove .open from #wc-drawer-overlay";
+    let cancel_btn = |confirm: &str| -> Markup {
+        html! {
+            form hx-post=(WmsWorkCenterPath::PATH) hx-target="#wc-domain-card" hx-select="#wc-domain-card"
+                hx-swap="outerHTML" hx-confirm=(confirm) _=(open_hs) class="contents" {
+                input type="hidden" name="action" value="cc_cancel";
+                input type="hidden" name="id" value=(id);
+                input type="hidden" name="view" value=(view);
+                button type="submit"
+                    class="inline-flex items-center gap-1.5 px-4 py-2 rounded-sm bg-white text-fg-2 border border-border text-sm font-medium cursor-pointer hover:bg-surface" {
+                    (icon::x_icon("w-4 h-4")) "取消单据"
+                }
+            }
+        }
+    };
+    let primary_btn = |label: &str, action: &str, confirm: &str, ic: Markup| -> Markup {
+        html! {
+            form hx-post=(WmsWorkCenterPath::PATH) hx-target="#wc-domain-card" hx-select="#wc-domain-card"
+                hx-swap="outerHTML" hx-confirm=(confirm) _=(open_hs) class="contents" {
+                input type="hidden" name="action" value=(action);
+                input type="hidden" name="id" value=(id);
+                input type="hidden" name="view" value=(view);
+                button type="submit"
+                    class="inline-flex items-center gap-1.5 px-4 py-2 rounded-sm bg-accent text-white text-sm font-medium cursor-pointer border-none hover:opacity-90" {
+                    (ic) (label)
+                }
+            }
+        }
+    };
+    match status {
+        CycleCountStatus::Draft => html! {
+            div class="flex justify-end gap-3 mt-5 pt-4 border-t border-border-soft" {
+                (cancel_btn("确定取消此盘点单？"))
+                (primary_btn("开始盘点", "cc_start", "确定开始盘点？", icon::plus_icon("w-4 h-4")))
+            }
+        },
+        CycleCountStatus::Counting => html! {
+            div class="flex justify-end gap-3 mt-5 pt-4 border-t border-border-soft" {
+                (primary_btn("完成盘点", "cc_complete", "确定完成盘点？", icon::check_circle_icon("w-4 h-4")))
+            }
+        },
+        CycleCountStatus::Completed => html! {
+            div class="flex justify-end gap-3 mt-5 pt-4 border-t border-border-soft" {
+                (cancel_btn("确定取消此盘点单？"))
+                (primary_btn("调整库存", "cc_adjust", "确定按差异调整库存？", icon::bolt_icon("w-4 h-4")))
+            }
+        },
+        CycleCountStatus::PendingReview => html! {
+            div class="flex justify-end gap-3 mt-5 pt-4 border-t border-border-soft" {
+                (primary_btn("驳回", "cc_reject", "确定驳回此盘点单？", icon::x_icon("w-4 h-4")))
+                (primary_btn("批准", "cc_approve", "确定批准此盘点单？", icon::check_circle_icon("w-4 h-4")))
+            }
+        },
+        _ => html! {},
+    }
+}
+
 // ── Handlers（单端点）──
 
 /// 作业中心唯一 GET：按 query 分支——drawer body / 卡片 body（懒加载）/ 整页
@@ -915,23 +1196,30 @@ pub async fn post_work_center_action(
         .unwrap_or_default();
 
     let fragment: Markup = if form.view.as_deref() == Some("all")
-        && matches!(domain, WorkCenterDomain::Requisition | WorkCenterDomain::Transfer)
+        && matches!(
+            domain,
+            WorkCenterDomain::Requisition | WorkCenterDomain::Transfer | WorkCenterDomain::CycleCount
+        )
     {
         let q_all = WorkCenterQuery {
             domain: Some(domain_slug(domain).into()),
             view: Some("all".into()),
             ..Default::default()
         };
-        let all_card = if domain == WorkCenterDomain::Requisition {
-            render_requisition_all_card(
+        let all_card = match domain {
+            WorkCenterDomain::Requisition => render_requisition_all_card(
                 &state, &service_ctx, &mut conn, &q_all, 1, &summary, &warehouses,
             )
-            .await?
-        } else {
-            render_transfer_all_card(
+            .await?,
+            WorkCenterDomain::Transfer => render_transfer_all_card(
                 &state, &service_ctx, &mut conn, &q_all, 1, &summary, &warehouses,
             )
-            .await?
+            .await?,
+            WorkCenterDomain::CycleCount => render_cycle_count_all_card(
+                &state, &service_ctx, &mut conn, &q_all, 1, &summary, &warehouses,
+            )
+            .await?,
+            _ => unreachable!(),
         };
         html! {
             (all_card)
@@ -1153,6 +1441,24 @@ async fn dispatch_action(
         "complete" => {
             state.transfer_service().complete(ctx, db, form.id).await?;
         }
+        "cc_start" => {
+            state.cycle_count_service().start_count(ctx, db, form.id).await?;
+        }
+        "cc_complete" => {
+            state.cycle_count_service().complete(ctx, db, form.id).await?;
+        }
+        "cc_cancel" => {
+            state.cycle_count_service().cancel(ctx, db, form.id).await?;
+        }
+        "cc_adjust" => {
+            state.cycle_count_service().adjust(ctx, db, form.id).await?;
+        }
+        "cc_approve" => {
+            state.cycle_count_service().approve(ctx, db, form.id).await?;
+        }
+        "cc_reject" => {
+            state.cycle_count_service().reject(ctx, db, form.id).await?;
+        }
         other => return Err(DomainError::validation(format!("未知作业动作: {other}")).into()),
     }
     Ok(())
@@ -1250,21 +1556,27 @@ async fn render_work_center_page(
         .unwrap_or_default();
 
     // 领料单全部视图（阶段 3.1）：调 material_requisition_service.list 渲染全状态表格
-    let is_all_view = matches!(domain, WorkCenterDomain::Requisition | WorkCenterDomain::Transfer)
-        && q.view.as_deref() == Some("all");
+    let is_all_view = matches!(
+        domain,
+        WorkCenterDomain::Requisition | WorkCenterDomain::Transfer | WorkCenterDomain::CycleCount
+    ) && q.view.as_deref() == Some("all");
 
-    // tab 主体内容：待办队列（list_pending） / 收口 domain 全部表格（req/transfer list）
+    // tab 主体内容：待办队列（list_pending） / 收口 domain 全部表格（req/transfer/cc list）
     let domain_markup: Markup = if is_all_view {
-        if domain == WorkCenterDomain::Requisition {
-            render_requisition_all_card(
+        match domain {
+            WorkCenterDomain::Requisition => render_requisition_all_card(
                 &state, &service_ctx, &mut conn, q, page, &summary, &warehouses,
             )
-            .await?
-        } else {
-            render_transfer_all_card(
+            .await?,
+            WorkCenterDomain::Transfer => render_transfer_all_card(
                 &state, &service_ctx, &mut conn, q, page, &summary, &warehouses,
             )
-            .await?
+            .await?,
+            WorkCenterDomain::CycleCount => render_cycle_count_all_card(
+                &state, &service_ctx, &mut conn, q, page, &summary, &warehouses,
+            )
+            .await?,
+            _ => unreachable!(),
         }
     } else {
         let mut filter = filter_from_query(q);
@@ -1551,6 +1863,9 @@ fn render_task_row(t: &PendingTask, domain: WorkCenterDomain) -> Markup {
                 } @else if domain == WorkCenterDomain::Transfer {
                     (doc_detail_trigger("transfer_detail",t.doc_id, "pending", html! { (t.doc_number) },
                         "font-mono text-accent font-semibold text-sm bg-transparent border-none p-0 cursor-pointer hover:underline"))
+                } @else if domain == WorkCenterDomain::CycleCount {
+                    (doc_detail_trigger("cc_detail",t.doc_id, "pending", html! { (t.doc_number) },
+                        "font-mono text-accent font-semibold text-sm bg-transparent border-none p-0 cursor-pointer hover:underline"))
                 } @else if let Some(url) = domain_detail_url(domain, t.doc_id) {
                     a class="text-accent no-underline hover:underline cursor-pointer" href=(url) { (t.doc_number) }
                 } @else {
@@ -1663,9 +1978,10 @@ fn render_row_action(t: &PendingTask) -> Markup {
         WorkCenterDomain::Transfer => {
             drawer_btn("办理", "transfer", t.doc_id, icon::arrow_right_icon("w-3 h-3"), open_hs)
         }
-        // 待盘点：多状态多动作，跳盘点详情
+        // 盘点：详情 + 操作（start/complete/approve/reject…）走 cc_detail drawer
         WorkCenterDomain::CycleCount => {
-            render_jump_action("盘点", &CycleCountDetailPath { id: t.doc_id }.to_string())
+            doc_detail_trigger("cc_detail", t.doc_id, "pending", html! { "详情" (icon::clipboard_list_icon("w-3 h-3")) },
+                "inline-flex items-center gap-1 px-3 py-1.5 rounded-sm bg-accent text-white text-xs font-semibold cursor-pointer border-none hover:opacity-90")
         }
     }
 }
@@ -1725,6 +2041,7 @@ async fn render_drawer_body(action: &str, id: i64, view: Option<&str>, ctx: Requ
         "issue" => issue_drawer_body(&state, &service_ctx, &mut conn, id).await?,
         "req_detail" => req_detail_drawer_body(&state, &service_ctx, &mut conn, id, view).await?,
         "transfer_detail" => transfer_detail_drawer_body(&state, &service_ctx, &mut conn, id, view).await?,
+        "cc_detail" => cc_detail_drawer_body(&state, &service_ctx, &mut conn, id, view).await?,
         "transfer" => transfer_drawer_body(&state, &service_ctx, &mut conn, id).await?,
         other => return Err(DomainError::validation(format!("未知 drawer 动作: {other}")).into()),
     };

@@ -126,12 +126,29 @@ pub struct WorkCenterSummary {
 
 **改引用**：`wms_transfer_create.rs` redirect 改 `WmsWorkCenterPath?domain=transfer&view=all`。
 
+### 阶段 3.2b（盘点）实施
+
+盘点状态机更丰富（6 状态、6 操作），但 `count`（录入实盘量）UI 原详情页未实现（`service.count` 存在但无 UI 调用），drawer 沿用只读明细——故收口复杂度与调拨同档。
+
+**作业中心 CycleCount 域扩展**（`wms_work_center.rs`）：
+- `view_toggle` / `render_work_center_page` / `post_work_center_action` 的 `is_all_view` 扩展 CycleCount（req/transfer/cc 三域统一）。
+- 新增 `render_cycle_count_all_card` / `_table` / `_row` / `cc_status_label`：调 `cycle_count_service.list` 渲染全状态盘点单表格（`CycleCountFilter` 无 `doc_number` 字段，全部视图暂不提供单号搜索，待 abt-core 补）。
+- 新增 `cc_detail_drawer_body` + `cc_detail_actions`：单据头 + 行项目（系 / 盘 / 差三量）+ 就地操作（Draft→开始 / 取消，Counting→完成，Completed→调整 / 取消，PendingReview→批准 / 驳回）。操作用 `cc_` 前缀 action（`cc_start` / `cc_complete` / `cc_cancel` / `cc_adjust` / `cc_approve` / `cc_reject`），避免与调拨 `complete` / `cancel` 冲突。
+- `dispatch_action` 加 6 个 `cc_` 分支；`action_domain` 加映射。
+- `domain_detail_url` CycleCount→`None`；`domain_entries` 去查看全部；`render_task_row` + `render_row_action` CycleCount→`cc_detail` drawer trigger。
+
+**删除独立页**：`pages/wms_cycle_count_list.rs`、`pages/wms_cycle_count_detail.rs` + `CycleCountListPath` / `CycleCountDetailPath` 路由 + mod 声明。
+
+**改引用**：`wms_cycle_count_create.rs` redirect / 返回链接改 `WmsWorkCenterPath?domain=cycle-count&view=all`。
+
+> 盘点 `count`（录入实盘量）UI 缺失是既有问题（非本阶段引入），建议后续在 `cc_detail` drawer 内补行级录入（仿 pick drawer）。
+
 ### 后续阶段（待 3.1 试点验证后推广）
 
 | 阶段 | 范围 | 删除页面 |
 |---|---|---|
 | 3.2a | 调拨 transfer | list + detail（✅ 已完成，模式同 3.1） |
-| 3.2b | 盘点 cycle_count | list + detail（⏳ 待做：`count` 行级录入 + `adjust` 调库存 + `approve`/`reject` 审批，drawer 化工程较大） |
+| 3.2b | 盘点 cycle_count | list + detail（✅ 已完成；`count` 录入 UI 原未实现，drawer 沿用只读明细 + start/complete/cancel/adjust/approve/reject 操作） |
 | 3.3 | 入库 stock_in | list + detail（create 保留 suggest_bins） |
 | 3.4 | 出库 shipping | list（detail 保留销售依赖） |
 | 3.5（可选） | 新建 drawer 化 | 各 create 页 |
@@ -139,5 +156,5 @@ pub struct WorkCenterSummary {
 > **实施状态（2026-07-02）**：
 > - **阶段 3.1 领料单**收口完成——作业中心承载待办 / 全部视图 + 详情 drawer + 确认 / 取消 / 发料就地操作，独立 list / detail 页与路由已删除，create 页入口收口到作业中心。
 > - **阶段 3.2a 调拨**收口完成——模式同领料单（通用化 `view_toggle` / `doc_detail_trigger` / `is_all_view`），调拨待办 / 全部视图 + 详情 drawer + 取消 / 调出 / 完成就地操作，独立 list / detail 页与路由已删除。
-> - 阶段 3.2b 盘点因 `count` 行级录入 + `adjust` + `approve`/`reject` 审批复杂，待单独评审 / 会话实施。
+> - **阶段 3.2b 盘点**收口完成——6 状态 / 6 操作（`cc_` 前缀避免与调拨冲突），盘点待办 / 全部视图 + 详情 drawer（系 / 盘 / 差三量 + start/complete/cancel/adjust/approve/reject），独立 list / detail 页与路由已删除。`count` 录入 UI 既有缺失，drawer 沿用只读明细。
 > - `cargo clippy -p abt-web` 通过。

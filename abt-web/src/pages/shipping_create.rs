@@ -11,8 +11,9 @@ use abt_core::master_data::customer::CustomerService;
 use abt_core::master_data::product::ProductService;
 use abt_core::sales::sales_order::model::*;
 use abt_core::sales::sales_order::SalesOrderService;
-use abt_core::wms::outbound::model::*;
-use abt_core::wms::outbound::ShippingRequestService;
+use abt_core::wms::picking::model::*;
+use abt_core::wms::picking::PickingService;
+use abt_core::wms::enums::PickingStatus;
 use abt_core::shared::types::PageParams;
 use abt_core::wms::warehouse::model::WarehouseFilter;
 use abt_core::wms::warehouse::WarehouseService;
@@ -222,7 +223,7 @@ pub async fn post_shipping_create(
 ) -> Result<impl IntoResponse> {
  let RequestContext { state, service_ctx, .. } = ctx;
 
- let svc = state.shipping_service();
+ let svc = state.picking_service();
 
  if form.customer_id == 0 {
  return Err(DomainError::validation("请选择客户").into());
@@ -261,15 +262,6 @@ pub async fn post_shipping_create(
      .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
  let id = svc.create_from_order(&service_ctx, &mut tx, req).await?;
 
- let carrier = form.carrier.filter(|s| !s.is_empty());
- let remark = form.remark.filter(|s| !s.is_empty());
- if carrier.is_some() || remark.is_some() {
- svc.update(&service_ctx, &mut tx, id, UpdateShippingReq {
- carrier,
- remark,
- ..Default::default()
- }).await?;
- }
  tx.commit().await
      .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
 
@@ -288,12 +280,12 @@ pub async fn get_shipping_edit(
  let nav_filter = ctx.nav_filter().await;
  let RequestContext { claims, mut conn, state, service_ctx, .. } = ctx;
 
- let shipping_svc = state.shipping_service();
+ let shipping_svc = state.picking_service();
  let customer_svc = state.customer_service();
  let warehouse_svc = state.warehouse_service();
 
  let draft = shipping_svc.find_by_id(&service_ctx, &mut conn, path.id).await?;
- if draft.status != ShippingStatus::Draft {
+ if draft.status != PickingStatus::Draft {
  return Err(DomainError::business_rule("仅草稿状态可以编辑").into());
  }
 
@@ -325,7 +317,7 @@ pub async fn post_save_draft(
  axum::Form(form): axum::Form<ShippingDraftForm>,
 ) -> Result<impl IntoResponse> {
  let RequestContext { state, service_ctx, .. } = ctx;
- let svc = state.shipping_service();
+ let svc = state.picking_service();
 
  let expected_ship_date = form.expected_ship_date
  .and_then(|s| chrono::NaiveDate::parse_from_str(&s, "%Y-%m-%d").ok());
@@ -491,8 +483,8 @@ fn build_order_prefill_json(order: &SalesOrder, rows: &[OrderItemRow]) -> String
 // ── Components ──
 
 fn shipping_edit_page(
- draft: &ShippingRequest,
- items: &[ShippingRequestItem],
+ draft: &StockPicking,
+ items: &[StockPickingItem],
  customers: &[abt_core::master_data::customer::model::Customer],
  warehouses: &[abt_core::wms::warehouse::model::Warehouse],
 ) -> Markup {
@@ -504,21 +496,21 @@ fn shipping_edit_page(
  ).unwrap_or_default();
 
  let draft_id = draft.id;
- let customer_id_str = draft.customer_id.to_string();
- let order_id_str = draft.order_id.map(|id| id.to_string()).unwrap_or_default();
- let expected_ship_date = draft.expected_ship_date.map(|d| d.format("%Y-%m-%d").to_string()).unwrap_or_default();
- let shipping_address = &draft.shipping_address;
- let carrier = &draft.carrier;
- let remark = &draft.remark;
+ let customer_id_str = draft.partner_id.map(|id| id.to_string()).unwrap_or_default();
+ let order_id_str = draft.source_id.map(|id| id.to_string()).unwrap_or_default();
+ let expected_ship_date = draft.scheduled_date.map(|d| d.format("%Y-%m-%d").to_string()).unwrap_or_default();
+ let shipping_address = draft.remark.as_str();
+ let carrier = "";
+ let remark = "";
 
  // 将已有明细行序列化为 JSON，供 JS 前端恢复表格
  let items_json = serde_json::to_string(
  &items.iter().map(|item| serde_json::json!({
- "order_item_id": item.order_item_id,
+ "order_item_id": item.source_item_id,
  "product_id": item.product_id,
- "warehouse_id": item.warehouse_id,
- "requested_qty": item.requested_qty.to_string(),
- "description": &item.description,
+ "warehouse_id": 0,
+ "requested_qty": item.qty_requested.to_string(),
+ "description": "",
  })).collect::<Vec<_>>()
  ).unwrap_or_default();
 
@@ -562,7 +554,7 @@ fn shipping_edit_page(
                         {
                             option value="" { "请选择客户" }
                             @for c in customers {
-                                option value=(c.id) selected[draft.customer_id == c.id] { (c.name) }
+                                option value=(c.id) selected[draft.partner_id == Some(c.id)] { (c.name) }
                             }
                         }
                     }

@@ -205,12 +205,6 @@ impl AppState {
         abt_core::sales::sales_order::new_demand_service(self.pool.clone())
     }
 
-    pub fn shipping_service(
-        &self,
-    ) -> impl abt_core::wms::outbound::ShippingRequestService {
-        abt_core::wms::outbound::new_shipping_request_service(self.pool.clone())
-    }
-
     pub fn warehouse_service(&self) -> impl abt_core::wms::warehouse::WarehouseService {
         abt_core::wms::warehouse::new_warehouse_service(self.pool.clone())
     }

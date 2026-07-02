@@ -62,7 +62,7 @@ impl PickingRepo {
         Ok(picking)
     }
 
-    async fn insert_item(
+    pub async fn insert_item(
         executor: &mut sqlx::postgres::PgConnection,
         picking_id: i64,
         item: &CreatePickingItemReq,
@@ -187,6 +187,26 @@ impl PickingRepo {
         Ok(result.rows_affected())
     }
 
+    /// 更新发货仓库（OutgoingSales direct_ship 选仓：销售申请时 from_warehouse=None，发货时填入）
+    pub async fn update_from_warehouse(
+        executor: &mut sqlx::postgres::PgConnection,
+        id: i64,
+        warehouse_id: i64,
+    ) -> Result<u64> {
+        let result = sqlx::query(
+            r#"
+            UPDATE stock_pickings
+            SET from_warehouse_id = $2, updated_at = NOW()
+            WHERE id = $1 AND deleted_at IS NULL
+            "#,
+        )
+        .bind(id)
+        .bind(warehouse_id)
+        .execute(&mut *executor)
+        .await?;
+        Ok(result.rows_affected())
+    }
+
     /// 标记完成：status = Done + done_at = NOW()
     pub async fn set_done(
         executor: &mut sqlx::postgres::PgConnection,
@@ -205,6 +225,57 @@ impl PickingRepo {
         .await?;
 
         Ok(result.rows_affected())
+    }
+
+    /// 软删除（仅 Draft；UPDATE deleted_at）
+    pub async fn soft_delete(
+        executor: &mut sqlx::postgres::PgConnection,
+        id: i64,
+    ) -> Result<u64> {
+        let result = sqlx::query(
+            "UPDATE stock_pickings SET deleted_at = NOW(), updated_at = NOW() WHERE id = $1 AND deleted_at IS NULL",
+        )
+        .bind(id)
+        .execute(&mut *executor)
+        .await?;
+        Ok(result.rows_affected())
+    }
+
+    /// 草稿专用：删除 picking 所有明细（全量替换前）
+    pub async fn delete_items(
+        executor: &mut sqlx::postgres::PgConnection,
+        picking_id: i64,
+    ) -> Result<u64> {
+        let result = sqlx::query("DELETE FROM stock_picking_items WHERE picking_id = $1")
+            .bind(picking_id)
+            .execute(&mut *executor)
+            .await?;
+        Ok(result.rows_affected())
+    }
+
+    /// 草稿专用：全量更新主表字段（source_id/partner_id/scheduled_date/remark）
+    pub async fn update_draft_fields(
+        executor: &mut sqlx::postgres::PgConnection,
+        id: i64,
+        source_id: Option<i64>,
+        partner_id: Option<i64>,
+        scheduled_date: Option<chrono::NaiveDate>,
+        remark: &str,
+    ) -> Result<()> {
+        sqlx::query(
+            r#"UPDATE stock_pickings
+               SET source_id = $2, partner_id = COALESCE($3, partner_id),
+                   scheduled_date = $4, remark = $5, updated_at = NOW()
+               WHERE id = $1 AND deleted_at IS NULL"#,
+        )
+        .bind(id)
+        .bind(source_id)
+        .bind(partner_id)
+        .bind(scheduled_date)
+        .bind(remark)
+        .execute(&mut *executor)
+        .await?;
+        Ok(())
     }
 
     /// 更新明细行级实绩（done / issue 时按行写回 qty_done + 库位）
@@ -297,6 +368,10 @@ impl PickingRepo {
             param_idx += 1;
             where_clauses.push(format!("p.work_order_id = ${param_idx}"));
         }
+        if filter.partner_id.is_some() {
+            param_idx += 1;
+            where_clauses.push(format!("p.partner_id = ${param_idx}"));
+        }
 
         let where_sql = where_clauses.join(" AND ");
         let limit_idx = param_idx + 1;
@@ -339,6 +414,10 @@ impl PickingRepo {
             data_q = data_q.bind(v);
         }
         if let Some(v) = filter.work_order_id {
+            count_q = count_q.bind(v);
+            data_q = data_q.bind(v);
+        }
+        if let Some(v) = filter.partner_id {
             count_q = count_q.bind(v);
             data_q = data_q.bind(v);
         }

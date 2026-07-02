@@ -36,15 +36,15 @@ struct SimpleDomainCfg {
 fn simple_cfg(domain: WorkCenterDomain) -> SimpleDomainCfg {
     match domain {
         WorkCenterDomain::Outbound => SimpleDomainCfg {
-            table: "shipping_requests",
-            statuses: &[2], // Confirmed（待发货；拣货移除后无 Picking 中间态）
-            expected_display: "t.expected_ship_date",
-            expected_urgency: "t.expected_ship_date",
+            table: "stock_pickings",
+            statuses: &[2], // Confirmed（待发货）
+            expected_display: "t.scheduled_date",
+            expected_urgency: "t.scheduled_date",
             has_deleted_at: true,
-            join: "LEFT JOIN customers c ON c.customer_id = t.customer_id AND c.deleted_at IS NULL",
+            join: "LEFT JOIN customers c ON c.customer_id = t.partner_id AND c.deleted_at IS NULL",
             counterparty: "c.customer_name",
             summary: "'待发货'",
-            extra_where: "",
+            extra_where: " AND t.picking_type = 3", // OutgoingSales
         },
         WorkCenterDomain::Requisition => SimpleDomainCfg {
             table: "stock_pickings",

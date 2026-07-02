@@ -123,7 +123,7 @@ async fn find_draft_transfer(app: &TestApp, from_wh: i64, to_wh: i64) -> StockPi
         status: Some(PickingStatus::Draft),
         ..Default::default()
     };
-    let res = svc.list(&ctx, &mut conn, filter, 1, 50).await.unwrap();
+    let res = svc.list(&ctx, &mut conn, filter, abt_core::shared::types::pagination::PageParams::new(1, 50)).await.unwrap();
     res.items
         .into_iter()
         .find(|t| t.from_warehouse_id == Some(from_wh) && t.to_warehouse_id == Some(to_wh))
@@ -928,7 +928,7 @@ async fn find_requisition(app: &TestApp, _wh: i64, status: PickingStatus) -> Opt
     let ctx = ServiceContext::new(1);
     let mut conn = app.state.pool.acquire().await.unwrap();
     let res = svc
-        .list(&ctx, &mut conn, PickingFilter { picking_type: Some(PickingType::InternalIssue), status: Some(status), ..Default::default() }, 1, 50)
+        .list(&ctx, &mut conn, PickingFilter { picking_type: Some(PickingType::InternalIssue), status: Some(status), ..Default::default() }, abt_core::shared::types::pagination::PageParams::new(1, 50))
         .await
         .unwrap();
     res.items.first().map(|r| r.id)

@@ -50,9 +50,9 @@ pub async fn search_material_requisitions(
                 source_type: None,
                 source_id: None,
                 work_order_id: None,
+                partner_id: None,
             },
-            1,
-            30,
+            abt_core::shared::types::pagination::PageParams::new(1, 30),
         )
         .await?;
     let target = params.target_id.as_deref().unwrap_or("mr-id-hidden");

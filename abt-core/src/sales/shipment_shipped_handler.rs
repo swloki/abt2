@@ -19,7 +19,7 @@ use crate::fms::ar_ap::{new_ar_ap_service, service::ArApService};
 use crate::fms::enums::CounterpartyType;
 use crate::master_data::customer::{new_customer_service, service::CustomerService};
 use crate::sales::sales_order::{new_sales_order_service, service::SalesOrderService};
-use crate::wms::outbound::{new_shipping_request_service, service::ShippingRequestService};
+use crate::wms::picking::{new_picking_service, service::PickingService};
 use crate::shared::cost_entry::model::EntryRequest;
 use crate::shared::cost_entry::{new_cost_entry_service, service::CostEntryService};
 use crate::shared::enums::DocumentType;
@@ -73,7 +73,7 @@ impl EventHandler for ShipmentShippedHandler {
             .map_err(|e| DomainError::Internal(e.into()))?;
 
         // 经 trait 取发货明细 / 订单明细 / 客户（禁止跨域 repo 直访）
-        let shipping_items = new_shipping_request_service(self.pool.clone())
+        let shipping_items = new_picking_service(self.pool.clone())
             .list_items(&ctx, &mut conn, id)
             .await?;
         let order_items = new_sales_order_service(self.pool.clone())
@@ -91,10 +91,10 @@ impl EventHandler for ShipmentShippedHandler {
         for ship_item in &shipping_items {
             let unit_cost = order_items
                 .iter()
-                .find(|oi| oi.id == ship_item.order_item_id)
+                .find(|oi| oi.id == ship_item.source_item_id.unwrap_or(0))
                 .map(|oi| oi.unit_cost)
                 .unwrap_or(Decimal::ZERO);
-            let cogs = ship_item.requested_qty * unit_cost;
+            let cogs = ship_item.qty_requested * unit_cost;
             if cogs > Decimal::ZERO {
                 cost_entries.push(EntryRequest {
                     entity_type: CostEntityType::SalesOrder,
@@ -122,8 +122,8 @@ impl EventHandler for ShipmentShippedHandler {
             .filter_map(|si| {
                 order_items
                     .iter()
-                    .find(|oi| oi.id == si.order_item_id)
-                    .map(|oi| si.requested_qty * oi.unit_price)
+                    .find(|oi| oi.id == si.source_item_id.unwrap_or(0))
+                    .map(|oi| si.qty_requested * oi.unit_price)
             })
             .sum();
 

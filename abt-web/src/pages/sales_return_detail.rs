@@ -10,7 +10,7 @@ use abt_core::master_data::product::ProductService;
 use abt_core::sales::sales_order::SalesOrderService;
 use abt_core::sales::sales_return::SalesReturnService;
 use abt_core::sales::sales_return::model::*;
-use abt_core::wms::outbound::ShippingRequestService;
+use abt_core::wms::picking::PickingService;
 use abt_core::shared::identity::UserService;
 use abt_core::shared::types::PgExecutor;
 use abt_core::shared::types::ServiceContext;
@@ -95,7 +95,7 @@ pub async fn get_return_detail(
 
  // Resolve shipping number
  let shipping_number = state
- .shipping_service()
+ .picking_service()
  .find_by_id(&service_ctx, &mut conn, ret.shipping_request_id)
  .await
  .map(|s| s.doc_number)

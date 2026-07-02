@@ -112,6 +112,7 @@ pub struct PickingFilter {
     pub source_type: Option<String>,
     pub source_id: Option<i64>,
     pub work_order_id: Option<i64>,
+    pub partner_id: Option<i64>,
 }
 
 // ── 领料专用请求（从 material_requisition 迁入，字段保持兼容调用方）──
@@ -161,4 +162,91 @@ pub struct ReturnItemReq {
     pub item_id: i64,
     pub return_qty: Decimal,
     pub bin_id: Option<i64>,
+}
+
+// ── 发货专用请求/响应（OutgoingSales，从 ShippingRequestService 迁入，#146 阶段 4b）──
+
+/// 从订单正式创建发货 picking（Draft，需 confirm；要求 order_id）
+#[derive(Debug, Clone)]
+pub struct CreateFromOrderReq {
+    pub order_id: i64,
+    pub expected_ship_date: Option<NaiveDate>,
+    pub shipping_address: Option<String>,
+    pub items: Vec<CreateShippingItemReq>,
+}
+
+/// 创建发货明细请求（正式创建，从订单行关联）
+#[derive(Debug, Clone)]
+pub struct CreateShippingItemReq {
+    pub order_item_id: i64,
+    pub warehouse_id: Option<i64>,
+    pub requested_qty: Decimal,
+}
+
+/// 一键申请发货行（订单详情页弹窗提交，销售不指定仓库；仓库由发货 direct_ship 时选）
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct RequestShippingItemReq {
+    pub order_item_id: i64,
+    pub requested_qty: Decimal,
+}
+
+/// 发货 Hub 摘要（首屏轻量查询，含缺货 ATP 判定）
+#[derive(Debug, Clone)]
+pub struct ShippingHubSummary {
+    pub pending_ship_qty: Decimal,        // 待发 Σ qty_requested
+    pub shipped_qty: Decimal,             // 已发 Σ qty_done
+    pub shortage: Option<ShortageSignal>, // 缺货红点；None = 无缺货
+}
+
+/// 缺货信号（ATP < 待发量）。product_name 为 MVP 占位，前端可按 product_id 解析真实名。
+#[derive(Debug, Clone)]
+pub struct ShortageSignal {
+    pub product_id: i64,
+    pub product_name: String,
+    pub requested_qty: Decimal,
+    pub available_qty: Decimal, // ATP 口径（InventoryTransactionService::query_available）
+}
+
+// ── 草稿专用（OutgoingSales 草稿，从 outbound 迁入，#146 阶段 4b）──
+
+/// 草稿创建请求（宽松校验，仅要求 customer_id）
+#[derive(Debug, Clone)]
+pub struct CreateDraftReq {
+    pub customer_id: i64,
+    pub order_id: Option<i64>,
+    pub expected_ship_date: Option<NaiveDate>,
+    pub shipping_address: Option<String>,
+    pub carrier: Option<String>,
+    pub remark: Option<String>,
+    pub items: Vec<CreateDraftItemReq>,
+}
+
+#[derive(Debug, Clone)]
+pub struct CreateDraftItemReq {
+    pub order_item_id: Option<i64>,
+    pub product_id: Option<i64>,
+    pub warehouse_id: Option<i64>,
+    pub requested_qty: Decimal,
+    pub description: String,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct UpdateDraftReq {
+    pub customer_id: Option<i64>,
+    pub order_id: Option<i64>,
+    pub expected_ship_date: Option<NaiveDate>,
+    pub shipping_address: Option<String>,
+    pub carrier: Option<String>,
+    pub remark: Option<String>,
+    pub items: Option<Vec<CreateDraftItemReq>>,
+}
+
+/// 明细行批量插入输入（草稿 resolve_draft_items 用）
+pub struct ShippingItemInput {
+    pub line_no: i32,
+    pub order_item_id: i64,
+    pub product_id: i64,
+    pub warehouse_id: Option<i64>,
+    pub requested_qty: Decimal,
+    pub description: String,
 }

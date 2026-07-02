@@ -7,7 +7,7 @@ use maud::{html, Markup};
 use abt_core::sales::reconciliation::model::*;
 use abt_core::sales::reconciliation::ReconciliationService;
 use abt_core::sales::sales_order::SalesOrderService;
-use abt_core::wms::outbound::ShippingRequestService;
+use abt_core::wms::picking::PickingService;
 use abt_core::master_data::customer::CustomerService;
 use abt_core::master_data::product::ProductService;
 use abt_core::shared::identity::UserService;
@@ -54,7 +54,7 @@ pub async fn get_reconciliation_detail(
  let reconciliation_svc = state.reconciliation_service();
  let customer_svc = state.customer_service();
  let order_svc = state.sales_order_service();
- let shipping_svc = state.shipping_service();
+ let shipping_svc = state.picking_service();
  let product_svc = state.product_service();
  let user_svc = state.user_service();
 

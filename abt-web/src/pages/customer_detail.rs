@@ -8,7 +8,8 @@ use abt_core::master_data::customer::CustomerService;
 use abt_core::master_data::customer::model::*;
 use abt_core::sales::quotation::{QuotationService, model::{QuotationQuery, QuotationStatus}};
 use abt_core::sales::sales_order::{SalesOrderService, model::{SalesOrderQuery, SalesOrderStatus}};
-use abt_core::wms::outbound::{ShippingRequestService, model::{ShippingQuery, ShippingStatus}};
+use abt_core::wms::picking::{PickingService, model::PickingFilter};
+use abt_core::wms::enums::{PickingStatus, PickingType};
 use abt_core::sales::sales_return::{SalesReturnService, model::{ReturnQuery, ReturnStatus}};
 use abt_core::shared::types::{PageParams, PgExecutor};
 
@@ -84,14 +85,14 @@ async fn fetch_transactions(
  }
 
  // Shipping Requests
- let s_svc = state.shipping_service();
- if let Ok(page) = s_svc.list(service_ctx, db, ShippingQuery { customer_id: Some(customer_id), ..Default::default() }, PageParams::new(1, 200)).await {
+ let s_svc = state.picking_service();
+ if let Ok(page) = s_svc.list(service_ctx, db, PickingFilter { partner_id: Some(customer_id), picking_type: Some(PickingType::OutgoingSales), ..Default::default() }, PageParams::new(1, 200)).await {
  for s in &page.items {
  txns.push(TransactionRecord {
  doc_number: s.doc_number.clone(),
  tx_type: TxType::Shipping,
- status_label: match s.status { ShippingStatus::Draft => "草稿", ShippingStatus::Confirmed => "已确认", ShippingStatus::Picking => "拣货中", ShippingStatus::Shipped => "已发出", ShippingStatus::Cancelled => "已取消" },
- status_class: match s.status { ShippingStatus::Draft => "status-draft", ShippingStatus::Confirmed => "status-confirmed", ShippingStatus::Picking => "status-picking", ShippingStatus::Shipped => "status-shipped", ShippingStatus::Cancelled => "status-cancelled" },
+ status_label: match s.status { PickingStatus::Draft => "草稿", PickingStatus::Confirmed => "已确认", PickingStatus::Done => "已发货", PickingStatus::Cancelled => "已取消" },
+ status_class: match s.status { PickingStatus::Draft => "status-draft", PickingStatus::Confirmed => "status-confirmed", PickingStatus::Done => "status-shipped", PickingStatus::Cancelled => "status-cancelled" },
  amount: None,
  date: s.created_at.date_naive(),
  });

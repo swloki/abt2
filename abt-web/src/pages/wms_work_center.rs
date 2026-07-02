@@ -9,8 +9,6 @@ use abt_core::wms::enums::{CycleCountStatus, PickingStatus, PickingType};
 use abt_core::wms::picking::{
     IssueItemReq, IssueMaterialReq, PickingFilter, PickingService, StockPicking,
 };
-use abt_core::wms::outbound::model::{ShippingQuery, ShippingRequest, ShippingStatus};
-use abt_core::wms::outbound::ShippingRequestService;
 use abt_core::wms::cycle_count::model::{CycleCount, CycleCountFilter, CycleCountItem};
 use abt_core::wms::cycle_count::CycleCountService;
 use abt_core::wms::warehouse::model::{Warehouse, WarehouseFilter};
@@ -282,9 +280,10 @@ async fn render_requisition_all_card(
         source_type: None,
         source_id: None,
         work_order_id: None,
+        partner_id: None,
     };
     let result = req_svc
-        .list(ctx, db, filter, page, DOMAIN_PAGE_SIZE)
+        .list(ctx, db, filter, abt_core::shared::types::pagination::PageParams::new(page, DOMAIN_PAGE_SIZE))
         .await?;
     let wh_map: HashMap<i64, String> =
         warehouses.iter().map(|w| (w.id, w.name.clone())).collect();
@@ -612,9 +611,10 @@ async fn render_transfer_all_card(
         source_type: None,
         source_id: None,
         work_order_id: None,
+        partner_id: None,
     };
     let result = trf_svc
-        .list(ctx, db, filter, page, DOMAIN_PAGE_SIZE)
+        .list(ctx, db, filter, abt_core::shared::types::pagination::PageParams::new(page, DOMAIN_PAGE_SIZE))
         .await?;
     let wh_map: HashMap<i64, String> =
         warehouses.iter().map(|w| (w.id, w.name.clone())).collect();
@@ -1154,17 +1154,16 @@ async fn render_shipping_all_card(
     summary: &WorkCenterSummary,
     _warehouses: &[Warehouse],
 ) -> Result<Markup> {
-    let ship_svc = state.shipping_service();
-    let filter = ShippingQuery {
-        keyword: q
+    let ship_svc = state.picking_service();
+    let filter = PickingFilter {
+        doc_number: q
             .keyword
             .as_deref()
             .map(str::trim)
             .filter(|s| !s.is_empty())
             .map(String::from),
-        status: None,
-        order_id: None,
-        customer_id: None,
+        picking_type: Some(PickingType::OutgoingSales),
+        ..Default::default()
     };
     let result = ship_svc
         .list(ctx, db, filter, PageParams::new(page, DOMAIN_PAGE_SIZE))
@@ -1174,7 +1173,7 @@ async fn render_shipping_all_card(
         &customer_svc,
         ctx,
         db,
-        result.items.iter().map(|i| i.customer_id),
+        result.items.iter().filter_map(|i| i.partner_id),
     )
     .await;
     let kw = q.keyword.as_deref().unwrap_or("");
@@ -1223,7 +1222,7 @@ async fn render_shipping_all_card(
     })
 }
 
-fn render_shipping_all_table(items: &[ShippingRequest], customer_names: &HashMap<i64, String>) -> Markup {
+fn render_shipping_all_table(items: &[StockPicking], customer_names: &HashMap<i64, String>) -> Markup {
     if items.is_empty() {
         return html! {
             div class="mt-2 p-4 text-center text-sm text-muted bg-surface rounded-md" { "暂无发货单" }
@@ -1249,9 +1248,9 @@ fn render_shipping_all_table(items: &[ShippingRequest], customer_names: &HashMap
     }
 }
 
-fn render_shipping_all_row(s: &ShippingRequest, customer_names: &HashMap<i64, String>) -> Markup {
+fn render_shipping_all_row(s: &StockPicking, customer_names: &HashMap<i64, String>) -> Markup {
     let (status_text, status_cls) = shipping_status_label(s.status);
-    let customer = customer_names.get(&s.customer_id).map(|n| n.as_str()).unwrap_or("—");
+    let customer = s.partner_id.and_then(|cid| customer_names.get(&cid)).map(|n| n.as_str()).unwrap_or("—");
     let detail = ShippingDetailPath { id: s.id }.to_string();
     html! {
         tr class="border-b border-border-soft last:border-b-0" {
@@ -1260,7 +1259,7 @@ fn render_shipping_all_row(s: &ShippingRequest, customer_names: &HashMap<i64, St
             }
             td class="py-3 px-3 text-sm text-fg-2" { (customer) }
             td class="py-3 px-3 text-sm font-mono text-muted" {
-                (s.expected_ship_date.map(|d| d.format("%m-%d").to_string()).unwrap_or_else(|| "—".into()))
+                (s.scheduled_date.map(|d| d.format("%m-%d").to_string()).unwrap_or_else(|| "—".into()))
             }
             td class="py-3 px-3" {
                 span class=(format!("inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium {status_cls}")) {
@@ -1278,13 +1277,12 @@ fn render_shipping_all_row(s: &ShippingRequest, customer_names: &HashMap<i64, St
 }
 
 /// 出库状态 → (标签, 语义色 class)。
-fn shipping_status_label(s: ShippingStatus) -> (&'static str, &'static str) {
+fn shipping_status_label(s: PickingStatus) -> (&'static str, &'static str) {
     match s {
-        ShippingStatus::Draft => ("待审核", "bg-surface text-muted"),
-        ShippingStatus::Confirmed => ("已确认", "bg-accent-bg text-accent"),
-        ShippingStatus::Picking => ("拣货中", "bg-warn-bg text-warn"),
-        ShippingStatus::Shipped => ("已发货", "bg-accent-bg text-accent"),
-        ShippingStatus::Cancelled => ("已取消", "bg-danger-bg text-danger"),
+        PickingStatus::Draft => ("待审核", "bg-surface text-muted"),
+        PickingStatus::Confirmed => ("已确认", "bg-accent-bg text-accent"),
+        PickingStatus::Done => ("已发货", "bg-accent-bg text-accent"),
+        PickingStatus::Cancelled => ("已取消", "bg-danger-bg text-danger"),
     }
 }
 
@@ -1519,7 +1517,7 @@ async fn dispatch_action(
         "direct_ship" => {
             // 直接发（Confirmed 待发货单）：仓库由选仓 drawer 传入
             let warehouse_id = parse_warehouse(form)?;
-            state.shipping_service().direct_ship(ctx, db, form.id, warehouse_id, None).await?;
+            state.picking_service().direct_ship(ctx, db, form.id, warehouse_id, None).await?;
         }
         "batch_ship" => {
             // 批量直接发（待发货单）：循环 direct_ship，外层 tx 任一失败 → 整体回滚
@@ -1529,7 +1527,7 @@ async fn dispatch_action(
             }
             let warehouse_id = parse_warehouse(form)?;
             for id in ids {
-                state.shipping_service().direct_ship(ctx, db, id, warehouse_id, None).await?;
+                state.picking_service().direct_ship(ctx, db, id, warehouse_id, None).await?;
             }
         }
         "confirm" => {
@@ -2441,9 +2439,9 @@ async fn direct_ship_drawer_body(
     db: PgExecutor<'_>,
     id: i64,
 ) -> Result<Markup> {
-    let s = state.shipping_service().find_by_id(ctx, db, id).await?;
+    let s = state.picking_service().find_by_id(ctx, db, id).await?;
     // 仅 Confirmed（待发货）单可直发；其他状态引导走详情
-    if s.status != ShippingStatus::Confirmed {
+    if s.status != PickingStatus::Confirmed {
         return Ok(drawer_message(
             "发货",
             "发货单",
@@ -2453,7 +2451,7 @@ async fn direct_ship_drawer_body(
             "去详情页",
         ));
     }
-    let items = state.shipping_service().list_items(ctx, db, id).await.unwrap_or_default();
+    let items = state.picking_service().list_items(ctx, db, id).await.unwrap_or_default();
     let product_map: HashMap<i64, abt_core::master_data::product::model::Product> = state
         .product_service()
         .get_by_ids(ctx, db, items.iter().map(|i| i.product_id).collect())
@@ -2468,7 +2466,7 @@ async fn direct_ship_drawer_body(
         .await
         .map(|r| r.items)
         .unwrap_or_default();
-    let total_qty: Decimal = items.iter().map(|i| i.requested_qty).sum();
+    let total_qty: Decimal = items.iter().map(|i| i.qty_requested).sum();
 
     let mut rows = html! {};
     for it in &items {
@@ -2480,7 +2478,7 @@ async fn direct_ship_drawer_body(
             (rows)
             div class="flex items-center justify-between px-3 py-2 gap-2" {
                 div class="text-sm text-fg-2 truncate" { (prod_name) }
-                span class="text-sm font-mono text-muted shrink-0" { (fmt_qty(it.requested_qty)) }
+                span class="text-sm font-mono text-muted shrink-0" { (fmt_qty(it.qty_requested)) }
             }
         };
     }

@@ -836,6 +836,12 @@ fn render_convert_po_body(
         .map(|d| d.product_code.as_str())
         .unwrap_or("");
     let total_qty: rust_decimal::Decimal = demands.iter().map(|d| d.quantity).sum();
+    // 默认供应商：优选报价供应商（采购员可用 supplier_search 改选任意供应商）
+    let preferred = quotes.iter().find(|q| q.is_preferred);
+    let default_sid = preferred.map(|q| q.supplier_id.to_string()).unwrap_or_default();
+    let default_name = preferred
+        .and_then(|q| supplier_names.get(&q.supplier_id))
+        .cloned();
     html! {
         div class="mb-4" {
             div class="font-semibold text-fg text-sm" { (product_name) }
@@ -845,54 +851,54 @@ fn render_convert_po_body(
             (field_readonly("待转需求数", &format!("{}", demands.len())));
             (field_readonly("总需求量", &fmt_plain(total_qty)));
         }
-        div class="mb-4" {
-            label class="block text-xs text-muted font-medium mb-1.5" { "选择供应商" }
-            @if quotes.is_empty() {
-                div class="p-3 mb-2 bg-warn-bg border border-border-soft rounded-sm text-xs text-warn leading-relaxed" {
-                    "该物料暂无有效报价，将生成单价待补的 PO 草稿。请输入供应商 ID："
-                }
-                input type="number" name="supplier_id" required
-                    class="w-full px-2.5 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent"
-                    placeholder="供应商 ID" {};
-            } @else {
-                div class="flex flex-col gap-2" {
+        div class="mb-1.5 text-xs text-muted font-medium" { "选择供应商 *" }
+        form hx-post=(PcConvertPoPath { product_id }.to_string())
+            hx-target="this" hx-swap="none"
+            _="on 'htmx:afterRequest'[detail.xhr.status < 400] remove .open from #convert-po-overlay then call showToast('PO 草稿已生成，单价待补充')" {
+            input type="hidden" name="demand_ids" value=(demand_ids_str) {};
+            (crate::components::supplier_search::supplier_search_field(
+                "pc-convert-sup", "pc-convert-sup-display", "pc-convert-sup-panel", "pc-convert-sup-results",
+                "supplier_id", &default_sid, default_name.as_deref(), "供应商",
+                true, "w-full", None,
+            ))
+            // 报价参考（辅助决策，不限制选择）
+            @if !quotes.is_empty() {
+                div class="mt-2 flex flex-col gap-1" {
                     @for q in quotes {
-                        label class="flex items-center gap-2 p-2.5 border border-border-soft rounded-sm cursor-pointer hover:bg-accent-bg text-sm" {
-                            input type="radio" name="supplier_id" value=(q.supplier_id) required class="cursor-pointer" {};
-                            span class="flex-1 text-fg" {
+                        div class="flex items-center gap-2 px-2 py-1 text-xs bg-surface-raised border border-border-soft rounded-sm" {
+                            span class="flex-1 text-fg truncate" {
                                 (supplier_names.get(&q.supplier_id).map(|s| s.as_str()).unwrap_or("未知供应商"))
                                 @if q.is_preferred {
                                     span class="ml-1 px-1.5 py-0.5 rounded-full bg-success-bg text-success text-[10px] font-semibold" { "优选" }
                                 }
                             }
-                            span class="font-mono text-fg-2" { (fmt_plain(q.unit_price)) " " (q.currency) }
-                            span class="text-xs text-muted" { "有效期至 " (q.valid_until.format("%Y-%m-%d").to_string()) }
+                            span class="font-mono text-fg-2 whitespace-nowrap" { (fmt_plain(q.unit_price)) " " (q.currency) }
+                            span class="text-muted whitespace-nowrap" { "至 " (q.valid_until.format("%Y-%m-%d").to_string()) }
                         }
                     }
                 }
+            } @else {
+                div class="mt-2 p-2 bg-warn-bg border border-border-soft rounded-sm text-xs text-warn leading-relaxed" {
+                    "该物料暂无有效报价，将生成单价待补的 PO 草稿。"
+                }
             }
-        }
-        div class="grid grid-cols-2 gap-4 mb-4" {
-            div {
-                label class="block text-xs text-muted font-medium mb-1.5" { "期望交期（可选）" }
-                input type="date" name="expected_delivery_date"
-                    class="w-full px-2.5 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent" {};
+            div class="grid grid-cols-2 gap-4 mt-4 mb-4" {
+                div {
+                    label class="block text-xs text-muted font-medium mb-1.5" { "期望交期（可选）" }
+                    input type="date" name="expected_delivery_date"
+                        class="w-full px-2.5 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent" {};
+                }
+                div {
+                    label class="block text-xs text-muted font-medium mb-1.5" { "备注" }
+                    input type="text" name="remark"
+                        class="w-full px-2.5 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent" {};
+                }
             }
-            div {
-                label class="block text-xs text-muted font-medium mb-1.5" { "备注" }
-                input type="text" name="remark"
-                    class="w-full px-2.5 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent" {};
+            div class="p-3 mb-3 bg-surface-raised border border-border-soft rounded-sm text-xs text-muted leading-relaxed" {
+                "提交后生成 PO 草稿：按 " (demands.len()) " 个需求聚合 "
+                (fmt_plain(total_qty)) " " (product_code)
+                "；单价待采购员在 PO 详情补充后 confirm。"
             }
-        }
-        div class="p-3 mb-3 bg-surface-raised border border-border-soft rounded-sm text-xs text-muted leading-relaxed" {
-            "提交后生成 PO 草稿：按 " (demands.len()) " 个需求聚合 "
-            (fmt_plain(total_qty)) " " (product_code)
-            "；单价待采购员在 PO 详情补充后 confirm。"
-        }
-        form hx-post=(PcConvertPoPath { product_id }.to_string())
-            hx-target="this" hx-swap="none"
-            _="on 'htmx:afterRequest'[detail.xhr.status < 400] remove .open from #convert-po-overlay then call showToast('PO 草稿已生成，单价待补充')" {
-            input type="hidden" name="demand_ids" value=(demand_ids_str) {};
             div class="flex justify-end gap-2 pt-3 border-t border-border-soft" {
                 button type="submit" class="inline-flex items-center px-4 py-2 rounded-sm bg-accent text-white text-sm font-semibold border-none cursor-pointer hover:opacity-90" {
                     "生成 PO 草稿"
@@ -921,27 +927,27 @@ fn render_batch_convert_body(supplier_id: i64, supplier: &str, demands: &[Demand
             (field_readonly("涉及物料", &format!("{} 个", product_count)));
             (field_readonly("总量", &fmt_plain(total_qty)));
         }
-        div class="grid grid-cols-2 gap-4 mb-4" {
-            div {
-                label class="block text-xs text-muted font-medium mb-1.5" { "期望交期（可选）" }
-                input type="date" name="expected_delivery_date"
-                    class="w-full px-2.5 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent" {};
-            }
-            div {
-                label class="block text-xs text-muted font-medium mb-1.5" { "备注" }
-                input type="text" name="remark"
-                    class="w-full px-2.5 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent" {};
-            }
-        }
-        div class="p-3 mb-3 bg-surface-raised border border-border-soft rounded-sm text-xs text-muted leading-relaxed" {
-            "提交后生成同一供应商的一张 PO 草稿：按 " (product_count) " 个物料聚合 "
-            (fmt_plain(total_qty)) "（" (demands.len()) " 条需求）；单价待采购员在 PO 详情补充后 confirm。"
-        }
         form hx-post=(PcBatchConvertPath::PATH)
             hx-target="this" hx-swap="none"
             _="on 'htmx:afterRequest'[detail.xhr.status < 400] remove .open from #convert-po-overlay then call showToast('PO 草稿已生成，单价待补充')" {
             input type="hidden" name="demand_ids" value=(demand_ids_str) {};
             input type="hidden" name="supplier_id" value=(supplier_id) {};
+            div class="grid grid-cols-2 gap-4 mb-4" {
+                div {
+                    label class="block text-xs text-muted font-medium mb-1.5" { "期望交期（可选）" }
+                    input type="date" name="expected_delivery_date"
+                        class="w-full px-2.5 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent" {};
+                }
+                div {
+                    label class="block text-xs text-muted font-medium mb-1.5" { "备注" }
+                    input type="text" name="remark"
+                        class="w-full px-2.5 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent" {};
+                }
+            }
+            div class="p-3 mb-3 bg-surface-raised border border-border-soft rounded-sm text-xs text-muted leading-relaxed" {
+                "提交后生成同一供应商的一张 PO 草稿：按 " (product_count) " 个物料聚合 "
+                (fmt_plain(total_qty)) "（" (demands.len()) " 条需求）；单价待采购员在 PO 详情补充后 confirm。"
+            }
             div class="flex justify-end gap-2 pt-3 border-t border-border-soft" {
                 button type="submit" class="inline-flex items-center px-4 py-2 rounded-sm bg-accent text-white text-sm font-semibold border-none cursor-pointer hover:opacity-90" {
                     "生成 PO 草稿"

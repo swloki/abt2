@@ -143,6 +143,61 @@ document.addEventListener('click', function (e) {
 });
 
 
+// ── Purchase work-center 采购明细批量栏（.pc-demand-cb，同供应商多物料 → 一张 PO）──
+// 与 MES .demand-cb 隔离：MES 强制单物料（productIds.size>1 报错），采购允许同供应商
+// 多物料多选。document 级 change/click 委托，htmx 切 tab/翻页动态出现的栏也生效。
+// .pc-batch-bar 结构约定：容器带 data-supplier-id；内含 .pc-batch-count / .pc-batch-create-btn / .pc-batch-clear-btn。
+function pcUpdateBatchBar() {
+  document.querySelectorAll('.pc-batch-bar').forEach(function (bar) {
+    var scope = bar.closest('.pc-batch-scope') || document;
+    var checked = scope.querySelectorAll('input[type=checkbox].pc-demand-cb:checked:not([disabled])');
+    var count = checked.length;
+    var countEl = bar.querySelector('.pc-batch-count');
+    var btn = bar.querySelector('.pc-batch-create-btn');
+    if (count === 0) { bar.classList.remove('show'); return; }
+    bar.classList.add('show');
+    if (countEl) countEl.textContent = count;
+    if (!btn) return;
+    var ids = [];
+    checked.forEach(function (c) { ids.push(c.value); });
+    var sid = bar.getAttribute('data-supplier-id');
+    // 批量转单 drawer URL（同供应商多物料多选 → 一张 PO），由 .pc-batch-create-btn 的 hx-target 装载
+    btn.setAttribute('hx-get', '/admin/purchase/work-center/batch-convert/' + sid + '/drawer?demand_ids=' + ids.join(','));
+    if (window.htmx) htmx.process(btn);
+  });
+}
+
+// 全选 checkbox（采购明细 thead）联动当前表所有 .pc-demand-cb
+window.pcToggleAllDemands = function (master, table) {
+  table.querySelectorAll('input.pc-demand-cb:not([disabled])').forEach(function (c) {
+    c.checked = master.checked;
+  });
+  pcUpdateBatchBar();
+};
+
+// 行内 checkbox 变化 → 刷新采购批量栏
+document.addEventListener('change', function (e) {
+  if (e.target.type !== 'checkbox' || !e.target.classList.contains('pc-demand-cb')) return;
+  pcUpdateBatchBar();
+});
+
+// htmx 替换表格后重新计算批量栏（翻页/切 tab 后选中态重置）
+document.addEventListener('htmx:afterSettle', function (e) {
+  if (e.target && e.target.querySelector && e.target.querySelector('.pc-demand-cb')) {
+    pcUpdateBatchBar();
+  }
+});
+
+// 清除选择（采购明细批量栏「清除」按钮）
+document.addEventListener('click', function (e) {
+  if (!e.target.closest('.pc-batch-clear-btn')) return;
+  document.querySelectorAll('input[type=checkbox]').forEach(function (c) {
+    if (!c.disabled && (c.classList.contains('pc-demand-cb') || c.title === '全选')) c.checked = false;
+  });
+  pcUpdateBatchBar();
+});
+
+
 // ── Floating Dropdown Positioning ──
 // Positions a dropdown relative to its trigger, auto-flipping when near edges.
 // Usage: call positionDropdown(triggerEl, dropdownEl) when dropdown becomes visible.

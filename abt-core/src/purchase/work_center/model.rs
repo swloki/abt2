@@ -33,6 +33,13 @@ pub struct PurchaseWorkCenterSummary {
     pub overdue_count: u64,
     /// 临期：待收货订单中期望交货日在今日起 N 天内
     pub soon_count: u64,
+    /// 各业务「全部」计数（tab badge 用，对齐 card 默认全部查询；与 pending_* 待办计数区分）
+    pub demand_detail_total: u64,
+    pub total_orders: u64,
+    pub total_recon: u64,
+    pub total_returns: u64,
+    pub total_quotations: u64,
+    pub total_misc: u64,
 }
 
 impl PurchaseWorkCenterSummary {

@@ -27,6 +27,14 @@ pub trait PurchaseDemandService: Send + Sync {
         page: PageParams,
     ) -> Result<PaginatedResult<MaterialAggSummary>>;
 
+    /// 按 id 集合批量查询需求详情（批量转单 drawer 汇总用）
+    async fn get_demands_by_ids(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        ids: &[i64],
+    ) -> Result<Vec<DemandSummary>>;
+
     /// 从选中的需求批量创建采购订单草稿
     ///
     /// **事务要求：** 调用方必须在事务中调用此方法（`tx.begin()` → 传 `&mut tx`）。

@@ -107,11 +107,13 @@ pub struct PurchaseWorkCenterSummary {
 
 | 路径 | 方法 | 说明 |
 |---|---|---|
-| `/admin/purchase/work-center` | GET | 主页（detail-header + 锚点条 + 4 card shell + 2 drawer overlay） |
-| `/admin/purchase/work-center/demand` | GET | ① 需求 card（tab + 搜索 + `hx-select=#pc-demand-card`） |
-| `/admin/purchase/work-center/orders` | GET | ② 订单 card |
-| `/admin/purchase/work-center/settlement` | GET | ③ 对账付款 card |
-| `/admin/purchase/work-center/returns` | GET | ④ 退货 card |
+| `/admin/purchase/work-center` | GET | 主页（detail-header：待办总数 + 逾期/临期 pill + 单容器 `#pc-card` + 3 drawer overlay） |
+| `/admin/purchase/work-center/demand` | GET | ① 需求业务 tab（`pc_tab_bar` + 视图下拉 + 搜索，`hx-select=#pc-card`） |
+| `/admin/purchase/work-center/orders` | GET | ② 订单业务 tab |
+| `/admin/purchase/work-center/settlement` | GET | ③ 对账付款业务 tab |
+| `/admin/purchase/work-center/returns` | GET | ④ 退货业务 tab |
+| `/admin/purchase/work-center/quotations` | GET | ⑤ 供应商报价 tab |
+| `/admin/purchase/work-center/misc` | GET | ⑥ 零星请购 tab |
 | `/orders/{id}/approve-drawer` | GET | 订单审批 drawer body |
 | `/payments/{id}/approve-drawer` | GET | 付款审批 drawer body |
 | `/orders/{id}/approve` | POST | 审批通过 → `HX-Trigger: poChanged` |
@@ -122,18 +124,24 @@ pub struct PurchaseWorkCenterSummary {
 | `/settlement/{recon_type}/{ref_id}/row-detail` | GET | 对账付款行展开（draft / payment 两套 grid） |
 | `/returns/{id}/row-detail` | GET | 退货行展开（调 `get_return_hub_summary`） |
 | `/demand-rows?product_id=` | GET | 需求物料行懒加载明细（调 `list_pending_demands`） |
+| `/batch-convert/{supplier_id}/drawer?demand_ids=` | GET | 批量转单 drawer body（采购明细：同供应商多物料多选 → 一张 PO，调 `get_demands_by_ids` 汇总） |
+| `/batch-convert` | POST | 批量转采购单 → `demandChanged, poChanged`（复用 `create_order_from_demands`） |
 
-**HTMX 契约**：
-- card shell（grp 折叠）：`grp` + `grp-head`（图标 + 标题 + meta + chevron）`_="on click toggle .open on closest .grp"`；`grp-body` 占位 div `hx-trigger="load, poChanged from:body, reconChanged from:body, returnChanged from:body"`（懒加载 + 写操作后自刷新）
-- card 内 tab/搜索：`hx-target="#pc-xxx-card" hx-select="#pc-xxx-card" hx-swap="outerHTML" hx-push-url="true"`
-- 行展开 chevron：`hx-get=...row-detail hx-target="this" hx-swap="afterend" _="on click toggle .open on closest <tr/>"`（依赖 `uno.config.ts` preflight 的 `tr.open .expand-btn svg{rotate(90deg)}` + `.grp.open` 折叠 CSS）
-- 需求物料行：`hx-get=...demand-rows?product_id= hx-trigger="click once" _="on click toggle .expanded on #pc-demand-toggle-{pid}"`
-- 写操作：事务包裹（`state.pool.begin()...tx.commit()`），返回 `([("HX-Trigger", "poChanged")], Html::empty())`
+**HTMX 契约**（tab 模式，对齐 `mes_work_center` — section 外壳 + 单容器 + 顶部业务 tab 栏）：
+- card 外壳分离（对齐 MES `render_card_shell`）：首页 `section`（边框/阴影/圆角）持久不替换，内含**标题栏**（图标 + 「采购作业」+ `summary.total()` 件待办 meta）+ 内容 div `#pc-card`；各 card 端点只返回 `#pc-card`（替换内容，外壳 + 标题栏保留）。
+- 单容器 `#pc-card`：首页占位 div `hx-trigger="load" hx-target="this" hx-swap="outerHTML"` 懒加载默认 tab（物料汇总）；各端点返回的 `<div id="pc-card">` 自带 `hx-trigger="poChanged/reconChanged/returnChanged/demandChanged from:body"` + `hx-get=自身端点` + `hx-vals`（当前视图/下拉值）+ `hx-include="#pc-filter-form"`（keyword），写操作广播事件后当前 tab 自刷新。
+- 顶部业务 tab 栏（`pc_tab_bar`，**7 tab**）：**采购明细 / 物料汇总**（需求拆两 tab，靠 `view` 区分）+ 供应商报价 / 零星请购 / 采购订单 / 对账付款 / 采购退货。选中态 `toggle_cls`（`bg-accent-bg`）+ `tab_badge`（**各业务「全部」计数**，与 card 默认全部查询的数据一致：明细 `demand_detail_total`、汇总 `pending_demand`、订单 `total_orders`、对账 `total_recon`、退货 `total_returns`、报价 `total_quotations`、请购 `total_misc`；Phase 1.9 加这 6 字段到 `PurchaseWorkCenterSummary`，`summary()` 各调一次 `list(default)` count，best-effort 容错）。
+- **card 查询逻辑对齐各列表页**（`purchase_<domain>_list.rs`，Phase 1.8）：Params 用 `status: Option<i16>` 默认 None=全部（替代原 `tab` 强制状态分桶），handler `status.and_then(XxxStatus::from_i16)` 传 `list`，状态下拉选项 = 列表页 `status_tabs` TabItem（首项「全部(value="")」）。对账付款保留 `tab=recon/payment` 实体切换下拉 + 状态下拉（选项随实体变：recon 草稿/已确认/已结算，payment 草稿/已核准/已付款/已取消）。报价/请购同理（报价 Draft/Active/Expired/Cancelled；请购 Draft/Approved/Purchasing/Received/Closed/Cancelled）。
+- **就地分页**（少即是多，不跳列表页）：各 tab 表格底部 `pagination(base_path, "#pc-card", "#pc-filter-form", total, page, total_pages)`，页码链接 `hx-vals={"page":N}` + `hx-include="#pc-filter-form"` 携带筛选；各端点 `page` 参数驱动 `PageParams::new(page, 10)`。原「查看全部 →」跳转链接 + `info_box` 说明条已移除。
+- 行展开 chevron：`hx-get=...row-detail hx-target="this" hx-swap="afterend" _="on click toggle .open on closest <tr/>"`。
+- 需求物料行：`hx-get=...demand-rows?product_id= hx-trigger="click once" _="on click toggle .expanded on #pc-demand-toggle-{pid}"`。
+- 写操作：事务包裹（`state.pool.begin()...tx.commit()`），返回 `([("HX-Trigger", "poChanged")], Html::empty())`。
 
 **事件命名**：
-- `poChanged` — 订单审批/驳回（影响订单 card + 锚点条）
-- `reconChanged` — 对账确认/付款审批（影响对账付款 card）
+- `poChanged` — 订单审批/驳回（影响订单业务 tab + tab 栏 badge）
+- `reconChanged` — 对账确认/付款审批（影响对账付款业务 tab）
 - `returnChanged` — 预留（退货发货 Phase 2 就地化时启用）
+- `demandChanged` — 转采购单（影响需求业务 tab）
 
 **drawer**：复用 `render_drawer_overlay`（overlay + `open:` 变体 + Hyperscript 关闭），body 由 `hx-get` 填充。
 
@@ -144,4 +152,9 @@ pub struct PurchaseWorkCenterSummary {
   - **图标层**：头部 meta chip（日期/本周待办）+ 锚点 chip（4 业务图标）+ 告警 pill（逾期/临期）+ 4 grp-icon + chevron + 物料 mat-ic（紧急度配色）+ ci-row 就绪态 + info-box + hub-link 箭头。
   - **结构层**：grp 分组折叠（`grp-head` + `grp-body`）+ 4 card 行内展开 detail-grid（chevron `hx-swap=afterend`）+ 需求物料卡片化（懒加载 demand-rows）+ 订单收货进度条 + 付款 drawer 三单匹配 ci-row。
   - **abt-core 4 聚合接口**：`get_po_hub_summary` / `check_three_way_match` / `get_settlement_hub_summary` / `get_return_hub_summary`。
-- **Phase 2（后续）**：转单 / 登记收货 / 退货发货 / 创建对账单的就地 drawer；退货物流单号字段（`PurchaseReturn` 现无 `tracking_no`，需 migration）；settlement card「待对账入库」tab（当前仅 draft/payment 两 tab）。
+- **Phase 1.6（已实现）**：布局从「4 card 上下堆叠 + grp 折叠 + 锚点条」改为「顶部业务 tab + 单容器 `#pc-card`」tab 模式（对齐 `mes_work_center`）——`pc_tab_bar` 进各端点 HTML 随刷新重渲染（badge 实时），事件自刷新保持当前 tab；锚点条退役，逾期/临期 pill 上移 detail-header。各 card 端点保留（未合并单端点 + view），统一容器 id `#pc-card`；二层子 tab 改为状态下拉 select（对齐 MES `wo_status`，单层业务 tab + 下拉筛选）。
+- **Phase 1.7（已实现）**：card 样式对齐 MES —— `section` 外壳与 `#pc-card` 内容分离（边框/阴影/圆角持久，不随刷新丢）+ 标题栏（图标 + 「采购作业」+ 待办 meta）；需求拆「采购明细 / 物料汇总」两个独立 tab（5 tab，对齐 MES `detail/material`）；`toggle_cls` 改用 MES `bg-accent-bg` 块状样式；各 tab **就地分页**（移除「查看全部 →」跳转链接和 `info_box`，少即是多 —— 用户在作业中心一屏完成全部工作）。
+- **Phase 1.8（已实现）**：card 查询逻辑对齐各列表页 —— Params 改 `status: Option<i16>` 默认全部（替代原 `tab` 强制状态分桶；如退货原默认 `Confirmed` 只显 26 条 → 现默认全部 36 条 = `/admin/purchase/returns`，订单原默认 `PendingApproval` 0 条 → 现全部 453 条 = `/admin/purchase/orders`），状态下拉选项 = 列表页 `status_tabs` TabItem；新增「供应商报价」+「零星请购」2 tab（共 7 tab），报价走 `PurchaseQuotationService::list`，请购走 `state.misc_request_service().list`（工厂 `new_misc_request_service`，`misc_request/mod.rs:10`）。
+- **Phase 1.9（已实现）**：tab badge 改用各业务「全部」计数 —— `PurchaseWorkCenterSummary` 加 `total_orders / total_returns / total_quotations / total_misc / total_recon / demand_detail_total` 6 字段，`summary()` 各调一次 `list(default)` count（best-effort），`pc_tab_bar` badge 改用这些字段（与 card 默认全部查询的数据一致：退货 badge 36 = 数据 36，订单 453 = 453）。原 badge 用 `pending_*` 待办计数（与「默认全部」数据不一致）已弃用于 badge；`pending_*` 仍留 header 逾期/临期 pill。
+- **Phase 1.10（已实现）**：采购明细 tab（`view=detail`）按供应商归集转单 —— 顶部加供应商搜索控件（`components/supplier_search`：搜全部供应商，store_id=true 选中存 id），选中后需求表切 checkbox 多选模式（`.pc-demand-cb` + 全选 + `.pc-batch-bar` 批量栏，对齐 MES detail_batch_bar），多选同供应商多物料需求 → drawer 确认（供应商只读 + 需求/物料/总量汇总 + 交期/备注）→ `post_batch_convert` 复用 `create_order_from_demands` 生成同一供应商一张 PO（按物料聚合多行）。配套：`DemandPoolQuery.supplier_id`（repo 子查询 `product_id ∈ 该供应商有效报价`，对齐 `compare_by_product` 口径）；`PurchaseDemandService::get_demands_by_ids`（drawer 汇总）；`supplier_search` 加 `display_value` 参数（store_id=true 时 SSR 回显名）。批量栏 JS 与 MES `.demand-cb` 隔离（采购允许同供应商多物料，MES 强制单物料）。性能：summary 15 查询 `tokio::join!` 并发 + `AppState` 内存缓存（TTL 30s，写操作 invalidate）。实现了 Phase 2「转单就地 drawer」的采购明细部分。
+- **Phase 2（后续）**：登记收货 / 退货发货 / 创建对账单的就地 drawer；退货物流单号字段（`PurchaseReturn` 现无 `tracking_no`，需 migration）；settlement card「待对账入库」tab（当前仅 draft/payment 两 tab）。

@@ -94,6 +94,7 @@ pub async fn search_suppliers(
             &p.results_id,
             p.name.as_deref().unwrap_or(""),
             value,
+            None,
             p.placeholder.as_deref().unwrap_or(""),
             Some(&items),
             store_id,
@@ -131,6 +132,9 @@ fn render_component(
     results_id: &str,
     name: &str,
     value: &str,
+    // SSR 已选回显文本（store_id=true 时 hidden 存 id、display 显名 → 传 Some(name)；
+    // None 则 display 与 hidden 同 value，向后兼容现有调用）。
+    display_value: Option<&str>,
     placeholder: &str,
     items: Option<&[CounterpartyResult]>,
     store_id: bool,
@@ -140,6 +144,7 @@ fn render_component(
     let clear_id = format!("{}-clear", input_id);
     let q_id = format!("{}-q", panel_id);
     let display_empty = value.is_empty();
+    let display_text = display_value.unwrap_or(value);
     // 点显示框：开关面板 + 触发搜索框加载（loadResults 由搜索框监听，统一由 input 驱动搜索）
     let open_hs = format!(
         "on click toggle .invisible on #{p} then trigger loadResults on #{q}",
@@ -184,7 +189,7 @@ fn render_component(
                         if display_empty { "text-muted" } else { "text-fg" }
                     ))
                 {
-                    @if display_empty { (placeholder) } @else { (value) }
+                    @if display_empty { (placeholder) } @else { (display_text) }
                 }
                 // ✕ 清除按钮（始终渲染；空值时 hidden，选中后由结果点击移除 hidden）
                 span id=(clear_id.as_str())
@@ -246,13 +251,14 @@ pub fn supplier_search_field(
     results_id: &str,
     name: &str,
     value: &str,
+    display_value: Option<&str>,
     placeholder: &str,
     store_id: bool,
     width_class: &str,
     cascade: Option<&CascadeParams>,
 ) -> Markup {
     render_component(
-        input_id, display_id, panel_id, results_id, name, value, placeholder, None,
+        input_id, display_id, panel_id, results_id, name, value, display_value, placeholder, None,
         store_id, width_class, cascade,
     )
 }

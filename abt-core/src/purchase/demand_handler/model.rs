@@ -12,6 +12,9 @@ pub struct DemandPoolQuery {
     pub keyword: Option<String>,              // 模糊搜索物料名称/编码
     pub required_date_start: Option<NaiveDate>, // 日期范围起点
     pub required_date_end: Option<NaiveDate>,   // 日期范围终点
+    /// 按供应商过滤（采购明细 tab）：只返回该供应商「有效报价(Active、未过期)」
+    /// 所覆盖物料的需求。语义 = "该供应商可供的待采购需求"。
+    pub supplier_id: Option<i64>,
 }
 
 /// 需求摘要（订单行维度 — 展示给操作员）

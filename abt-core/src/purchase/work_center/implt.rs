@@ -8,7 +8,7 @@ use super::model::{
 };
 use super::repo::PurchaseWorkCenterRepo;
 use super::service::PurchaseWorkCenterService;
-use crate::purchase::demand_handler::{new_purchase_demand_service, MaterialAggQuery, PurchaseDemandService};
+use crate::purchase::demand_handler::{new_purchase_demand_service, DemandPoolQuery, MaterialAggQuery, PurchaseDemandService};
 use crate::purchase::enums::{
     MiscRequestStatus, PaymentMethod, PaymentStatus, PurchaseOrderStatus, PurchaseReconStatus,
     PurchaseReturnStatus,
@@ -21,11 +21,13 @@ use crate::purchase::payment::model::PaymentRequestQuery;
 use crate::purchase::payment::{new_payment_request_service, PaymentRequestService};
 use crate::purchase::reconciliation::model::PurchaseReconciliationQuery;
 use crate::purchase::reconciliation::{new_purchase_reconciliation_service, PurchaseReconciliationService};
+use crate::purchase::quotation::model::PurchaseQuotationQuery;
+use crate::purchase::quotation::{new_purchase_quotation_service, PurchaseQuotationService};
 use crate::purchase::return_order::model::PurchaseReturnQuery;
 use crate::purchase::return_order::{new_purchase_return_service, PurchaseReturnService};
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::pagination::PaginatedResult;
-use crate::shared::types::{PageParams, PgExecutor, Result};
+use crate::shared::types::{DomainError, PageParams, PgExecutor, Result};
 use rust_decimal::Decimal;
 
 use crate::fms::ar_ap::{new_ar_ap_service, ArApLedgerFilter, ArApService};
@@ -303,137 +305,77 @@ impl PurchaseWorkCenterService for PurchaseWorkCenterServiceImpl {
         ctx: &ServiceContext,
         db: PgExecutor<'_>,
     ) -> Result<PurchaseWorkCenterSummary> {
-        let demand_svc = new_purchase_demand_service(self.pool.clone());
-        let misc_svc = new_misc_request_service(self.pool.clone());
-        let po_svc = new_purchase_order_service(self.pool.clone());
-        let recon_svc = new_purchase_reconciliation_service(self.pool.clone());
-        let pay_svc = new_payment_request_service(self.pool.clone());
-        let ret_svc = new_purchase_return_service(self.pool.clone());
-
+        let pool = &self.pool;
         let one = PageParams::new(1, 1);
 
-        let pending_demand = cnt(
-            "demand",
-            demand_svc.list_material_aggregated(
-                ctx,
-                db,
-                MaterialAggQuery::default(),
-                one.clone(),
-            ),
-        )
-        .await;
-
-        let pending_misc = cnt(
-            "misc",
-            misc_svc.list(
-                ctx,
-                db,
-                MiscRequestQuery {
-                    status: Some(MiscRequestStatus::Draft),
-                    ..Default::default()
-                },
-                one.clone(),
-            ),
-        )
-        .await;
-
-        let po_pending_approval = cnt(
-            "po_approval",
-            po_svc.list(
-                ctx,
-                db,
-                PurchaseOrderQuery {
-                    status: Some(PurchaseOrderStatus::PendingApproval),
-                    ..Default::default()
-                },
-                one.clone(),
-            ),
-        )
-        .await;
-
-        let po_pending_receive = cnt(
-            "po_confirmed",
-            po_svc.list(
-                ctx,
-                db,
-                PurchaseOrderQuery {
-                    status: Some(PurchaseOrderStatus::Confirmed),
-                    ..Default::default()
-                },
-                one.clone(),
-            ),
-        )
-        .await;
-
-        let po_partial = cnt(
-            "po_partial",
-            po_svc.list(
-                ctx,
-                db,
-                PurchaseOrderQuery {
-                    status: Some(PurchaseOrderStatus::PartiallyReceived),
-                    ..Default::default()
-                },
-                one.clone(),
-            ),
-        )
-        .await;
-
-        let recon_draft = cnt(
-            "recon_draft",
-            recon_svc.list(
-                ctx,
-                db,
-                PurchaseReconciliationQuery {
-                    status: Some(PurchaseReconStatus::Draft),
-                    ..Default::default()
-                },
-                one.clone(),
-            ),
-        )
-        .await;
-
-        let payment_pending_approval = cnt(
-            "payment_draft",
-            pay_svc.list(
-                ctx,
-                db,
-                PaymentRequestQuery {
-                    status: Some(PaymentStatus::Draft),
-                    ..Default::default()
-                },
-                one.clone(),
-            ),
-        )
-        .await;
-
-        let return_pending_ship = cnt(
-            "return_confirmed",
-            ret_svc.list(
-                ctx,
-                db,
-                PurchaseReturnQuery {
-                    status: Some(PurchaseReturnStatus::Confirmed),
-                    ..Default::default()
-                },
-                one.clone(),
-            ),
-        )
-        .await;
-
-        let return_shipped = cnt(
-            "return_shipped",
-            ret_svc.list(
-                ctx,
-                db,
-                PurchaseReturnQuery {
-                    status: Some(PurchaseReturnStatus::Shipped),
-                    ..Default::default()
-                },
-                one.clone(),
-            ),
-        )
-        .await;
+        // 15 个计数查询并发：各自从连接池获取连接（互不阻塞），替代原串行 await。
+        // 总耗时从 ~15 次串行降到 ~max(单次)；acquire/查询失败由 cnt 容错记 0（best-effort）。
+        let (
+            pending_demand, pending_misc, po_pending_approval, po_pending_receive, po_partial,
+            recon_draft, payment_pending_approval, return_pending_ship, return_shipped,
+            demand_detail_total, total_orders, total_recon, total_returns, total_quotations, total_misc,
+        ) = tokio::join!(
+            cnt("demand", async {
+                let mut c = pool.acquire().await.map_err(|e| DomainError::Internal(e.into()))?;
+                new_purchase_demand_service(pool.clone()).list_material_aggregated(ctx, &mut c, MaterialAggQuery::default(), one.clone()).await
+            }),
+            cnt("misc", async {
+                let mut c = pool.acquire().await.map_err(|e| DomainError::Internal(e.into()))?;
+                new_misc_request_service(pool.clone()).list(ctx, &mut c, MiscRequestQuery { status: Some(MiscRequestStatus::Draft), ..Default::default() }, one.clone()).await
+            }),
+            cnt("po_approval", async {
+                let mut c = pool.acquire().await.map_err(|e| DomainError::Internal(e.into()))?;
+                new_purchase_order_service(pool.clone()).list(ctx, &mut c, PurchaseOrderQuery { status: Some(PurchaseOrderStatus::PendingApproval), ..Default::default() }, one.clone()).await
+            }),
+            cnt("po_confirmed", async {
+                let mut c = pool.acquire().await.map_err(|e| DomainError::Internal(e.into()))?;
+                new_purchase_order_service(pool.clone()).list(ctx, &mut c, PurchaseOrderQuery { status: Some(PurchaseOrderStatus::Confirmed), ..Default::default() }, one.clone()).await
+            }),
+            cnt("po_partial", async {
+                let mut c = pool.acquire().await.map_err(|e| DomainError::Internal(e.into()))?;
+                new_purchase_order_service(pool.clone()).list(ctx, &mut c, PurchaseOrderQuery { status: Some(PurchaseOrderStatus::PartiallyReceived), ..Default::default() }, one.clone()).await
+            }),
+            cnt("recon_draft", async {
+                let mut c = pool.acquire().await.map_err(|e| DomainError::Internal(e.into()))?;
+                new_purchase_reconciliation_service(pool.clone()).list(ctx, &mut c, PurchaseReconciliationQuery { status: Some(PurchaseReconStatus::Draft), ..Default::default() }, one.clone()).await
+            }),
+            cnt("payment_draft", async {
+                let mut c = pool.acquire().await.map_err(|e| DomainError::Internal(e.into()))?;
+                new_payment_request_service(pool.clone()).list(ctx, &mut c, PaymentRequestQuery { status: Some(PaymentStatus::Draft), ..Default::default() }, one.clone()).await
+            }),
+            cnt("return_confirmed", async {
+                let mut c = pool.acquire().await.map_err(|e| DomainError::Internal(e.into()))?;
+                new_purchase_return_service(pool.clone()).list(ctx, &mut c, PurchaseReturnQuery { status: Some(PurchaseReturnStatus::Confirmed), ..Default::default() }, one.clone()).await
+            }),
+            cnt("return_shipped", async {
+                let mut c = pool.acquire().await.map_err(|e| DomainError::Internal(e.into()))?;
+                new_purchase_return_service(pool.clone()).list(ctx, &mut c, PurchaseReturnQuery { status: Some(PurchaseReturnStatus::Shipped), ..Default::default() }, one.clone()).await
+            }),
+            cnt("demand_detail_total", async {
+                let mut c = pool.acquire().await.map_err(|e| DomainError::Internal(e.into()))?;
+                new_purchase_demand_service(pool.clone()).list_pending_demands(ctx, &mut c, DemandPoolQuery::default(), one.clone()).await
+            }),
+            cnt("total_orders", async {
+                let mut c = pool.acquire().await.map_err(|e| DomainError::Internal(e.into()))?;
+                new_purchase_order_service(pool.clone()).list(ctx, &mut c, PurchaseOrderQuery::default(), one.clone()).await
+            }),
+            cnt("total_recon", async {
+                let mut c = pool.acquire().await.map_err(|e| DomainError::Internal(e.into()))?;
+                new_purchase_reconciliation_service(pool.clone()).list(ctx, &mut c, PurchaseReconciliationQuery::default(), one.clone()).await
+            }),
+            cnt("total_returns", async {
+                let mut c = pool.acquire().await.map_err(|e| DomainError::Internal(e.into()))?;
+                new_purchase_return_service(pool.clone()).list(ctx, &mut c, PurchaseReturnQuery::default(), one.clone()).await
+            }),
+            cnt("total_quotations", async {
+                let mut c = pool.acquire().await.map_err(|e| DomainError::Internal(e.into()))?;
+                new_purchase_quotation_service(pool.clone()).list(ctx, &mut c, PurchaseQuotationQuery::default(), one.clone()).await
+            }),
+            cnt("total_misc", async {
+                let mut c = pool.acquire().await.map_err(|e| DomainError::Internal(e.into()))?;
+                new_misc_request_service(pool.clone()).list(ctx, &mut c, MiscRequestQuery::default(), one.clone()).await
+            }),
+        );
 
         // 逾期 / 临期：SQL COUNT FILTER（待收货 PO = Confirmed + PartiallyReceived），
         // 替代原「拉 RECEIVING_SCAN_SIZE × 2 状态到内存按日期 filter」。查询失败按 0 容错。
@@ -458,6 +400,12 @@ impl PurchaseWorkCenterService for PurchaseWorkCenterServiceImpl {
             return_shipped,
             overdue_count,
             soon_count,
+            demand_detail_total,
+            total_orders,
+            total_recon,
+            total_returns,
+            total_quotations,
+            total_misc,
         })
     }
 

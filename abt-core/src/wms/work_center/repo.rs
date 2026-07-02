@@ -10,14 +10,14 @@ use sqlx::{Postgres, QueryBuilder, Row};
 use crate::shared::types::pagination::{PageParams, PaginatedResult};
 use crate::shared::types::{PgExecutor, Result};
 
-use super::model::{OutboundStage, PendingTask, PendingTaskFilter, TaskSourceKind, Urgency, WorkCenterDomain};
+use super::model::{PendingTask, PendingTaskFilter, TaskSourceKind, Urgency, WorkCenterDomain};
 
 /// 临期阈值（today + N 天内 = Soon）。
 const SOON_DAYS: i64 = 2;
 
 pub struct WorkCenterRepo;
 
-/// 单实体域查询配置（Arrival 走 UNION，单独处理；Outbound 带 pick_lists JOIN 算拣货阶段）。
+/// 单实体域查询配置（Arrival 走 UNION，单独处理）。
 struct SimpleDomainCfg {
     table: &'static str,
     statuses: &'static [i16],
@@ -27,13 +27,9 @@ struct SimpleDomainCfg {
     expected_urgency: &'static str,
     has_deleted_at: bool,
     join: &'static str,
-    /// 额外 JOIN（仅 Outbound：pick_lists，算拣货阶段）。其他域空串
-    extra_join: &'static str,
-    /// 额外 SELECT 列（仅 Outbound：stage CASE + pick_list_id），追加在 urgency_rank 后。其他域空串
-    extra_select: &'static str,
     counterparty: &'static str,
     summary: &'static str,
-    /// 额外 WHERE 片段（仅 Requisition：picking_type 过滤）。其他域空串
+    /// 额外 WHERE 片段（仅 Requisition/Transfer：picking_type 过滤）。其他域空串
     extra_where: &'static str,
 }
 
@@ -41,16 +37,13 @@ fn simple_cfg(domain: WorkCenterDomain) -> SimpleDomainCfg {
     match domain {
         WorkCenterDomain::Outbound => SimpleDomainCfg {
             table: "shipping_requests",
-            statuses: &[2, 3], // Confirmed, Picking
+            statuses: &[2], // Confirmed（待发货；拣货移除后无 Picking 中间态）
             expected_display: "t.expected_ship_date",
             expected_urgency: "t.expected_ship_date",
             has_deleted_at: true,
             join: "LEFT JOIN customers c ON c.customer_id = t.customer_id AND c.deleted_at IS NULL",
-            // 待出库合并（2026-07）：JOIN 拣货单算阶段，驱动就地拣货/发货分发
-            extra_join: "LEFT JOIN pick_lists pl ON pl.outbound_id = t.id AND pl.deleted_at IS NULL",
-            extra_select: ", CASE WHEN t.status = 2 THEN 'Unpicked' WHEN pl.status = 1 THEN 'Picking' WHEN pl.status = 2 THEN 'ReadyToShip' ELSE 'Unpicked' END AS stage, pl.id AS pick_list_id",
             counterparty: "c.customer_name",
-            summary: "'待出库'",
+            summary: "'待发货'",
             extra_where: "",
         },
         WorkCenterDomain::Requisition => SimpleDomainCfg {
@@ -60,8 +53,6 @@ fn simple_cfg(domain: WorkCenterDomain) -> SimpleDomainCfg {
             expected_urgency: "t.scheduled_date",
             has_deleted_at: true,
             join: "LEFT JOIN work_orders wo ON wo.id = t.work_order_id",
-            extra_join: "",
-            extra_select: "",
             counterparty: "wo.doc_number",
             summary: "'领料'",
             extra_where: " AND t.picking_type = 5", // InternalIssue
@@ -74,8 +65,6 @@ fn simple_cfg(domain: WorkCenterDomain) -> SimpleDomainCfg {
             has_deleted_at: true,
             join: "LEFT JOIN warehouses wf ON wf.id = t.from_warehouse_id \
                    LEFT JOIN warehouses wt ON wt.id = t.to_warehouse_id",
-            extra_join: "",
-            extra_select: "",
             counterparty: "(wf.name || '→' || wt.name)",
             summary: "'调拨'",
             extra_where: " AND t.picking_type = 4", // InternalTransfer
@@ -87,8 +76,6 @@ fn simple_cfg(domain: WorkCenterDomain) -> SimpleDomainCfg {
             expected_urgency: "t.count_date",
             has_deleted_at: false,
             join: "LEFT JOIN warehouses w ON w.id = t.warehouse_id",
-            extra_join: "",
-            extra_select: "",
             counterparty: "w.name",
             summary: "'盘点'",
             extra_where: "",
@@ -152,18 +139,14 @@ impl WorkCenterRepo {
         let page_size = page.page_size as i64;
         let offset = ((page.page.max(1) - 1) * page.page_size) as i64;
 
-        // 子查询：算 urgency_rank + 取原始列（Outbound 额外带 stage + pick_list_id）；外层：keyword/urgency filter + 排序 + 分页
-        let is_outbound = domain == WorkCenterDomain::Outbound;
+        // 子查询：算 urgency_rank + 取原始列；外层：keyword/urgency filter + 排序 + 分页
         let mut qb = QueryBuilder::<Postgres>::new("");
         qb.push("SELECT x.id, x.doc_number, x.counterparty, x.summary, x.expected_at, x.received_at, x.urgency_rank");
-        if is_outbound {
-            qb.push(", x.stage, x.pick_list_id");
-        }
         qb.push(" FROM (SELECT t.id, t.doc_number, ").push(cfg.counterparty).push(" AS counterparty, ");
         qb.push(cfg.summary).push(" AS summary, ").push(cfg.expected_display).push(" AS expected_at, t.created_at AS received_at, ");
         push_urgency_case(&mut qb, &cfg, today);
-        qb.push(" AS urgency_rank").push(cfg.extra_select);
-        qb.push(" FROM ").push(cfg.table).push(" t ").push(cfg.join).push(" ").push(cfg.extra_join).push(" WHERE ");
+        qb.push(" AS urgency_rank");
+        qb.push(" FROM ").push(cfg.table).push(" t ").push(cfg.join).push(" WHERE ");
         if cfg.has_deleted_at {
             qb.push("t.deleted_at IS NULL AND ");
         }
@@ -378,17 +361,6 @@ fn map_simple_row(r: &sqlx::postgres::PgRow, domain: WorkCenterDomain) -> Result
         .map(midnight_utc);
     let urgency_rank: i32 = r.try_get("urgency_rank")?;
     let received_at = r.try_get::<Option<DateTime<Utc>>, _>("received_at")?;
-    // Outbound 域：读拣货阶段 + pick_list_id（驱动前端就地拣货/发货分发）
-    let (outbound_stage, pick_list_id) = if domain == WorkCenterDomain::Outbound {
-        let stage = match r.try_get::<String, _>("stage")?.as_str() {
-            "Picking" => OutboundStage::Picking,
-            "ReadyToShip" => OutboundStage::ReadyToShip,
-            _ => OutboundStage::Unpicked,
-        };
-        (Some(stage), r.try_get::<Option<i64>, _>("pick_list_id")?)
-    } else {
-        (None, None)
-    };
     Ok(PendingTask {
         doc_id,
         doc_number,
@@ -399,8 +371,6 @@ fn map_simple_row(r: &sqlx::postgres::PgRow, domain: WorkCenterDomain) -> Result
         expected_at,
         received_at,
         urgency: urgency_from_rank(urgency_rank),
-        outbound_stage,
-        pick_list_id,
     })
 }
 
@@ -428,8 +398,6 @@ fn map_arrival_row(r: &sqlx::postgres::PgRow) -> Result<PendingTask> {
         expected_at,
         received_at,
         urgency: urgency_from_rank(urgency_rank),
-        outbound_stage: None,
-        pick_list_id: None,
     })
 }
 
@@ -453,8 +421,8 @@ mod tests {
 
     #[test]
     fn simple_cfg_statuses_correct() {
-        assert_eq!(simple_cfg(WorkCenterDomain::Outbound).statuses, &[2, 3]);
-        assert_eq!(simple_cfg(WorkCenterDomain::Requisition).statuses, &[2, 5]);
+        assert_eq!(simple_cfg(WorkCenterDomain::Outbound).statuses, &[2]);
+        assert_eq!(simple_cfg(WorkCenterDomain::Requisition).statuses, &[2]);
         assert_eq!(simple_cfg(WorkCenterDomain::Transfer).statuses, &[1, 2]);
         assert_eq!(simple_cfg(WorkCenterDomain::CycleCount).statuses, &[1, 2, 6]);
     }

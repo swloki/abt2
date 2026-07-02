@@ -27,7 +27,6 @@ use crate::wms::enums::TransactionType;
 use crate::wms::inventory_transaction::{
     model::{InventoryTransaction, RecordTransactionReq}, new_inventory_transaction_service, service::InventoryTransactionService,
 };
-use crate::wms::pick_list::{new_pick_list_service, service::PickListService};
 
 pub struct ShippingRequestServiceImpl {
     repo: ShippingRequestRepo,
@@ -90,6 +89,114 @@ impl ShippingRequestServiceImpl {
             ));
         }
         Ok(item_inputs)
+    }
+
+    /// 发货核心：扣库存 + 释放预留 + 回写销售订单 + 转 Shipped + 发布 ShipmentShipped 事件。
+    /// `wh_bin`: shipping_item_id → (warehouse_id, bin_id)，由 direct_ship 从选仓参数组装。
+    /// AR/COGS 由 fms 异步消费 ShipmentShipped 事件立账，与仓库无关。
+    async fn do_ship(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        existing: &ShippingRequest,
+        shipping_items: &[ShippingRequestItem],
+        order_id: i64,
+        wh_bin: &std::collections::HashMap<i64, (Option<i64>, Option<i64>)>,
+    ) -> Result<()> {
+        let id = existing.id;
+        for item in shipping_items {
+            // 发货单自身 shipped_qty
+            self.item_repo
+                .update_shipped_qty(db, item.id, item.requested_qty)
+                .await?;
+
+            new_inventory_reservation_service(self.pool.clone())
+                .fulfill_by_source_line(ctx, db, DocumentType::SalesOrder, item.order_item_id)
+                .await?;
+
+            // 销售出库：SalesShipment 库存事务（负向扣减实物库存）
+            let (wh_id, bin_id) = wh_bin.get(&item.id).cloned().unwrap_or((None, None));
+            let wh_id = wh_id.ok_or_else(|| {
+                DomainError::business_rule(format!("发货行 {} 未指定仓库，无法出库", item.id))
+            })?;
+            new_inventory_transaction_service(self.pool.clone())
+                .record(
+                    ctx,
+                    db,
+                    RecordTransactionReq {
+                        doc_number: None,
+                        delivery_no: None,
+                        source_doc_number: Some(existing.doc_number.clone()),
+                        transaction_type: TransactionType::SalesShipment,
+                        product_id: item.product_id,
+                        warehouse_id: wh_id,
+                        zone_id: None,
+                        bin_id,
+                        batch_no: None,
+                        quantity: -item.requested_qty,
+                        unit_cost: None,
+                        source_type: "shipping".to_string(),
+                        source_id: id,
+                        remark: None,
+                    },
+                )
+                .await?;
+        }
+
+        // 回写销售订单 shipped_qty + 重算头状态（跨域 SalesOrderService::record_shipment）
+        let lines: Vec<ShipmentLineQty> = shipping_items
+            .iter()
+            .map(|i| ShipmentLineQty {
+                order_item_id: i.order_item_id,
+                shipped_qty: i.requested_qty,
+            })
+            .collect();
+        new_sales_order_service(self.pool.clone())
+            .record_shipment(ctx, db, order_id, &lines)
+            .await?;
+
+        new_state_machine_service(self.pool.clone())
+            .transition(ctx, db, "ShippingStatus", id, "Shipped", None)
+            .await?;
+
+        self.repo
+            .update_status(db, id, ShippingStatus::Shipped)
+            .await?;
+
+        new_audit_log_service(self.pool.clone())
+            .record(
+                ctx,
+                db,
+                RecordAuditLogReq {
+                    entity_type: "ShippingRequest",
+                    entity_id: id,
+                    action: AuditAction::Transition,
+                    changes: Some(serde_json::json!({ "from": "Confirmed", "to": "Shipped" })),
+                    context: None,
+                },
+            )
+            .await?;
+
+        new_domain_event_bus(self.pool.clone())
+            .publish(
+                ctx,
+                db,
+                EventPublishRequest {
+                    event_type: DomainEventType::ShipmentShipped,
+                    aggregate_type: "ShippingRequest".to_string(),
+                    aggregate_id: id,
+                    payload: serde_json::json!({
+                        "shipping_request_id": id,
+                        "doc_number": existing.doc_number,
+                        "order_id": order_id,
+                        "customer_id": existing.customer_id,
+                    }),
+                    idempotency_key: None,
+                },
+            )
+            .await?;
+
+        Ok(())
     }
 }
 
@@ -546,88 +653,6 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
         Ok(())
     }
 
-    async fn pick(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()> {
-        let existing = self
-            .repo
-            .find_by_id(db, id)
-            .await?
-            .ok_or_else(|| DomainError::not_found("ShippingRequest"))?;
-
-        if existing.status != ShippingStatus::Confirmed {
-            return Err(DomainError::business_rule("Only Confirmed shipping requests can be picked"));
-        }
-
-        // 生成拣货单（Draft，留待人工录入 picked_qty/bin 后 complete_pick）。
-        // 旧 MVP 自动满拣（complete）已移除：Doc Hub 拣货 drawer 调
-        // PickListService::record_pick_items + complete_pick 完成人工拣货。
-        // 需要一键自动满拣时由调用方在 generate 后直接 complete_pick（快速拣货）。
-        let pick_list_id = new_pick_list_service(self.pool.clone())
-            .generate_from_outbound(ctx, db, id)
-            .await?;
-
-        new_state_machine_service(self.pool.clone())
-            .transition(ctx, db, "ShippingStatus", id, "Picking", None)
-            .await?;
-
-        self.repo
-            .update_status(db, id, ShippingStatus::Picking)
-            .await?;
-
-        new_audit_log_service(self.pool.clone())
-            .record(
-                    ctx,
-                    db,
-                    RecordAuditLogReq {
-                        entity_type: "ShippingRequest",
-                        entity_id: id,
-                        action: AuditAction::Transition,
-                        changes: Some(serde_json::json!({ "from": "Confirmed", "to": "Picking", "pick_list_id": pick_list_id })),
-                        context: None,
-                    },
-                )
-            .await?;
-
-        Ok(())
-    }
-
-    async fn ship(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()> {
-        let existing = self
-            .repo
-            .find_by_id(db, id)
-            .await?
-            .ok_or_else(|| DomainError::not_found("ShippingRequest"))?;
-
-        if existing.status != ShippingStatus::Picking {
-            return Err(DomainError::business_rule("Only Picking shipping requests can be shipped"));
-        }
-
-        let order_id = existing.order_id.ok_or_else(|| {
-            DomainError::business_rule("发货单缺少关联订单，无法发货")
-        })?;
-
-        let shipping_items = self
-            .item_repo
-            .find_by_shipping_request_id(db, id)
-            .await?;
-
-        // 仓库/库位取自拣货录入（PickListItem）：outbound_item_id → (warehouse_id, bin_id)
-        let pick_svc = new_pick_list_service(self.pool.clone());
-        let pick_map: std::collections::HashMap<i64, (Option<i64>, Option<i64>)> =
-            match pick_svc.find_by_outbound(ctx, db, id).await {
-                Ok(Some(pl)) => match pick_svc.list_items(ctx, db, pl.id).await {
-                    Ok(items) => items
-                        .into_iter()
-                        .map(|p| (p.outbound_item_id, (p.warehouse_id, p.bin_id)))
-                        .collect(),
-                    Err(_) => std::collections::HashMap::new(),
-                },
-                _ => std::collections::HashMap::new(),
-            };
-
-        self.do_ship(ctx, db, &existing, &shipping_items, order_id, &pick_map, "Picking")
-            .await
-    }
-
     async fn direct_ship(
         &self,
         ctx: &ServiceContext,
@@ -642,10 +667,10 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
             .await?
             .ok_or_else(|| DomainError::not_found("ShippingRequest"))?;
 
-        // 直接发：仅未拣（Confirmed）单可用；拣货中（Picking）走 ship()
+        // 直发：仅 Confirmed 单可用（拣货已移除，无 Picking 中间态）
         if existing.status != ShippingStatus::Confirmed {
             return Err(DomainError::business_rule(
-                "只有已确认（未拣）的发货单可直接发出；拣货中的请用「确认发出」",
+                "只有已确认的发货单可发货",
             ));
         }
 
@@ -664,117 +689,8 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
             .map(|it| (it.id, (Some(warehouse_id), bin_id)))
             .collect();
 
-        self.do_ship(ctx, db, &existing, &shipping_items, order_id, &wh_bin, "Confirmed")
+        self.do_ship(ctx, db, &existing, &shipping_items, order_id, &wh_bin)
             .await
-    }
-
-    /// 发货核心：扣库存 + 释放预留 + 回写销售订单 + 转 Shipped + 发布 ShipmentShipped 事件。
-    /// `wh_bin`: shipping_item_id → (warehouse_id, bin_id)。ship() 从拣货录入取，direct_ship() 从参数取。
-    /// `from_label`: 审计日志 from（"Picking" / "Confirmed"）。AR/COGS 由 fms 异步消费事件立账，与仓库无关。
-    async fn do_ship(
-        &self,
-        ctx: &ServiceContext,
-        db: PgExecutor<'_>,
-        existing: &ShippingRequest,
-        shipping_items: &[ShippingRequestItem],
-        order_id: i64,
-        wh_bin: &std::collections::HashMap<i64, (Option<i64>, Option<i64>)>,
-        from_label: &str,
-    ) -> Result<()> {
-        let id = existing.id;
-        for item in shipping_items {
-            // 发货单自身 shipped_qty
-            self.item_repo
-                .update_shipped_qty(db, item.id, item.requested_qty)
-                .await?;
-
-            new_inventory_reservation_service(self.pool.clone())
-                .fulfill_by_source_line(ctx, db, DocumentType::SalesOrder, item.order_item_id)
-                .await?;
-
-            // 销售出库：SalesShipment 库存事务（负向扣减实物库存）
-            let (wh_id, bin_id) = wh_bin.get(&item.id).cloned().unwrap_or((None, None));
-            let wh_id = wh_id.ok_or_else(|| {
-                DomainError::business_rule(format!("发货行 {} 未指定仓库，无法出库", item.id))
-            })?;
-            new_inventory_transaction_service(self.pool.clone())
-                .record(
-                    ctx,
-                    db,
-                    RecordTransactionReq {
-                        doc_number: None,
-                        delivery_no: None,
-                        source_doc_number: Some(existing.doc_number.clone()),
-                        transaction_type: TransactionType::SalesShipment,
-                        product_id: item.product_id,
-                        warehouse_id: wh_id,
-                        zone_id: None,
-                        bin_id,
-                        batch_no: None,
-                        quantity: -item.requested_qty,
-                        unit_cost: None,
-                        source_type: "shipping".to_string(),
-                        source_id: id,
-                        remark: None,
-                    },
-                )
-                .await?;
-        }
-
-        // 回写销售订单 shipped_qty + 重算头状态（跨域 SalesOrderService::record_shipment）
-        let lines: Vec<ShipmentLineQty> = shipping_items
-            .iter()
-            .map(|i| ShipmentLineQty {
-                order_item_id: i.order_item_id,
-                shipped_qty: i.requested_qty,
-            })
-            .collect();
-        new_sales_order_service(self.pool.clone())
-            .record_shipment(ctx, db, order_id, &lines)
-            .await?;
-
-        new_state_machine_service(self.pool.clone())
-            .transition(ctx, db, "ShippingStatus", id, "Shipped", None)
-            .await?;
-
-        self.repo
-            .update_status(db, id, ShippingStatus::Shipped)
-            .await?;
-
-        new_audit_log_service(self.pool.clone())
-            .record(
-                ctx,
-                db,
-                RecordAuditLogReq {
-                    entity_type: "ShippingRequest",
-                    entity_id: id,
-                    action: AuditAction::Transition,
-                    changes: Some(serde_json::json!({ "from": from_label, "to": "Shipped" })),
-                    context: None,
-                },
-            )
-            .await?;
-
-        new_domain_event_bus(self.pool.clone())
-            .publish(
-                ctx,
-                db,
-                EventPublishRequest {
-                    event_type: DomainEventType::ShipmentShipped,
-                    aggregate_type: "ShippingRequest".to_string(),
-                    aggregate_id: id,
-                    payload: serde_json::json!({
-                        "shipping_request_id": id,
-                        "doc_number": existing.doc_number,
-                        "order_id": order_id,
-                        "customer_id": existing.customer_id,
-                    }),
-                    idempotency_key: None,
-                },
-            )
-            .await?;
-
-        Ok(())
     }
 
     async fn cancel(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()> {
@@ -865,27 +781,10 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
         id: i64,
     ) -> Result<ShippingHubSummary> {
         let items = self.item_repo.find_by_shipping_request_id(db, id).await?;
-        let pending_pick_qty: rust_decimal::Decimal =
+        let pending_ship_qty: rust_decimal::Decimal =
             items.iter().map(|i| i.requested_qty).sum();
         let shipped_qty: rust_decimal::Decimal =
             items.iter().map(|i| i.shipped_qty).sum();
-
-        // 已拣量来自 PickList（容错：查不到记 0，不阻塞摘要）
-        let pick_svc = new_pick_list_service(self.pool.clone());
-        let picked_qty: rust_decimal::Decimal = match pick_svc.find_by_outbound(ctx, db, id).await {
-            Ok(Some(pl)) => match pick_svc.list_items(ctx, db, pl.id).await {
-                Ok(pl_items) => pl_items.iter().map(|i| i.picked_qty).sum(),
-                Err(e) => {
-                    tracing::warn!(error = %e, "hub_summary: list pick items failed, recorded as 0");
-                    rust_decimal::Decimal::ZERO
-                }
-            },
-            Ok(None) => rust_decimal::Decimal::ZERO,
-            Err(e) => {
-                tracing::warn!(error = %e, "hub_summary: find pick list failed, recorded as 0");
-                rust_decimal::Decimal::ZERO
-            }
-        };
 
         // 缺货判定：任一明细 ATP < 待发量（requested - shipped）即缺货。
         // 批量 ATP（按 warehouse 分组，每组一条 query_available_batch），替代逐明细 query_available 的 N+1。
@@ -930,8 +829,7 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
         }
 
         Ok(ShippingHubSummary {
-            pending_pick_qty,
-            picked_qty,
+            pending_ship_qty,
             shipped_qty,
             shortage,
         })

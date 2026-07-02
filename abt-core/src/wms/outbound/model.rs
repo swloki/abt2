@@ -211,8 +211,7 @@ pub struct ShippingItemInput {
 /// 发货单 Hub 摘要带数据（首屏轻量查询，含缺货 ATP 判定）
 #[derive(Debug, Clone)]
 pub struct ShippingHubSummary {
-    pub pending_pick_qty: Decimal,        // 待拣 Σ requested_qty
-    pub picked_qty: Decimal,              // 已拣 Σ picked_qty（来自 PickList）
+    pub pending_ship_qty: Decimal,        // 待发 Σ requested_qty
     pub shipped_qty: Decimal,             // 已发 Σ shipped_qty
     pub shortage: Option<ShortageSignal>, // 缺货红点；None = 无缺货
 }

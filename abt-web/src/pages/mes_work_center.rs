@@ -1339,7 +1339,7 @@ fn order_status_meta(s: &SalesOrderStatus) -> (&'static str, &'static str) {
         Shipped => ("已发货", "bg-success-bg text-success"),
         Completed => ("已完成", "bg-success-bg text-success"),
         Cancelled => ("已取消", "bg-danger-bg text-danger"),
-        ShippingRequested => ("待拣货", "bg-warn-bg text-warn"),
+        ShippingRequested => ("待发货", "bg-warn-bg text-warn"),
     }
 }
 

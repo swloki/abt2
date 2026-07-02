@@ -67,18 +67,18 @@ fn simple_cfg(domain: WorkCenterDomain) -> SimpleDomainCfg {
             extra_where: " AND t.picking_type = 5", // InternalIssue
         },
         WorkCenterDomain::Transfer => SimpleDomainCfg {
-            table: "inventory_transfers",
-            statuses: &[1, 2], // Draft, InTransit
-            expected_display: "t.transfer_date",
-            expected_urgency: "t.transfer_date",
-            has_deleted_at: false,
+            table: "stock_pickings",
+            statuses: &[1, 2], // Draft(待调出), Confirmed(在途)
+            expected_display: "t.scheduled_date",
+            expected_urgency: "t.scheduled_date",
+            has_deleted_at: true,
             join: "LEFT JOIN warehouses wf ON wf.id = t.from_warehouse_id \
                    LEFT JOIN warehouses wt ON wt.id = t.to_warehouse_id",
             extra_join: "",
             extra_select: "",
             counterparty: "(wf.name || '→' || wt.name)",
             summary: "'调拨'",
-            extra_where: "",
+            extra_where: " AND t.picking_type = 4", // InternalTransfer
         },
         WorkCenterDomain::CycleCount => SimpleDomainCfg {
             table: "cycle_counts",

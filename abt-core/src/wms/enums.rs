@@ -178,14 +178,6 @@ define_wms_enum!(CycleCountStatus {
     PendingReview = 6,
 });
 
-// -- Transfer --
-define_wms_enum!(TransferStatus {
-    Draft = 1,
-    InTransit = 2,
-    Completed = 3,
-    Cancelled = 4,
-});
-
 // -- Form Conversion --
 define_wms_enum!(ConversionDir {
     Consume = 1,

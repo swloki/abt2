@@ -6,7 +6,6 @@ pub mod stock_ledger;
 pub mod inventory_transaction;
 pub mod backflush;
 pub mod cycle_count;
-pub mod transfer;
 pub mod form_conversion;
 pub mod inventory_lock;
 pub mod inventory_cascade;

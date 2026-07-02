@@ -8,8 +8,8 @@ use rust_decimal::Decimal;
 
 use abt_core::master_data::product::ProductService;
 use abt_core::shared::types::DomainError;
-use abt_core::wms::transfer::TransferService;
-use abt_core::wms::transfer::model::{CreateTransferReq, CreateTransferItemReq};
+use abt_core::wms::picking::{CreatePickingItemReq, CreatePickingReq, PickingService};
+use abt_core::wms::enums::PickingType;
 use abt_core::wms::warehouse::WarehouseService;
 
 use crate::components::icon;
@@ -103,7 +103,7 @@ pub async fn create_transfer(
  axum::Form(form): axum::Form<TransferCreateForm>,
 ) -> Result<impl IntoResponse> {
  let RequestContext { state, service_ctx, .. } = ctx;
- let svc = state.transfer_service();
+ let svc = state.picking_service();
 
  let from_warehouse_id = form.from_warehouse_id
  .ok_or_else(|| DomainError::validation("请选择调出仓库"))?;
@@ -117,22 +117,34 @@ pub async fn create_transfer(
  return Err(DomainError::validation("调拨单至少需要一条明细").into());
  }
 
- let items: Vec<CreateTransferItemReq> = web_items.into_iter().map(|item| {
- CreateTransferItemReq {
+ let items: Vec<CreatePickingItemReq> = web_items.into_iter().map(|item| {
+ CreatePickingItemReq {
  product_id: item.product_id.parse().unwrap_or(0),
- quantity: item.quantity.parse().unwrap_or(Decimal::ZERO),
  batch_no: item.batch_no,
+ qty_requested: item.quantity.parse().unwrap_or(Decimal::ZERO),
+ from_bin_id: None,
+ to_bin_id: None,
+ operation_id: None,
+ batch_id: None,
+ source_item_id: None,
+ remark: None,
  }
  }).collect();
 
- let req = CreateTransferReq {
- from_warehouse_id,
+ let req = CreatePickingReq {
+ picking_type: PickingType::InternalTransfer,
+ source_type: Some("none".into()),
+ source_id: None,
+ partner_id: None,
+ from_warehouse_id: Some(from_warehouse_id),
  from_zone_id: form.from_zone_id,
  from_bin_id: form.from_bin_id,
- to_warehouse_id,
+ to_warehouse_id: Some(to_warehouse_id),
  to_zone_id: form.to_zone_id,
  to_bin_id: form.to_bin_id,
- transfer_date: form.transfer_date,
+ scheduled_date: Some(form.transfer_date),
+ work_order_id: None,
+ remark: form.remark.clone(),
  items,
  };
 

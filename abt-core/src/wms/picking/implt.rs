@@ -678,4 +678,100 @@ impl PickingService for PickingServiceImpl {
     ) -> Result<Vec<i64>> {
         PickingRepo::find_routing_ids_by_batch(&mut *db, batch_id).await
     }
+
+    // ── 调拨专用（InternalTransfer，从 TransferService 迁入）──
+
+    /// 调拨发货：Draft → Confirmed，扣减源仓库库存（Transfer 流水负数）
+    async fn dispatch(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        id: i64,
+    ) -> Result<()> {
+        let picking = self.get(ctx, db, id).await?;
+        if picking.status != PickingStatus::Draft {
+            return Err(DomainError::InvalidStateTransition {
+                from: format!("{:?}", picking.status),
+                to: "Confirmed".to_string(),
+            });
+        }
+        let items = PickingRepo::get_items(&mut *db, id).await?;
+        let from_wh = picking
+            .from_warehouse_id
+            .ok_or_else(|| DomainError::BusinessRule("调拨单无源仓库".into()))?;
+        let tx_svc = new_inventory_transaction_service(self.pool.clone());
+        for item in &items {
+            tx_svc
+                .record(
+                    ctx,
+                    db,
+                    RecordTransactionReq {
+                        doc_number: Some(picking.doc_number.clone()),
+                        delivery_no: None,
+                        source_doc_number: None,
+                        transaction_type: TransactionType::Transfer,
+                        product_id: item.product_id,
+                        warehouse_id: from_wh,
+                        zone_id: picking.from_zone_id,
+                        bin_id: picking.from_bin_id,
+                        batch_no: item.batch_no.clone(),
+                        quantity: -item.qty_requested,
+                        unit_cost: None,
+                        source_type: "stock_picking".to_string(),
+                        source_id: id,
+                        remark: Some("调拨发货-扣减源仓库".to_string()),
+                    },
+                )
+                .await?;
+        }
+        PickingRepo::update_status(&mut *db, id, PickingStatus::Confirmed).await?;
+        Ok(())
+    }
+
+    /// 调拨完成：Confirmed → Done，增加目标仓库库存（Transfer 流水正数）
+    async fn complete(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        id: i64,
+    ) -> Result<()> {
+        let picking = self.get(ctx, db, id).await?;
+        if picking.status != PickingStatus::Confirmed {
+            return Err(DomainError::InvalidStateTransition {
+                from: format!("{:?}", picking.status),
+                to: "Done".to_string(),
+            });
+        }
+        let items = PickingRepo::get_items(&mut *db, id).await?;
+        let to_wh = picking
+            .to_warehouse_id
+            .ok_or_else(|| DomainError::BusinessRule("调拨单无目标仓库".into()))?;
+        let tx_svc = new_inventory_transaction_service(self.pool.clone());
+        for item in &items {
+            tx_svc
+                .record(
+                    ctx,
+                    db,
+                    RecordTransactionReq {
+                        doc_number: Some(picking.doc_number.clone()),
+                        delivery_no: None,
+                        source_doc_number: None,
+                        transaction_type: TransactionType::Transfer,
+                        product_id: item.product_id,
+                        warehouse_id: to_wh,
+                        zone_id: picking.to_zone_id,
+                        bin_id: picking.to_bin_id,
+                        batch_no: item.batch_no.clone(),
+                        quantity: item.qty_requested,
+                        unit_cost: None,
+                        source_type: "stock_picking".to_string(),
+                        source_id: id,
+                        remark: Some("调拨完成-增加目标仓库".to_string()),
+                    },
+                )
+                .await?;
+        }
+        PickingRepo::set_done(&mut *db, id).await?;
+        Ok(())
+    }
 }

@@ -108,11 +108,17 @@ pub struct DoneItemReq {
 pub struct PickingFilter {
     pub doc_number: Option<String>,
     pub picking_type: Option<PickingType>,
+    /// 多值 OR 查询（优先于 `picking_type`；单据台账「收货」tab 合并 IncomingPurchase + IncomingWorkOrder）
+    pub picking_types: Option<Vec<PickingType>>,
     pub status: Option<PickingStatus>,
     pub source_type: Option<String>,
     pub source_id: Option<i64>,
     pub work_order_id: Option<i64>,
     pub partner_id: Option<i64>,
+    /// 计划日期范围：scheduled_date >=
+    pub date_from: Option<NaiveDate>,
+    /// 计划日期范围：scheduled_date <=
+    pub date_to: Option<NaiveDate>,
 }
 
 // ── 领料专用请求（从 material_requisition 迁入，字段保持兼容调用方）──

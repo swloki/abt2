@@ -5,11 +5,9 @@ use serde::Deserialize;
 
 use abt_core::shared::types::pagination::{PageParams, PaginatedResult};
 use abt_core::shared::types::{PgExecutor, ServiceContext};
-use abt_core::wms::enums::{CycleCountStatus, PickingStatus, PickingType};
-use abt_core::wms::picking::{
-    IssueItemReq, IssueMaterialReq, PickingFilter, PickingService, StockPicking,
-};
-use abt_core::wms::cycle_count::model::{CycleCount, CycleCountFilter, CycleCountItem};
+use abt_core::wms::enums::{CycleCountStatus, PickingStatus};
+use abt_core::wms::picking::{IssueItemReq, IssueMaterialReq, PickingService};
+use abt_core::wms::cycle_count::model::CycleCountItem;
 use abt_core::wms::cycle_count::CycleCountService;
 use abt_core::wms::warehouse::model::{Warehouse, WarehouseFilter};
 use abt_core::wms::warehouse::WarehouseService;
@@ -40,9 +38,10 @@ use crate::routes::shipping::{ShippingCreatePath, ShippingDetailPath};
 use crate::routes::wms_cycle_count::CycleCountCreatePath;
 use crate::routes::wms_requisition::RequisitionCreatePath;
 use crate::routes::wms_transfer::TransferCreatePath;
-use crate::routes::wms_stock_in::{StockInCreatePath, StockInListPath};
+use crate::routes::wms_stock_in::StockInCreatePath;
+use crate::routes::wms_ledger::LedgerPath;
 use crate::routes::wms_work_center::WmsWorkCenterPath;
-use crate::utils::{fmt_qty, resolve_customer_names};
+use crate::utils::fmt_qty;
 use crate::utils::RequestContext;
 use crate::state::AppState;
 use abt_macros::require_permission;
@@ -188,209 +187,31 @@ fn render_jump_action(label: &str, url: &str) -> Markup {
     }
 }
 
-/// 各 domain tab 的收口入口（侧边栏菜单废弃后，作业中心承载「新建 / 查看全部」）。
-/// 跳转各业务保留的 Create / List 路由——list 页本身已是成熟全量视图（状态 tab + 搜索 + 分页），
-/// 不在作业中心内重做（DRY）。新建走 accent 主按钮，查看全部走次级跳转。
+/// 各 domain tab 的收口入口：「新建」走各业务 Create 路由；「查看全部」统一跳单据台账对应类型 tab
+/// （全量查询不在作业中心内重做，DRY；台账页 /admin/wms/ledger 承载状态/单号/日期检索）。
 fn domain_entries(active: WorkCenterDomain) -> Markup {
-    let (new_label, new_path, all_path): (&str, &str, Option<&str>) = match active {
-        WorkCenterDomain::Arrival => ("新建入库单", StockInCreatePath::PATH, Some(StockInListPath::PATH)),
-        // 出库：作业中心内置「待办/全部」二级切换（view_toggle），不再跳独立 list 页（detail 保留销售依赖）
-        WorkCenterDomain::Outbound => ("新建发货单", ShippingCreatePath::PATH, None),
-        // 领料单：作业中心内置「待办/全部」二级切换（view_toggle），不再跳独立 list 页
-        WorkCenterDomain::Requisition => ("新建领料单", RequisitionCreatePath::PATH, None),
-        // 调拨：作业中心内置「待办/全部」二级切换（view_toggle），不再跳独立 list 页
-        WorkCenterDomain::Transfer => ("新建调拨单", TransferCreatePath::PATH, None),
-        // 盘点：作业中心内置「待办/全部」二级切换（view_toggle），不再跳独立 list 页
-        WorkCenterDomain::CycleCount => ("新建盘点单", CycleCountCreatePath::PATH, None),
+    let (new_label, new_path): (&str, &str) = match active {
+        WorkCenterDomain::Arrival => ("新建入库单", StockInCreatePath::PATH),
+        WorkCenterDomain::Outbound => ("新建发货单", ShippingCreatePath::PATH),
+        WorkCenterDomain::Requisition => ("新建领料单", RequisitionCreatePath::PATH),
+        WorkCenterDomain::Transfer => ("新建调拨单", TransferCreatePath::PATH),
+        WorkCenterDomain::CycleCount => ("新建盘点单", CycleCountCreatePath::PATH),
     };
+    let ledger_type = match active {
+        WorkCenterDomain::Arrival => "arrival",
+        WorkCenterDomain::Outbound => "outbound",
+        WorkCenterDomain::Requisition => "requisition",
+        WorkCenterDomain::Transfer => "transfer",
+        WorkCenterDomain::CycleCount => "cycle-count",
+    };
+    let ledger_url = format!("{}?type={ledger_type}", LedgerPath::PATH);
     html! {
         a class="inline-flex items-center gap-1 px-3 py-1.5 rounded-sm bg-accent text-white text-xs font-semibold no-underline cursor-pointer border-none hover:opacity-90"
             href=(new_path) {
             (icon::plus_icon("w-3 h-3"))
             (new_label)
         }
-        @if let Some(ap) = all_path {
-            (render_jump_action("查看全部", ap))
-        }
-    }
-}
-
-/// 二级「待办/全部」视图切换（仅 Requisition domain，阶段 3.1 领料单试点）。
-/// 其他 domain 返回空（暂只有 Requisition 有全部视图）。切 view 走 htmx 局部刷新。
-fn view_toggle(domain: WorkCenterDomain, active_view: &str) -> Markup {
-    // 仅收口到作业中心的 domain（领料单 3.1 / 调拨 3.2）有「待办/全部」切换
-    if !matches!(domain, WorkCenterDomain::Requisition | WorkCenterDomain::Transfer | WorkCenterDomain::CycleCount | WorkCenterDomain::Outbound) {
-        return html! {};
-    }
-    let slug = domain_slug(domain);
-    let base = "inline-flex items-center px-3 py-1 rounded-sm text-xs font-semibold cursor-pointer border transition-all";
-    let pending_cls = format!(
-        "{base} {}",
-        if active_view == "pending" {
-            "bg-accent text-white border-accent"
-        } else {
-            "bg-white text-fg-2 border-border hover:bg-surface"
-        }
-    );
-    let all_cls = format!(
-        "{base} {}",
-        if active_view == "all" {
-            "bg-accent text-white border-accent"
-        } else {
-            "bg-white text-fg-2 border-border hover:bg-surface"
-        }
-    );
-    html! {
-        div class="flex gap-2 px-4 py-2 border-b border-border-soft" {
-            a class=(pending_cls)
-                hx-get=(format!("{}?domain={slug}&view=pending", WmsWorkCenterPath::PATH))
-                hx-target="#wc-domain-card" hx-select="#wc-domain-card" hx-swap="outerHTML" {
-                "待办"
-            }
-            a class=(all_cls)
-                hx-get=(format!("{}?domain={slug}&view=all", WmsWorkCenterPath::PATH))
-                hx-target="#wc-domain-card" hx-select="#wc-domain-card" hx-swap="outerHTML" {
-                "全部"
-            }
-        }
-    }
-}
-
-/// 领料单全部视图（阶段 3.1）：调 picking_service.list 渲染全状态领料单表格。
-/// 二级「待办/全部」切换 + keyword 搜索 + 表格 + 分页。单据点击跳详情（3.1b 改 drawer）。
-async fn render_requisition_all_card(
-    state: &AppState,
-    ctx: &ServiceContext,
-    db: PgExecutor<'_>,
-    q: &WorkCenterQuery,
-    page: u32,
-    summary: &WorkCenterSummary,
-    warehouses: &[Warehouse],
-) -> Result<Markup> {
-    let req_svc = state.picking_service();
-    let filter = PickingFilter {
-        doc_number: q
-            .keyword
-            .as_deref()
-            .map(str::trim)
-            .filter(|s| !s.is_empty())
-            .map(String::from),
-        picking_type: Some(PickingType::InternalIssue),
-        status: None,
-        source_type: None,
-        source_id: None,
-        work_order_id: None,
-        partner_id: None,
-    };
-    let result = req_svc
-        .list(ctx, db, filter, abt_core::shared::types::pagination::PageParams::new(page, DOMAIN_PAGE_SIZE))
-        .await?;
-    let wh_map: HashMap<i64, String> =
-        warehouses.iter().map(|w| (w.id, w.name.clone())).collect();
-    let kw = q.keyword.as_deref().unwrap_or("");
-
-    Ok(html! {
-        div id="wc-domain-card" class="bg-bg border border-border-soft rounded-lg mb-4 shadow-card overflow-hidden" {
-            (status_tabs_with_oob(
-                WmsWorkCenterPath::PATH, "#wc-domain-card", "#wc-domain-filter", "",
-                &domain_tabs(summary), domain_slug(WorkCenterDomain::Requisition), "domain",
-            ))
-            (view_toggle(WorkCenterDomain::Requisition, "all"))
-            form id="wc-domain-filter"
-                class="flex items-center gap-3 flex-wrap px-4 py-3 border-b border-border-soft"
-                hx-get=(WmsWorkCenterPath::PATH)
-                hx-trigger="change, keyup changed delay:300ms from:.wc-search-input"
-                hx-target="#wc-domain-card" hx-select="#wc-domain-card" hx-swap="outerHTML"
-                hx-include="#wc-domain-filter" {
-                input type="hidden" name="domain" value="requisition";
-                input type="hidden" name="view" value="all";
-                div class="relative" {
-                    (icon::search_icon("w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted"));
-                    input class="wc-search-input w-[200px] pl-8 pr-3 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent"
-                        type="text" name="keyword" placeholder="搜索单号"
-                        value=(kw);
-                }
-                div class="ml-auto" {
-                    a class="inline-flex items-center gap-1 px-3 py-1.5 rounded-sm bg-accent text-white text-xs font-semibold no-underline cursor-pointer border-none hover:opacity-90"
-                        href=(RequisitionCreatePath::PATH) {
-                        (icon::plus_icon("w-3 h-3"))
-                        "新建领料单"
-                    }
-                }
-            }
-            div class="p-4" {
-                (render_requisition_all_table(&result.items, &wh_map, "all"))
-                @if result.total_pages > 1 {
-                    div class="mt-3" {
-                        (pagination(
-                            WmsWorkCenterPath::PATH, "#wc-domain-card", "#wc-domain-filter",
-                            result.total, result.page, result.total_pages,
-                        ))
-                    }
-                }
-            }
-        }
-    })
-}
-
-fn render_requisition_all_table(
-    items: &[StockPicking],
-    wh_map: &HashMap<i64, String>,
-    view: &str,
-) -> Markup {
-    if items.is_empty() {
-        return html! {
-            div class="mt-2 p-4 text-center text-sm text-muted bg-surface rounded-md" { "暂无领料单" }
-        };
-    }
-    html! {
-        table class="w-full border-collapse mt-2" {
-            thead {
-                tr {
-                    th class="text-left text-xs font-semibold text-muted py-2 px-3 border-b border-border-soft" { "单号" }
-                    th class="text-left text-xs font-semibold text-muted py-2 px-3 border-b border-border-soft" { "工单" }
-                    th class="text-left text-xs font-semibold text-muted py-2 px-3 border-b border-border-soft" { "仓库" }
-                    th class="text-left text-xs font-semibold text-muted py-2 px-3 border-b border-border-soft" { "日期" }
-                    th class="text-left text-xs font-semibold text-muted py-2 px-3 border-b border-border-soft" { "状态" }
-                    th class="text-right text-xs font-semibold text-muted py-2 px-3 border-b border-border-soft" { "操作" }
-                }
-            }
-            tbody {
-                @for r in items {
-                    (render_requisition_all_row(r, wh_map, view))
-                }
-            }
-        }
-    }
-}
-
-fn render_requisition_all_row(r: &StockPicking, wh_map: &HashMap<i64, String>, view: &str) -> Markup {
-    let (status_text, status_cls) = picking_status_label(r.status);
-    let wh = wh_map
-        .get(&r.from_warehouse_id.unwrap_or(0))
-        .map(|s| s.as_str())
-        .unwrap_or("—");
-    html! {
-        tr class="border-b border-border-soft last:border-b-0" {
-            td class="py-3 px-3 text-sm font-mono text-accent font-semibold" {
-                (doc_detail_trigger("req_detail",r.id, view, html! { (r.doc_number) },
-                    "font-mono text-accent font-semibold text-sm bg-transparent border-none p-0 cursor-pointer hover:underline"))
-            }
-            td class="py-3 px-3 text-sm font-mono text-fg-2" { "WO-" (r.work_order_id.unwrap_or(0)) }
-            td class="py-3 px-3 text-sm text-fg-2" { (wh) }
-            td class="py-3 px-3 text-sm font-mono text-muted" {
-                (r.scheduled_date.map(|d| d.format("%m-%d").to_string()).unwrap_or_else(|| "—".into()))
-            }
-            td class="py-3 px-3" {
-                span class=(format!("inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium {status_cls}")) {
-                    (status_text)
-                }
-            }
-            td class="py-3 px-3 text-right" {
-                (doc_detail_trigger("req_detail",r.id, view, html! { "详情" (icon::arrow_right_icon("w-3 h-3")) },
-                    "inline-flex items-center gap-1 px-3 py-1.5 rounded-sm bg-surface border border-border-soft text-fg-2 text-xs font-semibold cursor-pointer hover:bg-accent-bg hover:border-accent hover:text-accent transition-all"))
-            }
-        }
+        (render_jump_action("查看全部", &ledger_url))
     }
 }
 
@@ -588,137 +409,6 @@ fn req_detail_actions(status: PickingStatus, id: i64, view: &str) -> Markup {
 
 // ── 调拨全部视图 + 详情 drawer（阶段 3.2 收口，模式同领料单）──
 
-/// 调拨全部视图（阶段 3.2）：调 transfer_service.list 渲染全状态调拨单表格。
-async fn render_transfer_all_card(
-    state: &AppState,
-    ctx: &ServiceContext,
-    db: PgExecutor<'_>,
-    q: &WorkCenterQuery,
-    page: u32,
-    summary: &WorkCenterSummary,
-    warehouses: &[Warehouse],
-) -> Result<Markup> {
-    let trf_svc = state.picking_service();
-    let filter = PickingFilter {
-        doc_number: q
-            .keyword
-            .as_deref()
-            .map(str::trim)
-            .filter(|s| !s.is_empty())
-            .map(String::from),
-        picking_type: Some(PickingType::InternalTransfer),
-        status: None,
-        source_type: None,
-        source_id: None,
-        work_order_id: None,
-        partner_id: None,
-    };
-    let result = trf_svc
-        .list(ctx, db, filter, abt_core::shared::types::pagination::PageParams::new(page, DOMAIN_PAGE_SIZE))
-        .await?;
-    let wh_map: HashMap<i64, String> =
-        warehouses.iter().map(|w| (w.id, w.name.clone())).collect();
-    let kw = q.keyword.as_deref().unwrap_or("");
-
-    Ok(html! {
-        div id="wc-domain-card" class="bg-bg border border-border-soft rounded-lg mb-4 shadow-card overflow-hidden" {
-            (status_tabs_with_oob(
-                WmsWorkCenterPath::PATH, "#wc-domain-card", "#wc-domain-filter", "",
-                &domain_tabs(summary), domain_slug(WorkCenterDomain::Transfer), "domain",
-            ))
-            (view_toggle(WorkCenterDomain::Transfer, "all"))
-            form id="wc-domain-filter"
-                class="flex items-center gap-3 flex-wrap px-4 py-3 border-b border-border-soft"
-                hx-get=(WmsWorkCenterPath::PATH)
-                hx-trigger="change, keyup changed delay:300ms from:.wc-search-input"
-                hx-target="#wc-domain-card" hx-select="#wc-domain-card" hx-swap="outerHTML"
-                hx-include="#wc-domain-filter" {
-                input type="hidden" name="domain" value="transfer";
-                input type="hidden" name="view" value="all";
-                div class="relative" {
-                    (icon::search_icon("w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted"));
-                    input class="wc-search-input w-[200px] pl-8 pr-3 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent"
-                        type="text" name="keyword" placeholder="搜索单号"
-                        value=(kw);
-                }
-                div class="ml-auto" {
-                    a class="inline-flex items-center gap-1 px-3 py-1.5 rounded-sm bg-accent text-white text-xs font-semibold no-underline cursor-pointer border-none hover:opacity-90"
-                        href=(TransferCreatePath::PATH) {
-                        (icon::plus_icon("w-3 h-3"))
-                        "新建调拨单"
-                    }
-                }
-            }
-            div class="p-4" {
-                (render_transfer_all_table(&result.items, &wh_map))
-                @if result.total_pages > 1 {
-                    div class="mt-3" {
-                        (pagination(
-                            WmsWorkCenterPath::PATH, "#wc-domain-card", "#wc-domain-filter",
-                            result.total, result.page, result.total_pages,
-                        ))
-                    }
-                }
-            }
-        }
-    })
-}
-
-fn render_transfer_all_table(items: &[StockPicking], wh_map: &HashMap<i64, String>) -> Markup {
-    if items.is_empty() {
-        return html! {
-            div class="mt-2 p-4 text-center text-sm text-muted bg-surface rounded-md" { "暂无调拨单" }
-        };
-    }
-    html! {
-        table class="w-full border-collapse mt-2" {
-            thead {
-                tr {
-                    th class="text-left text-xs font-semibold text-muted py-2 px-3 border-b border-border-soft" { "单号" }
-                    th class="text-left text-xs font-semibold text-muted py-2 px-3 border-b border-border-soft" { "来源仓" }
-                    th class="text-left text-xs font-semibold text-muted py-2 px-3 border-b border-border-soft" { "目标仓" }
-                    th class="text-left text-xs font-semibold text-muted py-2 px-3 border-b border-border-soft" { "日期" }
-                    th class="text-left text-xs font-semibold text-muted py-2 px-3 border-b border-border-soft" { "状态" }
-                    th class="text-right text-xs font-semibold text-muted py-2 px-3 border-b border-border-soft" { "操作" }
-                }
-            }
-            tbody {
-                @for t in items {
-                    (render_transfer_all_row(t, wh_map))
-                }
-            }
-        }
-    }
-}
-
-fn render_transfer_all_row(t: &StockPicking, wh_map: &HashMap<i64, String>) -> Markup {
-    let (status_text, status_cls) = picking_status_label(t.status);
-    let from_wh = wh_map.get(&t.from_warehouse_id.unwrap_or(0)).map(|s| s.as_str()).unwrap_or("—");
-    let to_wh = wh_map.get(&t.to_warehouse_id.unwrap_or(0)).map(|s| s.as_str()).unwrap_or("—");
-    html! {
-        tr class="border-b border-border-soft last:border-b-0" {
-            td class="py-3 px-3 text-sm font-mono text-accent font-semibold" {
-                (doc_detail_trigger("transfer_detail", t.id, "all", html! { (t.doc_number) },
-                    "font-mono text-accent font-semibold text-sm bg-transparent border-none p-0 cursor-pointer hover:underline"))
-            }
-            td class="py-3 px-3 text-sm text-fg-2" { (from_wh) }
-            td class="py-3 px-3 text-sm text-fg-2" { (to_wh) }
-            td class="py-3 px-3 text-sm font-mono text-muted" {
-                (t.scheduled_date.map(|d| d.format("%m-%d").to_string()).unwrap_or_else(|| "—".into()))
-            }
-            td class="py-3 px-3" {
-                span class=(format!("inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium {status_cls}")) {
-                    (status_text)
-                }
-            }
-            td class="py-3 px-3 text-right" {
-                (doc_detail_trigger("transfer_detail", t.id, "all", html! { "详情" (icon::arrow_right_icon("w-3 h-3")) },
-                    "inline-flex items-center gap-1 px-3 py-1.5 rounded-sm bg-surface border border-border-soft text-fg-2 text-xs font-semibold cursor-pointer hover:bg-accent-bg hover:border-accent hover:text-accent transition-all"))
-            }
-        }
-    }
-}
-
 /// 调拨详情 drawer body（替代独立 detail 页，阶段 3.2 收口）：
 /// 单据头（单号/状态/来源仓→目标仓/日期）+ 行项目（产品/数量）+ 就地操作（取消/调出/完成）。
 async fn transfer_detail_drawer_body(
@@ -867,107 +557,6 @@ fn transfer_detail_actions(status: PickingStatus, id: i64, view: &str) -> Markup
 }
 
 // ── 盘点全部视图 + 详情 drawer（阶段 3.2b 收口；count 录入 UI 原未实现，drawer 不含录入）──
-
-/// 盘点全部视图（阶段 3.2b）：调 cycle_count_service.list 渲染全状态盘点单表格。
-/// CycleCountFilter 无 doc_number 字段，全部视图暂不提供单号搜索（待 abt-core 补字段）。
-async fn render_cycle_count_all_card(
-    state: &AppState,
-    ctx: &ServiceContext,
-    db: PgExecutor<'_>,
-    _q: &WorkCenterQuery,
-    page: u32,
-    summary: &WorkCenterSummary,
-    _warehouses: &[Warehouse],
-) -> Result<Markup> {
-    let cc_svc = state.cycle_count_service();
-    let filter = CycleCountFilter::default();
-    let result = cc_svc
-        .list(ctx, db, filter, page, DOMAIN_PAGE_SIZE)
-        .await?;
-
-    Ok(html! {
-        div id="wc-domain-card" class="bg-bg border border-border-soft rounded-lg mb-4 shadow-card overflow-hidden" {
-            (status_tabs_with_oob(
-                WmsWorkCenterPath::PATH, "#wc-domain-card", "#wc-domain-filter", "",
-                &domain_tabs(summary), domain_slug(WorkCenterDomain::CycleCount), "domain",
-            ))
-            (view_toggle(WorkCenterDomain::CycleCount, "all"))
-            form id="wc-domain-filter"
-                class="flex items-center gap-3 flex-wrap px-4 py-3 border-b border-border-soft"
-                hx-get=(WmsWorkCenterPath::PATH)
-                hx-target="#wc-domain-card" hx-select="#wc-domain-card" hx-swap="outerHTML"
-                hx-include="#wc-domain-filter" {
-                input type="hidden" name="domain" value="cycle-count";
-                input type="hidden" name="view" value="all";
-                div class="ml-auto" {
-                    a class="inline-flex items-center gap-1 px-3 py-1.5 rounded-sm bg-accent text-white text-xs font-semibold no-underline cursor-pointer border-none hover:opacity-90"
-                        href=(CycleCountCreatePath::PATH) {
-                        (icon::plus_icon("w-3 h-3"))
-                        "新建盘点单"
-                    }
-                }
-            }
-            div class="p-4" {
-                (render_cycle_count_all_table(&result.items))
-                @if result.total_pages > 1 {
-                    div class="mt-3" {
-                        (pagination(
-                            WmsWorkCenterPath::PATH, "#wc-domain-card", "#wc-domain-filter",
-                            result.total, result.page, result.total_pages,
-                        ))
-                    }
-                }
-            }
-        }
-    })
-}
-
-fn render_cycle_count_all_table(items: &[CycleCount]) -> Markup {
-    if items.is_empty() {
-        return html! {
-            div class="mt-2 p-4 text-center text-sm text-muted bg-surface rounded-md" { "暂无盘点单" }
-        };
-    }
-    html! {
-        table class="w-full border-collapse mt-2" {
-            thead {
-                tr {
-                    th class="text-left text-xs font-semibold text-muted py-2 px-3 border-b border-border-soft" { "单号" }
-                    th class="text-left text-xs font-semibold text-muted py-2 px-3 border-b border-border-soft" { "日期" }
-                    th class="text-left text-xs font-semibold text-muted py-2 px-3 border-b border-border-soft" { "状态" }
-                    th class="text-right text-xs font-semibold text-muted py-2 px-3 border-b border-border-soft" { "操作" }
-                }
-            }
-            tbody {
-                @for c in items {
-                    (render_cycle_count_all_row(c))
-                }
-            }
-        }
-    }
-}
-
-fn render_cycle_count_all_row(c: &CycleCount) -> Markup {
-    let (status_text, status_cls) = cc_status_label(c.status);
-    html! {
-        tr class="border-b border-border-soft last:border-b-0" {
-            td class="py-3 px-3 text-sm font-mono text-accent font-semibold" {
-                (doc_detail_trigger("cc_detail", c.id, "all", html! { (c.doc_number) },
-                    "font-mono text-accent font-semibold text-sm bg-transparent border-none p-0 cursor-pointer hover:underline"))
-            }
-            td class="py-3 px-3 text-sm font-mono text-muted" { (c.count_date.format("%m-%d")) }
-            td class="py-3 px-3" {
-                span class=(format!("inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium {status_cls}")) {
-                    (status_text)
-                }
-            }
-            td class="py-3 px-3 text-right" {
-                (doc_detail_trigger("cc_detail", c.id, "all", html! { "详情" (icon::arrow_right_icon("w-3 h-3")) },
-                    "inline-flex items-center gap-1 px-3 py-1.5 rounded-sm bg-surface border border-border-soft text-fg-2 text-xs font-semibold cursor-pointer hover:bg-accent-bg hover:border-accent hover:text-accent transition-all"))
-            }
-        }
-    }
-}
 
 /// 盘点状态 → (标签, 语义色 class)。
 fn cc_status_label(s: CycleCountStatus) -> (&'static str, &'static str) {
@@ -1141,151 +730,6 @@ fn cc_detail_actions(status: CycleCountStatus, id: i64, view: &str) -> Markup {
     }
 }
 
-// ── 出库全部视图（阶段 3.4；detail 保留销售依赖，单号跳 detail 而非 drawer）──
-
-/// 出库全部视图（阶段 3.4）：调 shipping_service.list 渲染全状态发货单表格。
-/// 单号跳 ShippingDetailPath（detail 保留，被销售对账 / 退货跨模块引用）。
-async fn render_shipping_all_card(
-    state: &AppState,
-    ctx: &ServiceContext,
-    db: PgExecutor<'_>,
-    q: &WorkCenterQuery,
-    page: u32,
-    summary: &WorkCenterSummary,
-    _warehouses: &[Warehouse],
-) -> Result<Markup> {
-    let ship_svc = state.picking_service();
-    let filter = PickingFilter {
-        doc_number: q
-            .keyword
-            .as_deref()
-            .map(str::trim)
-            .filter(|s| !s.is_empty())
-            .map(String::from),
-        picking_type: Some(PickingType::OutgoingSales),
-        ..Default::default()
-    };
-    let result = ship_svc
-        .list(ctx, db, filter, PageParams::new(page, DOMAIN_PAGE_SIZE))
-        .await?;
-    let customer_svc = state.customer_service();
-    let customer_names = resolve_customer_names(
-        &customer_svc,
-        ctx,
-        db,
-        result.items.iter().filter_map(|i| i.partner_id),
-    )
-    .await;
-    let kw = q.keyword.as_deref().unwrap_or("");
-
-    Ok(html! {
-        div id="wc-domain-card" class="bg-bg border border-border-soft rounded-lg mb-4 shadow-card overflow-hidden" {
-            (status_tabs_with_oob(
-                WmsWorkCenterPath::PATH, "#wc-domain-card", "#wc-domain-filter", "",
-                &domain_tabs(summary), domain_slug(WorkCenterDomain::Outbound), "domain",
-            ))
-            (view_toggle(WorkCenterDomain::Outbound, "all"))
-            form id="wc-domain-filter"
-                class="flex items-center gap-3 flex-wrap px-4 py-3 border-b border-border-soft"
-                hx-get=(WmsWorkCenterPath::PATH)
-                hx-trigger="change, keyup changed delay:300ms from:.wc-search-input"
-                hx-target="#wc-domain-card" hx-select="#wc-domain-card" hx-swap="outerHTML"
-                hx-include="#wc-domain-filter" {
-                input type="hidden" name="domain" value="outbound";
-                input type="hidden" name="view" value="all";
-                div class="relative" {
-                    (icon::search_icon("w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted"));
-                    input class="wc-search-input w-[200px] pl-8 pr-3 py-1.5 border border-border rounded-sm text-sm bg-white text-fg outline-none focus:border-accent"
-                        type="text" name="keyword" placeholder="搜索单号 / 客户"
-                        value=(kw);
-                }
-                div class="ml-auto" {
-                    a class="inline-flex items-center gap-1 px-3 py-1.5 rounded-sm bg-accent text-white text-xs font-semibold no-underline cursor-pointer border-none hover:opacity-90"
-                        href=(ShippingCreatePath::PATH) {
-                        (icon::plus_icon("w-3 h-3"))
-                        "新建发货单"
-                    }
-                }
-            }
-            div class="p-4" {
-                (render_shipping_all_table(&result.items, &customer_names))
-                @if result.total_pages > 1 {
-                    div class="mt-3" {
-                        (pagination(
-                            WmsWorkCenterPath::PATH, "#wc-domain-card", "#wc-domain-filter",
-                            result.total, result.page, result.total_pages,
-                        ))
-                    }
-                }
-            }
-        }
-    })
-}
-
-fn render_shipping_all_table(items: &[StockPicking], customer_names: &HashMap<i64, String>) -> Markup {
-    if items.is_empty() {
-        return html! {
-            div class="mt-2 p-4 text-center text-sm text-muted bg-surface rounded-md" { "暂无发货单" }
-        };
-    }
-    html! {
-        table class="w-full border-collapse mt-2" {
-            thead {
-                tr {
-                    th class="text-left text-xs font-semibold text-muted py-2 px-3 border-b border-border-soft" { "单号" }
-                    th class="text-left text-xs font-semibold text-muted py-2 px-3 border-b border-border-soft" { "客户" }
-                    th class="text-left text-xs font-semibold text-muted py-2 px-3 border-b border-border-soft" { "预计发货" }
-                    th class="text-left text-xs font-semibold text-muted py-2 px-3 border-b border-border-soft" { "状态" }
-                    th class="text-right text-xs font-semibold text-muted py-2 px-3 border-b border-border-soft" { "操作" }
-                }
-            }
-            tbody {
-                @for s in items {
-                    (render_shipping_all_row(s, customer_names))
-                }
-            }
-        }
-    }
-}
-
-fn render_shipping_all_row(s: &StockPicking, customer_names: &HashMap<i64, String>) -> Markup {
-    let (status_text, status_cls) = shipping_status_label(s.status);
-    let customer = s.partner_id.and_then(|cid| customer_names.get(&cid)).map(|n| n.as_str()).unwrap_or("—");
-    let detail = ShippingDetailPath { id: s.id }.to_string();
-    html! {
-        tr class="border-b border-border-soft last:border-b-0" {
-            td class="py-3 px-3 text-sm font-mono text-accent font-semibold" {
-                a class="text-accent no-underline hover:underline cursor-pointer" href=(detail) { (s.doc_number) }
-            }
-            td class="py-3 px-3 text-sm text-fg-2" { (customer) }
-            td class="py-3 px-3 text-sm font-mono text-muted" {
-                (s.scheduled_date.map(|d| d.format("%m-%d").to_string()).unwrap_or_else(|| "—".into()))
-            }
-            td class="py-3 px-3" {
-                span class=(format!("inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium {status_cls}")) {
-                    (status_text)
-                }
-            }
-            td class="py-3 px-3 text-right" {
-                a class="inline-flex items-center gap-1 px-3 py-1.5 rounded-sm bg-surface border border-border-soft text-fg-2 text-xs font-semibold no-underline cursor-pointer hover:bg-accent-bg hover:border-accent hover:text-accent transition-all"
-                    href=(detail) {
-                    "详情" (icon::arrow_right_icon("w-3 h-3"))
-                }
-            }
-        }
-    }
-}
-
-/// 出库状态 → (标签, 语义色 class)。
-fn shipping_status_label(s: PickingStatus) -> (&'static str, &'static str) {
-    match s {
-        PickingStatus::Draft => ("待审核", "bg-surface text-muted"),
-        PickingStatus::Confirmed => ("已确认", "bg-accent-bg text-accent"),
-        PickingStatus::Done => ("已发货", "bg-accent-bg text-accent"),
-        PickingStatus::Cancelled => ("已取消", "bg-danger-bg text-danger"),
-    }
-}
-
 // ── Handlers（单端点）──
 
 /// 作业中心唯一 GET：按 query 分支——drawer body / 卡片 body（懒加载）/ 整页
@@ -1336,57 +780,26 @@ pub async fn post_work_center_action(
         .map(|r| r.items)
         .unwrap_or_default();
 
-    let fragment: Markup = if form.view.as_deref() == Some("all")
-        && matches!(
+    let result = svc
+        .list_pending(
+            &service_ctx,
+            &mut conn,
             domain,
-            WorkCenterDomain::Requisition | WorkCenterDomain::Transfer | WorkCenterDomain::CycleCount
-                | WorkCenterDomain::Outbound
+            PendingTaskFilter::default(),
+            PageParams::new(1, DOMAIN_PAGE_SIZE),
         )
-    {
-        let q_all = WorkCenterQuery {
-            domain: Some(domain_slug(domain).into()),
-            view: Some("all".into()),
-            ..Default::default()
-        };
-        let all_card = match domain {
-            WorkCenterDomain::Requisition => render_requisition_all_card(
-                &state, &service_ctx, &mut conn, &q_all, 1, &summary, &warehouses,
-            )
-            .await?,
-            WorkCenterDomain::Transfer => render_transfer_all_card(
-                &state, &service_ctx, &mut conn, &q_all, 1, &summary, &warehouses,
-            )
-            .await?,
-            WorkCenterDomain::CycleCount => render_cycle_count_all_card(
-                &state, &service_ctx, &mut conn, &q_all, 1, &summary, &warehouses,
-            )
-            .await?,
-            WorkCenterDomain::Outbound => render_shipping_all_card(
-                &state, &service_ctx, &mut conn, &q_all, 1, &summary, &warehouses,
-            )
-            .await?,
-            _ => unreachable!(),
-        };
-        html! {
-            (all_card)
-            (total_badge(summary.total(), true))
-        }
-    } else {
-        let result = svc
-            .list_pending(
-                &service_ctx,
-                &mut conn,
-                domain,
-                PendingTaskFilter::default(),
-                PageParams::new(1, DOMAIN_PAGE_SIZE),
-            )
-            .await
-            .unwrap_or_else(|_| PaginatedResult::empty(1, DOMAIN_PAGE_SIZE));
-        html! {
-            (render_domain_card(domain, &summary, &result, &WorkCenterQuery::default(), &warehouses))
-            // 顶栏总数 badge：hx-swap-oob 自动替换页面 #wc-total-badge
-            (total_badge(summary.total(), true))
-        }
+        .await
+        .unwrap_or_else(|_| PaginatedResult::empty(1, DOMAIN_PAGE_SIZE));
+    let fragment: Markup = html! {
+        (render_domain_card(
+            domain,
+            &summary,
+            &result,
+            &WorkCenterQuery::default(),
+            &warehouses,
+        ))
+        // 顶栏总数 badge：hx-swap-oob 自动替换页面 #wc-total-badge
+        (total_badge(summary.total(), true))
     };
     Ok(Html(fragment.into_string()))
 }
@@ -1666,52 +1079,23 @@ async fn render_work_center_page(
         .map(|r| r.items)
         .unwrap_or_default();
 
-    // 领料单全部视图（阶段 3.1）：调 picking_service.list 渲染全状态表格
-    let is_all_view = matches!(
-        domain,
-        WorkCenterDomain::Requisition | WorkCenterDomain::Transfer | WorkCenterDomain::CycleCount
-            | WorkCenterDomain::Outbound
-    ) && q.view.as_deref() == Some("all");
-
-    // tab 主体内容：待办队列（list_pending） / 收口 domain 全部表格（req/transfer/cc list）
-    let domain_markup: Markup = if is_all_view {
-        match domain {
-            WorkCenterDomain::Requisition => render_requisition_all_card(
-                &state, &service_ctx, &mut conn, q, page, &summary, &warehouses,
-            )
-            .await?,
-            WorkCenterDomain::Transfer => render_transfer_all_card(
-                &state, &service_ctx, &mut conn, q, page, &summary, &warehouses,
-            )
-            .await?,
-            WorkCenterDomain::CycleCount => render_cycle_count_all_card(
-                &state, &service_ctx, &mut conn, q, page, &summary, &warehouses,
-            )
-            .await?,
-            WorkCenterDomain::Outbound => render_shipping_all_card(
-                &state, &service_ctx, &mut conn, q, page, &summary, &warehouses,
-            )
-            .await?,
-            _ => unreachable!(),
-        }
-    } else {
-        let mut filter = filter_from_query(q);
-        // source 仅对 Arrival 有意义：切到其他 tab 时旧 filter-form 可能仍携带 source，忽略之
-        if domain != WorkCenterDomain::Arrival {
-            filter.source_kind = None;
-        }
-        let result = svc
-            .list_pending(
-                &service_ctx,
-                &mut conn,
-                domain,
-                filter,
-                PageParams::new(page, DOMAIN_PAGE_SIZE),
-            )
-            .await
-            .unwrap_or_else(|_| PaginatedResult::empty(page, DOMAIN_PAGE_SIZE));
-        render_domain_card(domain, &summary, &result, q, &warehouses)
-    };
+    // tab 主体内容：待办队列（list_pending；全量查询走「单据台账」页 /admin/wms/ledger）
+    let mut filter = filter_from_query(q);
+    // source 仅对 Arrival 有意义：切到其他 tab 时旧 filter-form 可能仍携带 source，忽略之
+    if domain != WorkCenterDomain::Arrival {
+        filter.source_kind = None;
+    }
+    let result = svc
+        .list_pending(
+            &service_ctx,
+            &mut conn,
+            domain,
+            filter,
+            PageParams::new(page, DOMAIN_PAGE_SIZE),
+        )
+        .await
+        .unwrap_or_else(|_| PaginatedResult::empty(page, DOMAIN_PAGE_SIZE));
+    let domain_markup: Markup = render_domain_card(domain, &summary, &result, q, &warehouses);
 
     let content = if is_htmx {
         // htmx 片段：只渲染 tab 主体（顶栏总数 badge 由 POST oob 更新，GET 切 tab 不变）
@@ -1815,8 +1199,6 @@ fn render_domain_card(
                 domain_slug(active),
                 "domain",
             ))
-            // 二级「待办/全部」切换（仅 Requisition，阶段 3.1）
-            (view_toggle(active, "pending"))
             // 过滤表单（紧急度快捷 pill 随表单一并渲染，不再单列）
             (render_domain_filter(active, q, overdue, soon))
             // 队列表格 + 分页

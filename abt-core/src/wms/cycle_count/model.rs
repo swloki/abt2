@@ -86,4 +86,10 @@ pub struct CountItemReq {
 pub struct CycleCountFilter {
     pub status: Option<CycleCountStatus>,
     pub warehouse_id: Option<i64>,
+    /// 单号模糊（ILIKE %v%）
+    pub doc_number: Option<String>,
+    /// 盘点日期范围：count_date >=
+    pub date_from: Option<NaiveDate>,
+    /// 盘点日期范围：count_date <=
+    pub date_to: Option<NaiveDate>,
 }
